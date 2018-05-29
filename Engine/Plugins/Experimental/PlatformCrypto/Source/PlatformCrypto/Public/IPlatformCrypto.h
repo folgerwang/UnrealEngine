@@ -23,7 +23,15 @@ public:
 	 */
 	static inline IPlatformCrypto& Get()
 	{
-		return FModuleManager::LoadModuleChecked< IPlatformCrypto >( "PlatformCrypto" );
+		// Check whether the module is already loaded first. This allows Get() to be called on non-game threads.
+		// LoadModuleChecked is not non-game-thread-safe.
+		IPlatformCrypto* ModulePtr = FModuleManager::GetModulePtr<IPlatformCrypto>("PlatformCrypto");
+		if (ModulePtr)
+		{
+			return *ModulePtr;
+		}
+
+		return FModuleManager::LoadModuleChecked<IPlatformCrypto>("PlatformCrypto");
 	}
 
 	/**

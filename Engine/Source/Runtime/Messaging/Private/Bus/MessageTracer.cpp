@@ -446,6 +446,8 @@ void FMessageTracer::Stop()
 
 bool FMessageTracer::Tick(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FMessageTracer_Tick);
+
 	if (ResetPending)
 	{
 		ResetMessages();

@@ -10,6 +10,9 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/CommandLine.h"
 
+/** Fallback to latest tested API version */
+#define FACEBOOK_API_VER TEXT("v2.12")
+
 FOnlineSubsystemFacebookCommon::FOnlineSubsystemFacebookCommon()
 	: FacebookIdentity(nullptr)
 	, FacebookFriends(nullptr)
@@ -17,10 +20,6 @@ FOnlineSubsystemFacebookCommon::FOnlineSubsystemFacebookCommon()
 	, FacebookUser(nullptr)
 	, FacebookExternalUI(nullptr)
 {
-	if (!GConfig->GetString(TEXT("OnlineSubsystemFacebook"), TEXT("ClientId"), ClientId, GEngineIni))
-	{
-		UE_LOG(LogOnline, Warning, TEXT("Missing ClientId= in [OnlineSubsystemFacebook] of DefaultEngine.ini"));
-	}
 }
 
 FOnlineSubsystemFacebookCommon::FOnlineSubsystemFacebookCommon(FName InInstanceName)
@@ -31,10 +30,6 @@ FOnlineSubsystemFacebookCommon::FOnlineSubsystemFacebookCommon(FName InInstanceN
 	, FacebookUser(nullptr)
 	, FacebookExternalUI(nullptr)
 {
-	if (!GConfig->GetString(TEXT("OnlineSubsystemFacebook"), TEXT("ClientId"), ClientId, GEngineIni))
-	{
-		UE_LOG(LogOnline, Warning, TEXT("Missing ClientId= in [OnlineSubsystemFacebook] of DefaultEngine.ini"));
-	}
 }
 
 FOnlineSubsystemFacebookCommon::~FOnlineSubsystemFacebookCommon()
@@ -43,6 +38,17 @@ FOnlineSubsystemFacebookCommon::~FOnlineSubsystemFacebookCommon()
 
 bool FOnlineSubsystemFacebookCommon::Init()
 {
+	if (!GConfig->GetString(TEXT("OnlineSubsystemFacebook"), TEXT("ClientId"), ClientId, GEngineIni))
+	{
+		UE_LOG(LogOnline, Warning, TEXT("Missing ClientId= in [OnlineSubsystemFacebook] of DefaultEngine.ini"));
+	}
+
+	if (!GConfig->GetString(TEXT("OnlineSubsystemFacebook"), TEXT("APIVer"), APIVer, GEngineIni))
+	{
+		UE_LOG(LogOnline, Warning, TEXT("Missing APIVer= in [OnlineSubsystemFacebook] of DefaultEngine.ini"));
+		APIVer = FACEBOOK_API_VER;
+	}
+
 	return true;
 }
 

@@ -15,8 +15,8 @@ FLargeMemoryWriter::FLargeMemoryWriter(const int64 PreAllocateBytes, bool bIsPer
 	, MaxBytes(0)
 	, ArchiveName(InFilename ? InFilename : TEXT("FLargeMemoryWriter"))
 {
-	ArIsSaving = true;
-	ArIsPersistent = bIsPersistent;
+	this->SetIsSaving(true);
+	this->SetIsPersistent(bIsPersistent);
 	GrowBuffer(PreAllocateBytes);
 }
 

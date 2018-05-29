@@ -14,6 +14,7 @@
 #include "Animation/AnimNode_SubInput.h"
 #include "Engine/Engine.h"
 #include "DrawDebugHelpers.h"
+#include "GameFramework/WorldSettings.h"
 
 #define DO_ANIMSTAT_PROCESSING(StatName) DEFINE_STAT(STAT_ ## StatName)
 #include "Animation/AnimMTStats.h"
@@ -161,6 +162,7 @@ void FAnimInstanceProxy::InitializeRootNode()
 {
 	if (RootNode != nullptr)
 	{
+		LODDisabledGameThreadPreUpdateNodes.Reset();
 		GameThreadPreUpdateNodes.Reset();
 		DynamicResetNodes.Reset();
 
@@ -251,6 +253,7 @@ FGuid MakeGuidForMessage(const FText& Message)
 
 void FAnimInstanceProxy::LogMessage(FName InLogType, EMessageSeverity::Type InSeverity, const FText& InMessage)
 {
+#if !NO_LOGGING
 	FGuid CurrentMessageGuid = MakeGuidForMessage(InMessage);
 	if(!PreviouslyLoggedMessages.Contains(CurrentMessageGuid))
 	{
@@ -260,6 +263,7 @@ void FAnimInstanceProxy::LogMessage(FName InLogType, EMessageSeverity::Type InSe
 			LoggedMessages->Emplace(InSeverity, InMessage);
 		}
 	}
+#endif
 }
 
 void FAnimInstanceProxy::Uninitialize(UAnimInstance* InAnimInstance)
@@ -270,16 +274,25 @@ void FAnimInstanceProxy::Uninitialize(UAnimInstance* InAnimInstance)
 
 void FAnimInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSeconds)
 {
+	USkeletalMeshComponent* SkelMeshComp = InAnimInstance->GetSkelMeshComponent();
+	UWorld* World = SkelMeshComp ? SkelMeshComp->GetWorld() : nullptr;
+
 	CurrentDeltaSeconds = DeltaSeconds;
+	CurrentTimeDilation = World ? World->GetWorldSettings()->GetEffectiveTimeDilation() : 1.0f;
 	RootMotionMode = InAnimInstance->RootMotionMode;
 	bShouldExtractRootMotion = InAnimInstance->ShouldExtractRootMotion();
 
 	InitializeObjects(InAnimInstance);
 
-	if (USkeletalMeshComponent* SkelMeshComp = InAnimInstance->GetSkelMeshComponent())
+	if (SkelMeshComp)
 	{
 		// Save off LOD level that we're currently using.
-		LODLevel = SkelMeshComp->PredictedLODLevel;
+		const int32 PreviousLODLevel = LODLevel;
+		LODLevel = InAnimInstance->GetLODLevel();
+		if (LODLevel != PreviousLODLevel)
+		{
+			OnPreUpdateLODChanged(PreviousLODLevel, LODLevel);
+		}
 
 		// Cache these transforms, so nodes don't have to pull it off the gamethread manually.
 		SkelMeshCompLocalToWorld = SkelMeshComp->GetComponentTransform();
@@ -295,8 +308,10 @@ void FAnimInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSec
 	QueuedDrawDebugItems.Reset();
 #endif
 
+#if !NO_LOGGING
 	//Reset logged update messages
 	LoggedMessagesMap.FindOrAdd("Update").Reset();
+#endif
 
 	ClearSlotNodeWeights();
 
@@ -338,6 +353,46 @@ void FAnimInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSec
 	for (FAnimNode_Base* Node : GameThreadPreUpdateNodes)
 	{
 		Node->PreUpdate(InAnimInstance);
+	}
+}
+
+void FAnimInstanceProxy::OnPreUpdateLODChanged(const int32 PreviousLODIndex, const int32 NewLODIndex)
+{
+	// Decrease detail, see which nodes need to be disabled.
+	if (NewLODIndex > PreviousLODIndex)
+	{
+		// Calling PreUpdate on GameThreadPreUpdateNodes is expensive, it triggers a cache miss.
+		// So remove nodes from this array if they're going to get culled by LOD.
+		for (int32 NodeIndex = 0; NodeIndex < GameThreadPreUpdateNodes.Num(); NodeIndex++)
+		{
+			FAnimNode_Base* AnimNodePtr = static_cast<FAnimNode_Base*>(GameThreadPreUpdateNodes[NodeIndex]);
+			if (AnimNodePtr)
+			{
+				if (!AnimNodePtr->IsLODEnabled(this))
+				{
+					LODDisabledGameThreadPreUpdateNodes.Add(AnimNodePtr);
+					GameThreadPreUpdateNodes.RemoveAt(NodeIndex, 1, false);
+					NodeIndex--;
+				}
+			}
+		}
+	}
+	// Increase detail, see which nodes need to be enabled.
+	else
+	{
+		for (int32 NodeIndex = 0; NodeIndex < LODDisabledGameThreadPreUpdateNodes.Num(); NodeIndex++)
+		{
+			FAnimNode_Base* AnimNodePtr = static_cast<FAnimNode_Base*>(LODDisabledGameThreadPreUpdateNodes[NodeIndex]);
+			if (AnimNodePtr)
+			{
+				if (AnimNodePtr->IsLODEnabled(this))
+				{
+					GameThreadPreUpdateNodes.Add(AnimNodePtr);
+					LODDisabledGameThreadPreUpdateNodes.RemoveAt(NodeIndex, 1, false);
+					NodeIndex--;
+				}
+			}
+		}
 	}
 }
 
@@ -383,6 +438,7 @@ void FAnimInstanceProxy::PostUpdate(UAnimInstance* InAnimInstance) const
 	}
 #endif
 
+#if !NO_LOGGING
 	FMessageLog MessageLog("AnimBlueprintLog");
 	const TArray<FLogMessageEntry>* Messages = LoggedMessagesMap.Find("Update");
 	if (ensureMsgf(Messages, TEXT("PreUpdate isn't called. This could potentially cause other issues.")))
@@ -392,12 +448,14 @@ void FAnimInstanceProxy::PostUpdate(UAnimInstance* InAnimInstance) const
 			MessageLog.Message(Message.Key, Message.Value);
 		}
 	}
+#endif
 }
 
 void FAnimInstanceProxy::PostEvaluate(UAnimInstance* InAnimInstance)
 {
 	ClearObjects();
 
+#if !NO_LOGGING
 	FMessageLog MessageLog("AnimBlueprintLog");
 	if(const TArray<FLogMessageEntry>* Messages = LoggedMessagesMap.Find("Evaluate"))
 	{
@@ -406,6 +464,7 @@ void FAnimInstanceProxy::PostEvaluate(UAnimInstance* InAnimInstance)
 			MessageLog.Message(Message.Key, Message.Value);
 		}
 	}
+#endif
 }
 
 void FAnimInstanceProxy::InitializeObjects(UAnimInstance* InAnimInstance)
@@ -1016,6 +1075,7 @@ void FAnimInstanceProxy::RecalcRequiredBones(USkeletalMeshComponent* Component, 
 void FAnimInstanceProxy::RecalcRequiredCurves(const FCurveEvaluationOption& CurveEvalOption)
 {
 	RequiredBones.CacheRequiredAnimCurveUids(CurveEvalOption);
+	bBoneCachesInvalidated = true;
 }
 
 void FAnimInstanceProxy::UpdateAnimation()
@@ -1039,7 +1099,9 @@ void FAnimInstanceProxy::UpdateAnimation()
 void FAnimInstanceProxy::PreEvaluateAnimation(UAnimInstance* InAnimInstance)
 {
 	InitializeObjects(InAnimInstance);
+#if !NO_LOGGING
 	LoggedMessagesMap.FindOrAdd("Evaluate").Reset();
+#endif
 }
 
 void FAnimInstanceProxy::EvaluateAnimation(FPoseContext& Output)
@@ -2032,12 +2094,17 @@ void FAnimInstanceProxy::RecordStateWeight(const int32 InMachineClassIndex, cons
 	}
 }
 
-void FAnimInstanceProxy::ResetDynamics()
+void FAnimInstanceProxy::ResetDynamics(ETeleportType InTeleportType)
 {
 	for(FAnimNode_Base* Node : DynamicResetNodes)
 	{
-		Node->ResetDynamics();
+		Node->ResetDynamics(InTeleportType);
 	}
+}
+
+void FAnimInstanceProxy::ResetDynamics()
+{
+	ResetDynamics(ETeleportType::ResetPhysics);
 }
 
 #if WITH_EDITOR

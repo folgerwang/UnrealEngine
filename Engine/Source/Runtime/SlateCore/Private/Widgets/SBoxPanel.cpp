@@ -45,6 +45,7 @@ static void ArrangeChildrenAlong( const TPanelChildren<SBoxPanel::FSlot>& Childr
 		float StretchCoefficientTotal = 0;
 		float FixedTotal = 0;
 
+		bool bAnyChildVisible = false;
 		// Compute the sum of stretch coefficients (SizeRule_Stretch) and space required by fixed-size widgets
 		// (SizeRule_Auto).
 		for( int32 ChildIndex=0; ChildIndex < Children.Num(); ++ChildIndex )
@@ -53,6 +54,7 @@ static void ArrangeChildrenAlong( const TPanelChildren<SBoxPanel::FSlot>& Childr
 
 			if ( CurChild.GetWidget()->GetVisibility() != EVisibility::Collapsed )
 			{
+				bAnyChildVisible = true;
 				// All widgets contribute their margin to the fixed space requirement
 				FixedTotal += CurChild.SlotPadding.Get().GetTotalSpaceAlong<Orientation>();
 
@@ -75,6 +77,11 @@ static void ArrangeChildrenAlong( const TPanelChildren<SBoxPanel::FSlot>& Childr
 					FixedTotal += MaxSize > 0 ? FMath::Min( MaxSize, ChildSize ) : ChildSize ;
 				}
 			}
+		}
+
+		if (!bAnyChildVisible)
+		{
+			return;
 		}
 
 		// The space available for SizeRule_Stretch widgets is any space that wasn't taken up by fixed-sized widgets.

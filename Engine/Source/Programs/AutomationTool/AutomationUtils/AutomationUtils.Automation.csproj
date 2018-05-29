@@ -40,6 +40,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Management" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Web" />
@@ -57,8 +58,8 @@
     <Compile Include="BuildUtils.cs" />
     <Compile Include="CommandEnvironment.cs" />
     <Compile Include="DeviceReservation.cs" />
+    <Compile Include="ImageUtils.cs" />
     <Compile Include="LogUtils.cs" />
-    <Compile Include="ManagedProcess.cs" />
     <Compile Include="CommandletUtils.cs" />
     <Compile Include="CommandUtils.cs" />
     <Compile Include="DeploymentContext.cs" />

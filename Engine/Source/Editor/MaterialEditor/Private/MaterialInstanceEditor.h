@@ -10,8 +10,9 @@
 #include "IMaterialEditor.h"
 #include "IDetailsView.h"
 #include "SMaterialEditorViewport.h"
-#include "Widgets/Views/STableViewBase.h"
 #include "Widgets/Views/STableRow.h"
+
+#include "TickableEditorObject.h"
 
 class FCanvas;
 class UMaterialEditorInstanceConstant;
@@ -24,7 +25,7 @@ template <typename ItemType> class SListView;
 /**
  * Material Instance Editor class
  */
-class FMaterialInstanceEditor : public IMaterialEditor, public FNotifyHook, public FGCObject, public FEditorUndoClient
+class FMaterialInstanceEditor : public IMaterialEditor, public FNotifyHook, public FGCObject, public FEditorUndoClient, public FTickableEditorObject
 {
 public:
 	
@@ -102,6 +103,12 @@ public:
 	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() { return MenuExtensibilityManager; }
 	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager() { return ToolBarExtensibilityManager; }
 
+	virtual void Tick(float DeltaTime) override;
+	virtual TStatId GetStatId() const override;
+
+	/** call this to notify the editor that the edited material changed from outside */
+	virtual void NotifyExternalMaterialChange() override;
+
 protected:
 	//~ FAssetEditorToolkit interface
 	virtual void SaveAsset_Execute() override;
@@ -130,14 +137,12 @@ private:
 	/** Command for the apply button */
 	void OnApply();
 	bool OnApplyEnabled() const;
+	bool OnApplyVisible() const;
+
 
 	/** Commands for the ShowAllMaterialParametersEnabled button */
 	void ToggleShowAllMaterialParameters();
 	bool IsShowAllMaterialParametersChecked() const;
-
-	/** Commands for the ToggleMobileStats button */
-	void ToggleMobileStats();
-	bool IsToggleMobileStatsChecked() const;
 
 	/** Commands for the Parents menu */
 	void OnOpenMaterial(TWeakObjectPtr<UMaterialInterface> InMaterial);
@@ -221,9 +226,6 @@ private:
 	/** Whether or not we should be displaying all the material parameters */
 	bool bShowAllMaterialParameters;
 
-	/** Whether to show mobile material stats. */
-	bool bShowMobileStats;
-
 	/** If editing instance of a function instead of a material. */
 	bool bIsFunctionPreviewMaterial;
 
@@ -241,4 +243,7 @@ private:
 	static const FName PropertiesTabId;	
 	static const FName LayerPropertiesTabId;
 	static const FName PreviewSettingsTabId;
+
+	/** Object used as material statistics manager */
+	TSharedPtr<class FMaterialStats> MaterialStatsManager;
 };

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3343699
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title:UMG UI デザイナの操作方法
 Crumbs: %ROOT%, Engine, Engine\UMG
@@ -12,23 +12,16 @@ tags:UMG UI Designer
 詳細は以下を参照してください。 
 
 ## 初心者向け
-[REGION:wrapper transparent]
-[](FANCY:Engine\UMG\HowTo\CreatingWidgets "%Engine\UMG\HowTo\CreatingWidgets:description%")
-[/REGION]
+
+[DIR(output:"fancy" parent:"Engine/UMG/HowTo" org:"hierarchy" skill_Level:"Beginner")]
 
 ## 中級者向け
-[REGION:wrapper transparent]
-[](FANCY:Engine\UMG\HowTo\WidgetTemplates "%Engine\UMG\HowTo\WidgetTemplates:description%")
-[](FANCY:Engine\UMG\HowTo\Create3DWidgets "%Engine\UMG\HowTo\Create3DWidgets:description%")
-[](FANCY:Engine\UMG\HowTo\DragAndDrop "%Engine\UMG\HowTo\DragAndDrop:description%")
-[](FANCY:Engine\UMG\HowTo\ScalingUI "%Engine\UMG\HowTo\ScalingUI:description%")
-[/REGION]
+
+[DIR(output:"fancy" parent:"Engine/UMG/HowTo" org:"hierarchy" skill_Level:"Intermediate")]
 
 ## 上級者向け
-[REGION:wrapper transparent]
-[](FANCY:Engine\UMG\HowTo\EventBasedUI "%Engine\UMG\HowTo\EventBasedUI:description%")
-[](FANCY:Engine\UMG\HowTo\VirtualKeyboards "%Engine\UMG\HowTo\VirtualKeyboards:description%")
-[/REGION]
+
+[DIR(output:"fancy" parent:"Engine/UMG/HowTo" org:"hierarchy" skill_Level:"Advanced")]
 
 
 

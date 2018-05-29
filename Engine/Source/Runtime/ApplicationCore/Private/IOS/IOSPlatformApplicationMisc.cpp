@@ -15,7 +15,7 @@ FIOSApplication* FIOSPlatformApplicationMisc::CachedApplication = nullptr;
 
 EAppReturnType::Type MessageBoxExtImpl( EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption )
 {
-#if UE_BUILD_SHIPPING || PLATFORM_TVOS
+#if PLATFORM_TVOS
 	return FGenericPlatformMisc::MessageBoxExt(MsgType, Text, Caption);
 #else
 	NSString* CocoaText = (NSString*)FPlatformString::TCHARToCFString(Text);

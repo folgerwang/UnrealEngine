@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2683385
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:Graph Editor （グラフ エディタ） タブ
 Crumbs:%ROOT%, Engine/Blueprints, Engine/Blueprints/Editor, Engine/Blueprints/Editor/UIBreakdowns/LevelBPUI
 Description:ブループリントでノードのネットワークを編集可能で視覚的に表現します。
 version:4.9
+tags:Blueprints
 
 
 [EXCERPT:Intro]
@@ -31,9 +32,23 @@ version:4.9
 
 **[Graph Editor (グラフ エディタ)]** タブは、以下の制御を使用してナビゲートします。
 
+[INCLUDE:#Controls]
+
+[REGION:tip]
+新規の AddComponent 関数呼び出しを自動的に割り当てられたアセットを作成するために、StaticMesh (スタティックメッシュ)、 SoundCue (サウンドキュー)、 SkeletalMesh (スケルタルメッシュ)、 
+そして ParticleSystem (パーティクル システム) アセットを **コンテンツ ブラウザ** からドラッグして **[Graph Editor (グラフ エディタ)]** タブへドロップすることができます。
+
+[REGION:raw]
+![Blueprints - Drag and Drop Component](k2_component_graph_drag.png)(w:900 convert:false)
+[/REGION:raw]
+
+[/REGION:tip]
+[/EXCERPT:Main]
+
+[COMMENT:none]
 [EXCERPT:Controls]
 
-| オプション | アクション |
+| コントロール | アクション |
 | --- | --- |
 | **右クリック + ドラッグ** | グラフをパンします |
 | **マウスのスクロールボタン** | グラフをズームします |
@@ -49,16 +64,4 @@ version:4.9
 | ピン上で **Alt + クリック** | 選択中のピンへのすべてのワイヤ接続を解除します |
 
 [/EXCERPT:Controls]
-
-
-[REGION:tip]
-新規の AddComponent 関数呼び出しを自動的に割り当てられたアセットを作成するために、StaticMesh (スタティックメッシュ)、 SoundCue (サウンドキュー)、 SkeletalMesh (スケルタルメッシュ)、 
-そして ParticleSystem (パーティクル システム) アセットを **コンテンツ ブラウザ** からドラッグして **[Graph Editor (グラフ エディタ)]** タブへドロップすることができます。
-
-[REGION:raw]
-![Blueprints - Drag and Drop Component](k2_component_graph_drag.png)(w:900 convert:false)
-[/REGION:raw]
-
-[/REGION:tip]
-[/EXCERPT:Main]
-
+[/COMMENT]

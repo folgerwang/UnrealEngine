@@ -193,7 +193,7 @@ void SSourceControlSubmitWidget::Construct(const FArguments& InArgs)
 					.HAlign(HAlign_Center)
 					.ContentPadding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
 					.IsEnabled(this, &SSourceControlSubmitWidget::IsOKEnabled)
-					.Text( NSLOCTEXT("SourceControl.SubmitPanel", "OKButton", "OK") )
+					.Text( NSLOCTEXT("SourceControl.SubmitPanel", "OKButton", "Submit") )
 					.OnClicked(this, &SSourceControlSubmitWidget::OKClicked)
 				]
 				+SUniformGridPanel::Slot(1,0)

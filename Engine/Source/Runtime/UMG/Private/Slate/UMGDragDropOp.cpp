@@ -34,7 +34,7 @@ void FUMGDragDropOp::Construct()
 
 void FUMGDragDropOp::OnDrop( bool bDropWasHandled, const FPointerEvent& MouseEvent )
 {
-	if ( DragOperation )
+	if ( DragOperation && MouseEvent.GetPointerIndex() == PointerIndex)
 	{
 		if ( bDropWasHandled )
 		{
@@ -56,7 +56,7 @@ void FUMGDragDropOp::OnDrop( bool bDropWasHandled, const FPointerEvent& MouseEve
 
 void FUMGDragDropOp::OnDragged( const class FDragDropEvent& DragDropEvent )
 {
-	if ( DragOperation )
+	if ( DragOperation && DragDropEvent.GetPointerIndex() == PointerIndex)
 	{
 		DragOperation->Dragged(DragDropEvent);
 
@@ -146,12 +146,13 @@ FCursorReply FUMGDragDropOp::OnCursorQuery()
 	return CursorReply;
 }
 
-TSharedRef<FUMGDragDropOp> FUMGDragDropOp::New(UDragDropOperation* InOperation, const FVector2D &CursorPosition, const FVector2D &ScreenPositionOfDragee, float DPIScale, TSharedPtr<SObjectWidget> SourceUserWidget)
+TSharedRef<FUMGDragDropOp> FUMGDragDropOp::New(UDragDropOperation* InOperation, const int32 PointerIndex, const FVector2D &PointerPosition, const FVector2D &ScreenPositionOfDragee, float DPIScale, TSharedPtr<SObjectWidget> SourceUserWidget)
 {
 	check(InOperation);
 
 	TSharedRef<FUMGDragDropOp> Operation = MakeShareable(new FUMGDragDropOp());
-	Operation->MouseDownOffset = ScreenPositionOfDragee - CursorPosition;
+	Operation->PointerIndex = PointerIndex;
+	Operation->MouseDownOffset = ScreenPositionOfDragee - PointerPosition;
 	Operation->StartingScreenPos = ScreenPositionOfDragee;
 	Operation->SourceUserWidget = SourceUserWidget;
 	Operation->GameViewport = SourceUserWidget->GetWidgetObject()->GetWorld()->GetGameViewport();

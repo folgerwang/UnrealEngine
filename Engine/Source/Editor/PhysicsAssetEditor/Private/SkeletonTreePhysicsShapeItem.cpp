@@ -98,31 +98,31 @@ FString FSkeletonTreePhysicsShapeItem::GetNameAsString() const
 	case EAggCollisionShape::Sphere:
 		if(BodySetup->AggGeom.SphereElems.IsValidIndex(ShapeIndex))
 		{
-			StringName = BodySetup->AggGeom.SphereElems[ShapeIndex].GetName();
+			StringName = BodySetup->AggGeom.SphereElems[ShapeIndex].GetName().GetPlainNameString();
 		}
 		break;
 	case EAggCollisionShape::Box:
 		if(BodySetup->AggGeom.BoxElems.IsValidIndex(ShapeIndex))
 		{
-			StringName = BodySetup->AggGeom.BoxElems[ShapeIndex].GetName();
+			StringName = BodySetup->AggGeom.BoxElems[ShapeIndex].GetName().GetPlainNameString();
 		}
 		break;
 	case EAggCollisionShape::Sphyl:
 		if(BodySetup->AggGeom.SphylElems.IsValidIndex(ShapeIndex))
 		{
-			StringName = BodySetup->AggGeom.SphylElems[ShapeIndex].GetName();
+			StringName = BodySetup->AggGeom.SphylElems[ShapeIndex].GetName().GetPlainNameString();
 		}
 		break;
 	case EAggCollisionShape::Convex:
 		if(BodySetup->AggGeom.ConvexElems.IsValidIndex(ShapeIndex))
 		{
-			StringName = BodySetup->AggGeom.ConvexElems[ShapeIndex].GetName();
+			StringName = BodySetup->AggGeom.ConvexElems[ShapeIndex].GetName().GetPlainNameString();
 		}
 		break;
 	case EAggCollisionShape::TaperedCapsule:
 		if(BodySetup->AggGeom.TaperedCapsuleElems.IsValidIndex(ShapeIndex))
 		{
-			StringName = BodySetup->AggGeom.TaperedCapsuleElems[ShapeIndex].GetName();
+			StringName = BodySetup->AggGeom.TaperedCapsuleElems[ShapeIndex].GetName().GetPlainNameString();
 		}
 		break;
 	}
@@ -153,31 +153,31 @@ void FSkeletonTreePhysicsShapeItem::HandleTextCommitted(const FText& InText, ETe
 		case EAggCollisionShape::Sphere:
 			if(BodySetup->AggGeom.SphereElems.IsValidIndex(ShapeIndex))
 			{
-				BodySetup->AggGeom.SphereElems[ShapeIndex].SetName(InText.ToString());
+				BodySetup->AggGeom.SphereElems[ShapeIndex].SetName(*InText.ToString());
 			}
 			break;
 		case EAggCollisionShape::Box:
 			if(BodySetup->AggGeom.BoxElems.IsValidIndex(ShapeIndex))
 			{
-				BodySetup->AggGeom.BoxElems[ShapeIndex].SetName(InText.ToString());
+				BodySetup->AggGeom.BoxElems[ShapeIndex].SetName(*InText.ToString());
 			}
 			break;
 		case EAggCollisionShape::Sphyl:
 			if(BodySetup->AggGeom.SphylElems.IsValidIndex(ShapeIndex))
 			{
-				BodySetup->AggGeom.SphylElems[ShapeIndex].SetName(InText.ToString());
+				BodySetup->AggGeom.SphylElems[ShapeIndex].SetName(*InText.ToString());
 			}
 			break;
 		case EAggCollisionShape::Convex:
 			if(BodySetup->AggGeom.ConvexElems.IsValidIndex(ShapeIndex))
 			{
-				BodySetup->AggGeom.ConvexElems[ShapeIndex].SetName(InText.ToString());
+				BodySetup->AggGeom.ConvexElems[ShapeIndex].SetName(*InText.ToString());
 			}
 			break;
 		case EAggCollisionShape::TaperedCapsule:
 			if(BodySetup->AggGeom.TaperedCapsuleElems.IsValidIndex(ShapeIndex))
 			{
-				BodySetup->AggGeom.TaperedCapsuleElems[ShapeIndex].SetName(InText.ToString());
+				BodySetup->AggGeom.TaperedCapsuleElems[ShapeIndex].SetName(*InText.ToString());
 			}
 			break;
 		default:

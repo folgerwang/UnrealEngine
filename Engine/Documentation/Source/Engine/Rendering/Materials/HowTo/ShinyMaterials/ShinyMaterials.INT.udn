@@ -100,7 +100,7 @@ content page for information about how to move content between projects. This wa
 
 1. Once the Material Expression nodes have been placed, the Scalar Parameters now need to be named and filled in with default values. Here are the names and default values that should be used:
 	
-	* ** Metallic:** 0
+	* **Metallic:** 0
 	* **Specular:**  0.5
 	* **Roughness:** 0.5
 

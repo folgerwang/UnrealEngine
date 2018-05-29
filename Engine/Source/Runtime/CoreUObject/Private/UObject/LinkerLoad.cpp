@@ -408,7 +408,7 @@ void FLinkerLoad::StaticInit(UClass* InUTexture2DStaticClass)
  *
  * @return	new FLinkerLoad object for Parent/ Filename
  */
-FLinkerLoad* FLinkerLoad::CreateLinker(UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags)
+FLinkerLoad* FLinkerLoad::CreateLinker(UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags, FArchive* InLoader /*= nullptr*/)
 {
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 	// we don't want the linker permanently created with the 
@@ -437,12 +437,21 @@ FLinkerLoad* FLinkerLoad::CreateLinker(UPackage* Parent, const TCHAR* Filename, 
 		// FinalizeCreation() could invoke further dependency loads
 		TGuardValue<uint32> LinkerLoadFlagGuard(Linker->LoadFlags, Linker->LoadFlags | DeferredLoadFlag);
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+		
+		if (InLoader)
+		{
+			// The linker can't have an associated loader here if we have a loader override
+			check(!Linker->Loader);
+			Linker->Loader = InLoader;
+			// Set the basic archive flags on the linker
+			Linker->ResetStatusInfo();
+		}
 
 		FSerializedPackageLinkerGuard Guard;
 		FUObjectThreadContext::Get().SerializedPackageLinker = Linker;
 		if (Linker->Tick(0.f, false, false) == LINKER_Failed)
 		{
-			return NULL;
+			return nullptr;
 		}
 	}
 	FCoreUObjectDelegates::PackageCreatedForLoad.Broadcast(Parent);
@@ -588,11 +597,11 @@ FLinkerLoad* FLinkerLoad::CreateLinkerAsync( UPackage* Parent, const TCHAR* File
 	{
 		if (GEventDrivenLoaderEnabled)
 		{
-		UE_LOG(LogStreaming, Fatal, TEXT("FLinkerLoad::CreateLinkerAsync: Found existing linker for '%s'"), *Parent->GetName());
+			UE_LOG(LogStreaming, Fatal, TEXT("FLinkerLoad::CreateLinkerAsync: Found existing linker for '%s'"), *Parent->GetName());
 		}
 		else
 		{
-		UE_LOG(LogStreaming, Log, TEXT("FLinkerLoad::CreateLinkerAsync: Found existing linker for '%s'"), *Parent->GetName());
+			UE_LOG(LogStreaming, Log, TEXT("FLinkerLoad::CreateLinkerAsync: Found existing linker for '%s'"), *Parent->GetName());
 		}		
 	}
 
@@ -872,6 +881,19 @@ bool FLinkerLoad::IsTimeLimitExceeded( const TCHAR* CurrentTask, int32 Granulari
 	return bTimeLimitExceeded;
 }
 
+void FLinkerLoad::ResetStatusInfo()
+{
+	// Set status info.
+	this->SetUE4Ver(GPackageFileUE4Version);
+	this->SetLicenseeUE4Ver(GPackageFileLicenseeUE4Version);
+	this->SetEngineVer(FEngineVersion::Current());
+	this->SetIsLoading(true);
+	this->SetIsPersistent(true);
+
+	// Reset all custom versions
+	ResetCustomVersions();
+}
+
 /**
  * Creates loader used to serialize content.
  */
@@ -1012,16 +1034,8 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::CreateLoader(
 		//	UE_LOG(LogLinker, Warning, TEXT("Linker for '%s' already exists"), *LinkerRoot->GetName() );
 		//	return LINKER_Failed;
 		//}
-
-		// Set status info.
-		ArUE4Ver = GPackageFileUE4Version;
-		ArLicenseeUE4Ver = GPackageFileLicenseeUE4Version;
-		ArEngineVer = FEngineVersion::Current();
-		ArIsLoading = true;
-		ArIsPersistent = true;
-
-		// Reset all custom versions
-		ResetCustomVersions();
+		
+		ResetStatusInfo();
 	}
 	else if (GEventDrivenLoaderEnabled)
 	{
@@ -1250,9 +1264,9 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 		Loader->SetLicenseeUE4Ver(Summary.GetFileVersionLicenseeUE4());
 		Loader->SetEngineVer(Summary.SavedByEngineVersion);
 
-		ArUE4Ver = Summary.GetFileVersionUE4();
-		ArLicenseeUE4Ver = Summary.GetFileVersionLicenseeUE4();
-		ArEngineVer = Summary.SavedByEngineVersion;
+		this->SetUE4Ver(Summary.GetFileVersionUE4());
+		this->SetLicenseeUE4Ver(Summary.GetFileVersionLicenseeUE4());
+		this->SetEngineVer(Summary.SavedByEngineVersion);
 
 		const FCustomVersionContainer& SummaryVersions = Summary.GetCustomVersionContainer();
 		Loader->SetCustomVersions(SummaryVersions);
@@ -1288,8 +1302,8 @@ FLinkerLoad::ELinkerStatus FLinkerLoad::SerializePackageFileSummary()
 			LinkerRootPackage->SetGuid( Summary.Guid );
 
 			// Remember the linker versions
-			LinkerRootPackage->LinkerPackageVersion = ArUE4Ver;
-			LinkerRootPackage->LinkerLicenseeVersion = ArLicenseeUE4Ver;
+			LinkerRootPackage->LinkerPackageVersion = this->UE4Ver();
+			LinkerRootPackage->LinkerLicenseeVersion = this->LicenseeUE4Ver();
 
 			// Only set the custom version if it is not already latest.
 			// If it is latest, we will compare against latest in GetLinkerCustomVersion
@@ -2504,7 +2518,7 @@ FLinkerLoad::EVerifyResult FLinkerLoad::VerifyImport(int32 ImportIndex)
 }
 
 // Internal Load package call so that we can pass the linker that requested this package as an import dependency
-UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, FLinkerLoad* ImportLinker);
+UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, FLinkerLoad* ImportLinker, FArchive* InReaderOverride);
 
 /**
  * Safely verify that an import in the ImportMap points to a good object. This decides whether or not
@@ -2585,7 +2599,7 @@ bool FLinkerLoad::VerifyImportInner(const int32 ImportIndex, FString& WarningSuf
 
 			// we now fully load the package that we need a single export from - however, we still use CreatePackage below as it handles all cases when the package
 			// didn't exist (native only), etc		
-			TmpPkg = LoadPackageInternal(NULL, *Import.ObjectName.ToString(), InternalLoadFlags | LOAD_IsVerifying, this);
+			TmpPkg = LoadPackageInternal(NULL, *Import.ObjectName.ToString(), InternalLoadFlags | LOAD_IsVerifying, this, nullptr);
 		}
 
 #if WITH_EDITOR

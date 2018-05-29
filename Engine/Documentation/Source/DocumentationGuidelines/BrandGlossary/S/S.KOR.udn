@@ -1,17 +1,17 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3532405
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 브랜드 용어집
+Description: 언리얼 엔진 4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되는 핵심 용어 해설집입니다.
 Type: Reference
 Version: 4.16
 Parent:BrandGlossary
 Order:14
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+언리얼 엔진 4 (UE4) **브랜드 용어집** 에 오신 것을 환영합니다. UE4 커뮤니티의 사용자를 위한 자료를 만들고자 하는 경우, 
+UE4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되고 있는 용어의 이해를 돕기 위한 문서입니다.
+이 용어집을 통독하고나면, 언리얼 엔진 설명에 사용하는 용어의 스펠링과 대소문자 구분을 확실히 하실 수 있을 것입니다.
 
 <hr>
   
@@ -44,48 +44,48 @@ through this glossary, you'll also know how to properly spell and capitalize the
 
 ##Sequencer
 
-Unreal Engine’s cinematic toolset that provides director-level control over cut scenes, dynamic gameplay sequences, and movies.
+시퀀서 - 컷 씬, 동적인 게임플레이 시퀀스, 무비에 대한 디렉터 수준의 제어가 가능한 언리얼 엔진의 시네마틱 툴세트입니다.
 
 ##Simulate In Editor
 
-Simulate In Editor enables you to run game logic in the editor viewport so you can inspect, edit, and interact with Actors in the world as the game runs.
+에디터에서 시뮬레이트 - 게임 로직을 에디터 뷰포트에서 실행시켜 게임을 실행하면서 월드의 액터를 조사, 편집, 상호작용해 볼 수 있는 기능입니다.
 
 ##Skeletal Mesh
 
-Skeletal Meshes are built up of two parts; a set of polygons composed to make up the surface of the Skeletal Mesh, and a hierarchical set of interconnected bones that can be used to animate the polygons
+스켈레탈 메시 - 두 부분으로 이루어지는데, 한 부분은 폴리곤 세트로 스켈레탈 메시 표면을 이루는 부분, 다른 부분은 서로 연결된 본의 계층형 세트로 폴리곤 애니메이션에 사용되는 부분입니다.
 
 ##Skeleton
 
-A Skeleton is an asset that holds bone and hierarchy information for a specific type of character or Skeletal Mesh.
+스켈레톤 - 특정 유형의 캐릭터 또는 스켈레탈 메시의 본과 계층구조 정보를 저장하는 애셋입니다.
 
 ##Slate UI Framework
 
-Slate is a completely custom and platform agnostic user interface framework that is designed to make building the user interfaces for tools and applications, such as Unreal Editor, or in-game user interfaces fun and efficient. It combines a declarative syntax with the ability to design, layout, and style components that allows for easily creating and iterating on UIs.
+슬레이트 - 언리얼 에디터와 같은 툴 및 어플리케이션 또는 게임 내 유저 인터페이스 제작 작업을 쉽고 편하게 하기 위해 디자인된 플랫폼 무관 유저 인터페이스 프레임워크로, 완벽 커스터마이징 가능합니다. 선언형 문법과 컴포넌트 디자인, 레이아웃, 스타일 설정 기능이 결합되어 UI 제작 및 반복처리 작업이 쉬워집니다.
 
 ##Sound Cue
 
-Asset that defines the playback behavior of a sound.
+사운드 큐 - 사운드 재생 작동방식을 정의하는 애셋입니다.
 
 ##Sound Cue Editor
 
-Node-based tool used to edit Sound Cues.
+사운드 큐 에디터 - 사운드 큐 편집에 사용되는 노드 기반 툴입니다.
 
 ##Spawn
 
-Creating a new instance of an Actor, either programmatically at run-time, or manually in the Level Editor at design-time.
+스폰 - 실행 시간에 프로그래밍 방법을 통해, 아니면 디자인 시간에 레벨 에디터에서 수동 방법을 통해, 액터의 인스턴스를 새로 만드는 것을 뜻합니다.
 
 ##Static Mesh
 
-A Static Mesh is a piece of geometry that consists of a static set of polygons and are the basic unit used to create world geometry for levels in Unreal Engine 4.
+스태틱 메시 - 고정된 폴리곤 세트로 이루어진 지오메트리 조각을 말하며, 언리얼 엔진 4 의 레벨을 이루는 월드 지오메트리를 만드는 데 사용되는 기본 유닛입니다.
 
 ##Static Mesh Actor
 
-An Actor whose visual representation is a Static Mesh.
+스태틱 메시 액터 - 시각적 표현이 스태틱 메시인 액터를 말합니다.
 
 ##Static Mesh Components
 
-A Component that adds a Static Mesh to an Actor.
+스태틱 메시 컴포넌트 - 액터에 스태틱 메시를 추가하는 컴포넌트입니다.
 
 ##Static Mesh Editor
 
-The Static Mesh Editor provides tools for previewing the geometry, collision, and levels of detail of a Static Mesh asset, as well as editing properties, applying Materials, and setting up collision geometry.
+스태틱 메시 에디터 - 스태틱 메시의 지오메트리, 콜리전, 레벨 오브 디테일 미리보기는 물론, 프로퍼티를 편집하고, 머티리얼을 적용하며, 콜리전 지오메트리를 구성할 수 있는 에디터입니다.

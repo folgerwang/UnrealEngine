@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3178047
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Media Framework
 Crumbs:%ROOT%, Engine
@@ -6,48 +6,14 @@ Description:UE 4 の Media Playback 機能の使用方法
 Navigation:topic
 parent:Engine
 order:16
-Version:4.13
+Version:4.18
+Type:Landing
+tags:Media Framework
+tags:Video Playback
+tags:Media Player
+topic-image:MediaFrameworkTopic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/MediaFramework:title%](MediaFrameworkTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/start_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/MediaFramework:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/MediaFramework:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/MediaFramework]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/MediaFramework:title%](MediaFrameworkTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/start_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/MediaFramework:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/MediaFramework:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/MediaFramework]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[REGION:fullwidth raw]
+[REGION:fullwidth]
 ![](MediaFrameWork.png)(convert:false)
 [/REGION]
 
@@ -70,12 +36,7 @@ UE4 には現在 **Startup Movie Player** システムが入っていますが�
 
 このページでは、Media Framework 関連のドキュメントへのリンクも紹介しています。概要ページで Media Framework 機能の詳細、使用方法とクイックスタートのページで Media Framework の段階的な方法を確認しておくことをお勧めします。 
 
-[REGION:warning]
-Media Framework は制作段階ではなく、まだ実験的な段階です。期待通りの動作をしない機能もありますが、現在これらの問題の解決に全力を注ぎつつ、 
-新機能とサポートも追加しています。 
-[/REGION]
-
-## 基本事項
+## 基本
 
 [DIR(output:"listbutton" parent:"Engine/MediaFramework" org:"hierarchy" end:"1")]
 

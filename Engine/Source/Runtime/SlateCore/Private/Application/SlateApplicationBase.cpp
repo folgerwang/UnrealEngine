@@ -35,6 +35,51 @@ void FSlateApplicationBase::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics
 	FDisplayMetrics::GetDisplayMetrics(OutDisplayMetrics); 
 }
 
+void FSlateApplicationBase::GetSafeZoneSize(FMargin& SafeZone, const FVector2D& OverrideSize)
+{
+	FVector2D ContainerSize = FVector2D::ZeroVector;
+
+#if WITH_EDITOR
+	ContainerSize = OverrideSize;
+#endif
+
+	if (ContainerSize.IsZero())
+	{
+		FDisplayMetrics Metrics;
+		FDisplayMetrics::GetDisplayMetrics(Metrics);
+		ContainerSize = FVector2D(Metrics.PrimaryDisplayWidth, Metrics.PrimaryDisplayHeight);
+	}
+
+	FMargin SafeZoneRatio;
+	GetSafeZoneRatio(SafeZoneRatio);
+	SafeZone.Left = SafeZoneRatio.Left * ContainerSize.X / 2.0f;
+	SafeZone.Right = SafeZoneRatio.Right * ContainerSize.X / 2.0f;
+	SafeZone.Top = SafeZoneRatio.Top * ContainerSize.Y / 2.0f;
+	SafeZone.Bottom = SafeZoneRatio.Bottom * ContainerSize.Y / 2.0f;
+}
+
+void FSlateApplicationBase::GetSafeZoneRatio(FMargin& SafeZoneRatio)
+{
+#if WITH_EDITOR
+	if (CustomSafeZoneRatio != FMargin())
+	{
+		SafeZoneRatio = CustomSafeZoneRatio;
+	}
+	else
+#endif
+	{
+		FDisplayMetrics Metrics;
+		FDisplayMetrics::GetDisplayMetrics(Metrics);
+		float HalfWidth = (Metrics.PrimaryDisplayWidth * 0.5f);
+		float HalfHeight = (Metrics.PrimaryDisplayHeight * 0.5f);
+		SafeZoneRatio = Metrics.TitleSafePaddingSize;
+		SafeZoneRatio.Left /= HalfWidth;
+		SafeZoneRatio.Top /= HalfHeight;
+		SafeZoneRatio.Right /= HalfWidth;
+		SafeZoneRatio.Bottom /= HalfHeight;
+	}
+}
+
 const FHitTesting& FSlateApplicationBase::GetHitTesting() const
 {
 	return HitTesting;

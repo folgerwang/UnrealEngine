@@ -53,7 +53,8 @@ private:
 	float GetTimelineLength() const;
 	/**	Spawns the tab with the curve asset inside */
 	TSharedRef<SDockTab> SpawnTab_CurveAsset( const FSpawnTabArgs& Args );
-
+	/**	Spawns the details panel for the color curve */
+	TSharedRef<SDockTab> SpawnTab_ColorCurveEditor(const FSpawnTabArgs& Args);
 	/** Get the snapping value for the input domain. */
 	float GetInputSnap() const;
 	/** Gets the snapping value for the input domain as text. */
@@ -71,6 +72,8 @@ private:
 
 	/**	The tab id for the curve asset tab */
 	static const FName CurveTabId;
+	/**	The tab id for the color curve editor tab */
+	static const FName ColorCurveEditorTabId;
 
 	float ViewMinInput;
 	float ViewMaxInput;
@@ -79,4 +82,6 @@ private:
 	float InputSnap;
 	/** The snapping value for the output domain. */
 	float OutputSnap;
+	/* Holds the details panel for the color curve */
+	TSharedPtr<class IDetailsView> ColorCurveDetailsView;
 };

@@ -69,5 +69,8 @@ class UDistribution : public UObject, public FCurveEdInterface
 	/** Default value for initializing and checking correct values on UDistributions. */
 	static const float DefaultValue;
 
+	//~ Begin UObject Interface. 
+	virtual bool IsPostLoadThreadSafe() const override;
+	//~ End UObject Interface
 };
 

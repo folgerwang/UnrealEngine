@@ -37,6 +37,10 @@ class USoundNodeRandom : public USoundNode
 	UPROPERTY(EditAnywhere, Category = Random)
 	uint8 bShouldExcludeFromBranchCulling : 1;
 
+	/** Exclusion for branch culling set by the sound cue. */
+	UPROPERTY()
+	uint8 bSoundCueExcludedFromBranchCulling : 1;
+
 	/** 
 	 * Determines whether or not this SoundNodeRandom should randomize with or without
 	 * replacement.  

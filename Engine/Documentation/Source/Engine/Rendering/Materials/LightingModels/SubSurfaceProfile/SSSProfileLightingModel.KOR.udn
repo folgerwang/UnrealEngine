@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title:서브서피스 프로파일 셰이딩 모델
 Crumbs: %ROOT%
@@ -38,7 +38,7 @@ UE4 에서 서브서피스 프로파일을 사용할 수 있는 방법은 여러
 
 ### 서브서피스 프로파일 생성
 
-서브서피스 프로파일을 생성하려면, 먼저 **콘텐츠 브라우저** 안에 우클릭합니다. **머티리얼 & 텍스처** 옵션을 선택한 뒤 **Subsurface Profile** (서브서피스 프로파일) 옵션을 선택합니다.
+서브서피스 프로파일을 생성하려면, 먼저 **콘텐츠 브라우저** 안에 우클릭합니다. **머티리얼 & 텍스처** 옵션을 선택한 뒤 **Subsurface Profile** (서브서피스 프로파일) 옵션을 선택합니다. 
 ![Create SubsurfaceProfile](2.png)
 
 [region:note]
@@ -60,6 +60,7 @@ SubsurfaceProfile 이 지정되지 않으면, 기본값인 Caucasian (백인) �
 ![Enable SubsurfaceProfile](1.png)
 
 서브서피스 프로파일 역시 머티리얼 인스턴스에서 덮어쓸 수 있습니다. 그러기 위해서는 먼저 변경하고자 하는 머티리얼 인스턴스를 열어야 합니다. 그런 다음 머티리얼 인스턴스의 **디테일** 섹션에서, **Override Subsurface Profile** (서브서피스 프로파일 덮어쓰기)를 켠 다음 **Subsurface Profile** 입력에 사용하고자 하는 서브서피스 프로파일을 제공해 주면 됩니다.
+
 ![](6.png)
 
 [region:note]
@@ -76,7 +77,6 @@ SubsurfaceProfile 이 지정되지 않으면, 기본값인 Caucasian (백인) �
 
 [REGION:note]
 사람 피부는 빛의 색과 양을 일정 부분 막는 얇은 막으로, 그 표면 아래 강렬한 붉은색 살을 덮고 있습니다. 연한 사람 피부색의 가시 산란 거리는 대략 1.2 cm 입니다.
-
 [/region]
 
 **Metallic Input:** 메탈릭 입력 채널은 서브서피스 프로파일에는 사용할 수 없습니다. 메탈릭 입력에 대한 GBuffer 공간이 서브서피스 프로파일 데이터를 수용하도록 용도 변경되었기 때문입니다.

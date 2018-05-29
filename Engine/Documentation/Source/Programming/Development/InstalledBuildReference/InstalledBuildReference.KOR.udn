@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3429264
+﻿INTSourceChangelist:3808342
 Availability: Public
 Title: Installed Build 참고서
 Crumbs: %ROOT%, Programming, Programming/Development
@@ -81,8 +81,10 @@ Installed Builds 는 [](Programming/Development/BuildGraph) 스크립트 시스�
 | `-set:WithPS4=[true/false]` | false | PS4 대상 플랫폼을 포함시킵니다. [REGION:note]이 옵션을 켜려면 PS4 SDK 가 필요합니다.[/REGION] |
 | `-set:WithXboxOne=[true/false]` | false | XboxOne 대상 플랫폼을 포함시킵니다. [REGION:note]이 옵션을 켜려면 Xbox One SDK 가 필요합니다.[/REGION] |
 | `-set:WithDDC=[true/false]` | true | 엔진 콘텐츠와 템플릿에 대한 독립형 파생 데이터 캐시(DDC)를 빌드합니다. [REGION:note]엔진과 템플릿 콘텐츠에 대한 독립형 [파생 데이터 캐시(DDC)](Engine/Basics/DerivedDataCache) 를 빌드하는 작업은 빌드의 매우 느린 부분중 하나가 될 수 있습니다. 독립형 DDC 가 필요치 않은 경우, 명령줄에 `-set:WithDDC=false` 를 붙여 이 단계를 건너뛸 수 있습니다.[/REGION] |
+| `-set:WithFullDebugInfo=[true/false]` | false | 바이너리 에디터와 패키징된 어플리케이션 빌드에 대한 전체 디버그 정보를 생성합니다. |
 | `-set:SignExecutables=[true/false]` | false | 빌드 프로세스의 일부분으로 실행파일 사이닝을 위한 머신을 구성해야 하는 경우 생성된 실행파일에 사이닝을 합니다. |
 | `-set:AnalyticsTypeOverride=[ID]` | N/A | 전송할 애널리틱 이벤트 식별자입니다. |
+| `-set:GameConfigurations=[Configurations]` | Development;Shipping | 패키징된 어플리케이션에 대한 구성을 지정합니다. |
 
 
 ### 부가 파일 포함

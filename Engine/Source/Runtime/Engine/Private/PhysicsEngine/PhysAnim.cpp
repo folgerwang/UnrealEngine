@@ -349,7 +349,10 @@ void USkeletalMeshComponent::PerformBlendPhysicsBones(const TArray<FBoneIndexTyp
 
 bool USkeletalMeshComponent::ShouldBlendPhysicsBones() const
 {
-	return Bodies.Num() > 0 && CollisionEnabledHasPhysics(GetCollisionEnabled()) && (DoAnyPhysicsBodiesHaveWeight() || bBlendPhysics);
+	const bool bHasPhysicsBodies = Bodies.Num() > 0;
+	const bool bCollisionEnabledHasPhysics = CollisionEnabledHasPhysics(GetCollisionEnabled());
+	const bool bBlendPhysicsOrWeights = DoAnyPhysicsBodiesHaveWeight() || bBlendPhysics;
+	return bHasPhysicsBodies && bCollisionEnabledHasPhysics && bBlendPhysicsOrWeights;
 }
 
 bool USkeletalMeshComponent::DoAnyPhysicsBodiesHaveWeight() const
@@ -458,6 +461,9 @@ void USkeletalMeshComponent::FinalizeAnimationUpdate()
 
 	// New bone positions need to be sent to render thread
 	MarkRenderDynamicDataDirty();
+
+	// If we have any Slave Components, they need to be refreshed as well.
+	RefreshSlaveComponents();
 }
 
 void USkeletalMeshComponent::CompleteParallelBlendPhysics()

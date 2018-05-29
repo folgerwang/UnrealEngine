@@ -190,3 +190,4 @@ REGISTER_NAME(500,PerformanceCapture)
 // Special config names - not required to be consistent for network replication
 REGISTER_NAME(600,EditorLayout)
 REGISTER_NAME(601,EditorKeyBindings)
+REGISTER_NAME(602,GameUserSettings)

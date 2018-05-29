@@ -1560,9 +1560,27 @@ public:
 
 uint32 FDynamicMeshEmitterData::GetMeshLODIndexFromProxy(const FParticleSystemSceneProxy *InOwnerProxy) const
 {
-	return 0;
-	// [op] disabling this temporarily - FORT-67139 - until I can test the VF reinit on LOD change
-//	return InOwnerProxy && EmitterIndex < InOwnerProxy->MeshEmitterLODIndices.Num() ? InOwnerProxy->MeshEmitterLODIndices[EmitterIndex] : 0;
+	int FirstAvailableLOD = 0;
+	for (; FirstAvailableLOD < StaticMesh->RenderData->LODResources.Num(); FirstAvailableLOD++)
+	{
+		if (StaticMesh->RenderData->LODResources[FirstAvailableLOD].GetNumVertices() > 0)
+		{
+			break;
+		}
+	}
+
+	// hack for FORT - 71986.  Needs to be resolved for real ASAP.  
+	// For now return the first valid LOD, should be 0 on non-mobile platforms.
+	//if (!InOwnerProxy)
+	{
+		return FirstAvailableLOD;
+	}
+	const auto FeatureLevel = InOwnerProxy->GetScene().GetFeatureLevel();
+	int32 MeshMinimumLOD = StaticMesh->MinLOD.GetValueForFeatureLevel(FeatureLevel);
+	FirstAvailableLOD = FMath::Clamp(FirstAvailableLOD, MeshMinimumLOD, StaticMesh->GetNumLODs()-1);
+	
+	int32 MeshLOD = (InOwnerProxy->MeshEmitterLODIndices.IsValidIndex(EmitterIndex)) ? InOwnerProxy->MeshEmitterLODIndices[EmitterIndex] : 0;
+	return FMath::Clamp(MeshLOD, FirstAvailableLOD, StaticMesh->GetNumLODs()-1);
 }
 
 FParticleVertexFactoryBase *FDynamicMeshEmitterData::CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, const FParticleSystemSceneProxy *InOwnerProxy)
@@ -1648,7 +1666,7 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 
 						if (FGlobalDynamicVertexBuffer::Get().IsRenderAlarmLoggingEnabled())
 						{
-							UE_LOG(LogParticles, Warning, TEXT("Panic logging.  Allocated %u bytes for Resource: %s, Owner: %s"), ParticleCount * DynamicParameterVertexStride, *Proxy->GetResourceName().ToString(), *Proxy->GetOwnerName().ToString())
+							UE_LOG(LogParticles, Warning, TEXT("Panic logging.  Allocated %u bytes for Resource: %s, Owner: %s"), ParticleCount * DynamicParameterVertexStride, *Proxy->GetResourceName().ToString(), *Proxy->GetOwnerName().ToString());
 						}
 					}
 
@@ -1785,6 +1803,7 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 			//@todo. Handle LODs.
 			for (int32 LODIndex = 0; LODIndex < 1; LODIndex++)
 			{
+				uint32 TotalTriangles = 0;
 				for (int32 SectionIndex = 0; SectionIndex < LODModel.Sections.Num(); SectionIndex++)
 				{
 					FMaterialRenderProxy* MaterialProxy = nullptr;
@@ -1794,11 +1813,20 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 					}
 					const FStaticMeshSection& Section = LODModel.Sections[SectionIndex];
 
-					if ((Section.NumTriangles == 0) || (MaterialProxy == nullptr))
+					if (Section.NumTriangles == 0)
 					{
 						//@todo. This should never occur, but it does occasionally.
+						UE_LOG(LogParticles, Warning, TEXT("Mesh section %i has 0 triangles (LOD %i)"), SectionIndex, GetMeshLODIndexFromProxy(Proxy));
 						continue;
 					}
+
+					if (MaterialProxy == nullptr)
+					{
+						UE_LOG(LogParticles, Warning, TEXT("Mesh section %i has a null material proxy (LOD %i)"), SectionIndex, GetMeshLODIndexFromProxy(Proxy));
+						continue;
+					}
+
+					TotalTriangles += Section.NumTriangles;
 
 					FMeshBatch& Mesh = Collector.AllocateMesh();
 					Mesh.VertexFactory = MeshVertexFactory;
@@ -1831,7 +1859,7 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 						{
 							Mesh.Type = PT_TriangleList;
 							Mesh.MaterialRenderProxy = MaterialProxy;
-							Mesh.bWireframe = true;	
+							Mesh.bWireframe = true;
 							BatchElement.FirstIndex = 0;
 							BatchElement.IndexBuffer = &LODModel.IndexBuffer;
 							BatchElement.NumPrimitives = LODModel.IndexBuffer.GetNumIndices() / 3;
@@ -1857,7 +1885,7 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 						BatchElement.UserIndex = 0;
 
 						Mesh.Elements.Reserve(ParticleCount);
-						for(int32 ParticleIndex = 1; ParticleIndex < ParticleCount; ++ParticleIndex)
+						for (int32 ParticleIndex = 1; ParticleIndex < ParticleCount; ++ParticleIndex)
 						{
 							FMeshBatchElement* NextElement = new(Mesh.Elements) FMeshBatchElement();
 							*NextElement = Mesh.Elements[0];
@@ -1867,14 +1895,19 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 
 					Mesh.bCanApplyViewModeOverrides = true;
 					Mesh.bUseWireframeSelectionColoring = Proxy->IsSelected();
-			
-				#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 					Mesh.VisualizeLODIndex = (int8)Proxy->GetVisualizeLODIndex();
-				#endif
+#endif
 
 					Collector.AddMesh(ViewIndex, Mesh);
 
 					INC_DWORD_STAT_BY(STAT_MeshParticlePolys, ParticleCount * LODModel.GetNumTriangles());
+				}
+
+				if (TotalTriangles == 0)
+				{
+					UE_LOG(LogParticles, Warning, TEXT("WARNING: particle mesh LOD %i has no triangles, but is reported as a valid LOD!"), GetMeshLODIndexFromProxy(Proxy));
 				}
 			}
 		}
@@ -1892,6 +1925,10 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 	{
 		if (EmitterIndex < Proxy->MeshEmitterLODIndices.Num())
 		{
+			if (Proxy->MeshEmitterLODIndices[EmitterIndex] != LastCalculatedMeshLOD)
+			{
+				Proxy->MarkEmitterVertexFactoryDirty(EmitterIndex);
+			}
 			Proxy->MeshEmitterLODIndices[EmitterIndex] = LastCalculatedMeshLOD;
 		}
 	}
@@ -2401,8 +2438,8 @@ void FDynamicMeshEmitterData::GetInstanceData(void* InstanceData, void* DynamicP
 			{
 				ParticlePos = Proxy->GetLocalToWorld().TransformPosition(ParticlePos);
 			}
-			FVector ParticleSize = Particle.Size*TransMat.GetScaleVector();
-			int32 LODIndexToUse = ComputeStaticMeshLOD(StaticMesh->RenderData.Get(), ParticlePos, ParticleSize.Size(), *View, 0, TotalLODSizeScale);
+			FVector ParticleSize = TransMat.TransformVector(Particle.Size);
+			int32 LODIndexToUse = ComputeStaticMeshLOD(StaticMesh->RenderData.Get(), ParticlePos, ParticleSize.Size()*0.5f*StaticMesh->GetBounds().SphereRadius, *View, 0, TotalLODSizeScale);
 			LODIndexToUse = FMath::Min(LODIndexToUse, StaticMesh->GetNumLODs() - 1);
 			LastCalculatedMeshLOD = LODIndexToUse < LastCalculatedMeshLOD ? LODIndexToUse : LastCalculatedMeshLOD;
 		}
@@ -6918,10 +6955,7 @@ void FParticleSystemSceneProxy::GetDynamicMeshElements(const TArray<const FScene
 				{
 					if (VisibilityMap & (1 << ViewIndex))
 					{
-
 						const FSceneView* View = Views[ViewIndex];
-
-
 						Data->GetDynamicMeshElementsEmitter(this, View, ViewFamily, ViewIndex, Collector, VertexFactory);
 						NumDraws++;
 					}
@@ -7306,3 +7340,4 @@ ENGINE_API void DrawParticleSystemHelpers(const FSceneView* View,FPrimitiveDrawI
 	}
 }
 #endif	//#if WITH_EDITOR
+

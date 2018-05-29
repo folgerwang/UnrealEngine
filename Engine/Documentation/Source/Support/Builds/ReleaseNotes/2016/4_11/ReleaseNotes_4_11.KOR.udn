@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3403469
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title:언리얼 엔진 4.11 릴리즈 노트
 Crumbs:%ROOT%, Engine
@@ -33,11 +33,11 @@ Anton Olkhovik (Sektor), Alessandro Osima (AlessandroOsima), Alexandru Pană (al
 
 **가비지 컬렉션** 속도가 빨라졌습니다. 이제 가비지 컬렉션 "클러스터"를 지원, 엔진이 오브젝트 그룹을 하나의 단위로 취급하도록 하여, 고려할 오브젝트 갯수를 현저히 줄이는 것이 가능해졌습니다. 현재 머티리얼과 파티클 시스템에 대해서만 클러스터가 지원됩니다. 추가적으로 마킹 & 소멸 단계가 캐시와의 일관성이 높아져, 시간적인 면에서는 1/9 로 감소되고, 도달가능성 분석 단계 도중에서도 메모리 교란(churn) 정도가 줄었습니다.
 
-**멀티 스레드 애니메이션**. 애니메이션 그래프 업데이트가 이제 워커 스레드에서 실행되어 다수의 애니메이션 캐릭터를 복수 코어에 배분시킬 수 있게 되었습니다. 애니메이션 관련 API 다수가 폐기되고, 애니메이션 그래프의 워커 스레드 실행상 제약이 있으니 업그레이드 노트를 참고하시기 바랍니다.
+**멀티 스레드 애니메이션.** 애니메이션 그래프 업데이트가 이제 워커 스레드에서 실행되어 다수의 애니메이션 캐릭터를 복수 코어에 배분시킬 수 있게 되었습니다. 애니메이션 관련 API 다수가 폐기되고, 애니메이션 그래프의 워커 스레드 실행상 제약이 있으니 업그레이드 노트를 참고하시기 바랍니다.
 
-**즉시 애니메이션 변수 접근**. 애니메이션 그래프 업데이트에 변수 접근을 위한 '빠른 경로'를 추가했습니다. 그 덕에 블루프린트 코드 실행 없이 내부적으로 파라마터를 복사해 주기만 하면 됩니다. 현재 컴파일러가 최적화할 수 있는 구조체는, 멤버 변수, 무효화된 불리언 멤버 변수, 중첩 구조체의 멤버입니다.
+**즉시 애니메이션 변수 접근.** 애니메이션 그래프 업데이트에 변수 접근을 위한 '빠른 경로'를 추가했습니다. 그 덕에 블루프린트 코드 실행 없이 내부적으로 파라마터를 복사해 주기만 하면 됩니다. 현재 컴파일러가 최적화할 수 있는 구조체는, 멤버 변수, 무효화된 불리언 멤버 변수, 중첩 구조체의 멤버입니다.
 
-**애니티브 애니메이션 '굽기'**. 이제 **애디티브 애니메이션 굽기** 를 켤 수 있는 옵션이 생겼습니다. 이로 인해 애디티브 애니메이션 사용이 약 **3 배 빨라졌습니다**. 애디티브 애니메이션의 델타 포즈 계산에 소요되는 작업이 실행시간이 아닌 쿠킹 시간에 이루어집니다. 그 덕에 애디티브 델타 생성에 관련된 계산 작업뿐 아니라, 베이스 애니메이션 압축해제를 더이상 실행시간에 할 필요가 없어 그에 관련된 메모리 접근 및 할당도 줄었습니다. 이 기능을 켜면 쿠킹 시간이 늘어나므로, a.UseBakedAdditiveAnimations 콘솔 변수를 1 로 설정하여 켜줘야 합니다. 앞으로의 엔진 버전에서는 이러한 부분을 피하도록 애니메이션 쿠킹을 다시 하고, 이 최적화를 영구히 켜도록 할 것입니다.
+**애니티브 애니메이션 '굽기'.** 이제 **애디티브 애니메이션 굽기** 를 켤 수 있는 옵션이 생겼습니다. 이로 인해 애디티브 애니메이션 사용이 약 **3 배 빨라졌습니다**. 애디티브 애니메이션의 델타 포즈 계산에 소요되는 작업이 실행시간이 아닌 쿠킹 시간에 이루어집니다. 그 덕에 애디티브 델타 생성에 관련된 계산 작업뿐 아니라, 베이스 애니메이션 압축해제를 더이상 실행시간에 할 필요가 없어 그에 관련된 메모리 접근 및 할당도 줄었습니다. 이 기능을 켜면 쿠킹 시간이 늘어나므로, a.UseBakedAdditiveAnimations 콘솔 변수를 1 로 설정하여 켜줘야 합니다. 앞으로의 엔진 버전에서는 이러한 부분을 피하도록 애니메이션 쿠킹을 다시 하고, 이 최적화를 영구히 켜도록 할 것입니다.
 
 ## 신규: 실사 헤어 셰이딩
 
@@ -455,7 +455,7 @@ UE4 는 이제 단순한 레이캐스트 기반 사운드 오클루전을 지원
 
 ## 신규: 사운드 컨커런시
 
-새로운 컨커런시 (동시재생) 시스템은 사운드 인스턴스에서 동시재생 데이터를 제거한 뒤 별도의 애셋에 집어넣습니다. 콘텐츠 브라우저의 “새 애셋” 메뉴 아래 **Sound Concurrency** (사운드 컨커런시)를 선택하면 됩니다.
+새로운 컨커런시 (동시재생) 시스템은 사운드 인스턴스에서 동시재생 데이터를 제거한 뒤 별도의 애셋에 집어넣습니다. 콘텐츠 브라우저의 "새 애셋" 메뉴 아래 **Sound Concurrency** (사운드 컨커런시)를 선택하면 됩니다.
 
 기존 Max Count (최대 카운트)와 Resolution Rule (개석 규칙)에 추가로, 사운드 컨커런시 오브젝트에는 몇 가지 동시재생 관련 부가기능이 있는데, 다음과 같습니다.
 
@@ -535,7 +535,7 @@ C 의 VolumeScale = (0.9)0 = 1.0
 
 머티리얼 병합 프로세스는 이제 버텍스별 컬러, 버텍스 위치, 버텍스 노멀 등의 머티리얼 프로퍼티를 추가 지원합니다. 월드 스페이스 텍스처링, 표면 노멀에 따른 눈이나 이끼 블렌드 인, 버텍스 컬러로 머티리얼 레이어 마스크 적용과 같은 작업이 HLOD 에도 가능합니다.
 
-픽셀별 노멀이나 월드-탄젠트 트랜스폼같은 기능은 아직 지원되지 않습니다. 그러한 경우, 또는 HLOD 에 다양한 또는 단순화된 머티리얼을 사용하고자 하는 경우, **Material Proxy Replace** 노드를 사용하면 됩니다. **Lightmass Replace** 노드처럼 사용됩니다: "실시간" 입력이 실행시간에 사용되고, “머티리얼 프록시” 입력은 생성 프로세스 도중에만 사용됩니다.
+픽셀별 노멀이나 월드-탄젠트 트랜스폼같은 기능은 아직 지원되지 않습니다. 그러한 경우, 또는 HLOD 에 다양한 또는 단순화된 머티리얼을 사용하고자 하는 경우, **Material Proxy Replace** 노드를 사용하면 됩니다. **Lightmass Replace** 노드처럼 사용됩니다: "실시간" 입력이 실행시간에 사용되고, "머티리얼 프록시" 입력은 생성 프로세스 도중에만 사용됩니다.
 
 머티리얼 병합 프로세스에 대한 세팅은 이제 **월드 세팅** 패널뿐 아니라 **HLOD 아웃라이너** 패널에서도 찾을 수 있습니다.
 
@@ -613,7 +613,7 @@ Sequencer (시퀀서), 비선형 시네마틱 애니메이션 시스템이 새�
 
 플러그인 패널을 열고 Level Sequence Editor (레벨 시퀀스 에디터) 플러그인을 켠 뒤 에디터를 재시작하면 시퀀서를 켤 수 있습니다.
 
-# 릴리즈 노트
+# Release Notes
 
 ### AI
 
@@ -787,7 +787,7 @@ Sequencer (시퀀서), 비선형 시네마틱 애니메이션 시스템이 새�
 
 ![image alt text](image_52.png)
 
-* **New: Per-Animation ****Compression**** Settings**
+* **New: Per-Animation **Compression** Settings
 
     * You can now set **animation compression **on a **per-animation** basis. 
 
@@ -1071,13 +1071,13 @@ Sequencer (시퀀서), 비선형 시네마틱 애니메이션 시스템이 새�
 
 * The *PrintString* and *PrintText* system library functions have now been marked *DevelopmentOnly* by default. This allows for a quick removal of Blueprint logging in the final build product.
 
-* To get packaged/cooked Blueprints to compile without the "*DevelopmentOnly*“ nodes, disable the “Compile Blueprints in Development Mode" option found in the project's Cooker settings (this option is on by default to preserve functionality).
+* To get packaged/cooked Blueprints to compile without the "*DevelopmentOnly*"nodes, disable the "Compile Blueprints in Development Mode" option found in the project's Cooker settings (this option is on by default to preserve functionality).
 
 * **New: Condensed Blueprint Struct Nodes**
 
     * We've improved and refined usability for structs that contain toggle values that are conceptually linked to other property "settings" in the same struct (like how our PostProcessSettings struct operates). ![image alt text](image_56.png)
 
-* Different override/enabled states are now managed through a toggle or dropdown widget that is exposed along with the setting on "Make Struct" and “Set Member” nodes.
+* Different override/enabled states are now managed through a toggle or dropdown widget that is exposed along with the setting on "Make Struct" and "Set Member" nodes.
 
 * To associate a toggle variable with another property, use the "*EditCondition*" metadata like is pictured above.
 
@@ -1477,7 +1477,7 @@ Sequencer (시퀀서), 비선형 시네마틱 애니메이션 시스템이 새�
 
     * Switched 'stat hitches' display to use the t.HitchFrameTimeThreshold value, and updated coloring to use the related coloring thresholds (at 25% of the hitch value) instead of using hardcoded yellow at 100 ms and red at 200 ms.
 
-* New: Added "stat startfile", “stat stopfile”, “stat hitches”, and “stat namedevents” to the console command autocomplete list.
+* New: Added "stat startfile", "stat stopfile", "stat hitches", and "stat namedevents" to the console command autocomplete list.
 
 * New: Active class redirectors map is loaded from all config files, so plugins can define redirectors.
 
@@ -1865,7 +1865,7 @@ Sequencer (시퀀서), 비선형 시네마틱 애니메이션 시스템이 새�
 
 * Bugfix: Duplicating, in a Property Tree, an array of instanced objects will correctly deep copy the objects instead of a shallow (referenced) copy.
 
-* Bugfix: FBX exporter has two 픽스:
+* Bugfix: FBX exporter has two fixes:
 
     * Fixed the export order to make sure the hierarchy is exported correctly.
 
@@ -2715,7 +2715,7 @@ Sequencer (시퀀서), 비선형 시네마틱 애니메이션 시스템이 새�
 
 * Bugfix: Networking: Processing UDP receive buffer only if bytes received.
 
-* Bugfix: Ping calculation 픽스:
+* Bugfix: Ping calculation fixes:
 
     * Fix bug where extra acks were contributing to ping.
 
@@ -2825,7 +2825,7 @@ A "-" in front of the stat indicates that this stat should not be counted for th
 
 To bring up this view simply use budget <section name>
 
-You can also filter stat and budget groups by root strings. For example, "stat anim -root=MainPlayerHero" will show the stats that you'd expect from “stat anim” but will filter by UObjects that have “MainPlayerHero” as a substring of their name. This is not limited to UObjects as it's simply looking at parent stats with that substring in their name.
+You can also filter stat and budget groups by root strings. For example, "stat anim -root=MainPlayerHero" will show the stats that you'd expect from "stat anim" but will filter by UObjects that have "MainPlayerHero" as a substring of their name. This is not limited to UObjects as it's simply looking at parent stats with that substring in their name.
 
 Stats are automatically broken into the threads they execute on and can appear in multiple threads if that is the case.
 
@@ -3345,13 +3345,13 @@ Stats are automatically broken into the threads they execute on and can appear i
 
 * New: Extended the ShaderCache to perform batched shader precompilation which can be made more aggressive behind loading screens to reduce the time to load while still minimising in-game hitching.
 
-    * With "r.UseAsyncShaderPrecompilation” enabled shader precompilation is now executed on the render thread alongside the predraw, not as a single operation on loading the binary cache.
+    * With "r.UseAsyncShaderPrecompilation" enabled shader precompilation is now executed on the render thread alongside the predraw, not as a single operation on loading the binary cache.
 
     * The setting "r.TargetPrecompileFrameTime" controls what the target frame rate should be when performing async. precompile and the shader cache will try and adjust how many shaders to precompile to stay within this limit, with a minimum of 1 shader per frame.
 
     * The shader cache is now updated during initial loading to take advantage of the time spent loading essential data to do as much of the precompile as possible.
 
-    * It is possible to accelerate the shader cache's precompilation by specifying 'r.AccelPredrawBatchTime' and "r.AccelTargetPrecompileFrameTime” to larger values, then calling FShaderCache::BeginAcceleratedBatching() to start using the more aggressive values and FShaderCache::EndAcceleratedBatching() to go back to the normal values.
+    * It is possible to accelerate the shader cache's precompilation by specifying 'r.AccelPredrawBatchTime' and "r.AccelTargetPrecompileFrameTime" to larger values, then calling FShaderCache::BeginAcceleratedBatching() to start using the more aggressive values and FShaderCache::EndAcceleratedBatching() to go back to the normal values.
 
     * Calling FShaderCache::FlushOutstandingBatches() will force completion of all outstanding batched precompilation and predraws during the next frame.
 
@@ -5647,83 +5647,83 @@ Stats are automatically broken into the threads they execute on and can appear i
 
     * Here is an example of how one would build a custom native AnimInstance class using the new proxy, granting Blueprint access to its innards and avoiding copies of shared data between the proxy and the instance:
 
-USTRUCT()
+			USTRUCT()
 
-struct FExampleAnimInstanceProxy : public FAnimInstanceProxy
+			struct FExampleAnimInstanceProxy : public FAnimInstanceProxy
 
-{
+			{
 
-	GENERATED_BODY()
+				GENERATED_BODY()
 
-	FExampleAnimInstanceProxy()
+				FExampleAnimInstanceProxy()
 
-	: FAnimInstanceProxy()
+				: FAnimInstanceProxy()
 
-	{}
+				{}
 
-	FExampleAnimInstanceProxy(UAnimInstance* Instance);
+				FExampleAnimInstanceProxy(UAnimInstance* Instance);
 
-	virtual void Update(float DeltaSeconds) override
+				virtual void Update(float DeltaSeconds) override
 
-	{
+				{
 
-		// Update internal variables
+					// Update internal variables
 
-		MovementAngle += 1.0f * DeltaSeconds;
+					MovementAngle += 1.0f * DeltaSeconds;
 
-		HorizontalSpeed = FMath::Max(0.0f, HorizontalSpeed - DeltaSeconds);
+					HorizontalSpeed = FMath::Max(0.0f, HorizontalSpeed - DeltaSeconds);
 
-	}
+				}
 
-public:
+			public:
 
-	UPROPERTY(Transient, BlueprintReadWrite, EditAnywhere, Category = "Example")
+				UPROPERTY(Transient, BlueprintReadWrite, EditAnywhere, Category = "Example")
 
-	float MovementAngle;
+				float MovementAngle;
 
-	UPROPERTY(Transient, BlueprintReadWrite, EditAnywhere, Category = "Example")
+				UPROPERTY(Transient, BlueprintReadWrite, EditAnywhere, Category = "Example")
 
-	float HorizontalSpeed;
+				float HorizontalSpeed;
 
-};
+			};
 
-UCLASS(Transient, Blueprintable)
+			UCLASS(Transient, Blueprintable)
 
-class UExampleAnimInstance : public UAnimInstance
+			class UExampleAnimInstance : public UAnimInstance
 
-{
+			{
 
-	GENERATED_UCLASS_BODY()
+				GENERATED_UCLASS_BODY()
 
-private:
+			private:
 
-	// The AllowPrivateAccess meta flag will allow this to be exposed to Blueprint,
+				// The AllowPrivateAccess meta flag will allow this to be exposed to Blueprint,
 
-	// but only to graphs internal to this class.
+				// but only to graphs internal to this class.
 
-	UPROPERTY(Transient, BlueprintReadOnly, Category = "Example", meta = (AllowPrivateAccess = "true"))
+				UPROPERTY(Transient, BlueprintReadOnly, Category = "Example", meta = (AllowPrivateAccess = "true"))
 
-	FExampleAnimInstanceProxy Proxy;
+				FExampleAnimInstanceProxy Proxy;
 
-	virtual FAnimInstanceProxy* CreateAnimInstanceProxy() override
+				virtual FAnimInstanceProxy* CreateAnimInstanceProxy() override
 
-	{
+				{
 
-		// override this to just return the proxy on this instance
+					// override this to just return the proxy on this instance
 
-		return &Proxy;
+					return &Proxy;
 
-	}
+				}
 
-	virtual void DestroyAnimInstanceProxy(FAnimInstanceProxy* InProxy) override
+				virtual void DestroyAnimInstanceProxy(FAnimInstanceProxy* InProxy) override
 
-	{
+				{
 
-	}
+				}
 
-	friend struct FExampleAnimInstanceProxy;
+				friend struct FExampleAnimInstanceProxy;
 
-};
+			};
 
 * The following functions and variables of the **UAnimInstance** class are **now deprecated**:
 

@@ -1,50 +1,12 @@
-﻿INTSourceChangelist:3507178
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title:Reflection Environment (反射環境)
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
 Description:光沢のある部分反射をキャプチャして表示する機能
 Version:4.14
+topic-image:reflection_topic.png
 
 [TOC(start:2)]
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/ReflectionEnvironment:title%](%ROOT%/Engine/Rendering/LightingAndShadows/ReflectionEnvironment/reflection_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	![](%ROOT%/ue4_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-	%Engine/Rendering/LightingAndShadows/ReflectionEnvironment:title%
-	[/PARAM]
-	[PARAM:description]
-	%Engine/Rendering/LightingAndShadows/ReflectionEnvironment:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/ReflectionEnvironment]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/ReflectionEnvironment:title%](%ROOT%/Engine/Rendering/LightingAndShadows/ReflectionEnvironment/reflection_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	![](%ROOT%/ue4_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-	%Engine/Rendering/LightingAndShadows/ReflectionEnvironment:title%
-	[/PARAM]
-	[PARAM:description]
-	%Engine/Rendering/LightingAndShadows/ReflectionEnvironment:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/ReflectionEnvironment]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [EXCERPT:ReflectionEnv001]
 **Reflection Environment (反射環境)** は、レベルのあらゆる領域に効率的な反射を作成する機能です。メタルなど 
@@ -184,7 +146,7 @@ UE4 コンソールで以下のコマンドを調節すると、ライトマッ�
  
 * **r.ReflectionEnvironmentBeginMixingRoughness (default = 0.1)**
 * **r.ReflectionEnvironmentEndMixingRoughness (default = 0.3)**
-* ** r.ReflectionEnvironmentLightmapMixBasedOnRoughness (default = 1)**
+* **r.ReflectionEnvironmentLightmapMixBasedOnRoughness (default = 1)**
 * **r.ReflectionEnvironmentLightmapMixLargestWeight (default = 1000)**
 
 ## 質の高い反射
@@ -202,19 +164,19 @@ UE4 コンソールで以下のコマンドを調節すると、ライトマッ�
 1. スタティクメッシュ エディタの **[Details (詳細)]** パネルの **[LOD0]** オプションを展開します。
 
 	[REGION:lightbox]
-	[![](SM_HP_Vertex_Normals_00.png)(w:400 h:350)](SM_HP_Vertex_Normals_00.png)
+	[![](SM_HP_Vertex_Normals_00.png)(w:400)](SM_HP_Vertex_Normals_00.png)
 	[/REGION]
 
 1. **LOD0** の一番下に、**[Build Settings (ビルド設定)]** というセクションがあります。[Build Settings (ビルド設定)] の横の小さい三角をクリックしてビルド設定オプションを展開します。
 
 	[REGION:lightbox]
-	[![](SM_HP_Vertex_Normals_01.png)(w:400 h:350)](SM_HP_Vertex_Normals_01.png)
+	[![](SM_HP_Vertex_Normals_01.png)(w:400)](SM_HP_Vertex_Normals_01.png)
 	[/REGION]
 
 1. 名前の横のチェックボックスをクリックして **[Use High Precision Tangent Basis]** オプションを有効にして **[Apply Changes (変更を適用)]** ボタンを押して新規設定を適用します。
 
 	[REGION:lightbox]
-	[![](SM_HP_Vertex_Normals_02.png)(w:400 h:350)](SM_HP_Vertex_Normals_02.png)
+	[![](SM_HP_Vertex_Normals_02.png)(w:400)](SM_HP_Vertex_Normals_02.png)
 	[/REGION]
 
 ビューポートは変更を自動的に更新します。 
@@ -233,7 +195,7 @@ UE4 コンソールで以下のコマンドを調節すると、ライトマッ�
 [/OBJECT]
 
 [REGION:lightbox]
-[![](SM_HP_Vertex_Normals_Wireframe.png)(w:582 h:580)](SM_HP_Vertex_Normals_Wireframe.png)
+[![](SM_HP_Vertex_Normals_Wireframe.png)(w:582)](SM_HP_Vertex_Normals_Wireframe.png)
 [/REGION]
 
 
@@ -246,13 +208,13 @@ UE4 コンソールで以下のコマンドを調節すると、ライトマッ�
 1. **メイン ツールバー** で、 **[Edit (編集)] > [Project Settings (プロジェクト設定)]** の順に選択します。
 
 	[REGION:lightbox]
-	[![](ARCS_00.png)(w:400 h:350)](ARCS_00.png)
+	[![](ARCS_00.png)(w:400)](ARCS_00.png)
 	[/REGION]
 
 1. [Project Settings (プロジェクト設定)] の **[Engine]** セクションで、**[Rendering]** オプションをクリックし、**[Optimizations (最適化)]** セクションで **[Gbuffer Format]** を **[Default]** から **[High Precision Normals (精度の高い法線)]** に変更します。
 
 	[REGION:lightbox]
-	[![](HPGBuffer_01.png)(w:400 h:350)](HPGBuffer_01.png)
+	[![](HPGBuffer_01.png)(w:400)](HPGBuffer_01.png)
 	[/REGION]
 
 	[region:warning]
@@ -317,7 +279,7 @@ GBuffer フォーマットを変更してもエディタの再起動は必要な
 ライドの輝度の変更やレベル ジオメトリの移動など、レベルに何かしら編集を行う場合、反射キャプチャ アクタを選択し、**[Update Captures (キャプチャを更新する)]** ボタンをクリックして変更を伝播します。 
 
 [REGION:lightbox]
-[![](Update_Captures_Button.png)(w:400 h:350)](Update_Captures_Button.png)
+[![](Update_Captures_Button.png)(w:400)](Update_Captures_Button.png)
 [/REGION]
 
 ### リフレクション プローブで Custom HDRI Cubemap を使う
@@ -338,7 +300,7 @@ GBuffer フォーマットを変更してもエディタの再起動は必要な
 1. まず、HDRI キューブマップ テクスチャが使用できる状態であることを確認してください。プロジェクトに HDRI キューブマップ テクスチャがなければ、スターター コンテンツに **「HDRI_Epic_Courtyard_Daylight」** というテクスチャがあります。
 
 	[REGION:lightbox]
-	[![](Custom_Cubemap_00.png)(w:400 h:350)](Custom_Cubemap_00.png)
+	[![](Custom_Cubemap_00.png)(w:400)](Custom_Cubemap_00.png)
 	[/REGION]
 
 	[region:note]
@@ -349,35 +311,35 @@ GBuffer フォーマットを変更してもエディタの再起動は必要な
 1. レベルに配置されている **リフレクション プローブ** アクタを選択して **[Details (詳細)]** パネルの **[Reflection Capture (反射キャプチャ)]]** セクションで、**[Reflection Source Type (反射ソース タイプ)]** を **[Captured Scene (キャプチャしたシーン)]** から **[Specified Cubemap (指定したキューブマップ)]** へ変更します。
 
 	[REGION:lightbox]
-	[![](Custom_Cubemap_01.png)(w:400 h:350)](Custom_Cubemap_01.png)
+	[![](Custom_Cubemap_01.png)(w:400)](Custom_Cubemap_01.png)
 	[/REGION]
 
 1. レベルでリフレクション プローブアクタを選択した状態で、コンテンツ ブラウザから使用する HDRI テクスチャを選択します。次に、反射キャプチャ アクタの **Reflection Capture** で、コンテンツ ブラウザから HDRI テクスチャを **Cubemap** 入力へドラッグします。
 
 	[REGION:lightbox]
-	[![](Custom_Cubemap_02.png)(w:400 h:350)](Custom_Cubemap_02.png)
+	[![](Custom_Cubemap_02.png)(w:400)](Custom_Cubemap_02.png)
 	[/REGION]
 
 1. **[Update Capture]** ボタンを押して、反射キャプチャ アクタを更新して、指定した新しいHDRI キューブマップ テクスチャで使えるようにします。 
 
 	[REGION:lightbox]
-	[![](Custom_Cubemap_03.png)(w:400 h:350)](Custom_Cubemap_03.png)
+	[![](Custom_Cubemap_03.png)(w:400)](Custom_Cubemap_03.png)
 	[/REGION]
 
 ### リフレクション プローブの解像度の調整
 
 反射キャプチャ アクタに使用している HDRI キューブマップの解像度をグローバルに調整するには、以下の手順に従います。 
 
-1. まず、メインツールバーから **[Project Settings (プロジェクト設定)]** を開いて、**[Edit (編集)]** オプション、次に **[Project Settings (プロジェクト設定)]** を選択します。
+1. まず、メインツールバーから **[Project Settings (プロジェクト設定)]** を開いて、**[Edit (編集)]** オプション、次に **[Project Settings (プロジェクト設定)]** を選択します。	
 
 	[REGION:lightbox]
-	[![](ARCS_00.png)(w:400 h:350)](ARCS_00.png)
+	[![](ARCS_00.png)(w:400)](ARCS_00.png)
 	[/REGION]
 
 1. [Project Settings (プロジェクト設定)] メニューから **[Engine (エンジン)]** > **[Rendering (レンダリング)]** セクションの **[Textures]** オプションを開きます。
 
 	[REGION:lightbox]
-	[![](ARCS_01.png)(w:400 h:350)](ARCS_01.png)
+	[![](ARCS_01.png)(w:400)](ARCS_01.png)
 	[/REGION]
 
 1. **[Reflection Capture Resolution]** オプションで、指定した HDRI キューブマップの大きさの増減を調節することができます。
@@ -400,25 +362,25 @@ GBuffer フォーマットを変更してもエディタの再起動は必要な
 1. **[Mode]** パネルの **[Lights]** セクションで、**[Skylight]** を選択してレベルにドラッグします。 
 
 	[REGION:lightbox]
-	[![](Skylight_Reflection_00.png)(w:500 h:300)](Skylight_Reflection_00.png)
+	[![](Skylight_Reflection_00.png)(w:500)](Skylight_Reflection_00.png)
 	[/REGION]
 
 1. そのスカイライトを選択して **[Details (詳細)]** パネルの **[Light]** セクションの **[Source Type (ソースタイプ)]** を **[SLS Captured Scene (SLS キャプチャしたシーン)]** から **[SLS Specified Cubemap (SLS 指定したキューブマップ)]** へ変更します。
 
 	[REGION:lightbox]
-	[![](Skylight_Reflection_01.png)(w:500 h:300)](Skylight_Reflection_01.png)
+	[![](Skylight_Reflection_01.png)(w:500)](Skylight_Reflection_01.png)
 	[/REGION]
 
 1. **[Cubemap]** セクションのドロップダウン ボックスをクリックして、リストから HDRI キューブマップを選択します。
 
 	[REGION:lightbox]
-	[![](Skylight_Reflection_02.png)(w:300 h:300)](Skylight_Reflection_02.png)
+	[![](Skylight_Reflection_02.png)(w:300)](Skylight_Reflection_02.png)
 	[/REGION]
 
 1. 選択したキューブマップに対して **Cubemap Resolution** 入力の値を変更して解像度を調節することができます。
 
 	[REGION:lightbox]
-	[![](Skylight_Reflection_03.png)(w:300 h:300)](Skylight_Reflection_03.png)
+	[![](Skylight_Reflection_03.png)(w:300)](Skylight_Reflection_03.png)
 	[/REGION]
 
 	[region:note]
@@ -432,25 +394,25 @@ GBuffer フォーマットを変更してもエディタの再起動は必要な
 1. まず **リフレクション プローブ** を最低 1 つレベルに追加し **[Reflection Source Type (反射ソース タイプ)]** を **[Specified Cubemap (指定したキューブマップ)]** に変更して HDRI テクスチャを **Cubemap** 入力へつなぎます。 
 
 	[REGION:lightbox]
-	[![](Blend_RFD_00.png)(w:600 h:400)](Blend_RFD_00.png)
+	[![](Blend_RFD_00.png)(w:600)](Blend_RFD_00.png)
 	[/REGION]
 
 1. レベルにリフレクション プローブを複製または追加して、黄色の影響半径が最初のリフレクション プローブと交わるように **影響半径** を配置 / 調整します。 
 
 	[REGION:lightbox]
-	[![](Blend_RFD_01.png)(w:600 h:400)](Blend_RFD_01.png)
+	[![](Blend_RFD_01.png)(w:600)](Blend_RFD_01.png)
 	[/REGION]
 
 1. 新規に複製 / 作成したリフレクション プローブ アクタを選択し、**[Details (詳細)]** パネルの **[Cubemap]** セクションで、HDRI キューブマップを別のものに変更します。
 
 	[REGION:lightbox]
-	[![](Blend_RFD_02.png)(w:600 h:400)](Blend_RFD_02.png)
+	[![](Blend_RFD_02.png)(w:600)](Blend_RFD_02.png)
 	[/REGION]
 
 1. 複製 / 追加しリフレクション プローブを選択したままの状態で、**[Details (詳細)]** パネルの **[Reflection Capture]** セクションの **[Update Captures (キャプチャを更新)]** ボタンを押して Cubemap 入力にした値を使用するためにリフレクションを更新します。
 
 	[REGION:lightbox]
-	[![](Blend_RFD_03.png)(w:600 h:400)](Blend_RFD_03.png)
+	[![](Blend_RFD_03.png)(w:600)](Blend_RFD_03.png)
 	[/REGION]
 
 1. レベル内でリフレクション プローブを選択して移動すると、この 2 つの HDRI キューブマップがどのようにブレンドされるのか理解できます。

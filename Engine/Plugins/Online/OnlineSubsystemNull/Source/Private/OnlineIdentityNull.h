@@ -1,11 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
- 
+
 #include "CoreMinimal.h"
 #include "UObject/CoreOnline.h"
 #include "OnlineSubsystemTypes.h"
 #include "Interfaces/OnlineIdentityInterface.h"
+#include "OnlineSubsystemNullTypes.h"
 
 class FOnlineSubsystemNull;
 
@@ -34,7 +35,7 @@ public:
 	// FUserOnlineAccountNull
 
 	FUserOnlineAccountNull(const FString& InUserId=TEXT("")) 
-		: UserIdPtr(new FUniqueNetIdString(InUserId))
+		: UserIdPtr(new FUniqueNetIdNull(InUserId))
 	{ }
 
 	virtual ~FUserOnlineAccountNull()
@@ -105,7 +106,7 @@ private:
 	TMap<int32, TSharedPtr<const FUniqueNetId>> UserIds;
 
 	/** Ids mapped to locally registered users */
-	TMap<FUniqueNetIdString, TSharedRef<FUserOnlineAccountNull>> UserAccounts;
+	TMap<FUniqueNetIdNull, TSharedRef<FUserOnlineAccountNull>> UserAccounts;
 };
 
 typedef TSharedPtr<FOnlineIdentityNull, ESPMode::ThreadSafe> FOnlineIdentityNullPtr;

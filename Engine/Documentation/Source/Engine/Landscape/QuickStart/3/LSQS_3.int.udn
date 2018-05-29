@@ -29,7 +29,7 @@ Sculpting the **Landscape** is a rather easy but time consuming process. All of 
 
 | **Common Controls** | **Operation** |
 | --- | --- |
-| ** Ctrl**| Will allow you to select Landscape components. |
+| **Ctrl**| Will allow you to select Landscape components. |
 | **Left Mouse Button** | Heightens or increases the heightmap or selected layer's weight. For example, in Sculpting mode, this will raise the Landscape heighmap. In Paint mode, this will apply the selected material to the Landscape. |
 | **Shift + Left Mouse Button**| Lowers or decreases the heightmap or selected layer's weight. For example, in Sculpting mode, this will lower the Landscape heightmap. In Paint mode, this will erase the selected material that was applied to a particular section of the Landscape. |
 | **Ctrl + Z** | Undoes last action. |

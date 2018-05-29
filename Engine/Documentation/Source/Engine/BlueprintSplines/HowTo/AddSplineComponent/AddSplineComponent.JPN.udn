@@ -1,5 +1,4 @@
-﻿INTSourceChangeList:3149199
-Availability:Public
+﻿Availability:Public
 Title: ブループリントにコンポーネントを追加する
 Crumbs: %ROOT%, Engine
 Description:以下は、Blueprint アクタに Spline または Spline Mesh コンポーネントを追加するステップです。
@@ -12,45 +11,7 @@ skilllevel:Beginner
 related:Engine/BlueprintSplines/HowTo/EditSplineComponentInEditor
 related:Engine/BlueprintSplines/HowTo/EditSplineInConstScript
 tags:Splines
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/BlueprintSplines/HowTo/AddSplineComponent:title%](Engine/BlueprintSplines/Splines_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/BlueprintSplines/HowTo/AddSplineComponent:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/BlueprintSplines/HowTo/AddSplineComponent:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/BlueprintSplines/HowTo/AddSplineComponent]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/BlueprintSplines/HowTo/AddSplineComponent:title%](Engine/BlueprintSplines/Splines_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/BlueprintSplines/HowTo/AddSplineComponent:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/BlueprintSplines/HowTo/AddSplineComponent:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/BlueprintSplines/HowTo/AddSplineComponent]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/BlueprintSplines/Splines_topic.png
 
 
 **Blueprint Spline コンポーネント** あるいは **Blueprint Spline Mesh コンポーネント** を利用できるすべてのブループリントに追加するために必要なステップを説明します。この 2 つのコンポーネントには、リンクを **Actor** (ポーン、キャラクターなど) へ再度トレース可能なクラスから継承されたブループリントが必要です。

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3260884
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title:ランドスケープの屋外テレイン
 Crumbs:%ROOT%, Engine
@@ -6,46 +6,7 @@ Description:広大で開放的なアウトドア環境を作成するテレイ�
 version:4.9
 parent:Engine
 order:10
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Landscape:title%](Engine/Landscape/landscape_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/landscape_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Landscape:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Landscape:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Landscape]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Landscape:title%](Engine/Landscape/landscape_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/landscape_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Landscape:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Landscape:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Landscape]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:landscape_topic.png
 
 [REGION:banner]
 ![Landscape](landscape_landing_banner.png)
@@ -53,7 +14,7 @@ order:10
 
 [EXCERPT:landscape002]
 
-[DIR(output:"topiccompact" parent:"Engine/Landscape")]
+[DIR(output:"topiccompact" parent:"Engine/Landscape" org:"hierarchy" end:"1")]
 
 [/EXCERPT:landscape002]
 
@@ -76,9 +37,9 @@ Landscape Tool モードでは、Landscape Tool モードのウィンドウの�
 [EXCERPT:LandscapeToolModes2] 
 | アイコン | モード | 説明 |
 | ---- | ---- | ----------- |
-| ![](Engine/Landscape\Editing\Landscape_ManageMode.png) | **Manage モード** | ランドスケープの新規作成とランドスケープ コンポーネントの修正を有効にします。Manage モードは、ランドスケープの各部をコピー、貼り付け、インポート、エクスポートするために [ランドスケープ ギズモ](Engine/Landscape\Editing\Gizmos) で作業を行うモードでもあります。 <br/> Manage モードに関する詳細は、 [](Engine/Landscape\Editing\ManageMode) を参照してください。 |
-| ![](Engine/Landscape\Editing\Landscape_SculptMode.png)| **Sculpt モード** | 特定のツールを選択および使用してランドスケープ形状の修正を有効にします。 <br/> Sculpt モードに関する詳細は、[](Engine/Landscape\Editing\SculptMode) を参照してください。|
-| ![](Engine/Landscape\Editing\Landscape_PaintMode.png)| **Paint モード** | ランドスケープ マテリアルで定義されたレイヤーに基づいてランドスケープ上のテクスチャをペイントすることにより、ランドスケープの各部の外観の修正が可能になります。 <br/> Paint モードに関する詳細は、 [](Engine/Landscape\Editing\PaintMode) を参照してください。|
+| ![](Engine/Landscape\Editing\Landscape_ManageMode.png) | **Manage モード** | ランドスケープの新規作成とランドスケープ コンポーネントの修正を有効にします。Manage モードは、ランドスケープの各部をコピー、貼り付け、インポート、エクスポートするために [ランドスケープ ギズモ](Engine/Landscape\Editing\Gizmos) で作業を行うモードでもあります。Manage モードに関する詳細は、[](Engine/Landscape\Editing\ManageMode) を参照してください。 |
+| ![](Engine/Landscape\Editing\Landscape_SculptMode.png)| **Sculpt モード** | 特定のツールを選択および使用してランドスケープ形状の修正を有効にします。Sculpt モードに関する詳細は、[](Engine/Landscape\Editing\SculptMode) を参照してください。|
+| ![](Engine/Landscape\Editing\Landscape_PaintMode.png)| **Paint モード** | ランドスケープ マテリアルで定義されたレイヤーに基づいてランドスケープ上のテクスチャをペイントすることにより、ランドスケープの各部の外観の修正が可能になります。Paint モードに関する詳細は、[](Engine/Landscape\Editing\PaintMode を参照してください。|
 [/EXCERPT:LandscapeToolModes2]
 
 [REGION:tip]

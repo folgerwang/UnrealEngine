@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3714454
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%
 Title:追加の Android SDK をインストールする
@@ -10,37 +10,81 @@ parent:Platforms/Android
 Order:1
 Tags:Android
 
-アンリアル エンジン 4 (UE4) プロジェクトを実行するために開発している Android デバイスのタイプにより、追加で Android SDK のインストールする必要な場合があります。この文書では Android SDK の追加インストールについて説明します。 
+アンリアル エンジン 4 (UE4) プロジェクトを実行するために開発している Android デバイスのタイプにより、追加で Android SDK のインストールする必要な場合があります。この文書では Android SDK の追加インストールについて説明します。
+
+%Globals:osselect_linux%
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    OS
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    windows
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:#WindowsSetup]
+    [/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    OS
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    mac
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:#MacOSSetup]
+    [/PARAM]
+[/OBJECT]
+
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    OS
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    linux
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:#LinuxSetup]
+    [/PARAM]
+[/OBJECT]
 
 
+
+[COMMENT:none]
+
+[EXCERPT:WindowsSetup]
 ## ステップ
 
 追加で Android SDK をインストールするには、以下の手順でまず **Android SDK Manager** を開きます。
 
-1. まず、**NVPACK** のインストール先を探します。
+1. まず、PC で **NVPACK\android-sdk-windows\tools** フォルダを探します。
 
-	![](AddSDK_01.png)
+    ![](AddSDK_01.png)
 
-1. **[Shift]** キーを押しながら、「NVPACK」フォルダを右クリックし、
- 表示されたメニューから **[Open command_window here]** を選択します。 
+1. **Android.bat** を見つけたら、ダブルクリックして開きます。
 
- 	![](AddSDK_02.png)
-
-1. コマンド ウィンドウに **「android.bat」** と入力し **[Enter]** キーを押すと **Android SDK Manager** が起動します。
-
- 	![](AddSDK_03.png)
+     ![](AddSDK_02.png)
 
 1. **Android SDK Manager** がロードされたら、必ず **[Deselect All]** オプションを押して、必要な SDK がアンインストールされないようにします。
 
- 	![](AddSDK_04.png)
+     ![](AddSDK_04.png)
 
 1. 次に、インストールする Android API バージョンを見つけて使用可能なオプションを展開します。この例では **Android 7.1.1 (API 25)** を使用しているので、[Android 7.1.1 (API 25)] セクションにある **[SDK Platform]** の横のチェックマーク ボックスを必ずクリックします。
 
- 	![](AddSDK_05.png)
+     ![](AddSDK_05.png)
 
-1. 最後に **[Install 1 package]** ボタンを押して、ダウンロードとインストールを開始します。 
+1. 最後に **[Install 1 package]** ボタンを押して、ダウンロードとインストールを開始します。
 
- 	![](AddSDK_06.png)
+     ![](AddSDK_06.png)
 
 
 ## 最終結果
@@ -49,11 +93,87 @@ Tags:Android
 
 ![](AddSDK_07.png)
 
+[/EXCERPT:WindowsSetup]
 
 
+[EXCERPT:MacOSSetup]
+## ステップ
+
+追加で Android SDK をインストールするには、以下の手順でまず **Android SDK Manager** を開きます。
+
+1. まず、Mac で **NVPACK\android-sdk-windows\tools** フォルダを探します。
+
+    ![](MACSDK_01.png)
+
+1. **Android** ファイルを見つけたら、ダブルクリックして開きます。
+
+     ![](MACSDK_02.png)
+
+    [region:note]
+    Android アップデーターを起動しようとした時に以下のメッセージが出てきたら、以下のバージョンの [Java](https://support.apple.com/kb/dl1572?locale=en_US) を Apple のウェブサイトからインストールする必要があります。
+
+    ![](MACSDK_07.png)
+
+    * [**Java for OS X 2017-001**](https://support.apple.com/kb/dl1572?locale=en_US)
+    [/region]
+    
+1. **Android SDK Manager** がロードされたら、必ず **[Deselect All]** オプションを押して、必要な SDK がアンインストールされないようにします。
+
+     ![](MACSDK_03.png)
+
+1. 次に、インストールする Android API バージョンを見つけて、**SDK Platform** の横のチェックマークボックスにチェックを入れて、ダウンロードおよびインストールのフラグを立てます。
+
+     ![](MACSDK_04.png)
+
+1. 最後に **[Install 1 package]** ボタンを押して、ダウンロードとインストールを開始します。
+
+     ![](MACSDK_05.png)
 
 
+## 最終結果
 
+完了すると、**[Status]** がフォルダ アイコンにインストール済みを表すチェックマークが付いたフォルダ アイコンに変わります。 
+
+![](MACSDK_06.png)
+
+[/EXCERPT:MacOSSetup]
+
+
+[EXCERPT:LinuxSetup]
+## ステップ
+
+追加で Android SDK をインストールするには、以下の手順でまず **Android SDK Manager** を開きます。
+
+1. まず、PC で **NVPACK\android-sdk-linux\tools** フォルダを探します。
+
+    ![](LinuxSDK_01.png)
+
+1. **Android** ファイルを見つけたら、ダブルクリックして開きます。
+
+    ![](LinuxSDK_02.png)
+
+1. **Android SDK Manager** がロードされたら、必ず **[Deselect All]** オプションを押して、必要な SDK がアンインストールされないようにします。
+
+    ![](LinuxSDK_03.png)
+
+1. 次に、インストールする Android API バージョンを見つけて使用可能なオプションを展開します。この例では **Android 8.1.0 (API 27)** を使用しているので、[Android 8.1.0 (API 27)] セクションにある **[SDK Platform]** の横のチェックマーク ボックスを必ずクリックします。
+
+    ![](LinuxSDK_04.png)
+
+1. 最後に **[Install 1 package]** ボタンを押して、ダウンロードとインストールを開始します。
+
+     ![](LinuxSDK_05.png)
+
+
+## 最終結果
+
+完了すると、**[Status]** がフォルダ アイコンにインストール済みを表すチェックマークが付いたフォルダ アイコンに変わります。 
+
+![](LinuxSDK_06.png)
+
+[/EXCERPT:LinuxSetup]
+
+[/COMMENT]
 
 
 

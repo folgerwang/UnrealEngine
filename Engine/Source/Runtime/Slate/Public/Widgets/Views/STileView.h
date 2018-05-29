@@ -58,9 +58,10 @@ public:
 		, _WheelScrollMultiplier(GetGlobalScrollAmount())
 		, _HandleGamepadEvents(true)
 		, _HandleDirectionalNavigation(true)
+		, _IsFocusable(true)
 		, _OnItemToString_Debug()
 		, _OnEnteredBadState()
-		, _HandleLeftRightBoundsAsWrap(true)
+		, _WrapHorizontalNavigation(true)
 		{
 		}
 
@@ -108,12 +109,14 @@ public:
 
 		SLATE_ARGUMENT( bool, HandleDirectionalNavigation );
 
+		SLATE_ATTRIBUTE(bool, IsFocusable)
+
 		/** Assign this to get more diagnostics from the list view. */
 		SLATE_EVENT(FOnItemToString_Debug, OnItemToString_Debug)
 
 		SLATE_EVENT(FOnTableViewBadState, OnEnteredBadState);
 		
-		SLATE_ARGUMENT(bool, HandleLeftRightBoundsAsWrap);
+		SLATE_ARGUMENT(bool, WrapHorizontalNavigation);
 
 	SLATE_END_ARGS()
 
@@ -144,13 +147,14 @@ public:
 
 		this->bHandleGamepadEvents = InArgs._HandleGamepadEvents;
 		this->bHandleDirectionalNavigation = InArgs._HandleDirectionalNavigation;
+		this->IsFocusable = InArgs._IsFocusable;
 
 		this->OnItemToString_Debug = InArgs._OnItemToString_Debug.IsBound()
 			? InArgs._OnItemToString_Debug
 			: SListView< ItemType >::GetDefaultDebugDelegate();
 		this->OnEnteredBadState = InArgs._OnEnteredBadState;
 
-		this->bHandleLeftRightBoundsAsWrap = InArgs._HandleLeftRightBoundsAsWrap;
+		this->bWrapHorizontalNavigation = InArgs._WrapHorizontalNavigation;
 
 		// Check for any parameters that the coder forgot to specify.
 		FString ErrorString;
@@ -212,14 +216,14 @@ public:
 			switch (NavType)
 			{
 			case EUINavigation::Left:
-				if (bHandleLeftRightBoundsAsWrap || (CurSelectionIndex % NumItemsWide) > 0)
+				if (bWrapHorizontalNavigation || (CurSelectionIndex % NumItemsWide) > 0)
 				{
 					AttemptSelectIndex = CurSelectionIndex - 1;
 				}
 				break;
 
 			case EUINavigation::Right:
-				if (bHandleLeftRightBoundsAsWrap || (CurSelectionIndex % NumItemsWide) < (NumItemsWide - 1))
+				if (bWrapHorizontalNavigation || (CurSelectionIndex % NumItemsWide) < (NumItemsWide - 1))
 				{
 					AttemptSelectIndex = CurSelectionIndex + 1;
 				}
@@ -450,5 +454,5 @@ protected:
 	}
 
 	/** Should the left and right navigations be handled as a wrap when hitting the bounds. (you'll move to the previous / next row when appropriate) */
-	bool bHandleLeftRightBoundsAsWrap;
+	bool bWrapHorizontalNavigation = true;
 };

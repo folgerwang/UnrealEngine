@@ -17,6 +17,7 @@
 #include "Misc/App.h"
 #include "Misc/EngineVersion.h"
 #include "Misc/EngineBuildSettings.h"
+#include "Stats/Stats.h"
 
 #ifndef NOINITCRASHREPORTER
 #define NOINITCRASHREPORTER 0
@@ -178,6 +179,8 @@ void FGenericCrashContext::Initialize()
 	const float PollingInterval = 1.0f;
 	FTicker::GetCoreTicker().AddTicker( FTickerDelegate::CreateLambda( []( float DeltaTime )
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_NCachedCrashContextProperties_LambdaTicker);
+
 		NCachedCrashContextProperties::SecondsSinceStart = int32(FPlatformTime::Seconds() - GStartTime);
 		return true;
 	} ), PollingInterval );

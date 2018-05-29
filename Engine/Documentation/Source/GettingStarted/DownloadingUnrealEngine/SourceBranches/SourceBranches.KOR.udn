@@ -36,10 +36,6 @@ UE4 의 소스 코드가 세 가지 브랜치로 나뉘어 퍼블리싱된 것�
 
 [마스터 브랜치](https://github.com/EpicGames/UnrealEngine/tree/master) 는 엔진 개발 팀에 의해 (아래 그림의) [라이브 체인지](https://github.com/EpicGames/UnrealEngine/commits/master) 를 반영한 것입니다. 보통 숙련된 개발자 분들이 UE4 개발자들과 함께 작업하고자 할 때 이 브랜치에서 작업합니다.
 
-[REGION:raw]
-![](LiveChanges.png)
-[/REGION]
-
 [REGION:note]
 때때로 새로운 버전 안정화나 핫 픽스 작업시 다른 브랜치가 나타날 수도 있습니다.
 [/REGION]

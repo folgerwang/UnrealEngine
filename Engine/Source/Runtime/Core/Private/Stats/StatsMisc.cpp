@@ -9,13 +9,15 @@
 #if !ENABLE_STATNAMEDEVENTS && defined(USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION) && USE_LIGHTWEIGHT_STATS_FOR_HITCH_DETECTION && USE_HITCH_DETECTION
 
 #include "HAL/ThreadHeartBeat.h"
+#include "HAL/ThreadManager.h"
 
 void FLightweightStatScope::ReportHitch()
 {
 	if (StatString)
 	{
 		float Delta = float(FPlatformTime::Seconds() - FGameThreadHitchHeartBeat::Get().GetFrameStartTime()) * 1000.0f;
-		UE_LOG(LogCore, Error, TEXT("Leaving stat scope on hitch (+%8.2fms) %s"), Delta, StatString);
+		FString ThreadString(FPlatformTLS::GetCurrentThreadId() == GGameThreadId ? TEXT("GameThread") : FThreadManager::Get().GetThreadName(FPlatformTLS::GetCurrentThreadId()));
+		UE_LOG(LogCore, Error, TEXT("Leaving stat scope on hitch (+%8.2fms) [%s] %s"), Delta, *ThreadString, StatString);
 	}
 }
 

@@ -42,7 +42,7 @@
 #include "Serialization/BulkData.h"
 #include "UObject/LinkerLoad.h"
 #include "Misc/RedirectCollector.h"
-
+#include "UObject/GCScopeLock.h"
 
 #include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 #include "Serialization/ArchiveDescribeReference.h"
@@ -1882,6 +1882,17 @@ void UObject::LoadConfig( UClass* ConfigClass/*=NULL*/, const TCHAR* InFilename/
 		return;
 	}
 
+#if !IS_PROGRAM
+	// Do we have properties that don't exist yet?
+	// If this happens then we're trying to load the config for an object that doesn't
+	// know what its layout is. Usually a call to GetDefaultObject that occurs too early
+	// because ProcessNewlyLoadedUObjects hasn't happened yet
+	checkf(ConfigClass->PropertyLink != nullptr
+		|| (ConfigClass->GetSuperStruct() && ConfigClass->PropertiesSize == ConfigClass->GetSuperStruct()->PropertiesSize)
+		|| ConfigClass->PropertiesSize == 0,
+		TEXT("class %s has uninitialized properties. Accessed too early?"), *ConfigClass->GetName());
+#endif
+
 	UClass* ParentClass = ConfigClass->GetSuperClass();
 	if ( ParentClass != NULL )
 	{
@@ -2853,7 +2864,7 @@ static void PrivateRecursiveDumpFlags(UStruct* Struct, void* Data, FOutputDevice
 	check(Data != NULL);
 	for( TFieldIterator<UProperty> It(Struct); It; ++It )
 	{
-		if ( It->GetOwnerClass()->GetPropertiesSize() != sizeof(UObject) )
+		if (It->GetOwnerClass() && It->GetOwnerClass()->GetPropertiesSize() != sizeof(UObject) )
 		{
 			for( int32 i=0; i<It->ArrayDim; i++ )
 			{
@@ -4133,6 +4144,8 @@ void InitUObject()
 {
 	LLM_SCOPE(ELLMTag::InitUObject);
 
+	FGCCSyncObject::Create();
+
 	// Initialize redirects map
 	for (const TPair<FString,FConfigFile>& It : *GConfig)
 	{
@@ -4218,8 +4231,8 @@ void StaticExit()
 	IncrementalPurgeGarbage( false );
 
 	// Keep track of how many objects there are for GC stats as we simulate a mark pass.
-	extern int32 GObjectCountDuringLastMarkPhase;
-	GObjectCountDuringLastMarkPhase = 0;
+	extern FThreadSafeCounter GObjectCountDuringLastMarkPhase;
+	GObjectCountDuringLastMarkPhase.Reset();
 
 	// Tag all non template & class objects as unreachable. We can't use object iterators for this as they ignore certain objects.
 	//
@@ -4231,7 +4244,7 @@ void StaticExit()
 	for ( FRawObjectIterator It; It; ++It )
 	{
 		// Valid object.
-		GObjectCountDuringLastMarkPhase++;
+		GObjectCountDuringLastMarkPhase.Increment();
 
 		FUObjectItem* ObjItem = *It;
 		checkSlow(ObjItem);

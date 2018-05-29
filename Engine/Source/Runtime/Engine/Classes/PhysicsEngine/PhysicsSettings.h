@@ -72,6 +72,32 @@ namespace ESettingsLockedAxis
 	};
 }
 
+/** Settings pertaining to which PhysX broadphase to use, and settings for MBP if that is the chosen broadphase type */
+USTRUCT()
+struct FBroadphaseSettings
+{
+	GENERATED_BODY();
+
+	FBroadphaseSettings()
+		: bUseMBP(false)
+		, MBPBounds(EForceInit::ForceInitToZero)
+		, MBPNumSubdivs(2)
+	{
+
+	}
+
+	/** Whether to use MBP (Multi Broadphase Pruning */
+	UPROPERTY(EditAnywhere, Category = Broadphase)
+	bool bUseMBP;
+
+	/** Total bounds for MBP, must cover the game world or collisions are disabled for out of bounds actors */
+	UPROPERTY(EditAnywhere, Category = Broadphase, meta = (EditCondition = bUseMBP))
+	FBox MBPBounds;
+
+	/** Number of times to subdivide the MBP bounds, final number of regions is MBPNumSubdivs^2 */
+	UPROPERTY(EditAnywhere, Category = Broadphase, meta = (EditCondition = bUseMBP, ClampMin=1, ClampMax=16))
+	uint32 MBPNumSubdivs;
+};
 
 /**
  * Default physics settings.
@@ -203,6 +229,14 @@ class ENGINE_API UPhysicsSettings : public UDeveloperSettings
 	UPROPERTY(config, EditAnywhere, Category = Optimization)
 	bool bDisableActiveActors;
 
+	/** Whether to disable generating KS pairs, enabling this makes switching between dynamic and static slower for actors - but speeds up contact generation by early rejecting these pairs*/
+	UPROPERTY(config, EditAnywhere, Category = Optimization)
+	bool bDisableKinematicStaticPairs;
+
+	/** Whether to disable generating KK pairs, enabling this speeds up contact generation, however it is required when using APEX destruction. */
+	UPROPERTY(config, EditAnywhere, Category = Optimization)
+	bool bDisableKinematicKinematicPairs;
+
 	/**
 	*  If true CCD will be ignored. This is an optimization when CCD is never used which removes the need for physx to check it internally. */
 	UPROPERTY(config, EditAnywhere, Category = Simulation)
@@ -251,6 +285,12 @@ class ENGINE_API UPhysicsSettings : public UDeveloperSettings
 	// PhysicalMaterial Surface Types
 	UPROPERTY(config, EditAnywhere, Category=PhysicalSurfaces)
 	TArray<FPhysicalSurfaceName> PhysicalSurfaces;
+
+	UPROPERTY(config, EditAnywhere, Category = Broadphase)
+	FBroadphaseSettings ClientBroadphaseSettings;
+
+	UPROPERTY(config, EditAnywhere, Category = Broadphase)
+	FBroadphaseSettings ServerBroadphaseSettings;
 
 public:
 

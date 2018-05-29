@@ -83,13 +83,17 @@ struct FOptionalPinFromProperty
 	uint8 bIsOverridePinVisible:1;
 
 	FOptionalPinFromProperty()
-		: bIsMarkedForAdvancedDisplay(false)
+		: bShowPin(false)
+		, bCanToggleVisibility(false)
+		, bPropertyIsCustomized(false)
+		, bHasOverridePin(false)
+		, bIsMarkedForAdvancedDisplay(false)
 		, bIsOverrideEnabled(true)
 		, bIsSetValuePinVisible(true)
 		, bIsOverridePinVisible(true)
 	{
 	}
-	
+
 	FOptionalPinFromProperty(FName InPropertyName, bool bInShowPin, bool bInCanToggleVisibility, const FString& InFriendlyName, const FText& InTooltip, bool bInPropertyIsCustomized, FName InCategoryName, bool bInHasOverridePin)
 		: PropertyName(InPropertyName)
 		, PropertyFriendlyName(InFriendlyName)

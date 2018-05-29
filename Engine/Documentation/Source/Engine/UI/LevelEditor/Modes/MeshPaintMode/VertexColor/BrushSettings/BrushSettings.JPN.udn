@@ -1,9 +1,13 @@
-﻿INTSourceChangelist:2693395
+﻿INTSourceChangelist:3750353
 Availability:Public
 Title:ブラシ設定
 Crumbs:%ROOT%, Engine, Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor
 Description:Mesh Paint ツールのブラシ設定に関するドキュメント
 Version:4.9
+parent:Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor
+type:reference
+order:2
+topic-image:BrushSettings.png
 
 [EXCERPT:Intro]
 Mesh Paint ツールは、ブラシがベースとなっているシステムです。付属の設定を使用して、幅広い領域や詳細部分を処理するブラシを設定出来ます。ただし、実際の頂点の色をペイントするツールの特性として、メッシュの頂点密度に基づいて設定の調整がしばしば必要となることに注意してください。
@@ -11,7 +15,7 @@ Mesh Paint ツールは、ブラシがベースとなっているシステムで
 
 このセクションは、ツールのモード全てに共通なブラシの設定を説明します。スライダーで制御されるオプションに関しては、クリック＆ドラッグ操作で設定値を迅速に変更することが出来ます。または、クリック＆設定値を直接入力して変更することも出来ます。
 
-BrushSettings
+![BrushSettings.png](BrushSettings.png)
 
 | **設定** | **説明** |
 | --- | --- |

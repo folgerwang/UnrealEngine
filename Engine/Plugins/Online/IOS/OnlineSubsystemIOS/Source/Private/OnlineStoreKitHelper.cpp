@@ -94,9 +94,16 @@ FString GetOriginalTransactionId(const SKPaymentTransaction* Transaction)
 /// FStoreKitTransactionData implementation
 FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* Transaction)
 	: ReceiptData(convertReceiptToString(Transaction))
-	, ErrorStr([Transaction.error localizedDescription])
+	, ErrorRaw([Transaction.error localizedDescription])
+	, ErrorCode([Transaction.error code])
+	, ErrorDomain([Transaction.error domain])
 	, TransactionIdentifier(Transaction.transactionIdentifier)
 {
+	if (!ErrorRaw.IsEmpty())
+	{
+		ErrorStr = FString::Printf(TEXT("%s [%s:%d]"), *ErrorRaw, *ErrorDomain, ErrorCode);
+	}
+	
 	SKPayment* Payment = Transaction.payment;
 	if (Payment)
 	{
@@ -620,18 +627,25 @@ FStoreKitTransactionData::FStoreKitTransactionData(const SKPaymentTransaction* T
 	UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelperV2::finalizeTransaction - %s"), *receiptId);
 	for (SKPaymentTransaction* pendingTransaction in self.PendingTransactions)
 	{
-		const FString transId = pendingTransaction.transactionIdentifier;
-		const FString originalTransId = GetOriginalTransactionId(pendingTransaction);
-		UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelperV2::checking - id: %s origId: %s"), *transId,  *originalTransId);
-		
-		if ((!originalTransId.IsEmpty()) && (originalTransId == receiptId))
+		if (pendingTransaction)
 		{
-			UE_LOG(LogOnline, Log, TEXT("FStoreKitHelperV2::finalizeTransaction - %s"), *receiptId);
+			const FString transId = pendingTransaction.transactionIdentifier;
+			const FString originalTransId = GetOriginalTransactionId(pendingTransaction);
+			UE_LOG(LogOnline, Verbose, TEXT("FStoreKitHelperV2::checking - id: %s origId: %s"), *transId,  *originalTransId);
 
-			[self.PendingTransactions removeObject:pendingTransaction];
-			// Remove the transaction from the payment queue.
-			[[SKPaymentQueue defaultQueue] finishTransaction:pendingTransaction];
-			break;
+			if ((!originalTransId.IsEmpty()) && (originalTransId == receiptId))
+			{
+				UE_LOG(LogOnline, Log, TEXT("FStoreKitHelperV2::finalizeTransaction - %s"), *receiptId);
+
+				// Remove the transaction from the payment queue.
+				[[SKPaymentQueue defaultQueue] finishTransaction:pendingTransaction];
+				[self.PendingTransactions removeObject:pendingTransaction];
+				break;
+			}
+		}
+		else
+		{
+			UE_LOG(LogOnline, Verbose, TEXT("null transaction"));
 		}
 	}
 }

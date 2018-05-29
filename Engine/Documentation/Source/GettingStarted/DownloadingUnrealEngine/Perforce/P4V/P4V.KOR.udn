@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3717113
+﻿INTSourceChangelist:3807090
 Availability: Licensee
 Title:언리얼 엔진 4용 P4V 셋업하기
 Crumbs:%ROOT%, Engine, Programming, Programming/Basics, GettingStarted/DownloadingUnrealEngine/Perforce
@@ -23,13 +23,13 @@ version: 4.9
 1. P4Vinst 실행파일 인스톨러를 실행시킵니다.
 1. 퍼포스 _Select Features_ 페이지에서, 모든 기능이 기본으로 선택되어 있습니다.
 
-	![install_features.jpg](install_features.jpg)(w:514 h:392)
+	![install_features.jpg](install_features.jpg)(w:514)
 
 	**다음 > ** 버튼을 눌러 계속합니다.
 
 	P4Win 사용자였다면, SCC 플러그인이 대체된다는 창이 뜰 수도 있습니다.
 
-	![install_plugin_warning.jpg](install_plugin_warning.jpg)(w:362 h:155)
+	![install_plugin_warning.jpg](install_plugin_warning.jpg)(w:362)
 
 1. **Perforce Client Configuration** (퍼포스 클라이언트 환경설정) 페이지에서, 아래 정보를 입력하고 **다음 >** 버튼을 눌러 계속합니다:
 
@@ -50,7 +50,7 @@ version: 4.9
 
 1. 설치를 시작할 준비가 됐습니다. **시작** 버튼을 눌러 시작합니다.
 
-	![install_complete.jpg](install_complete.jpg)(w:514 h:392)
+	![install_complete.jpg](install_complete.jpg)(w:514)
 
 	설치 도중 다른 프로그램을 닫으라는 안내가 나올 것입니다. 여의치 않다면 설치 후 리부팅해야 할 것입니다.
 
@@ -68,26 +68,26 @@ P4Win 의 ClientSpecs 은 P4V 에서 Workspaces 라고 합니다.
 1. P4V 를 실행합니다. 첫 시작시 _Connection Setup Wizard_ 를 시작하겠냐고 물어 옵니다. 설치 도중 이미 셋업되었기에 _No_ 를 선택하십시오.
 1. _Open Connection_ 대화창이 열립니다.
 
-![connect_dialog.jpg](connect_dialog.jpg)(w:512 h:265)
+![connect_dialog.jpg](connect_dialog.jpg)(w:512)
 
 _Server_ 및 _User_ 필드에 입력한 정보가 맞는지 확인합니다.
 1. 클라이언트 Workspace 의 경우, 기존에 P4Win 을 사용했었거나 P4V 를 재설치한 경우, **Browse...** 버튼을 눌러 쓰던 사용자에 연결된 Workspace 를 찾아보면 됩니다.
 
 Workspace 가 없는 경우 **New** 버튼을 눌러 새 Workspace 를 만듭니다. 열리는 대화창에 다음 정보를 안내삼아 Workspace 이름을 입력하십시오:
 
-	* **라이선시인 경우** _Client Name_: **UE4_Licensee_[TEAMNAME]** (또는 UDN 유저명 또는 팀명으로 마무리)
-	* **계약자인 경우** _Client Name_: **UE4_Contractor_[USERNAME]** (또는 UDN 유저명 또는 팀명으로 마무리)
+	* 라이선시인 경우 **Client Name**: **UE4_Licensee_[TEAMNAME]** (또는 UDN 유저명 또는 팀명으로 마무리)
+	* 계약자인 경우 **Client Name**: **UE4_Contractor_[USERNAME]** (또는 UDN 유저명 또는 팀명으로 마무리)
 
-	![connect_workspace.jpg](connect_workspace.jpg)(w:219 h:131)
+	![connect_workspace.jpg](connect_workspace.jpg)(w:219)
 
 	**Ok** 버튼을 눌러 새 Workspace 를 만듭니다.
-1. 이제 Workspace 가 _Open Connection_ 대화창에 표시됩니다.
+1. 이제 Workspace 가 **Open Connection** 대화창에 표시됩니다.
 
-	![connect_complete.jpg](connect_complete.jpg)(w:512 h:265)
+	![connect_complete.jpg](connect_complete.jpg)(w:512)
 
 	나중에 P4V 를 시동할 때 창을 다시 열도록 할 수 있습니다.
 
-	![connect_startup.jpg](connect_startup.jpg)(w:140 h:26)
+	![connect_startup.jpg](connect_startup.jpg)(w:140)
 
 **Ok** 버튼을 눌러 P4V 클라이언트를 열고 접속합니다.
 1. 티켓 소멸을 알리는 창이 뜰 수 있습니다. 그냥 앞으로 메시지를 다시 보지 않겠다고 해 두고, **Ok**버튼을 클릭하십시오.
@@ -121,61 +121,61 @@ anonymous 유저인 경우, clientspec 이름은 UE4_Anonymous_# 로 해야 하�
 
 P4v 의 트리 패널에는 Workspace 및 Depot 트리가 있습니다. Depot Tree 뷰에서 Depot 노드를 클릭하면 그 안에 있는 디렉토리가 확장됩니다.
 
-![p4v_depot_tree.jpg](p4v_depot_tree.jpg)(w:374 h:307)
+![p4v_depot_tree.jpg](p4v_depot_tree.jpg)(w:374)
 
 
-* _CodeDrop_ - 에픽이 만든 게임의 다양한 스냅샷이 포함된 것으로, 예제로 사용할 수 있습니다.
-* _PhysX_ - 피직스 미들웨어에 대한 공용 파일이, 계약에 따라 담겨 있습니다. 추가적인 디렉토리와 파일도 확인하실 수 있을 것입니다.
-* _UnrealEngine3_ - 언리얼 엔진 4 를 빌드하고 실행하기 위한 모든 것이 담겨 있습니다. ExampleGame 및 UDKGame 예제 또한 포함되어 있습니다.
-* _UnrealMCP_ - UnrealMCP 에 대한 소스가 담겨 있으며, 이는 플레이어의 온라인 사용감을 향상시키기 위해 고도로 탄력적인 가용 서비스 세트에 집중된 SOA (서비스-지향 아키텍처)입니다.
+* **CodeDrop** - 에픽이 만든 게임의 다양한 스냅샷이 포함된 것으로, 예제로 사용할 수 있습니다.
+* **PhysX** - 피직스 미들웨어에 대한 공용 파일이, 계약에 따라 담겨 있습니다. 추가적인 디렉토리와 파일도 확인하실 수 있을 것입니다.
+* **UnrealEngine3** - 언리얼 엔진 3 를 빌드하고 실행하기 위한 모든 것이 담겨 있습니다. ExampleGame 및 UDKGame 예제 또한 포함되어 있습니다.
+* **UnrealMCP** - UnrealMCP 에 대한 소스가 담겨 있으며, 이는 플레이어의 온라인 사용감을 향상시키기 위해 고도로 탄력적인 가용 서비스 세트에 집중된 SOA (서비스-지향 아키텍처)입니다.
 
 
 보다 자세한 정보는, [디렉토리 레이아웃](Engine/Basics/DirectoryStructure) 페이지를 참고하시기 바랍니다.
 
-_UnrealEngine3_ 디렉토리 안에는 여러가지 서브디렉토리: _Binaries_, _Development_, _Engine_ 과 두 개의 게임 디렉토리: _ExampleGame_ 및 _UDKGame_ 이 있습니다.
+UnrealEngine3 디렉토리 안에는 여러가지 서브디렉토리: Binaries, Development, Engine 및 두 개의 게임 디렉토리: ExampleGame 및 UDKGame 이 있습니다.
 
-![p4v_depot_tree_ue3.jpg](p4v_depot_tree_ue3.jpg)(w:374 h:307)
+![p4v_depot_tree_ue3.jpg](p4v_depot_tree_ue3.jpg)(w:374)
 
-_ExampleGame_ 은 에픽이 제공하는 가장 최소한의 게임 구현으로, 게임이 _언리얼 토너먼트_와 너무 유사하지만 않다면 여기서부터 자체 게임 프로젝트를 만들기 시작해 볼 수 있습니다.
+ExampleGame 은 에픽이 제공하는 가장 최소한의 게임 구현으로, 게임이 언리얼 토너먼트와 너무 유사하지만 않다면 여기서부터 자체 게임 프로젝트를 만들기 시작해 볼 수 있습니다.
 
-_UDKGame_ 은 _언리얼 토너먼트 3_ 를 기반으로 한 현재 언리얼 엔진 4 데모입니다. 에픽이 엔진을 어떻게 사용하려 했는지 정확히 보여주는 정교한 예제가 됩니다. _UDKGame_ 에서 직접 확장하시기 보다 _UDKGame_ 은 예제로 참고만 하시는 것이 좋습니다. 귀하의 게임 프로젝트에 _UDKGame_ 에 있는 C++ 또는 언리얼스크립트 코드는 얼마든지 사용하셔도 됩니다만, 에픽의 콘텐츠(텍스처, 메시, 레벨, 사운드 등)를 게임에 포함한 채로 발매해서는 안됩니다.
+UDKGame 은 언리얼 토너먼트 3 를 기반으로 한 현재 언리얼 엔진 4 데모입니다. 에픽이 엔진을 어떻게 사용하려 했는지 정확히 보여주는 정교한 예제가 됩니다. UDKGame 에서 직접 확장하시기 보다 UDKGame 은 예제로 참고만 하시는 것이 좋습니다. 귀하의 게임 프로젝트에 UDKGame 에 있는 C++ 또는 언리얼스크립트 코드는 얼마든지 사용하셔도 됩니다만, 에픽의 콘텐츠(텍스처, 메시, 레벨, 사운드 등)를 게임에 포함한 채로 발매해서는 안됩니다.
 
-_UnrealEngine3_ 의 경우, 에픽 콘텐츠 대부분은 게임-전용 디렉토리에 위치해 있기에, 필요한 것이 엔진 소스인 경우 단지 //depot/UnrealEngine3/Development 디렉토리로 싱크하면 됩니다. 예를 들어 디렉토리를 필요한 만큼만 선택하면 _UDKGame_ 콘텐츠를 업데이트하지 않고도 _ExampleGame_ 최신 콘텐츠를 받아올 수 있습니다.
+UnrealEngine3 의 경우, 에픽 콘텐츠 대부분은 게임-전용 디렉토리에 위치해 있기에, 필요한 것이 엔진 소스인 경우 단지 //depot/UnrealEngine3/Development 디렉토리로 싱크하면 됩니다. 예를 들어 디렉토리를 필요한 만큼만 선택하면 UDKGame 콘텐츠를 업데이트하지 않고도 ExampleGame 최신 콘텐츠를 받아올 수 있습니다.
 
-![p4v_depot_tree_ue3_examplegame.jpg](p4v_depot_tree_ue3_examplegame.jpg)(w:374 h:307)
+![p4v_depot_tree_ue3_examplegame.jpg](p4v_depot_tree_ue3_examplegame.jpg)(w:374)
 
-리비전을 받을 때, 많은 내려받기 진행상황이 로그 창에 표시됩니다. _Sync completed with no warnings or errors_ 라는 메시지가 바람직한 것입니다.
+리비전을 받을 때, 많은 내려받기 진행상황이 로그 창에 표시됩니다. "Sync completed with no warnings or errors" 라는 메시지가 바람직한 것입니다.
 
 
 ### QA 빌드로 동기화하기
 
 QA-승인 빌드로 동기화하려면 다음 단계를 따르십시오:
 
-1. Depot 트리에서 UnrealEngine3 디렉토리에 우클릭하여 뜨는 맥락 메뉴에서 _Get Revision..._ 을 선택합니다. 또는 그냥 _Actions_ 메뉴에서 _UnrealEngine3_ 디렉토리를 선택하고 _Get Revision..._ 을 선택해도 됩니다. 
+1. Depot 트리에서 UnrealEngine3 디렉토리에 **우클릭** 하여 뜨는 맥락 메뉴에서 **Get Revision...** 을 선택합니다. 또는 그냥 **Actions** 메뉴에서 UnrealEngine3 디렉토리를 선택하고 **Get Revision...** 을 선택해도 됩니다. 
 
-	![p4v_depot_menu.jpg](p4v_depot_menu.jpg)(w:304 h:650)
-1. _Get Revision_ 창이 열립니다.
+	![p4v_depot_menu.jpg](p4v_depot_menu.jpg)(w:304)
+1. **Get Revision** 창이 열립니다.
 
-	![p4v_get_revision.jpg](p4v_get_revision.jpg)(w:634 h:488)
+	![p4v_get_revision.jpg](p4v_get_revision.jpg)(w:634)
 
-	_Specify revision using_ 라디오 버튼을 선택하여 콤보박스와 텍스트 필드를 활성화시킵니다.
+	**Specify revision using** 라디오 버튼을 선택하여 콤보박스와 텍스트 필드를 활성화시킵니다.
 
-	![p4v_specify_revision.jpg](p4v_specify_revision.jpg)(w:513 h:63)
-1. 콤보박스에서 _label_ 을 선택합니다.
+	![p4v_specify_revision.jpg](p4v_specify_revision.jpg)(w:513)
+1. 콤보박스에서 **Label** 을 선택합니다.
 
-	![p4v_revision_label.jpg](p4v_revision_label.jpg)(w:100 h:103)
+	![p4v_revision_label.jpg](p4v_revision_label.jpg)(w:100)
 
-	**Browse....** 버튼을 눌러 _Select Label_ 창을 엽니다.
+	**Browse....** 버튼을 눌러 **Select Label** 창을 엽니다.
 
-	![p4v_select_label.jpg](p4v_select_label.jpg)(w:800 h:526)
+	![p4v_select_label.jpg](p4v_select_label.jpg)(w:800)
 1. 싱크를 하려는 라벨을 선택합니다. 보통 이는 최신 QA-승인 빌드이며, _QA_APPROVED_BUILD_[Month]_[Year]_ 의 형태로 라벨을 지정합니다. 모든 라벨을 로드시키려면 목록을 약간 아래로 스크롤해야 할 수도 있습니다.
 
-	![p4v_label_build.jpg](p4v_label_build.jpg)(w:800 h:526)
+	![p4v_label_build.jpg](p4v_label_build.jpg)(w:800)
 
 	**Ok** 버튼을 눌러 라벨을 선택하고 창을 닫습니다.
-1. **Get Revision** 버튼을 눌러 _Get Revision_ 창을 닫고 동기화를 시작합니다. 로그에 동기화 진행상황이 표시됩니다.
+1. **Get Revision** 버튼을 눌러 **Get Revision** 창을 닫고 동기화를 시작합니다. 로그에 동기화 진행상황이 표시됩니다.
 
-	![p4v_sync_progress.jpg](p4v_sync_progress.jpg)(w:800 h:117)
+	![p4v_sync_progress.jpg](p4v_sync_progress.jpg)(w:800)
 
 
 ## 소스 콘트롤 작업하기
@@ -186,7 +186,7 @@ QA-승인 빌드로 동기화하려면 다음 단계를 따르십시오:
 
 * 체크아웃
 * 서밋(submit, 제출), 또는 체크인
-* 리버트(revert, 회귀), 또는 롤 백
+* 리버트(revert, 복원), 또는 롤 백
 * 리비전 - 히스토리
 
 

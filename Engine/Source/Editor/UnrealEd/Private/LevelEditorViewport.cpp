@@ -563,6 +563,11 @@ static bool AttemptApplyObjToComponent(UObject* ObjToUse, USceneComponent* Compo
 				else
 				{
 					bResult = FComponentEditorUtils::AttemptApplyMaterialToComponent(ComponentToApplyTo, DroppedObjAsMaterial, TargetMaterialSlot);
+
+					if (bResult)
+					{
+						GEditor->OnSceneMaterialsModified();
+					}
 				}
 			}
 		}

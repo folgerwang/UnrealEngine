@@ -43,6 +43,11 @@ void UMovieSceneTrack::PostLoad()
 	}
 }
 
+bool UMovieSceneTrack::IsPostLoadThreadSafe() const
+{
+	return true;
+}
+
 void UMovieSceneTrack::UpdateEasing()
 {
 	int32 MaxRows = GetMaxRowIndex();

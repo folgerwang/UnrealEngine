@@ -36,8 +36,8 @@ FAutoConsoleVariableRef CVarAOLogObjectBufferReallocation(
 	);
 
 // Must match equivalent shader defines
-int32 FDistanceFieldObjectBuffers::ObjectDataStride = 18;
-int32 FDistanceFieldCulledObjectBuffers::ObjectDataStride = 16;
+int32 FDistanceFieldObjectBuffers::ObjectDataStride = 17;
+int32 FDistanceFieldCulledObjectBuffers::ObjectDataStride = 17;
 int32 FDistanceFieldCulledObjectBuffers::ObjectBoxBoundsStride = 5;
 
 // In float4's.  Must match corresponding usf definition
@@ -900,16 +900,17 @@ void ProcessPrimitiveUpdate(
 					const FVector UVScale = FVector(BlockSize) * InvTextureDim;
 					const float VolumeScale = UniformScaleVolumeToWorld.GetMaximumAxisScale();
 
-					const FMatrix WorldToVolume = UniformScaleVolumeToWorld.Inverse();
-					// WorldToVolume
-					UploadObjectData.Add(*(FVector4*)&WorldToVolume.M[0]);
-					UploadObjectData.Add(*(FVector4*)&WorldToVolume.M[1]);
-					UploadObjectData.Add(*(FVector4*)&WorldToVolume.M[2]);
-					UploadObjectData.Add(*(FVector4*)&WorldToVolume.M[3]);
+					const FMatrix WorldToVolumeT = UniformScaleVolumeToWorld.Inverse().GetTransposed();
+					// WorldToVolumeT
+					UploadObjectData.Add(*(FVector4*)&WorldToVolumeT.M[0]);
+					UploadObjectData.Add(*(FVector4*)&WorldToVolumeT.M[1]);
+					UploadObjectData.Add(*(FVector4*)&WorldToVolumeT.M[2]);
+
+					const float OftenMovingValue = CacheType == GDF_Full ? 1.0f : 0.0f;
 
 					// Clamp to texel center by subtracting a half texel in the [-1,1] position space
 					// LocalPositionExtent
-					UploadObjectData.Add(FVector4(LocalPositionExtent - InvBlockSize, 0));
+					UploadObjectData.Add(FVector4(LocalPositionExtent - InvBlockSize, OftenMovingValue));
 
 					// UVScale, VolumeScale and sign gives bGeneratedAsTwoSided
 					const float WSign = bBuiltAsIfTwoSided ? -1 : 1;
@@ -934,29 +935,32 @@ void ProcessPrimitiveUpdate(
 						MaxDrawDist = 0.f;
 					}
 #endif
-					UploadObjectData.Add(
-						FVector4(
-							DistanceMinMax.Y - DistanceMinMax.X,
-							DistanceMinMax.X,
-							MinDrawDist2,
-							MaxDrawDist * MaxDrawDist));
+					// This is needed to bypass the check Nan/Inf behavior of FVector4.
+					// If the check is turned on, FVector4 constructor automatically converts
+					// the FVector4 being constructed to (0, 0, 0, 1) when any of inputs
+					// to the constructor contains Nan/Inf
+					UploadObjectData.AddUninitialized();
+					FVector4& TmpVec4 = UploadObjectData.Last();
+					TmpVec4.X = DistanceMinMax.Y - DistanceMinMax.X;
+					TmpVec4.Y = DistanceMinMax.X;
+					TmpVec4.Z = MinDrawDist2;
+					TmpVec4.W = MaxDrawDist * MaxDrawDist;
 
 					UploadObjectData.Add(*(FVector4*)&UniformScaleVolumeToWorld.M[0]);
 					UploadObjectData.Add(*(FVector4*)&UniformScaleVolumeToWorld.M[1]);
 					UploadObjectData.Add(*(FVector4*)&UniformScaleVolumeToWorld.M[2]);
 
-					UploadObjectData.Add(*(FVector4*)&LocalToWorld.M[0]);
-					UploadObjectData.Add(*(FVector4*)&LocalToWorld.M[1]);
-					UploadObjectData.Add(*(FVector4*)&LocalToWorld.M[2]);
-					UploadObjectData.Add(*(FVector4*)&LocalToWorld.M[3]);
+					FMatrix LocalToWorldT = LocalToWorld.GetTransposed();
+					UploadObjectData.Add(*(FVector4*)&LocalToWorldT.M[0]);
+					UploadObjectData.Add(*(FVector4*)&LocalToWorldT.M[1]);
+					UploadObjectData.Add(*(FVector4*)&LocalToWorldT.M[2]);
 
 					UploadObjectData.Add(FVector4(Allocation.Offset, Allocation.NumLOD0, Allocation.NumSurfels, InstancedAllocation.Offset + InstancedAllocation.NumSurfels * TransformIndex));
 
-					UploadObjectData.Add(FVector4(LocalVolumeBounds.Min, 0));
-
-					// Box bounds
-					const float OftenMovingWSign = CacheType == GDF_Full ? 1.0f : -1.0f;
-					UploadObjectData.Add(FVector4(LocalVolumeBounds.Max, OftenMovingWSign));
+					FMatrix VolumeToWorldT = VolumeToWorld.GetTransposed();
+					UploadObjectData.Add(*(FVector4*)&VolumeToWorldT.M[0]);
+					UploadObjectData.Add(*(FVector4*)&VolumeToWorldT.M[1]);
+					UploadObjectData.Add(*(FVector4*)&VolumeToWorldT.M[2]);
 
 					checkSlow(UploadObjectData.Num() % UploadObjectDataStride == 0);
 

@@ -23,6 +23,13 @@ static FAutoConsoleVariableRef CVarVerboseScriptStats(
 	ECVF_Default
 );
 
+#if PLATFORM_TCHAR_IS_CHAR16
+#define FP_TEXT_PASTE(x) L ## x
+#define WTEXT(x) FP_TEXT_PASTE(x)
+#else
+#define WTEXT TEXT
+#endif
+
 /** One entry in timer scope stack */
 struct FFrameProProfilerScope
 {
@@ -47,7 +54,8 @@ struct FFrameProProfilerScope
 
 	FORCEINLINE void BeginScope(const TCHAR* Text)
 	{
-		StatStringId = FramePro::RegisterString(Text);
+
+		StatStringId = FramePro::RegisterString(TCHAR_TO_WCHAR(Text));
 		FRAMEPRO_GET_CLOCK_COUNT(StartTime);
 	}
 
@@ -97,7 +105,7 @@ public:
 		int64 EndTime;
 		FRAMEPRO_GET_CLOCK_COUNT(EndTime);
 
-		StatStringId = FramePro::RegisterString(Override);
+		StatStringId = FramePro::RegisterString(TCHAR_TO_WCHAR(Override));
 
 		EndScopeImpl(EndTime);
 	}
@@ -120,8 +128,11 @@ class FFrameProProfilerContext : public TThreadSingleton<FFrameProProfilerContex
 		{
 			ThreadName = FThreadManager::Get().GetThreadName(ThreadId);
 		}
-		
-		FramePro::SetThreadName(TCHAR_TO_ANSI(*ThreadName));
+
+		if (ThreadName.Len())
+		{
+			FramePro::SetThreadName(TCHAR_TO_ANSI(*ThreadName));
+		}
 	}
 	
 	/** Array that represents thread of scopes */
@@ -236,18 +247,23 @@ void FFrameProProfiler::FrameStart()
 	{
 		UE_LOG(LogFramePro, Log, TEXT("FramePro Support Available"));
 
-		FramePro::SendSessionInfo(TEXT(""), *FString::Printf(TEXT("%d"), FEngineVersion::Current().GetChangelist()));
+		FramePro::SendSessionInfo(WTEXT(""), *FString::Printf(TEXT("%d"), FEngineVersion::Current().GetChangelist()));
 
-		FRAMEPRO_THREAD_ORDER(TEXT("GameThread"));
-		FRAMEPRO_THREAD_ORDER(TEXT("RenderThread"));
-		FRAMEPRO_THREAD_ORDER(TEXT("RenderThread 2"));
-		FRAMEPRO_THREAD_ORDER(TEXT("RenderThread 3"));
-		FRAMEPRO_THREAD_ORDER(TEXT("RenderThread 7"));
-		FRAMEPRO_THREAD_ORDER(TEXT("TaskGraphThreadNP 0"));
-		FRAMEPRO_THREAD_ORDER(TEXT("TaskGraphThreadNP 1"));
-		FRAMEPRO_THREAD_ORDER(TEXT("TaskGraphThreadNP 2"));
-		FRAMEPRO_THREAD_ORDER(TEXT("TaskGraphThreadNP 3"));
-		FRAMEPRO_THREAD_ORDER(TEXT("AudioThread"));
+		FRAMEPRO_THREAD_ORDER(WTEXT("GameThread"));
+		FRAMEPRO_THREAD_ORDER(WTEXT("RenderThread"));
+		FRAMEPRO_THREAD_ORDER(WTEXT("RenderThread 1"));
+		FRAMEPRO_THREAD_ORDER(WTEXT("RenderThread 2"));
+		FRAMEPRO_THREAD_ORDER(WTEXT("RenderThread 3"));
+		FRAMEPRO_THREAD_ORDER(WTEXT("RenderThread 4"));
+		FRAMEPRO_THREAD_ORDER(WTEXT("RenderThread 5"));
+		FRAMEPRO_THREAD_ORDER(WTEXT("RenderThread 6"));
+		FRAMEPRO_THREAD_ORDER(WTEXT("RenderThread 7"));
+		FRAMEPRO_THREAD_ORDER(WTEXT("RHIThread"));
+		FRAMEPRO_THREAD_ORDER(WTEXT("TaskGraphThreadNP 0"));
+		FRAMEPRO_THREAD_ORDER(WTEXT("TaskGraphThreadNP 1"));
+		FRAMEPRO_THREAD_ORDER(WTEXT("TaskGraphThreadNP 2"));
+		FRAMEPRO_THREAD_ORDER(WTEXT("TaskGraphThreadNP 3"));
+		FRAMEPRO_THREAD_ORDER(WTEXT("AudioThread"));
 
 		bFirstFrame = false;
 	}

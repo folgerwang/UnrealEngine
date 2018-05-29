@@ -109,7 +109,7 @@ public:
 	 *
 	 * @return	float of number of seconds this sound will play for. INDEFINITELY_LOOPING_DURATION means its looping.
 	 */
-	virtual float GetDuration() const;
+	virtual float GetDuration();
 
 	/** Returns whether the sound cue has a delay node. */
 	virtual bool HasDelayNode() const;

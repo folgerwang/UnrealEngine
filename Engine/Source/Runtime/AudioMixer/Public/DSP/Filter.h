@@ -64,6 +64,9 @@ namespace Audio
 		// Function computes biquad coefficients based on current filter settings
 		void CalculateBiquadCoefficients();
 
+        // Function used to clamp the cutoff frequency.
+        float ClampCutoffFrequency(float InCutoffFrequency);
+        
 		// What kind of filter to use when computing coefficients
 		EBiquadFilter::Type FilterType;
 

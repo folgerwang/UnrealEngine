@@ -198,8 +198,8 @@ enum EClassFlags
 	/** Handle object configuration on a per-object basis, rather than per-class. */
 	CLASS_PerObjectConfig     = 0x00000400u,
 	
-	/** */
-	//CLASS_ = 0x00000800u,
+	/** Whether SetUpRuntimeReplicationData still needs to be called for this class */
+	CLASS_ReplicationDataIsSetUp = 0x00000800u,
 	
 	/** Class can be constructed from editinline New button. */
 	CLASS_EditInlineNew		  = 0x00001000u,
@@ -1569,18 +1569,26 @@ public: \
 #define IMPLEMENT_INTRINSIC_CLASS(TClass, TRequiredAPI, TSuperClass, TSuperRequiredAPI, TPackage, InitCode) \
 	IMPLEMENT_CLASS(TClass, 0) \
 	TRequiredAPI UClass* Z_Construct_UClass_##TClass(); \
+	struct Z_Construct_UClass_##TClass##_Statics \
+	{ \
+		static UClass* Construct() \
+		{ \
+			extern TSuperRequiredAPI UClass* Z_Construct_UClass_##TSuperClass(); \
+			UClass* SuperClass = Z_Construct_UClass_##TSuperClass(); \
+			UClass* Class = TClass::StaticClass(); \
+			UObjectForceRegistration(Class); \
+			check(Class->GetSuperClass() == SuperClass); \
+			InitCode \
+			Class->StaticLink(); \
+			return Class; \
+		} \
+	}; \
 	UClass* Z_Construct_UClass_##TClass() \
 	{ \
 		static UClass* Class = NULL; \
 		if (!Class) \
 		{ \
-			extern TSuperRequiredAPI UClass* Z_Construct_UClass_##TSuperClass(); \
-			UClass* SuperClass = Z_Construct_UClass_##TSuperClass(); \
-			Class = TClass::StaticClass(); \
-			UObjectForceRegistration(Class); \
-			check(Class->GetSuperClass() == SuperClass); \
-			InitCode \
-			Class->StaticLink(); \
+			Class = Z_Construct_UClass_##TClass##_Statics::Construct();\
 		} \
 		check(Class->GetClass()); \
 		return Class; \

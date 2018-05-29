@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2748611
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Paper 2D スプライト
 Crumbs: %ROOT%, Engine, Engine/Paper2D
@@ -11,46 +11,7 @@ Related:Engine/Rendering/Materials
 Related:Engine/Content/Types/Textures
 Version:4.9
 SkillLevel:Intermediate
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Paper2D\Sprites:title%](sprite_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/anim_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Paper2D\Sprites:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Paper2D\Sprites:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Paper2D\Sprites]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Paper2D\Sprites:title%](sprite_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/anim_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Paper2D\Sprites:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Paper2D\Sprites:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Paper2D\Sprites]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:sprite_topic.png
 
 [REGION:banner]
 ![](sprite_banner.png)
@@ -71,7 +32,7 @@ SkillLevel:Intermediate
 
 スプライトは他のアセットと同様に **コンテンツ ブラウザ** で作成します。ブランク アセットとしてゼロから作成、他の既存アセットから作成、またはインポートしたデータを使用して作成することができます。
 
-### ブランクのスプライト アセット
+### ブランクの Sprite アセット
 
 **ブランクの Sprite アセットの作成方法**
 
@@ -83,7 +44,7 @@ SkillLevel:Intermediate
 	**コンテンツ ブラウザ** で ** 右クリック** しても、同じコンテキスト メニューを表示させることができます。 
 	[/REGION]
 
-1. 新規スプライト アセットに名前を付けます。
+1. 作成された Sprite アセットに名前を付けます。
 
 	![](MySpriteCB.jpg)
 
@@ -147,7 +108,7 @@ SkillLevel:Intermediate
 
 ### カスタム仕様のスプライト マテリアルを作成する
 
-カスタム仕様のスプライト マテリアルの作成は、既存マテリアルの 1 つを複製して作成、または **コンテンツ ブラウザ** で新規マテリアルを作成して行います。スプライトがレンダリングされると、スプライト アセットで定義されたテクスチャはマテリアルの **SpriteTexture** というテクスチャ パラメータに繋がります。**マテリアル エディタ** の **SpriteTextureSampler** ノードを配置することで、この作業が自動的に行えます。スプライト インスタンスはカラーを頂点カラーとして引き渡しますが、マテリアル内では色調を弱めるだけでなく全ての事に使用できます。
+カスタム仕様のスプライト マテリアルの作成は、既存マテリアルの 1 つを複製して作成、または **コンテンツ ブラウザ** で新規マテリアルを作成して行います。スプライトがレンダリングされると、スプライト アセットで定義されたテクスチャはマテリアルの **SpriteTexture** という名前のテクスチャ パラメータに繋がります。**マテリアル エディタ** の **SpriteTextureSampler** ノードを配置することで、この作業が自動的に行えます。スプライト インスタンスはカラーを頂点カラーとして引き渡しますが、マテリアル内では色調を弱めるだけでなく全ての事に使用できます。
 
 
 

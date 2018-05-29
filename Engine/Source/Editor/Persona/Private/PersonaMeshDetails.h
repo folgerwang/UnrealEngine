@@ -48,7 +48,7 @@ struct FClothAssetSubmeshIndex
 struct FClothingComboInfo
 {
 	/* Per-material clothing combo boxes, array size must be same to # of sections */
-	TArray<TSharedPtr< STextComboBox >>		ClothingComboBoxes;
+	TArray<TSharedPtr< class STextComboBox >>		ClothingComboBoxes;
 	/* Clothing combo box strings */
 	TArray<TSharedPtr<FString> >			ClothingComboStrings;
 	/* Mapping from a combo box string to the asset and submesh it was generated from */

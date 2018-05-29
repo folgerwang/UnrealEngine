@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2723628
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:パーティクル エフェクト 
 Crumbs:%ROOT%, Resources,
@@ -9,50 +9,7 @@ Related:Engine/Rendering/ParticleSystems\Cascade
 Related:Engine/Rendering/ParticleSystems\Reference\TypeData\GPUSprites
 Related:Engine/Rendering/ParticleSystems/Reference
 Version:4.9
-
-
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/Showcases/Effects:title%](Effects_CE_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\anim_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/Effects:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/Effects:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/Effects]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/Showcases/Effects:title%](Effects_CE_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\anim_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/Effects:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/Effects:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/Effects]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Effects_CE_topic.png
 
 
 [REGION:fullwidth]
@@ -69,10 +26,6 @@ Version:4.9
 
 
 ##パーティクル システムのサンプル
-
-
-
-[REGION:topics third]
 
 [OBJECT:TopicCompact]
 	[PARAM:image]
@@ -109,14 +62,10 @@ Version:4.9
 		[RELATIVE:Resources\Showcases\Effects\FireExamples]
 	[/PARAM]
 [/OBJECT]
-[/REGION]
-
-
-
 
 ##パーティクル サンプルの分析
 
-サンプルに含まれているドキュメントでは、プロジェクト開始を支援するために、各パーティクル システム エフェクトで実際に何が起きているかを紹介します。各エフェクトの作成方法について理解を深めたければ、それぞれをひも解いて、最終的にどのようにアセンブルされているかを見てください。ドキュメント全体を通して **コンテンツ ブラウザ** 内の各エフェクトへのフォルダパスを紹介しています。あるいは、ビューポートまたはワールド アウトライナーから興味のあるエフェクトをクリックして **Ctrl+B** キーを押します。アクタ上で **右クリック** して (ビューポートまたはワールド アウトライナーの) コンテキスト メニューから **[Show in Content Browser (コンテンツ ブラウザで表示)]** を選択します。
+サンプルに含まれているドキュメントでは、プロジェクト開始を支援するために、各パーティクル システム エフェクトで実際に何が起きているかを紹介します。各エフェクトの作成方法について理解を深めたければ、それぞれをひも解いて、最終的にどのようにアセンブルされているかを見てください。ドキュメント全体を通して **コンテンツ ブラウザ** 内の各エフェクトへのフォルダパスを紹介しています。あるいは、ビューポートまたは Scene Outliner から単に興味のあるエフェクトを選択して **Ctrl+B. キーを押します。(ビューポートまたはワールド アウトライナーで) アクタを右クリックし、コンテキストメニューから **Show in Content Browser** を選択します。
 
 ![](FindInCB.png)
 
@@ -133,23 +82,7 @@ Version:4.9
 ![](MatineePlayback.png)
 
 
-
-[EXCERPT:ParticleTopics]
-
-)
-
-
-[/EXCERPT:ParticleTopics]
-
-
-
-
-
-
-
-
 [COMMENT:none]
-------------------------------
 
 [EXCERPT:SnowTopic]
 [OBJECT:TopicCompact]
@@ -191,12 +124,4 @@ Version:4.9
 [/OBJECT]
 [/EXCERPT:FireTopic]
 
-
-
-
-
-
-
-
-------------------
 [/COMMENT]

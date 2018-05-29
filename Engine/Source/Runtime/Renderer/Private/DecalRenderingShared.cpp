@@ -27,9 +27,10 @@ static bool IsBlendModeSupported(EShaderPlatform Platform, EDecalBlendMode Decal
 	{
 		switch (DecalBlendMode)
 		{
-			case DBM_Stain:			// Modulate
-			case DBM_Emissive:		// Additive
-			case DBM_Translucent:	// Translucent
+			case DBM_Stain:			 // Modulate
+			case DBM_Emissive:		 // Additive
+			case DBM_Translucent:	 // Translucent
+			case DBM_AlphaComposite: // Premultiplied Alpha
 				break;
 			default:
 				return false;

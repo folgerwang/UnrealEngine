@@ -746,7 +746,13 @@ void MainPS_ES2(
 		#if USE_MSAA
 			SceneColor.rgb *= rcp(SceneColor.r*(-0.299) + SceneColor.g*(-0.587) + SceneColor.b*(-0.114) + 1.0);
 		#endif
-		OutColor.rgb = sqrt(SceneColor.rgb);
+
+		#if FEATURE_LEVEL == FEATURE_LEVEL_ES3_1
+			OutColor.rgb = pow(SceneColor.rgb, InverseGamma.x);
+		#else
+			OutColor.rgb = sqrt(SceneColor.rgb);
+		#endif
+
 	#else
 
 		#if USE_GRAIN_JITTER || USE_GRAIN_INTENSITY || USE_GRAIN_QUANTIZATION
@@ -790,7 +796,7 @@ void MainPS_ES2(
 			// Try to kill negatives and NaNs here
 			SceneColor.rgb = max(SceneColor.rgb, 0);
 		#endif
-
+			
 		#if USE_32BPP_HDR
 		{
 			SceneColor = Decode32BPPHDR(SceneColor, SvPosition, PostprocessInput0, PostprocessInput0Sampler, InTexCoords);

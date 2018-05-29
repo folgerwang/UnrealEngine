@@ -129,6 +129,9 @@ private:
 	/** Current player state. */
 	EMediaState CurrentState;
 
+	/** The current time of the playback. */
+	FTimespan CurrentTime;
+
 	/** Current state of looping. */
 	bool bLooping;
 

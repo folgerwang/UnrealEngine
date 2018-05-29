@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2729971
+﻿INTSourceChangelist:3807090
 Availability:Public
-title:プロシージャル
+title:Procedurals
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
-Description:既存の高さマップから法線マップを作成するなどプロシージャルに生成されたテクスチャやオペレーション。
+Description:既存の高さマップから法線マップを作成するなどプロシージャルに生成されたテクスチャや演算子
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 
@@ -26,7 +27,7 @@ Version:4.9
 | **Sharpness (Scalar)** | バンドのエッジのフォールオフを制御します。設定を 100 にすると、エイリアシングがある非常にはっきりとしたバンドになります。|
 | **Offset (Scalar)** | テクスチャ空間周囲でバンドをスライドさせます。|
 | **Direction Switch (StaticBool)** | *true* に設定するとバンドは水平ではなく垂直になります。デフォルトは *false*、すなわち水平です。|
-| **Compare (Scalar)** | これはバンドを作るためにテクスチャ座標が比較される値です。デフォルトは 0.5 です。|
+| **Compare (Scalar)** | これはバンドを作るためにテクスチャ座標が比較される値です。デフォルトは 0.5 です。
 | **Input Coordinates (Vector2)** | 関数に既に組み込まれているデフォルトではなく、UV のカスタム セットを受け取ります。|
 
 
@@ -43,7 +44,7 @@ GeneratedBand 関数と同様に **GeneratedOffsetBands** は UV 空間上にプ
 | **Sharpness (Scalar)** | バンドのエッジのフォールオフを制御します。設定を 100 にすると、エイリアシングがある非常にはっきりとしたバンドになります。|
 | **Offset (Scalar)** | テクスチャ空間周囲でバンドをスライドさせます。|
 | **Direction Switch (StaticBool)** | *true* に設定するとバンドは水平ではなく垂直になります。デフォルトは *false*、すなわち水平です。|
-| **Compare (Scalar)** | これはバンドを作るためにテクスチャ座標が比較される値です。デフォルトは 0.5 です。|
+| **Compare (Scalar)** | これはバンドを作るためにテクスチャ座標が比較される値です。デフォルトは 0.5 です。
 | **Bands (Scalar)** | バンドの合計数を変更します。|
 | **Input Coordinates (Vector2)** | 関数に既に組み込まれているデフォルトではなく、UV のカスタム セットを受け取ります。|
 
@@ -64,7 +65,7 @@ GeneratedBand 関数と同様に **GeneratedOffsetBands** は UV 空間上にプ
 | **Coordinates (Vector2)** | 高さマップの適切なスケーリング / タイリングの座標を受け取ります。|
 | **Height Bias (Scalar)** | 高さマップから適切な高さを派生するために使用するスプレッドです。デフォルト値は 0.005 です。|
 | **Height (Scalar)** | 法線マップの最終的な強度を制御します。デフォルトは 8 です。|
-| **Heightmap In (TextureObject)** |TextureObject 表現式ノードから高さマップのテクスチャを受け取ります。 |
+| **Heightmap In (TextureObject)** | TextureObject 表現式ノードから高さマップのテクスチャを受け取ります。|
 
 
 ![NormalFromHeightMap](NormalFromHeightMap_Demo.png)
@@ -91,11 +92,11 @@ GeneratedBand 関数と同様に **GeneratedOffsetBands** は UV 空間上にプ
 	このドキュメントの執筆時点では、高さマップに対する入力値はありません。こうした入力値は、以下のステップを使用して追加できます。しかし、高さマップの入力値が見つかったら、これは修正済であり、以下のステップは不要です。
 [/REGION]
 
-![Input correction](NormalFromHeightMapChaos_Correction.png)(w:900 h:600)
+![Input correction](NormalFromHeightMapChaos_Correction.png)(w:900)
 
 1. 新規のマテリアル エディタで NormalFromHeightmapChaos の関数ノードを **ダブルクリック** して開きます。
 
-2.Texture Object (T2d) 表現式ノードを探します。現在、その中にデフォルト (緑色のスライム) のテクスチャが入っているはずです。
+2. **Texture Object** (T2d) 表現式ノードを探します。現在、その中にデフォルト (緑色のスライム) のテクスチャが入っているはずです。
 
 3. **FunctionInput**  表現式ノードを作成し、それを 3 *Motion_4WayChaos* 関数ノード上の *Texture (T2d)* 関数ノードに接続します。
 

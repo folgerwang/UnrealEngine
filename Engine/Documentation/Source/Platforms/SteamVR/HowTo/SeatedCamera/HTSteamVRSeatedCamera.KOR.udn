@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810467
 Availability: Public
 Crumbs: %ROOT%, Platforms
 Title:SteamVR 용 좌석 카메라 구성
@@ -24,7 +24,7 @@ SteamVR 을 사용하는 UE4 탑재 VR 체험 개발을 시작할 때 가장 먼
     [REGION:simpletable]
 	|컴포넌트 이름| 값 |
     |--------|------------|
-    |** Scene**|VRCameraRoot|
+    |**Scene**|VRCameraRoot|
     |**Camera**|VRCamera|
 	[/region]
 

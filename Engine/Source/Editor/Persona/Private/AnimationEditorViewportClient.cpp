@@ -148,10 +148,6 @@ FAnimationViewportClient::FAnimationViewportClient(const TSharedRef<IPersonaPrev
 	InPreviewScene->RegisterOnPreTick(FSimpleDelegate::CreateRaw(this, &FAnimationViewportClient::HandlePreviewScenePreTick));
 	InPreviewScene->RegisterOnPostTick(FSimpleDelegate::CreateRaw(this, &FAnimationViewportClient::HandlePreviewScenePostTick));
 
-	UDebugSkelMeshComponent* MeshComponent = InPreviewScene->GetPreviewMeshComponent();
-	MeshComponent->SelectionOverrideDelegate = UPrimitiveComponent::FSelectionOverride::CreateRaw(this, &FAnimationViewportClient::PreviewComponentSelectionOverride);
-	MeshComponent->PushSelectionToProxy();
-
 	// Register delegate to update the show flags when the post processing is turned on or off
 	UAssetViewerSettings::Get()->OnAssetViewerSettingsChanged().AddRaw(this, &FAnimationViewportClient::OnAssetViewerSettingsChanged);
 	// Set correct flags according to current profile settings
@@ -165,12 +161,6 @@ FAnimationViewportClient::~FAnimationViewportClient()
 	if (PreviewScenePtr.IsValid())
 	{
 		TSharedPtr<IPersonaPreviewScene> ScenePtr = PreviewScenePtr.Pin();
-
-		UDebugSkelMeshComponent* MeshComponent = ScenePtr->GetPreviewMeshComponent();
-		if (MeshComponent)
-		{
-			MeshComponent->SelectionOverrideDelegate.Unbind();
-		}
 
 		ScenePtr->UnregisterOnPreviewMeshChanged(this);
 		ScenePtr->UnregisterOnInvalidateViews(this);
@@ -1551,17 +1541,6 @@ void FAnimationViewportClient::GetAllVertexIndicesUsedInSection(const FRawStatic
 		const int32 VertexIndexForWedge = IndexBuffer.Get(SkelMeshSection.BaseIndex + WedgeIndex);
 		OutIndices.Add(VertexIndexForWedge);
 	}
-}
-
-bool FAnimationViewportClient::PreviewComponentSelectionOverride(const UPrimitiveComponent* InComponent) const
-{
-	if (InComponent == GetPreviewScene()->GetPreviewMeshComponent())
-	{
-		const USkeletalMeshComponent* Component = CastChecked<USkeletalMeshComponent>(InComponent);
-		return (Component->GetSelectedEditorSection() != INDEX_NONE || Component->GetSelectedEditorMaterial() != INDEX_NONE);
-	}
-
-	return false;
 }
 
 FBox FAnimationViewportClient::ComputeBoundingBoxForSelectedEditorSection() const

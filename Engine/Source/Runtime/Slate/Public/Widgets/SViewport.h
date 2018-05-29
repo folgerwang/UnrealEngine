@@ -36,6 +36,7 @@ public:
 		, _IgnoreTextureAlpha(true)
 		, _ViewportSize(FVector2D(320.0f, 240.0f))
 	{
+		_Clipping = EWidgetClipping::ClipToBoundsAlways;
 	}
 
 		SLATE_DEFAULT_SLOT( FArguments, Content )

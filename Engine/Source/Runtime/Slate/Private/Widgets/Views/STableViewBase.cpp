@@ -120,12 +120,12 @@ void STableViewBase::OnFocusLost( const FFocusEvent& InFocusEvent )
 	bShowSoftwareCursor = false;
 }
 
-
-void STableViewBase::OnMouseCaptureLost()
+void STableViewBase::OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)
 {
+	SCompoundWidget::OnMouseCaptureLost(CaptureLostEvent);
+
 	bShowSoftwareCursor = false;
 }
-
 
 struct FEndOfListResult
 {
@@ -211,7 +211,7 @@ EActiveTimerReturnType STableViewBase::UpdateInertialScroll(double InCurrentTime
 				if (Overscroll.GetOverscroll(GetCachedGeometry()) != 0.0f)
 				{
 					bKeepTicking = true;
-					RequestListRefresh();
+					RequestLayoutRefresh();
 				}
 
 				Overscroll.UpdateOverscroll(InDeltaTime);
@@ -311,7 +311,7 @@ void STableViewBase::Tick( const FGeometry& AllottedGeometry, const double InCur
 			if (ScrollIntoViewResult == EScrollIntoViewResult::Deferred)
 			{
 				// We call this rather than just leave bItemsNeedRefresh as true to ensure that EnsureTickToRefresh is registered
-				RequestListRefresh();
+				RequestLayoutRefresh();
 			}
 			else
 			{
@@ -460,6 +460,23 @@ FReply STableViewBase::OnMouseMove( const FGeometry& MyGeometry, const FPointerE
 	}
 
 	return FReply::Unhandled();
+}
+
+
+void STableViewBase::OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+{
+	if ( MouseEvent.IsTouchEvent() )
+	{
+		if ( !bStartedTouchInteraction )
+		{
+			// If we don't have touch capture, see if a touch event entered from a child widget.
+			// If it did, begin scrolling
+			if ( MyGeometry.IsUnderLocation(MouseEvent.GetLastScreenSpacePosition()) )
+			{
+				bStartedTouchInteraction = true;
+			}
+		}
+	}
 }
 
 
@@ -613,16 +630,7 @@ bool STableViewBase::IsUserScrolling() const
 
 void STableViewBase::RequestListRefresh()
 {
-	if (!bItemsNeedRefresh)
-	{
-		bItemsNeedRefresh = true;
-		RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &STableViewBase::EnsureTickToRefresh));
-	}
-
-	if (ItemsPanel.IsValid())
-	{
-		ItemsPanel->SetRefreshPending(true);
-	}
+	RequestLayoutRefresh();
 }
 
 bool STableViewBase::IsPendingRefresh() const
@@ -709,7 +717,7 @@ void STableViewBase::SetScrollOffset( const float InScrollOffset )
 	{
 		ScrollOffset = InScrollOffset;
 		OnTableViewScrolled.ExecuteIfBound( ScrollOffset );
-		RequestListRefresh();
+		RequestLayoutRefresh();
 	}
 }
 
@@ -726,7 +734,7 @@ void STableViewBase::AddScrollOffset(const float InScrollOffsetDelta, bool Refre
 		if (RefreshList)
 		{
 			OnTableViewScrolled.ExecuteIfBound(ScrollOffset);
-			RequestListRefresh();
+			RequestLayoutRefresh();
 		}
 	}
 }
@@ -832,18 +840,32 @@ float STableViewBase::GetScrollRateInItems() const
 		: 0.5f;
 }
 
+void STableViewBase::RequestLayoutRefresh()
+{
+	if (!bItemsNeedRefresh)
+	{
+		bItemsNeedRefresh = true;
+		RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &STableViewBase::EnsureTickToRefresh));
+	}
+
+	if (ItemsPanel.IsValid())
+	{
+		ItemsPanel->SetRefreshPending(true);
+	}
+}
+
 void STableViewBase::ScrollToTop()
 {
 	EndInertialScrolling();
 	SetScrollOffset(0);
-	RequestListRefresh();
+	RequestLayoutRefresh();
 }
 
 void STableViewBase::ScrollToBottom()
 {
 	EndInertialScrolling();
 	SetScrollOffset(GetNumItemsBeingObserved());
-	RequestListRefresh();
+	RequestLayoutRefresh();
 }
 
 FVector2D STableViewBase::GetScrollDistance()

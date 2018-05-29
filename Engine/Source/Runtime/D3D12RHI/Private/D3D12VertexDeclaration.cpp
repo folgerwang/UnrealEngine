@@ -98,7 +98,8 @@ uint32 GetTypeHash(const FD3D12VertexDeclarationKey& Key)
 /** Compare two vertex declaration keys. */
 bool operator==(const FD3D12VertexDeclarationKey& A, const FD3D12VertexDeclarationKey& B)
 {
-	return A.VertexElements == B.VertexElements;
+	return A.VertexElements == B.VertexElements
+		&& !FMemory::Memcmp(A.StreamStrides, B.StreamStrides, sizeof(A.StreamStrides));
 }
 
 /** Global cache of vertex declarations. */

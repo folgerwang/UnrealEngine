@@ -21,6 +21,7 @@
 #include "Misc/CoreDelegates.h"
 #include "Misc/App.h"
 #include "HAL/Runnable.h"
+#include "Misc/EngineVersion.h"
 
 #if CSV_PROFILER
 
@@ -44,7 +45,7 @@ CSV_DEFINE_STAT_GLOBAL(FrameTime);
 
 DEFINE_LOG_CATEGORY_STATIC(LogCsvProfiler, Log, All);
 
-FCsvProfiler* FCsvProfiler::Instance = nullptr;
+TUniquePtr<FCsvProfiler> FCsvProfiler::Instance;
 
 static bool GCsvTestingGT = false;
 static bool GCsvTestingRT = false;
@@ -216,7 +217,7 @@ static FAutoConsoleCommand HandleCSVProfileCmd(
 );
 
 void CSVTest();
- 
+
 //-----------------------------------------------------------------------------
 //	TSingleProducerSingleConsumerList : fast lock-free single producer/single 
 //  consumer list implementation. 
@@ -242,7 +243,7 @@ class TSingleProducerSingleConsumerList
 
 	struct FCacheLineAlignedCounter
 	{
-		#define NUM_PADDING_WORDS ( PLATFORM_CACHE_LINE_SIZE/4 - 2 )
+#define NUM_PADDING_WORDS ( PLATFORM_CACHE_LINE_SIZE/4 - 2 )
 		uint32 Pad[NUM_PADDING_WORDS];
 
 		volatile uint64 Value;
@@ -292,7 +293,7 @@ public:
 		bElementReserved = false;
 #endif
 		FPlatformMisc::MemoryBarrier();
-		
+
 		// Keep track of the count of all the elements we ever committed. This value is never reset, even on a PopAll
 		Counter.Value++;
 	}
@@ -317,7 +318,7 @@ public:
 			Offset = ElementsOut.Num();
 		}
 
-		uint32 ElementCount = uint32( CurrentCounterValue - ConsumerThreadLastReadIndex );
+		uint32 ElementCount = uint32(CurrentCounterValue - ConsumerThreadLastReadIndex);
 		ElementsOut.AddDefaulted(ElementCount);
 
 		uint32 IndexInBlock = ConsumerThreadLastReadIndex % BlockSize;
@@ -442,7 +443,7 @@ public:
 
 		const TArray<uint64>& ThreadTimestamps = FrameBoundaryTimestamps[Timeline];
 		if (ThreadTimestamps.Num() == 0 || Timestamp < ThreadTimestamps[0])
-{
+		{
 			// This timestamp is before the first frame, or there are no valid timestamps
 			CurrentReadFrameIndex = 0;
 			return -1;
@@ -456,15 +457,15 @@ public:
 
 		// Check if we need to rewind
 		if (CurrentReadFrameIndex > 0 && ThreadTimestamps[CurrentReadFrameIndex - 1] > Timestamp)
-{
+		{
 			// Binary search to < 4 and then resume linear searching
 			int32 StartPos = 0;
 			int32 EndPos = CurrentReadFrameIndex;
 			while (true)
-	{
+			{
 				int32 Diff = (EndPos - StartPos);
 				if (Diff <= 4)
-		{
+				{
 					CurrentReadFrameIndex = StartPos;
 					break;
 				}
@@ -472,13 +473,13 @@ public:
 				if (ThreadTimestamps[MidPos] > Timestamp)
 				{
 					EndPos = MidPos;
-		}
-		else
-		{
+				}
+				else
+				{
 					StartPos = MidPos;
 				}
+			}
 		}
-	}
 
 		for (; CurrentReadFrameIndex < ThreadTimestamps.Num(); CurrentReadFrameIndex++)
 		{
@@ -543,18 +544,18 @@ static TArray<FString> UniqueNonFNameStatIDIndices;
 struct FAnsiStringRegister
 {
 	static uint32 GetUniqueStringIndex(const ANSICHAR* AnsiStr)
-{
+	{
 		uint32* IndexPtr = CharPtrToStringIndex.Find(AnsiStr);
 		if (IndexPtr)
-	{
+		{
 			return *IndexPtr;
-	}
+		}
 
 		// If we haven't seen this pointer before, check the string register (this is slow!)
 		FString Str = FString(StringCast<TCHAR>(AnsiStr).Get());
 		uint32* Value = UniqueNonFNameStatIDStrings.Find(Str);
 		if (Value)
-	{
+		{
 			// Cache in the index register
 			CharPtrToStringIndex.Add(AnsiStr, *Value);
 			return *Value;
@@ -578,7 +579,7 @@ struct FAnsiStringRegister
 * Key functions classes to allow SceNpOnlineId to be used as the key in TSet and TMap.
 */
 struct FCsvStatID
-	{
+{
 	static const uint64 FNameOrIndexMask = 0x000fffffffffffffull; // Lower 52 bits for fname or index
 
 	FCsvStatID(uint64 InStatIDRaw, int32 InCategoryIndex, bool bInIsFName)
@@ -590,9 +591,9 @@ struct FCsvStatID
 			check((InStatIDRaw & FNameOrIndexMask) == InStatIDRaw);
 			UniqueID.Fields.IsFName = 1;
 			UniqueID.Fields.FNameOrIndex = InStatIDRaw;
-	}
+		}
 		else
-	{
+		{
 			UniqueID.Fields.IsFName = 0;
 			UniqueID.Fields.FNameOrIndex = FAnsiStringRegister::GetUniqueStringIndex((ANSICHAR*)InStatIDRaw);
 		}
@@ -605,9 +606,9 @@ struct FCsvStatID
 		{
 			const FNameEntry* NameEntry = FName::GetEntry(UniqueID.Fields.FNameOrIndex);
 			return NameEntry->GetPlainNameString().RightChop(GCsvNamePrefix.Len());
-	}
+		}
 		else
-	{
+		{
 			return FAnsiStringRegister::GetString(UniqueID.Fields.FNameOrIndex);
 		}
 	}
@@ -720,10 +721,10 @@ struct FCsvCustomStat : public FCsvStatBase
 	bool IsInteger() const
 	{
 		return !!(Flags & FCsvStatBase::FFlags::IsInteger);
-}
+	}
 
 	double GetValueAsDouble() const
-{
+	{
 		return IsInteger() ? double(Value.AsInt) : double(Value.AsFloat);
 	}
 
@@ -739,7 +740,7 @@ struct FCsvEvent
 	uint64 GetAllocatedSize() const
 	{
 		return (uint64)EventText.GetAllocatedSize() + sizeof(*this);
-}
+	}
 
 	FString EventText;
 	uint64 Timestamp;
@@ -770,7 +771,7 @@ struct FCsvStatSeries
 		int32 StartValueIndex;
 	};
 	enum class EType : uint8
-{
+	{
 		TimerData,
 		CustomStatInt,
 		CustomStatFloat
@@ -813,7 +814,7 @@ struct FCsvStatSeries
 		{
 			// If we're done with the previous frame, commit it
 			if (CurrentWriteFrameNumber != -1)
-	{
+			{
 				FCsvStatSeriesValue SeriesValue;
 				SeriesValue.Value.AsInt = CurrentValue.AsIntValue;
 				CommitFrameData(SeriesValue);
@@ -822,7 +823,7 @@ struct FCsvStatSeries
 			// The first op in a frame is always a set. Otherwise min/max don't work
 			Op = ECsvCustomStatOp::Set;
 			CurrentWriteFrameNumber = DataFrameNumber;
-	}
+		}
 
 		switch (Op)
 		{
@@ -841,7 +842,7 @@ struct FCsvStatSeries
 			CurrentValue.AsIntValue += Value;
 			break;
 		}
-}
+	}
 
 	void SetCustomStatValue_Float(uint32 DataFrameNumber, ECsvCustomStatOp Op, float Value)
 	{
@@ -853,7 +854,7 @@ struct FCsvStatSeries
 		{
 			// If we're done with the previous frame, commit it
 			if (CurrentWriteFrameNumber != -1)
-{
+			{
 				FCsvStatSeriesValue SeriesValue;
 				SeriesValue.Value.AsFloat = CurrentValue.AsFloatValue;
 				CommitFrameData(SeriesValue);
@@ -894,10 +895,10 @@ struct FCsvStatSeries
 			// Is this frame contiguous? If so, just add to the current span
 			FFrameIndexSpan& LastFrameSpan = FrameSpans.Last();
 			if (CurrentWriteFrameNumber == LastFrameSpan.StartFrameIndex + LastFrameSpan.FrameCount)
-	{
+			{
 				LastFrameSpan.FrameCount++;
-		return;
-	}
+				return;
+			}
 		}
 
 		// Frame is not contiguous. Add a new span
@@ -913,28 +914,28 @@ struct FCsvStatSeries
 		check(IsInGameThread());
 
 		if (FrameNumber >= (int32)GetFrameCount())
-	{
+		{
 			return DefaultValue;
-	}
+		}
 
 		// Check if we need to rewind (if the current framespan is ahead)
 		if (CurrentReadFrameSpanIndex == FrameSpans.Num() || (CurrentReadFrameSpanIndex > 0 && FrameSpans[CurrentReadFrameSpanIndex].StartFrameIndex > FrameNumber))
-	{
+		{
 			CurrentReadFrameSpanIndex = 0;
-	}
+		}
 
 		for (; CurrentReadFrameSpanIndex < FrameSpans.Num(); CurrentReadFrameSpanIndex++)
 		{
 			FFrameIndexSpan& FrameSpan = FrameSpans[CurrentReadFrameSpanIndex];
 			int32 FrameSpanOffset = FrameNumber - FrameSpan.StartFrameIndex;
 			if (FrameSpanOffset < 0)
-	{
+			{
 				// We have no data for this framespan
 				if (CurrentReadFrameSpanIndex > 0)
-		{
+				{
 					// Spin back to avoid an unnecessary rewind on the next read
 					CurrentReadFrameSpanIndex--;
-		}
+				}
 				return DefaultValue;
 			}
 			if (FrameSpanOffset < FrameSpan.FrameCount)
@@ -952,16 +953,16 @@ struct FCsvStatSeries
 	uint32 GetFrameCount() const
 	{
 		if (FrameSpans.Num() == 0)
-	{
+		{
 			return 0;
 		}
 		return FrameSpans.Last().StartFrameIndex + FrameSpans.Last().FrameCount;
 	}
 
 	bool IsCustomStat() const
-		{
+	{
 		return (SeriesType == EType::CustomStatFloat || SeriesType == EType::CustomStatInt);
-		}
+	}
 
 	uint64 GetAllocatedSize() const
 	{
@@ -1031,13 +1032,13 @@ struct FCsvProcessedThreadData
 				{
 					// Add a /<Threadname> prefix
 					Name = ThreadName + TEXT("/") + Name;
-	}
+				}
 
 				if (Series->StatID.GetCategoryIndex() > 0)
 				{
 					// Categorised stats are prefixed with <CATEGORY>/
 					Name = Series->StatID.GetCategoryString() + TEXT("/") + Name;
-}
+				}
 
 				OutStatNames.Add(Name);
 			}
@@ -1048,14 +1049,14 @@ struct FCsvProcessedThreadData
 	{
 		check(IsInGameThread());
 		for (int i = 0; i < StatSeriesArray.Num(); i++)
-{
+		{
 			FCsvStatSeries* Series = StatSeriesArray[i];
 			if (Series->StatID.GetCategoryIndex() == CategoryIndex || CategoryIndex == -1)
-	{
+			{
 				OutValues.Add(Series->ReadValueForFrame(FrameIndex, 0.0));
 			}
+		}
 	}
-}
 
 	void ReadEventDataForFrame(uint32 FrameIndex, TArray<FString>& OutEvents) const
 	{
@@ -1075,14 +1076,14 @@ struct FCsvProcessedThreadData
 			else if (Event.FrameNumber > FrameIndex)
 			{
 				if (CurrentProcessedEventReadIndex > 0)
-{
+				{
 					// Spin back to avoid an unnecessary rewind on the next read
 					CurrentProcessedEventReadIndex--;
 				}
 				return;
 			}
 		}
-}
+	}
 
 	uint32 GetProcessedEventCount() const
 	{
@@ -1096,7 +1097,7 @@ struct FCsvProcessedThreadData
 		for (int i = 0; i < StatSeriesArray.Num(); i++)
 		{
 			if (StatSeriesArray[i])
-{
+			{
 				delete StatSeriesArray[i];
 			}
 		}
@@ -1120,12 +1121,12 @@ struct FCsvProcessedThreadData
 			TotalSize += sizeof(FCsvProcessedEvent) + ProcessedEvents[i].EventText.GetAllocatedSize();
 		}
 		return TotalSize;
-}
+	}
 
 	void SetThreadName(const FString& InThreadName)
-{
+	{
 		ThreadName = InThreadName;
-}
+	}
 
 private:
 	FCsvStatSeries* FindOrCreateStatSeries(const FCsvStatID& StatID, FCsvStatSeries::EType SeriesType)
@@ -1133,7 +1134,7 @@ private:
 		check(IsInCsvProcessingThread());
 		FCsvStatSeries** Series = StatIDToSeries.Find(StatID.UniqueID.Hash);
 		if (Series)
-{
+		{
 #if DO_CHECK
 			FString StatName = StatID.GetNameString();
 			checkf(SeriesType == (*Series)->SeriesType, TEXT("Stat named %s was used in multiple stat types. Can't use same identifier for different stat types. Stat types are: Custom(Int), Custom(Float) and Timing"), *StatName);
@@ -1145,7 +1146,7 @@ private:
 		StatSeriesArray.Add(NewSeries);
 		StatIDToSeries.Add(StatID.UniqueID.Hash, NewSeries);
 		return NewSeries;
-}
+	}
 
 	TMap<uint64, FCsvStatSeries*> StatIDToSeries;
 	TArray<FCsvStatSeries*> StatSeriesArray;
@@ -1165,10 +1166,10 @@ public:
 		, LastProcessedTimestamp(0)
 	{
 		CurrentCaptureStartCycles = FPlatformTime::Cycles64();
-	
+
 		// Determine the thread name
 		if (ThreadId == GGameThreadId)
-	{
+		{
 			ThreadName = TEXT("GameThread");
 		}
 		else if (ThreadId == GRenderThreadId)
@@ -1202,17 +1203,17 @@ public:
 		AddTimestampInternal(GetStatID(StatName), CategoryIndex, bBegin, true);
 	}
 	void AddCustomStat(const char* StatName, const int32 CategoryIndex, const float Value, const ECsvCustomStatOp CustomStatOp)
-		{
+	{
 		AddCustomStatInternal(GetStatID(StatName), CategoryIndex, Value, CustomStatOp, false);
 	}
 	void AddCustomStat(const FName& StatName, const int32 CategoryIndex, const float Value, const ECsvCustomStatOp CustomStatOp)
-			{
+	{
 		AddCustomStatInternal(GetStatID(StatName), CategoryIndex, Value, CustomStatOp, true);
-			}
+	}
 	void AddCustomStat(const char* StatName, const int32 CategoryIndex, const int32 Value, const ECsvCustomStatOp CustomStatOp)
 	{
 		AddCustomStatInternal(GetStatID(StatName), CategoryIndex, Value, CustomStatOp, false);
-		}
+	}
 	void AddCustomStat(const FName& StatName, const int32 CategoryIndex, const int32 Value, const ECsvCustomStatOp CustomStatOp)
 	{
 		AddCustomStatInternal(GetStatID(StatName), CategoryIndex, Value, CustomStatOp, true);
@@ -1228,7 +1229,7 @@ public:
 	}
 
 	uint64 GetAllocatedSize() const
-{
+	{
 		uint64 TotalSize = RawThreadData.TimingMarkers.GetAllocatedSize() + RawThreadData.CustomStats.GetAllocatedSize() + RawThreadData.Events.GetAllocatedSize() + sizeof(*this);
 		TotalSize += ProcessedData.GetAllocatedSize();
 		return TotalSize;
@@ -1248,12 +1249,12 @@ public:
 
 
 	const FCsvProcessedThreadData* GetProcessedData()
-		{
+	{
 		check(IsInGameThread());
 		// Do a final process the thread data before returning it
 		ProcessThreadData();
 		return &ProcessedData;
-		}
+	}
 
 	void ClearProcessedData()
 	{
@@ -1275,7 +1276,7 @@ private:
 	}
 
 	void AddCustomStatInternal(uint64 StatID, int32 CategoryIndex, const float Value, const ECsvCustomStatOp CustomStatOp, const bool bFNameStat)
-		{
+	{
 		FCsvCustomStat* CustomStat = RawThreadData.CustomStats.ReserveElement();
 
 		uint64 Flags = FCsvStatBase::FFlags::IsCustomStat;
@@ -1283,10 +1284,10 @@ private:
 		CustomStat->Init(StatID, CategoryIndex, Flags, FPlatformTime::Cycles64(), uint8(CustomStatOp));
 		CustomStat->Value.AsFloat = Value;
 		RawThreadData.CustomStats.CommitElement();
-		}
+	}
 
 	void AddCustomStatInternal(uint64 StatID, int32 CategoryIndex, const int32 Value, const ECsvCustomStatOp CustomStatOp, const bool bFNameStat)
-		{
+	{
 		FCsvCustomStat* CustomStat = RawThreadData.CustomStats.ReserveElement();
 
 		uint64 Flags = FCsvStatBase::FFlags::IsCustomStat | FCsvStatBase::FFlags::IsInteger;
@@ -1294,8 +1295,8 @@ private:
 		CustomStat->Init(StatID, CategoryIndex, Flags, FPlatformTime::Cycles64(), uint8(CustomStatOp));
 		CustomStat->Value.AsInt = Value;
 		RawThreadData.CustomStats.CommitElement();
-		}
-		
+	}
+
 	void AddTimestampInternal(uint64 StatID, int32 CategoryIndex, const bool bBegin, const bool bFNameStat)
 	{
 		FCsvTimingMarker* Marker = RawThreadData.TimingMarkers.ReserveElement();
@@ -1334,17 +1335,24 @@ private:
 //  profiling data
 //-----------------------------------------------------------------------------
 class FCsvProfilerProcessingThread : public FRunnable
-	{
+{
+	FThreadSafeCounter StopCounter;
 public:
 	FCsvProfilerProcessingThread(FCsvProfiler* InCsvProfiler)
 		: CsvProfiler(InCsvProfiler)
-		{
+	{
 		Thread = FRunnableThread::Create(this, TEXT("CSVProfiler"), 0, TPri_Lowest, FPlatformAffinity::GetTaskGraphBackgroundTaskMask());
-		}
+	}
 
-	~FCsvProfilerProcessingThread()
+	virtual ~FCsvProfilerProcessingThread()
+	{
+		if (Thread)
 		{
+			Thread->Kill(true);
+			delete Thread;
+			Thread = nullptr;
 		}
+	}
 
 	// FRunnable interface
 	virtual bool Init() override
@@ -1358,7 +1366,7 @@ public:
 		GCsvProcessingThreadId = FPlatformTLS::GetCurrentThreadId();
 		GGameThreadIsCsvProcessingThread = false;
 
-		while (true)
+		while (StopCounter.GetValue() == 0)
 		{
 			check(CsvProfiler);
 			GCsvProcessingLock.Lock();
@@ -1367,11 +1375,14 @@ public:
 			float SleepTimeSeconds = FMath::Max(TimeBetweenUpdatesMS - ElapsedMS, 0.0f) / 1000.0f;
 			FPlatformProcess::Sleep(SleepTimeSeconds);
 		}
-		}
+
+		return 0;
+	}
 
 	virtual void Stop() override
-		{
-		}
+	{
+		StopCounter.Increment();
+	}
 
 	virtual void Exit() override { }
 
@@ -1441,15 +1452,15 @@ void FCsvProfilerThreadData::ProcessThreadData()
 		FCsvCustomStat& CustomStat = CustomStats[i];
 		int32 FrameNumber = GFrameBoundaries.GetFrameNumberForTimestamp(Timeline, CustomStat.GetTimestamp());
 		if (FrameNumber >= 0)
-	{
+		{
 			bool bIsInteger = CustomStat.IsInteger();
 			FCsvStatSeries* Series = ProcessedData.FindOrCreateStatSeries(CustomStat.GetStatID(), bIsInteger ? FCsvStatSeries::EType::CustomStatInt : FCsvStatSeries::EType::CustomStatFloat);
 			if (bIsInteger)
-		{
+			{
 				Series->SetCustomStatValue_Int(FrameNumber, CustomStat.GetCustomStatOp(), CustomStat.Value.AsInt);
-		}
+			}
 			else
-		{
+			{
 				Series->SetCustomStatValue_Float(FrameNumber, CustomStat.GetCustomStatOp(), CustomStat.Value.AsFloat);
 			}
 		}
@@ -1468,18 +1479,18 @@ void FCsvProfilerThreadData::ProcessThreadData()
 			ProcessedEvent.CategoryIndex = Event.CategoryIndex;
 			ProcessedData.ProcessedEvents.Add(ProcessedEvent);
 		}
-		}
 	}
+}
 
 
 FCsvProfiler* FCsvProfiler::Get()
+{
+	if (!Instance.IsValid())
 	{
-	if (Instance == nullptr)
-		{
-		Instance = new FCsvProfiler;
+		Instance = MakeUnique<FCsvProfiler>();
 	}
-	return Instance;
-		}
+	return Instance.Get();
+}
 
 FCsvProfiler::FCsvProfiler()
 	: NumFramesToCapture(-1)
@@ -1490,7 +1501,7 @@ FCsvProfiler::FCsvProfiler()
 	, LastEndFrameTimestamp(0)
 	, CaptureEndFrameCount(0)
 	, ProcessingThread(nullptr)
-		{
+{
 	check(IsInGameThread());
 	GetTlsProfilerThreadData();
 
@@ -1498,8 +1509,17 @@ FCsvProfiler::FCsvProfiler()
 	FCoreDelegates::OnEndFrame.AddStatic(CsvProfilerEndFrame);
 	FCoreDelegates::OnBeginFrameRT.AddStatic(CsvProfilerBeginFrameRT);
 	FCoreDelegates::OnEndFrameRT.AddStatic(CsvProfilerEndFrameRT);
-		}
+}
 
+FCsvProfiler::~FCsvProfiler()
+{
+	IsShuttingDown.Increment();
+	if (ProcessingThread)
+	{
+		delete ProcessingThread;
+		ProcessingThread = nullptr;
+	}
+}
 /** Per-frame update */
 void FCsvProfiler::BeginFrame()
 {
@@ -1527,7 +1547,12 @@ void FCsvProfiler::BeginFrame()
 			NumFramesToCapture = CurrentCommand.Value;
 			CaptureFrameNumber = 0;
 			LastEndFrameTimestamp = FPlatformTime::Cycles64();
-			DestinationFolder = CurrentCommand.DestinationFolder.IsEmpty() ? FPaths::ProfilingDir() + TEXT("CSV/") : CurrentCommand.DestinationFolder;
+
+			// Determine the output path and filename based on override params
+			FString DestinationFolder = CurrentCommand.DestinationFolder.IsEmpty() ? FPaths::ProfilingDir() + TEXT("CSV/") : CurrentCommand.DestinationFolder + TEXT("/");
+			FString Filename = CurrentCommand.Filename.IsEmpty() ? FString::Printf(TEXT("Profile(%s).csv"), *FDateTime::Now().ToString(TEXT("%Y%m%d_%H%M%S"))) : CurrentCommand.Filename;
+			OutputFilename = DestinationFolder + Filename;
+
 			bWriteCompletionFile = CurrentCommand.bWriteCompletionFile;
 			if (GCsvUseProcessingThread && ProcessingThread == nullptr)
 			{
@@ -1541,26 +1566,26 @@ void FCsvProfiler::BeginFrame()
 	{
 		GFrameBoundaries.AddBeginFrameTimestamp(ECsvTimeline::Gamethread);
 	}
-			
+
 	if (GCsvTestingGT)
-			{
+	{
 		CSVTest();
-			}
-		}
+	}
+}
 
 void FCsvProfiler::EndFrame()
 {
 	check(IsInGameThread());
 	if (bCapturing)
-		{
+	{
 		if (NumFramesToCapture >= 0)
-			{
+		{
 			NumFramesToCapture--;
 			if (NumFramesToCapture == 0)
-				{
+			{
 				EndCapture();
-				}
 			}
+		}
 
 		// Record the frametime (measured since the last EndFrame)
 		uint64 CurrentTimeStamp = FPlatformTime::Cycles64();
@@ -1570,7 +1595,11 @@ void FCsvProfiler::EndFrame()
 
 		FPlatformMemoryStats MemoryStats = FPlatformMemory::GetStats();
 		float PhysicalMBFree = float(MemoryStats.AvailablePhysical / 1024) / 1024.0f;
+		float PhysicalMBUsed = float(MemoryStats.UsedPhysical / 1024) / 1024.0f;
+		float VirtuallMBUsed = float(MemoryStats.UsedVirtual / 1024) / 1024.0f;
 		CSV_CUSTOM_STAT_GLOBAL(MemoryFreeMB, PhysicalMBFree, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT_GLOBAL(PhysicalUsedMB, PhysicalMBUsed, ECsvCustomStatOp::Set);
+		CSV_CUSTOM_STAT_GLOBAL(VirtualUsedMB, VirtuallMBUsed, ECsvCustomStatOp::Set);
 
 		// If we're single-threaded, process the stat data here
 		if (ProcessingThread == nullptr)
@@ -1601,7 +1630,7 @@ void FCsvProfiler::EndFrame()
 				WriteCaptureToFile();
 			}
 			else
-{
+			{
 				UE_LOG(LogCsvProfiler, Warning, TEXT("Capture Stop requested, but no capture was running!"));
 			}
 		}
@@ -1613,7 +1642,7 @@ void FCsvProfiler::EndFrame()
 
 /** Per-frame update */
 void FCsvProfiler::BeginFrameRT()
-	{
+{
 	check(IsInRenderingThread());
 	if (bCapturing)
 	{
@@ -1623,15 +1652,15 @@ void FCsvProfiler::BeginFrameRT()
 	bCapturingRT = bCapturing;
 
 	if (GCsvTestingRT)
-		{
+	{
 		CSVTest();
 	}
-		}
+}
 
 void FCsvProfiler::EndFrameRT()
-		{
+{
 	check(IsInRenderingThread());
-		}
+}
 
 
 /** Final cleanup */
@@ -1640,10 +1669,13 @@ void FCsvProfiler::Release()
 
 }
 
-void FCsvProfiler::BeginCapture(int InNumFramesToCapture /* = -1*/, const FString& InDestinationFolder /*= FString()*/, bool bInWriteCompletionFile /* = false*/)
+void FCsvProfiler::BeginCapture(int InNumFramesToCapture, 
+	const FString& InDestinationFolder, 
+	const FString& InFilename,
+	bool bInWriteCompletionFile )
 {
 	check(IsInGameThread());
-	CommandQueue.Enqueue(FCsvCaptureCommand(ECsvCommandType::Start, GCsvProfilerFrameNumber, InNumFramesToCapture, InDestinationFolder, bInWriteCompletionFile));
+	CommandQueue.Enqueue(FCsvCaptureCommand(ECsvCommandType::Start, GCsvProfilerFrameNumber, InNumFramesToCapture, InDestinationFolder, InFilename, bInWriteCompletionFile));
 }
 
 void FCsvProfiler::EndCapture()
@@ -1655,7 +1687,7 @@ void FCsvProfiler::EndCapture()
 
 
 class FCsvWriterHelper
-		{
+{
 public:
 	FCsvWriterHelper(FArchive* InOutputFile) : OutputFile(InOutputFile), bIsLineStart(true)
 	{}
@@ -1663,21 +1695,21 @@ public:
 	void WriteStringList(const TArray<FString>& Strings, FString Prefix)
 	{
 		for (int i = 0; i < Strings.Num(); i++)
-			{
+		{
 			WriteString(Prefix);
 			WriteStringInternal(Strings[i]);
-			}
+		}
 	}
 	void WriteValues(const TArray<double>& Values)
-			{
+	{
 		for (int i = 0; i < Values.Num(); i++)
-				{
+		{
 			WriteValue(Values[i]);
-				}
-			}
+		}
+	}
 
 	void WriteSemicolonSeparatedStringList(const TArray<FString>& Strings)
-			{
+	{
 		WriteString(TEXT(""));
 		for (int i = 0; i < Strings.Num(); i++)
 		{
@@ -1688,60 +1720,60 @@ public:
 				WriteChar(';');
 			}
 			WriteStringInternal(SanitizedText);
-			}
 		}
+	}
 
 	void NewLine()
-		{
+	{
 		WriteChar('\n');
 		bIsLineStart = true;
 	}
 
 	void WriteString(const FString& Str)
-			{
+	{
 		if (!bIsLineStart)
-				{
+		{
 			WriteChar(',');
 		}
 		bIsLineStart = false;
 		WriteStringInternal(Str);
-				}
+	}
 
 	void WriteValue(double Value)
-				{
+	{
 		if (!bIsLineStart)
-					{
+		{
 			WriteChar(',');
 		}
 		bIsLineStart = false;
 
 		ANSICHAR StringBuffer[256];
 		if (FMath::Frac(Value) == 0.0)
-						{
+		{
 			FCStringAnsi::Snprintf(StringBuffer, 256, "%d", int(Value));
-						}
+		}
 		else if (FMath::Abs(Value) < 0.1)
 		{
 			FCStringAnsi::Snprintf(StringBuffer, 256, "%.6f", Value);
-					}
+		}
 		else
 		{
 			FCStringAnsi::Snprintf(StringBuffer, 256, "%.4f", Value);
 		}
 		OutputFile->Serialize((void*)StringBuffer, sizeof(ANSICHAR)*FCStringAnsi::Strlen(StringBuffer));
-				}
+	}
 
 private:
 	void WriteStringInternal(const FString& Str)
-				{
+	{
 		auto AnsiStr = StringCast<ANSICHAR>(*Str);
 		OutputFile->Serialize((void*)AnsiStr.Get(), AnsiStr.Length());
-				}
+	}
 
 	void WriteChar(ANSICHAR Char)
-				{
+	{
 		OutputFile->Serialize((void*)&Char, sizeof(ANSICHAR));
-				}
+	}
 
 	FArchive* OutputFile;
 	bool bIsLineStart;
@@ -1753,26 +1785,21 @@ void FCsvProfiler::WriteCaptureToFile()
 	check(IsInGameThread());
 	FScopeLock Lock(&GCsvProcessingLock);
 	if (ProcessingThread)
-				{
+	{
 		GGameThreadIsCsvProcessingThread = true;
-				}
+	}
 
 	// Do a final process of the stat data
 	ProcessStatData();
-
-	// Write the results out to a file
-	FString Filename = FString::Printf(TEXT("Profile(%s)"), *FDateTime::Now().ToString(TEXT("%Y%m%d_%H%M%S")));
-	FString CSVRootPath = DestinationFolder;
-	FString OutputFilename = CSVRootPath + Filename + TEXT(".csv");
 
 	// Read back the processed data for each thread
 	TArray<const FCsvProcessedThreadData*> ProcessedThreadDataArray;
 	TArray<FCsvProfilerThreadData*> ProfilerThreadData;
 	GetProfilerThreadDataArray(ProfilerThreadData);
 	for (int t = 0; t < ProfilerThreadData.Num(); t++)
-				{
+	{
 		ProcessedThreadDataArray.Add(ProfilerThreadData[t]->GetProcessedData());
-				}
+	}
 
 #if ALLOW_DEBUG_FILES
 	FArchive* OutputFile = IFileManager::Get().CreateDebugFileWriter(*OutputFilename);
@@ -1780,62 +1807,89 @@ void FCsvProfiler::WriteCaptureToFile()
 	FArchive* OutputFile = IFileManager::Get().CreateFileWriter(*OutputFilename);
 #endif
 
-	FCsvWriterHelper CsvWriter(OutputFile);
+	check(OutputFile != nullptr);
+	if (!OutputFile)
+	{
+		UE_LOG(LogCsvProfiler, Warning, TEXT("Error writing CSV file : %s"), *OutputFilename);
+	}
+	else
+	{
+		FCsvWriterHelper CsvWriter(OutputFile);
 
-	// Write the first row (ie the header)
-	bool bHasEvents = false;
-	for (int32 CategoryIndex = 0; CategoryIndex < FCsvCategoryData::Get()->GetCategoryCount(); CategoryIndex++)
-				{
-		for (int32 t = 0; t < ProcessedThreadDataArray.Num(); t++)
-				{
-			const FCsvProcessedThreadData* ProcessedData = ProcessedThreadDataArray[t];
-			TArray<FString> StatNames;
+		// Write the first row (ie the header)
+		bool bHasEvents = false;
+		for (int32 CategoryIndex = 0; CategoryIndex < FCsvCategoryData::Get()->GetCategoryCount(); CategoryIndex++)
+		{
+			for (int32 t = 0; t < ProcessedThreadDataArray.Num(); t++)
+			{
+				const FCsvProcessedThreadData* ProcessedData = ProcessedThreadDataArray[t];
+				TArray<FString> StatNames;
 
-			// Read Custom stat names, write out with no prefix
-			ProcessedData->ReadStatNames(StatNames, CategoryIndex);
-			CsvWriter.WriteStringList(StatNames, TEXT(""));
-			StatNames.Empty();
-			if (ProcessedData->GetProcessedEventCount() > 0)
-					{
-				bHasEvents = true;
+				// Read Custom stat names, write out with no prefix
+				ProcessedData->ReadStatNames(StatNames, CategoryIndex);
+				CsvWriter.WriteStringList(StatNames, TEXT(""));
+				StatNames.Empty();
+				if (ProcessedData->GetProcessedEventCount() > 0)
+				{
+					bHasEvents = true;
+				}
 			}
 		}
-	}
-	if (bHasEvents)
-						{
-		CsvWriter.WriteString(TEXT("EVENTS"));
-						}
-	CsvWriter.NewLine();
-
-	// Write out the values
-	for (int32 i = 0; i < (int32)CaptureEndFrameCount; i++)
-						{
-		for (int32 CategoryIndex = 0; CategoryIndex < FCsvCategoryData::Get()->GetCategoryCount(); CategoryIndex++)
-							{
-			TArray<FString> RowEvents;
-			for (int t = 0; t < ProcessedThreadDataArray.Num(); t++)
-								{
-				const FCsvProcessedThreadData* ProcessedData = ProcessedThreadDataArray[t];
-				TArray<double> ThreadValues;
-
-				// Write stat values for this frame/category
-				ProcessedData->ReadStatDataForFrame(i, CategoryIndex, ThreadValues);
-				CsvWriter.WriteValues(ThreadValues);
-								}
-							}
 		if (bHasEvents)
 		{
-			TArray<FString> RowEvents;
-			for (int t = 0; t < ProcessedThreadDataArray.Num(); t++)
-			{
-				ProcessedThreadDataArray[t]->ReadEventDataForFrame(i, RowEvents);
-						}
-			CsvWriter.WriteSemicolonSeparatedStringList(RowEvents);
-					}
+			CsvWriter.WriteString(TEXT("EVENTS"));
+		}
 		CsvWriter.NewLine();
-				}
 
-	OutputFile->Close();
+		// Write out the values
+		for (int32 i = 0; i < (int32)CaptureEndFrameCount; i++)
+		{
+			for (int32 CategoryIndex = 0; CategoryIndex < FCsvCategoryData::Get()->GetCategoryCount(); CategoryIndex++)
+			{
+				TArray<FString> RowEvents;
+				for (int t = 0; t < ProcessedThreadDataArray.Num(); t++)
+				{
+					const FCsvProcessedThreadData* ProcessedData = ProcessedThreadDataArray[t];
+					TArray<double> ThreadValues;
+
+					// Write stat values for this frame/category
+					ProcessedData->ReadStatDataForFrame(i, CategoryIndex, ThreadValues);
+					CsvWriter.WriteValues(ThreadValues);
+				}
+			}
+			if (bHasEvents)
+			{
+				TArray<FString> RowEvents;
+				for (int t = 0; t < ProcessedThreadDataArray.Num(); t++)
+				{
+					ProcessedThreadDataArray[t]->ReadEventDataForFrame(i, RowEvents);
+				}
+				CsvWriter.WriteSemicolonSeparatedStringList(RowEvents);
+			}
+			CsvWriter.NewLine();
+		}
+
+		// Add metadata
+		FString PlatformStr = FString::Printf(TEXT("%s"), ANSI_TO_TCHAR(FPlatformProperties::IniPlatformName()));
+		FString BuildConfigurationStr = EBuildConfigurations::ToString(FApp::GetBuildConfiguration());
+		FString CommandlineStr = FString("\"") + FCommandLine::Get() + FString("\"");
+		FString BuildVersionString = FApp::GetBuildVersion();
+		FString EngineVersionString = FEngineVersion::Current().ToString();
+
+		CsvWriter.WriteString(TEXT("[Platform]"));
+		CsvWriter.WriteString(PlatformStr);
+		CsvWriter.WriteString(TEXT("[Config]"));
+		CsvWriter.WriteString(BuildConfigurationStr);
+		CsvWriter.WriteString(TEXT("[DeviceProfile]"));
+		CsvWriter.WriteString(DeviceProfileName);
+		CsvWriter.WriteString(TEXT("[BuildVersion]"));
+		CsvWriter.WriteString(BuildVersionString);
+		CsvWriter.WriteString(TEXT("[EngineVersion]"));
+		CsvWriter.WriteString(EngineVersionString);
+		CsvWriter.WriteString(TEXT("[Commandline]"));
+		CsvWriter.WriteString(CommandlineStr);
+		OutputFile->Close();
+	}
 
 	// Clear the processed data now we're done with it
 	uint64 PeakMemoryBytes = 0;
@@ -1844,12 +1898,10 @@ void FCsvProfiler::WriteCaptureToFile()
 	{
 		PeakMemoryBytes += ProfilerThreadData[t]->GetAllocatedSize();
 		ProfilerThreadData[t]->ClearProcessedData();
-		}
+	}
 
 	GFrameBoundaries.Clear();
-	FString NewFilename = CSVRootPath + Filename + TEXT(".csv");
-
-	UE_LOG(LogCsvProfiler, Display, TEXT("Capture Ended. Writing CSV to file : %s"), *NewFilename);
+	UE_LOG(LogCsvProfiler, Display, TEXT("Capture Ended. Writing CSV to file : %s"), *OutputFilename);
 	UE_LOG(LogCsvProfiler, Display, TEXT("  Frames : %d"), CaptureEndFrameCount);
 	UE_LOG(LogCsvProfiler, Display, TEXT("  Peak memory usage  : %.2fMB"), float(PeakMemoryBytes) / 1024.0f / 1024.0f);
 
@@ -1869,6 +1921,10 @@ void FCsvProfiler::WriteCaptureToFile()
 	}
 }
 
+void FCsvProfiler::SetDeviceProfileName(FString InDeviceProfileName)
+{
+	DeviceProfileName = InDeviceProfileName;
+}
 
 // Create the TLS profiler thread lazily
 FCsvProfilerThreadData* FCsvProfiler::GetTlsProfilerThreadData()
@@ -1992,14 +2048,14 @@ void FCsvProfiler::RecordCustomStat(const char * StatName, uint32 CategoryIndex,
 void FCsvProfiler::RecordCustomStat(const FName& StatName, uint32 CategoryIndex, int32 Value, const ECsvCustomStatOp CustomStatOp)
 {
 	if (!bCapturing)
-{
+	{
 		return;
 	}
 	if (GCsvCategoriesEnabled[CategoryIndex])
 	{
 		GetTlsProfilerThreadData()->AddCustomStat(StatName, CategoryIndex, Value, CustomStatOp);
 	}
-	}
+}
 
 void FCsvProfiler::Init()
 {
@@ -2007,10 +2063,10 @@ void FCsvProfiler::Init()
 	if (FParse::Param(FCommandLine::Get(), TEXT("csvGpuStats")))
 	{
 		IConsoleVariable* CVarGPUCsvStatsEnabled = IConsoleManager::Get().FindConsoleVariable(TEXT("r.GPUCsvStatsEnabled"));
-		if ( CVarGPUCsvStatsEnabled )
+		if (CVarGPUCsvStatsEnabled)
 		{
 			CVarGPUCsvStatsEnabled->Set(1);
-		}	
+		}
 	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("csvTest")))
 	{
@@ -2060,7 +2116,7 @@ void FCsvProfiler::Init()
 }
 
 bool FCsvProfiler::IsCapturing()
-{ 
+{
 	check(IsInGameThread());
 	return bCapturing;
 }
@@ -2091,7 +2147,11 @@ float FCsvProfiler::ProcessStatData()
 {
 	check(IsInCsvProcessingThread());
 
+	float ElapsedMS = 0.0f;
+	if (!IsShuttingDown.GetValue())
+	{
 	double StartTime = FPlatformTime::Seconds();
+
 	TArray<FCsvProfilerThreadData*> ProfilerThreadData;
 	GetProfilerThreadDataArray(ProfilerThreadData);
 
@@ -2099,8 +2159,9 @@ float FCsvProfiler::ProcessStatData()
 	{
 		ProfilerThreadData[t]->ProcessThreadData();
 	}
-	float ElapsedMS = float(FPlatformTime::Seconds() - StartTime) * 1000.0f;
+		ElapsedMS = float(FPlatformTime::Seconds() - StartTime) * 1000.0f;
 	CSV_CUSTOM_STAT(CsvProfiler, ProcessCSVStats, ElapsedMS, ECsvCustomStatOp::Accumulate);
+	}
 	return ElapsedMS;
 }
 

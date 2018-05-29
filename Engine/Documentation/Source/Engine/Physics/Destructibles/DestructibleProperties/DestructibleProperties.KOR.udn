@@ -15,7 +15,7 @@ Version: 4.9
 
 | 프로퍼티 | 설명 |
 | -------- | --------- |
-| [REGION:tablesection] _Damage Parameters_ [/REGION] (대미지 파라미터) ||
+| [REGION:tablesection] _Damage Parameters_ [/REGION] ||
 | **Damage Threshold** | 대미지 한계치 - 청크 파괴를 유발시킬 (자유롭게 돌아다니도록 만들) 대미지 양입니다. |
 | **Damage Spread** | 대미지 전파 - 디스트럭터블 액터 속으로 대미지를 전파시킬 거리를 조절합니다. 청크에 적용된 대미지에 **Damage Spread** 를 곱하여 전파 거리를 구합니다. |
 | **Enable Impact Damage** | 임팩트 대미지 켜기 - 디스트럭터블이 오브젝트와 충돌할 때 대미지를 적용할 것인지입니다. |
@@ -25,9 +25,9 @@ Version: 4.9
 | **Default Impact Damage** | 디폴트 임팩트 대미지 - 임팩트 대미지를 이 깊이에 입힙니다. 음수인 경우, 임팩트 대미지는 비활성화됩니다. |
 | [REGION:tablesection] _Debris Parameters_ (잔해 파라미터) [/REGION] ||
 | **Debris Lifetime Min** | 잔해 수명 최소 - "잔해 청크"는 잔해 청크가 아닌 것에서 분리된 지 (초 단위) 일정 기간이 지난 후 소멸됩니다. 실제 수명은 모듈의 LOD 세팅에 따라 두 bDebrisTimeout 값을 보간해서 구합니다. 수명을 끄기 위해서는, 플래그 칸의 bDebrisTimeout 플래그를 끄면 됩니다. debrisLifetimeMax 가 debrisLifetimeMin 보다 작으면, 둘 다에 두 값의 평균치가 사용됩니다.
-| **Debris Lifetime Max** | 잔해 수명 최대 |
+| **Debris Lifetime Max** | |
 | **Debris Max Separation Min** | 잔해 최대 분리거리 최소 - "잔해 청크"는 잔해가 원점에서 최대 분리거리 이상 떨어지면 소멸됩니다. 실제 최대 분리거리는 모듈의 LOD 세팅에 따라 두 값을 보간해서 구합니다. 최대 분리거리를 끄려면, 플래그 칸에서 bDebrisMaxSeparation 체크를 해제하면 됩니다. debrisMaxSeparationMax 값이 debrisMaxSeparationMin 보다 작으면, 둘 다에 두 값의 평균치가 사용됩니다.
-| **Debris Max Separation Max** | 잔해 최대 분리거리 최대 |
+| **Debris Max Separation Max** | |
 | **Valid Bounds** | 유효 바운드 - "잔해 청크" 는 이 박스를 벗어나면 소멸됩니다. 박스의 위치는 디스트럭터블 액터의 초기 위치에 따라 움직이나, 회전이나 스케일은 적용되지 않습니다. |
 | [REGION:tablesection] _Advanced Parameters_ (고급 파라미터) [/REGION] ||
 |	**Damage Cap** | 대미지 상한 - 청크에 적용되는 대미지 최대치 제한을 둡니다. 매우 큰 대미지가 적용되었을 때 전체 디스트럭터블 액터가 산산조각나는 것을 방지하고자 할 때 좋습니다. 보통 임팩트 포스에 대미지가 비례하는 임팩트 대미지 사용시 쉽게 벌어지는 일입니다 (forceToDamage 참고). |

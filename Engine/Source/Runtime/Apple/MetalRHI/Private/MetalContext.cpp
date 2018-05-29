@@ -669,7 +669,7 @@ FMetalTexture FMetalDeviceContext::CreateTexture(FMetalSurface* Surface, mtlpp::
 FMetalBuffer FMetalDeviceContext::CreatePooledBuffer(FMetalPooledBufferArgs const& Args)
 {
 	FMetalBuffer Buffer = Heap.CreateBuffer(Args.Size, BufferOffsetAlignment, GetCommandQueue().GetCompatibleResourceOptions((mtlpp::ResourceOptions)(BUFFER_CACHE_MODE | mtlpp::ResourceOptions::HazardTrackingModeUntracked | ((NSUInteger)Args.Storage << mtlpp::ResourceStorageModeShift))));
-						 
+	check(Buffer && Buffer.GetPtr());
 #if METAL_DEBUG_OPTIONS
 	static bool bSupportsHeaps = SupportsFeature(EMetalFeaturesHeaps);
 	if (GMetalResourcePurgeOnDelete && !Buffer.GetHeap())

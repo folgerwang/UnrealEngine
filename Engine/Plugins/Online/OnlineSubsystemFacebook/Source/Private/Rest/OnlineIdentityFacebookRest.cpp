@@ -32,6 +32,8 @@ FOnlineIdentityFacebook::FOnlineIdentityFacebook(FOnlineSubsystemFacebook* InSub
 		UE_LOG(LogOnline, Warning, TEXT("Missing ClientId= in [OnlineSubsystemFacebook] of DefaultEngine.ini"));
 	}
 
+	LoginURLDetails.LoginUrl.ReplaceInline(TEXT("`ver"), *InSubsystem->GetAPIVer());
+
 	// Setup permission scope fields
 	GConfig->GetArray(TEXT("OnlineSubsystemFacebook.OnlineIdentityFacebook"), TEXT("ScopeFields"), LoginURLDetails.ScopeFields, GEngineIni);
 	// always required login access fields
@@ -154,10 +156,10 @@ void FOnlineIdentityFacebook::OnAccessTokenLoginComplete(int32 LocalUserNum, boo
 	}
 }
 
-void FOnlineIdentityFacebook::OnExternalUILoginComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex)
+void FOnlineIdentityFacebook::OnExternalUILoginComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex, const FOnlineError& Error)
 {
-	FString ErrorStr;
-	bool bWasSuccessful = UniqueId.IsValid() && UniqueId->IsValid();
+	const FString& ErrorStr = Error.ErrorCode;
+	const bool bWasSuccessful = Error.WasSuccessful() && UniqueId.IsValid() && UniqueId->IsValid();
 	OnAccessTokenLoginComplete(ControllerIndex, bWasSuccessful, bWasSuccessful ? *UniqueId : GetEmptyUniqueId(), ErrorStr);
 }
 
@@ -234,7 +236,7 @@ void FOnlineIdentityFacebook::RequestElevatedPermissions(int32 LocalUserNum, con
 	}
 }
 
-void FOnlineIdentityFacebook::OnExternalUIElevatedPermissionsComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex, FOnLoginCompleteDelegate InCompletionDelegate)
+void FOnlineIdentityFacebook::OnExternalUIElevatedPermissionsComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex, const FOnlineError& Error, FOnLoginCompleteDelegate InCompletionDelegate)
 {
 	FString ErrorStr;
 	bool bWasSuccessful = UniqueId.IsValid() && UniqueId->IsValid();

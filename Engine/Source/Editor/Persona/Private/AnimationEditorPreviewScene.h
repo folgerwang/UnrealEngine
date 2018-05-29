@@ -31,7 +31,7 @@ public:
 	virtual void InvalidateViews() override;
 	virtual void FocusViews() override;
 	virtual UDebugSkelMeshComponent* GetPreviewMeshComponent() const override { return SkeletalMeshComponent; }
-	virtual void SetPreviewMeshComponent(UDebugSkelMeshComponent* InSkeletalMeshComponent) override { SkeletalMeshComponent = InSkeletalMeshComponent; }
+	virtual void SetPreviewMeshComponent(UDebugSkelMeshComponent* InSkeletalMeshComponent) override;
 	virtual void SetAdditionalMeshes(class UDataAsset* InAdditionalMeshes) override;
 	virtual void RefreshAdditionalMeshes() override;
 	virtual void ShowReferencePose(bool bShowRefPose, bool bResetBoneTransforms = false) override;
@@ -267,6 +267,9 @@ public:
 	/** Stop recording in this Persona instance */
 	void StopRecording();
 
+	/** Delegate fired when recording state changes */
+	FSimpleMulticastDelegate& OnRecordingStateChanged() { return OnRecordingStateChangedDelegate; }
+
 	/** Get the currently recording animation */
 	UAnimSequence* GetCurrentRecording() const;
 
@@ -285,6 +288,9 @@ public:
 	/** Broadcasts that a mesh viewport click occurred */
 	virtual bool BroadcastMeshClick(HActor* HitProxy, const FViewportClick& Click) {
 		OnMeshClick.Broadcast(HitProxy, Click); return OnMeshClick.IsBound(); }
+
+	/** Override for preview component selection to inform the editor we consider it selected */
+	bool PreviewComponentSelectionOverride(const UPrimitiveComponent* InComponent) const;
 
 private:
 	/** Set preview mesh internal use only. The mesh should be verified by now. */
@@ -391,6 +397,9 @@ private:
 	/** Delegates fired on pre/post tick of this preview scene */
 	FSimpleMulticastDelegate OnPreTickDelegate;
 	FSimpleMulticastDelegate OnPostTickDelegate;
+
+	/** Delegate fired when recording state changes */
+	FSimpleMulticastDelegate OnRecordingStateChangedDelegate;
 
 	/** The last time we were flagged for ticking */
 	double LastTickTime;

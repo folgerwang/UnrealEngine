@@ -269,11 +269,11 @@ void operator<<(FStructuredArchive::FSlot Slot, FGuid& G)
 		{
 			FString AsString;
 			Slot << AsString;
-			Lex::FromString(G, *AsString);
+			LexFromString(G, *AsString);
 		}
 		else
 		{
-			FString AsString = Lex::ToString(G);
+			FString AsString = LexToString(G);
 			Slot << AsString;
 		}
 	}

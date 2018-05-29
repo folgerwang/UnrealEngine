@@ -241,6 +241,13 @@ void UWidgetBlueprintGeneratedClass::InitializeWidgetStatic(UUserWidget* UserWid
 	}
 }
 
+#if WITH_EDITOR
+void UWidgetBlueprintGeneratedClass::SetClassRequiresNativeTick(bool InClassRequiresNativeTick)
+{
+	bClassRequiresNativeTick = InClassRequiresNativeTick;
+}
+#endif
+
 void UWidgetBlueprintGeneratedClass::InitializeWidget(UUserWidget* UserWidget) const
 {
 	InitializeWidgetStatic(UserWidget, this, HasTemplate(), bAllowDynamicCreation, WidgetTree, Animations, Bindings);
@@ -343,7 +350,6 @@ UUserWidget* UWidgetBlueprintGeneratedClass::GetTemplate()
 
 	if ( TemplatePreviewInEditor )
 	{
-
 		if ( EditorTemplate == nullptr && HasTemplate() )
 		{
 			EditorTemplate = NewObject<UUserWidget>(this, this, NAME_None, EObjectFlags(RF_ArchetypeObject | RF_Transient));

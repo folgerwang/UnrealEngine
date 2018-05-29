@@ -184,10 +184,12 @@ public:
 	*
 	* @param RawMesh - Raw Mesh to generate UV coordinates for
 	* @param TextureResolution - Texture resolution to take into account while generating the UVs
+	* @param bMergeIdenticalMaterials - Whether faces with identical materials can be treated as one in the resulting set of unique UVs
 	* @param OutTexCoords - New set of UV coordinates
 	* @return bool - whether or not generating the UVs succeeded
 	*/
 	virtual bool GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int32 TextureResolution, TArray<FVector2D>& OutTexCoords) const = 0;
+	virtual bool GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int32 TextureResolution, bool bMergeIdenticalMaterials, TArray<FVector2D>& OutTexCoords) const = 0;
 	
 	/** Returns the mesh reduction plugin if available. */
 	virtual IMeshReduction* GetStaticMeshReductionInterface() = 0;

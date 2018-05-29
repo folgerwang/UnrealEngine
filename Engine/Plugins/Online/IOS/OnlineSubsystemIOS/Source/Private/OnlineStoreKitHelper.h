@@ -22,12 +22,14 @@ struct FStoreKitTransactionData
 	/** @return a string that prints useful debug information about this transaction */
 	FString ToDebugString() const
 	{
-		return FString::Printf(TEXT("OfferId: %s TransactionId: %s%s ReceiptData: %s%s"),
+		return FString::Printf(TEXT("OfferId: %s TransactionId: %s%s ReceiptData: %s Error:%s [%s:%d]"),
 						*OfferId,
 						*TransactionIdentifier,
 						OriginalTransactionIdentifier.IsEmpty() ? TEXT("") : *FString::Printf(TEXT(" OriginalTransactionId: %s"), *OriginalTransactionIdentifier),
 						*ReceiptData,
-						ErrorStr.IsEmpty() ? TEXT("") : *FString::Printf(TEXT(" Error: %s"), *ErrorStr));
+						*ErrorRaw,
+						*ErrorDomain,
+						ErrorCode);
 	}
 	
 	/** @return offer id for this transaction */
@@ -58,6 +60,12 @@ private:
 	FString ReceiptData;
 	/** Error on the transaction, if applicable */
 	FString ErrorStr;
+	/** Error raw, if applicable */
+	FString ErrorRaw;
+	/** Error code, if applicable */
+	int32 ErrorCode;
+	/** Error domain, if applicable */
+	FString ErrorDomain;
 	/** Unique transaction id */
 	FString TransactionIdentifier;
 	/** Original transaction id if restored purchase */

@@ -46,7 +46,7 @@ class FAndroidInputInterface : public IInputInterface
 public:
 	virtual ~FAndroidInputInterface() = default;
 
-	static TSharedRef<FAndroidInputInterface> Create(const TSharedRef<FGenericApplicationMessageHandler>& InMessageHandler);
+	static TSharedRef<FAndroidInputInterface> Create(const TSharedRef<FGenericApplicationMessageHandler>& InMessageHandler, const TSharedPtr< ICursor >& InCursor);
 
 	/** Tick the interface (i.e check for new controllers) */
 	void Tick(float DeltaTime);
@@ -68,6 +68,8 @@ public:
 
 	virtual void AddExternalInputDevice(TSharedPtr<class IInputDevice>& InputDevice);
 	virtual bool IsGamepadAttached() const;
+
+	const TSharedPtr< ICursor > GetCursor() const { return nullptr; }
 
 private:
 	FAndroidInputInterface(const TSharedRef<FGenericApplicationMessageHandler>& InMessageHandler);

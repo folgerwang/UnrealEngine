@@ -65,7 +65,6 @@ TSharedRef<SWidget> FLoadingScreenAttributes::NewTestLoadingScreenWidget()
 	return SNew(SLoadingScreenTestWidget);
 }
 
-
 void CreateMoviePlayer()
 {
 	// Do not create the movie player if it already exists

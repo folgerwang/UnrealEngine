@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3719888
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Qt Creator で UE4 を使用するための設定
 Crumbs:%ROOT%
@@ -34,19 +34,9 @@ UE4 をビルドおよび実行するための IDE の設定方法を中心に�
 * IDE からブループリント プロジェクトを作成および設定する方法
 * IDE から CPP プロジェクトを作成および設定する方法
 
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/build_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		ステップ
-	[/PARAM]
-	[PARAM:description]
-	[/PARAM]
-	[PARAM:links]
-	[DIR(output:"checkpoint" parent:"Platforms/Linux/BeginnerLinuxDeveloper/SettingUpQtCreator" org:"hierarchy")]
-	[/PARAM]
-[/OBJECT]
+## ステップ
+
+[DIR(output:"checkpoint" parent:"Platforms/Linux/BeginnerLinuxDeveloper/SettingUpQtCreator" org:"hierarchy")]
 
 [REGION:call_to_action]
 	[クリックして開始](Platforms/Linux/BeginnerLinuxDeveloper/SettingUpQtCreator/1 "%Platforms/Linux/BeginnerLinuxDeveloper/SettingUpQtCreator/1:title%")

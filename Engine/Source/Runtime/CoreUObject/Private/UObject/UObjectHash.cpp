@@ -366,6 +366,8 @@ static FORCEINLINE int32 GetObjectOuterHash(FName ObjName,PTRINT Outer)
 
 UObject* StaticFindObjectFastExplicitThreadSafe(FUObjectHashTables& ThreadHash, UClass* ObjectClass, FName ObjectName, const FString& ObjectPathName, bool bExactClass, EObjectFlags ExcludeFlags/*=0*/)
 {
+	const EInternalObjectFlags ExclusiveInternalFlags = EInternalObjectFlags::Unreachable;
+
 	// Find an object with the specified name and (optional) class, in any package; if bAnyPackage is false, only matches top-level packages
 	int32 Hash = GetObjectHash(ObjectName);
 	FHashTableLock HashLock(ThreadHash);
@@ -380,6 +382,8 @@ UObject* StaticFindObjectFastExplicitThreadSafe(FUObjectHashTables& ThreadHash, 
 
 				/* Don't return objects that have any of the exclusive flags set */
 				&& !Object->HasAnyFlags(ExcludeFlags)
+
+				&& !Object->HasAnyInternalFlags(ExclusiveInternalFlags)
 
 				/** If a class was specified, check that the object is of the correct class */
 				&& (ObjectClass == nullptr || (bExactClass ? Object->GetClass() == ObjectClass : Object->IsA(ObjectClass)))
@@ -425,6 +429,8 @@ UObject* StaticFindObjectFastExplicit( UClass* ObjectClass, FName ObjectName, co
 
 UObject* StaticFindObjectFastInternalThreadSafe(FUObjectHashTables& ThreadHash, UClass* ObjectClass, UObject* ObjectPackage, FName ObjectName, bool bExactClass, bool bAnyPackage, EObjectFlags ExcludeFlags, EInternalObjectFlags ExclusiveInternalFlags)
 {
+	ExclusiveInternalFlags |= EInternalObjectFlags::Unreachable;
+
 	// If they specified an outer use that during the hashing
 	UObject* Result = nullptr;
 	if (ObjectPackage != nullptr)

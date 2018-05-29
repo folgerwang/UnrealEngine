@@ -13,7 +13,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Functions for parsing command line arguments
 	/// </summary>
-	static class CommandLine
+	public static class CommandLine
 	{
 		/// <summary>
 		/// Stores information about the field to receive command line arguments

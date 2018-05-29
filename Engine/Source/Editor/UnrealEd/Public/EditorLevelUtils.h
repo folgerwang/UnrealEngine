@@ -77,10 +77,12 @@ public:
 	/**
 	 * Makes the specified level the current level for editing.
 	 * The current level is where actors are spawned to when calling SpawnActor
+	 * @param InLevel			The level to make current
+	 * @param bForceOperation	True if the operation should succeed even if the level is locked.  In certian circumstances (like removing the current level, we must be able to set a new current level even if the only one left is locked)
 	 *
 	 * @return	true	If a level was removed.
 	 */
-	static UNREALED_API void MakeLevelCurrent(ULevel* InLevel);
+	static UNREALED_API void MakeLevelCurrent(ULevel* InLevel, bool bEvenIfLocked = false);
 
 	
 	static UNREALED_API int32 MoveActorsToLevel(const TArray<AActor*>& ActorsToMove, ULevel* DestLevel, bool bWarnAboutReferences = true);

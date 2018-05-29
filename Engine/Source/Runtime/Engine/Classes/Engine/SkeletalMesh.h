@@ -152,10 +152,10 @@ struct FSkeletalMeshLODInfo
 	 * sphere of the model. i.e. 0.5 means half the screen's maximum dimension.
 	 */
 	UPROPERTY(EditAnywhere, Category=SkeletalMeshLODInfo)
-	float ScreenSize;
+	FPerPlatformFloat ScreenSize;
 
 	/**	Used to avoid 'flickering' when on LOD boundary. Only taken into account when moving from complex->simple. */
-	UPROPERTY(EditAnywhere, Category=SkeletalMeshLODInfo)
+	UPROPERTY(EditAnywhere, Category=SkeletalMeshLODInfo, meta=(DisplayName="LOD Hysteresis"))
 	float LODHysteresis;
 
 	/** Mapping table from this LOD's materials to the USkeletalMesh materials array. */
@@ -205,6 +205,14 @@ struct FSkeletalMeshLODInfo
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = SkeletalMeshLODInfo, meta=(EditCondition="bAllowCPUAccess"))
 	uint32 bSupportUniformlyDistributedSampling : 1;
 
+#if WITH_EDITORONLY_DATA
+	/*
+	 * This boolean specify if the LOD was imported with the base mesh or not.
+	 */
+	UPROPERTY()
+	bool bImportWithBaseMesh;
+#endif
+
 	FSkeletalMeshLODInfo()
 		: ScreenSize(1.0)
 		, LODHysteresis(0.0f)
@@ -213,6 +221,9 @@ struct FSkeletalMeshLODInfo
 		, bHasPerLODVertexColors(false)
 		, bAllowCPUAccess(false)
 		, bSupportUniformlyDistributedSampling(false)
+#if WITH_EDITORONLY_DATA
+		, bImportWithBaseMesh(false)
+#endif
 	{
 	}
 
@@ -287,7 +298,7 @@ struct FClothingAssetData_Legacy
 #if WITH_APEX_CLOTHING
 	nvidia::apex::ClothingAsset* ApexClothingAsset;
 	FClothingAssetData_Legacy()
-		:ApexClothingAsset(NULL)
+		: bClothPropertiesChanged(false), ApexClothingAsset(nullptr)
 	{
 	}
 #endif// #if WITH_APEX_CLOTHING

@@ -69,6 +69,10 @@ public:
 	virtual void LocateBoundObjects(const FGuid& ObjectId, UObject* Context, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const override;
 	// ~UMovieSceneAnimation overrides
 
+	//~ Begin UObject Interface. 
+	virtual bool IsPostLoadThreadSafe() const override;
+	//~ End UObject Interface
+
 	/** Get Animation bindings of the animation */
 	const TArray<FWidgetAnimationBinding>& GetBindings() const { return AnimationBindings; }
 

@@ -53,7 +53,7 @@ public:
 	/** Mirror array of purchase state for the various offers to purchase */
 	TArray<EPurchaseTransactionState> OfferPurchaseStates;
 	/** User for the pending order */
-	const FUniqueNetIdString UserId;
+	const FUniqueNetIdIOS UserId;
 	/** Delegate to call on completion */
 	const FOnPurchaseCheckoutComplete CheckoutCompleteDelegate;
 	/** Tracks the current state of the order */

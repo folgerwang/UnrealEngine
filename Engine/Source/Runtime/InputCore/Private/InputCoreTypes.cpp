@@ -325,17 +325,32 @@ bool EKeys::bInitialized = false;
 TMap<FKey, TSharedPtr<FKeyDetails> > EKeys::InputKeys;
 TMap<FName, EKeys::FCategoryDisplayInfo> EKeys::MenuCategoryDisplayInfo;
 
-FKeyDetails::FKeyDetails(const FKey InKey, const TAttribute<FText>& InDisplayName, const uint8 InKeyFlags, const FName InMenuCategory)
+FKeyDetails::FKeyDetails(const FKey InKey, const TAttribute<FText>& InLongDisplayName, const TAttribute<FText>& InShortDisplayName, const uint8 InKeyFlags, const FName InMenuCategory)
 	: Key(InKey)
-	, DisplayName(InDisplayName)
 	, MenuCategory(InMenuCategory)
-	, bIsModifierKey((InKeyFlags & EKeyFlags::ModifierKey) != 0)
-	, bIsGamepadKey((InKeyFlags & EKeyFlags::GamepadKey) != 0)
-	, bIsMouseButton((InKeyFlags & EKeyFlags::MouseButton) != 0)
-	, bIsBindableInBlueprints((~InKeyFlags & EKeyFlags::NotBlueprintBindableKey) != 0)
-	, bShouldUpdateAxisWithoutSamples((InKeyFlags & EKeyFlags::UpdateAxisWithoutSamples) != 0)
-	, AxisType(EInputAxisType::None)
+	, LongDisplayName(InLongDisplayName)
+	, ShortDisplayName(InShortDisplayName)
 {
+	CommonInit(InKeyFlags);
+}
+
+FKeyDetails::FKeyDetails(const FKey InKey, const TAttribute<FText>& InLongDisplayName, const uint8 InKeyFlags, const FName InMenuCategory, const TAttribute<FText>& InShortDisplayName)
+	: Key(InKey)
+	, MenuCategory(InMenuCategory)
+	, LongDisplayName(InLongDisplayName)
+	, ShortDisplayName(InShortDisplayName)
+{
+	CommonInit(InKeyFlags);
+}
+
+void FKeyDetails::CommonInit(const uint8 InKeyFlags)
+{
+	bIsModifierKey = ((InKeyFlags & EKeyFlags::ModifierKey) != 0);
+	bIsGamepadKey = ((InKeyFlags & EKeyFlags::GamepadKey) != 0);
+	bIsMouseButton = ((InKeyFlags & EKeyFlags::MouseButton) != 0);
+	bIsBindableInBlueprints = ((~InKeyFlags & EKeyFlags::NotBlueprintBindableKey) != 0);
+	bShouldUpdateAxisWithoutSamples = ((InKeyFlags & EKeyFlags::UpdateAxisWithoutSamples) != 0);
+	
 	if ((InKeyFlags & EKeyFlags::FloatAxis) != 0)
 	{
 		ensure((InKeyFlags & EKeyFlags::VectorAxis) == 0);
@@ -344,6 +359,10 @@ FKeyDetails::FKeyDetails(const FKey InKey, const TAttribute<FText>& InDisplayNam
 	else if ((InKeyFlags & EKeyFlags::VectorAxis) != 0)
 	{
 		AxisType = EInputAxisType::Vector;
+	}
+	else
+	{
+		AxisType = EInputAxisType::None;
 	}
 
 	// Set up default menu categories
@@ -392,11 +411,11 @@ void EKeys::Initialize()
 	AddKey(FKeyDetails(EKeys::Enter, LOCTEXT("Enter", "Enter")));
 	AddKey(FKeyDetails(EKeys::Pause, LOCTEXT("Pause", "Pause")));
 
-	AddKey(FKeyDetails(EKeys::CapsLock, LOCTEXT("CapsLock", "Caps Lock")));
-	AddKey(FKeyDetails(EKeys::Escape, LOCTEXT("Escape", "Escape")));
-	AddKey(FKeyDetails(EKeys::SpaceBar, LOCTEXT("SpaceBar", "Space Bar")));
-	AddKey(FKeyDetails(EKeys::PageUp, LOCTEXT("PageUp", "Page Up")));
-	AddKey(FKeyDetails(EKeys::PageDown, LOCTEXT("PageDown", "Page Down")));
+	AddKey(FKeyDetails(EKeys::CapsLock, LOCTEXT("CapsLock", "Caps Lock"), LOCTEXT("CapsLockShort", "Caps")));
+	AddKey(FKeyDetails(EKeys::Escape, LOCTEXT("Escape", "Escape"), LOCTEXT("EscapeShort", "Esc")));
+	AddKey(FKeyDetails(EKeys::SpaceBar, LOCTEXT("SpaceBar", "Space Bar"), LOCTEXT("SpaceBarShort", "Space")));
+	AddKey(FKeyDetails(EKeys::PageUp, LOCTEXT("PageUp", "Page Up"), LOCTEXT("PageUpShort", "PgUp")));
+	AddKey(FKeyDetails(EKeys::PageDown, LOCTEXT("PageDown", "Page Down"), LOCTEXT("PageDownShort", "PgDn")));
 	AddKey(FKeyDetails(EKeys::End, LOCTEXT("End", "End")));
 	AddKey(FKeyDetails(EKeys::Home, LOCTEXT("Home", "Home")));
 
@@ -405,14 +424,14 @@ void EKeys::Initialize()
 	AddKey(FKeyDetails(EKeys::Right, LOCTEXT("Right", "Right")));
 	AddKey(FKeyDetails(EKeys::Down, LOCTEXT("Down", "Down")));
 
-	AddKey(FKeyDetails(EKeys::Insert, LOCTEXT("Insert", "Insert")));
+	AddKey(FKeyDetails(EKeys::Insert, LOCTEXT("Insert", "Insert"), LOCTEXT("InsertShort", "Ins")));
     
 #if PLATFORM_MAC
-    AddKey(FKeyDetails(EKeys::BackSpace, LOCTEXT("Delete", "Delete")));
+    AddKey(FKeyDetails(EKeys::BackSpace, LOCTEXT("Delete", "Delete"), LOCTEXT("DeleteShort", "Del")));
     AddKey(FKeyDetails(EKeys::Delete, LOCTEXT("ForwardDelete", "Fn+Delete")));
 #else
     AddKey(FKeyDetails(EKeys::BackSpace, LOCTEXT("BackSpace", "Backspace")));
-    AddKey(FKeyDetails(EKeys::Delete, LOCTEXT("Delete", "Delete")));
+    AddKey(FKeyDetails(EKeys::Delete, LOCTEXT("Delete", "Delete"), LOCTEXT("DeleteShort", "Del")));
 #endif
 
 	AddKey(FKeyDetails(EKeys::Zero, FText::FromString("0")));
@@ -495,28 +514,28 @@ void EKeys::Initialize()
 	AddKey(FKeyDetails(EKeys::LeftCommand, LOCTEXT("LeftCommand", "Left Cmd"), FKeyDetails::ModifierKey));
 	AddKey(FKeyDetails(EKeys::RightCommand, LOCTEXT("RightCommand", "Right Cmd"), FKeyDetails::ModifierKey));
 
-	AddKey(FKeyDetails(EKeys::Semicolon, LOCTEXT("Semicolon", "Semicolon")));
-	AddKey(FKeyDetails(EKeys::Equals, FText::FromString("=")));
-	AddKey(FKeyDetails(EKeys::Comma, LOCTEXT("Comma", "Comma")));
-	AddKey(FKeyDetails(EKeys::Hyphen, LOCTEXT("Hyphen", "Hyphen")));
-	AddKey(FKeyDetails(EKeys::Underscore, LOCTEXT("Underscore", "Underscore")));
-	AddKey(FKeyDetails(EKeys::Period, LOCTEXT("Period", "Period")));
-	AddKey(FKeyDetails(EKeys::Slash, FText::FromString("/")));
+	AddKey(FKeyDetails(EKeys::Semicolon, LOCTEXT("Semicolon", "Semicolon"), FText::FromString(";")));
+	AddKey(FKeyDetails(EKeys::Equals, LOCTEXT("Equals", "Equals"), FText::FromString("=")));
+	AddKey(FKeyDetails(EKeys::Comma, LOCTEXT("Comma", "Comma"), FText::FromString(",")));
+	AddKey(FKeyDetails(EKeys::Hyphen, LOCTEXT("Hyphen", "Hyphen"), FText::FromString("-")));
+	AddKey(FKeyDetails(EKeys::Underscore, LOCTEXT("Underscore", "Underscore"), FText::FromString("_")));
+	AddKey(FKeyDetails(EKeys::Period, LOCTEXT("Period", "Period"), FText::FromString(".")));
+	AddKey(FKeyDetails(EKeys::Slash, LOCTEXT("Slash", "Slash"), FText::FromString("/")));
 	AddKey(FKeyDetails(EKeys::Tilde, FText::FromString("`"))); // Yes this is not actually a tilde, it is a long, sad, and old story
-	AddKey(FKeyDetails(EKeys::LeftBracket, FText::FromString("[")));
-	AddKey(FKeyDetails(EKeys::Backslash, FText::FromString("\\")));
-	AddKey(FKeyDetails(EKeys::RightBracket, FText::FromString("]")));
-	AddKey(FKeyDetails(EKeys::Apostrophe, LOCTEXT("Apostrophe", "Apostrophe")));
-	AddKey(FKeyDetails(EKeys::Quote, FText::FromString("\"")));
+	AddKey(FKeyDetails(EKeys::LeftBracket, LOCTEXT("LeftBracket", "Left Bracket"), FText::FromString("[")));
+	AddKey(FKeyDetails(EKeys::Backslash, LOCTEXT("Backslash", "Backslash"), FText::FromString("\\")));
+	AddKey(FKeyDetails(EKeys::RightBracket, LOCTEXT("RightBracket", "Right Bracket"), FText::FromString("]")));
+	AddKey(FKeyDetails(EKeys::Apostrophe, LOCTEXT("Apostrophe", "Apostrophe"), FText::FromString("'")));
+	AddKey(FKeyDetails(EKeys::Quote, LOCTEXT("Quote", "Quote"), FText::FromString("\"")));
 
-	AddKey(FKeyDetails(EKeys::LeftParantheses, FText::FromString("(")));
-	AddKey(FKeyDetails(EKeys::RightParantheses, FText::FromString(")")));
-	AddKey(FKeyDetails(EKeys::Ampersand, FText::FromString("&")));
-	AddKey(FKeyDetails(EKeys::Asterix, LOCTEXT("Asterix", "Asterisk")));
-	AddKey(FKeyDetails(EKeys::Caret, FText::FromString("^")));
-	AddKey(FKeyDetails(EKeys::Dollar, FText::FromString("$")));
-	AddKey(FKeyDetails(EKeys::Exclamation, FText::FromString("!")));
-	AddKey(FKeyDetails(EKeys::Colon, LOCTEXT("Colon", "Colon")));
+	AddKey(FKeyDetails(EKeys::LeftParantheses, LOCTEXT("LeftParantheses", "Left Parantheses"), FText::FromString("(")));
+	AddKey(FKeyDetails(EKeys::RightParantheses, LOCTEXT("RightParantheses", "Right Parantheses"), FText::FromString(")")));
+	AddKey(FKeyDetails(EKeys::Ampersand, LOCTEXT("Ampersand", "Ampersand"), FText::FromString("&")));
+	AddKey(FKeyDetails(EKeys::Asterix, LOCTEXT("Asterix", "Asterisk"), FText::FromString("*")));
+	AddKey(FKeyDetails(EKeys::Caret, LOCTEXT("Caret", "Caret"), FText::FromString("^")));
+	AddKey(FKeyDetails(EKeys::Dollar, LOCTEXT("Dollar", "Dollar"), FText::FromString("$")));
+	AddKey(FKeyDetails(EKeys::Exclamation, LOCTEXT("Exclamation", "Exclamation"), FText::FromString("!")));
+	AddKey(FKeyDetails(EKeys::Colon, LOCTEXT("Colon", "Colon"), FText::FromString(":")));
 
 	AddKey(FKeyDetails(EKeys::A_AccentGrave, FText::FromString(FString::Chr(224))));
 	AddKey(FKeyDetails(EKeys::E_AccentGrave, FText::FromString(FString::Chr(232))));
@@ -997,9 +1016,9 @@ bool FKey::ShouldUpdateAxisWithoutSamples() const
 	return (KeyDetails.IsValid() ? KeyDetails->ShouldUpdateAxisWithoutSamples() : false);
 }
 
-FText FKeyDetails::GetDisplayName() const
+FText FKeyDetails::GetDisplayName(const bool bLongDisplayName) const
 {
-	return DisplayName.Get();
+	return ((bLongDisplayName || !ShortDisplayName.IsSet()) ? LongDisplayName.Get() : ShortDisplayName.Get());
 }
 
 FText FKey::GetDisplayName() const
@@ -1084,7 +1103,7 @@ void FKey::ResetKey()
 	if (KeyNameStr.StartsWith(FKey::SyntheticCharPrefix))
 	{
 		// This was a dynamically added key, so we need to force it to be synthesized if it doesn't already exist
-		const FString KeyNameStr2 = KeyNameStr.RightChop(9);
+		const FString KeyNameStr2 = KeyNameStr.RightChop(FCString::Strlen(FKey::SyntheticCharPrefix));
 		const uint32 CharCode = FCString::Atoi(*KeyNameStr2);
 		if (CharCode > 0)
 		{

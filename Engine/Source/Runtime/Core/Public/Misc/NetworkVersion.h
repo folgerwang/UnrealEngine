@@ -35,7 +35,8 @@ enum EEngineNetworkVersionHistory
 	HISTORY_INITIAL = 1,
 	HISTORY_REPLAY_BACKWARDS_COMPAT = 2,			// Bump version to get rid of older replays before backwards compat was turned on officially
 	HISTORY_MAX_ACTOR_CHANNELS_CUSTOMIZATION = 3,	// Bump version because serialization of the actor channels changed
-	HISTORY_REPCMD_CHECKSUM_REMOVE_PRINTF = 4		// Bump version since the way FRepLayoutCmd::CompatibleChecksum was calculated changed due to an optimization
+	HISTORY_REPCMD_CHECKSUM_REMOVE_PRINTF = 4,		// Bump version since the way FRepLayoutCmd::CompatibleChecksum was calculated changed due to an optimization
+	HISTORY_NEW_ACTOR_OVERRIDE_LEVEL = 5			// Bump version since a level reference was added to the new actor information
 };
 
 struct CORE_API FNetworkVersion
@@ -77,6 +78,39 @@ struct CORE_API FNetworkVersion
 	* Generates a special struct that contains information to send to replay server
 	*/
 	static FNetworkReplayVersion GetReplayVersion();
+
+	/**
+	* Sets the project version used for networking. Needs to be a function to verify
+	* string and correctly invalidate cached values
+	* 
+	* @param  InVersion
+	* @return void
+	*/
+	static void SetProjectVersion(const TCHAR* InVersion);
+
+	/**
+	* Sets the game network protocol version used for networking and invalidate cached values
+	*/
+	static void SetGameNetworkProtocolVersion(uint32 GameNetworkProtocolVersion);
+
+	/**
+	* Sets the game compatible network protocol version used for networking and invalidate cached values
+	*/
+	static void SetGameCompatibleNetworkProtocolVersion(uint32 GameCompatibleNetworkProtocolVersion);
+
+	/**
+	* Returns the project version used by networking
+	* 
+	* @return FString
+	*/
+	static const FString& GetProjectVersion() { return ProjectVersion; }
+
+	/**
+	* Invalidates any cached network checksum and forces it to be recalculated on next request
+	*/
+	static void InvalidateNetworkChecksum() { bHasCachedNetworkChecksum = false; }
+
+protected:
 
 	/**
 	* Used to allow BP only projects to override network versions

@@ -1255,6 +1255,13 @@ namespace UnrealBuildTool
 				}
 			}
 
+			// Get all the additional intermediate folders created by this platform
+			List<FileReference> AdditionalFilesToDelete = new List<FileReference>();
+			List<DirectoryReference> AdditionalDirectoriesToDelete = new List<DirectoryReference>();
+			UEBuildPlatform.GetBuildPlatform(Platform).FindAdditionalBuildProductsToClean(Rules, AdditionalFilesToDelete, AdditionalDirectoriesToDelete);
+			FilesToDelete.AddRange(AdditionalFilesToDelete);
+			DirectoriesToDelete.AddRange(AdditionalDirectoriesToDelete);
+
 			// Delete all the directories, then all the files. By sorting the list of directories before we delete them, we avoid spamming the log if a parent directory is deleted first.
 			foreach (DirectoryReference DirectoryToDelete in DirectoriesToDelete.OrderBy(x => x.FullName))
 			{
@@ -1587,17 +1594,12 @@ namespace UnrealBuildTool
 			if (Rules.bUsesSlate)
 			{
 				AddRuntimeDependenciesFromDir(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Content", "Slate"), StagedFileType.UFS);
-				if (Configuration != UnrealTargetConfiguration.Shipping)
-				{
-					AddRuntimeDependenciesFromDir(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Content", "SlateDebug"), StagedFileType.UFS);
-				}
+				AddRuntimeDependenciesFromDir(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Content", "SlateDebug"), StagedFileType.UFS);
+
 				if (ProjectFile != null)
 				{
 					AddRuntimeDependenciesFromDir(DirectoryReference.Combine(ProjectDirectory, "Content", "Slate"), StagedFileType.UFS);
-					if (Configuration != UnrealTargetConfiguration.Shipping)
-					{
-						AddRuntimeDependenciesFromDir(DirectoryReference.Combine(ProjectDirectory, "Content", "SlateDebug"), StagedFileType.UFS);
-					}
+					AddRuntimeDependenciesFromDir(DirectoryReference.Combine(ProjectDirectory, "Content", "SlateDebug"), StagedFileType.UFS);
 				}
 			}
 
@@ -3426,6 +3428,19 @@ namespace UnrealBuildTool
 				return null;
 			}
 
+			// If this plugin is listed to be excluded, do so here. The reference must be optional in this case.
+			if(Rules.ExcludePlugins.Contains(Reference.Name, StringComparer.InvariantCultureIgnoreCase))
+			{
+				if(!Reference.bOptional)
+				{
+					throw new BuildException("The '{0}' plugin is listed in the target's ExcludePlugins list, but is not referenced (via {1}) without the bOptional flag set. This will cause load failures at runtime.", Reference.Name, ReferenceChain);
+				}
+				else
+				{
+					return null;
+				}
+			}
+
 			// Try to get an existing reference to this plugin
 			UEBuildPlugin Instance;
 			if(NameToInstance.TryGetValue(Reference.Name, out Instance))
@@ -4091,7 +4106,7 @@ namespace UnrealBuildTool
 								ModuleDescriptor ProjectModule = (ProjectDescriptor.Modules == null)? null : ProjectDescriptor.Modules.FirstOrDefault(x => x.Name == ModuleName);
 								if (ProjectModule != null)
 								{
-									ModuleType = UHTModuleTypeExtensions.GameModuleTypeFromHostType(ProjectModule.Type);
+									ModuleType = UHTModuleTypeExtensions.GameModuleTypeFromHostType(ProjectModule.Type) ?? UHTModuleType.GameRuntime;
 								}
 								else
 								{

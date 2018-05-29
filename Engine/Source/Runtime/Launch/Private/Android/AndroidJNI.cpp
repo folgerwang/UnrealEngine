@@ -31,6 +31,7 @@ static IVirtualKeyboardEntry *VirtualKeyboardWidget = NULL;
 static volatile bool GVirtualKeyboardShown = false;
 
 extern FString GFilePathBase;
+extern FString GInternalFilePath;
 extern FString GExternalFilePath;
 extern FString GFontPathBase;
 extern bool GOBBinAPK;
@@ -90,8 +91,15 @@ void FJavaWrapper::FindClassesAndMethods(JNIEnv* Env)
 	AndroidThunkJava_LocalNotificationClearAll = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_LocalNotificationClearAll", "()V", bIsOptional);
 	AndroidThunkJava_LocalNotificationGetLaunchNotification = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_LocalNotificationGetLaunchNotification", "()Lcom/epicgames/ue4/GameActivity$LaunchNotification;", bIsOptional);
 	//AndroidThunkJava_LocalNotificationDestroyIfExists = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_LocalNotificationDestroyIfExists", "(I)Z", bIsOptional);
-	AndroidThunkJava_HasActiveWiFiConnection = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_HasActiveWiFiConnection", "()Z", bIsOptional);
+	AndroidThunkJava_GetNetworkConnectionType = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetNetworkConnectionType", "()I", bIsOptional);
 	AndroidThunkJava_GetAndroidId = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetAndroidId", "()Ljava/lang/String;", bIsOptional);
+	AndroidThunkJava_ShareURL = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_ShareURL", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;II)V", bIsOptional);
+	AndroidThunkJava_LaunchPackage = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_LaunchPackage", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z", bIsOptional);
+	AndroidThunkJava_HasIntentExtrasKey = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_HasIntentExtrasKey", "(Ljava/lang/String;)Z", bIsOptional);
+	AndroidThunkJava_GetIntentExtrasBoolean = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetIntentExtrasBoolean", "(Ljava/lang/String;)Z", bIsOptional);
+	AndroidThunkJava_GetIntentExtrasInt = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetIntentExtrasInt", "(Ljava/lang/String;)I", bIsOptional);
+	AndroidThunkJava_GetIntentExtrasString = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetIntentExtrasString", "(Ljava/lang/String;)Ljava/lang/String;", bIsOptional);
+	AndroidThunkJava_PushSensorEvents = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_PushSensorEvents", "()V", bIsOptional);
 
 	// this is optional - only inserted if Gear VR plugin enabled
 	AndroidThunkJava_IsGearVRApplication = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_IsGearVRApplication", "()Z", true);
@@ -303,9 +311,16 @@ jmethodID FJavaWrapper::AndroidThunkJava_LocalNotificationScheduleAtTime;
 jmethodID FJavaWrapper::AndroidThunkJava_LocalNotificationClearAll;
 jmethodID FJavaWrapper::AndroidThunkJava_LocalNotificationGetLaunchNotification;
 //jmethodID FJavaWrapper::AndroidThunkJava_LocalNotificationDestroyIfExists;
-jmethodID FJavaWrapper::AndroidThunkJava_HasActiveWiFiConnection;
+jmethodID FJavaWrapper::AndroidThunkJava_GetNetworkConnectionType;
 jmethodID FJavaWrapper::AndroidThunkJava_GetAndroidId;
+jmethodID FJavaWrapper::AndroidThunkJava_ShareURL;
+jmethodID FJavaWrapper::AndroidThunkJava_LaunchPackage;
+jmethodID FJavaWrapper::AndroidThunkJava_HasIntentExtrasKey;
+jmethodID FJavaWrapper::AndroidThunkJava_GetIntentExtrasBoolean;
+jmethodID FJavaWrapper::AndroidThunkJava_GetIntentExtrasInt;
+jmethodID FJavaWrapper::AndroidThunkJava_GetIntentExtrasString;
 jmethodID FJavaWrapper::AndroidThunkJava_SetSustainedPerformanceMode;
+jmethodID FJavaWrapper::AndroidThunkJava_PushSensorEvents;
 
 jclass FJavaWrapper::InputDeviceInfoClass;
 jfieldID FJavaWrapper::InputDeviceInfo_VendorId;
@@ -558,11 +573,74 @@ FString AndroidThunkCpp_GetMetaDataString(const FString& Key)
 	return Result;
 }
 
+bool AndroidThunkCpp_HasIntentExtrasKey(const FString& Key)
+{
+	bool Result = false;
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		jstring Argument = Env->NewStringUTF(TCHAR_TO_UTF8(*Key));
+		Result = FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_HasIntentExtrasKey, Argument);
+		Env->DeleteLocalRef(Argument);
+	}
+	return Result;
+}
+
+bool AndroidThunkCpp_GetIntentExtrasBoolean(const FString& Key)
+{
+	bool Result = false;
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		jstring Argument = Env->NewStringUTF(TCHAR_TO_UTF8(*Key));
+		Result = FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_GetIntentExtrasBoolean, Argument);
+		Env->DeleteLocalRef(Argument);
+	}
+	return Result;
+}
+
+int32 AndroidThunkCpp_GetIntentExtrasInt(const FString& Key)
+{
+	int32 Result = 0;
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		jstring Argument = Env->NewStringUTF(TCHAR_TO_UTF8(*Key));
+		Result = FJavaWrapper::CallIntMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_GetIntentExtrasInt, Argument);
+		Env->DeleteLocalRef(Argument);
+	}
+	return Result;
+}
+
+FString AndroidThunkCpp_GetIntentExtrasString(const FString& Key)
+{
+	FString Result = FString("");
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		jstring Argument = Env->NewStringUTF(TCHAR_TO_UTF8(*Key));
+		jstring JavaString = (jstring)FJavaWrapper::CallObjectMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_GetIntentExtrasString, Argument);
+		Env->DeleteLocalRef(Argument);
+		if (JavaString != NULL)
+		{
+			const char* JavaChars = Env->GetStringUTFChars(JavaString, 0);
+			Result = FString(UTF8_TO_TCHAR(JavaChars));
+			Env->ReleaseStringUTFChars(JavaString, JavaChars);
+			Env->DeleteLocalRef(JavaString);
+		}
+	}
+	return Result;
+}
+
 void AndroidThunkCpp_SetSustainedPerformanceMode(bool bEnable)
 {
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
 	{
 		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_SetSustainedPerformanceMode, bEnable);
+	}
+}
+
+void AndroidThunkCpp_PushSensorEvents()
+{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_PushSensorEvents);
 	}
 }
 
@@ -939,6 +1017,36 @@ FString AndroidThunkCpp_GetAndroidId()
 	return androidIdResult;
 }
 
+void AndroidThunkCpp_ShareURL(const FString& URL, const FText& Description, const FText& SharePrompt, int32 LocationHintX, int32 LocationHintY)
+{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		jstring URLArg = Env->NewStringUTF(TCHAR_TO_UTF8(*URL));
+		jstring DescArg = Env->NewStringUTF(TCHAR_TO_UTF8(*Description.ToString()));
+		jstring PromptArg = Env->NewStringUTF(TCHAR_TO_UTF8(*SharePrompt.ToString()));
+		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_ShareURL, URLArg, DescArg, PromptArg, LocationHintX, LocationHintY);
+		Env->DeleteLocalRef(PromptArg);
+		Env->DeleteLocalRef(DescArg);
+		Env->DeleteLocalRef(URLArg);
+	}
+}
+
+bool AndroidThunkCpp_LaunchPackage(const FString& PackageName, const FString& ExtraKey, const FString& ExtraValue)
+{
+	bool result = false;
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		jstring PackageNameArg = Env->NewStringUTF(TCHAR_TO_UTF8(*PackageName));
+		jstring ExtraKeyArg = Env->NewStringUTF(TCHAR_TO_UTF8(*ExtraKey));
+		jstring ExtraValueArg = Env->NewStringUTF(TCHAR_TO_UTF8(*ExtraValue));
+		result = FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_LaunchPackage, PackageNameArg, ExtraKeyArg, ExtraValueArg);
+		Env->DeleteLocalRef(ExtraValueArg);
+		Env->DeleteLocalRef(ExtraKeyArg);
+		Env->DeleteLocalRef(PackageNameArg);
+	}
+	return result;
+}
+
 void AndroidThunkCpp_GoogleClientConnect()
 {
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
@@ -1255,15 +1363,15 @@ bool AndroidThunkCpp_DestroyScheduledNotificationIfExists(int32 NotificationId)
 }
 */
 
-bool AndroidThunkCpp_HasActiveWiFiConnection()
+int32 AndroidThunkCpp_GetNetworkConnectionType()
 {
-	bool bIsActive = false;
+	int32 result = -1;
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
 	{
-		bIsActive = FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_HasActiveWiFiConnection);
+		result = FJavaWrapper::CallIntMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_GetNetworkConnectionType);
 	}
 
-	return bIsActive;
+	return result;
 }
 
 void AndroidThunkCpp_SetThreadName(const char * name)
@@ -1352,7 +1460,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* InJavaVM, void* InReserved)
 //Native-defined functions
 
 //This function is declared in the Java-defined class, GameActivity.java: "public native void nativeSetGlobalActivity();"
-JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetGlobalActivity(JNIEnv* jenv, jobject thiz, jboolean bUseExternalFilesDir, jboolean bOBBinAPK, jstring APKFilename /*, jobject googleServices*/)
+JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetGlobalActivity(JNIEnv* jenv, jobject thiz, jboolean bUseExternalFilesDir, jstring internalFilePath, jstring externalFilePath, jboolean bOBBinAPK, jstring APKFilename /*, jobject googleServices*/)
 {
 	if (!FJavaWrapper::GameActivityThis)
 	{
@@ -1379,15 +1487,13 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetGlobalActivity(JNIE
 		GAPKFilename = FString(nativeAPKFilenameString);
 		jenv->ReleaseStringUTFChars(APKFilename, nativeAPKFilenameString);
 
-		// Cache path to external files directory
-		jclass ContextClass = jenv->FindClass("android/content/Context");
-		jmethodID getExternalFilesDir = jenv->GetMethodID(ContextClass, "getExternalFilesDir", "(Ljava/lang/String;)Ljava/io/File;");
-		jobject externalFilesDirPath = jenv->CallObjectMethod(FJavaWrapper::GameActivityThis, getExternalFilesDir, nullptr);
-		jmethodID getFilePath = jenv->GetMethodID(jenv->FindClass("java/io/File"), "getPath", "()Ljava/lang/String;");
-		jstring externalFilesPathString = (jstring)jenv->CallObjectMethod(externalFilesDirPath, getFilePath, nullptr);
-		const char *nativeExternalFilesPathString = jenv->GetStringUTFChars(externalFilesPathString, 0);
-		// Copy that somewhere safe 
-		GExternalFilePath = FString(nativeExternalFilesPathString);
+		const char *nativeInternalPath = jenv->GetStringUTFChars(internalFilePath, 0);
+		GInternalFilePath = FString(nativeInternalPath);
+		jenv->ReleaseStringUTFChars(internalFilePath, nativeInternalPath);
+
+		const char *nativeExternalPath = jenv->GetStringUTFChars(externalFilePath, 0);
+		GExternalFilePath = FString(nativeExternalPath);
+		jenv->ReleaseStringUTFChars(externalFilePath, nativeExternalPath);
 
 		if (bUseExternalFilesDir)
 		{
@@ -1395,11 +1501,7 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetGlobalActivity(JNIE
 			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("GFilePathBase Path override to'%s'\n"), *GFilePathBase);
 		}
 
-		// then release...
-		jenv->ReleaseStringUTFChars(externalFilesPathString, nativeExternalFilesPathString);
-		jenv->DeleteLocalRef(externalFilesPathString);
-		jenv->DeleteLocalRef(externalFilesDirPath);
-		jenv->DeleteLocalRef(ContextClass);
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("InternalFilePath found as '%s'\n"), *GInternalFilePath);
 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("ExternalFilePath found as '%s'\n"), *GExternalFilePath);
 	}
 }

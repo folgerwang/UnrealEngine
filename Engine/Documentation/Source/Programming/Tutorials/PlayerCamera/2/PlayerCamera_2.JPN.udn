@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3719743
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2.カメラを制御する入力の設定
 Crumbs:%ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/PlayerCamera
@@ -31,13 +31,13 @@ version:4.9
 
 	| ----- | ----- | ----- |
 	| Action Mapping | | |
-	| ZoomIn | 右マウスボタン | |
+	| ZoomIn | Right Mouse Button | |
 
 	| ----- | ----- | ----- |
-	| Axis Mapping (軸マッピング) | | |
-	| MoveForward (前方向へ移動) | W | 1.0 |
+	| Axis Mapping | | |
+	| MoveForward | W | 1.0 |
 	|  | S | -1.0 |
-	| MoveRight (右へ移動) | A | -1.0 |
+	| MoveRight | A | -1.0 |
 	|  | D | 1.0 |
 	| CameraPitch | MouseY | 1.0 |
 	| CameraYaw | MouseX | 1.0 |
@@ -47,103 +47,94 @@ version:4.9
 	[REGION:note]入力マッピングの仕組みについて理解したい場合、[%Programming\Tutorials\PlayerInput:title%](Programming\Tutorials\PlayerInput) チュートリアルをご覧ください。[/REGION]
 
 
-----
-
 これで入力を定義しました。それに反応させるにはコードを記述する必要があります。それを行うには、**Visual Studio** に戻ります。
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    code
-    [/PARAMLITERAL]
-    [PARAM:heading]
-	    作業中のコード
-    [/PARAM]
-    [PARAM:content]
-		**PawnWithCamera.h**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+## 作業中のコード
 
-			#pragma once
+**PawnWithCamera.h**
 
-			#include "CoreMinimal.h"
-			#include "GameFramework/Pawn.h"
-			#include "PawnWithCamera.generated.h"
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-			UCLASS()
-			class HOWTO_PLAYERCAMERA_API APawnWithCamera : public APawn
-			{
-				GENERATED_BODY()
+	#pragma once
 
-			public:
-				// Sets default values for this pawn's properties (このポーンのプロパティのデフォルト値を設定) 
-				APawnWithCamera();
+	#include "CoreMinimal.h"
+	#include "GameFramework/Pawn.h"
+	#include "PawnWithCamera.generated.h"
 
-			protected:
-				// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
-				virtual void BeginPlay() override;
-			public:
+	UCLASS()
+	class HOWTO_PLAYERCAMERA_API APawnWithCamera : public APawn
+	{
+		GENERATED_BODY()
 
-				// Called every frame (フレーム毎に呼び出されます)
-				virtual void Tick( float DeltaSeconds ) override;
+	public:
+		// Sets default values for this pawn's properties (このポーンのプロパティのデフォルト値を設定) 
+		APawnWithCamera();
 
-				// Called to bind functionality to input (機能を入力にバインドするために呼び出されます)
-				virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
+	protected:
+		// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
+		virtual void BeginPlay() override;
 
-			protected:
-				UPROPERTY(EditAnywhere)
-				USpringArmComponent* OurCameraSpringArm;
-				UCameraComponent* OurCamera;
-			};
+	public:
+		// Called every frame (フレーム毎に呼び出されます)
+		virtual void Tick( float DeltaSeconds ) override;
 
-		**PawnWithCamera.cpp**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+		// Called to bind functionality to input (機能を入力にバインドするために呼び出されます)
+		virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
 
-			#include "HowTo_PlayerCamera.h"
-			#include "PawnWithCamera.h"
+	protected:
+		UPROPERTY(EditAnywhere)
+		USpringArmComponent* OurCameraSpringArm;
+		UCameraComponent* OurCamera;
+	};
 
-			// Sets default values (デフォルト値を設定) 
-			APawnWithCamera::APawnWithCamera()
-			{
- 				// Set this pawn to call Tick() every frame. (フレーム毎に Tick() を呼び出すようにこのポーンを設定します。) You can turn this off to improve performance if you don't need it. (必要がなければパフォーマンスを向上させるためにオフにすることができます) 
-				PrimaryActorTick.bCanEverTick = true;
+**PawnWithCamera.cpp**
 
-				//Create our components (コンポーネントを作成)
-				RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
-				OurCameraSpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraSpringArm"));
-				OurCameraSpringArm->SetupAttachment(RootComponent);
-				OurCameraSpringArm->SetRelativeLocationAndRotation(FVector(0.0f, 0.0f, 50.0f), FRotator(-60.0f, 0.0f, 0.0f));
-				OurCameraSpringArm->TargetArmLength = 400.f
-				OurCameraSpringArm->bEnableCameraLag = true;
-				OurCameraSprintArm->CameraLagSpeed = 3.0f
-				OurCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("GameCamera"));
-				OurCamera->SetupAttachment(OurCameraSpringArm, USpringArmComponent::SocketName);
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-				//Take control of the default Player (デフォルトプレイヤーをコントロール)
-				AutoPossessPlayer = EAutoReceiveInput::Player0;
-			}
+	#include "HowTo_PlayerCamera.h"
+	#include "PawnWithCamera.h"
 
-			// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
-			void APawnWithCamera::BeginPlay()
-			{
-				Super::BeginPlay();
+	// Sets default values (デフォルト値を設定) 
+	APawnWithCamera::APawnWithCamera()
+	{
+ 		// Set this pawn to call Tick() every frame. (フレーム毎に Tick() を呼び出すようにこのポーンを設定します。) You can turn this off to improve performance if you don't need it. (必要がなければパフォーマンスを向上させるためにオフにすることができます) 
+		PrimaryActorTick.bCanEverTick = true;
+
+		//Create our components (コンポーネントを作成)
+		RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
+		OurCameraSpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraSpringArm"));
+		OurCameraSpringArm->SetupAttachment(RootComponent);
+		OurCameraSpringArm->SetRelativeLocationAndRotation(FVector(0.0f, 0.0f, 50.0f), FRotator(-60.0f, 0.0f, 0.0f));
+		OurCameraSpringArm->TargetArmLength = 400.f
+		OurCameraSpringArm->bEnableCameraLag = true;
+		OurCameraSprintArm->CameraLagSpeed = 3.0f
+		OurCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("GameCamera"));
+		OurCamera->SetupAttachment(OurCameraSpringArm, USpringArmComponent::SocketName);
+
+		//Take control of the default Player (デフォルトプレイヤーをコントロール)
+		AutoPossessPlayer = EAutoReceiveInput::Player0;
+	}
+
+	// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
+	void APawnWithCamera::BeginPlay()
+	{
+		Super::BeginPlay();
 
 	}
 
-			// Called every frame (フレーム毎に呼び出されます)
-			void APawnWithCamera::Tick( float DeltaTime )
-			{
-				Super::Tick( DeltaTime );
+	// Called every frame (フレーム毎に呼び出されます)
+	void APawnWithCamera::Tick( float DeltaTime )
+	{
+		Super::Tick( DeltaTime );
 
-			}
+	}
 
-			// Called to bind functionality to input (機能を入力にバインドするために呼び出されます)
-			void APawnWithCamera::SetupPlayerInputComponent(class UInputComponent* InputComponent)
-			{
-				Super::SetupPlayerInputComponent(InputComponent);
+	// Called to bind functionality to input (機能を入力にバインドするために呼び出されます)
+	void APawnWithCamera::SetupPlayerInputComponent(class UInputComponent* InputComponent)
+	{
+		Super::SetupPlayerInputComponent(InputComponent);
 
-			}
+	}
 
-
-    [/PARAM]
-[/OBJECT]
 
 

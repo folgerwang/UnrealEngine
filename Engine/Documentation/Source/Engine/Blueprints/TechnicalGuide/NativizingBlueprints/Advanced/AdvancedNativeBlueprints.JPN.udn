@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3426963
-Availability:Public
+﻿Availability:Public
 Title:高度なブループリントのネイティブ化
 Crumbs:%ROOT%
 Description:ゲームプレイ要素をブループリントに公開するテクニカル ガイド (ゲームプレイ プログラマー向け)
@@ -73,8 +72,8 @@ Unreal Automation ツールでのビルド中にコマンドラインからブ�
 	[REGION:lightbox]
 		[![](NativizedAssetsMove_Loc.png)(w:863)](NativizedAssetsMove_Loc.png)
 	[/REGION]
-
 	[REGION:caption]
+
 		クリックしてフルサイズで表示
 	[/REGION]
 

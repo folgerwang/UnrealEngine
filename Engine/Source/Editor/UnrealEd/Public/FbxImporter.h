@@ -712,6 +712,11 @@ public:
 	void ImportStaticMeshGlobalSockets( UStaticMesh* StaticMesh );
 	void ImportStaticMeshLocalSockets( UStaticMesh* StaticMesh, TArray<FbxNode*>& MeshNodeArray);
 
+	/*
+	 * Add a GeneratedLOD to the staticmesh at the specified LOD index
+	 */
+	void AddStaticMeshSourceModelGeneratedLOD(UStaticMesh* StaticMesh, int32 LODIndex);
+
 	/**
 	 * re-import Unreal static mesh from updated Fbx file
 	 * if the Fbx mesh is in LODGroup, the LOD of mesh will be updated
@@ -1054,6 +1059,14 @@ private:
 	* not reference it will add a tokenized error.
 	*/
 	void ValidateAllMeshesAreReferenceByNodeAttribute();
+
+	/*
+	 * Parse the fbx and create some LODGroup for matching LODX_ prefix
+	 * Simply change the hierarchy to incorporate LODGroup and child all LODX_ prefix with the matching geometry name.
+	 * The LODX_ prefix support X from 0 to 9
+	 * The X parameter do not have to be continuous, but the LOD will be set in the correct order.
+	 */
+	void ConvertLodPrefixToLodGroup();
 
 	/**
 	* Recursive search for a node having a mesh attribute

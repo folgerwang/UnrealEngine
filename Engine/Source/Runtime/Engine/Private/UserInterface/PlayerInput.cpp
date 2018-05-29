@@ -295,7 +295,7 @@ bool UPlayerInput::InputAxis(FKey Key, float Delta, float DeltaTime, int32 NumSa
 	return false;
 }
 
-bool UPlayerInput::InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex) 
+bool UPlayerInput::InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, float Force, FDateTime DeviceTimestamp, uint32 TouchpadIndex) 
 {
 	// get the current state of each finger
 	checkf(TouchpadIndex == 0, TEXT("We currently assume one touchpad in UPlayerInput::InputTouch. If this triggers, add support for multiple pads"));
@@ -312,7 +312,7 @@ bool UPlayerInput::InputTouch(uint32 Handle, ETouchType::Type Type, const FVecto
 
 	// update touched/untouched flag
 	// > 0 means that it's currently held down (anything besides an end message is held down)
-	Touches[Handle].Z = (Type == ETouchType::Ended) ? 0.0f : 1.0f;
+	Touches[Handle].Z = (Type == ETouchType::Ended) ? 0.0f : Force;
 
 	// hook up KeyState for InputComponent
 	FKeyState& KeyState = KeyStateMap.FindOrAdd(EKeys::TouchKeys[Handle]);

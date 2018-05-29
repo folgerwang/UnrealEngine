@@ -99,6 +99,12 @@ protected:
 	*/
 	void AddReportToFailedList() const;
 
+	/**
+	* Removes crash report folder once submitted to the crash reporting backend, as to not fill up server
+	* -CleanCrashReports must be specified on the crash report client command line
+	*/
+	void CleanCrashReportDirectory(const FString& CrashReportDirectory);
+
 protected:
 	bool bUploadCalled;
 

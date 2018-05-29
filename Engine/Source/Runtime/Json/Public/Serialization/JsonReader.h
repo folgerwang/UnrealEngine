@@ -798,14 +798,7 @@ public:
 
 public:
 
-	virtual ~FJsonStringReader()
-	{
-		if (Reader != nullptr)
-		{
-			check(Reader->Close());
-			delete Reader;
-		}
-	}
+	virtual ~FJsonStringReader() = default;
 
 protected:
 
@@ -840,16 +833,15 @@ protected:
 			return;
 		}
 
-		Reader = new FBufferReader((void*)*Content, Content.Len() * sizeof(TCHAR), false);
-		check(Reader);
+		Reader = MakeUnique<FBufferReader>((void*)*Content, Content.Len() * sizeof(TCHAR), false);
+		check(Reader.IsValid());
 
-		Stream = Reader;
+		Stream = Reader.Get();
 	}
 
 protected:
-
 	const FString Content;
-	FBufferReader* Reader;
+	TUniquePtr<FBufferReader> Reader;
 };
 
 

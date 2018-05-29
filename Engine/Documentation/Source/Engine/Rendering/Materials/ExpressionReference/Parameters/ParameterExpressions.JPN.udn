@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:3188564
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:パラメータの表現式
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
 Description:マテリアル インスタンスを子インスタンスで無効、またはランタイム時に修正するプロパティを公開する表現式
 Version:4.9
+tags:Materials
 
 [EXCERPT:TOC]
 [TOC(start:2)]

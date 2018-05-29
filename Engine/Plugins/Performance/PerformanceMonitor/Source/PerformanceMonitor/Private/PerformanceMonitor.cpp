@@ -41,6 +41,7 @@ FPerformanceMonitorModule::~FPerformanceMonitorModule()
 
 bool FPerformanceMonitorModule::Tick(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FPerformanceMonitorModule_Tick);
 #if STATS
 
 	if (bRecording)

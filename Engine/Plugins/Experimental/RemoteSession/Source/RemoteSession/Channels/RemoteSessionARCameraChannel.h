@@ -26,8 +26,8 @@ public:
 	virtual void Tick(const float InDeltaTime) override;
 
 	/* Begin IRemoteSessionChannel implementation */
-	static FString StaticType() { return TEXT("rs.arcamera"); }
-	virtual FString GetType() const override { return StaticType(); }
+	static const TCHAR* StaticType() { return TEXT("FRemoteSessionARCameraChannel"); }
+	virtual const TCHAR* GetType() const override { return StaticType(); }
 	/* End IRemoteSessionChannel implementation */
 
 	/** Returns the post process material to render with. The textures are set on the fly */

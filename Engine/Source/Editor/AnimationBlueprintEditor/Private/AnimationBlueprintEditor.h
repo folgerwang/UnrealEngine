@@ -60,6 +60,8 @@ namespace AnimationBlueprintEditorTabs
  */
 class FAnimationBlueprintEditor : public IAnimationBlueprintEditor
 {
+	friend class FAnimationBlueprintEditorMode;
+
 public:
 	/**
 	 * Edits the specified character asset(s)
@@ -256,6 +258,9 @@ private:
 
 	/** Handle the preview mesh changing (so we can re-hook debug anim links etc.) */
 	void HandlePreviewMeshChanged(USkeletalMesh* OldPreviewMesh, USkeletalMesh* NewPreviewMesh);
+
+	/** Handle the viewport being created */
+	void HandleViewportCreated(const TSharedRef<IPersonaViewport>& InPersonaViewport);
 
 	/** The extender to pass to the level editor to extend it's window menu */
 	TSharedPtr<FExtender> MenuExtender;

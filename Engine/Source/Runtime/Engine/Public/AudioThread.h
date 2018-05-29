@@ -48,6 +48,17 @@ private:
 	void OnPreGarbageCollect();
 	void OnPostGarbageCollect();
 
+	/** Stat id of the currently executing audio thread command. */
+	static TStatId CurrentAudioThreadStatId;
+	static TStatId LongestAudioThreadStatId;
+	static double LongestAudioThreadTimeMsec;
+	static FCriticalSection CurrentAudioThreadStatIdCS;
+
+	/** Sets the current audio thread stat id. */
+	static void SetCurrentAudioThreadStatId(TStatId InStatId);
+	static void SetLongestTimeAndId(TStatId NewLongestId, double LongestTimeMsec);
+	static double GetCurrentLongestTime() { return LongestAudioThreadTimeMsec; }
+
 public:
 
 	FAudioThread();
@@ -81,7 +92,14 @@ public:
 	static ENGINE_API void SuspendAudioThread();
 	static ENGINE_API void ResumeAudioThread();
 
+	/** Retrieves the current audio thread stat id. Useful for reporting when an audio thread command stalls or deadlocks. */
+	static ENGINE_API FString GetCurrentAudioThreadStatId();
+
+	static ENGINE_API void ResetAudioThreadTimers();
+
+	static ENGINE_API void GetLongestTaskInfo(FString& OutLongestTask, double& OutLongestTaskTimeMs);
 };
+
 
 /** Suspends the audio thread for the duration of the lifetime of the object */
 struct FAudioThreadSuspendContext

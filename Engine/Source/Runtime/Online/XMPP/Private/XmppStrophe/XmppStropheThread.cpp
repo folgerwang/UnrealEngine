@@ -9,6 +9,7 @@
 
 #include "HAL/RunnableThread.h"
 #include "Misc/Guid.h"
+#include "Misc/ConfigCacheIni.h"
 
 #if WITH_XMPP_STROPHE
 
@@ -25,7 +26,8 @@ FXmppStropheThread::FXmppStropheThread(FXmppConnectionStrophe& InConnectionManag
 	bConnectRequest = true;
 
 	static int32 ThreadInstanceIdx = 0;
-	constexpr const int32 StackSize = 64 * 1024;
+	int32 StackSize = 128 * 1024;
+	GConfig->GetInt(TEXT("XMPP"), TEXT("ThreadStackSize"), StackSize, GEngineIni);
 	ThreadPtr.Reset(FRunnableThread::Create(this, *FString::Printf(TEXT("XmppConnectionThread_%d"), ThreadInstanceIdx++), StackSize, TPri_Normal));
 }
 

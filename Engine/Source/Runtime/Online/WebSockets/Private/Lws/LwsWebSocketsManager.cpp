@@ -6,11 +6,14 @@
 
 #include "WebSocketsModule.h"
 #include "HAL/RunnableThread.h"
+#if WITH_SSL
 #include "Ssl.h"
+#endif
 #include "WebSocketsLog.h"
 #include "HAL/PlatformTime.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Stats/Stats.h"
 
 namespace {
 	static const struct lws_extension LwsExtensions[] = {
@@ -33,8 +36,11 @@ static void LwsLog(int Level, const char* LogLine);
 
 // FLwsWebSocketsManager
 FLwsWebSocketsManager::FLwsWebSocketsManager()
-	: SslContext(nullptr)
-	, LwsContext(nullptr)
+	: 
+#if WITH_SSL
+	SslContext(nullptr),
+#endif
+	LwsContext(nullptr)
 	, Thread(nullptr)
 {
 	ThreadTargetFrameTimeInSeconds = 1.0f / 30.0f; // 30Hz
@@ -284,12 +290,14 @@ int FLwsWebSocketsManager::CallbackWrapper(lws* Connection, lws_callback_reasons
 	{
 	case LWS_CALLBACK_RECEIVE_PONG:
 		return 0;
+#if WITH_SSL
 	case LWS_CALLBACK_OPENSSL_LOAD_EXTRA_CLIENT_VERIFY_CERTS:
 	case LWS_CALLBACK_OPENSSL_LOAD_EXTRA_SERVER_VERIFY_CERTS:
 	{
 		FSslModule::Get().GetCertificateManager().AddCertificatesToSslContext(static_cast<SSL_CTX*>(UserData));
 		return 0;
 	}
+#endif
 	case LWS_CALLBACK_WSI_DESTROY:
 	{
 		SocketsDestroyedDuringService.Add(Socket);
@@ -364,6 +372,8 @@ void FLwsWebSocketsManager::StartProcessingWebSocket(FLwsWebSocket* Socket)
 
 bool FLwsWebSocketsManager::GameThreadTick(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FLwsWebSocketsManager_GameThreadTick);
+
 	for (const FLwsWebSocketRef& Socket : Sockets)
 	{
 		Socket->GameThreadTick();

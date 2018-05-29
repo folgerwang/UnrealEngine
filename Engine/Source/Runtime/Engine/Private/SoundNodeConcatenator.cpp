@@ -63,7 +63,7 @@ bool USoundNodeConcatenator::NotifyWaveInstanceFinished( FWaveInstance* WaveInst
 }
 
 
-float USoundNodeConcatenator::GetDuration() const
+float USoundNodeConcatenator::GetDuration()
 {
 	// Sum up length of child nodes.
 	float Duration = 0.0f;

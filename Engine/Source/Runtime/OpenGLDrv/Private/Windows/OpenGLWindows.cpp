@@ -62,7 +62,8 @@ public:
 		check(Context);
 		PrevDC = wglGetCurrentDC();
 		PrevContext = GetCurrentContext();
-		bSameDCAndContext = (PrevContext == Context->OpenGLContext) && (PrevDC == Context->DeviceContext);
+		bSameDC = (PrevDC == Context->DeviceContext);
+		bSameDCAndContext = (PrevContext == Context->OpenGLContext) && bSameDC;
 		if (!bSameDCAndContext)
 		{
 //			if (PrevContext)
@@ -95,10 +96,16 @@ public:
 		return bSameDCAndContext;
 	}
 
+	bool ContextsShareSameDC() const
+	{
+		return bSameDC;
+	}
+
 private:
 	HDC					PrevDC;
 	HGLRC				PrevContext;
 	bool				bSameDCAndContext;
+	bool				bSameDC;
 };
 
 void DeleteQueriesForCurrentContext( HGLRC Context );
@@ -421,6 +428,7 @@ void PlatformReleaseOpenGLContext(FPlatformOpenGLDevice* Device, FPlatformOpenGL
 	Device->TargetDirty = true;
 
 	bool bActiveContextWillBeReleased = false;
+	bool bSharedDC = false;
 
 	{
 		FScopeLock ScopeLock(Device->ContextUsageGuard);
@@ -428,6 +436,7 @@ void PlatformReleaseOpenGLContext(FPlatformOpenGLDevice* Device, FPlatformOpenGL
 			FScopeContext ScopeContext(Context);
 
 			bActiveContextWillBeReleased = ScopeContext.ContextWasAlreadyActive();
+			bSharedDC = ScopeContext.ContextsShareSameDC();
 
 			DeleteQueriesForCurrentContext(Context->OpenGLContext);
 			glBindVertexArray(0);
@@ -452,6 +461,13 @@ void PlatformReleaseOpenGLContext(FPlatformOpenGLDevice* Device, FPlatformOpenGL
 	}
 	ReleaseDC(Context->WindowHandle, Context->DeviceContext);
 	Context->DeviceContext = NULL;
+
+	if (PlatformOpenGLCurrentContext(Device) == CONTEXT_Rendering && bSharedDC)
+	{
+		// The rendering context has been made current using the DC of the now destroyed context. Since this DC has been released the current context will be invalid.
+		// To properly set the rendering context we must make current here with it's own DC.
+		ContextMakeCurrent(Device->RenderingContext.DeviceContext, Device->RenderingContext.OpenGLContext);
+	}
 
 	check(Context->WindowHandle);
 

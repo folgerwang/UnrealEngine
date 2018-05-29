@@ -6,6 +6,20 @@
 #include "OnlineSubsystemTypes.h"
 #include "OnlineDelegateMacros.h"
 
+struct FOnlineError;
+
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineFriend, Display, All);
+
+#define UE_LOG_ONLINE_FRIEND(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogOnlineFriend, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINE_FRIEND(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogOnlineFriend, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
 /** List of known friends list types */
 namespace EFriendsLists
 {
@@ -154,6 +168,14 @@ typedef FOnBlockListChange::FDelegate FOnBlockListChangeDelegate;
  */
 DECLARE_MULTICAST_DELEGATE_FourParams(FOnQueryRecentPlayersComplete, const FUniqueNetId& /*UserId*/, const FString& /*Namespace*/, bool /*bWasSuccessful*/, const FString& /*Error*/);
 typedef FOnQueryRecentPlayersComplete::FDelegate FOnQueryRecentPlayersCompleteDelegate;
+
+/**
+ * Delegate used when adding a group of recent players has completed
+ *
+ * @param UserId the id of the user that made the request
+ * @param Error error information on failure
+ */
+DECLARE_DELEGATE_TwoParams(FOnAddRecentPlayersComplete, const FUniqueNetId& /*UserId*/, const FOnlineError& /*Error*/);
 
 /**
  * Delegate used when the query for blocked players has completed

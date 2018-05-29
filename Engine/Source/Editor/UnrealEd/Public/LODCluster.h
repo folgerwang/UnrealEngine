@@ -34,6 +34,8 @@ struct FLODCluster
 	FLODCluster operator-=(const FLODCluster& Other);
 	FLODCluster& operator=(const FLODCluster & Other);
 
+	bool operator==(const FLODCluster& Other) const;
+
 	/** Invalidates this cluster */
 	inline void Invalidate() { bValid = false; }
 	

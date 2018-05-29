@@ -196,11 +196,13 @@ private:
 
 public:
 	FAnimNode_StateMachine()
-		: MaxTransitionsPerFrame(3)
+		: StateMachineIndexInClass(0)
+		, MaxTransitionsPerFrame(3)
 		, bSkipFirstUpdateTransition(true)
 		, bReinitializeOnBecomingRelevant(true)
 		, PRIVATE_MachineDescription(NULL)
 		, CurrentState(INDEX_NONE)
+		, ElapsedTime(0.0f)
 		, bFirstUpdate(true)
 	{
 	}

@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3735331
-Availability:Doc
+﻿INTSourceChangelist:3810557
+Availability:Public
 Title:Android Manifest ファイルの制御
 Crumbs:%ROOT%, Platforms
 Description:Android Mainfest ファイルの設定および使用方法
@@ -21,7 +21,7 @@ type:overview
 AndroidManifest.xml ファイルを探す前に、プロジェクトを Android デバイスにパッケージ化またはデプロイする必要があります。プロジェクトのビルドまたはデプロイが完了したら、**(YourProjectName)\Intermediate\Android\APK** で AndroidManifest.xml ファイルを探します。
 
 [REGION:lightbox]
-[![](AMC_File_Location.png)(w:430 h:285)](AMC_File_Location.png)
+[![](AMC_File_Location.png)(w:430)](AMC_File_Location.png)
 [/REGION]
 
 [REGION:caption]
@@ -85,9 +85,7 @@ AndroidManifest.xml ファイルの編集はいかなる状況であっても **
 
  [Extra Tags for Manifest] セクションへ入力するアイテムは AndroidManifest.xml ファイルの **[Application Definition]** セクションに追加されます。
 
-	[COMMENT:none]
- Application Definition 
-[/COMMENT]
+	<!-- Application Definition -->
 	<application android:label="@string/app_name"
 	 android:icon="@drawable/icon" 
 	 android:hardwareAccelerated="True" 

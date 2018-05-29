@@ -911,16 +911,13 @@ void FRCPassDiaphragmDOFReduce::Process(FRenderingCompositePassContext& Context)
 		EResourceTransitionPipeline::EComputeToCompute,
 		DrawIndirectParametersBuffer->UAV);
 
-	if (Params.bExtractForegroundHybridScattering)
+	if (bDoAnyHybridScatteringExtraction)
 	{
 		Context.RHICmdList.TransitionResource(
 			EResourceTransitionAccess::ERWNoBarrier,
 			EResourceTransitionPipeline::EComputeToCompute,
 			ScatterDrawListBuffer[0]->UAV);
-	}
 	
-	if (Params.bExtractBackgroundHybridScattering)
-	{
 		Context.RHICmdList.TransitionResource(
 			EResourceTransitionAccess::ERWNoBarrier,
 			EResourceTransitionPipeline::EComputeToCompute,

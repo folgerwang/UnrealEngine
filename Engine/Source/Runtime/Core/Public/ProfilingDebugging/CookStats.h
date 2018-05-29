@@ -127,19 +127,19 @@ private:
 	template <typename KeyType>
 	static void ImplCreateKeyValueArray(TArray<FCookStatsManager::StringKeyValue>& Attrs, KeyType&& Key)
 	{
-		Attrs.Emplace(Lex::ToString(Forward<KeyType>(Key)), TEXT(""));
+		Attrs.Emplace(LexToString(Forward<KeyType>(Key)), TEXT(""));
 	}
 
 	template <typename KeyType, typename ValueType>
 	static void ImplCreateKeyValueArray(TArray<FCookStatsManager::StringKeyValue>& Attrs, KeyType&& Key, ValueType&& Value)
 	{
-		Attrs.Emplace(Lex::ToString(Forward<KeyType>(Key)), Lex::ToString(Forward<ValueType>(Value)));
+		Attrs.Emplace(LexToString(Forward<KeyType>(Key)), LexToString(Forward<ValueType>(Value)));
 	}
 
 	template <typename KeyType, typename ValueType, typename...ArgTypes>
 	static void ImplCreateKeyValueArray(TArray<FCookStatsManager::StringKeyValue>& Attrs, KeyType&& Key, ValueType&& Value, ArgTypes&&...Args)
 	{
-		Attrs.Emplace(Lex::ToString(Forward<KeyType>(Key)), Lex::ToString(Forward<ValueType>(Value)));
+		Attrs.Emplace(LexToString(Forward<KeyType>(Key)), LexToString(Forward<ValueType>(Value)));
 		ImplCreateKeyValueArray(Attrs, Forward<ArgTypes>(Args)...);
 	}
 

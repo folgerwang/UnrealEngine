@@ -35,11 +35,7 @@
 
 MS_ALIGN(16) struct FTransform
 {
-#ifdef COREUOBJECT_API
-	friend COREUOBJECT_API class UScriptStruct* Z_Construct_UScriptStruct_FTransform();
-#else
-	friend class UScriptStruct* Z_Construct_UScriptStruct_FTransform();
-#endif
+	friend struct Z_Construct_UScriptStruct_FTransform_Statics;
 
 protected:
 	/** Rotation of this transformation, as a quaternion */

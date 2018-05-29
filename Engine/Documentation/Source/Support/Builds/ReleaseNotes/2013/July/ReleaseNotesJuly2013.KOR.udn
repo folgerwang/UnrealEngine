@@ -471,7 +471,7 @@ Order:-7
 * 쿠킹된 플랫폼은 바이너리가 GameAgnosticExe (게임 무관 EXE)가 아닌 경우, (자신 이외에) 프로젝트를 기반으로 한 실행이 불가능합니다.
 	* 그 이유는 게임이 (QAGameInfo 등의) 기본 클래스를 덮어쓸 소지가 있어, 그 클래스는 해당 프로젝트 파일에서 사용할 수 없는 애셋을 레퍼런싱할 수 있기 때문입니다.
 * Freetype2 업데이트 (2.4.12) 
-* 미지원 플랫폼에 대한 타겟을 빌드하려 할 때, UBT 는 다음과 같은 메시지와 함께 빌드 예외를 던집니다: <Target> does not support the <platform> platform.
+* 미지원 플랫폼에 대한 타겟을 빌드하려 할 때, UBT 는 다음과 같은 메시지와 함께 빌드 예외를 던집니다: `<Target> does not support the <platform> platform`
 * DynamicRHI 생성을 정리했습니다 (코드를 플랫폼 전용 파일로 분할해 넣었습니다).
 * SM_PCD3D_SM5 인지만 체크하는 것을 대체하기 위해 RHISupportsTessellation(EShaderPlatform) 함수를 추가했습니다. 
 * 엔진과 에디터를 Mac 으로 이식중입니다.

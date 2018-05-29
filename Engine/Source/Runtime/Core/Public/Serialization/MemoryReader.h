@@ -20,9 +20,12 @@ public:
 	 *
 	 * This is overridden for the specific Archive Types
 	 **/
-	virtual FString GetArchiveName() const { return TEXT("FMemoryReader"); }
+	virtual FString GetArchiveName() const override
+	{
+		return TEXT("FMemoryReader");
+	}
 
-	int64 TotalSize()
+	virtual int64 TotalSize() override
 	{
 		return FMath::Min((int64)Bytes.Num(), LimitSize);
 	}
@@ -44,13 +47,12 @@ public:
 		}
 	}
 
-	FMemoryReader( const TArray<uint8>& InBytes, bool bIsPersistent = false )
-	: FMemoryArchive()
-	, Bytes(InBytes)
-	, LimitSize(INT64_MAX)
+	explicit FMemoryReader( const TArray<uint8>& InBytes, bool bIsPersistent = false )
+		: Bytes    (InBytes)
+		, LimitSize(INT64_MAX)
 	{
-		ArIsLoading		= true;
-		ArIsPersistent	= bIsPersistent;
+		this->SetIsLoading(true);
+		this->SetIsPersistent(bIsPersistent);
 	}
 
 	/** With this method it's possible to attach data behind some serialized data. */
@@ -59,9 +61,8 @@ public:
 		LimitSize = NewLimitSize;
 	}
 
-protected:
-
+private:
 	const TArray<uint8>& Bytes;
-	int64 LimitSize;
+	int64                LimitSize;
 };
 

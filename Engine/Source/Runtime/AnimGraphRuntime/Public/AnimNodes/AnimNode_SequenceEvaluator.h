@@ -60,10 +60,13 @@ public:
 
 public:	
 	FAnimNode_SequenceEvaluator()
-		: ExplicitTime(0.0f)
+		: Sequence(nullptr)
+		, ExplicitTime(0.0f)
+		, bShouldLoop(false)
 		, bTeleportToExplicitTime(true)
 		, StartPosition(0.f)
 		, ReinitializationBehavior(ESequenceEvalReinit::ExplicitTime)
+		, bReinitialized(false)
 	{
 	}
 

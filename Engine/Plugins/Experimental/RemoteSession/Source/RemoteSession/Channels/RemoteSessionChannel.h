@@ -23,6 +23,6 @@ public:
 
 	virtual void Tick(const float InDeltaTime) = 0;
 
-	virtual FString GetType() const = 0;
+	virtual const TCHAR* GetType() const = 0;
 
 };

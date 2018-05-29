@@ -3,7 +3,7 @@ Availability:Public
 Title:データ駆動型のゲームプレイエレメント
 Crumbs:%ROOT%
 Description:外部に保存されたデータを使用するゲームプレイ エレメントの操作
-version:4.9
+version: 4.9
 type:reference
 tags:Gameplay
 
@@ -44,7 +44,7 @@ Excel ドキュメントでデータを UE4 にインポートする新しい方
 
 例をあげると、レベルアップ体験データとデータをゲームに提供する CSV ドキュメントに対する定義は以下のようになります。
 
-	/** レベルアップ テーブルのエントリを定義する構造体 */
+	/** Structure that defines a level up table entry */
 	USTRUCT(BlueprintType)
 	struct FLevelUpData : public FTableRowBase
 	{
@@ -57,23 +57,23 @@ Excel ドキュメントでデータを UE4 にインポートする新しい方
 		, AdditionalHP(0)
 		{}
 
-		/** 'Name' 列は XP Level と同じ*/
+		/** The 'Name' column is the same as the XP Level */
 
-		/** XP は前のレベルから任意のレベルになります。*/
+		/** XP to get to the given level from the previous level */
 		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=LevelUp)
 		int32 XPtoLvl;
 
-		/** このレベルで Extra HitPoints を得ます。*/
+		/** Extra HitPoints gained at this level */
 		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=LevelUp)
 		int32 AdditionalHP;
 
-		/** Achivement (アチーブメント、成績) に使うアイコン*/
+		/** Icon to use for Achivement */
 		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=LevelUp)
 		TSoftObjectPtr<UTexture> AchievementIcon;
 	};
 
 
-**CSV ドキュメント:**
+**CSV Document:**
 
 	Name,XPtoLvl,AdditionalHP,AchievementIcon
 	1,0,0,"Texture2d'/Game/Textures/AchievementIcon1'"
@@ -112,9 +112,9 @@ Excel ドキュメントでデータを UE4 にインポートする新しい方
 CSV ファイルのインポート プロセスは以下のようにシンプルです。
 
 1.	ファイルを Excel または他のスプレッドシートから拡張子 .csv で保存します。
-1.	アンリアル エディタを開き、 **コンテンツ ブラウザ** の **[Import]** をクリックします。
-1. DataTable としてインポートしたい CSV ファイルの場所へ行き選択します。
-1. 最後に、ドロップダウン リストからこの列を表すもの、ここでは LevelUpData を選択します。
+2.	アンリアル エディタを開き、 **コンテンツ ブラウザ** の **[Import]** をクリックします。
+3.  DataTable としてインポートしたい CSV ファイルの場所へ行き選択します。
+4.  最後に、ドロップダウン リストからこの列を表すもの、ここでは LevelUpData を選択します。
 
 	![](levelupdata_options.png)
 
@@ -124,8 +124,8 @@ CSV ファイルのインポート プロセスは以下のようにシンプル
 
 	そのオブジェクトを **ダブルクリック** すると、エディタ内で DataTable のコンテンツが表示されます。オブジェクトを **右クリック** してメニューから **[Reimport]** を選ぶと、オブジェクトを更新することができます。 
 	オブジェクトの再インポートには、元のファイル パスが使われます。ご注意ください。インポート後のデータはこのような表示になります。
-	![](datatableview.jpg)
 
+	![](datatableview.jpg)
 
 ## データの連携
 

@@ -33,5 +33,9 @@ topic-image:TrailController.png
 | **Component Pose** | 컴포넌트 포즈 - 받는 포즈입니다. |
 | **Alpha** | 알파 - 콘트롤의 현재 세기입니다. |
 
+**Trail Controller** 노드는 4.11 에 도입된 **LOD Threshold** 시스템의 영향을 받기도 합니다. **디테일** 패널의 **Trail Controller** 노드에서 그 세팅을 찾아볼 수 있습니다.
+
+[INCLUDE:Engine/Animation/NodeReference/SkeletalControls#lodthresh]
+
 
 

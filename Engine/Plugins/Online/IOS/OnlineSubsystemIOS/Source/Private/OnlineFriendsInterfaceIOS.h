@@ -34,7 +34,7 @@ public:
 	 * Init/default constructor
 	 */
 	FOnlineFriendIOS(const FString& InUserId=TEXT("")) 
-		: UserId(new FUniqueNetIdString(InUserId))
+		: UserId(new FUniqueNetIdIOS(InUserId))
 	{
 	}
 

@@ -1,48 +1,9 @@
-﻿INTSourceChangelist:3215424
-Availability:Public
+﻿Availability:Public
 Title:ポイントライト
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows, Engine/Rendering/LightingAndShadows/LightTypes
 Description:ポイントライトの基礎
 Version:4.14
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/LightTypes/Point:title%](PointLight_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightTypes/Point:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightTypes/Point:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightTypes/Point]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/LightTypes/Point:title%](PointLight_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightTypes/Point:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightTypes/Point:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightTypes/Point]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:PointLight_Topic.png
 
 [REGION:fullwidth raw]
 ![](PointLight_Header.png)
@@ -55,25 +16,10 @@ Version:4.14
 [EXCERPT:Intro]
 **ポイントライト** は、電球のタングステン フィラメントから全方向に光を放射する現実世界の電球のように機能します。しかし、ポイントライトは、パフォーマンス上の理由から単純化されて、単に空間内のひとつのポイントから全方向に均一に光を放射するようになっています。ポイントライトを配置する場合、以下の 3 つの可動設定のいずれかを設定できます。
 
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](PointLight_stationary.png)(w:150 convert:false)
-	[/PARAM]
-	[PARAM:description]
-	**Static (静的)** - (左の画像) ゲーム中のライトの変更が不可能です。これは、最速のレンダリング方法であり、焼き付けたライティングを可能にします。
+* **Static (静的)** - (左の画像) ゲーム中のライトの変更が不可能です。これは、最速のレンダリング方法であり、焼き付けたライティングを可能にします。
+* **Stationary (固定)** - (同じく左の画像) ライトは **Lightmass** で焼き付けられた静的ジオメトリからのシャドウイングと反射光のみを持ちます。この設定により、ゲーム中にライトのカラーと強度を変更することが可能となりますが、移動および部分的なライトの焼付けはできません。 
+* **Moveable (可動)** - (左の図) ライトは完全に動的であり、動的シャドウイングが可能です。レンダリングは最も遅くなりますが、ゲームプレイ中は一番柔軟性があります。 
 
-	**Stationary (固定)** - (同じく左の画像) ライトは **Lightmass** で焼き付けられた静的ジオメトリからのシャドウイングと反射光のみを持ちます。この設定により、ゲーム中にライトのカラーと強度を変更することが可能となりますが、移動および部分的なライトの焼付けはできません。 
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](PointLight_movable.png)(w:150 convert:false)
-	[/PARAM]
-	[PARAM:description]
-	**Moveable (可動)** - (左の図) ライトは完全に動的であり、動的シャドウイングが可能です。レンダリングは最も遅くなりますが、ゲームプレイ中は一番柔軟性があります。 
-	[/PARAM]
-[/OBJECT]
 [/EXCERPT:Intro]
 
 以下は、レベルに設置したポイントライトのサンプル 2 つです。

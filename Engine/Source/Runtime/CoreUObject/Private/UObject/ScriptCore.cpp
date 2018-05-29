@@ -184,12 +184,13 @@ void FBlueprintCoreDelegates::SetScriptMaximumLoopIterations( const int32 Maximu
 	}
 }
 
+#if DO_BLUEPRINT_GUARD
+
 // This is meant to be called from the immediate mode, and for confusing reasons the optimized code isn't always safe in that case
 PRAGMA_DISABLE_OPTIMIZATION
 
 void PrintScriptCallStackImpl()
 {
-#if DO_BLUEPRINT_GUARD
 	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
 	if( BlueprintExceptionTracker.ScriptStack.Num() > 0 )
 	{
@@ -201,12 +202,12 @@ void PrintScriptCallStackImpl()
 
 		UE_LOG( LogOutputDevice, Warning, TEXT( "%s" ), *ScriptStack );
 	}
-#endif
 }
 
 PRAGMA_ENABLE_OPTIMIZATION
 
 extern CORE_API void (*GPrintScriptCallStackFn)();
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 // FEditorScriptExecutionGuard
@@ -218,8 +219,6 @@ FEditorScriptExecutionGuard::FEditorScriptExecutionGuard()
 	if( GIsEditor && !FApp::IsGame() )
 	{
 		GInitRunaway();
-		
-		GPrintScriptCallStackFn = &PrintScriptCallStackImpl;
 	}
 }
 
@@ -396,6 +395,13 @@ FString FFrame::GetStackDescription() const
 {
 	return Node->GetOuter()->GetName() + TEXT(".") + Node->GetName();
 }
+
+#if DO_BLUEPRINT_GUARD
+void FFrame::InitPrintScriptCallstack()
+{
+	GPrintScriptCallStackFn = &PrintScriptCallStackImpl;
+}
+#endif
 
 //
 // Error or warning handler.

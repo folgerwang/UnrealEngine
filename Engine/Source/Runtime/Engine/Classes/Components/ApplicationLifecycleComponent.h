@@ -14,6 +14,7 @@
 UENUM(BlueprintType)
 enum class ETemperatureSeverityType : uint8
 {
+	Unknown,
 	Good,
 	Bad,
 	Serious,
@@ -31,6 +32,7 @@ class ENGINE_API UApplicationLifecycleComponent : public UActorComponent
 
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FApplicationLifetimeDelegate);
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTemperatureChangeDelegate , ETemperatureSeverityType, Severity);
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLowPowerModeDelegate, bool, bInLowPowerMode);
 
 	// This is called when the application is about to be deactivated (e.g., due to a phone call or SMS or the sleep button). 
 	// The game should be paused if possible, etc... 
@@ -72,6 +74,10 @@ class ENGINE_API UApplicationLifecycleComponent : public UActorComponent
 	UPROPERTY(BlueprintAssignable)
 	FOnTemperatureChangeDelegate OnTemperatureChangeDelegate;
 
+	// Called when we are in low power mode
+	UPROPERTY(BlueprintAssignable)
+	FOnLowPowerModeDelegate OnLowPowerModeDelegate;
+
 public:
 	void OnRegister() override;
 	void OnUnregister() override;
@@ -86,6 +92,7 @@ private:
 	void ApplicationShouldUnloadResourcesDelegate_Handler() { ApplicationShouldUnloadResourcesDelegate.Broadcast(); }
 	void ApplicationReceivedStartupArgumentsDelegate_Handler(const TArray<FString>& StartupArguments) { ApplicationReceivedStartupArgumentsDelegate.Broadcast(StartupArguments); }
 	void OnTemperatureChangeDelegate_Handler(FCoreDelegates::ETemperatureSeverity Severity) { OnTemperatureChangeDelegate.Broadcast((ETemperatureSeverityType)Severity); }
+	void OnLowPowerModeDelegate_Handler(bool bInLowerPowerMode) { OnLowPowerModeDelegate.Broadcast(bInLowerPowerMode); }
 };
 
 

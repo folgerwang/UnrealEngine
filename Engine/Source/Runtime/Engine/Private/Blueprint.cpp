@@ -331,7 +331,7 @@ void UBlueprintCore::Serialize(FArchive& Ar)
 		}
 	}
 
-	if( Ar.ArIsLoading && !BlueprintGuid.IsValid() )
+	if( Ar.IsLoading() && !BlueprintGuid.IsValid() )
 	{
 		GenerateDeterministicGuid();
 	}

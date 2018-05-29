@@ -19,6 +19,15 @@ struct FTextureStreamingSettings;
 /** Self-contained structure to manage a streaming texture, possibly on a separate thread. */
 struct FStreamingTexture
 {
+private:
+	enum EOptionalMipsState
+	{
+		NotCached,
+		NoOptionalMips,
+		HasOptionalMips,
+	};
+public:
+
 	FStreamingTexture(UTexture2D* InTexture, const int32 NumStreamedMips[TEXTUREGROUP_MAX], const FTextureStreamingSettings& Settings);
 
 	/** Update data that should not change unless changing settings. */
@@ -65,6 +74,8 @@ struct FStreamingTexture
 
 	/** Init load order. Return wether this texture has any load/unload request */
 	bool UpdateLoadOrderPriority_Async(int32 MinMipForSplitRequest);
+
+	void UpdateOptionalMipsState_Async();
 	
 	void CancelPendingMipChangeRequest();
 	void StreamWantedMips(FStreamingManagerTexture& Manager);
@@ -93,6 +104,16 @@ struct FStreamingTexture
 		// If more mips will be streamed in eventually, wait.
 		// Otherwise, if the distance based computation had no viewpoint, wait.
 		return !bIsStreamingPaused && (BudgetedMips > ResidentMips || !bBudgetedMipsIsValid);
+	}
+
+	FORCEINLINE void ClearCachedOptionalMipsState_Async()
+	{
+		// if we already have our optional mips there is no need to recache, pak files can't go away!
+		if (OptionalMipsState == EOptionalMipsState::HasOptionalMips)
+		{
+			return;
+		}
+		OptionalMipsState = EOptionalMipsState::NotCached;
 	}
 
 	/***************************************************************
@@ -146,6 +167,11 @@ struct FStreamingTexture
 	int32			MinAllowedMips;
 	/** Max mip to be requested by the streaming  */
 	int32			MaxAllowedMips;
+	/** Mips which are in an optional bulk data file (may not be present on device) */
+	int32			NumNonOptionalMips;
+	/** Cached state on disk of the optional mips for this streaming texture */
+	EOptionalMipsState	OptionalMipsState;
+	FString			OptionalBulkDataFilename;
 
 	/** How much game time has elapsed since the texture was bound for rendering. Based on FApp::GetCurrentTime(). */
 	float			LastRenderTime;

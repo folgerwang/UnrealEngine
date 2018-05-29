@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:2968923
-Availability:Public
+﻿Availability:Public
 Title:ブループリントの配列
 Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/Scripting
 Description:ブループリントの配列の作成、編集、使用に関するドキュメント
-Version:4.9
+version:4.9
 parent:Engine/Blueprints/Scripting
 tags:Arrays and Structures
+tags:Blueprints
 order:1
 
 ![](Arrays.png)

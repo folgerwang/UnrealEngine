@@ -121,7 +121,12 @@ class FOutputDevice* FGenericPlatformOutputDevices::GetLog()
 #endif // WITH_LOGGING_TO_MEMORY
 			if (!LogDevice)
 			{
-				LogDevice = MakeUnique<FOutputDeviceFile>();
+#if (!UE_BUILD_SHIPPING) || PRESERVE_LOG_BACKUPS_IN_SHIPPING
+				const bool bDisableBackup = false;
+#else
+				const bool bDisableBackup = true;
+#endif
+				LogDevice = MakeUnique<FOutputDeviceFile>(nullptr, bDisableBackup);
 			}
 		}
 

@@ -277,7 +277,7 @@ FPropertyAndIndex FindPropertyAndArrayIndex(UStruct* InStruct, const FString& Pr
 			{
 				TCHAR NumberBuffer[11];
 				FMemory::Memcpy(NumberBuffer, &PropertyName[OpenIndex + 1], sizeof(TCHAR) * NumberLength);
-				LexicalConversion::FromString(PropertyAndIndex.ArrayIndex, NumberBuffer);
+				LexFromString(PropertyAndIndex.ArrayIndex, NumberBuffer);
 			}
 
 			return PropertyAndIndex;

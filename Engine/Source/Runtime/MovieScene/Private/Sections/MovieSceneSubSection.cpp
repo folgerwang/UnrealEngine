@@ -213,7 +213,7 @@ UMovieSceneSection* UMovieSceneSubSection::SplitSection( FQualifiedFrameTime Spl
 
 	FFrameNumber InitialStartOffset = Parameters.GetStartFrameOffset();
 
-	UMovieSceneSubSection* NewSection = Cast<UMovieSceneSubSection>( UMovieSceneSection::SplitSection(SplitTime));
+	UMovieSceneSubSection* NewSection = Cast<UMovieSceneSubSection>( UMovieSceneSection::SplitSection( SplitTime ) );
 	if ( NewSection )
 	{
 		if (InitialRange.GetLowerBound().IsClosed())

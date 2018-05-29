@@ -121,6 +121,7 @@ protected:
 	 */
 	void ExtendToolBar( );
 
+	void FillToolbar(FToolBarBuilder& ToolbarBuilder, const TSharedRef< FUICommandList > ToolkitCommands, TSharedRef<SWidget> LODControl);
 	/**
 	 * Gets the highest mip map level that this texture supports.
 	 *

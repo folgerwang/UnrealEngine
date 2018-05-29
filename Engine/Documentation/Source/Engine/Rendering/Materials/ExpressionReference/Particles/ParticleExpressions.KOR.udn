@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:Particle 표현식
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
@@ -98,7 +98,7 @@ ParticlePositionWS (파티클 위치 월드 스페이스)는 각 개별 파티�
 ParticleRadius (파티클 반경)은 각 파티클 개별적으로 반경을 언리얼 유닛으로 출력합니다. 이를 통해 반경이 일정 지점에 도달하면 머티리얼에 어떠한 변화를 준다던가 하는 작업이 가능합니다.
 
 [REGION:fullwidth]
-![ParticleRadiusExample.png](ParticleRadiusExample.png)(w:1000 h:448)
+![ParticleRadiusExample.png](ParticleRadiusExample.png)(w:1000)
 [/REGION]
 
 이 이미지에서 파티클의 반경이 7 유닛을 넘어가면서 녹색에서 빨강으로 변화되고 있습니다.
@@ -144,7 +144,7 @@ _이미지를 클릭하면 원래 크기로 보입니다._
 ParticleSpeed (파티클 속력)은 각 파티클의 현재 이동 속력을 초당 언리얼 유닛 단위로 출력하는 표현식입니다.
 
 [REGION:fullwidth]
-![ParticleSpeedExample.png](ParticleSpeedExample.png)(w:1000 h:448)
+![ParticleSpeedExample.png](ParticleSpeedExample.png)(w:1000)
 [/REGION]
 
 이 예제에서는 파티클 속력을 파티클의 컬러에 물려주고 있는데, 이걸 10 으로 나눠 좀 더 유의미한 결과를 내고 있습니다. 파티클은 속력이 낮아지면서 까매집니다.
@@ -221,7 +221,7 @@ TextureSampleParameterSubUV (파티클 샘플 파라미터 Sub UV) 표현식은 
 | 항목 | 설명 |
 | ---- | ---- |
 | [REGION:tablesection]프로퍼티[/REGION] ||
-| **Parameter Name** | 머티리얼의 인스턴스나 코드를 통해 파라미터를 식별하는 데 사용되는 이름을 지정합니다. |
+| **Parameter Name** | [INCLUDE:Engine/Rendering/Materials/ExpressionReference/Parameters#ParameterNameDefinition] |
 | **Group**| [INCLUDE:Engine/Rendering/Materials/ExpressionReference/Parameters#GroupDefinition] |
 | **Blend** | 블렌드 - 매 프레임별 SubUV 스프라이트 레이아웃을 블렌딩하여 갑자기 나타났다 사라지지 않게 만듭니다. |
 | **Texture** | 표현식이 샘플링할 텍스처를 지정합니다. |

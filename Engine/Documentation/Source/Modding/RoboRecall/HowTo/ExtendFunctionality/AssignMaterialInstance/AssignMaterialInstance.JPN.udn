@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:3.マテリアル インスタンスを割り当てる
 Crumbs:%ROOT%
@@ -30,14 +30,14 @@ checkpoint:mod_extend
 
 1. **[Components]** パネルで **[GrenadeGunPistol(self)]** を選択します。
 
-	![image alt text](image_0.png)(w:302 h:253 convert:false)
+	![image alt text](image_0.png)(w:302 convert:false)
 
 1. [Details (詳細)] パネルで **[Dissolve]** を検索し、**[Dissolve Material]** プロパティを見ます。
 
 1. **[Dissolve Material]** プロパティのドロップダウン メニューをクリックしてアセット ピッカーを表示させて **[GrenadeGun_Dissolve_MI]** を選択します。検索ボックスを使ってリストをフィルタリングすることができます。
 
 	[REGION:raw]
-	![image alt text](image_1.png)(w:933 h:494 convert:false)
+	![image alt text](image_1.png)(w:933 convert:false)
 	[/REGION]
 
 1. ブループリント エディタで **[Compile]** をクリックしてブループリントを更新します。変更を保存するには **[Save]** をクリックします。

@@ -77,6 +77,20 @@ public:
 
 #else
 
+class CORE_API FScopedNamedEvent
+{
+public:
+	DEPRECATED(4.19, "FScopedNamedEvent is compiled out in shipping builds, use SCOPED_NAMED_EVENT or variant instead to compile correctly for all targets.")
+	FScopedNamedEvent(const struct FColor& Color, const TCHAR* Text)
+	{
+	}
+
+	DEPRECATED(4.19, "FScopedNamedEvent is compiled out in shipping builds, use SCOPED_NAMED_EVENT or variant instead to compile correctly for all targets.")
+	FScopedNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
+	{
+	}
+};
+
 #define SCOPED_NAMED_EVENT(...)
 #define SCOPED_NAMED_EVENT_FSTRING(...)
 #define SCOPED_NAMED_EVENT_TEXT(...)

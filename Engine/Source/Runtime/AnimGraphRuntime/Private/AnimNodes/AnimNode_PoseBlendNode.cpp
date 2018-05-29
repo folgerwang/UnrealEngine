@@ -8,6 +8,7 @@
 // FAnimPoseByNameNode
 
 FAnimNode_PoseBlendNode::FAnimNode_PoseBlendNode()
+	: CustomCurve(nullptr)
 {
 	BlendOption = EAlphaBlendOption::Linear;
 }

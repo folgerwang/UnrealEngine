@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3244370
-Availability:Public
+﻿Availability:Public
 Title:Blueprint クラスを作成する
 Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/UserGuide/Types/ClassBlueprint
 Description:ブループリントの新規作成ガイド
@@ -45,9 +44,8 @@ tags:Blueprints
 
 [/EXCERPT:CreateBP1]
 
+
 ## 右クリックによる作成
-
-
 
 他にも、**コンテンツ ブラウザ** から **ブループリント** を作成する方法は 2 通りあります。
 
@@ -144,7 +142,7 @@ tags:Blueprints
 
 1. ブループリンの名前を入力し、保存先のフォルダを選択します。
 
-1. ブループリント作成ダイアログの一番上にある [Create [Path]/[Name] (パス/名前を作成)] をクリックすると、ブループリントが作成され、**ブループリント エディタ** で開きます。
+1. ブループリント作成ダイアログの一番上にある [Create [Path]/[Name]] をクリックすると、ブループリントが作成され、**ブループリント エディタ** で開きます。
 
 	![](class_viewer_create_complete.png)
 

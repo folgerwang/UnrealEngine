@@ -13,6 +13,9 @@
 #define IMAGE_BRUSH( RelativePath, ... ) FSlateImageBrush(FPaths::EngineContentDir() / TEXT("Slate") / RelativePath + TEXT(".png"), __VA_ARGS__)
 #define BOX_BRUSH( RelativePath, ... ) FSlateBoxBrush(FPaths::EngineContentDir() / TEXT("Slate") / RelativePath + TEXT(".png"), __VA_ARGS__)
 
+FSimpleDelegate SWindowTitleBarArea::OnCloseButtonClicked;
+bool SWindowTitleBarArea::bIsCloseButtonActive = true;
+
 FButtonStyle SWindowTitleBarArea::MinimizeButtonStyle;
 FButtonStyle SWindowTitleBarArea::MaximizeButtonStyle;
 FButtonStyle SWindowTitleBarArea::RestoreButtonStyle;
@@ -311,9 +314,16 @@ FReply SWindowTitleBarArea::MaximizeRestoreButton_OnClicked()
 
 FReply SWindowTitleBarArea::CloseButton_OnClicked()
 {
-	if (GameWindow.IsValid())
+	if (bIsCloseButtonActive)
 	{
-		GameWindow->RequestDestroyWindow();
+		if (OnCloseButtonClicked.IsBound())
+		{
+			OnCloseButtonClicked.Execute();
+		}
+		else if (GameWindow.IsValid())
+		{
+			GameWindow->RequestDestroyWindow();
+		}
 	}
 
 	return FReply::Handled();

@@ -50,7 +50,7 @@ tags:Testing
 
 	bool FPlaceholderTest::RunTest(const FString& Parameters)
 	{
-		// Make the test pass by returning true, or fail by returning false. (true を戻してテスト合格、false を戻して不合格)
+		// Make the test pass by returning true, or fail by returning false.
 		return true;
 	}
 
@@ -89,12 +89,12 @@ tags:Testing
 		TArray<FString> FileList;
 		FileList = GPackageFileCache->GetPackageFileList();
 
-		// Iterate over all files, adding the ones with the map extension.. (マップ拡張子のついたファイルを追加して、全てのファイルをイタレーションします。) 
+		// Iterate over all files, adding the ones with the map extension..
 		for( int32 FileIndex=0; FileIndex< FileList.Num(); FileIndex++ )
 		{
 			const FString& Filename = FileList[FileIndex];
 
-			// Disregard filenames that don't have the map extension if we're in MAPSONLY mode. ([MAPSONLY] モードの場合、マップ拡張子がないファイル名は無視します。) 
+			// Disregard filenames that don't have the map extension if we're in MAPSONLY mode.
 			if ( FPaths::GetExtension(Filename, true) == FPackageName::GetMapPackageExtension() ) 
 			{
 				if (!Utils.ShouldExcludeDueToPath(Filename))
@@ -135,7 +135,7 @@ tags:Testing
 
 	bool FConnectLatentCommand::Update()
 	{
-		// Attempt a login and wait for the result. (ログインを試みて結果を待ちます) 
+		// Attempt a login and wait for the result.
 		if(!AsyncHelper.IsDispatched())
 		{
 			if(ISourceControlModule::Get().GetProvider().Login( FString(), EConcurrency::Asynchronous, FSourceControlOperationComplete::CreateRaw( &AsyncHelper, &SourceControlAutomationCommon::FAsyncCommandHelper::SourceControlOperationComplete ) ) != ECommandResult::Succeeded)

@@ -46,7 +46,7 @@ public:
 	 * Init/default constructor
 	 */
 	FOnlineFriendFacebook(const FString& InUserId=TEXT("")) 
-		: UserIdPtr(new FUniqueNetIdString(InUserId))
+		: UserIdPtr(new FUniqueNetIdFacebook(InUserId))
 	{
 	}
 

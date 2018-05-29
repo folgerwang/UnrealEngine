@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3467293
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:VFX 最適化ガイド
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems
@@ -41,42 +41,18 @@ $ **Render Thread (レンダリングスレッド)** :パーティクル ジオ�
 問題の原因を突き止めたら、次の方法を用いて最適化を開始します。
 
 
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/fx_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		トラブルシューティングのリンク
-	[/PARAM]
-	[PARAM:description]
-	[/PARAM]
-	[PARAM:links]
-		* [GPUに関するトラブル](Engine/Rendering/ParticleSystems/Optimization/Results#OverdrawGraphics)
-		* [ゲームスレッドに関するトラブル](Engine/Rendering/ParticleSystems/Optimization/Results#GameThread)
-		* [レンダースレッドに関するトラブル](Engine/Rendering/ParticleSystems/Optimization/Results#RenderThread)
-	[/PARAM]
-[/OBJECT]
+## トラブルシューティングのリンク
 
- 
+* [GPUに関するトラブル](Engine/Rendering/ParticleSystems/Optimization/Results#OverdrawGraphics)
+* [ゲームスレッドに関するトラブル](Engine/Rendering/ParticleSystems/Optimization/Results#GameThread)
+* [レンダースレッドに関するトラブル](Engine/Rendering/ParticleSystems/Optimization/Results#RenderThread)
 
+## パーティクル システムの一般的なトピックス
 
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/fx_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		パーティクル システムの一般的なトピックス
-	[/PARAM]
-	[PARAM:description]
-	[/PARAM]
-	[PARAM:links]
-		* [VFX の最適化、ビジュアル エフェクトとパフォーマンス間のバランス](Engine/Rendering/ParticleSystems/Optimization/Balance)
-		* [VFX 最適化の中心的な概念](Engine/Rendering/ParticleSystems/Optimization/Concepts)
-		* [VFX の最適化:結果表示](Engine/Rendering/ParticleSystems/Optimization/Results)
-		* [VFX の最適化:分割画面](Engine/Rendering/ParticleSystems/Optimization/SplitScreen)
-	[/PARAM]
-[/OBJECT]
-
+* [VFX の最適化、ビジュアル エフェクトとパフォーマンス間のバランス](Engine/Rendering/ParticleSystems/Optimization/Balance)
+* [VFX 最適化の中心的な概念](Engine/Rendering/ParticleSystems/Optimization/Concepts)
+* [VFX の最適化:結果表示](Engine/Rendering/ParticleSystems/Optimization/Results)
+* [VFX の最適化:分割画面](Engine/Rendering/ParticleSystems/Optimization/SplitScreen)
 
 
 

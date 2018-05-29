@@ -1,15 +1,19 @@
-﻿INTSourceChangelist:3387247
-Availability:Docs
+﻿INTSourceChangelist:3801260
+Availability:Public
 Crumbs:
 Title:High Dynamic Range 対応ディスプレイへの出力
 Description:High Dynamic Range 対応ディスプレイへの出力およびオプションの概要
-Type:Overview
+Type:overview
+Type:landing
 SkillLevel:Intermediate
-Version:4.15
+Version:4.16
 Parent:Engine/Rendering/
-Order:
+Order:28
 Tags:Rendering
+Topic-image:HDRDisplayOutput_Topic.png
+Social-image:HDRDisplayOutput_Social.png
 
+[TOC(start:2)]
 
 
 高いコントラストと幅広い色域などの機能を使って、アンリアル エンジン 4 で High Dynamic Range (HDR) 対応ディスプレイへ出力できるようになりました。表示された画像に
@@ -24,22 +28,12 @@ Tags:Rendering
 	![High Dynamic Range (HDR) ](HDR.png)(w:700)
 	[/PARAM]
 [/OBJECT]
+[REGION:caption]
 
-[REGION:note]
-LDR スクリーンでは HDR の違いを表現できないので、デモ用にシミュレーションした画像です。
-[/REGION]
-
-[COMMENT:none]
--
-[REGION:fullwidth raw]
-![](LDR_HDRcomparison.jpg)
 [/REGION]
 [REGION:caption]
-_LDR スクリーンでは HDR の違いを表現できないのでデモ用にシミュレーションした画像です。_
+純粋にデモ用にシミュレーションした画像です。LDR スクリーンでは HDR の違いを表現することはできません。 
 [/REGION]
--
-[/COMMENT]
-
 
 現在の実装では、レンダリングされたシーンの処理は、いわゆる **ACES Viewing Transform** がすべて行っています。処理の工程では、シーン基準画像とディスプレイ基準画像が使用されます。
 
@@ -49,7 +43,7 @@ _LDR スクリーンでは HDR の違いを表現できないのでデモ用に�
 このパイプラインを使用すると、ディスプレイを変えるたびにオリジナルのソース ファイルを編集しなくても必ず正しい色合いがでます。代わりに、出力先のディスプレイが 
 正しい色空間にマップします。
 
-厳密に言えば、ACES Viewing Transform は、表示パイプラインで以下の順序で機能します。
+ACES Viewing Transform は、表示パイプラインで以下の順序で機能します。
 
 * **Look Modification Transform (LMT)** - クリエイティブな "外見" (カラー グレーディングおよび補正) を適用した ACES カラー エンコード画像を受け取り、
 Reference Rendering Transform (RRT) および Output Device Transform (ODT) と組み合わせて ACES でレンダリングされた画像を出力します。
@@ -68,15 +62,15 @@ HDR 出力はランタイム時にコンソール変数を切り替えるか、�
 
 ![](HDRGameUserSettings.png)(w:800)
 
-**GameUserSettings** コントロールは、利用できる最も近くの出力デバイスと一致するように自動的にクランプし、すべてのフラグもそれに合わせて設定します。もしくは、以下のコンソール変数でも、
+Game User Settings コントロールは、利用できる最も近くの出力デバイスと一致するように自動的にクランプし、すべてのフラグもそれに合わせて設定します。もしくは、以下のコンソール変数でも、
 HDR デバイスおよび必要なカラー範囲出力のオプションの有効化や変更ができます。 
 
 [REGION:simpletable]
 | コンソール変数 | 説明 |
 | --- | --- |
-| `r.HDR.EnableHDROutput` | 1 に設定するとスワップ チェーンを作成し、HDR 出力が有効になります。|
-| `r.HDR.Display.OutputDevice` | 出力ディスプレイのデバイス フォーマットです [INCLUDE:#deviceOuptut] |
-| `r.HDR.Display.ColorGamut` | 出力ディスプレイの色域です。 [INCLUDE:#colorGamut] |
+| **r.HDR.EnableHDROutput** | 1 に設定するとスワップ チェーンを作成し、HDR 出力が有効になります。|
+| **r.HDR.Display.OutputDevice** | 出力ディスプレイのデバイス フォーマットです。 [INCLUDE:#deviceOuptut] |
+| **r.HDR.Display.ColorGamut** | 出力ディスプレイの色域です。  [INCLUDE:#colorGamut] |
 [/REGION]
 
 [COMMENT:none]
@@ -84,29 +78,29 @@ HDR デバイスおよび必要なカラー範囲出力のオプションの有�
 [EXCERPT:deviceOuptut]
 |||
 | --- | --- |
-| 0 | sRGB (LDR) (デフォルト) |
-| 1 | Rec709 (LDR) |
-| 2 | 明示的なガンマ マッピング (LDR) |
-| 3 | ACES 1000-nit ST-2084 (Dolby PQ) (HDR) |
-| 4 | ACES 2000-nit ST-2084 (Dolby PQ) (HDR) |
-| 5 | ACES 1000-nit ScRGB (HDR) |
-| 6 | ACES 2000-nit ScRGB (HDR) |
+| **0** | sRGB (LDR) (デフォルト) |
+| **1** | Rec709 (LDR) |
+| **2** | 明示的なガンマ マッピング  (LDR) |
+| **3** | ACES 1000-nit ST-2084 (Dolby PQ) (HDR) |
+| **4** | ACES 2000-nit ST-2084 (Dolby PQ) (HDR) |
+| **5** | ACES 1000-nit ScRGB (HDR) |
+| **6** | ACES 2000-nit ScRGB (HDR) |
 [/EXCERPT:deviceOuptut]
 
 [EXCERPT:colorGamut]
 |||
 | --- | --- |
-| 0 | Rec709 / sRGB, D65 (デフォルト) |
-| 1 | DCI-P3, D65 |
-| 2 | Rec2020 / BT2020, D65 |
-| 3 | ACES, D60 |
-| 4 | ACEScg, D60 |
+| **0** | Rec709 / sRGB, D65 (デフォルト) |
+| **1** | DCI-P3, D65 |
+| **2** | Rec2020 / BT2020, D65 |
+| **3** | ACES, D60 |
+| **4** | ACEScg, D60 |
 [/EXCERPT:colorGamut]
 -
 [/COMMENT]
 
 GameUserSettings のブループリントまたは C++ コールを設定したら、クック済みのプロジェクトの実行、コマンドライン引数 `-game mode`、Standalone ゲームモードの使用、 
-あるいは排他的全画面 (**[Alt]** + **[Enter]** またはコマンド `fullscreen` を押します) での Play-in-Editor (PIE) の使用が可能になります。 
+あるいは排他的全画面 (**[Alt]** + **[Enter]** またはコンソール ウィンドウでコマンド `fullscreen` を押します) での Play-in-Editor (PIE) の使用が可能になります。 
 
 [REGION:note]
 現在のところ、縁なしウィンドウあるいはウィンドウ モードは HDR 出力には機能しません。
@@ -115,7 +109,7 @@ GameUserSettings のブループリントまたは C++ コールを設定した�
 
 ### HDR での Low Dynamic Range (LDR) UI サポート
 
-[REGION:note]
+[REGION:warning]
 この機能は実験的なものであり、今後のリリースにおいて変更される可能性があります。
 [/REGION]
 
@@ -127,8 +121,8 @@ HDR 出力が有効にされていると、ユーザーインターフェース 
 [REGION:simpletable]
 | コンソール変数 | 説明 |
 | --- | --- |
-| `r.HDR.UI.CompositeMode` | 1 に設定すると HDR UI コンポジションが有効になり、LDR のビジュアルとブレンドを維持しようとします。 |
-| `r.HDR.UI.Level` | 合成した UI の輝度を調整します。使用する値は 1.5 または 2 をお勧めします。 |
+| **r.HDR.UI.CompositeMode** | 1 に設定すると HDR UI コンポジションが有効になり、LDR のビジュアルとブレンドを維持しようとします。  |
+| **r.HDR.UI.Level** | 合成した UI の輝度を調整します。使用する値は 1.5 または 2 をお勧めします。  |
 [/REGION]
 
 
@@ -159,8 +153,5 @@ HDR 出力が有効にされていると、ユーザーインターフェース 
 
 ## リファレンス
 
-* [http://www.oscars.org/science-technology/sci-tech-projects/aces](http://www.oscars.org/science-technology/sci-tech-projects/aces)
-* [http://www.oscars.org/science-technology/aces/aces-documentation](http://www.oscars.org/science-technology/aces/aces-documentation)
-
-
-
+* ["ACES." Oscars.org | Academy of Motion Picture Arts and Sciences. N.p., 06 Feb. 2017. Web. 05 June 2017.](http://www.oscars.org/science-technology/sci-tech-projects/aces)
+* ["Aces Documentation." Oscars.org | Academy of Motion Picture Arts and Sciences. N.p., 26 Sept. 2016. Web. 05 June 2017.](http://www.oscars.org/science-technology/aces/aces-documentation)

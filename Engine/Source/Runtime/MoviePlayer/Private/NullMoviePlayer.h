@@ -46,6 +46,7 @@ public:
 	virtual bool LoadingScreenIsPrepared() const override {return false;}
 	virtual void SetupLoadingScreenFromIni() override {}
 	virtual FOnPrepareLoadingScreen& OnPrepareLoadingScreen() override { return OnPrepareLoadingScreenDelegate; }
+	virtual FOnMoviePlaybackStarted& OnMoviePlaybackStarted() override { return OnMoviePlaybackStartedDelegate; }
 	virtual FOnMoviePlaybackFinished& OnMoviePlaybackFinished() override { return OnMoviePlaybackFinishedDelegate; }
 	virtual FOnMovieClipFinished& OnMovieClipFinished() override { return OnMovieClipFinishedDelegate; }
 	virtual void SetSlateOverlayWidget(TSharedPtr<SWidget> NewOverlayWidget) override { }
@@ -64,6 +65,7 @@ private:
 	/** Called before a movie is queued up to play to configure the movie player accordingly. */
 	FOnPrepareLoadingScreen OnPrepareLoadingScreenDelegate;
 
+	FOnMoviePlaybackStarted OnMoviePlaybackStartedDelegate;
 	FOnMoviePlaybackFinished OnMoviePlaybackFinishedDelegate;
 	FOnMovieClipFinished OnMovieClipFinishedDelegate;
 

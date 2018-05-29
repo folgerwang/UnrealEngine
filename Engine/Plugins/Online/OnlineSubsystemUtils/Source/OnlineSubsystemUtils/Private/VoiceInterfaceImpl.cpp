@@ -33,17 +33,17 @@ bool FOnlineVoiceImpl::Init()
 	if (!GConfig->GetInt(TEXT("OnlineSubsystem"),TEXT("MaxLocalTalkers"), MaxLocalTalkers, GEngineIni))
 	{
 		MaxLocalTalkers = MAX_SPLITSCREEN_TALKERS;
-		UE_LOG(LogVoice, Warning, TEXT("Missing MaxLocalTalkers key in OnlineSubsystem of DefaultEngine.ini"));
+		UE_LOG_ONLINE_VOICE(Warning, TEXT("Missing MaxLocalTalkers key in OnlineSubsystem of DefaultEngine.ini"));
 	}
 	if (!GConfig->GetInt(TEXT("OnlineSubsystem"),TEXT("MaxRemoteTalkers"), MaxRemoteTalkers, GEngineIni))
 	{
 		MaxRemoteTalkers = MAX_REMOTE_TALKERS;
-		UE_LOG(LogVoice, Warning, TEXT("Missing MaxRemoteTalkers key in OnlineSubsystem of DefaultEngine.ini"));
+		UE_LOG_ONLINE_VOICE(Warning, TEXT("Missing MaxRemoteTalkers key in OnlineSubsystem of DefaultEngine.ini"));
 	}
 	if (!GConfig->GetFloat(TEXT("OnlineSubsystem"),TEXT("VoiceNotificationDelta"), VoiceNotificationDelta, GEngineIni))
 	{
 		VoiceNotificationDelta = 0.2;
-		UE_LOG(LogVoice, Warning, TEXT("Missing VoiceNotificationDelta key in OnlineSubsystem of DefaultEngine.ini"));
+		UE_LOG_ONLINE_VOICE(Warning, TEXT("Missing VoiceNotificationDelta key in OnlineSubsystem of DefaultEngine.ini"));
 	}
 
 	bool bHasVoiceEnabled = false;
@@ -77,7 +77,7 @@ bool FOnlineVoiceImpl::Init()
 		if (!bSuccess)
 		{
 			// Not necessary to log here since VoiceEngine::Init() will report its own failure
-			//UE_LOG(LogVoice, Warning, TEXT("Failed to initialize voice interface"));
+			//UE_LOG_ONLINE_VOICE(Warning, TEXT("Failed to initialize voice interface"));
 
 			LocalTalkers.Empty();
 			RemoteTalkers.Empty();
@@ -86,7 +86,7 @@ bool FOnlineVoiceImpl::Init()
 	}
 	else
 	{
-		UE_LOG(LogVoice, Log, TEXT("Voice interface disabled by config [OnlineSubsystem].bHasVoiceEnabled"));
+		UE_LOG_ONLINE_VOICE(Log, TEXT("Voice interface disabled by config [OnlineSubsystem].bHasVoiceEnabled"));
 	}
 
 	return bSuccess;
@@ -151,13 +151,13 @@ void FOnlineVoiceImpl::StartNetworkedVoice(uint8 LocalUserNum)
 		if (VoiceEngine.IsValid())
 		{
 			uint32 Return = VoiceEngine->StartLocalVoiceProcessing(LocalUserNum);
-			UE_LOG(LogVoice, Log, TEXT("StartLocalProcessing(%d) returned 0x%08X"), LocalUserNum, Return);
+			UE_LOG_ONLINE_VOICE(Log, TEXT("StartLocalProcessing(%d) returned 0x%08X"), LocalUserNum, Return);
 		}
-		UE_LOG(LogVoice, Log, TEXT("Starting networked voice for user: %d"), LocalUserNum);
+		UE_LOG_ONLINE_VOICE(Log, TEXT("Starting networked voice for user: %d"), LocalUserNum);
 	}
 	else
 	{
-		UE_LOG(LogVoice, Log, TEXT("Invalid user specified in StartNetworkedVoice(%d)"),
+		UE_LOG_ONLINE_VOICE(Log, TEXT("Invalid user specified in StartNetworkedVoice(%d)"),
 			(uint32)LocalUserNum);
 	}
 }
@@ -170,14 +170,14 @@ void FOnlineVoiceImpl::StopNetworkedVoice(uint8 LocalUserNum)
 		if (VoiceEngine.IsValid())
 		{
 			uint32 Return = VoiceEngine->StopLocalVoiceProcessing(LocalUserNum);
-			UE_LOG(LogVoice, Log, TEXT("StopLocalVoiceProcessing(%d) returned 0x%08X"), LocalUserNum, Return);
+			UE_LOG_ONLINE_VOICE(Log, TEXT("StopLocalVoiceProcessing(%d) returned 0x%08X"), LocalUserNum, Return);
 		}
 		LocalTalkers[LocalUserNum].bHasNetworkedVoice = false;
-		UE_LOG(LogVoice, Log, TEXT("Stopping networked voice for user: %d"), LocalUserNum);
+		UE_LOG_ONLINE_VOICE(Log, TEXT("Stopping networked voice for user: %d"), LocalUserNum);
 	}
 	else
 	{
-		UE_LOG(LogVoice, Log, TEXT("Invalid user specified in StopNetworkedVoice(%d)"),
+		UE_LOG_ONLINE_VOICE(Log, TEXT("Invalid user specified in StopNetworkedVoice(%d)"),
 			(uint32)LocalUserNum);
 	}
 }
@@ -198,7 +198,7 @@ bool FOnlineVoiceImpl::RegisterLocalTalker(uint32 LocalUserNum)
 			{
 				// Register the talker locally
 				Return = VoiceEngine->RegisterLocalTalker(LocalUserNum);
-				UE_LOG(LogVoice, Log, TEXT("RegisterLocalTalker(%d) returned 0x%08X"),	LocalUserNum, Return);
+				UE_LOG_ONLINE_VOICE(Log, TEXT("RegisterLocalTalker(%d) returned 0x%08X"),	LocalUserNum, Return);
 				if (Return == S_OK)
 				{
 					Talker.bIsRegistered = true;
@@ -207,7 +207,7 @@ bool FOnlineVoiceImpl::RegisterLocalTalker(uint32 LocalUserNum)
 						// If enabled, voice capture is continuous and "push to talk" merely sends packets
 						// Kick off the processing mode
 						Return = VoiceEngine->StartLocalVoiceProcessing(LocalUserNum);
-						UE_LOG(LogVoice, Log, TEXT("StartLocalProcessing(%d) returned 0x%08X"), LocalUserNum, Return);
+						UE_LOG_ONLINE_VOICE(Log, TEXT("StartLocalProcessing(%d) returned 0x%08X"), LocalUserNum, Return);
 					}
 				}
 			}
@@ -227,14 +227,14 @@ bool FOnlineVoiceImpl::RegisterLocalTalker(uint32 LocalUserNum)
 	}
 	else
 	{
-		UE_LOG(LogVoice, Log, TEXT("Invalid user specified in RegisterLocalTalker(%d)"), LocalUserNum);
+		UE_LOG_ONLINE_VOICE(Log, TEXT("Invalid user specified in RegisterLocalTalker(%d)"), LocalUserNum);
 	}
 	return Return == S_OK;
 }
 
 void FOnlineVoiceImpl::RegisterLocalTalkers()
 {
-	UE_LOG(LogVoice, Log, TEXT("Registering all local talkers"));
+	UE_LOG_ONLINE_VOICE(Log, TEXT("Registering all local talkers"));
 	// Loop through the 4 available players and register them
 	for (uint32 Index = 0; Index < (uint32)MaxLocalTalkers ; Index++)
 	{
@@ -264,15 +264,15 @@ bool FOnlineVoiceImpl::UnregisterLocalTalker(uint32 LocalUserNum)
 				}
 				else
 				{
-					UE_LOG(LogVoice, Warning, TEXT("Invalid UserId for local player %d in UnregisterLocalTalker"), LocalUserNum);
+					UE_LOG_ONLINE_VOICE(Warning, TEXT("Invalid UserId for local player %d in UnregisterLocalTalker"), LocalUserNum);
 				}
 			}
 
 			// Remove them from engine too
 			Return = VoiceEngine->StopLocalVoiceProcessing(LocalUserNum);
-			UE_LOG(LogVoice, Log, TEXT("StopLocalVoiceProcessing(%d) returned 0x%08X"), LocalUserNum, Return);
+			UE_LOG_ONLINE_VOICE(Log, TEXT("StopLocalVoiceProcessing(%d) returned 0x%08X"), LocalUserNum, Return);
 			Return = VoiceEngine->UnregisterLocalTalker(LocalUserNum);
-			UE_LOG(LogVoice, Log, TEXT("UnregisterLocalTalker(%d) returned 0x%08X"), LocalUserNum, Return);
+			UE_LOG_ONLINE_VOICE(Log, TEXT("UnregisterLocalTalker(%d) returned 0x%08X"), LocalUserNum, Return);
 			Talker.bIsTalking = false;
 			Talker.bWasTalking = false;
 			Talker.bIsRegistered = false;
@@ -280,14 +280,14 @@ bool FOnlineVoiceImpl::UnregisterLocalTalker(uint32 LocalUserNum)
 	}
 	else
 	{
-		UE_LOG(LogVoice, Log, TEXT("Invalid user specified in UnregisterLocalTalker(%d)"), LocalUserNum);
+		UE_LOG_ONLINE_VOICE(Log, TEXT("Invalid user specified in UnregisterLocalTalker(%d)"), LocalUserNum);
 	}
 	return Return == S_OK;
 }
 
 void FOnlineVoiceImpl::UnregisterLocalTalkers()
 {
-	UE_LOG(LogVoice, Log, TEXT("Unregistering all local talkers"));
+	UE_LOG_ONLINE_VOICE(Log, TEXT("Unregistering all local talkers"));
 	// Loop through the 4 available players and unregister them
 	for (uint32 Index = 0; Index < (uint32)MaxLocalTalkers; Index++)
 	{
@@ -318,12 +318,12 @@ bool FOnlineVoiceImpl::RegisterRemoteTalker(const FUniqueNetId& UniqueId)
 				Talker->TalkerId = MakeShareable(new FUniqueNetIdString(UniqueIdStr));
 				// Register the remote talker locally
 				Return = VoiceEngine->RegisterRemoteTalker(UniqueId);
-				UE_LOG(LogVoice, Log, TEXT("RegisterRemoteTalker(%s) returned 0x%08X"),
+				UE_LOG_ONLINE_VOICE(Log, TEXT("RegisterRemoteTalker(%s) returned 0x%08X"),
 					*UniqueId.ToDebugString(), Return);
 			}
 			else
 			{
-				UE_LOG(LogVoice, Verbose, TEXT("Remote talker %s is being re-registered"), *UniqueId.ToDebugString());
+				UE_LOG_ONLINE_VOICE(Verbose, TEXT("Remote talker %s is being re-registered"), *UniqueId.ToDebugString());
 				Return = S_OK;
 			}
 			
@@ -331,7 +331,7 @@ bool FOnlineVoiceImpl::RegisterRemoteTalker(const FUniqueNetId& UniqueId)
 			ProcessMuteChangeNotification();
 			// Now start processing the remote voices
 			Return = VoiceEngine->StartRemoteVoiceProcessing(UniqueId);
-			UE_LOG(LogVoice, Log, TEXT("StartRemoteVoiceProcessing(%s) returned 0x%08X"), *UniqueId.ToDebugString(), Return);
+			UE_LOG_ONLINE_VOICE(Log, TEXT("StartRemoteVoiceProcessing(%s) returned 0x%08X"), *UniqueId.ToDebugString(), Return);
 		}
 	}
 	return Return == S_OK;
@@ -369,11 +369,11 @@ bool FOnlineVoiceImpl::UnregisterRemoteTalker(const FUniqueNetId& UniqueId)
 				}
 				// Remove them from voice engine
 				Return = VoiceEngine->UnregisterRemoteTalker(UniqueId);
-				UE_LOG(LogVoice, Log, TEXT("UnregisterRemoteTalker(%s) returned 0x%08X"), *UniqueId.ToDebugString(), Return);
+				UE_LOG_ONLINE_VOICE(Log, TEXT("UnregisterRemoteTalker(%s) returned 0x%08X"), *UniqueId.ToDebugString(), Return);
 			}
 			else
 			{
-				UE_LOG(LogVoice, Verbose, TEXT("Unknown remote talker (%s) specified to UnregisterRemoteTalker()"), *UniqueId.ToDebugString());
+				UE_LOG_ONLINE_VOICE(Verbose, TEXT("Unknown remote talker (%s) specified to UnregisterRemoteTalker()"), *UniqueId.ToDebugString());
 			}
 		}
 	}
@@ -382,7 +382,7 @@ bool FOnlineVoiceImpl::UnregisterRemoteTalker(const FUniqueNetId& UniqueId)
 
 void FOnlineVoiceImpl::RemoveAllRemoteTalkers()
 {
-	UE_LOG(LogVoice, Log, TEXT("Removing all remote talkers"));
+	UE_LOG_ONLINE_VOICE(Log, TEXT("Removing all remote talkers"));
 	if (VoiceEngine.IsValid())
 	{
 		// Work backwards through array removing the talkers
@@ -396,7 +396,7 @@ void FOnlineVoiceImpl::RemoveAllRemoteTalkers()
 			}
 
 			uint32 Return = VoiceEngine->UnregisterRemoteTalker(*Talker.TalkerId);
-			UE_LOG(LogVoice, Log, TEXT("UnregisterRemoteTalker(%s) returned 0x%08X"), *Talker.TalkerId->ToDebugString(), Return);
+			UE_LOG_ONLINE_VOICE(Log, TEXT("UnregisterRemoteTalker(%s) returned 0x%08X"), *Talker.TalkerId->ToDebugString(), Return);
 		}
 	}
 
@@ -480,18 +480,18 @@ bool FOnlineVoiceImpl::MuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetId& 
 				{
 					MuteList.AddUnique((const FUniqueNetIdString&)PlayerId);
 					Return = S_OK;
-					UE_LOG(LogVoice, Log, TEXT("Muting remote talker (%s)"), *PlayerId.ToDebugString());
+					UE_LOG_ONLINE_VOICE(Log, TEXT("Muting remote talker (%s)"), *PlayerId.ToDebugString());
 				}
 				else
 				{
-					UE_LOG(LogVoice, Verbose, TEXT("Unknown remote talker (%s) specified to MuteRemoteTalker()"), *PlayerId.ToDebugString());
+					UE_LOG_ONLINE_VOICE(Verbose, TEXT("Unknown remote talker (%s) specified to MuteRemoteTalker()"), *PlayerId.ToDebugString());
 				}
 			}
 		}
 	}
 	else
 	{
-		UE_LOG(LogVoice, Warning, TEXT("Invalid user specified in MuteRemoteTalker(%d)"), LocalUserNum);
+		UE_LOG_ONLINE_VOICE(Warning, TEXT("Invalid user specified in MuteRemoteTalker(%d)"), LocalUserNum);
 	}
 
 	return Return == S_OK;
@@ -526,19 +526,19 @@ bool FOnlineVoiceImpl::UnmuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetId
 					{
 						// Remove them from the mute list
 						MuteList.RemoveSingleSwap((const FUniqueNetIdString&)PlayerId);
-						UE_LOG(LogVoice, Log, TEXT("Unmuting remote talker (%s)"), *PlayerId.ToDebugString());
+						UE_LOG_ONLINE_VOICE(Log, TEXT("Unmuting remote talker (%s)"), *PlayerId.ToDebugString());
 					}
 				}
 				else
 				{
-					UE_LOG(LogVoice, Verbose, TEXT("Unknown remote talker (%s) specified to UnmuteRemoteTalker()"), *PlayerId.ToDebugString());
+					UE_LOG_ONLINE_VOICE(Verbose, TEXT("Unknown remote talker (%s) specified to UnmuteRemoteTalker()"), *PlayerId.ToDebugString());
 				}
 			}
 		}
 	}
 	else
 	{
-		UE_LOG(LogVoice, Warning, TEXT("Invalid user specified in UnmuteRemoteTalker(%d)"), LocalUserNum);
+		UE_LOG_ONLINE_VOICE(Warning, TEXT("Invalid user specified in UnmuteRemoteTalker(%d)"), LocalUserNum);
 	}
 
 	return Return == S_OK; //-V547
@@ -669,7 +669,7 @@ void FOnlineVoiceImpl::ProcessTalkingDelegates(float DeltaTime)
 				}
 
 				Talker.bWasTalking = Talker.bIsTalking;
-				UE_LOG(LogVoice, Log, TEXT("Trigger Local %d %sTALKING"), LocalUserNum, Talker.bIsTalking ? TEXT("") : TEXT("NOT"));
+				UE_LOG_ONLINE_VOICE(Log, TEXT("Trigger Local %d %sTALKING"), LocalUserNum, Talker.bIsTalking ? TEXT("") : TEXT("NOT"));
 			}
 		}
 	}
@@ -698,7 +698,7 @@ void FOnlineVoiceImpl::ProcessTalkingDelegates(float DeltaTime)
 				OnPlayerTalkingStateChangedDelegates.Broadcast(Talker.TalkerId.ToSharedRef(), Talker.bIsTalking);
 			}
 
-			UE_LOG(LogVoice, Log, TEXT("Trigger Remote %s %sTALKING"), *Talker.TalkerId->ToString(), Talker.bIsTalking ? TEXT("") : TEXT("NOT"));
+			UE_LOG_ONLINE_VOICE(Log, TEXT("Trigger Remote %s %sTALKING"), *Talker.TalkerId->ToString(), Talker.bIsTalking ? TEXT("") : TEXT("NOT"));
 
 			// Clear the flag so it only activates when needed
 			Talker.bWasTalking = Talker.bIsTalking;
@@ -764,12 +764,12 @@ void FOnlineVoiceImpl::ProcessLocalVoicePackets()
 						}
 						else
 						{
-							UE_LOG(LogVoiceEngine, Warning, TEXT("Voice data error in ReadLocalVoiceData"));
+							UE_LOG_ONLINE_VOICEENGINE(Warning, TEXT("Voice data error in ReadLocalVoiceData"));
 						}
 					}
 					else
 					{
-						UE_LOG(LogVoiceEngine, Warning, TEXT("Dropping voice data due to network layer not processing fast enough"));
+						UE_LOG_ONLINE_VOICEENGINE(Warning, TEXT("Dropping voice data due to network layer not processing fast enough"));
 						// Buffer overflow, so drop previous data
 						VoiceData.LocalPackets[Index].Length = 0;
 					}
@@ -803,7 +803,7 @@ void FOnlineVoiceImpl::ProcessRemoteVoicePackets()
 				uint32 Result = VoiceEngine->SubmitRemoteVoiceData(VoicePacket->Sender, VoicePacket->Buffer.GetData(), &VoiceBufferSize, VoiceSampleCounter);
 				if (Result != S_OK)
 				{
-					UE_LOG(LogVoiceEngine, Warning,
+					UE_LOG_ONLINE_VOICEENGINE(Warning,
 						TEXT("SubmitRemoteVoiceData(%s) failed with 0x%08X"),
 						*VoicePacket->Sender->ToDebugString(),
 						Result);

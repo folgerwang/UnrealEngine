@@ -329,6 +329,12 @@ namespace UnrealBuildTool
 		public List<string> AdditionalPlugins = new List<string>();
 
 		/// <summary>
+		/// List of plugins to be excluded from this target. Note that the project file may still reference them, so they should be marked
+		/// as optional to avoid failing to find them at runtime.
+		/// </summary>
+		public List<string> ExcludePlugins = new List<string>();
+
+		/// <summary>
 		/// Path to the set of pak signing keys to embed in the executable.
 		/// </summary>
 		public string PakSigningKeysFile = "";
@@ -805,6 +811,7 @@ namespace UnrealBuildTool
 		/// Whether to use incremental linking or not. Incremental linking can yield faster iteration times when making small changes.
 		/// Currently disabled by default because it tends to behave a bit buggy on some computers (PDB-related compile errors).
 		/// </summary>
+		[CommandLine("-IncrementalLinking")]
 		[XmlConfigFile(Category = "BuildConfiguration")]
 		public bool bUseIncrementalLinking = false;
 
@@ -1106,6 +1113,11 @@ namespace UnrealBuildTool
 		public AndroidTargetRules AndroidPlatform = new AndroidTargetRules();
 
 		/// <summary>
+		/// IOS-specific target settings.
+		/// </summary>
+		public IOSTargetRules IOSPlatform = new IOSTargetRules();
+
+		/// <summary>
 		/// Lumin-specific target settings.
 		/// </summary>
 		public LuminTargetRules LuminPlatform = new LuminTargetRules();
@@ -1335,6 +1347,7 @@ namespace UnrealBuildTool
 		{
 			yield return this;
 			yield return AndroidPlatform;
+			yield return IOSPlatform;
 			yield return LuminPlatform;
 			yield return MacPlatform;
 			yield return PS4Platform;
@@ -1387,6 +1400,7 @@ namespace UnrealBuildTool
 		{
 			this.Inner = Inner;
 			AndroidPlatform = new ReadOnlyAndroidTargetRules(Inner.AndroidPlatform);
+			IOSPlatform = new ReadOnlyIOSTargetRules(Inner.IOSPlatform);
 			LuminPlatform = new ReadOnlyLuminTargetRules(Inner.LuminPlatform);
 			MacPlatform = new ReadOnlyMacTargetRules(Inner.MacPlatform);
 			PS4Platform = new ReadOnlyPS4TargetRules(Inner.PS4Platform);
@@ -1482,6 +1496,11 @@ namespace UnrealBuildTool
 		public IEnumerable<string> AdditionalPlugins
 		{
 			get { return Inner.AdditionalPlugins; }
+		}
+
+		public IEnumerable<string> ExcludePlugins
+		{
+			get { return Inner.ExcludePlugins; }
 		}
 
 		public string PakSigningKeysFile
@@ -2055,6 +2074,12 @@ namespace UnrealBuildTool
 			private set;
 		}
 		public ReadOnlyLuminTargetRules LuminPlatform
+		{
+			get;
+			private set;
+		}
+
+		public ReadOnlyIOSTargetRules IOSPlatform
 		{
 			get;
 			private set;

@@ -93,5 +93,5 @@ public:
 	int32 SampleByteSize;
 
 	/** Whether or not this object is ready to be destroyed. Allows procedural sound wave generation to occur in async tasks without garbage collection deleting it from underneath. */
-	bool bIsReadyForDestroy;
+	FThreadSafeBool bIsReadyForDestroy;
 };

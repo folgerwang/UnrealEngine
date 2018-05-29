@@ -257,6 +257,9 @@ extern CORE_API void (*SuspendAsyncLoading)();
 /** Resumes async package loading. */
 extern CORE_API void (*ResumeAsyncLoading)();
 
+/** Suspends async package loading. */
+extern CORE_API bool (*IsAsyncLoadingSuspended)();
+
 /** Returns true if async loading is using the async loading thread */
 extern CORE_API bool(*IsAsyncLoadingMultithreaded)();
 
@@ -353,6 +356,9 @@ extern CORE_API ELogTimes::Type GPrintLogTimes;
 
 /** How to print the category in log output. */
 extern CORE_API bool GPrintLogCategory;
+
+/** How to print the verbosity in log output. */
+extern CORE_API bool GPrintLogVerbosity;
 
 #if USE_HITCH_DETECTION
 /** Used by the lightweight stats and FGameThreadHitchHeartBeat to print a stat stack for hitches in shipping builds. */

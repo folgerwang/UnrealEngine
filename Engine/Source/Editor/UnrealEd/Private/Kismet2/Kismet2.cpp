@@ -104,7 +104,7 @@ public:
 	FArchiveInvalidateTransientRefs()
 	{
 		ArIsObjectReferenceCollector = true;
-		ArIsPersistent = false;
+		this->SetIsPersistent(false);
 		ArIgnoreArchetypeRef = false;
 	}
 protected:

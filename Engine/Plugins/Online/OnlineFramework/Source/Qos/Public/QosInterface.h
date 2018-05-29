@@ -87,6 +87,11 @@ public:
 	 */
 	void DumpRegionStats();
 
+	/**
+	* Register a delegate to be called when QoS settings have changed.
+	*/
+	void RegisterQoSSettingsChangedDelegate(const FSimpleDelegate& OnQoSSettingsChanged);
+
 protected:
 
 	friend class FQosModule;

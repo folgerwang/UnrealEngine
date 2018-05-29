@@ -36,12 +36,13 @@ uint32 FTexture2DDynamicResource::GetSizeY() const
 void FTexture2DDynamicResource::InitRHI()
 {
 	// Create the sampler state RHI resource.
+	ESamplerAddressMode SamplerAddressMode = Owner->SamplerAddressMode;
 	FSamplerStateInitializerRHI SamplerStateInitializer
 	(
 		(ESamplerFilter)UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->GetSamplerFilter( Owner ),
-		AM_Wrap,
-		AM_Wrap,
-		AM_Wrap
+		SamplerAddressMode,
+		SamplerAddressMode,
+		SamplerAddressMode
 	);
 	SamplerStateRHI = RHICreateSamplerState( SamplerStateInitializer );
 
@@ -89,6 +90,7 @@ UTexture2DDynamic::UTexture2DDynamic(const FObjectInitializer& ObjectInitializer
 {
 	NeverStream = true;
 	Format = PF_B8G8R8A8;
+	SamplerAddressMode = AM_Wrap;
 }
 
 
@@ -119,15 +121,33 @@ float UTexture2DDynamic::GetSurfaceHeight() const
 	return SizeY;
 }
 
+UTexture2DDynamic* UTexture2DDynamic::Create(int32 InSizeX, int32 InSizeY, EPixelFormat InFormat)
+{
+	FTexture2DDynamicCreateInfo CreateInfo(InFormat);
+
+	return Create(InSizeX, InSizeY, CreateInfo);
+}
+
 UTexture2DDynamic* UTexture2DDynamic::Create(int32 InSizeX, int32 InSizeY, EPixelFormat InFormat, bool InIsResolveTarget)
 {
-	EPixelFormat DesiredFormat = EPixelFormat(InFormat);
+	FTexture2DDynamicCreateInfo CreateInfo(InFormat, InIsResolveTarget);
+
+	return Create(InSizeX, InSizeY, CreateInfo);
+}
+
+UTexture2DDynamic* UTexture2DDynamic::Create(int32 InSizeX, int32 InSizeY, const FTexture2DDynamicCreateInfo& InCreateInfo)
+{
+	EPixelFormat DesiredFormat = EPixelFormat(InCreateInfo.Format);
 	if (InSizeX > 0 && InSizeY > 0 )
 	{
 		
 		auto NewTexture = NewObject<UTexture2DDynamic>(GetTransientPackage(), NAME_None, RF_Transient);
 		if (NewTexture != NULL)
 		{
+			NewTexture->Filter = InCreateInfo.Filter;
+			NewTexture->SamplerAddressMode = InCreateInfo.SamplerAddressMode;
+			NewTexture->SRGB = InCreateInfo.bSRGB;
+
 			// Disable compression
 			NewTexture->CompressionSettings		= TC_Default;
 #if WITH_EDITORONLY_DATA
@@ -136,9 +156,8 @@ UTexture2DDynamic* UTexture2DDynamic::Create(int32 InSizeX, int32 InSizeY, EPixe
 			NewTexture->CompressionNoAlpha		= true;
 			NewTexture->DeferCompression		= false;
 #endif // #if WITH_EDITORONLY_DATA
-			if ( InIsResolveTarget )
+			if ( InCreateInfo.bIsResolveTarget )
 			{
-//				NewTexture->SRGB				= false;
 				NewTexture->bNoTiling			= false;
 			}
 			else
@@ -147,7 +166,7 @@ UTexture2DDynamic* UTexture2DDynamic::Create(int32 InSizeX, int32 InSizeY, EPixe
 				NewTexture->bNoTiling			= true;
 			}
 
-			NewTexture->Init(InSizeX, InSizeY, DesiredFormat, InIsResolveTarget);
+			NewTexture->Init(InSizeX, InSizeY, DesiredFormat, InCreateInfo.bIsResolveTarget);
 		}
 		return NewTexture;
 	}

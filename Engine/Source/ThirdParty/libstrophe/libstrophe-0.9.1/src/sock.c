@@ -35,6 +35,10 @@
 
 #include "sock.h"
 #include "snprintf.h"
+#if defined(USE_SOCKETAPI_DISPATCH)
+#include <poll.h>
+#include "unreal_socketapi.h"
+#endif
 
 void sock_initialize(void)
 {
@@ -80,9 +84,13 @@ sock_t sock_connect(const char * const host, const unsigned short port)
 
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_UNSPEC;
+#if defined(USE_SOCKETAPI_DISPATCH)
+    hints.ai_flags = AI_CANONNAME;
+#else
 #ifdef AI_ADDRCONFIG
     hints.ai_flags = AI_ADDRCONFIG;
 #endif /* AI_ADDRCONFIG */
+#endif
     hints.ai_protocol = IPPROTO_TCP;
     hints.ai_socktype = SOCK_STREAM;
 

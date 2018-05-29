@@ -61,6 +61,11 @@ void FOpenGLGPUProfiler::PopEvent()
 
 void FOpenGLGPUProfiler::BeginFrame(FOpenGLDynamicRHI* InRHI)
 {
+	if (!bIntialized)
+	{
+		bIntialized = true;
+		InitResources();
+	}
 	if (NestedFrameCount++>0)
 	{
 		// guard against nested Begin/EndFrame calls.
@@ -306,13 +311,17 @@ void FOpenGLGPUProfiler::EndFrame()
 
 void FOpenGLGPUProfiler::Cleanup()
 {
-	for (int32 Index = 0; Index < MAX_GPUFRAMEQUERIES; ++Index)
+	if (bIntialized)
 	{
-		DisjointGPUFrameTimeQuery[Index].ReleaseResource();
-	}
+		for (int32 Index = 0; Index < MAX_GPUFRAMEQUERIES; ++Index)
+		{
+			DisjointGPUFrameTimeQuery[Index].ReleaseResources();
+		}
 
-	FrameTiming.ReleaseResource();
-	NestedFrameCount = 0;
+		FrameTiming.ReleaseResources();
+		NestedFrameCount = 0;
+		bIntialized = false;
+	}
 }
 
 /** Start this frame of per tracking */
@@ -379,6 +388,7 @@ float FOpenGLEventNode::GetTiming()
 
 void FOpenGLDynamicRHI::InitializeStateResources()
 {
+	VERIFY_GL_SCOPE();
 	SharedContextState.InitializeResources(FOpenGL::GetMaxCombinedTextureImageUnits(), OGL_MAX_COMPUTE_STAGE_UAV_UNITS);
 	RenderingContextState.InitializeResources(FOpenGL::GetMaxCombinedTextureImageUnits(), OGL_MAX_COMPUTE_STAGE_UAV_UNITS);
 	PendingState.InitializeResources(FOpenGL::GetMaxCombinedTextureImageUnits(), OGL_MAX_COMPUTE_STAGE_UAV_UNITS);

@@ -259,6 +259,7 @@ struct FBPVariableDescription
 
 	FBPVariableDescription()
 		: PropertyFlags(CPF_Edit)
+		, ReplicationCondition(ELifetimeCondition::COND_None)
 	{
 	}
 

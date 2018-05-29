@@ -98,6 +98,28 @@ void UImage::SetBrush(const FSlateBrush& InBrush)
 	}
 }
 
+void UImage::SetBrushSize(FVector2D DesiredSize)
+{
+	Brush.ImageSize = DesiredSize;
+	
+	if (MyImage.IsValid())
+	{
+		MyImage->SetImage(&Brush);
+		MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+	}
+}
+
+void UImage::SetBrushTintColor(FSlateColor TintColor)
+{
+	Brush.TintColor = TintColor;
+
+	if (MyImage.IsValid())
+	{
+		MyImage->SetImage(&Brush);
+		MyImage->Invalidate(EInvalidateWidget::PaintAndVolatility);
+	}
+}
+
 void UImage::SetBrushFromAsset(USlateBrushAsset* Asset)
 {
 	Brush = Asset ? Asset->Brush : FSlateBrush();
@@ -211,6 +233,7 @@ UMaterialInstanceDynamic* UImage::GetDynamicMaterial()
 			if ( MyImage.IsValid() )
 			{
 				MyImage->SetImage(&Brush);
+				MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 			}
 		}
 		

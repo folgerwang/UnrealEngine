@@ -4,6 +4,7 @@
 #include "Misc/AssertionMacros.h"
 #include "Containers/Ticker.h"
 #include "Windows/WindowsHWrapper.h"
+#include "Stats/Stats.h"
 
 float FWindowsPlatformTime::CPUTimePctRelative = 0.0f;
 
@@ -82,6 +83,8 @@ struct FFiletimeMisc
 
 bool FWindowsPlatformTime::UpdateCPUTime( float /*DeltaTime*/ )
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FWindowsPlatformTime_UpdateCPUTime);
+
 	static double LastTotalProcessTime = 0.0f;
 	static double LastTotalUserAndKernelTime = 0.0f;
 

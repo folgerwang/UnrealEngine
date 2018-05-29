@@ -128,7 +128,7 @@ void TQuadTree<ElementType, NodeCapacity>::Serialize(FArchive& Ar)
 	{
 		if(SubTreeFlags[Idx])
 		{
-			if(Ar.ArIsLoading)
+			if(Ar.IsLoading())
 			{
 				SubTrees[Idx] = new TreeType(FBox2D(), MinimumQuadSize);
 			}

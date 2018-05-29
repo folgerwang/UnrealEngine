@@ -236,7 +236,7 @@ namespace BuildPatchServices
 			DataGuids.Append(DataList);
 		}
 
-		virtual const FFileManifestData* GetFileManifest(const FString& Filename) const override
+		virtual const FFileManifest* GetFileManifest(const FString& Filename) const override
 		{
 			return FileManifests.Find(Filename);
 		}
@@ -256,7 +256,7 @@ namespace BuildPatchServices
 			return false;
 		}
 
-		virtual bool GetChunkShaHash(const FGuid& ChunkGuid, FSHAHashData& OutHash) const override
+		virtual bool GetChunkShaHash(const FGuid& ChunkGuid, FSHAHash& OutHash) const override
 		{
 			if (ChunkShaHashes.Contains(ChunkGuid))
 			{
@@ -266,7 +266,7 @@ namespace BuildPatchServices
 			return false;
 		}
 
-		virtual bool GetFileHash(const FGuid& FileGuid, FSHAHashData& OutHash) const override
+		virtual bool GetFileHash(const FGuid& FileGuid, FSHAHash& OutHash) const override
 		{
 			if (FileIdToHashes.Contains(FileGuid))
 			{
@@ -276,7 +276,7 @@ namespace BuildPatchServices
 			return false;
 		}
 
-		virtual bool GetFileHash(const FString& Filename, FSHAHashData& OutHash) const override
+		virtual bool GetFileHash(const FString& Filename, FSHAHash& OutHash) const override
 		{
 			if (FileNameToHashes.Contains(Filename))
 			{
@@ -349,11 +349,11 @@ namespace BuildPatchServices
 		uint32 NumFiles;
 		TSet<FString> TaggedFileList;
 		TArray<FGuid> DataList;
-		TMap<FString, FFileManifestData> FileManifests;
+		TMap<FString, FFileManifest> FileManifests;
 		TMap<FGuid, uint64> ChunkHashes;
-		TMap<FGuid, FSHAHashData> ChunkShaHashes;
-		TMap<FGuid, FSHAHashData> FileIdToHashes;
-		TMap<FString, FSHAHashData> FileNameToHashes;
+		TMap<FGuid, FSHAHash> ChunkShaHashes;
+		TMap<FGuid, FSHAHash> FileIdToHashes;
+		TMap<FString, FSHAHash> FileNameToHashes;
 		TMap<FGuid, uint64> FilePartHashes;
 		TSet<FGuid> ProducibleChunks;
 		TSet<FString> OutdatedFiles;

@@ -59,7 +59,8 @@ DEFINE_LOG_CATEGORY(LogUObjectGlobals);
 #include "ProfilingDebugging/MallocProfiler.h"
 #endif
 
-bool						GIsSavingPackage = false;
+bool GIsSavingPackage = false;
+bool GAllowUnversionedContentInEditor = false;
 
 /** Object annotation used by the engine to keep track of which objects are selected */
 FUObjectAnnotationSparseBool GSelectedObjectAnnotation;
@@ -142,6 +143,7 @@ FCoreUObjectDelegates::FOnRedirectorFollowed FCoreUObjectDelegates::RedirectorFo
 PRAGMA_ENABLE_DEPRECATION_WARNINGS
 FSimpleMulticastDelegate FCoreUObjectDelegates::PostDemoPlay;
 FCoreUObjectDelegates::FOnLoadObjectsOnTop FCoreUObjectDelegates::ShouldLoadOnTop;
+FCoreUObjectDelegates::FShouldCookPackageForPlatform FCoreUObjectDelegates::ShouldCookPackageForPlatform;
 
 FCoreUObjectDelegates::FPackageCreatedForLoad FCoreUObjectDelegates::PackageCreatedForLoad;
 FCoreUObjectDelegates::FGetPrimaryAssetIdForObject FCoreUObjectDelegates::GetPrimaryAssetIdForObject;
@@ -228,6 +230,36 @@ namespace
 
 		return MatchingObject;
 	}
+}
+
+/** Object annotation used to keep track of the number suffixes  */
+struct FPerClassNumberSuffixAnnotation
+{
+	// The annotation container uses this to trim annotations that return to
+	// the default state - this never happens for this annotation type.
+	FORCEINLINE bool IsDefault()
+	{
+		return false;
+	}
+
+	TMap<UClass*, int32> Suffixes;
+};
+
+/**
+ * Updates the suffix to be given to the next newly-created unnamed object.
+ *
+ * Updating is done via a callback because a lock needs to be maintained while this happens.
+ */
+int32 UpdateSuffixForNextNewObject(UObject* Parent, UClass* Class, TFunctionRef<void(int32&)> IndexMutator)
+{
+	static FCriticalSection PerClassNumberSuffixAnnotationMutex;
+	static FUObjectAnnotationDense<FPerClassNumberSuffixAnnotation, true> PerClassNumberSuffixAnnotation;
+
+	FPerClassNumberSuffixAnnotation& Annotation = PerClassNumberSuffixAnnotation.GetAnnotationRef(Parent);
+	FScopeLock Lock(&PerClassNumberSuffixAnnotationMutex);
+	int32& Result = Annotation.Suffixes.FindOrAdd(Class);
+	IndexMutator(Result);
+	return Result;
 }
 
 /**
@@ -341,7 +373,7 @@ UObject* StaticFindObjectChecked( UClass* ObjectClass, UObject* ObjectParent, co
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if( !Result )
 	{
-		UE_LOG(LogUObjectGlobals, Fatal, TEXT("%s"), *FString::Printf( TEXT("Failed to find object '%s %s.%s'"), *ObjectClass->GetName(), ObjectParent==ANY_PACKAGE ? TEXT("Any") : ObjectParent ? *ObjectParent->GetName() : TEXT("None"), InName));
+		UE_LOG(LogUObjectGlobals, Fatal, TEXT("Failed to find object '%s %s.%s'"), *ObjectClass->GetName(), ObjectParent==ANY_PACKAGE ? TEXT("Any") : ObjectParent ? *ObjectParent->GetName() : TEXT("None"), InName);
 	}
 #endif
 	return Result;
@@ -1111,7 +1143,7 @@ public:
 * @param	ImportLinker	Linker that requests this package through one of its imports
 * @return	Loaded package if successful, NULL otherwise
 */
-UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameOrFilename, uint32 LoadFlags, FLinkerLoad* ImportLinker)
+UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameOrFilename, uint32 LoadFlags, FLinkerLoad* ImportLinker, FArchive* InReaderOverride)
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("LoadPackageInternal"), STAT_LoadPackageInternal, STATGROUP_ObjectVerbose);
 
@@ -1241,7 +1273,7 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 		}
 #endif
 
-		Linker = GetPackageLinker(InOuter, *FileToLoad, LoadFlags, nullptr, nullptr);
+		Linker = GetPackageLinker(InOuter, *FileToLoad, LoadFlags, nullptr, nullptr, InReaderOverride);
 		
 		if (!Linker)
 		{
@@ -1421,7 +1453,7 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 	return Result;
 }
 
-UPackage* LoadPackage(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags)
+UPackage* LoadPackage(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, FArchive* InReaderOverride)
 {
 	COOK_STAT(LoadPackageStats::NumPackagesLoaded++);
 	COOK_STAT(FScopedDurationTimer LoadTimer(LoadPackageStats::LoadPackageTimeSec));
@@ -1436,7 +1468,7 @@ UPackage* LoadPackage(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 
 	// since we are faking the object name, this is basically a duplicate of LLM_SCOPED_TAG_WITH_OBJECT_IN_SET
 	FString FakePackageName = FString(TEXT("Package ")) + InLongPackageName;
 	LLM_SCOPED_TAG_WITH_STAT_NAME_IN_SET(FLowLevelMemTracker::Get().IsTagSetActive(ELLMTagSet::Assets) ? FDynamicStats::CreateMemoryStatId<FStatGroup_STATGROUP_LLMAssets>(FName(*FakePackageName)).GetName() : NAME_None, ELLMTagSet::Assets, ELLMTracker::Default);
-	return LoadPackageInternal(InOuter, InLongPackageName, LoadFlags, /*ImportLinker =*/ nullptr);
+	return LoadPackageInternal(InOuter, InLongPackageName, LoadFlags, /*ImportLinker =*/ nullptr, InReaderOverride);
 }
 
 /**
@@ -1806,11 +1838,9 @@ FName MakeUniqueObjectName( UObject* Parent, UClass* Class, FName InBaseName/*=N
 				else
 				{
 					int32 NameNumber = 0;
-					if (Parent && (Parent != ANY_PACKAGE) )
+					if (Parent && (Parent != ANY_PACKAGE))
 					{
-						UPackage* ParentPackage = Parent->GetOutermost();
-						int32& ClassUnique = ParentPackage->GetClassUniqueNameIndexMap().FindOrAdd(Class->GetFName());
-						NameNumber = ++ClassUnique;
+						NameNumber = UpdateSuffixForNextNewObject(Parent, Class, [](int32& Index) { ++Index; });
 					}
 					else
 					{
@@ -3252,7 +3282,7 @@ public:
 		: FReferenceCollectorArchive(InSerializingObject, InCollector)
 	{
 		ArIsObjectReferenceCollector = true;
-		ArIsPersistent = InCollector.IsIgnoringTransient();
+		this->SetIsPersistent(InCollector.IsIgnoringTransient());
 		ArIgnoreArchetypeRef = InCollector.IsIgnoringArchetypeRef();
 	}
 
@@ -3441,8 +3471,8 @@ public:
 	void PerformReachabilityAnalysis( EObjectFlags KeepFlags, EInternalObjectFlags InternalKeepFlags, EObjectFlags SearchFlags = RF_NoFlags, FReferencerInformationList* FoundReferences = NULL)
 	{
 		// Reset object count.
-		extern int32 GObjectCountDuringLastMarkPhase;
-		GObjectCountDuringLastMarkPhase = 0;
+		extern FThreadSafeCounter GObjectCountDuringLastMarkPhase;
+		GObjectCountDuringLastMarkPhase.Reset();
 		ReferenceSearchFlags = SearchFlags;
 		FoundReferencesList = FoundReferences;
 
@@ -3451,7 +3481,7 @@ public:
 		{
 			UObject* Object	= *It;
 			checkSlow(Object->IsValidLowLevel());
-			GObjectCountDuringLastMarkPhase++;
+			GObjectCountDuringLastMarkPhase.Increment();
 
 			// Special case handling for objects that are part of the root set.
 			if( Object->IsRooted() )
@@ -4476,7 +4506,7 @@ namespace UE4CodeGen_Private
 		{
 			check((NewClass->ClassFlags & CLASS_TokenStreamAssembled) != CLASS_TokenStreamAssembled);
 			NewClass->ReferenceTokenStream.Empty();
-#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
+#if ENABLE_GC_OBJECT_CHECKS
 			NewClass->DebugTokenMap.Empty();
 #endif
 		}

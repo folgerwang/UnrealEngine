@@ -32,7 +32,7 @@ public:
 	UPROPERTY()
 	AActor* Enemy;
 		
-	FAITeamStimulusEvent(){}	
+	FAITeamStimulusEvent() : Broadcaster(nullptr), Enemy(nullptr) {}
 	FAITeamStimulusEvent(AActor* InBroadcaster, AActor* InEnemy, const FVector& InLastKnowLocation, float EventRange, float PassedInfoAge = 0.f, float InStrength = 1.f);
 
 	FORCEINLINE void CacheBroadcastLocation()

@@ -42,7 +42,7 @@ FSequencerTimeSliderController::FSequencerTimeSliderController( const FTimeSlide
 	, MouseDragType( DRAG_NONE )
 	, bPanning( false )
 {
-	ScrubFillBrush                 = FEditorStyle::GetBrush( TEXT( "Sequencer.Timeline.ScrubFill" ) );
+	ScrubFillBrush              = FEditorStyle::GetBrush( TEXT( "Sequencer.Timeline.ScrubFill" ) );
 	FrameBlockScrubHandleUpBrush   = FEditorStyle::GetBrush( TEXT( "Sequencer.Timeline.FrameBlockScrubHandleUp" ) ); 
 	FrameBlockScrubHandleDownBrush = FEditorStyle::GetBrush( TEXT( "Sequencer.Timeline.FrameBlockScrubHandleDown" ) );
 	VanillaScrubHandleUpBrush      = FEditorStyle::GetBrush( TEXT( "Sequencer.Timeline.VanillaScrubHandleUp" ) ); 
@@ -211,9 +211,9 @@ void FSequencerTimeSliderController::DrawTicks( FSlateWindowElementList& OutDraw
 	LinePoints.SetNumUninitialized(2);
 
 	const bool bAntiAliasLines = false;
-	
-	const double FirstMajorLine  = FMath::FloorToDouble(ViewRange.GetLowerBoundValue() / MajorGridStep) * MajorGridStep;
-	const double LastMajorLine   = FMath::CeilToDouble(ViewRange.GetUpperBoundValue() / MajorGridStep) * MajorGridStep;
+
+	const double FirstMajorLine = FMath::FloorToDouble(ViewRange.GetLowerBoundValue() / MajorGridStep) * MajorGridStep;
+	const double LastMajorLine  = FMath::CeilToDouble(ViewRange.GetUpperBoundValue() / MajorGridStep) * MajorGridStep;
 
 	const float  FlooredScrubPx  = RangeToScreen.InputToLocalX(ConvertFrameTime(TimeSliderArgs.ScrubPosition.Get(), TickResolution, GetDisplayRate()).FloorToFrame() / DisplayRate);
 
@@ -987,26 +987,26 @@ int32 FSequencerTimeSliderController::OnPaintSectionView( const FGeometry& Allot
 			);
 		}
 
-		// Draw a line for the scrub position
-		TArray<FVector2D> LinePoints;
-		{
+			// Draw a line for the scrub position
+			TArray<FVector2D> LinePoints;
+			{
 			float LinePos = RangeToScreen.InputToLocalX(ScrubPosition.AsSeconds());
 
-			LinePoints.AddUninitialized(2);
+				LinePoints.AddUninitialized(2);
 			LinePoints[0] = FVector2D( LinePos, 0.0f );
 			LinePoints[1] = FVector2D( LinePos, FMath::FloorToFloat( AllottedGeometry.Size.Y ) );
-		}
+			}
 
-		FSlateDrawElement::MakeLines(
-			OutDrawElements,
-			LayerId+1,
+			FSlateDrawElement::MakeLines(
+				OutDrawElements,
+				LayerId+1,
 			AllottedGeometry.ToPaintGeometry(),
-			LinePoints,
-			DrawEffects,
-			FLinearColor(1.f, 1.f, 1.f, .5f),
-			false
-		);
-	}
+				LinePoints,
+				DrawEffects,
+				FLinearColor(1.f, 1.f, 1.f, .5f),
+				false
+			);
+		}
 
 	return LayerId;
 }

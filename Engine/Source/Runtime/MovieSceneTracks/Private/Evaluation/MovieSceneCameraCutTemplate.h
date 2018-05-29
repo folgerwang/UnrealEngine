@@ -18,7 +18,7 @@ struct FMovieSceneCameraCutSectionTemplate : public FMovieSceneEvalTemplate
 {
 	GENERATED_BODY()
 	
-	FMovieSceneCameraCutSectionTemplate() {}
+	FMovieSceneCameraCutSectionTemplate() : bHasCutTransform(false) {}
 	FMovieSceneCameraCutSectionTemplate(const UMovieSceneCameraCutSection& Section, TOptional<FTransform> CutTransform);
 
 	/** GUID of the camera we should cut to in this sequence */

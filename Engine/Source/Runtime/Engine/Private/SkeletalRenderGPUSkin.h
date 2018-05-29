@@ -326,6 +326,8 @@ public:
 		uint32 NumVertices = 0;
 	};
 
+	virtual void RefreshClothingTransforms(const FMatrix& InNewLocalToWorld, uint32 FrameNumber) override;
+
 private:
 
 	/**

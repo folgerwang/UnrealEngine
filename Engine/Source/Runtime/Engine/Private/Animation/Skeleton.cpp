@@ -111,6 +111,11 @@ void USkeleton::PostInitProperties()
 	}
 }
 
+bool USkeleton::IsPostLoadThreadSafe() const
+{
+	return true;
+}
+
 void USkeleton::PostLoad()
 {
 	Super::PostLoad();
@@ -1183,30 +1188,38 @@ void USkeleton::RenameSlotName(const FName& OldName, const FName& NewName)
 
 bool USkeleton::AddSmartNameAndModify(FName ContainerName, FName NewDisplayName, FSmartName& NewName)
 {
-	NewName.DisplayName = NewDisplayName;
-	const bool bAdded = VerifySmartNameInternal(ContainerName, NewName);
-
-	if(bAdded)
+	if (NewDisplayName != NAME_None)
 	{
-		IncreaseAnimCurveUidVersion();
+		NewName.DisplayName = NewDisplayName;
+		const bool bAdded = VerifySmartNameInternal(ContainerName, NewName);
+
+		if (bAdded)
+		{
+			IncreaseAnimCurveUidVersion();
+		}
+
+		return bAdded;
 	}
 
-	return bAdded;
+	return false;
 }
 
 bool USkeleton::RenameSmartnameAndModify(FName ContainerName, SmartName::UID_Type Uid, FName NewName)
 {
 	bool Successful = false;
-	FSmartNameMapping* RequestedMapping = SmartNames.GetContainerInternal(ContainerName);
-	if (RequestedMapping)
+	if (NewName != NAME_None)
 	{
-		FName CurrentName;
-		RequestedMapping->GetName(Uid, CurrentName);
-		if (CurrentName != NewName)
+		FSmartNameMapping* RequestedMapping = SmartNames.GetContainerInternal(ContainerName);
+		if (RequestedMapping)
 		{
-			Modify();
-			Successful = RequestedMapping->Rename(Uid, NewName);
-			IncreaseAnimCurveUidVersion();
+			FName CurrentName;
+			RequestedMapping->GetName(Uid, CurrentName);
+			if (CurrentName != NewName)
+			{
+				Modify();
+				Successful = RequestedMapping->Rename(Uid, NewName);
+				IncreaseAnimCurveUidVersion();
+			}
 		}
 	}
 	return Successful;
@@ -1387,6 +1400,7 @@ void USkeleton::IncreaseAnimCurveUidVersion()
 	if (Mapping != nullptr)
 	{
 		DefaultCurveUIDList.Reset();
+		// this should exactly work with what current index is
 		Mapping->FillUidArray(DefaultCurveUIDList);
 	}
 }

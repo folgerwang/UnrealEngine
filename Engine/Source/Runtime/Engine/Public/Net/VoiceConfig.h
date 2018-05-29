@@ -48,12 +48,19 @@ class USoundAttenuation;
 template <typename EnumType>
 static FORCEINLINE EnumType GetEnumValueFromString(const FString& EnumName, const FString& String)
 {
-	UEnum* Enum = FindObject<UEnum>((UObject*) ANY_PACKAGE, *EnumName, true);
+	UEnum* const Enum = FindObject<UEnum>((UObject*) ANY_PACKAGE, *EnumName, true);
 	if (!Enum)
 	{
 		return EnumType(0);
 	}
-	return (EnumType)Enum->GetValueByName(FName(*String));
+
+	const int64 Result = Enum->GetValueByName(FName(*String));
+	if (Result == INDEX_NONE)
+	{
+		return EnumType(0);
+	}
+
+	return static_cast<EnumType>(Result);
 }
 
 USTRUCT(BlueprintType)

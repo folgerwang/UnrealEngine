@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3002838
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:アンリアル エンジン 4.12 リリースノート
 Crumbs:%ROOT%, Engine
@@ -27,13 +27,13 @@ Windows で C++ を使用する場合、**アンリアル エンジンに Visual
 
 シーケンサーは非線形エディタで 3d アニメーション編集機能があり、インゲームのシネマティックスや映画、テレビ、プレビズなどのショットのシーケンスを制作することができるます。
 
-![image alt text](image_0.png)(w:929 h:809 convert:false)
+![image alt text](image_0.jpg)(w:929 convert:false)
 
 ### 非線形ワークフロー
 
 シーケンサーの非線形ワークフローにより、ショットを創造的かつ反復して構成および編集ができるようになります。ライトの色の変更やフォグ エレメントの追加など、特定のショットを簡単に変更したり、これまで撮ったショットをロールバックしてシーケンスを試しにまとめてみることもできます。また、複数名のアーティストが複数のショットに対して同時に作業ができるように作られています。ランチャーの [Learn] タブの [Subway Sequencer Project] で実際のシーケンサーの動きを見ることができます。
 
-![image alt text](image_1.gif)(w:929 h:686 convert:false)
+![image alt text](image_1.gif)(w:929 convert:false)
 
 * 従来の非線形編集パッケージのようなショットに再調整する
 
@@ -65,7 +65,7 @@ Windows で C++ を使用する場合、**アンリアル エンジンに Visual
 
 カメラ リグ アクタと結びついたこのシネマティックス カメラを使えば、初心者だけでなく映画製作者もリアルなカメラ ショットを簡単に作成することができます。ストリームライン化されたビューポートには、映画制作のダイアリー用に連続ショットの表示ができます。 
 
-![image alt text](image_3.png)(w:929 h:529 convert:false)
+![image alt text](image_3.jpg)(w:929 convert:false)
 
 * シネマティックス カメラ アクタには現実世界のカメラを模倣するためのプロパティが付いています。
 
@@ -89,7 +89,7 @@ Windows で C++ を使用する場合、**アンリアル エンジンに Visual
 
 シーケンスを記録すると、ゲームプレイを記録して、その記録したエレメントをショットにすぐに配置することができます。前の記録の再生中でも記録することができます。
 
-![image alt text](image_4.gif)(w:929 h:697 convert:false)
+![image alt text](image_4.gif)(w:929 convert:false)
 
 * スケルタル アニメーション、トランスフォーム、イベント、オーディオ トラックでのゲームプレイの録画
 
@@ -107,15 +107,15 @@ Windows で C++ を使用する場合、**アンリアル エンジンに Visual
 
 新しい [VR エディタ] モードは、仮想現実に没入しながら、レベルの遷移と編集を可能にします。オブジェクトを選択して移動したり、「ワールド」そのものをつかんで、レベル全体を自由にドラッグ、回転、スケールすることができます。VR のモーション コントロールを使うと、オブジェクトと視点に対して、1 対 1 の制御ができます。
 
-![image alt text](image_5.png)(w:929 h:610 convert:false)
+![image alt text](image_5.jpg)(w:929 convert:false)
 
 VR 内にいたままで、コンテンツ ブラウザなど馴染みのエディタ機能にアクセスしたり、トランスフォーム ギズモを使ってオブジェクトを正確に配置することができます。スナップ ツールを使うと、ぴったりそろった配置がしやすくなります。
 
-![image alt text](image_6.gif)(w:652 h:473 convert:false)
+![image alt text](image_6.gif)(w:652 convert:false)
 
 ワールドを両手でつかんで手前に引くと、ワールドがかなり拡大されます。こうすることでレベル内の細かい部分の点検と編集がしやすくなります。
 
-![image alt text](image_7.gif)(w:652 h:473 convert:false)
+![image alt text](image_7.gif)(w:652 convert:false)
 
 この機能は早期プレビューなので、[Editor Preferences (エディタ環境設定)] の [Experimental/VR (体験/VR)] セクション の [Enable VR Editing (VR 編集を有効にする)] をオンにする必要があります。その後で、[VR Mode] ツールバー ボタンが表示されるので、好きな時にすぐに VR へ切り替えることができます。好きなプロジェクトに VR エディタを使うことができます。シンプルなプレイグラウンドは新しい VR-Basic マップで見ることできます ([File] -> [New option]) 。
 
@@ -139,7 +139,7 @@ VR 内にいたままで、コンテンツ ブラウザなど馴染みのエデ�
 
 ## 新規：Daydream VR をサポート
 
-![image alt text](image_8.png)(w:400 h:266 convert:false)
+![image alt text](image_8.png)(w:400 convert:false)
 
 4.12 は Google の新しいプラットフォーム Daydream をサポートします！Daydream は新しいモバイル VR プラットフォームです。質の高い VR 体験を Daydream 認定のスマートフォンにもたらします。UE4 は、付属品のモーション コントローラを含めたプラットフォーム全体をサポートします。
 
@@ -151,11 +151,11 @@ Daydream デベロッパー キットがなくても、使用できます！同�
 
 リアルタイムで平面反射がサポートされます。  
 
-![image alt text](image_9.png)(w:929 h:485 convert:false)
+![image alt text](image_9.png)(w:929 convert:false)
 
 反射の方向から再びシーンをレンダリングするため、負荷がとても大きい機能です。ただし、反射の品質はスクリーン空間の反射に比べてかなり高いです。
 
-![image alt text](image_10.png)(w:540 h:384 convert:false)
+![image alt text](image_10.png)(w:540 convert:false)
 
 左：**オフスクリーン リーキングのスクリーン空間リフレクション**、右:** 平面反射**
 
@@ -175,7 +175,7 @@ Daydream デベロッパー キットがなくても、使用できます！同�
 
 今回のリリースでは、表面反射を限りなく現実的にするために、さまざまなレンダリング機能を追加しました。
 
-![image alt text](image_11.png)(w:929 h:518 convert:false)
+![image alt text](image_11.jpg)(w:929 convert:false)
 
 カーペイントを他の何よりもリアルにするために、非常に高い品質、鮮明な反射の実現を目指しました。そのためには、ジオメトリ データの処理およびエンコード方法やシーンの高解像度反射キャプチャの有効化などの点を改善する必要がありました。 
 
@@ -191,7 +191,7 @@ Daydream デベロッパー キットがなくても、使用できます！同�
 
 複数の法線マップをクリアコート マテリアルと一緒に使用することで、カーボン ファイバーのようなサーフェイスに対し、リアルなシェーディングの実現が可能になりました。
 
-![image alt text](image_12.png)(w:929 h:229 convert:false)
+![image alt text](image_12.png)(w:929 convert:false)
 左：** これまでの UE4 クリアコート**、中央:** 新しい UE4 クリアコート (ボトム法線を使用)**、右:** 本物の写真**
 
 クリアコート シェーディング モデルに、クリアコート レイヤーの下のサーフェイスに対して 2 つ目の法線マップを指定するオプションが追加されました。このオプションを使うと、クリアコート レイヤーとは異なるジオメトリ サーフェイスを持つカーボン ファイバーなどの複雑なマテリアルの正確なモデル化が可能になります。
@@ -204,7 +204,7 @@ Daydream デベロッパー キットがなくても、使用できます！同�
 
 OSVR チームの尽力により、UE4 で OSVR がすぐに使えるようになりました！  
 
-![image alt text](image_13.png)(w:929 h:232 convert:false)
+![image alt text](image_13.png)(w:929 convert:false)
 
 OSVR ソフトウェア プラットフォームでは、幅広い VR / AR デバイスと周辺機器が共有レイヤー経由でエンジンと通信することができます。プラットフォームと対応デバイスについては、[http://www.osvr.org/](http://www.osvr.org/) をご覧ください。
 
@@ -212,7 +212,7 @@ OSVR ソフトウェア プラットフォームでは、幅広い VR / AR デ�
 
 Vulkan グラフィックス API を使ったモバイル レンダリングのアーリー プレビューが利用できます。
 
-![image alt text](image_14.png)(w:793 h:384 convert:false)
+![image alt text](image_14.jpg)(w:793 convert:false)
 
 上のスクリーンショットは、Samsung Galaxy S7 Unpacked イベント時の Vulkan でレンダリングした ProtoStar デモです。現時点では、モバイル レンダリング機能のみ実装されています。
 
@@ -220,17 +220,17 @@ Vulkan グラフィックス API を使ったモバイル レンダリングの�
 
 カラー グレーディングの付いた映画のトーンマッパがモバイル デバイスで使えるようになります！
 
-![image alt text](image_15.gif)(w:800 h:394 convert:false)
+![image alt text](image_15.gif)(w:800 convert:false)
 
 高品質のガウス曲線の被写界深度が、ES3.1 対応のモバイル デバイスでサポートされます！
 
-![image alt text](image_16.png)(w:798 h:392 convert:false)
+![image alt text](image_16.png)(w:798 convert:false)
 
 ## 新規：モバイル向けシャドウの改善点
 
 単一の Stationary Light (固定ライト) に対する動的カスケード シャドウ マップがモバイル レンダラーでサポートされます！
 
-![image alt text](image_17.gif)(w:480 h:360 convert:false)
+![image alt text](image_17.gif)(w:480 convert:false)
 
 Stationary Directional Light (固定の指向性ライト) が、シーンの静的オブジェクトによってキャストされた事前計算シャドウと正しくブレンドしながら、移動オブジェクトからシーン全体に動的な CSM シャドーをキャストできるようになりました。CSM シャドウでは、変調されたシャドウを使うと確認できるダブル シャドウイングが表示されません。複数のオブジェクトにシャドウをキャストする場合は、この技術は速いです。 
 
@@ -242,7 +242,7 @@ Stationary Directional Light (固定の指向性ライト) が、シーンの静
 
 ベクトル フィールド付きの GPU パーティクルが、ハイエンド モバイル デバイスで使用可能になりました！
 
-![image alt text](image_18.png)(w:628 h:628 convert:false)
+![image alt text](image_18.jpg)(w:628 convert:false)
 
 * この機能は、MRT 対応で 32 ビット浮動小数点レンダー ターゲットをサポートするモバイル デバイスが必要です。
 
@@ -254,7 +254,7 @@ Stationary Directional Light (固定の指向性ライト) が、シーンの静
 
 ブループリントの実行時にかかる VM オーバーヘッドを下げるために、ブループリントをネイティブ ソースコードにパッケージする機能が追加されました。この機能はまだ体験版なので、出荷ゲームには使用すべきではありませんが、ぜひ試してみてください。フィードバックをお待ちしています。
 
-![image alt text](image_19.png)(w:900 h:485 convert:false)
+![image alt text](image_19.jpg)(w:900 convert:false)
 
 * プロジェクトの [Packaging Setting (パッケージ設定)] :[Experimental] => [Nativize Blueprint Assets] によってエディタ内で有効にされています。
 
@@ -272,7 +272,7 @@ Stationary Directional Light (固定の指向性ライト) が、シーンの静
 
 フォリッジの拡張設定が拡張性システムに追加されました。現在の拡張設定に合わせて、ランドスケープの草とフォリッジの密度を自動的に減らすことができます。設定はランタイム時に変更可能、ゲームはフォリッジ詳細設定のスライダーを実装できます。
 
-![image alt text](image_20.gif)(w:929 h:522 convert:false)
+![image alt text](image_20.gif)(w:929 convert:false)
 
 Landscape Grass は自動的にフォリッジの拡張設定に含まれますが、フォリッジは [FoliageType (フォリッジ タイプ)] の [Scalability (拡張)] セクションの [Enable Density Scaling (密度の拡張を有効にする)] から選択されなければなりません。通常は、岩や低木などのコリジョンを持たない「詳細な」フォリッジに対して有効にされます。インスタンスを除去してもコリジョンはゲーム中ずっと有効のままなので、コリジョンをもつ木などのフォリッジには無効にしておきます。
 
@@ -282,7 +282,7 @@ Landscape Grass は自動的にフォリッジの拡張設定に含まれます�
 
 UMG ウェブブラウザ ウィジェットが iOS でサポートされます！
 
-![image alt text](image_21.png)(w:929 h:252 convert:false)
+![image alt text](image_21.png)(w:929 convert:false)
 
 Chromium はデスクトップ プラットフォームのウェブ ブラウザ ウィジェットに使用しますが、iOS と Android は UMG レイアウトに一致するように並んだネイティブ WebKit コントロールを使います。そうすることで、実行ファイルのサイズが最小になり、パフォーマンスがあがります。 
 
@@ -290,7 +290,7 @@ Chromium はデスクトップ プラットフォームのウェブ ブラウザ
 
 モーフターゲットなどのカーブ値をあるボーンの他のボーンに対するツイストに基づいて操作できるようにする Twist Corrective アニメーション ノードが追加されました。例えば、首を右または左にひねりすぎた場合は、首にモーフターゲットを適用すれば、外見をより自然にすることができます。
 
-![image alt text](image_22.png)(w:488 h:257 convert:false) ![image alt text](image_23.png)(w:342 h:257 convert:false)
+![image alt text](image_22.jpg)(w:488 convert:false) ![image alt text](image_23.png)(w:342 h:257 convert:false)
 
 ボーン名とローカル軸、Twist Normal を使用して、Base Frame と Twist Frame をひねり軸に指定することができます。Angle Delta の [Ref Pose Delta Angle, Max Angle] 幅は、指定したカーブを使って [Mapped Ranged Min, Mapped Ranged Max] にマッピングすることができます。
 
@@ -298,7 +298,7 @@ Chromium はデスクトップ プラットフォームのウェブ ブラウザ
 
 Full Scene Importing を使うと、Max / Maya / Blender で既に作成した背景を選んで、エディタのレベルにそのシーンをまるごとインポートすることができます。 
 
-![image alt text](image_24.png)(w:201 h:477 convert:false) ![image alt text](image_25.png)(w:572 h:470 convert:false)
+![image alt text](image_24.jpg)(w:201 convert:false) ![image alt text](image_25.png)(w:572 h:470 convert:false)
 
  背景の中に新規に作成された Scene FBX アセットを再インポートすると、背景上でイタレーションが可能になります。4.11 の早期版では、スタティックメッシュを含んだシーンのみがサポート対象でした。今回の 4.12 では、スケルタルメッシュを含んだシーンのインポート機能も追加されて、いっそう便利になりました。
 
@@ -308,19 +308,19 @@ Full Scene Importing を使うと、Max / Maya / Blender で既に作成した�
 
 レベル ビューポートでのメッシュ アクタのマージがさらに簡単になりました。これにより、より少ないドローコールでパフォーマンスをあげることができます。
 
-![image alt text](image_26.png)(w:353 h:209 convert:false) ![image alt text](image_27.png)(w:320 h:209 convert:false)
+![image alt text](image_26.jpg)(w:353 convert:false)　![image alt text](image_27.png)(w:320 h:209 convert:false)
 
 スタティックメッシュのマージの例です。レベル ビューポートでの表示前は*左* / スタティックメッシュ エディタでの表示後は *右* です。
 
 マージアクタ機能は、[Window/Developer/Miscellaneous] に加わりました。Hierarchical LOD システム用のマージ パスの最新の変更に合わせて、UI パネルが拡張およびアップデートされました。 
 
-![image alt text](image_28.png)(w:464 h:532 convert:false)
+![image alt text](image_28.jpg)(w:464 convert:false)
 
 ## 新規：Pixel Inspector ツール
 
 Pixel Inspector ツールは、シーンのピクセルをクリックすると、そのカラーを作り出しているマテリアルとレンダリング ステートを可視化します。
 
-![image alt text](image_29.png)(w:769 h:410 convert:false)
+![image alt text](image_29.jpg)(w:769 convert:false)
 
 シーンのピクセルの色がどうして変なのだろうと思ったことはありませんか？ピクセルの色を構成しているマテリアル入力を教えてくれるツールがあったらいいですよね。それがまさに、Pixel Inspector ツールです！ 
 
@@ -330,7 +330,7 @@ Pixel Inspector ツールは、ツールバーの [Developer Tools] にありま
 
 毎回リリースにおいて、プラットフォーム パートナーからの最新の SDK リリースに対応するようにエンジンをアップデートしています。今回のリリースでは、HTML5 と Android の他にコンソール プラットフォームを更新しています。
 
-![image alt text](image_30.png)(w:929 h:396 convert:false)
+![image alt text](image_30.png)(w:929  convert:false)
 
 * Xbox One:March 2016 XDK にアップグレード
 
@@ -344,7 +344,7 @@ Pixel Inspector ツールは、ツールバーの [Developer Tools] にありま
 
 Integer プロパティが bitmast として宣言できるようになり、bitflag 値をカプセル化する enum との関連づけがオプションで可能になりました。この機能は C++ とブループリントの両方で使用できます。
 
-![image alt text](image_31.png)(w:900 h:485 convert:false)
+![image alt text](image_31.jpg)(w:900 convert:false)
 
 * Native プロパティが "Bitmask" メタデータと一緒にマークできるようになり、ブループリント エディタに追加された変数には “Bitmask” チェックボックスが追加されました。
 
@@ -356,7 +356,7 @@ Integer プロパティが bitmast として宣言できるようになり、bit
 
 コンソール タイトルで作業する場合、UI が TV 画面の角に近すぎないことが重要です。そうならないようにするシンプルなツールを追加しました。
 
- ![image alt text](image_32.png)(w:929 h:524 convert:false)
+ ![image alt text](image_32.jpg)(w:929 convert:false)
 
 使用方法は、DefaultEngine.ini を編集して以下を [SystemSettings (システム設定)] に追加するか、コマンド コンソールに直接打ち込みます。
 
@@ -386,21 +386,21 @@ Integer プロパティが bitmast として宣言できるようになり、bit
 
 AnimComposite を別の AnimMontage or AnimComposite に埋め込むことが可能になりました。これにより、独自のアニメーション アセットをもっと柔軟に作成できるようになります。以下の画像は、TEST_AnimComposite が TEST_Montage の中に含まれているので、他のアニメーションのシーケンスを数多く含みます。 
 
-![image alt text](image_33.png)(w:929 h:144 convert:false)
+![image alt text](image_33.jpg)(w:929 convert:false)
 
-![image alt text](image_34.png)(w:929 h:92 convert:false)
+![image alt text](image_34.jpg)(w:929 convert:false)
 
 ## 新規：コリジョン メッシュ用の LOD の選択
 
 ‘複雑な’ (ポリゴンごとの) コリジョンに使用するスタティックメッシュの LOD を選択できるようになりました。‘シンプルな’ (凸包) コリジョンはの使用は適切でなくなりますが、よりシンプルなコリジョン表現のインポートや生成が可能になります。ビヘイビアとパフォーマンスの改善、およびハイポリ メッシュで使用するメモリの削減が可能になります。
 
-![image alt text](image_35.png)(w:586 h:740 convert:false)
+![image alt text](image_35.jpg)(w:586 convert:false)
 
 ## 新規：メッシュのデフォルト コリジョン
 
 スタティックメッシュ コンポーネントがデフォルト コリジョンをサポートするようになったので、スタティックメッシュ アセットからコリジョン設定が使えるようになります。マップにインスタンスを配置した時、それぞれのアップデートを覚えていなくてもコリジョン情報を指定しやすくなります。スカイドーム メッシュを例にあげると、アセット上でコリジョンを無効にすると、各インスタンスはコリジョンが無効のデフォルトになります。
 
-![image alt text](image_36.png)(w:366 h:349 convert:false)
+![image alt text](image_36.jpg)(w:366 convert:false)
 
 StaticMeshComponent の設定をデフォルト以外に設定したい場合は、インスタンスごとにオーバーライドができます。
 
@@ -432,7 +432,7 @@ UE4 Sound Mixes は、サウンド クラス プロパティを動的に調整�
 
 4.12 では、ブループリントの "Set Sound Mix Class Override" 機能により、サウンド ミックスがブループリントからサウンド クラス調整を動的にオーバーライドできるようになりました。
 
-![image alt text](image_37.png)(w:296 h:322 convert:false)
+![image alt text](image_37.jpg)(w:296 convert:false)
 
 サウンド ミックス内のサウンド クラス調整値は、指定されたフェードイン時間中に所定の値を補間します。指定されたサウンド クラスがサウンド ミックス内に存在しない場合、サウンド クラスがサウンド ミックスに追加され、ターゲット値を 1.0 から補間します (適用しないから適用する、など)。この機能により、サウンド デザイナーはサウンド ミックス ボリュームを動的なゲームプレイ イベントあるいはゲーム ステートにしっかり統合することができます。例えば、車の運転速度、マップ上の正確な位置、アクタのヘルス値レベル、プレイヤーの恐怖レベルなど、サウンド クラスのプロパティをすべてのゲーム ステートにしっかり連結することが可能になります。さらに、サウンド クラス ボリュームを手書きのコードによってオーバーライドし静的アセットデータへ記述するために C++ コードで記述しなくても、、スレートのゲーム用にボリュームの環境設定パネルを記述できるようになりました。
 
@@ -442,7 +442,7 @@ UE4 Sound Mixes は、サウンド クラス プロパティを動的に調整�
 
 4.12 では、オーディオ ローカリゼーションのビルトイン サポートがお試し頂けるレベルまで改善されました (ダイアログ ウェーブとダイアログ ボイス アセット経由)。フィードバックお待ちしています。
 
-![image alt text](image_38.png)(w:478 h:577 convert:false)
+![image alt text](image_38.jpg)(w:478 convert:false)
 
 * 口頭のテキストがダイアログ ウェーブ アセットから収集可能され、PO ファイルにインクルードされて他のアセット ベースのテキストと一緒に翻訳されるようになりました。
 
