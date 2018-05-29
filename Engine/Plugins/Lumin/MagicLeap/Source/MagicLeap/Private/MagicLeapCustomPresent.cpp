@@ -461,6 +461,7 @@ FMagicLeapCustomPresentVulkan::FMagicLeapCustomPresentVulkan(FMagicLeapHMD* plug
 	: FMagicLeapCustomPresent(plugin)
 	, RenderTargetTexture(VK_NULL_HANDLE)
 	, RenderTargetTextureAllocation(VK_NULL_HANDLE)
+	, RenderTargetTextureAllocationOffset(0)
 	, RenderTargetTextureSRGB(VK_NULL_HANDLE)
 	, LastAliasedRenderTarget(VK_NULL_HANDLE)
 {
@@ -580,7 +581,7 @@ void FMagicLeapCustomPresentVulkan::FinishRendering()
 			if (RenderTargetTextureAllocation != VK_NULL_HANDLE && LastAliasedRenderTarget != RenderTargetTexture)
 			{
 				// TODO: If RenderTargetTextureSRGB is non-null, we're leaking the previous handle here. Also leaking on shutdown.
-				RenderTargetTextureSRGB = (VkImage)FMagicLeapHelperVulkan::AliasImageSRGB((uint64)RenderTargetTextureAllocation, vp_width * 2, vp_height);
+				RenderTargetTextureSRGB = (VkImage)FMagicLeapHelperVulkan::AliasImageSRGB((uint64)RenderTargetTextureAllocation, RenderTargetTextureAllocationOffset, vp_width * 2, vp_height);
 				check(RenderTargetTextureSRGB != VK_NULL_HANDLE);
 				LastAliasedRenderTarget = RenderTargetTexture;
 				UE_LOG(LogMagicLeap, Log, TEXT("Aliased render target for correct sRGB ouput."));
@@ -631,6 +632,7 @@ void FMagicLeapCustomPresentVulkan::UpdateViewport(const FViewport& Viewport, FR
 
 	RenderTargetTexture = (VkImage)RT->GetNativeResource();
 	RenderTargetTextureAllocation = reinterpret_cast<FVulkanTexture2D*>(RT->GetTexture2D())->Surface.GetAllocationHandle();
+	RenderTargetTextureAllocationOffset = reinterpret_cast<FVulkanTexture2D*>(RT->GetTexture2D())->Surface.GetAllocationOffset();
 
 	InViewportRHI->SetCustomPresent(this);
 	
