@@ -454,6 +454,7 @@ void FNiagaraStackGraphUtilities::InitializeStackFunctionInputs(TSharedRef<FNiag
 		}
 	}
 
+	FunctionInputCollection->Finalize();
 	SystemViewModel->NotifyDataObjectChanged(nullptr);
 }
 

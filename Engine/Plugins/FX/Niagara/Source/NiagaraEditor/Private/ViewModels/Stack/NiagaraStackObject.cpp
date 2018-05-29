@@ -60,6 +60,15 @@ bool UNiagaraStackObject::GetShouldShowInStack() const
 	return false;
 }
 
+void UNiagaraStackObject::FinalizeInternal()
+{
+	if (PropertyRowGenerator.IsValid())
+	{
+		PropertyRowGenerator->OnRowsRefreshed().RemoveAll(this);
+	}
+	Super::FinalizeInternal();
+}
+
 void UNiagaraStackObject::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)
 {
 	if (PropertyRowGenerator.IsValid() == false)
@@ -121,8 +130,5 @@ void UNiagaraStackObject::RefreshChildrenInternal(const TArray<UNiagaraStackEntr
 
 void UNiagaraStackObject::PropertyRowsRefreshed()
 {
-	if (IsValid())
-	{
-		RefreshChildren();
-	}
+	RefreshChildren();
 }

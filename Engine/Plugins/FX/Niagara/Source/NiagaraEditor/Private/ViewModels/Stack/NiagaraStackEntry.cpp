@@ -111,11 +111,13 @@ const TArray<UNiagaraStackEntry::FStackIssueFix>& UNiagaraStackEntry::FStackIssu
 
 UNiagaraStackEntry::UNiagaraStackEntry()
 	: IndentLevel(0)
+	, bIsFinalized(false)
 {
 }
 
 void UNiagaraStackEntry::Initialize(FRequiredEntryData InRequiredEntryData, FString InStackEditorDataKey)
 {
+	checkf(bIsFinalized == false, TEXT("Can not initialize an entry after it has been finalized."));
 	SystemViewModel = InRequiredEntryData.SystemViewModel;
 	EmitterViewModel = InRequiredEntryData.EmitterViewModel;
 	ExecutionCategoryName = InRequiredEntryData.ExecutionCategoryName;
@@ -124,9 +126,26 @@ void UNiagaraStackEntry::Initialize(FRequiredEntryData InRequiredEntryData, FStr
 	StackEditorDataKey = InStackEditorDataKey;
 }
 
-bool UNiagaraStackEntry::IsValid() const
+void UNiagaraStackEntry::Finalize()
 {
-	return SystemViewModel.IsValid();
+	FinalizeInternal();
+	checkf(bIsFinalized, TEXT("Parent FinalizeInternal not called from overriden FinalizeInternal"));
+
+	SystemViewModel.Reset();
+	EmitterViewModel.Reset();
+	StackEditorData = nullptr;
+
+	for (UNiagaraStackEntry* Child : Children)
+	{
+		Child->Finalize();
+	}
+	Children.Empty();
+
+	for (UNiagaraStackEntry* ErrorChild : ErrorChildren)
+	{
+		ErrorChild->Finalize();
+	}
+	ErrorChildren.Empty();
 }
 
 FText UNiagaraStackEntry::GetDisplayName() const
@@ -370,8 +389,14 @@ void UNiagaraStackEntry::ChlildStructureChangedInternal()
 {
 }
 
+void UNiagaraStackEntry::FinalizeInternal()
+{
+	bIsFinalized = true;
+}
+
 void UNiagaraStackEntry::RefreshChildren()
 {
+	checkf(bIsFinalized == false, TEXT("Can not refresh children on an entry after it has been finalized."));
 	checkf(SystemViewModel.IsValid() && EmitterViewModel.IsValid(), TEXT("Base stack entry not initialized."));
 
 	for (UNiagaraStackEntry* Child : Children)
@@ -393,6 +418,17 @@ void UNiagaraStackEntry::RefreshChildren()
 	TArray<UNiagaraStackEntry*> NewChildren;
 	TArray<FStackIssue> NewStackIssues;
 	RefreshChildrenInternal(Children, NewChildren, NewStackIssues);
+
+	// If any of the current children were not moved to the new children collection than finalize them since
+	// they weren't reused.
+	for (UNiagaraStackEntry* Child : Children)
+	{
+		if (NewChildren.Contains(Child) == false)
+		{
+			Child->Finalize();
+		}
+	}
+
 	Children.Empty();
 	Children.Append(NewChildren);
 
@@ -448,6 +484,17 @@ void UNiagaraStackEntry::RefreshStackErrorChildren()
 		}
 		NewErrorChildren.Add(ErrorEntry);
 	}
+
+	// If any of the current error children were not moved to the new error children collection than finalize them since
+	// they weren't reused.
+	for (UNiagaraStackEntry* ErrorChild : ErrorChildren)
+	{
+		if(NewErrorChildren.Contains(ErrorChild) == false)
+		{
+			ErrorChild->Finalize();
+		}
+	}
+
 	ErrorChildren.Empty();
 	ErrorChildren.Append(NewErrorChildren);
 }
@@ -455,6 +502,12 @@ void UNiagaraStackEntry::RefreshStackErrorChildren()
 void UNiagaraStackEntry::IssueModified()
 {
 	RefreshChildren();
+}
+
+void UNiagaraStackEntry::BeginDestroy()
+{
+	ensureMsgf(HasAnyFlags(RF_ClassDefaultObject) || bIsFinalized, TEXT("Stack entry being destroyed but it was not finalized."));
+	Super::BeginDestroy();
 }
 
 void UNiagaraStackEntry::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)

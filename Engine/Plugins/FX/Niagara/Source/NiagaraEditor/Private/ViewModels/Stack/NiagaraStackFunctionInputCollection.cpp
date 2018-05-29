@@ -49,6 +49,12 @@ void UNiagaraStackFunctionInputCollection::Initialize(
 	InputFunctionCallNode->OnInputsChanged().AddUObject(this, &UNiagaraStackFunctionInputCollection::OnFunctionInputsChanged);
 }
 
+void UNiagaraStackFunctionInputCollection::FinalizeInternal()
+{
+	InputFunctionCallNode->OnInputsChanged().RemoveAll(this);
+	Super::FinalizeInternal();
+}
+
 FText UNiagaraStackFunctionInputCollection::GetDisplayName() const
 {
 	return LOCTEXT("InputCollectionDisplayName", "Inputs");
@@ -151,22 +157,27 @@ void UNiagaraStackFunctionInputCollection::RefreshChildrenInternal(const TArray<
 	// Populate the category children
 	for (const FInputData InputData : InputDataCollection)
 	{
+		// Try to find an existing category in the already processed children.
 		UNiagaraStackInputCategory* InputCategory = FindCurrentChildOfTypeByPredicate<UNiagaraStackInputCategory>(NewChildren,
 			[&](UNiagaraStackInputCategory* CurrentCategory) { return CurrentCategory->GetCategoryName().CompareTo(InputData.Category) == 0; });
 
 		if (InputCategory == nullptr)
 		{
+			// If we haven't added any children to this category yet see if there is one that can be reused from the current children.
 			InputCategory = FindCurrentChildOfTypeByPredicate<UNiagaraStackInputCategory>(CurrentChildren,
 				[&](UNiagaraStackInputCategory* CurrentCategory) { return CurrentCategory->GetCategoryName().CompareTo(InputData.Category) == 0; });
 			if (InputCategory == nullptr)
 			{
+				// If we don't have a current child for this category make a new one.
 				InputCategory = NewObject<UNiagaraStackInputCategory>(this);
 				InputCategory->Initialize(CreateDefaultChildRequiredData(), *ModuleNode, *InputFunctionCallNode, InputData.Category, GetOwnerStackItemEditorDataKey());
 			}
 			else
 			{
+				// We found a category to reuse, but we need to reset the inputs before we can start adding the current set of inputs.
 				InputCategory->ResetInputs();
 			}
+
 			if (InputData.Category.CompareTo(UncategorizedName) == 0)
 			{
 				InputCategory->SetShouldShowInStack(false);
@@ -261,10 +272,7 @@ void UNiagaraStackFunctionInputCollection::RefreshIssues(TArray<FName> Duplicate
 
 void UNiagaraStackFunctionInputCollection::OnFunctionInputsChanged()
 {
-	if (IsValid())
-	{
-		RefreshChildren();
-	}
+	RefreshChildren();
 }
 
 #undef LOCTEXT_NAMESPACE

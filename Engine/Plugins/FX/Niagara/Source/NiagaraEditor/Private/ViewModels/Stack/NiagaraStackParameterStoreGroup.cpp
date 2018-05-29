@@ -153,18 +153,18 @@ void UNiagaraStackParameterStoreItem::Initialize(
 		FNiagaraParameterStore::FOnChanged::FDelegate::CreateUObject(this, &UNiagaraStackParameterStoreItem::ParameterStoreChanged));
 }
 
-FText UNiagaraStackParameterStoreItem::GetDisplayName() const
-{
-	return LOCTEXT("ParameterItemDisplayName", "Parameters");
-}
-
-void UNiagaraStackParameterStoreItem::BeginDestroy()
+void UNiagaraStackParameterStoreItem::FinalizeInternal()
 {
 	if (Owner != nullptr)
 	{
 		ParameterStore->RemoveOnChangedHandler(ParameterStoreChangedHandle);
 	}
-	Super::BeginDestroy();
+	Super::FinalizeInternal();
+}
+
+FText UNiagaraStackParameterStoreItem::GetDisplayName() const
+{
+	return LOCTEXT("ParameterItemDisplayName", "Parameters");
 }
 
 void UNiagaraStackParameterStoreItem::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)
@@ -193,10 +193,7 @@ void UNiagaraStackParameterStoreItem::RefreshChildrenInternal(const TArray<UNiag
 
 void UNiagaraStackParameterStoreItem::ParameterStoreChanged()
 {
-	if (IsValid())
-	{
-		RefreshChildren();
-	}
+	RefreshChildren();
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -162,7 +162,7 @@ public:
 
 	void Initialize(FRequiredEntryData InRequiredEntryData, FString InStackEditorDataKey);
 
-	bool IsValid() const;
+	void Finalize();
 
 	virtual FText GetDisplayName() const;
 
@@ -229,14 +229,6 @@ public:
 		return nullptr;
 	}
 
-	template<typename ChildType, typename PredicateType>
-	ChildType* FindChildOfTypeByPredicate(PredicateType Predicate)
-	{
-		TArray<UNiagaraStackEntry*> CurrentChildren;
-		GetUnfilteredChildren(CurrentChildren);
-		return FindCurrentChildOfTypeByPredicate<ChildType>(CurrentChildren, Predicate);
-	}
-
 	void GetSearchItems(TArray<FStackSearchItem>& SearchItems) const;
 
 	virtual UObject* GetExternalAsset() const;
@@ -252,6 +244,8 @@ public:
 	void SetOnRequestDrop(FOnRequestDrop InOnRequestCanDrop);
 
 protected:
+	virtual void BeginDestroy() override;
+
 	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues);
 
 	virtual void PostRefreshChildrenInternal();
@@ -271,6 +265,8 @@ protected:
 	virtual TOptional<FDropResult> ChildRequestDropInternal(const UNiagaraStackEntry& TargetChild, const TArray<UNiagaraStackEntry*>& DraggedEntries);
 
 	virtual void ChlildStructureChangedInternal();
+
+	virtual void FinalizeInternal();
 
 private:
 	void ChildStructureChanged();
@@ -320,4 +316,6 @@ private:
 	FOnRequestDrop OnRequestDropDelegate;
 	
 	TArray<FStackIssue> StackIssues;
+
+	bool bIsFinalized;
 };

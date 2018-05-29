@@ -38,6 +38,8 @@ public:
 	TSharedPtr<FNiagaraSystemViewModel> GetSystemViewModel();
 	void Initialize(TSharedPtr<FNiagaraSystemViewModel> InSystemViewModel, TSharedPtr<FNiagaraEmitterHandleViewModel> InEmitterHandleViewModel);
 
+	void Finalize();
+
 	virtual void BeginDestroy() override;
 
 	TArray<UNiagaraStackEntry*>& GetRootEntries();

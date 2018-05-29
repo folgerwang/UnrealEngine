@@ -36,6 +36,8 @@ public:
 	void SetShouldShowInStack(bool bInShouldShowInStack);
 
 protected:
+	virtual void FinalizeInternal() override;
+
 	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 	
 private:

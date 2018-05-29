@@ -37,6 +37,7 @@ void UNiagaraStackViewModel::Initialize(TSharedPtr<FNiagaraSystemViewModel> InSy
 		RootEntry->OnDataObjectModified().RemoveAll(this);
 		RootEntry->OnRequestFullRefresh().RemoveAll(this);
 		RootEntries.Empty();
+		RootEntry->Finalize();
 		RootEntry = nullptr;
 		GEditor->UnregisterForUndo(this);
 	}
@@ -52,7 +53,6 @@ void UNiagaraStackViewModel::Initialize(TSharedPtr<FNiagaraSystemViewModel> InSy
 	}
 
 	SystemViewModel = InSystemViewModel;
-	//UE_LOG(LogNiagaraEditor, Warning, TEXT("UNiagaraStackViewModel %p refs FNiagaraEmitterViewModel %p"), this, InEmitterViewModel.Get());
 	EmitterHandleViewModel = InEmitterHandleViewModel;
 	TSharedPtr<FNiagaraEmitterViewModel> EmitterViewModel = InEmitterHandleViewModel.IsValid() ? InEmitterHandleViewModel->GetEmitterViewModel() : TSharedPtr<FNiagaraEmitterViewModel>();
 
@@ -74,25 +74,21 @@ void UNiagaraStackViewModel::Initialize(TSharedPtr<FNiagaraSystemViewModel> InSy
 		RootEntry->OnRequestFullRefresh().AddUObject(this, &UNiagaraStackViewModel::EntryRequestFullRefresh);
 		RootEntries.Add(RootEntry);
 	}
+
 	CurrentFocusedSearchMatchIndex = -1;
 	StructureChangedDelegate.Broadcast();
 	bRestartSearch = false;
 }
 
+void UNiagaraStackViewModel::Finalize()
+{
+	Initialize(nullptr, nullptr);
+}
+
 void UNiagaraStackViewModel::BeginDestroy()
 {
+	checkf(HasAnyFlags(RF_ClassDefaultObject) || (SystemViewModel.IsValid() == false && EmitterHandleViewModel.IsValid() == false), TEXT("Stack view model not finalized."));
 	Super::BeginDestroy();
-	if (EmitterHandleViewModel.IsValid() && EmitterHandleViewModel->GetEmitterViewModel().IsValid())
-	{
-		GEditor->UnregisterForUndo(this);
-		EmitterHandleViewModel->GetEmitterViewModel()->OnScriptCompiled().RemoveAll(this);
-
-		//UE_LOG(LogNiagaraEditor, Log, TEXT("UNiagaraStackViewModel::BeginDestroy"));
-		EmitterHandleViewModel->GetEmitterViewModel().Reset();
-		EmitterHandleViewModel.Reset();
-		SystemViewModel.Reset();
-	} 
-	RootEntry = nullptr;
 }
 
 void UNiagaraStackViewModel::Tick()

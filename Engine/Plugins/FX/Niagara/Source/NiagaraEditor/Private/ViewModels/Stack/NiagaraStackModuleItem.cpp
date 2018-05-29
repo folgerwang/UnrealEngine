@@ -568,7 +568,6 @@ void UNiagaraStackModuleItem::Delete()
 		UNiagaraGraph* Graph = FunctionCallNode->GetNiagaraGraph();
 		Graph->NotifyGraphNeedsRecompile();
 		FNiagaraStackGraphUtilities::RelayoutGraph(*FunctionCallNode->GetGraph());
-		ModifiedGroupItemsDelegate.ExecuteIfBound();
 		for (auto InputNode: RemovedNodes)
 		{
 			if (InputNode != nullptr && InputNode->Usage == ENiagaraInputNodeUsage::Parameter)
@@ -576,6 +575,7 @@ void UNiagaraStackModuleItem::Delete()
 				GetSystemViewModel()->NotifyDataObjectChanged(InputNode->GetDataInterface());
 			}
 		}
+		ModifiedGroupItemsDelegate.ExecuteIfBound();
 	}
 }
 

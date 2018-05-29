@@ -53,22 +53,6 @@ UNiagaraStackFunctionInput::UNiagaraStackFunctionInput()
 {
 }
 
-void UNiagaraStackFunctionInput::BeginDestroy()
-{
-	Super::BeginDestroy();
-	if (OwningFunctionCallNode.IsValid())
-	{
-		OwningFunctionCallNode->GetGraph()->RemoveOnGraphChangedHandler(GraphChangedHandle);
-		OwningFunctionCallNode->GetNiagaraGraph()->RemoveOnGraphNeedsRecompileHandler(OnRecompileHandle);
-
-		if (SourceScript.IsValid())
-		{
-			SourceScript->RapidIterationParameters.RemoveOnChangedHandler(RapidIterationParametersChangedHandle);
-			SourceScript->GetSource()->OnChanged().RemoveAll(this);
-		}
-	}
-}
-
 void UNiagaraStackFunctionInput::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
 {
 	UNiagaraStackFunctionInput* This = Cast<UNiagaraStackFunctionInput>(InThis);
@@ -215,6 +199,22 @@ void UNiagaraStackFunctionInput::Initialize(
 
 	EditCondition.Initialize(SourceScript.Get(), AffectedScriptsNotWeak, GetEmitterViewModel()->GetEmitter()->GetUniqueEmitterName(), OwningFunctionCallNode.Get());
 	VisibleCondition.Initialize(SourceScript.Get(), AffectedScriptsNotWeak, GetEmitterViewModel()->GetEmitter()->GetUniqueEmitterName(), OwningFunctionCallNode.Get());
+}
+
+void UNiagaraStackFunctionInput::FinalizeInternal()
+{
+	if (OwningFunctionCallNode.IsValid())
+	{
+		OwningFunctionCallNode->GetGraph()->RemoveOnGraphChangedHandler(GraphChangedHandle);
+		OwningFunctionCallNode->GetNiagaraGraph()->RemoveOnGraphNeedsRecompileHandler(OnRecompileHandle);
+
+		if (SourceScript.IsValid())
+		{
+			SourceScript->RapidIterationParameters.RemoveOnChangedHandler(RapidIterationParametersChangedHandle);
+			SourceScript->GetSource()->OnChanged().RemoveAll(this);
+		}
+	}
+	Super::FinalizeInternal();
 }
 
 const UNiagaraNodeFunctionCall& UNiagaraStackFunctionInput::GetInputFunctionCallNode() const

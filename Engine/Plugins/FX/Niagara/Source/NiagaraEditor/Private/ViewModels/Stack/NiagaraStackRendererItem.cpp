@@ -52,6 +52,15 @@ void UNiagaraStackRendererItem::Initialize(FRequiredEntryData InRequiredEntryDat
 	}
 }
 
+void UNiagaraStackRendererItem::FinalizeInternal()
+{
+	if (RendererProperties.IsValid())
+	{
+		RendererProperties->OnChanged().RemoveAll(this);
+	}
+	Super::FinalizeInternal();
+}
+
 TArray<FNiagaraVariable> UNiagaraStackRendererItem::GetMissingVariables(UNiagaraRendererProperties* RendererProperties, UNiagaraEmitter* Emitter)
 {
 	TArray<FNiagaraVariable> MissingAttributes;
@@ -205,15 +214,6 @@ void UNiagaraStackRendererItem::SetIsEnabled(bool bInIsEnabled)
 	RendererProperties->Modify();
 	RendererProperties->SetIsEnabled(bInIsEnabled);
 	OnDataObjectModified().Broadcast(RendererProperties.Get());
-}
-
-void UNiagaraStackRendererItem::BeginDestroy()
-{
-	if (RendererProperties.IsValid())
-	{
-		RendererProperties->OnChanged().RemoveAll(this);
-	}
-	Super::BeginDestroy();
 }
 
 void UNiagaraStackRendererItem::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)
