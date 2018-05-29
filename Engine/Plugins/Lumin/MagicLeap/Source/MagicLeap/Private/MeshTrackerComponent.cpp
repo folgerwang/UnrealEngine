@@ -519,7 +519,7 @@ void UMeshTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 		return;
 	}
 
-	static const auto FakeMeshTrackerDataCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("vr.FakeMeshTrackerData"));
+	static const auto FakeMeshTrackerDataCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("vr.MagicLeap.FakeMeshTrackerData"));
 	if (FakeMeshTrackerDataCVar != nullptr && FakeMeshTrackerDataCVar->GetInt())
 	{
 		TickWithFakeData();
