@@ -779,10 +779,10 @@ FDirectLighting TwoSidedBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, f
 
 FDirectLighting EyeBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, float Falloff, float NoL, FAreaLight AreaLight, FShadowTerms Shadow )
 {
-	const float3 IrisNormal		= OctahedronToUnitVector( GBuffer.CustomData.xy * 2 - 1 );
-	const float  IrisDistance	= GBuffer.CustomData.w;
-	const float  IrisMask		= GBuffer.CustomData.z;
-	
+	const float3 IrisNormal		= OctahedronToUnitVector( GBuffer.CustomData.yz * 2 - 1 );
+	const float  IrisDistance	= GBuffer.StoredMetallic;
+	const float  IrisMask		= 1.0f - GBuffer.CustomData.w;
+
 	BxDFContext Context;
 	Init( Context, N, V, L );
 	SphereMaxNoH( Context, AreaLight.SphereSinAlpha, false );

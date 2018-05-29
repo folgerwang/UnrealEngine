@@ -118,12 +118,14 @@ void SetGBufferForShadingModel(
 	GBuffer.IndirectIrradiance *= 1 - GBuffer.CustomData.a;
 #elif MATERIAL_SHADINGMODEL_EYE
 	GBuffer.ShadingModelID = SHADINGMODELID_EYE;
+	GBuffer.CustomData.x = EncodeSubsurfaceProfile(SubsurfaceProfile).x;
+	GBuffer.CustomData.w = 1.0f - saturate(GetMaterialCustomData0(MaterialParameters));	// Opacity = 1.0 - Iris Mask
+	GBuffer.Metallic = saturate(GetMaterialCustomData1(MaterialParameters));			// Iris Distance
+
 	#if NUM_MATERIAL_OUTPUTS_GETTANGENTOUTPUT > 0
 		float3 Tangent = GetTangentOutput0(MaterialParameters);
-		GBuffer.CustomData.xy = UnitVectorToOctahedron( normalize(Tangent) ) * 0.5 + 0.5;
+		GBuffer.CustomData.yz = UnitVectorToOctahedron( normalize(Tangent) ) * 0.5 + 0.5;
 	#endif
-	GBuffer.CustomData.z = saturate( GetMaterialCustomData0(MaterialParameters) );	// Iris Mask
-	GBuffer.CustomData.w = saturate( GetMaterialCustomData1(MaterialParameters) );	// Iris Distance
 #else
 	// missing shading model, compiler should report ShadingModelID is not set
 #endif

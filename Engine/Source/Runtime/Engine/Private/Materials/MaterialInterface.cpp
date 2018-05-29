@@ -460,7 +460,7 @@ void UMaterialInterface::UpdateMaterialRenderProxy(FMaterialRenderProxy& Proxy)
 	EMaterialShadingModel MaterialShadingModel = GetShadingModel();
 
 	// for better performance we only update SubsurfaceProfileRT if the feature is used
-	if (MaterialShadingModel == MSM_SubsurfaceProfile)
+	if (UseSubsurfaceProfile(MaterialShadingModel))
 	{
 		FSubsurfaceProfileStruct Settings;
 
