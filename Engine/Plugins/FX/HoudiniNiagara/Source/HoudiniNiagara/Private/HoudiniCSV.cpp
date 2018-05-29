@@ -229,6 +229,13 @@ bool UHoudiniCSV::UpdateFromStringArray( TArray<FString>& RawStringArray )
 	int32 NextParticleID = 0;
 	TMap<float, int32> HoudiniIDToNiagaraIDMap;
 
+	// We also keep track of the row indexes for each time values
+	//float lastTimeValue = 0.0;
+	//TimeValuesIndexes.Empty();
+
+	// And the row indexes for each particle
+	ParticleValueIndexes.Empty();
+
     // Extract all the values from the table to the float & string buffers
     TArray<FString> CurrentParsedLine;
     for ( int rowIdx = 0; rowIdx < ParsedStringArrays.Num(); rowIdx++ )
@@ -261,11 +268,33 @@ bool UHoudiniCSV::UpdateFromStringArray( TArray<FString>& RawStringArray )
 			{
 				// The particle ID may need to be replaced
 				if ( !HoudiniIDToNiagaraIDMap.Contains( FloatValue ) )
+				{
+					// We found a new particle, add it to the ID map
 					HoudiniIDToNiagaraIDMap.Add( FloatValue, NextParticleID++ );
 
+					// Add a new array for that particle's indexes
+					ParticleValueIndexes.Add( FParticleIndexes() );
+				}
+
+				// Get the Niagara ID from this Houdini ID
 				CurrentID = HoudiniIDToNiagaraIDMap[ FloatValue ];
 				FloatValue = (float)CurrentID;
+
+				// Add the current row to this particle's row index list
+				ParticleValueIndexes[ CurrentID ].RowIndexes.Add( rowIdx );
 			}
+
+			/*
+			if ( colIdx == TimeColumnIndex )
+			{
+				// Keep track of new time values row indexes
+				if ( ( FloatValue != lastTimeValue ) || ( rowIdx == 0 ) )
+				{
+					TimeValuesIndexes.Add( FloatValue, rowIdx );
+					lastTimeValue = FloatValue;
+				}
+			}
+			*/
 
 			// Store the Value in the buffer
 			FloatCSVData[ rowIdx + ( colIdx * NumberOfLines ) ] = FloatValue;
@@ -825,17 +854,25 @@ bool UHoudiniCSV::GetParticleLineIndexAtTime(const int32& ParticleID, const floa
 	if ( ParticleLife > 0.0f && ( ParticleSpawnTime + ParticleLife < desiredTime ) )	
 		return false;
 
-	for ( int32 n = 0; n < NumberOfLines; n++ )
+	// We don't have Id information
+	// return ParticleId for the rowIndexes ??
+	if ( IDColumnIndex == INDEX_NONE )
+		return false;
+
+	// We don't have time information
+	if ( TimeColumnIndex == INDEX_NONE )
+		return false;
+
+	// Get the row indexes for this particle
+	TArray<int32>* RowIndexes = nullptr;
+	if ( ParticleValueIndexes.IsValidIndex( ParticleID ) )
+		RowIndexes = &( ParticleValueIndexes[ ParticleID ].RowIndexes );
+
+	if ( !RowIndexes )
+		return false;
+
+	for ( auto n : *RowIndexes )
 	{
-		// Get the ID
-		float CurrentLineID = -1;
-		if ( !GetCSVFloatValue( n, IDColumnIndex, CurrentLineID ) )
-			CurrentLineID = n;
-
-		// Not the particle we're looking for
-		if ( CurrentLineID != ParticleID )
-			continue;
-
 		// Get the time
 		float currentTime = -1.0f;
 		if ( GetCSVTimeValue( n, currentTime) )

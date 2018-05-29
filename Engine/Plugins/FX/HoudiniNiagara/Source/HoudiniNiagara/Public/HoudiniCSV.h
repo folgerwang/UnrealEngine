@@ -29,6 +29,17 @@
 
 DECLARE_LOG_CATEGORY_EXTERN( LogHoudiniNiagara, All, All );
 
+
+USTRUCT()
+struct FParticleIndexes
+{
+	GENERATED_BODY()
+
+	// Simple structure for storing all the row indexes for a particle
+	UPROPERTY()
+	TArray<int32> RowIndexes;
+};
+
 UCLASS()
 class HOUDININIAGARA_API UHoudiniCSV : public UObject
 {
@@ -179,4 +190,20 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	// Index of the life values in the buffer
 	UPROPERTY()
 	int32 LifeColumnIndex;
+
+	// Index of the color values in the buffer
+	//UPROPERTY()
+	//int32 ColorColumnIndex;
+
+	// Index of the velocity values in the buffer
+	//UPROPERTY()
+	//int32 VelocityColumnIndex;
+
+	// Row indexes for new time values
+	//UPROPERTY()
+	//TMap<float, int32> TimeValuesIndexes;
+
+	// Row indexes for each particle
+	UPROPERTY()
+	TArray< FParticleIndexes > ParticleValueIndexes;
 };
