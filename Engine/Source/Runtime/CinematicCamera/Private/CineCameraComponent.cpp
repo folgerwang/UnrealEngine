@@ -90,6 +90,7 @@ static const FColor DebugFocusPointOutlineColor = FColor::Black;
 
 void UCineCameraComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	// make sure drawing is set up
 	if (FocusSettings.bDrawDebugFocusPlane)
 	{
@@ -107,6 +108,7 @@ void UCineCameraComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
 			DestroyDebugFocusPlane();
 		}
 	}
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
 #if ENABLE_DRAW_DEBUG
 	if (FocusSettings.TrackingFocusSettings.bDrawDebugTrackingFocusPoint)
@@ -337,6 +339,7 @@ void UCineCameraComponent::GetCameraView(float DeltaTime, FMinimalViewInfo& Desi
 	bResetInterpolation = false;
 }
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 void UCineCameraComponent::UpdateDebugFocusPlane()
 {
 	if (FocusPlaneVisualizationMesh && DebugFocusPlaneComponent)
@@ -347,7 +350,7 @@ void UCineCameraComponent::UpdateDebugFocusPlane()
 		DebugFocusPlaneComponent->SetWorldLocation(FocusPoint);
 	}
 }
-
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
 void UCineCameraComponent::UpdateCameraLens(float DeltaTime, FMinimalViewInfo& DesiredView)
 {
@@ -408,6 +411,7 @@ void UCineCameraComponent::NotifyCameraCut()
 	bResetInterpolation = true;
 }
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 void UCineCameraComponent::CreateDebugFocusPlane()
 {
 	if (AActor* const MyOwner = GetOwner())
@@ -449,6 +453,7 @@ void UCineCameraComponent::DestroyDebugFocusPlane()
 		DebugFocusPlaneMID = nullptr;
 	}
 }
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
 void UCineCameraComponent::OnRegister()
 {

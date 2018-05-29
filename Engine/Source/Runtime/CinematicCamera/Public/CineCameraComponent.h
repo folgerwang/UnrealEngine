@@ -275,8 +275,10 @@ public:
 	/** Returns a list of available lens presets. */
 	static TArray<FNamedLensPreset> const& GetLensPresets();
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	/** Update the debug focus plane position and orientation. */
 	void UpdateDebugFocusPlane();
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
 protected:
 
@@ -355,6 +357,8 @@ private:
 	float GetDesiredFocusDistance(const FVector& InLocation) const;
 	float GetWorldToMetersScale() const;
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	void CreateDebugFocusPlane();
 	void DestroyDebugFocusPlane();
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 };
