@@ -4,6 +4,8 @@
 	ShadingModelsMaterial.usf: Pixel shader function for computing a GBuffer from shading model.
 =============================================================================*/
 
+#include "SubsurfaceProfileCommon.ush"
+
 // Optimization: if opacity is 0 then revert to default shading model 
 #define SUBSURFACE_PROFILE_OPACITY_THRESHOLD 1
 
@@ -15,11 +17,9 @@ void SetGBufferForShadingModel(
 	const half  Metallic,
 	const half  Specular,
 	const float Roughness,
-	const float4 SubsurfaceData)
+	const float3 SubsurfaceColor,
+	const float SubsurfaceProfile)
 {
-	const float3 SubsurfaceColor = SubsurfaceData.rgb;
-	const float SubsurfaceProfile = SubsurfaceData.a;
-
 	GBuffer.WorldNormal = MaterialParameters.WorldNormal;
 	GBuffer.BaseColor = BaseColor;
 	GBuffer.Metallic = Metallic;
@@ -47,6 +47,15 @@ void SetGBufferForShadingModel(
 		GBuffer.ShadingModelID = SHADINGMODELID_SUBSURFACE_PROFILE;
 		GBuffer.CustomData.rgb = EncodeSubsurfaceProfile(SubsurfaceProfile);
 		GBuffer.CustomData.a = Opacity;
+
+		// Average roughness for dual specular.
+		uint SubsurfaceProfileUInt = uint(SubsurfaceProfile * 255.0f + 0.5f);
+		float MaterialRoughnessToAverage = BasePassSSProfilesTexture.Load(int3(SSSS_DUAL_SPECULAR_OFFSET, SubsurfaceProfileUInt, 0)).w * SSSS_MAX_DUAL_SPECULAR_ROUGHNESS;
+
+		// Smooth blend out dual specular when opacity is low.
+		MaterialRoughnessToAverage = lerp(1.0f, MaterialRoughnessToAverage, saturate(Opacity * 10.0f));
+
+		GBuffer.Roughness = saturate(GBuffer.Roughness * MaterialRoughnessToAverage);
 	}
 	#if SUBSURFACE_PROFILE_OPACITY_THRESHOLD
 	else
