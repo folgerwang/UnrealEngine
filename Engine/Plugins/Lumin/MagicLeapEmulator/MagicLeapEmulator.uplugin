@@ -5,7 +5,6 @@
 	"FriendlyName" : "MagicLeapEmulator",
 	"CreatedBy" : "Magic Leap, Inc.",
 	"CreatedByURL" : "http://magicleap.com",
-	"EngineVersion" : "4.20.0",
 	"Description" : "Support for the emulating a Magic Leap Head Mounted Display with an alternate display device.",
 	"Category" : "Augmented Reality",
 	"EnabledByDefault" : true,

@@ -9,7 +9,7 @@
 #include "Logging/TokenizedMessage.h"
 #include "Logging/MessageLog.h"
 #include "UObject/FrameworkObjectVersion.h"
-#include "UObject/AthenaObjectVersion.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 
 DEFINE_LOG_CATEGORY(LogAnimMarkerSync);
 
@@ -50,7 +50,7 @@ void UAnimSequenceBase::PostLoad()
 	if(USkeleton* MySkeleton = GetSkeleton())
 	{
 #if WITH_EDITOR
-		if (GetLinkerCustomVersion(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::FixUpNoneNameAnimationCurves)
+		if (GetLinkerCustomVersion(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::FixUpNoneNameAnimationCurves)
 		{
 			for (int32 Index = 0; Index < RawCurveData.FloatCurves.Num(); ++Index)
 			{
@@ -717,7 +717,7 @@ void UAnimSequenceBase::EvaluateCurveData(FBlendedCurve& OutCurve, float Current
 void UAnimSequenceBase::Serialize(FArchive& Ar)
 {
 	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
-	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
 	Super::Serialize(Ar);
 
