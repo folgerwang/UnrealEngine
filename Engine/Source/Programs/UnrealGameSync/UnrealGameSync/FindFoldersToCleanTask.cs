@@ -249,7 +249,7 @@ namespace UnrealGameSync
 						}
 						FileFolder = NextFileFolder;
 					}
-					FileFolder.NameToFile.Add(Tokens[Tokens.Length - 1], FileRecord);
+					FileFolder.NameToFile[Tokens[Tokens.Length - 1]] = FileRecord;
 				}
 			}
 

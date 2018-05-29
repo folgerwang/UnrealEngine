@@ -28,12 +28,18 @@ namespace UnrealGameSync
 		{
 			StringBuilder FailMessage = new StringBuilder();
 
-			foreach(FileInfo FileToSync in FilesToSync)
+			if(FilesToSync.Count > 0)
 			{
-				StringWriter Log = new StringWriter();
-				if(!Perforce.ForceSync(String.Format("{0}#have", FileToSync.FullName), Log))
+				List<string> RevisionsToSync = new List<string>();
+				foreach(FileInfo FileToSync in FilesToSync)
 				{
-					FailMessage.AppendFormat("{0} ({1})\r\n", FileToSync.FullName, Log.ToString().Trim().Replace('\n', ' '));
+					RevisionsToSync.Add(String.Format("{0}#have", PerforceUtils.EscapePath(FileToSync.FullName)));
+				}
+
+				StringWriter Log = new StringWriter();
+				if(!Perforce.Sync(RevisionsToSync, x => { }, new List<string>(), true, null, Log))
+				{
+					FailMessage.Append(Log.ToString());
 				}
 			}
 

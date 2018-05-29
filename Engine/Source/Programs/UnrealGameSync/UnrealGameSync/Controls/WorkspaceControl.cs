@@ -4105,5 +4105,13 @@ namespace UnrealGameSync
 		{
 			SetBisectStateForSelection(BisectState.Include);
 		}
+
+		private void WorkspaceControl_VisibleChanged(object sender, EventArgs e)
+		{
+			if(PerforceMonitor != null && PerforceMonitor.IsActive != Visible)
+			{
+				PerforceMonitor.IsActive = Visible;
+			}
+		}
 	}
 }
