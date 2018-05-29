@@ -4177,7 +4177,10 @@ namespace UnrealBuildTool
 					// If it's a game module (plugin or otherwise), add the root source directory to the include paths.
 					if (ModuleFileName.IsUnderDirectory(TargetRulesFile.Directory) || (Plugin != null && Plugin.LoadedFrom == PluginLoadedFrom.Project))
 					{
-						RulesObject.PublicIncludePaths.Add(NormalizeIncludePath(BaseSourceDirectory));
+						if(DirectoryReference.Exists(BaseSourceDirectory))
+						{
+							RulesObject.PublicIncludePaths.Add(NormalizeIncludePath(BaseSourceDirectory));
+						}
 					}
 
 					// Resolve private include paths against the project source root
