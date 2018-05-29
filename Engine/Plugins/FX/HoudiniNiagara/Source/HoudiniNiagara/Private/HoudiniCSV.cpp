@@ -85,6 +85,9 @@ UHoudiniCSV::UHoudiniCSV( const FObjectInitializer& ObjectInitializer )
 	IDColumnIndex = INDEX_NONE;
 	AliveColumnIndex = INDEX_NONE;
 	LifeColumnIndex = INDEX_NONE;
+	ColorColumnIndex = INDEX_NONE;
+	AlphaColumnIndex = INDEX_NONE;
+	VelocityColumnIndex = INDEX_NONE;
 }
 
 void UHoudiniCSV::SetFileName( const FString& TheFileName )
@@ -126,6 +129,9 @@ bool UHoudiniCSV::UpdateFromStringArray( TArray<FString>& RawStringArray )
 	IDColumnIndex = INDEX_NONE;
 	AliveColumnIndex = INDEX_NONE;
 	LifeColumnIndex = INDEX_NONE;
+	ColorColumnIndex = INDEX_NONE;
+	AlphaColumnIndex = INDEX_NONE;
+	VelocityColumnIndex = INDEX_NONE;
 
     if ( RawStringArray.Num() <= 0 )
     {
@@ -415,13 +421,31 @@ bool UHoudiniCSV::ParseCSVTitleLine( const FString& TitleLine, const FString& Fi
 		}
 		else if ( CurrentTitle.Equals( TEXT("alive"), ESearchCase::IgnoreCase ) )
 		{
-			if (AliveColumnIndex == INDEX_NONE)
+			if ( AliveColumnIndex == INDEX_NONE )
 				AliveColumnIndex = n;
 		}
 		else if ( CurrentTitle.Equals( TEXT("life"), ESearchCase::IgnoreCase ) )
 		{
 			if ( LifeColumnIndex == INDEX_NONE)
 				LifeColumnIndex = n;
+		}
+		else if ( ( CurrentTitle.Equals( TEXT("Cd"), ESearchCase::IgnoreCase ) )
+			|| ( CurrentTitle.Equals(TEXT("color"), ESearchCase::IgnoreCase ) ) )
+		{
+			if ( ColorColumnIndex == INDEX_NONE )
+				ColorColumnIndex = n;
+		}
+		else if ( ( CurrentTitle.Equals( TEXT("alpha"), ESearchCase::IgnoreCase ) )
+			|| ( CurrentTitle.Equals(TEXT("A"), ESearchCase::IgnoreCase ) ) )
+		{
+			if ( AlphaColumnIndex == INDEX_NONE )
+				AlphaColumnIndex = n;
+		}
+		else if ( ( CurrentTitle.Equals( TEXT("v"), ESearchCase::IgnoreCase ) )
+			|| ( CurrentTitle.Equals(TEXT("Vx"), ESearchCase::IgnoreCase ) ) )
+		{
+			if ( VelocityColumnIndex == INDEX_NONE )
+				VelocityColumnIndex = n;
 		}
     }
 
@@ -486,6 +510,28 @@ bool UHoudiniCSV::ParseCSVTitleLine( const FString& TitleLine, const FString& Fi
 			TitleRowArray.Insert( TEXT("Ny"), NormalColumnIndex + 1 );
 			TitleRowArray.Insert( TEXT("Nz"), NormalColumnIndex + 2 );
 		}
+		else if ( ( FoundPackedVectorColumnIndex == VelocityColumnIndex ) && ( FoundVectorSize == 3 ) )
+		{
+			// Expand V to Vx,Vy,Vz
+			TitleRowArray[ VelocityColumnIndex ] = TEXT("Vx");
+			TitleRowArray.Insert( TEXT("Vy"), VelocityColumnIndex + 1 );
+			TitleRowArray.Insert( TEXT("Vz"), VelocityColumnIndex + 2 );
+		}
+		else if ( ( FoundPackedVectorColumnIndex == ColorColumnIndex ) && ( ( FoundVectorSize == 3 ) || ( FoundVectorSize == 4 ) ) )
+		{
+			// Expand Cd to R, G, B 
+			TitleRowArray[ ColorColumnIndex ] = TEXT("R");
+			TitleRowArray.Insert( TEXT("G"), ColorColumnIndex + 1 );
+			TitleRowArray.Insert( TEXT("B"), ColorColumnIndex + 2 );
+
+			if ( FoundVectorSize == 4 )
+			{
+				// Insert A if we had RGBA
+				TitleRowArray.Insert( TEXT("A"), ColorColumnIndex + 3 );
+				if ( AlphaColumnIndex == INDEX_NONE )
+					AlphaColumnIndex = ColorColumnIndex + 3;
+			}
+		}
 		else
 		{
 			// Expand the vector's title from V to V, V1, V2, V3 ...
@@ -515,6 +561,15 @@ bool UHoudiniCSV::ParseCSVTitleLine( const FString& TitleLine, const FString& Fi
 
 		if ( LifeColumnIndex != INDEX_NONE && ( LifeColumnIndex > FoundPackedVectorColumnIndex ) )
 			LifeColumnIndex += FoundVectorSize - 1;
+
+		if ( ColorColumnIndex != INDEX_NONE && ( ColorColumnIndex > FoundPackedVectorColumnIndex ) )
+			ColorColumnIndex += FoundVectorSize - 1;
+
+		if ( AlphaColumnIndex != INDEX_NONE && ( AlphaColumnIndex > FoundPackedVectorColumnIndex ) )
+			AlphaColumnIndex += FoundVectorSize - 1;
+
+		if ( VelocityColumnIndex != INDEX_NONE && ( VelocityColumnIndex > FoundPackedVectorColumnIndex ) )
+			VelocityColumnIndex += FoundVectorSize - 1;
 
 		HasPackedVectors = true;
 		FoundPackedVectorCharIndex++;
@@ -640,6 +695,39 @@ bool UHoudiniCSV::GetCSVTimeValue( const int32& lineIndex, float& value )
     value = temp;
 
     return true;
+}
+
+// Returns a Color for a given point in the CSV file
+bool UHoudiniCSV::GetCSVColorValue( const int32& lineIndex, FLinearColor& value )
+{
+	FVector V = FVector::OneVector;
+	if ( !GetCSVVectorValue( lineIndex, ColorColumnIndex, V, false, false ) )
+		return false;
+
+	FLinearColor C = FLinearColor::White;
+	C.R = V.X;
+	C.G = V.Y;
+	C.B = V.Z;
+
+	float alpha = 1.0f;
+	if ( GetCSVFloatValue( lineIndex, AlphaColumnIndex, alpha ) )
+		C.A = alpha;	
+
+	value = C;
+
+	return true;
+}
+
+// Returns a Velocity Vector3 for a given point in the CSV file
+bool UHoudiniCSV::GetCSVVelocityValue( const int32& lineIndex, FVector& value )
+{
+	FVector V = FVector::ZeroVector;
+	if ( !GetCSVVectorValue( lineIndex, VelocityColumnIndex, V, true, false ) )
+		return false;
+
+	value = V;
+
+	return true;
 }
 
 // Returns the number of points found in the CSV file

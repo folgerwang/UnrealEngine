@@ -225,6 +225,38 @@ void UNiagaraDataInterfaceHoudiniCSV::GetFunctions(TArray<FNiagaraFunctionSignat
 		OutFunctions.Add(Sig);
     }
 
+	{
+		// GetCSVVelocity
+		FNiagaraFunctionSignature Sig;
+		Sig.Name = TEXT("GetCSVVelocity");
+		Sig.bMemberFunction = true;
+		Sig.bRequiresContext = false;
+		Sig.Inputs.Add(FNiagaraVariable(FNiagaraTypeDefinition(GetClass()), TEXT("CSV")));			// CSV in
+		Sig.Inputs.Add(FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("Row")));			// Row Index In
+		Sig.Outputs.Add(FNiagaraVariable(FNiagaraTypeDefinition::GetVec3Def(), TEXT("Velocity")));	// Vector3 Out
+
+		Sig.SetDescription(LOCTEXT("DataInterfaceHoudini_GetCSVVelocity",
+			"Helper function returning the velocity value for a given Row in the CSV file.\nThe returned velocity vector is converted from Houdini's coordinate system to Unreal's."));
+
+		OutFunctions.Add(Sig);
+	}
+
+	{
+		// GetCSVColor
+		FNiagaraFunctionSignature Sig;
+		Sig.Name = TEXT("GetCSVColor");
+		Sig.bMemberFunction = true;
+		Sig.bRequiresContext = false;
+		Sig.Inputs.Add(FNiagaraVariable(FNiagaraTypeDefinition(GetClass()), TEXT("CSV")));			// CSV in
+		Sig.Inputs.Add(FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("Row")));			// Row Index In
+		Sig.Outputs.Add(FNiagaraVariable(FNiagaraTypeDefinition::GetColorDef(), TEXT("Color")));	// Color Out
+
+		Sig.SetDescription(LOCTEXT("DataInterfaceHoudini_GetCSVColor",
+			"Helper function returning the color value for a given Row in the CSV file."));
+
+		OutFunctions.Add(Sig);
+	}
+
     {
 		// GetNumberOfParticlesInCSV
 		FNiagaraFunctionSignature Sig;
@@ -483,6 +515,8 @@ DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetCSVVectorValue);
 DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetCSVPosition);
 DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetCSVNormal);
 DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetCSVTime);
+DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetCSVColor);
+DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetCSVVelocity);
 DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetCSVPositionAndTime);
 DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetLastRowIndexAtTime);
 DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetParticleIndexesToSpawnAtTime);
@@ -517,6 +551,14 @@ void UNiagaraDataInterfaceHoudiniCSV::GetVMExternalFunction(const FVMExternalFun
     {
 		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetCSVTime)>::Bind(this, BindingInfo, InstanceData, OutFunc);
     }
+	else if (BindingInfo.Name == TEXT("GetCSVVelocity") && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 3)
+	{
+		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetCSVVelocity)>::Bind(this, BindingInfo, InstanceData, OutFunc);
+	}
+	else if (BindingInfo.Name == TEXT("GetCSVColor") && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 4)
+	{
+		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetCSVColor)>::Bind(this, BindingInfo, InstanceData, OutFunc);
+	}
     else if (BindingInfo.Name == TEXT("GetCSVPositionAndTime") && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 4)
     {
 		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetCSVPositionAndTime)>::Bind(this, BindingInfo, InstanceData, OutFunc);
@@ -720,6 +762,61 @@ void UNiagaraDataInterfaceHoudiniCSV::GetCSVTime(FVectorVMContext& Context)
 		RowParam.Advance();
 		OutValue.Advance();
     }
+}
+
+template<typename RowParamType>
+void UNiagaraDataInterfaceHoudiniCSV::GetCSVVelocity(FVectorVMContext& Context)
+{
+	RowParamType RowParam(Context);
+	FRegisterHandler<float> OutSampleX(Context);
+	FRegisterHandler<float> OutSampleY(Context);
+	FRegisterHandler<float> OutSampleZ(Context);
+
+	for (int32 i = 0; i < Context.NumInstances; ++i)
+	{
+		int32 row = RowParam.Get();
+
+		FVector V = FVector::ZeroVector;
+		if ( CSVFile )
+			CSVFile->GetCSVVelocityValue( row, V );
+
+		*OutSampleX.GetDest() = V.X;
+		*OutSampleY.GetDest() = V.Y;
+		*OutSampleZ.GetDest() = V.Z;
+		RowParam.Advance();
+		OutSampleX.Advance();
+		OutSampleY.Advance();
+		OutSampleZ.Advance();
+	}
+}
+
+template<typename RowParamType>
+void UNiagaraDataInterfaceHoudiniCSV::GetCSVColor(FVectorVMContext& Context)
+{
+	RowParamType RowParam(Context);
+	FRegisterHandler<float> OutSampleR(Context);
+	FRegisterHandler<float> OutSampleG(Context);
+	FRegisterHandler<float> OutSampleB(Context);
+	FRegisterHandler<float> OutSampleA(Context);
+
+	for (int32 i = 0; i < Context.NumInstances; ++i)
+	{
+		int32 row = RowParam.Get();
+
+		FLinearColor C = FLinearColor::White;
+		if ( CSVFile )
+			CSVFile->GetCSVColorValue( row, C );
+
+		*OutSampleR.GetDest() = C.R;
+		*OutSampleG.GetDest() = C.G;
+		*OutSampleB.GetDest() = C.B;
+		*OutSampleA.GetDest() = C.A;
+		RowParam.Advance();
+		OutSampleR.Advance();
+		OutSampleG.Advance();
+		OutSampleB.Advance();
+		OutSampleA.Advance();
+	}
 }
 
 // Returns the last index of the particles that should be spawned at time t

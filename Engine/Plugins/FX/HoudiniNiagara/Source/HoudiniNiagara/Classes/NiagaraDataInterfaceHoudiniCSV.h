@@ -61,7 +61,7 @@ public:
 	//----------------------------------------------------------------------------
 	// EXPOSED FUNCTIONS
 
-	// Returns the float value at a given point in the CSV file
+	// Returns the float value at a given row and column in the CSV file
 	template<typename RowParamType, typename ColParamType>
 	void GetCSVFloatValue(FVectorVMContext& Context);
 
@@ -70,23 +70,31 @@ public:
 	void GetCSVFloatValueByString(FVectorVMContext& Context);
 	*/
 
-	// Returns a Vector3 value for a given point in the csv file
+	// Returns a Vector3 value for a given row in the csv file
 	template<typename RowParamType, typename ColParamType>
 	void GetCSVVectorValue(FVectorVMContext& Context);
 
-	// Returns the positions for a given point in the CSV file
+	// Returns the positions for a given row in the CSV file
 	template<typename RowParamType>
 	void GetCSVPosition(FVectorVMContext& Context);
 
-	// Returns the normals for a given point in the CSV file
+	// Returns the normals for a given row in the CSV file
 	template<typename RowParamType>
 	void GetCSVNormal(FVectorVMContext& Context);
 
-	// Returns the time for a given point in the CSV file
+	// Returns the time for a given row in the CSV file
 	template<typename RowParamType>
 	void GetCSVTime(FVectorVMContext& Context);
 
-	// Returns the position and time for a given point in the CSV file
+	// Returns the velocity for a given row in the CSV file
+	template<typename RowParamType>
+	void GetCSVVelocity(FVectorVMContext& Context);
+
+	// Returns the color for a given row in the CSV file
+	template<typename RowParamType>
+	void GetCSVColor(FVectorVMContext& Context);
+
+	// Returns the position and time for a given row in the CSV file
 	template<typename RowParamType>
 	void GetCSVPositionAndTime(FVectorVMContext& Context);
 

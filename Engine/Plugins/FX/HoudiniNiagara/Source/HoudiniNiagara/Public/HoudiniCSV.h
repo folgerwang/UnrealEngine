@@ -85,6 +85,10 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	bool GetCSVPositionValue( const int32& lineIndex, FVector& value );
 	// Returns a Normal Vector3 for a given point in the CSV file (converted to unreal's coordinate system)
 	bool GetCSVNormalValue( const int32& lineIndex, FVector& value );
+	// Returns a Color for a given point in the CSV file
+	bool GetCSVColorValue( const int32& lineIndex, FLinearColor& value );
+	// Returns a Velocity Vector3 for a given point in the CSV file
+	bool GetCSVVelocityValue(const int32& lineIndex, FVector& value );
 
 	// Get the last row index for a given time value (the row with a time smaller or equal to desiredTime)
 	// If the CSV file doesn't have time informations, returns false and set the LastRowIndex to the last line in the file
@@ -192,12 +196,16 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	int32 LifeColumnIndex;
 
 	// Index of the color values in the buffer
-	//UPROPERTY()
-	//int32 ColorColumnIndex;
+	UPROPERTY()
+	int32 ColorColumnIndex;
+
+	// Index of the color values in the buffer
+	UPROPERTY()
+	int32 AlphaColumnIndex;
 
 	// Index of the velocity values in the buffer
-	//UPROPERTY()
-	//int32 VelocityColumnIndex;
+	UPROPERTY()
+	int32 VelocityColumnIndex;
 
 	// Row indexes for new time values
 	//UPROPERTY()
