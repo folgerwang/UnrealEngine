@@ -836,7 +836,8 @@ void FPixelShaderInOut_MainPS(
 		Metallic, 
 		Specular, 
 		Roughness, 
-		float4(SubsurfaceColor, SubsurfaceProfile));
+		SubsurfaceColor,
+		SubsurfaceProfile);
 
 #if USES_GBUFFER
 	GBuffer.SelectiveOutputMask = GetSelectiveOutputMask();
