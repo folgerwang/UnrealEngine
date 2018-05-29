@@ -334,6 +334,11 @@ private:
 	*/
 	FArchiveFormatterType& Formatter;
 
+	/**
+	 * Whether the formatter requires structural metadata. This allows optimizing the path for binary archives in editor builds.
+	 */
+	const bool bRequiresStructuralMetadata;
+
 #if WITH_TEXT_ARCHIVE_SUPPORT
 	enum class EElementType : unsigned char
 	{
