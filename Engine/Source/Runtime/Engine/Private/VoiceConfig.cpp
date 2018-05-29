@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "VoiceConfig.h"
+#include "Net/VoiceConfig.h"
 #include "Engine/World.h"
 #include "GameFramework/GameStateBase.h"
 
