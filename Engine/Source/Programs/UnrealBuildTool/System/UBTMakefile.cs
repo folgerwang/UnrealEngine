@@ -279,6 +279,7 @@ namespace UnrealBuildTool
 			catch (Exception Ex)
 			{
 				Log.TraceWarning("Failed to read makefile: {0}", Ex.Message);
+				Log.TraceLog("Exception: {0}", Ex.ToString());
 				ReasonNotLoaded = "couldn't read existing makefile";
 				return null;
 			}
