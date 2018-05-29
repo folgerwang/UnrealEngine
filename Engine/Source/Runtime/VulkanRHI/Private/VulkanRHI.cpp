@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanRHI.cpp: Vulkan device RHI implementation.
@@ -269,6 +269,9 @@ void FVulkanDynamicRHI::Shutdown()
 
 	delete Device;
 	Device = nullptr;
+
+	// Release the early HMD interface used to query extra extensions - if any was used
+	HMDVulkanExtensions = nullptr;
 
 #if VULKAN_HAS_DEBUGGING_ENABLED
 	RemoveDebugLayerCallback();
@@ -632,9 +635,6 @@ void FVulkanDynamicRHI::InitInstance()
 		FHardwareInfo::RegisterHardwareInfo(NAME_RHI, TEXT("Vulkan"));
 
 		GProjectionSignY = 1.0f;
-
-		// Release the early HMD interface used to query extra extensions - if any was used
-		HMDVulkanExtensions = nullptr;
 
 		GIsRHIInitialized = true;
 
