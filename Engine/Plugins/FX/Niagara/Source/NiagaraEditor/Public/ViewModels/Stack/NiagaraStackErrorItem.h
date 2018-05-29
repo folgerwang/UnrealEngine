@@ -16,6 +16,7 @@ public:
 public:
 	void Initialize(FRequiredEntryData InRequiredEntryData, FStackIssue InStackIssue, FString InStackEditorDataKey);
 	FStackIssue GetStackIssue() const { return StackIssue; }
+	void SetStackIssue(const FStackIssue& InStackIssue);
 	virtual FText GetDisplayName() const override;
 	virtual EStackRowStyle GetStackRowStyle() const override;
 	FOnIssueNotify& OnIssueModified();
@@ -60,6 +61,7 @@ public:
 	virtual EStackRowStyle GetStackRowStyle() const override;
 	virtual FText GetFixButtonText() const;
 	UNiagaraStackErrorItem::FOnIssueNotify& OnIssueFixed();
+	void SetFixDelegate(const FStackIssueFixDelegate& InFixDelegate);
 
 protected:
 	FStackIssue StackIssue;

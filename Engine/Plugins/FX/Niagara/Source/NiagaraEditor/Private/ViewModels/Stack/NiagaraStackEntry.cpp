@@ -22,6 +22,7 @@ UNiagaraStackEntry::FStackIssueFix::FStackIssueFix()
 UNiagaraStackEntry::FStackIssueFix::FStackIssueFix(FText InDescription, FStackIssueFixDelegate InFixDelegate)
 	: Description(InDescription)
 	, FixDelegate(InFixDelegate)
+	, UniqueIdentifier(FMD5::HashAnsiString(*FString::Printf(TEXT("%s"), *InDescription.ToString())))
 {
 	checkf(Description.IsEmptyOrWhitespace() == false, TEXT("Description can not be empty."));
 	checkf(InFixDelegate.IsBound(), TEXT("Fix delegate must be bound."));
@@ -37,6 +38,16 @@ const FText& UNiagaraStackEntry::FStackIssueFix::GetDescription() const
 	return Description;
 }
 
+void UNiagaraStackEntry::FStackIssueFix::SetFixDelegate(const FStackIssueFixDelegate& InFixDelegate)
+{
+	FixDelegate = InFixDelegate;
+}
+
+const FString& UNiagaraStackEntry::FStackIssueFix::GetUniqueIdentifier() const
+{
+	return UniqueIdentifier;
+}
+
 const UNiagaraStackEntry::FStackIssueFixDelegate& UNiagaraStackEntry::FStackIssueFix::GetFixDelegate() const
 {
 	return FixDelegate;
@@ -50,18 +61,13 @@ UNiagaraStackEntry::FStackIssue::FStackIssue(EStackIssueSeverity InSeverity, FTe
 	: Severity(InSeverity)
 	, ShortDescription(InShortDescription)
 	, LongDescription(InLongDescription)
+	, UniqueIdentifier(FMD5::HashAnsiString(*FString::Printf(TEXT("%s-%s"), *InStackEditorDataKey, *InLongDescription.ToString())))
 	, bCanBeDismissed(bInCanBeDismissed)
 	, Fixes(InFixes)
 {
 	checkf(ShortDescription.IsEmptyOrWhitespace() == false, TEXT("Short description can not be empty."));
 	checkf(LongDescription.IsEmptyOrWhitespace() == false, TEXT("Long description can not be empty."));
 	checkf(InStackEditorDataKey.IsEmpty() == false, TEXT("Stack editor data key can not be empty."));
-	FString Descriptions = LongDescription.ToString();
-	for (FStackIssueFix Fix : Fixes)
-	{
-		Descriptions += Fix.GetDescription().ToString();
-	}
-	UniqueIdentifier = FMD5::HashAnsiString(*FString::Printf(TEXT("%s-%s"), *InStackEditorDataKey, *Descriptions));
 }
 
 UNiagaraStackEntry::FStackIssue::FStackIssue(EStackIssueSeverity InSeverity, FText InShortDescription, FText InLongDescription, FString InStackEditorDataKey, bool bInCanBeDismissed, FStackIssueFix InFix)
@@ -481,6 +487,7 @@ void UNiagaraStackEntry::RefreshStackErrorChildren()
 		else
 		{
 			ErrorEntry = *Found;
+			ErrorEntry->SetStackIssue(Issue); // we found the entry by id but we want to properly refresh the subentries of the issue (specifically its fixes), too
 		}
 		NewErrorChildren.Add(ErrorEntry);
 	}

@@ -481,7 +481,7 @@ void UNiagaraStackModuleItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 								TargetIndex = PostIndex; // if it also has post dependencies just add it before its first post dependency
 							}
 						}
-						NewModuleNode = FNiagaraStackGraphUtilities::AddScriptModuleToStack(ModuleAsset, *TargetOutputNode, TargetIndex); // no target index for now, until fix
+						NewModuleNode = FNiagaraStackGraphUtilities::AddScriptModuleToStack(ModuleAsset, *TargetOutputNode, TargetIndex);
 						checkf(NewModuleNode != nullptr, TEXT("Add module action failed"));
 						FNiagaraStackGraphUtilities::InitializeStackFunctionInputs(GetSystemViewModel(), GetEmitterViewModel(), GetStackEditorData(), *NewModuleNode, *NewModuleNode);
 						FNiagaraStackGraphUtilities::RelayoutGraph(*TargetOutputNode->GetGraph());
@@ -493,7 +493,7 @@ void UNiagaraStackModuleItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 			UNiagaraStackEntry::FStackIssue Error(
 				EStackIssueSeverity::Error,
 				LOCTEXT("DependencyWarning", "The module has unmet dependencies."),
-				FText::Format(LOCTEXT("DependencyWarningLong", "The following {0} is not met: {1}"), DependencyTypeString, Dependency.Description),
+				FText::Format(LOCTEXT("DependencyWarningLong", "The following {0} is not met: {1}; {2}"), DependencyTypeString, FText::FromName(Dependency.Id), Dependency.Description),
 				FString::Printf(TEXT("%s-dependency-%s"), *GetStackEditorDataKey(), *Dependency.Id.ToString()),
 				true,
 				Fixes);

@@ -112,16 +112,16 @@ public:
 
 		const FText& GetDescription() const;
 
+		void SetFixDelegate(const FStackIssueFixDelegate& InFixDelegate);
+
 		const FStackIssueFixDelegate& GetFixDelegate() const;
 
-		bool operator == (const FStackIssueFix &Other) const
-		{
-			return Description.CompareTo(Other.Description) == 0 && FixDelegate.GetHandle() == Other.FixDelegate.GetHandle();
-		}
+		const FString& GetUniqueIdentifier() const;
 
 	private:
 		FText Description;
 		FStackIssueFixDelegate FixDelegate;
+		FString UniqueIdentifier;
 	};
 
 	struct FStackIssue

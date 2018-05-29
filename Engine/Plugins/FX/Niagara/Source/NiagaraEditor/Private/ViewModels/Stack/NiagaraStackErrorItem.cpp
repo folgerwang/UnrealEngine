@@ -15,6 +15,11 @@ void UNiagaraStackErrorItem::Initialize(FRequiredEntryData InRequiredEntryData, 
 	EntryStackEditorDataKey = InStackEditorDataKey;
 }
 
+void UNiagaraStackErrorItem::SetStackIssue(const FStackIssue& InStackIssue)
+{
+	StackIssue = InStackIssue;
+}
+
 FText UNiagaraStackErrorItem::GetDisplayName() const
 {
 	return StackIssue.GetShortDescription();
@@ -53,12 +58,17 @@ void UNiagaraStackErrorItem::RefreshChildrenInternal(const TArray<UNiagaraStackE
 	// fixes
 	for (int i = 0; i < StackIssue.GetFixes().Num(); i++)
 	{
+		UNiagaraStackEntry::FStackIssueFix CurrentFix = StackIssue.GetFixes()[i];
 		UNiagaraStackErrorItemFix* ErrorEntryFix = FindCurrentChildOfTypeByPredicate<UNiagaraStackErrorItemFix>(CurrentChildren,
-			[&](UNiagaraStackErrorItemFix* CurrentChild) { return CurrentChild->GetStackIssueFix() == StackIssue.GetFixes()[i]; });
+			[&](UNiagaraStackErrorItemFix* CurrentChild) { return CurrentChild->GetStackIssueFix().GetUniqueIdentifier() == CurrentFix.GetUniqueIdentifier(); });
 		if (ErrorEntryFix == nullptr)
 		{
 			ErrorEntryFix = NewObject<UNiagaraStackErrorItemFix>(this);
-			ErrorEntryFix->Initialize(CreateDefaultChildRequiredData(), StackIssue, StackIssue.GetFixes()[i], EntryStackEditorDataKey);
+			ErrorEntryFix->Initialize(CreateDefaultChildRequiredData(), StackIssue, CurrentFix, EntryStackEditorDataKey);
+		}
+		else
+		{
+			ErrorEntryFix->SetFixDelegate(CurrentFix.GetFixDelegate());
 		}
 		ErrorEntryFix->OnIssueFixed().AddUObject(this, &UNiagaraStackErrorItem::IssueFixed);
 		NewChildren.Add(ErrorEntryFix);
@@ -136,6 +146,11 @@ FText UNiagaraStackErrorItemFix::GetFixButtonText() const
 UNiagaraStackErrorItem::FOnIssueNotify& UNiagaraStackErrorItemFix::OnIssueFixed()
 {
 	return IssueFixedDelegate;
+}
+
+void UNiagaraStackErrorItemFix::SetFixDelegate(const FStackIssueFixDelegate& InFixDelegate)
+{
+	IssueFix.SetFixDelegate(InFixDelegate);
 }
 
 //UNiagaraStackErrorItemDismiss
