@@ -6,6 +6,7 @@
 DECLARE_CYCLE_STAT(TEXT("Weak-To-Strong WidgetPath"), STAT_WeakToStrong_WidgetPath, STATGROUP_Slate);
 
 
+
 FWidgetPath::FWidgetPath()
 : Widgets( EVisibility::Visible )
 , TopLevelWindow()
@@ -254,140 +255,143 @@ FWeakWidgetPath::EPathResolutionResult::Result FWeakWidgetPath::ToWidgetPath( FW
 {
 	SCOPE_CYCLE_COUNTER(STAT_WeakToStrong_WidgetPath);
 
-#if SLATE_FAST_WIDGET_PATH
-	TArray<FWidgetAndPointer> PathWithGeometries;
-	TArray< TSharedPtr<SWidget> > WidgetPtrs;
-	
-	// Convert the weak pointers into shared pointers because we are about to do something with this path instead of just observe it.
-	TSharedPtr<SWindow> TopLevelWindowPtr = Window.Pin();
-	for( TArray< TWeakPtr<SWidget> >::TConstIterator SomeWeakWidgetPtr( Widgets ); SomeWeakWidgetPtr; ++SomeWeakWidgetPtr )
+	if (SLATE_PARENT_POINTERS && GSlateFastWidgetPath)
 	{
-		WidgetPtrs.Add( SomeWeakWidgetPtr->Pin() );
-	}	
-	
-	// The path can get interrupted if some subtree of widgets disappeared, but we still maintain weak references to it.
-	bool bPathUninterrupted = false;
+		TArray<FWidgetAndPointer> PathWithGeometries;
+		TArray< TSharedPtr<SWidget> > WidgetPtrs;
 
-	// For each widget in the path compute the geometry. We are able to do this starting with the top-level window because it knows its own geometry.
-	if ( TopLevelWindowPtr.IsValid() )
-	{
-		bPathUninterrupted = true;
-
-		FGeometry ParentGeometry = TopLevelWindowPtr->GetWindowGeometryInScreen();
-		PathWithGeometries.Add( FWidgetAndPointer(
-			FArrangedWidget( TopLevelWindowPtr.ToSharedRef(), ParentGeometry ),
-			// @todo slate: this should be the cursor's virtual position in window space.
-			TSharedPtr<FVirtualPointerPosition>() ) );
-		
-		TSharedPtr<FVirtualPointerPosition> VirtualPointerPos;
-		// For every widget in the vertical slice...
-		for( int32 WidgetIndex = 0; bPathUninterrupted && WidgetIndex < WidgetPtrs.Num()-1; ++WidgetIndex )
+		// Convert the weak pointers into shared pointers because we are about to do something with this path instead of just observe it.
+		TSharedPtr<SWindow> TopLevelWindowPtr = Window.Pin();
+		for (TArray< TWeakPtr<SWidget> >::TConstIterator SomeWeakWidgetPtr(Widgets); SomeWeakWidgetPtr; ++SomeWeakWidgetPtr)
 		{
-			TSharedPtr<SWidget> CurWidget = WidgetPtrs[WidgetIndex];
+			WidgetPtrs.Add(SomeWeakWidgetPtr->Pin());
+		}
 
-			bool bFoundChild = false;
-			if ( CurWidget.IsValid() && EVisibility::DoesVisibilityPassFilter(CurWidget->GetVisibility(), VisibilityFilter))
+		// The path can get interrupted if some subtree of widgets disappeared, but we still maintain weak references to it.
+		bool bPathUninterrupted = false;
+
+		// For each widget in the path compute the geometry. We are able to do this starting with the top-level window because it knows its own geometry.
+		if (TopLevelWindowPtr.IsValid())
+		{
+			bPathUninterrupted = true;
+
+			FGeometry ParentGeometry = TopLevelWindowPtr->GetWindowGeometryInScreen();
+			PathWithGeometries.Add(FWidgetAndPointer(
+				FArrangedWidget(TopLevelWindowPtr.ToSharedRef(), ParentGeometry),
+				// @todo slate: this should be the cursor's virtual position in window space.
+				TSharedPtr<FVirtualPointerPosition>()));
+
+			TSharedPtr<FVirtualPointerPosition> VirtualPointerPos;
+			// For every widget in the vertical slice...
+			for (int32 WidgetIndex = 0; bPathUninterrupted && WidgetIndex < WidgetPtrs.Num() - 1; ++WidgetIndex)
 			{
-				TSharedRef<SWidget> CurWidgetRef = CurWidget.ToSharedRef();
-				const TSharedPtr<SWidget>& ChildWidgetPtr = WidgetPtrs[WidgetIndex + 1];
+				TSharedPtr<SWidget> CurWidget = WidgetPtrs[WidgetIndex];
 
-				if (ChildWidgetPtr.IsValid() && ChildWidgetPtr->GetParentWidget() == CurWidgetRef)
+				bool bFoundChild = false;
+				if (CurWidget.IsValid() && EVisibility::DoesVisibilityPassFilter(CurWidget->GetVisibility(), VisibilityFilter))
 				{
-					if( PointerEvent && !VirtualPointerPos.IsValid() )
+					TSharedRef<SWidget> CurWidgetRef = CurWidget.ToSharedRef();
+					const TSharedPtr<SWidget>& ChildWidgetPtr = WidgetPtrs[WidgetIndex + 1];
+
+					if (ChildWidgetPtr.IsValid() && ChildWidgetPtr->GetParentWidget() == CurWidgetRef)
 					{
-						VirtualPointerPos = CurWidget->TranslateMouseCoordinateFor3DChild(CurWidgetRef, ParentGeometry, PointerEvent->GetScreenSpacePosition(), PointerEvent->GetLastScreenSpacePosition() );
-					}
-
-					bFoundChild = true;
-					// Remember the widget, the associated geometry, and the pointer position in a transformed space.
-					PathWithGeometries.Add( FWidgetAndPointer(FArrangedWidget(ChildWidgetPtr.ToSharedRef(), ChildWidgetPtr->GetCachedGeometry()), VirtualPointerPos) );
-					// The next child in the vertical slice will be arranged with respect to its parent's geometry.
-					ParentGeometry = CurWidgetRef->GetCachedGeometry();
-				}
-			}
-
-			bPathUninterrupted = bFoundChild;
-			if (!bFoundChild && InterruptedPathHandling == EInterruptedPathHandling::ReturnInvalid )
-			{
-				return EPathResolutionResult::Truncated;
-			}
-		}			
-	}
-	
-	WidgetPath = FWidgetPath( PathWithGeometries );
-	return bPathUninterrupted ? EPathResolutionResult::Live : EPathResolutionResult::Truncated;
-#else
-	TArray<FWidgetAndPointer> PathWithGeometries;
-	TArray< TSharedPtr<SWidget> > WidgetPtrs;
-		
-	// Convert the weak pointers into shared pointers because we are about to do something with this path instead of just observe it.
-	TSharedPtr<SWindow> TopLevelWindowPtr = Window.Pin();
-	for( TArray< TWeakPtr<SWidget> >::TConstIterator SomeWeakWidgetPtr( Widgets ); SomeWeakWidgetPtr; ++SomeWeakWidgetPtr )
-	{
-		WidgetPtrs.Add( SomeWeakWidgetPtr->Pin() );
-	}	
-	
-	// The path can get interrupted if some subtree of widgets disappeared, but we still maintain weak references to it.
-	bool bPathUninterrupted = false;
-
-	// For each widget in the path compute the geometry. We are able to do this starting with the top-level window because it knows its own geometry.
-	if ( TopLevelWindowPtr.IsValid() )
-	{
-		bPathUninterrupted = true;
-
-		FGeometry ParentGeometry = TopLevelWindowPtr->GetWindowGeometryInScreen();
-		PathWithGeometries.Add( FWidgetAndPointer(
-			FArrangedWidget( TopLevelWindowPtr.ToSharedRef(), ParentGeometry ),
-			// @todo slate: this should be the cursor's virtual position in window space.
-			TSharedPtr<FVirtualPointerPosition>() ) );
-		
-		FArrangedChildren ArrangedChildren(VisibilityFilter, true);
-		
-		TSharedPtr<FVirtualPointerPosition> VirtualPointerPos;
-		// For every widget in the vertical slice...
-		for( int32 WidgetIndex = 0; bPathUninterrupted && WidgetIndex < WidgetPtrs.Num()-1; ++WidgetIndex )
-		{
-			TSharedPtr<SWidget> CurWidget = WidgetPtrs[WidgetIndex];
-
-			bool bFoundChild = false;
-			if ( CurWidget.IsValid() )
-			{
-				// Arrange the widget's children to find their geometries.
-				ArrangedChildren.Empty();
-				CurWidget->ArrangeChildren(ParentGeometry, ArrangedChildren);
-				
-				// Find the next widget in the path among the arranged children.
-				for( int32 SearchIndex = 0; !bFoundChild && SearchIndex < ArrangedChildren.Num(); ++SearchIndex )
-				{					
-					FArrangedWidget& ArrangedWidget = ArrangedChildren[SearchIndex];
-
-					if ( ArrangedWidget.Widget == WidgetPtrs[WidgetIndex + 1] )
-					{
-						if( PointerEvent && !VirtualPointerPos.IsValid() )
+						if (PointerEvent && !VirtualPointerPos.IsValid())
 						{
-							VirtualPointerPos = CurWidget->TranslateMouseCoordinateFor3DChild( ArrangedWidget.Widget, ParentGeometry, PointerEvent->GetScreenSpacePosition(), PointerEvent->GetLastScreenSpacePosition() );
+							VirtualPointerPos = CurWidget->TranslateMouseCoordinateFor3DChild(CurWidgetRef, ParentGeometry, PointerEvent->GetScreenSpacePosition(), PointerEvent->GetLastScreenSpacePosition());
 						}
 
 						bFoundChild = true;
 						// Remember the widget, the associated geometry, and the pointer position in a transformed space.
-						PathWithGeometries.Add( FWidgetAndPointer(ArrangedChildren[SearchIndex], VirtualPointerPos) );
+						PathWithGeometries.Add(FWidgetAndPointer(FArrangedWidget(ChildWidgetPtr.ToSharedRef(), ChildWidgetPtr->GetCachedGeometry()), VirtualPointerPos));
 						// The next child in the vertical slice will be arranged with respect to its parent's geometry.
-						ParentGeometry = ArrangedChildren[SearchIndex].Geometry;
+						ParentGeometry = CurWidgetRef->GetCachedGeometry();
 					}
 				}
-			}
 
-			bPathUninterrupted = bFoundChild;
-			if (!bFoundChild && InterruptedPathHandling == EInterruptedPathHandling::ReturnInvalid )
-			{
-				return EPathResolutionResult::Truncated;
+				bPathUninterrupted = bFoundChild;
+				if (!bFoundChild && InterruptedPathHandling == EInterruptedPathHandling::ReturnInvalid)
+				{
+					return EPathResolutionResult::Truncated;
+				}
 			}
-		}			
+		}
+
+		WidgetPath = FWidgetPath(PathWithGeometries);
+		return bPathUninterrupted ? EPathResolutionResult::Live : EPathResolutionResult::Truncated;
 	}
-	
-	WidgetPath = FWidgetPath( PathWithGeometries );
-	return bPathUninterrupted ? EPathResolutionResult::Live : EPathResolutionResult::Truncated;
-#endif
+	else
+	{
+		TArray<FWidgetAndPointer> PathWithGeometries;
+		TArray< TSharedPtr<SWidget> > WidgetPtrs;
+
+		// Convert the weak pointers into shared pointers because we are about to do something with this path instead of just observe it.
+		TSharedPtr<SWindow> TopLevelWindowPtr = Window.Pin();
+		for (TArray< TWeakPtr<SWidget> >::TConstIterator SomeWeakWidgetPtr(Widgets); SomeWeakWidgetPtr; ++SomeWeakWidgetPtr)
+		{
+			WidgetPtrs.Add(SomeWeakWidgetPtr->Pin());
+		}
+
+		// The path can get interrupted if some subtree of widgets disappeared, but we still maintain weak references to it.
+		bool bPathUninterrupted = false;
+
+		// For each widget in the path compute the geometry. We are able to do this starting with the top-level window because it knows its own geometry.
+		if (TopLevelWindowPtr.IsValid())
+		{
+			bPathUninterrupted = true;
+
+			FGeometry ParentGeometry = TopLevelWindowPtr->GetWindowGeometryInScreen();
+			PathWithGeometries.Add(FWidgetAndPointer(
+				FArrangedWidget(TopLevelWindowPtr.ToSharedRef(), ParentGeometry),
+				// @todo slate: this should be the cursor's virtual position in window space.
+				TSharedPtr<FVirtualPointerPosition>()));
+
+			FArrangedChildren ArrangedChildren(VisibilityFilter, true);
+
+			TSharedPtr<FVirtualPointerPosition> VirtualPointerPos;
+			// For every widget in the vertical slice...
+			for (int32 WidgetIndex = 0; bPathUninterrupted && WidgetIndex < WidgetPtrs.Num() - 1; ++WidgetIndex)
+			{
+				TSharedPtr<SWidget> CurWidget = WidgetPtrs[WidgetIndex];
+
+				bool bFoundChild = false;
+				if (CurWidget.IsValid())
+				{
+					// Arrange the widget's children to find their geometries.
+					ArrangedChildren.Empty();
+					CurWidget->ArrangeChildren(ParentGeometry, ArrangedChildren);
+
+					// Find the next widget in the path among the arranged children.
+					for (int32 SearchIndex = 0; !bFoundChild && SearchIndex < ArrangedChildren.Num(); ++SearchIndex)
+					{
+						FArrangedWidget& ArrangedWidget = ArrangedChildren[SearchIndex];
+
+						if (ArrangedWidget.Widget == WidgetPtrs[WidgetIndex + 1])
+						{
+							if (PointerEvent && !VirtualPointerPos.IsValid())
+							{
+								VirtualPointerPos = CurWidget->TranslateMouseCoordinateFor3DChild(ArrangedWidget.Widget, ParentGeometry, PointerEvent->GetScreenSpacePosition(), PointerEvent->GetLastScreenSpacePosition());
+							}
+
+							bFoundChild = true;
+							// Remember the widget, the associated geometry, and the pointer position in a transformed space.
+							PathWithGeometries.Add(FWidgetAndPointer(ArrangedChildren[SearchIndex], VirtualPointerPos));
+							// The next child in the vertical slice will be arranged with respect to its parent's geometry.
+							ParentGeometry = ArrangedChildren[SearchIndex].Geometry;
+						}
+					}
+				}
+
+				bPathUninterrupted = bFoundChild;
+				if (!bFoundChild && InterruptedPathHandling == EInterruptedPathHandling::ReturnInvalid)
+				{
+					return EPathResolutionResult::Truncated;
+				}
+			}
+		}
+
+		WidgetPath = FWidgetPath(PathWithGeometries);
+		return bPathUninterrupted ? EPathResolutionResult::Live : EPathResolutionResult::Truncated;
+	}
 }
 
 bool FWeakWidgetPath::ContainsWidget( const TSharedRef< const SWidget >& SomeWidget ) const

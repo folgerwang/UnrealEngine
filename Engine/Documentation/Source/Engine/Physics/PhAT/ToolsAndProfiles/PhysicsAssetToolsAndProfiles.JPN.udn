@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3735117
+﻿INTSourceChangelist:3801260
 Availability:Public
 Crumbs: %ROOT%
 Title:物理アセット エディタ - ツールとプロファイル
@@ -13,11 +13,6 @@ Related:Engine/Animation/Persona/Modes
 Related:Engine/Physics/PhAT/SkeletonTree
 Order:
 Tags:Physics
-
-
-[VAR:spacer]![](%ROOT%/spacer.png)(w:100 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:0 convert:false)[/VAR]
-
 
 [TOC(start:2 end:3)]
 
@@ -201,15 +196,15 @@ Current Profile が割り当てられていないノードは、網掛けにな�
 ![](PhysicalAnimationSettings.png)
 
 [REGION:raw]
-| プロパティ | %spacer% | 説明 |
-| -------- | -------- | ----------- |
-| **Is Local Simulation** || 操作ターゲットがいるのはワールドかローカル空間か。 |
-| **Orientation Strength** || 方向エラーの修正に使用する強度です。 |
-| **Angular Velocity Strength** || 角速度エラーの修正に使用する強度です。 |
-| **Position Strength** || 線形位置エラーの修正の使用する強度です。ローカルではないシミュレーションのみに使用します。 |
-| **Velocity Strength** || 線形速度の修正に使用する強度です。ローカルではないシミュレーションのみに使用します。 |
-| **Max Linear Force** || 線形エラーの修正に使用する最大の力です。 |
-| **Max Angular Force** || 角エラーの修正に使用する最大の力です。 |
+| プロパティ | 説明 |
+| -------- | ----------- |
+| **Is Local Simulation** | 操作ターゲットがいるのはワールドかローカル空間か。 |
+| **Orientation Strength** | 方向エラーの修正に使用する強度です。 |
+| **Angular Velocity Strength** | 角速度エラーの修正に使用する強度です。 |
+| **Position Strength** | 線形位置エラーの修正の使用する強度です。ローカルではないシミュレーションのみに使用します。 |
+| **Velocity Strength** | 線形速度の修正に使用する強度です。ローカルではないシミュレーションのみに使用します。 |
+| **Max Linear Force** | 線形エラーの修正に使用する最大の力です。 |
+| **Max Angular Force** | 角エラーの修正に使用する最大の力です。 |
 [/REGION]
 
 #### コンストレイント プロファイル
@@ -243,7 +238,7 @@ Current Profile が割り当てられていないノードは、網掛けにな�
 ![](PhysicsSettings.png)
 
 [REGION:raw]
-| プロパティ | %spacer% | 説明 |
-| -------- | -------- | ----------- |
-| **Use Async Scene** || true の場合、物理アセットのボディは物理シーンに非同期になります。false の場合、物理シーンに同期されます。 |
+| プロパティ | 説明 |
+| -------- | ----------- |
+| **Use Async Scene** | true の場合、物理アセットのボディは物理シーンに非同期になります。false の場合、物理シーンに同期されます。 |
 [/REGION]

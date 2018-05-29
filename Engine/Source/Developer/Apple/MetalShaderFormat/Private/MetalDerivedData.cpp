@@ -372,7 +372,7 @@ bool FMetalShaderOutputCooker::Build(TArray<uint8>& OutData)
 	FString const* FastIntrinsics = Input.Environment.GetDefinitions().Find(TEXT("METAL_USE_FAST_INTRINSICS"));
 	if (FastIntrinsics)
 	{
-		LexicalConversion::FromString(bAllowFastIntriniscs, *(*FastIntrinsics));
+		LexFromString(bAllowFastIntriniscs, *(*FastIntrinsics));
 	}
 
 	bool bForceInvariance = false;

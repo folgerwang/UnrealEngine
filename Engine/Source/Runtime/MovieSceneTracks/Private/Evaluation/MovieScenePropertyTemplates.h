@@ -49,7 +49,7 @@ struct FMovieSceneFloatPropertySectionTemplate : public FMovieScenePropertySecti
 {
 	GENERATED_BODY()
 	
-	FMovieSceneFloatPropertySectionTemplate(){}
+	FMovieSceneFloatPropertySectionTemplate() : BlendType((EMovieSceneBlendType)0) {}
 	FMovieSceneFloatPropertySectionTemplate(const UMovieSceneFloatSection& Section, const UMovieScenePropertyTrack& Track);
 
 protected:
@@ -105,7 +105,7 @@ struct FMovieSceneIntegerPropertySectionTemplate : public FMovieScenePropertySec
 {
 	GENERATED_BODY()
 	
-	FMovieSceneIntegerPropertySectionTemplate(){}
+	FMovieSceneIntegerPropertySectionTemplate() : BlendType((EMovieSceneBlendType)0) {}
 	FMovieSceneIntegerPropertySectionTemplate(const UMovieSceneIntegerSection& Section, const UMovieScenePropertyTrack& Track);
 
 protected:
@@ -147,7 +147,7 @@ struct FMovieSceneVectorPropertySectionTemplate : public FMovieScenePropertySect
 {
 	GENERATED_BODY()
 	
-	FMovieSceneVectorPropertySectionTemplate(){}
+	FMovieSceneVectorPropertySectionTemplate() : NumChannelsUsed(0), BlendType((EMovieSceneBlendType)0) {}
 	FMovieSceneVectorPropertySectionTemplate(const UMovieSceneVectorSection& Section, const UMovieScenePropertyTrack& Track);
 
 protected:

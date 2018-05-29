@@ -21,6 +21,7 @@
 #include "Engine/EngineTypes.h"
 #include "RHI.h"
 #include "RenderingThread.h"
+#include "Materials/MaterialParameterCollectionInstance.h"
 #include "Engine/World.h"
 #include "GameFramework/Controller.h"
 #include "AI/NavigationSystemBase.h"
@@ -1007,6 +1008,15 @@ void UWorld::SendAllEndOfFrameUpdates()
 		GTWork();
 		ParallelFor(LocalComponentsThatNeedEndOfFrameUpdate.Num(), ParallelWork);
 	}
+	
+	for (UMaterialParameterCollectionInstance* ParameterCollectionInstance : ParameterCollectionInstances)
+	{
+		if (ParameterCollectionInstance)
+		{
+			ParameterCollectionInstance->DeferredUpdateRenderState();
+		}
+	}
+			
 	LocalComponentsThatNeedEndOfFrameUpdate.Reset();
 
 	EndSendEndOfFrameUpdatesDrawEvent(DrawEvent);

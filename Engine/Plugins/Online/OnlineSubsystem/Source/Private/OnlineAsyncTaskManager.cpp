@@ -175,7 +175,7 @@ void FOnlineAsyncTaskManager::GameTick()
 #if !UE_BUILD_SHIPPING
 			if (TimeToWait > 0.0f)
 			{
-				UE_LOG(LogOnline, Verbose, TEXT("Async task '%s' finalizing after %f seconds"),
+				UE_LOG_ONLINE(Verbose, TEXT("Async task '%s' finalizing after %f seconds"),
 					*Item->ToString(),
 					Item->GetElapsedTime());
 			}
@@ -258,13 +258,13 @@ void FOnlineAsyncTaskManager::Tick()
 			{
 				if (Task->WasSuccessful())
 				{
-					UE_LOG(LogOnline, Verbose, TEXT("Async task '%s' succeeded in %f seconds (Parallel)"),
+					UE_LOG_ONLINE(Verbose, TEXT("Async task '%s' succeeded in %f seconds (Parallel)"),
 						*Task->ToString(),
 						Task->GetElapsedTime());
 				}
 				else
 				{
-					UE_LOG(LogOnline, Warning, TEXT("Async task '%s' failed in %f seconds (Parallel)"),
+					UE_LOG_ONLINE(Warning, TEXT("Async task '%s' failed in %f seconds (Parallel)"),
 						*Task->ToString(),
 						Task->GetElapsedTime());
 				}
@@ -292,13 +292,13 @@ void FOnlineAsyncTaskManager::Tick()
 			{
 				if (Task->WasSuccessful())
 				{
-					UE_LOG(LogOnline, Verbose, TEXT("Async task '%s' succeeded in %f seconds"),
+					UE_LOG_ONLINE(Verbose, TEXT("Async task '%s' succeeded in %f seconds"),
 						*Task->ToString(),
 						Task->GetElapsedTime());
 				}
 				else
 				{
-					UE_LOG(LogOnline, Warning, TEXT("Async task '%s' failed in %f seconds"),
+					UE_LOG_ONLINE(Warning, TEXT("Async task '%s' failed in %f seconds"),
 						*Task->ToString(),
 						Task->GetElapsedTime());
 				}

@@ -335,6 +335,19 @@ struct FSelectionStateOfLevel
 	TArray<FString> SelectedComponents;
 };
 
+/** Overrides you can pass when starting PIE to temporarily supress the user's options for dedicated server, number of clients..etc. */
+struct FPlayInEditorOverrides
+{
+	FPlayInEditorOverrides()
+		: bDedicatedServer()
+		, NumberOfClients()
+	{
+	}
+
+	TOptional<bool> bDedicatedServer;
+	TOptional<int32> NumberOfClients;
+};
+
 /**
  * Engine that drives the Editor.
  * Separate from UGameEngine because it may have much different functionality than desired for an instance of a game itself.
@@ -735,9 +748,11 @@ public:
 
 	/** Editor-only event triggered when a HLOD Actor is marked dirty */
 	DECLARE_EVENT_OneParam(UEngine, FHLODActorMarkedDirtyEvent, class ALODActor*);
+	DEPRECATED(4.20, "This function is no longer used.")
 	FHLODActorMarkedDirtyEvent& OnHLODActorMarkedDirty() { return HLODActorMarkedDirtyEvent; }
 
 	/** Called by internal engine systems after a HLOD Actor is marked dirty */
+	DEPRECATED(4.20, "This function is no longer used.")
 	void BroadcastHLODActorMarkedDirty(class ALODActor* InActor) { HLODActorMarkedDirtyEvent.Broadcast(InActor); }
 
 	/** Editor-only event triggered when a HLOD Actor is marked dirty */
@@ -1758,7 +1773,7 @@ public:
 	 * @param	InWorld		World context
 	 * @param	bInSimulateInEditor	True to start an in-editor simulation session, or false to start a play-in-editor session
 	 */
-	virtual void PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor );
+	virtual void PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor, FPlayInEditorOverrides Overrides = FPlayInEditorOverrides());
 
 	virtual UGameInstance* CreatePIEGameInstance(int32 InPIEInstance, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode, bool bPlayNetDedicated, bool bPlayStereoscopic, float PIEStartTime);
 
@@ -2950,6 +2965,23 @@ public:
 	virtual void HandleTravelFailure(UWorld* InWorld, ETravelFailure::Type FailureType, const FString& ErrorString);
 
 	void AutomationLoadMap(const FString& MapName, FString* OutError);
+
+	/** This function should be called to notify the editor that new materials were added to our scene or some materials were modified */
+	void OnSceneMaterialsModified();
+
+protected:
+	/** For some platforms (e.g. mobiles), when running in editor mode, we emulate the shaders functionality on available running GPU (e.g. DirectX),
+	 *  but when displaying the shader complexity we need to be able compile and extract statistics (instruction count) from the real shaders that
+	 *  will be compiled when the game will run on the specific platform. Thus (if compiler available) we perform an 'offline' shader compilation step,
+	 *  extract the needed statistics and transfer them to the emulated editor running shaders.
+	 *  This function will be called from OnSceneMaterialsModified() */
+	void UpdateShaderComplexityMaterials();
+
+	/** Utility function that can determine whether some input world is using materials who's shaders are emulated in the editor */
+	bool IsEditorShaderPlatformEmulated(UWorld* World);
+
+	/** Utility function that checks if, for the current shader platform used by the editor, there's an available offline shader compiler */
+	bool IsOfflineShaderCompilerAvailable(UWorld* World);
 
 protected:
 

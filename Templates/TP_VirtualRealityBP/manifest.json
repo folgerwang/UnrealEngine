@@ -1,51 +1,44 @@
 {
-	"Version": 1,
-	"Name":
-	[
-		{
-			"Language": "en",
-			"Text": "VirtualReality"
-		}
-	],
-	"Description":
-	[
-		{
-			"Language": "en",
-			"Text": "The virtual reality pack features two locomotion types for VR with and without motioncontrollers."
-		}
-	],
-	"AssetTypes":
-	[
-		{
-			"Language": "en",
-			"Text": "Static Mesh, Animation Blueprint, Physics Asset, Physics Material, Skeleton, Skeletal Mesh, Material, Material instance, Texture"
-		}
-	],
-	"SearchTags":
-	[
-		{
-			"Language": "en",
-			"Text": "VR,Virtual,Reality,Virtual Reality"
-		}
-	],
-	"ClassTypes": "GameMode, InputComponent",
-	"Category": "BlueprintFeature",
-	"FocusAsset": "/Game/VirtualRealityBP/VirtualReality.VirtualReality",
-	"Thumbnail": "TP_VirtualRealityBP.png",
-	"Screenshots":
-	[
-		"TP_VirtualRealityBP_Preview.png"
-	],
-	"SortKey": "VirtualRealityBP",
-	"AdditionalFeaturePacks":
-	[
-		{
-			"MountName": "Geometry",
-			"DetailLevels":
-			[
-				"Standard",
-				"High"
-			]
-		}
-	]
+  "Version": 1,
+  "Name": [
+    {
+      "Language": "en",
+      "Text": "Virtual Reality"
+    }
+  ],
+  "Description": [
+    {
+      "Language": "en",
+      "Text": "Blueprint Virtual Reality feature pack for Desktop and Playstation VR. The pack features two modes of teleport locomotion with separate pawns and maps for each. The MotionControllerMap lets players teleport around using motion controllers. The HMDLocomotionMap lets players teleport using either a Gamepad or point-and-teleport using just the HeadMountedDisplay."
+    }
+  ],
+  "AssetTypes": [
+    {
+      "Language": "en",
+      "Text": "Animation Sequence, Animation Montage, Sound Wave, Skeletal Mesh, Animation Blueprint, Skeleton, Static Mesh, Texture."
+    }
+  ],
+  "SearchTags": [
+    {
+      "Language": "en",
+      "Text": "VR,Virtual,Reality,Virtual Reality"
+    }
+  ],
+  "ClassTypes": "Character, GameMode, HUD, Actor, Character, GameMode, HUD, Actor",
+  "Category": "BlueprintFeature",
+  "FocusAsset": "/Game/VirtualRealityBP/VirtualReality.VirtualReality",
+  "Thumbnail": "TP_VirtualRealityBP.png",
+  "Screenshots": [
+    "TP_VirtualRealityBP_Preview.png"
+  ],
+  "SortKey": "VirtualRealityBP",
+  "AdditionalFeaturePacks": [
+    {
+      "MountName": "Geometry",
+      "DetailLevels": [
+        "Standard",
+        "High"
+      ]
+    }
+  ]
 }

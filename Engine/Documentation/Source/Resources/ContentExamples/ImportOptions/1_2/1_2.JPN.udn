@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2714607
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1.2 - メッシュ の LOD のインポート
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/ImportOptions
@@ -14,64 +14,7 @@ Related:Shared/Editor/FbxErrors
 Related:Engine/Content/FBX/Materials
 Related:Engine/Content/Types/StaticMeshes/HowTo/LODs
 Version:4.9
-
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[前のサンプル](Resources/ContentExamples/ImportOptions/1_1 "%Resources/ContentExamples/ImportOptions/1_1:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[インポート オプション ホーム](Resources/ContentExamples/ImportOptions)
-	[/PARAM]
-	[PARAM:next]
-		[次のサンプル](Resources/ContentExamples/ImportOptions/1_3 "%Resources/ContentExamples/ImportOptions/1_3:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources\ContentExamples\ImportOptions\1_2:title%](%ROOT%\Resources\ContentExamples\ImportOptions\1_2\fbx_1_2_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\ImportOptions\1_2:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\ImportOptions\1_2:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\ImportOptions\1_2]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources\ContentExamples\ImportOptions\1_2:title%](%ROOT%\Resources\ContentExamples\ImportOptions\1_2\fbx_1_2_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\ImportOptions\1_2:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\ImportOptions\1_2:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\ImportOptions\1_2]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:fbx_1_2_topic.png
 
 [REGION:fullwidth]
 ![](CE_1_2_000.png)
@@ -81,7 +24,7 @@ Version:4.9
 
 ![](CE_1_2_001.png)(h:300) ![](CE_1_2_002.png)(h:300)
 
-_カメラが遠方にある時このメッシュは球体を表示し、カメラが近接している時はキューブを表示します。_
+_カメラが遠くにあると、球体のメッシュが表示され、カメラが近くにあるとキューブが表示されます。_
 
 
 

@@ -23,6 +23,11 @@ project created from a Blueprints Only template.
 
 UE4 and the UnrealBuildTool use different build configurations to determine how the engine is compiled. Which configuration you use will be determined by the purposes of the build you want to create.
 
+[INCLUDE:#winbuildconfig]
+
+[/EXCERPT:Main]
+
+[COMMENT:none]
 [EXCERPT:winbuildconfig]
 Each build configuration contains two keywords.  The first of these indicates the state of the engine and your game project. For instance, if you compile using a **Debug** configuration, you'll
 be able to debug your game's code. The second keyword indicates the target you're building for. For example, if you'd like to open a project in Unreal, you'd need to build with the **Editor**
@@ -43,8 +48,7 @@ target keyword.
 | **Client**                  | If you're working on a multiplayer project using UE4 networking features, this target designates the specified project as being a Client in UE4's client-server model for multiplayer games. If there is a `<Game>Client.Target.cs` file, the **Client** build configurations will be valid.                                                    |
 | **Server**                  | If you're working on a multiplayer project using UE4 networking features, this target designates the specified project as being a Server in UE4's client-server model for multiplayer games. If there is a `<Game>Server.Target.cs` file, the **Server** build configurations will be valid.                                                    |                                                                                                                                
 [/EXCERPT:winbuildconfig]
-
-[/EXCERPT:Main]
+[/COMMENT]
 
 [EXCERPT:VS]
 ## Building with Visual Studio
@@ -121,6 +125,17 @@ When building in Visual Studio, you are compiling the engine in addition to the 
 
 You can now [run the engine](GettingStarted/RunningUnrealEngine) with your compiled project.  
 
+[INCLUDE:#MatchEXE]
+
+### Visual Studio Known Issues
+
+| Issue | Solution |
+| ----- | -------- |
+| "Project is out of date" message always appears | Visual Studio thinks the project is out of date when it really is up to date. You can safely suppress this message by checking the **Do not show this dialog again** box and pressing **No**. |
+| **No Debugging Information** window appears when using the _Debug_ configuration | The reason for this is that the UE4editor.exe was compiled using the _Development_ configuration. Your game project will still be debuggable when compiled using the _Debug_ configuration despite this warning. You can safely suppress this message by checking the **Do not show this dialog again** box and pressing **Yes**. |
+[/EXCERPT:VS]
+
+[COMMENT:none]
 [EXCERPT:MatchEXE]
 [REGION:note]
 When running the engine, it is important to use the Unreal Engine executable that matches the build configuration you rebuilt your project in.  For example, if you compiled your project in the **DebugGame Uncooked**
@@ -131,14 +146,7 @@ build configuration, you would run the `UE4-Win64-DebugGame.exe` executable with
 When running Unreal, it is important to add the `-game` flag if you rebuilt your project in any **Uncooked** configuration, and the `-debug` flag if you rebuilt your project in any **Debug** configuration.  
 [/REGION:note]
 [/EXCERPT:MatchEXE]
-
-### Visual Studio Known Issues
-
-| Issue | Solution |
-| ----- | -------- |
-| "Project is out of date" message always appears | Visual Studio thinks the project is out of date when it really is up to date. You can safely suppress this message by checking the **Do not show this dialog again** box and pressing **No**. |
-| **No Debugging Information** window appears when using the _Debug_ configuration | The reason for this is that the UE4editor.exe was compiled using the _Development_ configuration. Your game project will still be debuggable when compiled using the _Debug_ configuration despite this warning. You can safely suppress this message by checking the **Do not show this dialog again** box and pressing **Yes**. |
-[/EXCERPT:VS]
+[/COMMENT]
 
 [EXCERPT:Xcode]
 
@@ -154,11 +162,7 @@ The Unreal Engine Xcode project is configured to build Debug configuration when 
 
 You can now [run the engine](GettingStarted/RunningUnrealEngine) with your compiled project.  
 
-[EXCERPT:MatchDMG]
-[REGION:note]
-When running the binary Editor, it is important to add the `-game` flag if you rebuilt your project in any **Uncooked** configuration, and the `-debug` flag if you rebuilt your project in any **Debug** configuration.  
-[/REGION:note]	
-[/EXCERPT:MatchDMG]
+[INCLUDE:#MatchDMG]
 
 ### Xcode Known Issues
 
@@ -167,6 +171,7 @@ When running the binary Editor, it is important to add the `-game` flag if you r
 | ----- | -------- |
 | Xcode does not stop at breakpoints | [INCLUDE:#XcodeDebug] |
 
+[/EXCERPT:Xcode]
 [COMMENT:none]
 
 [EXCERPT:XcodeDebug]
@@ -175,11 +180,10 @@ Xcode's LLDB debugger needs to be configured to correctly handle breakpoints in 
 	settings set target.inline-breakpoint-strategy always
 [/EXCERPT:XcodeDebug]
 
-[/COMMENT]
+[EXCERPT:MatchDMG]
+[REGION:note]
+When running the binary Editor, it is important to add the `-game` flag if you rebuilt your project in any **Uncooked** configuration, and the `-debug` flag if you rebuilt your project in any **Debug** configuration.  
+[/REGION:note]	
+[/EXCERPT:MatchDMG]
 
-[/EXCERPT:Xcode]
-
-[COMMENT:none]
- The following was deprecated per LaurenR 29.7.15
-| **Uncooked**                | Projects built using configurations that have an **Uncooked** type should be opened in Unreal Editor with the "-game" flag.  This runs your game with uncooked content, in a new window, and is equivalent to **Play in > New Window at Default Player Start** in the editor.       | 
 [/COMMENT]

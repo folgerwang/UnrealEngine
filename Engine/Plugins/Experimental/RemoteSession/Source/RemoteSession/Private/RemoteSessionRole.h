@@ -4,6 +4,7 @@
 
 #include "RemoteSession/RemoteSessionRole.h"
 #include "BackChannel/Protocol/OSC/BackChannelOSCConnection.h"
+#include "Channels/RemoteSessionChannel.h"
 #include "Tickable.h"
 
 
@@ -15,8 +16,14 @@ public:
 	virtual ~FRemoteSessionRole();
 
 	virtual void Close();
+	
+	virtual void CloseWithError(const FString& Message);
 
 	virtual bool IsConnected() const;
+	
+	virtual bool HasError() const { return ErrorMessage.Len() > 0; }
+	
+	virtual FString GetErrorMessage() const { return ErrorMessage; }
 
 	virtual void Tick( float DeltaTime );
 
@@ -30,6 +37,27 @@ protected:
 	void			StopBackgroundThread();
 
 	uint32			Run();
+	
+	void			CreateOSCConnection(TSharedRef<IBackChannelConnection> InConnection);
+	
+	FString			GetVersion() const;
+	void			SendVersion();
+	void 			OnVersionCheck(FBackChannelOSCMessage& Message, FBackChannelOSCDispatch& Dispatch);
+	
+	virtual void	OnBindEndpoints();
+	virtual void	OnCreateChannels();
+	
+	void 			CreateChannels(const TMap<FString, ERemoteSessionChannelMode>& ChannelMap);
+	void 			CreateChannel(const FString& InChannelList, ERemoteSessionChannelMode InRole);
+	
+	
+	void	AddChannel(const TSharedPtr<IRemoteSessionChannel>& InChannel);
+	void	ClearChannels();
+	
+	FString GetChannelSelectionEndPoint() const
+	{
+		return TEXT("/ChannelSelection");
+	}
 
 protected:
 	
@@ -37,9 +65,11 @@ protected:
 
 	TSharedPtr<FBackChannelOSCConnection, ESPMode::ThreadSafe> OSCConnection;
 
-	TArray<TSharedPtr<IRemoteSessionChannel>> Channels;
+private:
 	
+	FString					ErrorMessage;
+	
+	TArray<TSharedPtr<IRemoteSessionChannel>> Channels;
 	FThreadSafeBool			ThreadExitRequested;
 	FThreadSafeBool			ThreadRunning;
-
 };

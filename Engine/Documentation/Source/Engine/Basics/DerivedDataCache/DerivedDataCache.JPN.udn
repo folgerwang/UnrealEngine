@@ -1,107 +1,110 @@
-﻿INTSourceChangelist:3681959
+﻿INTSourceChangelist:3716214
 Availability:Public
 Title:派生データのキャッシュ
-Crumbs:%ROOT%, Engine
+Crumbs:%ROOT%
 Description:派生データのキャッシュ (DDC) 、UE4 およびターゲット プラットフォームで使われるフォーマットでのアセット格納の概要。 
-version:4.9
+version: 4.17
 Parent:Engine
+skilllevel: Advanced
 type:overview
 order:24
+tags:Programming
 
-エディタへインポートされて「.uasset」ファイルに保存されるアーティストが作成するソース フォーマットとは対照的に、 
-**Derived Data Cache** (DDC) は、エンジンとターゲット プラットフォームが使用するフォーマットで 
-アセットのバージョンを保存します。DDC に保存されるコンテンツは使い捨てですが、 
- .uasset ファイルに格納されたデータを利用していつでも再生成することができます。外部に派生フォーマットを保存することにより、 
-ソース アセット ファイルの修正を必要とせずに、エンジンが使用するフォーマットの 
-追加や変更を簡単に行うことができます。
+エディタへインポートされて「.uasset」ファイルに保存されるアーティストが作成するソース フォーマットとは対照的に、 **Derived Data Cache** (DDC) は、エンジンとターゲット プラットフォームが使用するフォーマットでアセットのバージョンを保存します。DDC に保存されるコンテンツは使い捨てですが、 .uasset ファイルに格納されたデータを利用していつでも再生成することができます。外部に派生フォーマットを保存することにより、   ソース アセット ファイルの修正を必要とせずに、エンジンが使用するフォーマットの   追加や変更を簡単に行うことができます。
+
+
+
+
+
 
 ## 共有 DDC の使用
 
-スタジオは、特定場所の全ユーザーがアクセス可能な共有 DDC を使用するべきです。この方法で、 
-派生したアセット フォーマットのビルドはユーザー 1 人のみがビルドし、その後自動的に全ユーザー間で 
-利用可能となります。時には、アセットの処理が必要な時に遅延が生じる場合もあります。 
-ただし、結果は記憶され共有されます。少人数の開発者の場合、ほとんどの開発者は影響を受けていることに気づきません。
+スタジオは、特定場所の全ユーザーがアクセス可能な共有 DDC を使用するべきです。派生したアセット フォーマットのビルドはユーザー 1 人のみがビルドし、その後自動的に全ユーザー間で時には、アセットの処理が必要な時に遅延が生じる場合もありますが、結果は保存されて共有されます。アセット処理を共有するかなり小規模なチームでもこの方法で作業すると、ほとんどの処理時間がなくなります。
 
-[REGION:warning]
-DDC 全体をインターネット上へ絶対にコピーしないでください。 DDC をバックアップ、またはバックアップから DDC を復元してください。これは特に問題は生じませんが、 
-DDC に保存されたデータの移行は、ローカルでゼロから生成するよりも一般的にかなり時間がかかるため、 
-時間の無駄となります。
-[/REGION]
 
-共有 DDC を設定するには、ゲームの **DefaultEngine.ini** でセクションを宣言して、`[InstalledDerivedDataBackendGraph]` または `[DerivedDataBackendGraph]` (エピック ゲームズのランチャーからバイナリをインストールしてそれを使うか、ソースからコンパイルしたかに応じて変わります) 
-のパスをオーバーライドします。このセクションは本来は **BaseEngine.ini** で宣言されます。 
-パスが Epic の内部 DDC 共有に設定される場所です。セクションを再び宣言して、パスを 
-ネットワーク上の共有 DDC へポイントさせるため変更します (例： `Path=\\mystudio.net\DDC`) ：
+
+
+[REGION:warning]DDC 全体をインターネット上へ絶対にコピーしないでください。 DDC をバックアップ、またはバックアップから DDC を復元してください。これによる悪影響はありませんが、DDC に保存されたデータの移行は、ローカルでゼロから生成するよりも一般的にかなり時間がかかるため時間の無駄になります。[/REGION]
+
+
+
+
+
+共有 DDC を設定するには、ゲームの `DefaultEngine.ini` ファイル以下のでセクションを宣言して、`[InstalledDerivedDataBackendGraph]` または `[DerivedDataBackendGraph]` (エピック ゲームズのランチャーからバイナリをインストールしてそれを使うか、ソースからコンパイルしたかに応じて変わります) のパスをオーバーライドします。このセクションは当初、`BaseEngine.ini` で宣言されています。この場所はパスが Epic の内部 DDC 共有に設定される場所です。セクションを再び宣言して、パスを変更してネットワーク上の share をポイントするようにします(例 `Path=\\mystudio.net\DDC`)。
+
+
+
 
 %Globals:BinarySourceSelectVar%
 
 [OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	BinarySourceSelect
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	binaryinstall
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	active_button_content
-	[/PARAMLITERAL]
-	[PARAM:content]
-			[InstalledDerivedDataBackendGraph]
-			MinimumDaysToKeepFile=7
-			Root=(Type=KeyLength, Length=120, Inner=AsyncPut)
-			AsyncPut=(Type=AsyncPut, Inner=Hierarchy)
-			Hierarchy=(Type=Hierarchical, Inner=Boot, Inner=Pak, Inner=EnginePak, Inner=Local, Inner=Shared)
-			Boot=(Type=Boot, Filename=\%GAMEDIR\%DerivedDataCache/Boot.ddc, MaxCacheSize=256)
-			Local=(Type=FileSystem, ReadOnly=false, Clean=false, Flush=false, PurgeTransient=true, DeleteUnused=true, UnusedFileAge=17, FoldersToClean=-1, Path=../../../Engine/DerivedDataCache)
-			Shared=(Type=FileSystem, ReadOnly=false, Clean=false, Flush=false, DeleteUnused=true, UnusedFileAge=19, FoldersToClean=-1, Path=\\mystudio.net\DDC, EnvPathOverride=UE-SharedDataCachePath)
-			AltShared=(Type=FileSystem, ReadOnly=true, Clean=false, Flush=false, DeleteUnused=true, UnusedFileAge=19, FoldersToClean=-1, Path=\\mystudio.net\DDC2, EnvPathOverride=UE-SharedDataCachePath2)
-			Pak=(Type=ReadPak, Filename=\%GAMEDIR\%DerivedDataCache/DDC.ddp)
-			EnginePak=(Type=ReadPak, Filename=../../../Engine/DerivedDataCache/DDC.ddp)
-	[/PARAM]
+    [PARAMLITERAL:category]
+    BinarySourceSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    binaryinstall
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+            [InstalledDerivedDataBackendGraph]
+            MinimumDaysToKeepFile=7
+            Root=(Type=KeyLength, Length=120, Inner=AsyncPut)
+            AsyncPut=(Type=AsyncPut, Inner=Hierarchy)
+            Hierarchy=(Type=Hierarchical, Inner=Boot, Inner=Pak, Inner=EnginePak, Inner=Local, Inner=Shared)
+            Boot=(Type=Boot, Filename=\%GAMEDIR\%DerivedDataCache/Boot.ddc, MaxCacheSize=256)
+            Local=(Type=FileSystem, ReadOnly=false, Clean=false, Flush=false, PurgeTransient=true, DeleteUnused=true, UnusedFileAge=17, FoldersToClean=-1, Path=../../../Engine/DerivedDataCache)
+            Shared=(Type=FileSystem, ReadOnly=false, Clean=false, Flush=false, DeleteUnused=true, UnusedFileAge=19, FoldersToClean=-1, Path=\\mystudio.net\DDC, EnvPathOverride=UE-SharedDataCachePath)
+            AltShared=(Type=FileSystem, ReadOnly=true, Clean=false, Flush=false, DeleteUnused=true, UnusedFileAge=19, FoldersToClean=-1, Path=\\mystudio.net\DDC2, EnvPathOverride=UE-SharedDataCachePath2)
+            Pak=(Type=ReadPak, Filename=\%GAMEDIR\%DerivedDataCache/DDC.ddp)
+            EnginePak=(Type=ReadPak, Filename=../../../Engine/DerivedDataCache/DDC.ddp)
+    [/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	BinarySourceSelect
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	sourceinstall
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-			[DerivedDataBackendGraph]
-			MinimumDaysToKeepFile=7
-			Root=(Type=KeyLength, Length=120, Inner=AsyncPut)
-			AsyncPut=(Type=AsyncPut, Inner=Hierarchy)
-			Hierarchy=(Type=Hierarchical, Inner=Boot, Inner=Pak, Inner=EnginePak, Inner=Local, Inner=Shared)
-			Boot=(Type=Boot, Filename=\%GAMEDIR\%DerivedDataCache/Boot.ddc, MaxCacheSize=256)
-			Local=(Type=FileSystem, ReadOnly=false, Clean=false, Flush=false, PurgeTransient=true, DeleteUnused=true, UnusedFileAge=17, FoldersToClean=-1, Path=../../../Engine/DerivedDataCache)
-			Shared=(Type=FileSystem, ReadOnly=false, Clean=false, Flush=false, DeleteUnused=true, UnusedFileAge=19, FoldersToClean=-1, Path=\\mystudio.net\DDC, EnvPathOverride=UE-SharedDataCachePath)
-			AltShared=(Type=FileSystem, ReadOnly=true, Clean=false, Flush=false, DeleteUnused=true, UnusedFileAge=19, FoldersToClean=-1, Path=\\mystudio.net\DDC2, EnvPathOverride=UE-SharedDataCachePath2)
-			Pak=(Type=ReadPak, Filename=\%GAMEDIR\%DerivedDataCache/DDC.ddp)
-			EnginePak=(Type=ReadPak, Filename=../../../Engine/DerivedDataCache/DDC.ddp)
-	[/PARAM]
+    [PARAMLITERAL:category]
+    BinarySourceSelect
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    sourceinstall
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+            [DerivedDataBackendGraph]
+            MinimumDaysToKeepFile=7
+            Root=(Type=KeyLength, Length=120, Inner=AsyncPut)
+            AsyncPut=(Type=AsyncPut, Inner=Hierarchy)
+            Hierarchy=(Type=Hierarchical, Inner=Boot, Inner=Pak, Inner=EnginePak, Inner=Local, Inner=Shared)
+            Boot=(Type=Boot, Filename=\%GAMEDIR\%DerivedDataCache/Boot.ddc, MaxCacheSize=256)
+            Local=(Type=FileSystem, ReadOnly=false, Clean=false, Flush=false, PurgeTransient=true, DeleteUnused=true, UnusedFileAge=17, FoldersToClean=-1, Path=../../../Engine/DerivedDataCache)
+            Shared=(Type=FileSystem, ReadOnly=false, Clean=false, Flush=false, DeleteUnused=true, UnusedFileAge=19, FoldersToClean=-1, Path=\\mystudio.net\DDC, EnvPathOverride=UE-SharedDataCachePath)
+            AltShared=(Type=FileSystem, ReadOnly=true, Clean=false, Flush=false, DeleteUnused=true, UnusedFileAge=19, FoldersToClean=-1, Path=\\mystudio.net\DDC2, EnvPathOverride=UE-SharedDataCachePath2)
+            Pak=(Type=ReadPak, Filename=\%GAMEDIR\%DerivedDataCache/DDC.ddp)
+            EnginePak=(Type=ReadPak, Filename=../../../Engine/DerivedDataCache/DDC.ddp)
+    [/PARAM]
 [/OBJECT]
 
 
 
-単一の共有コードをベースに作業を進めているサテライト オフィスは、パスに **UE-SharedDataCachePath** 環境変数を 
-各ロケーションの全ユーザーが読み書きできるパスに設定することができます。この設定によって、各ロケーションは 
-独自の共有 DDC を持つことができます。 
+単一の共有コード ベースで作業を進めているサテライト オフィスは、`UE-SharedDataCachePath` 環境変数をパスに設定し、各場所でユーザー全員が読み出し、書き込みができるようにします。各場所で独自の共有 DDC を持つことができます。
+
+
 
 例：
 
-	UE-SharedDataCachePath=\\mystudio.net\DDC
+    UE-SharedDataCachePath=\\mystudio.net\DDC
 
 ## ローカル DDC の使用
 
-単独またはリモートで作業を行っている開発者は、大抵はローカル DDC のみを使用します。以下の手法のいずれかで、 
-エンジンが共有 DDC を使用しないよう指示します。
+
+
+単独またはリモートで作業を行っている開発者は、大抵はローカル DDC のみを使用します。エンジンが共有 DDC を使用しないよう指示するには、以下のいずれかのメソッドを使用します。
 
 * コマンドラインで `-ddc=noshared` を渡します。
 * ローカルのハードドライブに環境変数を設定します。 
     
-		UE-SharedDataCachePath=c:\DDC
+        UE-SharedDataCachePath=c:\DDC
 
 
 ## 派生データのビルド
@@ -116,17 +119,18 @@ windows
 [PARAMLITERAL:active]
 [/PARAMLITERAL]
 [PARAM:content]
-一般的に、アセットをインポートする開発者がエンジンでアセットを使用したりテストをする可能性が高いため、 
-そのユーザーが派生データのビルドを行います。しかし、場合によっては新アセットの 
-処理が必要となります。これは必要に応じて自然に発生し、高速のハードウェアで実行時には大した影響を及ぼしませんが、 
-ときおり遅延が生じるかもしれません。
- 
-以下の引数を実行ファイルへ引き渡すことによって、いつでも派生したデータキャッシュへ書き込むことができます。
- 
-	UE4\Engine\Binaries\Win64\UE4Editor.exe ProjectName -run=DerivedDataCache -fill 
+一般的に、アセットをインポートする開発者がエンジンでアセットを使用したりテストをする可能性が高いため、そのユーザーが派生データのビルドを行います。しかし、場合によっては新アセットの処理が必要になることがあります。これは必要に応じて自然に発生し、高速のハードウェアで実行時には大した影響を及ぼしませんが、時々遅延が生じることがあります。
 
-DDC の事前準備を常に整えるため、この作業は毎夜行っていますが、 
-自動キャッシュが機能するため通常は必要ありません。
+
+
+ 
+
+以下のコマンドを実行して DDC をフィルすることができます。
+ 
+    UE4\Engine\Binaries\Win64\UE4Editor.exe ProjectName -run=DerivedDataCache -fill
+
+DDC の事前準備を常に整えるため、この作業は毎夜行っていますが、必ずしも一般的な自動キャッシング機能のようなものではありません。
+
 [/PARAM]
 [/OBJECT]
 
@@ -140,17 +144,18 @@ mac
 [PARAMLITERAL:active]
 [/PARAMLITERAL]
 [PARAM:content]
-一般的に、アセットをインポートする開発者がエンジンでアセットを使用したりテストをする可能性が高いため、 
-そのユーザーが派生データのビルドを行います。しかし、場合によっては新アセットの 
-処理が必要となります。これは必要に応じて自然に発生し、高速のハードウェアで実行時には大した影響を及ぼしませんが、 
-ときおり遅延が生じるかもしれません。
- 
-以下の引数を実行ファイルへ引き渡すことによって、いつでも派生したデータキャッシュへ書き込むことができます。
- 
-	open -a "ProjectName.app" --args -run=DerivedDataCache -fill
+一般的に、アセットをインポートする開発者がエンジンでアセットを使用したりテストをする可能性が高いため、そのユーザーが派生データのビルドを行います。しかし、場合によっては新アセットの処理が必要になることがあります。これは必要に応じて自然に発生し、高速のハードウェアで実行時には大した影響を及ぼしませんが、時々遅延が生じることがあります。
 
-DDC の事前準備を常に整えるため、この作業は毎夜行っていますが、 
-自動キャッシュが機能するため通常は必要ありません。
+
+
+ 
+
+以下のコマンドを実行して DDC をフィルすることができます。
+ 
+    open -a "ProjectName.app" --args -run=DerivedDataCache -fill
+
+DDC の事前準備を常に整えるため、この作業は毎夜行っていますが、必ずしも一般的な自動キャッシング機能のようなものではありません。
+
 [/PARAM]
 [/OBJECT]
 
@@ -168,18 +173,18 @@ windows
 [PARAMLITERAL:active]
 [/PARAMLITERAL]
 [PARAM:content]
-クックされたビルドは DDC は不要または使用しないため、ゲームのパッケージングには一般的にクックが推奨メソッドです。しかし、 
-必要に応じて DDC を配布用にパッケージングすることも出来ます。
+クックされたビルドは DDC は不要または (使用しないため) 、ゲームのパッケージングには一般的にクックが推奨メソッドです。ただし、必要に応じて DDC を配布用にパッケージングすることも出来ます。
 
-**DDC のパッケージング**
+
+**DDC のパッケージング:**
  
-1. UE4/Engine/Binaries/Win64 ディレクトリから **UE4Editor.exe** を実行して、以下の引数を渡します。
+1. `UE4/Engine/Binaries/Win64` ディレクトリから `UE4Editor.exe` を実行して、以下に示す引数を渡します。
 
-		UE4Editor.exe [ProjectName] -run=DerivedDataCache -fill -DDC=CreatePak
+        UE4Editor.exe ProjectName -run=DerivedDataCache -fill -DDC=CreatePak
  
-1. UE4\[GameName]\DerivedDataCache に **DDC.ddp** ファイルを作成します。
+1. `UE4\ProjectName\DerivedDataCache` に `DDC.ddp` ファイルを作成します。
 
-1. エンジンは .ddp ファイルを自動的に検出して使用します。
+1. エンジンは自動的に検出して `.ddp` ファイルを使用します。
 [/PARAM]
 [/OBJECT]
 
@@ -193,17 +198,17 @@ mac
 [PARAMLITERAL:active]
 [/PARAMLITERAL]
 [PARAM:content]
-クックされたビルドは DDC は不要または使用しないため、ゲームのパッケージングには一般的にクックが推奨メソッドです。しかし、 
-必要に応じて DDC を配布用にパッケージングすることも出来ます。
+クックされたビルドは DDC は不要または (使用しないため) 、ゲームのパッケージングには一般的にクックが推奨メソッドです。ただし、必要に応じて DDC を配布用にパッケージングすることも出来ます。
+
 
 **DDC のパッケージング**
  
-1. UE4/Engine/Binaries/Win64 ディレクトリから **UE4Editor.exe** を実行して、以下の引数を渡します。
+1. `cd /PathToUE4/Engine/Binaries/Mac` ディレクトリから ` UE4Editor.app` を実行して、以下に示す引数を渡します。
 
-		open -a "ProjectName.app" --args -run=DerivedDataCache -fill -DDC=CreatePak 
+       `open -a UE4Editor.app --args -run=DerivedDataCache -fill -DDC=CreatePak`
  
-1. UE4\[GameName]\DerivedDataCache に **DDC.ddp** ファイルを作成します。
+1. `UE4\ProjectName\DerivedDataCache` に `DDC.ddp` ファイルを作成します。
 
-1. エンジンは .ddp ファイルを自動的に検出して使用します。
+1. エンジンは自動的に検出して `.ddp` ファイルを使用します。
 [/PARAM]
 [/OBJECT]

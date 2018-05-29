@@ -3,7 +3,7 @@ Availability:Public
 Title:ブループリントでアクタに入力を設定する操作手順
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\ActorInput
 Description:ブループリントでアクタに入力を設定するためのガイド 
-Version:4.9
+Version: 4.9
 type:how-to
 SkillLevel:Intermediate
 
@@ -35,10 +35,10 @@ SkillLevel:Intermediate
 	![](input_1.png)
 
 	これが、アクタで入力を有効にする基本的な方法です。 
-	**Enable Input** ノードは、 **Target** (通常は Self - 、アクタそのもの) だけでなく **Player Controller** (入力を与えるプレイヤー) も指定する必要があります。この設定で、 **Input Event** ノード (キーやマウスボタンの押下など) を見つけて追加し、これらのキーが押されるとアクタに影響を与えるアクションを実行します。 
 
-	上の例では、 **Event Begin Play** ノードはゲームが開始すると (レベル内にアクタが存在するならば)、指定された **Player Controller** に対して **Enable Input** を宣言します。デフォルトの Player Controller はシングルプレイヤー ゲームに **Player Index 0** を使います。マルチプレイヤーのシナリオがある場合、 **Player Index** 値でプレイヤーを指定することができます。 
+**Enable Input** ノードは、 **Target** (通常は Self - 、アクタそのもの) だけでなく **Player Controller** (入力を与えるプレイヤー) も指定する必要があります。この設定で、 **Input Event** ノード (キーやマウスボタンの押下など) を見つけて追加し、これらのキーが押されるとアクタに影響を与えるアクションを実行します。 
 
+上の例では、 **Event Begin Play** ノードはゲームが開始すると (レベル内にアクタが存在するならば)、指定された **Player Controller** に対して **Enable Input** を宣言します。デフォルトの Player Controller はシングルプレイヤー ゲームに **Player Index 0** を使います。マルチプレイヤーのシナリオがある場合、 **Player Index** 値でプレイヤーを指定することができます。
 
 
 ## アクタ入力を無効にする

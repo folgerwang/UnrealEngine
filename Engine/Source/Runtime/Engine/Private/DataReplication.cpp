@@ -296,18 +296,33 @@ void FObjectReplicator::CleanUp()
 
 void FObjectReplicator::StartReplicating( class UActorChannel * InActorChannel )
 {
-	check( OwningChannel == NULL );
+	check( OwningChannel == nullptr );
 
-	if ( GetObject() == NULL )
+	UObject* const Object = GetObject();
+	if ( Object == nullptr )
 	{
-		UE_LOG(LogRep, Error, TEXT("StartReplicating: Object == NULL"));
+		UE_LOG(LogRep, Error, TEXT("StartReplicating: Object == nullptr"));
 		return;
+	}
+
+	if ( !ensureMsgf( ObjectClass != nullptr, TEXT( "StartReplicating: ObjectClass == nullptr. Object = %s. Channel actor = %s. %s" ), *GetFullNameSafe( Object ), *GetFullNameSafe( InActorChannel->GetActor() ), *InActorChannel->Connection->Describe() ) )
+	{
+		return;
+	}
+
+	if ( UClass* const ObjectPtrClass = Object->GetClass() )
+	{
+		// Something is overwriting a bit in the ObjectClass pointer so it's becoming invalid - fix up the pointer to prevent crashing later until the real cause can be identified.
+		if ( !ensureMsgf( ObjectClass == ObjectPtrClass, TEXT( "StartReplicating: ObjectClass and ObjectPtr's class are not equal and they should be. Object = %s. Channel actor = %s. %s" ), *GetFullNameSafe( Object ), *GetFullNameSafe( InActorChannel->GetActor() ), *InActorChannel->Connection->Describe() ) )
+		{
+			ObjectClass = ObjectPtrClass;
+		}
 	}
 
 	OwningChannel = InActorChannel;
 
 	// Cache off netGUID so if this object gets deleted we can close it
-	ObjectNetGUID = OwningChannel->Connection->Driver->GuidCache->GetOrAssignNetGUID( GetObject() );
+	ObjectNetGUID = OwningChannel->Connection->Driver->GuidCache->GetOrAssignNetGUID( Object );
 	check( !ObjectNetGUID.IsDefault() && ObjectNetGUID.IsValid() );
 
 	// Allocate retirement list.
@@ -315,7 +330,7 @@ void FObjectReplicator::StartReplicating( class UActorChannel * InActorChannel )
 	Retirement.SetNum( ObjectClass->ClassReps.Num() );
 
 	// figure out list of replicated object properties
-	for ( UProperty* Prop = ObjectClass->PropertyLink; Prop != NULL; Prop = Prop->PropertyLinkNext )
+	for ( const UProperty* Prop = ObjectClass->PropertyLink; Prop != nullptr; Prop = Prop->PropertyLinkNext )
 	{
 		if ( Prop->PropertyFlags & CPF_Net )
 		{
@@ -337,14 +352,15 @@ void FObjectReplicator::StartReplicating( class UActorChannel * InActorChannel )
 		}
 	}
 
+	const UWorld* const World = Connection->Driver->GetWorld();
 	// Prefer the changelist manager on the main net driver (so we share across net drivers if possible)
-	if ( Connection->Driver->GetWorld() && Connection->Driver->GetWorld()->NetDriver )
+	if ( World && World->NetDriver )
 	{
-		ChangelistMgr = Connection->Driver->GetWorld()->NetDriver->GetReplicationChangeListMgr( GetObject() );
+		ChangelistMgr = World->NetDriver->GetReplicationChangeListMgr( Object );
 	}
 	else
 	{
-		ChangelistMgr = Connection->Driver->GetReplicationChangeListMgr( GetObject() );
+		ChangelistMgr = Connection->Driver->GetReplicationChangeListMgr( Object );
 	}
 }
 

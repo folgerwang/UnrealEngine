@@ -76,7 +76,7 @@ FIcmpEchoResult UDPEchoImpl(ISocketSubsystem* SocketSub, const FString& TargetAd
 	}
 
 	int32 Port = 0;
-	Lex::FromString(Port, *PortStr);
+	LexFromString(Port, *PortStr);
 
 	//ISocketSubsystem* SocketSub = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
 	if (SocketSub)
@@ -216,7 +216,15 @@ public:
 				return Result;
 			};
 
-			FutureResult = AsyncThread(Task, StackSize);
+			// if we don't need a special stack size, use the task graph
+			if (StackSize == 0)
+			{
+				FutureResult = Async(EAsyncExecution::ThreadPool, Task);
+			}
+			else
+			{
+				FutureResult = AsyncThread(Task, StackSize);
+			}
 		}
 		else
 		{
@@ -237,6 +245,8 @@ public:
 private:
 	virtual bool Tick(float DeltaTime) override
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_UDPPing_Tick);
+
 		if (bThreadCompleted)
 		{
 			FIcmpEchoResult Result;

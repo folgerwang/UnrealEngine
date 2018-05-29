@@ -282,7 +282,7 @@ namespace UnrealBuildTool
 		///
 		/// </summary>
 		/// <returns></returns>
-		public static string SetUpEmscriptenConfigFile()
+		public static string SetUpEmscriptenConfigFile( bool bHome=false )
 		{
 			// If user has configured a custom Emscripten toolchain, use that automatically.
 			if (Environment.GetEnvironmentVariable("EMSDK") != null && Environment.GetEnvironmentVariable("EM_CONFIG") != null && File.Exists(Environment.GetEnvironmentVariable("EM_CONFIG")))
@@ -371,6 +371,16 @@ namespace UnrealBuildTool
 			// --------------------------------------------------
 			// restore a few things
 			Environment.SetEnvironmentVariable(PLATFORM_USER_HOME, HOME_SAVE);
+			if ( bHome )
+			{
+				ProcessStartInfo processInfo2 = new ProcessStartInfo(PYTHON, cmd + " -v");
+				processInfo2.CreateNoWindow = true;
+				processInfo2.UseShellExecute = false;
+				Process process2 = Process.Start(processInfo2);
+				process2.WaitForExit();
+				Log.TraceInformation("emcc ExitCode: {0} - special", process2.ExitCode);
+				process2.Close();
+			}
 			Environment.SetEnvironmentVariable("PATH", PATH_SAVE);
 
 			// --------------------------------------------------

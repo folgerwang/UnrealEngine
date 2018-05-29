@@ -26,12 +26,12 @@ struct FShaderInterpolants
 
 /*------------------------------------------------------------------------------
 	Vertex shader.
-
-	Compile time parameters:
-		TILE_SIZE_X - The width of a particle tile in the texture.
-		TILE_SIZE_Y - The height of a particle tile in the texture.
 ------------------------------------------------------------------------------*/
 #if VERTEXSHADER
+
+/** The width and height of a tile in the particle simulation texture */
+float TileSizeX;
+float TileSizeY;
 
 struct FVertexInput
 {
@@ -54,7 +54,7 @@ void VertexMain(
 {
 	uint InstanceId = Input.InstanceId * TILES_PER_INSTANCE + Input.VertexId / 4;
 	
-float2 TileCoord = Input.TexCoord.xy * float2(TILE_SIZE_X,TILE_SIZE_Y) + TileOffsets[InstanceId];
+	float2 TileCoord = Input.TexCoord.xy * float2(TileSizeX,TileSizeY) + TileOffsets[InstanceId];
 
 	OutPosition = float4(
 		TileCoord.xy * float2(2.0f,-2.0f) + float2(-1.0f,1.0f),
@@ -271,8 +271,8 @@ float CollisionDepthBounds;
 /** TODO: Should be moved to Common.usf and used globaly. */
 float3 WorldPositionFromSceneDepth(float2 ScreenPosition, float SceneDepth)
 {
-	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
-	return HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+	float3 WorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld).xyz;
+	return WorldPosition;
 }
 
 float3 ComputeCollidingVelocity(

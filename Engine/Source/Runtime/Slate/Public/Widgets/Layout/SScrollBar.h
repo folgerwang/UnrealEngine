@@ -153,6 +153,7 @@ protected:
 	bool bHideWhenNotInUse;
 	bool bIsScrolling;
 	double LastInteractionTime;
+	bool bAlwaysShow;
 
 	/** Image to use when the scrollbar thumb is in its normal state */
 	const FSlateBrush* NormalThumbImage;

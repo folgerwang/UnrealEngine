@@ -319,6 +319,11 @@ FConsoleCommandDelegate::CreateStatic(&FMemory::EnablePoisonTests)
 /** Helper function called on first allocation to create and initialize GMalloc */
 int FMemory_GCreateMalloc_ThreadUnsafe()
 {
+#if !PLATFORM_MAC
+	FPlatformMemoryStats Stats = FPlatformMemory::GetStats();
+	uint64 ProgramSize = Stats.UsedPhysical;
+#endif
+
 	GMalloc = FPlatformMemory::BaseAllocator();
 	// Setup malloc crash as soon as possible.
 	FPlatformMallocCrash::Get( GMalloc );
@@ -371,6 +376,15 @@ int FMemory_GCreateMalloc_ThreadUnsafe()
 #endif
 
 #endif
+
+// On Mac it's too early to log here in some cases. For example GMalloc may be created during initialization of a third party dylib on load, before CoreFoundation is initialized
+#if !PLATFORM_MAC
+	// by this point, we assume we can log
+	double SizeInMb = ProgramSize / (1024.0 * 1024.0);
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Used memory before allocating anything was %.2fMB\n"), SizeInMb);
+	UE_LOG(LogMemory, Display, TEXT("Used memory before allocating anything was %.2fMB"), SizeInMb);
+#endif
+	
 	return 0;
 }
 

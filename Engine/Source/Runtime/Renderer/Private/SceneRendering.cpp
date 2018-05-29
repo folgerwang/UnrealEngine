@@ -353,7 +353,6 @@ FASTVRAM_CVAR(DistanceFieldNormal, 1);
 FASTVRAM_CVAR(DistanceFieldAOHistory, 1);
 FASTVRAM_CVAR(DistanceFieldAODownsampledBentNormal, 1); 
 FASTVRAM_CVAR(DistanceFieldAOBentNormal, 0); 
-FASTVRAM_CVAR(DistanceFieldAOConfidence, 0); 
 FASTVRAM_CVAR(DistanceFieldIrradiance, 0); 
 FASTVRAM_CVAR(DistanceFieldShadows, 1);
 FASTVRAM_CVAR(Distortion, 1);
@@ -479,7 +478,6 @@ void FFastVramConfig::Update()
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_DistanceFieldAOHistory, DistanceFieldAOHistory);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_DistanceFieldAODownsampledBentNormal, DistanceFieldAODownsampledBentNormal);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_DistanceFieldAOBentNormal, DistanceFieldAOBentNormal);
-	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_DistanceFieldAOConfidence, DistanceFieldAOConfidence);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_DistanceFieldIrradiance, DistanceFieldIrradiance);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_DistanceFieldShadows, DistanceFieldShadows);
 	bDirty |= UpdateTextureFlagFromCVar(CVarFastVRam_Distortion, Distortion);
@@ -2112,24 +2110,7 @@ void FSceneRenderer::ComputeFamilySize()
 
 bool FSceneRenderer::DoOcclusionQueries(ERHIFeatureLevel::Type InFeatureLevel) const
 {
-	static bool bOnce = false;
-	static bool bForceByCmdLine = false;
-	static bool bCmdLineShouldBeEnabledValue = false;
-	if (!bOnce)
-	{
-		bOnce = true;
-		if (FParse::Param(FCommandLine::Get(), TEXT("softwareocclusionculling")) && CVarAllowOcclusionQueries.GetValueOnRenderThread() >= 1)
-		{
-			bForceByCmdLine = true;
-			bCmdLineShouldBeEnabledValue = false;
-		}
-		else if (FParse::Param(FCommandLine::Get(), TEXT("hardwareocclusionculling")) && CVarAllowOcclusionQueries.GetValueOnRenderThread() == 0)
-		{
-			bForceByCmdLine = true;
-			bCmdLineShouldBeEnabledValue = true;
-		}
-	}
-	return bForceByCmdLine ? bCmdLineShouldBeEnabledValue : (InFeatureLevel >= ERHIFeatureLevel::ES3_1 && CVarAllowOcclusionQueries.GetValueOnRenderThread() != 0);
+	return InFeatureLevel >= ERHIFeatureLevel::ES3_1 && CVarAllowOcclusionQueries.GetValueOnRenderThread() != 0;
 }
 
 FSceneRenderer::~FSceneRenderer()
@@ -2221,8 +2202,8 @@ void FSceneRenderer::RenderFinish(FRHICommandListImmediate& RHICmdList)
 		}
 		const bool bShowSkinCacheOOM = CVarSkinCacheOOM != nullptr && GPUSkinCacheExtraRequiredMemory > 0;
 
-		extern int32 GDistanceFieldAO;
-		const bool bShowDFAODisabledWarning = !GDistanceFieldAO && (ViewFamily.EngineShowFlags.VisualizeMeshDistanceFields || ViewFamily.EngineShowFlags.VisualizeGlobalDistanceField || ViewFamily.EngineShowFlags.VisualizeDistanceFieldAO);
+		extern bool UseDistanceFieldAO();
+		const bool bShowDFAODisabledWarning = !UseDistanceFieldAO() && (ViewFamily.EngineShowFlags.VisualizeMeshDistanceFields || ViewFamily.EngineShowFlags.VisualizeGlobalDistanceField || ViewFamily.EngineShowFlags.VisualizeDistanceFieldAO);
 
 		const bool bShowAtmosphericFogWarning = Scene->AtmosphericFog != nullptr && !ReadOnlyCVARCache.bEnableAtmosphericFog;
 

@@ -40,6 +40,8 @@ $ bBuildAllPlugins (Boolean): Build all the plugins that we can find, even if th
 
 $ AdditionalPlugins (List&lt;String&gt;): A list of additional plugins which need to be included in this target. This allows referencing non-optional plugin modules which cannot be disabled, and allows building against specific modules in program targets which do not fit the categories in ModuleHostType.
 
+$ ExcludePlugins (List&lt;String&gt;): List of plugins to be excluded from this target. Note that the project file may still reference them, so they should be marked as optional to avoid failing to find them at runtime.
+
 $ PakSigningKeysFile (String): Path to the set of pak signing keys to embed in the executable.
 
 $ SolutionDirectory (String): Allows a Program Target to specify it's own solution folder path.

@@ -202,28 +202,6 @@ private:
 	UPROPERTY(EditAnywhere, Category=Custom)
 	TEnumAsByte<enum ECollisionChannel> ObjectType;
 
-public:
-	/** Current scale of physics - used to know when and how physics must be rescaled to match current transform of OwnerComponent. */
-	FVector Scale3D;
-
-	/////////
-	// COLLISION SETTINGS
-
-#if WITH_EDITORONLY_DATA
-	/** Types of objects that this physics objects will collide with. */
-	UPROPERTY() 
-	struct FCollisionResponseContainer ResponseToChannels_DEPRECATED;
-#endif // WITH_EDITORONLY_DATA
-
-private:
-
-	/** Collision Profile Name **/
-	UPROPERTY(EditAnywhere, Category=Custom)
-	FName CollisionProfileName;
-
-	/** Custom Channels for Responses*/
-	UPROPERTY(EditAnywhere, Category = Custom)
-	struct FCollisionResponse CollisionResponses;
 
 	/** Extra mask for filtering. Look at declaration for logic */
 	FMaskFilter MaskFilter;
@@ -260,6 +238,9 @@ public:
 	/**	Should 'Hit' events fire when this object collides during physics simulation. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Collision, meta = (DisplayName = "Simulation Generates Hit Events"))
 	uint8 bNotifyRigidBodyCollision : 1;
+
+	/**	Enable contact modification. Assumes custom contact modification has been provided (see FPhysXContactModifyCallback) */
+	uint8 bContactModification : 1;
 
 	/////////
 	// SIM SETTINGS
@@ -360,8 +341,44 @@ protected:
 	UPROPERTY(EditAnywhere, Category = Physics, meta = (InlineEditConditionToggle))
 	uint8 bOverrideWalkableSlopeOnInstance : 1;
 
+	/** 
+	 * Internal flag to allow us to quickly check whether we should interpolate when substepping 
+	 * e.g. kinematic bodies that are QueryOnly do not need to interpolate as we will not be querying them
+	 * at a sub-position.
+	 * This is complicated by welding, where multiple the CollisionEnabled flag of the root must be considered.
+	 */
+	UPROPERTY()
+	uint8 bInterpolateWhenSubStepping : 1;
+
+	/** Whether we are pending a collision profile setup */
+	uint8 bPendingCollisionProfileSetup : 1;
+
 	uint8 bHasSharedShapes : 1;
 
+public:
+	/** Current scale of physics - used to know when and how physics must be rescaled to match current transform of OwnerComponent. */
+	FVector Scale3D;
+
+	/////////
+	// COLLISION SETTINGS
+
+#if WITH_EDITORONLY_DATA
+	/** Types of objects that this physics objects will collide with. */
+	UPROPERTY() 
+	struct FCollisionResponseContainer ResponseToChannels_DEPRECATED;
+#endif // WITH_EDITORONLY_DATA
+
+private:
+
+	/** Collision Profile Name **/
+	UPROPERTY(EditAnywhere, Category=Custom)
+	FName CollisionProfileName;
+
+	/** Custom Channels for Responses*/
+	UPROPERTY(EditAnywhere, Category = Custom)
+	struct FCollisionResponse CollisionResponses;
+
+protected:
 	/** The maximum velocity used to depenetrate this object*/
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bOverrideMaxDepenetrationVelocity", ClampMin = "0.0", UIMin = "0.0"))
 	float MaxDepenetrationVelocity;
@@ -374,7 +391,13 @@ protected:
 	/** The body setup holding the default body instance and its collision profile. */
 	TWeakObjectPtr<UBodySetup> ExternalCollisionProfileBodySetup;
 
+	/** Update the substepping interpolation flag */
+	void UpdateInterpolateWhenSubStepping();
+
 public:
+
+	/** Whether we should interpolate when substepping. @see bInterpolateWhenSubStepping */
+	bool ShouldInterpolateWhenSubStepping() const { return bInterpolateWhenSubStepping; }
 
 	/** Returns the mass override. See MassInKgOverride for documentation */
 	float GetMassOverride() const { return MassInKgOverride; }
@@ -470,6 +493,10 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Physics)
 	int32 PositionSolverIterationCount;
 
+	/** This physics body's solver iteration count for velocity. Increasing this will be more CPU intensive, but better stabilized. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics)
+	int32 VelocitySolverIterationCount;
+
 public:
 
 #if WITH_PHYSX
@@ -484,10 +511,6 @@ public:
 
 	TSharedPtr<TArray<ANSICHAR>> CharDebugName;
 #endif	//WITH_PHYSX
-
-	/** This physics body's solver iteration count for velocity. Increasing this will be more CPU intensive, but better stabilized. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics)
-	int32 VelocitySolverIterationCount;
 
 	/** PrimitiveComponent containing this body.   */
 	TWeakObjectPtr<class UPrimitiveComponent> OwnerComponent;
@@ -776,6 +799,8 @@ public:
 	void SetInstanceNotifyRBCollision(bool bNewNotifyCollision);
 	/** Enables/disables whether this body is affected by gravity. */
 	void SetEnableGravity(bool bGravityEnabled);
+	/** Enables/disables contact modification */
+	void SetContactModification(bool bNewContactModification);
 
 	/** Enable/disable Continuous Collidion Detection feature */
 	void SetUseCCD(bool bInUseCCD);
@@ -856,8 +881,17 @@ public:
 	ECollisionEnabled::Type GetCollisionEnabled() const;
 
 	/**  
-	 * Set Collision Profile Name
+	 * Set Collision Profile Name (deferred)
 	 * This function is called by constructors when they set ProfileName
+	 * This will change current CollisionProfileName, but collision data will not be set up until the physics state is created
+	 * or the collision profile is accessed.
+	 * @param InCollisionProfileName : New Profile Name
+	 */
+	void SetCollisionProfileNameDeferred(FName InCollisionProfileName);
+
+	/**  
+	 * Set Collision Profile Name
+	 * This function should be called outside of constructors to set profile name.
 	 * This will change current CollisionProfileName to be this, and overwrite Collision Setting
 	 * 
 	 * @param InCollisionProfileName : New Profile Name
@@ -1042,6 +1076,9 @@ public:
 	void FixupData(class UObject* Loader);
 
 	const FCollisionResponse& GetCollisionResponse() const { return CollisionResponses; }
+
+	/** Applies a deferred collision profile */
+	void ApplyDeferredCollisionProfileName();
 
 #if WITH_PHYSX
 public:

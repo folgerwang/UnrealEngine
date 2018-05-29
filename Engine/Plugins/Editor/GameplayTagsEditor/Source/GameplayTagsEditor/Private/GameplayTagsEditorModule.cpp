@@ -51,7 +51,7 @@ public:
 			PropertyModule.RegisterCustomPropertyTypeLayout("GameplayTag", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FGameplayTagCustomizationPublic::MakeInstance));
 			PropertyModule.RegisterCustomPropertyTypeLayout("GameplayTagQuery", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FGameplayTagQueryCustomization::MakeInstance));
 
-			PropertyModule.RegisterCustomClassLayout(UGameplayTagsList::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FGameplayTagsSettingsCustomization::MakeInstance));
+			PropertyModule.RegisterCustomClassLayout(UGameplayTagsSettings::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FGameplayTagsSettingsCustomization::MakeInstance));
 
 			PropertyModule.RegisterCustomPropertyTypeLayout("GameplayTagReferenceHelper", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FGameplayTagReferenceHelperDetails::MakeInstance));
 			PropertyModule.RegisterCustomPropertyTypeLayout("GameplayTagCreationWidgetHelper", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FGameplayTagCreationWidgetHelperDetails::MakeInstance));
@@ -73,12 +73,6 @@ public:
 				LOCTEXT("GameplayTagSettingsName", "GameplayTags"),
 				LOCTEXT("GameplayTagSettingsNameDesc", "GameplayTag Settings"),
 				GetMutableDefault<UGameplayTagsSettings>()
-			);
-
-			SettingsModule->RegisterSettings("Project", "Project", "GameplayTags Developer",
-				LOCTEXT("GameplayTagDeveloperSettingsName", "GameplayTags Developer"),
-				LOCTEXT("GameplayTagDeveloperSettingsNameDesc", "GameplayTag Developer Settings"),
-				GetMutableDefault<UGameplayTagsDeveloperSettings>()
 			);
 		}
 
@@ -236,6 +230,7 @@ public:
 		TArray<const FGameplayTagSource*> Sources;
 
 		Manager.FindTagSourcesWithType(EGameplayTagSourceType::TagList, Sources);
+		Manager.FindTagSourcesWithType(EGameplayTagSourceType::RestrictedTagList, Sources);
 
 		for (const FGameplayTagSource* Source : Sources)
 		{
@@ -313,7 +308,7 @@ public:
 		return false;
 	}
 
-	virtual bool AddNewGameplayTagToINI(const FString& NewTag, const FString& Comment, FName TagSourceName) override
+	virtual bool AddNewGameplayTagToINI(const FString& NewTag, const FString& Comment, FName TagSourceName, bool bIsRestrictedTag, bool bAllowNonRestrictedChildren) override
 	{
 		UGameplayTagsManager& Manager = UGameplayTagsManager::Get();
 
@@ -341,6 +336,67 @@ public:
 			return false;
 		}
 
+		if (bIsRestrictedTag)
+		{
+			// restricted tags can't be children of non-restricted tags
+			FString AncestorTag = NewTag;
+			bool bWasSplit = NewTag.Split(TEXT("."), &AncestorTag, nullptr, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+			while (bWasSplit)
+			{
+				if (Manager.IsDictionaryTag(FName(*AncestorTag)))
+				{
+					FString TagComment;
+					FName Source;
+					bool bIsExplicit;
+					bool bIsRestricted;
+					bool bAllowsNonRestrictedChildren;
+
+					Manager.GetTagEditorData(*AncestorTag, TagComment, Source, bIsExplicit, bIsRestricted, bAllowsNonRestrictedChildren);
+					if (bIsRestricted)
+					{
+						break;
+					}
+					ShowNotification(FText::Format(LOCTEXT("AddRestrictedTagFailure", "Failed to add restricted gameplay tag {0}, {1} is not a restricted tag"), FText::FromString(NewTag), FText::FromString(AncestorTag)), 10.0f);
+
+					return false;
+				}
+
+				bWasSplit = AncestorTag.Split(TEXT("."), &AncestorTag, nullptr, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+			}
+		}
+		else
+		{
+			// non-restricted tags can only be children of restricted tags if the restricted tag allows it
+			FString AncestorTag = NewTag;
+			bool bWasSplit = NewTag.Split(TEXT("."), &AncestorTag, nullptr, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+			while (bWasSplit)
+			{
+				if (Manager.IsDictionaryTag(FName(*AncestorTag)))
+				{
+					FString TagComment;
+					FName Source;
+					bool bIsExplicit;
+					bool bIsRestricted;
+					bool bAllowsNonRestrictedChildren;
+
+					Manager.GetTagEditorData(*AncestorTag, TagComment, Source, bIsExplicit, bIsRestricted, bAllowsNonRestrictedChildren);
+					if (bIsRestricted)
+					{
+						if (bAllowsNonRestrictedChildren)
+						{
+							break;
+						}
+
+						ShowNotification(FText::Format(LOCTEXT("AddTagFailure", "Failed to add gameplay tag {0}, {1} is a restricted tag and does not allow non-restricted children"), FText::FromString(NewTag), FText::FromString(AncestorTag)), 10.0f);
+
+						return false;
+					}
+				}
+
+				bWasSplit = AncestorTag.Split(TEXT("."), &AncestorTag, nullptr, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+			}
+		}
+
 		if ((TagSourceName == NAME_None || TagSourceName == FGameplayTagSource::GetDefaultName()) && DevSettings && !DevSettings->DeveloperConfigName.IsEmpty())
 		{
 			// Try to use developer config file
@@ -361,23 +417,41 @@ public:
 			TagSource = Manager.FindOrAddTagSource(TagSourceName, EGameplayTagSourceType::TagList);
 		}
 
-		if (TagSource && TagSource->SourceTagList)
+		bool bSuccess = false;
+		if (TagSource)
 		{
-			UGameplayTagsList* TagList = TagSource->SourceTagList;
+			UObject* TagListObj = nullptr;
+			FString ConfigFileName;
 
-			TagList->GameplayTagList.AddUnique(FGameplayTagTableRow(FName(*NewTag), Comment));
+			if (bIsRestrictedTag && TagSource->SourceRestrictedTagList)
+			{
+				URestrictedGameplayTagsList* RestrictedTagList = TagSource->SourceRestrictedTagList;
+				TagListObj = RestrictedTagList;
+				RestrictedTagList->RestrictedGameplayTagList.AddUnique(FRestrictedGameplayTagTableRow(FName(*NewTag), Comment, bAllowNonRestrictedChildren));
+				RestrictedTagList->SortTags();
+				ConfigFileName = RestrictedTagList->ConfigFileName;
+				bSuccess = true;
+			}
+			else if (TagSource->SourceTagList)
+			{
+				UGameplayTagsList* TagList = TagSource->SourceTagList;
+				TagListObj = TagList;
+				TagList->GameplayTagList.AddUnique(FGameplayTagTableRow(FName(*NewTag), Comment));
+				TagList->SortTags();
+				ConfigFileName = TagList->ConfigFileName;
+				bSuccess = true;
+			}
 
-			TagList->SortTags();
-
-			GameplayTagsUpdateSourceControl(TagList->ConfigFileName);
+			GameplayTagsUpdateSourceControl(ConfigFileName);
 
 			// Check source control before and after writing, to make sure it gets created or checked out
 
-			TagList->UpdateDefaultConfigFile(TagList->ConfigFileName);
-			GameplayTagsUpdateSourceControl(TagList->ConfigFileName);
-			GConfig->LoadFile(TagList->ConfigFileName);
+			TagListObj->UpdateDefaultConfigFile(ConfigFileName);
+			GameplayTagsUpdateSourceControl(ConfigFileName);
+			GConfig->LoadFile(ConfigFileName);
 		}
-		else
+		
+		if (!bSuccess)
 		{
 			ShowNotification(FText::Format(LOCTEXT("AddTagFailure", "Failed to add gameplay tag {0} to dictionary {1}!"), FText::FromString(NewTag), FText::FromName(TagSourceName)), 10.0f);
 
@@ -403,13 +477,16 @@ public:
 
 		FString Comment;
 		FName TagSourceName;
+		bool bTagIsExplicit;
+		bool bTagIsRestricted;
+		bool bTagAllowsNonRestrictedChildren;
 
 		if (DeleteTagRedirector(TagToDelete))
 		{
 			return true;
 		}
-
-		if (!Manager.GetTagEditorData(TagName, Comment, TagSourceName))
+		
+		if (!Manager.GetTagEditorData(TagName, Comment, TagSourceName, bTagIsExplicit, bTagIsRestricted, bTagAllowsNonRestrictedChildren))
 		{
 			ShowNotification(FText::Format(LOCTEXT("RemoveTagFailureNoTag", "Cannot delete tag {0}, does not exist!"), FText::FromString(TagToDelete)), 10.0f);
 
@@ -521,17 +598,20 @@ public:
 
 		FString OldComment, NewComment;
 		FName OldTagSourceName, NewTagSourceName;
+		bool bTagIsExplicit;
+		bool bTagIsRestricted;
+		bool bTagAllowsNonRestrictedChildren;
 
 		// Delete existing redirector
 		DeleteTagRedirector(TagToRenameTo);
 		DeleteTagRedirector(TagToRename);
 
-		if (Manager.GetTagEditorData(OldTagName, OldComment, OldTagSourceName))
+		if (Manager.GetTagEditorData(OldTagName, OldComment, OldTagSourceName, bTagIsExplicit, bTagIsRestricted, bTagAllowsNonRestrictedChildren))
 		{
 			// Add new tag if needed
-			if (!Manager.GetTagEditorData(NewTagName, NewComment, NewTagSourceName))
+			if (!Manager.GetTagEditorData(NewTagName, NewComment, NewTagSourceName, bTagIsExplicit, bTagIsRestricted, bTagAllowsNonRestrictedChildren))
 			{
-				if (!AddNewGameplayTagToINI(TagToRenameTo, OldComment, OldTagSourceName))
+				if (!AddNewGameplayTagToINI(TagToRenameTo, OldComment, OldTagSourceName, bTagIsRestricted, bTagAllowsNonRestrictedChildren))
 				{
 					// Failed to add new tag, so fail
 					return false;

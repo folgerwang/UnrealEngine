@@ -21,7 +21,7 @@ struct FMovieSceneMarginSectionTemplate : public FMovieScenePropertySectionTempl
 {
 	GENERATED_BODY()
 	
-	FMovieSceneMarginSectionTemplate(){}
+	FMovieSceneMarginSectionTemplate() : BlendType((EMovieSceneBlendType)0) {}
 	FMovieSceneMarginSectionTemplate(const UMovieSceneMarginSection& Section, const UMovieScenePropertyTrack& Track);
 
 	const FMovieSceneFloatChannel& GetTopCurve() const    { return TopCurve; }

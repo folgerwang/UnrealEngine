@@ -1,53 +1,19 @@
-﻿INTSourceChangelist:2740063
-Availability:Public
+﻿Availability:Public
 Title:ブループリント通信の使用方法
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
 Description:ブループリント通信の様々な使用方法の概要 
-Related:Engine\Blueprints\UserGuide\BlueprintComms
+Related:Engine/Blueprints/UserGuide/BlueprintComms
 Related:Engine/Blueprints/UserGuide/EventDispatcher
 Related:Engine/Blueprints/UserGuide/CastNodes
 Related:Engine/Blueprints/UserGuide/Types/Interface/UsingInterfaces
 Version:4.9
 parent:Engine/Blueprints
 order:4
-type:howto
+type:how-to
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/bp_comms_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\BlueprintCommsUsage:title%](Engine\Blueprints\UserGuide\bp_comms_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\BlueprintCommsUsage:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\BlueprintCommsUsage:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\BlueprintCommsUsage]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\BlueprintCommsUsage:title%](Engine\Blueprints\UserGuide\bp_comms_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\BlueprintCommsUsage:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\BlueprintCommsUsage:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\BlueprintCommsUsage]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+
 
 
 [TOC(start:2 end:2)]
@@ -56,12 +22,12 @@ type:howto
 
 ## ダイレクト ブループリント通信
 
-![](Engine\Blueprints\UserGuide\BlueprintCommsUsage\BPComHowTo\2_9.png)
+![](Engine/Blueprints/UserGuide/BlueprintCommsUsage/BPComHowTo/2_9.png)
 
-[INCLUDE:Engine\Blueprints\UserGuide\BlueprintComms#intro]
+[INCLUDE:Engine/Blueprints/UserGuide/BlueprintComms#intro]
 
 [REGION:note]
-詳細は、**[](Engine\Blueprints\UserGuide\BlueprintComms)** を参照してください。 
+詳しい情報については **[](Engine/Blueprints/UserGuide/BlueprintComms)** をご覧ください。 
 [/REGION]
 
 ### いつ使用するのか
@@ -72,8 +38,9 @@ type:howto
 	*	レベル内のスイッチとインタラクションすることで特定のドアを開いたり、特定のライトを点灯します (それぞれ別のブループリント)。 
 
 [REGION:note]
-セットアップ方法については、 [ブループリント通信のセットアップ方法](Engine\Blueprints\BP_HowTo\DirectBlueprintComs) をご覧ください。 
+セットアップ方法については、 [ブループリント キャストのセットアップ方法](Engine/Blueprints/BP_HowTo/DirectBlueprintComs) をご覧ください。 
 [/REGION]
+
 
 ## イベント ディスパッチャー
 
@@ -84,7 +51,7 @@ type:howto
 例えば、キルされた時に "OnDied" イベント ディスパッチャーを呼び出すボスがゲーム内にいたとします。ボスがキルされたという "OnDied" 通知を取得すると実行されるキャラクター (祝う人)、レベル内のドア (開いている)、HUD (UI メッセージで点滅する) など、他のブループリント内で "OnDied" event を [**バインド**](Engine/Blueprints/UserGuide/EventDispatcher/BindingAndUnbinding) できます。 
 
 [REGION:note]
-* 詳しい情報については **[](Engine/Blueprints/UserGuide/EventDispatcher)** をご覧ください。 
+詳しい情報については **[](Engine/Blueprints/UserGuide/EventDispatcher)** をご覧ください。 
 [/REGION]
 
 ### いつ使用するのか
@@ -99,7 +66,7 @@ type:howto
 	*	レベルでアイテム (武器、ヘルスなど) をスポーンし、ピックアップされた場合にアイテムとキャラクターに通知する場合
 
 [REGION:note]
-セットアップ方法については、 [ブループリント通信のセットアップ方法](Engine\Blueprints\BP_HowTo\EventDispatcher) をご覧ください。 
+セットアップ方法については、[**Setting Up Event Dispatchers**](Engine/Blueprints/BP_HowTo/EventDispatcher) をご覧ください。 
 [/REGION]
 
 
@@ -136,7 +103,7 @@ OnTakeWeaponFire 関数を含む **ブループリント インターフェー�
 
 ##ブループリントのキャスティング
 
-![](Engine\Blueprints\UserGuide\BlueprintCommsUsage\BPComHowTo\Event6.png)
+![](Engine/Blueprints/UserGuide/BlueprintCommsUsage/BPComHowTo/Event6.png)
 
 [EXCERPT:CastDesc]
 ブループリント通信でもう 1 つ共通している形式は、**Cast** ノードの使用です。Cast ノードを使う場合、オブジェクトに「そのオブジェクトの特別版ですか」、もしそうならアクセスさせてください、そうでないなら私の要求を拒否してくださいと質問するだけです。 
@@ -147,7 +114,7 @@ OnTakeWeaponFire 関数を含む **ブループリント インターフェー�
 [/EXCERPT:CastDesc]
 
 [REGION:note]
-* 詳しい情報については [**キャスティング**](Engine/Blueprints/UserGuide/CastNodes) をご覧ください。 
+詳しい情報については [**キャスティング**](Engine/Blueprints/UserGuide/CastNodes) をご覧ください。 
 [/REGION]
 
 ### いつ使用するのか
@@ -161,15 +128,15 @@ OnTakeWeaponFire 関数を含む **ブループリント インターフェー�
 	*  キャラクターが死亡し、リスポーンする必要がある場合。 
 		* 特定の Game Mode ブループリントをキャストして、リスポーン スクリプトを実行する場合。 
 *	**同じクラスの複数のブループリントにアクセスして同じ方法で全部変更したい場合。**
-	* レベルにいくつか照明があり、イベント発生時に一斉に点灯、消灯したい場合。 
+	*  レベルにいくつか照明があり、イベント発生時に一斉に点灯、消灯したい場合。 
 		* Light ブループリントにキャストして、消灯する機能を実行する場合。 
 *	**特定の子ブループリントにアクセスしたい場合。**
-	* Animal ブループリント (Cat、Dog、Bird など) がベースのブループリントが複数あり、そのひとつにアクセスしたい場合。 
+	*  Animal ブループリント (Cat、Dog、Bird など) がベースのブループリントが複数あり、そのひとつにアクセスしたい場合。 
 		* それぞれのブループリントと固有の機能にアクセスするために Cast to Cat、Cast to Dog、Cast to Bird を使いたい場合。
 [/EXCERPT:Castusage]
 
 [REGION:note]
-セットアップ方法については、 [ブループリント キャストのセットアップ方法](Engine\Blueprints\BP_HowTo\EventDispatcher) をご覧ください。 
+セットアップ方法については、[**Setting Up Blueprint Casts**](Engine/Blueprints/BP_HowTo/Casting) をご覧ください。 
 [/REGION]
 
 

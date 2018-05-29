@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2754441
+﻿INTSourceChangelist:3750407
 Availability:Public
 Title:Environment Query System ユーザーガイド
 Crumbs:%ROOT%, Engine, Gameplay/AI, Engine/AI/EnvironmentQuerySystem
@@ -7,10 +7,9 @@ Version:4.9
 SkillLevel:Advanced
 
 
-
 ## Environment Query System を有効にする
 
-1. **[Edit (編集)] メニュー** -> **[Editor Preferences (エディタの環境設定)]**
+1. **Edit メニュー** -> **Editor Preferences**
 1. **[Experimental]**
 1. **AI** までスクロールします。
 1. **Environment Query System** を有効にします。
@@ -79,7 +78,7 @@ Simple Grid Generator のようなジェネレータが複数の位置あるい�
 1. コンテンツ ブラウザで、 **[Create (新規作成)]** ボタンを **左クリック** します。
 1. **[Blueprint]** を選択します。
 1. **[All Classes]** を展開します。
-1. **「EnvQueryContext」** を検索します。
+1. **EnvQueryContext** を検索します。
 1. **[EnvQueryContext_BlueprintBase]** を選択します。
 
 ## ブループリント ジェネレータの作成
@@ -87,7 +86,7 @@ Simple Grid Generator のようなジェネレータが複数の位置あるい�
 1. コンテンツ ブラウザで、 **[Create (新規作成)]** ボタンを **左クリック** します。
 1. **[Blueprint]** を選択します。
 1. **[All Classes]** を展開します。
-1. **「EnvQueryGenerator」** を検索します。
+1. **EnvQueryGenerator** を検索します。
 1. **[EnvQueryGenerator_BlueprintBase]** を選択します。
 
 ## Root を Generator へ接続する
@@ -147,14 +146,14 @@ Root へ複数の Generator ノードを接続することができますが、�
 
 新規作成された EnvQueryContext ブループリントには、4 つの機能が実装されています。
 
+* **Provide Single Location**
+* **Provide Single Actor**
+* **Provide Locations Set**
+* **Provide Actors Set**
+
+これらの 1 つを実行すると、クエリ内のテストで使えるようにコンテキストをカスタム化して作成できるようになります。実行したい関数 (複数可) を右クリックして、 **[Implement Function (関数を実装)]** を選択してください。
+
 ![](implementableFunctions.png)(convert:false)
-
-	* **Provide Single Location**
-	* **Provide Single Actor**
-	* **Provide Locations Set**
-	* **Provide Actors Set**
-
-	これらの 1 つを実行すると、クエリ内のテストで使えるようにコンテキストをカスタム化して作成できるようになります。実行したい関数 (複数可) を右クリックして、 **[Implement Function (関数を実装)]** を選択してください。
 
 ### Provide Single Location
 

@@ -442,9 +442,6 @@ private:
 										  const FSkelMeshRenderSection& SkelMeshSection,
 										  TArray<int32>& OutIndices) const;
 
-	/** Override for preview component selection to inform the editor we consider it selected */
-	bool PreviewComponentSelectionOverride(const UPrimitiveComponent* InComponent) const;
-
 	/** Used for camera tracking - store data about the scene pre-tick */
 	void HandlePreviewScenePreTick();
 

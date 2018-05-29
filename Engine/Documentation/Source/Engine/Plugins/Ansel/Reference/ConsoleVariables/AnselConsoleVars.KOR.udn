@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3579346
+﻿INTSourceChangelist:3808342
 Availability:Public
 TItle:Ansel 콘솔 변수 참고서
 Description:NVIDIA Ansel Photography 플러그인에서 사용할 수 있는 환경설정 변수에 대한 참고서입니다.
@@ -22,4 +22,3 @@ NVIDIA Ansel Photography 플러그인의 작동방식을 환경설정하는 데 
 | `r.Photography.TranslationSpeed` | 100.0 | 돌아다니는 포토그라피 카메라의 정상 이동 속도입니다 (초당 언리얼 유닛 단위). |
 | `r.Photography.AutoPostprocess` | 1 | 1 이면 포토그라피 시스템은 포토그라피 세션/캡처 도중 결과물에 악영향을 끼치는 것으로 알려진 HUD, 자막, 몇몇 표준 포스트 프로세싱 이펙트를 자동으로 비활성화시킵니다. 0 으로 설정하면 PlayerCameraManager 블루프린트 콜백에서 모든 포스트 프로세싱 트윅을 수동으로 관리합니다. [REGION:note]블루프린트 콜백은 AutoPostprocess 값과 무관하게 호출됩니다.[/REGION] |
 | `r.Photography.AutoPause` | 1 | 1 이면 포토그라피 시스템은 포토그라피 모드에서 레벨 일시정지를 시도합니다. 0 으로 설정하면 PlayerCameraManager 블루프린트 콜백으로부터 일시정지와 해제를 수동 관리합니다. [REGION:note]블루프린트 콜백은 AutoPause 값과 무관하게 호출됩니다.[/REGION] |
-| `r.Photography.PersistEffects` | 0 | 1 이면 포토그라피 모드에서 활성화된 커스텀 포스트 프로세싱 이펙트가 포토그라피 세션 종료 후에도 게임에 유지됩니다. 이 값을 변경해도 다음 포토그라피 세션이 시작되기 전까지 적용되지 않을 수 있습니다. |

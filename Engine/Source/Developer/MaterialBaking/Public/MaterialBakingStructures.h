@@ -14,12 +14,15 @@ struct FMaterialData
 {
 	FMaterialData()
 		: Material(nullptr)
+		, bPerformBorderSmear(true)
 	{}
 
 	/** Material to bake out */
 	UMaterialInterface* Material;
 	/** Properties and the texture size at which they should be baked out */
 	TMap<EMaterialProperty, FIntPoint> PropertySizes;
+	/** Whether to smear borders after baking */
+	bool bPerformBorderSmear;
 };
 
 struct FMeshData

@@ -32,6 +32,10 @@
 			"Type": "Runtime"
 		},
 		{
+			"Name": "PlayTimeLimit",
+			"Type": "Runtime"
+		},
+		{
 			"Name": "LoginFlow",
 			"Type":  "ClientOnly"
 		}

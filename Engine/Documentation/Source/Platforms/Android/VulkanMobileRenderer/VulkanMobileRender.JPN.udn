@@ -1,9 +1,9 @@
-﻿INTSourceChangelist:3083934
+﻿INTSourceChangelist:3807090
 Title:Android Vulkan モバイル レンダラー
 Description:UE4 Android プロジェクトを Vulkan モバイル レンダラーで使えるように設定する方法
 Crumbs:
 Availability:Public
-Version:4.12
+version:4.12
 Parent:Platforms/Android
 tags:Mobile
 tags:Android
@@ -49,7 +49,7 @@ Vulkan API 対応の UE4 プロジェクトをビルドするには、以下の�
 1. [https://vulkan.lunarg.com/signin](https://vulkan.lunarg.com/signin) のダウンロード セクションで **[Windows]** オプションをクリックします。
 
 	[REGION:lightbox]
-	[![](VMP_LunarG_00.png)(w:469 h:577)](VMP_LunarG_00.png)
+	[![](VMP_LunarG_00.png)(w:469)](VMP_LunarG_00.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -63,14 +63,14 @@ Vulkan API 対応の UE4 プロジェクトをビルドするには、以下の�
 1. LunarG Vulkan SDK License Agreement ページで、バージョンを **[Latest (最新版)]** に変更して **[I Accept (同意します)]** ボタンを押してダウンロードを開始します。
 
 	[REGION:lightbox]
-	[![](VMP_LunarG_01.png)(w:463 h:224)](VMP_LunarG_01.png)
+	[![](VMP_LunarG_01.png)(w:463)](VMP_LunarG_01.png)
 	[/REGION]
 
 	[REGION:caption]
 	クリックしてフルサイズで表示
 	[/REGION]
 
-1. ダウンロードが完了したら、**VulkanSDK-1.0.17.0** インストーラーを実行し、プロンプトに従って Vulkan SDK をインストールします。Vulkan SDK のインストールが完了したら、PC を再起動して、環境変数が正しく設定されていることを確認してください。 
+1. ダウンロードが完了したら、**VulkanSDK-1.0.17.0** インストーラを実行し、プロンプトに従って Vulkan SDK をインストールします。Vulkan SDK のインストールが完了したら、PC を再起動して、環境変数が正しく設定されていることを確認してください。 
 
 1. PC が再起動したら、システムの **[Environment Variables (環境変数)]** を開いて、**[Variable (変数)]** セクションの **[Vulkan_SDK]** にチェックを入れます。 
 
@@ -82,10 +82,10 @@ Vulkan API 対応の UE4 プロジェクトをビルドするには、以下の�
 	* Blank Template
 	* Mobile / Tablet
 	* Maximum Quality
-	* No Starter Content (スターター コンテンツなし) 
+	* No Starter Content
 
 	[REGION:lightbox]
-	[![](VMP_New_Project_Settings.png)(w:555 h:387)](VMP_New_Project_Settings.png)
+	[![](VMP_New_Project_Settings.png)(w:555)](VMP_New_Project_Settings.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -96,7 +96,7 @@ Vulkan API 対応の UE4 プロジェクトをビルドするには、以下の�
 1. プロジェクトがロードされたら **[Edit (編集)]** > **[Project Settings (プロジェクト設定)]** を選択して **[Engine]** の **[Rendering (レンダリング)]** セクションの **[Mobile HDR]** が有効にされていることを確認します。
 
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_04.png)(w:639 h:385)](VMP_Android_Settings_04.png)
+	[![](VMP_Android_Settings_04.png)(w:639)](VMP_Android_Settings_04.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -106,7 +106,7 @@ Vulkan API 対応の UE4 プロジェクトをビルドするには、以下の�
 1. 次に **[Platforms]** の **[Android]** セクションを開きます。
 
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_00.png)(w:639 h:385)](VMP_Android_Settings_00.png)
+	[![](VMP_Android_Settings_00.png)(w:639)](VMP_Android_Settings_00.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -116,7 +116,7 @@ Vulkan API 対応の UE4 プロジェクトをビルドするには、以下の�
 1. **[APKPackaging]** セクションの [Android] で **[Minimum SDK Version (最低限の SDK バージョン)]** を **「19」**、**[Target SDK Version (ターゲットの SDK バージョン)]** を **「19」** に設定します。 
 
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_01.png)(w:639 h:385)](VMP_Android_Settings_01.png)
+	[![](VMP_Android_Settings_01.png)(w:639)](VMP_Android_Settings_01.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -130,7 +130,7 @@ Vulkan API 対応の UE4 プロジェクトをビルドするには、以下の�
 	* **Support Vulkan[Experimental]**
 
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_02.png)(w:639 h:385)](VMP_Android_Settings_02.png)
+	[![](VMP_Android_Settings_02.png)(w:639)](VMP_Android_Settings_02.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -140,7 +140,7 @@ Vulkan API 対応の UE4 プロジェクトをビルドするには、以下の�
 1. **[Android SDK]** セクションで **SDKConfig** パスが開発 PC の正しい SDK に合っていることを確認します。
 
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_03.png)(w:639 h:385)](VMP_Android_Settings_03.png)
+	[![](VMP_Android_Settings_03.png)(w:639)](VMP_Android_Settings_03.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -150,7 +150,7 @@ Vulkan API 対応の UE4 プロジェクトをビルドするには、以下の�
 1. メニュー バーから **[File]** > **[Package Project (パッケージ プロジェクト)]** > **[Android]** を開いて **[Android(ASTC)]** オプションを選択します。 
 
 	[REGION:lightbox]
-	[![](VMP_Package_Game.png)(w:329 h:266)](VMP_Package_Game.png)
+	[![](VMP_Package_Game.png)(w:329)](VMP_Package_Game.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -160,7 +160,7 @@ Vulkan API 対応の UE4 プロジェクトをビルドするには、以下の�
 1. ビルドした Android の保存先を選択して **[OK]** ボタンを押して、パッケージ処理を開始します。
 
 	[REGION:lightbox]
-	[![](VMP_Save_Build_Location.png)(w:245 h:267)](VMP_Save_Build_Location.png)
+	[![](VMP_Save_Build_Location.png)(w:245)](VMP_Save_Build_Location.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -170,7 +170,7 @@ Vulkan API 対応の UE4 プロジェクトをビルドするには、以下の�
 1. パッケージ処理が完了したら、パッケージ処理されたビルドが置かれているフォルダを開きます。このフォルダの中に .BAT ファイルが 2 つあります。名前に **Install** が含まれている .BAT ファイルの方をクリックして、デバイスにインストールします。
 
 	[REGION:lightbox]
-	[![](VMP_Build_Files.png)(w:439 h:198)](VMP_Build_Files.png)
+	[![](VMP_Build_Files.png)(w:439)](VMP_Build_Files.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -180,7 +180,7 @@ Vulkan API 対応の UE4 プロジェクトをビルドするには、以下の�
 1. デバイスへのインストールが完了したら、プロジェクト名が付いている UE4 アイコンを押してデバイス上でプロジェクトを起動します。 
 
 	[REGION:lightbox]
-	[![](VMP_On_Device.png)(w:818 h:320)](VMP_On_Device.png)
+	[![](VMP_On_Device.png)(w:818)](VMP_On_Device.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -197,7 +197,7 @@ UE4 エディタの中で Vulkan レンダリング機能を有効にするに�
 1. **[General (一般)]** セクションの **[Experimental (実験的)]** カテゴリの **[Rendering (レンダリング)]** セクションを展開し、**[Enable Metal/Vulkan/High-end mobile Preview Rendering Level in editor (エディタで Metal/Vulkan/ハイエンド モバイルのプレビュー レンダリング レベルを有効にする)]** の横にあるチェックボックスをクリックします。
 
 	[REGION:lightbox]
-	[![](VMP_03.png)(w:447 h:308)](VMP_03.png)
+	[![](VMP_03.png)(w:447)](VMP_03.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -211,13 +211,13 @@ UE4 エディタの中で Vulkan レンダリング機能を有効にするに�
 1. UE4 ビューポートで OpenGL ES 3.1 プレビューを有効にするには、**メインツールバー** の **[Settings (設定)]** オプションをクリックして **[Preview Rendering Level (レンダリング レベルをプレビュー)]** オプションから **[High-End Mobile / Metal]** オプションを選択します。
 
 	[REGION:lightbox]
-	[![](VMP_Android_Settings_05.png)(w:447 h:308)](VMP_Android_Settings_05.png)
+	[![](VMP_Android_Settings_05.png)(w:447)](VMP_Android_Settings_05.png)
 	[/REGION]
 
 1. UE4 エディタ ビューポートの右下隅をみると、**Feature Level:ES3_1** というテキストが表示されているはずです。このテキストが表示されたら、すべて設定が正しくされて、Vulkan API 対応のデバイス上でのプロジェクトの見え方を確認することができます。
 
 	[REGION:lightbox]
-	[![](VMP_04.png)(w:447 h:308)](VMP_04.png)
+	[![](VMP_04.png)(w:447)](VMP_04.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -234,7 +234,7 @@ UE4 エディタの中で Vulkan レンダリング機能を有効にするに�
 1. **[General (一般)]** セクションの **[Experimental (実験的)]** カテゴリの **[PIE]** セクションを展開し、**[Allow Vulkan Mobile Preview (Vulkan モバイル プレビューを有効にする)]** の横にあるチェックボックスをクリックします。
 
 	[REGION:lightbox]
-	[![](VMP_01.png)(w:447 h:308)](VMP_01.png)
+	[![](VMP_01.png)(w:447)](VMP_01.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -248,7 +248,7 @@ UE4 エディタの中で Vulkan レンダリング機能を有効にするに�
 1. ツールバーの **[Play]** ボタンをクリックして、Vulkan レンダリングを有効にしたまま、新規プレビュー ウィンドウで UE4 を起動します。設定がすべて正常にされていれば、以下の画像のようになるはずです。
 
 	[REGION:lightbox]
-	[![](VMP_05.png)(w:447 h:308)](VMP_05.png)
+	[![](VMP_05.png)(w:447)](VMP_05.png)
 	[/REGION]
 
 	[REGION:caption]

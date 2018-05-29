@@ -461,6 +461,7 @@ protected:
 
 	//~ UObject interface
 	MOVIESCENE_API virtual void PostInitProperties() override;
+	MOVIESCENE_API virtual bool IsPostLoadThreadSafe() const override;
 	MOVIESCENE_API virtual void Serialize(FArchive& Ar) override;
 
 	virtual void OnMoved(int32 DeltaTime) {}

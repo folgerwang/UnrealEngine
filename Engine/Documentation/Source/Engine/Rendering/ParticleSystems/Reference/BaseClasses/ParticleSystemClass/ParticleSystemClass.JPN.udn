@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750589
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Particle System クラス
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:基本的な ParticleSystem クラスとそのプロパティの技術ガイド
 Version:4.9
+tags:Particles
 
 パーティクル システムは、いくつものパーティクル エミッタを格納し完全なパーティクル効果を表現します。システムに複数のエミッタを持つことで、デザイナーは複雑なパーティクル効果を単一システムで作成することができます。パーティクル システムを一度カスケードで作成すると、レベルへ挿入したり、スクリプト内で作成することができます。
 
@@ -24,8 +25,8 @@ ParticleSystem クラスは以下のパブリック変数を格納します。
 | [REGION:tablesection]LOD[/REGION] ||
 | **LOD Distance Check Time** | 使用する LOD レベルを決定するためにシステムが距離チェックを実行する間隔 (秒) です(LODMethod が Automatic に設定時のみ使用します)。 |
 | **LOD Method** | システムが適切な LOD レベルの選択に利用するメソッドを示す列挙型変数です。利用可能なメソッドがいくつかあります。 [INCLUDE:#LODMethod] |
-| **LODDistances** | 使用する LOD レベルを決定するための距離の配列です。(LODMethod が Automatic に設定時のみ使用します)。これらの数値は、選択する LOD レベルに推奨する最少距離を示します。例えば 3 つの LOD レベルをもつシステムを想定してみましょう。[INCLUDE:#LODDistance] |
-| **LODSettings** | 各 LOD に使用する具体的な設定を決定する ParticleSystem がライトを受け取ると、常に _Lit_ が制御する唯一の設定です。|
+| **LODDistances** | 使用する LOD レベルを決定するための距離の配列です。(LODMethod が Automatic に設定時のみ使用します。)これらの数値は、選択する LOD レベルに推奨する最少距離を示します。例えば 3 つの LOD レベルをもつシステムを想定してみましょう。[INCLUDE:#LODDistance] |
+| **LODSettings** | 各 LOD に使用する具体的な設定を決定する ParticleSystem がライトを受け取ると、常に _Lit_ が制御する唯一の設定です。 |
 | [REGION:tablesection]Bounds[/REGION] ||
 | **Use Fixed Relative Bounding Box** | _true_ の場合、パーティクル システムの境界としてコードは FixedRelativeBoundingBox を利用します。 |
 | **Fixed Relative Bounding Box** | パーティクル システムでユーザー設定の境界ボックスを使用できます。エフェクトが可視化されていない時にレンダリングや更新を行う、もしくは逆にエフェクトが表示されている時にレンダリングや更新がされないことと引き換えに、フレーム毎にバウンダリ更新するオーバーヘッドを取り除きます。スケーリングサイズが大幅に変動するエミッタを持たない限り、パフォーマンス上の理由からほぼ必ず固定境界ボックスを使用しなくてはいけません。[REGION:note]カスケード ツールバーの [Toggle Bounds] ボタンを **右クリック** すると、カスケードで現在使用されている動的ボックスの値がこのダイアログボックスに挿入され、そのデータをもとに値を調整することができます。[/REGION] |

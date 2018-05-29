@@ -333,6 +333,12 @@ FShapedGlyphSequencePtr FShapedGlyphSequence::GetSubSequence(const int32 InStart
 	return nullptr;
 }
 
+void FShapedGlyphSequence::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	Collector.AddReferencedObject(FontMaterial);
+	Collector.AddReferencedObject(OutlineSettings.OutlineMaterial);
+}
+
 FShapedGlyphSequence::EEnumerateGlyphsResult FShapedGlyphSequence::EnumerateLogicalGlyphsInSourceRange(const int32 InStartIndex, const int32 InEndIndex, const FForEachShapedGlyphEntryCallback& InGlyphCallback) const
 {
 	if (InStartIndex == InEndIndex)
@@ -1108,7 +1114,10 @@ void FSlateFontCache::FlushCache()
 			FontObjectsToFlush.Empty();
 		}
 
-		UE_LOG(LogSlate, Verbose, TEXT("Slate font cache was flushed"));
+#if !WITH_EDITOR
+		UE_LOG(LogSlate, Log, TEXT("Slate font cache was flushed"));
+#endif
+
 	}
 	else
 	{

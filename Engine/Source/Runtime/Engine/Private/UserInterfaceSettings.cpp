@@ -79,31 +79,57 @@ float UUserInterfaceSettings::GetDPIScaleBasedOnSize(FIntPoint Size) const
 {
 	float Scale = 1.0f;
 
-	if ( UIScaleRule == EUIScalingRule::Custom )
+	if (LastViewportSize.IsSet() && Size == LastViewportSize.GetValue())
 	{
-		if ( CustomScalingRuleClassInstance == nullptr )
+		Scale = CalculatedScale;
+	}
+	else
+	{
+		bool bOutError;
+		Scale = CalculateScale(Size, bOutError);
+		if (!bOutError)
+		{
+			CalculatedScale = Scale;
+#if !WITH_EDITOR
+			// Only cache the value outside the editor.
+			LastViewportSize = Size;
+#endif
+		}
+	}
+
+	return FMath::Max(Scale * ApplicationScale, 0.01f);
+}
+
+float UUserInterfaceSettings::CalculateScale(FIntPoint Size, bool& bError) const
+{
+	bError = false;
+
+	if (UIScaleRule == EUIScalingRule::Custom)
+	{
+		if (CustomScalingRuleClassInstance == nullptr)
 		{
 			CustomScalingRuleClassInstance = CustomScalingRuleClass.TryLoadClass<UDPICustomScalingRule>();
 
-			if ( CustomScalingRuleClassInstance == nullptr )
+			if (CustomScalingRuleClassInstance == nullptr)
 			{
 				FMessageLog("MapCheck").Error()
 					->AddToken(FTextToken::Create(FText::Format(LOCTEXT("CustomScalingRule_NotFound", "Project Settings - User Interface Custom Scaling Rule '{0}' could not be found."), FText::FromString(CustomScalingRuleClass.ToString()))));
+				bError = true;
 				return 1;
 			}
 		}
-		
-		if ( CustomScalingRule == nullptr )
+
+		if (CustomScalingRule == nullptr)
 		{
 			CustomScalingRule = CustomScalingRuleClassInstance->GetDefaultObject<UDPICustomScalingRule>();
 		}
 
-		Scale = CustomScalingRule->GetDPIScaleBasedOnSize(Size);
+		return CustomScalingRule->GetDPIScaleBasedOnSize(Size);
 	}
 	else
 	{
 		int32 EvalPoint = 0;
-		switch ( UIScaleRule )
+		switch (UIScaleRule)
 		{
 		case EUIScalingRule::ShortestSide:
 			EvalPoint = FMath::Min(Size.X, Size.Y);
@@ -120,11 +146,30 @@ float UUserInterfaceSettings::GetDPIScaleBasedOnSize(FIntPoint Size) const
 		}
 
 		const FRichCurve* DPICurve = UIScaleCurve.GetRichCurveConst();
-		Scale = DPICurve->Eval((float)EvalPoint, 1.0f);
+		return DPICurve->Eval((float)EvalPoint, 1.0f);
+	}
+}
+
+#if WITH_EDITOR
+
+void UUserInterfaceSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	// Look for changed properties
+	const FName PropertyName = (PropertyChangedEvent.Property != nullptr) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
+	const FName MemberPropertyName = (PropertyChangedEvent.MemberProperty != nullptr) ? PropertyChangedEvent.MemberProperty->GetFName() : NAME_None;
+
+	if (MemberPropertyName == GET_MEMBER_NAME_CHECKED(UUserInterfaceSettings, CustomScalingRuleClass))
+	{
+		CustomScalingRuleClassInstance = nullptr;
+		CustomScalingRule = nullptr;
 	}
 
-	return FMath::Max(Scale * ApplicationScale, 0.01f);
+	LastViewportSize.Reset();
 }
+
+#endif
 
 void UUserInterfaceSettings::ForceLoadResources()
 {

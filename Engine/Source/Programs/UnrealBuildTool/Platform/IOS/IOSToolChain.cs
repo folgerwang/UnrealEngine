@@ -326,7 +326,7 @@ namespace UnrealBuildTool
 				Result += " -isysroot " + Settings.Value.BaseSDKDir + "/" +  Settings.Value.DevicePlatformName + Settings.Value.IOSSDKVersion + ".sdk";
 			}
 
-			Result += " -m" +  GetXcodeMinVersionParam() + "=" + ProjectSettings.RuntimeVersion;
+			Result += " -m" + GetXcodeMinVersionParam() + "=" + ProjectSettings.RuntimeVersion;
 			
 			bool bStaticAnalysis = false;
 			string StaticAnalysisMode = Environment.GetEnvironmentVariable("CLANG_STATIC_ANALYZER_MODE");
@@ -493,14 +493,16 @@ namespace UnrealBuildTool
 			}
 			else
 			{
+				string ResultsText;
+
 				// Delete the local dest directory if it exists
 				if (Directory.Exists(Path))
 				{
-					Directory.Delete(Path, true);
+					// this can deal with linked files
+					RunExecutableAndWait("rm", String.Format("-rf \"{0}\"", Path), out ResultsText);
 				}
 
 				// Create the intermediate local directory
-				string ResultsText;
 				RunExecutableAndWait("mkdir", String.Format("-p \"{0}\"", Path), out ResultsText);
 			}
 		}
@@ -939,6 +941,14 @@ namespace UnrealBuildTool
 			FileItem OutputFile = FileItem.GetItemByFileReference(LinkEnvironment.OutputFilePath);
 			FileItem RemoteOutputFile = LocalToRemoteFileItem(OutputFile, false);
 			LinkAction.ProducedItems.Add(RemoteOutputFile);
+
+			// Add arguments to generate a map file too
+			if (!LinkEnvironment.bIsBuildingLibrary && LinkEnvironment.bCreateMapFile)
+			{
+				FileItem MapFile = FileItem.GetItemByFileReference(new FileReference(OutputFile.Location.FullName + ".map"));
+				LinkCommandArguments += string.Format(" -Wl,-map,\"{0}\"", MapFile.Location.FullName);
+				LinkAction.ProducedItems.Add(MapFile);
+			}
 
 			// Add the input files to a response file, and pass the response file on the command-line.
 			List<string> InputFileNames = new List<string>();
@@ -1470,10 +1480,11 @@ namespace UnrealBuildTool
                     new string []{ "IPhoneIcon60@3x.png", "Icon60@3x.png", "Icon180.png" },
                     new string []{ "IPadIcon20.png", "Icon20.png" },
                     new string []{ "IPadIcon20@2x.png", "Icon20@2x.png", "Icon40.png" },
-                    new string []{ "IPadIcon29.png", "Icon29.png" },
+					new string []{ "IPadIcon29.png", "Icon29.png" },
                     new string []{ "IPadIcon29@2x.png", "Icon29@2x.png", "Icon58.png" },
                     new string []{ "IPadIcon40.png", "Icon40.png", "Icon20@2x.png" },
-                    new string []{ "IPadIcon76.png", "Icon76.png" },
+					new string []{ "IPadIcon40@2x.png", "Icon80.png", "Icon40@2x.png" },
+					new string []{ "IPadIcon76.png", "Icon76.png" },
                     new string []{ "IPadIcon76@2x.png", "Icon76@2x.png", "Icon152.png" },
                     new string []{ "IPadIcon83.5@2x.png", "Icon83.5@2x.png", "Icon167.png" },
                     new string []{ "Icon1024.png", "Icon1024.png" },
@@ -1637,7 +1648,10 @@ namespace UnrealBuildTool
 				}
 				File.Copy(Target.OutputPath.FullName, FinalRemoteExecutablePath, true);
 
-				GenerateCrashlyticsData(RemoteShadowDirectoryMac, Path.GetFileName(Target.OutputPath.FullName), Target.ProjectDirectory.FullName, AppName);
+				if (!Target.Rules.IOSPlatform.bSkipCrashlytics)
+				{
+					GenerateCrashlyticsData(RemoteShadowDirectoryMac, Path.GetFileName(Target.OutputPath.FullName), Target.ProjectDirectory.FullName, AppName);
+				}
 
 				if (Target.Rules.bCreateStubIPA)
 				{

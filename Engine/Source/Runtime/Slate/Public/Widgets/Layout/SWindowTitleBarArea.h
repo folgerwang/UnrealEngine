@@ -93,9 +93,19 @@ public:
 		RequestToggleFullscreen = InRequestToggleFullscreen;
 	}
 
+	static void SetOnCloseButtonClickedDelegate(FSimpleDelegate InOnCloseCuttonClicked)
+	{
+		OnCloseButtonClicked = InOnCloseCuttonClicked;
+	}
+
+	static void SetIsCloseButtonActive(bool bIsAcive)
+	{
+		bIsCloseButtonActive = bIsAcive;
+	}
+
 	void SetWindowButtonsVisibility(bool bIsVisible)
 	{
-		WindowButtonsBox->SetVisibility(bIsVisible ? EVisibility::Visible : EVisibility::Collapsed);
+		WindowButtonsBox->SetVisibility(bIsVisible && PLATFORM_DESKTOP ? EVisibility::Visible : EVisibility::Collapsed);
 	}
 
 	static void SetCustomStyleForWindowButtons(const FButtonStyle& InMinimizeButtonStyle, const FButtonStyle& InMaximizeButtonStyle, const FButtonStyle& InRestoreButtonStyle, const FButtonStyle& InCloseButtonStyle)
@@ -114,6 +124,9 @@ private:
 
 	TSharedPtr<SWindow> GameWindow;
 	FSimpleDelegate RequestToggleFullscreen;
+
+	static FSimpleDelegate OnCloseButtonClicked;
+	static bool bIsCloseButtonActive;
 
 	static FButtonStyle MinimizeButtonStyle;
 	static FButtonStyle MaximizeButtonStyle;

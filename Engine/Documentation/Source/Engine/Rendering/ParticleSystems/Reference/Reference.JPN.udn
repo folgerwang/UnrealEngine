@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3429247
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:パーティクル システムのリファレンス
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems
@@ -15,79 +15,20 @@ topic-image:particlereference_topic.png
 
 パーティクル システムを構成するベースクラスに関する参照マテリアルです。例えば、ParticleSystem クラスや ParticleEmitter クラスがあります。
 
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/reference_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		ベースクラスのテクニカル リファレンス
-	[/PARAM]
-	[PARAM:description]
-	[/PARAM]
-	[PARAM:links]
-	*  [](Engine/Rendering/ParticleSystems/Reference/BaseClasses/ParticleSystemClass) - %Engine/Rendering/ParticleSystems/Reference/BaseClasses/ParticleSystemClass:Description%
-	*  [](Engine/Rendering/ParticleSystems/Reference/BaseClasses/ParticleEmitterClass) - %Engine/Rendering/ParticleSystems/Reference/BaseClasses/ParticleEmitterClass:Description%
-	*  [](Engine/Rendering/ParticleSystems/Reference/BaseClasses/ParticleModule) - %Engine/Rendering/ParticleSystems/Reference/BaseClasses/ParticleModule:Description%
-	[/PARAM]
-[/OBJECT]
-
+*  [](Engine/Rendering/ParticleSystems/Reference/BaseClasses/ParticleSystemClass) - %Engine/Rendering/ParticleSystems/Reference/BaseClasses/ParticleSystemClass:Description%
+*  [](Engine/Rendering/ParticleSystems/Reference/BaseClasses/ParticleEmitterClass) - %Engine/Rendering/ParticleSystems/Reference/BaseClasses/ParticleEmitterClass:Description%
+*  [](Engine/Rendering/ParticleSystems/Reference/BaseClasses/ParticleModule) - %Engine/Rendering/ParticleSystems/Reference/BaseClasses/ParticleModule:Description%
 
 ## TypeData モジュール
 
 ParticleSystem への追加時のエミッタのデフォルト タイプはスプライト エミッタと同じです。TypeData モジュールの使用によりエミッタの他のタイプを作成することもできます。これらのモジュールは、ビーム、メッシュ、リボンなど他のタイプのパーティクルを放射するための特定の機能を提供します。
 
 [EXCERPT:Types]
-[OBJECT:IconSection]
-	[PARAM:icon]
-		[![](Engine/Rendering/ParticleSystems/Reference/TypeData/Beam/psys_beam.gif)(w:256 convert:false)](Engine/Rendering/ParticleSystems/Reference/TypeData/Beam)
-	[/PARAM]
-	[PARAM:title]
-		[](Engine/Rendering/ParticleSystems/Reference/TypeData/Beam)
-	[/PARAM]
-	[PARAM:description]
-		[INCLUDE:Engine/Rendering/ParticleSystems/Reference/TypeData/Beam#Intro]
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:IconSection]
-	[PARAM:icon]
-		[![](Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites/GPUSprites.png)(w:256)](Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites)
-	[/PARAM]
-	[PARAM:title]
-		[](Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites)
-	[/PARAM]
-	[PARAM:description]
-		[INCLUDE:Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites#Intro]
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:IconSection]
-	[PARAM:icon]
-		[![](Engine/Rendering/ParticleSystems/Reference/TypeData/Mesh/LootBucket.png)(w:256)](Engine/Rendering/ParticleSystems/Reference/TypeData/Mesh)
-	[/PARAM]
-	[PARAM:title]
-		[](Engine/Rendering/ParticleSystems/Reference/TypeData/Mesh)
-	[/PARAM]
-	[PARAM:description]
-		[INCLUDE:Engine/Rendering/ParticleSystems/Reference/TypeData/Mesh#Intro]
-	[/PARAM]
-[/OBJECT]
-
-[OBJECT:IconSection]
-	[PARAM:icon]
-		[![](Engine/Rendering/ParticleSystems/Reference/TypeData/Ribbon/RibbonSmoke.png)(w:256)](Engine/Rendering/ParticleSystems/Reference/TypeData/Ribbon)
-	[/PARAM]
-	[PARAM:title]
-		[](Engine/Rendering/ParticleSystems/Reference/TypeData/Ribbon)
-	[/PARAM]
-	[PARAM:description]
-		[INCLUDE:Engine/Rendering/ParticleSystems/Reference/TypeData/Ribbon#Intro]
-	[/PARAM]
-[/OBJECT]
+[DIR(output:"topic" parent:"Engine/Rendering/ParticleSystems/Reference" tags:"TypeData")]
 [/EXCERPT:Types]
 
 
-##モジュール
+## モジュール
 
 モジュールを使用して、エミッタが発するパーティクルの様々な側面を制御します。スポーン中やアップデート中、またはその両方でパーティクルに効果を適用できます。モジュールはエミッタの中の順番 (カスケード内のモジュールのスタック上での位置) によってモジュール同士で相互作用します。例えば、1 つのエミッタに 2 つの速度モジュールを適用すると、パーティクルに累積した効果が表現されます。
 

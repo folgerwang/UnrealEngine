@@ -433,4 +433,9 @@ namespace nvidia
 /** The default interface is nullptr. This can be set by other modules to get custom behavior */
 extern ENGINE_API nvidia::apex::PhysX3Interface* GPhysX3Interface;
 
+struct ENGINE_API FContactModifyCallback : public PxContactModifyCallback
+{
+	virtual ~FContactModifyCallback() {}	//This should only be called from the factory's destroy method which is called after simulation is done.
+};
+
 #endif

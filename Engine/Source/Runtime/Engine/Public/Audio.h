@@ -648,6 +648,17 @@ public:
 	/** Stops the sound source. */
 	ENGINE_API virtual void Stop();
 
+	ENGINE_API virtual void StopNow() { checkf(false, TEXT("This should not get called in non-audio mixer.")); };
+
+	/** Whether or not the source is stopping. Only implemented in audio mixer. */
+	virtual bool IsStopping() { return false; }
+
+	/** Makes sure the source stops. Only implemented in audio mixer. */
+	virtual void EnsureStopped() {}
+
+	/** Called after a sound has been stopped and needs cleaning up. */
+	virtual void ReleaseStoppedSound() {}
+
 	/** Returns true if the sound source has finished playing. */
 	virtual	bool IsFinished() = 0;
 	
@@ -825,6 +836,7 @@ protected:
 	uint32 bIsVirtual : 1;
 
 	friend class FAudioDevice;
+	friend struct FActiveSound;
 };
 
 

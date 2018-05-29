@@ -495,6 +495,11 @@ FReply SFilterList::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointer
 	return FReply::Unhandled();
 }
 
+const TArray<UClass*>& SFilterList::GetInitialClassFilters()
+{
+	return InitialClassFilters;
+}
+
 bool SFilterList::HasAnyFilters() const
 {
 	return Filters.Num() > 0;

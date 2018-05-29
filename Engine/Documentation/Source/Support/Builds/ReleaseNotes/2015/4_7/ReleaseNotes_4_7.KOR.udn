@@ -123,11 +123,21 @@ Artem V. Navrotskiy (bozaro), ArneBezuijen, Black Phoenix (PheonixBlack), codeta
 #### 자동 애셋 임포트
 메시, 사운드, 텍스처 임포트가 더욱 쉬워졌습니다. 그냥 프로젝트의 Content 폴더 아래에서 소스 아트 파일을 저장하기만 하면, 에디터가 자동으로 새로운 파일을 임포트해 주므로, UE4 에서 바로 사용할 수 있습니다!
 
-![](AutoAssetImport.gif)(convert:false)
+[OBJECT:EmbeddedVideo]
+[PARAMLITERAL:width]
+640
+[/PARAMLITERAL]
+[PARAMLITERAL:height]
+360
+[/PARAMLITERAL]
+[PARAMLITERAL:videoid]
+8iXezqbc2kE
+[/PARAMLITERAL]
+[/OBJECT]
 
 외부 어플리케이션에서 이 파일을 업데이트하면, 에디터가 자동 감지하여 콘텐츠를 리임포트할 것입니다! 게임 콘텐츠 반복처리 작업이 훨씬 빨라집니다.
 
-이 기능은 기본으로 켜져있으나, 에디터 개인설정의 "로드 & 저장" 섹션의 "Monitor Content Directories" (콘텐츠 디렉토리 모니터링) 옵션으로 토글시킬 수 있습니다.
+이 기능은 기본으로 켜져있으나, 에디터 개인설정의 `"로드 & 저장"` 섹션의 "Monitor Content Directories" (콘텐츠 디렉토리 모니터링) 옵션으로 토글시킬 수 있습니다.
 
 #### 블루프린트 에디터 UI 디자인 변경
 블루프린트 에디터의 디자인이 더욱 사용하기 쉽도록 변경되었습니다! 세 가지 모드 전부 하나의 화면으로 통합되어 작업의 흐름을 더욱 매끄럽게 파악할 수 있을 뿐만 아니라, 여러가지 개선사항도 포함되어 있습니다.
@@ -194,9 +204,19 @@ OS X 용 Java 및 Android SDK 가 필요합니다 (Engine/Extras/Android 의 TAD
 #### Leap Motion 플러그인 *베타*
 이제 UE4 의 플러그인을 통해 **Leap Motion 디바이스** 가 지원됩니다. 이를 통해 Leap 의 손 추적 기술을 프로젝트에 바로 사용할 수 있게 되었습니다. 해당 API 는 블루프린트와 코드 양쪽에 노출되어 있어, 어떤 프로젝트에서도 해당 기술을 활용할 수 있습니다.
 
-![](LeapMotion.gif)(convert:false)
+[OBJECT:EmbeddedVideo]
+[PARAMLITERAL:width]
+640
+[/PARAMLITERAL]
+[PARAMLITERAL:height]
+360
+[/PARAMLITERAL]
+[PARAMLITERAL:videoid]
+pifYPUX4ccU
+[/PARAMLITERAL]
+[/OBJECT]
 
-플러그인 사용법 관련 예제는, [Leap Motion 웹사이트](https://www.leapmotion.com) 를 참고해 주세요. 현재 이 플러그인은 GitHub 에서 엔진을 빌드하신 분들, Leap 웹사이트에서 플러그인을 직접 다운로드하신 분들만 사용 가능합니다.
+플러그인 사용법 관련 예제는, [](https://www.leapmotion.com) 웹사이트를 참고해 주세요.  현재 이 플러그인은 GitHub 에서 엔진을 빌드하신 분들, Leap 웹사이트에서 플러그인을 직접 다운로드하신 분들만 사용 가능합니다.
 
 #### 콘텐츠 브라우저에서 C++ 클래스
 게임의 C++ 클래스가 이제 콘텐츠 브라우저에 보입니다!
@@ -307,7 +327,7 @@ VthaM3yZbVM
 
 * 블루프린트 에디터에서 **파일 -> 병합** 을 선택합니다.
 * 소스 콘트롤 병합 충돌이 있는 애셋에 우클릭한 다음 **병합** 을 선택합니다.
-* **명령줄** 에서 UE4Editor.exe -diff [옵션] <파일 A> <파일 B> <공통 조상 파일> <출력 파일> 을 실행시킵니다.
+* **명령줄** 에서 `UE4Editor.exe -diff [옵션] <파일 A> <파일 B> <공통 조상 파일> <출력 파일>` 을 실행시킵니다.
 
 #### Git 소스 콘트롤 플러그인 (베타!)
 
@@ -406,7 +426,7 @@ AI 인지(Perception) 시스템은 이제 블루프린트 스크립트를 통해
 
 ![](VisualLoggerAI.png)
 
-* 이벤트를 기록한 다음, 강력한 툴을 사용하여 타임라인 검색을 합니다. 예제는 이 [비디오](https://www.youtube.com/watch?v=3jiUyciKvUI&feature=youtu.be) 에서 확인할 수 있습니다.
+* 이벤트를 기록한 다음, 강력한 툴을 사용하여 타임라인 검색을 합니다. 예제는 이 [video](https://www.youtube.com/watch?v=3jiUyciKvUI&feature=youtu.be) 에서 확인할 수 있습니다.
 * 타임라인 항목 중 경고가 있으면 노랑으로, 오류가 있으면 빨강으로 표시됩니다.
 * 게임 일시정지 도중 특수한 디버그 카메라를 사용하여 날아다닐 수 있습니다.
 * 비주얼 로거 이벤트에서 생성된 '리포트'를 저장합니다. 리포트의 하이퍼링크를 통해 로그에 필터를 적용하여 더욱 쉬운 분석이 가능합니다.
@@ -432,6 +452,7 @@ AI 인지(Perception) 시스템은 이제 블루프린트 스크립트를 통해
 
 * 별도의 생성자가 필요치 않습니다! 클래스 생성자는 더이상 Object Initializer 인수를 받을 필요가 없습니다.
 * 언리얼 클래스에 대한 서브 오브젝트 생성을 위한 간단한 문법이 새로 생겼습니다.
+
 
 
 #### 멀티 스레드 애니메이션
@@ -480,8 +501,6 @@ AI 인지(Perception) 시스템은 이제 블루프린트 스크립트를 통해
 블랙보드 애셋에 정의된 키는 이제 'synced' (동기화됨) 마킹을 통해 그것을 사용하는 모든 AI 에 걸쳐 그 값을 동기화시킬 수 있습니다. 이를 통해 복수의 AI 에 작동방식을 동기화시키거나, 그 사이의 통신에 사용할 수도 있습니다.
 
 ## General Release Notes
-
-(역주: 과도하게 기술적인 부분이라 번역 제공하지 않습니다.)
 
 #### Rendering
 * New: Preview Mobile Rendering right in the editor!

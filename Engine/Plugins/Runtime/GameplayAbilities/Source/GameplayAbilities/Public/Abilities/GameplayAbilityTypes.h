@@ -148,7 +148,11 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityActorInfo
 	TWeakObjectPtr<UMovementComponent>	MovementComponent;
 
 	/** Accessor to get the current anim instance from the SkeletalMeshComponent */
-	UAnimInstance* GetAnimInstance() const { return (SkeletalMeshComponent.IsValid() ? SkeletalMeshComponent->GetAnimInstance() : nullptr); }
+	UAnimInstance* GetAnimInstance() const
+	{ 
+		const USkeletalMeshComponent* SKMC = SkeletalMeshComponent.Get();
+		return (SKMC ? SKMC->GetAnimInstance() : nullptr);
+	}
 
 	/** Returns true if this actor is locally controlled. Only true for players on the client that owns them */
 	bool IsLocallyControlled() const;

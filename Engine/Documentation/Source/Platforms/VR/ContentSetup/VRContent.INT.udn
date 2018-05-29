@@ -175,11 +175,11 @@ have done in the past, but need to avoid in VR:
  * **Missing Polygon Faces** - In standard games, it is often acceptable (and preferred) to remove polygon faces from objects that cannot be seen by the player. 
 However, in VR games, players have much more freedom to look around, and this practice can sometimes lead to players being able to see things that they're not supposed to see.
 
- * ** Which Type of Lighting to use** - You should always use **Static lighting** and **Lightmaps** when making a VR project... this is the cheapest option to render. 
+ * **Which Type of Lighting to use** - You should always use **Static lighting** and **Lightmaps** when making a VR project... this is the cheapest option to render. 
 If you need to use dynamic lighting, make sure to limit the amount of dynamic lights to as few as possible, and make sure that they never touch one another. 
 If you have an outdoor scene, set your directional light to dynamic instead of stationary, and then turn on Cascaded Shadow Maps (CSM); adjusting the settings to be as simple as possible while still giving you shadows. 
 
- * ** VR & VFX** - Some VFX tricks, like using [SubUV Textures](https://docs.unrealengine.com/latest/INT/Engine/Rendering/ParticleSystems/Reference/Modules/SubUV/index.html) to simulate fire or smoke, do not hold up very well when viewed in VR. 
+ * **VR & VFX** - Some VFX tricks, like using [SubUV Textures](https://docs.unrealengine.com/latest/INT/Engine/Rendering/ParticleSystems/Reference/Modules/SubUV/index.html) to simulate fire or smoke, do not hold up very well when viewed in VR. 
 In many cases you are going to need to use static meshes instead of 2D particles to simulate VFX's like explosions or smoke trails.  
 Near field effects, or effects that happen very close to the camera, work well in VR, but only when the effects are made up of Static Mesh particles.
 

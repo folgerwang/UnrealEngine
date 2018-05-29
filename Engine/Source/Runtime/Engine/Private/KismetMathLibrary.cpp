@@ -1006,6 +1006,16 @@ bool UKismetMathLibrary::IsPointInBoxWithTransform(FVector Point, const FTransfo
 	return Box.IsInsideOrOn(PointInComponentSpace);
 }
 
+void UKismetMathLibrary::GetSlopeDegreeAngles(const FVector& MyRightYAxis, const FVector& FloorNormal, const FVector& UpVector, float& OutSlopePitchDegreeAngle, float& OutSlopeRollDegreeAngle)
+{
+	const FVector FloorZAxis = FloorNormal;
+	const FVector FloorXAxis = MyRightYAxis ^ FloorZAxis;
+	const FVector FloorYAxis = FloorZAxis ^ FloorXAxis;
+
+	OutSlopePitchDegreeAngle = 90.f - FMath::RadiansToDegrees(FMath::Acos(FloorXAxis | UpVector));
+	OutSlopeRollDegreeAngle = 90.f - FMath::RadiansToDegrees(FMath::Acos(FloorYAxis | UpVector));
+}
+
 bool UKismetMathLibrary::LinePlaneIntersection(const FVector& LineStart, const FVector& LineEnd, const FPlane& APlane, float& T, FVector& Intersection)
 {
 	FVector RayDir = LineEnd - LineStart;

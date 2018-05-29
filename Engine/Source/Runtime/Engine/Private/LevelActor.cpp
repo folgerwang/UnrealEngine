@@ -759,7 +759,7 @@ APlayerController* UWorld::SpawnPlayActor(UPlayer* NewPlayer, ENetRole RemoteRol
 	Level actor moving/placing.
 -----------------------------------------------------------------------------*/
 
-bool UWorld::FindTeleportSpot(AActor* TestActor, FVector& TestLocation, FRotator TestRotation)
+bool UWorld::FindTeleportSpot(const AActor* TestActor, FVector& TestLocation, FRotator TestRotation)
 {
 	if( !TestActor || !TestActor->GetRootComponent() )
 	{
@@ -1007,7 +1007,7 @@ static FVector CombineAdjustments(FVector CurrentAdjustment, FVector AdjustmentT
 }
 
 // perf note: this is faster if ProposedAdjustment is null, since it can early out on first penetration
-bool UWorld::EncroachingBlockingGeometry(AActor* TestActor, FVector TestLocation, FRotator TestRotation, FVector* ProposedAdjustment)
+bool UWorld::EncroachingBlockingGeometry(const AActor* TestActor, FVector TestLocation, FRotator TestRotation, FVector* ProposedAdjustment)
 {
 	if (TestActor == nullptr)
 	{
@@ -1168,59 +1168,98 @@ void UWorld::LoadSecondaryLevels(bool bForce, TSet<FName>* FilenamesToSkip)
 					bAlreadyLoaded = true;
 				}
 
-				if ( !bSkipFile && !bAlreadyLoaded )
+				if ( !bSkipFile )
 				{
-					bool bLoadedLevelPackage = false;
-					const FName StreamingLevelWorldAssetPackageFName = StreamingLevel->GetWorldAssetPackageFName();
-					// Load the package and find the world object.
-					if( FPackageName::IsShortPackageName(StreamingLevelWorldAssetPackageFName) == false )
+					if ( !bAlreadyLoaded )
 					{
-						ULevel::StreamedLevelsOwningWorld.Add(StreamingLevelWorldAssetPackageFName, this);
-						LevelPackage = LoadPackage( NULL, *StreamingLevelWorldAssetPackageName, LOAD_None );
-						ULevel::StreamedLevelsOwningWorld.Remove(StreamingLevelWorldAssetPackageFName);
-
-						if( LevelPackage )
+						bool bLoadedLevelPackage = false;
+						const FName StreamingLevelWorldAssetPackageFName = StreamingLevel->GetWorldAssetPackageFName();
+						// Load the package and find the world object.
+						if( FPackageName::IsShortPackageName(StreamingLevelWorldAssetPackageFName) == false )
 						{
-							bLoadedLevelPackage = true;
+							ULevel::StreamedLevelsOwningWorld.Add(StreamingLevelWorldAssetPackageFName, this);
+							LevelPackage = LoadPackage( NULL, *StreamingLevelWorldAssetPackageName, LOAD_None );
+							ULevel::StreamedLevelsOwningWorld.Remove(StreamingLevelWorldAssetPackageFName);
 
-							// Find the world object in the loaded package.
-							UWorld* LoadedWorld	= UWorld::FindWorldInPackage(LevelPackage);
-							// If the world was not found, it could be a redirector to a world. If so, follow it to the destination world.
-							if (!LoadedWorld)
+							if( LevelPackage )
 							{
-								LoadedWorld = UWorld::FollowWorldRedirectorInPackage(LevelPackage);
+								bLoadedLevelPackage = true;
+
+								// Find the world object in the loaded package.
+								UWorld* LoadedWorld	= UWorld::FindWorldInPackage(LevelPackage);
+								// If the world was not found, it could be a redirector to a world. If so, follow it to the destination world.
+								if (!LoadedWorld)
+								{
+									LoadedWorld = UWorld::FollowWorldRedirectorInPackage(LevelPackage);
+								}
+								check(LoadedWorld);
+
+								if ( !LevelPackage->IsFullyLoaded() )
+								{
+									// LoadedWorld won't be serialized as there's a BeginLoad on the stack so we manually serialize it here.
+									check( LoadedWorld->GetLinker() );
+									LoadedWorld->GetLinker()->Preload( LoadedWorld );
+								}
+
+
+								// Keep reference to prevent garbage collection.
+								check( LoadedWorld->PersistentLevel );
+
+								LoadedWorld->PersistentLevel->HandleLegacyMapBuildData();
+
+								ULevel* NewLoadedLevel = LoadedWorld->PersistentLevel;
+								NewLoadedLevel->OwningWorld = this;
+
+								FStreamingLevelPrivateAccessor::SetLoadedLevel(StreamingLevel, NewLoadedLevel);
 							}
-							check(LoadedWorld);
+						}
+						else
+						{
+							UE_LOG(LogSpawn, Warning, TEXT("Streaming level uses short package name (%s). Level will not be loaded."), *StreamingLevelWorldAssetPackageName);
+						}
 
-							if ( !LevelPackage->IsFullyLoaded() )
-							{
-								// LoadedWorld won't be serialized as there's a BeginLoad on the stack so we manually serialize it here.
-								check( LoadedWorld->GetLinker() );
-								LoadedWorld->GetLinker()->Preload( LoadedWorld );
-							}
-
-
-							// Keep reference to prevent garbage collection.
-							check( LoadedWorld->PersistentLevel );
-
-							LoadedWorld->PersistentLevel->HandleLegacyMapBuildData();
-
-							ULevel* NewLoadedLevel = LoadedWorld->PersistentLevel;
-							NewLoadedLevel->OwningWorld = this;
-
-							FStreamingLevelPrivateAccessor::SetLoadedLevel(StreamingLevel, NewLoadedLevel);
+						// Remove this level object if the file couldn't be found.
+						if ( !bLoadedLevelPackage )
+						{
+							RemoveStreamingLevelAt(LevelIndex--);
+							MarkPackageDirty();
 						}
 					}
 					else
 					{
-						UE_LOG(LogSpawn, Warning, TEXT("Streaming level uses short package name (%s). Level will not be loaded."), *StreamingLevelWorldAssetPackageName);
-					}
-
-					// Remove this level object if the file couldn't be found.
-					if ( !bLoadedLevelPackage )
-					{
-						RemoveStreamingLevelAt(LevelIndex--);
-						MarkPackageDirty();
+						UWorld* LoadedWorld = UWorld::FindWorldInPackage(LevelPackage);
+						// If the world was not found, it could be a redirector to a world. If so, follow it to the destination world.
+						if (!LoadedWorld)
+						{
+							LoadedWorld = UWorld::FollowWorldRedirectorInPackage(LevelPackage);
+						}
+						if (LoadedWorld)
+						{
+							if (ULevel* WorldLevel = LoadedWorld->PersistentLevel)
+							{
+								ULevel* LoadedLevel = StreamingLevel->GetLoadedLevel();
+								if (!LoadedLevel)
+								{
+									FStreamingLevelPrivateAccessor::SetLoadedLevel(StreamingLevel, WorldLevel);
+									if (WorldLevel->OwningWorld != this)
+									{
+										WorldLevel->OwningWorld = this;
+									}
+								}
+								else if (LoadedLevel != WorldLevel)
+								{
+									UE_LOG(LogSpawn, Warning, TEXT("Streaming level already has a loaded level, but it differs from the one in the associated package (%s)."), *StreamingLevelWorldAssetPackageName);
+								}
+							}
+							else
+							{
+								UE_LOG(LogSpawn, Warning, TEXT("Streaming level already has a loaded level, but the world in the associated package (%s) does not have its persistent level set."), *StreamingLevelWorldAssetPackageName);
+							}
+						}
+						else
+						{
+							UE_LOG(LogSpawn, Warning, TEXT("Streaming level already has a loaded level, but the associated package (%s) seems to contain no world."), *StreamingLevelWorldAssetPackageName);
+						}
 					}
 				}
 			}

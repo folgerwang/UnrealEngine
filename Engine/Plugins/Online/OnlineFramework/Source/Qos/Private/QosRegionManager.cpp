@@ -95,6 +95,8 @@ void UQosRegionManager::PostReloadConfig(UProperty* PropertyThatWasLoaded)
 			}
 		}
 
+		OnQoSSettingsChangedDelegate.ExecuteIfBound();
+
 		// Validate the current region selection
 		TrySetDefaultRegion();
 	}
@@ -449,4 +451,10 @@ void UQosRegionManager::DumpRegionStats()
 		UE_LOG(LogQos, Display, TEXT("Region: %s [%s] Ping: %d"), *Region.Region.DisplayName.ToString(), *Region.Region.RegionId, Region.AvgPingMs);
 		UE_LOG(LogQos, Display, TEXT("\tEnabled: %d Visible: %d Beta: %d Result: %s"), Region.Region.bEnabled, Region.Region.bVisible, Region.Region.bBeta, ToString(Region.Result));
 	}
+}
+
+void UQosRegionManager::RegisterQoSSettingsChangedDelegate(const FSimpleDelegate& OnQoSSettingsChanged)
+{
+	// add to the completion delegate
+	OnQoSSettingsChangedDelegate = OnQoSSettingsChanged;
 }

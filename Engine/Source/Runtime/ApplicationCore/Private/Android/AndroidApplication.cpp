@@ -3,6 +3,7 @@
 #include "Android/AndroidApplication.h"
 #include "Android/AndroidInputInterface.h"
 #include "Android/AndroidWindow.h"
+#include "Android/AndroidCursor.h"
 #include "IInputDeviceModule.h"
 #include "HAL/OutputDevices.h"
 #include "Misc/AssertionMacros.h"
@@ -19,15 +20,15 @@ FAndroidApplication* FAndroidApplication::CreateAndroidApplication()
 }
 
 FAndroidApplication::FAndroidApplication()
-	: GenericApplication(NULL)
-	, InputInterface(FAndroidInputInterface::Create(MessageHandler))
+	: GenericApplication(MakeShareable(new FAndroidCursor()))
+	, InputInterface( FAndroidInputInterface::Create( MessageHandler, Cursor ) )
 	, bHasLoadedInputPlugins(false)
 {
 	_application = this;
 }
 
 FAndroidApplication::FAndroidApplication(TSharedPtr<class FAndroidInputInterface> InInputInterface)
-	: GenericApplication(NULL)
+	: GenericApplication((InInputInterface.IsValid() && InInputInterface->GetCursor()) ? InInputInterface->GetCursor() : MakeShareable(new FAndroidCursor()))
 	, InputInterface(InInputInterface)
 	, bHasLoadedInputPlugins(false)
 {
@@ -93,6 +94,12 @@ IInputInterface* FAndroidApplication::GetInputInterface()
 {
 	// NOTE: This does not increase the reference count, so don't cache the result
 	return InputInterface.Get();
+}
+
+void FAndroidApplication::Tick(const float TimeDelta)
+{
+	//generate event that will end up calling 'QueryCursor' in slate to support proper reporting of the cursor's type.
+	MessageHandler->OnCursorSet();
 }
 
 bool FAndroidApplication::IsGamepadAttached() const

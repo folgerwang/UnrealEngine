@@ -211,7 +211,9 @@ public:
 	virtual void RestoreState(TSharedRef<IPersonaViewportState> InState) override;
 	virtual FEditorViewportClient& GetViewportClient() const override;
 	virtual TSharedRef<IPinnedCommandList> GetPinnedCommandList() const override;
-	
+	virtual TWeakPtr<SWidget> AddNotification(TAttribute<EMessageSeverity::Type> InSeverity, TAttribute<bool> InCanBeDismissed, const TSharedRef<SWidget>& InNotificationWidget) override;
+	virtual void RemoveNotification(const TWeakPtr<SWidget>& InContainingWidget) override;
+
 	/** SWidget interface */
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 
@@ -549,6 +551,15 @@ private:
 	/** Box that contains scrub panel */
 	TSharedPtr<SVerticalBox> ScrubPanelContainer;
 
+	/** Box that contains notifications */
+	TSharedPtr<SVerticalBox> ViewportNotificationsContainer;
+
+	/** Post process notification */
+	TWeakPtr<SWidget> WeakPostProcessNotification;
+
+	/** Recording notification */
+	TWeakPtr<SWidget> WeakRecordingNotification;
+
 	/** Current LOD selection*/
 	int32 LODSelection;
 
@@ -567,10 +578,10 @@ private:
 
 	/** Update scrub panel to reflect viewed animation asset */
 	void UpdateScrubPanel(UAnimationAsset* AnimAsset);
-private:
-	EVisibility GetViewportCornerTextVisibility() const;
-	FText GetViewportCornerText() const;
-	FText GetViewportCornerTooltip() const;
-	FReply ClickedOnViewportCornerText();
 
+	/** Adds a persistent notification to display recording state when recording */
+	void AddRecordingNotification();
+
+	/** Adds a persistent notification to display post process graph state */
+	void AddPostProcessNotification();
 };

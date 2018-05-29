@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3403635
+﻿INTSourceChangelist:3809606
 Availability:Public
 crumbs:
 Title:メッシュ デカールの使用方法
@@ -11,16 +11,13 @@ Order:
 SkillLevel:Intermediate
 tags:Materials
 
-
-<div align= "center">
 ![](MeshDecalVsMasked.png)(w:700)
-</div>
 
 [TOC (start:2 end:2)]
 
 
 このガイドでは、デカール マテリアルにライティング機能を使ってスタティックメッシュに適用できる基本的なディファード デカール マテリアルが作成できるように、 
-プロジェクト用に Dbuffer Decal を有効にします。  
+プロジェクトに対して Dbuffer Decal を有効にします。  
 
 ## 必要なファイル
 
@@ -41,22 +38,23 @@ tags:Materials
 	[REGION:lightbox]
 	[![](ProjectSettings.png)(w:700)](ProjectSettings.png)
 	[/REGION]
-1. 次に **[DBuffer Decals]** オプションを Deferred Decals でライティング機能を使用するように切り替えます。
+1. 次に **[DBuffer Decals]** オプションで、ライティング機能で Deferred Decals を使用できるように切り替えます。
+
 	![](EnableDBufferDecal.png)(w:350)
 
-	1. この機能を使えるようにするには、まず **エディタを再起動** する必要があります。
+1. この機能を使うには、まず **エディタを再起動** する必要があります。
 
 	![](RestartTheEditor.png)(w:550)
 
 
-	## 基本のディファード デカールを作成する
+## 基本のディファード デカールを作成する
 
 1. **コンテンツ ブラウザ** で **[Add New (新規追加)]** ボタンを選択し、**[Material]** のオプションを選択して、マテリアルを新規作成します。マテリアルには、後で場所が分かりやすいような名前を付けるようにしてください。
-ここでは学習内容を踏まえて、「M_MeshDecal」という名前を付けておきました。
+このセッションでは「M_MeshDecal」という名前を使います。
 
 	![](AddNewMaterial.png)(w:300)
 
-1. **Material** を選択し、ダブルクリックして開きます。マテリアル エディタを開いて、Deferred Decal で使えるように **[Details (詳細)]** パネルの以下の属性の設定から開始します。
+1. **[Material]** を選択し、ダブルクリックして開きます。マテリアル エディタを開いて、Deferred Decal で使えるように **[Details (詳細)]** パネルの以下の属性の設定から開始します。
 
 	* **Material Domain:** Deferred Decal
 	* **Blend Mode:** Translucent

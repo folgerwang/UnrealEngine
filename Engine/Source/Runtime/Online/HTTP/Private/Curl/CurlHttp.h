@@ -176,7 +176,7 @@ public:
 	 */
 	inline void MarkAsCompleted(CURLcode InCurlCompletionResult)
 	{
-		bCompleted = true;
+		bCurlRequestCompleted = true;
 		CurlCompletionResult = InCurlCompletionResult;
 	}
 	
@@ -325,7 +325,7 @@ private:
 	/** Set to true if request has been canceled */
 	bool			bCanceled;
 	/** Set to true when request has been completed */
-	bool			bCompleted;
+	bool			bCurlRequestCompleted;
 	/** Set to true if request failed to be added to curl multi */
 	CURLMcode		CurlAddToMultiResult;
 	/** Operation result code as returned by libcurl */
@@ -342,6 +342,8 @@ private:
 	float ElapsedTime;
 	/** Elapsed time since the last received HTTP response. */
 	float TimeSinceLastResponse;
+	/** Have we had any HTTP activity with the host? Sending headers, SSL handshake, etc */
+	bool bAnyHttpActivity;
 	/** Number of bytes sent already */
 	FThreadSafeCounter BytesSent;
 	/** Last bytes read reported to progress delegate */

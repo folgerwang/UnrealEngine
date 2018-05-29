@@ -103,7 +103,8 @@ FPrimitiveSceneInfo::FPrimitiveSceneInfo(UPrimitiveComponent* InComponent,FScene
 	ComponentForDebuggingOnly(InComponent),
 	bNeedsStaticMeshUpdate(false),
 	bNeedsUniformBufferUpdate(false),
-	bPrecomputedLightingBufferDirty(false)
+	bPrecomputedLightingBufferDirty(false),
+	bPrecomputedLightingBufferAssignedToProxyLCIs(false)
 {
 	check(ComponentForDebuggingOnly);
 	check(PrimitiveComponentId.IsValid());
@@ -624,6 +625,8 @@ void FPrimitiveSceneInfo::UpdatePrecomputedLightingBuffer()
 			IndirectLightingCacheUniformBuffer.SafeRelease();
 		}
 
+		bPrecomputedLightingBufferAssignedToProxyLCIs = false;
+
 		FPrimitiveSceneProxy::FLCIArray LCIs;
 		Proxy->GetLCIs(LCIs);
 		for (int32 i = 0; i < LCIs.Num(); ++i)
@@ -635,6 +638,7 @@ void FPrimitiveSceneInfo::UpdatePrecomputedLightingBuffer()
 			if (LCI->GetShadowMapInteraction().GetType() == SMIT_Texture || LCI->GetLightMapInteraction(Scene->GetFeatureLevel()).GetType() == LMIT_Texture)
 			{
 				LCI->SetPrecomputedLightingBuffer(CreatePrecomputedLightingUniformBuffer(BufferUsage, Scene->GetFeatureLevel(), NULL, NULL, FVector(0, 0, 0), 0, NULL, LCI));
+				bPrecomputedLightingBufferAssignedToProxyLCIs = true;
 			}
 			else
 			{
@@ -652,16 +656,21 @@ void FPrimitiveSceneInfo::ClearPrecomputedLightingBuffer(bool bSingleFrameOnly)
 	{
 		IndirectLightingCacheUniformBuffer.SafeRelease();
 
-		FPrimitiveSceneProxy::FLCIArray LCIs;
-		Proxy->GetLCIs(LCIs);
-		for (int32 i = 0; i < LCIs.Num(); ++i)
+		if (bPrecomputedLightingBufferAssignedToProxyLCIs)
 		{
-			FLightCacheInterface* LCI = LCIs[i];
-			if (LCI)
+			FPrimitiveSceneProxy::FLCIArray LCIs;
+			Proxy->GetLCIs(LCIs);
+			for (int32 i = 0; i < LCIs.Num(); ++i)
 			{
-				LCI->SetPrecomputedLightingBuffer(FUniformBufferRHIRef());
+				FLightCacheInterface* LCI = LCIs[i];
+				if (LCI)
+				{
+					LCI->SetPrecomputedLightingBuffer(FUniformBufferRHIRef());
+				}
 			}
+			bPrecomputedLightingBufferAssignedToProxyLCIs = false;
 		}
+
 		MarkPrecomputedLightingBufferDirty();
 	}
 }

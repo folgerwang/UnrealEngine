@@ -102,6 +102,33 @@ private:
 };
 
 
+USTRUCT(BlueprintType)
+struct FCaptureLostEvent
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	/**
+	* UStruct Constructor.  Not meant for normal usage.
+	*/
+	FCaptureLostEvent()
+		: UserIndex(0)
+		, PointerIndex(0)
+	{ }
+
+	FCaptureLostEvent(int32 InUserIndex, int32 InPointerIndex)
+		: UserIndex(InUserIndex)
+		, PointerIndex(InPointerIndex)
+	{ }
+
+	/** User that is losing capture */
+	int32 UserIndex;
+	
+	/** Pointer (Finger) that lost capture. */
+	int32 PointerIndex;
+};
+
+
 /**
  * Represents the current and last cursor position in a "virtual window" for events that are routed to widgets transformed in a 3D scene.
  */
@@ -617,6 +644,7 @@ public:
 		, EffectingButton()
 		, PointerIndex(0)
 		, TouchpadIndex(0)
+		, Force(1.0f)
 		, bIsTouchEvent(false)
 		, GestureType(EGestureEvent::None)
 		, WheelOrGestureDelta(0.0f, 0)
@@ -641,6 +669,7 @@ public:
 		, EffectingButton(InEffectingButton)
 		, PointerIndex(InPointerIndex)
 		, TouchpadIndex(0)
+		, Force(1.0f)
 		, bIsTouchEvent(false)
 		, GestureType(EGestureEvent::None)
 		, WheelOrGestureDelta(0.0f, InWheelDelta)
@@ -665,6 +694,7 @@ public:
 		, EffectingButton(InEffectingButton)
 		, PointerIndex(InPointerIndex)
 		, TouchpadIndex(0)
+		, Force(1.0f)
 		, bIsTouchEvent(false)
 		, GestureType(EGestureEvent::None)
 		, WheelOrGestureDelta(0.0f, InWheelDelta)
@@ -687,6 +717,7 @@ public:
 		, PressedButtons(InPressedButtons)
 		, PointerIndex(InPointerIndex)
 		, TouchpadIndex(0)
+		, Force(1.0f)
 		, bIsTouchEvent(false)
 		, GestureType(EGestureEvent::None)
 		, WheelOrGestureDelta(0.0f, 0.0f)
@@ -694,6 +725,7 @@ public:
 	{ }
 
 	/** A constructor for touch events */
+	DEPRECATED(4.20, "FPointerEvent constructor now takes a Force parameter")
 	FPointerEvent(
 		uint32 InUserIndex,
 		uint32 InPointerIndex,
@@ -703,6 +735,19 @@ public:
 		const FModifierKeysState& InModifierKeys = FModifierKeysState(),
 		uint32 InTouchpadIndex=0
 	)
+	: FPointerEvent(InUserIndex, InPointerIndex, InScreenSpacePosition, InLastScreenSpacePosition, 1.0f, bPressLeftMouseButton, InModifierKeys, InTouchpadIndex)
+	{ }
+
+	FPointerEvent(
+		uint32 InUserIndex,
+		uint32 InPointerIndex,
+		const FVector2D& InScreenSpacePosition,
+		const FVector2D& InLastScreenSpacePosition,
+		float InForce,
+		bool bPressLeftMouseButton,
+		const FModifierKeysState& InModifierKeys = FModifierKeysState(),
+		uint32 InTouchpadIndex=0
+		)
 	: FInputEvent(InModifierKeys, InUserIndex, false)
 		, ScreenSpacePosition(InScreenSpacePosition)
 		, LastScreenSpacePosition(InLastScreenSpacePosition)
@@ -711,6 +756,7 @@ public:
 		, EffectingButton(EKeys::LeftMouseButton)
 		, PointerIndex(InPointerIndex)
 		, TouchpadIndex(InTouchpadIndex)
+		, Force(InForce)
 		, bIsTouchEvent(true)
 		, GestureType(EGestureEvent::None)
 		, WheelOrGestureDelta(0.0f, 0.0f)
@@ -733,6 +779,7 @@ public:
 		, CursorDelta(LastScreenSpacePosition - ScreenSpacePosition)
 		, PressedButtons(InPressedButtons)
 		, PointerIndex(0)
+		, Force(1.0f)
 		, bIsTouchEvent(false)
 		, GestureType(InGestureType)
 		, WheelOrGestureDelta(InGestureDelta)
@@ -768,6 +815,9 @@ public:
 	/** @return The index of the touch pad that generated this event (for platforms with multiple touch pads per user) */
 	uint32 GetTouchpadIndex() const { return TouchpadIndex; }
 
+	/** @return the force of a touch (1.0f is mapped to an general touch force, < 1 is "light", > 1 is "heavy", and 10 is the max force possible) */
+	float GetTouchForce() const { return Force; }
+
 	/** @return Is this event a result from a touch (as opposed to a mouse) */
 	bool IsTouchEvent() const { return bIsTouchEvent; }
 
@@ -779,6 +829,7 @@ public:
 
 	/** @return Is the gesture delta inverted */
 	bool IsDirectionInvertedFromDevice() const { return bIsDirectionInvertedFromDevice; }
+
 
 	/** We override the assignment operator to allow generated code to compile with the const ref member. */
 	void operator=( const FPointerEvent& Other )
@@ -794,6 +845,7 @@ public:
 		UserIndex = Other.UserIndex;
 		PointerIndex = Other.PointerIndex;
 		TouchpadIndex = Other.TouchpadIndex;
+		Force = Other.Force;
 		bIsTouchEvent = Other.bIsTouchEvent;
 		GestureType = Other.GestureType;
 		WheelOrGestureDelta = Other.WheelOrGestureDelta;
@@ -823,6 +875,7 @@ private:
 	FKey EffectingButton;
 	uint32 PointerIndex;
 	uint32 TouchpadIndex;
+	float Force;
 	bool bIsTouchEvent;
 	EGestureEvent GestureType;
 	FVector2D WheelOrGestureDelta;

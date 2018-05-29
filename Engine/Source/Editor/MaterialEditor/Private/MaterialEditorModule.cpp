@@ -19,9 +19,19 @@
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/Images/SImage.h"
 #include "Misc/EngineBuildSettings.h"
+#include "MaterialEditorSettings.h"
+
+#include "ISettingsModule.h"
 
 const FName MaterialEditorAppIdentifier = FName(TEXT("MaterialEditorApp"));
 const FName MaterialInstanceEditorAppIdentifier = FName(TEXT("MaterialInstanceEditorApp"));
+
+namespace MaterialEditorModuleConstants
+{
+	const static FName SettingsContainerName("Editor");
+	const static FName SettingsCategoryName("ContentEditors");
+	const static FName SettingsSectionName("Material Editor");
+}
 
 class SNewSubstanceMenuEntry : public SCompoundWidget
 {
@@ -115,6 +125,18 @@ public:
 	{
 		MenuExtensibilityManager = MakeShareable(new FExtensibilityManager);
 		ToolBarExtensibilityManager = MakeShareable(new FExtensibilityManager);
+
+		ISettingsModule* SettingsModule = FModuleManager::LoadModulePtr<ISettingsModule>("Settings");
+		if (SettingsModule)
+		{
+			SettingsModule->RegisterSettings(
+				MaterialEditorModuleConstants::SettingsContainerName,
+				MaterialEditorModuleConstants::SettingsCategoryName,
+				MaterialEditorModuleConstants::SettingsSectionName,
+				NSLOCTEXT("MaterialEditorModule", "SettingsName", "Material Editor"),
+				NSLOCTEXT("MaterialEditorModule", "SettingsDesc", "Settings related to the material editor."),
+				GetMutableDefault<UMaterialEditorSettings>());
+		}
 
 		if(!FEngineBuildSettings::IsInternalBuild() && !FEngineBuildSettings::IsSourceDistribution())
 		{

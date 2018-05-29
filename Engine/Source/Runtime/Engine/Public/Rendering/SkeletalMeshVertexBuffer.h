@@ -162,6 +162,7 @@ public:
 		if ((uint32)ArrayType::Num() < NumVertices)
 		{
 			// Enlarge the array.
+			ArrayType::Reserve(NumVertices);
 			ArrayType::AddUninitialized(NumVertices - ArrayType::Num());
 		}
 		else if ((uint32)ArrayType::Num() > NumVertices)

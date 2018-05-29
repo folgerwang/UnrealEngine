@@ -236,6 +236,8 @@ class ENGINE_API UMaterialExpression : public UObject
 		return NULL;
 	}
 
+	virtual bool CanReferenceTexture() const { return false; }
+
 #if WITH_EDITOR
 	/**
 	 *	Get the outputs supported by this expression.
@@ -313,7 +315,12 @@ class ENGINE_API UMaterialExpression : public UObject
 	/**
 	 * Marks certain expression types as outputting material attributes. Allows the material editor preview material to know if it should use its material attributes pin.
 	 */
-	virtual bool IsResultMaterialAttributes(int32 OutputIndex){return false;}
+	virtual bool IsResultMaterialAttributes(int32 OutputIndex) { return false; }
+
+	/**
+	 * If true, discards the output index when caching this expression which allows more cases to re-use the output instead of adding a separate instruction
+	 */
+	virtual bool CanIgnoreOutputIndex() { return false; }
 
 	/**
 	 * Connects the specified output to the passed material for previewing. 

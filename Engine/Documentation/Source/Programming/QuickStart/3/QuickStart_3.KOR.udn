@@ -27,7 +27,7 @@ type:multi-step
 	active_button_content
 	[/PARAMLITERAL]
 	[PARAM:content]
-	1. **Visual Studio** 에서 **Solution Explorer** 패널을 사용하여 새로 만든 C++ 파일을 찾아보겠습니다. 우리 예제에서는 이름이 FloatingActor.cpp, FloatingActor.h 식으로 되어있으며, QuickStart 프로젝트 안에 있을 것입니다.
+	**Visual Studio** 에서 **Solution Explorer** 패널을 사용하여 새로 만든 C++ 파일을 찾아보겠습니다. 우리 예제에서는 이름이 FloatingActor.cpp, FloatingActor.h 식으로 되어있으며, QuickStart 프로젝트 안에 있을 것입니다.
 
 	[![](SolutionExplorer_Files.png)](SolutionExplorer_Files.png)
 
@@ -62,7 +62,7 @@ type:multi-step
 
 		FVector NewLocation = GetActorLocation();
 		float DeltaHeight = (FMath::Sin(RunningTime + DeltaTime) - FMath::Sin(RunningTime));
-		NewLocation.Z += DeltaHeight * 20.0f;       //높이에 20 을 곱합니다
+		NewLocation.Z += DeltaHeight * 20.0f;       //Scale our height by a factor of 20
 		RunningTime += DeltaTime;
 		SetActorLocation(NewLocation);
 
@@ -81,11 +81,11 @@ type:multi-step
 	[PARAM:content]
 		*	코딩이 완료되었으니, **Solution Browser** 의 프로젝트에 우클릭 후 **Build** 명령을 선택하거나, **언리얼 에디터** 의 **컴파일** 버튼을 누르면 컴파일 가능합니다. 컴파일이 성공하면 **언리얼 에디터** 가 자동으로 변경사항을 로드합니다.
 
-	[![](CompileFromVS.png)](CompileFromVS.png)
+			[![](CompileFromVS.png)](CompileFromVS.png)
 	
-			[REGION:caption]Visual Studio 에서 컴파일하는 모습**.[/REGION]
+			[REGION:caption]**Visual Studio** 에서 컴파일하는 모습.[/REGION]
 
-	[![](CompileFromEditor.png)](CompileFromEditor.png)
+			[![](CompileFromEditor.png)](CompileFromEditor.png)
 
 			[REGION:caption]**언리얼 에디터** 에서 컴파일하는 모습.[/REGION]
 	[/PARAM]

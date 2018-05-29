@@ -25,29 +25,26 @@ enum class ERoomStatusStrophe : uint8
 	ExitPending
 };
 
-namespace Lex
+inline const TCHAR* LexToString(ERoomStatusStrophe Value)
 {
-	inline const TCHAR* ToString(ERoomStatusStrophe Value)
+	switch (Value)
 	{
-		switch (Value)
-		{
-		case ERoomStatusStrophe::NotJoined:
-			return TEXT("NotJoined");
-		case ERoomStatusStrophe::Joined:
-			return TEXT("Joined");
-		case ERoomStatusStrophe::CreatePending:
-			return TEXT("CreatePending");
-		case ERoomStatusStrophe::JoinPrivatePending:
-			return TEXT("JoinPrivatePending");
-		case ERoomStatusStrophe::JoinPublicPending:
-			return TEXT("JoinPublicPending");
-		case ERoomStatusStrophe::ExitPending:
-			return TEXT("ExitPending");
-		}
-
-		checkf(false, TEXT("Unhandled ERoomStatusStrophe %d"), static_cast<int32>(Value));
-		return TEXT("Unknown");
+	case ERoomStatusStrophe::NotJoined:
+		return TEXT("NotJoined");
+	case ERoomStatusStrophe::Joined:
+		return TEXT("Joined");
+	case ERoomStatusStrophe::CreatePending:
+		return TEXT("CreatePending");
+	case ERoomStatusStrophe::JoinPrivatePending:
+		return TEXT("JoinPrivatePending");
+	case ERoomStatusStrophe::JoinPublicPending:
+		return TEXT("JoinPublicPending");
+	case ERoomStatusStrophe::ExitPending:
+		return TEXT("ExitPending");
 	}
+
+	checkf(false, TEXT("Unhandled ERoomStatusStrophe %d"), static_cast<int32>(Value));
+	return TEXT("Unknown");
 }
 
 /**

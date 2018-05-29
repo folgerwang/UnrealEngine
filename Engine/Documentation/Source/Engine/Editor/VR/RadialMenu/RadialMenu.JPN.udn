@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3360829
-Title:ラジアル メニュー
+﻿Title:ラジアル メニュー
 Description:ラジアル メニューを使うと、VR モードでよく使われるコピー、ペースト、アンドゥなどの機能へ簡単にアクセスできるようになります。
 Crumbs:
 Availability: public
@@ -7,13 +6,206 @@ parent:Engine/Editor/VR
 type: reference
 order:3
 tags:VR
-version:4.15
+version:4.17
 skilllevel: intermediate
 topic-image:radialmenu.png
 prereq:Engine/Editor/VR/ActivateVRMode
 
-
 [TOC(start:1 end:4)]
+
+ラジアル メニューのインターフェースから、ユーザーはモード パネル、アセット エディタ、VR でのシミュレーションとプレイを含むすべての VR モードをすぐに使えるようになりました。このページでは、それぞれのラジアル メニューの実行内容を詳しく説明します。  
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    UVM1nmnslSY
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
+
+## エディタのウィンドウ 
+
+ウィンドウが開くと、コントローラーとドッキングはされなくなりました。その代わり、左のコントローラーから若干ずれて開くようになりました。[Close] ボタンが各ウィンドウの下にあるインタラクション バーのそばにネスティングされるようになりました。ウィンドウが開いた時にトリガーが押されたままの状態だと、ウィンドウが配置される場所のプレビューが表示されます。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    JaDHuajGPoI
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
+
+## 状況に合わせたオプション
+
+状況に合わせたオプションがラジアル メイン メニューに追加されました。このメニュー オプションにより、他のツールで利用できる追加機能へのクイックアクセスが可能になります。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    fE3rY6dlhNM
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
+
+## ラジアル メニューのオプション
+
+このページでは、それぞれのラジアル メニューを UE4 で使用した場合の実行内容を詳しく説明します。 
+
+[REGION:lightbox]
+[![](controllers.png)(w:594)](controllers.png)
+[/REGION]
+
+[REGION:caption]
+クリックしてフルサイズで表示
+[/REGION]
+
+### スナップ 
+
+![](T_Radial_Snapping.png)(w:128)
+
+このボタンを押すと、スナップ操作のための以下のオプションが表示されます。
+
+|アイコン|名前|説明|
+|------|----|----|
+|![](T_Radial_Translate_Snap.png)(w:64)|**Translate Snap**|ドラッグ時のオブジェクトのグリッドへのスナップをオンまたはオフにします。|
+|![](T_Radial_Snapping.png)(w:64)|**Translate Snap Value**|位置合わせ用スナップ グリッド値を設定します。|
+|![](T_Radial_Rotate_Snap.png)(w:64)|**Rotate Snap**|回転グリッドへのオブジェクトのスナップを有効または無効にします。|
+|![](T_Radial_Angle_Num.png)(w:64)|**Rotate Snap Value**|回転用スナップ グリッド値を設定します。|
+|![](T_Radial_Translate_Snap.png)(w:64)|**Scale Snap Value**|スケール グリッドへのオブジェクトのスナップを有効または無効にします。|
+|![](T_Radial_Scale_Num.png)(w:64)|**Scale Snap Value**|スケール用スナップ グリッド値を設定します。|
+|![](T_Radial_Align_Actors.png)(w:64)|**Smart Snapping**|オブジェクトの境界を使ってシーン内の他のアクタと並べて配置します。これにより、グリッドを考えてモジュラー アセットをビルドする必要なく正確に位置合わせすることができます。|
+|![](T_Radial_Set_Targets.png)(w:64)|**Set Targets**|Smart Snapping を使用するアクタを設定します。|
+### Gizmo ツール
+
+![](T_Radial_Universal.png)(w:128)
+
+このボタンを押すと、以下の Gizmo オプションが表示されます。
+
+|アイコン|名前|説明|
+|------|----|----|
+|![](T_Radial_Local_Space.png)(w:64)|**Local Space**|変換ギズモをローカル (オブジェクト) 座標システムに配置します。|
+|![](T_Radial_World_Space.png)(w:64)|**World Space**|変換ギズモをワールド座標システムに配置します。|
+|![](T_Radial_Universal.png)(w:64)|**Universal**|ギズモで選択したアクタを移動、回転、スケールできるようにします。|
+|![](T_Radial_Translate.png)(w:64)|**Translate**|選択したアクタの移動のみにギズモを制限します。|
+|![](T_Radial_Gizmo.png)(w:64)|**Rotate**|選択したアクタの回転のみにギズモを制限します。|
+|![](T_Radial_Scale.png)(w:64)|**Scale**|選択したアクタのスケールのみにギズモを制限します。|
+
+### ウィンドウ
+
+![](T_Radial_Windows.png)(w:128)
+
+このボタンを押すと、以下のウィンドウに関するオプションが表示されます。
+
+|アイコン|名前|説明|
+|------|----|----|
+|![](T_Radial_Details.png)(w:64)|**Details Panel**|詳細パネルを開きます。|
+|![](T_Radial_Windows.png)(w:64)|**Content Browser**|コンテンツ ブラウザを開きます。|
+|![](T_Radial_Modes.png)(w:64)|**Modes Panel**|[Modes] パネルを開きます。|
+|![](T_Radial_World_Outliner.png)(w:64)|**World Outliner**|ワールド アウトライナーを開きます。|
+|![](T_Radial_World_Space.png)(w:64)|**World Settings**|[World Settings] を開きます。|
+|![](T_Radial_Sequencer.png)(w:64)|**Create Sequence**|シーケンスを新規作成します。|
+
+### 編集
+
+![](T_Radial_Edit.png)(w:128)
+
+このボタンを押すと、編集に関する以下のオプションが表示されます。
+
+[region:note]
+[Edit] モードはアクタを選択している場合のみ使用できます。
+[/region]
+
+|アイコン|名前|説明|
+|------|----|----|
+|![](T_Radial_Deselect_All.png)(w:64)|**Deselect All**|現在選択中のアクタをすべて選択解除します。|
+|![](T_Radial_Delete.png)(w:64)|**Delete**|現在選択中のアクタを削除します。|
+|![](T_Radial_Cut.png)(w:64)|**Cut**|現在選択中のアクタをカットします。|
+|![](T_Radial_Copy.png)(w:64)|**Copy**|現在選択中のアクタをコピーします。|
+|![](T_Radial_Duplicate.png)(w:64)|**Duplicate Selected**|現在選択中のアクタを複製します。|
+|![](T_Radial_Paste.png)(w:64)|**Paste**|現在選択中のアクタを貼り付けします。|
+|![](T_Radial_Snaps.png)(w:64)|**Snap To Floor**|現在選択中のアクタをフロアにスナップします。|
+
+### ツール
+
+![](T_Radial_Tools.png)(w:128)
+
+このボタンを押すと、ツールに関する以下のオプションが表示されます。
+
+|アイコン|名前|説明|
+|------|----|----|
+|![](T_Radial_Simulate.png)(w:64)|**Simulate**|ゲームのシミュレーションを開始します。|
+|![](T_Radial_Save_Actors.png)(w:64)|**Save Actors**|選択中のアクタのシミュレーション位置をエディタに保存します。|
+|![](T_Radial_Pause.png)(w:64)|**Pause**|シミュレーションをポーズします。|
+|![](T_Radial_Resume.png)(w:64)|**Resume**|ポーズしているシミュレーションを再開します。|
+|![](T_Radial_Seq_Play.png)(w:64)|**Play**|シミュレーションを開始します。|
+|![](T_Radial_Screenshot.png)(w:64)|**Screenshot**|現在のビューのスクリーンショットを撮ります。 |
+|![](T_Radial_Flashlight.png)(w:64)|**Flashlight**|Enables / 暗い画面を照らすために使用する懐中電灯をオフにします。|
+
+### モード
+
+![](T_Radial_Modes.png)(w:128)
+
+
+現在使用しているツールに基づいて、新しいメニューを起動します。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[COMMENT:none]
 
 **ラジアル メニュー** を使うと、アンドゥ、リドゥ、ペーストなどのよく使うアクションへのアクセスが簡単になります。
 
@@ -40,6 +232,4 @@ prereq:Engine/Editor/VR/ActivateVRMode
 | **Delete (削除)** | 選択したアクタを削除します。 |
 | **Cut (カット)** | 選択したアクタをクリップボードにコピーしてシーンから削除ｊします。 |
 
-
-
-
+[/COMMENT]

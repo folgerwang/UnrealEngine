@@ -232,6 +232,9 @@ private:
 	/** Handler for resetting the localization ID of the current selection */
 	void ExecuteResetLocalizationId();
 
+	/** Handler for showing the cached list of localized texts stored in the package header */
+	void ExecuteShowLocalizationCache(const FString InPackageFilename);
+
 	/** Handler for Export */
 	void ExecuteExport();
 

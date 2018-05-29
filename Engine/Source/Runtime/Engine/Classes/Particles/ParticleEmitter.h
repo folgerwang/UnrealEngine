@@ -203,6 +203,10 @@ class UParticleEmitter : public UObject
 	UPROPERTY(EditAnywhere, Category = Significance)
 	EParticleSignificanceLevel SignificanceLevel;
 
+	/** If true, maintains some legacy spawning behavior. */
+	UPROPERTY(EditAnywhere, Category = Particle, AdvancedDisplay)
+	uint32 bUseLegacySpawningBehavior : 1;
+
 	//////////////////////////////////////////////////////////////////////////
 	// Below is information udpated by calling CacheEmitterModuleInfo
 
@@ -259,7 +263,9 @@ class UParticleEmitter : public UObject
 		DetailModeDisplay += DetailModeBitmask & (1 << EParticleDetailMode::PDM_High) ? "High" : "";
 	}
 #endif // WITH_EDITORONLY_DATA
+	virtual void Serialize(FArchive& Ar)override;
 	virtual void PostLoad() override;
+	virtual bool IsPostLoadThreadSafe() const override;
 	//~ End UObject Interface
 
 	// @todo document

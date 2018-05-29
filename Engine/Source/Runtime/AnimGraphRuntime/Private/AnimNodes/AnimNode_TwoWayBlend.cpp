@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimNodes/AnimNode_TwoWayBlend.h"
+#include "Animation/AnimInstanceProxy.h"
 #include "AnimationRuntime.h"
 
 /////////////////////////////////////////////////////
@@ -15,6 +16,9 @@ void FAnimNode_TwoWayBlend::Initialize_AnyThread(const FAnimationInitializeConte
 
 	bAIsRelevant = false;
 	bBIsRelevant = false;
+
+	AlphaBoolBlend.Reinitialize();
+	AlphaScaleBiasClamp.Reinitialize();
 }
 
 void FAnimNode_TwoWayBlend::CacheBones_AnyThread(const FAnimationCacheBonesContext& Context) 
@@ -28,7 +32,26 @@ void FAnimNode_TwoWayBlend::Update_AnyThread(const FAnimationUpdateContext& Cont
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FAnimationNode_TwoWayBlend_Update);
 	EvaluateGraphExposedInputs.Execute(Context);
 
-	InternalBlendAlpha = AlphaScaleBias.ApplyTo(Alpha);
+	InternalBlendAlpha = 0.f;
+	switch (AlphaInputType)
+	{
+	case EAnimAlphaInputType::Float:
+		InternalBlendAlpha = AlphaScaleBias.ApplyTo(AlphaScaleBiasClamp.ApplyTo(Alpha, Context.GetDeltaTime()));
+		break;
+	case EAnimAlphaInputType::Bool:
+		InternalBlendAlpha = AlphaBoolBlend.ApplyTo(bAlphaBoolEnabled, Context.GetDeltaTime());
+		break;
+	case EAnimAlphaInputType::Curve:
+		if (UAnimInstance* AnimInstance = Cast<UAnimInstance>(Context.AnimInstanceProxy->GetAnimInstanceObject()))
+		{
+			InternalBlendAlpha = AlphaScaleBiasClamp.ApplyTo(AnimInstance->GetCurveValue(AlphaCurveName), Context.GetDeltaTime());
+		}
+		break;
+	};
+
+	// Make sure Alpha is clamped between 0 and 1.
+	InternalBlendAlpha = FMath::Clamp<float>(InternalBlendAlpha, 0.f, 1.f);
+
 	const bool bNewAIsRelevant = !FAnimWeight::IsFullWeight(InternalBlendAlpha);
 	const bool bNewBIsRelevant = FAnimWeight::IsRelevant(InternalBlendAlpha);
 

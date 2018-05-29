@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
+#include "Layout/Margin.h"
 #include "Layout/Visibility.h"
 #include "LevelEditorPlaySettings.generated.h"
 
@@ -148,6 +149,14 @@ public:
 	/** The screen resolution's aspect ratio (as a string). */
 	UPROPERTY(config)
 	FString AspectRatio;
+
+	/** Whether or not this device supports both landscape and portrait modes */
+	UPROPERTY(config)
+	bool bCanSwapAspectRatio;
+	
+	/** The name of the device profile this links to */
+	UPROPERTY(config)
+	FString ProfileName;
 };
 
 /**
@@ -170,6 +179,10 @@ public:
 	/** Should Play-in-Editor automatically give mouse control to the game on PIE start (default = false). Note that this does not affect VR, which will always take focus */
 	UPROPERTY(config, EditAnywhere, Category=PlayInEditor, meta=(ToolTip="Give the game mouse control when PIE starts or require a click in the viewport first"))
 	bool GameGetsMouseControl;
+
+	/** While using the game viewport, it sends mouse movement and clicks as touch events, instead of as mouse events. */
+	UPROPERTY(config, EditAnywhere, Category=PlayInEditor)
+	bool UseMouseForTouch;
 
 	/** Whether to show a label for mouse control gestures in the PIE view. */
 	UPROPERTY(config, EditAnywhere, Category=PlayInEditor)
@@ -211,6 +224,23 @@ public:
 	uint32 bPreferToStreamLevelsInPIE:1;
 
 public:
+	/** The width of the new view port window in pixels (0 = use the desktop's screen resolution). */
+	UPROPERTY(config, EditAnywhere, Category=GameViewportSettings, meta=(ClampMin=0))
+	int32 NewWindowWidth;
+
+	/** The height of the new view port window in pixels (0 = use the desktop's screen resolution). */
+	UPROPERTY(config, EditAnywhere, Category=GameViewportSettings, meta=(ClampMin=0))
+	int32 NewWindowHeight;
+
+	/** The position of the new view port window on the screen in pixels. */
+	UPROPERTY(config, EditAnywhere, Category = GameViewportSettings)
+	FIntPoint NewWindowPosition;
+
+	/** Whether the new window should be centered on the screen. */
+	UPROPERTY(config, EditAnywhere, Category = GameViewportSettings)
+	uint32 CenterNewWindow:1;
+
+public:
 
 	/** Whether to automatically bind any active level sequences to a PIE world */
 	UPROPERTY(config, EditAnywhere, Category=Sequencer)
@@ -224,48 +254,16 @@ public:
 
 	/** Whether to always have the PIE window on top of the parent windows. */
 	UPROPERTY(config, EditAnywhere, Category = PlayInNewWindow, meta = (ToolTip="Always have the PIE window on top of the parent windows."))
-	bool PIEAlwaysOnTop;
-
-	/** The width of the new view port window in pixels (0 = use the desktop's screen resolution). */
-	UPROPERTY(config, EditAnywhere, Category=PlayInNewWindow, meta=(ClampMin=0))
-	int32 NewWindowWidth;
-
-	/** The height of the new view port window in pixels (0 = use the desktop's screen resolution). */
-	UPROPERTY(config, EditAnywhere, Category=PlayInNewWindow, meta=(ClampMin=0))
-	int32 NewWindowHeight;
-
-	/** The position of the new view port window on the screen in pixels. */
-	UPROPERTY(config, EditAnywhere, Category=PlayInNewWindow)
-	FIntPoint NewWindowPosition;
-
-	/** Whether the new window should be centered on the screen. */
-	UPROPERTY(config, EditAnywhere, Category=PlayInNewWindow)
-	bool CenterNewWindow;
+	uint32 PIEAlwaysOnTop:1;
 
 public:
 
-	/** The width of the standalone game window in pixels (0 = use the desktop's screen resolution). */
-	UPROPERTY(config, EditAnywhere, Category=PlayInStandaloneGame, meta=(ClampMin = 0))
-	int32 StandaloneWindowWidth;
-
-	/** The height of the standalone game window in pixels (0 = use the desktop's screen resolution). */
-	UPROPERTY(config, EditAnywhere, Category=PlayInStandaloneGame, meta=(ClampMin = 0))
-	int32 StandaloneWindowHeight;
-
-	/** The position of the standalone game window on the screen in pixels. */
-	UPROPERTY(config, EditAnywhere, Category=PlayInStandaloneGame)
-	FIntPoint StandaloneWindowPosition;
-
-	/** Whether the standalone game window should be centered on the screen. */
-	UPROPERTY(config, EditAnywhere, Category=PlayInStandaloneGame)
-	bool CenterStandaloneWindow;
-
 	/** Whether sound should be disabled when playing standalone games. */
-	UPROPERTY(config , EditAnywhere, Category=PlayInStandaloneGame, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category=PlayInStandaloneGame)
 	uint32 DisableStandaloneSound:1;
 
 	/** Extra parameters to be include as part of the command line for the standalone game. */
-	UPROPERTY(config , EditAnywhere, Category=PlayInStandaloneGame, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category=PlayInStandaloneGame)
 	FString AdditionalLaunchParameters;
 
 public:
@@ -457,9 +455,24 @@ public:
 	UPROPERTY(config)
 	TArray<FPlayScreenResolution> TelevisionScreenResolutions;
 
+	UPROPERTY(config, VisibleAnywhere, Category = GameViewportSettings)
+	FString DeviceToEmulate;
+
+	UPROPERTY(config)
+	FMargin PIESafeZoneOverride;
+
+	UPROPERTY(config)
+	TArray<FVector2D> CustomUnsafeZoneStarts;
+
+	UPROPERTY(config)
+	TArray<FVector2D> CustomUnsafeZoneDimensions;
+
 	// UObject interface
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostInitProperties() override;
 	// End of UObject interface
-};
 
+	FMargin CalculateCustomUnsafeZones(TArray<FVector2D>& CustomSafeZoneStarts, TArray<FVector2D>& CustomSafeZoneDimensions, FString& DeviceType, FVector2D PreviewSize);
+	FMargin FlipCustomUnsafeZones(TArray<FVector2D>& CustomSafeZoneStarts, TArray<FVector2D>& CustomSafeZoneDimensions, FString& DeviceType, FVector2D PreviewSize);
+	void RescaleForMobilePreview(class UDeviceProfile* DeviceProfile, int32 &PreviewWidth, int32 &PreviewHeight, float &ScaleFactor);
+};

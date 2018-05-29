@@ -235,6 +235,7 @@ namespace Audio
 
 		void Play(const int32 SourceId);
 		void Stop(const int32 SourceId);
+		void StopFade(const int32 SourceId);
 		void Pause(const int32 SourceId);
 		void SetPitch(const int32 SourceId, const float Pitch);
 		void SetVolume(const int32 SourceId, const float Volume);
@@ -255,6 +256,7 @@ namespace Audio
 		bool IsEffectTailsDone(const int32 SourceId) const;
 		bool NeedsSpeakerMap(const int32 SourceId) const;
 		void ComputeNextBlockOfSamples();
+		void ClearStoppingSounds();
 		void MixOutputBuffers(const int32 SourceId, const ESubmixChannelFormat InSubmixChannelType, const float SendLevel, AlignedFloatBuffer& OutWetBuffer) const;
 
 		void SetSubmixSendInfo(const int32 SourceId, const FMixerSourceSubmixSend& SubmixSend);
@@ -337,7 +339,7 @@ namespace Audio
 		// A command queue to execute commands from audio thread (or game thread) to audio mixer device thread.
 		struct FCommands
 		{
-			TQueue<TFunction<void()>> SourceCommandQueue;
+			TArray<TFunction<void()>> SourceCommandQueue;
 		};
 
 		FCommands CommandBuffers[2];
@@ -386,6 +388,9 @@ namespace Audio
 			int32 CurrentFrameIndex;
 			int64 NumFramesPlayed;
 
+			// The number of frames to wait before starting the source
+			double StartTime;
+
 			TArray<FMixerSourceSubmixSend> SubmixSends;
 
 			// What bus Id this source is, if it is a bus. This is INDEX_NONE for sources which are not buses.
@@ -433,24 +438,25 @@ namespace Audio
 			FSubmixChannelTypeInfo SubmixChannelInfo[(int32) ESubmixChannelFormat::Count];
 
 			// State management
-			bool bIs3D;
-			bool bIsCenterChannelOnly;
-			bool bIsActive;
-			bool bIsPlaying;
-			bool bIsPaused;
-			bool bHasStarted;
-			bool bIsBusy;
-			bool bUseHRTFSpatializer;
-			bool bUseOcclusionPlugin;
-			bool bUseReverbPlugin;
-			bool bIsDone;
-			bool bIsLastBuffer;
-			bool bOutputToBusOnly;
-			bool bIsVorbis;
-			bool bIsBypassingLPF;
-			bool bIsBypassingHPF;
+			uint8 bIs3D:1;
+			uint8 bIsCenterChannelOnly:1;
+			uint8 bIsActive:1;
+			uint8 bIsPlaying:1;
+			uint8 bIsPaused:1;
+			uint8 bIsStopping:1;
+			uint8 bHasStarted:1;
+			uint8 bIsBusy:1;
+			uint8 bUseHRTFSpatializer:1;
+			uint8 bUseOcclusionPlugin:1;
+			uint8 bUseReverbPlugin:1;
+			uint8 bIsDone:1;
+			uint8 bIsLastBuffer:1;
+			uint8 bOutputToBusOnly:1;
+			uint8 bIsVorbis:1;
+			uint8 bIsBypassingLPF:1;
+			uint8 bIsBypassingHPF:1;
+			uint8 bIsDebugMode:1;
 
-			bool bIsDebugMode;
 			FString DebugName;
 
 			// Source format info
@@ -470,9 +476,6 @@ namespace Audio
 
 		// Array of source infos.
 		TArray<FSourceInfo> SourceInfos;
-
-		// Array of active source ids
-		TArray<int32> ActiveSourceIds;
 
 		// Map of bus object Id's to bus data. 
 		TMap<uint32, FMixerBus> Buses;

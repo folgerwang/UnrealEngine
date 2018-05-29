@@ -5,4 +5,5 @@
 #include "CoreTypes.h"
 
 CORE_API void BeginInitTextLocalization();
-CORE_API void EndInitTextLocalization();
+CORE_API void InitEngineTextLocalization();
+CORE_API void InitGameTextLocalization();

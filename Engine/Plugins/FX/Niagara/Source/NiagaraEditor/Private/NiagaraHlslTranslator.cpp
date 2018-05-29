@@ -146,7 +146,7 @@ ENiagaraScriptCompileStatus FNiagaraTranslateResults::TranslateResultsToSummary(
 	ENiagaraScriptCompileStatus SummaryStatus = ENiagaraScriptCompileStatus::NCS_Unknown;
 	if (TranslateResults != nullptr)
 	{
-		if (TranslateResults->MessageLog->NumErrors > 0)
+		if (TranslateResults->NumErrors > 0)
 		{
 			SummaryStatus = ENiagaraScriptCompileStatus::NCS_Error;
 		}
@@ -154,7 +154,7 @@ ENiagaraScriptCompileStatus FNiagaraTranslateResults::TranslateResultsToSummary(
 		{
 			if (TranslateResults->bHLSLGenSucceeded)
 			{
-				if (TranslateResults->MessageLog->NumWarnings)
+				if (TranslateResults->NumWarnings)
 				{
 					SummaryStatus = ENiagaraScriptCompileStatus::NCS_UpToDateWithWarnings;
 				}
@@ -355,13 +355,11 @@ void FHlslNiagaraTranslator::GenerateFunctionSignature(ENiagaraScriptUsage Scrip
 
 FHlslNiagaraTranslator::FHlslNiagaraTranslator()
 	: Schema(nullptr)
-	, TranslateResults(&MessageLog)
+	, TranslateResults()
 	, CurrentBodyChunkMode(ENiagaraCodeChunkMode::Body)
 	, ActiveStageIdx(-1)
 	, bInitializedDefaults(false)
 {
-	// Make the message log silent so we're not spamming the blueprint log.
-	MessageLog.bSilentMode = true;
 }
 
 
@@ -659,9 +657,6 @@ const FNiagaraTranslateResults &FHlslNiagaraTranslator::Translate(const FNiagara
 	TranslateResults.bHLSLGenSucceeded = false;
 	TranslateResults.OutputHLSL = "";
 
-	//Should we roll our own message/error log and put it in a window somewhere?
-	MessageLog.SetSourcePath(CompileOptions.GetPathName());
-
 	UNiagaraGraph* SourceGraph = CompileData->NodeGraphDeepCopy;
 
 	if (!SourceGraph)
@@ -901,7 +896,7 @@ const FNiagaraTranslateResults &FHlslNiagaraTranslator::Translate(const FNiagara
 
 	ActiveHistoryForFunctionCalls.EndTranslation(GetUniqueEmitterName());
 
-	TranslateResults.bHLSLGenSucceeded = MessageLog.NumErrors == 0;
+	TranslateResults.bHLSLGenSucceeded = TranslateResults.NumErrors == 0;
 
 	//If we're compiling a function then we have all we need already, we don't want to actually generate shader/vm code.
 	if (FunctionCtx())
@@ -2091,15 +2086,15 @@ FString FHlslNiagaraTranslator::GetUniqueSymbolName(FName BaseName)
 
 	if(*NameCount > 0)
 	{
-		RetString += LexicalConversion::ToString(*NameCount);
+		RetString += LexToString(*NameCount);
 	}
 	++(*NameCount);
 	return RetString;
 }
 
-void FHlslNiagaraTranslator::EnterFunction(const FString& Name, FNiagaraFunctionSignature& Signature, TArray<int32>& Inputs)
+void FHlslNiagaraTranslator::EnterFunction(const FString& Name, FNiagaraFunctionSignature& Signature, TArray<int32>& Inputs, const FGuid& InGuid)
 {
-	FunctionContextStack.Emplace(Name, Signature, Inputs);
+	FunctionContextStack.Emplace(Name, Signature, Inputs, InGuid);
 	//May need some more heavy and scoped symbol tracking?
 
 	//Add new scope for pin reuse.
@@ -2117,7 +2112,7 @@ void FHlslNiagaraTranslator::ExitFunction()
 
 FString FHlslNiagaraTranslator::GeneratedConstantString(float Constant)
 {
-	return LexicalConversion::ToString(Constant);
+	return LexToString(Constant);
 }
 
 static int32 GbNiagaraScriptStatTracking = 1;
@@ -2178,13 +2173,24 @@ FString FHlslNiagaraTranslator::GetCallstack()
 	return Callstack;
 }
 
+TArray<FGuid> FHlslNiagaraTranslator::GetCallstackGuids()
+{
+	TArray<FGuid> Callstack;
+	for (FFunctionContext& Ctx : FunctionContextStack)
+	{
+		Callstack.Add(Ctx.Id);
+	}
+
+	return Callstack;
+}
+
 FString FHlslNiagaraTranslator::GeneratedConstantString(FVector4 Constant)
 {
 	TArray<FStringFormatArg> Args;
-	Args.Add(LexicalConversion::ToString(Constant.X));
-	Args.Add(LexicalConversion::ToString(Constant.Y));
-	Args.Add(LexicalConversion::ToString(Constant.Z));
-	Args.Add(LexicalConversion::ToString(Constant.W));
+	Args.Add(LexToString(Constant.X));
+	Args.Add(LexToString(Constant.Y));
+	Args.Add(LexToString(Constant.Z));
+	Args.Add(LexToString(Constant.W));
 	return FString::Format(TEXT("float4({0}, {1}, {2}, {3})"), Args);
 }
 
@@ -3146,7 +3152,7 @@ void FHlslNiagaraTranslator::Emitter(class UNiagaraNodeEmitter* EmitterNode, TAr
 	}
 
 	// We act like a function call here as the semantics are identical.
-	RegisterFunctionCall(ScriptUsage, Name, FullName, Source, Signature, false, FString(), Inputs, CallInputs, CallOutputs, Signature);
+	RegisterFunctionCall(ScriptUsage, Name, FullName, EmitterNode->NodeGuid, Source, Signature, false, FString(), Inputs, CallInputs, CallOutputs, Signature);
 	GenerateFunctionCall(Signature, Inputs, Outputs);
 
 	// Clear out the parameter map writes to emitter module parameters as they should not be shared across emitters.
@@ -3814,7 +3820,7 @@ void FHlslNiagaraTranslator::FunctionCall(UNiagaraNodeFunctionCall* FunctionNode
 		HandleCustomHlslNode(CustomFunctionHlsl, ScriptUsage, Name, FullName, bCustomHlsl, CustomHlsl, Signature, Inputs);
 	}
 	
-	RegisterFunctionCall(ScriptUsage, Name, FullName,  Source, Signature, bCustomHlsl, CustomHlsl, Inputs, CallInputs, CallOutputs, OutputSignature);
+	RegisterFunctionCall(ScriptUsage, Name, FullName,  FunctionNode->NodeGuid, Source, Signature, bCustomHlsl, CustomHlsl, Inputs, CallInputs, CallOutputs, OutputSignature);
 	GenerateFunctionCall(OutputSignature, Inputs, Outputs);
 
 	if (bCustomHlsl)
@@ -4034,7 +4040,7 @@ void FHlslNiagaraTranslator::HandleCustomHlslNode(UNiagaraNodeCustomHlsl* Custom
 	OutCustomHlsl = TEXT("\n") + OutCustomHlsl + TEXT("\n");
 }
 
-void FHlslNiagaraTranslator::RegisterFunctionCall(ENiagaraScriptUsage ScriptUsage, const FString& InName, const FString& InFullName, UNiagaraScriptSource* Source,  FNiagaraFunctionSignature& InSignature, bool bIsCustomHlsl, const FString& InCustomHlsl, TArray<int32>& Inputs, const TArray<UEdGraphPin*>& CallInputs, const TArray<UEdGraphPin*>& CallOutputs,
+void FHlslNiagaraTranslator::RegisterFunctionCall(ENiagaraScriptUsage ScriptUsage, const FString& InName, const FString& InFullName, const FGuid& CallNodeId, UNiagaraScriptSource* Source,  FNiagaraFunctionSignature& InSignature, bool bIsCustomHlsl, const FString& InCustomHlsl, TArray<int32>& Inputs, const TArray<UEdGraphPin*>& CallInputs, const TArray<UEdGraphPin*>& CallOutputs,
 	FNiagaraFunctionSignature& OutSignature)
 {
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraEditor_Module_NiagaraHLSLTranslator_RegisterFunctionCall);
@@ -4086,7 +4092,7 @@ void FHlslNiagaraTranslator::RegisterFunctionCall(ENiagaraScriptUsage ScriptUsag
 			SCOPE_CYCLE_COUNTER(STAT_NiagaraEditor_Module_NiagaraHLSLTranslator_FuncBody);
 
 			//We've not compiled this function yet so compile it now.
-			EnterFunction(InName, OutSignature, Inputs);
+			EnterFunction(InName, OutSignature, Inputs, CallNodeId);
 
 			UNiagaraNodeOutput* FuncOutput = SourceGraph->FindOutputNode(ScriptUsage);
 			check(FuncOutput);
@@ -4229,7 +4235,7 @@ void FHlslNiagaraTranslator::RegisterFunctionCall(ENiagaraScriptUsage ScriptUsag
 			if (!FuncBody)
 			{
 				//We've not compiled this function yet so compile it now.
-				EnterFunction(InName, OutSignature, Inputs);
+				EnterFunction(InName, OutSignature, Inputs, CallNodeId);
 
 				FString FunctionDefStr = InCustomHlsl;
 				// We don't support an empty function definition when calling a real function.
@@ -4281,7 +4287,7 @@ void FHlslNiagaraTranslator::RegisterFunctionCall(ENiagaraScriptUsage ScriptUsag
 				if (Info.UserPtrIdx != INDEX_NONE)
 				{
 					//This interface requires per instance data via a user ptr so place the index to it at the end of the inputs.
-					Inputs.Add(AddSourceChunk(LexicalConversion::ToString(Info.UserPtrIdx), FNiagaraTypeDefinition::GetIntDef()));
+					Inputs.Add(AddSourceChunk(LexToString(Info.UserPtrIdx), FNiagaraTypeDefinition::GetIntDef()));
 					OutSignature.Inputs.Add(FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("InstanceData")));
 				}
 			}
@@ -4837,13 +4843,15 @@ int32 FHlslNiagaraTranslator::CompileOutputPin(const UEdGraphPin* InPin)
 void FHlslNiagaraTranslator::Error(FText ErrorText, UNiagaraNode* Node, UEdGraphPin* Pin)
 {
 	FString ErrorString = FString::Printf(TEXT("Node: @@ - Pin: @@ - %s - Callstack: %s"), *ErrorText.ToString(), *GetCallstack());
-	MessageLog.Error(*ErrorString, Node, Pin);
+	TranslateResults.CompileEvents.Add(FNiagaraCompileEvent(FNiagaraCompileEventType::Error, ErrorString, Node ? Node->NodeGuid : FGuid(), Pin ? Pin->PersistentGuid : FGuid(), GetCallstackGuids()));
+	TranslateResults.NumErrors++;
 }
 
 void FHlslNiagaraTranslator::Warning(FText WarningText, UNiagaraNode* Node, UEdGraphPin* Pin)
 {
 	FString WarnString = FString::Printf(TEXT("Node: @@ - Pin: @@ - %s - Callstack: %s"), *WarningText.ToString(), *GetCallstack());
-	MessageLog.Warning(*WarnString, Node, Pin);
+	TranslateResults.CompileEvents.Add(FNiagaraCompileEvent(FNiagaraCompileEventType::Warning, WarnString, Node ? Node->NodeGuid : FGuid(), Pin ? Pin->PersistentGuid : FGuid(), GetCallstackGuids()));
+	TranslateResults.NumWarnings++;
 }
 
 bool FHlslNiagaraTranslator::GetFunctionParameter(const FNiagaraVariable& Parameter, int32& OutParam)const

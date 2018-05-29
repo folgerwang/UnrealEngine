@@ -23,8 +23,8 @@ topic-image:Engine/Blueprints/UserGuide/graph_topic.png
 
 ![](Engine/Blueprints/UserGuide/EventGraph/eventgraph_topic.png)(w:300)
 
-		**Event Graph** (이벤트그래프)란 가장 일반적인 유형의 블루프린트 그래프입니다. _블루프린트 클래스_ 가 새로 생성될 때마다 하나의 **이벤트그래프** 가 포함되며, 추가도 가능은 합니다. **이벤트그래프** 의 추가를 통해 
-_블루프린트_ 망의 체계적인 정리에 도움이 됩니다. **이벤트그래프** 에는 보통 _블루프린트_ 의 게임플레이 행위를 정의하는 망이 포함되며, [**Event**](Engine/Blueprints/UserGuide/Events), 
+**Event Graph** (이벤트그래프)란 가장 일반적인 유형의 블루프린트 그래프입니다. 블루프린트 클래스가 새로 생성될 때마다 하나의 **이벤트그래프** 가 포함되며, 추가도 가능은 합니다. **이벤트그래프** 의 추가를 통해 
+블루프린트 망의 체계적인 정리에 도움이 됩니다. **이벤트그래프** 에는 보통 블루프린트의 게임플레이 행위를 정의하는 망이 포함되며, [**Event**](Engine/Blueprints/UserGuide/Events), 
 [**CustomEvent**](Engine/Blueprints/UserGuide/Events/Custom), **Input** 노드를 통해 **이벤트그래프** 의 전반적인 실행 흐름이 결정됩니다.
 
 이 섹션 관련 상세 정보는, [](Engine/Blueprints/UserGuide/EventGraph) 문서를 참고하세요.
@@ -56,7 +56,7 @@ _블루프린트 클래스_ 에 대해 **컴포넌트** 리스트가 셋업된 �
 
 ## 그래프 작업하기
 
-_그래프_ 가 _컨스트럭션 스크립트_ 인지, _이벤트그래프_ 인지, _함수_ 인지,  매크로_ 인지에 따라 [에디터](Engine/Blueprints/Editor) 의  [그래프](Engine/Blueprints/Editor/Modes/GraphPanel) 모드에서 편집하게 됩니다. 기본적으로
+그래프가 컨스트럭션 스크립트인지, 이벤트그래프인지, 함수인지, 매크로인지에 따라 [에디터](Engine/Blueprints/Editor) 의 [그래프](Engine/Blueprints/Editor/Modes/GraphPanel) 모드에서 편집하게 됩니다. 기본적으로
 모든 그룹_에는 와이어로 연결된 노드 망이 들어 있습니다.
 
 

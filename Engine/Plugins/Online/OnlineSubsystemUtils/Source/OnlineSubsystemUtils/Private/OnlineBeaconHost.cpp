@@ -369,7 +369,7 @@ void AOnlineBeaconHost::SendWelcomeControlMessage(const FEncryptionKeyResponse& 
 			}
 			else
 			{
-				FString ResponseStr(Lex::ToString(Response.Response));
+				FString ResponseStr(LexToString(Response.Response));
 				UE_LOG(LogBeacon, Warning, TEXT("OnlineBeaconHost::SendWelcomeControlMessage: encryption failure [%s] %s"), *ResponseStr, *Response.ErrorMsg);
 				FNetControlMessage<NMT_Failure>::Send(Connection, ResponseStr);
 				Connection->FlushNet();

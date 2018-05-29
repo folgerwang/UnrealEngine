@@ -439,6 +439,10 @@ bool IntersectObjectWithConeDepthRange(
 Buffer<float4> TileConeAxisAndCos;
 Buffer<float4> TileConeDepthRanges;
 
+RWBuffer<uint> RWNumCulledTilesArray;
+RWBuffer<uint> RWCulledTilesStartOffsetArray;
+RWBuffer<uint> RWCulledTileDataArray;
+
 /** Intersects a single object with the tile and adds to the intersection list if needed. */
 void ObjectCullPS(
 	FObjectCullVertexOutput Input, 

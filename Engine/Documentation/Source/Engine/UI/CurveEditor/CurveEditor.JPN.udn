@@ -1,48 +1,10 @@
-﻿INTSourceChangelist:2686844
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:カーブ エディタ
 Crumbs:%ROOT%, Engine, Engine/UI
 Description:インタラクティブにカーブを設定および編集して Distribution プロパティの値を操作するツールです。
 Version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/UI/CurveEditor:title%](Engine/UI/curveEditor_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UI/CurveEditor:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UI/CurveEditor:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/CurveEditor]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/UI/CurveEditor:title%](Engine/UI/curveEditor_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UI/CurveEditor:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UI/CurveEditor:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/CurveEditor]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/UI/curveEditor_topic.png
 
 [TOC(start:2)]
 
@@ -178,7 +140,7 @@ Pan/Edit モードの場合は以下の通りです。
 | _Ctrl + Z_  | 元に戻す  |
 | _Ctrl + Y_  | やり直し  |
 
-**注記：** カーブ エディタの中には、元に戻す/やり直しに対応していないツールやアクションもあります。
+**注意：** カーブ エディタの中には、元に戻す/やり直しに対応していないツールやアクションもあります。
 
 
 

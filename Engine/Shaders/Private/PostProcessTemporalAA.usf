@@ -126,7 +126,7 @@
 	#define AA_BORDER 2
 	#define AA_CROSS 1
 	#define AA_DYNAMIC 1
-	#define AA_FILTERED 1
+	#define AA_FILTERED TAA_UPSAMPLE_FILTERED
 	#define AA_MANUALLY_CLAMP_HISTORY_UV 1
 	#define AA_TONE 1
 	#define AA_YCOCG 1
@@ -465,9 +465,16 @@ float4 HistoryBufferUVMinMax;
 #if COMPUTESHADER
 RWTexture2D<float4> OutComputeTex0;
 
+#if TAA_DOWNSAMPLE 
+// This shader permutation outputs half resolution image in addition to main full-res one.
+// It is more efficient than performing a separate downsampling pass afterwards.
+RWTexture2D<float4> OutComputeTexDownsampled;
+groupshared float4 GroupSharedDownsampleArray[THREADGROUP_SIZEX*THREADGROUP_SIZEY]; // TODO: share this with GroupSharedArrayF4 when possible
+#endif // TAA_DOWNSAMPLE
+
 #if HISTORY_RENDER_TARGETS == 2
 	RWTexture2D<float4> OutComputeTex1;
-#endif
+#endif // HISTORY_RENDER_TARGETS == 2
 #endif
 
 // Temporal upsample specific params.
@@ -1211,7 +1218,12 @@ FTAASceneColorSample SampleCachedSceneColorTexture(
 	uint ArrayPos = GetTileArrayIndexFromPixelOffset(InputParams, PixelOffset, LDS_COLOR_TILE_BORDER_SIZE);
 	
 	FTAASceneColorSample Sample;
+	Sample.CocRadius = 0;
 	
+	#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC || AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_OPACITY_COC
+		#error Unsupported history payload with LDS scene color caching.Test
+	#endif
+
 	#if LDS_USE_FLOAT4_ARRAY
 		Sample.Color = GroupSharedArrayF4[ArrayPos];
 
@@ -1659,16 +1671,16 @@ void ComputeNeighborhoodBoundingbox(
 		for( uint i = 0; i < AA_SAMPLES; i++ )
 		{
 			uint NeightborId = Indexes[i];
-
-			if (NeightborId == 4) continue;
-
-			float2 dPP = float2(kOffsets3x3[NeightborId]) - dKO;
-
-			FLATTEN
-			if (dot(dPP, dPP) < (DistThreshold * DistThreshold))
+			if (NeightborId != 4)
 			{
-				NeighborMin = MinPayload(NeighborMin, Neighbors[NeightborId]);
-				NeighborMax = MaxPayload(NeighborMax, Neighbors[NeightborId]);
+				float2 dPP = float2(kOffsets3x3[NeightborId]) - dKO;
+
+				FLATTEN
+				if (dot(dPP, dPP) < (DistThreshold * DistThreshold))
+				{
+					NeighborMin = MinPayload(NeighborMin, Neighbors[NeightborId]);
+					NeighborMax = MaxPayload(NeighborMax, Neighbors[NeightborId]);
+				}
 			}
 		}
 	}
@@ -2264,6 +2276,29 @@ void MainCS(
 			OutComputeTex1[PixelPos] = OutColor1;
 		#endif
 	}
+
+#if TAA_DOWNSAMPLE
+	{
+		// This shader permutation outputs half resolution image in addition to main full-res one.
+		// It is more efficient than performing a separate downsampling pass afterwards.
+		// Assumes output resolution is always even.
+
+		uint P0 = GroupThreadId.x + GroupThreadId.y * THREADGROUP_SIZEX;
+		uint P1 = P0 + 1;
+		uint P2 = P0 + THREADGROUP_SIZEX;
+		uint P3 = P2 + 1;
+
+		GroupSharedDownsampleArray[P0] = OutColor0;
+
+		GroupMemoryBarrierWithGroupSync();
+
+		if (((GroupThreadId.x | GroupThreadId.y) & 1) == 0)
+		{
+			OutComputeTexDownsampled[PixelPos / 2] =
+				(OutColor0 + GroupSharedDownsampleArray[P1] + GroupSharedDownsampleArray[P2] + GroupSharedDownsampleArray[P3]) * 0.25;
+		}
+	}
+#endif //TAA_DOWNSAMPLE
 }
 
 

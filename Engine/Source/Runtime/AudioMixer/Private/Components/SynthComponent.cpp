@@ -282,7 +282,9 @@ void USynthComponent::OnUnregister()
 
 bool USynthComponent::IsReadyForOwnerToAutoDestroy() const
 {
-	return !AudioComponent || (AudioComponent && !AudioComponent->IsPlaying());
+	const bool bIsAudioComponentReadyForDestroy = !AudioComponent || (AudioComponent && !AudioComponent->IsPlaying());
+	const bool bIsSynthSoundReadyForDestroy = !Synth || Synth->bIsReadyForDestroy;
+	return bIsAudioComponentReadyForDestroy && bIsSynthSoundReadyForDestroy;
 }
 
 #if WITH_EDITOR
@@ -347,6 +349,12 @@ int32 USynthComponent::OnGeneratePCMAudio(float* GeneratedPCMData, int32 NumSamp
 
 void USynthComponent::Start()
 {
+	// Only need to start if we're not already active
+	if (bIsActive)
+	{
+		return;
+	}
+		
 	// This will try to create the audio component if it hasn't yet been created
 	CreateAudioComponent();
 

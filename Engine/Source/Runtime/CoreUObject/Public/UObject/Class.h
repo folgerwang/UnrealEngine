@@ -221,7 +221,7 @@ class COREUOBJECT_API UStruct : public UField
 
 	// Variables.
 protected:
-	friend COREUOBJECT_API UClass* Z_Construct_UClass_UStruct();
+	friend struct Z_Construct_UClass_UStruct_Statics;
 private:
 	/** Struct this inherits from, may be null */
 	UStruct* SuperStruct;
@@ -1382,6 +1382,7 @@ public:
 
 	// UObject interface.
 	virtual void Serialize( FArchive& Ar ) override;
+	virtual void PostLoad() override;
 
 	// UField interface.
 	virtual void Bind() override;
@@ -2637,9 +2638,11 @@ public:
 
 	/**
 	 * Initializes the ClassReps and NetFields arrays used by replication.
-	 * For classes that are loaded, this needs to happen in PostLoad to
-	 * ensure all replicated UFunctions have been serialized. For native classes,
-	 * this should happen in Link. Also needs to happen after blueprint compiliation.
+	 * This happens lazily based on the CLASS_ReplicationDataIsSetUp flag,
+	 * and will generally occur in Link or PostLoad. It's possible that replicated UFunctions
+	 * will load after their owning class, so UFunction::PostLoad will clear the flag on its owning class
+	 * to force lazy initialization next time the data is needed.
+	 * Also happens after blueprint compiliation.
 	 */
 	void SetUpRuntimeReplicationData();
 
@@ -3213,6 +3216,12 @@ template<> struct TBaseStructure<FPrimaryAssetId>
 
 struct FDateTime;
 template<> struct TBaseStructure<FDateTime>
+{
+	COREUOBJECT_API static UScriptStruct* Get();
+};
+
+struct FPolyglotTextData;
+template<> struct TBaseStructure<FPolyglotTextData>
 {
 	COREUOBJECT_API static UScriptStruct* Get();
 };

@@ -18,14 +18,11 @@
 #include "WidgetBlueprintEditorUtils.h"
 #include "WidgetGraphSchema.h"
 #include "IUMGModule.h"
-#include "IWidgetEditorExtension.h"
 #include "UMGEditorProjectSettings.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
 #define CPF_Instanced (CPF_PersistentInstance | CPF_ExportObject | CPF_InstancedReference)
-
-const FName IWidgetEditorExtension::ServiceFeatureName(TEXT("WidgetEditorExtension"));
 
 extern COREUOBJECT_API bool GMinimalCompileOnLoad;
 
@@ -320,23 +317,59 @@ void FWidgetBlueprintCompiler::CopyTermDefaultsToDefaultObject(UObject* DefaultO
 		const UFunction* ReceiveTickEvent = FKismetCompilerUtilities::FindOverriddenImplementableEvent(GET_FUNCTION_NAME_CHECKED(UUserWidget, Tick), NewWidgetBlueprintClass);
 		if (ReceiveTickEvent)
 		{
-			DefaultWidget->bCanEverTick = true;
+			DefaultWidget->bHasScriptImplementedTick = true;
 		}
 		else
 		{
-			DefaultWidget->bCanEverTick = false;
+			DefaultWidget->bHasScriptImplementedTick = false;
 		}
 
 		//TODO Once we handle multiple derived blueprint classes, we need to check parent versions of the class.
 		if ( const UFunction* ReceivePaintEvent = FKismetCompilerUtilities::FindOverriddenImplementableEvent(GET_FUNCTION_NAME_CHECKED(UUserWidget, OnPaint), NewWidgetBlueprintClass) )
 		{
-			DefaultWidget->bCanEverPaint = true;
+			DefaultWidget->bHasScriptImplementedPaint = true;
 		}
 		else
 		{
-			DefaultWidget->bCanEverPaint = false;
+			DefaultWidget->bHasScriptImplementedPaint = false;
+		}
+
+	}
+
+
+	bool bClassOrParentsHaveLatentActions = false;
+	bool bClassOrParentsHaveAnimations = false;
+	bool bClassRequiresNativeTick = false;
+
+
+	WidgetBP->UpdateTickabilityStats(bClassOrParentsHaveLatentActions, bClassOrParentsHaveAnimations, bClassRequiresNativeTick);
+	WidgetClass->SetClassRequiresNativeTick(bClassRequiresNativeTick);
+
+	// If the widget is not tickable, warn the user that widgets with animations or implemented ticks will most likely not work
+	if (DefaultWidget->GetDesiredTickFrequency() == EWidgetTickFrequency::Never)
+	{
+		if (bClassOrParentsHaveAnimations)
+		{
+			MessageLog.Warning(*LOCTEXT("NonTickableButAnimationsFound", "This widget has animations but the widget is set to never tick.  These animations will not function correctly.").ToString());
+		}
+
+		if (bClassOrParentsHaveLatentActions)
+		{
+			MessageLog.Warning(*LOCTEXT("NonTickableButLatentActionsFound", "This widget has latent actions but the widget is set to never tick.  These latent actions will not function correctly.").ToString());
+		}
+
+		if (bClassRequiresNativeTick)
+		{
+			MessageLog.Warning(*LOCTEXT("NonTickableButNativeTickFound", "This widget may require a native tick but the widget is set to never tick.  Native tick will not be called.").ToString());
+		}
+
+		if (DefaultWidget->bHasScriptImplementedTick)
+		{
+			MessageLog.Warning(*LOCTEXT("NonTickableButTickFound", "This widget has a blueprint implemented Tick event but the widget is set to never tick.  This tick event will never be called.").ToString());
 		}
 	}
+
+
 }
 
 bool FWidgetBlueprintCompiler::CanAllowTemplate(FCompilerResultsLog& MessageLog, UWidgetBlueprintGeneratedClass* InClass)
@@ -354,13 +387,6 @@ bool FWidgetBlueprintCompiler::CanAllowTemplate(FCompilerResultsLog& MessageLog,
 	{
 		MessageLog.Error(*LOCTEXT("NoWidgetBlueprint", "No Widget Blueprint Found.").ToString());
 
-		return false;
-	}
-
-	// This widget never dynamically constructed, it's stored as part of another widget hierarchy exclusively
-	// so there's no reason to maintain a fast construction template separately for it.
-	if (!WidgetBP->WidgetSupportsDynamicCreation())
-	{
 		return false;
 	}
 
@@ -468,57 +494,61 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 				BPGClass->NamedSlots.Add(Widget->GetFName());
 			}
 		});
-	}
 
-	// Make sure that we don't have dueling widget hierarchies
-	if (UWidgetBlueprintGeneratedClass* SuperBPGClass = Cast<UWidgetBlueprintGeneratedClass>(BPGClass->GetSuperClass()))
-	{
-		UWidgetBlueprint* SuperBlueprint = Cast<UWidgetBlueprint>(SuperBPGClass->ClassGeneratedBy);
-		if (SuperBlueprint->WidgetTree != nullptr)
+		// Make sure that we don't have dueling widget hierarchies
+		if (UWidgetBlueprintGeneratedClass* SuperBPGClass = Cast<UWidgetBlueprintGeneratedClass>(BPGClass->GetSuperClass()))
 		{
-			if ((SuperBlueprint->WidgetTree->RootWidget != nullptr) && (WidgetBlueprint()->WidgetTree->RootWidget != nullptr))
+			UWidgetBlueprint* SuperBlueprint = Cast<UWidgetBlueprint>(SuperBPGClass->ClassGeneratedBy);
+			if (SuperBlueprint->WidgetTree != nullptr)
 			{
-				// We both have a widget tree, terrible things will ensue
-				// @todo: nickd - we need to switch this back to a warning in engine, but note for games
-				MessageLog.Note(*LOCTEXT("ParentAndChildBothHaveWidgetTrees", "This widget @@ and parent class widget @@ both have a widget hierarchy, which is not supported.  Only one of them should have a widget tree.").ToString(),
-					WidgetBP, SuperBPGClass->ClassGeneratedBy);
+				if ((SuperBlueprint->WidgetTree->RootWidget != nullptr) && (WidgetBlueprint()->WidgetTree->RootWidget != nullptr))
+				{
+					// We both have a widget tree, terrible things will ensue
+					// @todo: nickd - we need to switch this back to a warning in engine, but note for games
+					MessageLog.Note(*LOCTEXT("ParentAndChildBothHaveWidgetTrees", "This widget @@ and parent class widget @@ both have a widget hierarchy, which is not supported.  Only one of them should have a widget tree.").ToString(),
+						WidgetBP, SuperBPGClass->ClassGeneratedBy);
+				}
 			}
 		}
-	}
-	
-	//
-	UClass* ParentClass = WidgetBP->ParentClass;
-	for ( TUObjectPropertyBase<UWidget*>* WidgetProperty : TFieldRange<TUObjectPropertyBase<UWidget*>>( ParentClass ) )
-	{
-		bool bIsOptional;
-		bool bIsBindWidget = FWidgetBlueprintEditorUtils::IsBindWidgetProperty(WidgetProperty, bIsOptional);
 
-		if ( bIsBindWidget && !bIsOptional )
+		// Check that all BindWidget properties are present and of the appropriate type
+		UClass* ParentClass = WidgetBP->ParentClass;
+		for (TUObjectPropertyBase<UWidget*>* WidgetProperty : TFieldRange<TUObjectPropertyBase<UWidget*>>(ParentClass))
 		{
-			const FText RequiredWidgetNotBoundError = LOCTEXT("RequiredWidgetNotBound", "A required widget binding @@ of type @@ was not found.");
-			const FText IncorrectWidgetTypeError = LOCTEXT("IncorrectWidgetTypes", "The widget @@ is of type @@, but the bind widget property is of type @@.");
+			bool bIsOptional = false;
 
-			UWidget* const* Widget = WidgetToMemberVariableMap.FindKey( WidgetProperty );
-			if (!Widget)
+			if (FWidgetBlueprintEditorUtils::IsBindWidgetProperty(WidgetProperty, bIsOptional))
 			{
-				if (Blueprint->bIsNewlyCreated)
+				const FText OptionalBindingAvailableNote = LOCTEXT("OptionalWidgetNotBound", "An optional widget binding @@ of type @@ is available.");
+				const FText RequiredWidgetNotBoundError = LOCTEXT("RequiredWidgetNotBound", "A required widget binding @@ of type @@ was not found.");
+				const FText IncorrectWidgetTypeError = LOCTEXT("IncorrectWidgetTypes", "The widget @@ is of type @@, but the bind widget property is of type @@.");
+
+				UWidget* const* Widget = WidgetToMemberVariableMap.FindKey(WidgetProperty);
+				if (!Widget)
 				{
-					MessageLog.Warning(*RequiredWidgetNotBoundError.ToString(), WidgetProperty, WidgetProperty->PropertyClass);
+					if (bIsOptional)
+					{
+						MessageLog.Note(*OptionalBindingAvailableNote.ToString(), WidgetProperty, WidgetProperty->PropertyClass);
+					}
+					else if (Blueprint->bIsNewlyCreated)
+					{
+						MessageLog.Warning(*RequiredWidgetNotBoundError.ToString(), WidgetProperty, WidgetProperty->PropertyClass);
+					}
+					else
+					{
+						MessageLog.Error(*RequiredWidgetNotBoundError.ToString(), WidgetProperty, WidgetProperty->PropertyClass);
+					}
 				}
-				else
+				else if (!(*Widget)->IsA(WidgetProperty->PropertyClass))
 				{
-					MessageLog.Error(*RequiredWidgetNotBoundError.ToString(), WidgetProperty, WidgetProperty->PropertyClass);
-				}
-			}
-			else if (!(*Widget)->IsA(WidgetProperty->PropertyClass))
-			{
-				if (Blueprint->bIsNewlyCreated)
-				{
-					MessageLog.Warning(*IncorrectWidgetTypeError.ToString(), *Widget, (*Widget)->GetClass(), WidgetProperty->PropertyClass);
-				}
-				else
-				{
-					MessageLog.Error(*IncorrectWidgetTypeError.ToString(), *Widget, (*Widget)->GetClass(), WidgetProperty->PropertyClass);
+					if (Blueprint->bIsNewlyCreated)
+					{
+						MessageLog.Warning(*IncorrectWidgetTypeError.ToString(), *Widget, (*Widget)->GetClass(), WidgetProperty->PropertyClass);
+					}
+					else
+					{
+						MessageLog.Error(*IncorrectWidgetTypeError.ToString(), *Widget, (*Widget)->GetClass(), WidgetProperty->PropertyClass);
+					}
 				}
 			}
 		}
@@ -540,36 +570,36 @@ void FWidgetBlueprintCompiler::PostCompile()
 	WidgetClass->bAllowDynamicCreation = WidgetBP->WidgetSupportsDynamicCreation();
 	WidgetClass->bAllowTemplate = CanAllowTemplate(MessageLog, NewWidgetBlueprintClass);
 
-	if ( WidgetClass->bAllowTemplate )
+	if (!Blueprint->bIsRegeneratingOnLoad && bIsFullCompile)
 	{
-		if ( !Blueprint->bIsRegeneratingOnLoad && bIsFullCompile )
+		WidgetClass->GetDefaultObject<UUserWidget>()->ValidateBlueprint(*WidgetBP->WidgetTree, MessageLog);
+
+		if (MessageLog.NumErrors == 0 && WidgetClass->bAllowTemplate)
 		{
 			UUserWidget* WidgetTemplate = NewObject<UUserWidget>(GetTransientPackage(), WidgetClass);
 			WidgetTemplate->TemplateInit();
 
-			// Determine if we can generate a template for this widget to speed up CreateWidget time.
-			TArray<FText> OutErrors;
-			const bool bCanTemplate = CanTemplateWidget(MessageLog, WidgetTemplate, OutErrors);
+			int32 TotalWidgets = 0;
+			WidgetTemplate->WidgetTree->ForEachWidgetAndDescendants([&TotalWidgets](UWidget* Widget) {
+				TotalWidgets++;
+			});
+			WidgetBP->InclusiveWidgets = TotalWidgets;
 
-			if ( bCanTemplate )
+			// Determine if we can generate a template for this widget to speed up CreateWidget time.
+			TArray<FText> PostCompileErrors;
+			if (CanTemplateWidget(MessageLog, WidgetTemplate, PostCompileErrors))
 			{
 				MessageLog.Note(*LOCTEXT("TemplateSuccess", "Fast Template Successfully Created.").ToString());
 			}
 			else
 			{
 				MessageLog.Error(*LOCTEXT("NoTemplate", "Unable To Create Template For Widget.").ToString());
-
-				for ( FText& Error : OutErrors )
+				for (FText& Error : PostCompileErrors)
 				{
 					MessageLog.Error(*Error.ToString());
 				}
 			}
 		}
-	}
-
-	TArray<IWidgetEditorExtension*> Extensions = IModularFeatures::Get().GetModularFeatureImplementations<IWidgetEditorExtension>(IWidgetEditorExtension::ServiceFeatureName);
-	for (IWidgetEditorExtension* Extension : Extensions)
-	{
 	}
 }
 

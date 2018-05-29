@@ -1,0 +1,591 @@
+﻿INTSourceChangelist:3927257
+title: 언리얼 스튜디오 사용자용 입문서
+description:다른 프로그램을 사용하던 언리얼 스튜디오 사용자가 언리얼 엔진 4 에 쉽게 적응할 수 있도록 돕는 언리얼 엔진 4 개요입니다.
+crumbs:
+availability:Public
+parent:Enterprise
+order:1
+type:overview
+tags:Getting Started
+version:4.19
+topic-image:Enterprise/Start_topic.png
+
+[TOC]
+
+다른 프로그램을 사용하던 언리얼 스튜디오 사용자가 언리얼 엔진 4 에 쉽게 적응할 수 있도록 돕는 언리얼 엔진 4 개요입니다. 이 문서에서는 언리얼 에디터와 그 툴의 공통 영역, UE4 가 제공하는 툴에 쉽게 적응할 수 있도록 돕는 기존 문서, 리얼타임 엔진 개발에 가장 잘 맞는 작업방식 등을 짚어드립니다.
+
+언리얼 스튜디오에 같이 제공되는 것 중 [Datasmith](DatasmithOverview.pdf) (데이터스미스)는 오프라인 렌더링 어플리케이션에서 만든 씬과 애셋을 리얼타임 엔진으로 임포트하도록 디자인된 툴과 플러그인 모음입니다. 데이터 스미스를 처음 사용하는 사용자든 경험이 있는 사용자든, 여기서 다루는 정보가 리얼타임 엔진에서의 작업방식 향상에 도움이 될 수 있을 것입니다. 현재 데이터스미스를 사용중이지 않더라도, 여기 언급된 실전 사례와 제안 사항은 엔터프라이즈 작업 환경에서 UE4 를 사용하는 사람이라면 누구에게나 득이 될 것입니다.
+
+## 언리얼 엔진 4 용 프로젝트 생성
+
+언리얼 엔진 4 용 프로젝트를 만들 때, 엔진 설치 후 [프로젝트 브라우저](Engine/Basics/Projects/Browser/) 를 사용해서 실행하게 됩니다. 프로젝트 브라우저에서는 기존 프로젝트를 선택하거나 블루프린트, C++, 언리얼 스튜디오 프로젝트를 새로 만들 수 있습니다.
+
+![image alt text](image_0.png)(w:617 h:429 convert:false)
+
+새 프로젝트 탭에서, 만들고자 하는 프로젝트 유형을 선택합니다. 언리얼 스튜디오 사용자의 경우, **언리얼 스튜디오** 탭을 사용하면 언리얼 스튜디오가 제공하는 (데이터스미스와 같은) 플러그인이 자동으로 활성화되어 나옵니다.
+
+[REGION:note]
+언리얼 스튜디오 자격이 활성화되지 않아 언리얼 스튜디오 탭이 보이지 않거나 문제가 있어도 괜찮습니다. **블루프린트** 또는 **C++** 탭 중 하나로 프로젝트를 만든 뒤 나중에 언리얼 스튜디오 프로젝트로 전환할 수 있습니다. 자격 관련 이슈는, [데이터스미스](DatasmithOverview.pdf) 페이지의 **Entitlements** (자격) 섹션을 확인하세요. 기존 프로젝트 또는 기존에 만들었던 언리얼 스튜디오 프로젝트가 아닌 프로젝트를 언리얼 스튜디오 프로젝트로 변환하는 방법은, [데이터스미스 다운로드 및 인스톨](DownloadingUnrealEngineandInstallingDatasmith.pdf) 페이지의 **Converting a Project to an Unreal Studio Project** (프로젝트를 언리얼 스튜디오 프로젝트로 변환) 섹션을 확인하세요.
+[/REGION]
+
+![image alt text](image_1.png)(w:616 h:429 convert:false)
+
+언리얼 스튜디오 탭에 있는 템플릿을 선택하여 프로젝트를 만들 수 있습니다. 현재 언리얼 스튜디오에는 두 가지 유형의 템플릿이 제공됩니다:
+
+* **공백** - 별도의 부가 콘텐츠가 추가되지 않은 깨끗한 공백 프로젝트입니다.
+
+* **프로덕트 뷰어** - 전시된 오브젝트를 미리 만들어진 상호작용 및 이동 방식을 통해 개별 애셋을 확인할 수 있도록 해주는 템플릿입니다.
+
+템플릿 관련 부가 정보는, [언리얼 스튜디오 프로젝트 템플릿](UnrealStudioProjectTemplate_DRAFT.pdf) 페이지를 참고하세요.
+
+언리얼 스튜디오용 프로젝트 생성 관련 부가 정보는, [데이터스미스 다운로드 및 설치](DownloadingUnrealEngineandInstallingDatasmith.pdf) 페이지를 참고하세요.
+
+## 에디터
+
+[REGION:note]
+인터페이스 비교용으로는 현재 대다수의 사용자가 사용하고 있는 Autodesk 3ds Max 를 선택했습니다.
+[/REGION]
+
+아래는 Autodesk 3ds Max 와 Unreal Editor 의 비교 그림으로, 같은 색을 입힌 부분은 공통된 기능을 나타냅니다. 각 블록에는 그에 상응하는 UE4 용어 라벨을 붙였습니다. 언리얼 에디터의 레이아웃은 에디터의 아무 탭이나 드래그 앤 드롭 방식으로 완벽 커스터마이징 가능합니다.
+
+[REGION:imagetable]
+| [INCLUDE:#image1] | [INCLUDE:#image2] |
+| --- | --- |
+|이미지를 클릭하면 원본을 확인합니다.| 이미지를 클릭하면 원본을 확인합니다. |
+[/REGION]
+
+<!---
+[INCLUDE:#image2]
+[EXCERPT:image1]
+[REGION:lightbox]
+[![image alt text](image_2.png)(w:575 convert:false)](image_2.png)
+[/REGION]
+[/EXCERPT]
+
+[EXCERPT:image2]
+[REGION:lightbox]
+[![image alt text](image_3.png)(w:575 convert:false)](image_3.png)
+[/REGION]
+[/EXCERPT]
+--->
+
+| --- | --- | --- |
+| 1 | 배치 패널 | Create Panel |
+| 2 | 메인 툴바 | Main Toolbar |
+| 3 | 월드 아웃라이너 | Scene Explorer |
+| 4 | 디테일 패널 | Command Panel |
+| 5 | 뷰포트 | Viewport |
+| 6 | 콘텐츠 브라우저 | -- |
+
+
+### 애셋 편집
+
+Autodesk 3ds Max 의 Command Panel 에는 선택된 오브젝트의 프로퍼티가 노출됩니다. UE4 에는 **디테일** 패널에 선택된 오브젝트의 프로퍼티가 노출되는 반면, 규모가 큰 편집 작업은 별도의 창이나 탭이 있는 전용 에디터로 이어집니다. 텍스처, 머티리얼, 스태틱 메시 같은 것을 열어보면 그 예를 확인할 수 있습니다. 웹 브라우저와 비슷하게, 각 편집 애셋마다 새 창이 탭으로 열립니다.
+
+![image alt text](image_4.jpg)(w:1013 h:570 convert:false)
+
+*메인 언리얼 에디터 탭에 도킹된 머티리얼 에디터.*
+
+에디터 창이 도킹되면, 탭을 선택하여 전경으로 끌어올 수 있고, 다른 탭을 선택하면 (위 예처럼) 배경으로 전환됩니다. 모든 탭은 메인 에디터 탭을 제외하고, 드래그하여 독립형 창으로 만들거나, 다른 에디터 내 탭 또는 독립형 창으로 만들 수 있습니다.
+
+### 메인 툴바
+
+메인 툴바 (또는 레벨 에디터 툴바)는, 대부분의 어플리케이션에서 처럼, 자주 사용되는 툴과 작업을 빠르게 사용할 수 있도록 해주는 바로 가기 모음입니다.
+
+![image alt text](image_5.png)(w:952 h:64 convert:false)
+
+### 씬 이동
+
+언리얼 엔진 4 에는 씬 이동, 액터 선택 및 조작, 뷰포트에 콘텐츠 표시 방식을 (심지어 VR 작업을 할 때도) 변경할 수 있도록 해주는 방법이 몇 가지 있습니다.
+
+키보드와 마우스를 사용하는 **데스크탑** 사용자의 경우, [](Engine/UI/LevelEditor/Viewports/ViewportControls) 문서에서 뷰포트 씬 이동에 사용되는 조작법을 확인하세요. UE4 에서 사용되는 액터 선택 및 트랜스폼, 카메라 패닝, 선회, 줌, 내비게이션 조작법을 확인할 수 있습니다.
+
+**VR** 컨트롤러를 사용하는 경우, [](Engine/Editor/VR/Controls) 및 [](Engine/Editor/VR/WorldInteraction) 문서에서 조작법을 확인할 수 있습니다. 아울러 오브젝트를 잡아 조작하는 법, 월드를 돌아다니는 법, 씬 시각화에서 현실의 스케일에 근접한 느낌을 내도록 월드에서 자신의 스케일을 조절하는 법도 배워볼 수 있습니다.
+
+## 간략 용어집
+
+엔터프라이즈와 Autodesk 3ds Max 공통 용어, 그리고 그에 (대충이라도) 해당하는 UE4 용어집입니다. 언리얼 엔진 4 키워드 링크는 보다 심도있는 정보를 다루는 UE4 문서로 직접 이어집니다.
+
+
+| 카테고리 | Autodesk 3ds Max | UE4 | 주 |
+| --- | --- | --- | --- |
+| [REGION:tablesection]메시[/REGION] ||||
+|  | Mesh 또는 mesh object | [Static Mesh](Engine/Actors/StaticMeshActor) 스태틱 메시 |  |
+|   | Rigged 및 skinned mesh | [Skeletal Mesh](Engine/Content/Types/SkeletalMeshes) 스켈레탈 메시 |  |
+|  | Object/Node | [Level Actor](Engine/Actors/StaticMeshActor) 레벨 액터 |  |
+|  | Modifier Stack Result/Base Object | [Static Mesh](Engine/Actors/Types) 스태틱 메시 |  |
+| [REGION:tablesection]에디터 UI[/REGION] ||||
+|  | Scene Explorer | [World Outliner](Engine/UI/LevelEditor) 월드 아웃라이너 |  |
+|   | Modify Panel | [Details Panel](Engine/UI/LevelEditor) 디테일 패널 |  |
+|   | Layers Panel | [Layers Panel](Engine/UI/LevelEditor/Layers) 레이어 패널 |  |
+|   | Asset Browser Utility | [Content Browser](Engine/Content/Browser) 콘텐츠 브라우저 |  |
+|  | Viewport | [Viewport](Engine/UI/LevelEditor/Viewports) 뷰포트 |  |
+| [REGION:tablesection]머티리얼[/REGION] ||||
+|  | Material | [Material](Engine/Rendering/Materials) 머티리얼 |  |
+|   | 인스턴스트 텍스처가 있는 Material | [Material Instance](Engine/Rendering/Materials/MaterialInstances) 머티리얼 인스턴스 |  |
+|   | Material Editor | [Material Editor](Engine/Rendering/Materials/Editor) 머티리얼 에디터 |  |
+| [REGION:tablesection]이펙트[/REGION] ||||
+|  | Particle Systems | [Effect, Particle System, Cascade](Engine/Rendering/ParticleSystems) 이펙트, 파티클 시스템, 캐스케이드 |  |
+|   | Particle View | [Cascade](Engine/Rendering/ParticleSystems) 캐스케이드 |  |
+| [REGION:tablesection]애니메이션[/REGION] ||||
+|  | Biped animation | [Skeletal Animation System](Engine/Animation) 스켈레탈 애니메이션 시스템 | 똑같지는 않지만 비교삼거나 임포트된 애니메이션을 언리얼로 작업하는 방법을 확인하기에 좋은 자료가 될 수 있습니다. |
+|   | 버텍스 서브오브젝트 레벨에 있는 Animation | [Vertex Animation](Engine/Animation/Tools/VertexAnimationTool/) 버텍스 애니메이션 | 애셋에 버텍스 애니메이션을 적용하는 전용 툴은 없지만, 이 Autodesk 3ds Max 용 플러그인을 사용하여 UE4 로 가져온 다음 머티리얼 에디터에서 적용할 수 있습니다. |
+| [REGION:tablesection]프로그래밍 [/REGION] ||||
+|  | MAXScript | Python |  |
+|   | MAXScript scripts | [Blueprint](Engine/Blueprints) 블루프린트 |  |
+| [REGION:tablesection]피직스[/REGION] ||||
+|  | -- | [Line Trace, Shape Trace](Engine/Physics/Tracing) 라인 트레이스, 셰이프 트레이스 |  |
+|   | MassFX | [Collision, Physics](Engine/Physics) 콜리전, 피직스 |  |
+| [REGION:tablesection]라이트[/REGION] ||||
+|  | Directional Light | [Directional Light](Engine/Rendering/LightingAndShadows/LightTypes/Directional) 디렉셔널 라이트 |  |
+|   |  Point Light | [Point Light](Engine/Rendering/LightingAndShadows/LightTypes/Point) 포인트 라이트 |  |
+|   |  Spot Light | [Spot Light](Engine/Rendering/LightingAndShadows/LightTypes/Spot) 스포트 라이트 |  |
+|   |  Sky Light | [Sky Light](Engine/Rendering/LightingAndShadows/LightTypes/SkyLight) 스카이 라이트 |  |
+|   | Light Portal | Lightmass Portals 라이트매스 포털, [Lightmass Importance Volume](Engine/Rendering/LightingAndShadows/Lightmass/Basics/) 라이트매스 임포턴스 볼륨 | |
+|   | Photometric Lights | [IES Profile](Engine/Rendering/LightingAndShadows/IESLightProfiles/) IES 프로파일, Physical Light Units 물리적 빛 단위 |  |
+| [REGION:tablesection]포스트 프로세싱 [/REGION] ||||
+|  | Environment Exposure Control, Camera Exposure Control | [Post Process Volume](Engine/Rendering/PostProcessEffects) 포스트 프로세스 볼륨 |  |
+| [REGION:tablesection]렌더링[/REGION] ||||
+|  | Global Illumination | [Lightmass](Engine/Rendering/LightingAndShadows/Lightmass/) 라이트매스 |  |
+| [REGION:tablesection]시네마틱[/REGION] ||||
+|  | Track View | [Sequence Editor](Engine/Sequencer) 시퀀스 에디터 |  |
+| [REGION:tablesection]텍스처[/REGION] ||||
+|  | UV Map Channel | 스태틱/스켈레탈 메시의 UV 채널 |  |
+| [REGION:tablesection]언리얼 엔진 아키텍처[/REGION] ||||
+|  | -- | [레벨 (맵)](Engine/Levels/) | 각 씬 파일은 자체 독립적인 반면, 언리얼 엔진 4 에서는 다수의 레벨( 또는 씬)을 개별적으로 열거나 언리얼 에디터 안에서 전부 합칠 수도 있습니다. |
+
+
+
+## 프로젝트 및 파일
+
+**이 디렉토리와 파일은 전부 무엇인가요?**
+
+엔터프라이즈 공간에 생성된 프로젝트의 경우, 씬 프로젝트 파일을 이루는 텍스처와 메시용 소스 파일 관리를 위한 별도의 폴더를 관리해야 합니다. 언리얼에서, 프로젝트는 항상 자체 디렉토리에 존재하며, 자체 프로젝트 파일에는 언리얼 엔진 에디터 특정 버전을 가리키고, 그 콘텐츠가 저장되는 폴더 세트를 살펴봅니다.
+
+![image alt text](image_6.jpg)(w:693 h:349 convert:false)
+
+*언리얼의 콘텐츠 브라우저와 윈도우 탐색기에 유지되는 폴더 구조 예.*
+
+프로젝트를 열려면, 에픽게임즈 런처의 **라이브러리** 에서 프로젝트를 검색합니다.
+
+![image alt text](image_7.png)(w:941 h:609 convert:false)   
+
+또든, 윈도우에서 그 폴더로 이동한 뒤 ***.uproject** 파일을 더블클릭하여 프로젝트를 언리얼 에디터에 로드합니다.
+
+![image alt text](image_8.png)(w:613 h:293 convert:false)
+
+프로젝트 폴더의 다양한 서브 폴더에는 프로젝트의 콘텐츠와 소스 코드는 물론 여러 플랫폼에 디플로이할 때 사용되는 다양한 바이너리 및 환경설정 파일이 들어있습니다. 여기서 가장 중요한 폴더가 둘 있는데, **Content** 에는 레퍼런싱하여 콘텐츠 브라우저에서 열 수 있는 모든 애셋이 저장되며, **Source** 에는 엔진 소스 버전을 사용하는 경우 C++ 파일이나 자신이 변경한 파일이 들어갑니다.
+
+**애셋은 어디에 넣나요?**
+
+UE4 에는 각 프로젝트마다 **Content** 폴더가 있으며, 여기에 들어있는 내용은 언리얼 에디터의 콘텐츠 브라우저와 같습니다. 프로젝트의 모든 애셋이 여기 저장됩니다.
+
+![image alt text](image_9.png)(w:1026 h:462 convert:false)
+
+이 폴더에 저장된 애셋은 ***.uasset** 파일로, 지원되는 파일 유형을 임포트할 때마다 언리얼이 만듭니다. 언리얼로 임포트한 애셋을 유지하는 데는 소스 파일이 필요하지 않지만, 나중에 편집용으로 필요할 수가 있기에 저장해 두는 것이 좋습니다.
+
+[REGION:warning]
+콘텐츠 폴더에서 찾은 애셋의 구조를 언리얼 에디터 외부에서 변경해서는 안됩니다. 콘텐츠가 깨지는 것은 물론 프로젝트가 깨질 수도 있습니다. 이런 식의 콘텐츠 이동은 언리얼 에디터에서 애셋으로의 레퍼런스를 깨뜨립니다. 예로, 윈도우 탐색기에서 프로젝트의 텍스처 애셋을 이동한 경우, 그 텍스처를 레퍼런싱하는 머티리얼은 손실됩니다. 즉 레벨의 스태틱 메시에 할당된 머티리얼에 대해 제대로 표시되지 않는다는 뜻입니다.
+
+애셋 이동은 꼭 언리얼 에디터에서 해야 레퍼런스가 유지되어 콘텐츠가 깨지지 않습니다.
+[/REGION]
+
+**언리얼 엔진 4 에 애셋 임포트**
+
+프로젝트에 애셋을 임포트하는 방법은 두 가지 정도입니다:
+
+1. [데이터스미스를 사용하여 언리얼 데이터스미스를 임포트하거나 CAD 파일 유형을 지원합니다.](ImportingDatasmithContentintoUnrealEngine4.pdf)
+
+2. [콘텐츠 브라우저를 사용하여 데이터스미스에 연결되지 않은 소스 애셋 유형을 임포트합니다.](Engine/Content/ImportingContent/ContentBrowserImport)
+
+어느 방법으로 애셋을 임포트하든, 콘텐츠 브라우저에 저장되며, 윈도우의 프로젝트 폴더 구조가 반영됩니다. 콘텐츠 브라우저를 사용하여 애셋을 전용 에디터에서 열고 편집합니다. 여기서 편집한 내용은 에디터에서 실시간 애셋에 업데이트되며, 레퍼런싱된 경우 레벨에도 반영됩니다.
+
+![image alt text](image_10.jpg)(w:582 h:293 convert:false)
+
+[REGION:note]
+
+콘텐츠 브라우저의 임포트 버튼을 사용할 때처럼 데이터스미스 임포트 프로세스의 일부가 아닌 콘텐츠를 임포트하면, 애셋은 콘텐츠 폴더의 선택된 폴더에 바로 임포트됩니다. 데이터스미스 임포터를 사용하면, 씬을 깔끔하게 유지하기 위해 서브디렉토리 컬렉션에 (메시, 머티리얼, 텍스처 등) 여러가지 다양한 애셋 유형을 들여옵니다. 데이터스미쓰 씬과 그 서브디렉토리는 임포트하려는 데이터스미스 파일로 된 폴더 이름으로 임포트됩니다.
+[/REGION]
+
+**지원되는 일반적인 파일 포맷은 무엇인가요?**
+
+여러가지 소프트웨어 어플리케이션이 다양한 파일 포맷을 지원합니다. 언리얼 엔진 4 는 대부분의 일반적인 파일 유형을 기본 지원합니다.
+
+
+| 네이티브 애셋 유형 | 지원 포맷 |
+| --- | --- |
+| 3D | .fbx, .obj, .abc, .srt |
+| 텍스처 | .png, .jpeg, .jpg, .bmp ,.tga, .dds, .exr, .psd, .hdr, .ies, .float, .pcx |
+| 사운드 | .wav, .wave, .wmv, .caf, .aif, .aiff, .au, .adts, .as, .ac3, .amr, .bwf, .cdda, .acc, .mp3, .snd |
+| 폰트 | .ttf, .otf |
+| 비디오 | .mov, .mp4, .m4v, .m4a, .wmv, .avi, .asf, .3gp, .3g2, .sdv |
+
+
+언리얼 엔진 4 용 [데이터스미스](DatasmithOverview.pdf) 와 같은 플러그인을 통해, 지원되는 파일 유형을 추가할 수 있습니다. [데이터스미스 지원 소프트웨어 및 파일 유형](DatasmithSupportedSoftwareandFileTypes.pdf) 문서를 참고하세요.
+
+**제 씬은 어떻게 저장되나요?**
+
+쓰시는 프로그램에서, 씬을 이루는 애셋은 하나의 씬 파일로 구성됩니다. 언리얼에서는 레벨 또는 맵 파일이라 부르는 다른 개념을 사용합니다. 이는 별도의 애셋을 배치해 둔 별개의 "씬"입니다. 개별적으로 열 수 있는 것도 있고, 잘게 나눠져 있어 합치면 큰 레벨이 되는 것도 있습니다. 맵 파일에는 레벨 관련 데이터, 거기 들어있는 오브젝트는 물론 특정 레벨 전용 세팅이 저장됩니다.
+
+레벨 관련 자세한 내용 및 언리얼 에디터 작동 방식과 레벨 저장 방식에 대해서는, [](Engine/Levels/HowTo/WorkWithLevelAssets) 문서를 참고하세요.
+
+<!---
+**How do I change my Editor's and Project's settings?**
+
+All the settings can be found in the main menu under **Edit > Editor Preferences** or **Project Settings**. Like the preferences or settings in your software application, these allow you to customize and change parts of how your project works. 
+
+In Unreal Engine 4, the [Editor Preferences](Engine/UI/EditorSettings) contains settings that enable you to alter how the Editor functions by setting things like color correction for common color blindness deficiencies, enabling experimental features in the Editor, changing the units of measure from centimeters to something more familiar. 
+
+The [Project Settings](Engine/UI/ProjectSettings) enables you to specify information about your project (such as project name and icons), configure game input bindings, and define how the Engine behaves when running your project. 
+
+--->
+
+##아트 소스 자동 리임포트
+
+[REGION:note]
+현재 데이터스미스에는, 자동 리임포트 기능을 작업방식의 일환으로 사용하지 않을 것을 추천합니다. 하지만 기본 지원되는 애셋을 만들어 임포트하는 경우라면, 자동 리임포트 모니터링을 구성하면 됩니다.
+[/REGION]
+
+[데이터스미스](DatasmithOverview.pdf) 플러그인이 없어도 사용할 수 있는 부가 콘텐츠를 임포트하여 사용하는 프로젝트의 경우, 언리얼에 [자동 리임포트](Engine/Content/AutoReImport) 기능을 사용하도록 구성할 수 있습니다. FBX, OBJ, PSD, 텍스처, 오디오 등 UE4 에서 임포트를 기본 지원하는 애셋이 기본 저장되는 소스 애셋 폴더를 모니터링합니다. 소스 애셋이 업데이트되면, 모니터링하던 폴더를 자동 리임포트하거나, 파일을 리임포트하고 엔진 안에 변경사항을 반영할 것인지 묻습니다. 데이터스미스와는 달리 이 애셋은 레벨에 바로 배치되지 않고 에디터에서 콘텐츠를 구해오는 접근법이 있지만, 자동으로 구성해 주지는 않습니다.
+
+**오브젝트(Scene Entity)에서 액터로**
+
+**제 오브젝트는 어디 있나요?**
+
+Autodesk 3ds Max 같은 소프트웨어 어플리케이션에서 씬을 이루는 모든 오브젝트는 Scene Entity, Geometry Object 등 다른 친숙한 용어로 지칭되고 있을 것입니다. UE4 에서 그에 해당하는 용어는 Actor, 액터입니다. 액터는 레벨에 추가되는 오브젝트로, 스태틱 메시나 머티리얼같은 다른 애셋을 가리킵니다.
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	UXGFtZ71mfQ
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	50
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	65
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+[/OBJECT]
+
+공백 액터로 (비디오에서처럼) 프로젝트를 만들어 나갈 수도 있지만, UE4 에는 여러가지 기능이 내장된 특수 유형 액터가 있습니다. 예로 [폰](Gameplay/Framework/Pawn) (플레이어 또는 인공지능(AI) 오브젝트에 사용), 익스포넨셜 하이트 포그 볼륨 (농도가 높이에 따라 기하급수적으로 달라지는 안개), 라이트 (조명) 등입니다. 레벨의 이러한 액터는 자체적으로 설정할 수 있는 프로퍼티(속성)가 있으며, 디테일 패널을 통해 붙일 수 있는 부가 컴포넌트도 있습니다. 액터, 머티리얼, 블루프린트에서 레퍼런싱하는 콘텐츠 브라우저의 다른 애셋에도 똑같이 적용됩니다. 그들 역시 별도의 프로퍼티를 설정하고 컴포넌트를 붙일 수 있습니다.
+
+**그래서, 전부 액터인가요?**
+
+아니오, 전부는 아닙니다. **액터** 는 UE4 의 게임플레이에 가장 흔한 클래스이며, 레벨에 스폰할 수 있는 유일한 유형입니다. 즉 레벨에 배치되는 모든 것은 액터가 맞습니다.
+
+또 한가지 알아야 할 중요 유형은 **Object** 오브젝트입니다. 오브젝트는 액터와 여러가지 다른 것들을 포함한 모든 언리얼 클래스의 베이스 클래스입니다. 액터보다 훨씬 더 낮은 단계에서 생성되지만, 언리얼 클래스에서 기대할 수 있는 Reflection 리플렉션이나 Serialization 시리얼라이제이션과 같은 기능은 그대로 들어있습니다. 오브젝트는 액터라는 틀에 꼭 맞지 않는 새 유형을 정의할 때 사용하는 클래스입니다. 예로, **Actor Component** 액터 컴포넌트는 모든 컴포넌트의 베이스 클래스이며, 액터가 아닌 오브젝트에서 파생됩니다.
+
+복잡하기는 해도, 그 작동방식에 대해 걱정할 필요는 없습니다. 하지만 가끔 액터와 오브젝트라는 용어가 같이 나올 때 왜 그런지, 심지어 액터 대신 오브젝트를 쓴 이유는 무엇인지 이해하는 데 도움이 될 수 있습니다.
+
+**컴포넌트는 무엇인가요?**
+
+Autodesk 3ds Max 같은 소프트웨어 어플리케이션에서는 Modifier 스택을 사용하여 오브젝트에 프로퍼티를 확장하거나 기능을 추가합니다.
+
+PF 주: 사실상 씬 안의 미니 씬이 될 수도 있는데, 바로 이 부분에서 언리얼의 위력과 유연성이 발휘됩니다.
+전형적인 어플리케이션 예를 들자면, 스토브 액터에는 문과 서랍, 그리고 그 직선상에 라이트같은 컴포넌트가 있을 것입니다.
+
+
+UE4 에서 [Component](Engine/Components/) 컴포넌트는 레벨이나 블루프린트의 액터에 추가할 수 있는 기능 조각입니다. 이 컴포넌트는 그 자체로서는 존재할 수 없지만, 액터에 붙이면 그 컴포넌트가 제공하는 기능을 접근하고 사용할 수 있게됩니다. 미니 씬 또는 소속이 같은 액터 그룹을 만들어 하나의 오브젝트인 것처럼 취급하는 것으로 생각해 보면 됩니다. 이 프로세스를 통해 엄청난 유연성은 물론 언리얼에서 관리할 수 있는 방식으로 씬을 제어할 수 있습니다.
+
+예로, 스토브 애셋이 있다면, 바탕 애셋을 이루는 문, 하부 서랍, 라이트같은 여러가지 컴포넌트를 추가할 수 있습니다.
+
+액터에 추가할 수 있는 컴포넌트 유형은 여러가지 있으며, 스태틱 메시, 파티클 시스템, 라이트 등과 같은 여러가지 다양한 애셋을 레퍼런싱합니다. 액터에 이런 것들을 추가하려면, **디테일** 패널을 사용하여 목록에서 추가할 컴포넌트를 선택하면 됩니다.
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	SknellY4I4g
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	50
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	45
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+[/OBJECT]
+
+이 예에서, 스태틱 메시, 포인트 라이트, 파티클 시스템 컴포넌트를 씬의 공백 액터에 추가했습니다. 이 액터는 레벨에만 존재하며, 블루프린트 액터로 변환해야 콘텐츠 브라우저에 하나의 애셋으로 존재할 수 있게 됩니다.
+
+추가 정보는, [컴포넌트](Engine/Components/) 문서를 참고하세요.
+
+**지난 프로젝트를 자동으로 로드하는 방법은 어떻게 되나요?**
+
+소프트웨어 어플리케이션에서 씬 파일을 열면, 그 씬의 콘텐츠를 바로 접근할 수 있습니다. 하지만 언리얼 엔진 4 는, 에픽게임즈 런처에서 에디터만 열면, [언리얼 프로젝트 브라우저](Engine/Basics/Projects/Browser/) 가 열리고, 여기서 (이미 생성된 것이 있다면) 프로젝트를 선택할 수 있습니다. 언리얼 에디터를 열자마자 지난 프로젝트를 로드하는 방법은 두 가지입니다:
+
+프로젝트 브라우저에서 열 프로젝트를 선택할 때 **시작시 항상 지난 프로젝트를 로드합니다.** 옵션을 켜면 됩니다.
+
+![image alt text](image_28.png)(w:965 h:398 convert:false)
+
+**내 프로젝트의 키보드 입력이나 게임패드 입력은 어디서 정의하나요?**
+
+UE4 에서는 입력 이벤트가 발동되면 게임의 캐릭터(폰)에 콜백으로 전해주도록 다양한 버튼(액션)과 아날로그 컨트롤(축)을 추가할 수 있습니다. 프로젝트 세팅에서 **Input** (입력) 섹션 아래 Input Bindings (입력 바인딩)을 찾을 수 있습니다. 여기서 각 컨트롤마다 이름을 정하고 키보드의 키나 컨트롤러의 버튼에 기본 바인딩 설정을 할 수 있습니다. 이러한 입력 바인딩 이름은 블루프린트에서 무엇이 눌렸을 때 액션을 수행하도록 할 때 사용하며, 하나의 이름에 여러 입력을 설정할 수 있습니다. 예로, 레벨에서 앞으로 이동시키고자 하는 플레이어 캐릭터가 있다면, Input Binding "Forward" 를 호출한 뒤 키보드의 "W" 키와 컨트롤러 조이스틱 "Up" 위치를 이 "Forward" 이벤트에 바인딩해(묶어) 주면 됩니다.
+
+추가 정보는 [](Gameplay/Input) 문서를 참고하세요.
+
+**내 프로젝트의 시작 레벨(맵)은 어떻게 바꾸나요?**
+
+프로젝트의 시작 맵 변경은 **프로젝트 세팅** 에서 할 수 있습니다. 메인 메뉴에서 **편집 > 프로젝트 세팅** 을 선택하고 **맵 & 모드** 아래 **Startup Map** (시작 맵)을 콘텐츠 브라우저에서 원하는 것으로 설정합니다.
+
+![image alt text](image_29.png)(w:1026 h:400 convert:false)
+
+**게임은 어떻게 실행하나요?**
+
+가장 쉬운 방법은 메인 툴바의 **플레이** 버튼을 클릭하는 것입니다. 그러면 에디터의 뷰포트 안에서 모든 기능과 현재 선택된 게임모드로 게임이 실행됩니다. 독립형 어플리케이션으로 실행하려면, **플레이** 옆 드롭다운을 클릭하고 **독립형 게임** 을 선택합니다. 마지막으로, 모바일 디바이스나 웹 브라우저에서 실행시키려면, 툴바의 **실행** 버튼을 누른 뒤 사용가능한 플랫폼을 선택하면 됩니다. 일부 플랫폼은 추가적인 구성이 필요하며, 필수 전제 조건 프로그램을 설치해야지만 사용할 수 있습니다.
+
+![image alt text](image_30.png)(w:506 h:220 convert:false)
+
+지원되는 여러 플랫폼 관련 추가 정보는 [](Platforms) 문서를 참고하세요.
+
+**언리얼 엔진 4 에 사용되는 단위는 무엇인가요?**
+
+소프트웨어 어플리케이션마다 개인설정이나 세팅에서 주 측정 단위를 조정할 수 있습니다. UE4 에서 주 측정 단위는 1 센티미터입니다. 그래서 사용중인 어플리케이션의 주 측정 단위를 언리얼에 사용되는 단위로 맞춰주는 것이 좋습니다.
+
+**좌표계는 무엇인가요? 어느 쪽이 위죠?**
+
+언리얼 엔진 4 는 왼손 좌표계를 사용합니다. UE4 에서 양수 X 가 "앞쪽", 양수 Y 가 "오른쪽", 양수 Z 가 "위쪽" 입니다.
+
+**내 프로젝트에서의 로그 출력은 어떻게 확인하나요?**
+
+에디터에서 파일 메뉴의 **창 > 개발자 툴** 에서 **출력 로그** 를 열어볼 수 있습니다.
+
+![image alt text](image_31.png)(w:421 h:613 convert:false)
+
+
+
+##전통적인 레이트레이서 vs 리얼타임 렌더링
+
+언리얼 엔진 4 의 라이팅 시스템은 리얼타임 게임 엔진과 프로젝트에 잘 맞도록 다양한 라이팅 피처 레벨을 제공할 수 있도록 디자인된 유연한 시스템입니다. 즉 월드의 라이팅을 미리 구운 풀 스태틱으로 할 수도, 다이내믹으로 할 수도 있다는 뜻입니다. 엔터프라이즈 건축 시각화 목적상, 스태틱 라이팅과 UE4 의 라이트매스 글로벌 일루미네이션 시스템을 활용합니다.
+
+![image alt text](Datasmith_HFB.jpg)
+[REGION:caption]
+_이미지 제공: HFB Visuals._
+[/REGION]
+
+UE4 의 라이팅 시스템을 최대한 활용하기 위해, 레벨 라이팅을 빌드하고 최소한의 노력으로 퀄리티를 향상시키는 데 도움이 되는 개념 몇 가지는 다음과 같습니다. 먼저 무언가를 바꾼 다음 결과 확인을 위해서는 라이팅을 빌드해야 한다는 것을 이해하는 것이 핵심입니다. 추가적으로 섀도잉 정보는 라이트맵 텍스처에 저장되므로, 아름다운 디테일을 살리기 위해서는 해상도를 높여야 할 수 있습니다.
+
+###레벨의 라이팅을 빌드한다는 것과 그 의미
+
+언리얼에서, 특히나 엔터프라이즈 건축 분야 작업에는, 소프트웨어 어플리케이션에서 렌더링되는 것과 일치하도록 씬 라이팅을 아름답게 하는 것에 초점을 맞춥니다. 레벨 라이팅 생성에는 언리얼 [라이트매스 글로벌 일루미네이션](Engine/Rendering/LightingAndShadows/Lightmass) 시스템이 사용됩니다. 그 작업이 이루어지기에 앞서, 애셋에서 라이트맵 UV 를 제대로 생성해 줘야 그 빛과 그림자 정보를 제대로 저장할 수 있습니다. 
+언리얼 엔진 4 는 라이트맵 생성을 위한 무거운 작업을 많이 하는데, 임포트 시 겹치는 면이 안생기고 UV 차트가 UV 의 0,1 공간에 멋지게 패킹되도록 라이트맵을 자동 생성해주기 때문입니다. 언리얼 스튜디오 사용자의 경우, 데이터스미스가 메시를 임포트하는 도중 UV 를 펼친 뒤 다시 패킹하는 작업을 실제로 해주어 효율이 한 층 높아집니다. UE4 기본 출시 버전은 기존 UV 를 다시 패킹하는 데까지만 제한되어 있기에 이슈가 줄어듭니다. 이 프로세스는 아래 라이트맵 UV 섹션에서 자세히 설명합니다.
+
+데이터스미스 씬을 임포트할 때, 어플리케이션 씬 파일에 있던 그 위치에 라이트를 배치하여 레벨에 바로 임포트합니다. 여기서 보이는 "프리뷰" 라이팅이라는 것 덕에 씬이 어때 보이는지 쉽게 파악할 수 있습니다.
+
+![image alt text](image_12.png)(w:569 h:364 convert:false)
+
+그림자 영역에 "프리뷰" 라벨이 보인다면, 그것은 몇 가지 사실을 나타냅니다. 첫째, 레벨에 스태틱 또는 스테이셔너리 설정된 라이트가 사용되고 있어 레벨 라이팅을 다시 빌드해야 한다는 것입니다. 둘째, 지금 보이는 그림자는 라이팅을 빌드했을 때 어때 보이는지 쉽게 파악할 수 있도록 해주기 위해서 다이내믹 섀도우를 사용하고 있다는 것입니다. 즉 지금 보이는 레벨의 GI 반사광이나 그림자가 완벽하게 정확하지 않다는 뜻입니다.
+
+라이팅 빌드 시작은, 메인 툴바의 **빌드** 버튼을 클릭하면 됩니다.
+
+![image alt text](image_13.png)(w:248 h:64 convert:false)
+
+**빌드** 버튼을 누르면 라이팅 리빌드, 리플렉션 캡처 액터에 대한 리플렉션 다시 캡처, 기타 게임 관련 태스크 등 일련의 태스크가 시작됩니다.
+언리얼 스튜디오 사용자의 경우, 반드시 설정해야 하는 레벨 라이팅 퀄리티 세팅이 있습니다. 빌드 드롭다운 아래 **라이팅 퀄리티** 에서 선택할 수 있습니다.
+
+![image alt text](image_14.png)(w:489 h:261 convert:false)
+
+라이팅 퀄리티 레벨은 **프리뷰** 에서 **프로덕션** 까지 설정할 수 있습니다. 퀄리티 레벨은 레벨에 대한 라이팅을 생성할 때 라이팅 정확도를 결정합니다. 프리뷰는 많은 씬에 대한 빌드 속도가 빠르지만 정확도가 떨어집니다. 프로덕션 퀄리티는 시간이 오래 걸리는 만큼 훨씬 정확하게 레벨 세팅의 최종 라이트 빌드 상태를 표현합니다.
+
+[REGION:note]
+퀄리티 비교는 커뮤니티가 제작 운영중인 [Lighting Troubleshooting Guide](https://wiki.unrealengine.com/LightingTroubleshootingGuide) 문서의 [Lighting Quality Comparison](https://wiki.unrealengine.com/LightingTroubleshootingGuide#Lighting_Quality_comparison.2C_or_Production_.3E_Preview) 부분을 참고하시기 바랍니다.
+[/REGION] 
+
+라이팅 빌드 도중, 화면 구석 팝업 창에 표시되는 퍼센트로 현재 레벨의 라이팅 빌드 상황을 알 수 있습니다. 퍼센트가 잠깐동안 멈춘 것 같아 보여도, 잠깐 기다리면 라이팅 생성이 완료될 것입니다. 레벨 복잡도와 선택한 라이팅 퀄리티 수준에 따라 생성하는 데 시간이 조금 걸릴 수 있습니다.
+
+![](BuildLighting1.png)
+
+라이팅 빌드 후 씬에 적용되면, 더이상 "프리뷰" 라벨이 보이지 않을 것입니다. 하지만 생성된 그림자 퀄리티가 예상한 것처럼 나오지 않을 수 있습니다. 명심할 것은, 레벨에서 설정하는 라이팅 퀄리티는 언리얼 라이트매스에게 정확도만 알려줄 뿐, 라이트맵 UV 의 그림자 정보 캡처에 사용할 텍스처 해상도를 지정해 주는 것은 아닙니다. 그런 이유로, 다음 섹션에서는 라이트맵 UV 의 중요도와 그 해상도를 조절하는 방법에 대해 논해보도록 하겠습니다.
+
+![image alt text](image_15.png)(w:600 h:397 convert:false)
+
+
+###라이트맵 UV
+
+임포트 도중, UV 채널을 기반으로 스태틱 메시마다 라이트맵 UV 를 생성합니다. 기본으로 UE4 는 라이트맵 UV 생성에 채널 0 을 사용합니다. 앞서 말씀드렸듯이 언리얼 스튜디오 사용자는, 겹치는 면이 없고 모든 UV 차트가 0,1 UV 공간 안에 들어가도록 UV 를 펼치고 다시 패킹하는 작업을 데이터스미스가 한 번에 처리해주어, 이 프로세스 효율을 한 층 높여줍니다. 이 프로세스는 UV 에디터가 없어 제대로 된 UV 를 만들 수 없는 CAD 같은 어플리케이션에 필수이며, 그런 에디터가 있는 UE4 에서도 씬을 들여놓을 때 제대로 된 라이트맵 UV 를 만드는 노동집약적 프로세스에 드는 시간을 절약하는 데도 좋습니다. 데이터스미스는 이러한 모든 작업을 내부적으로 알아서 처리해 줍니다.
+
+![image alt text](image_16.png)(w:1026 h:602 convert:false)
+*왼쪽은 데이터스미스를 사용해 CAD 파일 에서 가져온 애셋이고, 오른쪽은 UV 를 펼쳐 다시 패킹한 결과입니다.*
+
+이 예는 분리된 면의 수가 많은 복잡한 오브젝트로, 겹치는 면 없이 0,1 UV 공간 안에 들어가도록 라이트맵 UV 에 패킹해 넣었습니다. 그러면 이 메시의 라이팅을 빌드할 때 라이트맵 오류가 발생하지 않아, 언리얼 에디터 외부에서 UV 차트 편집 작업을 하지 않아도 됩니다.
+
+라이트맵 UV 를 조사하려면, 콘텐츠 브라우저에서 스태틱 메시를 더블클릭하여 여는 것으로 시작합니다.
+
+![](StaticMeshEditor.png) 
+
+툴바에서 **UV** 버튼을 클릭하고 표시할 UV 채널을 선택합니다.
+
+![](StaticMeshEditor2.png) 
+
+스태틱 메시 에디터 뷰포트에 선택된 UV 채널이 표시됩니다.
+
+![](StaticMeshEditor3.png)
+
+[REGION:tip]
+어느 UV 채널이 라이트맵 UV 인지 확실치 않은 경우, 클릭해 보면서 위와 비슷한 것을 찾거나, 아니면 **디테일** 패널에서 **Lightmap Coordinate Index** 로 할당된 UV 채널이 무엇인지 확인하면 됩니다.
+[/REGION]
+
+이 메시에 대해 구체적으로 한 가지 언급할 것은, 커다란 메시에 면의 수가 매우 많아 라이트맵 UV 안에서 매우 작게 나오고 있어, 레벨의 라이팅을 빌드할 때 퀄리티 관련 오류가 생길 수 있다는 점입니다. 이러한 이슈를 해결하는 방법은 다음과 같습니다:
+
+* 스태틱 메시의 라이트맵 해상도를 올립니다.
+* 수동으로 펼치고 메시를 리임포트합니다.
+* 소프트웨어 어플리케이션에서, 모델을 덩어리가 작은 청크로 나눕니다.
+
+###라이트맵 해상도
+
+라이트맵 해상도는 텍스처 해상도를 높입니다. 라이트 빌드 도중 생성되는 라이트맵 퀄리티가 향상됩니다. 가끔 이것이 도움이 되는 경우가 있는데, 라이트맵 UV 에 UV 차트가 정말 작은데 그렇게 작지는 않아서 텍스처 해상도를 높여도 여전히 퀄리티 이슈가 발생하는 경우입니다.
+
+메시의 **Lightmap Resolution** (라이트맵 해상도)는 스태틱 메시 에디터 디테일 패널의 **General** (일반) 섹션 아래에서 조정할 수 있습니다. **라이트맵 해상도** 를 찾아 (64, 128, 256, 512 식의) 2 제곱수 값으로 설정합니다.
+
+![](LightmapResolution.png)
+
+즉 모든 UV 차트가 하나의 라이트맵 UV 안에 맞도록 스케일을 조절한 이 메시를 예로 들면, 라이트맵 해상도는 빛과 그림자 정보를 구웠을 때의 퀄리티에 큰 영향을 줄 수 있습니다. 2048 텍스처 해상도같은 높은 라이트맵 해상도를 사용해도 여전히 이슈가 생길 수 있는데, 제대로 된 라이팅 정보를 그럴싸한 해상도로 저장하기에는 아직도 UV 차트의 면이 너무 작은 것이 있기 때문입니다.
+
+![image alt text](image_17.png)(w:437 h:437 convert:false)![image alt text](image_18.png)(w:470 h:437 convert:false)
+
+라이트맵 해상도를 높이면 퀄리티 관련 라이트 빌드에서의 부작용을 줄이는 데 도움이 될 수 있습니다. 하지만 전반적인 텍스처 메모리 양과 레벨의 라이팅을 생성하는 데 걸리는 시간도 늘어납니다.
+
+![image alt text](image_19.png)(w:488 h:453 convert:false)
+
+*라이트맵 해상도를 2048 로 높인 메시 하나.*
+
+**메시를 작은 청크로 분해**
+
+라이트맵 해상도를 높이는 대신, 모델을 작은 청크로 나누는 것이 더욱 효율적일 수 있습니다. 라이트맵 해상도를 더욱 낮출 수 있고, 카메라 뷰에 잡히지 않는 파츠를 메모리에서 제거할 수 있으며, 궁극적으로 UV 차트가 더욱 많은 라이트맵 UV 공간을 효율적으로 사용할 수 있기에 더욱 높은 퀄리티의 라이팅을 낼 수 있는 것입니다.
+
+메시 하나에 대한 원본 UV 레이아웃을 예로 들어 봅시다 (왼쪽). 정말 많은 지오메트리를 하나의 라이트맵 UV 에 때려넣어서 라이팅 디테일을 잃기 쉽고, 라이트맵 해상도를 높여도 라이트 빌드가 올바르게 보이지 않을 수 있습니다. 모델을 작은 청크로 분해하니 (가운데), 이제 라이트맵이 별도로 생겼지만 (오른쪽), UV 공간을 더욱 많이 사용하여 더 낮은 라이트맵 해상도에서 더 좋은 퀄리티의 제대로 된 라이팅 정보를 저장할 수 있게 되었습니다.
+
+![image alt text](image_20.png)(w:977 h:933 convert:false)
+
+[REGION:tip]
+모델의 끼워진 부분이나 이음새의 가장자리처럼 적합한 곳에서 작은 조각으로 나눠 보세요. 여러 조각 사이 해상도 차이나 베이킹 이슈를 숨기는 데 도움이 될 수 있습니다.
+[/REGION]
+
+![image alt text](image_21.png)(w:505 h:468 convert:false)![image alt text](image_22.png)(w:502 h:466 convert:false)
+
+*왼쪽은 하나의 메시에 라이트맵 해상도 2048, 오른쪽은 분해한 모델 청크에 라이트맵 해상도 512.*
+
+위 그림에서 보이듯, (왼쪽) 단일 메시는 여전히 어둡지만 그림자 퀄리티가 높은데, 라이트맵 해상도를 높여도 그렇습니다. 하지만 반사광은 그만큼 유지되지 않는데, UV 차트가 그 정보를 저장하기에 충분한 UV 공간을 사용하지 않기 때문입니다. 오른쪽은 퀄리티는 비슷하지만, UV 차트가 라이트맵 UV 공간을 더 많이 사용하므로, GI 정보를 보다 정확히 잡아냅니다.
+
+라이팅 및 빌드 이슈 관련 추가 정보는, 커뮤니티에서 올린 [Lighting Troubleshooting Guide](https://wiki.unrealengine.com/LightingTroubleshootingGuide) 에서 좋은 예제와 일반적인 라이팅 빌드 관련 이슈 해법을 참고하실 수 있습니다.
+
+UE4 의 라이팅 관련 입문서 링크입니다:
+
+* [라이팅 기초](Engine/Rendering/LightingAndShadows/Basics) - 레벨에 라이트를 배치하고 구성하는 방법 관련 기초 개요입니다.
+* [라이트매스 글로벌 일루미네이션](Engine/Rendering/LightingAndShadows/Lightmass) - UE4 에서 프리컴퓨티드 라이팅을 생성하는 데 라이트매스가 사용하는 전체 기능 및 세팅을 망라한 문서입니다.
+* [스태틱 라이팅](Engine/Rendering/LightingAndShadows/LightMobility/StaticLights) - 스태틱 라이트 개요입니다.
+* [빛과 그림자 토픽](Engine/Rendering/LightingAndShadows) - 전체 라이팅 기능 관련 문서를 핵심 영역별로 나눈 목록입니다.
+[COMMENT:none]
+* [그림자 드리우기](Engine/Rendering/LightingAndShadows/Shadows) - UE4 의 섀도잉 관련 일반적인 개요서입니다.
+[/COMMENT]
+
+##머티리얼 및 텍스처
+
+UE4 에서 텍스처란, 머티리얼에 적용되며 머티리얼 에디터에서 편집할 수 있습니다. 머티리얼 에디터는, 다른 어플리케이션과 마찬가지로, 노드 기반 그래프 인터페이스를 통해 셰이더를 만들어 스태틱 메시나 스켈레탈 메시같은 지오메트리에 적용할 수도 있고, 캐스케이드와 같은 시스템과 같이 사용하여 재미난 머티리얼을 만들 수도 있습니다.
+
+![image alt text](image_23.jpg)(w:709 h:260 convert:false)
+
+언리얼 엔진 4 는 물리 기반 셰이딩 모델을 사용하며, 이는 [디즈니 "원칙에 입각한" BRDF 물리 기반 렌더링 모델](https://disney-animation.s3.amazonaws.com/library/s2012_pbs_disney_brdf_notes_v2.pdf) 과 비슷한 것입니다.
+즉 머티리얼을 정의할 때 (디퓨즈 컬러나 스페큘러 파워같은) 임의의 속성을 사용하기 보다는, 현실 세계와 보다 쉽게 연관지을 수 있는 속성을 사용하는 것입니다. 예를 들면 베이스 컬러(바탕색), 메탈릭(금속성), 스페큘러(반사성), 러프니스(거칠기) 등입니다.
+
+###스태틱 메시에 머티리얼을 할당할 때의 간단 팁
+
+콘텐츠 브라우저에서 머티리얼을 빠르게 찾아 스태틱 메시에 할당하는 방법이 몇 가지 있습니다.
+
+* **콘텐츠 브라우저에서 머티리얼 할당** - 콘텐츠 브라우저에서 머티리얼을 선택한 뒤 디테일 패널에서, 머티리얼 슬롯 옆 **화살표** 를 클릭하면 선택된 머티리얼이 할당됩니다.
+
+	![image alt text](image_24.png)(w:445 h:256 convert:false)
+
+* **레벨의 메시에 사용된 머티리얼 위치 찾기** - 머티리얼 슬롯 옆 **검색** (돋보기 아이콘)을 클릭하면 콘텐츠 브라우저에서 해당 머티리얼 위치로 즉시 이동합니다.
+	
+	![image alt text](image_25.png)(w:446 h:257 convert:false)
+
+* **디폴트로 리셋** - 머티리얼 슬롯 옆 **디폴트로 리셋** (노랑) 화살표를 클릭하면 머티리얼을 메시에 기본 머티리얼로 할당된 것으로 되돌립니다.
+
+
+UE4 의 머티리얼과 텍스처 관련 입문서 링크입니다:
+
+* [텍스처 에디터](Engine/Content/Types/Textures/Properties/Interface) - 텍스처 에디터 참고서입니다.
+
+* [머티리얼 에디터](Engine/Rendering/Materials/Editor) - 언리얼 엔진 4 에 사용되는 머티리얼 에디터 참고서입니다.
+
+* [머티리얼 필수 개념](Engine/Rendering/Materials/IntroductionToMaterials) - 언리얼 엔진 4 머티리얼과 그 작동방식에 대한 개요서입니다.
+
+* [메인 머티리얼 노드 사용법](Engine/Rendering/Materials/HowTo/Main_Material_Node) - 언리얼 엔진 4 에서 셰이더를 만드는 데 사용되는 메인 머티리얼 노드 개요입니다.
+
+* [머티리얼 안내서](Engine/Rendering/Materials/HowTo) - 머티리얼 에디터의 여러 부분을 사용하는 머티리얼 관련 토픽 목록입니다.
+
+* [물리 기반 머티리얼](Engine/Rendering/Materials/PhysicallyBased) - 주요 머티리얼 입력에 대한 개요 및 물리 기반 셰이딩 모델에서 제대로 활용하는 법입니다.
+
+##블루프린트 및 스크립팅
+
+언리얼 엔진의 **Blueprint** (블루프린트) 비주얼 스크립팅 시스템은 노드 기반 인터페이스를 사용하여 언리얼 에디터 안에서 게임플레이 요소를 만든다는 개념을 기반으로 한 완벽한 게임플레이 스크립팅 시스템입니다. 여러 일반 스크립팅 언어와 마찬가지로, 엔진에서 객체 지향형 클래스나 오브젝트를 정의하는 데 사용됩니다. UE4 를 사용하면서 블루프린트를 사용하여 정의한 오브젝트를 구어체로 그냥 "블루프린트"라 칭하는 것을 종종 듣게 될 것입니다.
+
+이 시스템은 매우 유연하고 강력하여, 프로그래머만이 활용할 수 있었던 개념과 툴을 디자이너가 실질적으로 전부 활용할 수 있도록 해줍니다.
+
+![image alt text](image_26.png)(w:786 h:441 convert:false)
+
+블루프린트 관련 입문서 링크입니다:
+
+*  [블루프린트 소개](Engine/Blueprints/GettingStarted) - 블루프린트를 막 시작한 사용자를 대상으로 하는, 블루프린트가 무엇이고 어떤 일을 할 수 있는지에 대한 일반적 개요서입니다.
+
+* [블루프린트 퀵 스타트](Engine/Blueprints/QuickStart) - 블루프린트를 처음 만들어보면서 빠른 시작을 돕는 안내서입니다.
+
+* [블루프린트 안내서](Engine/Blueprints/BP_HowTo) 및 [비디오 튜토리얼](https://docs.unrealengine.com/latest/INT/Videos/Blueprints) - 비주얼 스크립팅 학습에 도움이 되는 문서 및 비디오 형태의 튜토리얼 모음입니다.
+
+##시퀀서
+
+**Sequencer** (시퀀서) 에디터를 통해 사용자는 전문 멀티트랙 에디터로 게임내 시네마틱을 만들 수 있습니다. 트랙을 사용하여 시네마틱 씬 구성을 정의하는 식으로 시네마틱을 제작하는 주요 수단입니다. 예로, 시퀀서를 사용하여 여러 대의 카메라가 건축 시각화 씬을 천천히 이동하도록 만들 수도 있고, [Composure](Engine/Composure) (컴포셔) 플러그인을 같이 사용하여 합성할 수도 있습니다.
+
+다른 비디오 편집 소프트웨어와 비슷하게, 카메라 트랙을 만들고 드래그하여 필요에 따라 재배치하면서 씬을 빠르게 편집할 수 있습니다.
+
+![image alt text](Col05.jpg)(w:781 h:433 convert:false)
+[REGION:caption]
+_Fabrice Bourrelly 제작 "Church of Light" (빛의 교회)._
+[/REGION]
+
+시퀀서 관련 입문서 링크입니다:
+
+* [시퀀서](Engine/Sequencer/Overview) -  시퀀서 에디터 개요입니다.
+
+* [시퀀서 퀵 스타트](Engine/Sequencer/QuickStart) - 시퀀서 에디터의 빠른 시작을 돕는 안내서입니다.
+
+* [컴포셔 에디터](Engine/Composure) - UE4 에서 실시간으로 디지털 영상과 실시간 영상을 합성하는 데 사용되는 합성 에디터입니다.
+
+##프로젝트 빌드 및 퍼블리싱
+
+프로젝트를 테스트 시작할 준비가 되었고, 누구나 자신의 머신에서 열어볼 수 있도록 하는 최종 릴리즈를 제작할 준비까지도 되었다면, 언리얼 빌드 시스템을 사용하여 프로젝트를 독립형 실행파일로 쿠킹 및 패키징하면 됩니다. 이 프로세스를 통해 프로젝트를 관리 가능한 방식으로 언리얼 엔진 4 가 미리 설치되지 않은 사람과도 쉽게 공유할 수 있습니다. 실행파일을 실행하면 언리얼이 애셋을 레퍼런싱할 때 사용하는 Pak 파일에 모든 애셋을 저장하여 콘텐츠를 보호해 주기도 합니다.
+
+프로젝트 쿠킹 및 패키징 프로세스는 다음과 같은 절차로 구성됩니다:
+
+1. **파일 > 패키지 프로젝트** 메뉴에서 타겟 플랫폼을 선택하면, 쿠킹 및 패키징 프로세스가 시작됩니다.
+
+2. 프로젝트의 맵이 콘텐츠 브라우저에서 레퍼런싱된 애셋을 잡아 스테이징 디렉토리에 사본을 만듭니다.
+
+3. 쿠킹 프로세스가 완료되면, 언리얼 빌드 툴은 그 파일과 필수 엔진 파일을 하나의 실행파일 패키지에 넣어 언리얼 엔진 4 가 설치되지 않아도 실행시킬 수 있도록 하는 패키징 프로세스를 시작합니다.
+
+4. 완료 후, 생성된 프로젝트 실행파일을 실행시키면 프로젝트의 패키지 버전을 로드합니다. 애셋은 하나의 Pak 파일에 저장되며, 소스 코드나 블루프린트 스크립트는 제거하고 머신 코드로 변환시켜 더이상 접근할 수 없게 됩니다.
+
+프로젝트를 패키징할 때 벌어지는 작업을 매우 일반적인 관점에서 바라본 것입니다. 이 프로세스 관련 보다 자세한 안내서나 설명서는, [](Engine/Basics/Projects/Packaging) 문서를 참고하세요.
+
+[REGION:note]
+안드로이드나 iOS 같은 일부 플랫폼용 콘텐츠 쿠킹 및 패키징은, 특정한 전제 조건 SDK 나 하드웨어가 있어야 프로젝트 패키징 작업이 제대로 이루어집니다.
+[/REGION]
+
+
+
+
+##이제 어디로 가나요?
+
+이 입문서를 읽어주셔서 감사합니다! 이 문서는 언리얼 개발자의 도움을 얻어 엔터프라이즈 커뮤니티를 위해 제작된 것으로, 피드백이나 정정 제안 감사히 받겠습니다. UE4 로 전환할 때 큰 도움이 되는 것들을 알아가면서 이 문서를 계속해서 개선하도록 하겠습니다.
+
+언리얼 엔진 4 추가 학습 자료가 많습니다. 그 링크입니다:
+
+* [문서](%ROOT%)
+    *  [시작하기](GettingStarted)
+* [튜토리얼 및 학습 비디오](https://docs.unrealengine.com/latest/INT/Videos)
+    *  [학습 관리 시스템](https://www.unrealengine.com/video-tutorials) 
+* API Reference - [\[C++\]](https://docs.unrealengine.com/latest/INT/API) [\[Blueprint\]](https://docs.unrealengine.com/latest/INT/BlueprintAPI)
+

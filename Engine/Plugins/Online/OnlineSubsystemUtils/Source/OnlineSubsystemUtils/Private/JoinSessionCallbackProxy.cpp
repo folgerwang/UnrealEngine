@@ -69,7 +69,7 @@ void UJoinSessionCallbackProxy::OnCompleted(FName SessionName, EOnJoinSessionCom
 				FString ConnectString;
 				if (Sessions->GetResolvedConnectString(NAME_GameSession, ConnectString) && PlayerControllerWeakPtr.IsValid())
 				{
-					UE_LOG(LogOnline, Log, TEXT("Join session: traveling to %s"), *ConnectString);
+					UE_LOG_ONLINE_SESSION(Log, TEXT("Join session: traveling to %s"), *ConnectString);
 					PlayerControllerWeakPtr->ClientTravel(ConnectString, TRAVEL_Absolute);
 					OnSuccess.Broadcast();
 					return;

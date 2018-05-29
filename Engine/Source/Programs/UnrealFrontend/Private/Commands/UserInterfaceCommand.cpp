@@ -15,6 +15,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "HAL/PlatformProcess.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "OutputLog/Public/OutputLogModule.h"
 
 #define IDEAL_FRAMERATE 60;
 
@@ -38,6 +39,7 @@ void FUserInterfaceCommand::Run(  )
 	// load required modules
 	FModuleManager::Get().LoadModuleChecked("EditorStyle");
 	FModuleManager::Get().LoadModuleChecked("Messaging");
+	FModuleManager::Get().LoadModuleChecked("OutputLog");
 
 	IAutomationControllerModule& AutomationControllerModule = FModuleManager::LoadModuleChecked<IAutomationControllerModule>("AutomationController");
 	AutomationControllerModule.Init();
@@ -114,8 +116,9 @@ void FUserInterfaceCommand::InitializeSlateApplication( const FString& LayoutIni
 
 	if (bAllowDebugTools)
 	{
-		ISlateReflectorModule* SlateReflectorModule = FModuleManager::GetModulePtr<ISlateReflectorModule>("SlateReflector");
-
+		static const FName SlateReflectorModuleName("SlateReflector");
+		FModuleManager::LoadModuleChecked<ISlateReflectorModule>(SlateReflectorModuleName);
+		ISlateReflectorModule* SlateReflectorModule = FModuleManager::GetModulePtr<ISlateReflectorModule>(SlateReflectorModuleName);
 		if (SlateReflectorModule != nullptr)
 		{
 			SlateReflectorModule->RegisterTabSpawner(UserInterfaceCommand::DeveloperTools);
@@ -125,13 +128,14 @@ void FUserInterfaceCommand::InitializeSlateApplication( const FString& LayoutIni
 	const float DPIScaleFactor = FPlatformApplicationMisc::GetDPIScaleFactorAtPoint(10.0f, 10.0f);
 
 	// restore application layout
-	TSharedRef<FTabManager::FLayout> NewLayout = FTabManager::NewLayout("SessionFrontendLayout_v1.1")
+	TSharedRef<FTabManager::FLayout> NewLayout = FTabManager::NewLayout("SessionFrontendLayout_v1.2")
 		->AddArea
 		(
 			FTabManager::NewArea(1280.f * DPIScaleFactor, 720.0f * DPIScaleFactor)
 				->Split
 				(
 					FTabManager::NewStack()
+						->AddTab(FName("DeviceOutputLog"), ETabState::OpenedTab)
 						->AddTab(FName("DeviceManager"), ETabState::OpenedTab)
 						->AddTab(FName("MessagingDebugger"), ETabState::ClosedTab)
 						->AddTab(FName("SessionFrontend"), ETabState::OpenedTab)

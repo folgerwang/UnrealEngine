@@ -10,8 +10,6 @@
 #include "ProxyLODMeshUtilities.h"
 
 
-
-
 bool ProxyLOD::GenerateUVs(FVertexDataMesh& InOutMesh, const FTextureAtlasDesc& TextureAtlasDesc, const bool VertexColorParts)
 {
 
@@ -48,7 +46,8 @@ bool ProxyLOD::GenerateUVs(FVertexDataMesh& InOutMesh, const FTextureAtlasDesc& 
 
 	// Let the polys in the partitions stretch some..  1.f will let it stretch freely
 
-	const float MaxStretch = 0.125f;
+	const float MaxStretch = 0.125f; // Question.  Does this override the pIMT?
+
 
 	// Size of the texture atlas
 
@@ -72,7 +71,16 @@ bool ProxyLOD::GenerateUVs(FVertexDataMesh& InOutMesh, const FTextureAtlasDesc& 
 	// the normals, but that resulted in some large planar regions being really compressed in the
 	// UV chart.
 
-	float * pIMTArray = NULL;
+	float * pIMTArray = new float[NumFaces * 3];
+	for (int32 f = 0; f < NumFaces; ++f)
+	{
+		int32 offset = 3 * f;
+		{
+			pIMTArray[offset    ] = 1.f;
+			pIMTArray[offset + 1] = 0.f;
+			pIMTArray[offset + 2] = 1.f;
+		}
+	}
 
 	HRESULT hr = DirectX::UVAtlasCreate(Pos, NumVerts,
 		indices, DXGI_FORMAT_R32_UINT, NumFaces,
@@ -84,6 +92,9 @@ bool ProxyLOD::GenerateUVs(FVertexDataMesh& InOutMesh, const FTextureAtlasDesc& 
 		&facePartitioning, &vertexRemapArray, &maxStretchOut, &numChartsOut);
 
 	if (FAILED(hr)) return false;
+
+	if (pIMTArray) delete[] pIMTArray;
+	
 
 	// testing
 	check(ib.size() / sizeof(uint32) == NumFaces * 3);
@@ -144,6 +155,21 @@ bool ProxyLOD::GenerateUVs(FVertexDataMesh& InOutMesh, const FTextureAtlasDesc& 
 
 		// swap the data into the raw mesh 
 		Swap(NewNormalsArray, InOutMesh.Normal);
+
+	});
+
+	// Update the transfer normals
+	TaskGroup.Run([&]()
+	{
+		const size_t NumNewVerts = vb.size();
+		TArray<FVector> NewTransferNormalsArray;
+		ResizeArray(NewTransferNormalsArray, NumNewVerts);
+
+		// re-order the verts 
+		DirectX::UVAtlasApplyRemap(InOutMesh.TransferNormal.GetData(), sizeof(FVector), NumVerts, NumNewVerts, vertexRemapArray.data(), NewTransferNormalsArray.GetData());
+
+		// swap the data into the raw mesh 
+		Swap(NewTransferNormalsArray, InOutMesh.TransferNormal);
 
 	});
 
@@ -253,53 +279,28 @@ void ProxyLOD::GenerateAdjacency(const FRawMesh& RawMesh, std::vector<uint32>& A
 
 bool ProxyLOD::GenerateAdjacenyAndCleanMesh(FVertexDataMesh& InOutMesh, std::vector<uint32>& Adjacency)
 {
-	GenerateAdjacency(InOutMesh, Adjacency);
+	
 
 
 	std::vector<uint32_t> dupVerts;
 
-	HRESULT hr = DirectX::Clean(InOutMesh.Indices.GetData(), InOutMesh.Indices.Num() / 3, InOutMesh.Points.Num(), Adjacency.data(), NULL, dupVerts, true /*break bowties*/);
+	
 
 	uint32 CleanCount = 0;
-	while (dupVerts.size() != 0 && CleanCount < 4)
+	while (CleanCount == 0 || (dupVerts.size() != 0 && CleanCount < 5))
 	{
 		CleanCount++;
 
-		// add the duplicated verts
-		uint32 NumDup = dupVerts.size();
-		uint32 Offset = InOutMesh.Points.AddUninitialized(NumDup);
+		// Rebuild the adjacency.  
+		Adjacency.clear();
+		GenerateAdjacency(InOutMesh, Adjacency);
 
-		for (uint32 d = 0; d < NumDup; ++d)
-		{
-			InOutMesh.Points[Offset + d] = InOutMesh.Points[dupVerts[d]];
-		}
+		dupVerts.clear();
+		HRESULT hr = DirectX::Clean(InOutMesh.Indices.GetData(), InOutMesh.Indices.Num() / 3, InOutMesh.Points.Num(), Adjacency.data(), NULL, dupVerts, true /*break bowties*/);
 
-		// optionally copy the tangent plane.
-		if (InOutMesh.Normal.Num() == Offset)
-		{
-			InOutMesh.Normal.AddUninitialized(NumDup);
-			for (uint32 d = 0; d < NumDup; ++d)
-			{
-				InOutMesh.Normal[Offset + d] = InOutMesh.Normal[dupVerts[d]];
-			}
-		}
-		if (InOutMesh.Tangent.Num() == Offset)
-		{
-			InOutMesh.Tangent.AddUninitialized(NumDup);
-			for (uint32 d = 0; d < NumDup; ++d)
-			{
-				InOutMesh.Tangent[Offset + d] = InOutMesh.Tangent[dupVerts[d]];
-			}
-		}
-		if (InOutMesh.BiTangent.Num() == Offset)
-		{
-			InOutMesh.BiTangent.AddUninitialized(NumDup);
-			for (uint32 d = 0; d < NumDup; ++d)
-			{
-				InOutMesh.BiTangent[Offset + d] = InOutMesh.BiTangent[dupVerts[d]];
-			}
-		}
+		SplitVertices(InOutMesh, dupVerts);
 
+		uint32 Offset = InOutMesh.Points.Num();
 
 		// spatially separate bowties
 		for (int32 f = 0; f < InOutMesh.Indices.Num() / 3; ++f)
@@ -326,16 +327,8 @@ bool ProxyLOD::GenerateAdjacenyAndCleanMesh(FVertexDataMesh& InOutMesh, std::vec
 				}
 			}
 		}
-
-
-		// Rebuild the adjacency.  
-		Adjacency.clear();
-		GenerateAdjacency(InOutMesh, Adjacency);
-
-		dupVerts.clear();
-		hr = DirectX::Clean(InOutMesh.Indices.GetData(), InOutMesh.Indices.Num() / 3, InOutMesh.Points.Num(), Adjacency.data(), NULL, dupVerts, true /*break bowties*/);
-
 	}
 
 	return (dupVerts.size() == 0);
+
 }

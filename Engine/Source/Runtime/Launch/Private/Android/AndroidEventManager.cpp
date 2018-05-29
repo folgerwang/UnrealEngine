@@ -258,7 +258,7 @@ FAppEventManager::FAppEventManager():
 
 void FAppEventManager::OnScaleFactorChanged(IConsoleVariable* CVar)
 {
-	if (CVar->GetFlags() & ECVF_SetByConsole)
+	if ((CVar->GetFlags() & ECVF_SetByMask) == ECVF_SetByConsole)
 	{
 		FAppEventManager::GetInstance()->ExecWindowResized();
 	}

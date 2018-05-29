@@ -41,11 +41,20 @@ public:
 	void AddObject(FGCObject* Object);
 
 	/**
-	 * Removes a window from the list so it won't receive serialization events
+	 * Removes an object from the referencer list
 	 *
 	 * @param Object The object to remove from the list
 	 */
 	void RemoveObject(FGCObject* Object);
+
+	/**
+	 * Get the name of the first FGCObject that owns this object.
+	 *
+	 * @param Object The object that we're looking for.
+	 * @param OutName the name of the FGCObject that reports this object.
+	 * @return true if the object was found.
+	 */
+	bool GetReferencerName(UObject* Object, FString& OutName) const;
 
 	/**
 	 * Forwards this call to all registered objects so they can reference
@@ -147,5 +156,13 @@ public:
 	 * @param Collector The collector of referenced objects.
 	 */
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) = 0;
+
+	/**
+	 * Use this method to report a name for your referencer.
+	 */
+	virtual FString GetReferencerName() const
+	{
+		return "Unknown FGCObject";
+	}
 };
 

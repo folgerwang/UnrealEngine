@@ -21,7 +21,7 @@ struct FLandscapeSplineConnection
 {
 	GENERATED_USTRUCT_BODY()
 
-	FLandscapeSplineConnection() {}
+	FLandscapeSplineConnection() : Segment(nullptr), End(0) {}
 
 	FLandscapeSplineConnection(ULandscapeSplineSegment* InSegment, int32 InEnd)
 		: Segment(InSegment)
@@ -106,6 +106,10 @@ class ULandscapeSplineControlPoint : public UObject
 
 	UPROPERTY()
 	uint32 bEnableCollision_DEPRECATED:1;
+
+	/** Name of the collision profile to use for this spline */
+	UPROPERTY(EditAnywhere, Category=Mesh)
+	FName CollisionProfileName;
 
 	/** Whether the Control Point Mesh should cast a shadow. */
 	UPROPERTY(EditAnywhere, Category=Mesh)

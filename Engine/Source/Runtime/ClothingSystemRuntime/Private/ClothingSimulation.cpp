@@ -8,6 +8,11 @@
 #include "ClothingSystemRuntimeModule.h"
 #include "Assets/ClothingAsset.h"
 
+static TAutoConsoleVariable<float> GClothMaxDeltaTimeTeleportMultiplier(
+	TEXT("p.Cloth.MaxDeltaTimeTeleportMultiplier"),
+	1.5f,
+	TEXT("A multiplier of the MaxPhysicsDelta time at which we will automatically just teleport cloth to its new location\n")
+	TEXT(" default: 1.5"));
 
 DECLARE_CYCLE_STAT(TEXT("Skin Physics Mesh"), STAT_ClothSkinPhysMesh, STATGROUP_Physics);
 
@@ -195,7 +200,14 @@ void FClothingSimulationBase::FillContext(USkeletalMeshComponent* InComponent, f
 
 	BaseContext->DeltaSeconds = FMath::Min(InDeltaTime, MaxPhysicsDelta);
 
-	BaseContext->TeleportMode = InComponent->ClothTeleportMode;
+	if(InDeltaTime > (MaxPhysicsDelta * GClothMaxDeltaTimeTeleportMultiplier.GetValueOnGameThread()))
+	{
+		BaseContext->TeleportMode = EClothingTeleportMode::Teleport;
+	}
+	else
+	{
+		BaseContext->TeleportMode = InComponent->ClothTeleportMode;
+	}	
 
 	BaseContext->MaxDistanceScale = InComponent->GetClothMaxDistanceScale();
 

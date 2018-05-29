@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2732144
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:マテリアルをアニメートする
 Crumbs: %ROOT%, Engine, Engine/Matinee, Engine/Matinee/HowTo
@@ -7,7 +7,6 @@ Version:4.9
 SkillLevel:Intermediate
 
 
----
 以下の手順では、オブジェクト上に点滅する **マテリアル** を作成し、プレイヤーが近づくとオブジェクト上の **マテリアル** の色を変更します。 
 
 [INCLUDE:Engine/Matinee/HowTo/MHT_1#projectstart]
@@ -16,15 +15,15 @@ SkillLevel:Intermediate
 
 この手順では、**Matinee アクタ** を追加し、シーンで使用するいくつかのプロップを追加します。最後に、**マチネ** で使用するトラックを追加します。
 
-1. **ツールバー** メニューから、[マチネ] を選択し、**[Add Matinee (マチネ追加)]** ボタンをクリックします。 
+1. **ツールバー** メニューから [マチネ] を選択し、**[Add Matinee (マチネ追加)]** ボタンをクリックします。 
 
 	![](Engine\Matinee\HowTo\MHT_1\MHT1_AddMatinee.png)(w:720)
 
-1. マチネ の undo 警告メッセージが表示されたら、**Continue** ボタンをクリックします。 
+1. マチネ の undo 警告メッセージが表示されたら、**[Continue]** ボタンをクリックします。 
 
 	![](Engine\Matinee\HowTo\MHT_1\MHT1_MatineeWarning.png)
 
-1. **マチネ エディタ** ウィンドウが開きます。 
+1. **[マチネ エディタ]** ウィンドウが開きます。 
 
 	[REGION:lightbox]
 	[![](Engine\Matinee\HowTo\MHT_1\MHT1_MatineeOpen.png)(w:640)](Engine\Matinee\HowTo\MHT_1\MHT1_MatineeOpen.png)
@@ -76,10 +75,9 @@ SkillLevel:Intermediate
 
 	![](MHT6_AddFloatMaterialTrack.png)
 
+##Vector Material Parameter マチネ
 
-## Vector Material Parameter マチネ
-
-以下の手順では、マチネの **Vector Material Parameter** トラックを使用してプレイヤーが近くにいるときに椅子の色を変更します。
+以下の手順では、マチネの **Vector Material Parameter** トラックを使用してプレイヤーが近くにいるときに椅子の色を変更します。 
 
 1. レベル内で椅子を選択し、**[Materials]** の [詳細] パネルでブラウズ (虫眼鏡) アイコンをクリックします。 
 
@@ -103,7 +101,7 @@ SkillLevel:Intermediate
 
 	![](MHT6_MaterialInstance1.png)
 
-	_マテリアルの **マテリアル インスタンス** が コンテンツ ブラウザ に作成され、編集できます。デフォルト名のままにすることもできます。_
+	_マテリアルの **マテリアル インスタンス** が コンテンツ ブラウザ に作成され、編集できます。デフォルト名のままにすることができます。_
 
 1.	レベル内で椅子を選択し、コンテンツ ブラウザで **M_Chair_Inst** を選択し、[詳細] パネルで **矢印** アイコンをクリックします。 
 
@@ -158,7 +156,6 @@ SkillLevel:Intermediate
 1.	前のステップを繰り返します。しかし、今回は Add OnActorEndOverlap を選択します。 
 
 1.	MatineeActor ノードの出力ピンをクリックしてドラッグして放して、コンテキスト メニューで **Play** を探して、メニューから Play を選択します。 
-
 	![](MHT6_PlayMatinee.png)
 
 1.	前のステップを繰り返します。しかし、今回は **Reverse** を探して選択します。 
@@ -179,7 +176,7 @@ SkillLevel:Intermediate
 
 	![](MHT6_Compile.png)
 
-1.	ブループリント を閉じて、メイン ツールバーで Play アイコンをクリックしてエディタで再生します。 
+1.	ブループリントを閉じて、メイン ツールバーで Play アイコンをクリックしてエディタで再生します。 
 
 	[OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:width]
@@ -197,10 +194,9 @@ SkillLevel:Intermediate
 
 	_椅子から離れると、ブレンドしてデフォルトのカラーに戻ります。_
 
-
 ## Float Material Parameter マチネ
 
-以下の手順では、**マチネ** の **Float Material Parameter** トラックを使用して階段のステップに適用する点滅する **マテリアル** を作成します。
+以下の手順では、**マチネ** の **Float Material Parameter** トラックを使用して階段のステップに適用する点滅する **マテリアル** を作成します。 
 
 1. **Game/Materials** の コンテンツ ブラウザで **M_Basic_Wall Material** を **右クリック** して、**Create Copy** を選択し、名前を付けます。
 
@@ -272,21 +268,7 @@ SkillLevel:Intermediate
 	[/PARAMLITERAL]
 	[/OBJECT]
 
-	_階段のステップが黒と白の間で点滅してるのがわかります。_
+	_階段のステップが黒と白の間で点滅しているのがわかります。_
 
 	_点滅速度を速めるには、**マチネ** でキーフレーム間の時間を短くします。_
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

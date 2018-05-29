@@ -255,6 +255,7 @@ struct ExistingSkelMeshData
 	TArray<TArray<FName>> LastImportMeshLodSectionMaterialData;
 
 	FSkeletalMeshSamplingInfo				ExistingSamplingInfo;
+	FPerPlatformInt							MinLOD;
 };
 
 /**

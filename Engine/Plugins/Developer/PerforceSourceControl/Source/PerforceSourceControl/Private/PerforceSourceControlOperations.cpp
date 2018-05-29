@@ -1148,6 +1148,13 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 						FString BranchFile;
 						if (File.Split(ContentRoot, nullptr, &BranchFile))
 						{
+							// Ignore collection files when querying status branches
+							FString Ext = FPaths::GetExtension(BranchFile, true);
+							if (Ext.Compare(TEXT(".collection"), ESearchCase::IgnoreCase) == 0)
+							{
+								continue;
+							}
+							
 							TArray<FStringFormatArg> Args = { Branch, ContentRoot, BranchFile };
 							Parameters.Add(FString::Format(TEXT("{0}/{1}{2}"), Args));
 						}

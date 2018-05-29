@@ -74,7 +74,7 @@ void FTestLeaderboardInterface::Test(UWorld* InWorld, const FString& InUserId)
 	OnlineSub = Online::GetSubsystem(InWorld, FName(*Subsystem));
 	if (!OnlineSub)
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Failed to get online subsystem for %s"), *Subsystem);
+		UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("Failed to get online subsystem for %s"), *Subsystem);
 
 		bOverallSuccess = false;
 		return;
@@ -89,7 +89,7 @@ void FTestLeaderboardInterface::Test(UWorld* InWorld, const FString& InUserId)
 	Leaderboards = OnlineSub->GetLeaderboardsInterface();
 	if (!Leaderboards.IsValid())
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Failed to get online leaderboards interface for %s"), *Subsystem);
+		UE_LOG_ONLINE_LEADERBOARD(Warning, TEXT("Failed to get online leaderboards interface for %s"), *Subsystem);
 
 		bOverallSuccess = false;
 		return;
@@ -111,7 +111,7 @@ void FTestLeaderboardInterface::WriteLeaderboards()
 
 void FTestLeaderboardInterface::OnLeaderboardFlushComplete(FName SessionName, bool bWasSuccessful)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("OnLeaderboardFlushComplete Session: %s bWasSuccessful: %d"), *SessionName.ToString(), bWasSuccessful);
+	UE_LOG_ONLINE_LEADERBOARD(Verbose, TEXT("OnLeaderboardFlushComplete Session: %s bWasSuccessful: %d"), *SessionName.ToString(), bWasSuccessful);
 	bOverallSuccess = bOverallSuccess && bWasSuccessful;
 
 	Leaderboards->ClearOnLeaderboardFlushCompleteDelegate_Handle(LeaderboardFlushDelegateHandle);
@@ -129,18 +129,18 @@ void FTestLeaderboardInterface::PrintLeaderboards()
 	for (int32 RowIdx = 0; RowIdx < ReadObject->Rows.Num(); ++RowIdx)
 	{
 		const FOnlineStatsRow& StatsRow = ReadObject->Rows[RowIdx];
-		UE_LOG(LogOnline, Log, TEXT("Leaderboard stats for: Nickname = %s, Rank = %d"), *StatsRow.NickName, StatsRow.Rank);
+		UE_LOG_ONLINE_LEADERBOARD(Log, TEXT("Leaderboard stats for: Nickname = %s, Rank = %d"), *StatsRow.NickName, StatsRow.Rank);
 
 		for (FStatsColumnArray::TConstIterator It(StatsRow.Columns); It; ++It)
 		{
-			UE_LOG(LogOnline, Log, TEXT("  %s = %s"), *It.Key().ToString(), *It.Value().ToString());
+			UE_LOG_ONLINE_LEADERBOARD(Log, TEXT("  %s = %s"), *It.Key().ToString(), *It.Value().ToString());
 		}
 	}
 }
 
 void FTestLeaderboardInterface::OnLeaderboardReadComplete(bool bWasSuccessful)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("OnLeaderboardReadComplete bWasSuccessful: %d"), bWasSuccessful);
+	UE_LOG_ONLINE_LEADERBOARD(Verbose, TEXT("OnLeaderboardReadComplete bWasSuccessful: %d"), bWasSuccessful);
 	bOverallSuccess = bOverallSuccess && bWasSuccessful;
 
 	PrintLeaderboards();
@@ -151,7 +151,7 @@ void FTestLeaderboardInterface::OnLeaderboardReadComplete(bool bWasSuccessful)
 
 void FTestLeaderboardInterface::OnLeaderboardRankReadComplete(bool bWasSuccessful)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("OnLeaderboardRankReadComplete bWasSuccessful: %d"), bWasSuccessful);
+	UE_LOG_ONLINE_LEADERBOARD(Verbose, TEXT("OnLeaderboardRankReadComplete bWasSuccessful: %d"), bWasSuccessful);
 	bOverallSuccess = bOverallSuccess && bWasSuccessful;
 
 	PrintLeaderboards();
@@ -162,7 +162,7 @@ void FTestLeaderboardInterface::OnLeaderboardRankReadComplete(bool bWasSuccessfu
 
 void FTestLeaderboardInterface::OnLeaderboardUserRankReadComplete(bool bWasSuccessful)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("OnLeaderboardUserRankReadComplete bWasSuccessful: %d"), bWasSuccessful);
+	UE_LOG_ONLINE_LEADERBOARD(Verbose, TEXT("OnLeaderboardUserRankReadComplete bWasSuccessful: %d"), bWasSuccessful);
 	bOverallSuccess = bOverallSuccess && bWasSuccessful;
 
 	PrintLeaderboards();
@@ -228,6 +228,8 @@ void FTestLeaderboardInterface::ReadLeaderboardsUser(int32 Range)
 
 bool FTestLeaderboardInterface::Tick( float DeltaTime )
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FTestLeaderboardInterface_Tick);
+
 	if (TestPhase != LastTestPhase)
 	{
 		LastTestPhase = TestPhase;
@@ -268,7 +270,7 @@ bool FTestLeaderboardInterface::Tick( float DeltaTime )
 			}
 		} break;
 		case 6:
-			UE_LOG(LogOnline, Log, TEXT("TESTING COMPLETE Success:%s!"), bOverallSuccess ? TEXT("true") : TEXT("false"));
+			UE_LOG_ONLINE_LEADERBOARD(Log, TEXT("TESTING COMPLETE Success:%s!"), bOverallSuccess ? TEXT("true") : TEXT("false"));
 			delete this;
 			return false;
 		}

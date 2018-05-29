@@ -1,29 +1,9 @@
-﻿INTSourceChangelist:3599948
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:被破壊性プロパティのマトリックス
 Crumbs: %ROOT%, Engine
 Description:被破壊メッシュ エディタ内の Destructible アクタの全プロパティの説明
 Version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/Destructibles/DestructibleProperties:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/Destructibles/DestructibleProperties:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/Destructibles/DestructibleProperties:description%
-	[/PARAM]
-	[PARAMLITERAL:path]
-		Engine/Physics/Destructibles/DestructibleProperties
-	[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
 
 [REGION:banner]
 ![Physics](Engine/Physics/physics_landing_banner.png)
@@ -102,6 +82,7 @@ Version:4.9
 | **Do Not Fracture** | チャンクが破砕されないように定義します。True にすると、その子は 1 つも破砕されなくなります。 |
 | **Do Not Damage** | チャンクがダメージを受けないように定義します。対象のチャンクは破砕されませんが、その子は破砕される場合があります。 |
 | **Do not Crumble** | チャンクが粉々に砕けないように定義します。どんなダメージを受けても、対象のチャンクは粉々に砕けて流体メッシュ パーティクルとなることはありません。注：チャンクに子がない場合のみの適用となります。チャンクに子がある場合は、1) doNotCrumble Flag が設定されていない場合、チャンクは崩れて子供となり、その子は粉々に砕けてしまいます。2) そのチャンクが子を持たないように被破壊モジュールのチャンク深度オフセット LOD が設定されている場合、doNotCrumble フラグが適用になります。 |
+
 
 ## フラクチャ設定のカテゴリ
 

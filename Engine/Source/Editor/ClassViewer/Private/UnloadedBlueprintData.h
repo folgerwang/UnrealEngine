@@ -8,7 +8,7 @@
 class FUnloadedBlueprintData : public IUnloadedBlueprintData
 {
 public:
-	FUnloadedBlueprintData( TWeakPtr< class FClassViewerNode > InClassViewerNode );
+	FUnloadedBlueprintData(TWeakPtr<FClassViewerNode> InClassViewerNode);
 
 	virtual ~FUnloadedBlueprintData() {}
 
@@ -27,22 +27,18 @@ public:
 	virtual const UClass* GetClassWithin() const override;
 
 	/** Retrieves the Class Viewer node this data is associated with. */
-	const TWeakPtr< class FClassViewerNode > GetClassViewerNode() const;
+	const TWeakPtr<FClassViewerNode>& GetClassViewerNode() const;
 
-	/** 
-	 * Adds an interface class to this object.
-	 *
-	 * @param InClass		The class to check against.
-	 */
-	void AddImplementedInterfaces(FString& InterfaceName);
+	/** Adds the name of an interface that this blueprint implements directly. */
+	void AddImplementedInterface(const FString& InterfaceName);
 
 private:
 	/** Flags for the class. */
-	uint32 ClassFlags;
+	uint32 ClassFlags = CLASS_None;
 
 	/** The implemented interfaces for this class. */
-	TArray< FString > ImplementedInterfaces;
+	TArray<FString> ImplementedInterfaces;
 
 	/** The node this class is contained in, used to gather hierarchical data as needed. */
-	TWeakPtr< class FClassViewerNode > ClassViewerNode;
+	TWeakPtr<FClassViewerNode> ClassViewerNode;
 };

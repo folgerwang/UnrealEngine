@@ -10,6 +10,7 @@
 #include "Misc/FeedbackContext.h"
 #include "Engine/World.h"
 #include "Components/PrimitiveComponent.h"
+#include "ActorEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "LogDebugViewMode"
 
@@ -181,7 +182,7 @@ bool GetUsedMaterialsInWorld(UWorld* InWorld, OUT TSet<UMaterialInterface*>& Out
 			}
 
 			// Check the actor after incrementing the progress.
-			if (!Actor)
+			if (!Actor || FActorEditorUtils::IsABuilderBrush(Actor))
 			{
 				continue;
 			}

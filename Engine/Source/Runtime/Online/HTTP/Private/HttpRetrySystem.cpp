@@ -6,14 +6,14 @@
 #include "HttpModule.h"
 #include "Http.h"
 
-
 FHttpRetrySystem::FRequest::FRequest(
 	FManager& InManager,
 	const TSharedRef<IHttpRequest>& HttpRequest, 
 	const FHttpRetrySystem::FRetryLimitCountSetting& InRetryLimitCountOverride,
 	const FHttpRetrySystem::FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsOverride,
 	const FHttpRetrySystem::FRetryResponseCodes& InRetryResponseCodes,
-	const FHttpRetrySystem::FRetryVerbs& InRetryVerbs
+	const FHttpRetrySystem::FRetryVerbs& InRetryVerbs,
+	const FHttpRetrySystem::FRetryDomainsPtr& InRetryDomains
 	)
     : FHttpRequestAdapterBase(HttpRequest)
     , Status(FHttpRetrySystem::FRequest::EStatus::NotStarted)
@@ -21,19 +21,63 @@ FHttpRetrySystem::FRequest::FRequest(
     , RetryTimeoutRelativeSecondsOverride(InRetryTimeoutRelativeSecondsOverride)
 	, RetryResponseCodes(InRetryResponseCodes)
 	, RetryVerbs(InRetryVerbs)
+	, RetryDomains(InRetryDomains)
 	, RetryManager(InManager)
 {
     // if the InRetryTimeoutRelativeSecondsOverride override is being used the value cannot be negative
     check(!(InRetryTimeoutRelativeSecondsOverride.bUseValue) || (InRetryTimeoutRelativeSecondsOverride.Value >= 0.0));
+
+	if (RetryDomains.IsValid())
+	{
+		if (RetryDomains->Domains.Num() == 0)
+		{
+			// If there are no domains to cycle through, go through the simpler path
+			RetryDomains.Reset();
+		}
+		else
+		{
+			// Start with the active index
+			RetryDomainsIndex = RetryDomains->ActiveIndex;
+			check(RetryDomains->Domains.IsValidIndex(RetryDomainsIndex));
+		}
+	}
 }
 
 bool FHttpRetrySystem::FRequest::ProcessRequest()
 { 
 	TSharedRef<FRequest> RetryRequest = StaticCastSharedRef<FRequest>(AsShared());
 
+	OriginalUrl = HttpRequest->GetURL();
+	if (RetryDomains.IsValid())
+	{
+		SetUrlFromRetryDomains();
+	}
+
 	HttpRequest->OnRequestProgress().BindSP(RetryRequest, &FHttpRetrySystem::FRequest::HttpOnRequestProgress);
 
 	return RetryManager.ProcessRequest(RetryRequest);
+}
+
+void FHttpRetrySystem::FRequest::SetUrlFromRetryDomains()
+{
+	check(RetryDomains.IsValid());
+	FString OriginalUrlDomain = FPlatformHttp::GetUrlDomain(OriginalUrl);
+	if (!OriginalUrlDomain.IsEmpty())
+	{
+		const FString Url(OriginalUrl.Replace(*OriginalUrlDomain, *RetryDomains->Domains[RetryDomainsIndex]));
+		HttpRequest->SetURL(Url);
+	}
+}
+
+void FHttpRetrySystem::FRequest::MoveToNextRetryDomain()
+{
+	check(RetryDomains.IsValid());
+	const int32 NextDomainIndex = (RetryDomainsIndex + 1) % RetryDomains->Domains.Num();
+	if (RetryDomains->ActiveIndex.CompareExchange(RetryDomainsIndex, NextDomainIndex))
+	{
+		RetryDomainsIndex = NextDomainIndex;
+	}
+	SetUrlFromRetryDomains();
 }
 
 void FHttpRetrySystem::FRequest::CancelRequest() 
@@ -58,7 +102,8 @@ TSharedRef<FHttpRetrySystem::FRequest> FHttpRetrySystem::FManager::CreateRequest
 	const FRetryLimitCountSetting& InRetryLimitCountOverride,
 	const FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsOverride,
 	const FRetryResponseCodes& InRetryResponseCodes,
-	const FRetryVerbs& InRetryVerbs)
+	const FRetryVerbs& InRetryVerbs,
+	const FRetryDomainsPtr& InRetryDomains)
 {
 	return MakeShareable(new FRequest(
 		*this,
@@ -66,7 +111,8 @@ TSharedRef<FHttpRetrySystem::FRequest> FHttpRetrySystem::FManager::CreateRequest
 		InRetryLimitCountOverride,
 		InRetryTimeoutRelativeSecondsOverride,
 		InRetryResponseCodes,
-		InRetryVerbs
+		InRetryVerbs,
+		InRetryDomains
 		));
 }
 
@@ -219,8 +265,16 @@ float FHttpRetrySystem::FManager::GetLockoutPeriodSeconds(const FHttpRetryReques
 	{
 		if (LockoutPeriod <= 0.0f)
 		{
-			LockoutPeriod = 5.0f + 5.0f * ((HttpRetryRequestEntry.CurrentRetryCount - 1) >> 1);
-			LockoutPeriod = LockoutPeriod > 30.0f ? 30.0f : LockoutPeriod;
+			if (HttpRetryRequestEntry.Request->GetStatus() != EHttpRequestStatus::Failed_ConnectionError ||
+				!HttpRetryRequestEntry.Request->RetryDomains.IsValid())
+			{
+				LockoutPeriod = 5.0f + 5.0f * ((HttpRetryRequestEntry.CurrentRetryCount - 1) >> 1);
+				LockoutPeriod = LockoutPeriod > 30.0f ? 30.0f : LockoutPeriod;
+			}
+			else
+			{
+				// Do not have a lockout period if we failed to connect to a domain and we have other domains to try
+			}
 		}
 	}
 
@@ -285,7 +339,7 @@ bool FHttpRetrySystem::FManager::Update(uint32* FileCount, uint32* FailingCount,
 		FHttpRetryRequestEntry& HttpRetryRequestEntry = RequestList[index];
 		TSharedRef<FHttpRetrySystem::FRequest>& HttpRetryRequest = HttpRetryRequestEntry.Request;
 
-		EHttpRequestStatus::Type RequestStatus = HttpRetryRequest->GetStatus();
+		const EHttpRequestStatus::Type RequestStatus = HttpRetryRequest->GetStatus();
 
 		if (HttpRetryRequestEntry.bShouldCancel)
 		{
@@ -318,6 +372,14 @@ bool FHttpRetrySystem::FManager::Update(uint32* FileCount, uint32* FailingCount,
 						}
 					}
 
+					// If we failed to connect, try the next domain in the list
+					if (RequestStatus == EHttpRequestStatus::Failed_ConnectionError)
+					{
+						if (HttpRetryRequest->RetryDomains.IsValid())
+						{
+							HttpRetryRequest->MoveToNextRetryDomain();
+						}
+					}
 					// Save these for failure case retry checks if we hit a completion state
 					bool bShouldRetry = false;
 					bool bCanRetry = false;

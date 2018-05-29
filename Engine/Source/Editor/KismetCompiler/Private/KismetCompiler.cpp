@@ -2310,6 +2310,7 @@ void FKismetCompilerContext::FinishCompilingClass(UClass* Class)
 
 	// Add in any other needed flags
 	Class->ClassFlags |= (CLASS_Parsed | CLASS_CompiledFromBlueprint);
+	Class->ClassFlags &= ~CLASS_ReplicationDataIsSetUp;
 
 	// Look for OnRep 
 	for( TFieldIterator<UProperty> It(Class, EFieldIteratorFlags::ExcludeSuper); It; ++It)

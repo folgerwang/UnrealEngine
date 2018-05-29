@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title: 언리얼 엔진 4.15 릴리즈 노트
 Description: Release Notes for Unreal Engine 4.15
@@ -6,7 +6,7 @@ Crumbs:%ROOT%, Engine
 Parent:Support/Builds
 Order:15
 
-![image alt text](image_0.png)(w:769 h:249 convert:false)
+![image alt text](image_0.png)(w:769 convert:false)
 
 ## 새로운 소식
 
@@ -30,7 +30,7 @@ Order:15
 
 Nintendo 와의 협업을 통해 언리얼 엔진 4 개발자들의 Nintendo Switch 게임 개발을 도울 수 있게 되었습니다!
 
-![image alt text](image_1.png)(w:1000 h:385 convert:false)
+![image alt text](image_1.png)(w:1000 convert:false)
 
 Nintendo Switch 콘솔 게임 개발을 위한 초기 지원사항이 추가되었습니다. 이번 릴리즈에서는 아직 실험단계로 간주되나, 다음 릴리즈에서는 실제 발매가 가능한 상태까지 개선시킬 계획입니다.
 
@@ -38,7 +38,7 @@ Nintendo Switch 콘솔 게임 개발을 위한 초기 지원사항이 추가되�
 
 이제 기본 톤매퍼가 보다 영화같은 색감과 톤을 냅니다!
 
-![image alt text](image_2.jpg)(w:929 h:522 convert:false)
+![image alt text](image_2.jpg)(w:929 convert:false)
 
 이제 아카데미 컬러 인코딩 시스템(ACES)에 일치하는 필름 톤매퍼가 기본으로 켜집니다. 이 톤매퍼를 통해 엔진은 HDR 디스플레이 포함 다수의 디스플레이 유형을 대상으로 삼을 수도 있습니다. 블룸 기본값을 업데이트하여 보다 물리적으로 올바른 결과를 냅니다.
 
@@ -48,7 +48,7 @@ Nintendo Switch 콘솔 게임 개발을 위한 초기 지원사항이 추가되�
 
 텍스처 스트리밍 시스템 최적화를 통해 CPU 및 메모리 사용량, 로드 시간을 줄이면서도 저해상도 부작용을 없애고 여러 플랫폼의 다양한 메모리 예산 관련 한계를 자동으로 처리해 줍니다.
 
-![image alt text](image_3.jpg)(w:929 h:522 convert:false)
+![image alt text](image_3.jpg)(w:929 convert:false)
 
 * **텍스처 메모리 사용법 개선** - 텍스처 스트리밍 시스템은 이제 컴포넌트 단위로 비저빌리티를 처리하여 스태틱 지오메트리에 바인딩된 (크기가 작은) 머티리얼 단위로 계산, **텍스처 메모리 사용량이 40% 정도 감소했습니다**.
 
@@ -68,7 +68,7 @@ Nintendo Switch 콘솔 게임 개발을 위한 초기 지원사항이 추가되�
 
 블루프린트를 네이티브 소스 코드로 패키징하여 블루프린트 실행 비용을 줄이는 기능을 이제 제작 단계에서 사용할 수 있게 되었습니다! 
 
-![image alt text](image_4.png)(w:929 h:457 convert:false)
+![image alt text](image_4.png)(w:929 convert:false)
 
 이 기능은 실험단계 기능으로 사용가능한 상태였으며 [Robo Recall](https://www.epicgames.com/roborecall/en-US/home) 같은 자체 프로젝트에 성공적으로 사용해 왔으나, 이제 그 실험단계 딱지를 떼었습니다.
 
@@ -78,7 +78,7 @@ Nintendo Switch 콘솔 게임 개발을 위한 초기 지원사항이 추가되�
 
 언리얼 엔진 4 코드베이스의 **컴파일 시간이 25-50% 빨라졌습니다**! 헤더 파일은 English.h 나 UnrealEd.h 처럼 커다란 모놀리식 헤더 포함 모든 소스 파일을 포함시키는 것이 아닌, 딱 필요한 헤더 파일만 포함시킵니다. 이것을 _Include What You Use (IWYU)_ 기법이라 합니다.
 
-![image alt text](image_5.jpg)(w:929 h:557 convert:false)
+![image alt text](image_5.jpg)(w:929 convert:false)
 
 새로운 모델에 대한 규칙은 다음과 같습니다:
 
@@ -98,12 +98,12 @@ Nintendo Switch 콘솔 게임 개발을 위한 초기 지원사항이 추가되�
 
 이제 Background Blur 위젯을 사용하여 UMG 에서 UI 와 3D 씬을 뿌옇게 만들 수 있습니다! Background Blur 위젯에는 블러 적용 제외시킬 위젯 추가를 위한 콘텐츠 슬롯도 있습니다.
 
- ![image alt text](image_6.png)(w:857 h:478 convert:false)
+ ![image alt text](image_6.png)(w:857 convert:false)
 
 배경 콘텐츠의 블러 정도를 정의하는 Strength (세기) 값이 하나 있는데, 0 (꺼짐) 부터 100 (최대 세기) 이며, 애니메이션을 통해 시간에 따라 블러 양을 변경시킬 수도 있습니다.
 
 [REGION:imagetable]
-| ![image alt text](image_7.jpg)(w:293 h:293 convert:false) | ![image alt text](image_8.jpg)(w:292 h:292 convert:false) | ![image alt text](image_9.jpg)(w:294 h:293 convert:false) |
+| ![image alt text](image_7.jpg)(w:293 convert:false) | ![image alt text](image_8.jpg)(w:292 convert:false) | ![image alt text](image_9.jpg)(w:294 convert:false) |
 | --- | --- | --- |
 | 세기 = 2 | 세기 = 10 | 세기 = 50 |
 [/REGION]
@@ -112,7 +112,7 @@ Nintendo Switch 콘솔 게임 개발을 위한 초기 지원사항이 추가되�
 
 이제 머티리얼 에디터에서 경유지(Reroute) 노드를 사용하여 머티리얼 그래프를 보다 깔끔하게 정리할 수 있습니다! 블루프린트에서와 똑같은 방식으로 작동하며, 머티리얼의 최종 인스트럭션 수에는 영향을 주지 않고 순전히 시각적인 목적으로 사용됩니다.
 
-![image alt text](image_10.jpg)(w:929 h:308 convert:false)
+![image alt text](image_10.jpg)(w:929 convert:false)
 
 머티리얼 에디터에서 경유지 노드를 추가하는 방법은 다음과 같습니다:
 
@@ -193,7 +193,7 @@ Nintendo Switch 콘솔 게임 개발을 위한 초기 지원사항이 추가되�
 
 언리얼 엔진 4 는 이제 보다 높고 넓은 고대비나 색 공간을 활용할 수 있는 하이 다이내믹 레인지 (HDR) 디스플레이 출력이 가능합니다!
 
-![image alt text](image_11.jpg)(w:929 h:376 convert:false)
+![image alt text](image_11.jpg)(w:929 convert:false)
 
 [REGION:caption]위는 시뮬레이션을 통한 이미지로, 데모 전용입니다.[/REGION]
 
@@ -207,7 +207,7 @@ HDR 출력 기능 지원은 현재 실행시 자동 감지를 통해 지원되�
 
 이제 향상된 모바일 프리뷰를 통해 **에디터 뷰포트에서 고사양 모바일 기능 미리보기가 지원됩니다**. 이 모드는 iOS Metal, Android OpenGL ES 3.1, Android Vulkan 디바이스에서 사용할 수 있는 피처 세트를 에뮬레이션합니다.
 
-![image alt text](image_12.jpg)(w:840 h:505 convert:false)
+![image alt text](image_12.jpg)(w:840 convert:false)
 
 [REGION:note]
 프리뷰 플랫폼 메뉴에는 프로젝트 세팅에서 켜준 디바이스만 표시됩니다.
@@ -217,11 +217,11 @@ HDR 출력 기능 지원은 현재 실행시 자동 감지를 통해 지원되�
 
 이제 블루프린트에 기존의 Array (배열) 변수 유형 말고도 아이템 컬렉션을 저장할 수 있는 변수형 Map (맵)과 Set (세트)가 추가되었습니다. 맵과 세트는 반복되는 항목 없이 고유 아이템만 저장되도록 보장해 주며, 세트를 통해서는 key (키)도 반복되지 않도록 할 수 있습니다. 특히나, 커다란 데이터 세트에 대한 룩업 작업을 자주 할 때 좋습니다.
 
-![image alt text](image_13.jpg)(w:761 h:356 convert:false)
+![image alt text](image_13.jpg)(w:761 convert:false)
 
 이제 Variable Type 옵션은 드롭다운이 되어, Single Variable (단일 변수), Array (배열), Set (세트), Map (맵) 중에서 선택할 수 있습니다. 맵이 선택되면 ‘value’ 유형에 대한 이차 드롭다운이 나타납니다.
 
-![image alt text](image_14.jpg)(w:333 h:205 convert:false)
+![image alt text](image_14.jpg)(w:333 convert:false)
 
 세트와 맵 변수는 이제 C++ 에서 선언하고 블루프린트에 노출시킬 수 있으나, 맵과 세트 프로퍼티에 대한 리플리케이션은 아직 C++ 또는 블루프린트에서 지원하지 않습니다.
 
@@ -233,7 +233,7 @@ HDR 출력 기능 지원은 현재 실행시 자동 감지를 통해 지원되�
 
 태그는 손으로 하나하나 입력하는 대신, 디자이너와 아티스트용으로 사전 승인한 이름 목록이 있는 것이 좋습니다. 게임플레이 태그를 사용하려면 중앙 태그 딕셔너리에 등록되어 있어야 하는데, 이는 새로운 GameplayTags 프로젝트 세팅 뷰에서 접근할 수 있습니다:
 
-![image alt text](image_15.jpg)(w:580 h:728 convert:false)
+![image alt text](image_15.jpg)(w:580 convert:false)
 
 Import Tags from Config (환경설정에서 태그 임포트) 옵션을 켜면, 이 페이지의 게임플레이 태그 리스트나 태그 선택에 사용되는 UI 를 통해 에디터에서 태그를 추가할 수 있습니다. 데이터에 태그 프로퍼티를 추가하고나면 블루프린트나 C++ 에서 질의한 후 그를 통해 함수 기능을 변경할 수 있습니다. BlueprintGameplayTagLibrary 에 유용한 함수가 여럿 있습니다. 태그를 실제 구성하기 위해서는, GameplayTag 또는 GameplayTagContainer 변수를 데이터 또는 함수에 추가한 뒤, 선택 UI 에서 태그를 설정하면 됩니다.
 
@@ -241,7 +241,7 @@ Import Tags from Config (환경설정에서 태그 임포트) 옵션을 켜면, 
 
 포스트 프로세스 세팅에 컬러 그레이딩 프로퍼티 관련해서 보다 직관적인 조작 및 정교한 제어가 가능한 완전 새로운 제어판이 추가되었습니다.
 
-![image alt text](image_16.jpg)(w:533 h:218 convert:false)
+![image alt text](image_16.jpg)(w:533 convert:false)
 
 새로운 제어판의 특징은 다음과 같습니다:
 
@@ -314,7 +314,7 @@ VR 에디터의 새로운 숫자 패드 UI 를 사용하여 텍스트 칸에 숫
 
 새로 생긴 세 가지 뷰 모드로 게임에 텍스처 스트리밍 시스템이 최적의 상태로 작동중인지 확인하는 작업이 쉬워졌습니다!
 
-![image alt text](image_17.png)(w:262 h:200 convert:false) ![image alt text](image_18.png)(w:308 h:198 convert:false) ![image alt text](image_19.png)(w:310 h:198 convert:false)
+![image alt text](image_17.png)(w:262 convert:false) ![image alt text](image_18.png)(w:308 convert:false) ![image alt text](image_19.png)(w:310 convert:false)
 
 * **프리미티브 거리 정확도** - 실제 GPU 거리와 비교해서 스트리머가 계산한 뷰 메시 거리의 정확도를 나타냅니다. 스트리머는 시점에서부터 텍스처 인스턴스의 축 평행 바운딩 박스(AABB)까지 거리를 계산합니다. 이 바운딩 박스는 텍스처를 사용하는 컴포넌트 LOD 섹션 AABB 를 더하는 방식으로 빌드 프로세스에서 계산됩니다.
 
@@ -355,7 +355,7 @@ VR 에디터의 새로운 숫자 패드 UI 를 사용하여 텍스트 칸에 숫
 
 PlayStationⓇVR 의 언리얼 엔진 4 게임은 PlayStationⓇVR Aim Controller 지원을 통해 몰입도를 한층 강화시킬 수 있습니다.
 
-![image alt text](image_20.png)(w:429 h:285 convert:false)
+![image alt text](image_20.png)(w:429 convert:false)
 
 사용하려면 Motion Controller 컴포넌트의 Hand 값을 Gun 으로 바꿔주기만 하면 됩니다. PlayStationⓇVR Aim Controller 의 버튼은 Dual Shock 게임패드의 동일 버튼에 매핑됩니다.
 
@@ -363,7 +363,7 @@ PlayStationⓇVR 의 언리얼 엔진 4 게임은 PlayStationⓇVR Aim Controlle
 
 일반적인 연산에 머티리얼 함수나 커스텀 노드를 쓰지 않아도 될 수 있게끔 요청을 자주 받은 수학 머티리얼 노드를 몇 가지 추가했습니다.
 
-![image alt text](image_21.png)(w:546 h:308 convert:false)
+![image alt text](image_21.png)(w:546 convert:false)
 
 Fast 태그 마킹된 노드는 실제 인스트럭션 대신 추정식을 사용합니다. 복잡한 버전의 머티리얼에 비해 퍼포먼스가 향상되지만, 입력상의 제한이나 정밀도가 떨어지는 상쇄 효과가 있습니다.
 
@@ -442,7 +442,7 @@ Metal 지원에 이제 개발용으로 기본 켜지며 Xcode 와 별도로 실�
 
 시퀀서의 이벤트에 이제 데이터의 페이로드를 포함시켜, 시퀀스 재생에 대한 반응 방법 관련 보다 풍부한 맥락 정보를 가지고 이벤트를 발동시킬 수 있습니다. 페이로드가 있는 이벤트를 발동시키려면, 이벤트에 대한 파라미터를 정의하는 구조체를 만들고, 그것을 이벤트의 파라미터 구조체 프로퍼티에 적용합니다:
 
-![image alt text](image_22.jpg)(w:557 h:218 convert:false)
+![image alt text](image_22.jpg)(w:557 convert:false)
 
 이벤트는 지정된 파라마터 구조체가 대상 함수의 프로토타입과 비트 단위로 호환된다는 가정 하에, 이벤트 맥락에서 함수 호출 및 커스텀 이벤트 발동이 가능합니다.
 
@@ -488,7 +488,7 @@ Metal 지원에 이제 개발용으로 기본 켜지며 Xcode 와 별도로 실�
 블렌드스페이스 에디터의 모양이 바뀌고 작업방식이 개선되었습니다!
 
 [REGION:imagetable]
-| ![image alt text](image_23.jpg)(w:462 h:422 convert:false) | [INCLUDE:#BlendspacePreview] |
+| ![image alt text](image_23.jpg)(w:462 convert:false) | [INCLUDE:#BlendspacePreview] |
 | --- | --- |
 | | |
 [/REGION]
@@ -528,7 +528,7 @@ Metal 지원에 이제 개발용으로 기본 켜지며 Xcode 와 별도로 실�
 
 블루프린트에서 런타임 스켈레탈 메시 포즈를 캡처하여 애님 블루프린트에서 사용할 수 있는 기능을 추가했습니다!
 
-![image alt text](image_24.jpg)(w:929 h:524 convert:false)
+![image alt text](image_24.jpg)(w:929 convert:false)
 
 (래그돌 시뮬레이션 이후) 사망 포즈에서 get up (일어나기) 애니메이션으로 블렌딩할 때 유용하게 쓰일 수 있습니다. 포즈 스냅샷을 변수에 저장하여 나중에 스켈레탈 메시 컴포넌트와 사용할 수도 있습니다.
 
@@ -536,7 +536,7 @@ Metal 지원에 이제 개발용으로 기본 켜지며 Xcode 와 별도로 실�
 
 피직스 오브젝트에 관련된 질량 중심 및 관성 텐서를 시각화시키는 기능을 추가했습니다. 
 
-![image alt text](image_25.jpg)(w:868 h:338 convert:false)
+![image alt text](image_25.jpg)(w:868 convert:false)
 
 질량 프로퍼티 시각화는, 새로운 표시 플래그를 (**표시> 고급> 질량 프로퍼티**) 켜면 됩니다. 각 축의 두께는 해당 축의 관성 강도를 나타냅니다.
 
@@ -548,7 +548,7 @@ Metal 지원에 이제 개발용으로 기본 켜지며 Xcode 와 별도로 실�
 
 이제 애니메이션 그래프에서 임의 수학 로직을 사용하여 애니메이션 커브를 변경할 수 있습니다. 보다 역동적으로 구동되는 애니메이션이 가능합니다.
 
-![image alt text](image_26.png)(w:929 h:196 convert:false)
+![image alt text](image_26.png)(w:929 convert:false)
 
 새로운 Modify Curve 노드를 추가한 후 우클릭하여 변경하고자 하는 커브를 선택할 수 있습니다. 그러면 각 커브는 그 로직을 연결할 수 있는 float 입력 핀으로 나타납니다.
 
@@ -556,7 +556,7 @@ Metal 지원에 이제 개발용으로 기본 켜지며 Xcode 와 별도로 실�
 
 이제 새로운 Font Face (폰트 페이스) 애셋으로 폰트 애셋끼리 폰트 데이터를 공유시켜 메모리 사용량을 줄이고 안정성을 향상시킬 수 있습니다!
 
-![image alt text](image_27.png)(w:648 h:173 convert:false)
+![image alt text](image_27.png)(w:648 convert:false)
 
 폰트 페이스는 이제 폰트 데이터를 저장하는 애셋으로, 이 애셋은 단순히 폰트 애셋에 레퍼런싱됩니다. 즉 같은 폰트 데이터를 다수의 폰트 애셋, 심지어 하나의 폰트 애셋 내 다수의 타입 페이스에서도 재사용할 수 있다는 뜻입니다. 기존 폰트 애셋은 로드 도중 내부 폰트 데이터를 삽입된 폰트 페이스 애셋으로 자동 업그레이드합니다. 폰트 에디터를 사용하여 삽입된 애셋을 실제 폰트 페이스 애셋으로 분리시키고 나중에 편집 및 공유할 수도 있습니다.
 
@@ -566,7 +566,7 @@ Metal 지원에 이제 개발용으로 기본 켜지며 Xcode 와 별도로 실�
 
 ### 신기능: NVIDIA SLI 용 대체 프레임 렌더링(AFR) 지원
 
-![image alt text](image_28.png)(w:553 h:356 convert:false)
+![image alt text](image_28.png)(w:553 convert:false)
 
 이제 엔진에 Nvidia SLI 환경설정용 AFR 렌더링이 지원되어, 다수의 그래픽 카드가 감지되면 뛰어난 퍼포먼스를 낼 수 있습니다. 가장 큰 향상 부분은 렌더러가 GPU 사이 프레임간 종속성을 가급적 빨리 복사하는 데서 옵니다. 개발자는 NVIDIA 와의 협업을 통해 가능한 경우 AFR 로 자동 전환이 가능하도록 게임 테스트를 받아야 할 것입니다.
 
@@ -597,7 +597,7 @@ Metal 지원에 이제 개발용으로 기본 켜지며 Xcode 와 별도로 실�
 
 모바일 디바이스에서 이제 포스트 프로세싱 머티리얼의 Custom Stencil (커스텀 스텐실)을 사용할 수 있습니다. MobileHDR 옵션은 켜고 Mosaic 이외 디바이스가 필요합니다.
 
-![image alt text](image_29.jpg)(w:929 h:524 convert:false)
+![image alt text](image_29.jpg)(w:929 convert:false)
 
 프로젝트에서 이 기능을 켜려면, 프로젝트 세팅 -> 렌더링 -> 포스트 프로세싱에서 Custom Depth-Stencil Pass 를 Enabled with Stencil 로 설정하면 됩니다.
 
@@ -721,7 +721,7 @@ PhysX Vehicle 지원을 옵션 플러그인으로 이동시켰습니다! 비히�
 
 * Added extra information to log warning about using additive animations in Single Node Anim Instance.
 
-* Changed "Ensure All Indices Have Handles" to try and maintain validity of as many of the handles as possible to stop crash when calling “Get Key.”
+* Changed "Ensure All Indices Have Handles" to try and maintain validity of as many of the handles as possible to stop crash when calling "Get Key."
 
 * Morphtarget applying priority has changed.
 
@@ -1065,7 +1065,7 @@ PhysX Vehicle 지원을 옵션 플러그인으로 이동시켰습니다! 비히�
 
     * Option to toggle removing redundant keyframes from the recorded tracks. This is on by default.
 
-* New: Improved search for matching Material on FBX mesh import. Added a "Search Location" dropdown in the Material Import Options to control how the search will be performed. When an imported mesh references a Material, the importer will search for a Material with the same name in the assets folders. The search is performed in the following order based on the “Search Location” setting:
+* New: Improved search for matching Material on FBX mesh import. Added a "Search Location" dropdown in the Material Import Options to control how the search will be performed. When an imported mesh references a Material, the importer will search for a Material with the same name in the assets folders. The search is performed in the following order based on the "Search Location" setting:
 
     * "Local" option will behave as before with a non recursive search in the destination folder (e.g. in /Game/Content/Assets/MyImportFolder/ only).
 
@@ -1438,7 +1438,7 @@ BugFix: Fixed the offsets that were created when moving multiple sections. The o
 
 **Static Mesh Editor**
 
-* New: Static Mesh LODs can not be removed without having a reduction tool (such as Simplygon) configured for use in the editor. Use the "Remove LOD" button under each LOD section or adjust the “Number of LODs” slider and hit Apply.
+* New: Static Mesh LODs can not be removed without having a reduction tool (such as Simplygon) configured for use in the editor. Use the "Remove LOD" button under each LOD section or adjust the "Number of LODs" slider and hit Apply.
 
 * New: Added the possibility to copy/paste Material list, Material Item, Section List and Section Item to the Static Mesh Editor and Animation Tools Editors.
 
@@ -1626,7 +1626,7 @@ BugFix: Fixed the offsets that were created when moving multiple sections. The o
 
 * New: Added for video framebuffers with horizontal and vertical padding.
 
-* New: Added "On Get On Screen Messages” delegate to Core Delegates. This delegate can return severity-categorized text messages to be displayed on screen.
+* New: Added "On Get On Screen Messages" delegate to Core Delegates. This delegate can return severity-categorized text messages to be displayed on screen.
 
 * BugFix: Wmf Media: Fixed a crash when attempting to play or seek with an uninitialized Media Player.
 
@@ -2580,7 +2580,7 @@ Platform-specific release notes for PS4, XBoxOne, and Switch are available in th
 
 **Platforms**
 
-* New: Both RTTI and Exceptions can be enabled. The "Use RTTI" and “Enable Exceptions” flags, respectively, must be set to true in the Module.Build.cs file and in the build configuration file as well.
+* New: Both RTTI and Exceptions can be enabled. The "Use RTTI" and "Enable Exceptions" flags, respectively, must be set to true in the Module.Build.cs file and in the build configuration file as well.
 
 * Made a generalized "growable heap" allocator that had previously been copied and pasted between RHIs. This is a heap allocator that allocates in large chunks, and then suballocates from within (often with large alignment). Mainly meant for GPU resource memory allocations, but can be used in other circumstances. To use it, you simply implement four easy functions (for creating the memory and other reasons). Allows for more than just a raw pointer to be the result of an allocation.
 
@@ -2748,7 +2748,7 @@ Platform-specific release notes for PS4, XBoxOne, and Switch are available in th
 
 * Many deprecated collision functions have now been removed from KismetSystemLibrary, and the _NEW postfix has been removed.
 
-* Cooked PhysX convex element data is now in "body space" instead of “element space”. If you are directly accessing PhysX convex mesh data, you may need to take that into account.
+* Cooked PhysX convex element data is now in "body space" instead of "element space". If you are directly accessing PhysX convex mesh data, you may need to take that into account.
 
 * Any simulated body with attached kinematic bodies that have different physical materials, or mass overrides, will now have a correct mass distribution.
 

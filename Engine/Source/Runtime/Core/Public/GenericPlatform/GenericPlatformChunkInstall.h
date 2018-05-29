@@ -78,6 +78,16 @@ DECLARE_DELEGATE_OneParam(FPlatformChunkInstallCompleteDelegate, uint32);
 DECLARE_DELEGATE_TwoParams(FPlatformChunkInstallDelegate, uint32, bool);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FPlatformChunkInstallMultiDelegate, uint32, bool);
 
+struct FChunkTagID
+{
+	FString ChunkTag;
+	uint32	ChunkID;
+
+	FChunkTagID(FString InTag, uint32 InID) :
+		ChunkTag(InTag), ChunkID(InID)
+	{}
+};
+
 /**
 * Interface for platform specific chunk based install
 **/
@@ -155,6 +165,30 @@ public:
 
 	DEPRECATED(4.18, "Call RemoveChunkInstallDelegate instead")
 	virtual void RemoveChunkInstallDelgate( uint32 ChunkID, FDelegateHandle Delegate ) = 0;
+
+	/**
+	* Check whether current platform supports intelligent chunk installation
+	* @return				whether Intelligent Install is supported
+	*/
+	virtual bool SupportsIntelligentInstall() = 0;
+
+	/**
+	* Check whether installation of chunks are pending
+	* @return				whether installation task has been kicked
+	*/
+	virtual bool IsChunkInstallationPending(const TArray<FChunkTagID> ChunkTagsID) = 0;
+
+	/**
+	* Install chunks with Intelligent Delivery API
+	* @return				whether installation task has been kicked
+	*/
+	virtual bool InstallChunks(const TArray<FChunkTagID> ChunkTagsID) = 0;
+
+	/**
+	* Uninstall chunks with Intelligent Delivery API
+	* @return				whether uninstallation task has been kicked
+	*/
+	virtual bool UninstallChunks(const TArray<FChunkTagID> ChunkTagsID) = 0;
 };
 
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
@@ -226,6 +260,26 @@ public:
 	virtual void RemoveChunkInstallDelgate(uint32 ChunkID, FDelegateHandle Delegate) override
 	{
 		return;
+	}
+
+	virtual bool SupportsIntelligentInstall() override
+	{
+		return false;
+	}
+
+	virtual bool IsChunkInstallationPending(const TArray<FChunkTagID> ChunkTags) override
+	{
+		return false;
+	}
+
+	virtual bool InstallChunks(const TArray<FChunkTagID> ChunkTagIDs) override
+	{
+		return false;
+	}
+
+	virtual bool UninstallChunks(const TArray<FChunkTagID> ChunkTagsID) override
+	{
+		return false;
 	}
 
 protected:

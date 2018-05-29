@@ -63,7 +63,7 @@ On a Mac, after enabling Secondary click  in **System Preference** -> **Mouse** 
 | **RMB + Drag** | **2 Finger Click + Drag** | Rotates the viewport camera. |
 | **1 Finger Touch + Drag** | **2 Finger Touch + Drag** | Rotates the viewport camera.  |
 | [REGION:tablesection]Orthographic (Top, Front, Side)[/REGION] |||
-| **LMB + Drag** | **1 Finger Click + Drag ** | Creates a marquee selection box. |
+| **LMB + Drag** | **1 Finger Click + Drag** | Creates a marquee selection box. |
 | **RMB + Drag** | **2 Finger Click + Drag** | Pans the viewport camera. |
 | **1 Finger Touch + Drag** | **2 Finger Touch + Drag** | Pans the viewport camera. |
 | [REGION:tablesection]Focusing[/REGION] |||

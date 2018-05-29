@@ -1,12 +1,26 @@
 #!/bin/sh
 
-# Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+# Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-../../../../../../Extras/ThirdPartyNotUE/CMake/bin/cmake -G Xcode -DSOCKET_IMPL=../../src/sock.c -DDISABLE_TLS=0 -DOPENSSL_PATH=../../../OpenSSL/1_0_1s/include/IOS -DCMAKE_CXX_FLAGS_DEBUG="-O0 -DXML_STATIC" -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DXML_STATIC" ..
+SCRIPT_DIR=$(cd $(dirname $0) && pwd)
 
-echo
-echo
-echo You will now need to convert the Xcode project to use iOS SDK instead of Mac, then build it!
-echo
-echo
+BUILD_DIR="${SCRIPT_DIR}/../../IOS/Build"
 
+if [ -d "${BUILD_DIR}" ]; then
+	rm -rf "${BUILD_DIR}"
+fi
+mkdir -pv "${BUILD_DIR}"
+
+cd "${BUILD_DIR}"
+../../../../../../Extras/ThirdPartyNotUE/CMake/bin/cmake -G "Xcode" -DSOCKET_IMPL=../../src/sock.c -DDISABLE_TLS=0 -DOPENSSL_PATH=../../../OpenSSL/1_0_1s/include/IOS -DCMAKE_XCODE_ATTRIBUTE_SDKROOT=iphoneos -DCMAKE_XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET=8.0 -DCMAKE_XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH=NO -DCMAKE_XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY=1,2 "${SCRIPT_DIR}/../../BuildForUE"
+
+function build()
+{
+	CONFIGURATION=$1
+	xcodebuild -project libstrophe.xcodeproj -configuration $CONFIGURATION -destination generic/platform=iOS
+}
+
+build Release
+build Debug
+cd "${SCRIPT_DIR}"
+rm -rf "${BUILD_DIR}"

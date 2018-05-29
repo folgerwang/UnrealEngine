@@ -678,7 +678,7 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 
 	if ( InProfile->IsIterateSharedCookedBuild() )
 	{
-		UATCommand += TEXT(" -iteratesharedcookedbuild");
+		UATCommand += TEXT(" -iteratesharedcookedbuild=usesyncedbuild");
 	}
 
 	if (InProfile->GetSkipCookingEditorContent())

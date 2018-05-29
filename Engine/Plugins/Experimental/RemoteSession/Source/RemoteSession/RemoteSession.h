@@ -6,6 +6,7 @@
 #include "Modules/ModuleManager.h"
 #include "RemoteSessionRole.h"
 
+#define REMOTE_SESSION_VERSION_STRING TEXT("1.0.4")
 
 REMOTESESSION_API DECLARE_LOG_CATEGORY_EXTERN(LogRemoteSession, Log, All);
 
@@ -22,23 +23,26 @@ public:
 
 	enum
 	{
-		kDefaultPort = 2049
+		kDefaultPort = 2049,
 	};
 
 public:
 	/** Client implementation */
+	
+	/** Returns a reference to the client role (if any) */
+	virtual TSharedPtr<IRemoteSessionRole>		CreateClient(const TCHAR* RemoteAddress) = 0;
 
 	/** Initialize a client that will attempt to connect to the provided address */
-	virtual void InitClient(const TCHAR* RemoteAddress) = 0;
+	//virtual void InitClient(const TCHAR* RemoteAddress) = 0;
 
 	/** Returns true/false based on the connection state of the client */
-	virtual bool IsClientConnected() const = 0;
+	//virtual bool IsClientConnected() const = 0;
 
-	/** Stops the client. After this InitClient() must be called if a new connection is desired */
-	virtual void StopClient() = 0;
+	/** Stops the client. After this CreateClient() must be called if a new connection is desired */
+	virtual void StopClient(TSharedPtr<IRemoteSessionRole> InClient) = 0;
 
 	/** Returns a reference to the client role (if any) */
-	virtual TSharedPtr<IRemoteSessionRole>		GetClient() const = 0;
+	//virtual TSharedPtr<IRemoteSessionRole>		GetClient() const = 0;
 
 public:
 	/** Server implementation */

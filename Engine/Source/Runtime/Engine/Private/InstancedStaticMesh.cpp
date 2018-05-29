@@ -57,6 +57,8 @@ FInstanceUpdateCmdBuffer::FInstanceUpdateCmdBuffer()
 
 void FInstanceUpdateCmdBuffer::HideInstance(int32 RenderIndex)
 {
+	check(RenderIndex >= 0);
+
 	FInstanceUpdateCommand& Cmd = Cmds.AddDefaulted_GetRef();
 	Cmd.InstanceIndex = RenderIndex;
 	Cmd.Type = FInstanceUpdateCmdBuffer::Hide;
@@ -64,23 +66,23 @@ void FInstanceUpdateCmdBuffer::HideInstance(int32 RenderIndex)
 	Edit();
 }
 
-void FInstanceUpdateCmdBuffer::AddInstance(int32 RenderIndex, const FMatrix& InXForm)
+void FInstanceUpdateCmdBuffer::AddInstance(const FMatrix& InTransform)
 {
 	FInstanceUpdateCommand& Cmd = Cmds.AddDefaulted_GetRef();
-	Cmd.InstanceIndex = RenderIndex;
+	Cmd.InstanceIndex = INDEX_NONE;
 	Cmd.Type = FInstanceUpdateCmdBuffer::Add;
-	Cmd.XForm = InXForm;
+	Cmd.XForm = InTransform;
 
 	NumAdds++;
 	Edit();
 }
 
-void FInstanceUpdateCmdBuffer::UpdateInstance(int32 RenderIndex, const FMatrix& InXForm)
+void FInstanceUpdateCmdBuffer::UpdateInstance(int32 RenderIndex, const FMatrix& InTransform)
 {
 	FInstanceUpdateCommand& Cmd = Cmds.AddDefaulted_GetRef();
 	Cmd.InstanceIndex = RenderIndex;
 	Cmd.Type = FInstanceUpdateCmdBuffer::Update;
-	Cmd.XForm = InXForm;
+	Cmd.XForm = InTransform;
 
 	Edit();
 }
@@ -168,6 +170,7 @@ void FStaticMeshInstanceBuffer::UpdateFromCommandBuffer_Concurrent(FInstanceUpda
 	
 	// leave NumEdits unchanged in commandbuffer
 	CmdBuffer.NumEdits = NewCmdBuffer->NumEdits; 
+	CmdBuffer.ResetInlineCommands();
 		
 	ENQUEUE_RENDER_COMMAND(InstanceBuffer_UpdateFromPreallocatedData)(
 		[InstanceBuffer, NewCmdBuffer](FRHICommandListImmediate& RHICmdList)
@@ -189,7 +192,7 @@ void FStaticMeshInstanceBuffer::UpdateFromCommandBuffer_RenderThread(FInstanceUp
 	{
 		AddIndex = InstanceData->GetNumInstances();
 		int32 NewNumInstances = NumAdds + InstanceData->GetNumInstances();
-		InstanceData->AllocateInstances(NewNumInstances, false);
+		InstanceData->AllocateInstances(NewNumInstances, GIsEditor ? EResizeBufferFlags::AllowSlackOnGrow | EResizeBufferFlags::AllowSlackOnReduce : EResizeBufferFlags::None, false); // In Editor always permit overallocation, to prevent too much realloc
 	}
 
 	for (int32 i = 0; i < NumCommands; ++i)
@@ -997,7 +1000,7 @@ void UInstancedStaticMeshComponent::BuildRenderData(FStaticMeshInstanceData& Out
 		return;
 	}
 	
-	OutData.AllocateInstances(NumInstances, true);
+	OutData.AllocateInstances(NumInstances, GIsEditor ? EResizeBufferFlags::AllowSlackOnGrow | EResizeBufferFlags::AllowSlackOnReduce : EResizeBufferFlags::None, true); // In Editor always permit overallocation, to prevent too much realloc
 
 	const FMeshMapBuildData* MeshMapBuildData = nullptr;
 	if (LODData.Num() > 0)
@@ -1535,9 +1538,52 @@ void UInstancedStaticMeshComponent::SerializeRenderData(FArchive& Ar)
 			if (PerInstanceRenderData.IsValid())
 			{
 				FStaticMeshInstanceData* InstanceData = PerInstanceRenderData->InstanceBuffer.GetInstanceData();
+
 				if (InstanceData && InstanceData->GetNumInstances() > 0)
 				{
+					int32 NumInstances = InstanceData->GetNumInstances();
+
+					// Clear editor data for the cooked data
+					for (int32 Index = 0; Index < NumInstances; ++Index)
+					{
+						int32 RenderIndex = InstanceReorderTable.IsValidIndex(Index) ? InstanceReorderTable[Index] : Index;
+						if (RenderIndex == INDEX_NONE)
+						{
+							// could be skipped by density settings
+							continue;
+						}
+
+						InstanceData->ClearInstanceEditorData(RenderIndex);
+					}
+
 					InstanceData->Serialize(Ar);
+
+#if WITH_EDITOR
+					// Restore back the state we were in
+					TArray<TRefCountPtr<HHitProxy>> HitProxies;
+					CreateHitProxyData(HitProxies);
+
+					for (int32 Index = 0; Index < NumInstances; ++Index)
+					{
+						int32 RenderIndex = InstanceReorderTable.IsValidIndex(Index) ? InstanceReorderTable[Index] : Index;
+						if (RenderIndex == INDEX_NONE)
+						{
+							// could be skipped by density settings
+							continue;
+						}
+
+						// Record if the instance is selected
+						FColor HitProxyColor(ForceInit);
+						bool bSelected = SelectedInstances.IsValidIndex(Index) && SelectedInstances[Index];
+
+						if (HitProxies.IsValidIndex(Index))
+						{
+							HitProxyColor = HitProxies[Index]->Id.GetColor();
+						}
+
+						InstanceData->SetInstanceEditorData(RenderIndex, HitProxyColor, bSelected);
+					}
+#endif					
 				}
 			}
 
@@ -1556,10 +1602,11 @@ void UInstancedStaticMeshComponent::Serialize(FArchive& Ar)
 	Super::Serialize(Ar);
 
 	Ar.UsingCustomVersion(FMobileObjectVersion::GUID);
-	Ar.UsingCustomVersion(FEditorObjectVersion::GUID);
+	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+	Ar.UsingCustomVersion(FEditorObjectVersion::GUID);	
 	
 	bool bCooked = Ar.IsCooking();
-	if (Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::SerializeInstancedStaticMeshRenderData)
+	if (Ar.CustomVer(FAthenaObjectVersion::GUID) >= FAthenaObjectVersion::SerializeInstancedStaticMeshRenderData || Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::SerializeInstancedStaticMeshRenderData)
 	{
 		Ar << bCooked;
 	}
@@ -1580,7 +1627,7 @@ void UInstancedStaticMeshComponent::Serialize(FArchive& Ar)
 		PerInstanceSMData.BulkSerialize(Ar);
 	}
 
-	if (bCooked && Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::SerializeInstancedStaticMeshRenderData)
+	if (bCooked && (Ar.CustomVer(FAthenaObjectVersion::GUID) >= FAthenaObjectVersion::SerializeInstancedStaticMeshRenderData || Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::SerializeInstancedStaticMeshRenderData))
 	{
 		SerializeRenderData(Ar);
 	}
@@ -1591,6 +1638,11 @@ void UInstancedStaticMeshComponent::Serialize(FArchive& Ar)
 		Ar << SelectedInstances;
 	}
 #endif
+}
+
+void UInstancedStaticMeshComponent::PreAllocateInstancesMemory(int32 AddedInstanceCount)
+{
+	PerInstanceSMData.Reserve(PerInstanceSMData.Num() + AddedInstanceCount);
 }
 
 int32 UInstancedStaticMeshComponent::AddInstanceInternal(int32 InstanceIndex, FInstancedStaticMeshInstanceData* InNewInstanceData, const FTransform& InstanceTransform)
@@ -2017,7 +2069,7 @@ void UInstancedStaticMeshComponent::OnComponentCreated()
 
 	if (FApp::CanEverRender() && !HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))
 	{
-		InitPerInstanceRenderData(PerInstanceSMData.Num() > 0);
+		InitPerInstanceRenderData(false);
 	}
 }
 
@@ -2179,7 +2231,7 @@ void UInstancedStaticMeshComponent::PostEditChangeChainProperty(FPropertyChanged
 			{
 				ClearInstances();
 			}
-
+			
 			MarkRenderStateDirty();
 		}
 		else if (PropertyChangedEvent.Property->GetFName() == "Transform")

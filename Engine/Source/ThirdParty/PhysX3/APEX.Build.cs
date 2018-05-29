@@ -29,8 +29,9 @@ public class APEX : ModuleRules
                     return APEXLibraryMode.Checked;
                 }
 			case UnrealTargetConfiguration.Shipping:
-			case UnrealTargetConfiguration.Test:
 				return APEXLibraryMode.Shipping;
+			case UnrealTargetConfiguration.Test:
+				return APEXLibraryMode.Profile;
 			case UnrealTargetConfiguration.Development:
 			case UnrealTargetConfiguration.DebugGame:
 			case UnrealTargetConfiguration.Unknown:

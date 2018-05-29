@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2514961
+﻿INTSourceChangelist:3108692
 Availability:Public
 Title:ブループリントにおける Flipbook コンポーネント
 Crumbs: %ROOT%, Engine, Engine/Paper2D, Engine/Paper2D/Flipbooks, Engine\Paper2D\Flipbooks\Components
@@ -7,6 +7,8 @@ Related:Engine/Paper2D/Flipbooks
 Related:Engine/Paper2D/Sprites
 Related:Engine/Paper2D
 Related:Engine/Blueprints
+Version:4.9
+SkillLevel:Beginner
 
 [REGION:banner]
 ![](Components_Banner.png)
@@ -14,11 +16,9 @@ Related:Engine/Blueprints
 
 [TOC (start:2 end:2)]
 
-## 概要
+**ブループリント** での Flipbook コンポーネント を使った作業は、ブループリントの他の [コンポーネント](Engine/Blueprints/UserGuide/Components) を使った場合と非常に似ています。ブループリントに Flipbook コンポーネントを追加すると、使用する Source Flipbook アセットの指定、フリップブックの Play Rate の定義、 Transforming などのすべてのコンポーネントで利用できる標準オプションに加えて、使用する スプライト カラー の調整ができるようになります。 
 
-**ブループリント** での **Flipbook コンポーネント** を使った作業は、ブループリントの他の [コンポーネント](Engine/Blueprints/UserGuide/Components) を使った場合と非常に似ています。ブループリントに Flipbook コンポーネントを追加すると、使用する **Source Flipbook** アセットの指定、フリップブックの **Play Rate** の定義、 **Transforming** などのすべてのコンポーネントで利用できる標準オプションに加えて、使用する **スプライト カラー** の調整ができるようになります。 
-
-[[Graph](Engine/Blueprints/UserGuide/Graphs) タブにおいて、Flipbook コンポーネントのプロパティをスクリプトによって直接使って編集することができます。編集には、再生レート、再生、停止、逆再生の調整、およびソース フリップブックを異なるフリップブック アセットへの変更 (キャラクターのフリップブック アニメーションの切り替えなどに便利です) までもが含まれます。 
+[Graph](Engine/Blueprints/UserGuide/Graphs) タブにおいて、Flipbook コンポーネントのプロパティをスクリプトによって直接使って編集することができます。編集には、再生レート、再生、停止、逆再生の調整、およびソース フリップブックを異なるフリップブック アセットへの変更 (キャラクターのフリップブック アニメーションの切り替えなどに便利です) までもが含まれます。 
 
 本ページでは、ブループリントにおける Flipbook コンポーネントの追加、利用、変更の方法について説明します。フリップブック自体に関する詳細は、 [](Engine\Paper2D\Flipbooks) ドキュメントを参照してください。 
 
@@ -26,7 +26,7 @@ Related:Engine/Blueprints
 
 ブループリントの **[Components]** ウィンドウから Flipbook コンポーネントを追加することができます。 
 
-1. ブループリントで、[Components] ウィンドウから **[Add Component]** ボタンをクリックして、 **Paper Flipbook** を検索して追加します。 
+1. ブループリントで、**[Components]** ウィンドウから **[Add Component]** ボタンを **クリック** して、**Paper Flipbook** を検索して追加します。 
 
 	![](Components1.png)	
 
@@ -34,7 +34,7 @@ Related:Engine/Blueprints
 
 	![](Components2.png)
 
-	**[Details]** パネルの Flipbook コンポーネントの **Properties** の調整ができるようになります。 
+	[Details] パネルの Flipbook コンポーネントの **Properties** の調整ができるようになります。 
 
 **Blueprint/Add Script** オプションを使っても、 Flipbook コンポーネントをブループリントに追加することができます。 
 
@@ -90,11 +90,11 @@ Flipbook コンポーネントを使い始める準備ができたら、 **[Grap
 
 ![](MyBlueprint1.png)
 
-Flipbook コンポーネントを利用もしくは影響させるには、 **Ctrl** を押して Flipbook コンポーネントをグラフにドラッグ＆ドロップする必要があります。 
+Flipbook コンポーネントを利用もしくは影響させるには、 **Ctrl** を押して Flipbook コンポーネントをグラフに **ドラッグ＆ドロップ** する必要があります。 
 
 ![](Graph1.png)
 
-それを引き出した地点で Flipbook コンポーネントを **Get** し、イベントまたは関数を呼び出します。 
+それを引き出した地点で Flipbook コンポーネントを Get し、イベントまたは関数を呼び出します。 
 
 ![](Graph2.png)(w:600)
 
@@ -118,7 +118,7 @@ Flipbook コンポーネントを利用もしくは影響させるには、 **Ct
 Flipbook コンポーネントの **Mobility** プロパティが **Moveable** に設定されて、アクタの構築中に呼び出された場合のみ機能します。
 [/REGION]
 
-この例では、プレイヤー キャラクターが移動を行うと、 **Update Animation** という Custom Event が呼び出されます。 
+この例では、プレイヤー キャラクターが移動を行うと、 **Update Animation** というカスタム イベントが呼び出されます。 
 
 ![](Animation1.png)
 
@@ -128,7 +128,17 @@ Flipbook コンポーネントの **Mobility** プロパティが **Moveable** �
 
 その結果、以下のように Flipbooks アニメーション間で切り替わります。 
 
-![](Example1GIF.gif)(convert:false)
+[OBJECT:EmbeddedVideo]
+[PARAMLITERAL:width]
+640
+[/PARAMLITERAL]
+[PARAMLITERAL:height]
+360
+[/PARAMLITERAL]
+[PARAMLITERAL:videoid]
+o_8NIonUIEk
+[/PARAMLITERAL]
+[/OBJECT]
 
 [REGION:note]
 **New Project** の [プロジェクト ブラウザ](Engine/Basics/Projects/Browser) にある **2D Side Scroller** プロジェクト テンプレートでもこの例を見ることができます。 
@@ -144,7 +154,22 @@ Flipbook コンポーネントの **Mobility** プロパティが **Moveable** �
 
 結果、シフトを押せばキャラクターの移動は (Flipbook の速度に合わせて) 速くなります。 
 
-![](Example2GIF.gif)(convert:false)
+[OBJECT:EmbeddedVideo]
+[PARAMLITERAL:width]
+640
+[/PARAMLITERAL]
+[PARAMLITERAL:height]
+360
+[/PARAMLITERAL]
+[PARAMLITERAL:videoid]
+I9Cg9agS12o
+[/PARAMLITERAL]
+[/OBJECT]
+
+
+
+
+
 
 
 

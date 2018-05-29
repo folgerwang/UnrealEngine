@@ -73,6 +73,8 @@ namespace nvidia
 #endif // WITH_APEX
 
 struct FConstraintInstance;
+struct FContactModifyCallback;
+struct FPhysXMbpBroadphaseCallback;
 class UPhysicsAsset;
 
 
@@ -185,6 +187,8 @@ namespace PhysCommand
 		ReleasePScene,
 		DeleteCPUDispatcher,
 		DeleteSimEventCallback,
+		DeleteContactModifyCallback,
+		DeleteMbpBroadphaseCallback,
 		Max
 	};
 }
@@ -207,7 +211,9 @@ public:
 
 #if WITH_PHYSX
 	void ENGINE_API DeferredRelease(physx::PxScene * PScene);
-	void ENGINE_API DeferredDeleteSimEventCallback(physx::PxSimulationEventCallback * SimEventCallback);
+	void ENGINE_API DeferredDeleteSimEventCallback(physx::PxSimulationEventCallback* SimEventCallback);
+	void ENGINE_API DeferredDeleteContactModifyCallback(FContactModifyCallback* ContactModifyCallback);
+	void ENGINE_API DeferredDeleteMbpBroadphaseCallback(FPhysXMbpBroadphaseCallback* MbpCallback);
 	void ENGINE_API DeferredDeleteCPUDispathcer(physx::PxCpuDispatcher * CPUDispatcher);
 #endif
 	
@@ -223,9 +229,11 @@ private:
 			apex::DestructibleActor * DestructibleActor;
 #endif
 #if WITH_PHYSX
-			physx::PxScene * PScene;
-			physx::PxCpuDispatcher * CPUDispatcher;
-			physx::PxSimulationEventCallback * SimEventCallback;
+			physx::PxScene* PScene;
+			physx::PxCpuDispatcher* CPUDispatcher;
+			physx::PxSimulationEventCallback* SimEventCallback;
+			FContactModifyCallback* ContactModifyCallback;
+			FPhysXMbpBroadphaseCallback* MbpCallback;
 #endif
 		} Pointer;
 
@@ -275,6 +283,14 @@ public:
 	virtual physx::PxSimulationEventCallback* Create(class FPhysScene* PhysScene, int32 SceneType) = 0;
 	virtual void Destroy(physx::PxSimulationEventCallback* Callback) = 0;
 };
+
+/** Interface for the creation of contact modify callbacks. */
+class IContactModifyCallbackFactory
+{
+public:
+	virtual FContactModifyCallback* Create(class FPhysScene* PhysScene, int32 SceneType) = 0;
+	virtual void Destroy(FContactModifyCallback* Callback) = 0;
+};
 #endif // WITH PHYSX
 
 class FPhysicsReplication;
@@ -317,6 +333,9 @@ public:
 
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnPhysSceneStep, FPhysScene*, uint32 /*SceneType*/, float /*DeltaSeconds*/);
 	FOnPhysSceneStep OnPhysSceneStep;
+
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPhysScenePostTick, FPhysScene*, uint32 /*SceneType*/);
+	FOnPhysScenePostTick OnPhysScenePostTick;
 
 
 
@@ -459,6 +478,8 @@ private:
 	class PxCpuDispatcher*			CPUDispatcher[PST_MAX];
 	/** Simulation event callback object */
 	physx::PxSimulationEventCallback*			SimEventCallback[PST_MAX];
+	FContactModifyCallback*			ContactModifyCallback[PST_MAX];
+	FPhysXMbpBroadphaseCallback* MbpBroadphaseCallbacks[PST_MAX];
 
 	struct FPendingCollisionData
 	{
@@ -483,6 +504,9 @@ public:
 	/** Static factory used to override the simulation event callback from other modules.
 	If not set it defaults to using FPhysXSimEventCallback. */
 	ENGINE_API static TSharedPtr<ISimEventCallbackFactory> SimEventCallbackFactory;
+
+	/** Static factory used to override the simulation contact modify callback from other modules.*/
+	ENGINE_API static TSharedPtr<IContactModifyCallbackFactory> ContactModifyCallbackFactory;
 
 
 	/** Utility for looking up the PxScene of the given EPhysicsSceneType associated with this FPhysScene.  SceneType must be in the range [0,PST_MAX). */
@@ -676,7 +700,7 @@ private:
 **/
 FORCEINLINE bool PhysSingleThreadedMode()
 {
-	if (IsRunningDedicatedServer() || FPlatformMisc::NumberOfCores() < 3 || !FPlatformProcess::SupportsMultithreading() || FParse::Param(FCommandLine::Get(), TEXT("SingleThreadedPhysics")))
+	if (IsRunningDedicatedServer() || !FApp::ShouldUseThreadingForPerformance() || FPlatformMisc::NumberOfCores() < 3 || !FPlatformProcess::SupportsMultithreading() || FParse::Param(FCommandLine::Get(), TEXT("SingleThreadedPhysics")))
 	{
 		return true;
 	}

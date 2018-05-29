@@ -97,6 +97,7 @@ private:
 	void HandleSelectionChanged(const TArrayView<TSharedPtr<ISkeletonTreeItem>>& InSelectedItems, ESelectInfo::Type InSelectInfo);
 
 	void HandleReimportMesh();
+	void HandleReimportAllMesh();
 
 	/** Callback for toggling UV drawing in the viewport */
 	void ToggleMeshSectionSelection();

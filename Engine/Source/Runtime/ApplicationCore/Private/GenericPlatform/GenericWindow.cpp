@@ -161,6 +161,10 @@ const FGenericWindowDefinition& FGenericWindow::GetDefinition() const
 	return *Definition.Get();
 }
 
+bool FGenericWindow::IsDefinitionValid() const
+{
+	return Definition.IsValid();
+}
 
 void FGenericWindow::AdjustCachedSize( FVector2D& Size ) const
 {

@@ -436,10 +436,11 @@ public:
 	 * @param	Parent		Parent object to load into, can be NULL (most likely case)
 	 * @param	Filename	Name of file on disk to load
 	 * @param	LoadFlags	Load flags determining behavior
+	 * @param InLoader	Loader archive override
 	 *
 	 * @return	new FLinkerLoad object for Parent/ Filename
 	 */
-	COREUOBJECT_API static FLinkerLoad* CreateLinker( UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags);
+	COREUOBJECT_API static FLinkerLoad* CreateLinker(UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags, FArchive* InLoader = nullptr);
 
 	void Verify();
 
@@ -772,6 +773,9 @@ private:
 	FORCEINLINE virtual void Serialize(void* V, int64 Length) override
 	{
 		checkSlow(FPlatformTLS::GetCurrentThreadId() == OwnerThread);
+#if WITH_EDITOR
+		Loader->SetSerializedProperty(GetSerializedProperty());
+#endif
 		Loader->Serialize(V, Length);
 	}
 	using FArchiveUObject::operator<<; // For visibility of the overloads we don't override
@@ -919,6 +923,9 @@ private:
 	ELinkerStatus SerializeDependsMap();
 
 	ELinkerStatus SerializePreloadDependencies();
+
+	/** Sets the basic linker archive info */
+	void ResetStatusInfo();
 
 public:
 	/**

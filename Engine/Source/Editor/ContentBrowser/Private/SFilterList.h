@@ -74,6 +74,7 @@ public:
 
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent );
 
+	const TArray<UClass*>& GetInitialClassFilters();
 private:
 	/** Sets the active state of a frontend filter. */
 	void SetFrontendFilterActive(const TSharedRef<FFrontendFilter>& Filter, bool bActive);

@@ -1,23 +1,32 @@
-﻿INTSourceChangelist:3688188
-Title:メタデータ指定子
-Crumbs:%ROOT%, Programming, Programming/UnrealArchitecture/Reference
-Description:エンジンおよびエディタの様々な側面での動作を指定するためにクラス、関数、インターフェースを宣言する場合に使用するメタデータ キーワード
+﻿INTSourceChangelist:3782314
 Availability:Public
-Version:4.9
+Title:メタデータ指定子
+Crumbs:%ROOT%
+Description:エンジンおよびエディタの様々な側面での動作を指定するために UClasses、 UFunctions、UProperties、 UEnums、および UInterfaces を宣言する場合に使用するメタデータ キーワード
+type:reference
+Version:4.18
+parent:Programming/UnrealArchitecture/Reference
+order:0
+tags:UCLASS
+tags:UENUM
+tags:UFUNCTION
+tags:UINTERFACE
+tags:UPROPERTY
+tags:Specifiers
+tags:Metadata
+topic-image:components_topic.png
 
-クラス、関数、インターフェースを宣言する場合に、メタデータ指定子を宣言に追加して、エンジンおよびエディタの各部での動作を
-制御することができます。
+クラス、列挙型変数、列挙型変数の値、関数、構造体、プロパティ、インターフェースを宣言するときに、**メタデータ指定子** を宣言に追加して、エンジンやエディタの様々な側面でどのように動作するかを制御することができます。
 
 [EXCERPT:MetadataUsage]
 メタデータ指定子の使用方法は一般的なクラス、関数、インターフェースでは異なります。
 [/EXCERPT:MetadataUsage]
 
-クラス、インターフェース、関数、プロパティを宣言するときに、エンジンやエディタの様々な側面の動作についての宣言に指定子を追加することができます。メタデータ指定子を使うには、以下のように `UCLASS`、`UINTERFACE`、または `UFUNCTION` のマクロで `meta` という言葉を使用します。
+クラス、インターフェース、関数、プロパティを宣言するときに、エンジンやエディタの様々な動作についての宣言に指定子を追加することができます。メタデータ指定子を使うには、以下のように `UCLASS`、`UINTERFACE`、または `UFUNCTION` のマクロで `meta` という言葉を使用します。
 
     {UCLASS/UINTERFACE/USTRUCT/UFUNCTION/UPROPERTY}(meta=(MetaTag1="Value1", MetaTag2, ..))
 
 [REGION:Note]メタデータは、エディタのビルド実行時に C++ コードによってアクセス可能ですが、出荷される製品には存在しません。ゲーム ロジックではメタデータは使わないようにします。[/REGION]
-
 
 ## クラス メタデータ指定子
 
@@ -35,7 +44,7 @@ Version:4.9
 | `DisplayName="Blueprint Node Name"` | ブループリント内のこのノード名は、コードが生成する名前の代わりにここで指定する値で置き換えられます。 |
 | `DontUseGenericSpawnObject` | ブループリントで Generic Create Object ノードを使用するクラスのオブジェクトをスポーンしないでください。この指定子は、アクタでも Actor コンポーネントでもない BluprintType クラスの場合に限り、有用です。 |
 | `ExposedAsyncProxy` | **Async Task** ノードでこのクラスのプロキシ オブジェクトを公開します。 |
-| `IgnoreCategoryKeywordsInSubclasses` | クラスの最初のサブクラスが継承されるすべての `ShowCategories` と `HideCategories` の指定子を無視するようにします。. |
+| `IgnoreCategoryKeywordsInSubclasses` | クラスの最初のサブクラスが継承されるすべての `ShowCategories` と `HideCategories` の指定子を無視するようにします。 |
 | `IsBlueprintBase="true/false"` | このクラスがブループリントを作成するために使用可能 (または使用不可) の基本クラスであることを示します。 `UCLASS` の指定子、 `Blueprintable` や `NotBlueprintable` と同様です。 |
 | `KismetHideOverrides="Event1, Event2, .."` | オーバーライドできないブループリントのイベント リストです。 |
 | `ProhibitedInterfaces="Interface1, Interface2, .."` | クラスと互換性がないインターフェースのリストです。 |
@@ -48,13 +57,15 @@ Version:4.9
 [/EXCERPT:ClassMetadata]
 
 
+## 列挙型変数値のメタデータ指定子
+
 ## インターフェース メタデータ指定子
 [EXCERPT:InterfaceMetadata]
 インターフェースは以下のメタタグ指定子を使用することができます。
 
 | インターフェース メタ タグ | 効果 |
 | --- | --- |
-| `CannotImplementInterfaceInBlueprint` | このインターフェースは **ブループリント** で実装することはできません (例えば、公開されない C++ メンバ メソッドのみを持ちます)。[`BlueprintImplementableEvent` または `BlueprintNativeEvent`](Programming/UnrealArchitecture/Reference/Functions/Specifiers) ではない関数を定義するインターフェースは、`CannotImplementInterfaceInBlueprint` として宣言しなければなりません |
+| `CannotImplementInterfaceInBlueprint` | このインターフェースは ブループリント で実装することはできません (例えば、公開されない C++ メンバ メソッドのみを持ちます)。[`BlueprintImplementableEvent` または `BlueprintNativeEvent`](Programming/UnrealArchitecture/Reference/Functions/Specifiers) ではない関数を定義するインターフェースは、`CannotImplementInterfaceInBlueprint` として宣言しなければなりません |
 
 [/EXCERPT:InterfaceMetadata]
 
@@ -95,9 +106,12 @@ Version:4.9
 | `DefaultToSelf` | `BlueprintCallable` 関数では、オブジェクトのプロパティの名前付けしたデフォルト値は、ノードの self コンテキストになります。 |
 | `DeprecatedFunction` | ブループリントでこの関数を参照すると、関数が非推奨であることを示すコンパイルに関する警告が出ます。`DeprecationMessage` メタデータ指定子を使って非推奨の警告メッセージに追加することができます (例、非推奨の関数を置き換える旨の指示を表示)。 |
 | `DeprecationMessage`="Message Text" | 関数が非推奨であると、それを使用するブループリントをコンパイルしようとすると、このメッセージが標準の非推奨の警告に追加されます。 |
+| `DevelopmentOnly` | `DevelopmentOnly` とマーク付けされている関数は Development モードでのみ実行します。出荷する製品には存在しないデバッグ出力のような機能で役立ちます。 |
 | `DisplayName="Blueprint Node Name"` | ブループリント内のこのノード名は、コードが生成する名前の代わりにここで指定する値で置き換えられます。 |
 | `ExpandEnumAsExecs="Parameter"` | `BlueprintCallable` 関数で、ある入力実行ピンがパラメータが使用する `enum` で各エントリに対して作成されることを示します。この名前付けしたパラメータは `UENUM` タグでエンジンが認識する列挙型でなければなりません。 |
 | `HidePin="Parameter"` | `BlueprintCallable` 関数で、このパラメータ ピンをユーザーから見えないようにします。この方法では関数毎にひとつのパラメータ ピンのみを非表示にできることに注意してください。 |
+| `HideSelfPin` | "self" ピンを隠します。"self" ピンは関数が呼び出されているオブジェクトを示すために使われます。"self" ピンは `BlueprintPure`関数で自動的に非表示になり、これはブループリントのクラスを呼び出すのに相当します。一般的に `DefaultToSelf` 指定子と共に使用されます。 |
+| `InternalUseParam="Parameter"` | `HidePin` に類似していますが、これは名前付けしたパラメータ ピンをユーザーから見えなくし、ひとつの関数につきひとつのパラメータに対してのみ使用可能です。 |
 | `KeyWords="Set Of Keywords"` | ブループリント グラフで関数を呼び出すノードを配置する場合など、この関数を検索するときに使用可能なキーワード一式を指定します。 |
 | `Latent` | 潜在的 (latent) アクションを示します。潜在的アクショには、`FLatentActionInfo` 型のパラメータをひとつ持ち、このパラメータは `LatentInfo` 指定子で名前付けされます。 |
 | `LatentInfo="Parameter"` | Latent `BlueprintCallable` 関数では、どれが LatentInfo パラメータであるかを示します。 |

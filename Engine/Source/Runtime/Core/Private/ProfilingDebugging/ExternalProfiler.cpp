@@ -7,8 +7,9 @@
 #include "Features/IModularFeatures.h"
 
 
-DEFINE_LOG_CATEGORY_STATIC( LogExternalProfiler, Log, All );
+#if UE_EXTERNAL_PROFILING_ENABLED
 
+DEFINE_LOG_CATEGORY_STATIC( LogExternalProfiler, Log, All );
 
 
 FExternalProfiler::FExternalProfiler()
@@ -148,4 +149,4 @@ void FScopedExternalProfilerBase::StopScopedTimer()
 	}
 }
 
-
+#endif	// UE_EXTERNAL_PROFILING_ENABLED

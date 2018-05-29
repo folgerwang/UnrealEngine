@@ -152,7 +152,7 @@ void FCoreAudioSoundBuffer::Seek( const float SeekTime )
  */
 FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::CreateQueuedBuffer( FCoreAudioDevice* CoreAudioDevice, USoundWave* Wave )
 {
-	check(Wave->bIsPrecacheDone);
+	check(Wave->GetPrecacheState() == ESoundWavePrecacheState::Done);
 
 	// Always create a new buffer for real time decompressed sounds
 	FCoreAudioSoundBuffer* Buffer = new FCoreAudioSoundBuffer( CoreAudioDevice, SoundFormat_PCMRT );

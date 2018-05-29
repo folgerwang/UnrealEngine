@@ -30,6 +30,10 @@
 #include "Interfaces/ITargetPlatformManagerModule.h"
 #include "Components.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "ShaderCodeLibrary.h"
+#include "Materials/MaterialExpressionCurveAtlasRowParameter.h"
+#include "Curves/CurveLinearColor.h"
+#include "Curves/CurveLinearColorAtlas.h"
 
 DECLARE_CYCLE_STAT(TEXT("MaterialInstance CopyMatInstParams"), STAT_MaterialInstance_CopyMatInstParams, STATGROUP_Shaders);
 DECLARE_CYCLE_STAT(TEXT("MaterialInstance Serialize"), STAT_MaterialInstance_Serialize, STATGROUP_Shaders);
@@ -343,6 +347,8 @@ void GameThread_UpdateMIParameter(const UMaterialInstance* Instance, const Param
 bool UMaterialInstance::UpdateParameters()
 {
 	bool bDirty = false;
+
+#if WITH_EDITOR
 	if(IsTemplate(RF_ClassDefaultObject)==false)
 	{
 		// Get a pointer to the parent material.
@@ -391,6 +397,8 @@ bool UMaterialInstance::UpdateParameters()
 			}
 		}
 	}
+#endif // WITH_EDITOR
+
 	return bDirty;
 }
 
@@ -628,6 +636,51 @@ bool UMaterialInstance::GetScalarParameterValue(const FMaterialParameterInfo& Pa
 		return Parent->GetScalarParameterValue(ParameterInfo, OutValue, bOveriddenOnly);
 	}
 	
+	return false;
+}
+
+bool UMaterialInstance::IsScalarParameterUsedAsAtlasPosition(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, TSoftObjectPtr<UCurveLinearColor>& Curve, TSoftObjectPtr<UCurveLinearColorAtlas>& Atlas) const
+{
+	bool bFoundAValue = false;
+
+	if (GetReentrantFlag())
+	{
+		return false;
+	}
+
+	// Instance-included default
+	if (ParameterInfo.Association != EMaterialParameterAssociation::GlobalParameter)
+	{
+		UMaterialExpressionScalarParameter* Parameter = nullptr;
+		for (const FStaticMaterialLayersParameter& LayersParam : StaticParameters.MaterialLayersParameters)
+		{
+			if (LayersParam.bOverride)
+			{
+				UMaterialFunctionInterface* Function = LayersParam.GetParameterAssociatedFunction(ParameterInfo);
+				UMaterialFunctionInterface* ParameterOwner = nullptr;
+
+				if (Function && Function->GetNamedParameterOfType(ParameterInfo, Parameter, &ParameterOwner))
+				{
+					OutValue = Parameter->IsUsedAsAtlasPosition();
+					if (OutValue)
+					{
+						UMaterialExpressionCurveAtlasRowParameter* AtlasParameter = Cast<UMaterialExpressionCurveAtlasRowParameter>(Parameter);
+						Curve = TSoftObjectPtr<UCurveLinearColor>(FSoftObjectPath(AtlasParameter->Curve->GetPathName()));
+						Atlas = TSoftObjectPtr<UCurveLinearColorAtlas> (FSoftObjectPath(AtlasParameter->Atlas->GetPathName()));
+					}
+					return true;
+				}
+			}
+		}
+	}
+
+	// Next material in hierarchy
+	if (Parent)
+	{
+		FMICReentranceGuard	Guard(this);
+		return Parent->IsScalarParameterUsedAsAtlasPosition(ParameterInfo, OutValue, Curve, Atlas);
+	}
+
 	return false;
 }
 
@@ -1452,7 +1505,7 @@ void UMaterialInstance::CopyMaterialInstanceParameters(UMaterialInterface* Sourc
 {
 	SCOPE_CYCLE_COUNTER(STAT_MaterialInstance_CopyMatInstParams);
 
-	if(Source)
+	if ((Source != nullptr) && (Source != this))
 	{
 		// First, clear out all the parameter values
 		ClearParameterValuesInternal();
@@ -2816,6 +2869,7 @@ void UMaterialInstance::Serialize(FArchive& Ar)
 	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
 	Super::Serialize(Ar);
 		
+#if WITH_EDITOR
 	if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::MaterialAttributeLayerParameters)
 	{
 		// Material attribute layers parameter refactor fix-up
@@ -2836,6 +2890,7 @@ void UMaterialInstance::Serialize(FArchive& Ar)
 			Parameter.ParameterInfo.Name = Parameter.ParameterName_DEPRECATED;
 		}
 	}
+#endif // WITH_EDITOR
 
 	// Only serialize the static permutation resource if one exists
 	if (bHasStaticPermutationResource)
@@ -2916,6 +2971,12 @@ void UMaterialInstance::Serialize(FArchive& Ar)
 			}
 		}
 	}
+#if WITH_EDITOR
+	if (Ar.IsSaving() && Ar.IsCooking() && Ar.IsPersistent() && !Ar.IsObjectReferenceCollector() && FShaderCodeLibrary::NeedsShaderStableKeys())
+	{
+		SaveShaderStableKeys(Ar.CookingTarget());
+	}
+#endif
 }
 
 void UMaterialInstance::PostLoad()
@@ -2936,7 +2997,7 @@ void UMaterialInstance::PostLoad()
 			Resource.DiscardShaderMap();
 		}
 	}
-	// Empty the lsit of loaded resources, we don't need it anymore
+	// Empty the list of loaded resources, we don't need it anymore
 	LoadedMaterialResources.Empty();
 
 	AssertDefaultMaterialsPostLoaded();
@@ -3037,6 +3098,7 @@ void UMaterialInstance::PostLoad()
 
 		LightingGuidFixupMap.Add(GetLightingGuid(), this);
 	}
+	//DumpDebugInfo();
 }
 
 void UMaterialInstance::BeginDestroy()
@@ -3569,12 +3631,13 @@ bool UMaterialInstance::GetGroupSortPriority(const FString& InGroupName, int32& 
 }
 
 bool UMaterialInstance::GetTexturesInPropertyChain(EMaterialProperty InProperty, TArray<UTexture*>& OutTextures,  
-	TArray<FName>* OutTextureParamNames, struct FStaticParameterSet* InStaticParameterSet)
+	TArray<FName>* OutTextureParamNames, struct FStaticParameterSet* InStaticParameterSet,
+	ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type InQuality)
 {
 	if (Parent != NULL)
 	{
 		TArray<FName> LocalTextureParamNames;
-		bool bResult = Parent->GetTexturesInPropertyChain(InProperty, OutTextures, &LocalTextureParamNames, InStaticParameterSet);
+		bool bResult = Parent->GetTexturesInPropertyChain(InProperty, OutTextures, &LocalTextureParamNames, InStaticParameterSet, InFeatureLevel, InQuality);
 		if (LocalTextureParamNames.Num() > 0)
 		{
 			// Check textures set in parameters as well...
@@ -3905,6 +3968,112 @@ bool UMaterialInstance::Equivalent(const UMaterialInstance* CompareTo) const
 		return false;
 	}
 	return true;
+}
+
+#if !UE_BUILD_SHIPPING
+
+static void FindRedundantMICS(const TArray<FString>& Args)
+{
+	TArray<UObject*> MICs;
+	GetObjectsOfClass(UMaterialInstance::StaticClass(), MICs);
+
+	int32 NumRedundant = 0;
+	for (int32 OuterIndex = 0; OuterIndex < MICs.Num(); OuterIndex++)
+	{
+		for (int32 InnerIndex = OuterIndex + 1; InnerIndex < MICs.Num(); InnerIndex++)
+		{
+			if (((UMaterialInstance*)MICs[OuterIndex])->Equivalent((UMaterialInstance*)MICs[InnerIndex]))
+			{
+				NumRedundant++;
+				break;
+			}
+		}
+	}
+	UE_LOG(LogConsoleResponse, Display, TEXT("----------------------------- %d UMaterialInstance's %d redundant "), MICs.Num(), NumRedundant);
+}
+
+static FAutoConsoleCommand FindRedundantMICSCmd(
+	TEXT("FindRedundantMICS"),
+	TEXT("Looks at all loaded MICs and looks for redundant ones."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&FindRedundantMICS)
+);
+
+#endif
+
+void UMaterialInstance::DumpDebugInfo()
+{
+	UE_LOG(LogConsoleResponse, Display, TEXT("----------------------------- %s"), *GetFullName());
+
+	UE_LOG(LogConsoleResponse, Display, TEXT("  Parent %s"), Parent ? *Parent->GetFullName() : TEXT("null"));
+
+	if (Parent)
+	{
+		UMaterial* Base = GetMaterial();
+		UE_LOG(LogConsoleResponse, Display, TEXT("  Base %s"), Base ? *Base->GetFullName() : TEXT("null"));
+
+		if (Base)
+		{
+			static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMaterialDomain"));
+			check(Enum);
+			UE_LOG(LogConsoleResponse, Display, TEXT("  MaterialDomain %s"), *Enum->GetNameStringByValue(int64(Base->MaterialDomain)));
+		}
+		if (bHasStaticPermutationResource)
+		{
+			for (int32 QualityLevel = 0; QualityLevel < EMaterialQualityLevel::Num; QualityLevel++)
+			{
+				for (int32 FeatureLevel = 0; FeatureLevel < ERHIFeatureLevel::Num; FeatureLevel++)
+				{
+					if (StaticPermutationMaterialResources[QualityLevel][FeatureLevel])
+					{
+						StaticPermutationMaterialResources[QualityLevel][FeatureLevel]->DumpDebugInfo();
+					}
+				}
+			}
+		}
+		else
+		{
+			UE_LOG(LogConsoleResponse, Display, TEXT("    This MIC does not have static permulations, and is therefore is just a version of the parent."));
+		}
+	}
+}
+
+void UMaterialInstance::SaveShaderStableKeys(const class ITargetPlatform* TP)
+{
+#if WITH_EDITOR
+	FStableShaderKeyAndValue SaveKeyVal;
+	SetCompactFullNameFromObject(SaveKeyVal.ClassNameAndObjectPath, this);
+	UMaterial* Base = GetMaterial();
+	if (Base)
+	{
+		SaveKeyVal.MaterialDomain = FName(*MaterialDomainString(Base->MaterialDomain));
+	}
+	SaveShaderStableKeysInner(TP, SaveKeyVal);
+#endif
+}
+
+void UMaterialInstance::SaveShaderStableKeysInner(const class ITargetPlatform* TP, const FStableShaderKeyAndValue& InSaveKeyVal)
+{
+#if WITH_EDITOR
+	if (bHasStaticPermutationResource)
+	{
+		FStableShaderKeyAndValue SaveKeyVal(InSaveKeyVal);
+		TArray<FMaterialResource*>* MatRes = CachedMaterialResourcesForCooking.Find(TP);
+		if (MatRes)
+		{
+			for (FMaterialResource* Mat : *MatRes)
+			{
+				if (Mat)
+				{
+					Mat->SaveShaderStableKeys(EShaderPlatform::SP_NumPlatforms, SaveKeyVal);
+				}
+			}
+		}
+	}
+	else if (Parent)
+	{
+		Parent->SaveShaderStableKeysInner(TP, InSaveKeyVal);
+	}
+#endif
 }
 
 

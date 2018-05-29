@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3388666
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:3.5 - ビューポートにクロスヘアを追加する
 Crumbs: %ROOT%, Programming, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/3
@@ -74,17 +74,16 @@ Version:4.15
 
 		void AFPSHUD::DrawHUD()
 		{
-			Super::DrawHUD();
-		if (CrosshairTexture)
+		Super::DrawHUD();
 
+		if (CrosshairTexture)
 			{
 				// Find the center of our canvas. (キャンバスの中心を見つけます)
 				FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
 		// Offset by half of the texture's dimensions so that the center of the texture aligns with the center of the Canvas. (テクスチャの中央をキャンバスの中央と一致させるためにテクスチャの半分のディメンションでオフセット)
-
 				FVector2D CrossHairDrawPosition(Center.X - (CrosshairTexture->GetSurfaceWidth() * 0.5f), Center.Y - (CrosshairTexture->GetSurfaceHeight() * 0.5f));
-		// Draw the crosshair at the centerpoint. (中心点にクロスヘアを描画)
 
+		// Draw the crosshair at the centerpoint. (中心点にクロスヘアを描画)
 				FCanvasTileItem TileItem(CrossHairDrawPosition, CrosshairTexture->Resource, FLinearColor::White);
 				TileItem.BlendMode = SE_BLEND_Translucent;
 				Canvas->DrawItem(TileItem);
@@ -150,367 +149,359 @@ CPP HUD クラスをブループリントに拡張します。C++ クラスの�
 
 1.	[PIE (Play In Editor)] モードを終了するには、レベル エディタで [Stop] ボタンを **クリック** します。
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    code
-    [/PARAMLITERAL]
-    [PARAM:heading]
-    完成セクション コード
-    [/PARAM]
-    [PARAM:content]
-		**FPSProjectile.h**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+## 完成セクション コード
 
-			#pragma once
-			#include "GameFramework/Actor.h"
+**FPSProjectile.h**
 
-			#include "FPSProjectile.generated.h"
-			UCLASS()
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-			class FPSPROJECT_API AFPSProjectile : public AActor
-			{
-				GENERATED_BODY()
-				public:
+	#pragma once
 
-				// Sets default values for this actor's properties. (このアクタのプロパティのデフォルト値を設定します)
-				AFPSProjectile();
-			protected:
+	#include "GameFramework/Actor.h"
+	#include "FPSProjectile.generated.h"
 
-				// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出される)
-				virtual void BeginPlay() override;
-			public:
+	UCLASS()
+	class FPSPROJECT_API AFPSProjectile : public AActor
+	{
+		GENERATED_BODY()
 
-				// Called every frame. (フレームごとに呼ばれます) 
-				virtual void Tick( float DeltaSeconds ) override;
-			// Sphere collision component (Sphere collision コンポーネント)
+	public:
+		// Sets default values for this actor's properties. (このアクタのプロパティのデフォルト値を設定します)
+		AFPSProjectile();
 
-				UPROPERTY(VisibleDefaultsOnly, Category = Projectile)
-				USphereComponent* CollisionComponent;
-				//Projectile movement component. (Projectile Movement コンポーネント)
+	protected:
+		// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出される)
+		virtual void BeginPlay() override;
 
-				UPROPERTY(VisibleAnywhere, Category = Movement)
-				UProjectileMovementComponent* ProjectileMovementComponent;
+	public:
+
+		// Called every frame. (フレームごとに呼ばれます) 
+		virtual void Tick( float DeltaSeconds ) override;
+
+		// Sphere collision component (Sphere collision コンポーネント)
+		UPROPERTY(VisibleDefaultsOnly, Category = Projectile)
+		USphereComponent* CollisionComponent;
+		//Projectile movement component. (Projectile Movement コンポーネント)
+		UPROPERTY(VisibleAnywhere, Category = Movement)
+		UProjectileMovementComponent* ProjectileMovementComponent;
+
 			// Function that initializes the projectile's velocity in the shoot direction. (発射方向に発射物のべロシティを初期化する関数)
+		void FireInDirection(const FVector& ShootDirection);
 
-				void FireInDirection(const FVector& ShootDirection);
 			// Function that is called when the projectile hits something. (発射物が何かにぶつかると呼び出される関数)
 
-				void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, FVector NormalImpulse, const FHitResult& Hit);
+		void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, FVector NormalImpulse, const FHitResult& Hit);
+
 			};
 
+**FPSProjectile.cpp**
 
-		**FPSProjectile.cpp**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-			#include "FPSProject.h"
-			#include "FPSProjectile.h"
-			// Sets default values (デフォルト値を設定) 
+	#include "FPSProject.h"
+	#include "FPSProjectile.h"
 
-			AFPSProjectile::AFPSProjectile()
-			{
-			 	// Set this actor to call Tick() every frame. (フレーム毎に Tick() を呼び出すようにこのアクタを設定) You can turn this off to improve performance if you don't need it. (必要がなければパフォーマンスを向上させるためにオフにすることができます) 
-				PrimaryActorTick.bCanEverTick = true;
+	// Sets default values (デフォルト値を設定) 
+	AFPSProjectile::AFPSProjectile()
+	{
+		// Set this actor to call Tick() every frame. (フレーム毎に Tick() を呼び出すようにこのアクタを設定) You can turn this off to improve performance if you don't need it. (必要がなければパフォーマンスを向上させるためにオフにすることができます) 
+		PrimaryActorTick.bCanEverTick = true;
+
 			// Use a sphere as a simple collision representation (簡易なコリジョン表現に球体を使用)
-
-				CollisionComponent = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComponent"));
-				CollisionComponent->BodyInstance.SetCollisionProfileName(TEXT("Projectile"));
-				CollisionComponent->OnComponentHit.AddDynamic(this, &AFPSProjectile::OnHit);
+		CollisionComponent = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComponent"));
+		CollisionComponent->BodyInstance.SetCollisionProfileName(TEXT("Projectile"));
+		CollisionComponent->OnComponentHit.AddDynamic(this, &AFPSProjectile::OnHit);
 			// Set the sphere's collision radius. (球体のコリジョン半径を設定します)
+		CollisionComponent->InitSphereRadius(15.0f);
+		// Set the root component to be the collision component. (ルート コンポーネントを collision コンポーネントに設定します)
+		RootComponent = CollisionComponent;
 
-				CollisionComponent->InitSphereRadius(15.0f);
-				// Set the root component to be the collision component. (ルート コンポーネントを collision コンポーネントに設定します)
-				RootComponent = CollisionComponent;
-			// Use this component to drive this projectile's movement. (このコンポーネントを使って発射物の動きを操作します)
+		// Use this component to drive this projectile's movement. (このコンポーネントを使って発射物の動きを操作します)
+		ProjectileMovementComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovementComponent"));
+		ProjectileMovementComponent->SetUpdatedComponent(CollisionComponent);
+		ProjectileMovementComponent->InitialSpeed = 3000.0f;
+		ProjectileMovementComponent->MaxSpeed = 3000.0f;
+		ProjectileMovementComponent->bRotationFollowsVelocity = true;
+		ProjectileMovementComponent->bShouldBounce = true;
+		ProjectileMovementComponent->Bounciness = 0.3f;
 
-				ProjectileMovementComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovementComponent"));
-				ProjectileMovementComponent->SetUpdatedComponent(CollisionComponent);
-				ProjectileMovementComponent->InitialSpeed = 3000.0f;
-				ProjectileMovementComponent->MaxSpeed = 3000.0f;
-				ProjectileMovementComponent->bRotationFollowsVelocity = true;
-				ProjectileMovementComponent->bShouldBounce = true;
-				ProjectileMovementComponent->Bounciness = 0.3f;
-			// Die after 3 seconds. (3 秒後に消滅)
+		// Die after 3 seconds.
+		InitialLifeSpan = 3.0f;
+	}
 
-				InitialLifeSpan = 3.0f;
-			}
-			// Called when the game starts or when spawned. (ゲーム開始時またはスポーン時に呼ばれます) 
+	// Called when the game starts or when spawned. (ゲーム開始時またはスポーン時に呼ばれます) 
+	void AFPSProjectile::BeginPlay()
+	{
+		Super::BeginPlay();
+	}
 
-			void AFPSProjectile::BeginPlay()
-			{
-				Super::BeginPlay();
-			}
-			// Called every frame. (フレームごとに呼ばれます) 
-
-			void AFPSProjectile::Tick(float DeltaTime)
-			{
-				Super::Tick(DeltaTime);
+	// Called every frame. (フレームごとに呼ばれます) 
+	void AFPSProjectile::Tick(float DeltaTime)
+	{
+		Super::Tick(DeltaTime);
 			}
 
 			// Function that initializes the projectile's velocity in the shoot direction. (発射方向に発射物のべロシティを初期化する関数)
+	void AFPSProjectile::FireInDirection(const FVector& ShootDirection)
+	{
+		ProjectileMovementComponent->Velocity = ShootDirection * ProjectileMovementComponent->InitialSpeed;
+	}
 
-			void AFPSProjectile::FireInDirection(const FVector& ShootDirection)
-			{
-				ProjectileMovementComponent->Velocity = ShootDirection * ProjectileMovementComponent->InitialSpeed;
-			}
 			// Function that is called when the projectile hits something. (発射物が何かにぶつかると呼び出される関数)
+	void AFPSProjectile::OnHit(AActor* OtherActor, UPrimitiveComponent* OtherComponent, FVector NormalImpulse, const FHitResult& Hit)
+	{
+		if (OtherActor != this && OtherComponent->IsSimulatingPhysics())
+		{
+			OtherComponent->AddImpulseAtLocation(ProjectileMovementComponent->Velocity * 100.0f, Hit.ImpactPoint);
+		}
+	}
 
-			void AFPSProjectile::OnHit(AActor* OtherActor, UPrimitiveComponent* OtherComponent, FVector NormalImpulse, const FHitResult& Hit)
-			{
-				if (OtherActor != this && OtherComponent->IsSimulatingPhysics())
-				{
-					OtherComponent->AddImpulseAtLocation(ProjectileMovementComponent->Velocity * 100.0f, Hit.ImpactPoint);
-				}
+**FPSCharacter.h**
+
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+
+	#pragma once
+			
+	#include "GameFramework/Character.h"
+	#include "FPSCharacter.generated.h"
+
+	#include "FPSCharacter.generated.h"
+	UCLASS()
+
+	class FPSPROJECT_API AFPSCharacter : public ACharacter
+	{
+		GENERATED_BODY()
+			
+	public:
+		// Sets default values for this character's properties. (このキャラクターのプロパティのデフォルト値を設定) 
+		AFPSCharacter();
+
+	protected:
+		// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出される)
+		virtual void BeginPlay() override;
+
+	public:
+		// Called every frame. (フレームごとに呼ばれます) 
+		virtual void Tick( float DeltaSeconds ) override;
+
+		// Called to bind functionality to input (機能と入力をバインドするために呼ばれます)
+		virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
+
+		// Handles input for moving forward and backward. (前後方向の移動の入力を処理) 
+		UFUNCTION()
+		void MoveForward(float Value);
+
+		// Handles input for moving right and left.
+		UFUNCTION()
+		void MoveRight(float Value);
+
+		// Sets jump flag when key is pressed (キー押下時のジャンプフラグを設定) 		UFUNCTION()
+		void StartJump();
+
+		// Clears jump flag when key is released (キー解放時のジャンプフラグをクリア)
+		UFUNCTION()
+		void StopJump();
+
+		// Function that handles firing projectiles. (発射物をアクティベートする関数)
+		UFUNCTION()
+		void Fire();
+
+		// FPS camera (FPS カメラ)
+		UPROPERTY(VisibleAnywhere)
+		UCameraComponent* FPSCameraComponent;
+		// First-person mesh (arms), visible only to the owning player. (一人称メッシュ (腕)、所有しているプレイヤーにのみ見えます) 
+		UPROPERTY(VisibleDefaultsOnly, Category = Mesh)
+		USkeletalMeshComponent* FPSMesh;
+
+		// Gun muzzle's offset from the camera location. (カメラ位置から銃口のオフセット)
+
+		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Gameplay)
+		FVector MuzzleOffset;
+
+		// Projectile class to spawn. (スポーンする Projectile クラス)
+		UPROPERTY(EditDefaultsOnly, Category = Projectile)
+		TSubclassOf<class AFPSProjectile> ProjectileClass;
+	};
+
+**FPSCharacter.cpp**
+
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+
+	#include "FPSProject.h"
+	#include "FPSCharacter.h"
+	#include "FPSProjectile.h"
+
+	// Sets default values (デフォルト値を設定) 
+	AFPSCharacter::AFPSCharacter()
+	{
+
+		// Set this character to call Tick() every frame. (このキャラクターがフレーム毎に Tick() を呼び出すように設定します) You can turn this off to improve performance if you don't need it. (必要がなければパフォーマンスを向上させるためにオフにすることができます) 
+		PrimaryActorTick.bCanEverTick = true;
+		// Create a first person camera component. (first person camera コンポーネントを作成)
+		FPSCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
+		// Attach the camera component to our capsule component. (camera コンポーネントを capsule コンポーネントにアタッチします)
+		FPSCameraComponent->SetupAttachment(GetCapsuleComponent());
+
+		// Position the camera slightly above the eyes. (目の高さより少し上にカメラを設定)
+		FPSCameraComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 50.0f + BaseEyeHeight));
+		// Allow the pawn to control camera rotation. (ポーンがカメラの回転を制御できるようにします)
+		FPSCameraComponent->bUsePawnControlRotation = true;
+
+		// Create a first person mesh component for the owning player. (所有しているプレイヤーのために一人称メッシュを作成) 
+		FPSMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FirstPersonMesh"));
+		// Only the owning player sees this mesh. (このメッシュは所有しているプレイヤーだけから見えます)
+		FPSMesh->SetOnlyOwnerSee(true);
+		// Attach the FPS mesh to the FPS camera. (FPS メッシュを FPS カメラにアタッチします)
+		FPSMesh->SetupAttachment(FPSCameraComponent);
+		// Disable some environmental shadowing to preserve the illusion of having a single mesh. (一部の背景のシャドウイングを無効にして、ひとつのメッシュを持っているという錯覚を維持します) 
+		FPSMesh->bCastDynamicShadow = false;
+		FPSMesh->CastShadow = false;
+
+		// The owning player doesn't see the regular (third-person) body mesh. (所有しているプレイヤーは、通常の (三人称視点の) ボディ メッシュは見えません) 
+		GetMesh()->SetOwnerNoSee(true);
+	}
+
+		// Called when the game starts or when spawned. (ゲーム開始時またはスポーン時に呼ばれます) 
+	void AFPSCharacter::BeginPlay()
+	{
+		Super::BeginPlay();
+
+		if (GEngine)
+		{
+			// Put up a debug message for five seconds. (デバッグ メッセージを 5 秒間表示) The -1 "Key" value (first argument) indicates that we will never need to update or refresh this message. ( -1 のキー値 (最初の引数) は、このメッセージを更新、リフレッシュする必要がないことを示しています) 
+			GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("We are using FPSCharacter."));
+		}
+	}
+
+	// Called every frame. (フレームごとに呼ばれます) 
+	void AFPSCharacter::Tick( float DeltaTime )
+	{
+		Super::Tick( DeltaTime );
+
 			}
 
-		**FPSCharacter.h**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-			#pragma once
+	// Called to bind functionality to input.
+	void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+	{
+		Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-			#include "GameFramework/Character.h"
+		// Set up "movement" bindings. (移動のバインディングをセットアップ) 
+		PlayerInputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
+		PlayerInputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
+		// Set up "look" bindings. (look のバインディングをセットアップ) 
+		PlayerInputComponent->BindAxis("Turn", this, &AFPSCharacter::AddControllerYawInput);
+		PlayerInputComponent->BindAxis("LookUp", this, &AFPSCharacter::AddControllerPitchInput);
 
-			#include "FPSCharacter.generated.h"
-			UCLASS()
+		// Set up "action" bindings. (アクションのバインディングをセットアップ) 
+		PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AFPSCharacter::StartJump);
+		PlayerInputComponent->BindAction("Jump", IE_Released, this, &AFPSCharacter::StopJump);
+		PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AFPSCharacter::Fire);
+	}
 
-			class FPSPROJECT_API AFPSCharacter : public ACharacter
-			{
-				GENERATED_BODY()
-			public:
+		void AFPSCharacter::MoveForward(float Value)
+	{
+		// Find out which way is "forward" and record that the player wants to move that way. (前進方向を確認し、プレイヤーがそちらの方向に移動するように記録) 
+		FVector Direction = FRotationMatrix(Controller->GetControlRotation()).GetScaledAxis(EAxis::X);
+		AddMovementInput(Direction, Value);
+	}
+	void AFPSCharacter::MoveRight(float Value)
+	{
+		// Find out which way is "forward" and record that the player wants to move that way. (右方向を確認し、プレイヤーがそちらの方向に移動するように記録) 
+		FVector Direction = FRotationMatrix(Controller->GetControlRotation()).GetScaledAxis(EAxis::Y);
+		AddMovementInput(Direction, Value);
+	}
 
-				// Sets default values for this character's properties. (このキャラクターのプロパティのデフォルト値を設定) 
-				AFPSCharacter();
-			protected:
+	void AFPSCharacter::StartJump()
+	{
+		bPressedJump = true;
+	}
 
-				// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出される)
-				virtual void BeginPlay() override;
-			public:
+	void AFPSCharacter::StopJump()
+	{
+		bPressedJump = false;
+	}
 
-				// Called every frame. (フレームごとに呼ばれます) 
-				virtual void Tick( float DeltaSeconds ) override;
-			// Called to bind functionality to input (機能と入力をバインドするために呼ばれます)
-
-				virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
-			// Handles input for moving forward and backward. (前後方向の移動の入力を処理) 
-
-				UFUNCTION()
-				void MoveForward(float Value);
-			// Handles input for moving right and left. (左右の移動の入力を処理) 
-
-				UFUNCTION()
-				void MoveRight(float Value);
-			// Sets jump flag when key is pressed (キー押下時のジャンプフラグを設定) 
-
-				UFUNCTION()
-				void StartJump();
-			// Clears jump flag when key is released (キー解放時のジャンプフラグをクリア)
-
-				UFUNCTION()
-				void StopJump();
-			// Function that handles firing projectiles. (発射物をアクティベートする関数)
-
-				UFUNCTION()
-				void Fire();
-			// FPS camera (FPS カメラ)
-
-				UPROPERTY(VisibleAnywhere)
-				UCameraComponent* FPSCameraComponent;
-			// First-person mesh (arms), visible only to the owning player. (一人称メッシュ (腕)、所有しているプレイヤーにのみ見えます) 
-
-				UPROPERTY(VisibleDefaultsOnly, Category = Mesh)
-				USkeletalMeshComponent* FPSMesh;
-			// Gun muzzle's offset from the camera location. (カメラ位置から銃口のオフセット)
-
-				UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Gameplay)
-				FVector MuzzleOffset;
-			// Projectile class to spawn. (スポーンする Projectile クラス)
-
-				UPROPERTY(EditDefaultsOnly, Category = Projectile)
-				TSubclassOf<class AFPSProjectile> ProjectileClass;
-			};
-
-		**FPSCharacter.cpp**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-			#include "FPSProject.h"
-
-			#include "FPSCharacter.h"
-			#include "FPSProjectile.h"
-			// Sets default values (デフォルト値を設定) 
-
-			AFPSCharacter::AFPSCharacter()
-			{
-			 	// Set this character to call Tick() every frame. (このキャラクターがフレーム毎に Tick() を呼び出すように設定します) You can turn this off to improve performance if you don't need it. (必要がなければパフォーマンスを向上させるためにオフにすることができます) 
-				PrimaryActorTick.bCanEverTick = true;
-			// Create a first person camera component. (first person camera コンポーネントを作成)
-
-				FPSCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
-				// Attach the camera component to our capsule component. (camera コンポーネントを capsule コンポーネントにアタッチします)
-				FPSCameraComponent->SetupAttachment(GetCapsuleComponent());
-				// Position the camera slightly above the eyes. (目の高さより少し上にカメラを設定)
-				FPSCameraComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 50.0f + BaseEyeHeight));
-				// Allow the pawn to control camera rotation. (ポーンがカメラの回転を制御できるようにします)
-				FPSCameraComponent->bUsePawnControlRotation = true;
-			// Create a first person mesh component for the owning player. (所有しているプレイヤーのために一人称メッシュを作成) 
-
-				FPSMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FirstPersonMesh"));
-				// Only the owning player sees this mesh. (このメッシュは所有しているプレイヤーだけから見えます)
-				FPSMesh->SetOnlyOwnerSee(true);
-				// Attach the FPS mesh to the FPS camera. (FPS メッシュを FPS カメラにアタッチします)
-				FPSMesh->SetupAttachment(FPSCameraComponent);
-				// Disable some environmental shadowing to preserve the illusion of having a single mesh. (一部の背景のシャドウイングを無効にして、ひとつのメッシュを持っているという錯覚を維持します) 
-				FPSMesh->bCastDynamicShadow = false;
-				FPSMesh->CastShadow = false;
-				// The owning player doesn't see the regular (third-person) body mesh. (所有しているプレイヤーは、通常の (三人称視点の) ボディ メッシュは見えません) 
-
-				GetMesh()->SetOwnerNoSee(true);
-			}
-			// Called when the game starts or when spawned. (ゲーム開始時またはスポーン時に呼ばれます) 
-
-			void AFPSCharacter::BeginPlay()
-			{
-				Super::BeginPlay();
-				if (GEngine)
-
-				{
-					// Put up a debug message for five seconds. (デバッグ メッセージを 5 秒間表示) The -1 "Key" value (first argument) indicates that we will never need to update or refresh this message. ( -1 のキー値 (最初の引数) は、このメッセージを更新、リフレッシュする必要がないことを示しています) 
-					GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("We are using FPSCharacter."));
-				}
-			}
-			// Called every frame. (フレームごとに呼ばれます) 
-
-			void AFPSCharacter::Tick( float DeltaTime )
-			{
-				Super::Tick( DeltaTime );
-			}
-
-			// Called to bind functionality to input (機能と入力をバインドするために呼ばれます)
-
-			void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-			{
-				Super::SetupPlayerInputComponent(PlayerInputComponent);
-			// Set up "movement" bindings. (移動のバインディングをセットアップ) 
-
-				PlayerInputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
-				PlayerInputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
-			// Set up "look" bindings. (look のバインディングをセットアップ) 
-
-				PlayerInputComponent->BindAxis("Turn", this, &AFPSCharacter::AddControllerYawInput);
-				PlayerInputComponent->BindAxis("LookUp", this, &AFPSCharacter::AddControllerPitchInput);
-			// Set up "action" bindings. (アクションのバインディングをセットアップ) 
-
-				PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AFPSCharacter::StartJump);
-				PlayerInputComponent->BindAction("Jump", IE_Released, this, &AFPSCharacter::StopJump);
-				PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AFPSCharacter::Fire);
-			}
-			void AFPSCharacter::MoveForward(float Value)
-
-			{
-				// Find out which way is "forward" and record that the player wants to move that way. (前進方向を確認し、プレイヤーがそちらの方向に移動するように記録) 
-				FVector Direction = FRotationMatrix(Controller->GetControlRotation()).GetScaledAxis(EAxis::X);
-				AddMovementInput(Direction, Value);
-			}
-			void AFPSCharacter::MoveRight(float Value)
-
-			{
-				// Find out which way is "forward" and record that the player wants to move that way. (右方向を確認し、プレイヤーがそちらの方向に移動するように記録) 
-				FVector Direction = FRotationMatrix(Controller->GetControlRotation()).GetScaledAxis(EAxis::Y);
-				AddMovementInput(Direction, Value);
-			}
-			void AFPSCharacter::StartJump()
-
-			{
-				bPressedJump = true;
-			}
-			void AFPSCharacter::StopJump()
-
-			{
-				bPressedJump = false;
-			}
-			void AFPSCharacter::Fire()
-
-			{
-				// Attempt to fire a projectile. (発射物の発射をアクティベートしようとします)
-				if (ProjectileClass)
-				{
-					// Get the camera transform. (カメラのトランスフォームを取得)
-					FVector CameraLocation;
-					FRotator CameraRotation;
-					GetActorEyesViewPoint(CameraLocation, CameraRotation);
+	void AFPSCharacter::Fire()
+	{
+		// Attempt to fire a projectile. (発射物の発射をアクティベートしようとします)
+		if (ProjectileClass)
+		{
+			// Get the camera transform. (カメラのトランスフォームを取得)
+			FVector CameraLocation;
+			FRotator CameraRotation;
+			GetActorEyesViewPoint(CameraLocation, CameraRotation);
 			// Transform MuzzleOffset from camera space to world space (カメラ空間からワールド空間に MuzzleOffset をトランスフォーム)
-
-					FVector MuzzleLocation = CameraLocation + FTransform(CameraRotation).TransformVector(MuzzleOffset);
-					FRotator MuzzleRotation = CameraRotation;
-					// Skew the aim to be slightly upwards. (照準を若干上方向に傾斜させます) 
-					MuzzleRotation.Pitch += 10.0f; 
-					UWorld* World = GetWorld();
-					if (World)
-					{
-						FActorSpawnParameters SpawnParams;
-						SpawnParams.Owner = this;
-						SpawnParams.Instigator = Instigator;
-						// Spawn the projectile at the muzzle. (銃口で発射物をスポーンします)
-						AFPSProjectile* Projectile = World->SpawnActor<AFPSProjectile>(ProjectileClass, MuzzleLocation, MuzzleRotation, SpawnParams);
-						if (Projectile)
-						{
-							// Set the projectile's initial trajectory. (発射物の初期べロシティを設定) 
-							FVector LaunchDirection = MuzzleRotation.Vector();
-							Projectile->FireInDirection(LaunchDirection);
-						}
-					}
+			FVector MuzzleLocation = CameraLocation + FTransform(CameraRotation).TransformVector(MuzzleOffset);
+			FRotator MuzzleRotation = CameraRotation;
+			// Skew the aim to be slightly upwards. (照準を若干上方向に傾斜させます) 
+			MuzzleRotation.Pitch += 10.0f; 
+			UWorld* World = GetWorld();
+			if (World)
+			{
+				FActorSpawnParameters SpawnParams;
+				SpawnParams.Owner = this;
+				SpawnParams.Instigator = Instigator;
+				// Spawn the projectile at the muzzle. (銃口で発射物をスポーンします)
+				AFPSProjectile* Projectile = World->SpawnActor<AFPSProjectile>(ProjectileClass, MuzzleLocation, MuzzleRotation, SpawnParams);
+				if (Projectile)
+				{
+					// Set the projectile's initial trajectory. (発射物の初期べロシティを設定) 
+					FVector LaunchDirection = MuzzleRotation.Vector();
+					Projectile->FireInDirection(LaunchDirection);
 				}
 			}
+		}
+	}
 
-		**FPSHUD.h**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+**FPSHUD.h**
+
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+
 			#pragma once
 
-			#include "GameFramework/HUD.h"
+	#include "GameFramework/HUD.h"
+	#include "FPSHUD.generated.h"
 
-			#include "FPSHUD.generated.h"
-			/**
+	/**
+		* 
+		*/
+	UCLASS()
+	class FPSPROJECT_API AFPSHUD : public AHUD
+	{
+		GENERATED_BODY()
 
-			 * 
-			 */
-			UCLASS()
-			class FPSPROJECT_API AFPSHUD : public AHUD
-			{
-				GENERATED_BODY()
-			public:
+	public:
+		// Primary draw call for the HUD. (HUD のプライマリ ドロー コール)
+		virtual void DrawHUD() override;
 
-				// Primary draw call for the HUD. (HUD のプライマリ ドロー コール)
-				virtual void DrawHUD() override;
-			protected:
+	protected:
+		// This will be drawn at the center of the screen. (画面中央に描画) 
+		UPROPERTY(EditDefaultsOnly)
+		UTexture2D* CrosshairTexture;	
+	};
 
-				// This will be drawn at the center of the screen. (画面中央に描画) 
-				UPROPERTY(EditDefaultsOnly)
-				UTexture2D* CrosshairTexture;	
-			};
+**FPSHUD.cpp**
 
-		**FPSHUD.cpp**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-			#include "FPSProject.h"
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-			#include "FPSHUD.h"
-			void AFPSHUD::DrawHUD()
+	#include "FPSProject.h"
+	#include "FPSHUD.h"
 
-			{
-				Super::DrawHUD();
-				if (CrosshairTexture)
-
-				{
-					// Find the center of our canvas. (キャンバスの中心を見つけます)
-					FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
+	void AFPSHUD::DrawHUD()
+	{
+		Super::DrawHUD();
+		if (CrosshairTexture)
+		{
+			// Find the center of our canvas. (キャンバスの中心を見つけます)
+			FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
 			// Offset by half of the texture's dimensions so that the center of the texture aligns with the center of the Canvas. (テクスチャの中央をキャンバスの中央と一致させるためにテクスチャの半分のディメンションでオフセット)
-
-					FVector2D CrossHairDrawPosition(Center.X - (CrosshairTexture->GetSurfaceWidth() * 0.5f), Center.Y - (CrosshairTexture->GetSurfaceHeight() * 0.5f));
+			FVector2D CrossHairDrawPosition(Center.X - (CrosshairTexture->GetSurfaceWidth() * 0.5f), Center.Y - (CrosshairTexture->GetSurfaceHeight() * 0.5f));
 			// Draw the crosshair at the centerpoint. (中心点にクロスヘアを描画)
-
-					FCanvasTileItem TileItem(CrossHairDrawPosition, CrosshairTexture->Resource, FLinearColor::White);
-					TileItem.BlendMode = SE_BLEND_Translucent;
-					Canvas->DrawItem(TileItem);
-				}
-			}
-
-    [/PARAM]
-[/OBJECT]
+			FCanvasTileItem TileItem(CrossHairDrawPosition, CrosshairTexture->Resource, FLinearColor::White);
+			TileItem.BlendMode = SE_BLEND_Translucent;
+			Canvas->DrawItem(TileItem);
+		}
+	}
 
 これで終わりです！ 以下について学習しました。
 

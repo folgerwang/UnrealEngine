@@ -20,7 +20,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "SkelImport.h"
 #include "Rendering/SkeletalMeshModel.h"
-
+#include "EditorFramework/AssetImportData.h"
 #include "DesktopPlatformModule.h"
 
 #if WITH_APEX_CLOTHING
@@ -206,7 +206,11 @@ namespace FbxMeshUtils
 					NotificationInfo.Text = FText::Format(LOCTEXT("LODImportSuccessful", "Mesh for LOD {0} imported successfully!"), FText::AsNumber(LODLevel));
 					NotificationInfo.ExpireDuration = 5.0f;
 					FSlateNotificationManager::Get().AddNotification(NotificationInfo);
-
+					if (BaseStaticMesh->SourceModels.IsValidIndex(LODLevel))
+					{
+						BaseStaticMesh->SourceModels[LODLevel].SourceImportFilename = UAssetImportData::SanitizeImportFilename(Filename, nullptr);
+						BaseStaticMesh->SourceModels[LODLevel].bImportWithBaseMesh = false;
+					}
 					bSuccess = true;
 				}
 				else
@@ -498,7 +502,8 @@ namespace FbxMeshUtils
 					{
 						bSuccess = true;
 						// Set LOD source filename
-						SelectedSkelMesh->GetLODInfo(SelectedLOD)->SourceImportFilename = Filename;
+						SelectedSkelMesh->GetLODInfo(SelectedLOD)->SourceImportFilename = UAssetImportData::SanitizeImportFilename(Filename, nullptr);
+						SelectedSkelMesh->GetLODInfo(SelectedLOD)->bImportWithBaseMesh = false;
 
 						// Notification of success
 						FNotificationInfo NotificationInfo(FText::GetEmpty());
@@ -615,7 +620,18 @@ namespace FbxMeshUtils
 		{
 			if(SkeletalMesh->IsValidLODIndex(LODLevel))
 			{
-				FilenameToImport = SkeletalMesh->GetLODInfo(LODLevel)->SourceImportFilename;
+				FilenameToImport = SkeletalMesh->GetLODInfo(LODLevel)->SourceImportFilename.IsEmpty() ?
+					SkeletalMesh->GetLODInfo(LODLevel)->SourceImportFilename :
+					UAssetImportData::ResolveImportFilename(SkeletalMesh->GetLODInfo(LODLevel)->SourceImportFilename, nullptr);
+			}
+		}
+		else if (StaticMesh)
+		{
+			if (StaticMesh->SourceModels.IsValidIndex(LODLevel))
+			{
+				FilenameToImport = StaticMesh->SourceModels[LODLevel].SourceImportFilename.IsEmpty() ?
+					StaticMesh->SourceModels[LODLevel].SourceImportFilename :
+					UAssetImportData::ResolveImportFilename(StaticMesh->SourceModels[LODLevel].SourceImportFilename, nullptr);
 			}
 		}
 

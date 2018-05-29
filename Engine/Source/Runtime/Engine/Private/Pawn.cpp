@@ -57,6 +57,7 @@ APawn::APawn(const FObjectInitializer& ObjectInitializer)
 	bReplicateMovement = true;
 	BaseEyeHeight = 64.0f;
 	AllowedYawError = 10.99f;
+	BlendedReplayViewPitch = 0.0f;
 	bCollideWhenPlacing = true;
 	SpawnCollisionHandlingMethod = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
 	bProcessingOutsideWorldBounds = false;
@@ -783,11 +784,20 @@ FRotator APawn::GetBaseAimRotation() const
 	// If we have no controller, we simply use our rotation
 	POVRot = GetActorRotation();
 
-	// If our Pitch is 0, then use RemoteViewPitch
+	// If our Pitch is 0, then use a replicated view pitch
 	if( FMath::IsNearlyZero(POVRot.Pitch) )
 	{
-		POVRot.Pitch = RemoteViewPitch;
-		POVRot.Pitch = POVRot.Pitch * 360.f/255.f;
+		if (BlendedReplayViewPitch != 0.0f)
+		{
+			// If we are in a replay and have a blended value for playback, use that
+			POVRot.Pitch = BlendedReplayViewPitch;
+		}
+		else
+		{
+			// Else use the RemoteViewPitch
+			POVRot.Pitch = RemoteViewPitch;
+			POVRot.Pitch = POVRot.Pitch * 360.0f / 255.0f;
+		}
 	}
 
 	return POVRot;

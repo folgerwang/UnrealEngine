@@ -21,6 +21,7 @@ FLevelTextureManager::FLevelTextureManager(ULevel* InLevel, TextureInstanceTask:
 	}
 }
 
+
 void FLevelTextureManager::Remove(FRemovedTextureArray* RemovedTextures)
 { 
 	TArray<const UPrimitiveComponent*> ReferencedComponents;
@@ -315,3 +316,4 @@ uint32 FLevelTextureManager::GetAllocatedSize() const
 		UnprocessedComponents.GetAllocatedSize() + 
 		PendingComponents.GetAllocatedSize();
 }
+

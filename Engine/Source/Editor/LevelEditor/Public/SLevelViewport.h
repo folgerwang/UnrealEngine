@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -112,6 +112,7 @@ public:
 	virtual void RegisterGameViewportIfPIE() override;
 	virtual bool HasPlayInEditorViewport() const override; 
 	virtual FViewport* GetActiveViewport() override;
+	TSharedPtr<FSceneViewport> GetSharedActiveViewport() const override {return ActiveViewport;};
 	virtual TSharedRef< const SWidget> AsWidget() const override { return AsShared(); }
 	virtual TSharedRef< SWidget> AsWidget() override { return AsShared(); }
 	virtual TWeakPtr< SViewport > GetViewportWidget() override { return ViewportWidget; }

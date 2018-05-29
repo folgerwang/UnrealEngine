@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: レベル ストリーミングの概要
 Crumbs:%ROOT%, Engine, Engine/UI/LevelEditor
@@ -8,46 +8,7 @@ parent:Engine/LevelStreaming
 type:reference
 order:1
 tags:Level Streaming
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/LevelStreaming:title%](streaming_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/LevelStreaming:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/LevelStreaming:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/LevelStreaming]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/LevelStreaming:title%](streaming_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/LevelStreaming:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/LevelStreaming:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/LevelStreaming]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
+topic-image:streaming_topic.png
 
 
 [INCLUDE:Engine/LevelStreaming#intro]
@@ -82,18 +43,15 @@ tags:Level Streaming
 **Blueprint** ストリーミング タイプのあるストリーミング レベルは実際、Level Streaming Volume、ブループリント、C++ コードで制御することができます。これらのレベルは、
 動的にロード / アンロードすることができます。 
 
-##Level Streaming Volumes
+### Level Streaming Volume
 
 **Level Streaming Volume** を使うと、レベル ストリーミングが非常に簡単にできるようになります。発想はシンプルです。視点がレベルと関連づいている LevelStreamingVolume ボリューム内にあるかどうかによって、 
 ストリーミング レベルに対するロード / アンロードのリクエストが発行されます。
 
 具体的には、Level Streaming Volume は 2 通りの使い方があります。
 
-
 * **ゲーム** では、Level Streaming Volumes を使って、レベルがプレイヤーの視点がボリューム内にあればロードし、プレイヤーの視点がボリューム外にあればアンロードします。
-
 * **エディタ** では、パースペクティブ ビューポート カメラの位置に合わせてレベルを自動的に表示 / 非表示にして、Level Streaming Volumes を使ってレベル ストリーミングをプレビューすることができます。
-
 
 ボリューム ベースのレベル ストリーミングは使い方が簡単な上にスクリプト処理が必要ないので、レベル ストリーミングの制御には理想的です。さらに、ボリューム ベースはスクリプト処理に比べてはるかに管理が容易です。 
 システムのロード要求が変化しても、ストリーミング ボリュームの大きさを変更すればレベルのロード / アンロード ビヘイビアを修正できます。
@@ -101,8 +59,7 @@ tags:Level Streaming
 * [](Engine/LevelStreaming/StreamingVolumes "%Engine/LevelStreaming/StreamingVolumes:description%")
 * [](Engine/LevelStreaming/HowTo/StreamWithVolumes "%Engine/LevelStreaming/HowTo/StreamWithVolumes:description%")
 
-
-##スクリプト レベル ストリーミング
+### スクリプト レベル ストリーミング
 
 レベルのロード / アンロードをより複雑な設定にしたい場合は、ドアを解除する上記の例と同様に、 
 レベルのロード / アンロードに対してブループリントあるいは C++ ロジックを設定することができます。主要な機能は **Load Stream Level** と **Unload Stream Level** です。ロードするレベルを名前で使用します。 

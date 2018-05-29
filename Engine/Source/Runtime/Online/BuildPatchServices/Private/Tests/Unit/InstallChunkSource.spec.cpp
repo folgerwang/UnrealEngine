@@ -449,7 +449,7 @@ void FInstallChunkSourceSpec::InventUsableChunkData()
 		for (const FGuid& ProducibleChunk : MockInstallationManifest->ProducibleChunks)
 		{
 			uint64 ChunkPolyHash;
-			FSHAHashData ChunkShaHash;
+			FSHAHash ChunkShaHash;
 			for (const FFileChunkPart& FileChunkPart : MockInstallationManifest->FilePartsForChunk[ProducibleChunk])
 			{
 				TArray<uint8>& FileData = FakeFileSystem->DiskData[MockInstallLocation / FileChunkPart.Filename];

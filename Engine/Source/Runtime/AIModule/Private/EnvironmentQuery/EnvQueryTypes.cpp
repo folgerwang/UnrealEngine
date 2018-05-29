@@ -363,7 +363,10 @@ void FAIDynamicParam::GenerateConfigurableParamsFromNamedValues(UObject &QueryOw
 // FEQSQueryExecutionParams
 //----------------------------------------------------------------------//
 FEQSParametrizedQueryExecutionRequest::FEQSParametrizedQueryExecutionRequest()
-	: bInitialized(false)
+	: QueryTemplate(nullptr)
+	, RunMode(EEnvQueryRunMode::SingleResult)
+	, bUseBBKeyForQueryTemplate(false)
+	, bInitialized(false)
 {
 	//EQSQueryBlackboardKey.AddObjectFilter(this, GET_MEMBER_NAME_CHECKED(FEQSQueryExecutionParams, EQSQueryBlackboardKey), UEnvQuery::StaticClass());
 }

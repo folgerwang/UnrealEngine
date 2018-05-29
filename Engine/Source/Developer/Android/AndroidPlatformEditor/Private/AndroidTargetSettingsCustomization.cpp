@@ -310,6 +310,11 @@ void FAndroidTargetSettingsCustomization::BuildAppManifestSection(IDetailLayoutB
 	TSharedRef<IPropertyHandle> EnableGradleProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UAndroidRuntimeSettings, bEnableGradle));
 	FSimpleDelegate EnableGradleChange = FSimpleDelegate::CreateSP(this, &FAndroidTargetSettingsCustomization::OnEnableGradleChange);
 	EnableGradleProperty->SetOnPropertyValueChanged(EnableGradleChange);
+
+	// check for GoogleVR change
+	TSharedRef<IPropertyHandle> GoogleVRCapsProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UAndroidRuntimeSettings, GoogleVRCaps));
+	FSimpleDelegate GoogleVRCapsChange = FSimpleDelegate::CreateSP(this, &FAndroidTargetSettingsCustomization::OnGoogleVRCapsChange);
+	GoogleVRCapsProperty->SetOnPropertyValueChanged(GoogleVRCapsChange);
 }
 
 bool FAndroidTargetSettingsCustomization::IsLicenseInvalid() const
@@ -372,6 +377,22 @@ FReply FAndroidTargetSettingsCustomization::OnAcceptSDKLicenseClicked()
 	LastLicenseChecktime = -1.0;
 
 	return FReply::Handled();
+}
+
+void FAndroidTargetSettingsCustomization::OnGoogleVRCapsChange()
+{
+/*	Doing this isn't really useful since has no effect if plugin isn't also enabled
+	Better to just have a warning in the log during packaging (and it isn't as expensive now)
+
+	const TArray<TEnumAsByte<EGoogleVRCaps::Type>> &GoogleCaps = GetDefault<UAndroidRuntimeSettings>()->GoogleVRCaps;
+
+	bool bIsDaydream = GoogleCaps.Contains(EGoogleVRCaps::Daydream33) || GoogleCaps.Contains(EGoogleVRCaps::Daydream63);
+	if (bIsDaydream && GetDefault<UAndroidRuntimeSettings>()->bAllowIMU)
+	{
+		// turn off IMU for Daydream (but user can turn it back on
+		GetMutableDefault<UAndroidRuntimeSettings>()->bAllowIMU = false;
+	}
+*/
 }
 
 void FAndroidTargetSettingsCustomization::OnEnableGradleChange()

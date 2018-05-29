@@ -860,4 +860,17 @@ protected:
 	/** Decreases the scope lock count. Runs the waiting to execute delegates if the count drops to zero. */
 	void DecrementListLock() const;
 
+
+public:
+	/** Setter for the bMarkPendingKillOnAbilityEnd */
+	void SetMarkPendingKillOnAbilityEnd(bool bInMarkPendingKillOnAbilityEnd) { bMarkPendingKillOnAbilityEnd = bInMarkPendingKillOnAbilityEnd; }
+
+	/** Is bMarkPendingKillOnAbilityEnd set */
+	bool IsMarkPendingKillOnAbilityEnd() const { return bMarkPendingKillOnAbilityEnd; }
+
+protected:
+
+	/** Flag that is set by AbilitySystemComponent::OnRemoveAbility to indicate the ability needs to be cleaned up in AbilitySystemComponent::NotifyAbilityEnded */
+	UPROPERTY(BlueprintReadOnly, Category = Ability)
+	bool bMarkPendingKillOnAbilityEnd;
 };

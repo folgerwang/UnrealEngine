@@ -256,10 +256,6 @@ half4 Main( VertexToPixelInterpolants VIn ) : SV_Target0
 	OutColor.rgb = lerp( OutColor.rgb, Grayish, clamp( distance( OutColor.rgb, Grayish ), 0, .8)  );
 #endif
 
-#if !USE_MATERIALS
-	OutColor = ApplyColorVisionDeficiencyFilter(OutColor);
-#endif
-
 	// gamma correct
 	OutColor.rgb = GammaCorrect(OutColor.rgb);
 

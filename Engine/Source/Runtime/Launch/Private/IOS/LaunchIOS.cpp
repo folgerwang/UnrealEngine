@@ -24,11 +24,43 @@
 FEngineLoop GEngineLoop;
 FGameLaunchDaemonMessageHandler GCommandSystem;
 
+static const double cMaxThreadWaitTime = 2.0;    // Setting this to be 2 seconds
+
 void FAppEntry::Suspend()
 {
 	if (GEngine && GEngine->GetMainAudioDevice())
 	{
-		GEngine->GetMainAudioDevice()->SuspendContext();
+        FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
+        
+        if (FTaskGraphInterface::IsRunning())
+        {
+            FGraphEventRef ResignTask = FFunctionGraphTask::CreateAndDispatchWhenReady([AudioDevice]()
+            {
+                FAudioThread::RunCommandOnAudioThread([AudioDevice]()
+                {
+                    AudioDevice->SuspendContext();
+                }, TStatId());
+                
+                FAudioCommandFence AudioCommandFence;
+                AudioCommandFence.BeginFence();
+                AudioCommandFence.Wait();
+            }, TStatId(), NULL, ENamedThreads::GameThread);
+            
+            // Do not wait forever for this task to complete since the game thread may be stuck on waiting for user input from a modal dialog box
+            double    startTime = FPlatformTime::Seconds();
+            while((FPlatformTime::Seconds() - startTime) < cMaxThreadWaitTime)
+            {
+                FPlatformProcess::Sleep(0.05f);
+                if(ResignTask->IsComplete())
+                {
+                    break;
+                }
+            }
+        }
+        else
+        {
+            AudioDevice->SuspendContext();
+        }        
 	}
 	else
 	{
@@ -44,7 +76,22 @@ void FAppEntry::Resume()
 {
 	if (GEngine && GEngine->GetMainAudioDevice())
 	{
-		GEngine->GetMainAudioDevice()->ResumeContext();
+        FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
+        
+        if (FTaskGraphInterface::IsRunning())
+        {
+            FFunctionGraphTask::CreateAndDispatchWhenReady([AudioDevice]()
+            {
+                FAudioThread::RunCommandOnAudioThread([AudioDevice]()
+                {
+                    AudioDevice->ResumeContext();
+                }, TStatId());
+            }, TStatId(), NULL, ENamedThreads::GameThread);
+        }
+        else
+        {
+            AudioDevice->ResumeContext();
+        }
 	}
 	else
 	{
@@ -261,6 +308,9 @@ int main(int argc, char *argv[])
 		GSavedCommandLine += TEXT(" ");
 		GSavedCommandLine += UTF8_TO_TCHAR(argv[Option]);
 	}
+
+	// convert $'s to " because Xcode swallows the " and this will allow -execcmds= to be usable from xcode
+	GSavedCommandLine = GSavedCommandLine.Replace(TEXT("$"), TEXT("\""));
 
 	FIOSCommandLineHelper::InitCommandArgs(FString());
 	

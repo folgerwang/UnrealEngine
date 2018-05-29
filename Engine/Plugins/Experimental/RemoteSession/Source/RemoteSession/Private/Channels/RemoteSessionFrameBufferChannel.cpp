@@ -46,10 +46,13 @@ FRemoteSessionFrameBufferChannel::FRemoteSessionFrameBufferChannel(ERemoteSessio
 	NumSentImages = 0;
 	KickedTaskCount = 0;
 	Role = InRole;
+	ViewportResized = false;
 
 	if (Role == ERemoteSessionChannelMode::Receive)
 	{
-		MessageCallbackHandle = InConnection->GetDispatchMap().GetAddressHandler(TEXT("/Screen")).AddRaw(this, &FRemoteSessionFrameBufferChannel::ReceiveHostImage);
+		auto Delegate = FBackChannelDispatchDelegate::FDelegate::CreateRaw(this, &FRemoteSessionFrameBufferChannel::ReceiveHostImage);
+		MessageCallbackHandle = InConnection->AddMessageHandler(TEXT("/Screen"), Delegate);
+
 		InConnection->SetMessageOptions(TEXT("/Screen"), 1);
 	}
 }
@@ -62,7 +65,7 @@ FRemoteSessionFrameBufferChannel::~FRemoteSessionFrameBufferChannel()
 		if (LocalConnection.IsValid())
 		{
 			// Remove the callback so it doesn't call back on an invalid this
-			LocalConnection->GetDispatchMap().GetAddressHandler(TEXT("/Screen")).Remove(MessageCallbackHandle);
+			LocalConnection->RemoveMessageHandler(TEXT("/Screen"), MessageCallbackHandle);
 		}
 		MessageCallbackHandle.Reset();
 	}
@@ -72,11 +75,7 @@ FRemoteSessionFrameBufferChannel::~FRemoteSessionFrameBufferChannel()
 		FPlatformProcess::SleepNoStats(0);
 	}
 
-	if (FrameGrabber.IsValid())
-	{
-		FrameGrabber->StopCapturingFrames();
-		FrameGrabber = nullptr;
-	}
+	ReleaseFrameGrabber();
 
 	for (int32 i = 0; i < 2; i++)
 	{
@@ -88,10 +87,15 @@ FRemoteSessionFrameBufferChannel::~FRemoteSessionFrameBufferChannel()
 	}
 }
 
-FString FRemoteSessionFrameBufferChannel::StaticType()
+void FRemoteSessionFrameBufferChannel::ReleaseFrameGrabber()
 {
-	return TEXT("rs.framebuffer");
+	if (FrameGrabber.IsValid())
+	{
+		FrameGrabber->StopCapturingFrames();
+		FrameGrabber = nullptr;
+	}
 }
+
 
 void FRemoteSessionFrameBufferChannel::SetCaptureQuality(int32 InQuality, int32 InFramerate)
 {
@@ -109,6 +113,17 @@ void FRemoteSessionFrameBufferChannel::SetCaptureQuality(int32 InQuality, int32 
 
 void FRemoteSessionFrameBufferChannel::SetCaptureViewport(TSharedRef<FSceneViewport> Viewport)
 {
+	SceneViewport = Viewport;
+
+	CreateFrameGrabber(Viewport);
+
+	// set the listener for the window resize event
+	Viewport->SetOnSceneViewportResizeDel(FOnSceneViewportResize::CreateRaw(this, &FRemoteSessionFrameBufferChannel::OnViewportResized));
+}
+
+void FRemoteSessionFrameBufferChannel::CreateFrameGrabber(TSharedRef<FSceneViewport> Viewport)
+{
+	ReleaseFrameGrabber();
 	FrameGrabber = MakeShareable(new FFrameGrabber(Viewport, Viewport->GetSize()));
 	FrameGrabber->StartCapturingFrames();
 }
@@ -124,6 +139,11 @@ void FRemoteSessionFrameBufferChannel::Tick(const float InDeltaTime)
 
 	if (FrameGrabber.IsValid())
 	{
+		if (ViewportResized)
+		{
+			CreateFrameGrabber(SceneViewport.ToSharedRef());
+			ViewportResized = false;
+		}
 		SCOPE_CYCLE_COUNTER(STAT_FrameBufferCapture);
 
 		FrameGrabber->CaptureThisFrame(FFramePayloadPtr());
@@ -203,9 +223,9 @@ void FRemoteSessionFrameBufferChannel::Tick(const float InDeltaTime)
 			FUpdateTextureRegion2D* Region = new FUpdateTextureRegion2D(0, 0, 0, 0, QueuedImage->Width, QueuedImage->Height);
 			TArray<uint8>* TextureData = new TArray<uint8>(MoveTemp(QueuedImage->ImageData));
 
-			DecodedTextures[NextImage]->UpdateTextureRegions(0, 1, Region, 4 * QueuedImage->Width, 8, TextureData->GetData(), [this, NextImage](auto InTextureData, auto InRegions) {
+			DecodedTextures[NextImage]->UpdateTextureRegions(0, 1, Region, 4 * QueuedImage->Width, 8, TextureData->GetData(), [this, NextImage, TextureData](auto InTextureData, auto InRegions) {
 				DecodedTextureIndex = NextImage;
-				delete InTextureData;
+				delete TextureData; // delete array, not underlying data that UpdateTextureRegions passes us
 				delete InRegions;
 			});
 
@@ -358,4 +378,8 @@ void FRemoteSessionFrameBufferChannel::CreateTexture(const int32 InSlot, const i
 	UE_LOG(LogRemoteSession, Log, TEXT("Created texture in slot %d %dx%d for incoming image"), InSlot, InWidth, InHeight);
 }
 
+void FRemoteSessionFrameBufferChannel::OnViewportResized(FVector2D NewSize)
+{
+	ViewportResized = true;
+}
 

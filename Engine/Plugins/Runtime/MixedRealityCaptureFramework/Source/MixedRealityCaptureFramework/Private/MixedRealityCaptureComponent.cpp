@@ -58,7 +58,7 @@ public:
 		if (Args.Num())
 		{
 			T NewVal;
-			Lex::FromString(NewVal, *Args[0]);
+			LexFromString(NewVal, *Args[0]);
 
 			if (NewVal != VarRef)
 			{
@@ -66,7 +66,7 @@ public:
 				Broadcast();
 			}
 		}
-		Ar.Logf(TEXT("%s = %s"), *CmdName, *Lex::ToString(VarRef));
+		Ar.Logf(TEXT("%s = %s"), *CmdName, *LexToString(VarRef));
 	}
 
 private:
@@ -81,7 +81,7 @@ void FMulticastCVarCommand<bool>::HandleCommand(const TArray<FString>& Args, UWo
 	if (Args.Num())
 	{
 		bool NewVal;
-		Lex::FromString(NewVal, *Args[0]);
+		LexFromString(NewVal, *Args[0]);
 
 		if (NewVal != VarRef)
 		{

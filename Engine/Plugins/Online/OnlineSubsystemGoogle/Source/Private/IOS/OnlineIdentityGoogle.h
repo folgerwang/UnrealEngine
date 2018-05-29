@@ -14,8 +14,6 @@ enum class EGoogleLoginResponse : uint8;
 
 @class FGoogleHelper;
 
-#define GOOGLE_AUTH_CANCELED	  TEXT("com.epicgames.login.canceled");
-
 /** iOS implementation of a Google user account */
 class FUserOnlineAccountGoogle : public FUserOnlineAccountGoogleCommon
 {

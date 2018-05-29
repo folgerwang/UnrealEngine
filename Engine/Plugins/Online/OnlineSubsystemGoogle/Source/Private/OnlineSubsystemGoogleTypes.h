@@ -11,6 +11,8 @@ class FAuthTokenGoogle;
 @class GIDGoogleUser;
 #endif
 
+// from OnlineSubsystemTypes.h
+TEMP_UNIQUENETIDSTRING_SUBCLASS(FUniqueNetIdGoogle, GOOGLE_SUBSYSTEM);
 
 /**
  * Types of supported auth tokens
@@ -45,7 +47,9 @@ private:
 	{
 
 	public:
+		/** Algorithm used to sign the token */
 		FString Alg;
+		/** Key Id */
 		FString Kid;
 		BEGIN_ONLINE_JSON_SERIALIZER
 			ONLINE_JSON_SERIALIZE("alg", Alg);

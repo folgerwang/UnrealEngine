@@ -170,6 +170,7 @@
     <Compile Include="System\CppCompileEnvironment.cs" />
     <Compile Include="System\DataDrivenPlatformInfo.cs" />
     <Compile Include="System\ExceptionUtils.cs" />
+    <Compile Include="System\ParallelExecutor.cs" />
     <Compile Include="System\ModuleManifest.cs" />
     <Compile Include="System\PluginReferenceDescriptor.cs" />
     <Compile Include="System\PrecompiledManifest.cs" />
@@ -213,6 +214,7 @@
     <Compile Include="System\XmlConfigFile.cs" />
     <Compile Include="System\XmlConfigFileAttribute.cs" />
     <Compile Include="System\UnrealPluginLanguage.cs" />
+    <Compile Include="ProjectFiles\VisualStudioMac\VisualStudioMacProjectFileGenerator.cs" />
   </ItemGroup>
   <Choose>
     <When Condition="Exists('Platform\TVOS\UEBuildTVOS.cs')">
@@ -409,5 +411,8 @@
       <Project>{5d7d66e8-8c76-4af9-b3ec-2ef03421d730}</Project>
       <Name>DotNETUtilities</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="ProjectFiles\VisualStudioMac\" />
   </ItemGroup>
 </Project>

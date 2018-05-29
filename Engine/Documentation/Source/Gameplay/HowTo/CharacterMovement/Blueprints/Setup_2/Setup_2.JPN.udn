@@ -21,8 +21,8 @@ order:3
 1.	**Control** キーを押したまま **DisableMovement** 変数をドラッグし、各イベントの **Branch** の **Condition** に接続します。 
 
 1.	残りのノード ネットワークを以下のように設定します。 
-	[REGION:lightbox]
 
+	[REGION:lightbox]
 	[![](Character_Movement.png)(w:720)](Character_Movement.png)
 	[/REGION]
 
@@ -53,6 +53,7 @@ order:3
 	_画像をクリックしてフルサイズで表示_
 
 	Jog が押されると **Jog Pressed** が _True_ に設定され、 **Character Movement** コンポーネントでキャラクターの **Max Walk Speed** を **375** に設定します (この値を調整して Jog 速度を増減することができます)。 
+
 	Jog を放す時に、しゃがんでいるかどうかをチェックし、しゃがんでいる場合は、Walk Speed を **160** (しゃがんで歩く速度) に設定します。しゃがんでいなければ、 Walk Speed を **200** (デフォルトの歩行速度) に設定します。これにより、ステートが Jog から Crouch または Walking になり、適宜元に戻るようになります。 
 
 1.	グラフ内を **右クリック** して、 **InputAction Crouch** Eventを追加します。 
@@ -68,6 +69,7 @@ order:3
 	_画像をクリックしてフルサイズで表示_
 
 	Crouch スクリプトの場合は、 Prone ステートだとしゃがむことが不可能なので、まずそれを確認します (Prone から Crouch またはその逆のアニメーションがないためです。アニメーションがあれば、プレイヤーを Crouch から Prone ステートにさせることができるでしょう)。 
+
 	ずっと Crouch ボタンを押し続けるのではなく、 **FlipFlop** ノードをしゃがむためのトグルとして使用しています (使用する方法によってオプションとなります)。1 度目に押す時は、 **Crouch Pressed** を _True_ に、そして **Max Walk Speed** を **160** に設定します。Crouch をオフに切り替えるために 2 度目を押すと、 Crouch から Jog になることを確認し (歩行速度は **375** に設定します)、そうでない場合は歩行速度を **200** に戻します。 
 
 1.	グラフ内を **右クリック** して、 **InputAction Prone** Event を追加します。 
@@ -103,6 +105,5 @@ order:3
 	Jump スクリプトの場合は、まずステートが Prone か Crouched のいずれかになっているかを確認します。両方とも _true_ ではなければ、 **CharacterMovement** コンポーネントを使って現在の速度を判断します。 0 より大きければ、移動していることになります。 
 
 	移動しているかどうかに応じて、まだ固定状態のうちに **JumpZVelocity** を **365** (キャラクターが移動している場合) または **340** に設定して、キャラクターがジャンプできる高さを設定します。どちらの場合も **Jump Pressed** は _True_ に設定し、 Jump が解除されると **Jump Pressed** を _False_ に設定します。 
-
 
 [NAV]

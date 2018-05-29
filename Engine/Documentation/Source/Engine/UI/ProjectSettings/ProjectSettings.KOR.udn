@@ -105,7 +105,7 @@ topic-image:projectsettings_topic.png
 | **Crowd Manager** | 크라우드 매니저 - AI 크라우드 환경설정 옵션 세트가 들어있습니다. |
 | [REGION:tablesection]최종 사용자 세팅[/REGION] ||
 | Privacy | 개인정보 취급방침 - [INCLUDE:#privacy] |
-| **Garbage Collection** | 가비지 콜렉션 - 게임에서 가비지 콜렉션 작동 방식에 대한 환경설정이 가능합니다. |
+| **Garbage Collection** | 가비지 컬렉션 - 게임에서 가비지 컬렉션 작동 방식에 대한 환경설정이 가능합니다. |
 | **General Settings** | 일반 세팅 - 기본 폰트, 베이스 클래스, 머티리얼, 프레임율 등 엔진과 에디터의 초기화와 셋업에 사용되는 옵션이 들어있습니다. |
 | **Input** | 입력 - 게임의 액션 & 축 바인딩 (키설정 및 기타 입력 매핑) 설정이 가능합니다. [REGION:note]이 부분은 에디터 키설정이 아닌 게임내 키설정입니다.[/REGION] |
 | **Navigation Mesh** | 내비게이션 메시 - 내비게이션 메시 생성 및 표시 방법 설정을 위한 옵션이 들어있습니다. |

@@ -64,7 +64,7 @@ GDTComponent.h
 		virtual void CollectBasicData() override;
 
 		UPROPERTY(Replicated)
-		float TestData; //custom data replicated to clients (クライアントにレプリケートされたカスタム データ) 
+		float TestData; //custom data replicated to clients 
 	};
 
 GDTComponent.cpp
@@ -88,7 +88,7 @@ GDTComponent.cpp
 	{
 		Super::CollectBasicData();
 	#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		TestData= FMath::RandRange(2.75, 8.25); //collect data and store it (データを集めてそれを保存)
+		TestData= FMath::RandRange(2.75, 8.25); //collect data and store it 
 	#endif
 	}
 
@@ -167,7 +167,7 @@ GDTComponent.h
 		void CollectCustomData();
 	public:
 		UPROPERTY(Replicated)
-		float TestData; //custom data replicated to clients (クライアントにレプリケートされたカスタム データ) 
+		float TestData; //custom data replicated to clients  
 	};
 
 GDTComponent.cpp
@@ -191,7 +191,7 @@ GDTComponent.cpp
 	{
 		Super::CollectBasicData();
 	#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		TestData= FMath::RandRange(2.75, 8.25); //collect data and store it (データを集めてそれを保存)
+		TestData= FMath::RandRange(2.75, 8.25); //collect data and store it
 	#endif
 	}
 
@@ -204,7 +204,7 @@ GDTComponent.cpp
 			CollectCustomData();
 			if (bCollectExtendedData)
 			{
-				// collect additional data for selected Pawn/AIController (選択した Pawn/AIController に対して追加データを収集)  
+				// collect additional data for selected Pawn/AIController  
 			}
 		}
 	#endif

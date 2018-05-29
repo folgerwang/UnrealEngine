@@ -14,7 +14,7 @@ bool FUserOnlineAccountFacebookCommon::Parse(const FString& InAuthTicket, const 
 			{
 				if (!UserId.IsEmpty())
 				{
-					UserIdPtr = MakeShared<FUniqueNetIdString>(UserId);
+					UserIdPtr = MakeShared<FUniqueNetIdFacebook>(UserId);
 
 					// update the access token
 					AuthTicket = InAuthTicket;

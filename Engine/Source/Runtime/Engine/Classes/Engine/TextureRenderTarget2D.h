@@ -134,6 +134,9 @@ class UTextureRenderTarget2D : public UTextureRenderTarget
 	/** Initializes the render target, the format will be derived from the value of bHDR. */
 	ENGINE_API void InitAutoFormat(uint32 InSizeX, uint32 InSizeY);
 
+	/** Resizes the render target without recreating the FTextureResource.  Will not flush commands unless the render target resource doesnt exist */
+	ENGINE_API void ResizeTarget(uint32 InSizeX, uint32 InSizeY);
+
 	/**
 	 * Utility for creating a new UTexture2D from a TextureRenderTarget2D
 	 * TextureRenderTarget2D must be square and a power of two size.

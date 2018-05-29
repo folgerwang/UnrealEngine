@@ -632,6 +632,13 @@ void UMaterialEditingLibrary::UpdateMaterialFunction(UMaterialFunctionInterface*
 						{
 							CurrentMaterial->MaterialGraph->RebuildGraph();
 						}
+
+						// if this instance was opened in an editor notify the change
+						auto* MaterialEditor = (IMaterialEditor*)FAssetEditorManager::Get().FindEditorForAsset(CurrentMaterial, false);
+						if (MaterialEditor)
+						{
+							MaterialEditor->NotifyExternalMaterialChange();
+						}
 					}
 				}
 			}
@@ -649,6 +656,14 @@ void UMaterialEditingLibrary::UpdateMaterialFunction(UMaterialFunctionInterface*
 						UpdateContext.AddMaterialInstance(CurrentInstance);
 						CurrentInstance->PreEditChange(nullptr);
 						CurrentInstance->PostEditChange();
+
+						// if this instance was opened in an editor notify the change
+						auto* MaterialEditor = (IMaterialEditor*)FAssetEditorManager::Get().FindEditorForAsset(CurrentInstance, false);
+						if (MaterialEditor)
+						{
+							MaterialEditor->NotifyExternalMaterialChange();
+						}
+
 						break;
 					}
 				}

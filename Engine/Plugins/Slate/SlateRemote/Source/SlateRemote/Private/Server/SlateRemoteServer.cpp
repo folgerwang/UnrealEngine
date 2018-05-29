@@ -1,6 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Server/SlateRemoteServer.h"
+
+#if WITH_SLATE_REMOTE_SERVER
+
 #include "Common/UdpSocketBuilder.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/SViewport.h"
@@ -168,7 +171,7 @@ void FSlateRemoteServer::ProcessTouchMessage( const FSlateRemoteServerMessage& M
 			}
 
 			// create the event struct
-			FPointerEvent Event(0, Message.Handle, ScreenPosition, LastTouchPositions[Message.Handle], Message.DataType != DT_TouchEnded);
+			FPointerEvent Event(0, Message.Handle, ScreenPosition, LastTouchPositions[Message.Handle], Message.DataType == DT_TouchEnded ? 0.0f : 1.0f, Message.DataType != DT_TouchEnded);
 			LastTouchPositions[Message.Handle] = ScreenPosition;
 
 			// send input to handler
@@ -198,6 +201,7 @@ void FSlateRemoteServer::ProcessTouchMessage( const FSlateRemoteServerMessage& M
 
 bool FSlateRemoteServer::HandleTicker( float DeltaTime )
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FSlateRemoteServer_HandleTicker);
 	FSlateRemoteServerMessage Message; // @todo SlateRemote: this is sketchy; byte ordering and packing ignored; use FArchive!
 	int32 BytesRead;
 
@@ -265,3 +269,5 @@ bool FSlateRemoteServer::HandleTicker( float DeltaTime )
 
 	return true;
 }
+
+#endif // WITH_SLATE_REMOTE_SERVER

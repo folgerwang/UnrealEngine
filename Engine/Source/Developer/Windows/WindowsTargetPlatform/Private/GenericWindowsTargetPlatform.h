@@ -12,6 +12,7 @@
 	#include "TextureResource.h"
 	#include "Engine/VolumeTexture.h"
 	#include "StaticMeshResources.h"
+	#include "RHI.h"
 #endif // WITH_ENGINE
 
 #define LOCTEXT_NAMESPACE "TGenericWindowsTargetPlatform"
@@ -153,6 +154,31 @@ public:
 			return IS_CLIENT_ONLY;
 		}
 
+		if (Feature == ETargetPlatformFeatures::MobileRendering)
+		{
+			static bool bCachedSupportsMobileRendering = false;
+#if WITH_ENGINE
+			static bool bHasCachedValue = false;
+			if (!bHasCachedValue)
+			{
+				TArray<FName> TargetedShaderFormats;
+				GetAllTargetedShaderFormats(TargetedShaderFormats);
+
+				for (const FName& Format : TargetedShaderFormats)
+				{
+					if (IsMobilePlatform(ShaderFormatToLegacyShaderPlatform(Format)))
+					{
+						bCachedSupportsMobileRendering = true;
+						break;
+					}
+				}
+				bHasCachedValue = true;
+			}
+#endif
+
+			return bCachedSupportsMobileRendering;
+		}
+
 		return TSuper::SupportsFeature(Feature);
 	}
 
@@ -186,6 +212,8 @@ public:
 			static FName NAME_OPENGL_150_ES2(TEXT("GLSL_150_ES2"));
 			static FName NAME_OPENGL_150_ES3_1(TEXT("GLSL_150_ES31"));
 			static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
+			static FName NAME_PCD3D_ES3_1(TEXT("PCD3D_ES31"));
+			static FName NAME_PCD3D_ES2(TEXT("PCD3D_ES2"));
 
 			OutFormats.AddUnique(NAME_PCD3D_SM5);
 			OutFormats.AddUnique(NAME_PCD3D_SM4);
@@ -195,6 +223,8 @@ public:
 			OutFormats.AddUnique(NAME_OPENGL_150_ES2);
 			OutFormats.AddUnique(NAME_OPENGL_150_ES3_1);
 			OutFormats.AddUnique(NAME_VULKAN_SM5);
+			OutFormats.AddUnique(NAME_PCD3D_ES3_1);
+			OutFormats.AddUnique(NAME_PCD3D_ES2);
 		}
 	}
 

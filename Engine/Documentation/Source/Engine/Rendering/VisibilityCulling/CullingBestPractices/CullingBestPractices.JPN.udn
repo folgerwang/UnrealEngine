@@ -1,48 +1,9 @@
-﻿INTSourceChangeList:3108692
+﻿INTSourceChangelist:3782314
 Availability:Docs
 Title:Visibility Culling のベスト プラクティス
 Crumbs: %ROOT%, Engine, 
 Description:Visibility Culling のストラテジーとベスト プラクティス
 Version:4.13
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/VisibilityCulling:title%]()
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/VisibilityCulling:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/VisibilityCulling:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/VisibilityCulling]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/VisibilityCulling:title%]()
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/VisibilityCulling:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/VisibilityCulling:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/VisibilityCulling]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [TOC(start:2 end:2)]
 
@@ -68,7 +29,7 @@ GPU から 1 フレーム遅れて読み取られるので、視錐台とハー�
 * 問題のビヘイビアを発生させているアクタの Bounds Scale を増やします。 
 * 小さい構成要素を組み立てなくて済むような方法でジオメトリをビルドします。ウォール、フロア、天井に特に当てはまります。
 
-##アセットの構築
+## アセットの構築
 
 ゲームのジオメトリを作成する場合、ジオメトリをモジュラーに分割しておくと、デザインがしやすく、また再利用もできます。ただし、あまりに小さい要素で大きなジオメトリを作ろうとすると、 
 デザイン プロセスで非常に多くのモジュラーができてしまう可能性があります。そこで、各アクタの可視性ステートをチェックしておく必要があります。ゲーム デザインにぴったりのバランスを見つけ出し、

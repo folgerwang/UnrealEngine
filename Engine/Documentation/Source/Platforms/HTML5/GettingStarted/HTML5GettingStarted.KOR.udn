@@ -27,9 +27,9 @@ HTML5 는 [Mozilla](https://www.mozilla.org/en-US/) 의 emscripten 툴 체인을
 
 ![](LaunchNightly.png)
 
-**[패키징된 HTML5 프로젝트](Engine/Basics/Projects/Packaging) 테스트 방법:**
+**테스트 방법 [HTML5 패키지 프로젝트](Engine/Basics/Projects/Packaging):**
 1. **Package Project** (패키지 프로젝트) 맥락 메뉴에서 **HTML5** 를 선택합니다.
 1. 프로젝트 패키징이 완료되면, 대상 위치를 열고 **HTML5LaunchHelper** 를 실행합니다.
 1. 이 창에서 로컬호스트 주소를 적습니다.
 	![](localhostinfo.png)
-1. 64 비트 브라우저에서 `[Localhost Address]/[ProjectName].html` 을 엽니다. 예를 들면, 위의 로컬호스트 주소와 MyProject 라는 이름으로 `http://localhost:8000/MyProject.html` 입니다.
+1. 64 비트 브라우저에서 `[Localhost Address]/[ProjectName].html` 을 엽니다. 예를 들면, 위의 로컬호스트 주소와 `MyProject` 라는 이름으로 `http://localhost:8000/MyProject.html` 입니다.

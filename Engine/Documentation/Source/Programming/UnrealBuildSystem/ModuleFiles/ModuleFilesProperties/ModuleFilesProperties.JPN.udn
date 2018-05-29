@@ -1,9 +1,9 @@
-﻿INTSourceChangelist:3606403
+﻿INTSourceChangelist:3808342
 Availability:NoPublish
 Title:ビルド コンフィギュレーション プロパティのページ
 Crumbs:
 Description:これはプロシージャルに生成されるマークダウン ページです。
-Version:4.18
+Version:4.19
 
 ### 読み取り / 書き込み用プロパティ
 $ Type (ModuleType):モジュール タイプです。
@@ -84,7 +84,9 @@ $ PublicAdditionalShadowFiles (List&lt;String&gt;):リモート マシン (iOS �
 
 $ PublicDelayLoadDLLs (List&lt;String&gt;):遅延ロード DLL のリストです。通常は、外部 (サード パーティ) モジュールに使用されます。
 
-$ Definitions (List&lt;String&gt;):このモジュールへの追加コンパイラ定義です。
+$ PrivateDefinitions (List&lt;String&gt;):Private compiler definitions for this module
+
+$ PublicDefinitions (List&lt;String&gt;):Public compiler definitions for this module
 
 $ DynamicallyLoadedModuleNames (List&lt;String&gt;):ランタイム時にこのモジュールが必要とする場合のある追加モジュールです。
 

@@ -260,9 +260,10 @@ bool FApp::ShouldUseThreadingForPerformance()
 {
 	static bool OnlyOneThread = 
 		FParse::Param(FCommandLine::Get(), TEXT("ONETHREAD")) ||
+		FParse::Param(FCommandLine::Get(), TEXT("noperfthreads")) ||
 		IsRunningDedicatedServer() ||
 		!FPlatformProcess::SupportsMultithreading() ||
-		FPlatformMisc::NumberOfCores() < 2;
+		FPlatformMisc::NumberOfCoresIncludingHyperthreads() < 4;
 	return !OnlyOneThread;
 }
 #endif // HAVE_RUNTIME_THREADING_SWITCHES
@@ -282,6 +283,7 @@ float FApp::GetUnfocusedVolumeMultiplier()
 void FApp::SetUnfocusedVolumeMultiplier(float InVolumeMultiplier)
 {
 	UnfocusedVolumeMultiplier = InVolumeMultiplier;
+	GConfig->SetFloat(TEXT("Audio"), TEXT("UnfocusedVolumeMultiplier"), UnfocusedVolumeMultiplier, GEngineIni);
 	GUnfocusedVolumeMultiplierInitialised = true;
 }
 

@@ -61,6 +61,13 @@ TAutoConsoleVariable<float> CVarStreamingBoost(
 	ECVF_Scalability
 	);
 
+TAutoConsoleVariable<float> CVarStreamingMinBoost(
+	TEXT("r.Streaming.MinBoost"),
+	0.0f,
+	TEXT("Minimum clamp for r.Streaming.Boost"),
+	ECVF_Default
+	);
+
 TAutoConsoleVariable<float> CVarStreamingScreenSizeEffectiveMax(
 	TEXT("r.Streaming.MaxEffectiveScreenSize"),
 	0,

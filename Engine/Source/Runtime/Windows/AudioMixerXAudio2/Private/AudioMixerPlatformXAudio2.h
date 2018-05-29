@@ -96,6 +96,7 @@ namespace Audio
 		IXAudio2MasteringVoice* OutputAudioStreamMasteringVoice;
 		IXAudio2SourceVoice* OutputAudioStreamSourceVoice;
 		FXAudio2VoiceCallback OutputVoiceCallback;
+		FCriticalSection AudioDeviceSwapCriticalSection;
 		FString OriginalAudioDeviceId;
 		FString NewAudioDeviceId;
 		FThreadSafeBool bMoveAudioStreamToNewAudioDevice;

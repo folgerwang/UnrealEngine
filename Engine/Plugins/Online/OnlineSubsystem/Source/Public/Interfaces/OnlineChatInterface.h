@@ -6,6 +6,18 @@
 #include "UObject/CoreOnline.h"
 #include "OnlineDelegateMacros.h"
 
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineChat, Display, All);
+
+#define UE_LOG_ONLINECHAT(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogOnlineChat, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINECHAT(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogOnlineChat, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
 /**
  * Id of a chat room
  */

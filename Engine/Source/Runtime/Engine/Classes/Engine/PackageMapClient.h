@@ -169,13 +169,13 @@ public:
 	bool			SupportsObject( const UObject* Object, const TWeakObjectPtr<UObject>* WeakObjectPtr=nullptr /** Optional: pass in existing weakptr to prevent this function from constructing one internally */ ) const;
 	bool			IsDynamicObject( const UObject* Object );
 	bool			IsNetGUIDAuthority() const;
-	FNetworkGUID	GetOrAssignNetGUID( const UObject* Object, const TWeakObjectPtr<UObject>* WeakObjectPtr=nullptr /** Optional: pass in existing weakptr to prevent this function from constructing one internally */ );
+	FNetworkGUID	GetOrAssignNetGUID( UObject* Object, const TWeakObjectPtr<UObject>* WeakObjectPtr=nullptr /** Optional: pass in existing weakptr to prevent this function from constructing one internally */ );
 	FNetworkGUID	GetNetGUID( const UObject* Object ) const;
 	FNetworkGUID	GetOuterNetGUID( const FNetworkGUID& NetGUID ) const;
-	FNetworkGUID	AssignNewNetGUID_Server( const UObject* Object );
-	FNetworkGUID	AssignNewNetGUIDFromPath_Server( const FString& PathName, const UObject* ObjOuter, const UClass* ObjClass );
+	FNetworkGUID	AssignNewNetGUID_Server( UObject* Object );
+	FNetworkGUID	AssignNewNetGUIDFromPath_Server( const FString& PathName, UObject* ObjOuter, UClass* ObjClass );
 	void			RegisterNetGUID_Internal( const FNetworkGUID& NetGUID, const FNetGuidCacheObject& CacheObject );
-	void			RegisterNetGUID_Server( const FNetworkGUID& NetGUID, const UObject* Object );
+	void			RegisterNetGUID_Server( const FNetworkGUID& NetGUID, UObject* Object );
 	void			RegisterNetGUID_Client( const FNetworkGUID& NetGUID, const UObject* Object );
 	void			RegisterNetGUIDFromPath_Client( const FNetworkGUID& NetGUID, const FString& PathName, const FNetworkGUID& OuterGUID, const uint32 NetworkChecksum, const bool bNoLoad, const bool bIgnoreWhenMissing );
 	void			RegisterNetGUIDFromPath_Server( const FNetworkGUID& NetGUID, const FString& PathName, const FNetworkGUID& OuterGUID, const uint32 NetworkChecksum, const bool bNoLoad, const bool bIgnoreWhenMissing );
@@ -189,8 +189,8 @@ public:
 	FString			FullNetGUIDPath( const FNetworkGUID& NetGUID ) const;
 	void			GenerateFullNetGUIDPath_r( const FNetworkGUID& NetGUID, FString& FullPath ) const;
 	bool			ShouldIgnorePackageMismatch() const;
-	uint32			GetClassNetworkChecksum( const UClass* Class );
-	uint32			GetNetworkChecksum( const UObject* Obj );
+	uint32			GetClassNetworkChecksum( UClass* Class );
+	uint32			GetNetworkChecksum( UObject* Obj );
 	void			SetNetworkChecksumMode( const ENetworkChecksumMode NewMode );
 	void			SetAsyncLoadMode( const EAsyncLoadMode NewMode );
 	bool			ShouldAsyncLoad() const;
@@ -296,7 +296,7 @@ public:
 
 	TMap<FNetworkGUID, int32>	NetGUIDExportCountMap;	// How many times we've exported each NetGUID on this connection. Public for ListNetGUIDExports 
 
-	void HandleUnAssignedObject( const UObject* Obj );
+	void HandleUnAssignedObject( UObject* Obj );
 
 	static void	AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 
@@ -346,11 +346,11 @@ protected:
 	void AppendNetExportGUIDs(FArchive& Archive);
 	void ReceiveNetExportGUIDs(FArchive& Archive);
 
-	bool	ExportNetGUIDForReplay( FNetworkGUID&, const UObject* Object, FString& PathName, UObject* ObjOuter );
-	bool	ExportNetGUID( FNetworkGUID NetGUID, const UObject* Object, FString PathName, UObject* ObjOuter );
+	bool	ExportNetGUIDForReplay( FNetworkGUID&, UObject* Object, FString& PathName, UObject* ObjOuter );
+	bool	ExportNetGUID( FNetworkGUID NetGUID, UObject* Object, FString PathName, UObject* ObjOuter );
 	void	ExportNetGUIDHeader();
 
-	void			InternalWriteObject( FArchive& Ar, FNetworkGUID NetGUID, const UObject* Object, FString ObjectPathName, UObject* ObjectOuter );	
+	void			InternalWriteObject( FArchive& Ar, FNetworkGUID NetGUID, UObject* Object, FString ObjectPathName, UObject* ObjectOuter );	
 	FNetworkGUID	InternalLoadObject( FArchive & Ar, UObject *& Object, int InternalLoadObjectRecursionCount );
 
 	virtual UObject* ResolvePathAndAssignNetGUID( const FNetworkGUID& NetGUID, const FString& PathName ) override;

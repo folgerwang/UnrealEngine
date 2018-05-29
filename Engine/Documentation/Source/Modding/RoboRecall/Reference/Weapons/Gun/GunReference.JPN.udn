@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3339965
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:基本的な銃のリファレンス
 Crumbs:%ROOT%
@@ -47,39 +47,11 @@ social-image:RoboRecallModding_Guns_Ref.png
 
 Notify Start Firing event はプレイヤーが発射ボタンを押すたびに呼び出されます。_exec_ 出力ピンに接続されているノードがあれば、この時実行されます。このイベントを使って、発射位置や発射エフェクトのスポーンの変更など武器の発射機能を拡張またはオーバーライドします。
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    outputs
-    [/PARAMLITERAL]
-    [PARAM:heading]
-    Outputs
-    [/PARAM]
-    [PARAM:content]
-        [OBJECT:MemberIconListHeadBlank]
-        [/OBJECT]
-        [OBJECT:ActionPinListItem]
-            [PARAM:icons]
-                [REGION:input_exec exec]
-                    
-                [/REGION]
-            [/PARAM]
-            [PARAMLITERAL:name]
-                
-            [/PARAMLITERAL]
-            [PARAMLITERAL:type]
-                exec
-            [/PARAMLITERAL]
-            [PARAM:tooltip]
-                これに接続されているノードは、イベントが呼び出されたときに実行されます。
-            [/PARAM]
-            [PARAMLITERAL:id]
-                Out_Exec
-            [/PARAMLITERAL]
-        [/OBJECT]
-        [OBJECT:MemberIconListTail]
-        [/OBJECT]
-    [/PARAM]
-[/OBJECT]
+### 出力
+
+| タイプ | 説明 |
+| ---- | ----------- |
+| exec | これに接続されているノードは、イベントが呼び出されたときに実行されます。 |
 
 ### Event Notify Stop Firing
 
@@ -110,37 +82,9 @@ Notify Start Firing event はプレイヤーが発射ボタンを押すたびに
 
 Notify Stop Firing はプレイヤーが発射ボタンを放すたびに呼び出されます。_exec_ 出力ピンに接続されているノードがあれば、この時実行されます。このイベントを使って、発射時にスポーンした発射エフェクトのクリーンアップなど武器の発射停止機能を拡張またはオーバーライドします。
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    outputs
-    [/PARAMLITERAL]
-    [PARAM:heading]
-    Outputs
-    [/PARAM]
-    [PARAM:content]
-        [OBJECT:MemberIconListHeadBlank]
-        [/OBJECT]
-        [OBJECT:ActionPinListItem]
-            [PARAM:icons]
-                [REGION:input_exec exec]
-                    
-                [/REGION]
-            [/PARAM]
-            [PARAMLITERAL:name]
-                
-            [/PARAMLITERAL]
-            [PARAMLITERAL:type]
-                exec
-            [/PARAMLITERAL]
-            [PARAM:tooltip]
-                これに接続されているノードは、イベントが呼び出されたときに実行されます。
-            [/PARAM]
-            [PARAMLITERAL:id]
-                Out_Exec
-            [/PARAMLITERAL]
-        [/OBJECT]
-        [OBJECT:MemberIconListTail]
-        [/OBJECT]
-    [/PARAM]
-[/OBJECT]
+### 出力
+
+| タイプ | 説明 |
+| ---- | ----------- |
+| exec | これに接続されているノードは、イベントが呼び出されたときに実行されます。 |
 

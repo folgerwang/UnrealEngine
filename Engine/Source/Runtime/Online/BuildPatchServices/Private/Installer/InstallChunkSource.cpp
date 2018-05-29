@@ -39,7 +39,7 @@ namespace BuildPatchServices
 		typedef FRollingHash<BuildPatchServices::ChunkDataSize> FChunkHash;
 		void FindChunkLocation(const FGuid& DataId, const FString** FoundInstallDirectory, const FBuildPatchAppManifest** FoundInstallManifest) const;
 		bool LoadFromBuild(const FGuid& DataId);
-		FSHAHashData GetShaHashForDataSet(const uint8* ChunkData);
+		FSHAHash GetShaHashForDataSet(const uint8* ChunkData);
 
 	private:
 		// Configuration.
@@ -199,7 +199,7 @@ namespace BuildPatchServices
 		// We must have a hash for this chunk or else we cant verify it
 		EChunkHashFlags HashType = EChunkHashFlags::None;
 		uint64 ChunkHash = 0;
-		FSHAHashData ChunkShaHash;
+		FSHAHash ChunkShaHash;
 		if (FoundInstallManifest->GetChunkShaHash(DataId, ChunkShaHash))
 		{
 			HashType |= EChunkHashFlags::Sha1;
@@ -333,9 +333,9 @@ namespace BuildPatchServices
 		}
 	}
 
-	FSHAHashData FInstallChunkSource::GetShaHashForDataSet(const uint8* ChunkData)
+	FSHAHash FInstallChunkSource::GetShaHashForDataSet(const uint8* ChunkData)
 	{
-		FSHAHashData ShaHashCheck;
+		FSHAHash ShaHashCheck;
 		FSHA1::HashBuffer(ChunkData, BuildPatchServices::ChunkDataSize, ShaHashCheck.Hash);
 		return ShaHashCheck;
 	}

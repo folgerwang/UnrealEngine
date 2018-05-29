@@ -7,6 +7,8 @@
 #include "IPropertyTypeCustomization.h"
 #include "PerPlatformProperties.h"
 
+class FDetailWidgetDecl;
+
 /**
 * Implements a details panel customization for the FPerPlatform structures.
 */
@@ -34,4 +36,8 @@ protected:
 	bool AddPlatformOverride(FName PlatformGroupName, TSharedRef<IPropertyHandle> StructPropertyHandle);
 	bool RemovePlatformOverride(FName PlatformGroupName, TSharedRef<IPropertyHandle> StructPropertyHandle);
 	float CalcDesiredWidth(TSharedRef<IPropertyHandle> StructPropertyHandle);
+
+private:
+	/** Cached utils used for resetting customization when layout changes */
+	TWeakPtr<IPropertyUtilities> PropertyUtilities;
 };

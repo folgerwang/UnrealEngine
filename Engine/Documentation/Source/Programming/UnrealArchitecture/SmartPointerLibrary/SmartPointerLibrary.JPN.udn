@@ -132,10 +132,10 @@ Related:Programming/UnrealArchitecture/Objects
 	{
 		void Register()
 		{
-			// this に対する共有参照にアクセス
+			// Access a shared reference to 'this'
 			TSharedRef<FMyClass> SharedThis = AsSharedRef();
 
-			// 共有参照を求める関数を指定
+			// Class a function that is expecting a shared reference
 			AnimationSystem::RegisterAnimation( SharedThis );
 		}
 	}

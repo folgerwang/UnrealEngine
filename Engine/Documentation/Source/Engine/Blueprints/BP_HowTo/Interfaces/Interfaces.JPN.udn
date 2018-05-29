@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3244370
-Availability:Public
+﻿Availability:Public
 Title:インターフェスの使用方法
 Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\BP_HowTo
 Description:複数のブループリントと一度に通信するためにブループリント インターフェースを使用したサンプル 
@@ -24,7 +23,7 @@ tags:Blueprints
 
 1. 被破壊メッシュを開いて、**[Fracture Mesh (フラクチャ メッシュ)]** をクリックして **保存** してから [Destructible Mesh Editor (被破壊メッシュ エディタ)] ウィンドウを閉じます。 
 
-	![](Interface12.png)
+	![](Interface2.png)
 
 1. **SM_GlassWindow_DM** アセットを **右クリック** して、**[Asset Actions (アセットアクション)]** から **[Create Blueprint Using This...(これを使用してブループリントを作成)]** を選びます。 
 
@@ -90,7 +89,7 @@ tags:Blueprints
 
 1.	**[Class Settings]** で **DM_Interface** を追加してから、グラフを **右クリック** して、**IsDestructible?(Message)** ノードを追加します。 
 
-	![](Interface1.png)
+	![](Interface13.png)
 
 	この設定により IsDestructible? 関数を実行して、インターフェースと関数を実装するすべてのブループリントも実行します。 
 
@@ -121,6 +120,7 @@ tags:Blueprints
 	![](Example2.png)(w:720)
 
 	次にライトを撃つと、ライトが消えます (ステップ 13 でも指定)。 
+
 	![](Example3.png)(w:720)
 
 これは _ブループリント インターフェース_ を使用してブループリント間で変数を渡して、インターフェースを実装したブループリントでさまざまなスクリプトを実行する一例です。ブループリントインターフェースの操作と別の形態で行うブループリント通信に関する詳細は、以下に示す **Related Topics** セクションを参照してください。 

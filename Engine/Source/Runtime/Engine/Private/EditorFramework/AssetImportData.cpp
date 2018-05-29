@@ -35,7 +35,7 @@ FString FAssetImportInfo::ToJson() const
 		Json += FString::Printf(TEXT("{ \"RelativeFilename\" : \"%s\", \"Timestamp\" : \"%d\", \"FileMD5\" : \"%s\" }"),
 			*SourceFiles[Index].RelativeFilename,
 			SourceFiles[Index].Timestamp.ToUnixTimestamp(),
-			*Lex::ToString(SourceFiles[Index].FileHash)
+			*LexToString(SourceFiles[Index].FileHash)
 			);
 
 		if (Index != SourceFiles.Num() - 1)
@@ -80,10 +80,10 @@ TOptional<FAssetImportInfo> FAssetImportInfo::FromJson(FString InJsonString)
 		}
 
 		int64 UnixTimestamp = 0;
-		Lex::FromString(UnixTimestamp, *TimestampString);
+		LexFromString(UnixTimestamp, *TimestampString);
 
 		FMD5Hash FileHash;
-		Lex::FromString(FileHash, *MD5String);
+		LexFromString(FileHash, *MD5String);
 
 		Info.SourceFiles.Emplace(MoveTemp(RelativeFilename), FDateTime::FromUnixTimestamp(UnixTimestamp), FileHash);
 	}
@@ -181,11 +181,15 @@ TArray<FString> UAssetImportData::ExtractFilenames() const
 
 FString UAssetImportData::SanitizeImportFilename(const FString& InPath) const
 {
-	const UPackage* Package = GetOutermost();
-	if (Package)
+	return SanitizeImportFilename(InPath, GetOutermost());
+}
+
+FString UAssetImportData::SanitizeImportFilename(const FString& InPath, const UPackage* Outermost)
+{
+	if (Outermost)
 	{
 		const bool		bIncludeDot = true;
-		const FString	PackagePath	= Package->GetPathName();
+		const FString	PackagePath	= Outermost->GetPathName();
 		const FName		MountPoint	= FPackageName::GetPackageMountPoint(PackagePath);
 		const FString	PackageFilename = FPackageName::LongPackageNameToFilename(PackagePath, FPaths::GetExtension(InPath, bIncludeDot));
 		const FString	AbsolutePath = FPaths::ConvertRelativePathToFull(InPath);

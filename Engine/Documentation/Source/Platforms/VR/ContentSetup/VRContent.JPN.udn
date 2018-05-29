@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3622471
+﻿INTSourceChangelist:3810467
 Availability:Public
 Crumbs: %ROOT%
 Title:仮想現実のベスト プラクティス
@@ -35,7 +35,7 @@ Tags:VR
 これらの .INI 設定を使用する場合は、プロジェクトの **「Config\DefaultEngine.INI」** ファイルの **[SystemSettings]** に追加しなければなりません。 
 
 	[SystemSettings]
-	r.screenpercentage=130
+	vr.PixelDensity=1
 	r.SeparateTranslucency=0
 	r.HZBOcclusion=0
 	r.MotionBlurQuality=0

@@ -119,8 +119,8 @@ TSets のイタレーションは TArrays と似ています。C++ の ranged-fo
 		)
 	);
 	// Prints "Banana"
-	FSetElementId LemonIndex = FruitSet.Index(TEXT("Lemon"));
 
+	FSetElementId LemonIndex = FruitSet.Index(TEXT("Lemon"));
 	// LemonIndex is INDEX_NONE (-1)
 	FPlatformMisc::LocalPrint(
 		*FString::Printf(
@@ -169,8 +169,8 @@ Visual Studio の [Watch] ウィンドウでセットを視覚化すると分か
 
 	TSet<FString> FruitSetCopy = FruitSet;
 	// FruitSetCopy == [ "Grapefruit","Pear","Orange","Kiwi","Melon","Mango" ]
-	FruitSetCopy.Empty();
 
+	FruitSetCopy.Empty();
 	// FruitSetCopy == []
 
 TArray と同様に、Empty は任意のスラック値 (デフォルト値はゼロ) を受け取り、それを使って、セットを空にした後で内部の格納配列のサイズを変更します。この値が、配列の新しい最大サイズとして使われます。配列の現在の最大値がスラック引数と同じ場合は、再割り当ては行われません。
@@ -185,13 +185,13 @@ Sort 関数は、ソート順序を指定するバイナリ述語を受け取り
 		return A > B; // sort by reverse-alphabetical order
 	});
 	// FruitSet == [ "Pear", "Orange", "Melon", "Mango", "Kiwi", "Grapefruit" ] (順序は一時的に保証されます)
-	FruitSet.Sort([](const FString& A, const FString& B) {
 
+	FruitSet.Sort([](const FString& A, const FString& B) {
 		return A.Len() < B.Len(); // sort strings by length, shortest to longest
 	});
 	// FruitSet == [ "Pear", "Kiwi", "Melon", "Mango", "Orange", "Grapefruit" ] (順序は一時的に保証されます)
-	## 演算子
 
+## 演算子
 
 TArray と同様に、TSet は一般的な value 型です。標準のコピー コンストラクタもしくは代入演算子でコピーすることができます。セットは必ずエレメントを所有しているため、セットは「深いコピー」が行われ、新規のセットにはそのエレメントの個々のコピーが作られます。
 

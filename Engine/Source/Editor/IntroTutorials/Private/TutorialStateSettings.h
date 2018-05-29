@@ -17,8 +17,10 @@ struct FTutorialProgress
 	GENERATED_USTRUCT_BODY()
 
 	FTutorialProgress()
+		: CurrentStage(0)
+		, bUserDismissed(false)
+		, bUserDismissedThisSession(false)
 	{
-		bUserDismissedThisSession = false;
 	}
 
 	UPROPERTY()

@@ -919,6 +919,46 @@ inline ERHIFeatureLevel::Type GetMaxSupportedFeatureLevel(EShaderPlatform InShad
 	}
 }
 
+inline bool IsSimulatedPlatform(EShaderPlatform Platform)
+{
+	switch (Platform)
+	{
+		case SP_OPENGL_PCES2:
+		case SP_PCD3D_ES2:
+		case SP_PCD3D_ES3_1:
+		case SP_OPENGL_PCES3_1:
+			return true;
+		break;
+
+		default:
+			return false;
+		break;
+	}
+
+	return false;
+}
+
+inline EShaderPlatform GetSimulatedPlatform(EShaderPlatform Platform)
+{
+	switch (Platform)
+	{
+		case SP_OPENGL_PCES2:
+		case SP_PCD3D_ES2:
+			return SP_OPENGL_ES2_ANDROID;
+		break;
+		case SP_PCD3D_ES3_1:
+		case SP_OPENGL_PCES3_1:
+			return SP_OPENGL_ES3_1_ANDROID;
+		break;
+
+		default:
+			return Platform;
+		break;
+	}
+
+	return Platform;
+}
+
 /** Returns true if the feature level is supported by the shader platform. */
 inline bool IsFeatureLevelSupported(EShaderPlatform InShaderPlatform, ERHIFeatureLevel::Type InFeatureLevel)
 {
@@ -982,6 +1022,11 @@ inline bool RHISupportsMobileMultiView(const EShaderPlatform Platform)
 inline bool RHISupportsDrawIndirect(const EShaderPlatform Platform)
 {
 	return (Platform == EShaderPlatform::SP_METAL_SM5 || Platform == EShaderPlatform::SP_PCD3D_SM5 || Platform == EShaderPlatform::SP_VULKAN_SM5 || Platform == EShaderPlatform::SP_PS4);
+}
+
+inline bool RHISupportsNativeShaderLibraries(const EShaderPlatform Platform)
+{
+	return IsMetalPlatform(Platform);
 }
 
 

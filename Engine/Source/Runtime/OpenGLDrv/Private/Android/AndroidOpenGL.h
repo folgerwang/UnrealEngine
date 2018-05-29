@@ -195,10 +195,9 @@ struct FAndroidOpenGL : public FOpenGLES2
 	static FORCEINLINE bool HasHardwareHiddenSurfaceRemoval() { return bHasHardwareHiddenSurfaceRemoval; };
 
 	// Optional:
-	static FORCEINLINE void QueryTimestampCounter(GLuint QueryID)
-	{
-		glQueryCounterEXT(QueryID, GL_TIMESTAMP_EXT);
-	}
+	static void QueryTimestampCounter(GLuint QueryID);
+
+	static GLuint MakeVirtualQueryReal(GLuint QueryID);
 
 	static FORCEINLINE void GenQueries(GLsizei NumQueries, GLuint* QueryIDs)
 	{
@@ -248,6 +247,7 @@ struct FAndroidOpenGL : public FOpenGLES2
 	{
 		if (GUseThreadedRendering)
 		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_eglClientWaitSyncKHR_p);
 			// check( Flags == GL_SYNC_FLUSH_COMMANDS_BIT );
 			GLenum Result = eglClientWaitSyncKHR_p( AndroidEGL::GetInstance()->GetDisplay(), Sync, EGL_SYNC_FLUSH_COMMANDS_BIT_KHR, Timeout );
 			switch (Result)

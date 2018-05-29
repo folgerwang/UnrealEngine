@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2723410
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:シューティング ゲーム
 Crumbs:%ROOT%, Resources
@@ -16,49 +16,7 @@ Related:Programming/Slate
 Related:Gameplay/Input
 Related:Engine/Rendering/ParticleSystems
 Version:4.9
-
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/SampleGames/ShooterGame:title%](Shooter_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\anim_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/SampleGames/ShooterGame:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/SampleGames/ShooterGame:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/SampleGames/ShooterGame]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/SampleGames/ShooterGame:title%](Shooter_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\anim_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/SampleGames/ShooterGame:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/SampleGames/ShooterGame:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/SampleGames/ShooterGame]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
+topic-image:Shooter_Topic.png
 
 
 [REGION:fullwidth]
@@ -73,7 +31,7 @@ Version:4.9
 取り上げているコンセプトの全リストは以下となります。
 
 * 速射武器 (ShooterWeapon_Instant)
-* 発射物ベースの武器 (ShooterWeapon_Projectile + ShooterProjectile)
+* 発射ベースの武器 (ShooterWeapon_Projectile + ShooterProjectile)
 * Feee-for-all のゲームモード (ShooterGame_FreeForAll)
 * チーム対戦型のゲームモード (ShooterGame_TeamDeathMatch)
 * ピックアップ アイテム (ShooterPickup)
@@ -101,7 +59,7 @@ Version:4.9
 ライフルやレーザー銃のような発砲や投射が早いタイプの武器は、ヒット検出に速射タイプを利用します。基本コンセプトは、 
 プレイヤーが武器を発砲すると、インスタンスに狙いが定まっている方向にラインチェックが実行され、ヒットの有無を確認します。
 
-このメソッドは、高精度な測定とサーバー側に存在しないアクタとの連動を有効にします。ローカル クライアントは 
+このメソッドは、高精度な測定とサーバー側に存在しないアクタとの連動を有効にします。Distance Field Collision Mode は 
 演算を実行し、何がヒットされたかをサーバーへ通知します。その後サーバーがヒットを照合し、必要であればそれを 
 レプリケートします。
 
@@ -123,7 +81,7 @@ Version:4.9
 ### 発射ベースタイプの武器の発砲
 
 発射ベースタイプは弾を発砲する武器のシミュレーションに使用します。比較的遅い動作で、衝撃時に爆発し、 
-重力などの影響を受けます。手榴弾の投下など、武器を使用した瞬間の発射結果を 
+プレイヤーに知らせることです。手榴弾の投下など、武器を使用した瞬間の発射結果を 
 断定できない場合などに使用します。このようなタイプの武器、実際の物理オブジェクト、または _発射物_ はスポーンされ、 
 武器の狙いが定められた方向へ送信されます。ヒットは、発射物と別のオブジェクトがワールドで衝突すると断定されます。
 
@@ -177,13 +135,13 @@ Version:4.9
 最初のプレイヤーがゲームに参加すると、 **ウォームアップ** ステージが開始します。カウントダウン タイマーを表示し、 
 他のプレイヤーに参加のチャンスを与える短時間のステージです。このステージ中は、プレイヤーは _スペクテーター (観戦者) _ モードとなり、 
 マップ内を飛び回ることができます。カウントダウン タイマーが終了すると、全プレイヤーの再起動とプレイヤーのポーンをスポーンするために 
- `StartMatch()` が呼ばれます。 
+ポーン 
 
 バトルは、サーバーの `AShooterGameMode::DefaultTimer()` 関数でゲーム時間を計算して記録されます。 
 この関数は、1 _ゲーム_ 秒間に一回と同等の現在の時間の遅れに相当するレートを適用したループタイマーを使用して実行されます。 
 これはゲームのレプリケーション情報クラス (`AShooterGRI`) の `RemainingTime` プロパティに格納され、 
 その後クライアントへレプリケートされます。残り時間が 0 になると、 `FinishMatch()` が呼ばれてゲームセッションは終了します。全プレイヤーにバトルの終了が告げられ、 
-動作とヘルスは無効となります。
+動作とヘルス値は無効となります。
 
 ## メニュー システム
 
@@ -195,7 +153,7 @@ Version:4.9
 
 各メニューは `Construct()` 関数によって _構成_ されています。この関数は、 
 サブアイテムを含む必要不可欠のメニューアイテムを全て追加し、必要な箇所へデリゲートをアタッチします。これは、 `AddMenuItem()` や `AddMenuItemSP()` など、ヘルパーメソッドを使用して処理され、 
-「`SShooterMenuWidget.h`」ファイルの `MenuHelper` ネームスペースで定義されます。
+`SShooterMenuWidget.h` ファイルの `MenuHelper` ネームスペースで定義されます。
 
 前回のメニューへのナビゲーションはメニューへの共有ポインタの配列を使用し、メニュー ウィジェットの `MenuHistory` 変数に格納されます。 
 `MenuHistory` 変数はこれまでに入力されたメニューを保持するスタックのような振る舞いをし、復元を簡単にします。このメソッドを使用することによって、 
@@ -220,7 +178,7 @@ Version:4.9
 ![](ingame_menu.png)
 
 インゲームメニューは `AShooterPlayerController` クラスの `PostInitializeComponents()` 関数で作成され、 
- `OnToggleInGameMenu()` 関数を経由して開いたり閉じたりします。
+`OnToggleInGameMenu()` 関数を経由して開いたり閉じたりします。
 
 ### オプション メニュー
 

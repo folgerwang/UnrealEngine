@@ -11,7 +11,9 @@ struct FUnitConversion;
 enum class EUnit : uint8;
 enum class EUnitType;
 template<typename NumericType> struct FNumericUnit;
+/// @cond DOXYGEN_WARNINGS
 template<typename OptionalType> struct TOptional;
+/// @endcond
 template<typename ValueType, typename ErrorType> class TValueOrError;
 
 namespace UnitConversion
@@ -295,7 +297,7 @@ TOptional<FNumericUnit<NumericType>> FNumericUnit<NumericType>::TryParseString(c
 	}
 
 	NumericType NewValue;
-	Lex::FromString(NewValue, InSource);
+	LexFromString(NewValue, InSource);
 
 	// Now parse the units
 	while(FChar::IsWhitespace(*NumberEnd)) ++NumberEnd;
@@ -415,48 +417,45 @@ template <typename NumericType>
 struct TNumericLimits<FNumericUnit<NumericType>> : public TNumericLimits<NumericType>
 { };
 
-namespace Lex
+template<typename T>
+FString LexToString(const FNumericUnit<T>& NumericUnit)
 {
-	template<typename T>
-	FString ToString(const FNumericUnit<T>& NumericUnit)
+	FString String = LexToString(NumericUnit.Value);
+	String += TEXT(" ");
+	String += FUnitConversion::GetUnitDisplayString(NumericUnit.Units);
+
+	return String;
+}
+
+template<typename T>
+FString LexToSanitizedString(const FNumericUnit<T>& NumericUnit)
+{
+	FString String = LexToSanitizedString(NumericUnit.Value);
+	String += TEXT(" ");
+	String += FUnitConversion::GetUnitDisplayString(NumericUnit.Units);
+
+	return String;
+}
+
+template<typename T>
+void LexFromString(FNumericUnit<T>& OutValue, const TCHAR* String)
+{
+	auto Parsed = FNumericUnit<T>::TryParseString(String);
+	if (Parsed)
 	{
-		FString String = ToString(NumericUnit.Value);
-		String += TEXT(" ");
-		String += FUnitConversion::GetUnitDisplayString(NumericUnit.Units);
-
-		return String;
+		OutValue = Parsed.GetValue();
 	}
-
-	template<typename T>
-	FString ToSanitizedString(const FNumericUnit<T>& NumericUnit)
-	{
-		FString String = ToSanitizedString(NumericUnit.Value);
-		String += TEXT(" ");
-		String += FUnitConversion::GetUnitDisplayString(NumericUnit.Units);
-
-		return String;
-	}
-
-	template<typename T>
-	void FromString(FNumericUnit<T>& OutValue, const TCHAR* String)
-	{
-		auto Parsed = FNumericUnit<T>::TryParseString(String);
-		if (Parsed)
-		{
-			OutValue = Parsed.GetValue();
-		}
-	}
+}
 	
-	template<typename T>
-	bool TryParseString(FNumericUnit<T>& OutValue, const TCHAR* String)
+template<typename T>
+bool LexTryParseString(FNumericUnit<T>& OutValue, const TCHAR* String)
+{
+	auto Parsed = FNumericUnit<T>::TryParseString(String);
+	if (Parsed)
 	{
-		auto Parsed = FNumericUnit<T>::TryParseString(String);
-		if (Parsed)
-		{
-			OutValue = Parsed.GetValue();
-			return true;
-		}
-
-		return false;
+		OutValue = Parsed.GetValue();
+		return true;
 	}
+
+	return false;
 }

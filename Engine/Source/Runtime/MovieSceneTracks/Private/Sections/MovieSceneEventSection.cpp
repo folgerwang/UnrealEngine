@@ -75,8 +75,8 @@ public:
 		: Bytes(InBytes)
 	{
 		ArNoDelta = true;
-		ArIsSaving = true;
-		ArIsPersistent = true;
+		this->SetIsSaving(true);
+		this->SetIsPersistent(true);
 		UsingCustomVersion(EventParameterVersionGUID);
 	}
 
@@ -146,7 +146,7 @@ public:
 	FEventParameterReader(const TArray<uint8>& InBytes)
 		: Bytes(InBytes)
 	{
-		ArIsLoading = true;
+		this->SetIsLoading(true);
 		UsingCustomVersion(EventParameterVersionGUID);
 	}
 

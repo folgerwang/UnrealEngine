@@ -36,7 +36,7 @@ const FGuid FShaderCacheCustomVersion::GameKey(0x03D4EB48, 0xB50B4CC3, 0xA598DE4
 FCustomVersionRegistration GRegisterShaderCacheVersion(FShaderCacheCustomVersion::Key, FShaderCacheCustomVersion::Latest, TEXT("ShaderCacheVersion"));
 FCustomVersionRegistration GRegisterShaderCacheGameVersion(FShaderCacheCustomVersion::GameKey, (int32)FEngineVersion::Current().GetChangelist(), TEXT("ShaderCacheGameVersion"));
 
-#define SHADER_CACHE_ENABLED (0)
+#define SHADER_CACHE_ENABLED 0
 
 static const ECompressionFlags ShaderCacheCompressionFlag = ECompressionFlags::COMPRESS_ZLIB;
 
@@ -49,7 +49,7 @@ FAutoConsoleVariableRef FShaderCache::CVarUseShaderCaching(
 														   ECVF_ReadOnly|ECVF_RenderThreadSafe
 														   );
 
-int32 FShaderCache::bUseUserShaderCache = 1;
+int32 FShaderCache::bUseUserShaderCache = 0;
 FAutoConsoleVariableRef FShaderCache::CVarUseUserShaderCache(
 	TEXT("r.UseUserShaderCache"),
 	bUseUserShaderCache,
@@ -199,6 +199,9 @@ public:
 	
 	FComputeShaderRHIRef CreateComputeShader(const FSHAHash& Hash) override final;
 	
+	virtual bool RequestEntry(const FSHAHash& Hash, FArchive* Ar) override final;
+	virtual bool ContainsEntry(const FSHAHash& Hash) override final;
+	
 	FName GetFormat( void ) const;
 	
 	//Archive override add Shader
@@ -266,7 +269,7 @@ private:
 };
 
 FShaderCacheLibrary::FShaderCacheLibrary(EShaderPlatform InPlatform, FString Name)
-: FShaderFactoryInterface(InPlatform)
+: FShaderFactoryInterface(InPlatform, Name)
 , FileName(Name)
 {
 }
@@ -499,6 +502,18 @@ FComputeShaderRHIRef FShaderCacheLibrary::CreateComputeShader(const FSHAHash& Ha
 	}
 	
 	return Shader;
+}
+
+bool FShaderCacheLibrary::RequestEntry(const FSHAHash& Hash, FArchive* Ar)
+{
+	// FShaderCache is deprecated - so it doesn't need to work with other systems anymore
+	return false;
+}
+
+bool FShaderCacheLibrary::ContainsEntry(const FSHAHash& Hash)
+{
+	// FShaderCache is deprecated - so it doesn't need to work with other systems anymore
+	return false;
 }
 
 FName FShaderCacheLibrary::GetFormat( void ) const
@@ -790,7 +805,10 @@ void FShaderCache::InitShaderCache(uint32 Options, EShaderPlatform InShaderPlatf
 		GameVersion = (int32)FEngineVersion::Current().GetChangelist();
 	}
 	
-	if(bUseShaderCaching)
+	// Don't use FShaderCache if the newer FShaderPipelineCache is enabled.
+	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ShaderPipelineCache.Enabled"));
+	bool bUsePipelineCacheInstead = (CVar && CVar->GetValueOnAnyThread() != 0);
+	if(!bUsePipelineCacheInstead && bUseShaderCaching)
 	{
 		Cache = new FShaderCache(Options, InShaderPlatform);
 	}

@@ -51,11 +51,17 @@ public:
 	// Callback for object property modifications
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnActorLabelChanged, AActor*);
 
+	// delegate type for prompting the pak system to mount all pak files, which haven't already been mounted, from all default locations
+	DECLARE_DELEGATE_RetVal_OneParam(int32, FOnMountAllPakFiles, const TArray<FString>&);
+
 	// delegate type for prompting the pak system to mount a new pak
 	DECLARE_DELEGATE_RetVal_ThreeParams(bool, FOnMountPak, const FString&, uint32, IPlatformFile::FDirectoryVisitor*);
 
 	// delegate type for prompting the pak system to mount a new pak
 	DECLARE_DELEGATE_RetVal_OneParam(bool, FOnUnmountPak, const FString&);
+
+	// delegate for handling when a new pak file is successfully mounted passes in the name of the mounted pak file
+	DECLARE_MULTICAST_DELEGATE_OneParam(FPakFileMountedDelegate, const TCHAR*);
 
 	/** delegate type for opening a modal message box ( Params: EAppMsgType::Type MessageType, const FText& Text, const FText& Title ) */
 	DECLARE_DELEGATE_RetVal_ThreeParams(EAppReturnType::Type, FOnModalMessageBox, EAppMsgType::Type, const FText&, const FText&);
@@ -121,11 +127,17 @@ public:
 	// Callback when a user changes the safe frame size
 	static FOnSafeFrameChangedEvent OnSafeFrameChangedEvent;
 
+	// Callback for mounting all the pak files in default locations
+	static FOnMountAllPakFiles OnMountAllPakFiles;
+
 	// Callback for mounting a new pak file.
 	static FOnMountPak OnMountPak;
 
 	// Callback for unmounting a pak file.
 	static FOnUnmountPak OnUnmountPak;
+
+	// After a pakfile is mounted this callback is called for each new file
+	static FPakFileMountedDelegate PakFileMountedCallback;
 
 	// Callback when an ensure has occurred
 	static FOnHandleSystemEnsure OnHandleSystemEnsure;
@@ -137,6 +149,8 @@ public:
 
 	static FPakEncryptionKeyDelegate& GetPakEncryptionKeyDelegate();
 	static FPakSigningKeysDelegate& GetPakSigningKeysDelegate();
+
+	
 
 #if WITH_EDITOR
 	// Called before the editor displays a modal window, allowing other windows the opportunity to disable themselves to avoid reentrant calls
@@ -170,6 +184,10 @@ public:
 
 	// Called when before the application is exiting.
 	static FSimpleMulticastDelegate OnPreExit;
+
+	/** Delegate for gathering up additional localization paths that are unknown to the UE4 core (such as plugins) */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FGatherAdditionalLocResPathsDelegate, TArray<FString>&);
+	static FGatherAdditionalLocResPathsDelegate GatherAdditionalLocResPathsCallback;
 
 	/** Color picker color has changed, please refresh as needed*/
 	static FSimpleMulticastDelegate ColorPickerChanged;
@@ -207,6 +225,7 @@ public:
 	// There is a parellel enum in ApplicationLifecycleComponent
 	enum class ETemperatureSeverity : uint8
 	{
+		Unknown,
 		Good,
 		Bad,
 		Serious,
@@ -217,13 +236,43 @@ public:
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnTemperatureChange, ETemperatureSeverity);
 	static FOnTemperatureChange OnTemperatureChange;
 
+	/** Called when the OS goes into low power mode */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnLowPowerMode, bool);
+	static FOnLowPowerMode OnLowPowerMode;
+
+
+
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FCountPreLoadConfigFileRespondersDelegate, const TCHAR* /*IniFilename*/, int32& /*ResponderCount*/);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FPreLoadConfigFileDelegate, const TCHAR* /*IniFilename*/, FString& /*LoadedContents*/);
+	DECLARE_MULTICAST_DELEGATE_ThreeParams(FPreSaveConfigFileDelegate, const TCHAR* /*IniFilename*/, const FString& /*ContentsToSave*/, int32& /*SavedCount*/);
+	static FCountPreLoadConfigFileRespondersDelegate CountPreLoadConfigFileRespondersDelegate;
+	static FPreLoadConfigFileDelegate PreLoadConfigFileDelegate;
+	static FPreSaveConfigFileDelegate PreSaveConfigFileDelegate;
+
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnFConfigFileCreated, const FConfigFile *);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnFConfigFileDeleted, const FConfigFile *);
+	static FOnFConfigFileCreated OnFConfigCreated;
+	static FOnFConfigFileDeleted OnFConfigDeleted;
+
+	DECLARE_MULTICAST_DELEGATE_FourParams(FOnApplyCVarFromIni, const TCHAR* /*SectionName*/, const TCHAR* /*IniFilename*/, uint32 /*SetBy*/, bool /*bAllowCheating*/);
+	static FOnApplyCVarFromIni OnApplyCVarFromIni;
+
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnSystemResolutionChanged, uint32 /*ResX*/, uint32 /*ResY*/);
+	static FOnSystemResolutionChanged OnSystemResolutionChanged;
+
+#if WITH_EDITOR
+	// called when a target platform changes it's return value of supported formats.  This is so anything caching those results can reset (like cached shaders for cooking)
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnTargetPlatformChangedSupportedFormats, const ITargetPlatform*); 
+	static FOnTargetPlatformChangedSupportedFormats OnTargetPlatformChangedSupportedFormats;
+#endif
+
 	/** IOS-style application lifecycle delegates */
 	DECLARE_MULTICAST_DELEGATE(FApplicationLifetimeDelegate);
 
 	// This is called when the application is about to be deactivated (e.g., due to a phone call or SMS or the sleep button).
 	// The game should be paused if possible, etc...
 	static FApplicationLifetimeDelegate ApplicationWillDeactivateDelegate;
-	
+
 	// Called when the application has been reactivated (reverse any processing done in the Deactivate delegate)
 	static FApplicationLifetimeDelegate ApplicationHasReactivatedDelegate;
 
@@ -233,7 +282,7 @@ public:
 	// terminated from the background state without any further warning.
 	static FApplicationLifetimeDelegate ApplicationWillEnterBackgroundDelegate; // for instance, hitting the home button
 
-	// Called when the application is returning to the foreground (reverse any processing done in the EnterBackground delegate)
+																				// Called when the application is returning to the foreground (reverse any processing done in the EnterBackground delegate)
 	static FApplicationLifetimeDelegate ApplicationHasEnteredForegroundDelegate;
 
 	// This *may* be called when the application is getting terminated by the OS.
@@ -241,6 +290,10 @@ public:
 	// save state when ApplicationWillEnterBackgroundDelegate is called instead.
 	static FApplicationLifetimeDelegate ApplicationWillTerminateDelegate;
 
+	//
+	DECLARE_MULTICAST_DELEGATE_OneParam(FUserMusicInterruptDelegate, bool);
+	static FUserMusicInterruptDelegate UserMusicInterruptDelegate;
+	
 	// Called when the OS is running low on resources and asks the application to free up any cached resources, drop graphics quality etc.
 	static FApplicationLifetimeDelegate ApplicationShouldUnloadResourcesDelegate;
 
@@ -256,17 +309,6 @@ public:
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FApplicationReceivedRemoteNotificationDelegate, FString, int);
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FApplicationReceivedLocalNotificationDelegate, FString, int, int);
 
-
-
-	DECLARE_MULTICAST_DELEGATE_OneParam(FOnFConfigFileCreated, const FConfigFile *);
-	DECLARE_MULTICAST_DELEGATE_OneParam(FOnFConfigFileDeleted, const FConfigFile *);
-	static FOnFConfigFileCreated OnFConfigCreated;
-	static FOnFConfigFileDeleted OnFConfigDeleted;
-#if WITH_EDITOR
-	// called when a target platform changes it's return value of supported formats.  This is so anything caching those results can reset (like cached shaders for cooking)
-	DECLARE_MULTICAST_DELEGATE_OneParam(FOnTargetPlatformChangedSupportedFormats, const ITargetPlatform*); 
-	static FOnTargetPlatformChangedSupportedFormats OnTargetPlatformChangedSupportedFormats;
-#endif
 	// called when the user grants permission to register for remote notifications
 	static FApplicationRegisteredForRemoteNotificationsDelegate ApplicationRegisteredForRemoteNotificationsDelegate;
 

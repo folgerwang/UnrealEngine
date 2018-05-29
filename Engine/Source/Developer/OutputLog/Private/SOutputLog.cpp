@@ -20,146 +20,11 @@
 #include "Widgets/Views/SListView.h"
 #include "EditorStyleSet.h"
 #include "Classes/EditorStyleSettings.h"
-#include "EngineGlobals.h"
-#include "Editor.h"
-#include "Toolkits/GlobalEditorCommonCommands.h"
-#include "Engine/LocalPlayer.h"
-#include "GameFramework/GameStateBase.h"
 #include "Widgets/Input/SSearchBox.h"
 #include "Features/IModularFeatures.h"
+#include "Misc/CoreDelegates.h"
 
 #define LOCTEXT_NAMESPACE "SOutputLog"
-
- FName FConsoleCommandExecutor::StaticName()
- {
-	 static const FName CmdExecName = TEXT("Cmd");
-	 return CmdExecName;
- }
-
- FName FConsoleCommandExecutor::GetName() const
- {
-	 return StaticName();
- }
-
-FText FConsoleCommandExecutor::GetDisplayName() const
-{
-	return LOCTEXT("ConsoleCommandExecutorDisplayName", "Cmd");
-}
-
-FText FConsoleCommandExecutor::GetDescription() const
-{
-	return LOCTEXT("ConsoleCommandExecutorDescription", "Execute Unreal Console Commands");
-}
-
-FText FConsoleCommandExecutor::GetHintText() const
-{
-	return LOCTEXT("ConsoleCommandExecutorHintText", "Enter Console Command");
-}
-
-void FConsoleCommandExecutor::GetAutoCompleteSuggestions(const TCHAR* Input, TArray<FString>& Out)
-{
-	auto OnConsoleVariable = [&Out](const TCHAR *Name, IConsoleObject* CVar)
-	{
-#if (UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		if (CVar->TestFlags(ECVF_Cheat))
-		{
-			return;
-		}
-#endif // (UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		if (CVar->TestFlags(ECVF_Unregistered))
-		{
-			return;
-		}
-
-		Out.Add(Name);
-	};
-
-	IConsoleManager::Get().ForEachConsoleObjectThatContains(FConsoleObjectVisitor::CreateLambda(OnConsoleVariable), Input);
-}
-
-void FConsoleCommandExecutor::GetExecHistory(TArray<FString>& Out)
-{
-	IConsoleManager::Get().GetConsoleHistory(TEXT(""), Out);
-}
-
-bool FConsoleCommandExecutor::Exec(const TCHAR* Input)
-{
-	IConsoleManager::Get().AddConsoleHistoryEntry(TEXT(""), Input);
-
-	bool bWasHandled = false;
-	UWorld* World = nullptr;
-	UWorld* OldWorld = nullptr;
-
-	// The play world needs to handle these commands if it exists
-	if (GIsEditor && GEditor->PlayWorld && !GIsPlayInEditorWorld)
-	{
-		World = GEditor->PlayWorld;
-		OldWorld = SetPlayInEditorWorld(GEditor->PlayWorld);
-	}
-
-	ULocalPlayer* Player = GEngine->GetDebugLocalPlayer();
-	if (Player)
-	{
-		UWorld* PlayerWorld = Player->GetWorld();
-		if (!World)
-		{
-			World = PlayerWorld;
-		}
-		bWasHandled = Player->Exec(PlayerWorld, Input, *GLog);
-	}
-
-	if (!World)
-	{
-		World = GEditor->GetEditorWorldContext().World();
-	}
-	if (World)
-	{
-		if (!bWasHandled)
-		{
-			AGameModeBase* const GameMode = World->GetAuthGameMode();
-			AGameStateBase* const GameState = World->GetGameState();
-			if (GameMode && GameMode->ProcessConsoleExec(Input, *GLog, nullptr))
-			{
-				bWasHandled = true;
-			}
-			else if (GameState && GameState->ProcessConsoleExec(Input, *GLog, nullptr))
-			{
-				bWasHandled = true;
-			}
-		}
-
-		if (!bWasHandled)
-		{
-			if (GIsEditor)
-			{
-				bWasHandled = GEditor->Exec(World, Input, *GLog);
-			}
-			else
-			{
-				bWasHandled = GEngine->Exec(World, Input, *GLog);
-			}
-		}
-	}
-
-	// Restore the old world of there was one
-	if (OldWorld)
-	{
-		RestoreEditorWorld(OldWorld);
-	}
-
-	return bWasHandled;
-}
-
-bool FConsoleCommandExecutor::AllowHotKeyClose() const
-{
-	return true;
-}
-
-bool FConsoleCommandExecutor::AllowMultiLine() const
-{
-	return false;
-}
-
 /** Expression context to test the given messages against the current text filter */
 class FLogFilter_TextFilterExpressionContext : public ITextFilterExpressionContext
 {
@@ -193,7 +58,6 @@ void SConsoleInputBox::Construct(const FArguments& InArgs)
 	ConsoleCommandCustomExec = InArgs._ConsoleCommandCustomExec;
 	OnCloseConsole = InArgs._OnCloseConsole;
 
-	PreferredCommandExecutorName = FConsoleCommandExecutor::StaticName();
 	if (!ConsoleCommandCustomExec.IsBound()) // custom execs always show the default executor in the UI (which has the selector disabled)
 	{
 		FString PreferredCommandExecutorStr;
@@ -202,14 +66,16 @@ void SConsoleInputBox::Construct(const FArguments& InArgs)
 			PreferredCommandExecutorName = *PreferredCommandExecutorStr;
 		}
 	}
+
 	SyncActiveCommandExecutor();
 
 	IModularFeatures::Get().OnModularFeatureRegistered().AddSP(this, &SConsoleInputBox::OnCommandExecutorRegistered);
 	IModularFeatures::Get().OnModularFeatureUnregistered().AddSP(this, &SConsoleInputBox::OnCommandExecutorUnregistered);
-
+	EPopupMethod PopupMethod = GIsEditor ? EPopupMethod::CreateNewWindow : EPopupMethod::UseCurrentWindow;
 	ChildSlot
 	[
 		SAssignNew( SuggestionBox, SMenuAnchor )
+		.Method(PopupMethod)
 		.Placement( InArgs._SuggestionListPlacement )
 		[
 			SNew(SHorizontalBox)
@@ -355,7 +221,26 @@ void SConsoleInputBox::OnTextChanged(const FText& InText)
 		{
 			ActiveCommandExecutor->GetAutoCompleteSuggestions(*InputTextStr, AutoCompleteList);
 		}
+		else
+		{
+			auto OnConsoleVariable = [&AutoCompleteList](const TCHAR *Name, IConsoleObject* CVar)
+			{
+#if (UE_BUILD_SHIPPING || UE_BUILD_TEST)
+				if (CVar->TestFlags(ECVF_Cheat))
+				{
+					return;
+				}
+#endif // (UE_BUILD_SHIPPING || UE_BUILD_TEST)
+				if (CVar->TestFlags(ECVF_Unregistered))
+				{
+					return;
+				}
 
+				AutoCompleteList.Add(Name);
+			};
+
+			IConsoleManager::Get().ForEachConsoleObjectThatContains(FConsoleObjectVisitor::CreateLambda(OnConsoleVariable), *InputTextStr);
+		}
 		AutoCompleteList.Sort();
 		SetSuggestions(AutoCompleteList, FText::FromString(InputTextStr));
 	}
@@ -451,7 +336,10 @@ FReply SConsoleInputBox::OnPreviewKeyDown(const FGeometry& MyGeometry, const FKe
 				{
 					ActiveCommandExecutor->GetExecHistory(History);
 				}
-
+				else
+				{
+					IConsoleManager::Get().GetConsoleHistory(TEXT(""), History);
+				}
 				SetSuggestions(History, FText::GetEmpty());
 				
 				if(Suggestions.HasSuggestions())
@@ -578,7 +466,11 @@ void SConsoleInputBox::SyncActiveCommandExecutor()
 	TArray<IConsoleCommandExecutor*> CommandExecutors = IModularFeatures::Get().GetModularFeatureImplementations<IConsoleCommandExecutor>(IConsoleCommandExecutor::ModularFeatureName());
 	ActiveCommandExecutor = nullptr;
 
-	// First try and match from the active name
+	if (CommandExecutors.IsValidIndex(0))
+	{
+		ActiveCommandExecutor = CommandExecutors[0];
+	}
+	// to swap to a preferred executor, try and match from the active name
 	for (IConsoleCommandExecutor* CommandExecutor : CommandExecutors)
 	{
 		if (CommandExecutor->GetName() == PreferredCommandExecutorName)
@@ -587,19 +479,7 @@ void SConsoleInputBox::SyncActiveCommandExecutor()
 			break;
 		}
 	}
-
-	// Failing that, fallback to the default name
-	if (!ActiveCommandExecutor && PreferredCommandExecutorName != FConsoleCommandExecutor::StaticName())
-	{
-		for (IConsoleCommandExecutor* CommandExecutor : CommandExecutors)
-		{
-			if (CommandExecutor->GetName() == FConsoleCommandExecutor::StaticName())
-			{
-				ActiveCommandExecutor = CommandExecutor;
-				break;
-			}
-		}
-	}
+	
 }
 
 void SConsoleInputBox::SetActiveCommandExecutor(const FName InExecName)
@@ -678,12 +558,10 @@ TSharedRef<SWidget> SConsoleInputBox::GetCommandExecutorMenuContent()
 
 FReply SConsoleInputBox::OnKeyDownHandler(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
 {
-	const FInputChord OpenConsoleChord = *FGlobalEditorCommonCommands::Get().OpenConsoleCommandBox->GetActiveChord(EMultipleKeyBindingIndex::Primary);
 	const FInputChord InputChord = FInputChord(InKeyEvent.GetKey(), EModifierKey::FromBools(InKeyEvent.IsControlDown(), InKeyEvent.IsAltDown(), InKeyEvent.IsShiftDown(), InKeyEvent.IsCommandDown()));
 
 	// Intercept the "open console" key
-	if ((!ActiveCommandExecutor || ActiveCommandExecutor->AllowHotKeyClose()) 
-		&& OpenConsoleChord == InputChord)
+	if (ActiveCommandExecutor && (ActiveCommandExecutor->AllowHotKeyClose() && ActiveCommandExecutor->GetHotKey() == InputChord))
 	{
 		OnCloseConsole.ExecuteIfBound();
 		return FReply::Handled();
@@ -700,28 +578,37 @@ FReply SConsoleInputBox::OnKeyCharHandler(const FGeometry& MyGeometry, const FCh
 		return FReply::Handled();
 	}
 
-	const FInputChord OpenConsoleChord = *FGlobalEditorCommonCommands::Get().OpenConsoleCommandBox->GetActiveChord(EMultipleKeyBindingIndex::Primary);
+	FInputChord OpenConsoleChord;
+	if (ActiveCommandExecutor && ActiveCommandExecutor->AllowHotKeyClose())
+	{
+		OpenConsoleChord = ActiveCommandExecutor->GetHotKey();
 
-	const uint32* KeyCode = nullptr;
-	const uint32* CharCode = nullptr;
-	FInputKeyManager::Get().GetCodesFromKey(OpenConsoleChord.Key, KeyCode, CharCode);
-	if (CharCode == nullptr)
+		const uint32* KeyCode = nullptr;
+		const uint32* CharCode = nullptr;
+		FInputKeyManager::Get().GetCodesFromKey(OpenConsoleChord.Key, KeyCode, CharCode);
+		if (CharCode == nullptr)
+		{
+			return FReply::Unhandled();
+		}
+
+		// Intercept the "open console" key
+		if (InCharacterEvent.GetCharacter() == (TCHAR)*CharCode
+			&& OpenConsoleChord.NeedsControl() == InCharacterEvent.IsControlDown()
+			&& OpenConsoleChord.NeedsAlt() == InCharacterEvent.IsAltDown()
+			&& OpenConsoleChord.NeedsShift() == InCharacterEvent.IsShiftDown()
+			&& OpenConsoleChord.NeedsCommand() == InCharacterEvent.IsCommandDown())
+		{
+			return FReply::Handled();
+		}
+		else
+		{
+			return FReply::Unhandled();
+		}
+	}
+	else
 	{
 		return FReply::Unhandled();
 	}
-
-	// Intercept the "open console" key
-	if ((!ActiveCommandExecutor || ActiveCommandExecutor->AllowHotKeyClose())
-		&& InCharacterEvent.GetCharacter() == (TCHAR)*CharCode
-		&& OpenConsoleChord.NeedsControl() == InCharacterEvent.IsControlDown()
-		&& OpenConsoleChord.NeedsAlt() == InCharacterEvent.IsAltDown()
-		&& OpenConsoleChord.NeedsShift() == InCharacterEvent.IsShiftDown()
-		&& OpenConsoleChord.NeedsCommand() == InCharacterEvent.IsCommandDown())
-	{
-		return FReply::Handled();
-	}
-	
-	return FReply::Unhandled();
 }
 
 TSharedRef< FOutputLogTextLayoutMarshaller > FOutputLogTextLayoutMarshaller::Create(TArray< TSharedPtr<FLogMessage> > InMessages, FLogFilter* InFilter)

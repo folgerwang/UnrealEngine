@@ -22,7 +22,7 @@ void FApplePlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName, TCHAR
 	ANSICHAR *AnsiResult = getenv(TCHAR_TO_ANSI(*FixedVariableName));
 	if (AnsiResult)
 	{
-		wcsncpy(Result, ANSI_TO_TCHAR(AnsiResult), ResultLength);
+		FCString::Strncpy(Result, ANSI_TO_TCHAR(AnsiResult), ResultLength);
 	}
 	else
 	{

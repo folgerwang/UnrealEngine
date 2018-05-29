@@ -62,16 +62,16 @@ SkillLevel:Beginner
 
 [EXCERPT:windows_install]
 1.	インストーラを入手するには、**[Download]** ボタンを **クリック** します。
+
 	![](Download_Screen.png)
 
-	1.	ダウンロードが完了したら、インストーラを **実行** します。
+1.	ダウンロードが完了したら、インストーラを **実行** します。
 
 	![](RunInstaller.png)
 
-	1.	**[Epic Games Launcher Setup (エピック ゲームズのランチャー セットアップ)]** ダイアログ ボックスが表示されたら、**[Install]** ボタンを **クリック** します。
+1.	**[Epic Games Launcher Setup (エピック ゲームズのランチャー セットアップ)]** ダイアログ ボックスが表示されたら、**[Install]** ボタンを **クリック** します。
 
 	![](RunEpicLauncherSetup.png)
-
 [/EXCERPT:windows_install]
 
 [/COMMENT]
@@ -88,14 +88,14 @@ SkillLevel:Beginner
 	[/PARAMLITERAL]
 	[PARAM:content]
 	1.	インストーラを入手するには、**[Download]** ボタンを **クリック** します。
-	![](Download_Screen.png)
+
+		![](Download_Screen.png)
 
 	1.新しい **Finder Window** を開くには、**Finder** で `EpicGamesLauncher.dmg` アイコンを **ダブルクリック** します。
 
-
 	1.	**[Epic Games Launcher]** アイコンを **「Applications」** フォルダに **ドラッグ** します。
-	![](InstallEpicLaucherMac.png)
-
+	
+		![](InstallEpicLaucherMac.png)	
 	[/PARAM]
 [/OBJECT]
 
@@ -151,8 +151,8 @@ SkillLevel:Beginner
 	![](AcceptEULALauncher.png)
 
 1.	システムの仕様に応じて、アンリアル エンジンの ダウンロードとインストール には、10 分から 40 分程度の時間がかかります。
-	![](DownloadingEngine.png)
 
+	![](DownloadingEngine.png)
 
 	_進捗インジケータの例 (上の画面)_
 

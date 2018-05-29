@@ -221,15 +221,8 @@ void FSkeletalMeshObjectGPUSkin::ReleaseMorphResources()
 	{
 		FSkeletalMeshObjectLOD& SkelLOD = LODs[LODIndex];
 
-		// Check the LOD render data for verts, if it's been stripped we don't create morph buffers, so shouldn't release them
-		const int32 LodIndexInMesh = SkelLOD.LODIndex;
-		const FSkeletalMeshLODRenderData& RenderData = SkelLOD.SkelMeshRenderData->LODRenderData[LodIndexInMesh];
-
-		if(RenderData.GetNumVertices() > 0)
-		{
-			// release morph vertex buffers and factories if they were created
-			SkelLOD.ReleaseMorphResources();
-		}
+		// release morph vertex buffers and factories if they were created
+		SkelLOD.ReleaseMorphResources();
 	}
 
 	bMorphResourcesInitialized = false;
@@ -459,7 +452,7 @@ void FSkeletalMeshObjectGPUSkin::ProcessUpdatedDynamicData(FGPUSkinCache* GPUSki
 				int16 ActorIdx = Section.CorrespondClothAssetIndex;
 				if(FClothSimulData* SimData = DynamicData->ClothingSimData.Find(ActorIdx))
 				{
-					ClothShaderData.ClothLocalToWorld = DynamicData->ClothingSimData[ActorIdx].Transform.ToMatrixWithScale();
+					ClothShaderData.GetClothLocalToWorldForWriting(FrameNumberToPrepare) = DynamicData->ClothingSimData[ActorIdx].ComponentRelativeTransform.ToMatrixWithScale() * DynamicData->ClothObjectLocalToWorld;
 					bNeedFence = ClothShaderData.UpdateClothSimulData(RHICmdList, DynamicData->ClothingSimData[ActorIdx].Positions, DynamicData->ClothingSimData[ActorIdx].Normals, FrameNumberToPrepare, FeatureLevel) || bNeedFence;
 				}
 			}
@@ -468,9 +461,10 @@ void FSkeletalMeshObjectGPUSkin::ProcessUpdatedDynamicData(FGPUSkinCache* GPUSki
 			if (bUseSkinCache)
 			{
 				// This takes the cloth positions from cloth space into world space
-				FMatrix ClothLocalToWorld = bClothFactory ? VertexFactoryData.ClothVertexFactories[SectionIdx]->GetClothShaderData().ClothLocalToWorld : FMatrix::Identity;
+				FMatrix ClothLocalToWorld = bClothFactory ? VertexFactoryData.ClothVertexFactories[SectionIdx]->GetClothShaderData().GetClothLocalToWorldForWriting(FrameNumberToPrepare) : FMatrix::Identity;
 				// Matrices are transposed in ue4 meaning matrix multiples need to happen in reverse ((AB)x = b becomes xTBTAT = b).
 				FMatrix LocalToCloth = DynamicData->ClothObjectLocalToWorld * ClothLocalToWorld.Inverse();
+
 				GPUSkinCache->ProcessEntry(RHICmdList, VertexFactory,
 					VertexFactoryData.PassthroughVertexFactories[SectionIdx].Get(), Section, this, bMorph ? &LOD.MorphVertexBuffer : 0, bClothFactory ? &LODData.ClothVertexBuffer : 0,
 					bClothFactory ? DynamicData->ClothingSimData.Find(Section.CorrespondClothAssetIndex) : 0, LocalToCloth, DynamicData->ClothBlendWeight, RevisionNumber, SectionIdx, SkinCacheEntry);
@@ -905,6 +899,38 @@ FSkinWeightVertexBuffer* FSkeletalMeshObjectGPUSkin::GetSkinWeightVertexBuffer(i
 {
 	checkSlow(LODs.IsValidIndex(LODIndex));
 	return LODs[LODIndex].MeshObjectWeightBuffer;
+}
+
+void FSkeletalMeshObjectGPUSkin::RefreshClothingTransforms(const FMatrix& InNewLocalToWorld, uint32 FrameNumber)
+{
+	if(DynamicData && DynamicData->ClothingSimData.Num() > 0)
+	{
+		FSkeletalMeshObjectLOD& LOD = LODs[DynamicData->LODIndex];
+		const TArray<FSkelMeshRenderSection>& Sections = GetRenderSections(DynamicData->LODIndex);
+		const int32 NumSections = Sections.Num();
+
+		DynamicData->ClothObjectLocalToWorld = InNewLocalToWorld;
+
+		for(int32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
+		{
+			if(LOD.GPUSkinVertexFactories.ClothVertexFactories.IsValidIndex(SectionIndex))
+			{
+				FGPUBaseSkinAPEXClothVertexFactory* ClothFactory = LOD.GPUSkinVertexFactories.ClothVertexFactories[SectionIndex].Get();
+
+				if(ClothFactory)
+				{
+					const FSkelMeshRenderSection& Section = Sections[SectionIndex];
+					FGPUBaseSkinAPEXClothVertexFactory::ClothShaderType& ClothShaderData = LOD.GPUSkinVertexFactories.ClothVertexFactories[SectionIndex]->GetClothShaderData();
+					const int16 ActorIdx = Section.CorrespondClothAssetIndex;
+
+					if(FClothSimulData* SimData = DynamicData->ClothingSimData.Find(ActorIdx))
+					{
+						ClothShaderData.GetClothLocalToWorldForWriting(FrameNumber) = InNewLocalToWorld * SimData->ComponentRelativeTransform.ToMatrixWithScale();
+					}
+				}
+			}
+		}
+	}
 }
 
 /** 

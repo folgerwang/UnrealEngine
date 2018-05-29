@@ -766,8 +766,11 @@ void UDebugSkelMeshComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 		SetRelativeRotation(Rotation);
 	}
 
-        // Brute force approach to ensure that when materials are changed the names are cached parameter names are updated 
+    // Brute force approach to ensure that when materials are changed the names are cached parameter names are updated 
 	bCachedMaterialParameterIndicesAreDirty = true;
+	
+	// Force retargeting data to be re-cached to take into account skeleton edits.
+	bRequiredBonesUpToDate = false;
 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 

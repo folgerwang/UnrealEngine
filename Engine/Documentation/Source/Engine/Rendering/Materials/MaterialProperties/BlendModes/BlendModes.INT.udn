@@ -130,8 +130,16 @@ In the graph above, the material has been set to a Blend Mode of _Modulate_ with
 The Modulate blend mode is best suited for certain particle effects. But care must be taken as it does not support lighting or Separate Translucency.
 [/REGION]
 
-<!------------------- 
+| Mode | Description |
+| ---- | ----------- |
+| **_BLEND_Opaque_** | Final color = Source color.  This means that the Material will draw on top of the background. This blend mode is compatible with lighting.
+| **_BLEND_Masked_** | Final color = Source color if OpacityMask > OpacityMaskClipValue, otherwise the pixel is discarded.  This blend mode is compatible with lighting.
+| **_BLEND_Translucent_** | Final color = Source color * Opacity + Dest color * (1 - Opacity).  This blend mode is **NOT** compatible with dynamic lighting.
+| **_BLEND_Additive_** | Final color = Source color + Dest color.  This blend mode is **NOT** compatible with dynamic lighting.
+| **_BLEND_Modulate_** | Final color = Source color x Dest color.  This blend mode is **NOT** compatible with dynamic lighting, or fog, unless this is a decal material.
+[/EXCERPT:BlendModes]
 
+[COMMENT:none]
 [EXCERPT:OpacityMaskClipValue]
 [OBJECT:SliderSequence]
 	[PARAMLITERAL:max]
@@ -169,16 +177,4 @@ The Modulate blend mode is best suited for certain particle effects. But care mu
 	[/PARAM]
 [/OBJECT]
 [/EXCERPT:OpacityMaskClipValue]
-
-
-
-
-| Mode | Description |
-| ---- | ----------- |
-| **_BLEND_Opaque_** | Final color = Source color.  This means that the Material will draw on top of the background. This blend mode is compatible with lighting.
-| **_BLEND_Masked_** | Final color = Source color if OpacityMask > OpacityMaskClipValue, otherwise the pixel is discarded.  This blend mode is compatible with lighting.
-| **_BLEND_Translucent_** | Final color = Source color * Opacity + Dest color * (1 - Opacity).  This blend mode is **NOT** compatible with dynamic lighting.
-| **_BLEND_Additive_** | Final color = Source color + Dest color.  This blend mode is **NOT** compatible with dynamic lighting.
-| **_BLEND_Modulate_** | Final color = Source color x Dest color.  This blend mode is **NOT** compatible with dynamic lighting, or fog, unless this is a decal material.
-[/EXCERPT:BlendModes]
-
+[/COMMENT]

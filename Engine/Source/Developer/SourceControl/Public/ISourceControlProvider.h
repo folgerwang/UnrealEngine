@@ -118,6 +118,13 @@ public:
 	SOURCECONTROL_API virtual ECommandResult::Type Login( const FString& InPassword = FString(), EConcurrency::Type InConcurrency = EConcurrency::Synchronous, const FSourceControlOperationComplete& InOperationCompleteDelegate = FSourceControlOperationComplete() );
 
 	/**
+	* Queries branch configuration from source control
+	* @param	ConfigSrc			The source path to the branch configuration file in source control
+	* @param	ConfigDest			The destination path to save the configuration to for parsing
+	*/
+	virtual bool QueryStateBranchConfig(const FString& ConfigSrc, const FString& ConfigDest) = 0;
+
+	/**
 	* Register branches to query for state in addition to the current branch
 	* @param	BranchNames			Names of the branches to query
 	* @param	ContentRoot			Path to the content root for branch mapping
