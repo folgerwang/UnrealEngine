@@ -2895,16 +2895,34 @@ FReply SDesignerView::OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& 
 		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(BP);
 
 		TSet<FWidgetReference> SelectedTemplates;
-
 		for (const auto& DropPreview : DropPreviews)
 		{
 			SelectedTemplates.Add(BlueprintEditor.Pin()->GetReferenceFromTemplate(DropPreview.Widget));
 		}
 
 		BlueprintEditor.Pin()->SelectWidgets(SelectedTemplates, false);
-
 		// Regenerate extension widgets now that we've finished moving or placing the widget.
 		CreateExtensionWidgetsForSelection();
+
+		UPanelSlot* Slot;
+		TSharedPtr<FSelectedWidgetDragDropOp> SelectedDragDropOp = DragDropEvent.GetOperationAs<FSelectedWidgetDragDropOp>();
+		UWidgetTree* WidgetTree = BP->WidgetTree;
+		if (WidgetTree && SelectedDragDropOp.IsValid())
+		{
+			for (auto& DraggedWidget : SelectedDragDropOp->DraggedWidgets)
+			{
+				FWidgetReference Reference = BlueprintEditor.Pin()->GetReferenceFromTemplate(DraggedWidget.Template);
+				UWidget* PreviewWidget = Reference.GetPreview();
+				if (PreviewWidget && PreviewWidget->GetParent()) 
+				{
+					Slot = PreviewWidget->GetParent()->GetSlots()[PreviewWidget->GetParent()->GetChildIndex(PreviewWidget)];
+					if (Slot != nullptr)
+					{
+						FWidgetBlueprintEditorUtils::ImportPropertiesFromText(Slot, DraggedWidget.ExportedSlotProperties);
+					}
+				}
+			}
+		}
 
 		DropPreviews.Empty();
 		return FReply::Handled().SetUserFocus(SharedThis(this));
