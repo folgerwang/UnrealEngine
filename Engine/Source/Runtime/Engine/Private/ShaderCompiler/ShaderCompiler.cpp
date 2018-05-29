@@ -1557,6 +1557,11 @@ FShaderCompilingManager::FShaderCompilingManager() :
 	Thread->StartThread();
 }
 
+bool FShaderCompilingManager::GetDumpShaderDebugInfo() const
+{
+	return GDumpShaderDebugInfo != 0;
+}
+
 void FShaderCompilingManager::AddJobs(TArray<FShaderCommonCompileJob*>& NewJobs, bool bApplyCompletedShaderMapForRendering, bool bOptimizeForLowLatency, bool bRecreateComponentRenderStateOnCompletion)
 {
 	check(!FPlatformProperties::RequiresCookedData());

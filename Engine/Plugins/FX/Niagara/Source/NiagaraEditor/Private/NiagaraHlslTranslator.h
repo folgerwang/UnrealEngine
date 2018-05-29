@@ -115,8 +115,10 @@ public:
 	FString EmitterUniqueName;
 	TArray<TSharedPtr<FNiagaraCompileRequestData, ESPMode::ThreadSafe>> EmitterData;
 	UNiagaraScriptSource* Source;
+	FString SourceName;
 
 	UEnum* ENiagaraScriptCompileStatusEnum;
+	UEnum* ENiagaraScriptUsageEnum;
 
 	struct FunctionData
 	{
