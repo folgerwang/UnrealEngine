@@ -16,13 +16,14 @@
 	#else
 		#error Unknown platform
 	#endif
-#elif WIN64
+#elif _WINDOWS
 	#define PLATFORM_WINDOWS 1
 #else
 	#error Unknown platform
 #endif
 
-#define CORE_API 
+#define CORE_API
+#define HAS_OODLE_SDK 1
 
 #include <stdlib.h>
 #include "../Source/OodleHandlerComponent/Private/OodleCustomCompressor.cpp"
