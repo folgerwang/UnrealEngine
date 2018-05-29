@@ -764,10 +764,11 @@ void FVulkanCommandListContext::RHIPushEvent(const TCHAR* Name, FColor Color)
 #if VULKAN_ENABLE_DRAW_MARKERS
 	if (auto CmdDbgMarkerBegin = Device->GetCmdDbgMarkerBegin())
 	{
+		FTCHARToUTF8 Converter(Name);
 		VkDebugMarkerMarkerInfoEXT Info;
 		FMemory::Memzero(Info);
 		Info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
-		Info.pMarkerName = TCHAR_TO_ANSI(Name);
+		Info.pMarkerName = Converter.Get();
 		FLinearColor LColor(Color);
 		Info.color[0] = LColor.R;
 		Info.color[1] = LColor.G;
