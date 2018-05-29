@@ -974,7 +974,7 @@ void FSlateApplication::Shutdown(bool bShutdownPlatform)
 
 		if (bShutdownPlatform)
 		{
-			PlatformApplication->DestroyApplication();
+		PlatformApplication->DestroyApplication();
 		}
 
 		PlatformApplication.Reset();
@@ -2970,8 +2970,6 @@ void FSlateApplication::OnShutdown()
 
 void FSlateApplication::CloseAllWindowsImmediately()
 {
-	DragDropContent.Reset();
-
 	// Clean up our tooltip window
 	TSharedPtr< SWindow > PinnedToolTipWindow(ToolTipWindow.Pin());
 	if (PinnedToolTipWindow.IsValid())
