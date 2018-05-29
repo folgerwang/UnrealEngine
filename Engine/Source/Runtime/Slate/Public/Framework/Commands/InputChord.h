@@ -8,7 +8,8 @@
 #include "GenericPlatform/GenericApplication.h"
 #include "InputChord.generated.h"
 
-//(4.8, "Use FInputChord instead of FInputGesture")
+// Was supposed to be deprecated in 4.8, but was never properly marked up
+DEPRECATED(4.21, "Use FInputChord instead of FInputGesture") 
 typedef struct FInputChord FInputGesture;
 
 /** An Input Chord is a key and the modifier keys that are to be held with it. */

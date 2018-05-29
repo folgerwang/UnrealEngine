@@ -69,7 +69,7 @@ public:
 		
 #if WITH_EDITOR
 		// Added button for running the currently open level test.
-		UI_COMMAND(RunLevelTest, "Run Level Test", "Run Level Test", EUserInterfaceActionType::Button, FInputGesture());
+		UI_COMMAND(RunLevelTest, "Run Level Test", "Run Level Test", EUserInterfaceActionType::Button, FInputChord());
 #endif
 	}
 public:

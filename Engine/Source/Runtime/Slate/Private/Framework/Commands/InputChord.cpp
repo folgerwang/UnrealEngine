@@ -4,7 +4,7 @@
 
 #define LOCTEXT_NAMESPACE "FInputChord"
 
-/* FInputGesture interface
+/* FInputChord interface
  *****************************************************************************/
 
 /**
