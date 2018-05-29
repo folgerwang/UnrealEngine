@@ -18,6 +18,7 @@ class SGraphActionMenu;
 class SEditableTextBox;
 class SExpanderArrow;
 class SSearchBox;
+class SComboButton;
 class SNiagaraGraphPinAdd;
 class FNiagaraObjectSelection;
 class UNiagaraGraph;
@@ -143,6 +144,9 @@ private:
 
 	/** The filter box that handles filtering for both graph action menus. */
 	TSharedPtr<SSearchBox> FilterBox;
+
+	/** Add parameter buttons for all sections. */
+	TArray<TSharedPtr<SComboButton>> AddParameterButtons;
 
 	/** The selected objects being viewed and edited by this widget. */
 	TSharedPtr<FNiagaraObjectSelection> SelectedObjects;

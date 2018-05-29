@@ -136,6 +136,7 @@ void SNiagaraParameterMapView::Construct(const FArguments& InArgs, const TShared
 	bNeedsRefresh = false;
 	ToolkitType = InToolkitType;
 	ToolkitCommands = InToolkitCommands;
+	AddParameterButtons.SetNum(NiagaraParameterMapSectionID::OTHER + 1);
 
 	SelectedObjects = InSelectedObjects;
 	SelectedObjects->OnSelectedObjectsChanged().AddSP(this, &SNiagaraParameterMapView::SelectedObjectsChanged);
@@ -476,6 +477,7 @@ TSharedRef<SWidget> SNiagaraParameterMapView::CreateAddToSectionButton(const Nia
 			.ShadowOffset(FVector2D(1,1))
 		]
 	];
+	AddParameterButtons[InSection] = Button;
 
 	return Button.ToSharedRef();
 }
@@ -496,7 +498,7 @@ TSharedRef<SWidget> SNiagaraParameterMapView::OnGetParameterMenu(const NiagaraPa
 		.ShowGraphParameters(false)
 		.AutoExpandMenu(true);
 
-	FSlateApplication::Get().SetKeyboardFocus(MenuWidget->GetSearchBox());
+	AddParameterButtons[InSection]->SetMenuContentWidgetToFocus(MenuWidget->GetSearchBox()->AsShared());
 	return MenuWidget;
 }
 
