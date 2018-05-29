@@ -232,6 +232,7 @@ public:
 protected:
 	VkImage RenderTargetTexture = VK_NULL_HANDLE;
 	VkDeviceMemory RenderTargetTextureAllocation = VK_NULL_HANDLE;
+	uint64 RenderTargetTextureAllocationOffset = 0;
 	VkImage RenderTargetTextureSRGB = VK_NULL_HANDLE;
 	VkImage LastAliasedRenderTarget = VK_NULL_HANDLE;
 };

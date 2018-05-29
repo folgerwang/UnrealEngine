@@ -32,7 +32,7 @@ FLuminTargetPlatform::FLuminTargetPlatform(bool bIsClient)
 	GetAllTargetedShaderFormats(TargetedShaderFormats);
 
 	// If we are targeting ES 2.0/3.1, we also must cook encoded HDR reflection captures
-	static FName NAME_VULKAN_ES31(TEXT("SF_VULKAN_ES31_ANDROID"));
+	static FName NAME_VULKAN_ES31(TEXT("SF_VULKAN_ES31_LUMIN"));
 	static FName NAME_GLSL_ES2(TEXT("GLSL_ES2"));
 	static FName NAME_GLSL_SM5(TEXT("GLSL_430"));
 	bRequiresEncodedHDRReflectionCaptures = TargetedShaderFormats.Contains(NAME_VULKAN_ES31)
@@ -89,6 +89,33 @@ static bool LuminSupportsVulkan(const FConfigFile& EngineSettings)
 	return bSupportsVulkan;
 }
 
+bool FLuminTargetPlatform::SupportsFeature(ETargetPlatformFeatures Feature) const
+{
+	switch (Feature)
+	{
+	case ETargetPlatformFeatures::Packaging:
+		return true;
+
+	case ETargetPlatformFeatures::LowQualityLightmaps:
+	case ETargetPlatformFeatures::MobileRendering:
+		return SupportsMobileRendering() || SupportsVulkan();
+
+	case ETargetPlatformFeatures::HighQualityLightmaps:
+	//#todo-rco: Enable when Vulkan supports it
+	//case ETargetPlatformFeatures::Tessellation:
+	case ETargetPlatformFeatures::DeferredRendering:
+		return SupportsDesktopRendering();
+
+	case ETargetPlatformFeatures::SoftwareOcclusion:
+		return SupportsSoftwareOcclusion();
+
+	default:
+		break;
+	}
+
+	return TTargetPlatformBase<FAndroidPlatformProperties>::SupportsFeature(Feature);
+}
+
 void FLuminTargetPlatform::InitializeDeviceDetection()
 {
 	DeviceDetection = FModuleManager::LoadModuleChecked<IAndroidDeviceDetectionModule>("AndroidDeviceDetection").GetAndroidDeviceDetection(TEXT("Lumin"));
@@ -111,15 +138,15 @@ void FLuminTargetPlatform::GetAllPossibleShaderFormats( TArray<FName>& OutFormat
 //	static FName NAME_GLSL_310_ES_EXT(TEXT("GLSL_310_ES_EXT"));
 //	static FName NAME_GLSL_SM4(TEXT("GLSL_150"));
 	static FName NAME_GLSL_SM5(TEXT("GLSL_430"));
-	static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
-	static FName NAME_VULKAN_ES31(TEXT("SF_VULKAN_ES31_ANDROID"));
+	static FName NAME_VULKAN_SM5_LUMIN(TEXT("SF_VULKAN_SM5_LUMIN"));
+	static FName NAME_VULKAN_ES31_LUMIN(TEXT("SF_VULKAN_ES31_LUMIN"));
 
 	if (SupportsMobileRendering())
 	{
 		OutFormats.AddUnique(NAME_GLSL_ES2);
 		if (LuminSupportsVulkan(EngineSettings))
 		{
-			OutFormats.AddUnique(NAME_VULKAN_ES31);
+			OutFormats.AddUnique(NAME_VULKAN_ES31_LUMIN);
 		}
 	}
 
@@ -131,7 +158,7 @@ void FLuminTargetPlatform::GetAllPossibleShaderFormats( TArray<FName>& OutFormat
 
 		if (LuminSupportsVulkan(EngineSettings))
 		{
-			OutFormats.AddUnique(NAME_VULKAN_SM5);
+			OutFormats.AddUnique(NAME_VULKAN_SM5_LUMIN);
 		}
 	}
 }

@@ -147,7 +147,7 @@ void FMagicLeapHelperVulkan::SignalObjects(uint64 SignalObject0, uint64 SignalOb
 #endif
 }
 
-uint64 FMagicLeapHelperVulkan::AliasImageSRGB(const uint64 Allocation, const uint32 Width, const uint32 Height)
+uint64 FMagicLeapHelperVulkan::AliasImageSRGB(const uint64 Allocation, const uint64 AllocationOffset, const uint32 Width, const uint32 Height)
 {
 #if !PLATFORM_MAC
 	VkImageCreateInfo ImageCreateInfo;
@@ -175,15 +175,12 @@ uint64 FMagicLeapHelperVulkan::AliasImageSRGB(const uint64 Allocation, const uin
 	ImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	ImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
 
-	FVulkanDynamicRHI* const RHI = (FVulkanDynamicRHI*)GDynamicRHI;
-	
+	FVulkanDynamicRHI* RHI = (FVulkanDynamicRHI*)GDynamicRHI;
+	FVulkanDevice* Device = RHI->GetDevice();
 	VkImage Result = VK_NULL_HANDLE;
-	VERIFYVULKANRESULT(VulkanRHI::vkCreateImage(RHI->GetDevice()->GetInstanceHandle(), &ImageCreateInfo, nullptr, &Result));
+	VERIFYVULKANRESULT(VulkanRHI::vkCreateImage(Device->GetInstanceHandle(), &ImageCreateInfo, nullptr, &Result));
 
-	// Assuming the offset is 0, we're not currently querying the surface for this.
-	const VkDeviceSize Offset = 0;
-
-	VERIFYVULKANRESULT(VulkanRHI::vkBindImageMemory(RHI->GetDevice()->GetInstanceHandle(), Result, (VkDeviceMemory)Allocation, Offset));
+	VERIFYVULKANRESULT(VulkanRHI::vkBindImageMemory(Device->GetInstanceHandle(), Result, (VkDeviceMemory)Allocation, AllocationOffset));
 
 	return (uint64)Result;
 #else
