@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+	// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SocketSubsystemIOS.h"
 #include "SocketSubsystemModule.h"
@@ -91,48 +91,58 @@ FSocket* FSocketSubsystemIOS::CreateSocket(const FName& SocketType, const FStrin
 
 TSharedRef<FInternetAddr> FSocketSubsystemIOS::GetLocalHostAddr(FOutputDevice& Out, bool& bCanBindAll)
 {
-	TSharedRef<FInternetAddr> HostAddr = CreateInternetAddr();
+	TSharedRef<FInternetAddrBSDIPv6IOS> HostAddr = MakeShareable(new FInternetAddrBSDIPv6IOS);
 	HostAddr->SetAnyAddress();
 
 	ifaddrs* Interfaces = NULL;
-	int32 WifiAddress;
 	bool bWasWifiSet = false;
-	int32 CellAddress;
 	bool bWasCellSet = false;
+	bool bWasIPv6Set = false;
 
 	// get all of the addresses
-	if (getifaddrs(&Interfaces) == 0) 
+	if (getifaddrs(&Interfaces) == 0)
 	{
 		// Loop through linked list of interfaces
 		for (ifaddrs* Travel = Interfaces; Travel != NULL; Travel = Travel->ifa_next)
 		{
-			if (Travel->ifa_addr->sa_family == AF_INET)
+			if (Travel->ifa_addr->sa_family == AF_INET6)
 			{
 				if (strcmp(Travel->ifa_name, "en0") == 0)
 				{
-					WifiAddress = ntohl(((sockaddr_in*)Travel->ifa_addr)->sin_addr.s_addr);
+					HostAddr->SetIp(*((sockaddr_in6*)Travel->ifa_addr));
 					bWasWifiSet = true;
-					// this is the best, no need to go on
-					break;
+					bWasIPv6Set = true;
 				}
-				else if (strcmp(Travel->ifa_name, "pdp_ip0") == 0)
+				else if (!bWasWifiSet && strcmp(Travel->ifa_name, "pdp_ip0") == 0)
 				{
-					CellAddress = ((sockaddr_in*)Travel->ifa_addr)->sin_addr.s_addr;
+					HostAddr->SetIp(*((sockaddr_in6*)Travel->ifa_addr));
+					bWasCellSet = true;
+				}
+			}
+			else if (!bWasIPv6Set && Travel->ifa_addr->sa_family == AF_INET)
+			{
+				if (strcmp(Travel->ifa_name, "en0") == 0)
+				{
+					HostAddr->SetIp(ntohl(((sockaddr_in*)Travel->ifa_addr)->sin_addr.s_addr));
+					bWasWifiSet = true;
+				}
+				else if (!bWasWifiSet && strcmp(Travel->ifa_name, "pdp_ip0") == 0)
+				{
+					HostAddr->SetIp(((sockaddr_in*)Travel->ifa_addr)->sin_addr.s_addr);
 					bWasCellSet = true;
 				}
 			}
 		}
+		
 		// Free memory
 		freeifaddrs(Interfaces);
 
 		if (bWasWifiSet)
 		{
-			HostAddr->SetIp(WifiAddress);
 			UE_LOG(LogIOS, Log, TEXT("Host addr is WIFI: %s"), *HostAddr->ToString(false));
 		}
 		else if (bWasCellSet)
 		{
-			HostAddr->SetIp(CellAddress);
 			UE_LOG(LogIOS, Log, TEXT("Host addr is CELL: %s"), *HostAddr->ToString(false));
 		}
 		else

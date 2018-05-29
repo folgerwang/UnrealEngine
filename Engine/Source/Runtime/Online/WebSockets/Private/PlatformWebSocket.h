@@ -5,11 +5,25 @@
 #include "HAL/Platform.h"
 
 #if WITH_LIBWEBSOCKETS
-#include "Lws/LwsWebSocketsManager.h"
-typedef FLwsWebSocketsManager FPlatformWebSocketsManager;
+	#if PLATFORM_SWITCH
+		#include "Lws/Switch/LwsSwitchWebSocketsManager.h"
+	#else
+		#include "Lws/LwsWebSocketsManager.h"
+	#endif //PLATFORM_SWITCH
+
 #elif PLATFORM_XBOXONE
-#include "XboxOne/XboxOneWebSocketsManager.h"
-typedef FXboxOneWebSocketsManager FPlatformWebSocketsManager;
+	#include "XboxOne/XboxOneWebSocketsManager.h"
 #else
-#error "Web sockets not implemented on this platform yet"
-#endif
+	#error "Web sockets not implemented on this platform yet"
+#endif // WITH_LIBWEBSOCKETS
+
+#if WITH_LIBWEBSOCKETS
+	#if PLATFORM_SWITCH
+		typedef FLwsSwitchWebSocketsManager FPlatformWebSocketsManager;
+	#else
+		typedef FLwsWebSocketsManager FPlatformWebSocketsManager;
+	#endif // PLATFORM_SWITCH
+
+#elif PLATFORM_XBOXONE
+	typedef FXboxOneWebSocketsManager FPlatformWebSocketsManager;
+#endif //WITH_LIBWEBSOCKETS

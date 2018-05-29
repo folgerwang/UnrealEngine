@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3612551
+﻿INTSourceChangelist:3807090
 Availability: Public
 Crumbs: %ROOT%
 Title: 위젯 블루프린트
@@ -45,7 +45,7 @@ Topic-image:Engine/UMG/UserGuide/WidgetBlueprintTopic.png
 기본적으로 **위젯 블루프린트 에디터** 는 **위젯 블루프린트** 에디터를 열 때 **디자이너** 탭에서 열립니다. **디자이너** 탭은 레이아웃에 대한 시각적인 표현으로, 화면이 게임내에서 어떻게 나타나는지를 개념적으로 나타내 줍니다.
 
 [REGION:lightbox]
-	[![](WidgetBlueprintNumbers.png)(w:840 h:480)](WidgetBlueprintNumbers.png)
+	[![](WidgetBlueprintNumbers.png)(w:840)](WidgetBlueprintNumbers.png)
 [/REGION]
 
 _클릭하면 크게 볼 수 있습니다._

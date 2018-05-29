@@ -164,6 +164,7 @@ public:
 	virtual FSlateUpdatableTexture* CreateUpdatableTexture(uint32 Width, uint32 Height) override;
 	virtual void ReleaseUpdatableTexture(FSlateUpdatableTexture* Texture) override;
 	virtual ISlateAtlasProvider* GetTextureAtlasProvider() override;
+	virtual FCriticalSection* GetResourceCriticalSection() override;
 	virtual int32 RegisterCurrentScene(FSceneInterface* Scene) override;
 	virtual int32 GetCurrentSceneIndex() const override;
 	virtual void ClearScenes() override;
@@ -195,4 +196,5 @@ private:
 	FSlateOpenGLContext SharedContext;
 	/** Dynamic image brushes to remove when safe */
 	TArray<TSharedPtr<FSlateDynamicImageBrush>> DynamicBrushesToRemove;
+	FCriticalSection ResourceCriticalSection;
 };

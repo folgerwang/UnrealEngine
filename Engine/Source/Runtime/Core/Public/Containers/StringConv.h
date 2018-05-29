@@ -716,6 +716,13 @@ typedef TStringConversion<FUTF8ToTCHAR_Convert> FUTF8ToTCHAR;
 #define TCHAR_TO_UTF8(str) (ANSICHAR*)FTCHARToUTF8((const TCHAR*)str).Get()
 #define UTF8_TO_TCHAR(str) (TCHAR*)FUTF8ToTCHAR((const ANSICHAR*)str).Get()
 
+// special needs handling for going from char16_t to wchar_t for third party libraries that need wchar_t
+#if PLATFORM_TCHAR_IS_CHAR16
+#define TCHAR_TO_WCHAR(str) (wchar_t*)StringCast<wchar_t>(static_cast<const TCHAR*>(str)).Get()
+#else
+#define TCHAR_TO_WCHAR(str) str
+#endif
+
 // This seemingly-pointless class is intended to be API-compatible with TStringConversion
 // and is returned by StringCast when no string conversion is necessary.
 template <typename T>

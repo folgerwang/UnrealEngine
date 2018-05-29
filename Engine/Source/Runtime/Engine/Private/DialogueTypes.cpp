@@ -52,6 +52,7 @@ FString FDialogueContext::GetContextHash() const
 }
 
 FDialogueWaveParameter::FDialogueWaveParameter()
+	: DialogueWave(nullptr)
 {
 
 }

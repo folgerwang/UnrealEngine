@@ -1,10 +1,11 @@
-﻿INTSourceChangelist:3196518
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:Clear Coat マテリアルで 2 つ目の法線マップを使用する方法
 Description:Clear Coat マテリアルに 2 つ目の法線マップを使用するための操作ガイド
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/HowTo
 Version:4.12
 SkillLevel:Intermediate
+tags:Materials
 
 [TOC(start:2)]
 
@@ -15,10 +16,10 @@ SkillLevel:Intermediate
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Clear Coat Bottom Normal Off](Dual_CC_Off.png)(w:700 h:700)
+	![Clear Coat Bottom Normal Off](Dual_CC_Off.png)(w:700)
 	[/PARAM]
 	[PARAM:after]
-	![Clear Coat Bottom Normal On](Dual_CC_On.png)(w:700 h:700)
+	![Clear Coat Bottom Normal On](Dual_CC_On.png)(w:700)
 	[/PARAM]
 [/OBJECT]
 
@@ -67,7 +68,7 @@ Dual - Normal Clear Coat オプションを有効にしたら、使用するマ�
 	|Scalar Parameter| Clear Coat Roughness|0.1225|
 
 	[REGION:lightbox]
-	[![](Dual_CC_Base_Nodes_Setup.png)(w:200 h:250)](Dual_CC_Base_Nodes_Setup.png)
+	[![](Dual_CC_Base_Nodes_Setup.png)(w:200)](Dual_CC_Base_Nodes_Setup.png)
 	[/REGION]
 
 1. 設定するには、マテリアルの **[Roughness]** セクションで、次のマテリアル表現式ノードをマテリアル グラフに追加して、次の値と名前を付けます。追加されたマテリアル表現式ノードを接続すると、以下の画像のようになります。
@@ -83,7 +84,7 @@ Dual - Normal Clear Coat オプションを有効にしたら、使用するマ�
 
 	![](Dual_CC_Roughness_Setup.png)
 
-1. このマテリアルは法線マップを 2 つ使っているので、このマテリアルに対して異なる 2 つの **Normal** マップ セクションを設定する必要があります。まず 1 つ目の [Normal] マップ セクションは Clear Coat サーフェス用です。以下のマテリアル表現式ノードが必要です。追加されたマテリアル表現式ノードを接続すると、以下の画像のようになります。
+1. このマテリアルは 2 つの Normal マップを使っているので、このマテリアルに対して異なる 2 つの **Normal** マップ セクションを設定する必要があります。まず 1 つ目の [Normal] マップ セクションは Clear Coat サーフェス用です。以下のマテリアル表現式ノードが必要です。追加されたマテリアル表現式ノードを接続すると、以下の画像のようになります。
 
 	|マテリアル表現式のタイプ| 名前| デフォルト値|
 	|--------------------------------|---------|---------|
@@ -111,13 +112,13 @@ Dual - Normal Clear Coat オプションを有効にしたら、使用するマ�
 	![](Dual_CC_Normal_ClearCoat_Setup.png)
 
 	[region:note]
-	**ClearCoatBottomNormal** マテリアル式ノードを必ずマテリアル グラフに追加して、使用したい Normal マップを入力に接続しておいてください。そうしておかないと、マテリアルの中で 2 つ目の法線マップを見ることができません。
+	**ClearCoatBottomNormal** マテリアル式ノードを必ずマテリアル グラフに追加して、使用したい法線マップを入力に接続しておいてください。そうしておかないと、マテリアルの中で 2 つ目の法線マップを見ることができません。
 	[/region]
 
 1. マテリアルの各セクションがすべて設定して、Main Material ノードを接続すると、以下の画像と同じ設定になります。
 
 	[REGION:lightbox]
-	[![](Dual_CC_Final_Setup.png)(w:500 h:350)](Dual_CC_Final_Setup.png)
+	[![](Dual_CC_Final_Setup.png)(w:500)](Dual_CC_Final_Setup.png)
 	[/REGION]
 
 1. 最後に、マテリアルの各セクションを Main Material ノードの適切な場所にすべて接続したら、**[Apply (適用)]** ボタンを押してマテリアルをコンパイルしてマテリアル エディタを終了します。 

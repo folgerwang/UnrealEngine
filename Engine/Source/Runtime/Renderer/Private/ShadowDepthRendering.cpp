@@ -2099,7 +2099,7 @@ void FSceneRenderer::RenderShadowDepthMapAtlases(FRHICommandListImmediate& RHICm
 		};
 
 		{
-			SCOPED_DRAW_EVENT(RHICmdList, Clear);
+			SCOPED_DRAW_EVENT(RHICmdList, SetShadowRTsAndClear);
 			SetShadowRenderTargets(RHICmdList, true);	
 		}
 

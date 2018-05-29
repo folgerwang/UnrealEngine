@@ -711,6 +711,11 @@ bool UProperty::ExportText_Direct
 	return false;
 }
 
+bool UProperty::IsPostLoadThreadSafe() const
+{
+	return true;
+}
+
 bool UProperty::ShouldSerializeValue( FArchive& Ar ) const
 {
 	if (Ar.ShouldSkipProperty(this))

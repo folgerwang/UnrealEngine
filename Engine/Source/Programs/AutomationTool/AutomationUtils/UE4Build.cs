@@ -1203,6 +1203,11 @@ namespace AutomationTool
 			return UnrealBuildTool.PlatformExports.CanUseXGE(Platform);
 		}
 
+		public bool CanUseParallelExecutor(UnrealBuildTool.UnrealTargetPlatform Platform)
+		{
+			return UnrealBuildTool.PlatformExports.CanUseParallelExecutor(Platform);
+		}
+
 		private bool ParseParam(string Name)
 		{
 			return OwnerCommand != null && OwnerCommand.ParseParam(Name);
@@ -1356,7 +1361,7 @@ namespace AutomationTool
 				}
 				foreach (var Target in Agenda.Targets)
 				{
-					if (Target.TargetName == "UnrealHeaderTool" || !CanUseXGE(Target.Platform))
+					if (Target.TargetName == "UnrealHeaderTool" || !(bCanUseXGE? CanUseXGE(Target.Platform) : CanUseParallelExecutor(Target.Platform)))
 					{
 						// When building a target for Mac or iOS, use UBT's -flushmac option to clean up the remote builder
 						bool bForceFlushMac = DeleteBuildProducts && (Target.Platform == UnrealBuildTool.UnrealTargetPlatform.Mac || Target.Platform == UnrealBuildTool.UnrealTargetPlatform.IOS);
@@ -1373,7 +1378,7 @@ namespace AutomationTool
 				CommandUtils.LogSetProgress(InShowProgress, "Generating headers...");
 				foreach (var Target in Agenda.Targets)
 				{
-					if (Target.TargetName != "UnrealHeaderTool" && CanUseXGE(Target.Platform))
+					if (Target.TargetName != "UnrealHeaderTool" && (bCanUseXGE? CanUseXGE(Target.Platform) : CanUseParallelExecutor(Target.Platform)))
 					{
 						XGEItem Item = XGEPrepareBuildWithUBT(Target.TargetName, Target.Platform, Target.Config.ToString(), Target.UprojectPath, bForceMonolithic, bForceNonUnity, bForceDebugInfo, Target.UBTArgs, bForceUnity);
 						if(InTargetToManifest != null)

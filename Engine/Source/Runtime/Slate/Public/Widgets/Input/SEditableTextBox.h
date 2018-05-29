@@ -49,6 +49,7 @@ public:
 		, _BackgroundColor()
 		, _Padding()
 		, _ErrorReporting()
+		, _VirtualKeyboardOptions(FVirtualKeyboardOptions())
 		, _VirtualKeyboardTrigger(EVirtualKeyboardTrigger::OnFocusByPointer)
 		, _VirtualKeyboardDismissAction(EVirtualKeyboardDismissAction::TextChangeOnDismiss)
 		{}
@@ -130,6 +131,9 @@ public:
 
 		/** The type of virtual keyboard to use on mobile devices */
 		SLATE_ATTRIBUTE(EKeyboardType, VirtualKeyboardType)
+
+		/** Additional options for the virtual keyboard summoned by this widget */
+		SLATE_ARGUMENT(FVirtualKeyboardOptions, VirtualKeyboardOptions)
 
 		/** The type of event that will trigger the display of the virtual keyboard */
 		SLATE_ATTRIBUTE(EVirtualKeyboardTrigger, VirtualKeyboardTrigger)

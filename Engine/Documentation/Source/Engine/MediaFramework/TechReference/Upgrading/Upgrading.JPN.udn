@@ -1,65 +1,93 @@
-﻿INTSourceChangeList:3108692
+﻿INTSourceChangelist:3730858
 Availability:Public
-Title:Media Framework コンテンツを 4.13 にアップグレードする
+Title:Media Framework のコンテンツを 4.18 にアップグレードする方法
 Crumbs:%ROOT%, Engine
-Description:Media Framework アセットと再生ロジックが含まれるプロジェクトをアンリアル エンジン 4.13 にアップグレードする
+Description:Media Framework アセットと再生ロジックが含まれるプロジェクトをアンリアル エンジン 4.18 にアップグレードする方法
 Navigation:topic
 parent:Engine/MediaFramework
+type:reference
 order:3
-Version:4.13
+Version:4.18
 Related:Engine\MediaFramework\Overview
 Related:Engine\MediaFramework\HowTo
 Related:Engine\MediaFramework\TechReference
 
-アンリアル エンジン 4.13 では、Media Framework システムがアセットタイプと再生メソッドへのアップデートを受け取ります。つまり、プロジェクトに Media Framework コンテンツが含まれている場合、コンテンツのアップデートが必要になります。 
-プロジェクトは引き続きロードできますが、お持ちの 4.12 コンテンツはワークフローアップデートを完了するまで使用できません。 
+[TOC(start:2)]
 
-プロジェクトを変更する際は、以下の点にご注意ください。
+アンリアル エンジン 4.13 では、**Media Framework** システムがアセットタイプと再生メソッドに対してアップデートを受け取ります。つまり、プロジェクトに Media Framework コンテンツが含まれている場合、コンテンツのアップデートが必要になります。 
+プロジェクトは引き続きロードすることが可能ですが、お持ちの 4.18 コンテンツはワークフローアップデートを完了するまで使用できません。
 
-* **Media Player** アセットは、メディアの URL を格納しなくなります。その代わり、メディアの詳細は 'media sources' という新しいアセットタイプに含まれます。 
+## Media Player アセットの変更
 
-	![](MediaTypes.png)
+**Media Textures** への参照方法、Sound の適用方法など、**Media Player** アセットに変更点がいくつかあります。 
 
-	[REGION:tip]
-	新しいアセットタイプについては、[](Engine/MediaFramework/Overview) をご覧ください。
-	[/REGION]
+### Media Sound コンポーネント
 
-* **File Media Source** アセットは、デバイスまたはローカルネットワークの共有ファイルに格納されたメディア ファイルに使用されます。 
+**Create Media Player** で、Media Player アセット作成時にオーディオ用 SoundWave アセットを作成するオプションが表示されなくなりました。 
 
-	![](FileMediaSource.png)
+[REGION:imagetable]
+| ![](Pre418_Create.png)(w:490) | ![](418_Create.png)(w:490) | 
+| ------ | ------ | 
+| 以前のエンジン バージョン:Sound Wave と Media Texture を作成 | Engine Version 4.18:Media Texture のみ作成 |
+[/REGION]
 
-	[REGION:tip]
-	**File Media Source** アセットの使用例は、[](Engine/MediaFramework/HowTo/FileMediaSource) を参照してください。
-	[/REGION]
+**Video output Media Texture asset** を自動で有効にして、Media Texture を作成した Media Player アセットに関連づけることができます。 
 
-* **Stream Media Source** アセットは、インターネット上でのメディアのストリーミングに使用します。 
+ただし、Sound を Media Player に関連づけるためには、アクタまたは [ブループリント](Engine/Blueprints) にアタッチされた **Media Sound Component** を使う必要があります。
 
-	![](StreamMediaSource.png)
+![](MediaSoundComponent.png)
 
-	[REGION:tip]
-	**Stream Media Source** アセットの使用例は、[](Engine/MediaFramework/HowTo/StreamMediaSource) を参照してください。
-	[/REGION]
+[REGION:caption]
+下の画像では、レベル内に**Media Sound Component** を追加し、それと関連する **Media Player** を指定したスタティックメッシュがあります。 
+[/REGION]
 
-* **Media Playlist** アセットは、複数のメディア ソースを結合して、順番にプレイします。プレイリストは自動的に冒頭に戻ります。 
+[REGION:warning]
+プロジェクトで Media に Sound Wave アセットを使用する場合、それらの削除、および **Media Sound Component** と関連する **Media Player** の追加を手動で行う必要があります。 
+[/REGION]
 
-	![](MediaPlaylist.png)
+### Media Texture Reference
 
-	[REGION:tip]
-	プレイリストの操作方法は、[](Engine/MediaFramework/HowTo/MediaPlaylists) をご覧ください。
-	[/REGION]
+Media Texture が Media Player を参照する時 (Media Player が Media Texture を参照するのではなく)、Media Player も Media Texture を違う方法で参照します。 
 
-* **Media Texture** アセットと **Media Sound Wave** アセットには **Media Player** への参照は含まれなくなります。その代わり、Media Player がテクスチャ アセットとサウンド アセットを参照するようになります。また、**Media Texture** / **Media Sound Wave** と **Media Player** アセット間の 
-多対一関係もなくなります。**Media Player** はすべて、1 つまでしか参照しません。
+これは、4.18 より前の Media Player の画像です。
 
-	![](Upgrading_MediaLinks.png)
+![](Pre418_Player.png)
 
-* Media Player アセットでメディアを自動再生するオプションはなくなりました。その代わり、ブループリントからメディア ソースを開かなければなりません。便宜上、Media Player アセットには、メディア ソースが正常に開いた後に再生を開始する [**Play On Open**] オプションが付いています。 
-このオプションを設定しないと、ブループリントあるいは C++ で再生を開始しなければなりません。
+**[Output]** セクションは削除されました。**Sound Wave** または **Video Texture** は必要なくなりました。 
 
-	![](PlayOnOpen.png)
+そしてこれが、4.18 Media Player の画像です。 
 
-* **[Loop]** オプションは、現在開いているメディア ソースをループします。ループが有効にされているとプレイリストは進みませんので、ご注意ください。
+![](418_Player.png)
 
-	![](Loop.png)
+変わって、360 動画用に **[View Settings]** を制御するオプションが付きました (現在まだ開発中)。 
 
-* アップデート後の Medai Framework システムがサポートしているコンテンツと URL の詳細については、[](Engine/MediaFramework/TechReference) を参照してください。
+Sound Waves は前述した **Media Sound Component** に変わり、**Video Texture** (Media Texture アセット) は関連した **Media Player** を参照します。 
+
+![](MediaTexture.png)
+
+[REGION:caption]
+上の画像では、**Media Texture** アセットは関連する **Media Player** を参照してビデオを再生します。 
+[/REGION]
+
+## マテリアルを 4.18 にアップデートする
+
+4.18 より前のプロジェクトにおいて [マテリアル](Engine/Rendering/Materials) 内で Media Textures を使用している場合、マテリアルをアップデートし、**Sampler Type** を新しい **[External]** タイプに変更する必要があります。 
+
+![](TextureSamplerUpdate.png)
+
+マテリアルは引き続き **Texture Sampler** と Media Texture を使用しますが、Texture Sampler は [External] に設定しなければなりません。 
+
+Media Textures は **External Textures** という新しいテクスチャ API を実装します。これによってビデオ再生がより最適になるプラットフォームもあります。 
+たとえば、Windows では、ビデオフレーム データはファイルからデコードされ、それから CPU メモリ バッファへコピーされます。 
+CPU メモリ バッファへコピーされると、GPU の [`UTexture`](https://docs.unrealengine.com/latest/INT/API/Runtime/Engine/Engine/UTexture/index.html) へアップロードされます。ここがマテリアル内で Texture がサンプルされる場所です。 
+
+デコーダーによっては、このデータ転送を避けて、GPU に直接ビデオをデコードできるものもあります。
+たとえば、Android と iOS デバイスでは、ビデオ デコーダーは GPU で圧縮ビデオをデコードするので、ビデオ フレームは既に GPU にあるため、非常に効率よくビデオ再生が行えます。 
+
+
+
+
+
+
+
+

@@ -64,13 +64,13 @@ UEdGraphPin* UNiagaraNodeWithDynamicPins::RequestNewTypedPin(EEdGraphPinDirectio
 	{
 		TArray<UEdGraphPin*> InPins;
 		GetInputPins(InPins);
-		DefaultName = TEXT("Input ") + LexicalConversion::ToString(InPins.Num());
+		DefaultName = TEXT("Input ") + LexToString(InPins.Num());
 	}
 	else
 	{
 		TArray<UEdGraphPin*> OutPins;
 		GetOutputPins(OutPins);
-		DefaultName = TEXT("Output ") + LexicalConversion::ToString(OutPins.Num());
+		DefaultName = TEXT("Output ") + LexToString(OutPins.Num());
 	}
 	return RequestNewTypedPin(Direction, Type, *DefaultName);
 }

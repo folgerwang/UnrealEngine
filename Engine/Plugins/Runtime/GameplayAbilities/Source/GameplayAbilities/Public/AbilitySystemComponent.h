@@ -1450,6 +1450,10 @@ protected:
 
 	/** Copy LocalAnimMontageInfo into RepAnimMontageInfo */
 	void AnimMontage_UpdateReplicatedData();
+	void AnimMontage_UpdateReplicatedData(FGameplayAbilityRepAnimMontage& OutRepAnimMontageInfo);
+
+	/** Copy over playing flags for duplicate animation data */
+	void AnimMontage_UpdateForcedPlayFlags(FGameplayAbilityRepAnimMontage& OutRepAnimMontageInfo);
 
 	/** Data structure for replicating montage info to simulated clients */
 	UPROPERTY(ReplicatedUsing=OnRep_ReplicatedAnimMontage)

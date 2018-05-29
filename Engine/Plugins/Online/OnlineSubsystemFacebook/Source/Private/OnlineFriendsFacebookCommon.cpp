@@ -16,7 +16,7 @@
 #define FRIEND_JSON_PAGING "paging"
 #define FRIEND_JSON_NEXTURL "next"
 #define FRIEND_JSON_SUMMARY "summary"
-#define FRIEND_JSON_FRIENDCOUNT	"totalcount"
+#define FRIEND_JSON_FRIENDCOUNT	"total_count"
 
 // FOnlineFriendFacebook
 
@@ -64,7 +64,7 @@ bool FOnlineFriendFacebook::Parse(const TSharedPtr<FJsonObject>& JsonObject)
 	{
 		if (!UserIdStr.IsEmpty())
 		{
-			UserIdPtr = MakeShared<FUniqueNetIdString>(UserIdStr);
+			UserIdPtr = MakeShared<FUniqueNetIdFacebook>(UserIdStr);
 			bSuccess = true;
 		}
 	}
@@ -83,6 +83,9 @@ FOnlineFriendsFacebookCommon::FOnlineFriendsFacebookCommon(FOnlineSubsystemFaceb
 	{
 		UE_LOG_ONLINE(Warning, TEXT("Missing FriendsUrl= in [OnlineSubsystemFacebook.OnlineFriendsFacebook] of DefaultEngine.ini"));
 	}
+
+	FriendsUrl.ReplaceInline(TEXT("`ver"), *InSubsystem->GetAPIVer());
+
 	GConfig->GetArray(TEXT("OnlineSubsystemFacebook.OnlineFriendsFacebook"), TEXT("FriendsFields"), FriendsFields, GEngineIni);	
 
 	// always required fields

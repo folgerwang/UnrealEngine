@@ -27,7 +27,7 @@ void FTestIdentityInterface::Test(UWorld* InWorld, const FOnlineAccountCredentia
 	}
 	else
 	{
-		UE_LOG(LogOnline, Warning,
+		UE_LOG_ONLINE_IDENTITY(Warning,
 			TEXT("Failed to get online identity interface for %s"), *SubsystemName);
 
 		// done with the test
@@ -70,7 +70,7 @@ void FTestIdentityInterface::OnLoginComplete(int32 LocalUserNum, bool bWasSucces
 {
 	if (bWasSuccessful)
 	{
-		UE_LOG(LogOnline, Display, TEXT("Successful logged in user. UserId=[%s] "), 
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("Successful logged in user. UserId=[%s] "), 
 			*UserId.ToDebugString());
 
 		// update user info for newly registered user
@@ -78,7 +78,7 @@ void FTestIdentityInterface::OnLoginComplete(int32 LocalUserNum, bool bWasSucces
 	}
 	else
 	{
-		UE_LOG(LogOnline, Error, TEXT("Failed to log in new user. Error=[%s]"), 
+		UE_LOG_ONLINE_IDENTITY(Error, TEXT("Failed to log in new user. Error=[%s]"), 
 			*Error);
 
 	}
@@ -92,17 +92,17 @@ void FTestIdentityInterface::OnLogoutComplete(int32 LocalUserNum, bool bWasSucce
 {
 	if (bWasSuccessful)
 	{
-		UE_LOG(LogOnline, Display, TEXT("Successful logged out user. LocalUserNum=[%d] "),
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("Successful logged out user. LocalUserNum=[%d] "),
 			LocalUserNum);
 	}
 	else if (!bIsUserLoggedIn)
 	{
-		UE_LOG(LogOnline, Display, TEXT("User is not logged in to be able to be logged out."));
+		UE_LOG_ONLINE_IDENTITY(Display, TEXT("User is not logged in to be able to be logged out."));
 	}
 	// If the user was logged out at the start of the test then there will be nothing to log out.
 	else
 	{
-		UE_LOG(LogOnline, Error, TEXT("Failed to log out user."));
+		UE_LOG_ONLINE_IDENTITY(Error, TEXT("Failed to log out user."));
 	}
 
 	UserInfo.Reset();

@@ -1,50 +1,11 @@
-﻿INTSourceChangelist:3347993
-Availability:Public
+﻿Availability:Public
 Title:ランドスケープの作成
 Crumbs: %ROOT%, Engine, Engine/Landscape
 Description:ランドスケープ テレインの新規作成ガイド
 version:4.9
 parent:Engine/Landscape
 order:2
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Landscape/Creation:title%](landscape_create_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/landscape_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Landscape/Creation:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Landscape/Creation:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Landscape/Creation]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Landscape/Creation:title%](landscape_create_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/landscape_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Landscape/Creation:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Landscape/Creation:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Landscape/Creation]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:landscape_create_topic.png
 
 [TOC(start:2)]
 

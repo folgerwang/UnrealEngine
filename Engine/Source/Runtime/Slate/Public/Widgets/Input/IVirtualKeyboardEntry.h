@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "Types/SlateEnums.h"
 
+#include "IVirtualKeyboardEntry.generated.h"
+
 // @todo - hook up keyboard types
 enum EKeyboardType
 {
@@ -24,6 +26,24 @@ enum class ETextEntryType : uint8
 	TextEntryAccepted,
 	/** They keyboard is providing a periodic update of the text entered so far. */
 	TextEntryUpdated
+};
+
+USTRUCT()
+struct FVirtualKeyboardOptions
+{
+public:
+	GENERATED_BODY()
+
+	/** Enables autocorrect for this widget, if supported by the platform's virtual keyboard. Autocorrect must also be enabled in Input settings for this to take effect. */
+	UPROPERTY(EditAnywhere, Category = Autocorrect)
+	bool bEnableAutocorrect;
+
+	// TODO: Add additional VKB features, such as autocapitalization and autocomplete
+
+	FVirtualKeyboardOptions()
+		: bEnableAutocorrect(false)
+	{
+	}
 };
 
 class SLATE_API IVirtualKeyboardEntry
@@ -61,6 +81,11 @@ public:
 	* @return  VirtualKeyboardType
 	*/
 	virtual EKeyboardType GetVirtualKeyboardType() const = 0;
+
+	/**
+	 * @return	Returns additional virtual keyboard options
+	 */
+	virtual FVirtualKeyboardOptions GetVirtualKeyboardOptions() const = 0;
 
 	/**
 	* Returns whether the entry is multi-line

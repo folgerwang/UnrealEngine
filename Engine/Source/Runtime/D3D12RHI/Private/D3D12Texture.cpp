@@ -2122,7 +2122,7 @@ void FD3D12DynamicRHI::RHIBindDebugLabelName(FTextureRHIParamRef TextureRHI, con
 
 			TArray<FStringFormatArg> Args;
 			Args.Add(Name);
-			Args.Add(LexicalConversion::ToString(BaseTexture->GetParentDevice()->GetGPUIndex()));
+			Args.Add(LexToString(BaseTexture->GetParentDevice()->GetGPUIndex()));
 
 			FString DebugName = FString::Format(TEXT("{0} (GPU {1})"), Args);
 			SetName(Resource, DebugName.GetCharArray().GetData());

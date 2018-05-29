@@ -1637,6 +1637,8 @@ void FPhysicsAssetEditor::OnChangeDefaultMesh(USkeletalMesh* OldPreviewMesh, USk
 		MeshUtilities.CalcBoneVertInfos(NewPreviewMesh, SharedData->AnyWeightBoneInfos, false);
 
 		RefreshHierachyTree();
+
+		SharedData->EditorSkelComp->SetDisablePostProcessBlueprint(true);
 	}
 }
 
@@ -2767,9 +2769,10 @@ void FPhysicsAssetEditor::HandlePreviewSceneCreated(const TSharedRef<IPersonaPre
 	SharedData->EditorSkelComp->SharedData = SharedData.Get();
 	SharedData->EditorSkelComp->SetSkeletalMesh(SharedData->PhysicsAsset->GetPreviewMesh());
 	SharedData->EditorSkelComp->SetPhysicsAsset(SharedData->PhysicsAsset, true);
+	SharedData->EditorSkelComp->SetDisablePostProcessBlueprint(true);
 	InPersonaPreviewScene->SetPreviewMeshComponent(SharedData->EditorSkelComp);
 	InPersonaPreviewScene->AddComponent(SharedData->EditorSkelComp, FTransform::Identity);
-		
+
 	// set root component, so we can attach to it. 
 	Actor->SetRootComponent(SharedData->EditorSkelComp);
 

@@ -101,6 +101,8 @@ void UAnimGraphNode_TwoBoneIK::CopyPinDefaultsToNodeData(UEdGraphPin* InPin)
 
 void UAnimGraphNode_TwoBoneIK::CustomizeDetails(class IDetailLayoutBuilder& DetailBuilder)
 {
+	Super::CustomizeDetails(DetailBuilder);
+
 	// initialize just once
 	if (!TwoBoneIKDelegate.IsValid())
 	{

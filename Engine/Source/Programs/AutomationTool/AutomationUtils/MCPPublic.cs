@@ -158,11 +158,15 @@ namespace EpicGames.MCP.Automation
         /// BuildVersion of the App we are staging.
         /// </summary>
         public readonly string BuildVersion;
-        /// <summary>
-        /// Directory where builds will be staged. Rooted at the BuildRootPath, using a subfolder passed in the ctor, 
-        /// and using BuildVersion/PlatformName to give each builds their own home.
-        /// </summary>
-        public readonly string StagingDir;
+		/// <summary>
+		/// Metadata for the build consisting of arbitrary json data. Will be null if no metadata exists.
+		/// </summary>
+		public BuildMetadataBase Metadata;
+		/// <summary>
+		/// Directory where builds will be staged. Rooted at the BuildRootPath, using a subfolder passed in the ctor, 
+		/// and using BuildVersion/PlatformName to give each builds their own home.
+		/// </summary>
+		public readonly string StagingDir;
         /// <summary>
         /// Path to the CloudDir where chunks will be written (relative to the BuildRootPath)
         /// This is used to copy to the web server, so it can use the same relative path to the root build directory.
@@ -289,6 +293,7 @@ namespace EpicGames.MCP.Automation
             StagingDir = CommandUtils.CombinePaths(BuildRootPath, stagingDirRelativePath, BuildVersion, Platform.ToString());
             CloudDirRelativePath = CommandUtils.CombinePaths(stagingDirRelativePath, "CloudDir");
             CloudDir = CommandUtils.CombinePaths(BuildRootPath, CloudDirRelativePath);
+			Metadata = null;
         }
 
 		/// <summary>
@@ -325,6 +330,7 @@ namespace EpicGames.MCP.Automation
 			StagingDir = CommandUtils.CombinePaths(BuildRootPath, StagingDirRelativePath, BuildVersion, StagingDirSuffix);
 			CloudDirRelativePath = CommandUtils.CombinePaths(StagingDirRelativePath, "CloudDir");
 			CloudDir = CommandUtils.CombinePaths(BuildRootPath, CloudDirRelativePath);
+			Metadata = null;
 		}
 
 		/// <summary>
@@ -338,6 +344,7 @@ namespace EpicGames.MCP.Automation
 			BuildVersion = InBuildVersion;
 			Platform = InPlatform;
 			CloudDir = InCloudDir;
+			Metadata = null;
 		}
 
 		/// <summary>
@@ -350,6 +357,7 @@ namespace EpicGames.MCP.Automation
 			AppID = InAppID;
 			BuildVersion = InBuildVersion;
 			Platform = InPlatform;
+			Metadata = null;
 			if (InStagingDir != null)
 			{
 				StagingDir = InStagingDir.FullName;
@@ -368,6 +376,38 @@ namespace EpicGames.MCP.Automation
 			{
 				_ManifestFilename = InManifestFilename;
 			}
+		}
+
+		/// <summary>
+		/// Associates a piece of metadata (in the form of a key value pair) with the build info.
+		/// </summary>
+		/// <param name="Key">The key to store the metadata against.</param>
+		/// <param name="Value">The value of the metadata to associate.</param>
+		/// <param name="bClobber">Optional, specifies whether to overwrite the existing key if it exists, default true.</param>
+		/// <returns>The BuildPatchToolStagingInfo to facilitate fluent syntax.</returns>
+		public BuildPatchToolStagingInfo WithMetadata(string Key, string Value, bool bClobber = true)
+		{
+			BuildMetadataBase NewMeta = BuildInfoPublisherBase.Get().CreateBuildMetadata(string.Format(@"{{""{0}"":""{1}""}}", Key, Value));
+			return WithMetadata(NewMeta, bClobber);
+		}
+
+		/// <summary>
+		/// Associates new metadata with the build info.
+		/// </summary>
+		/// <param name="NewMetadata">The metadata object to merge in.</param>
+		/// <param name="bClobber">Optional, specifies whether to overwrite the existing key if it exists, default true.</param>
+		/// <returns>The BuildPatchToolStagingInfo to facilitate fluent syntax.</returns>
+		public BuildPatchToolStagingInfo WithMetadata(BuildMetadataBase NewMetadata, bool bClobber = true)
+		{
+			if (Metadata != null)
+			{
+				Metadata.MergeWith(NewMetadata, bClobber);
+			}
+			else
+			{
+				Metadata = NewMetadata;
+			}
+			return this;
 		}
 
 		/// <summary>
@@ -393,7 +433,19 @@ namespace EpicGames.MCP.Automation
 
 			return _ManifestFilename;
 		}
-    }
+
+		/// <summary>
+		/// Adds and returns the metadata for this build, querying build info for any additional fields.
+		/// </summary>
+		/// <param name="McpConfigName">Optional, name of which MCP config to check against, default null which will use the one stored in this BuildPatchToolStagingInfo.</param>
+		/// <param name="bClobber">Optional, specifies whether to overwrite existing metadata keys with those received, default false.</param>
+		/// <returns>The Metadata dictionary</returns>
+		public BuildMetadataBase RetrieveBuildMetadata(string McpConfigName = null, bool bClobber = false)
+		{
+			BuildInfoPublisherBase BI = BuildInfoPublisherBase.Get();
+			return BI.GetBuildMetaData(this, McpConfigName ?? McpConfigKey, bClobber);
+		}
+	}
 
 	/// <summary>
 	/// Class that provides programmatic access to the BuildPatchTool
@@ -813,11 +865,24 @@ namespace EpicGames.MCP.Automation
 		public abstract void Execute(PackageChunksOptions Opts, ToolVersion Version = ToolVersion.Live);
 	}
 
+	/// <summary>
+	/// Class that provides programmatic access to the metadata field from build info.
+	/// </summary>
+	public abstract class BuildMetadataBase
+	{
+		/// <summary>
+		/// Merges provided metadata object into this one.
+		/// </summary>
+		/// <param name="Other">The other metadata to merge in.</param>
+		/// <param name="bClobber">Optional, specifies whether to overwrite existing metadata keys with those in Other, default true.</param>
+		/// <returns>this object to facilitate fluent syntax.</returns>
+		abstract public BuildMetadataBase MergeWith(BuildMetadataBase Other, bool bClobber = true);
+	}
 
-    /// <summary>
-    /// Helper class
-    /// </summary>
-    public abstract class BuildInfoPublisherBase
+	/// <summary>
+	/// Helper class
+	/// </summary>
+	public abstract class BuildInfoPublisherBase
     {
         static BuildInfoPublisherBase Handler = null;
  
@@ -845,6 +910,13 @@ namespace EpicGames.MCP.Automation
             }
             return Handler;
         }
+
+		/// <summary>
+		/// Creates a metadata object implementation, initialized with the provided JSON object.
+		/// </summary>
+		/// <param name="JsonRepresentation">JSON object representation to initialize with.</param>
+		/// <returns>new instance of metadata implementation.</returns>
+		abstract public BuildMetadataBase CreateBuildMetadata(string JsonRepresentation);
 
 		/// <summary>
 		/// Determines whether a given build is registered in build info
@@ -881,6 +953,24 @@ namespace EpicGames.MCP.Automation
 		/// <param name="McpConfigName">Name of which MCP config to query.</param>
 		/// <returns></returns>
 		abstract public string GetBuildManifestUrl(BuildPatchToolStagingInfo StagingInfo, string McpConfigName);
+
+		/// <summary>
+		/// Given a staging info defining our build, return the manifest hash for that registered build
+		/// </summary>
+		/// <param name="StagingInfo">Staging Info describing the BuildInfo to query.</param>
+		/// <param name="McpConfigName">Name of which MCP config to query.</param>
+		/// <returns>Manifest SHA1 hash as a hex string</returns>
+		abstract public string GetBuildManifestHash(BuildPatchToolStagingInfo StagingInfo, string McpConfigName);
+
+		/// <summary>
+		/// Given a staging info defining our build, fetch and apply the metadata for that registered build.
+		/// </summary>
+		/// <param name="StagingInfo">Staging Info describing the BuildInfo to query.</param>
+		/// <param name="McpConfigName">Name of which MCP config to query.</param>
+		/// <param name="bClobber">Optional, specifies whether to overwrite existing metadata keys with those received, default false.</param>
+		/// <returns>The metadata object for convenience.</returns>
+		abstract public BuildMetadataBase GetBuildMetaData(BuildPatchToolStagingInfo StagingInfo, string McpConfigName, bool bClobber = false);
+
 		/// <summary>
 		/// Get a label string for the specific Platform requested.
 		/// </summary>

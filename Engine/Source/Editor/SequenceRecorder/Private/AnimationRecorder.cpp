@@ -222,7 +222,7 @@ void FAnimationRecorder::StartRecord(USkeletalMeshComponent* Component, UAnimSeq
 	AnimationObject->NumFrames = 0;
 
 	RecordedCurves.Reset();
-	UIDList = nullptr;
+	UIDToArrayIndexLUT = nullptr;
 
 	USkeleton* AnimSkeleton = AnimationObject->GetSkeleton();
 	// add all frames
@@ -301,56 +301,59 @@ UAnimSequence* FAnimationRecorder::StopRecord(bool bShowMessage)
 		// @todo figure out why removing redundant keys is inconsistent
 
 		// add to real curve data 
-		if (RecordedCurves.Num() == NumFrames && UIDList)
+		if (RecordedCurves.Num() == NumFrames && UIDToArrayIndexLUT)
 		{
 			USkeleton* SkeletonObj = AnimationObject->GetSkeleton();
-			for (int32 CurveIndex = 0; CurveIndex < (*UIDList).Num(); ++CurveIndex)
+			for (int32 CurveUID = 0; CurveUID < UIDToArrayIndexLUT->Num(); ++CurveUID)
 			{
-				USkeleton::AnimCurveUID UID = (*UIDList)[CurveIndex];
+				int32 CurveIndex = (*UIDToArrayIndexLUT)[CurveUID];
 
-				FFloatCurve* FloatCurveData = nullptr;
-
-				TArray<float> TimesToRecord;
-				TArray<float> ValuesToRecord;
-				TimesToRecord.SetNum(NumFrames);
-				ValuesToRecord.SetNum(NumFrames);
-
-				for (int32 FrameIndex = 0; FrameIndex < NumFrames; ++FrameIndex)
+				if (CurveIndex != MAX_uint16)
 				{
-					const float TimeToRecord = FrameIndex*IntervalTime;
-					FCurveElement& CurCurve = RecordedCurves[FrameIndex][CurveIndex];
-					if (FrameIndex == 0)
+					FFloatCurve* FloatCurveData = nullptr;
+
+					TArray<float> TimesToRecord;
+					TArray<float> ValuesToRecord;
+					TimesToRecord.SetNum(NumFrames);
+					ValuesToRecord.SetNum(NumFrames);
+
+					for (int32 FrameIndex = 0; FrameIndex < NumFrames; ++FrameIndex)
 					{
-						// add one and save the cache
-						FSmartName CurveName;
-						if (SkeletonObj->GetSmartNameByUID(USkeleton::AnimCurveMappingName, UID, CurveName))
+						const float TimeToRecord = FrameIndex*IntervalTime;
+						FCurveElement& CurCurve = RecordedCurves[FrameIndex][CurveIndex];
+						if (FrameIndex == 0)
 						{
-							// give default curve flag for recording 
-							AnimationObject->RawCurveData.AddFloatCurveKey(CurveName, AACF_DefaultCurve, TimeToRecord, CurCurve.Value);
-							FloatCurveData = static_cast<FFloatCurve*>(AnimationObject->RawCurveData.GetCurveData(UID, ERawCurveTrackTypes::RCT_Float));
+							// add one and save the cache
+							FSmartName CurveName;
+							if (SkeletonObj->GetSmartNameByUID(USkeleton::AnimCurveMappingName, CurveUID, CurveName))
+							{
+								// give default curve flag for recording 
+								AnimationObject->RawCurveData.AddFloatCurveKey(CurveName, AACF_DefaultCurve, TimeToRecord, CurCurve.Value);
+								FloatCurveData = static_cast<FFloatCurve*>(AnimationObject->RawCurveData.GetCurveData(CurveUID, ERawCurveTrackTypes::RCT_Float));
+							}
+						}
+
+						if (FloatCurveData)
+						{
+							TimesToRecord[FrameIndex] = TimeToRecord;
+							ValuesToRecord[FrameIndex] = CurCurve.Value;
 						}
 					}
 
+					// Fill all the curve data at once
 					if (FloatCurveData)
 					{
-						TimesToRecord[FrameIndex] = TimeToRecord;
-						ValuesToRecord[FrameIndex] = CurCurve.Value;
-					}
-				}
+						TArray<FRichCurveKey> Keys;
+						for (int32 Index = 0; Index < TimesToRecord.Num(); ++Index)
+						{
+							FRichCurveKey Key(TimesToRecord[Index], ValuesToRecord[Index]);
+							Key.InterpMode = InterpMode;
+							Key.TangentMode = TangentMode;
+							Keys.Add(Key);
+						}
 
-				// Fill all the curve data at once
-				if (FloatCurveData)
-				{
-					TArray<FRichCurveKey> Keys;
-					for (int32 Index = 0; Index < TimesToRecord.Num(); ++Index)
-					{
-						FRichCurveKey Key(TimesToRecord[Index], ValuesToRecord[Index]);
-						Key.InterpMode = InterpMode;
-						Key.TangentMode = TangentMode;
-						Keys.Add(Key);
+						FloatCurveData->FloatCurve.SetKeys(Keys);
 					}
-
-					FloatCurveData->FloatCurve.SetKeys(Keys);
 				}
 			}	
 		}
@@ -627,13 +630,13 @@ bool FAnimationRecorder::Record(USkeletalMeshComponent* Component, FTransform co
 		if (AnimationCurves.Elements.Num() > 0)
 		{
 			RecordedCurves.Add(AnimationCurves.Elements);
-			if (UIDList == nullptr)
+			if (UIDToArrayIndexLUT == nullptr)
 			{
-				UIDList = AnimationCurves.UIDList;
+				UIDToArrayIndexLUT = AnimationCurves.UIDToArrayIndexLUT;
 			}
 			else
 			{
-				ensureAlways(UIDList == AnimationCurves.UIDList);
+				ensureAlways(UIDToArrayIndexLUT == AnimationCurves.UIDToArrayIndexLUT);
 			}
 		}
 

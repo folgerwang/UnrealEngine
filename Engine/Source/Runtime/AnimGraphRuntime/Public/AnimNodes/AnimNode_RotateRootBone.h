@@ -32,6 +32,12 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_RotateRootBone : public FAnimNode_Base
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings, meta=(PinShownByDefault))
 	mutable FRotator MeshToComponent;
 
+	UPROPERTY(Transient)
+	float ActualPitch;
+
+	UPROPERTY(Transient)
+	float ActualYaw;
+
 public:	
 	FAnimNode_RotateRootBone();
 

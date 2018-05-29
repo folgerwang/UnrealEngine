@@ -22,17 +22,20 @@ struct FPropertyEntry
 {
 	GENERATED_BODY()
 
-	FPropertyEntry() : Property(MP_EmissiveColor), 
-		CustomSize(0, 0),
-		bUseConstantValue(false),
-		ConstantValue(0.0f) {}
+	FPropertyEntry()
+		: Property(MP_EmissiveColor)
+		, bUseCustomSize(false)
+		, CustomSize(0, 0)
+		, bUseConstantValue(false)
+		, ConstantValue(0.0f)
+	{}
 
 	FPropertyEntry(EMaterialProperty InProperty)
-		: Property(InProperty),
-		bUseCustomSize(false),
-		CustomSize(0, 0),
-		bUseConstantValue(false),
-		ConstantValue(0.0f)
+		: Property(InProperty)
+		, bUseCustomSize(false)
+		, CustomSize(0, 0)
+		, bUseConstantValue(false)
+		, ConstantValue(0.0f)
 	{}
 
 	/** Property which should be baked out */

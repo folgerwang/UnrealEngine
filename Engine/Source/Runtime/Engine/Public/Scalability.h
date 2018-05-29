@@ -79,7 +79,7 @@ namespace Scalability
 
 
 	/** This is the only suggested way to set the current state - don't set CVars directly **/
-	ENGINE_API void SetQualityLevels(const FQualityLevels& QualityLevels);
+	ENGINE_API void SetQualityLevels(const FQualityLevels& QualityLevels, bool bForce = false);
 
 	/** This is the only suggested way to get the current state - don't get CVars directly */
 	ENGINE_API FQualityLevels GetQualityLevels();

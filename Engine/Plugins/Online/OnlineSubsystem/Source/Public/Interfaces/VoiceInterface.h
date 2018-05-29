@@ -10,6 +10,27 @@
 class FVoicePacket;
 
 ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogVoiceEngine, Display, All);
+#define UE_LOG_ONLINE_VOICEENGINE(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogVoiceEngine, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINE_VOICEENGINE(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogVoiceEngine, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineVoice, Display, All);
+
+#define UE_LOG_ONLINE_VOICE(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogOnlineVoice, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINE_VOICE(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogOnlineVoice, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
 
 /** Enable to pipe local voice data back to this client as remote data */
 #define VOICE_LOOPBACK !UE_BUILD_SHIPPING
@@ -52,7 +73,7 @@ public:
 	 *
 	 * @return 0 upon success, an error code otherwise
 	 */
-    virtual uint32 StartLocalVoiceProcessing(uint32 LocalUserNum) = 0;
+	virtual uint32 StartLocalVoiceProcessing(uint32 LocalUserNum) = 0;
 
 	/**
 	 * Stops local voice processing for the specified user index
@@ -61,7 +82,7 @@ public:
 	 *
 	 * @return 0 upon success, an error code otherwise
 	 */
-    virtual uint32 StopLocalVoiceProcessing(uint32 LocalUserNum) = 0;
+	virtual uint32 StopLocalVoiceProcessing(uint32 LocalUserNum) = 0;
 
 	/**
 	 * Starts remote voice processing for the specified user
@@ -70,7 +91,7 @@ public:
 	 *
 	 * @return 0 upon success, an error code otherwise
 	 */
-    virtual uint32 StartRemoteVoiceProcessing(const FUniqueNetId& UniqueId) = 0;
+	virtual uint32 StartRemoteVoiceProcessing(const FUniqueNetId& UniqueId) = 0;
 
 	/**
 	 * Stops remote voice processing for the specified user
@@ -79,7 +100,7 @@ public:
 	 *
 	 * @return 0 upon success, an error code otherwise
 	 */
-    virtual uint32 StopRemoteVoiceProcessing(const FUniqueNetId& UniqueId) = 0;
+	virtual uint32 StopRemoteVoiceProcessing(const FUniqueNetId& UniqueId) = 0;
 
 	/**
 	 * Registers the user index as a local talker (interested in voice data)
@@ -88,7 +109,7 @@ public:
 	 *
 	 * @return 0 upon success, an error code otherwise
 	 */
-    virtual uint32 RegisterLocalTalker(uint32 LocalUserNum) = 0;
+	virtual uint32 RegisterLocalTalker(uint32 LocalUserNum) = 0;
 
 	/**
 	 * Unregisters the user index as a local talker (not interested in voice data)
@@ -97,7 +118,7 @@ public:
 	 *
 	 * @return 0 upon success, an error code otherwise
 	 */
-    virtual uint32 UnregisterLocalTalker(uint32 LocalUserNum) = 0;
+	virtual uint32 UnregisterLocalTalker(uint32 LocalUserNum) = 0;
 
 	/**
 	 * Registers the unique player id as a remote talker (submitted voice data only)
@@ -106,7 +127,7 @@ public:
 	 *
 	 * @return 0 upon success, an error code otherwise
 	 */
-    virtual uint32 RegisterRemoteTalker(const FUniqueNetId& UniqueId) = 0;
+	virtual uint32 RegisterRemoteTalker(const FUniqueNetId& UniqueId) = 0;
 
 	/**
 	 * Unregisters the unique player id as a remote talker
@@ -115,7 +136,7 @@ public:
 	 *
 	 * @return 0 upon success, an error code otherwise
 	 */
-    virtual uint32 UnregisterRemoteTalker(const FUniqueNetId& UniqueId) = 0;
+	virtual uint32 UnregisterRemoteTalker(const FUniqueNetId& UniqueId) = 0;
 
 	/**
 	 * Checks whether a local user index has a headset present or not
@@ -124,7 +145,7 @@ public:
 	 *
 	 * @return true if there is a headset, false otherwise
 	 */
-    virtual bool IsHeadsetPresent(uint32 LocalUserNum) = 0;
+	virtual bool IsHeadsetPresent(uint32 LocalUserNum) = 0;
 
 	/**
 	 * Determines whether a local user index is currently talking or not
@@ -133,7 +154,7 @@ public:
 	 *
 	 * @return true if the user is talking, false otherwise
 	 */
-    virtual bool IsLocalPlayerTalking(uint32 LocalUserNum) = 0;
+	virtual bool IsLocalPlayerTalking(uint32 LocalUserNum) = 0;
 
 	/**
 	 * Determines whether a remote talker is currently talking or not
@@ -205,9 +226,9 @@ public:
 	 */
 	virtual void Tick(float DeltaTime) = 0;
 
-    /**
-     * Get information about the voice state for display
-     */
+	/**
+	 * Get information about the voice state for display
+	 */
 	virtual FString GetVoiceDebugState() const = 0;
 };
 
@@ -261,7 +282,7 @@ public:
 	 *
 	 * @return true if the call succeeded, false otherwise
 	 */
-    virtual bool RegisterLocalTalker(uint32 LocalUserNum) = 0;
+	virtual bool RegisterLocalTalker(uint32 LocalUserNum) = 0;
 
 	/**
 	 * Registers all signed in local talkers
@@ -275,7 +296,7 @@ public:
 	 *
 	 * @return true if the call succeeded, false otherwise
 	 */
-    virtual bool UnregisterLocalTalker(uint32 LocalUserNum) = 0;
+	virtual bool UnregisterLocalTalker(uint32 LocalUserNum) = 0;
 
 	/**
 	 * Unregisters all signed in local talkers
@@ -289,7 +310,7 @@ public:
 	 *
 	 * @return true if the call succeeded, false otherwise
 	 */
-    virtual bool RegisterRemoteTalker(const FUniqueNetId& UniqueId) = 0;
+	virtual bool RegisterRemoteTalker(const FUniqueNetId& UniqueId) = 0;
 
 	/**
 	 * Unregisters the unique player id as a remote talker
@@ -298,7 +319,7 @@ public:
 	 *
 	 * @return true if the call succeeded, false otherwise
 	 */
-    virtual bool UnregisterRemoteTalker(const FUniqueNetId& UniqueId) = 0;
+	virtual bool UnregisterRemoteTalker(const FUniqueNetId& UniqueId) = 0;
 
 	/**
 	 * Iterates the current remote talker list unregistering them with the 
@@ -313,7 +334,7 @@ public:
 	 *
 	 * @return true if there is a headset, false otherwise
 	 */
-    virtual bool IsHeadsetPresent(uint32 LocalUserNum) = 0;
+	virtual bool IsHeadsetPresent(uint32 LocalUserNum) = 0;
 
 	/**
 	 * Determines whether a local user index is currently talking or not
@@ -322,7 +343,7 @@ public:
 	 *
 	 * @return true if the user is talking, false otherwise
 	 */
-    virtual bool IsLocalPlayerTalking(uint32 LocalUserNum) = 0;
+	virtual bool IsLocalPlayerTalking(uint32 LocalUserNum) = 0;
 
 	/**
 	 * Determines whether a remote talker is currently talking or not
@@ -371,7 +392,7 @@ public:
 	 * @param LocalUserNum the user that is allowing the remote talker to talk
 	 * @param PlayerId the remote talker that is being restored to talking
 	 * @param bIsSystemWide whether to try to unmute them globally or not
- 	 *
+	 *
 	 * @return TRUE if the function succeeds, FALSE otherwise
 	 */
 	virtual bool UnmuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetId& PlayerId, bool bIsSystemWide) = 0;
@@ -407,9 +428,9 @@ public:
 	 */
 	virtual void Tick(float DeltaTime) = 0;
 
-    /**
-     * Get information about the voice state for display
-     */
+	/**
+	 * Get information about the voice state for display
+	 */
 	virtual FString GetVoiceDebugState() const = 0;
 };
 

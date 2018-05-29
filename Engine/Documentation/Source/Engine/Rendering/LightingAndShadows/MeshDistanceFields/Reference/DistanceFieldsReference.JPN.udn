@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3716175
+﻿INTSourceChangelist:3810467
 Availability:Public
 Crumbs: %ROOT%
 Title:メッシュ ディスタンス フィールド設定のリファレンス
@@ -15,23 +15,20 @@ Tags:Distance Fields
 Tags:Getting Started
 Topic-image:DFRef_Topic.png
 
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:30 convert:false)[/VAR]
-
 [TOC(start:2 end:3)]
 
 
-アンリアル エンジン 4 (UE4) の [メッシュ ディスタンス フィールド](Engine/Rendering/LightingAndShadows/MeshDistanceFields) システムは、他の様々なシステムを有効 / 無効にして使うことができます。設定とプロパティを指定して、 
+アンリアル エンジン 4 (UE4) の [Mesh Distance Fields](Engine/Rendering/LightingAndShadows/MeshDistanceFields) システムは、有効化 / 無効化が可能なさまざまなな別のシステムと一緒に使用することができます。これらの設定とプロパティを指定して、 
 プロジェクトに合わせたり、最適化を行うことができます。 
 
-以下は、使用可能なメッシュ ディスタンス フィールドに固有のメニュー システムとオプションの詳細です。
+以下は、使用可能な Mesh Distance Fields 固有のメニュー システムとオプションの詳細です。
 
 ## プロジェクト設定
 
-**[Project Settings]** で、一緒に使うことで効率が上げることもできる最適化オプションをはじめ、 
-プロジェクトのアセットへのメッシュ ディスタンス フィールド生成を有効にすることができます。 
+**[Project Settings]** には、効率が上がることもある最適化オプションをはじめ、 
+プロジェクトにアセッへのメッシュ ディスタンス フィールドを生成可能にする設定が含まれています。 
 
-設定値は **[Edit]** ドロップダウン メニューの **[Project Settings]** にあります。
+これらの設定は **[Edit]** ドロップダウン メニューの **[Project Settings]** にあります。
 
 [REGION:lightbox]
 [![](ProjectSettings.png)(w:500)](ProjectSettings.png)
@@ -39,12 +36,12 @@ Topic-image:DFRef_Topic.png
 [REGION:caption] クリックしてフルサイズ表示 [/REGION]
 
 [REGION:raw]
-| プロパティ | %spacer% | 説明 |
-| -------- | -------- | ----------- |
-| **Generate Mesh Distance Fields** || ディスタンス フィールド シャドウとディスタンス フィールド アンビエント オクルージョンと一緒に使用できるスタティックメッシュのディスタンス フィールドをビルトするかどうかを設定します。有効にするとメッシュ ビルド回数およびメモリ使用が増加します。また実行するにはエディタを再起動する必要があります。 |
-| **Eight Bit Mesh Distance Fields** || メッシュ ディスタンス フィールドを 16-bit 浮動小数点ではなく 8-bit 固定小数点形式で保存するかどうかを設定します。8-bit の場合、メモリ使用量は半分になりますが、大きいメッシュまたは薄いメッシュに対してアーティファクトが発生します。この設定を変更した後は、エディタを再起動する必要があります。 |
-| **Generate Landscape Real-time GI Data** || グローバル イルミネーションをリアルタイムでレンダリングするランドスケープ用の低解像度基本色テクスチャを生成するかどうか設定します。有効にするとメッシュのビルド回数およびメモリ使用が増加します。この設定を変更した後は、エディタを再起動する必要があります。 |
-| **Compress Mesh Distance Fields** || メッシュ ディスタンス フィールドを圧縮してメモリに保存するかどうかを設定します。メモリ使用は少なくなりますが、新規レベルを表示すると重大なヒッチを引き起こします。プロジェクトがインゲームでレベルをストリーミングしない場合のみ有効にすべきです。この設定を変更した後は、エディタを再起動する必要があります。 |
+| プロパティ | 説明 |
+| -------- | ----------- |
+| **Generate Mesh Distance Fields** | ディスタンス フィールド シャドウとディスタンス フィールド アンビエント オクルージョンと一緒に使用できるスタティックメッシュのディスタンス フィールドをビルトするかどうかを設定します。有効にするとメッシュ ビルド回数およびメモリ使用が増加します。また実行するにはエディタを再起動する必要があります。 |
+| **Eight Bit Mesh Distance Fields** | メッシュ ディスタンス フィールドを 16-bit 浮動小数点ではなく 8-bit 固定小数点形式で保存するかどうかを設定します。8-bit の場合、メモリ使用量は半分になりますが、大きいメッシュまたは薄いメッシュに対してアーティファクトが発生します。この設定を変更した後は、エディタを再起動する必要があります。 |
+| **Generate Landscape Real-time GI Data** | グローバル イルミネーションをリアルタイムでレンダリングするランドスケープ用の低解像度基本色テクスチャを生成するかどうか設定します。有効にするとメッシュのビルド回数およびメモリ使用が増加します。この設定を変更した後は、エディタを再起動する必要があります。 |
+| **Compress Mesh Distance Fields** | メッシュ ディスタンス フィールドを圧縮してメモリに保存するかどうかを設定します。メモリ使用は少なくなりますが、新規レベルを表示すると重大なヒッチを引き起こします。プロジェクトがインゲームでレベルをストリーミングしない場合のみ有効にすべきです。この設定を変更した後は、エディタを再起動する必要があります。 |
 [/REGION]
 
 ## Light コンポーネント
@@ -59,16 +56,16 @@ Topic-image:DFRef_Topic.png
 
 
 [REGION:raw]
-| プロパティ | %spacer% | 説明 |
-|----------|----------|-------------|
-| [REGION:tablesection]ライト[/REGION] |||
-| Light Source Angle || 光源の角度です。Distance Fields あるいは Capsule Shadows を使った動的シャドウイング メソッドでソフトエリア シャドウをサポートするために使用します。 | 
-| [REGION:tablesection]ディスタンス フィールド シャドウ[/REGION] |||
-| DistanceField Shadow Distance || Distance Field Shadowing の適用可能な最長距離です。Distance Field Shadows は、この値と CMS シャドウ用 **Dynamic Shadow Distance Movable Light** の間の距離もカバーします。 | 
-| RayTraced DistanceField Shadows || 光源の Distance Field Shadows をオンにします。 | 
-| [REGION:tablesection] 詳細プロパティ [/REGION] || |
-| Distance Field Trace Distance  || シャドウがシャドウ キャスターからキャスト可能な距離をワールド単位で設定します。値が大きいほどシーンに対するシャドウ負荷が高くなります。 |
-| Ray Start Offset Depth Scale || カメラが遠ざかるにつれて受影面からオフセットするレイトレース シャドウの大きさを調節します。非常に大きなスタティック メッシュ上で低解像ディスタンス フィールドからのセルフ シャドウのアーティファクトを隠すのに便利です。 | 
+| プロパティ | 説明 |
+|----------|-------------|
+| [REGION:tablesection]Light[/REGION] ||
+| **Light Source Angle** | 光源の角度です。ディスタンス フィールドあるいはカプセル シャドウを使った動的シャドウイング メソッドでソフトエリア シャドウをサポートするために使用します。 | 
+| [REGION:tablesection]Distance Field Shadows[/REGION] ||
+| **DistanceField Shadow Distance** | Distance Field Shadowing が可能な最長距離です。Distance Field Shadows は、この値と CMS シャドウ用 **Dynamic Shadow Distance Movable Light** の間の距離もカバーします。 | 
+| **RayTraced DistanceField Shadows** | 光源の Distance Field Shadows をオンにします。 | 
+| [REGION:tablesection] 詳細プロパティ [/REGION] | |
+| **Distance Field Trace Distance**  | シャドウがシャドウ キャスターからキャスト可能な距離をワールド単位で設定します。値が大きいほどシーンに対するシャドウ負荷が高くなります。 |
+| **Ray Start Offset Depth Scale** | カメラが遠ざかるにつれて受影面からオフセットするレイトレース シャドウの大きさを調節します。非常に大きなスタティック メッシュ上で低解像ディスタンス フィールドからのセルフ シャドウのアーティファクトを隠すのに便利です。 | 
 [/REGION]
 
 
@@ -131,13 +128,13 @@ Cascaded Shadow Mapping を使うと、リフトのすべてのポイントが�
 ![](PointSpotLight.png)(w:450)
  
 [REGION:raw]
-| プロパティ | %spacer% | 説明 |
-|----------|----------|-------------|
-| [REGION:tablesection]ライト[/REGION] |||
-| Source Radius || 光源の球体のサイズとして使います。値が大きくなると、半暗部が大きくなりますが、パフォーマンスの負荷も高くなります。 |
-| [REGION:tablesection]ディスタンス フィールド シャドウ[/REGION] |||
-| RayTraced DistanceField Shadows || レイ トレース ディスタンス フィールド エリア シャドウを使用するかどうか設定します。 | 
-| **Ray Start Offset Depth Scale** || カメラが遠ざかるにつれて受影面からオフセットするレイトレース シャドウの大きさを調節します。非常に大きなスタティック メッシュ上で低解像ディスタンス フィールドからのセルフ シャドウのアーティファクトを隠すのに便利です。 | 
+| プロパティ | 説明 |
+|----------|-------------|
+| [REGION:tablesection]Light[/REGION] ||
+| **Source Radius** | 光源の球体のサイズとして使います。値が大きくなると、半暗部が大きくなりますが、パフォーマンスの負荷も高くなります。 |
+| [REGION:tablesection]Distance Field Shadows[/REGION] ||
+| **RayTraced DistanceField Shadows** | RayTraced DistanceField Shadows を使用するかどうか設定します。 | 
+| **Ray Start Offset Depth Scale** | カメラが遠ざかるにつれて、受け面からオフセットするレイトレース シャドウの大きさを調節します。非常に大きなスタティック メッシュ上で低解像ディスタンス フィールドからのセルフ シャドウのアーティファクトを隠すのに便利です。 | 
 [/REGION]
 
 #### 従来の シャドウ マップと Ray Traced Distance Field Shadows の違い
@@ -183,7 +180,7 @@ Cascaded Shadow Mapping を使うと、リフトのすべてのポイントが�
 そこで、**Ray Start Offset Depth Scale** を代わりに使用すると、カメラが遠ざかる時に受影面のレイ トレーシング シャドウのための光線の開始位置を調節することができます。こうすることで、低解像度のメッシュ ディスタンス フィールドや
 ボリューム テクスチャでうまくキャプチャできない複雑なジオメトリをもつメッシから発生するセルフ シャドウイング アーティファクトを防ぎます。
 
-ケースによっては、[メッシュ ディスタンス フィールドの品質](Engine/Rendering/LightingAndShadows/MeshDistanceFields#quality) を調整すると、 
+ケースによっては、[メッシュ ディスタンス フィールドの品質](Engine/Rendering/LightingAndShadows/MeshDistanceFields#品質) を調整すると、 
 光線の開始位置を調整することなく、これらのアーティファクトの削減または削除も可能です。必要となる生成されたボリューム テクスチャの負荷は高くしない方が良いこと、
 そして **Ray Start Offset Depth Scale** はこのライトに対してこれを削る場合に役立つことを覚えておいてください。
 
@@ -213,23 +210,23 @@ Cascaded Shadow Mapping を使うと、リフトのすべてのポイントが�
 ![](SkyLight.png)(w:450)
 
 [REGION:raw]
-| プロパティ | %spacer% | 説明 |
-| -------- | -------- | ----------- |
-| **Occlusion Max Distance** || オクルージョンを計算するための、オクルーダからの最長距離です。この値を上げるとディスタンス フィールド AO の負荷が増えますが、遠くまでオクルージョンが可能になります。 |
-| **Occlusion Max Contrast** || 計算されたオクルージョンのコントラストを高くするために使います。 |
-| **Occlusion Exponent** || AO に適用する指数です。値が 1 未満の場合、コンタクト シャドウがついたままオクルージョンを明るくします。  |
-| **Min Occlusion** || オクルージョンの黒潰れを防ぐので便利です。ライトを複数回バウンスさせるシミュレーションの際に、実際の状況での黒潰れを防ぐので便利です。 |
-| **Occlusion Tint** || オクルージョンに色を付けるための定数カラーです。物理的に正しくするには黒にします。その他の値だと、芸術的な様式が提供されます。 |
-| **Occlusion Combine Mode** || ディスタンス フィールド アンビエント オクルージョンからのオクルージョンをどのようにスクリーン スペース アンビエント オクルージョンと組みあわせるかを調節します。 [INCLUDE:#combinemode] |
+| プロパティ | 説明 |
+| -------- | ----------- |
+| **Occlusion Max Distance** | オクルージョンを計算するための、オクルーダからの最長距離です。この値を上げるとディスタンス フィールド AO の負荷が増えますが、遠くまでオクルージョンが可能になります。 |
+| **Occlusion Max Contrast** | 計算されたオクルージョンのコントラストを高くするために使います。 |
+| **Occlusion Exponent** | AO に適用する指数です。値が 1 未満の場合、コンタクト シャドウがついたままオクルージョンを明るくします。  |
+| **Min Occlusion** | オクルージョンの黒潰れを防ぐので便利です。ライトを複数回バウンスさせるシミュレーションの際に、実際の状況での黒潰れを防ぐので便利です。 |
+| **Occlusion Tint** | オクルージョンに色を付けるための定数カラーです。物理的に正しくするには黒にします。その他の値だと、芸術的な様式が提供されます。 |
+| **Occlusion Combine Mode** | ディスタンス フィールド アンビエント オクルージョンからのオクルージョンをどのようにスクリーン スペース アンビエント オクルージョンと組みあわせるかを調節します。 [INCLUDE:#combinemode] |
 [/REGION]
 
 [COMMENT:none]
 -
 [EXCERPT:combinemode]
-| 選択 | %spacer2% | 説明 |
-| --- | --- | --- |
-| **OCM Minimum** || 最小オクルージョン値です。複数のメソッドによるオーバー オクルージョンの回避に効果的ですが、室内が平坦に見えすぎてしまいます。 |
-| **OCM Multiply** ||ディスタンス フィールド オクルージョンとスクリーン スペース アンビエント オクルージョンのオクルージョン値を掛け合わせます。深度をきちんと判断できますが、オーバー オクルージョンが発生します。Minimum よりも弱くなるようにスクリーン スペース アンビエント オクルージョンを調整しなければなりません。 |
+| 選択 | 説明 |
+| --- | --- |
+| **OCM Minimum** | 最小オクルージョン値です。複数のメソッドによるオーバー オクルージョンの回避に効果的ですが、室内が平坦に見えすぎてしまいます。 |
+| **OCM Multiply** | ディスタンス フィールド オクルージョンとスクリーン スペース アンビエント オクルージョンのオクルージョン値を掛け合わせます。深度をきちんと判断できますが、オーバー オクルージョンが発生します。Minimum よりも弱くなるようにスクリーン スペース アンビエント オクルージョンを調整しなければなりません。 |
 [/EXCERPT:combinemode]
 -
 [/COMMENT]
@@ -383,15 +380,15 @@ DFAO でシャドーをかけたオクルード領域のみ、使用するカラ
 ![](BuildSettings.png)(w:400)
 
 [REGION:raw]
-| プロパティ | %spacer% | 説明 |
-| -------- | -------- | ----------- |
-| **Distance Field Resolution Scale** || 特定のアクタに生成したメッシュ ディスタンス フィールドの品質を調節することができます。生成されたボリューム テクスチャのサイズを変更することができます。 |
-| **Two-Sided Distance Field Generation** || 生成されたメッシュ ディスタンス ディスタンス フィールドを両面にすることができます。複数の平面がオーバーラップしてパフォーマンス負荷が高いインスタンスのソフトシャドウを可能にします。 |
-| **Distance Field Replacement Mesh** || 現在のアクタ独自のメッシュ ディスタンス フィールドの代わりに別のスタティックメッシュのディスタンス フィールドを選択して使用することができます。 |
+| プロパティ | 説明 |
+| -------- | ----------- |
+| **Distance Field Resolution Scale** | 特定のアクタに生成したメッシュ ディスタンス フィールドの品質を調節することができます。生成されたボリューム テクスチャのサイズを変更することができます。 |
+| **Two-Sided Distance Field Generation** | 生成されたメッシュ ディスタンス ディスタンス フィールドを両面にすることができます。複数の平面がオーバーラップしてパフォーマンス負荷が高いインスタンスのソフトシャドウを可能にします。 |
+| **Distance Field Replacement Mesh** | 現在のアクタ独自のメッシュ ディスタンス フィールドの代わりに別のスタティックメッシュのディスタンス フィールドを選択して使用することができます。 |
 [/REGION]
 
 
-### 一般設定
+### 設定全般
 
 **[General Settings]** では品質関連以外のオプションを有効にすることができます。プロジェクト全体で有効にする必要がない特定のメッシュに 
 メッシュ ディスタンス フィールドを生成するオプション機能もあります。アニメートされているスタティックメッシュに発生する、またはディスタンスフィールドの内部の頂点を移動するセルフ シャドウイングの調節も可能です。 
@@ -399,12 +396,10 @@ DFAO でシャドーをかけたオクルード領域のみ、使用するカラ
 ![](GeneralSettings.png)(w:400)
 
 [REGION:raw]
-| プロパティ | %spacer% | 説明 |
-| -------- | -------- | ----------- |
-| **Generate Mesh Distance Field** || そのメッシュに対して、[Distance Field Indirect Shasows](Engine/Rendering/LightingAndShadows/MeshDistanceFields) と一緒に使用することができるディスタンス フィールドを生成するかどうかを設定します。**[Generate Mesh Distance Fields]** の [Project Seting] が有効の場合は無視されます。  | [COMMENT:none]
-TODO FINISH THE LINK 
-[/COMMENT]
-| **Distance Field Self Shadow Bias** || World Position Offset を使ってメッシュ頂点をアニメートする場合に、ディスタンス フィールド メソッドからのセルフ シャドウイングを減らすために使用します。 |
+| プロパティ | 説明 |
+| -------- | ----------- |
+| **Generate Mesh Distance Field** | そのメッシュに対して、[Distance Field Indirect Shasows](Engine/Rendering/LightingAndShadows/MeshDistanceFields) と一緒に使用することができるディスタンス フィールドを生成するかどうかを設定します。**[Generate Mesh Distance Fields]** の [Project Seting] が有効の場合は無視されます。  | 
+| **Distance Field Self Shadow Bias** | World Position Offset を使ってメッシュ頂点をアニメートする場合に、ディスタンス フィールド メソッドからのセルフ シャドウイングを減らすために使用します。 |
 [/REGION]
 
 ## Actor コンポーネント
@@ -414,13 +409,13 @@ TODO FINISH THE LINK
 ![](Actors.png)(w:450)
 
 [REGION:raw]
-| プロパティ | %spacer% | 説明 |
-| -------- | -------- | ----------- |
-| **Distance Field Indirect Shadow** || Movable コンポーネント上に間接ライティングを (ライトマップまたはスカイライトから) シャドウイングするためにメッシュ ディスタンス フィールド表現を使用するかどうかを設定します。これは、メッシュ ディスタンス フィールドを使用する点以外は、スケルタルメッシュの [Capsule Shadows](Engine/Rendering/LightingAndShadows/CapsuleShadows) と同じように機能します。従って、物理アセットは必要ありません。この機能を使うには、スタティックメッシュの [Build Settins] で **[Generate Mesh Distance Field]** を有効する、あるいはプロジェクトの **[Generate Mesh Distance Fields]** を有効にする必要があります。 |
-| **Distance Field Indirect Shadow Min Visibility** || Distance Field Indirect Shadow の影の濃さを調節します。 |
-| **Override Distance Field Self Shadow Bias** || スタティックメッシュ アセットの Distance Field Self Shadow Bias 設定をこのコンポーネントの Distance Field Shadow Bias でオーバーライドするかどうかを設定します。 |
-| **Distance Field Self Shadow Bias** || World Position Offset を使ってメッシュ頂点をアニメートする場合に、ディスタンス フィールド メソッドからのセルフ シャドウイングを減らすために使用します。 |
-| **Affect Distance Field Lighting** || プリミティブが動的ディスタンス フィールド ライティング メソッドに影響を与えるかどうかを制御します。このフラグは Cast Shadow も有効にする必要があります。 |
+| プロパティ | 説明 |
+| -------- | ----------- |
+| **Distance Field Indirect Shadow** | Movable コンポーネント上に間接ライティングを (ライトマップまたはスカイライトから) シャドウイングするためにメッシュ ディスタンス フィールド表現を使用するかどうかを設定します。これは、メッシュ ディスタンス フィールドを使用する点以外は、スケルタルメッシュの [Capsule Shadows](Engine/Rendering/LightingAndShadows/CapsuleShadows) と同じように機能します。従って、物理アセットは必要ありません。この機能を使うには、スタティックメッシュの [Build Settins] で **[Generate Mesh Distance Field]** を有効する、あるいはプロジェクトの **[Generate Mesh Distance Fields]** を有効にする必要があります。 |
+| **Distance Field Indirect Shadow Min Visibility** | Distance Field Indirect Shadow の影の濃さを調節します。 |
+| **Override Distance Field Self Shadow Bias** | スタティックメッシュ アセットの Distance Field Self Shadow Bias 設定をこのコンポーネントの Distance Field Shadow Bias でオーバーライドするかどうかを設定します。 |
+| **Distance Field Self Shadow Bias** | World Position Offset を使ってメッシュ頂点をアニメートする場合に、ディスタンス フィールド メソッドからのセルフ シャドウイングを減らすために使用します。 |
+|**Affect Distance Field Lighting** |プリミティブが動的ディスタンス フィールド ライティング メソッドに影響を与えるかどうかを制御します。このフラグは Cast Shadow も有効にする必要があります。 |
 [/REGION]
 
 #### Distance Field Indirect Shadow Min Visibility

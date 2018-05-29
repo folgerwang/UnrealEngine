@@ -32,6 +32,8 @@
 #include "AssetViewerSettings.h"
 #include "Editor/EditorPerProjectUserSettings.h"
 #include "Materials/Material.h"
+#include "EditorFontGlyphs.h"
+#include "Toolkits/AssetEditorManager.h"
 #include "SkeletalMeshTypes.h"
 #include "IPersonaToolkit.h"
 
@@ -270,6 +272,107 @@ TSharedRef<IPinnedCommandList> SAnimationEditorViewportTabBody::GetPinnedCommand
 	return ViewportWidget->GetViewportToolbar()->GetPinnedCommandList().ToSharedRef();
 }
 
+TWeakPtr<SWidget> SAnimationEditorViewportTabBody::AddNotification(TAttribute<EMessageSeverity::Type> InSeverity, TAttribute<bool> InCanBeDismissed, const TSharedRef<SWidget>& InNotificationWidget)
+{
+	TSharedPtr<SBorder> ContainingWidget = nullptr;
+	TWeakPtr<SWidget> WeakNotificationWidget = InNotificationWidget;
+
+	auto GetPadding = [WeakNotificationWidget]()
+	{
+		if(WeakNotificationWidget.IsValid())
+		{
+			return WeakNotificationWidget.Pin()->GetVisibility() == EVisibility::Visible ? FMargin(2.0f) : FMargin(0.0f);
+		}
+
+		return FMargin(0.0f);
+	};
+
+	auto GetVisibility = [WeakNotificationWidget]()
+	{
+		if(WeakNotificationWidget.IsValid())
+		{
+			return WeakNotificationWidget.Pin()->GetVisibility();
+		}
+
+		return EVisibility::Collapsed;
+	};
+
+	auto GetBrushForSeverity = [InSeverity]()
+	{
+		switch(InSeverity.Get())
+		{
+		case EMessageSeverity::CriticalError:
+		case EMessageSeverity::Error:
+			return FEditorStyle::GetBrush("AnimViewport.Notification.Error");
+		case EMessageSeverity::PerformanceWarning:
+		case EMessageSeverity::Warning:
+			return FEditorStyle::GetBrush("AnimViewport.Notification.Warning");
+		default:
+		case EMessageSeverity::Info:
+			return FEditorStyle::GetBrush("AnimViewport.Notification.Message");
+		}
+	};
+
+	TSharedPtr<SHorizontalBox> BodyBox = nullptr;
+
+	ViewportNotificationsContainer->AddSlot()
+	.HAlign(HAlign_Right)
+	.AutoHeight()
+	.Padding(MakeAttributeLambda(GetPadding))
+	[
+		SAssignNew(ContainingWidget, SBorder)
+		.Visibility_Lambda(GetVisibility)
+		.BorderImage_Lambda(GetBrushForSeverity)
+		[
+			SAssignNew(BodyBox, SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.FillWidth(1.0f)
+			[
+				InNotificationWidget
+			]
+		]
+	];
+
+	TWeakPtr<SWidget> WeakContainingWidget = ContainingWidget;
+	auto DismissNotification = [this, WeakContainingWidget]()
+	{
+		if(WeakContainingWidget.IsValid())
+		{
+			RemoveNotification(WeakContainingWidget.Pin().ToSharedRef());
+		}
+
+		return FReply::Handled();
+	};
+
+	auto GetDismissButtonVisibility = [InCanBeDismissed]()
+	{
+		return InCanBeDismissed.Get() ? EVisibility::Visible : EVisibility::Collapsed;
+	};
+
+	// add dismiss button
+	BodyBox->InsertSlot(0)
+	.AutoWidth()
+	.HAlign(HAlign_Center)
+	.VAlign(VAlign_Top)
+	[
+		SNew(SButton)
+		.Visibility_Lambda(GetDismissButtonVisibility)
+		.ButtonStyle(FEditorStyle::Get(), "AnimViewport.Notification.CloseButton")
+		.ToolTipText(LOCTEXT("DismissNotificationToolTip", "Dismiss this notification."))
+		.OnClicked_Lambda(DismissNotification)
+	];
+
+	return ContainingWidget;
+}
+
+void SAnimationEditorViewportTabBody::RemoveNotification(const TWeakPtr<SWidget>& InContainingWidget)
+{
+	if(InContainingWidget.IsValid())
+	{
+		ViewportNotificationsContainer->RemoveSlot(InContainingWidget.Pin().ToSharedRef());
+	}
+}
+
 void SAnimationEditorViewportTabBody::RefreshViewport()
 {
 	LevelViewportClient->Invalidate();
@@ -354,17 +457,7 @@ void SAnimationEditorViewportTabBody::Construct(const FArguments& InArgs, const 
 			.VAlign(VAlign_Bottom)
 			.HAlign(HAlign_Right)
 			[
-				SNew(SButton)
-				.ButtonStyle(FEditorStyle::Get(), "NoBorder")
-				.Visibility(this, &SAnimationEditorViewportTabBody::GetViewportCornerTextVisibility)
-				.OnClicked(this, &SAnimationEditorViewportTabBody::ClickedOnViewportCornerText)
-				.Content()
-				[
-					SNew(STextBlock)
-					.TextStyle(FEditorStyle::Get(), "Persona.Viewport.BlueprintDirtyText")
-					.Text(this, &SAnimationEditorViewportTabBody::GetViewportCornerText)
-					.ToolTipText(this, &SAnimationEditorViewportTabBody::GetViewportCornerTooltip)
-				]
+				SAssignNew(ViewportNotificationsContainer, SVerticalBox)
 			]
 		]
 	];
@@ -403,6 +496,10 @@ void SAnimationEditorViewportTabBody::Construct(const FArguments& InArgs, const 
 	BindCommands();
 
 	PopulateNumUVChannels();
+
+	GetPreviewScene()->OnRecordingStateChanged().AddSP(this, &SAnimationEditorViewportTabBody::AddRecordingNotification);
+
+	AddPostProcessNotification();
 }
 
 void SAnimationEditorViewportTabBody::BindCommands()
@@ -964,6 +1061,8 @@ void SAnimationEditorViewportTabBody::OnToggleDisablePostProcess()
 	if(UDebugSkelMeshComponent* PreviewComponent = GetPreviewScene()->GetPreviewMeshComponent())
 	{
 		PreviewComponent->ToggleDisablePostProcessBlueprint();
+
+		AddPostProcessNotification();
 	}
 }
 
@@ -1783,90 +1882,281 @@ bool SAnimationEditorViewportTabBody::IsSectionsDisplayMode(ESectionDisplayMode 
 }
 #endif // #if WITH_APEX_CLOTHING
 
-EVisibility SAnimationEditorViewportTabBody::GetViewportCornerTextVisibility() const
+void SAnimationEditorViewportTabBody::AddRecordingNotification()
 {
-	if (GetPreviewScene()->IsRecording())
+	if(WeakRecordingNotification.IsValid())
 	{
-		return EVisibility::Visible;
-	}
-	else if (BlueprintEditorPtr.IsValid() && BlueprintEditorPtr.Pin()->IsModeCurrent(FPersonaModes::AnimBlueprintEditMode))
-	{
-		if (UBlueprint* Blueprint = BlueprintEditorPtr.Pin()->GetBlueprintObj())
-		{
-			const bool bUpToDate = (Blueprint->Status == BS_UpToDate) || (Blueprint->Status == BS_UpToDateWithWarnings);
-			return bUpToDate ? EVisibility::Collapsed : EVisibility::Visible;
-		}		
+		return;
 	}
 
-	return EVisibility::Collapsed;
+	auto GetRecordingStateText = [this]()
+	{
+		if(GetPreviewScene()->IsRecording())
+		{
+			UAnimSequence* Recording = GetPreviewScene()->GetCurrentRecording();
+			const FString& Name = Recording ? Recording->GetName() : TEXT("None");
+			float TimeRecorded = GetPreviewScene()->GetCurrentRecordingTime();
+			FNumberFormattingOptions NumberOption;
+			NumberOption.MaximumFractionalDigits = 2;
+			NumberOption.MinimumFractionalDigits = 2;
+			return FText::Format(LOCTEXT("AnimRecorder", "Recording '{0}' {1} secs"),
+				FText::FromString(Name), FText::AsNumber(TimeRecorded, &NumberOption));
+		}
+
+		return FText::GetEmpty();
+	};
+
+	auto GetRecordingStateStateVisibility = [this]()
+	{
+		if (GetPreviewScene()->IsRecording())
+		{
+			return EVisibility::Visible;
+		}
+
+		return EVisibility::Collapsed;
+	};
+
+	auto StopRecording = [this]()
+	{
+		if (GetPreviewScene()->IsRecording())
+		{
+			GetPreviewScene()->StopRecording();
+		}
+
+		return FReply::Handled();
+	};
+
+	WeakRecordingNotification = AddNotification(EMessageSeverity::Info,
+		true,
+		SNew(SHorizontalBox)
+		.Visibility_Lambda(GetRecordingStateStateVisibility)
+		.ToolTipText(LOCTEXT("RecordingStatusTooltip", "Shows the status of animation recording."))
+		+SHorizontalBox::Slot()
+		.FillWidth(1.0f)
+		.Padding(2.0f, 4.0f)
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+			[
+				SNew(STextBlock)
+				.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+				.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
+				.Text(FEditorFontGlyphs::Video_Camera)
+			]
+			+SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			.FillWidth(1.0f)
+			[
+				SNew(STextBlock)
+				.Text_Lambda(GetRecordingStateText)
+				.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+			]
+		]
+		+SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(2.0f, 0.0f)
+		[
+			SNew(SButton)
+			.ForegroundColor(FSlateColor::UseForeground())
+			.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
+			.ToolTipText(LOCTEXT("RecordingInViewportStop", "Stop recording animation."))
+			.OnClicked_Lambda(StopRecording)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+				[
+					SNew(STextBlock)
+					.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
+					.Text(FEditorFontGlyphs::Stop)
+				]
+				+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.AutoWidth()
+				[
+					SNew(STextBlock)
+					.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+					.Text(LOCTEXT("AnimViewportStopRecordingButtonLabel", "Stop"))
+				]
+			]
+		]
+	);
 }
 
-FText SAnimationEditorViewportTabBody::GetViewportCornerText() const
+void SAnimationEditorViewportTabBody::AddPostProcessNotification()
 {
-	if(GetPreviewScene()->IsRecording())
+	if(WeakPostProcessNotification.IsValid())
 	{
-		UAnimSequence* Recording = GetPreviewScene()->GetCurrentRecording();
-		const FString& Name = Recording ? Recording->GetName() : TEXT("None");
-		float TimeRecorded = GetPreviewScene()->GetCurrentRecordingTime();
-		FNumberFormattingOptions NumberOption;
-		NumberOption.MaximumFractionalDigits = 2;
-		NumberOption.MinimumFractionalDigits = 2;
-		return FText::Format(LOCTEXT("AnimRecorder", "Recording '{0}' [{1} sec(s)]"),
-			FText::FromString(Name), FText::AsNumber(TimeRecorded, &NumberOption));
+		return;
 	}
 
-	if (BlueprintEditorPtr.IsValid() && BlueprintEditorPtr.Pin()->IsModeCurrent(FPersonaModes::AnimBlueprintEditMode))
+	auto GetVisibility = [this]()
 	{
-		if (UBlueprint* Blueprint = BlueprintEditorPtr.Pin()->GetBlueprintObj())
+		return CanDisablePostProcess() ? EVisibility::Visible : EVisibility::Collapsed;
+	};
+
+	auto GetPostProcessGraphName = [this]()
+	{
+		if (UDebugSkelMeshComponent* PreviewComponent = GetPreviewScene()->GetPreviewMeshComponent())
 		{
-			switch (Blueprint->Status)
+			if(PreviewComponent->SkeletalMesh && PreviewComponent->SkeletalMesh->PostProcessAnimBlueprint && PreviewComponent->SkeletalMesh->PostProcessAnimBlueprint->ClassGeneratedBy)
 			{
-			case BS_UpToDate:
-			case BS_UpToDateWithWarnings:
-				// Fall thru and return empty string
-				break;
-			case BS_Dirty:
-				return LOCTEXT("AnimBP_Dirty", "Preview out of date\nClick to recompile");
-			case BS_Error:
-				return LOCTEXT("AnimBP_CompileError", "Compile Error");
-			default:
-				return LOCTEXT("AnimBP_UnknownStatus", "Unknown Status");
-			}
-		}		
-	}
-
-	return FText::GetEmpty();
-}
-
-FText SAnimationEditorViewportTabBody::GetViewportCornerTooltip() const
-{
-	if(GetPreviewScene()->IsRecording())
-	{
-		return LOCTEXT("RecordingStatusTooltip", "Shows the status of animation recording.");
-	}
-
-	if(BlueprintEditorPtr.IsValid() && BlueprintEditorPtr.Pin()->IsModeCurrent(FPersonaModes::AnimBlueprintEditMode))
-	{
-		return LOCTEXT("BlueprintStatusTooltip", "Shows the status of the animation blueprint.\nClick to recompile a dirty blueprint");
-	}
-
-	return FText::GetEmpty();
-}
-
-FReply SAnimationEditorViewportTabBody::ClickedOnViewportCornerText()
-{
-	if(BlueprintEditorPtr.IsValid())
-	{
-		if (UBlueprint* Blueprint = BlueprintEditorPtr.Pin()->GetBlueprintObj())
-		{
-			if (!Blueprint->IsUpToDate())
-			{
-				BlueprintEditorPtr.Pin()->Compile();
+				return FText::FromString(PreviewComponent->SkeletalMesh->PostProcessAnimBlueprint->ClassGeneratedBy->GetName());
 			}
 		}
-	}
 
-	return FReply::Handled();
+		return FText::GetEmpty();
+	};
+
+	auto DoesPostProcessModifyCurves = [this]()
+	{
+		if (UDebugSkelMeshComponent* PreviewComponent = GetPreviewScene()->GetPreviewMeshComponent())
+		{
+			return (PreviewComponent->PostProcessAnimInstance && PreviewComponent->PostProcessAnimInstance->HasActiveCurves());
+		}
+
+		return false;
+	};
+
+	auto GetText = [this, GetPostProcessGraphName, DoesPostProcessModifyCurves]()
+	{
+		return IsDisablePostProcessChecked() ? 
+			FText::Format(LOCTEXT("PostProcessDisabledText", "Post process Animation Blueprint '{0}' is disabled."), GetPostProcessGraphName()) : 
+			FText::Format(LOCTEXT("PostProcessRunningText", "Post process Animation Blueprint '{0}' is running. {1}"), GetPostProcessGraphName(), DoesPostProcessModifyCurves() ? LOCTEXT("PostProcessModifiesCurves", "Post process modifes curves.") : FText::GetEmpty()) ;
+	};
+
+	auto GetButtonText = [this]()
+	{
+		return IsDisablePostProcessChecked() ? LOCTEXT("PostProcessEnableText", "Enable") : LOCTEXT("PostProcessDisableText", "Disable");
+	};
+
+	auto GetButtonTooltipText = [this]()
+	{
+		return IsDisablePostProcessChecked() ? LOCTEXT("PostProcessEnableTooltip", "Enable post process animation blueprint.") : LOCTEXT("PostProcessDisableTooltip", "Disable post process animation blueprint.");
+	};
+
+	auto GetButtonIcon = [this]()
+	{
+		return IsDisablePostProcessChecked() ? FEditorFontGlyphs::Check : FEditorFontGlyphs::Times;
+	};
+
+	auto EnablePostProcess = [this]()
+	{
+		OnToggleDisablePostProcess();
+		return FReply::Handled();
+	};
+
+	auto EditPostProcess = [this]()
+	{
+		if (UDebugSkelMeshComponent* PreviewComponent = GetPreviewScene()->GetPreviewMeshComponent())
+		{
+			if(PreviewComponent->SkeletalMesh && PreviewComponent->SkeletalMesh->PostProcessAnimBlueprint)
+			{
+				FAssetEditorManager::Get().OpenEditorForAssets(TArray<UObject*>({ PreviewComponent->SkeletalMesh->PostProcessAnimBlueprint->ClassGeneratedBy }));
+			}
+		}
+
+		return FReply::Handled();
+	};
+
+	WeakPostProcessNotification = AddNotification(EMessageSeverity::Warning,
+		true,
+		SNew(SHorizontalBox)
+		.Visibility_Lambda(GetVisibility)
+		+SHorizontalBox::Slot()
+		.FillWidth(1.0f)
+		.Padding(4.0f, 4.0f)
+		[
+			SNew(SHorizontalBox)
+			.ToolTipText_Lambda(GetText)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+			[
+				SNew(STextBlock)
+				.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+				.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
+				.Text(FEditorFontGlyphs::Exclamation_Triangle)
+			]
+			+SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			.FillWidth(1.0f)
+			[
+				SNew(STextBlock)
+				.Text_Lambda(GetText)
+				.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+			]
+		]
+		+SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(2.0f, 0.0f)
+		[
+			SNew(SButton)
+			.ForegroundColor(FSlateColor::UseForeground())
+			.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
+			.ToolTipText_Lambda(GetButtonTooltipText)
+			.OnClicked_Lambda(EnablePostProcess)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+				[
+					SNew(STextBlock)
+					.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
+					.Text_Lambda(GetButtonIcon)
+				]
+				+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.AutoWidth()
+				[
+					SNew(STextBlock)
+					.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+					.Text_Lambda(GetButtonText)
+				]
+			]
+		]
+		+SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(2.0f, 0.0f)
+		[
+			SNew(SButton)
+			.ForegroundColor(FSlateColor::UseForeground())
+			.ButtonStyle(FEditorStyle::Get(), "FlatButton")
+			.ToolTipText(LOCTEXT("EditPostProcessAnimBPButtonToolTip", "Edit the post process Animation Blueprint."))
+			.OnClicked_Lambda(EditPostProcess)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+				[
+					SNew(STextBlock)
+					.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
+					.Text(FEditorFontGlyphs::Pencil)
+				]
+				+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.AutoWidth()
+				[
+					SNew(STextBlock)
+					.TextStyle(FEditorStyle::Get(), "AnimViewport.MessageText")
+					.Text(LOCTEXT("EditPostProcessAnimBPButtonText", "Edit"))
+				]
+			]
+		]
+	);
 }
 
 void SAnimationEditorViewportTabBody::HandleFocusCamera()

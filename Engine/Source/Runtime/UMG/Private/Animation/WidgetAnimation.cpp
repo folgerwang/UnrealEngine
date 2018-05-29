@@ -206,5 +206,9 @@ void UWidgetAnimation::UnbindPossessableObjects(const FGuid& ObjectId)
 	});
 }
 
+bool UWidgetAnimation::IsPostLoadThreadSafe() const
+{
+	return true;
+}
 
 #undef LOCTEXT_NAMESPACE

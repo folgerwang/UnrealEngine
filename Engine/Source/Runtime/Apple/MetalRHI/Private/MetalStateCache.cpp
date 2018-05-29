@@ -2062,3 +2062,23 @@ FTexture2DRHIRef FMetalStateCache::CreateFallbackDepthStencilSurface(uint32 Widt
 	return FallbackDepthStencilSurface;
 }
 
+void FMetalStateCache::DiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask)
+{
+	if (Depth)
+	{
+		DepthStore = mtlpp::StoreAction::DontCare;
+	}
+
+	if (Stencil)
+	{
+		StencilStore = mtlpp::StoreAction::DontCare;
+	}
+
+	for (uint32 Index = 0; Index < MaxSimultaneousRenderTargets; ++Index)
+	{
+		if ((ColorBitMask & (1u << Index)) != 0)
+		{
+			ColorStore[Index] = mtlpp::StoreAction::DontCare;
+		}
+	}
+}

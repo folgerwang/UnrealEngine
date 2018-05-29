@@ -50,7 +50,7 @@ public:
 
 	//~ Begin USoundBase Interface.
 	virtual bool IsPlayable() const override;
-	virtual float GetDuration() const override;
+	virtual float GetDuration() override;
 	//~ End USoundBase Interface.
 
 protected:

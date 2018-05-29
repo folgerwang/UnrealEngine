@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:2685187
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:5.ライトの品質とリフレクション
 Crumbs:%ROOT%, GettingStarted, Engine\Rendering\LightingAndShadows\QuickStart
-Description: このステップでは、ライトの品質の最適化および改善方法を説明します。 
+Description: このステップでは、ライト クオリティの最適化および改善方法を説明します。 
 SkillLevel:Beginner
 Version:4.9
 

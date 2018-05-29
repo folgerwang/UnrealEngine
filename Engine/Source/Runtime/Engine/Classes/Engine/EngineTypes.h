@@ -1191,42 +1191,73 @@ struct FRigidBodyErrorCorrection
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** max squared position difference to perform velocity adjustment */
-	UPROPERTY(EditAnywhere, Category="Replication")
-	float LinearDeltaThresholdSq;
-
-	/** strength of snapping to desired linear velocity */
+	/** Value between 0 and 1 which indicates how much velocity
+		and ping based correction to use */
 	UPROPERTY(EditAnywhere, Category = "Replication")
-	float LinearInterpAlpha;
+	float PingExtrapolation;
 
-	/** inverted duration after which linear velocity adjustment will fix error */
+	/** Error per centimeter */
 	UPROPERTY(EditAnywhere, Category = "Replication")
-	float LinearRecipFixTime;
+	float ErrorPerLinearDifference;
 
-	/** max squared angle difference (in radians) to perform velocity adjustment */
+	/** Error per degree */
 	UPROPERTY(EditAnywhere, Category = "Replication")
-	float AngularDeltaThreshold;
+	float ErrorPerAngularDifference;
 
-	/** strength of snapping to desired angular velocity */
+	/** Maximum allowable error for a state to be considered "resolved" */
 	UPROPERTY(EditAnywhere, Category = "Replication")
-	float AngularInterpAlpha;
+	float MaxRestoredStateError;
 
-	/** inverted duration after which angular velocity adjustment will fix error */
+	/** How much to directly lerp to the correct position. Generally
+		this should be very low, if not zero. A higher value will
+		increase precision along with jerkiness. */
 	UPROPERTY(EditAnywhere, Category = "Replication")
-	float AngularRecipFixTime;
+	float PositionLerp;
 
-	/** min squared body speed to perform velocity adjustment */
+	/** How much to directly lerp to the correct angle. */
 	UPROPERTY(EditAnywhere, Category = "Replication")
-	float BodySpeedThresholdSq;
+	float AngleLerp;
+
+	/** This is the coefficient `k` in the differential equation:
+		dx/dt = k ( x_target(t) - x(t) ), which is used to update
+		the velocity in a replication step. */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float LinearVelocityCoefficient;
+
+	/** This is the angular analog to LinearVelocityCoefficient. */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float AngularVelocityCoefficient;
+
+	/** Number of seconds to remain in a heuristically
+		unresolveable state before hard snapping. */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float ErrorAccumulationSeconds;
+
+	/** If the body has moved less than the square root of
+		this amount towards a resolved state in the previous
+		frame, then error may accumulate towards a hard snap. */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float ErrorAccumulationDistanceSq;
+
+	/** If the previous error projected onto the current error
+		is greater than this value (indicating "similarity"
+		between states), then error may accumulate towards a
+		hard snap. */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float ErrorAccumulationSimilarity;
 
 	FRigidBodyErrorCorrection()
-		: LinearDeltaThresholdSq(5.0f)
-		, LinearInterpAlpha(0.2f)
-		, LinearRecipFixTime(1.0f)
-		, AngularDeltaThreshold(0.2f * PI)
-		, AngularInterpAlpha(0.1f)
-		, AngularRecipFixTime(1.0f)
-		, BodySpeedThresholdSq(0.2f)
+		: PingExtrapolation(0.1f)
+		, ErrorPerLinearDifference(1.0f)
+		, ErrorPerAngularDifference(1.0f)
+		, MaxRestoredStateError(1.0f)
+		, PositionLerp(0.0f)
+		, AngleLerp(0.4f)
+		, LinearVelocityCoefficient(100.0f)
+		, AngularVelocityCoefficient(10.0f)
+		, ErrorAccumulationSeconds(0.5f)
+		, ErrorAccumulationDistanceSq(15.0f)
+		, ErrorAccumulationSimilarity(100.0f)
 	{ }
 };
 
@@ -1774,6 +1805,7 @@ struct FSwarmDebugOptions
 	FSwarmDebugOptions()
 		: bDistributionEnabled(true)
 		, bForceContentExport(false)
+		, bInitialized(false)
 	{
 	}
 
@@ -2097,12 +2129,17 @@ struct TStructOpsTypeTraits<FHitResult> : public TStructOpsTypeTraitsBase2<FHitR
 
 
 /** Whether to teleport physics body or not */
+UENUM()
 enum class ETeleportType : uint8
 {
 	/** Do not teleport physics body. This means velocity will reflect the movement between initial and final position, and collisions along the way will occur */
 	None,
+
 	/** Teleport physics body so that velocity remains the same and no collision occurs */
-	TeleportPhysics
+	TeleportPhysics,
+
+	/** Teleport physics body and reset physics state completely */
+	ResetPhysics,
 };
 
 FORCEINLINE ETeleportType TeleportFlagToEnum(bool bTeleport) { return bTeleport ? ETeleportType::TeleportPhysics : ETeleportType::None; }
@@ -2633,7 +2670,7 @@ struct ENGINE_API FPointDamageEvent : public FDamageEvent
 	UPROPERTY()
 	struct FHitResult HitInfo;
 
-	FPointDamageEvent() : HitInfo() {}
+	FPointDamageEvent() : Damage(0.0f), HitInfo() {}
 	FPointDamageEvent(float InDamage, struct FHitResult const& InHitInfo, FVector const& InShotDirection, TSubclassOf<class UDamageType> InDamageTypeClass)
 		: FDamageEvent(InDamageTypeClass), Damage(InDamage), ShotDirection(InShotDirection), HitInfo(InHitInfo)
 	{}

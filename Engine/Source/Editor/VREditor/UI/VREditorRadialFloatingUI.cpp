@@ -544,7 +544,7 @@ void AVREditorRadialFloatingUI::SimulateLeftClick()
 		}
 		if (ButtonTypeOverride == FName(TEXT("SButton")))
 		{
-			const FPointerEvent& SimulatedPointer = FPointerEvent(uint32(0), uint32(0), FVector2D::ZeroVector, FVector2D::ZeroVector, true);
+			const FPointerEvent& SimulatedPointer = FPointerEvent(uint32(0), uint32(0), FVector2D::ZeroVector, FVector2D::ZeroVector, 1.0f, true);
 			const FGeometry& ChildGeometry = FGeometry();
 			CurrentlyHoveredButton->OnMouseButtonDown(ChildGeometry, SimulatedPointer);
 			CurrentlyHoveredButton->OnMouseButtonUp(ChildGeometry, SimulatedPointer);

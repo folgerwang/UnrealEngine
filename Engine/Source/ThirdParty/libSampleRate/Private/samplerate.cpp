@@ -31,26 +31,29 @@ src_new (int converter_type, int channels, int *error)
 		return NULL ;
 		} ;
 
-	if ((psrc = new SRC_PRIVATE()) == nullptr) //originally: (SRC_PRIVATE *) FMemory::Malloc(sizeof (*psrc))) == NULL)
+	if ((psrc = (SRC_PRIVATE*) FMemory::Malloc(sizeof(SRC_PRIVATE))) == nullptr) //originally: (SRC_PRIVATE *) FMemory::Malloc(sizeof (*psrc))) == NULL)
 	{	
 		if (error)
 			*error = SRC_ERR_MALLOC_FAILED ;
 		return NULL ;
 	}
 
+	FMemory::Memset(psrc, 0, sizeof(SRC_PRIVATE));
+
 	psrc->channels = channels ;
 	psrc->mode = SRC_MODE_PROCESS ;
 
 	if (psrc_set_converter (psrc, converter_type) != SRC_ERR_NO_ERROR)
-	{
+	{	
 		if (error)
 		{
-			*error = SRC_ERR_BAD_CONVERTER;
+			*error = SRC_ERR_BAD_CONVERTER ;
 		}
+		
+		FMemory::Free(psrc) ;
+		psrc = NULL ;
+	}
 
-		delete psrc;
-		psrc = NULL;
-	};
 
 	src_reset ((SRC_STATE*) psrc) ;
 
@@ -84,18 +87,20 @@ src_callback_new (src_callback_t func, int converter_type, int channels, int *er
 
 SRC_STATE *
 src_delete (SRC_STATE *state)
-{	SRC_PRIVATE *psrc ;
+{
+	SRC_PRIVATE *psrc ;
 
 	psrc = (SRC_PRIVATE*) state ;
 	if (psrc)
-	{	
-		if (psrc->private_data)
+	{
+		if (psrc->private_data != nullptr)
 		{
 			FMemory::Free(psrc->private_data);
 		}
-		FMemory::Memset(psrc, 0, sizeof (SRC_PRIVATE)) ;
-		delete psrc;
-	};
+
+		FMemory::Memset(psrc, 0, sizeof(SRC_PRIVATE)) ;
+		FMemory::Free(psrc) ;
+	}
 
 	return NULL ;
 } /* src_state */

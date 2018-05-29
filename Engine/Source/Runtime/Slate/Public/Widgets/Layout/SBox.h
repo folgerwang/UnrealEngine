@@ -125,9 +125,7 @@ class SLATE_API SBox : public SPanel
 
 protected:
 	// Begin SWidget overrides.
-#if SLATE_LAYOUT_CHANGE
-	virtual void ChildLayoutChanged() override;
-#endif
+	virtual void ChildLayoutChanged(EInvalidateWidget InvalidateReason) override;
 	virtual FVector2D ComputeDesiredSize(float) const override;
 	float ComputeDesiredWidth() const;
 	float ComputeDesiredHeight() const;

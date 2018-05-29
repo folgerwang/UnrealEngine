@@ -37,7 +37,7 @@ bool UnmanglePropertyName(const FString& InName, FString& OutName, EMangledPrope
 			OutName = InName.Left(IndexStartIndex);
 
 			const FString IndexStr = InName.Mid(IndexStartIndex + 1, InName.Len() - IndexStartIndex - 1);
-			Lex::FromString(OutIndex, *IndexStr);
+			LexFromString(OutIndex, *IndexStr);
 
 			OutType = EMangledPropertyContainerType::Fixed;
 			return true;
@@ -63,7 +63,7 @@ bool UnmanglePropertyName(const FString& InName, FString& OutName, EMangledPrope
 			}
 
 			const FString IndexStr = InName.Mid(IndexStartIndex + 1, IndexLen);
-			Lex::FromString(OutIndex, *IndexStr);
+			LexFromString(OutIndex, *IndexStr);
 
 			OutType = InName[InName.Len() - 2] == TEXT('y') ? EMangledPropertyContainerType::DynamicKey : EMangledPropertyContainerType::Dynamic;
 			return true;

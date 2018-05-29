@@ -17,6 +17,7 @@
 
 class IPropertyHandle;
 class SAddNewGameplayTagWidget;
+class SAddNewGameplayTagSourceWidget;
 
 /** Determines the behavior of the gameplay tag UI depending on where it's used */
 enum class EGameplayTagUIMode : uint8
@@ -43,6 +44,7 @@ public:
 		, _PropertyHandle( NULL )
 		, _GameplayTagUIMode( EGameplayTagUIMode::SelectionMode )
 		, _MaxHeight(260.0f)
+		, _RestrictedTags( false )
 	{}
 		SLATE_ARGUMENT( FString, Filter ) // Comma delimited string of tag root names to filter by
 		SLATE_ARGUMENT( FString, NewTagName ) // String that will initially populate the New Tag Name field
@@ -54,6 +56,7 @@ public:
 		SLATE_EVENT( FOnTagChanged, OnTagChanged ) // Called when a tag status changes
 		SLATE_ARGUMENT( EGameplayTagUIMode, GameplayTagUIMode )	// Determines behavior of the menu based on where it's used
 		SLATE_ARGUMENT( float, MaxHeight )	// caps the height of the gameplay tag tree
+		SLATE_ARGUMENT( bool, RestrictedTags ) // if we are dealing with restricted tags or regular gameplay tags
 	SLATE_END_ARGS()
 
 	/** Simple struct holding a tag container and its owner for generic re-use of the widget */
@@ -118,8 +121,14 @@ private:
 	/** Tracks if the Add Tag UI is expanded */
 	bool bAddTagSectionExpanded;
 
+	/** Tracks if the Add Source UI is expanded */
+	bool bAddSourceSectionExpanded;
+
 	/** If true, refreshes tags on the next frame */
 	bool bDelayRefresh;
+
+	/** If true, this widget is displaying restricted tags; if false this widget displays regular gameplay tags. */
+	bool bRestrictedTags;
 
 	/** The maximum height of the gameplay tag tree. If 0, the height is unbound. */
 	float MaxHeight;
@@ -138,6 +147,12 @@ private:
 
 	/** The widget that controls how new gameplay tags are added to the config files */
 	TSharedPtr<class SAddNewGameplayTagWidget> AddNewTagWidget;
+
+	/** The widget that controls how new restricted gameplay tags are added to the config files */
+	TSharedPtr<class SAddNewRestrictedGameplayTagWidget> AddNewRestrictedTagWidget;
+
+	/** The widget that controls how new gameplay tag source files are added */
+	TSharedPtr<class SAddNewGameplayTagSourceWidget> AddNewTagSourceWidget;
 
 	/** Allows for the user to find a specific gameplay tag in the tree */
 	TSharedPtr<SSearchBox> SearchTagBox;
@@ -189,6 +204,26 @@ private:
 	ECheckBoxState IsTagChecked(TSharedPtr<FGameplayTagNode> Node) const;
 
 	/**
+	 * Called via delegate when the status of the allow non-restricted children check box in a row changes
+	 *
+	 * @param NewCheckState	New check box state
+	 * @param NodeChanged	Node that was checked/unchecked
+	 */
+	void OnAllowChildrenTagCheckStatusChanged(ECheckBoxState NewCheckState, TSharedPtr<FGameplayTagNode> NodeChanged);
+
+	/**
+	 * Called via delegate to determine the non-restricted children checkbox state of the specified node
+	 *
+	 * @param Node	Node to find the non-restricted children checkbox state of
+	 *
+	 * @return Non-restricted children heckbox state of the specified node
+	 */
+	ECheckBoxState IsAllowChildrenTagChecked(TSharedPtr<FGameplayTagNode> Node) const;
+
+	/** Helper function to determine the visibility of the checkbox for allowing non-restricted children of restricted gameplay tags */
+	EVisibility DetermineAllowChildrenVisible(TSharedPtr<FGameplayTagNode> Node) const;
+
+	/**
 	 * Helper function called when the specified node is checked
 	 * 
 	 * @param NodeChecked	Node that was checked by the user
@@ -209,6 +244,15 @@ private:
 	 * @param EditableContainer The container we are removing the tags from
 	 */
 	void UncheckChildren(TSharedPtr<FGameplayTagNode> NodeUnchecked, FGameplayTagContainer& EditableContainer);
+
+	/**
+	 * Called via delegate to determine the text colour of the specified node
+	 *
+	 * @param Node	Node to find the colour of
+	 *
+	 * @return Text colour of the specified node
+	 */
+	FSlateColor GetTagTextColour(TSharedPtr<FGameplayTagNode> Node) const;
 
 	/** Called when the user clicks the "Clear All" button; Clears all tags */
 	FReply OnClearAllClicked();
@@ -246,8 +290,20 @@ private:
 	/** Helper function to determine the visibility of the expandable UI controls */
 	EVisibility DetermineExpandableUIVisibility() const;
 
+	/** Helper function to determine the visibility of the add new source expandable UI controls */
+	EVisibility DetermineAddNewSourceExpandableUIVisibility() const;
+
 	/** Helper function to determine the visibility of the Add New Tag widget */
 	EVisibility DetermineAddNewTagWidgetVisibility() const;
+
+	/** Helper function to determine the visibility of the Add New Tag widget */
+	EVisibility DetermineAddNewRestrictedTagWidgetVisibility() const;
+
+	/** Helper function to determine the visibility of the Add New Tag Source widget */
+	EVisibility DetermineAddNewSourceWidgetVisibility() const;
+
+	/** Helper function to determine the visibility of the Add New Subtag widget */
+	EVisibility DetermineAddNewSubTagWidgetVisibility(TSharedPtr<FGameplayTagNode> Node) const;
 
 	/** Helper function to determine the visibility of the Clear Selection button */
 	EVisibility DetermineClearSelectionVisibility() const;
@@ -287,6 +343,12 @@ private:
 
 	/** Callback for when the state of the expandable UI section changes */
 	void OnAddTagSectionExpansionStateChanged(ECheckBoxState NewState);
+
+	/** Determines if the expandable UI that contains the Add New Tag Source widget should be expanded or collapsed */
+	ECheckBoxState GetAddSourceSectionExpansionState() const;
+
+	/** Callback for when the state of the expandable tag source UI section changes */
+	void OnAddSourceSectionExpansionStateChanged(ECheckBoxState NewState);
 
 	void SetContainer(FGameplayTagContainer* OriginalContainer, FGameplayTagContainer* EditedContainer, UObject* OwnerObj);
 

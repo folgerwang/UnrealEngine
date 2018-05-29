@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability: Public
 Title:폴리지, 인스턴싱된 메시
 Crumbs:%ROOT%, Engine
@@ -44,7 +44,7 @@ topic-icon:%ROOT%/foliage_icon.png
 메시 목록에 스태틱 메시를 추가하려면, 콘텐츠 브라우저의 **여기에 폴리지 드롭** 이라는 곳에 스태틱 메시를 드롭해야 합니다.
 
 [REGION:lightbox]
-[![](Foliage_TextBar.png)(w:400 h:250)](Foliage_TextBar.png)
+[![](Foliage_TextBar.png)(w:400)](Foliage_TextBar.png)
 [/REGION]
 
 [REGION:tip]
@@ -54,13 +54,13 @@ topic-icon:%ROOT%/foliage_icon.png
 폴리지로 사용된 스태틱 메시의 프로퍼티를 조절하려면, 먼저 메시 목록의 스태틱 메시를 선택한 다음 화면 우하단의 작은 **확대경** 아이콘을 클릭하면 선택된 스태틱 메시의 디테일이 나타납니다.
 
 [REGION:lightbox]
-[![](Expose_Instanc_Options.png)(w:190 h:350)](Expose_Instanc_Options.png)
+[![](Expose_Instanc_Options.png)(w:190)](Expose_Instanc_Options.png)
 [/REGION]
 
 누르면 아래 그림과 비슷한 것이 보일 것입니다.
 
 [REGION:lightbox]
-[![](Foliage_Mesh_Options.png)(w:190 h:350)](Foliage_Mesh_Options.png)
+[![](Foliage_Mesh_Options.png)(w:190)](Foliage_Mesh_Options.png)
 [/REGION]
 
 
@@ -74,7 +74,7 @@ topic-icon:%ROOT%/foliage_icon.png
 그러면 그 주변에 주황색 외곽선이 그려지고, 아래 옵션 패널에서 다양한 프로퍼티를 조절할 수 있습니다.
 
 [REGION:lightbox]
-[![](Foliage_Selected_Meshes.png)(w:190 h:350)](Foliage_Selected_Meshes.png)
+[![](Foliage_Selected_Meshes.png)(w:190)](Foliage_Selected_Meshes.png)
 [/REGION]
 
 ## 브러시 세팅
@@ -87,8 +87,8 @@ topic-icon:%ROOT%/foliage_icon.png
 | 항목 | 설명 |
 | ---- | ----------- |
 | **Brush Size** | 브러시 크기 - 언리얼 유닛 단위의 크기입니다.  
-| **Paint Density** | 칠하기 밀도 - [INCLUDE:Engine/Foliage#PaintDensity] |
-| **Erase Density** | 지우기 밀도 - [INCLUDE:Engine/Foliage#EraseDensity] |
+| **Paint Density** | [INCLUDE:Engine/Foliage#PaintDensity] |
+| **Erase Density** | [INCLUDE:Engine/Foliage#EraseDensity] |
 
 **랜드스케이프**, **스태틱 메시**, **BSP**, **반투명** 이라는 이름의 체크 표시 박스는 툴 사용시 폴리지 메시가 어떤 액터 유형 위에 놓이도록 할 것인지를 결정합니다.
 박스 하나를 체크하면 폴리지 메시가 그 액터 유형 위에 툴을 사용한 것처럼 폴리지 메시가 추가됨을 나타냅니다.
@@ -165,7 +165,7 @@ topic-icon:%ROOT%/foliage_icon.png
 프로퍼티에 접근하는 법은, 메시 목록에서 스태틱 메시를 선택한 다음 아래 표시되는 프로퍼티를 조절하면 됩니다.
 
 [REGION:lightbox]
-[![](Foliage_PaintSettings.png)(w:190 h:350)](Foliage_PaintSettings.png)
+[![](Foliage_PaintSettings.png)(w:190)](Foliage_PaintSettings.png)
 [/REGION]
 
 각 섹션이 어떻게 쓰이는지 일반적 관점에서의 설명입니다:
@@ -185,7 +185,7 @@ topic-icon:%ROOT%/foliage_icon.png
 재적용 툴을 켜고 폴리지 메시 위에 칠을 하면 메시 목록에 선택된 폴리지 메시가 재적용 툴에서 가한 변경사항을 반영하도록 업데이트됩니다.
 
 [REGION:lightbox]
-[![](Foliage_Reapply.png)(w:190 h:350)](Foliage_Reapply.png)
+[![](Foliage_Reapply.png)(w:190)](Foliage_Reapply.png)
 [/REGION]
 
 
@@ -205,7 +205,7 @@ topic-icon:%ROOT%/foliage_icon.png
 **Ctrl** 키를 누른 채 레벨의 폴리지 메시를 클릭하면 한 번에 여러 개의 폴리지 메시를 선택할 수 있습니다.
 
 [REGION:lightbox]
-[![](Foliage_SelectInstance.png)(w:600 h:400)](Foliage_SelectInstance.png)
+[![](Foliage_SelectInstance.png)(w:600)](Foliage_SelectInstance.png)
 [/REGION]
 
 인스턴스 선택 후 거기에 다음과 같은 작업이 가능합니다.
@@ -244,7 +244,7 @@ topic-icon:%ROOT%/foliage_icon.png
 폴리지를 제거하려면 **Shift** 키를 누른 상태로 폴리지에서 제거하고자 하는 스태틱 메시에 **마우스 왼쪽 버튼** 클릭하면 됩니다.
 
 [REGION:lightbox]
-[![](Foliage_Fill.png)(w:600 h:400)](Foliage_Fill.png)
+[![](Foliage_Fill.png)(w:600)](Foliage_Fill.png)
 [/REGION]
 
 [region:tip]
@@ -294,13 +294,13 @@ topic-icon:%ROOT%/foliage_icon.png
 1. 콘텐츠 브라우저에 우클릭합니다. **고급 애셋 생성** 섹션 아래 **기타** 부분을 펼치고 **폴리지 타입** 옵션을 선택합니다.
 
 	[REGION:lightbox]
-	[![](Foliage_Scalability_00.png)(w:300 h:350)](Foliage_Scalability_00.png)
+	[![](Foliage_Scalability_00.png)(w:300)](Foliage_Scalability_00.png)
 	[/REGION]
 
 1. 폴리지 타입 이름을 입력 (이 예제에서는 **FT_Box**) 하고 FT_Box 폴리지 타입에 더블클릭하여 엽니다.
 
 	[REGION:lightbox]
-	[![](Foliage_Scalability_01.png)(w:405 h:223)](Foliage_Scalability_01.png)
+	[![](Foliage_Scalability_01.png)(w:405)](Foliage_Scalability_01.png)
 	[/REGION]
 
 1. FT_Box 가 열리면, **Mesh** 와 **Scalability** 섹션을 엽니다.
@@ -412,13 +412,13 @@ topic-icon:%ROOT%/foliage_icon.png
 1. **모드** 패널에서 **폴리지 툴** 을 선택합니다. 콘텐츠 브라우저에서 FT_Box 폴리지 타입을 끌어 **여기에 폴리지 드롭** 이라는 영역에 놓습니다.
 
 	[REGION:lightbox]
-	[![](Foliage_Scalability_05.png)(w:250 h:350)](Foliage_Scalability_05.png)
+	[![](Foliage_Scalability_05.png)(w:250)](Foliage_Scalability_05.png)
 	[/REGION]
 
 1. 폴리지 타입 목록에서 배치한 FT_Box 폴리지 타입을 선택합니다. 뷰포트에 **좌클릭** 하여 FT_Bo 폴리지 타입 메시를 표면에 칠하기 시작합니다.
 
 	[REGION:lightbox]
-	[![](Foliage_Scalability_06.png)(w:592 h:398)](Foliage_Scalability_06.png)
+	[![](Foliage_Scalability_06.png)(w:592)](Foliage_Scalability_06.png)
 	[/REGION]
 
 1. **툴바** 에서 **플레이** 버튼을 클릭하여 레벨을 실행합니다. 폴리지를 추가한 위치로 이동합니다.

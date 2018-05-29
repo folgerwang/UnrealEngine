@@ -393,6 +393,7 @@ private:
 		virtual FText GetText() const override;
 		virtual FText GetHintText() const override;
 		virtual EKeyboardType GetVirtualKeyboardType() const override;
+		virtual FVirtualKeyboardOptions GetVirtualKeyboardOptions() const override;
 		virtual bool IsMultilineEntry() const override;
 
 	private:

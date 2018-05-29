@@ -20,6 +20,7 @@
 #include "Misc/Guid.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/FeedbackContext.h"
+#include "Misc/OutputDeviceNull.h"
 #include "UObject/ErrorException.h"
 #include "UObject/Script.h"
 #include "UObject/ObjectMacros.h"
@@ -48,6 +49,7 @@
 #include "Manifest.h"
 #include "StringUtils.h"
 #include "Features/IModularFeatures.h"
+#include "Algo/Copy.h"
 #include "Algo/Sort.h"
 #include "Algo/Reverse.h"
 #include "Misc/ScopeExit.h"
@@ -497,7 +499,7 @@ FString CreateUTF8LiteralString(const FString& Str)
 }
 
 // Returns the METADATA_PARAMS for this output
-static FString OutputMetaDataCodeForObject(FOutputDevice& Out, const UObject* Object, const TCHAR* MetaDataBlockName, const TCHAR* Spaces)
+static FString OutputMetaDataCodeForObject(FOutputDevice& OutDeclaration, FOutputDevice& Out, const UObject* Object, const TCHAR* MetaDataBlockName, const TCHAR* DeclSpaces, const TCHAR* Spaces)
 {
 	TMap<FName, FString>* MetaData = UMetaData::GetMapForObject(Object);
 
@@ -524,8 +526,19 @@ static FString OutputMetaDataCodeForObject(FOutputDevice& Out, const UObject* Ob
 	FString Result;
 	if (MetaDataOutput.Len())
 	{
+		FString MetaDataBlockNameWithoutScope = MetaDataBlockName;
+		int32 ScopeIndex = MetaDataBlockNameWithoutScope.Find(TEXT("::"), ESearchCase::CaseSensitive);
+		if (ScopeIndex != INDEX_NONE)
+		{
+			MetaDataBlockNameWithoutScope = MetaDataBlockNameWithoutScope.RightChop(ScopeIndex + 2);
+		}
+
+		OutDeclaration.Log (TEXT("#if WITH_METADATA\r\n"));
+		OutDeclaration.Logf(TEXT("%sstatic const UE4CodeGen_Private::FMetaDataPairParam %s[];\r\n"), DeclSpaces, *MetaDataBlockNameWithoutScope);
+		OutDeclaration.Log (TEXT("#endif\r\n"));
+
 		Out.Log (TEXT("#if WITH_METADATA\r\n"));
-		Out.Logf(TEXT("%sstatic const UE4CodeGen_Private::FMetaDataPairParam %s[] = {\r\n"), Spaces, MetaDataBlockName);
+		Out.Logf(TEXT("%sconst UE4CodeGen_Private::FMetaDataPairParam %s[] = {\r\n"), Spaces, MetaDataBlockName);
 		Out.Log (*MetaDataOutput);
 		Out.Logf(TEXT("%s};\r\n"), Spaces);
 		Out.Log (TEXT("#endif\r\n"));
@@ -872,7 +885,7 @@ FString FNativeClassHeaderGenerator::GetUTF8OverriddenNameForLiteral(const UFiel
 	return CreateUTF8LiteralString(Item->GetName());
 }
 
-void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Prop, const TCHAR* OffsetStr, const TCHAR* Name, const TCHAR* Spaces, const TCHAR* SourceStruct)
+void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& DeclOut, FOutputDevice& Out, UProperty* Prop, const TCHAR* OffsetStr, const TCHAR* Name, const TCHAR* DeclSpaces, const TCHAR* Spaces, const TCHAR* SourceStruct)
 {
 	FString        PropName             = CreateUTF8LiteralString(FNativeClassHeaderGenerator::GetOverriddenName(Prop));
 	FString        PropNameDep          = Prop->HasAllPropertyFlags(CPF_Deprecated) ? Prop->GetName() + TEXT("_DEPRECATED") : Prop->GetName();
@@ -884,12 +897,23 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	FString ArrayDim = (Prop->ArrayDim != 1) ? FString::Printf(TEXT("CPP_ARRAY_DIM(%s, %s)"), *PropNameDep, SourceStruct) : TEXT("1");
 
-	FString MetaDataParams = OutputMetaDataCodeForObject(Out, Prop, *FString::Printf(TEXT("%s_MetaData"), Name), Spaces);
+	FString MetaDataParams = OutputMetaDataCodeForObject(DeclOut, Out, Prop, *FString::Printf(TEXT("%s_MetaData"), Name), DeclSpaces, Spaces);
+
+	FString NameWithoutScope = Name;
+	FString Scope;
+	int32 ScopeIndex = NameWithoutScope.Find(TEXT("::"), ESearchCase::CaseSensitive);
+	if (ScopeIndex != INDEX_NONE)
+	{
+		Scope = NameWithoutScope.Left(ScopeIndex) + TEXT("_");
+		NameWithoutScope = NameWithoutScope.RightChop(ScopeIndex + 2);
+	}
 
 	if (UByteProperty* TypedProp = Cast<UByteProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FBytePropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FBytePropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Byte, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FBytePropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Byte, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -908,8 +932,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UInt8Property* TypedProp = Cast<UInt8Property>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FInt8PropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FInt8PropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Int8, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FInt8PropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Int8, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -927,8 +953,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UInt16Property* TypedProp = Cast<UInt16Property>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FInt16PropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FInt16PropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Int16, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FInt16PropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Int16, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -946,10 +974,14 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UIntProperty* TypedProp = Cast<UIntProperty>(Prop))
 	{
+		const TCHAR* PropTypeName = GUnsizedProperties.Contains(TypedProp) ? TEXT("FUnsizedIntPropertyParams") : TEXT("FIntPropertyParams");
+
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::%s %s;\r\n"), DeclSpaces, PropTypeName, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::%s %s = { UE4CodeGen_Private::EPropertyClass::Int, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::%s %s = { UE4CodeGen_Private::EPropertyClass::Int, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
-			GUnsizedProperties.Contains(TypedProp) ? TEXT("FUnsizedIntPropertyParams") : TEXT("FIntPropertyParams"),
+			PropTypeName,
 			Name,
 			*PropName,
 			UPropertyObjectFlags,
@@ -966,8 +998,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UInt64Property* TypedProp = Cast<UInt64Property>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FInt64PropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FInt64PropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Int64, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FInt64PropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Int64, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -985,8 +1019,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UUInt16Property* TypedProp = Cast<UUInt16Property>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FUInt16PropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FUInt16PropertyParams %s = { UE4CodeGen_Private::EPropertyClass::UInt16, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FUInt16PropertyParams %s = { UE4CodeGen_Private::EPropertyClass::UInt16, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1004,10 +1040,14 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UUInt32Property* TypedProp = Cast<UUInt32Property>(Prop))
 	{
+		const TCHAR* PropTypeName = GUnsizedProperties.Contains(TypedProp) ? TEXT("FUnsizedUIntPropertyParams") : TEXT("FUInt32PropertyParams");
+
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::%s %s;\r\n"), DeclSpaces, PropTypeName, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::%s %s = { UE4CodeGen_Private::EPropertyClass::UInt32, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::%s %s = { UE4CodeGen_Private::EPropertyClass::UInt32, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
-			GUnsizedProperties.Contains(TypedProp) ? TEXT("FUnsizedUIntPropertyParams") : TEXT("FUInt32PropertyParams"),
+			PropTypeName,
 			Name,
 			*PropName,
 			UPropertyObjectFlags,
@@ -1024,8 +1064,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UUInt64Property* TypedProp = Cast<UUInt64Property>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FUInt64PropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FUInt64PropertyParams %s = { UE4CodeGen_Private::EPropertyClass::UInt64, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FUInt64PropertyParams %s = { UE4CodeGen_Private::EPropertyClass::UInt64, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1043,8 +1085,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UFloatProperty* TypedProp = Cast<UFloatProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FFloatPropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FFloatPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Float, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FFloatPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Float, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1062,8 +1106,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UDoubleProperty* TypedProp = Cast<UDoubleProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FDoublePropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FDoublePropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Double, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FDoublePropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Double, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1092,19 +1138,21 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 		else
 		{
 			OuterSize = FString::Printf(TEXT("sizeof(%s)"), SourceStruct);
-			Out.Logf(
-				TEXT("%sauto %s_SetBit = [](void* Obj){ ((%s*)Obj)->%s%s = 1; };\r\n"),
-				Spaces,
-				Name,
-				SourceStruct,
-				*Prop->GetName(),
-				Prop->HasAllPropertyFlags(CPF_Deprecated) ? TEXT("_DEPRECATED") : TEXT("")
-			);
-			Setter = FString::Printf(TEXT("&UE4CodeGen_Private::TBoolSetBitWrapper<decltype(%s_SetBit)>::SetBit"), Name);
+
+			DeclOut.Logf(TEXT("%sstatic void %s_SetBit(void* Obj);\r\n"), DeclSpaces, *NameWithoutScope);
+
+			Out.Logf(TEXT("%svoid %s_SetBit(void* Obj)\r\n"), Spaces, Name);
+			Out.Logf(TEXT("%s{\r\n"), Spaces);
+			Out.Logf(TEXT("%s\t((%s*)Obj)->%s%s = 1;\r\n"), Spaces, SourceStruct, *Prop->GetName(), Prop->HasAllPropertyFlags(CPF_Deprecated) ? TEXT("_DEPRECATED") : TEXT(""));
+			Out.Logf(TEXT("%s}\r\n"), Spaces);
+
+			Setter = FString::Printf(TEXT("&%s_SetBit"), Name);
 		}
 
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FBoolPropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FBoolPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Bool, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, sizeof(%s), %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FBoolPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Bool, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, sizeof(%s), %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1125,8 +1173,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (USoftClassProperty* TypedProp = Cast<USoftClassProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FSoftClassPropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FSoftClassPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::SoftClass, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FSoftClassPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::SoftClass, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1145,8 +1195,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UWeakObjectProperty* TypedProp = Cast<UWeakObjectProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FWeakObjectPropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FWeakObjectPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::WeakObject, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FWeakObjectPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::WeakObject, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1165,8 +1217,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (ULazyObjectProperty* TypedProp = Cast<ULazyObjectProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FLazyObjectPropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FLazyObjectPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::LazyObject, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FLazyObjectPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::LazyObject, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1185,8 +1239,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (USoftObjectProperty* TypedProp = Cast<USoftObjectProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FSoftObjectPropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FSoftObjectPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::SoftObject, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FSoftObjectPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::SoftObject, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1205,8 +1261,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UClassProperty* TypedProp = Cast<UClassProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FClassPropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FClassPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Class, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FClassPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Class, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1226,8 +1284,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UObjectProperty* TypedProp = Cast<UObjectProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FObjectPropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FObjectPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Object, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FObjectPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Object, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1246,8 +1306,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UInterfaceProperty* TypedProp = Cast<UInterfaceProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FInterfacePropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FInterfacePropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Interface, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FInterfacePropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Interface, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1266,8 +1328,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UNameProperty* TypedProp = Cast<UNameProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FNamePropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FNamePropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Name, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FNamePropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Name, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1285,8 +1349,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UStrProperty* TypedProp = Cast<UStrProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FStrPropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FStrPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Str, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FStrPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Str, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1304,8 +1370,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UArrayProperty* TypedProp = Cast<UArrayProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FArrayPropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FArrayPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Array, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FArrayPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Array, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1323,8 +1391,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UMapProperty* TypedProp = Cast<UMapProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FMapPropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FMapPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Map, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FMapPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Map, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1342,8 +1412,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (USetProperty* TypedProp = Cast<USetProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FSetPropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FSetPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Set, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FSetPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Set, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1361,8 +1433,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UStructProperty* TypedProp = Cast<UStructProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FStructPropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FStructPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Struct, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FStructPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Struct, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1381,8 +1455,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UDelegateProperty* TypedProp = Cast<UDelegateProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FDelegatePropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FDelegatePropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Delegate, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FDelegatePropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Delegate, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1401,8 +1477,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UMulticastDelegateProperty* TypedProp = Cast<UMulticastDelegateProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FMulticastDelegatePropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FMulticastDelegatePropertyParams %s = { UE4CodeGen_Private::EPropertyClass::MulticastDelegate, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FMulticastDelegatePropertyParams %s = { UE4CodeGen_Private::EPropertyClass::MulticastDelegate, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1421,8 +1499,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UTextProperty* TypedProp = Cast<UTextProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FTextPropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FTextPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Text, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FTextPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Text, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1440,8 +1520,10 @@ void FNativeClassHeaderGenerator::PropertyNew(FOutputDevice& Out, UProperty* Pro
 
 	if (UEnumProperty* TypedProp = Cast<UEnumProperty>(Prop))
 	{
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FEnumPropertyParams %s;\r\n"), DeclSpaces, *NameWithoutScope);
+
 		Out.Logf(
-			TEXT("%sstatic const UE4CodeGen_Private::FEnumPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Enum, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
+			TEXT("%sconst UE4CodeGen_Private::FEnumPropertyParams %s = { UE4CodeGen_Private::EPropertyClass::Enum, %s, %s, (EPropertyFlags)0x%016llx, %s, %s, %s, %s, %s };%s\r\n"),
 			Spaces,
 			Name,
 			*PropName,
@@ -1477,19 +1559,19 @@ bool IsEditorOnlyDataProperty(UProperty* Prop)
 	return false;
 }
 
-void FNativeClassHeaderGenerator::OutputProperties(FOutputDevice& OutputDevice, FString& OutPropertyRange, const TArray<UProperty*>& Properties, const TCHAR* Spaces)
+FString FNativeClassHeaderGenerator::OutputProperties(FOutputDevice& DeclOut, FOutputDevice& Out, const TCHAR* Scope, const TArray<UProperty*>& Properties, const TCHAR* DeclSpaces, const TCHAR* Spaces)
 {
 	if (Properties.Num() == 0)
 	{
-		OutPropertyRange = TEXT("nullptr, 0");
-		return;
+		return TEXT("nullptr, 0");
 	}
 
 	TArray<FPropertyNamePointerPair> PropertyNamesAndPointers;
 	bool bHasAllEditorOnlyDataProperties = true;
 
 	{
-		FMacroBlockEmitter WithEditorOnlyMacroEmitter(OutputDevice, TEXT("WITH_EDITORONLY_DATA"));
+		FMacroBlockEmitter WithEditorOnlyMacroEmitter(Out, TEXT("WITH_EDITORONLY_DATA"));
+		FMacroBlockEmitter WithEditorOnlyMacroEmitterDecl(DeclOut, TEXT("WITH_EDITORONLY_DATA"));
 
 		for (int32 Index = Properties.Num() - 1; Index >= 0; Index--)
 		{
@@ -1502,31 +1584,36 @@ void FNativeClassHeaderGenerator::OutputProperties(FOutputDevice& OutputDevice, 
 			}
 
 			WithEditorOnlyMacroEmitter(bRequiresHasEditorOnlyMacro);
-			OutputProperty(OutputDevice, PropertyNamesAndPointers, Prop, Spaces);
+			WithEditorOnlyMacroEmitterDecl(bRequiresHasEditorOnlyMacro);
+			OutputProperty(DeclOut, Out, Scope, PropertyNamesAndPointers, Prop, DeclSpaces, Spaces);
 		}
 
 		WithEditorOnlyMacroEmitter(bHasAllEditorOnlyDataProperties);
-		OutputDevice.Logf(TEXT("%sstatic const UE4CodeGen_Private::FPropertyParamsBase* const PropPointers[] = {\r\n"), Spaces);
+		WithEditorOnlyMacroEmitterDecl(bHasAllEditorOnlyDataProperties);
+		DeclOut.Logf(TEXT("%sstatic const UE4CodeGen_Private::FPropertyParamsBase* const PropPointers[];\r\n"), DeclSpaces);
+		Out.Logf(TEXT("%sconst UE4CodeGen_Private::FPropertyParamsBase* const %sPropPointers[] = {\r\n"), Spaces, Scope);
 
 		for (const FPropertyNamePointerPair& PropNameAndPtr : PropertyNamesAndPointers)
 		{
 			bool bRequiresHasEditorOnlyMacro = IsEditorOnlyDataProperty(PropNameAndPtr.Prop);
 
 			WithEditorOnlyMacroEmitter(bRequiresHasEditorOnlyMacro);
-			OutputDevice.Logf(TEXT("%s\t(const UE4CodeGen_Private::FPropertyParamsBase*)&%s,\r\n"), Spaces, *PropNameAndPtr.Name);
+			WithEditorOnlyMacroEmitterDecl(bRequiresHasEditorOnlyMacro);
+			Out.Logf(TEXT("%s\t(const UE4CodeGen_Private::FPropertyParamsBase*)&%s,\r\n"), Spaces, *PropNameAndPtr.Name);
 		}
 
 		WithEditorOnlyMacroEmitter(bHasAllEditorOnlyDataProperties);
-		OutputDevice.Logf(TEXT("%s};\r\n"), Spaces);
+		WithEditorOnlyMacroEmitterDecl(bHasAllEditorOnlyDataProperties);
+		Out.Logf(TEXT("%s};\r\n"), Spaces);
 	}
 
 	if (bHasAllEditorOnlyDataProperties)
 	{
-		OutPropertyRange = TEXT("IF_WITH_EDITORONLY_DATA(PropPointers, nullptr), IF_WITH_EDITORONLY_DATA(ARRAY_COUNT(PropPointers), 0)");
+		return FString::Printf(TEXT("IF_WITH_EDITORONLY_DATA(%sPropPointers, nullptr), IF_WITH_EDITORONLY_DATA(ARRAY_COUNT(%sPropPointers), 0)"), Scope, Scope);
 	}
 	else
 	{
-		OutPropertyRange = TEXT("PropPointers, ARRAY_COUNT(PropPointers)");
+		return FString::Printf(TEXT("%sPropPointers, ARRAY_COUNT(%sPropPointers)"), Scope, Scope);
 	}
 }
 
@@ -1555,19 +1642,19 @@ inline FString GetEventStructParamsName(UObject* Outer, const TCHAR* FunctionNam
 	return Result;
 }
 
-void FNativeClassHeaderGenerator::OutputProperty(FOutputDevice& OutputDevice, TArray<FPropertyNamePointerPair>& PropertyNamesAndPointers, UProperty* Prop, const TCHAR* Spaces)
+void FNativeClassHeaderGenerator::OutputProperty(FOutputDevice& DeclOut, FOutputDevice& Out, const TCHAR* Scope, TArray<FPropertyNamePointerPair>& PropertyNamesAndPointers, UProperty* Prop, const TCHAR* DeclSpaces, const TCHAR* Spaces)
 {
 	FString PropName = Prop->GetName();
 
-	FString PropVariableName = FString::Printf(TEXT("NewProp_%s"), *PropName);
+	FString PropVariableName = FString::Printf(TEXT("%sNewProp_%s"), Scope, *PropName);
 
 	// Helper to handle the creation of the underlying properties if they're enum properties
-	auto HandleUnderlyingEnumProperty = [this, &PropertyNamesAndPointers, &OutputDevice, Spaces](UProperty* LocalProp, const FString& OuterName)
+	auto HandleUnderlyingEnumProperty = [this, &PropertyNamesAndPointers, &DeclOut, &Out, DeclSpaces, Spaces](UProperty* LocalProp, const FString& OuterName)
 	{
 		if (UEnumProperty* EnumProp = Cast<UEnumProperty>(LocalProp))
 		{
 			FString PropVarName = OuterName + TEXT("_Underlying");
-			PropertyNew(OutputDevice, EnumProp->UnderlyingProp, TEXT("0"), *PropVarName, Spaces);
+			PropertyNew(DeclOut, Out, EnumProp->UnderlyingProp, TEXT("0"), *PropVarName, DeclSpaces, Spaces);
 			PropertyNamesAndPointers.Emplace(MoveTemp(PropVarName), EnumProp->UnderlyingProp);
 		}
 	};
@@ -1601,16 +1688,16 @@ void FNativeClassHeaderGenerator::OutputProperty(FOutputDevice& OutputDevice, TA
 
 		FString PropMacroOuterClass = FString::Printf(TEXT("STRUCT_OFFSET(%s, %s)"), *SourceStruct, *PropNameDep);
 
-		PropertyNew(OutputDevice, Prop, *PropMacroOuterClass, *PropVariableName, Spaces, *SourceStruct);
+		PropertyNew(DeclOut, Out, Prop, *PropMacroOuterClass, *PropVariableName, DeclSpaces, Spaces, *SourceStruct);
 		PropertyNamesAndPointers.Emplace(PropVariableName, Prop);
 		HandleUnderlyingEnumProperty(Prop, PropVariableName);
 	}
 
 	if (UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Prop))
 	{
-		FString InnerVariableName = FString::Printf(TEXT("NewProp_%s_Inner"), *ArrayProperty->Inner->GetName());
+		FString InnerVariableName = FString::Printf(TEXT("%sNewProp_%s_Inner"), Scope, *ArrayProperty->Inner->GetName());
 
-		PropertyNew(OutputDevice, ArrayProperty->Inner, TEXT("0"), *InnerVariableName, Spaces);
+		PropertyNew(DeclOut, Out, ArrayProperty->Inner, TEXT("0"), *InnerVariableName, DeclSpaces, Spaces);
 		PropertyNamesAndPointers.Emplace(InnerVariableName, ArrayProperty->Inner);
 		HandleUnderlyingEnumProperty(ArrayProperty->Inner, InnerVariableName);
 	}
@@ -1620,14 +1707,14 @@ void FNativeClassHeaderGenerator::OutputProperty(FOutputDevice& OutputDevice, TA
 		UProperty* Key   = MapProperty->KeyProp;
 		UProperty* Value = MapProperty->ValueProp;
 
-		FString KeyVariableName   = FString::Printf(TEXT("NewProp_%s_KeyProp"), *Key->GetName());
-		FString ValueVariableName = FString::Printf(TEXT("NewProp_%s_ValueProp"), *Value->GetName());
+		FString KeyVariableName   = FString::Printf(TEXT("%sNewProp_%s_KeyProp"), Scope, *Key->GetName());
+		FString ValueVariableName = FString::Printf(TEXT("%sNewProp_%s_ValueProp"), Scope, *Value->GetName());
 
-		PropertyNew(OutputDevice, Key, TEXT("0"), *KeyVariableName, Spaces);
+		PropertyNew(DeclOut, Out, Key, TEXT("0"), *KeyVariableName, DeclSpaces, Spaces);
 		PropertyNamesAndPointers.Emplace(KeyVariableName, Key);
 		HandleUnderlyingEnumProperty(Key, KeyVariableName);
 
-		PropertyNew(OutputDevice, Value, TEXT("1"), *ValueVariableName, Spaces);
+		PropertyNew(DeclOut, Out, Value, TEXT("1"), *ValueVariableName, DeclSpaces, Spaces);
 		PropertyNamesAndPointers.Emplace(ValueVariableName, Value);
 		HandleUnderlyingEnumProperty(Value, ValueVariableName);
 	}
@@ -1636,9 +1723,9 @@ void FNativeClassHeaderGenerator::OutputProperty(FOutputDevice& OutputDevice, TA
 	{
 		UProperty* Inner = SetProperty->ElementProp;
 
-		FString ElementVariableName = FString::Printf(TEXT("NewProp_%s_ElementProp"), *Inner->GetName());
+		FString ElementVariableName = FString::Printf(TEXT("%sNewProp_%s_ElementProp"), Scope, *Inner->GetName());
 
-		PropertyNew(OutputDevice, Inner, TEXT("0"), *ElementVariableName, Spaces);
+		PropertyNew(DeclOut, Out, Inner, TEXT("0"), *ElementVariableName, DeclSpaces, Spaces);
 		PropertyNamesAndPointers.Emplace(ElementVariableName, Inner);
 		HandleUnderlyingEnumProperty(Inner, ElementVariableName);
 	}
@@ -1774,7 +1861,8 @@ void FNativeClassHeaderGenerator::ExportGeneratedPackageInitCode(FOutputDevice& 
 		Out.Logf(TEXT("%s"), *Extern);
 	}
 
-	FString MetaDataParams = OutputMetaDataCodeForObject(Out, InPackage, TEXT("Package_MetaDataParams"), TEXT("\t\t\t"));
+	FOutputDeviceNull OutputDeviceNull;
+	FString MetaDataParams = OutputMetaDataCodeForObject(OutputDeviceNull, Out, InPackage, TEXT("Package_MetaDataParams"), TEXT(""), TEXT("\t\t\t"));
 
 	Out.Logf(TEXT("\tUPackage* %s\r\n"), *SingletonName);
 	Out.Logf(TEXT("\t{\r\n"));
@@ -1818,6 +1906,8 @@ void FNativeClassHeaderGenerator::ExportGeneratedPackageInitCode(FOutputDevice& 
 void FNativeClassHeaderGenerator::ExportNativeGeneratedInitCode(FOutputDevice& Out, FOutputDevice& OutDeclarations, const FUnrealSourceFile& SourceFile, FClass* Class, FUHTStringBuilder& OutFriendText)
 {
 	check(!OutFriendText.Len());
+
+	UE_CLOG(Class->ClassGeneratedBy, LogCompile, Fatal, TEXT("For intrinsic and compiled-in classes, ClassGeneratedBy should always be null"));
 
 	const bool   bIsNoExport  = Class->HasAnyClassFlags(CLASS_NoExport);
 	const bool   bIsDynamic   = FClass::IsDynamic(Class);
@@ -1870,8 +1960,165 @@ void FNativeClassHeaderGenerator::ExportNativeGeneratedInitCode(FOutputDevice& O
 		}
 		FString SingletonName = GetSingletonName(Class);
 
-		OutFriendText.Logf(TEXT("\tfriend %sclass UClass* %s;\r\n"), *ApiString, *SingletonName);
+		FString StaticsStructName = SingletonName.LeftChop(2) + TEXT("_Statics");
+
+		OutFriendText.Logf(TEXT("\tfriend struct %s;\r\n"), *StaticsStructName);
 		OutDeclarations.Log(FTypeSingletonCache::Get(Class).GetExternDecl());
+
+		GeneratedClassRegisterFunctionText.Logf(TEXT("\tstruct %s\r\n"), *StaticsStructName);
+		GeneratedClassRegisterFunctionText.Logf(TEXT("\t{\r\n"));
+
+		FUHTStringBuilder StaticDefinitions;
+
+		FUHTStringBuilder Singletons;
+		UClass* SuperClass = Class->GetSuperClass();
+		if (SuperClass && SuperClass != Class)
+		{
+			OutDeclarations.Log(FTypeSingletonCache::Get(SuperClass).GetExternDecl());
+			Singletons.Logf(TEXT("\t\t(UObject* (*)())%s,\r\n"), *GetSingletonName(SuperClass).LeftChop(2));
+		}
+		if (!bIsDynamic)
+		{
+			FString PackageSingletonName = GetPackageSingletonName(Class->GetOutermost());
+
+			OutDeclarations.Logf(TEXT("\t%s_API UPackage* %s;\r\n"), *ApiString, *PackageSingletonName);
+			Singletons.Logf(TEXT("\t\t(UObject* (*)())%s,\r\n"), *PackageSingletonName.LeftChop(2));
+		}
+
+		const TCHAR* SingletonsRange;
+		if (Singletons.Len() != 0)
+		{
+			GeneratedClassRegisterFunctionText.Logf(TEXT("\t\tstatic UObject* (*const DependentSingletons[])();\r\n"));
+
+			StaticDefinitions.Logf(TEXT("\tUObject* (*const %s::DependentSingletons[])() = {\r\n"), *StaticsStructName);
+			StaticDefinitions.Log (*Singletons);
+			StaticDefinitions.Logf(TEXT("\t};\r\n"));
+
+			SingletonsRange = TEXT("DependentSingletons, ARRAY_COUNT(DependentSingletons)");
+		}
+		else
+		{
+			SingletonsRange = TEXT("nullptr, 0");
+		}
+
+		if (FunctionsToExport.Num() != 0)
+		{
+			GeneratedClassRegisterFunctionText.Log(BEGIN_WRAP_EDITOR_ONLY(bAllEditorOnlyFunctions));
+			GeneratedClassRegisterFunctionText.Log(TEXT("\t\tstatic const FClassFunctionLinkInfo FuncInfo[];\r\n"));
+			GeneratedClassRegisterFunctionText.Log(END_WRAP_EDITOR_ONLY(bAllEditorOnlyFunctions));
+
+			StaticDefinitions.Log(BEGIN_WRAP_EDITOR_ONLY(bAllEditorOnlyFunctions));
+			StaticDefinitions.Logf(TEXT("\tconst FClassFunctionLinkInfo %s::FuncInfo[] = {\r\n"), *StaticsStructName);
+
+			for (UFunction* Function : FunctionsToExport)
+			{
+				const bool bIsEditorOnlyFunction = Function->HasAnyFunctionFlags(FUNC_EditorOnly);
+
+				if (!Function->IsA<UDelegateFunction>())
+				{
+					OutDeclarations.Logf(
+						TEXT("%s%s%s"),
+						BEGIN_WRAP_EDITOR_ONLY(bIsEditorOnlyFunction),
+						*FTypeSingletonCache::Get(Function).GetExternDecl(),
+						END_WRAP_EDITOR_ONLY(bIsEditorOnlyFunction)
+					);
+					ExportFunction(Out, SourceFile, Function, bIsNoExport);
+				}
+
+				StaticDefinitions.Logf(
+					TEXT("%s\t\t{ &%s, %s },%s\r\n%s"),
+					BEGIN_WRAP_EDITOR_ONLY(bIsEditorOnlyFunction),
+					*GetSingletonNameFuncAddr(Function),
+					*FNativeClassHeaderGenerator::GetUTF8OverriddenNameForLiteral(Function),
+					*GetGeneratedCodeCRCTag(Function),
+					END_WRAP_EDITOR_ONLY(bIsEditorOnlyFunction)
+				);
+			}
+
+			StaticDefinitions.Log(TEXT("\t};\r\n"));
+			StaticDefinitions.Log(END_WRAP_EDITOR_ONLY(bAllEditorOnlyFunctions));
+		}
+
+		TMap<FName, FString>* MetaDataMap = UMetaData::GetMapForObject(Class);
+		if (MetaDataMap)
+		{
+			FClassMetaData* ClassMetaData = GScriptHelper.FindClassData(Class);
+			if (ClassMetaData && ClassMetaData->bObjectInitializerConstructorDeclared)
+			{
+				MetaDataMap->Add(FName(TEXT("ObjectInitializerConstructorDeclared")), TEXT(""));
+			}
+		}
+
+		FString MetaDataParams = OutputMetaDataCodeForObject(GeneratedClassRegisterFunctionText, StaticDefinitions, Class, *FString::Printf(TEXT("%s::Class_MetaDataParams"), *StaticsStructName), TEXT("\t\t"), TEXT("\t"));
+
+		TArray<UProperty*> Props;
+		Algo::Copy(TFieldRange<UProperty>(Class, EFieldIteratorFlags::ExcludeSuper), Props);
+
+		FString PropertyRange = OutputProperties(GeneratedClassRegisterFunctionText, StaticDefinitions, *FString::Printf(TEXT("%s::"), *StaticsStructName), Props, TEXT("\t\t"), TEXT("\t"));
+
+		const TCHAR* InterfaceRange;
+		if (Class->Interfaces.Num() > 0)
+		{
+			GeneratedClassRegisterFunctionText.Log(TEXT("\t\tstatic const UE4CodeGen_Private::FImplementedInterfaceParams InterfaceParams[];\r\n"));
+
+			StaticDefinitions.Logf(TEXT("\t\tconst UE4CodeGen_Private::FImplementedInterfaceParams %s::InterfaceParams[] = {\r\n"), *StaticsStructName);
+			for (const FImplementedInterface& Inter : Class->Interfaces)
+			{
+				check(Inter.Class);
+				FString OffsetString;
+				if (Inter.PointerOffset)
+				{
+					OffsetString = FString::Printf(TEXT("(int32)VTABLE_OFFSET(%s, %s)"), ClassNameCPP, NameLookupCPP.GetNameCPP(Inter.Class, true));
+				}
+				else
+				{
+					OffsetString = TEXT("0");
+				}
+				StaticDefinitions.Logf(
+					TEXT("\t\t\t{ %s, %s, %s },\r\n"),
+					*GetSingletonName(Inter.Class, false).LeftChop(2),
+					*OffsetString,
+					Inter.bImplementedByK2 ? TEXT("true") : TEXT("false")
+				);
+			}
+			StaticDefinitions.Log(TEXT("\t\t};\r\n"));
+
+			InterfaceRange = TEXT("InterfaceParams, ARRAY_COUNT(InterfaceParams)");
+		}
+		else
+		{
+			InterfaceRange = TEXT("nullptr, 0");
+		}
+
+		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\tstatic const FCppClassTypeInfoStatic StaticCppClassTypeInfo;\r\n"));
+
+		StaticDefinitions.Logf(TEXT("\tconst FCppClassTypeInfoStatic %s::StaticCppClassTypeInfo = {\r\n"), *StaticsStructName);
+		StaticDefinitions.Logf(TEXT("\t\tTCppClassTypeTraits<%s>::IsAbstract,\r\n"), NameLookupCPP.GetNameCPP(Class, Class->HasAllClassFlags(CLASS_Interface)));
+		StaticDefinitions.Logf(TEXT("\t};\r\n"));
+
+		GeneratedClassRegisterFunctionText.Log (TEXT("\t\tstatic const UE4CodeGen_Private::FClassParams ClassParams;\r\n"));
+
+		uint32 ClassFlags = (uint32)Class->ClassFlags;
+		if (!bIsNoExport)
+		{
+			ClassFlags = ClassFlags | CLASS_MatchedSerializers;
+		}
+		ClassFlags = ClassFlags & CLASS_SaveInCompiledInClasses;
+
+		StaticDefinitions.Logf(TEXT("\tconst UE4CodeGen_Private::FClassParams %s::ClassParams = {\r\n"), *StaticsStructName);
+		StaticDefinitions.Logf(TEXT("\t\t&%s::StaticClass,\r\n"), ClassNameCPP);
+		StaticDefinitions.Logf(TEXT("\t\t%s,\r\n"), SingletonsRange);
+		StaticDefinitions.Logf(TEXT("\t\t0x%08Xu,\r\n"), ClassFlags);
+		StaticDefinitions.Logf(TEXT("\t\t%s,\r\n"), (FunctionsToExport.Num() != 0) ? (bAllEditorOnlyFunctions ? TEXT("IF_WITH_EDITOR(FuncInfo, nullptr), IF_WITH_EDITOR(ARRAY_COUNT(FuncInfo), 0)") : TEXT("FuncInfo, ARRAY_COUNT(FuncInfo)")) : TEXT("nullptr, 0"));
+		StaticDefinitions.Logf(TEXT("\t\t%s,\r\n"), *PropertyRange);
+		StaticDefinitions.Logf(TEXT("\t\t%s,\r\n"), (Class->ClassConfigName != NAME_None) ? *CreateUTF8LiteralString(Class->ClassConfigName.ToString()) : TEXT("nullptr"));
+		StaticDefinitions.Log (TEXT("\t\t&StaticCppClassTypeInfo,\r\n"));
+		StaticDefinitions.Logf(TEXT("\t\t%s,\r\n"), InterfaceRange);
+		StaticDefinitions.Logf(TEXT("\t\t%s\r\n"), *MetaDataParams);
+		StaticDefinitions.Log (TEXT("\t};\r\n"));
+
+		GeneratedClassRegisterFunctionText.Logf(TEXT("\t};\r\n"));
+		GeneratedClassRegisterFunctionText.Log(*StaticDefinitions);
 
 		GeneratedClassRegisterFunctionText.Logf(TEXT("\tUClass* %s\r\n"), *SingletonName);
 		GeneratedClassRegisterFunctionText.Logf(TEXT("\t{\r\n"));
@@ -1889,141 +2136,7 @@ void FNativeClassHeaderGenerator::ExportNativeGeneratedInitCode(FOutputDevice& O
 		}
 
 		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t{\r\n"));
-
-		FUHTStringBuilder Singletons;
-		UClass* SuperClass = Class->GetSuperClass();
-		if (SuperClass && SuperClass != Class)
-		{
-			OutDeclarations.Log(FTypeSingletonCache::Get(SuperClass).GetExternDecl());
-			Singletons.Logf(TEXT("\t\t\t\t(UObject* (*)())%s,\r\n"), *GetSingletonName(SuperClass).LeftChop(2));
-		}
-		if (!bIsDynamic)
-		{
-			FString PackageSingletonName = GetPackageSingletonName(Class->GetOutermost());
-
-			OutDeclarations.Logf(TEXT("\t%s_API UPackage* %s;\r\n"), *ApiString, *PackageSingletonName);
-			Singletons.Logf(TEXT("\t\t\t\t(UObject* (*)())%s,\r\n"), *PackageSingletonName.LeftChop(2));
-		}
-
-		if (Singletons.Len() != 0)
-		{
-			GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\tstatic UObject* (*const DependentSingletons[])() = {\r\n"));
-			GeneratedClassRegisterFunctionText.Log (*Singletons);
-			GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t};\r\n"));
-		}
-
-		if (FunctionsToExport.Num() != 0)
-		{
-			GeneratedClassRegisterFunctionText.Log(BEGIN_WRAP_EDITOR_ONLY(bAllEditorOnlyFunctions));
-			GeneratedClassRegisterFunctionText.Log(TEXT("\t\t\tstatic const FClassFunctionLinkInfo FuncInfo[] = {\r\n"));
-
-			for (UFunction* Function : FunctionsToExport)
-			{
-				const bool bIsEditorOnlyFunction = Function->HasAnyFunctionFlags(FUNC_EditorOnly);
-
-				if (!Function->IsA<UDelegateFunction>())
-				{
-					OutDeclarations.Logf(
-						TEXT("%s%s%s"),
-						BEGIN_WRAP_EDITOR_ONLY(bIsEditorOnlyFunction),
-						*FTypeSingletonCache::Get(Function).GetExternDecl(),
-						END_WRAP_EDITOR_ONLY(bIsEditorOnlyFunction)
-					);
-					ExportFunction(Out, SourceFile, Function, bIsNoExport);
-				}
-
-				GeneratedClassRegisterFunctionText.Logf(
-					TEXT("%s\t\t\t\t{ &%s, %s },%s\r\n%s"),
-					BEGIN_WRAP_EDITOR_ONLY(bIsEditorOnlyFunction),
-					*GetSingletonNameFuncAddr(Function),
-					*FNativeClassHeaderGenerator::GetUTF8OverriddenNameForLiteral(Function),
-					*GetGeneratedCodeCRCTag(Function),
-					END_WRAP_EDITOR_ONLY(bIsEditorOnlyFunction)
-				);
-			}
-
-			GeneratedClassRegisterFunctionText.Log(TEXT("\t\t\t};\r\n"));
-			GeneratedClassRegisterFunctionText.Log(END_WRAP_EDITOR_ONLY(bAllEditorOnlyFunctions));
-		}
-
-		TMap<FName, FString>* MetaDataMap = UMetaData::GetMapForObject(Class);
-		if (MetaDataMap)
-		{
-			FClassMetaData* ClassMetaData = GScriptHelper.FindClassData(Class);
-			if (ClassMetaData && ClassMetaData->bObjectInitializerConstructorDeclared)
-			{
-				MetaDataMap->Add(FName(TEXT("ObjectInitializerConstructorDeclared")), TEXT(""));
-			}
-		}
-		FString MetaDataParams = OutputMetaDataCodeForObject(GeneratedClassRegisterFunctionText, Class, TEXT("Class_MetaDataParams"), TEXT("\t\t\t"));
-
-		TArray<UProperty*> Props;
-		for (UProperty* Prop : TFieldRange<UProperty>(Class, EFieldIteratorFlags::ExcludeSuper))
-		{
-			Props.Add(Prop);
-		}
-
-		UE_CLOG(Class->ClassGeneratedBy, LogCompile, Fatal, TEXT("For intrinsic and compiled-in classes, ClassGeneratedBy should always be null"));
-
-		FString PropertyRange;
-		OutputProperties(GeneratedClassRegisterFunctionText, PropertyRange, Props, TEXT("\t\t\t"));
-
-		FString InterfaceRange;
-		if (Class->Interfaces.Num() > 0)
-		{
-			GeneratedClassRegisterFunctionText.Log(TEXT("\t\t\tstatic const UE4CodeGen_Private::FImplementedInterfaceParams InterfaceParams[] = {\r\n"));
-			for (const FImplementedInterface& Inter : Class->Interfaces)
-			{
-				check(Inter.Class);
-				FString OffsetString;
-				if (Inter.PointerOffset)
-				{
-					OffsetString = FString::Printf(TEXT("(int32)VTABLE_OFFSET(%s, %s)"), ClassNameCPP, NameLookupCPP.GetNameCPP(Inter.Class, true));
-				}
-				else
-				{
-					OffsetString = TEXT("0");
-				}
-				GeneratedClassRegisterFunctionText.Logf(
-					TEXT("\t\t\t\t{ %s, %s, %s },\r\n"),
-					*GetSingletonName(Inter.Class, false).LeftChop(2),
-					*OffsetString,
-					Inter.bImplementedByK2 ? TEXT("true") : TEXT("false")
-				);
-			}
-			GeneratedClassRegisterFunctionText.Log(TEXT("\t\t\t};\r\n"));
-
-			InterfaceRange = TEXT("InterfaceParams, ARRAY_COUNT(InterfaceParams)");
-		}
-		else
-		{
-			InterfaceRange = TEXT("nullptr, 0");
-		}
-
-		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\tstatic const FCppClassTypeInfoStatic StaticCppClassTypeInfo = {\r\n"));
-		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t\tTCppClassTypeTraits<%s>::IsAbstract,\r\n"), NameLookupCPP.GetNameCPP(Class, Class->HasAllClassFlags(CLASS_Interface)));
-		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t};\r\n"));
-
-		uint32 ClassFlags = (uint32)Class->ClassFlags;
-		if (!bIsNoExport)
-		{
-			ClassFlags = ClassFlags | CLASS_MatchedSerializers;
-		}
-
-		ClassFlags = ClassFlags & CLASS_SaveInCompiledInClasses;
-
-		GeneratedClassRegisterFunctionText.Log (TEXT("\t\t\tstatic const UE4CodeGen_Private::FClassParams ClassParams = {\r\n"));
-		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t\t&%s::StaticClass,\r\n"), ClassNameCPP);
-		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t\t%s,\r\n"), (Singletons.Len() != 0) ? TEXT("DependentSingletons, ARRAY_COUNT(DependentSingletons)") : TEXT("nullptr, 0"));
-		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t\t0x%08Xu,\r\n"), ClassFlags);
-		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t\t%s,\r\n"), (FunctionsToExport.Num() != 0) ? (bAllEditorOnlyFunctions ? TEXT("IF_WITH_EDITOR(FuncInfo, nullptr), IF_WITH_EDITOR(ARRAY_COUNT(FuncInfo), 0)") : TEXT("FuncInfo, ARRAY_COUNT(FuncInfo)")) : TEXT("nullptr, 0"));
-		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t\t%s,\r\n"), *PropertyRange);
-		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t\t%s,\r\n"), (Class->ClassConfigName != NAME_None) ? *CreateUTF8LiteralString(Class->ClassConfigName.ToString()) : TEXT("nullptr"));
-		GeneratedClassRegisterFunctionText.Log (TEXT("\t\t\t\t&StaticCppClassTypeInfo,\r\n"));
-		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t\t%s,\r\n"), *InterfaceRange);
-		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t\t%s\r\n"), *MetaDataParams);
-		GeneratedClassRegisterFunctionText.Log (TEXT("\t\t\t};\r\n"));
-		GeneratedClassRegisterFunctionText.Log (TEXT("\t\t\tUE4CodeGen_Private::ConstructUClass(OuterClass, ClassParams);\r\n"));
+		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\tUE4CodeGen_Private::ConstructUClass(OuterClass, %s::ClassParams);\r\n"), *StaticsStructName);
 
 		if (bIsDynamic)
 		{
@@ -2101,9 +2214,11 @@ void FNativeClassHeaderGenerator::ExportFunction(FOutputDevice& Out, const FUnre
 
 	bool bIsDelegate = Function->HasAnyFunctionFlags(FUNC_Delegate);
 
-	const FString SingletonName = GetSingletonName(Function);
+	FString SingletonName = GetSingletonName(Function);
+	FString StaticsStructName = SingletonName.LeftChop(2) + TEXT("_Statics");
 
 	FUHTStringBuilder CurrentFunctionText;
+	FUHTStringBuilder StaticDefinitions;
 
 	// Begin wrapping editor only functions.  Note: This should always be the first step!
 	if (bIsEditorOnlyFunction)
@@ -2111,8 +2226,8 @@ void FNativeClassHeaderGenerator::ExportFunction(FOutputDevice& Out, const FUnre
 		CurrentFunctionText.Logf(BeginEditorOnlyGuard);
 	}
 
-	CurrentFunctionText.Logf(TEXT("\tUFunction* %s\r\n"), *SingletonName);
-	CurrentFunctionText.Logf(TEXT("\t{\r\n"));
+	CurrentFunctionText.Logf(TEXT("\tstruct %s\r\n"), *StaticsStructName);
+	CurrentFunctionText.Log (TEXT("\t{\r\n"));
 
 	if (bIsNoExport || !(Function->FunctionFlags&FUNC_Event))  // non-events do not export a params struct, so lets do that locally for offset determination
 	{
@@ -2138,25 +2253,8 @@ void FNativeClassHeaderGenerator::ExportFunction(FOutputDevice& Out, const FUnre
 		OuterFunc = TEXT("nullptr");
 	}
 
-	if (!bIsDynamic)
-	{
-		CurrentFunctionText.Logf(TEXT("\t\tstatic UFunction* ReturnFunction = nullptr;\r\n"));
-	}
-	else
-	{
-		FString FunctionName = FNativeClassHeaderGenerator::GetOverriddenNameForLiteral(Function);
-		CurrentFunctionText.Logf(TEXT("\t\tUObject* Outer = %s();\r\n"), *OuterFunc);
-		CurrentFunctionText.Logf(TEXT("\t\tUFunction* ReturnFunction = static_cast<UFunction*>(StaticFindObjectFast( UFunction::StaticClass(), Outer, %s ));\r\n"), *FunctionName);
-	}
-
-	CurrentFunctionText.Logf(TEXT("\t\tif (!ReturnFunction)\r\n"));
-	CurrentFunctionText.Logf(TEXT("\t\t{\r\n"));
-
 	TArray<UProperty*> Props;
-	for (TFieldIterator<UProperty> ItInner(Function, EFieldIteratorFlags::ExcludeSuper); ItInner; ++ItInner)
-	{
-		Props.Add(*ItInner);
-	}
+	Algo::Copy(TFieldRange<UProperty>(Function, EFieldIteratorFlags::ExcludeSuper), Props);
 
 	FString StructureSize;
 	if (Props.Num())
@@ -2182,17 +2280,19 @@ void FNativeClassHeaderGenerator::ExportFunction(FOutputDevice& Out, const FUnre
 	const TCHAR* UFunctionType = bIsDelegate ? TEXT("UDelegateFunction") : TEXT("UFunction");
 	const TCHAR* UFunctionObjectFlags = FClass::IsOwnedByDynamicType(Function) ? TEXT("RF_Public|RF_Transient") : TEXT("RF_Public|RF_Transient|RF_MarkAsNative");
 
-	FString PropertyRange;
-	OutputProperties(CurrentFunctionText, PropertyRange, Props, TEXT("\t\t\t"));
+	FString PropertyRange = OutputProperties(CurrentFunctionText, StaticDefinitions, *FString::Printf(TEXT("%s::"), *StaticsStructName), Props, TEXT("\t\t"), TEXT("\t"));
 
 	const FFunctionData* CompilerInfo = FFunctionData::FindForFunction(Function);
 	const FFuncInfo&     FunctionData = CompilerInfo->GetFunctionData();
 	const bool           bIsNet       = !!(FunctionData.FunctionFlags & (FUNC_NetRequest | FUNC_NetResponse));
 
-	FString MetaDataParams = OutputMetaDataCodeForObject(CurrentFunctionText, Function, TEXT("Function_MetaDataParams"), TEXT("\t\t\t"));
+	FString MetaDataParams = OutputMetaDataCodeForObject(CurrentFunctionText, StaticDefinitions, Function, *FString::Printf(TEXT("%s::Function_MetaDataParams"), *StaticsStructName), TEXT("\t\t"), TEXT("\t"));
 
-	CurrentFunctionText.Logf(
-		TEXT("\t\t\tstatic const UE4CodeGen_Private::FFunctionParams FuncParams = { (UObject*(*)())%s, %s, %s, %s, (EFunctionFlags)0x%08X, %s, %s, %d, %d, %s };\r\n"),
+	CurrentFunctionText.Log(TEXT("\t\tstatic const UE4CodeGen_Private::FFunctionParams FuncParams;\r\n"));
+
+	StaticDefinitions.Logf(
+		TEXT("\tconst UE4CodeGen_Private::FFunctionParams %s::FuncParams = { (UObject*(*)())%s, %s, %s, %s, (EFunctionFlags)0x%08X, %s, %s, %d, %d, %s };\r\n"),
+		*StaticsStructName,
 		*OuterFunc,
 		*CreateUTF8LiteralString(FNativeClassHeaderGenerator::GetOverriddenName(Function)),
 		UFunctionObjectFlags,
@@ -2205,10 +2305,29 @@ void FNativeClassHeaderGenerator::ExportFunction(FOutputDevice& Out, const FUnre
 		*MetaDataParams
 	);
 
-	CurrentFunctionText.Log(TEXT("\t\t\tUE4CodeGen_Private::ConstructUFunction(ReturnFunction, FuncParams);\r\n"));
-	CurrentFunctionText.Logf(TEXT("\t\t}\r\n"));
-	CurrentFunctionText.Logf(TEXT("\t\treturn ReturnFunction;\r\n"));
-	CurrentFunctionText.Logf(TEXT("\t}\r\n"));
+	CurrentFunctionText.Log(TEXT("\t};\r\n"));
+	CurrentFunctionText.Log(*StaticDefinitions);
+
+	CurrentFunctionText.Logf(TEXT("\tUFunction* %s\r\n"), *SingletonName);
+	CurrentFunctionText.Log (TEXT("\t{\r\n"));
+
+	if (!bIsDynamic)
+	{
+		CurrentFunctionText.Logf(TEXT("\t\tstatic UFunction* ReturnFunction = nullptr;\r\n"));
+	}
+	else
+	{
+		FString FunctionName = FNativeClassHeaderGenerator::GetOverriddenNameForLiteral(Function);
+		CurrentFunctionText.Logf(TEXT("\t\tUObject* Outer = %s();\r\n"), *OuterFunc);
+		CurrentFunctionText.Logf(TEXT("\t\tUFunction* ReturnFunction = static_cast<UFunction*>(StaticFindObjectFast( UFunction::StaticClass(), Outer, %s ));\r\n"), *FunctionName);
+	}
+
+	CurrentFunctionText.Logf(TEXT("\t\tif (!ReturnFunction)\r\n"));
+	CurrentFunctionText.Logf(TEXT("\t\t{\r\n"));
+	CurrentFunctionText.Logf(TEXT("\t\t\tUE4CodeGen_Private::ConstructUFunction(ReturnFunction, %s::FuncParams);\r\n"), *StaticsStructName);
+	CurrentFunctionText.Log (TEXT("\t\t}\r\n"));
+	CurrentFunctionText.Log (TEXT("\t\treturn ReturnFunction;\r\n"));
+	CurrentFunctionText.Log (TEXT("\t}\r\n"));
 
 	// End wrapping editor only functions.  Note: This should always be the last step!
 	if (bIsEditorOnlyFunction)
@@ -2521,7 +2640,7 @@ void FNativeClassHeaderGenerator::ExportClassFromSourceFileInner(
 		PrologMacroCalls.Logf(TEXT("\t%s\r\n"), *MacroName);
 
 		// VM -> C++ proxies (events and delegates).
-		FUHTStringBuilder NullOutput;
+		FOutputDeviceNull NullOutput;
 		FOutputDevice& CallbackOut = Class->HasAnyClassFlags(CLASS_NoExport) ? NullOutput : OutCpp;
 		FString CallbackWrappersMacroName = SourceFile.GetGeneratedMacroName(ClassData, TEXT("_CALLBACK_WRAPPERS"));
 		ExportCallbackFunctions(
@@ -3112,12 +3231,12 @@ void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(FOutputDevice&
 
 	const TCHAR* StructNameCPP = NameLookupCPP.GetNameCPP(Struct);
 
+	const FString SingletonName = GetSingletonName(Struct);
+
 	// Export struct.
 	if (Struct->StructFlags & STRUCT_Native)
 	{
 		check(Struct->StructMacroDeclaredLineNumber != INDEX_NONE);
-
-		const FString StaticConstructionString = GetSingletonName(Struct);
 
 		FString RequiredAPI;
 		if (!(Struct->StructFlags & STRUCT_RequiredAPI))
@@ -3125,7 +3244,7 @@ void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(FOutputDevice&
 			RequiredAPI = FriendApiString;
 		}
 
-		const FString FriendLine = FString::Printf(TEXT("\tfriend %sclass UScriptStruct* %s;\r\n"), *FriendApiString, *StaticConstructionString);
+		const FString FriendLine = FString::Printf(TEXT("\tfriend struct %s_Statics;\r\n"), *SingletonName.LeftChop(2));
 		const FString StaticClassLine = FString::Printf(TEXT("\t%sstatic class UScriptStruct* StaticStruct();\r\n"), *RequiredAPI);
 		const FString PrivatePropertiesOffset = PrivatePropertiesOffsetGetters(Struct, StructNameCPP);
 		const FString SuperTypedef = BaseStruct ? FString::Printf(TEXT("\ttypedef %s Super;\r\n"), NameLookupCPP.GetNameCPP(BaseStruct)) : FString();
@@ -3136,8 +3255,7 @@ void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(FOutputDevice&
 		const FString Macroized = Macroize(*MacroName, *CombinedLine);
 		OutGeneratedHeaderText.Log(*Macroized);
 
-		FString SingletonName = StaticConstructionString.Replace(TEXT("()"), TEXT(""), ESearchCase::CaseSensitive); // function address
-		FString GetCRCName = FString::Printf(TEXT("Get_%s_CRC"), *SingletonName);
+		FString GetCRCName = FString::Printf(TEXT("Get_%s_CRC"), *SingletonName.LeftChop(2));
 
 		Out.Logf(TEXT("class UScriptStruct* %s::StaticStruct()\r\n"), StructNameCPP);
 		Out.Logf(TEXT("{\r\n"));
@@ -3161,7 +3279,7 @@ void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(FOutputDevice&
 		Out.Logf(TEXT("\t\textern %suint32 %s();\r\n"), *FriendApiString, *GetCRCName);
 
 		Out.Logf(TEXT("\t\tSingleton = GetStaticStruct(%s, %s, TEXT(\"%s\"), sizeof(%s), %s());\r\n"),
-			*SingletonName, *OuterName, *ActualStructName, StructNameCPP, *GetCRCName);
+			*SingletonName.LeftChop(2), *OuterName, *ActualStructName, StructNameCPP, *GetCRCName);
 
 		Out.Logf(TEXT("\t}\r\n"));
 		Out.Logf(TEXT("\treturn Singleton;\r\n"));
@@ -3192,40 +3310,20 @@ void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(FOutputDevice&
 		}
 	}
 
-	const FString SingletonName = GetSingletonName(Struct);
+	FString StaticsStructName = SingletonName.LeftChop(2) + TEXT("_Statics");
 
 	FUHTStringBuilder GeneratedStructRegisterFunctionText;
+	FUHTStringBuilder StaticDefinitions;
 
-	GeneratedStructRegisterFunctionText.Logf(TEXT("\tUScriptStruct* %s\r\n"), *SingletonName);
+	GeneratedStructRegisterFunctionText.Logf(TEXT("\tstruct %s\r\n"), *StaticsStructName);
 	GeneratedStructRegisterFunctionText.Logf(TEXT("\t{\r\n"));
 
 	// if this is a no export struct, we will put a local struct here for offset determination
-	TArray<UScriptStruct*> Structs = FindNoExportStructs(Struct);
-	for (UScriptStruct* NoExportStruct : Structs)
+	TArray<UScriptStruct*> NoExportStructs = FindNoExportStructs(Struct);
+	for (UScriptStruct* NoExportStruct : NoExportStructs)
 	{
 		ExportMirrorsForNoexportStruct(GeneratedStructRegisterFunctionText, NoExportStruct, /*Indent=*/ 2);
 	}
-
-	FString CRCFuncName = FString::Printf(TEXT("Get_%s_CRC"), *SingletonName.Replace(TEXT("()"), TEXT(""), ESearchCase::CaseSensitive));
-	// Structs can either have a UClass or UPackage as outer (if declared in non-UClass header).
-	if (!bIsDynamic)
-	{
-		GeneratedStructRegisterFunctionText.Logf(TEXT("#if WITH_HOT_RELOAD\r\n"));
-		GeneratedStructRegisterFunctionText.Logf(TEXT("\t\textern uint32 %s();\r\n"), *CRCFuncName);
-		GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tUPackage* Outer = %s;\r\n"), *GetPackageSingletonName(CastChecked<UPackage>(Struct->GetOuter())));
-		GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tstatic UScriptStruct* ReturnStruct = FindExistingStructIfHotReloadOrDynamic(Outer, TEXT(\"%s\"), sizeof(%s), %s(), false);\r\n"), *ActualStructName, StructNameCPP, *CRCFuncName);
-		GeneratedStructRegisterFunctionText.Logf(TEXT("#else\r\n"));
-		GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tstatic UScriptStruct* ReturnStruct = nullptr;\r\n"));
-		GeneratedStructRegisterFunctionText.Logf(TEXT("#endif\r\n"));
-	}
-	else
-	{
-		GeneratedStructRegisterFunctionText.Logf(TEXT("\t\textern uint32 %s();\r\n"), *CRCFuncName);
-		GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tUPackage* Outer = FindOrConstructDynamicTypePackage(TEXT(\"%s\"));\r\n"), *FClass::GetTypePackageName(Struct));
-		GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tUScriptStruct* ReturnStruct = FindExistingStructIfHotReloadOrDynamic(Outer, TEXT(\"%s\"), sizeof(%s), %s(), true);\r\n"), *ActualStructName, StructNameCPP, *CRCFuncName);
-	}
-	GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tif (!ReturnStruct)\r\n"));
-	GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t{\r\n"));
 
 	FString BaseStructString;
 	if (BaseStruct)
@@ -3238,17 +3336,6 @@ void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(FOutputDevice&
 		BaseStructString = TEXT("nullptr");
 	}
 
-	FString CppStructOpsString;
-	if (Struct->StructFlags & STRUCT_Native)
-	{
-		//@todo .u we don't need the auto register versions of these (except for hotreload, which should be fixed)
-		CppStructOpsString = FString::Printf(TEXT("new UScriptStruct::TCppStructOps<%s>"), StructNameCPP);
-	}
-	else
-	{
-		CppStructOpsString = TEXT("nullptr");
-	}
-
 	EStructFlags UncomputedFlags = (EStructFlags)(Struct->StructFlags & ~STRUCT_ComputedFlags);
 
 	FString OuterFunc;
@@ -3258,47 +3345,97 @@ void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(FOutputDevice&
 	}
 	else
 	{
-		OuterFunc = FString::Printf(TEXT("[](){ return (UObject*)FindOrConstructDynamicTypePackage(TEXT(\"%s\")); }"), *FClass::GetTypePackageName(Struct));
+		GeneratedStructRegisterFunctionText.Log(TEXT("\t\tstatic UObject* OuterFuncGetter();\r\n"));
+
+		StaticDefinitions.Logf(TEXT("\tUObject* %s::OuterFuncGetter()\r\n"), *StaticsStructName);
+		StaticDefinitions.Log (TEXT("\t{\r\n"));
+		StaticDefinitions.Logf(TEXT("\t\treturn FindOrConstructDynamicTypePackage(TEXT(\"%s\"));"), *FClass::GetTypePackageName(Struct));
+		StaticDefinitions.Log (TEXT("\t}\r\n"));
+
+		OuterFunc = TEXT("&OuterFuncGetter");
 	}
 
-	FString MetaDataParams = OutputMetaDataCodeForObject(GeneratedStructRegisterFunctionText, Struct, TEXT("Struct_MetaDataParams"), TEXT("\t\t\t"));
+	FString MetaDataParams = OutputMetaDataCodeForObject(GeneratedStructRegisterFunctionText, StaticDefinitions, Struct, *FString::Printf(TEXT("%s::Struct_MetaDataParams"), *StaticsStructName), TEXT("\t\t"), TEXT("\t"));
 
 	TArray<UProperty*> Props;
-	for (UProperty* Prop : TFieldRange<UProperty>(Struct, EFieldIteratorFlags::ExcludeSuper))
-	{
-		Props.Add(Prop);
-	}
+	Algo::Copy(TFieldRange<UProperty>(Struct, EFieldIteratorFlags::ExcludeSuper), Props);
 
 	FString NewStructOps;
 	if (Struct->StructFlags & STRUCT_Native)
 	{
-		GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t\tauto NewStructOpsLambda = []() -> void* { return (UScriptStruct::ICppStructOps*)new UScriptStruct::TCppStructOps<%s>(); };\r\n"), StructNameCPP);
-		NewStructOps = TEXT("&UE4CodeGen_Private::TNewCppStructOpsWrapper<decltype(NewStructOpsLambda)>::NewCppStructOps");
+		GeneratedStructRegisterFunctionText.Log(TEXT("\t\tstatic void* NewStructOps();\r\n"));
+
+		StaticDefinitions.Logf(TEXT("\tvoid* %s::NewStructOps()\r\n"), *StaticsStructName);
+		StaticDefinitions.Log (TEXT("\t{\r\n"));
+		StaticDefinitions.Logf(TEXT("\t\treturn (UScriptStruct::ICppStructOps*)new UScriptStruct::TCppStructOps<%s>();\r\n"), StructNameCPP);
+		StaticDefinitions.Log (TEXT("\t}\r\n"));
+
+		NewStructOps = TEXT("&NewStructOps");
 	}
 	else
 	{
 		NewStructOps = TEXT("nullptr");
 	}
 
-	FString PropertyRange;
-	OutputProperties(GeneratedStructRegisterFunctionText, PropertyRange, Props, TEXT("\t\t\t"));
+	FString PropertyRange = OutputProperties(GeneratedStructRegisterFunctionText, StaticDefinitions, *FString::Printf(TEXT("%s::"), *StaticsStructName), Props, TEXT("\t\t"), TEXT("\t"));
 
-	GeneratedStructRegisterFunctionText.Log (TEXT("\t\t\tstatic const UE4CodeGen_Private::FStructParams ReturnStructParams = {\r\n"));
-	GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t\t\t(UObject* (*)())%s,\r\n"), *OuterFunc);
-	GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t\t\t%s,\r\n"), *GetSingletonNameFuncAddr(BaseStruct));
-	GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t\t\t%s,\r\n"), *NewStructOps);
-	GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t\t\t%s,\r\n"), *CreateUTF8LiteralString(ActualStructName));
-	GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t\t\t%s,\r\n"), bIsDynamic ? TEXT("RF_Public|RF_Transient") : TEXT("RF_Public|RF_Transient|RF_MarkAsNative"));
-	GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t\t\tEStructFlags(0x%08X),\r\n"), (uint32)UncomputedFlags);
-	GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t\t\tsizeof(%s),\r\n"), StructNameCPP);
-	GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t\t\talignof(%s),\r\n"), StructNameCPP);
-	GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t\t\t%s,\r\n"), *PropertyRange);
-	GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t\t\t%s\r\n"), *MetaDataParams);
-	GeneratedStructRegisterFunctionText.Log (TEXT("\t\t\t};\r\n"));
-	GeneratedStructRegisterFunctionText.Log (TEXT("\t\t\tUE4CodeGen_Private::ConstructUScriptStruct(ReturnStruct, ReturnStructParams);\r\n"));
-	GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t}\r\n"));
+	GeneratedStructRegisterFunctionText.Log (TEXT("\t\tstatic const UE4CodeGen_Private::FStructParams ReturnStructParams;\r\n"));
+
+	StaticDefinitions.Logf(TEXT("\tconst UE4CodeGen_Private::FStructParams %s::ReturnStructParams = {\r\n"), *StaticsStructName);
+	StaticDefinitions.Logf(TEXT("\t\t(UObject* (*)())%s,\r\n"), *OuterFunc);
+	StaticDefinitions.Logf(TEXT("\t\t%s,\r\n"), *GetSingletonNameFuncAddr(BaseStruct));
+	StaticDefinitions.Logf(TEXT("\t\t%s,\r\n"), *NewStructOps);
+	StaticDefinitions.Logf(TEXT("\t\t%s,\r\n"), *CreateUTF8LiteralString(ActualStructName));
+	StaticDefinitions.Logf(TEXT("\t\t%s,\r\n"), bIsDynamic ? TEXT("RF_Public|RF_Transient") : TEXT("RF_Public|RF_Transient|RF_MarkAsNative"));
+	StaticDefinitions.Logf(TEXT("\t\tEStructFlags(0x%08X),\r\n"), (uint32)UncomputedFlags);
+	StaticDefinitions.Logf(TEXT("\t\tsizeof(%s),\r\n"), StructNameCPP);
+	StaticDefinitions.Logf(TEXT("\t\talignof(%s),\r\n"), StructNameCPP);
+	StaticDefinitions.Logf(TEXT("\t\t%s,\r\n"), *PropertyRange);
+	StaticDefinitions.Logf(TEXT("\t\t%s\r\n"), *MetaDataParams);
+	StaticDefinitions.Log (TEXT("\t};\r\n"));
+
+	GeneratedStructRegisterFunctionText.Log (TEXT("\t};\r\n"));
+
+	GeneratedStructRegisterFunctionText.Log(StaticDefinitions);
+
+	GeneratedStructRegisterFunctionText.Logf(TEXT("\tUScriptStruct* %s\r\n"), *SingletonName);
+	GeneratedStructRegisterFunctionText.Log (TEXT("\t{\r\n"));
+
+	FString NoExportStructNameCPP;
+	if (NoExportStructs.Contains(Struct))
+	{
+		NoExportStructNameCPP = FString::Printf(TEXT("%s::%s"), *StaticsStructName, StructNameCPP);
+	}
+	else
+	{
+		NoExportStructNameCPP = StructNameCPP;
+	}
+
+	FString CRCFuncName = FString::Printf(TEXT("Get_%s_CRC"), *SingletonName.Replace(TEXT("()"), TEXT(""), ESearchCase::CaseSensitive));
+	// Structs can either have a UClass or UPackage as outer (if declared in non-UClass header).
+	if (!bIsDynamic)
+	{
+		GeneratedStructRegisterFunctionText.Log (TEXT("#if WITH_HOT_RELOAD\r\n"));
+		GeneratedStructRegisterFunctionText.Logf(TEXT("\t\textern uint32 %s();\r\n"), *CRCFuncName);
+		GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tUPackage* Outer = %s;\r\n"), *GetPackageSingletonName(CastChecked<UPackage>(Struct->GetOuter())));
+		GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tstatic UScriptStruct* ReturnStruct = FindExistingStructIfHotReloadOrDynamic(Outer, TEXT(\"%s\"), sizeof(%s), %s(), false);\r\n"), *ActualStructName, *NoExportStructNameCPP, *CRCFuncName);
+		GeneratedStructRegisterFunctionText.Log (TEXT("#else\r\n"));
+		GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tstatic UScriptStruct* ReturnStruct = nullptr;\r\n"));
+		GeneratedStructRegisterFunctionText.Log (TEXT("#endif\r\n"));
+	}
+	else
+	{
+		GeneratedStructRegisterFunctionText.Logf(TEXT("\t\textern uint32 %s();\r\n"), *CRCFuncName);
+		GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tUPackage* Outer = FindOrConstructDynamicTypePackage(TEXT(\"%s\"));\r\n"), *FClass::GetTypePackageName(Struct));
+		GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tUScriptStruct* ReturnStruct = FindExistingStructIfHotReloadOrDynamic(Outer, TEXT(\"%s\"), sizeof(%s), %s(), true);\r\n"), *ActualStructName, *NoExportStructNameCPP, *CRCFuncName);
+	}
+	GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tif (!ReturnStruct)\r\n"));
+	GeneratedStructRegisterFunctionText.Log (TEXT("\t\t{\r\n"));
+
+	GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t\tUE4CodeGen_Private::ConstructUScriptStruct(ReturnStruct, %s::ReturnStructParams);\r\n"), *StaticsStructName);
+	GeneratedStructRegisterFunctionText.Log (TEXT("\t\t}\r\n"));
 	GeneratedStructRegisterFunctionText.Logf(TEXT("\t\treturn ReturnStruct;\r\n"));
-	GeneratedStructRegisterFunctionText.Logf(TEXT("\t}\r\n"));
+	GeneratedStructRegisterFunctionText.Log (TEXT("\t}\r\n"));
 
 	uint32 StructCrc = GenerateTextCRC(*GeneratedStructRegisterFunctionText);
 	GGeneratedCodeCRCs.Add(Struct, StructCrc);
@@ -3417,7 +3554,8 @@ void FNativeClassHeaderGenerator::ExportGeneratedEnumInitCode(FOutputDevice& Out
 	}
 	GeneratedEnumRegisterFunctionText.Logf(TEXT("\t\t\t};\r\n"));
 
-	FString MetaDataParams = OutputMetaDataCodeForObject(GeneratedEnumRegisterFunctionText, Enum, TEXT("Enum_MetaDataParams"), TEXT("\t\t\t"));
+	FOutputDeviceNull OutputDeviceNull;
+	FString MetaDataParams = OutputMetaDataCodeForObject(OutputDeviceNull, GeneratedEnumRegisterFunctionText, Enum, TEXT("Enum_MetaDataParams"), TEXT(""), TEXT("\t\t\t"));
 
 	GeneratedEnumRegisterFunctionText.Logf(TEXT("\t\t\tstatic const UE4CodeGen_Private::FEnumParams EnumParams = {\r\n"));
 	GeneratedEnumRegisterFunctionText.Logf(TEXT("\t\t\t\t(UObject*(*)())%s,\r\n"), *OuterString.LeftChop(2));
@@ -4112,22 +4250,22 @@ void FNativeClassHeaderGenerator::ExportNativeFunctionHeader(
 			// all methods in interface classes are pure virtuals
 			if (bIsK2Override)
 			{
-				// For BlueprintNativeEvent methods we use the PURE_VIRTUAL() expansion. This allows Blueprints that implement the interface class to be nativized.
+				// For BlueprintNativeEvent methods we emit a stub implementation. This allows Blueprints that implement the interface class to be nativized.
 				FString ReturnValue;
 				if (ReturnProperty != nullptr)
 				{
 					UByteProperty* ByteProperty = Cast<UByteProperty>(ReturnProperty);
 					if (ByteProperty != nullptr && ByteProperty->Enum != nullptr && ByteProperty->Enum->GetCppForm() != UEnum::ECppForm::EnumClass)
 					{
-						ReturnValue = FString::Printf(TEXT(" return TEnumAsByte<%s>(%s);"), *ByteProperty->Enum->CppType, *GetNullParameterValue(ReturnProperty, false));
+						ReturnValue = FString::Printf(TEXT(" return TEnumAsByte<%s>(%s); "), *ByteProperty->Enum->CppType, *GetNullParameterValue(ReturnProperty, false));
 					}
 					else
 					{
-						ReturnValue = FString::Printf(TEXT(" return %s;"), *GetNullParameterValue(ReturnProperty, false));
+						ReturnValue = FString::Printf(TEXT(" return %s; "), *GetNullParameterValue(ReturnProperty, false));
 					}
 				}
 
-				Out.Logf(TEXT(" PURE_VIRTUAL(%s::%s,%s)"), NameLookupCPP.GetNameCPP(CastChecked<UClass>(Function->GetOuter()), true), *FunctionName, *ReturnValue);
+				Out.Logf(TEXT(" {%s}"), *ReturnValue);
 			}
 			else
 			{

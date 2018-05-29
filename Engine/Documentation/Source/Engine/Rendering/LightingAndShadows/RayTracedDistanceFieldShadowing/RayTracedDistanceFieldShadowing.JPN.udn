@@ -1,48 +1,23 @@
-﻿INTSourceChangelist:3196780
+﻿INTSourceChangelist:3807090
 Availability:Public
-Title:レイトレース ディスタンス フィールド ソフト シャドウ
-Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
-Description:動的エリア シャドウ
-Version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing:title%](DistanceFieldShadowing_Topic.jpg)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing:title%](DistanceFieldShadowing_Topic.jpg)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Crumbs: %ROOT%
+Title:RayTraced Distance Field Soft Shadows
+Description:メッシュ ディスタンス フィールドを使ってスカイライトにダイナミック ソフトエリア シャドウイングを作成する方法の概要
+Type:Overview
+SkillLevel:Intermediate
+Version:4.18
+Parent:Engine/Rendering/LightingAndShadows/MeshDistanceFields
+Related:Engine/Rendering/LightingAndShadows/MeshDistanceFields
+Related:Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion
+Related:Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference
+Related:Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_2
+Order:1
+Tags:Lighting
+Tags:Distance Fields
+Tags:Getting Started
+Topic-image:DistanceFieldShadowing_Topic.jpg
+Social-Image:DirectionalLightAreaShadows.jpg
+ 
 
 [REGION:fullwidth raw]
 ![](DistanceFieldShadowing_Header.jpg)
@@ -50,113 +25,262 @@ Version:4.9
 
 [TOC(start:2 end:2)]
 
+Movable Light (可動ライト) ソースからのシャドウイングは、それぞれの剛体メッシュに対して Distance Field オブジェクトを使用して、動的な光源からの効率的なエリア シャドウイングを計算することで表現されます。アンリアル エンジン 4 (UE4) ではこの機能は  
+**Ray Traced Distance Field Shadows** (RTDF) と呼ばれます。シャドウイングを計算するために、シーンの Signed Distance Fields (SDF) (符号付きディスタンス フィールド) を使用して、シェーディングされるポイントから各ライトに向かってレイ (光線) がトレースされます。
+遮蔽オブジェクトへの最短距離を使用して、レイトレースとほぼ同じ負荷のコーン トレースを近似します。球体をした光源からの
+エリア シャドウイングをきれいに行うことができます。
 
 
-レイトレース ディスタンス フィールド シャドウは、シーンのディスタンス フィールドを表すプロパティを活用し、動的メッシュから効率的なエリア シャドウイングを計算します。これは、[ディスタンス フィールド アンビエント オクルージョン](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion) と同じデータを使用します。したがって、同じ制約が数多くあります。
-
-シャドウイングを計算するために、シーンの符号付きディスタンス フィールドを使用して、シェーディングされるポイントから各ライトに向かってレイ (光線) がトレースされます。オクルーダに最も近い距離を使用して、レイトレースとほぼ同じ負荷のコーン トレースを近似します。これにより、球体光源形状から高品質のエリア シャドウイングを実現します。
+## シーンの設定
 
 [REGION:note]
-ディスタンス フィールド シャドウでは、プロジェクト設定の (レンダリングの) **[Generate Mesh Distance Fields (メッシュ ディスタンス フィールドを生成)]** を有効にする必要があります。この設定値を変更後、エディタを再起動しなければなりません。
+この機能を使うには、**[Project Settings (プロジェクト設定)]** の **[Rendering]** セクションで **[Generate Mesh Distance Fields (メッシュ ディスタンス フィールドの生成)]** を有効にする必要があります。詳細は、[メッシュ ディスタンス フィールド](Engine/Rendering/LightingAndShadows/MeshDistanceFields) ページを参照してください。
 [/REGION]
 
-## ポイントライトとスポットライト
+Ray Traced Distance Field Shadowing を有効にするには、**ライト** をシーンにドラッグし [Mobility] を **[Movable]** に設定します。 
+そして、ライトの **[Details]** パネルで **[Ray Traced Distance Field Shadows]** を有効にします。
 
-ソース半径 (Source Radius) を使用して、ポイントライトのシャドウの半暗部の大きさを決定します。エリア シャドウは距離が長くなるとソフトになるシャープなコンタクトで計算されます。光源の球体は、シーンに交差しないようにしてください。そうしないと、アーティファクトを生じます。
+![](DirectionalLightDFSettings1.png)
 
-[![](LightSourceVis.jpg)(w:288)](LightSourceVis.jpg)
-[REGION:caption]
-エディタはライトのソースの形状を黄色の線で描画します。
+
+[REGION:note]
+ステップごとの操作については [Ray Traced Distance Fielf Shadowing を使う](Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_1) をご覧ください。
 [/REGION]
 
-[REGION:fullwidth]
-	![](PointLightAreaShadows.jpg)
-[/REGION]
+### エリア シャドウイングの設定
 
-[REGION:caption]
-ソース半径 100 のポイントライトからのレイトレース ソフトシャドウ
-[/REGION]
-
-[_レイトレース ディスタンス フィールド シャドウを用いた可動ポイントライトのビデオ_] (https://www.youtube.com/watch?v=-xai0iBffUc&list=UUBobmJyzsJ6Ll7UbfhI4iwQ)
-
-## 指向性ライト
-
-[Light Source Angle] を使用して、指向性ライトのシャドウの半暗部の大きさを決定します。レイトレースされたシャドウには、自己交差の問題はほとんどありません。したがって、従来のシャドウマッピングで生じる遠い位置での漏れと過剰バイアスを回避します。
-
-[REGION:fullwidth]
-	![](DirectionalLightAreaShadows.jpg)
-[/REGION]
-[REGION:caption]
-Light Source Angle 2 の指向性ライトからのレイトレース ソフトシャドウ
-[/REGION]
-
-カスケード シャドウ マップは、通常、指向性ライトの動的シャドウイングを実現するために使用します。カスケード シャドウ マップでは、シーン内のメッシュをいくつかのカスケード シャドウ マップにレンダリングする必要があります。シャドウイングの負荷は、シャドウの距離が長くなると急激に上昇します。これは、シャドウ マップにレンダリングされるメッシュとトライアングルの数によるものです。 
-
-レイトレース ディスタンス フィールド シャドウは、可視ピクセルに対してのみシャドウイングの作業を行い、遠くで非常にうまく機能します。カスケード シャドウ マップを使用してカメラ近くの領域をカバーし、レイトレース シャドウで 'DistanceField Shadow Distance' までの領域をカバーします。
+それぞれのライト タイプは Distance Fields シャドウを使ってソフトエリア シャドウを投影します。これらのシャドウは、現実世界の影をシミュレートしています。
+シャドウは、ベースに近くなるほど鮮明に、遠くに延びるにつれてソフトになります。
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![A foliage scene with CSM covering up to 100 meters.](CSM2.jpg)(w:800)
+	![Traditional Shadow Map](ShadowMap.png)(w:500)
 	[/PARAM]
 	[PARAM:after]
-	![A foliage scene with CSM covering up to 100 meters, and Ray Traced Distance Field shadows covering up to 1.2 kilometers.](RTDF2.jpg)(w:800)
+	![Distance Field Shadow](DistanceFieldShadowPointLight.png)(w:500)
 	[/PARAM]
 [/OBJECT]
 
+[REGION:note]
+スカイライトの設定の詳細およびその他のサンプルは、[メッシュ ディスタンス フィールド リファレンス](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference#Lightコンポーネント) を参照してください。
+[/REGION]
 
-[_レイトレース ディスタンス フィールド シャドウを用いた時間変化を表したビデオ_](https://www.youtube.com/watch?v=4249b94KtyA&list=UUBobmJyzsJ6Ll7UbfhI4iwQ)
+### ポイントライトとスポットライトのソース半径
 
-## 品質
+ポイントライトとスポットライトの場合は、**Source Radius (ソース半径)** を使用して、ポイントライトのシャドウの半暗部の大きさを決定します。エリア シャドウは、近づくにつれ鮮明になり、
+遠ざかるとソフトになるように計算されます。ポイントライトおよびスポットライト上では、黄色い球体で表されます。
 
-ディスタンス フィールドの忠実度は、ディスタンス フィールド アンビエント オクルージョンよりもシャドウの精度に大きな影響を及ぼします。それを必要とするスタティックメッシュには、[Distance Field Resolution]（[Build Settings (ビルド設定)] の下）を高めに設定します。  
+![](LightSourceVis.jpg)
+[REGION:caption]
+エディタは光源の形状を黄色の線で描画します。
+[/REGION]
 
-こうしたシャドウは、深度に配慮したアップサンプリングで 1/2 解像度で計算されます。Temporal AA (テンポラル アンチエイリアシング) は、1/2 解像度によるフリッカーを減らすうえで非常に効果的ですが、シャドウのジャギーは表示されることがあります。
+[REGION:note]
+ライトのソース半径は、シーンに交差しないようにしてください。そうしないと、アーティファクトを生じます。
+[/REGION]
 
-## 制限事項
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Source Radius: | 0 ](SourceRadius_0.png)(w:1000)
+	[/PARAM]
+	[PARAM:after]
+	![Source Radius: | 50 ](SourceRadius_100.png)(w:1000)
+	[/PARAM]
+[/OBJECT]
 
-この技術の制限事項は、 [ディスタンス フィールド アンビエント オクルージョン](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion) の制限事項と似ています。
+Ray Traced Distance Field シャドウは、
+玄関、ベンチ、ピアノからキャストされたシャドウをソフトにするために Source Radius を使って Point Light から投影されます。
 
-* スタティックメッシュ コンポーネント、インスタンス化されたスタティックメッシュ コンポーネント、およびフォーリッジだけが ("Affect Distance Field Lighting" が有効になったら)、ディスタンス フィールドを生成してシャドウをキャストできます。しかし、スケルタルメッシュは 'Cast Inset Shadow' でなおもシャドウを合成することができます。ランドスケープは、"Far Shadow Cascade Count" (遠くのシャドウ カスケード カウント) によって遠くのカスケードを有効にすることで最適に処理されます。
-* わずかに不均一なメッシュのスケーリング (スキッシュ) だけをサポートします。メッシュのスキッシュがより多くなると半暗部にアーティファクトが現れます。
-* ワールド ポジションのオフセットまたはテッセレーションによる変形は表現できず、セルフ シャドウイングによるアーティファクトを生じる場合があります。ビューア近くのエリアでは頂点アニメーションをサポートするためにカスケード シャドウ マップ (CSM) を使用し、遠くではレイトレース シャドウを使用することが効果的な場合があります。
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	-xai0iBffUc
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	100
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:caption]
+A demonstration of a Point Light moving through the scene casting area shadows from each shadow casting mesh. 
+[/REGION]
+
+[REGION:note]
+ポイントライトとスポットライトの設定の詳細は、[メッシュ ディスタンス フィールド リファレンス](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference) を参照してください。
+[/REGION]
+
+### 指向性ライトの光源のアングル
+
+指向性ライトの場合、**Light Source Angle** を使用して、指向性ライトのシャドウの半暗部の大きさを決定します。Ray Traced シャドウには自己交差の問題はほとんどありません。
+したがって、従来のシャドウマッピングに蔓延していた遠方での漏れと過剰バイアスを回避します。
+
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Light Source Angle: | 1 ](DF_LSA_1.png)(w:1000)
+	[/PARAM]
+	[PARAM:after]
+	![Light Source Angle: | 3 ](DF_LSA_3.png)(w:1000)
+	[/PARAM]
+[/OBJECT]
+[REGION:caption]
+ 
+[/REGION]
+[REGION:caption]
+Light Source Angle をソフトなシャドウ用に調節した指向性ライトから Ray Traced Distance Field シャドウを投影した場合 
+[/REGION]
+
+多くの場合、指向性ライトでは、動的シャドウイングを表現するために Cascaded Shadow Maps (CSM) が使用されています。このため、カスケード シャドウ マップ (シャドウイング用の LOD) では、
+シーン内のメッシュをいくつかのカスケード シャドウ マップにレンダリングする必要があります。シャドウイングの負荷は、シャドウの距離が長くなると急激に上昇します。
+これはシャドウ マップにレンダリングされるメッシュとトライアングル数が増えるためです。
+
+Ray Traced Distance Field シャドウは、可視ピクセルに対してのみシャドウイング処理を行うため、遠方では非常にうまく機能します。RPDF シャドウが設定されている **Distance Field Shadow Distance** まで投影するのに対して、 
+Cascaded Shadow Map はカメラに近い領域に影を投影します。
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Cascaded Shadow Maps Only ](CSM2.jpg)(w:1000)
+	[/PARAM]
+	[PARAM:after]
+	![Cascaded Shadow Maps & Ray Traced Distance Field Shadows ](RTDF2.jpg)(w:1000)
+	[/PARAM]
+[/OBJECT]
+
+Ray Traced Distance Field シャドウを有効にすると、
+**Cascaded Shadow Map Distance** に対して設定した値を超えるシャドウが Distance Field によって投影されるようになります。CSM と RTDF シャドウイングの両方を使って比較しましょう。 
+CSM シャドウを 1,000 CM (センチメートル) に設定すると、ディテールが多数追加されてカメラ付近のシャドウにはさまざまなディテールが追加されて鮮明になります。1,000 CM を超えると、RTDF によるシャドウイングが使用され、 
+1.2 KM (キロメートル) 先までシャドウ オブジェクトの投影が可能になります。これらによって、Cascaded Shadow Map では負荷が大きすぎた、木のシャドウの遠方への投影が可能になります。
+
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	4249b94KtyA
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	100
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+[REGION:caption]
+指向性ライトの Ray Traced Distance Field シャドウイングによって表現した 1 日の変化
+[/REGION]
+
+[REGION:note]
+指向性ライトの設定の詳細は、[メッシュ ディスタンス フィールド リファレンス](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference) を参照してください。
+[/REGION]
+
+[COMMENT:none]
+- Scene Representation Excerpt from MeshDistanceFields.INT.udn -
+[/COMMENT]
+[INCLUDE:Engine/Rendering/LightingAndShadows/MeshDistanceFields#scenerepresentation]
+
+
+### メッシュ ディスタンス フィールドの品質
+
+ディスタンス フィールドの忠実度は、[Distance Field Ambient Occlusion](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion) よりもシャドウの精度に大きな影響を及ぼします。 
+Mesh Distance Field 解像度を高くするとスタティックメッシュから投影されるシャドウの質が上がります。品質のチェックには [Mesh Distance Field Visualization] を使います。
+
+[REGION:imagetable]
+| [INCLUDE:#quality1] | [INCLUDE:#quality2] |
+| --- | --- |
+| Distance Field Shadowing のシーン ビュー | Mesh Distance Field の視覚化 |
+[/REGION]
+
+Mesh Distance Field のシャドウは、深度に配慮したアップサンプリングによって 1/2 解像度で計算されます。**Temporal Anti-Aliasing** (TAA) は、1/2 解像度によるフリッカーを減らすうえで非常に効果的ですが、 
+シャドウのジャギーは表示されることがあります。
+
+[REGION:note]
+メッシュ ディスタンス フィールドの品質の詳細は、[メッシュ ディスタンス フィールド](Engine/Rendering/LightingAndShadows/MeshDistanceFields) を参照してください。
+[/REGION]
+
+
+[COMMENT:none]
+-
+[INCLUDE:#quality2]
+[EXCERPT:quality1]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Distance Field Resolution: | 1 ](DFQuality1a.png)(h:490)
+	[/PARAM]
+	[PARAM:after]
+	![Distance Field Resolution: | 5 ](DFQuality1b.png)(h:490)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:quality1]
+
+[EXCERPT:quality2]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Distance Field Resolution: | 1 ](DFQuality2a.png)(h:490)
+	[/PARAM]
+	[PARAM:after]
+	![Distance Field Resolution: | 5 ](DFQuality2b.png)(h:490)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:quality2]
+-
+[/COMMENT]
 
 ## パフォーマンス
 
-指向性ライトでは、光源の角度が大きくなれば負荷が高くなります。シャドウがかかる各ポイントについてより多くのオブジェクトを考慮しなければならないからです。'DistanceField Shadow Distance' の値が大きくなれば、カリング効率が若干低下します。"Generate Distance Field As If Two Sided" を使用したメッシュからのシャドウは、負荷がより高くなります。結果として得られるシャドウは完全に不透明にはならないからです。
+以下の GPU のタイミングは、フルゲーム シーンにおいて解像度 1920x1080、Radeon 7870 で行われます。
 
-こうした GPU のタイミングは、フルゲーム シーンで 1920x1080、Radeon 7870 で行われます。
+[REGION:simpletable]
+| テスト | Cascaded/Cuebmap Shadow Maps Cost (ms)  | Distance Field Shadows による負荷 (ms) | 速度比 (%) |
+| --- | ---- | ---- | ---- |
+| 指向性ライトが 10k ユニット、6 x Cascaded Shadow Maps の場合 | 3.1 | 2.3 | 25% |
+| 指向性ライトが 30k ユニット、6 x Cascaded Shadow Maps の場合 | 4.9 | 2.8 | 43% |
+| 半径の大きいポイントライト 1 つ | 1.8 | 1.3 | 30% |
+| 半径の小さいポイントライト 5 つ | 3.2 | 1.8 | 45% |
+||||
+[/REGION]
 
-距離 10k、3 カスケードでの指向性ライト
-* カスケード シャドウマップ、3.1 ms
-* ディスタンス フィールド シャドウ 2.3 ms (25% 速い)
+### 最適化
 
-指向性ライト、距離 30k、6 カスケード
-* カスケード シャドウマップ、4.9 ms
-* ディスタンス フィールドシャドウ 2.8 ms (43% 速い)
+以下は Distance Field シャドウイングの最適化と検討、あるいは必要な場合に行う操作です。
 
-ひとつの大きなポイントライト
-* キューブマップのシャドウマップ 1.8 ms
-* ディスタンス フィールドシャドウ 1.3 ms (30% 速い)
+* 指向性ライトは、光源の角度が大きくなるほど負荷が高くなります。それぞれの投影ポイントに対して考慮すべきオブジェクトが増えるからです。 
+* **Distance Field Shadow Distance** の値が大きくなれば、カリングの効率が低下します。 
+* **Two-Sided Distance Field Generation** (**Build Settings** で有効にする) を使用しているメッシュからの投影すると負荷が高くなります。投影したシャドウが完全な不透明にはならないからです。
 
-5 つの小さなポイントライト
-* キューブマップのシャドウマップ 3.2 ms
-* ディスタンス フィールドシャドウ 1.8 ms (45% 速い)
 
-## 設定
+4.16 では、以下の最適化機能が有効になりました。
 
-### Light
-| プロパティ | 説明 |
-| -------- | ----------- |
-| **Use RayTraced DistanceField Shadows** | シャドウ マッピングの技術をディスタンス フィールド シャドウイングに切り替えます。 |
-| **Ray Start Offset Depth Scale** | カメラが遠ざかるにつれて、受け面からオフセットするレイトレース シャドウの大きさを調節します。これは、非常に大きなスタティック メッシュの低解像ディスタンス フィールドからのセルフ シャドウのアーティファクトを隠すのに便利です。
+[COMMENT:none]
+- Excerpt from MeshDistanceFields.INT.udn -
+[/COMMENT]
+[INCLUDE:Engine/Rendering/LightingAndShadows/MeshDistanceFields#optimizations]
 
-### ポイントライトとスポットライト
-| プロパティ | 説明 |
-| -------- | ----------- |
-| **Source Radius** | ソース半径。光源の球体のサイズです。値が大きくなると、半暗部が大きくなりますが、パフォーマンスの負荷も高くなります。 |
 
-### 指向性ライト
-| プロパティ | 説明 |
-| -------- | ----------- |
-| **DistanceField Shadow Distance** | レイトレースされたシャドウがカバーする距離。使用するレイトレース シャドウに対してカスケード シャドウマップで使用する 'Dynamic Shadow Distance' よりも長くなくてはなりません。|
-| **Light Source Angle** | レシーバーの視点から指向性ライトの光源がカバーする角度の半分。角度が大きくなると、半暗部が大きくなりますが、パフォーマンスの負荷も高くなります。 |
+
+
+
+
+## 制限事項
+
+[REGION:note]
+Ray Traced Distance Field Soft Shadows が Mesh Distance Fields 技術の一般的な制限と同じになりました。これらの制限の詳細については、 
+[メッシュ ディスタンス フィールド](Engine/Rendering/LightingAndShadows/MeshDistanceFields) をご覧ください。
+[/REGION]
+
+
+
+

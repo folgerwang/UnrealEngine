@@ -213,6 +213,10 @@ void UMediaTexture::PostLoad()
 	CurrentPlayer = MediaPlayer;
 }
 
+bool UMediaTexture::IsPostLoadThreadSafe() const
+{
+	return false;
+}
 
 #if WITH_EDITOR
 

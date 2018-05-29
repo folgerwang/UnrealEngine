@@ -246,7 +246,7 @@ public:
 			}
 		}
 		
-		// if FeatureLevel < ERHIFeatureLevel::ES3_1
+		// if FeatureLevel <= ERHIFeatureLevel::ES3_1
 		FUniformBufferRHIParamRef GetUniformBuffer() const
 		{
 			return UniformBuffer;
@@ -296,7 +296,7 @@ public:
 		// RevisionNumber Tracker
 		uint32 PreviousRevisionNumber;
 		uint32 CurrentRevisionNumber;
-		// if FeatureLevel < ERHIFeatureLevel::ES3_1
+		// if FeatureLevel <= ERHIFeatureLevel::ES3_1
 		FUniformBufferRHIRef UniformBuffer;
 		
 		static TConsoleVariableData<int32>* MaxBonesVar;
@@ -383,7 +383,7 @@ private:
 
 /** Vertex factory with vertex stream components for GPU skinned vertices */
 template<bool bExtraBoneInfluencesT>
-class TGPUSkinVertexFactory : public FGPUBaseSkinVertexFactory
+class ENGINE_API TGPUSkinVertexFactory : public FGPUBaseSkinVertexFactory
 {
 	DECLARE_VERTEX_FACTORY_TYPE(TGPUSkinVertexFactory<bExtraBoneInfluencesT>);
 
@@ -695,12 +695,26 @@ public:
 			check(ClothSimulPositionNormalBuffer[Index].VertexBufferRHI.IsValid());
 			return ClothSimulPositionNormalBuffer[Index];
 		}
-
-		/**
-		* Matrix to apply to positions/normals
-		*/
-		FMatrix ClothLocalToWorld;
 		
+		FMatrix& GetClothLocalToWorldForWriting(uint32 FrameNumber)
+		{
+			uint32 Index = GetOldestIndex(FrameNumber);
+
+			return ClothLocalToWorld[Index];
+		}
+
+		const FMatrix& GetClothLocalToWorldForReading(bool bPrevious, uint32 FrameNumber) const
+		{
+			int32 Index = GetMostRecentIndex(FrameNumber);
+
+			if(bPrevious && DoWeHavePreviousData())
+			{
+				Index = 1 - Index;
+			}
+
+			return ClothLocalToWorld[Index];
+		}
+
 		/**
 		 * weight to blend between simulated positions and key-framed poses
 		 * if ClothBlendWeight is 1.0, it shows only simulated positions and if it is 0.0, it shows only key-framed animation
@@ -714,6 +728,11 @@ public:
 		FVertexBufferAndSRV ClothSimulPositionNormalBuffer[2];
 		// from GFrameNumber, to detect pause and old data when an object was not rendered for some time
 		uint32 BufferFrameNumber[2];
+
+		/**
+		 * Matrix to apply to positions/normals
+		 */
+		FMatrix ClothLocalToWorld[2];
 
 		// @return 0 / 1, index into ClothSimulPositionNormalBuffer[]
 		uint32 GetMostRecentIndex(uint32 FrameNumber) const
@@ -777,6 +796,9 @@ public:
 			// both are not valid
 			BufferFrameNumber[0] = -1;
 			BufferFrameNumber[1] = -1;
+
+			ClothLocalToWorld[0] = FMatrix::Identity;
+			ClothLocalToWorld[1] = FMatrix::Identity;
 		}
 	};
 

@@ -13,8 +13,8 @@ class FArrayReader final : public FMemoryArchive, public TArray<uint8>
 public:
 	FArrayReader( bool bIsPersistent=false )
 	{
-		ArIsLoading = true;
-		ArIsPersistent = bIsPersistent;
+		this->SetIsLoading(true);
+		this->SetIsPersistent(bIsPersistent);
 	}
 
 	/**

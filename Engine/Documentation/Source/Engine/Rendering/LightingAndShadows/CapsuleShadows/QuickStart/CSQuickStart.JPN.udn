@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3454749
-Availability:Public
+﻿Availability:Public
 Title:カプセル シャドウ クイック スタート
 Crumbs:
 Description:UE4 でシーケンサー エディタの作業を開始するためのガイドです。 
@@ -31,19 +30,9 @@ SkillLevel:Intermediate
 * キャラクター用のレベルでカプセル シャドウを有効にする方法
 
 
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/build_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		ステップ
-	[/PARAM]
-	[PARAM:description]
-	[/PARAM]
-	[PARAM:links]
-	[DIR(output:"checkpoint" parent:"Engine/Rendering/LightingAndShadows/CapsuleShadows/QuickStart" org:"hierarchy")]
-	[/PARAM]
-[/OBJECT]
+## ステップ
+
+[DIR(output:"checkpoint" parent:"Engine/Rendering/LightingAndShadows/CapsuleShadows/QuickStart" org:"hierarchy")]
 
 [REGION:call_to_action]
 	[ここをクリックして開始](Engine/Rendering/LightingAndShadows/CapsuleShadows/QuickStart/1 "%Engine/Rendering/LightingAndShadows/CapsuleShadows/QuickStart/1:title%")

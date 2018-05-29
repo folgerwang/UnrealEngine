@@ -1,109 +1,161 @@
-﻿INTSourceChangelist:3682737
-Availability:Public
-Title:自動化システムの概要
+﻿Availability:Public
 Crumbs: %ROOT%
-type:overview
-Description:ユニットテスト、機能テスト、コンテンツ負荷テストのために使用する自動化システムの概要
-skilllevel:Intermediate
-parent:Programming
+Title:自動化システムの概要
+Description:Description:ユニットテスト、機能テスト、コンテンツ負荷テストのために使用する自動化システムの概要 
+Type:Landing
+Version:4.17
+Parent:Programming
+Order:
+Tags:Programming
 Navigation:topic
-version:4.17
-order:0
-tags:Automation
-tags:Testing
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Programming/Automation:title%](automation_ui.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/gear_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Programming/Automation:title%
-	[/PARAM]
-	[PARAM:description]
-		%Programming/Automation:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Programming/Automation]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Programming/Automation:title%](automation_ui.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/gear_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Programming/Automation:title%
-	[/PARAM]
-	[PARAM:description]
-		%Programming/Automation:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Programming/Automation]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+[TOC(start:2 end:2)]
 
-[EXCERPT:Intro]
-自動化システムには、 **Unreal Message Bus** の威力を活かしたユニット テスト、機能テスト、およびコンテンツ負荷テストを行うための機能があります。
 
-自動化システムは、**自動化テスト** を一回以上行うことで機能します。目的または機能に応じて様々なカテゴリに分けられます。
-[/EXCERPT:Intro]
+自動化システムは、自動化テストを一回以上行うことで機能します。記述されるほとんどの 
+テストは機能テスト、低レベルのコアまたはエディタのテストで、Automation Framework システムを使って記述する必要があります。記述されるこううしたテストは、 
+目的または機能に応じて様々なカテゴリに分けられます。
 
-$ ユニット テスト :API レベルの検証テスト。たとえば、`TimespanTest.cpp` または `DateTimeTest.cpp`を参照してください。
-$ 機能テスト :システム レベルの検証テスト。インゲームの統計情報が正確に報告されているか、解像度の変更が機能しているかなど、Play-In-Editor の機能が期待どおりであるかの検証も含みます。たとえば、`EditorAutomationTests.cpp` または `EngineAutomationTests.cpp`を参照してください。
-$ スモークテスト :エディタ、ゲーム、またはコマンドレットが開始すると _毎回_ 実行されるように十分な速さにすることを意図しています。[UI](Programming/Automation/UserGuide#ユーザーインターフェース) でもデフォルトで選択されます。
+[REGION:simpletable]
+| テストの種類 | 説明 |
+| --------- | ----------- |
+ **Unit** | API レベルの検証テスト。例については、**TimespanTest.cpp** or **DateTimeTest.cpp** を参照してください。 | 
+| **Feature** | PIE 作業、インゲームの統計作業や解像度の変更などのシステムレベルの検証テスト。たとえば、**EditorAutomationTests.cpp** または **EngineAutomationTests.cpp** を参照してください。 
+| **Smoke** | スモーク テストは、実装者がざっと確認するテストです。エディタ、ゲーム、またはコマンドレットが開始すると _毎回_ 実行されます。[UI](Programming/Automation/UserGuide#ユーザーインターフェース) でもデフォルトで選択されます。[REGION:warning] 全てのスモーク テストは、1 秒以内に終了することを意図しています。ユニット テストもしくは迅速な機能テストのみをスモーク テストとしてマークしてください。[/REGION] | 
+| **Content Stress** | すべてのマップのロード、またはすべてのブループリントのロードとコンパイルなど、クラッシュを避けるために特定のシステムを徹底的にテストします。たとえば、**EditorAutomationTests.cpp** または **EngineAutomationTests.cpp** を参照してください。 
+| **Screenshot Comparison** | QA テスティングがスクリーンショットを迅速に比較し、バージョン間、ビルド間でのレンダリングの問題の可能性を特定します。 | 
+[/REGION]
 
-	[REGION:warning]
-		全てのスモーク テストは、1 秒以内に終了することを意図しています。ユニット テストもしくは迅速な機能テストのみをスモーク テストとしてマークしてください。
+
+## 自動化テストはプラグインに移動
+
+長い間、自動化テストはエンジンとエディタ全体に広がっていました。つまり、タイトルを出荷するとこうしたものが含まれていました。自動化テストは個別に有効化できる
+プラグインに移動しました。こうしたテストはプラグインにあるのでコンパイル時にパッケージ化したビルドに含めるように選択することもできます。プラグインにコンテンツを保存することもできます。 
+これで Engine Content フォルダに保存しないようにすることができます。 
+
+この変更により、作成されているテストの種類によって格納場所が決まります。以下の表のテストの種類を見てどのプラグインに保存するかをご覧ください。
+
+[REGION:simpletable]
+| テストの種類 | 保存するプラグイン |
+| --------- | ----------- |
+| **Unit** | コードと同じモジュールに保存し続けることができます。 |
+| **Project Agnostic Runtime Tests** | ランタイム テストのプラグイン |
+| **Project Agnostic Editor Tests** | エディタ テストのプラグイン |
+| **Functional Tests** | エンジン テストのゲーム フォルダ | 
+[/REGION]
+
+[REGION:note]
+一部のテストはまだエンジンにあり、プラグインに移動していません。これらは時間の経過に伴い、**Testing** の **Plugins Browser** にある対応する 
+プラグインに移動するでしょう。 
+[/REGION]
+
+### 自動化テストのプラグインを有効にする
+
+利用可能な様々なテストのプラグインを有効にするにはファイル メニューで **Window** > **Plugins** の順序で選択して Plugin Browser ウィンドウを開きます。 
+
+![](EnablePlugins.png)(w:350)
+
+この左側のパネルで **Testing** カテゴリを選択し、使用するテスト プラグインを有効にします。  
+
+[REGION:lightbox]
+[![](PluginsBrowser.png)(w:625)](PluginsBrowser.png)
+[/REGION]
+[REGION:caption] クリックしてフルサイズ表示 [/REGION]
+
+これらを有効にすると、エディタの再起動を求められます。**[Restart Now (今すぐ再起動する)]** ボタンをクリックします。 
+
+![](RestartTheEditor.png)
+
+
+## テスト設計ガイドライン
+
+以下はゲームまたはプロジェクトをテストする場合にエピックが従っている自動化テストに関する一般的なガイドラインの一部です。 
+
+* ゲームやエディタの状態を想定しないでください。テストはうまく行かなかったり、複数のマシンで並行して行われることがあります。 
+* ファイルやディスクの状態を見つけたときのままにしてください。テストでファイルが生成されたら、テスト終了後に削除してください。(将来、こうした生成ファイルを自動的に削除するように変わるかもしれません)。
+* 前回テストを実行してからテストは悪い状態のままになっていることを想定してください。テスト開始前にこれらを削除しようとするファイルを生成するのは良い習慣です。
+
+## 自動化テストを実行する
+
+1. 任意のプロジェクトを開きます。
+1. テストに使用可能な [プラグイン](#自動化テストのプラグインを有効にする) を有効にし、エディタを再起動します。
+
+1. エディタで [**Window** > **Test Automation**] の順に進みます。 
+
+	[REGION:lightbox]
+	[![](TestAutomation.png)(h:300)](TestAutomation.png)
+	[/REGION]
+	[REGION:caption] クリックしてフルサイズ表示 [/REGION]
+
+	[REGION:note]
+	このメニュー オプションが見えるようにするには、まず最低ひとつの [automation tests plugin](#自動化テストのプラグインを有効にする) を有効にしなければなりません。 
 	[/REGION]
 
-$ コンテンツ負荷テスト :すべてのマップのロード、またはすべてのブループリントのロードとコンパイルなど、クラッシュを避けるために特定のシステムを徹底的にテストします。たとえば、`EditorAutomationTests.cpp` または `EngineAutomationTests.cpp`を参照してください。
+1. Sessions Frontend の Automation タブの **Test Name** 欄で以下を有効にします。
 
-$ スクリーンショットの比較ツール :スクリーンショットの比較ツールは、迅速にスクリーンショットを比較し、レンダリングに関する問題を特定します。詳細は、 [スクリーン ショット ツールのリファレンス](Programming/Automation/ScreenShotComparison) をご覧ください。
+	[REGION:lightbox]
+	[![](AutomationWindow.png)(w:600)](AutomationWindow.png)
+	[/REGION]
+	[REGION:caption] クリックしてフルサイズ表示 [/REGION]
+	* Editor
+	* Project
+	* System
 
-[REGION:topics half]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Programming/Automation/TechnicalGuide:title%](automation_tech.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/gear_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Programming/Automation/TechnicalGuide:title%
-	[/PARAM]
-	[PARAM:description]
-		%Programming/Automation/TechnicalGuide:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Programming/Automation/TechnicalGuide]
-	[/PARAM]
-[/OBJECT]
+1. Automation タブ ツールバーで **Start Tests** ボタンをクリックします。
 
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Programming/Automation/UserGuide:title%](automation_ui.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/gear_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Programming/Automation/UserGuide:title%
-	[/PARAM]
-	[PARAM:description]
-		%Programming/Automation/UserGuide:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Programming/Automation/UserGuide]
-	[/PARAM]
-[/OBJECT]
-[/REGION]
+	[REGION:lightbox]
+	[![](StartTests.png)(w:600)](StartTests.png)
+	[/REGION]
+	[REGION:caption] クリックしてフルサイズ表示 [/REGION]
+
+	テストが終了したら Test Name ウィンドウで以下が進行します。
+
+	[REGION:lightbox]
+	[![](RunningTests.png)(w:600)](RunningTests.png)
+	[/REGION]
+	[REGION:caption] クリックしてフルサイズ表示 [/REGION]
+
+
+## 基本	
+
+**自動化システム** には、安定性を高めるために Unreal Message Bus の威力を活かしたユニット テスト、機能テスト、およびコンテンツ負荷テストを行うための機能があります。
+
+[DIR(output:"topiccompact" parent:"Programming/Automation" org:"hierarchy" tags:"Programming" end:"1")]
+
+
+
+
+[COMMENT:none]
+-
+
+[EXCERPT:Intro]
+**自動化システム** には、ユニット テスト、機能テスト、およびコンテンツ負荷テストを行うための機能があります。 
+これらは **Unreal Message Bus** の機能を活用し、 
+安定性を高めます。
+
+自動化システムは、自動化テストを一回以上行うことで機能します。自動化テストは、 
+目的または機能に応じて分類されます。
+[/EXCERPT:Intro]
+
+$ ユニット テスト :API レベルの検証テスト。たとえば、「TimespanTest.cpp」または「DateTimeTest.cpp」を参照してください。
+$ 機能テスト :PIE 作業などのシステムレベルの検証テストでは、インゲームの統計作業や 
+解像度の変更作業を検証します。たとえば、EditorAutomationTests.cpp または EngineAutomationTests.cpp を参照してください。 
+$ スモークテスト :スモーク テストは、実装者がざっと確認するテストです。迅速にテストすることを意図しており、 
+エディタ、ゲーム、またはコマンドレットが開始すると _毎回_ 実行されます。デフォルトで  
+[ユーザーインターフェース](Programming/Automation/UserGuide#ユーザーインターフェース) で選択することもできます。
+
+	[REGION:warning] 全てのスモーク テストは、1 秒以内に終了することを意図しています。ユニット テストもしくは迅速な機能テストのみをスモーク テストとしてマークしてください。[/REGION]
+
+$ コンテンツ負荷テスト :クラッシュを避けるために特定のシステムを徹底的にテストします。 
+たとえば、全てのマップの読み込みや、全てのブループリントの読み込みやコンパイルなどがあります。例として EditorAutomationTests.cpp または EngineAutomationTests.cpp を 
+参照してください。
+
+$ スクリーンショットの比較：スクリーンショットの比較ツールは、QA が迅速にスクリーンショットを比較し、 
+潜在的なレンダリングの問題を特定します。[スクリーン ショット ツールのリファレンス](Programming/Automation/ScreenShotComparison) をご覧ください。
+
+
+[DIR(output:"topiccompact" parent:"Programming/Automation" org:"hierarchy" tags:"Programming" end:"1")]
+
+-
+[/COMMENT]

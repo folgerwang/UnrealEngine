@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3806721
 Availability:Public
 Title:Unity 引っ越しガイド
 Crumbs: %ROOT%, GettingStarted
@@ -269,62 +269,62 @@ UE4 の優れた機能をご紹介します。新規 Actor ブループリント
 [COMMENT:none]
 
 [EXCERPT:csharp_Unity]
-	using UnityEngine;
-	using System.Collections;
+		using UnityEngine;
+		using System.Collections;
 
-	public class MyComponent :MonoBehaviour
-	{
-		int Count;
-
-	    // 初期化に使用します。
-		void Start ()
+		public class MyComponent :MonoBehaviour
 		{
-			Count = 0;
-	    }
+			int Count;
 
-	    // フレーム毎に更新が一回呼び出されます。
-		void Update () 
-		{
+			// Use this for initialization.
+			void Start ()
+			{
+				Count = 0;
+			}
 
-			Count = Count + 1;
-			Debug.Log(Count);
+			// Update is called once per frame.
+			void Update () 
+			{
+
+				Count = Count + 1;
+				Debug.Log(Count);
+			}
 		}
-	}
 [/EXCERPT:csharp_Unity]
 
 [EXCERPT:cpp_UE4]
-	#pragma once
-	#include "GameFramework/Actor.h"
-	#include "MyActor.generated.h"
+		#pragma once
+		#include "GameFramework/Actor.h"
+		#include "MyActor.generated.h"
 
-	UCLASS()
-	class AMyActor : public AActor
-	{
-		GENERATED_BODY()
-		int Count;
-
-		// Sets default values for this actor's properties. (このアクタのプロパティのデフォルト値を設定します)
-		AMyActor() 
+		UCLASS()
+		class AMyActor : public AActor
 		{
-			// Tick() を呼び出すことができるようにします。
-			PrimaryActorTick.bCanEverTick = true;  
-		}
+			GENERATED_BODY()
+			int Count;
 
-		// Called when the game starts or when spawned. (ゲーム開始時またはスポーン時に呼ばれます) 
-		void BeginPlay()
-		{
-			Super::BeginPlay();
-			Count = 0;
-		}
+			// Sets default values for this actor's properties.
+			AMyActor() 
+			{
+				// Allows Tick() to be called
+				PrimaryActorTick.bCanEverTick = true;  
+			}
+
+			// Called when the game starts or when spawned. 
+			void BeginPlay()
+			{
+				Super::BeginPlay();
+				Count = 0;
+			}
     
-		// Called every frame. (フレームごとに呼ばれます) 
-		void Tick(float DeltaSeconds)
-		{
-			Super::Tick(DeltaSeconds);
-			Count = Count + 1;
-			GLog->Log(FString::FromInt(Count));
-		}
-	};
+			// Called every frame. 
+			void Tick(float DeltaSeconds)
+			{
+				Super::Tick(DeltaSeconds);
+				Count = Count + 1;
+				GLog->Log(FString::FromInt(Count));
+			}
+		};
 [/EXCERPT:cpp_UE4]
 
 [/COMMENT] 
@@ -438,18 +438,19 @@ Unity では、以下のような単純なコンポーネントがあるでし�
 Unity の Start、OnDestroy、および Update の関数と同様に、以下のように UE4 には類似のアクタのメソッド一式があります。
 
 **C++** : 
+
 	UCLASS()
 	class AMyActor : public AActor
 	{
 		GENERATED_BODY()
 
-		// ゲーム開始時に呼び出されます。
+		// Called at start of game.
 		void BeginPlay();
-	// 破壊時に呼び出されます。
-
+	
+		// Called when destroyed.
 		void EndPlay(const EEndPlayReason::Type EndPlayReason);
 
-		// アクタを更新するためにフレーム毎に呼び出されます。
+		// Called every frame to update this actor.
 		void Tick(float DeltaSeconds);
 	};
 
@@ -460,18 +461,18 @@ Unity の Start、OnDestroy、および Update の関数と同様に、以下の
 UE4 のコンポーネントには異なる関数が含まれます。以下は単純な例です。
 
 **C++** : 
+
 	UCLASS()
 	class UMyComponent : public UActorComponent
 	{
 		GENERATED_BODY()
-
-		// 所有するアクタの作成後に呼び出されます。
+		// Called after the owning Actor was created
 		void InitializeComponent();
 
-		// コンポーネントまたは所有しているアクタが破壊されていると呼び出されます。
+		// Called when the component or the owning Actor is being destroyed
 		void UninitializeComponent();
 
-		//ティックのコンポーネント バージョン
+		// Component version of Tick
 		void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction);
 	};
 
@@ -486,7 +487,7 @@ UE4 では、メソッドの親クラスのバージョンを呼び出すこと�
 
 	void UMyComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 	{
-		// ここではカスタム ティックを記述します。
+		// Custom tick stuff here
 		Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	}
 
@@ -551,7 +552,7 @@ NewObject 関数と SpawnActor 関数も一緒に動作する「テンプレー�
 
 		void Start()
 		{
-			//まだなければ、コリジョン コンポーネントを作成します。
+			// Create the collision component if we don't already have one
 			if (MyCollisionComp == null)
 			{
 				MyCollisionComp = gameObject.AddComponent<SphereCollider>();
@@ -569,8 +570,8 @@ NewObject 関数と SpawnActor 関数も一緒に動作する「テンプレー�
 	class AMyActor : public AActor
 	{
 		GENERATED_BODY()
+		
 		UPROPERTY()
-
 		int32 MyIntProp;
 
 		UPROPERTY()
@@ -621,11 +622,11 @@ UE4 C++:
 [COMMENT:none]
 
 [EXCERPT:gameObject_Unity]
-	Destroy(MyGameObject);
+		Destroy(MyGameObject);
 [/EXCERPT:gameObject_Unity]
 
 [EXCERPT:gameObject_CPP]
-	MyActor->Destroy();
+		MyActor->Destroy();
 [/EXCERPT:gameObject_CPP]
 
 [EXCERPT:gameObject_bp]
@@ -649,11 +650,11 @@ UE4 C++:
 [COMMENT:none]
 
 [EXCERPT:destroy_Unity]
-	Destroy(MyGameObject, 1);
+		Destroy(MyGameObject, 1);
 [/EXCERPT:destroy_Unity]
 
 [EXCERPT:destroy_CPP]
-	MyActor->SetLifeSpan(1);
+		MyActor->SetLifeSpan(1);
 [/EXCERPT:destroy_CPP]
 
 [EXCERPT:destroy_bp]
@@ -679,18 +680,18 @@ _フルサイズ表示するにはここをクリック_
 [COMMENT:none]
 
 [EXCERPT:disable_Unity]
-	MyGameObject.SetActive(false);
+		MyGameObject.SetActive(false);
 [/EXCERPT:disable_Unity]
 
 [EXCERPT:disable_CPP]
-	// 表示されているコンポーネントを非表示にします。
-	MyActor->SetActorHiddenInGame(true);
+		// Hides visible components
+		MyActor->SetActorHiddenInGame(true);
 
-	// コリジョンを無効にします。
-	MyActor->SetActorEnableCollision(false);
+		// Disables collision components
+		MyActor->SetActorEnableCollision(false);
 
-	// アクタのティックを停止します。
-	MyActor->SetActorTickEnabled(false);
+		// Stops the Actor from ticking
+		MyActor->SetActorTickEnabled(false);
 [/EXCERPT:disable_CPP]
 
 [EXCERPT:disable_bp]
@@ -715,13 +716,13 @@ _フルサイズ表示するにはここをクリック_
 [COMMENT:none]
 
 [EXCERPT:go1_Unity]
-	GameObject ParentGO = 
-	MyComponent.gameObject; 
+		GameObject ParentGO = 
+		MyComponent.gameObject; 
 [/EXCERPT:go1_Unity]
 
 [EXCERPT:go1_CPP]
-	 AActor* ParentActor = 
-	 MyComponent->GetOwner();
+		 AActor* ParentActor = 
+		 MyComponent->GetOwner();
 [/EXCERPT:go1_CPP]
 
 [EXCERPT:go1_bp]
@@ -764,11 +765,11 @@ _フルサイズ表示するにはここをクリック_
 [COMMENT:none]
 
 [EXCERPT:go2_Unity]
-	MyComponent MyComp = gameObject.GetComponent<MyComponent>();
+		MyComponent MyComp = gameObject.GetComponent<MyComponent>();
 [/EXCERPT:go2_Unity]
 
 [EXCERPT:go2_CPP]
-	 UMyComponent* MyComp = Cast<UMyComponent>(MyActor->GetComponentByClass(UMyComponent::StaticClass()));
+		UMyComponent* MyComp = Cast<UMyComponent>(MyActor->GetComponentByClass(UMyComponent::StaticClass()));
 [/EXCERPT:go2_CPP]
 
 [EXCERPT:go2_bp]
@@ -783,27 +784,27 @@ _フルサイズ表示するにはここをクリック_
 
 #### ゲームオブジェクト / アクタの検索
 
-	// GameObject を名前で検索します。
+	// Find GameObject by name
 	GameObject MyGO = GameObject.Find("MyNamedGameObject");
 
-	// オブジェクトを型で検索します。
+	// Find Objects by type
 	MyComponent[] Components = Object.FindObjectsOfType(typeof(MyComponent)) as MyComponent[];
 	foreach (MyComponent Component in Components)
 	{
 			// ...
 	}
 
-	// GameObject をタグで検索します。
+	// Find GameObjects by tag
 	GameObject[] GameObjects = GameObject.FindGameObjectsWithTag("MyTag");
 	foreach (GameObject GO in GameObjects)
 	{
 			// ...
 	}
 
-	// アクタを名前で検索します (UObjects でも機能します)。
+	// Find Actor by name (also works on UObjects)
 	AActor* MyActor = FindObject<AActor>(nullptr, TEXT("MyNamedActor"));
 
-	// アクタをタイプで検索します (UWorld オブジェクトが必要です)。
+	// Find Actors by type (needs a UWorld object)
 	for (TActorIterator<AMyActor> It(GetWorld()); It; ++It)
 	{
 			AMyActor* MyActor = *It;
@@ -812,14 +813,14 @@ _フルサイズ表示するにはここをクリック_
 
 ![image alt text](image_14.png)(w:720)
 
-	// UObjects をタイプで検索します。
+	// Find UObjects by type
 	for (TObjectIterator<UMyObject> It; It; ++it)
 	{
 		UMyObject* MyObject = *It;
 		// ...
 	}
 
-	// アクタをタグで検索します (ActorComponents でも機能し、代わりにTObjectIterator を使用します)。
+	// Find Actors by tag (also works on ActorComponents, use TObjectIterator instead)
 	for (TActorIterator<AActor> It(GetWorld()); It; ++It)
 	{
 		AActor* Actor = *It;
@@ -835,17 +836,17 @@ _フルサイズ表示するにはここをクリック_
 
 	MyGameObject.tag = "MyTag";
 
-	// アクタは複数のタグを持つことができます。
+	// Actors can have multiple tags
 	MyActor.Tags.AddUnique(TEXT("MyTag"));
 
 ![image alt text](image_16.png)(w:540)
 
 #### MonoBehaviours / ActorComponents にタグを追加する
 
-	// アタッチされている GameObject のタグを変更します。
+	// This changes the tag on the GameObject it is attached to
 	MyComponent.tag = "MyTag";
 
-	// コンポーネントは独自のタグの配列を持ちます。
+	// Components have their own array of tags
 	MyComponent.ComponentTags.AddUnique(TEXT("MyTag"));
 
 #### ゲームオブジェクト / アクタと MonoBehaviours / ActorComponents のタグを比較する
@@ -855,13 +856,13 @@ _フルサイズ表示するにはここをクリック_
 		// ...
 	}
 
-	// アタッチされているゲームオブジェクトのタグをチェックします。
+	// Checks the tag on the GameObject it is attached to
 	if (MyComponent.CompareTag("MyTag"))
 	{
 		// ...
 	}
-	//アクタがこのタグを持っているかをチェックします。
-
+	
+	// Checks if an Actor has this tag
 	if (MyActor->ActorHasTag(FName(TEXT("MyTag"))))
 	{
 		// ...
@@ -869,7 +870,7 @@ _フルサイズ表示するにはここをクリック_
 
 ![image alt text](image_17.png)(w:540)
 
-	// ActorComponent がこのタグを持っているかをチェックします。
+	// Checks if an ActorComponent has this tag
 	if (MyComponent->ComponentHasTag(FName(TEXT("MyTag"))))
 	{
 		// ...
@@ -913,22 +914,22 @@ UE4 C++:
 
 	APawn* AMyPlayerController::FindPawnCameraIsLookingAt()
 	{
-		// これを使ってトレースに関する様々なプロパティをカスタマイズできます。
+		// You can use this to customize various properties about the trace
 		FCollisionQueryParams Params;
-		// プレイヤーのポーンを無視します。
+		// Ignore the player's pawn
 		Params.AddIgnoredActor(GetPawn());
 
-		// ライントレースによって当たった結果が追加されます。
+		// The hit result gets populated by the line trace
 		FHitResult Hit;
 
-		// カメラからのレイキャストです。ポーンとのみ衝突します (ECC_Pawn のコリジョン チャンネルにあります)。
+		// Raycast out from the camera, only collide with pawns (they are on the ECC_Pawn collision channel)
 		FVector Start = PlayerCameraManager->GetCameraLocation();
 		FVector End = Start + (PlayerCameraManager->GetCameraRotation().Vector() * 1000.0f);
 		bool bHit = GetWorld()->LineTraceSingle(Hit, Start, End, ECC_Pawn, Params);
 
 		if (bHit)
 		{
-			// Hit.Actor にはトレースが当たるアクタへの弱いポインタがあります。
+			// Hit.Actor contains a weak pointer to the Actor that the trace hit
 			return Cast<APawn>(Hit.Actor.Get());
 		}
 
@@ -977,11 +978,11 @@ UE4 C++:
 		{
 			Trigger = CreateDefaultSubobject<USphereComponent>(TEXT("TriggerCollider"));
 
-			// イベントを発行するには、両方のコライダーでこれを true に設定する必要があります。
+			// Both colliders need to have this set to true for events to fire
 			Trigger.bGenerateOverlapEvents = true;
 
-			// コライダーのコリジョン モードを設定します。
-			// このモードはレイキャスト、スイープ、オーバーラップのコライダーだけを有効にします。
+			// Set the collision mode for the collider
+			// This mode will only enable the collider for raycasts, sweeps, and overlaps
 			Trigger.SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		}
 

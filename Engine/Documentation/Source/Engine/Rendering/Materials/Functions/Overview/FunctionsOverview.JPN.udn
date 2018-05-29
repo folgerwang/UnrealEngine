@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2690319
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:マテリアル関数の概要
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials
 Description:マテリアル関数の作用原理と使用法に関するいくつかの重要な概念
 Version:4.9
+tags:Materials
 
 [REGION:banner]
 ![](matfunc_overview_banner_NEW.jpg)

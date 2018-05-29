@@ -57,6 +57,18 @@ public:
 	{
 		return TagString;
 	}
+	
+	/* Returns the number of arguments in this message */
+	int32 GetArgumentCount() const
+	{
+		return TagString.Len();
+	}
+	
+	/* Returns the type of our next argument */
+	TCHAR GetNextArgumentType() const
+	{
+		return TagString[TagIndex];
+	}
 
 	/* Return the size (plus padding) of all our arguments) */
 	const int32 GetArgumentSize() const

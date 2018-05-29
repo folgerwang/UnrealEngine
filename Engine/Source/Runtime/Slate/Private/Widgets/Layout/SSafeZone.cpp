@@ -4,6 +4,7 @@
 #include "Layout/LayoutUtils.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Misc/CoreDelegates.h"
+#include "Widgets/SViewport.h"
 
 float GSafeZoneScale = 1.0f;
 static FAutoConsoleVariableRef CVarDumpVMIR(
@@ -46,6 +47,7 @@ void SSafeZone::Construct( const FArguments& InArgs )
 #if WITH_EDITOR
 	OverrideScreenSize = InArgs._OverrideScreenSize;
 	OverrideDpiScale = InArgs._OverrideDpiScale;
+	FSlateApplication::Get().OnDebugSafeZoneChanged.AddSP(this, &SSafeZone::DebugSafeAreaUpdated);
 #endif
 
 	SetTitleSafe(bIsTitleSafe);
@@ -65,35 +67,26 @@ void SSafeZone::SafeAreaUpdated()
 
 void SSafeZone::SetTitleSafe( bool InIsTitleSafe )
 {
-	FDisplayMetrics Metrics;
-	FSlateApplication::Get().GetDisplayMetrics( Metrics );
-
-	const FMargin DeviceSafeMargin =
-#if PLATFORM_IOS
-		// Hack: This is a temp solution to support iPhoneX safeArea. TitleSafePaddingSize and ActionSafePaddingSize should be FVector4 and use them separately.
-		bIsTitleSafe
-		? FMargin(Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y, Metrics.TitleSafePaddingSize.Z, Metrics.TitleSafePaddingSize.W)
-		: FMargin(Metrics.ActionSafePaddingSize.X, Metrics.ActionSafePaddingSize.Y, Metrics.ActionSafePaddingSize.Z, Metrics.ActionSafePaddingSize.W);
-#else
-		bIsTitleSafe ?
-		FMargin(Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y) :
-		FMargin(Metrics.ActionSafePaddingSize.X, Metrics.ActionSafePaddingSize.Y);
-#endif
-
-
 #if WITH_EDITOR
-	if ( OverrideScreenSize.IsSet() )
+	if (OverrideScreenSize.IsSet() && !OverrideScreenSize.GetValue().IsZero())
 	{
-		const float WidthPaddingRatio = DeviceSafeMargin.Left / ( Metrics.PrimaryDisplayWidth * 0.5f );
-		const float HeightPaddingRatio = DeviceSafeMargin.Top / ( Metrics.PrimaryDisplayHeight * 0.5f );
-		const FMargin OverrideSafeMargin = FMargin(WidthPaddingRatio * OverrideScreenSize->X * 0.5f, HeightPaddingRatio * OverrideScreenSize->Y * 0.5f);
-
-		SafeMargin = OverrideSafeMargin;
+		FSlateApplication::Get().GetSafeZoneSize(SafeMargin, OverrideScreenSize.GetValue());
 	}
 	else
 #endif
 	{
-		SafeMargin = DeviceSafeMargin;
+		// Need to get owning viewport not display 
+		// use pixel values (same as custom safe zone above)
+		TSharedPtr<SViewport> GameViewport = FSlateApplication::Get().GetGameViewport();
+		if (GameViewport.IsValid())
+		{
+			TSharedPtr<ISlateViewport> ViewportInterface = GameViewport->GetViewportInterface().Pin();
+			if (ViewportInterface.IsValid())
+			{
+				const FIntPoint ViewportSize = ViewportInterface->GetSize();
+				FSlateApplication::Get().GetSafeZoneSize(SafeMargin, ViewportSize);
+			}
+		}
 	}
 
 #if PLATFORM_XBOXONE
@@ -119,8 +112,12 @@ void SSafeZone::SetOverrideScreenInformation(TOptional<FVector2D> InScreenSize, 
 {
 	OverrideScreenSize = InScreenSize;
 	OverrideDpiScale = InOverrideDpiScale;
-
 	SetTitleSafe(bIsTitleSafe);
+}
+
+void SSafeZone::DebugSafeAreaUpdated(const FMargin& NewSafeZone)
+{
+	SafeAreaUpdated();
 }
 
 #endif

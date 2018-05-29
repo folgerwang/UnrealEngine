@@ -31,6 +31,7 @@ public:
 		, _ClearKeyboardFocusOnCommit( true )
 		, _MinDesiredWidth( 0.0f )
 		, _KeyboardType ( EKeyboardType::Keyboard_Default )
+		, _VirtualKeyboardOptions ( FVirtualKeyboardOptions() )
 		{}
 
 		/** Sets the text content for this editable text widget */
@@ -62,6 +63,9 @@ public:
 
 		/** Sets the text content for this editable text widget */
 		SLATE_ATTRIBUTE( EKeyboardType, KeyboardType )
+
+		/** Sets additional arguments to be used by the virtual keyboard summoned by this widget */
+		SLATE_ARGUMENT( FVirtualKeyboardOptions, VirtualKeyboardOptions )
 
 		SLATE_END_ARGS()
 
@@ -116,6 +120,11 @@ public:
 	virtual EKeyboardType GetVirtualKeyboardType() const override
 	{
 		return KeyboardType.Get();
+	}
+
+	virtual FVirtualKeyboardOptions GetVirtualKeyboardOptions() const override
+	{
+		return VirtualKeyboardOptions;
 	}
 
 	virtual bool IsMultilineEntry() const override
@@ -184,6 +193,8 @@ private:
 	TAttribute<float> MinDesiredWidth;
 
 	TAttribute<EKeyboardType> KeyboardType;
+
+	FVirtualKeyboardOptions VirtualKeyboardOptions;
 
 	bool bNeedsUpdate;
 

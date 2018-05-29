@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2683348
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:メニュー
 Crumbs:%ROOT%, Engine/Blueprints, Engine/Blueprints/Editor
 Description:メニューは、保存、ロード、ウィンドウを開くなど、複数のアクションを行う場合に使用します。
 version:4.9
+tags:Blueprints
 
 
 
@@ -13,27 +14,9 @@ version:4.9
 
 [EXCERPT:Main]
 
-
-
-
 ### ファイル
 
-[EXCERPT:FileMenu]
-| コマンド | 説明 |
-| --- | --- |
-| [REGION:tablesection]**ロードと保存**[/REGION] ||
-| **Save (保存)** | ブループリントを保存します。 |
-| **Open Asset... (アセットを開く)** | アセットピッカー ウィンドウを呼び出します。 |
-| **Save All (すべて保存)** | 全ての未保存レベルとアセットを保存します。 |
-| **Choose Files to Save... (保存するファイルを選択)** | 保存オプションでコンテンツとレベル用にダイアログを開きます。 |
-| **Connect to Source Control... (ソース コントロールに接続)** | ソース コントロールが有効な場合、コンテンツとレベルに対してチェックイン オプションがあるダイアログを開きます。 |
-| [REGION:tablesection]**ブループリント**[/REGION] ||
-| **Compile (コンパイル)** | ブループリントをコンパイルします。 |
-| **Refresh All Nodes (すべてのノードをリフレッシュ)** | 外部変更を反映させるためにグラフ内の全ノードをリフレッシュします。|
-| **Reparent Blueprint (親ブループリントを変更)** | 開いているブループリントの親を変更します。 |
-|**Diff** | 以前のリビジョンに対して差分を取ります。この時ソース制御がアクティブでなくてはいけません。 |
-|Developer | [Developer] メニューを開きます。このメニューは [Graph Editor] のようにコンパイラの設定とモジュールの再コンパイルができます。 |
-[/EXCERPT:FileMenu]
+[INCLUDE:#FileMenu]
 
 ### 編集
 
@@ -43,61 +26,20 @@ version:4.9
 | **Delete Unused Variables (未使用の変数を削除１）** | 一度も使用されていない変数を削除します。 |
 [/VAR]
 
-[EXCERPT:EditMenu]
-| コマンド | 説明 |
-| --- | --- |
-| [REGION:tablesection]**履歴**[/REGION] ||
-| **Undo (アンドゥ)** | 最後の動作を元に戻します。 |
-| **Redo (リドゥ)** | 最後に元に戻した動作をやり直します。 |
-| **Undo History (履歴をアンドゥ)** | 元に戻す操作の履歴 ウィンドウを開きます。 |
-| [REGION:tablesection]**検索**[/REGION] ||
-%BlueprintSearch%
-| [REGION:tablesection]**コンフィギュレーション**[/REGION] ||
-| **Editor Preferences (エディタの環境設定)** | エディタの設定を開きます。 |
-| **Project Settings (プロジェクト設定)** | 現在のプロジェクトの設定を開きます。 |
-| **Plugins** | [Plugin Browser (プラグイン ブラウザ)] タブを開きます。 |
-[/EXCERPT:EditMenu]
+[INCLUDE:#EditMenu]
 
 
-### アセット
-[EXCERPT:AssetMenu]
-[VAR:AssetMenu]
-| コマンド | 説明 |
-| --- | --- |
-|**Find in Content Browser... (コンテンツ ブラウザを検索)** | **コンテンツ ブラウザ** を呼び出してアセットへナビゲートします。 |
-| **Reference Viewer... (リファレンス ビューアー)** | リファレンス ビューアーを起動し、選択したアセットが参照するもの、何が選択したアセットを参照しているかを表示します。 |
-| **Size Map...(サイズマップ)** | アセットおよびそのアセットが参照するすべてのおおよそのサイズを表示するインタラクティブ マップを表示します。|
-[/VAR]
+###アセット
 
-%assetmenu%
-[/EXCERPT:AssetMenu]
+[INCLUDE:#AssetMenu]
 
-### 表示
+###表示
 
-[EXCERPT:ViewMenu]
-| コマンド | 説明 |
-| --- | --- |
-| [REGION:tablesection]**ピンの可視性**[/REGION] ||
-| **Show All Pins (全てのピンを表示)** | 全ノードにあるピンを全て表示します。 |
-| **Hide Unused Pins (使用しないピンを非表示)** | 非接続およびデフォルト値を持たないピンを全て隠します。 |
-| **Hide Unconnected Pins (接続されていないピンを非表示)** | 非接続のピンを全て隠します。このオプションは、ノードに直接設定された入力用の入力ピンを隠します。 |
-| [REGION:tablesection]**ズーム**[/REGION] ||
-| **Zoom to Graph Extents (グラフ全体に合わせてズーム)** | 現在のビューをグラフ全体に合わせます。|
-|**Zoom to Selection (選択対象をズーム)** | 現在の表示を選択した大きさに合わせます。 |
-[/EXCERPT:ViewMenu]
+[INCLUDE:ViewMenu]
 
 ### デバッグ
 
-[EXCERPT:DebugMenu]
-| コマンド | 説明 |
-| --- | --- |
-| [REGION:tablesection]**ブレークポイント**[/REGION] ||
-| **Disable All Breakpoints (全てのブレークポイントを無効にする)** | 現在のブループリントまたは Level ブループリントの全てのグラフ上の全ブレークポイントを無効にします。|
-| **Enable All Breakpoints1 (全てのブレークポイントを有効にする)** | 現在のブループリントまたは Level ブループリントの全グラフ上の全ブレークポイントを有効にします。|
-| **Delete All Breakpoints (全てのブレークポイントを削除)** | 現在のブループリントまたは Level ブループリントの全グラフ上の全ブレークポイントを削除します。 |
-| [REGION:tablesection]**ウォッチ**[/REGION] ||
-| **Delete All Watches (全てのウオッチを削除)** | 現在のブループリントまたは Level ブループリントの全グラフ上のウォッチ値を全て削除します。 |
-[/EXCERPT:DebugMenu]
+[INCLUDE:#DebugMenu]
 
 ### ウィンドウ 
 
@@ -127,7 +69,68 @@ version:4.9
 [/EXCERPT:Main]
 
 [COMMENT:none]
+[EXCERPT:FileMenu]
+| コマンド | 説明 |
+| --- | --- |
+| [REGION:tablesection]**ロードと保存**[/REGION] ||
+| **Save (保存)** | ブループリントを保存します。 |
+| **Open Asset... (アセットを開く)** | アセットピッカー ウィンドウを呼び出します。 |
+| **Save All** | 全ての未保存レベルとアセットを保存します。 |
+| **Choose Files to Save... (保存するファイルを選択)** | 保存オプションでコンテンツとレベル用にダイアログを開きます。 |
+| **Connect to Source Control... (ソース コントロールに接続)** | ソース コントロールが有効な場合、コンテンツとレベルに対してチェックイン オプションがあるダイアログを開きます。 |
+| [REGION:tablesection]**ブループリント**[/REGION] ||
+| **Compile (コンパイル)** | ブループリントをコンパイルします。 |
+| **Refresh All Nodes (すべてのノードをリフレッシュ)** | 外部変更を反映させるためにグラフ内の全ノードをリフレッシュします。|
+| **Reparent Blueprint (親ブループリントを変更)** | 開いているブループリントの親を変更します。 |
+|**Diff** | 以前のリビジョンに対して差分を取ります。この時ソース制御がアクティブでなくてはいけません。 |
+|**Developer** | [Developer] メニューを開きます。このメニューは [Graph Editor] のようにコンパイラの設定とモジュールの再コンパイルができます。 |
+[/EXCERPT:FileMenu]
+[EXCERPT:EditMenu]
+| コマンド | 説明 |
+| --- | --- |
+| [REGION:tablesection]**履歴**[/REGION] ||
+| **Undo (アンドゥ)** | 最後の動作を元に戻します。 |
+| **Redo** | 最後に元に戻した動作をやり直します。 |
+| **Undo History (履歴をアンドゥ)** | 元に戻す操作の履歴 ウィンドウを開きます。 |
+|[REGION:tablesection]**検索**[/REGION]||
+%BlueprintSearch%
+| [REGION:tablesection]**コンフィギュレーション**[/REGION] ||
+| **Editor Preferences (エディタの環境設定)** | エディタの設定を開きます。 |
+| **Project Settings (プロジェクト設定)** | 現在のプロジェクトの設定を開きます。 |
+| **Plugins** | [Plugin Browser (プラグイン ブラウザ)] タブを開きます。 |
+[/EXCERPT:EditMenu]
+[EXCERPT:AssetMenu]
+[VAR:AssetMenu]
+| コマンド | 説明 |
+| --- | --- |
+|**Find in Content Browser... (コンテンツ ブラウザを検索)** | **コンテンツ ブラウザ** を呼び出してアセットへナビゲートします。 |
+| **Reference Viewer... (リファレンス ビューアー)** | リファレンス ビューアーを起動し、選択したアセットが参照するもの、何が選択したアセットを参照しているかを表示します。 |
+| **Size Map...(サイズマップ)** | アセットおよびそのアセットが参照するすべてのおおよそのサイズを表示するインタラクティブ マップを表示します。|
+[/VAR]
 
+%assetmenu%
+[/EXCERPT:AssetMenu]
+[EXCERPT:ViewMenu]
+| コマンド | 説明 |
+| --- | --- |
+| [REGION:tablesection]**ピンの可視性**[/REGION] ||
+| **Show All Pins (全てのピンを表示)** | 全ノードにあるピンを全て表示します。 |
+| **Hide Unused Pins (使用しないピンを非表示)** | 非接続およびデフォルト値を持たないピンを全て隠します。 |
+| **Hide Unconnected Pins (接続されていないピンを非表示)** | 非接続のピンを全て隠します。このオプションは、ノードに直接設定された入力用の入力ピンを隠します。 |
+| [REGION:tablesection]**Zoom (ズーム)**[/REGION] ||
+| **Zoom to Graph Extents (グラフ全体に合わせてズーム)** | 現在のビューをグラフ全体に合わせます。|
+|**Zoom to Selection (選択対象をズーム)** | 現在の表示を選択した大きさに合わせます。 |
+[/EXCERPT:ViewMenu]
+[EXCERPT:DebugMenu]
+| コマンド | 説明 |
+| --- | --- |
+| [REGION:tablesection]**ブレークポイント**[/REGION] ||
+| **Disable All Breakpoints (全てのブレークポイントを無効にする)** | 現在のブループリントまたは Level ブループリントの全てのグラフ上の全ブレークポイントを無効にします。|
+| **Enable All Breakpoints1 (全てのブレークポイントを有効にする)** | 現在のブループリントまたは Level ブループリントの全グラフ上の全ブレークポイントを有効にします。|
+| **Delete All Breakpoints (全てのブレークポイントを削除)** | 現在のブループリントまたは Level ブループリントの全グラフ上の全ブレークポイントを削除します。 |
+| [REGION:tablesection]**ウォッチ**[/REGION] ||
+| **Delete All Watches (全てのウオッチを削除)** | 現在のブループリントまたは Level ブループリントの全グラフ上のウォッチ値を全て削除します。 |
+[/EXCERPT:DebugMenu]
 [EXCERPT:devtools]
 [REGION:simpletable]
 | サブメニュー アイテム | 説明 |

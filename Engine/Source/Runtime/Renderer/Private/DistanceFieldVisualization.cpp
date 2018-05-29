@@ -171,9 +171,7 @@ void FDeferredShadingSceneRenderer::RenderMeshDistanceFieldVisualization(FRHICom
 	//@todo - support multiple views
 	const FViewInfo& View = Views[0];
 
-	extern int32 GDistanceFieldAO;
-
-	if (GDistanceFieldAO 
+	if (UseDistanceFieldAO()
 		&& FeatureLevel >= ERHIFeatureLevel::SM5
 		&& DoesPlatformSupportDistanceFieldAO(View.GetShaderPlatform())
 		&& Views.Num() == 1)

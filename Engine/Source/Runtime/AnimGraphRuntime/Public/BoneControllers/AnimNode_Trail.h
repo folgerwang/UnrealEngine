@@ -53,6 +53,12 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_Trail : public FAnimNode_SkeletalControlBa
 	UPROPERTY(EditAnywhere, Category=Trail, meta=(CustomizeProperty))
 	FRuntimeFloatCurve TrailRelaxationSpeed;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Trail, meta = (PinHiddenByDefault))
+	float RelaxationSpeedScale;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Trail)
+	FInputScaleBiasClamp RelaxationSpeedScaleInputProcessor;
+
 	/** Limit the amount that a bone can stretch from its ref-pose length. */
 	UPROPERTY(EditAnywhere, Category=Limit)
 	bool	bLimitStretch;

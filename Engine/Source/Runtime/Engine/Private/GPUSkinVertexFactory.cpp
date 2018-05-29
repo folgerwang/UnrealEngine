@@ -227,7 +227,7 @@ bool FGPUBaseSkinVertexFactory::FShaderDataType::UpdateBoneData(FRHICommandListI
 
 	FVertexBufferAndSRV* CurrentBoneBuffer = 0;
 
-	if (InFeatureLevel >= ERHIFeatureLevel::ES3_1)
+	if (InFeatureLevel > ERHIFeatureLevel::ES3_1)
 	{
 		check(IsInRenderingThread());
 		
@@ -288,7 +288,7 @@ bool FGPUBaseSkinVertexFactory::FShaderDataType::UpdateBoneData(FRHICommandListI
 			RefToLocal.To3x4MatrixTranspose( (float*)BoneMat.M );
 		}
 	}
-	if (InFeatureLevel >= ERHIFeatureLevel::ES3_1)
+	if (InFeatureLevel > ERHIFeatureLevel::ES3_1)
 	{
 		if (NumBones)
 		{
@@ -515,7 +515,7 @@ public:
 
 			bool bLocalPerBoneMotionBlur = false;
 
-			if (FeatureLevel >= ERHIFeatureLevel::ES3_1)
+			if (FeatureLevel > ERHIFeatureLevel::ES3_1)
 			{
 				if(BoneMatrices.IsBound())
 				{
@@ -769,6 +769,7 @@ public:
 		ClothSimulVertsPositionsNormalsParameter.Bind(ParameterMap,TEXT("ClothSimulVertsPositionsNormals"));
 		PreviousClothSimulVertsPositionsNormalsParameter.Bind(ParameterMap,TEXT("PreviousClothSimulVertsPositionsNormals"));
 		ClothLocalToWorldParameter.Bind(ParameterMap, TEXT("ClothLocalToWorld"));
+		PreviousClothLocalToWorldParameter.Bind(ParameterMap, TEXT("PreviousClothLocalToWorld"));
 		ClothBlendWeightParameter.Bind(ParameterMap, TEXT("ClothBlendWeight"));
 		GPUSkinApexClothParameter.Bind(ParameterMap, TEXT("GPUSkinApexCloth"));
 		GPUSkinApexClothStartIndexOffsetParameter.Bind(ParameterMap, TEXT("GPUSkinApexClothStartIndexOffset"));
@@ -783,6 +784,7 @@ public:
 		Ar << ClothSimulVertsPositionsNormalsParameter;
 		Ar << PreviousClothSimulVertsPositionsNormalsParameter;
 		Ar << ClothLocalToWorldParameter;
+		Ar << PreviousClothLocalToWorldParameter;
 		Ar << ClothBlendWeightParameter;
 		Ar << GPUSkinApexClothParameter;
 		Ar << GPUSkinApexClothStartIndexOffsetParameter;
@@ -822,7 +824,14 @@ public:
 				RHICmdList,
 				VertexShader,
 				ClothLocalToWorldParameter,
-				ClothShaderData.ClothLocalToWorld
+				ClothShaderData.GetClothLocalToWorldForReading(false, FrameNumber)
+				);
+
+			SetShaderValue(
+				RHICmdList,
+				VertexShader,
+				PreviousClothLocalToWorldParameter,
+				ClothShaderData.GetClothLocalToWorldForReading(true, FrameNumber)
 				);
 
 			SetShaderValue(
@@ -854,6 +863,7 @@ protected:
 	FShaderResourceParameter ClothSimulVertsPositionsNormalsParameter;
 	FShaderResourceParameter PreviousClothSimulVertsPositionsNormalsParameter;
 	FShaderParameter ClothLocalToWorldParameter;
+	FShaderParameter PreviousClothLocalToWorldParameter;
 	FShaderParameter ClothBlendWeightParameter;
 	FShaderResourceParameter GPUSkinApexClothParameter;
 	FShaderParameter GPUSkinApexClothStartIndexOffsetParameter;

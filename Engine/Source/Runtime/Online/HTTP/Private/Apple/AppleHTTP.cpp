@@ -250,11 +250,7 @@ bool FAppleHttpRequest::StartRequest()
 	if(UserAgent.IsEmpty())
 	{
 		NSString* Tag = FPlatformHttp::GetDefaultUserAgent().GetNSString();
-		[Request addValue:Tag forHTTPHeaderField:@"User-Agent"];
-	}
-	else
-	{
-		[Request addValue:UserAgent.GetNSString() forHTTPHeaderField:@"User-Agent"];
+		[Request setValue:Tag forHTTPHeaderField:@"User-Agent"];
 	}
 
 	Response = MakeShareable( new FAppleHttpResponse( *this ) );

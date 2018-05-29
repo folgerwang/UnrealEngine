@@ -8,6 +8,7 @@
 #include "Windows/WindowsPlatformProcess.h"
 #include "Templates/UniquePtr.h"
 
+#if UE_EXTERNAL_PROFILING_ENABLED
 
 /**
  * AQtime implementation of FExternalProfiler
@@ -125,5 +126,4 @@ namespace AQtimeProfiler
 	static FAtModuleInit AtModuleInit;
 }
 
-
-
+#endif	// UE_EXTERNAL_PROFILING_ENABLED

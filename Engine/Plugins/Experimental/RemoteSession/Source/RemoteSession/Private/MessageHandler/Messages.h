@@ -31,6 +31,8 @@ struct TwoParamMsg
 
 	TwoParamMsg(FArchive& Ar)
 	{
+		Param1 = P1();
+		Param2 = P2();
 		Ar << Param1;
 		Ar << Param2;
 	}
@@ -58,6 +60,9 @@ struct ThreeParamMsg
 
 	ThreeParamMsg(FArchive& Ar)
 	{
+		Param1 = P1();
+		Param2 = P2();
+		Param3 = P3();
 		Ar << Param1;
 		Ar << Param2;
 		Ar << Param3;
@@ -88,6 +93,10 @@ struct FourParamMsg
 
 	FourParamMsg(FArchive& Ar)
 	{
+		Param1 = P1();
+		Param2 = P2();
+		Param3 = P3();
+		Param4 = P4();
 		Ar << Param1;
 		Ar << Param2;
 		Ar << Param3;
@@ -121,6 +130,11 @@ struct FiveParamMsg
 
 	FiveParamMsg(FArchive& Ar)
 	{
+		Param1 = P1();
+		Param2 = P2();
+		Param3 = P3();
+		Param4 = P4();
+		Param5 = P5();
 		Ar << Param1;
 		Ar << Param2;
 		Ar << Param3;

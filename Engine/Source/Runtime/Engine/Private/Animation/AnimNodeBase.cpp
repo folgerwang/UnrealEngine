@@ -105,9 +105,10 @@ void FAnimNode_Base::EvaluateComponentSpace_AnyThread(FComponentSpacePoseContext
 	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
-bool FAnimNode_Base::IsLODEnabled(FAnimInstanceProxy* AnimInstanceProxy, int32 InLODThreshold)
+bool FAnimNode_Base::IsLODEnabled(FAnimInstanceProxy* AnimInstanceProxy)
 {
-	return ((InLODThreshold == INDEX_NONE) || (AnimInstanceProxy->GetLODLevel() <= InLODThreshold));
+	const int32 NodeLODThreshold = GetLODThreshold();
+	return ((NodeLODThreshold == INDEX_NONE) || (AnimInstanceProxy->GetLODLevel() <= NodeLODThreshold));
 }
 
 void FAnimNode_Base::OnInitializeAnimInstance(const FAnimInstanceProxy* InProxy, const UAnimInstance* InAnimInstance)
@@ -117,6 +118,15 @@ void FAnimNode_Base::OnInitializeAnimInstance(const FAnimInstanceProxy* InProxy,
 	RootInitialize(InProxy);
 	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
+
+void FAnimNode_Base::ResetDynamics(ETeleportType InTeleportType)
+{
+	// Call legacy implementation for backwards compatibility
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	ResetDynamics();
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+}
+
 
 /////////////////////////////////////////////////////
 // FPoseLinkBase

@@ -39,6 +39,8 @@ class UMaterialExpressionFontSample : public UMaterialExpression
 	 * Any UMaterialExpression whose compilation creates a texture uniform expression (eg Compiler->Texture, Compiler->TextureParameter) must implement this.
 	 */
 	virtual UTexture* GetReferencedTexture() override;
+
+	virtual bool CanReferenceTexture() const override { return true; }
 	//~ End UMaterialExpression Interface
 };
 

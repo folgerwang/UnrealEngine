@@ -388,16 +388,6 @@ namespace AutomationTool
         }
 
 		/// <summary>
-		/// Remaps movie directory for platforms that need a remap
-		/// If true, CopyBuildToStagingDirectory.Automation.cs will do this. 
-		/// If false, each platform can still do this individually.
-		/// </summary>
-		public virtual bool StageMovies
-		{
-			get { return true; }
-		}
-
-		/// <summary>
 		/// UnrealTargetPlatform type for this platform.
 		/// </summary>
 		public UnrealTargetPlatform PlatformType
@@ -467,7 +457,7 @@ namespace AutomationTool
 		/// <summary>
 		/// Returns platform specific command line options for UnrealPak
 		/// </summary>
-		public virtual string GetPlatformPakCommandLine()
+		public virtual string GetPlatformPakCommandLine(ProjectParams Params, DeploymentContext SC)
 		{
 			return "";
 		}

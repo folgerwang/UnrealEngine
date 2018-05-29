@@ -1632,9 +1632,6 @@ void FPropertyValueImpl::SwapChildren( TSharedPtr<FPropertyNode> FirstChildNode,
 
 void FPropertyValueImpl::MoveElementTo(int32 OriginalIndex, int32 NewIndex)
 {
-	FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "MoveRow", "Move Row"));
-
-	GetPropertyNode()->NotifyPreChange(GetPropertyNode()->GetProperty(), NotifyHook);
 	// Insert into the middle or add to the end
 	if (NewIndex < GetPropertyNode()->GetNumChildNodes())
 	{
@@ -1926,12 +1923,6 @@ void FPropertyValueImpl::MoveElementTo(int32 OriginalIndex, int32 NewIndex)
 			{
 				ChildNodePtr->FixPropertiesInEvent(ChangeEvent);
 			}
-		}
-		FPropertyChangedEvent MoveEvent(ParentNode->GetProperty(), EPropertyChangeType::Unspecified);
-		GetPropertyNode()->NotifyPostChange(MoveEvent, NotifyHook);
-		if (PropertyUtilities.IsValid())
-		{
-			PropertyUtilities.Pin()->NotifyFinishedChangingProperties(MoveEvent);
 		}
 	}
 }
@@ -3219,7 +3210,7 @@ FPropertyAccess::Result FPropertyHandleInt::SetValue(const int8& NewValue, EProp
 	// Clamp the value from any meta data ranges stored on the property value
 	int8 FinalValue = ClampIntegerValueFromMetaData<int8>( NewValue, *Implementation->GetPropertyNode() );
 
-	const FString ValueStr = Lex::ToString(FinalValue);
+	const FString ValueStr = LexToString(FinalValue);
 	Res = Implementation->ImportText(ValueStr, Flags);
 
 	return Res;
@@ -3232,7 +3223,7 @@ FPropertyAccess::Result FPropertyHandleInt::SetValue(const int16& NewValue, EPro
 	// Clamp the value from any meta data ranges stored on the property value
 	int16 FinalValue = ClampIntegerValueFromMetaData<int16>(NewValue, *Implementation->GetPropertyNode());
 
-	const FString ValueStr = Lex::ToString(FinalValue);
+	const FString ValueStr = LexToString(FinalValue);
 	Res = Implementation->ImportText(ValueStr, Flags);
 
 	return Res;
@@ -3245,7 +3236,7 @@ FPropertyAccess::Result FPropertyHandleInt::SetValue( const int32& NewValue, EPr
 	// Clamp the value from any meta data ranges stored on the property value
 	int32 FinalValue = ClampIntegerValueFromMetaData<int32>( NewValue, *Implementation->GetPropertyNode() );
 
-	const FString ValueStr = Lex::ToString(FinalValue);
+	const FString ValueStr = LexToString(FinalValue);
 	Res = Implementation->ImportText( ValueStr, Flags );
 
 	return Res;
@@ -3258,7 +3249,7 @@ FPropertyAccess::Result FPropertyHandleInt::SetValue(const int64& NewValue, EPro
 	// Clamp the value from any meta data ranges stored on the property value
 	int64 FinalValue = ClampIntegerValueFromMetaData<int64>(NewValue, *Implementation->GetPropertyNode());
 
-	const FString ValueStr = Lex::ToString(FinalValue);
+	const FString ValueStr = LexToString(FinalValue);
 	Res = Implementation->ImportText(ValueStr, Flags);
 	return Res;
 }
@@ -3269,7 +3260,7 @@ FPropertyAccess::Result FPropertyHandleInt::SetValue(const uint16& NewValue, EPr
 	// Clamp the value from any meta data ranges stored on the property value
 	uint16 FinalValue = ClampIntegerValueFromMetaData<uint16>(NewValue, *Implementation->GetPropertyNode());
 
-	const FString ValueStr = Lex::ToString(FinalValue);
+	const FString ValueStr = LexToString(FinalValue);
 	Res = Implementation->ImportText(ValueStr, Flags);
 
 	return Res;
@@ -3282,7 +3273,7 @@ FPropertyAccess::Result FPropertyHandleInt::SetValue(const uint32& NewValue, EPr
 	// Clamp the value from any meta data ranges stored on the property value
 	uint32 FinalValue = ClampIntegerValueFromMetaData<uint32>(NewValue, *Implementation->GetPropertyNode());
 
-	const FString ValueStr = Lex::ToString(FinalValue);
+	const FString ValueStr = LexToString(FinalValue);
 	Res = Implementation->ImportText(ValueStr, Flags);
 
 	return Res;
@@ -3294,7 +3285,7 @@ FPropertyAccess::Result FPropertyHandleInt::SetValue(const uint64& NewValue, EPr
 	// Clamp the value from any meta data ranges stored on the property value
 	uint64 FinalValue = ClampIntegerValueFromMetaData<uint64>(NewValue, *Implementation->GetPropertyNode());
 
-	const FString ValueStr = Lex::ToString(FinalValue);
+	const FString ValueStr = LexToString(FinalValue);
 	Res = Implementation->ImportText(ValueStr, Flags);
 	return Res;
 }

@@ -3,6 +3,7 @@
 #include "UObject/PackageFileSummary.h"
 #include "UObject/Linker.h"
 #include "Serialization/ArchiveFromStructuredArchive.h"
+#include "UObject/UObjectGlobals.h"
 
 FPackageFileSummary::FPackageFileSummary()
 {
@@ -116,16 +117,18 @@ void operator<<(FStructuredArchive::FSlot Slot, FPackageFileSummary& Sum)
 				if (!Sum.FileVersionUE4 && !Sum.FileVersionLicenseeUE4)
 				{
 #if WITH_EDITOR
-					// the editor cannot safely load unversioned content
-					UE_LOG(LogLinker, Warning, TEXT("Failed to read package file summary, the file \"%s\" is unversioned and we cannot safely load unversioned files in the editor."), *BaseArchive.GetArchiveName());
-					return;
-#else
+					if (!GAllowUnversionedContentInEditor)
+					{
+						// the editor cannot safely load unversioned content
+						UE_LOG(LogLinker, Warning, TEXT("Failed to read package file summary, the file \"%s\" is unversioned and we cannot safely load unversioned files in the editor."), *BaseArchive.GetArchiveName());
+						return;
+					}
+#endif
 					// this file is unversioned, remember that, then use current versions
 					Sum.bUnversioned = true;
 					Sum.FileVersionUE4 = GPackageFileUE4Version;
 					Sum.FileVersionLicenseeUE4 = GPackageFileLicenseeUE4Version;
 					Sum.CustomVersionContainer = FCustomVersionContainer::GetRegistered();
-#endif
 				}
 			}
 			else

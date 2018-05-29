@@ -1,31 +1,49 @@
-﻿INTSourceChangelist:2843859
+﻿INTSourceChangelist:3728517
 Availability:Public
-Title:1 - 基本プロジェクト設定
+Title:1 - 必要なプロジェクト設定
 Crumbs:%ROOT%, Programming, Programming/QuickStart
 Description:必要な仕様を使って新規プロジェクトを作成する。
 SkillLevel:Beginner
 Version:4.9
+parent:Programming/QuickStart
+order:1
+type:quick start
+type:multi-step
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[クイックスタート ホーム](Programming\QuickStart)
-	[/PARAM]
-	[PARAM:next]
-		[次のステップ](Programming\QuickStart\2 "%Programming\QuickStart\2:title%")
+[NAV]
+
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:note]
+	このチュートリアルを開始する前に、デスクトップに **Visual Studio 2015** (可能であれば Community Edition または Professional Editions) をインストールしてください。セットアップ手順は、[](Programming/Development/VisualStudioSetup) で確認してください。
+	[/REGION]
 	[/PARAM]
 [/OBJECT]
-[/VAR]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	[REGION:note]
+	このチュートリアルを開始する前に、**Xcode 9** のコピーをインストールしてください。
+	[/REGION]
+	[/PARAM]
+[/OBJECT]
 
-
-
-[REGION:note]
-このチュートリアルを開始する前に、デスクトップに **Visual Studio 2015** (可能であれば Community Edition または Professional Editions) をインストールしてください。
-[/REGION]
 
 1. ランチャーから **アンリアル エンジン** を開きます。[](Engine/Basics/Projects/Browser) が表示されます。
 
@@ -35,4 +53,4 @@ Version:4.9
 
 **アンリアル エディタ** が新規プロジェクトを開きます。**Visual Studio** も開き、プロジェクトが作成したソリューション ファイルをロードします。
 
-
+[NAV]

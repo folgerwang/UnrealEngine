@@ -93,7 +93,7 @@ MyProject.h
 	#include "MySaveGame.h"
 	#include "Kismet/GameplayStatics.h"
 [REGION:warning]
-#include 구문이 `#include "Engine.h"` 구문 뒤에 오도록 하지 않으면 컴파일이 실패합니다.
+확인할 것은 #include 구문이 `#include "Engine.h"` 구문 뒤에 오도록 하지 않으면 컴파일이 실패합니다.
 [/REGION]
 
 ## 변수 저장하기

@@ -37,7 +37,7 @@ AVirtualCameraPawnBase::AVirtualCameraPawnBase(const FObjectInitializer& ObjectI
 	// By default, allow focus visualization
 	bAllowFocusVisualization = true;
 
-	FScreenshotRequest::OnScreenshotRequestProcessed().BindUObject(CineCamera, &UVirtualCameraCineCameraComponent::AllowCameraViewUpdates);
+	FScreenshotRequest::OnScreenshotRequestProcessed().AddUObject(CineCamera, &UVirtualCameraCineCameraComponent::AllowCameraViewUpdates);
 }
 
 void AVirtualCameraPawnBase::BeginPlay()

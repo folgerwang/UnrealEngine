@@ -1679,13 +1679,16 @@ private:
 	 * Cached usage information to speed up traversal in the most costly passes (depth-only, base pass, shadow depth), 
 	 * This is done so the Mesh does not have to be dereferenced to determine pass relevance. 
 	 */
-	uint32 bHasOpaqueOrMaskedMaterial : 1;
+	uint32 bHasOpaqueMaterial : 1;
+	uint32 bHasMaskedMaterial : 1;
 	uint32 bRenderInMainPass : 1;
 
 public:
 	FMeshBatchAndRelevance(const FMeshBatch& InMesh, const FPrimitiveSceneProxy* InPrimitiveSceneProxy, ERHIFeatureLevel::Type FeatureLevel);
 
-	bool GetHasOpaqueOrMaskedMaterial() const { return bHasOpaqueOrMaskedMaterial; }
+	bool GetHasOpaqueMaterial() const { return bHasOpaqueMaterial; }
+	bool GetHasMaskedMaterial() const { return bHasMaskedMaterial; }
+	bool GetHasOpaqueOrMaskedMaterial() const { return bHasOpaqueMaterial || bHasMaskedMaterial; }
 	bool GetRenderInMainPass() const { return bRenderInMainPass; }
 };
 

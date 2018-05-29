@@ -908,7 +908,7 @@ public:
 		: TargetBlueprint(TargetBP)
 	{
 		ArIsObjectReferenceCollector = true;
-		ArIsPersistent = false;
+		this->SetIsPersistent(false);
 		ArIgnoreArchetypeRef = false;
 	}
 
@@ -1436,6 +1436,7 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 			if (Blueprint->GeneratedClass)
 			{
 				FBlueprintEditorUtils::RecreateClassMetaData(Blueprint, Blueprint->GeneratedClass, true);
+				Blueprint->GeneratedClass->ClassFlags &= ~CLASS_ReplicationDataIsSetUp;
 				Blueprint->GeneratedClass->SetUpRuntimeReplicationData();
 			}
 

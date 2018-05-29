@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3244370
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:ブループリントのアナトミー
 Crumbs: %ROOT%, Engine, Engine/Blueprints
@@ -7,45 +7,8 @@ version:4.9
 parent:Engine/Blueprints
 order:3
 tags:Blueprints
+topic-image:Anatomy.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/Anatomy:title%](Anatomy.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/reference_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/Anatomy:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/Anatomy:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/Anatomy]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints/Anatomy:title%](Anatomy.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/reference_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/Anatomy:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/Anatomy:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/Anatomy]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 
 ## Blueprint クラス
@@ -87,11 +50,3 @@ _グラフ_ セクションをネスティングされた _グラフ_ の中に�
 * [](Engine/Blueprints/BP_HowTo/MakingMacros "%Engine/Blueprints/BP_HowTo/MakingMacros:description%")
 * [](Engine/Blueprints/BP_HowTo/CollapsingGraphs "%Engine/Blueprints/BP_HowTo/CollapsingGraphs:description%")
 [/REGION]
-
-
-[COMMENT:none]
-
-	Data Only ブループリント
-	Child ブループリント
-
-[/COMMENT]

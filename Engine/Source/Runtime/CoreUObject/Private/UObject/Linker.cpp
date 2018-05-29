@@ -417,11 +417,11 @@ static void LogGetPackageLinkerError(FArchive* LinkerArchive, const TCHAR* InFil
 
 	// Display log error regardless LoadFlag settings
 	SET_WARN_COLOR(COLOR_RED);
-	if (LoadFlags & LOAD_NoWarn)
+	if (LoadFlags & (LOAD_NoWarn | LOAD_Quiet))
 	{
 		UE_LOG(LogLinker, Log, TEXT("%s"), *InFullErrorMessage.ToString());
 	}
-	else 
+	else
 	{
 		UE_LOG(LogLinker, Warning, TEXT("%s"), *InFullErrorMessage.ToString());
 	}
@@ -429,7 +429,7 @@ static void LogGetPackageLinkerError(FArchive* LinkerArchive, const TCHAR* InFil
 	if( GIsEditor && !IsRunningCommandlet() )
 	{
 		// if we don't want to be warned, skip the load warning
-		if (!(LoadFlags & LOAD_NoWarn))
+		if (!(LoadFlags & (LOAD_NoWarn | LOAD_Quiet)))
 		{
 			// we only want to output errors that content creators will be able to make sense of,
 			// so any errors we cant get links out of we will just let be output to the output log (above)
@@ -460,7 +460,7 @@ static void LogGetPackageLinkerError(FArchive* LinkerArchive, const TCHAR* InFil
 	}
 	else
 	{
-		if (!(LoadFlags & LOAD_NoWarn))
+		if (!(LoadFlags & (LOAD_NoWarn | LOAD_Quiet)))
 		{
 			Local::OutputErrorDetail(LinkerArchive, NAME_LoadErrors);
 		}
@@ -536,7 +536,8 @@ FLinkerLoad* GetPackageLinker
 	const TCHAR*	InLongPackageName,
 	uint32			LoadFlags,
 	UPackageMap*	Sandbox,
-	FGuid*			CompatibleGuid
+	FGuid*			CompatibleGuid,
+	FArchive*		InReaderOverride
 )
 {
 	// See if there is already a linker for this package.
@@ -712,7 +713,7 @@ FLinkerLoad* GetPackageLinker
 		// we will already have found the filename above
 		check(NewFilename.Len() > 0);
 
-		Result = FLinkerLoad::CreateLinker( InOuter, *NewFilename, LoadFlags );
+		Result = FLinkerLoad::CreateLinker( InOuter, *NewFilename, LoadFlags, InReaderOverride);
 	}
 
 	if ( !Result && CreatedPackage )

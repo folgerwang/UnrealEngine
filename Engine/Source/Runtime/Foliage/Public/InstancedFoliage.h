@@ -79,6 +79,8 @@ struct FFoliageInstance : public FFoliageInstancePlacementInfo
 
 	FGuid ProceduralGuid;
 
+	UActorComponent* BaseComponent;
+
 	FFoliageInstance()
 		: BaseId(0)
 	{}
@@ -196,6 +198,8 @@ struct FFoliageMeshInfo
 #if WITH_EDITOR
 	FOLIAGE_API void AddInstance(AInstancedFoliageActor* InIFA, const UFoliageType* InSettings, const FFoliageInstance& InNewInstance, bool RebuildFoliageTree);
 	FOLIAGE_API void AddInstance(AInstancedFoliageActor* InIFA, const UFoliageType* InSettings, const FFoliageInstance& InNewInstance, UActorComponent* InBaseComponent, bool RebuildFoliageTree);
+	FOLIAGE_API void AddInstances(AInstancedFoliageActor* InIFA, const UFoliageType* InSettings, const TSet<const FFoliageInstance*>& InNewInstances, bool RebuildFoliageTree);
+	
 	FOLIAGE_API void RemoveInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesToRemove, bool RebuildFoliageTree);
 	// Apply changes in the FoliageType to the component
 	FOLIAGE_API void UpdateComponentSettings(const UFoliageType* InSettings);

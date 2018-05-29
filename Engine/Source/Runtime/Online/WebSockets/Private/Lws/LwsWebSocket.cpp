@@ -7,7 +7,9 @@
 #include "LwsWebSocketsManager.h"
 #include "WebSocketsModule.h"
 #include "WebSocketsLog.h"
+#if WITH_SSL
 #include "Ssl.h"
+#endif
 #include "Misc/ScopeLock.h"
 
 // FLwsSendBuffer 
@@ -284,8 +286,12 @@ int FLwsWebSocket::LwsCallback(lws* Instance, lws_callback_reasons Reason, void*
 		// The status is the first two bytes of the message in network byte order
 		CloseStatus = BYTESWAP_ORDER16(CloseStatus);
 #endif
-		FUTF8ToTCHAR Convert((const ANSICHAR*)Data + sizeof(uint16), Length - sizeof(uint16));
-		FString CloseReasonString(Convert.Get());
+		FString CloseReasonString;
+		if (Length > sizeof(uint16))
+		{
+			auto Convert = StringCast<TCHAR>((const ANSICHAR*)Data + sizeof(uint16), Length - sizeof(uint16));
+			CloseReasonString.AppendChars(Convert.Get(), Convert.Length());
+		}
 
 		// We only modify our state if we are Connected or ClosingByRequest (effectively connected)
 		if (State == EState::Connected ||

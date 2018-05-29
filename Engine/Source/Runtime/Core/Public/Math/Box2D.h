@@ -92,6 +92,17 @@ public:
 	}
 
 	/**
+	* Compares two boxes for inequality.
+	*
+	* @param Other The other box to compare with.
+	* @return true if the boxes are not equal, false otherwise.
+	*/
+	bool operator!=(const FBox2D& Other) const
+	{
+		return !(*this == Other);
+	}
+
+	/**
 	 * Adds to this bounding box to include a given point.
 	 *
 	 * @param Other The point to increase the bounding volume to.

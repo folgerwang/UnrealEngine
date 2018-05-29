@@ -1122,7 +1122,7 @@ void SAssetViewItem::CacheDisplayTags()
 				{
 					// Convert the number as a double
 					double Num = 0.0;
-					Lex::FromString(Num, *InNumberString);
+					LexFromString(Num, *InNumberString);
 
 					const FNumberFormattingOptions NumFormatOpts = FNumberFormattingOptions()
 						.SetMinimumFractionalDigits(NumDecimalPlaces)
@@ -1138,7 +1138,7 @@ void SAssetViewItem::CacheDisplayTags()
 					{
 						// Convert the number as a signed int
 						int64 Num = 0;
-						Lex::FromString(Num, *InNumberString);
+						LexFromString(Num, *InNumberString);
 
 						return FText::AsNumber(Num);
 					}
@@ -1146,7 +1146,7 @@ void SAssetViewItem::CacheDisplayTags()
 					{
 						// Convert the number as an unsigned int
 						uint64 Num = 0;
-						Lex::FromString(Num, *InNumberString);
+						LexFromString(Num, *InNumberString);
 
 						return FText::AsNumber(Num);
 					}
@@ -1168,7 +1168,7 @@ void SAssetViewItem::CacheDisplayTags()
 				{
 					// Memory should be a 64-bit unsigned number of bytes
 					uint64 NumBytes = 0;
-					Lex::FromString(NumBytes, *TagAndValuePair.Value);
+					LexFromString(NumBytes, *TagAndValuePair.Value);
 
 					DisplayValue = FText::AsMemory(NumBytes);
 				}

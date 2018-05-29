@@ -1,48 +1,10 @@
-﻿INTSourceChangelist:2690584
-Availability:Public
+﻿Availability:Public
 Title:関数
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
 Description:他のグラフから実行または呼び出しが可能なノードグラフ
 version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\Functions:title%](Engine\Blueprints\UserGuide\Functions\function_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\Functions:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\Functions:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\Functions]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\Functions:title%](Engine\Blueprints\UserGuide\Functions\function_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\Functions:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\Functions:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\Functions]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
+tags:Blueprints
+ブループリント 
 
 
 [EXCERPT:Intro]
@@ -89,7 +51,7 @@ version:4.9
 * **ブループリント エディタ** で追加された関数の **[Pure (純粋)]** のチェックボックスにはチェックを入れないままにします。
 
 
-純粋関数はデータピンへ接続され、依存するデータが要求されるとコンパイラにより自動的に実行されます。つまり、 
+純粋関数はデータピンへ接続され、依存するデータが要求されるとコンパイラにより自動的に実行されます。このため、 
 純粋関数は接続先のノードにつき 1 回ずつ呼び出されます。純粋関数は以下のいずれかのメソッドを使って指定されます。
 
 * コードで定義された関数に対する関数宣言のキーワードに **BlueprintPure** を指定します。
@@ -102,7 +64,7 @@ version:4.9
 
 以下は、**ブループリント クラス** または **Level ブループリント** 内部で関数を作成する方法です。
 
-1. 関数リストヘッダー ![](Engine\Blueprints\Editor\UIComponents\MyBlueprint\myblueprint_function.png) の **[Add (追加)] ボタン** ![](Engine\Blueprints\Editor\UIComponents\MyBlueprint\plus_Button.png) をクリックして、**My Blueprint** タブで新規関数を作成します。
+1. 関数リストヘッダー ![](Engine/Blueprints/Editor/UIComponents/MyBlueprint/myblueprint_function.png) の **[Add (追加)] ボタン** ![](Engine/Blueprints/Editor/UIComponents/MyBlueprint/plus_Button.png) をクリックして、**My Blueprint** タブで新規関数を作成します。
 
 1. 関数名を入力します。
 
@@ -123,7 +85,7 @@ version:4.9
 
 以下は、 **ブループリント インターフェース** 内で関数を作成する方法です。
 
-1. 関数リストヘッダー ![](Engine\Blueprints\Editor\UIComponents\MyBlueprint\myblueprint_function.png) の **[Add] ボタン** ![](Engine\Blueprints\Editor\UIComponents\MyBlueprint\plus_Button.png) をクリックして、**My Blueprint** タブで新規関数を作成します。
+1. 関数リストヘッダー ![](Engine/Blueprints/Editor/UIComponents/MyBlueprint/myblueprint_function.png) の **[Add (追加)] ボタン** ![](Engine/Blueprints/Editor/UIComponents/MyBlueprint/plus_Button.png) をクリックして、**My Blueprint** タブで新規関数を作成します。
 
 1. 関数名を入力します。
 
@@ -171,7 +133,7 @@ version:4.9
 
 1. **[Details (詳細)]** ペインの **[Inputs (入力)]** または **[Outputs (出力)]** セクションのいずれかの**[New (新規)]** ボタンをクリックします。
 
-1. 新パラメータに名前をつけて、ドロップダウン メニューを使用してタイプを設定します。以下の例では、**VectorA** と **VectorB** という名前の 2 つの vector 型のデータ入力と、 **Distance** という名前の float 型のデータがあります。 
+1. 新パラメータに名前をつけて、ドロップダウン メニューを使用してタイプを設定します。以下の例では、 **VectorA** と **VectorB** という名前の 2 つの vector 型のデータ入力と、 **Distance** という名前の float 型のデータがあります。 
 
 	[REGION:raw]
 	![](function_details.png)
@@ -194,7 +156,7 @@ version:4.9
 	[/REGION]
 
 
-ノード端にあるパラメータのピンの位置を変更したい場合、**[Details (詳細)]** ペイン入力を展開して上下の矢印キーを使用します。
+ノード端にあるパラメータのピンの位置を変更したい場合、**[Details]** ペイン入力を展開して上下の矢印キーを使用します。
 
 
 関数に機能を定義する準備ができました。エントリノードと結果ノード間にノード ネットワークを作成してこの作業を行います。

@@ -376,15 +376,22 @@ void ARecastNavMesh::PostInitProperties()
 		static const FNavMeshConfig::FRecastNamedFiltersCreator RecastNamedFiltersCreator(bUseVirtualFilters);
 		NavLinkFlag = FNavMeshConfig::NavLinkFlag;
 	}
-	else if(GetWorld() != NULL)
+
+	UWorld* MyWorld = GetWorld();
+	if (MyWorld != nullptr 
+		&& HasAnyFlags(RF_NeedLoad) //  was loaded
+		&& FNavigationSystem::ShouldDiscardSubLevelNavData(*this))
 	{
 		// get rid of instances saved within levels that are streamed-in
 		if ((GEngine->IsSettingUpPlayWorld() == false) // this is a @HACK
-			&&	(GetWorld()->GetOutermost() != GetOutermost())
+			&&	(MyWorld->GetOutermost() != GetOutermost())
 			// If we are cooking, then let them all pass.
 			// They will be handled at load-time when running.
 			&&	(IsRunningCommandlet() == false))
 		{
+			UE_LOG(LogNavigation, Log, TEXT("Discarding %s due to it not being part of PersistentLevel")
+				, *GetNameSafe(this));
+			
 			// marking self for deletion 
 			CleanUpAndMarkPendingKill();
 		}

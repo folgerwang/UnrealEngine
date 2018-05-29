@@ -12,6 +12,7 @@
 #include "Misc/Parse.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
 #include "Delegates/IDelegateInstance.h"
 #include "Misc/Guid.h"
 #include "Misc/OutputDeviceRedirector.h"
@@ -276,8 +277,12 @@ void FUnixCrashContext::CaptureStackTrace()
 		const SIZE_T StackTraceSize = 65535;
 		ANSICHAR* StackTrace = (ANSICHAR*) FMemory::Malloc( StackTraceSize );
 		StackTrace[0] = 0;
+
+		int32 IgnoreCount = 0;
+		FGenericCrashContext::GeneratePortableCallStack(IgnoreCount, StackTraceSize, this);
+
 		// Walk the stack and dump it to the allocated memory (do not ignore any stack frames to be consistent with check()/ensure() handling)
-		FPlatformStackWalk::StackWalkAndDump( StackTrace, StackTraceSize, 0, this);
+		FPlatformStackWalk::StackWalkAndDump( StackTrace, StackTraceSize, IgnoreCount, this);
 
 #if !PLATFORM_LINUX
 		printf("StackTrace:\n%s\n", StackTrace);
@@ -298,6 +303,8 @@ namespace UnixCrashReporterTracker
 
 	bool Tick(float DeltaTime)
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_UnixCrashReporterTracker_Tick);
+
 		if (!FPlatformProcess::IsProcRunning(CurrentlyRunningCrashReporter))
 		{
 			FPlatformProcess::CloseProc(CurrentlyRunningCrashReporter);
@@ -342,6 +349,16 @@ namespace UnixCrashReporterTracker
 		};
 
 		return true;
+	}
+
+	void RemoveValidCrashReportTickerForChildProcess()
+	{
+		if (CurrentTicker.IsValid())
+		{
+			FTicker::GetCoreTicker().RemoveTicker(CurrentTicker);
+			CurrentTicker.Reset();
+			CurrentlyRunningCrashReporter = FProcHandle();
+		}
 	}
 }
 
@@ -390,32 +407,65 @@ void FUnixCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCra
 		bool bMemoryOnly = FPlatformOutputDevices::GetLog()->IsMemoryOnly();
 		bool bBacklogEnabled = FOutputDeviceRedirector::Get()->IsBacklogEnabled();
 
-		if (bMemoryOnly || bBacklogEnabled)
+		// The minimum free space on drive for saving a crash log
+		const uint64 MinDriveSpaceForCrashLog = 250 * 1024 * 1024;
+		// Max log file size to copy to report folder as will be filtered before submission to crash reporting backend
+		const uint64 MaxFileSizeForCrashLog = 100 * 1024 * 1024;
+
+		// Check whether server has low disk space available
+		uint64 TotalDiskSpace = 0;
+		uint64 TotalDiskFreeSpace = 0;
+		bool bLowDriveSpace = false;
+		if (FPlatformMisc::GetDiskTotalAndFreeSpace(*LogDstAbsolute, TotalDiskSpace, TotalDiskFreeSpace))
 		{
-			FArchive* LogFile = IFileManager::Get().CreateFileWriter(*LogDstAbsolute, FILEWRITE_AllowRead);
-			if (LogFile)
+			if (TotalDiskFreeSpace < MinDriveSpaceForCrashLog)
 			{
-				if (bMemoryOnly)
+				bLowDriveSpace = true;
+			}
+		}
+
+		if (!bLowDriveSpace)
+		{
+			if (bMemoryOnly || bBacklogEnabled)
+			{
+				FArchive* LogFile = IFileManager::Get().CreateFileWriter(*LogDstAbsolute, FILEWRITE_AllowRead);
+				if (LogFile)
 				{
-					FPlatformOutputDevices::GetLog()->Dump(*LogFile);
+					if (bMemoryOnly)
+					{
+						FPlatformOutputDevices::GetLog()->Dump(*LogFile);
+					}
+					else
+					{
+						FOutputDeviceArchiveWrapper Wrapper(LogFile);
+						GLog->SerializeBacklog(&Wrapper);
+					}
+
+					LogFile->Flush();
+					delete LogFile;
+				}
+			}
+			else
+			{
+				const bool bReplace = true;
+				const bool bEvenIfReadOnly = false;
+				const bool bAttributes = false;
+				FCopyProgress* const CopyProgress = nullptr;
+
+				// Only copy the log file if it is MaxLogFileSizeForCrashReport or less (note it will be zlib compressed for submission to data router)				
+				if (IFileManager::Get().FileExists(*LogSrcAbsolute) && IFileManager::Get().FileSize(*LogSrcAbsolute) <= MaxFileSizeForCrashLog)
+				{
+					static_cast<void>(IFileManager::Get().Copy(*LogDstAbsolute, *LogSrcAbsolute, bReplace, bEvenIfReadOnly, bAttributes, CopyProgress, FILEREAD_AllowWrite, FILEWRITE_AllowRead));	// best effort, so don't care about result: couldn't copy -> tough, no log
 				}
 				else
 				{
-					FOutputDeviceArchiveWrapper Wrapper(LogFile);
-					GLog->SerializeBacklog(&Wrapper);
+					FFileHelper::SaveStringToFile(FString(TEXT("Log not available, too large for submission to crash reporting backend")), *LogDstAbsolute);
 				}
-
-				LogFile->Flush();
-				delete LogFile;
 			}
 		}
-		else
+		else if (TotalDiskFreeSpace >= MaxFileSizeForCrashLog)
 		{
-			const bool bReplace = true;
-			const bool bEvenIfReadOnly = false;
-			const bool bAttributes = false;
-			FCopyProgress* const CopyProgress = nullptr;
-			static_cast<void>(IFileManager::Get().Copy(*LogDstAbsolute, *LogSrcAbsolute, bReplace, bEvenIfReadOnly, bAttributes, CopyProgress, FILEREAD_AllowWrite, FILEWRITE_AllowRead));	// best effort, so don't care about result: couldn't copy -> tough, no log
+			FFileHelper::SaveStringToFile(FString(TEXT("Log not available, server has low available disk space")), *LogDstAbsolute);
 		}
 #endif // !NO_LOGGING
 
@@ -448,13 +498,19 @@ void FUnixCrashContext::GenerateCrashInfoAndLaunchReporter(bool bReportingNonCra
 			CrashReportClientArguments += TEXT(" -Unattended ");
 		}
 
+		// Whether to clean up crash reports after send
+		if (IsRunningDedicatedServer() && FParse::Param(FCommandLine::Get(), TEXT("CleanCrashReports")))
+		{
+			CrashReportClientArguments += TEXT(" -CleanCrashReports ");
+		}
+
 		CrashReportClientArguments += CrashInfoAbsolute + TEXT("/");
 
 		if (bReportingNonCrash)
 		{
 			// If we're reporting non-crash, try to avoid spinning here and instead do that in the tick.
 			// However, if there was already a crash reporter running (i.e. we hit ensure() too quickly), take a hitch here
-			if (FPlatformProcess::IsProcRunning(UnixCrashReporterTracker::CurrentlyRunningCrashReporter))
+			if (UnixCrashReporterTracker::CurrentTicker.IsValid())
 			{
 				// do not wait indefinitely, allow 45 second hitch (anticipating callstack parsing)
 				const double kEnsureTimeOut = 45.0;

@@ -19,6 +19,7 @@ class FSlateDrawBox;
 class FSlateDrawText;
 class FSlateDrawShapedText;
 class FSlateDrawLines;
+class FSlateDrawCachedBuffer;
 
 /**
  * A class which batches Slate elements for rendering
@@ -60,6 +61,7 @@ private:
 	void BatchTextElements();
 	void BatchShapedTextElements();
 	void BatchLineElements();
+	void BatchCachedBuffers();
 	
 	FORCEINLINE FColor PackVertexColor(const FLinearColor& InLinearColor) const
 	{
@@ -135,7 +137,7 @@ private:
 
 	void AddCustomVerts( const FSlateDrawElement& DrawElement );
 
-	void AddCachedBuffer( const FSlateDrawElement& DrawElement );
+	void AddCachedBuffer( const FSlateDrawCachedBuffer& DrawElement );
 
 	void AddLayer(const FSlateDrawElement& DrawElement);
 
@@ -176,14 +178,26 @@ private:
 	/** Rendering policy we were created from */
 	FSlateRenderingPolicy* RenderingPolicy;
 
-	/** Track the number of drawn batches from the previous frame to report to stats. */
-	int32 NumDrawnBatchesStat;
-
 	/** Track the number of drawn boxes from the previous frame to report to stats. */
-	int32 NumDrawnBoxesStat;
+	int32 ElmementStat_Boxes;
 
-	/** Track the number of drawn texts from the previous frame to report to stats. */
-	int32 NumDrawnTextsStat;
+	/** Track the number of drawn borders from the previous frame to report to stats. */
+	int32 ElmementStat_Borders;
+
+	/** Track the number of drawn text from the previous frame to report to stats. */
+	int32 ElmementStat_Text;
+
+	/** Track the number of drawn shaped text from the previous frame to report to stats. */
+	int32 ElmementStat_ShapedText;
+
+	/** Track the number of drawn lines from the previous frame to report to stats. */
+	int32 ElmementStat_Line;
+
+	/** Track the number of drawn cached buffers from the previous frame to report to stats. */
+	int32 ElmementStat_CachedBuffer;
+
+	/** Track the number of drawn batches from the previous frame to report to stats. */
+	int32 ElmementStat_Other;
 
 	/** How many post process passes are needed */
 	int32 NumPostProcessPasses;

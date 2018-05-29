@@ -57,8 +57,8 @@ FLinkerSave::FLinkerSave(UPackage* InParent, const TCHAR* InFilename, bool bForc
 		}
 
 		// Set status info.
-		ArIsSaving				= 1;
-		ArIsPersistent			= 1;
+		this->SetIsSaving(true);
+		this->SetIsPersistent(true);
 		ArForceByteSwapping		= bForceByteSwapping;
 
 #if USE_STABLE_LOCALIZATION_KEYS
@@ -110,8 +110,8 @@ FLinkerSave::FLinkerSave(UPackage* InParent, FArchive *InSaver, bool bForceByteS
 		}
 
 		// Set status info.
-		ArIsSaving = 1;
-		ArIsPersistent = 1;
+		this->SetIsSaving(true);
+		this->SetIsPersistent(true);
 		ArForceByteSwapping = bForceByteSwapping;
 
 #if USE_STABLE_LOCALIZATION_KEYS
@@ -158,8 +158,8 @@ FLinkerSave::FLinkerSave(UPackage* InParent, bool bForceByteSwapping, bool bInSa
 		}
 
 		// Set status info.
-		ArIsSaving				= 1;
-		ArIsPersistent			= 1;
+		this->SetIsSaving(true);
+		this->SetIsPersistent(true);
 		ArForceByteSwapping		= bForceByteSwapping;
 
 #if USE_STABLE_LOCALIZATION_KEYS

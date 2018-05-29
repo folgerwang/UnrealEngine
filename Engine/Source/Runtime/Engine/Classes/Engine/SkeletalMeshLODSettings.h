@@ -53,8 +53,9 @@ struct FSkeletalMeshLODGroupSettings
 	GENERATED_USTRUCT_BODY()
 
 	FSkeletalMeshLODGroupSettings()
-		: ScreenSize(0.3f),
-		BoneFilterActionOption(EBoneFilterActionOption::Remove) 
+		: ScreenSize(0.3f)
+		, LODHysteresis(0.0f)
+		, BoneFilterActionOption(EBoneFilterActionOption::Remove) 
 	{}
 	
 	/** Get Skeletal mesh optimizations setting structure for the given LOD level */
@@ -75,7 +76,7 @@ struct FSkeletalMeshLODGroupSettings
 
 	/** The screen sizes to use for the respective LOD level */
 	UPROPERTY(EditAnywhere, Category = LODSetting)
-	float ScreenSize;
+	FPerPlatformFloat ScreenSize;
 
 	/**	Used to avoid 'flickering' when on LOD boundary. Only taken into account when moving from complex->simple. */
 	UPROPERTY(EditAnywhere, Category = LODSetting)
@@ -136,10 +137,11 @@ public:
 	* return # of settings that are set. Return N for 0-(N-1).
 	*/
 	ENGINE_API int32 SetLODSettingsFromMesh(USkeletalMesh* InMesh);
-
-#if WITH_EDITOR
+	
 	// BEGIN UObject interface
+#if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	// END UObject interface
 #endif// WITH_EDITOR
+	virtual void Serialize(FArchive& Ar) override;
+	// END UObject interface
 };

@@ -380,7 +380,7 @@ int32 FMallocLeakDetection::DumpOpenCallstacks(const TCHAR* FileName, const FMal
 
 		TArray<FString> SortedContexts;
 
-		for (const auto& Pair : OpenPointers)
+		for (const TPair<void*, FCallstackTrack>& Pair : CopyTemp(OpenPointers))
 		{
 			if (Pair.Value.CachedHash == Key)
 			{

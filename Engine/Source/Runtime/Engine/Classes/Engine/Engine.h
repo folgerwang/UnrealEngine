@@ -16,6 +16,8 @@
 #include "Misc/FrameRate.h"
 #include "Engine.generated.h"
 
+#define WITH_DYNAMIC_RESOLUTION (!UE_SERVER)
+
 class AMatineeActor;
 class APlayerController;
 class Error;
@@ -108,6 +110,9 @@ enum EConsoleType
 /** Status of dynamic resolution that depends on project setting cvar, game user settings, and pause */
 enum class EDynamicResolutionStatus
 {
+	// Dynamic resolution is not supported by this platform.
+	Unsupported,
+
 	// Dynamic resolution is disabled by project setting cvar r.DynamicRes.OperationMode=0 or disabled by game user
 	// settings with r.DynamicRes.OperationMode=1.
 	Disabled,
@@ -116,7 +121,24 @@ enum class EDynamicResolutionStatus
 	Paused,
 
 	// Dynamic resolution is currently enabled.
-	Enabled
+	Enabled,
+
+	// Forced enabled at static resolution fraction for profiling purpose with r.DynamicRes.TestScreenPercentage.
+	DebugForceEnabled,
+};
+
+/** Information about the state of dynamic resolution. */
+struct FDynamicResolutionStateInfos
+{
+	// Status of dynamic resolution.
+	EDynamicResolutionStatus Status;
+
+	// Approximation of the resolution fraction being applied. This is only an approximation because
+	// of non (and unecessary) thread safety of this value between game thread, and render thread.
+	float ResolutionFractionApproximation;
+
+	// Maximum resolution fraction set, always MaxResolutionFraction >= ResolutionFractionApproximation.
+	float ResolutionFractionUpperBound;
 };
 
 
@@ -1070,6 +1092,9 @@ public:
 	UPROPERTY(globalconfig)
 	float MaxES2PixelShaderAdditiveComplexityCount;
 
+	UPROPERTY(globalconfig)
+	float MaxES3PixelShaderAdditiveComplexityCount;
+
 	/** Range for the lightmap density view mode. */
 	/** Minimum lightmap density value for coloring. */
 	UPROPERTY(globalconfig)
@@ -1605,8 +1630,8 @@ public:
 	 */
 	void RestoreSelectedMaterialColor();
 
-	/** Returns the current status of dynamic resolution. */
-	EDynamicResolutionStatus GetDynamicResolutionStatus() const;
+	/** Queries informations about the current state dynamic resolution. */
+	void GetDynamicResolutionCurrentStateInfos(FDynamicResolutionStateInfos& OutInfos) const;
 
 	/** Pause dynamic resolution for this frame. */
 	void PauseDynamicResolution();
@@ -1614,7 +1639,7 @@ public:
 	/** Resume dynamic resolution for this frame. */
 	FORCEINLINE void ResumeDynamicResolution()
 	{
-		#if !UE_SERVER
+		#if WITH_DYNAMIC_RESOLUTION
 			bIsDynamicResolutionPaused = false;
 			UpdateDynamicResolutionStatus();
 		#endif // !UE_SERVER
@@ -1626,7 +1651,7 @@ public:
 	/** Get's global dynamic resolution state */
 	FORCEINLINE class IDynamicResolutionState* GetDynamicResolutionState()
 	{
-		#if UE_SERVER
+		#if !WITH_DYNAMIC_RESOLUTION
 			return nullptr;
 		#else
 			// Returns next's frame dynamic resolution state to keep game thread consistency after a ChangeDynamicResolutionStateAtNextFrame().
@@ -1643,7 +1668,7 @@ public:
 	/** Get the user setting for dynamic resolution. */
 	FORCEINLINE bool GetDynamicResolutionUserSetting() const
 	{
-		#if UE_SERVER
+		#if !WITH_DYNAMIC_RESOLUTION
 			return false;
 		#else
 			return bDynamicResolutionEnableUserSetting;
@@ -1653,7 +1678,7 @@ public:
 	/** Set the user setting for dynamic resolution. */
 	FORCEINLINE void SetDynamicResolutionUserSetting(bool Enable)
 	{
-		#if !UE_SERVER
+		#if WITH_DYNAMIC_RESOLUTION
 			bDynamicResolutionEnableUserSetting = Enable;
 			UpdateDynamicResolutionStatus();
 		#endif
@@ -1661,7 +1686,7 @@ public:
 
 
 private:
-	#if !UE_SERVER
+	#if WITH_DYNAMIC_RESOLUTION
 		/** Last dynamic resolution event. */
 		EDynamicResolutionStateEvent LastDynamicResolutionEvent;
 
@@ -1926,6 +1951,7 @@ public:
 	bool HandleListTexturesCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleListStaticMeshesCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleListSkeletalMeshesCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleListAnimsCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleRemoteTextureStatsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleListParticleSystemsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleListSpawnedActorsCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
@@ -2019,7 +2045,7 @@ public:
 	/**
 	 * Updates the values used to calculate the average game/render/gpu/total time
 	 */
-	void SetAverageUnitTimes(float FrameTime, float RenderThreadTime, float GameThreadTime, float GPUFrameTime);
+	void SetAverageUnitTimes(float FrameTime, float RenderThreadTime, float GameThreadTime, float GPUFrameTime, float RHITFrameTime);
 
 	/**
 	 * Returns the display color for a given frame time (based on t.TargetFrameTimeThreshold and t.UnacceptableFrameTimeThreshold)
@@ -2903,12 +2929,6 @@ public:
 
 	/** @return true if editor analytics are enabled */
 	virtual bool AreEditorAnalyticsEnabled() const { return false; }
-	/** @return true if in-game analytics are enabled */
-	bool AreGameAnalyticsEnabled() const;
-	/** @return true if in-game analytics are sent with an anonymous GUID rather than real account and machine ids */
-	bool AreGameAnalyticsAnonymous() const;
-	/** @return true if in-game MTBF analytics are enabled */
-	bool AreGameMTBFEventsEnabled() const;
 	virtual void CreateStartupAnalyticsAttributes( TArray<struct FAnalyticsEventAttribute>& StartSessionAttributes ) const {}
 	
 	/** @return true if the engine is autosaving a package */

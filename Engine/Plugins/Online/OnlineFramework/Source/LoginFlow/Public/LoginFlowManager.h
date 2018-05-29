@@ -9,6 +9,7 @@ class FUniqueNetId;
 class FOnlineSubsystemMcp;
 class SWidget;
 struct FLoginFlowProperties;
+struct FAccountCreationFlowProperties;
 
 /**
  * Create and configure one of these to enable web login flow in your application
@@ -23,13 +24,18 @@ public:
 	~FLoginFlowManager();
 
 	//~ Begin ILoginFlowManager interface
-	virtual bool AddLoginFlow(FName OnlineIdentifier, const FOnDisplayPopup& InPopupDelegate, bool bPersistCookies) override;
+	virtual bool AddLoginFlow(FName OnlineIdentifier, const FOnDisplayPopup& InPopupDelegate, const FOnDisplayPopup& InCreationFlowPopupDelegate, bool bPersistCookies) override;
 	virtual bool HasLoginFlow(FName OnlineIdentifier) override;
 	virtual void CancelLoginFlow() override;
+	virtual void CancelAccountCreationFlow() override;
 	virtual void Reset() override;
 	//~ End ILoginFlowManager interface
 
 private:
+
+	/**
+	 * Login flow
+	 */
 
 	/** Delegate fired by the web engine on any error */
 	void OnLoginFlow_Error(ELoginFlowErrorResult ErrorType, const FString& ErrorInfo, FString InstanceId);
@@ -47,16 +53,40 @@ private:
 
 private:
 
+	/**
+	 * Account creation
+	 */
+
+	/** Delegate fired by the web engine on any error */
+	void OnAccountCreationFlow_Error(ELoginFlowErrorResult ErrorType, const FString& ErrorInfo, FString InstanceId);
+	/** Delegate fired when the browser window is closed */
+	void OnAccountCreationFlow_Close(const FString& CloseInfo, FString InstanceId);
+	/** Delegate fired when the browser window indicates a URL redirect */
+	bool OnAccountCreationFlow_RedirectURL(const FString& RedirectURL, FString InstanceId);
+	/** Delegate fired when an account creation flow is requested by an external provider */
+	void OnAccountCreationFlowStarted(const FString& RequestedURL, const FOnLoginRedirectURL& OnRedirectURL, const FOnLoginFlowComplete& OnAccountCreationFlowComplete, bool& bOutShouldContinueAccountCreation, FName InOnlineIdentifier);
+	/** Finish account creation flow, notifying listeners */
+	void FinishAccountCreation();
+
+
+private:
+
+	bool IsFlowInProgress() const { return PendingLogin.IsValid() || PendingAccountCreation.IsValid(); }
+
 	struct FOnlineParams
 	{
 		/** Online identifier <subsystem>:<instancename> that describes the OnlineSubsystem */
 		FName OnlineIdentifier;
-		/** Single-cast delegate instance (bind to this to handle display) */
-		FOnDisplayPopup OnDisplayPopup;
+		/** Single-cast delegate instance (bind to this to handle login flow display) */
+		FOnDisplayPopup OnLoginFlowPopup;
 		/** Handle to bound login flow ui required delegate */
 		FDelegateHandle LoginFlowUIRequiredDelegateHandle;
 		/** Handle to bound login flow logout delegate */
 		FDelegateHandle LoginFlowLogoutDelegateHandle;
+		/** Single-cast delegate instance (bind to this to handle account creation flow display) */
+		FOnDisplayPopup OnAccountCreationFlowPopup;
+		/** Handle to bound account creation flow ui required delegate */
+		FDelegateHandle AccountCreationFlowUIRequiredDelegateHandle;
 		/** Optional browser context settings if bPersistCookies is false */
 		TSharedPtr<FBrowserContextSettings> BrowserContextSettings;
 	};
@@ -64,9 +94,9 @@ private:
 	/** Mapping of online subsystem identifiers to the parameters they have setup for login flow */
 	TMap<FName, FOnlineParams> OnlineSubsystemsMap;
 
-	/** Is there a login attempt in progress */
-	bool bLoginFlowInProgress;
 	/** Properties related to the current login attempt */
 	TUniquePtr<FLoginFlowProperties> PendingLogin;
+	/** Properties related to the current account creation attempt */
+	TUniquePtr<FAccountCreationFlowProperties> PendingAccountCreation;
 };
 

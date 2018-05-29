@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3243860
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:結果を得る
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Optimization
@@ -71,16 +71,9 @@ LOD 設定に関する技術的な詳細は、[カスケード リファレン�
 
 LOD を作成する場合は、共有されていないモジュールに関連してメモリの負荷が生じることに留意しなければなりません。複数の LOD でできる限り多くのモジュールを共有すると、メモリの使用量を減らすことができます。ユニークなモジュール設定項目を作成するのは、属性を変更する場合にのみ行うようにします。
 
+![detailModes.png](detailModes.png)(convert:false)
 
-
-[OBJECT:topiclistnotitlealt]
-	[PARAM:icon]
-		![detailModes.png](detailModes.png)(convert:false)
-	[/PARAM]
-	[PARAM:description]
-	[INCLUDE:#lodfloat]
-	[/PARAM]
-[/OBJECT]
+[INCLUDE:#lodfloat]
 
 [COMMENT:none]
 

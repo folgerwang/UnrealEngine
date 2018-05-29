@@ -49,25 +49,10 @@ public class OnlineSubsystemGoogle : ModuleRules
 
 			PublicAdditionalFrameworks.Add(
 			new UEBuildFramework(
-				"GoogleAppUtilities",
-				"ThirdParty/IOS/GoogleSignInSDK/GoogleAppUtilities.embeddedframework.zip"
-			)
-			);
-
-			PublicAdditionalFrameworks.Add(
-			new UEBuildFramework(
 				"GoogleSignInDependencies",
 				"ThirdParty/IOS/GoogleSignInSDK/GoogleSignInDependencies.embeddedframework.zip"
 			)
 			);
-
-			PublicAdditionalFrameworks.Add(
-			new UEBuildFramework(
-				"GoogleSymbolUtilities",
-				"ThirdParty/IOS/GoogleSignInSDK/GoogleSymbolUtilities.embeddedframework.zip"
-			)
-			);
-
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Android)
 		{
@@ -99,6 +84,14 @@ public class OnlineSubsystemGoogle : ModuleRules
 		{
 			bUsesRestfulImpl = true;
 		}
+		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		{
+			bUsesRestfulImpl = true;
+		}
+        else if (Target.Platform == UnrealTargetPlatform.Switch)
+        {
+            bUsesRestfulImpl = true;
+        }
 		else
 		{
 			PrecompileForTargets = PrecompileTargetsType.None;

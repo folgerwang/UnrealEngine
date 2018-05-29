@@ -168,13 +168,15 @@ UGarbageCollectionSettings::UGarbageCollectionSettings()
 	TimeBetweenPurgingPendingKillObjects = 60.0f;
 	FlushStreamingOnGC = false;
 	AllowParallelGC = true;
+	IncrementalBeginDestroyEnabled = true;
 	NumRetriesBeforeForcingGC = 0;
 	MaxObjectsNotConsideredByGC = 0;
 	SizeOfPermanentObjectPool = 0;
 	MaxObjectsInEditor = 12 * 1024 * 1024;
-	MaxObjectsInGame = 2 * 1024 * 1024;
-	CreateGCClusters = true;
+	MaxObjectsInGame = 2 * 1024 * 1024;	
+	CreateGCClusters = true;	
 	MergeGCClusters = false;
+	MinGCClusterSize = 5;
 	ActorClusteringEnabled = true;
 	BlueprintClusteringEnabled = false;
 	UseDisregardForGCOnDedicatedServers = false;

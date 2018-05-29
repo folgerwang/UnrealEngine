@@ -67,11 +67,12 @@ public:
 	/**
      * Create a format specific archive for precompiled shader code.
      *
+     * @param LibraryName The name of this shader library.
      * @param Format The format of shaders to cache.
      * @param WorkingDirectory The working directory.
      * @returns An archive object on success or nullptr on failure.
      */
-    virtual class IShaderFormatArchive* CreateShaderArchive( FName Format, const FString& WorkingDirectory ) const { return nullptr; }
+    virtual class IShaderFormatArchive* CreateShaderArchive( FString const& LibraryName, FName Format, const FString& WorkingDirectory ) const { return nullptr; }
 	
 	/**
 	 * Can the shader format compile shaders to the native binary format for the platform.

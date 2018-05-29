@@ -7,6 +7,8 @@
 #include "MakeStructHandler.h"
 #include "KismetCompiler.h"
 #include "BlueprintEditorSettings.h"
+#include "K2Node_VariableGet.h"
+#include "K2Node_Knot.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_MakeStruct"
 
@@ -118,6 +120,7 @@ public:
 
 UK2Node_SetFieldsInStruct::UK2Node_SetFieldsInStruct(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bRecursionGuard(false)
 {
 }
 
@@ -194,6 +197,51 @@ void UK2Node_SetFieldsInStruct::ValidateNodeDuringCompilation(FCompilerResultsLo
 	{
 		FText ErrorMessage = LOCTEXT("SetStructFields_NoStructRefError", "The @@ pin must be connected to the struct that you wish to set.");
 		MessageLog.Error(*ErrorMessage.ToString(), FoundPin);
+		return;
+	}
+
+	// Attempt to determine if we're linked to a getter node for a BlueprintReadOnly property.
+
+	for (UEdGraphPin* SourceStructOutputPin : FoundPin->LinkedTo)
+	{
+		BackTracePinPath(SourceStructOutputPin, [&MessageLog](UEdGraphPin* LinkedStructSourcePin) {
+			if (UK2Node_VariableGet* GetterNode = Cast<UK2Node_VariableGet>(LinkedStructSourcePin->GetOwningNode()))
+			{
+				if (UProperty* BoundProperty = GetterNode->GetPropertyForVariable())
+				{
+					if (BoundProperty->HasAnyPropertyFlags(CPF_BlueprintReadOnly))
+					{
+						// TODO, This should REALLY be an error, but too much code may have been written not following this standard.
+						FText ErrorMessage = LOCTEXT("SetStructFields_StructIsConst", "The @@ is a Read Only property and can not be modified directly.");
+						MessageLog.Warning(*ErrorMessage.ToString(), LinkedStructSourcePin);
+					}
+				}
+			}
+		});
+	}
+}
+
+void UK2Node_SetFieldsInStruct::BackTracePinPath(UEdGraphPin* OutputPin, TFunctionRef<void(UEdGraphPin*)> Predicate) const
+{
+	if (bRecursionGuard)
+	{
+		return;
+	}
+	
+	TGuardValue<bool> RecursionGuard(bRecursionGuard, true);
+
+	UEdGraphNode* OwningNode = OutputPin->GetOwningNode();
+	if (UK2Node_Knot* KnotNode = Cast<UK2Node_Knot>(OwningNode))
+	{
+		UEdGraphPin* KnotInputPin = KnotNode->GetInputPin();
+		for (UEdGraphPin* KnotInput : KnotInputPin->LinkedTo)
+		{
+			BackTracePinPath(KnotInput, Predicate);
+		}
+	}
+	else if(OwningNode)
+	{
+		Predicate(OutputPin);
 	}
 }
 

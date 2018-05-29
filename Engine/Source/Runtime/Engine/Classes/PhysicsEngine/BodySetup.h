@@ -186,6 +186,9 @@ class UBodySetup : public UObject
 	/** Flag used to know if we have created the physics convex and tri meshes from the cooked data yet */
 	uint8 bCreatedPhysicsMeshes:1;
 
+	/** Flag used to know if we have failed to create physics meshes. Note that this is not the inverse of bCreatedPhysicsMeshes which is true even on failure */
+	uint8 bFailedToCreatePhysicsMeshes:1;
+
 	/** Indicates whether this setup has any cooked collision data. */
 	uint8 bHasCookedCollisionData:1;
 

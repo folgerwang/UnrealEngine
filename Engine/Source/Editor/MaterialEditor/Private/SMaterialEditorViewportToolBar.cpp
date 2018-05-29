@@ -69,7 +69,6 @@ TSharedRef<SWidget> SMaterialEditorViewportToolBar::GenerateShowMenu() const
 		auto Commands = FMaterialEditorCommands::Get();
 
 		ShowMenuBuilder.AddMenuEntry(Commands.ToggleMaterialStats);
-		ShowMenuBuilder.AddMenuEntry(Commands.ToggleMobileStats);
 
 		ShowMenuBuilder.AddMenuSeparator();
 

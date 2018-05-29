@@ -255,6 +255,8 @@ uint32 GRenderThreadIdle[ERenderThreadIdleTypes::Num] = {0};
 uint32 GRenderThreadNumIdle[ERenderThreadIdleTypes::Num] = {0};
 /** How many cycles the renderthread used (excluding idle time). It's set once per frame in FViewport::Draw. */
 uint32 GRenderThreadTime = 0;
+/** How many cycles the rhithread used (excluding idle time). */
+uint32 GRHIThreadTime = 0;
 
 
 

@@ -11,6 +11,7 @@
 #include "UObject/ObjectMacros.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "UObject/PrimaryAssetId.h"
+#include "Templates/Function.h"
 #include "Templates/IsArrayOrRefOfType.h"
 #include "Serialization/ArchiveUObject.h"
 
@@ -51,6 +52,8 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("NetSerializeFast Array BuildMap"),STAT_NetSerial
 
 /** set while in SavePackage() to detect certain operations that are illegal while saving */
 extern COREUOBJECT_API bool					GIsSavingPackage;
+/** This allows loading unversioned cooked content in the editor */
+extern COREUOBJECT_API bool					GAllowUnversionedContentInEditor;
 
 namespace EDuplicateMode
 {
@@ -174,6 +177,8 @@ COREUOBJECT_API FString ResolveIniObjectsReference(const FString& ObjectReferenc
 COREUOBJECT_API bool ResolveName(UObject*& Outer, FString& ObjectsReferenceString, bool Create, bool Throw, uint32 LoadFlags = LOAD_None);
 COREUOBJECT_API void SafeLoadError( UObject* Outer, uint32 LoadFlags, const TCHAR* ErrorMessage);
 
+COREUOBJECT_API int32 UpdateSuffixForNextNewObject(UObject* Parent, UClass* Class, TFunctionRef<void(int32&)> IndexMutator);
+
 /**
  * Fast version of StaticFindObject that relies on the passed in FName being the object name
  * without any group/ package qualifiers.
@@ -278,7 +283,7 @@ COREUOBJECT_API void StaticTick( float DeltaTime, bool bUseFullTimeLimit = true,
  * @param	LoadFlags	Flags controlling loading behavior
  * @return	Loaded package if successful, NULL otherwise
  */
-COREUOBJECT_API UPackage* LoadPackage( UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags );
+COREUOBJECT_API UPackage* LoadPackage( UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, FArchive* InReaderOverride = nullptr );
 
 /* Async package loading result */
 namespace EAsyncLoadingResult
@@ -1278,6 +1283,13 @@ inline T* GetMutableDefault()
 template< class T > 
 inline T* GetMutableDefault(UClass *Class);
 
+// Returns true if a class has been loaded (e.g. it has a CDO)
+template< class T >
+inline bool IsClassLoaded()
+{
+	return T::StaticClass()->GetDefaultObject(false) != nullptr;
+}
+
 /**
  * Looks for delegate signature with given name.
  */
@@ -1973,6 +1985,9 @@ struct COREUOBJECT_API FCoreUObjectDelegates
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnRedirectorFollowed, const FString&, UObject*);
 	DEPRECATED(4.17, "RedirectorFollowed is deprecated, FixeupRedirects was replaced with ResavePackages -FixupRedirect")
 	static FOnRedirectorFollowed RedirectorFollowed;
+
+	DECLARE_DELEGATE_RetVal_TwoParams(bool, FShouldCookPackageForPlatform, const UPackage*, const ITargetPlatform*);
+	static FShouldCookPackageForPlatform ShouldCookPackageForPlatform;
 };
 
 /** Allows release builds to override not verifying GC assumptions. Useful for profiling as it's hitchy. */
@@ -2118,29 +2133,6 @@ namespace UE4CodeGen_Private
 	{
 		NotNative,
 		Native
-	};
-
-	// These templates exist to help generate better code for pointers to lambdas in Clang.
-	// They simply provide a static function which, when called, will call the lambda, and we can take the
-	// address of this function.  Using lambdas' implicit conversion to function type will generate runtime code bloat.
-	template <typename LambdaType>
-	struct TBoolSetBitWrapper
-	{
-		static void SetBit(void* Ptr)
-		{
-			TBoolSetBitWrapper Empty;
-			(*(LambdaType*)&Empty)(Ptr);
-		}
-	};
-
-	template <typename LambdaType>
-	struct TNewCppStructOpsWrapper
-	{
-		static void* NewCppStructOps()
-		{
-			TNewCppStructOpsWrapper Empty;
-			return (*(LambdaType*)&Empty)();
-		}
 	};
 
 #if WITH_METADATA

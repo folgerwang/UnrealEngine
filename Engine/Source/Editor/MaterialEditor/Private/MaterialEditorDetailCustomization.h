@@ -41,13 +41,17 @@ private:
 	void CreateParameterValueWidget(class UDEditorParameterValue* Parameter, TSharedPtr<IPropertyHandle> ParameterProperty, IDetailGroup& DetailGroup);
 	void CreateMaskParameterValueWidget(class UDEditorParameterValue* Parameter, TSharedPtr<IPropertyHandle> ParameterProperty, IDetailGroup& DetailGroup);
 	void CreateVectorChannelMaskParameterValueWidget(class UDEditorParameterValue* Parameter, TSharedPtr<IPropertyHandle> ParameterProperty, IDetailGroup& DetailGroup);
-
+	void CreateScalarAtlasPositionParameterValueWidget(class UDEditorParameterValue* Parameter, TSharedPtr<IPropertyHandle> ParameterProperty, IDetailGroup& DetailGroup);
+	FString GetCurvePath(class UDEditorScalarParameterValue* Parameter) const;
 	/** Gets the expression description of this parameter from the the base material */
 	FText GetParameterExpressionDescription(class UDEditorParameterValue* Parameter) const;
 
 private:
 	/** Object that stores all of the possible parameters we can edit */
 	UMaterialEditorPreviewParameters* MaterialEditorInstance;
+
+	/** Associated UMaterialEditorPreviewParameters utilities */
+	TWeakPtr<class IPropertyUtilities> PropertyUtilities;
 
 };
 

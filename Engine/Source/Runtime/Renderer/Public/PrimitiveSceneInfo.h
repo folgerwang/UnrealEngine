@@ -394,6 +394,9 @@ public:
 	 */
 	FORCEINLINE const int32* GetIndexAddress() const { return &PackedIndex; }
 
+	/** Simple comparison against the invalid values used before/after scene add/remove. */
+	FORCEINLINE bool IsIndexValid() const { return PackedIndex != INDEX_NONE && PackedIndex != MAX_int32; }
+
 	/* @return true if the object needs to be rendered in the velocity pass (is not moving like the world, needed for motionblur and TemporalAA) */
 	bool ShouldRenderVelocity(const FViewInfo& View, bool bCheckVisibility = true) const;
 	
@@ -449,6 +452,9 @@ private:
 
 	/** If this is TRUE, this primitive's precomputed lighting buffer needs to be updated before it can be rendered. */
 	bool bPrecomputedLightingBufferDirty;
+
+	/** If this is TRUE, this primitive's proxy LCIs have had a precomputed lighting buffer allocated. */
+	bool bPrecomputedLightingBufferAssignedToProxyLCIs;
 };
 
 /** Defines how the primitive is stored in the scene's primitive octree. */

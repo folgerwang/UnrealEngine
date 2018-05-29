@@ -171,7 +171,7 @@ struct FEngineServiceNotification
 	double TimeSeconds;
 
 	/** Default constructor. */
-	FEngineServiceNotification() { }
+	FEngineServiceNotification() : TimeSeconds(0.0) { }
 
 	/** Creates and initializes a new instance. */
 	FEngineServiceNotification(const FString& InText, double InTimeSeconds)

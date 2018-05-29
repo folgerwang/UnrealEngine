@@ -132,9 +132,10 @@ public:
 	void AttachWidget(const TSharedPtr<SWidget>& InWidget)
 	{
 		WidgetPtr = InWidget;
-#if SLATE_DYNAMIC_PREPASS
-		if (Owner) { Owner->InvalidatePrepass(); }
-#endif
+		if (Owner) 
+		{ 
+			Owner->InvalidatePrepass();
+		}
 #if SLATE_PARENT_POINTERS
 		if (Owner)
 		{
@@ -269,7 +270,10 @@ public:
 			return INDEX_NONE;
 		}
 
-		Slot->AttachWidgetParent(Owner);
+		if (Owner)
+		{
+			Slot->AttachWidgetParent(Owner);
+		}
 
 		return TIndirectArray< SlotType >::Add(Slot);
 	}
@@ -293,9 +297,14 @@ public:
 
 	void Insert(SlotType* Slot, int32 Index)
 	{
-		if(!bEmptying)
+		if (!bEmptying)
 		{
-			Slot->AttachWidgetParent(Owner);
+			// Don't do parent manipulation if this panel has no owner.
+			if (Owner)
+			{
+				Slot->AttachWidgetParent(Owner);
+			}
+
 			TIndirectArray< SlotType >::Insert(Slot, Index);
 		}
 	}
@@ -328,8 +337,7 @@ public:
 	}
 
 	const SlotType& operator[](int32 Index) const { return TIndirectArray< SlotType >::operator[](Index); }
-
-	SlotType& operator[](int32 Index) { return TIndirectArray< SlotType >::operator[](Index ); }
+	SlotType& operator[](int32 Index) { return TIndirectArray< SlotType >::operator[](Index); }
 
 	template <class PREDICATE_CLASS>
 	void Sort( const PREDICATE_CLASS& Predicate )
@@ -388,9 +396,11 @@ public:
 
 	int32 Add( const TSharedRef<ChildType>& Child )
 	{
-#if SLATE_DYNAMIC_PREPASS
-		if (Owner && bChangesInvalidatePrepass) { Owner->InvalidatePrepass(); }
-#endif
+		if (Owner && bChangesInvalidatePrepass)
+		{ 
+			Owner->InvalidatePrepass(); 
+		}
+
 #if SLATE_PARENT_POINTERS
 		if (Owner)
 		{
@@ -411,7 +421,7 @@ public:
 			TSharedRef<SWidget> Child = GetChildAt(ChildIndex);
 			if (Child != SNullWidget::NullWidget)
 			{
-				Child->AssignParentWidget(TSharedPtr<SWidget>());
+				Child->ConditionallyDetatchParentWidget(Owner);
 			}
 		}
 #endif
@@ -421,9 +431,10 @@ public:
 
 	void Insert(const TSharedRef<ChildType>& Child, int32 Index)
 	{
-#if SLATE_DYNAMIC_PREPASS
-		if (Owner && bChangesInvalidatePrepass) { Owner->InvalidatePrepass(); }
-#endif
+		if (Owner && bChangesInvalidatePrepass) 
+		{ 
+			Owner->InvalidatePrepass();
+		}
 #if SLATE_PARENT_POINTERS
 		if (Owner)
 		{
@@ -441,7 +452,7 @@ public:
 #if SLATE_PARENT_POINTERS
 		if (Child != SNullWidget::NullWidget)
 		{
-			Child->AssignParentWidget(TSharedPtr<SWidget>());
+			Child->ConditionallyDetatchParentWidget(Owner);
 		}
 #endif
 		const int32 NumFoundAndRemoved = TArray< TSharedRef<ChildType> >::Remove( Child );
@@ -454,7 +465,7 @@ public:
 		TSharedRef<SWidget> Child = GetChildAt(Index);
 		if (Child != SNullWidget::NullWidget)
 		{
-			Child->AssignParentWidget(TSharedPtr<SWidget>());
+			Child->ConditionallyDetatchParentWidget(Owner);
 		}
 #endif
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:언리얼 엔진 실행하기
 Crumbs: %ROOT%, GettingStarted
@@ -43,165 +43,14 @@ mac
 
 
 ## 에디터 실행하기
-[EXCERPT:RunEditor]
-[PUBLISH:Licensee]
 
-언리얼 에디터 사본을 실행시키는 프로세스 입니다.
-
-[/PUBLISH:Licensee]
-
-[PUBLISH:Rocket]
-
-에디터 실행은, 단순히 실행시킬 프로젝트 이름을 실행파일에 인수로 붙여 전달해 주기만 하면 됩니다.
-
-[REGION:note]
-실행파일에 `-debug` 스위치를 붙이면 프로젝트의 디버그 버전 모듈을 강제 로드시킬 수 있으며, 여기에는 
-디버깅 심볼이 전부 포함됩니다. 이 작업은 Visual Studio 환경설정이 **Debug** 로 설정된 것을 디버깅할 때도 필수인데,
-그 이유는 주 실행파일은 항상 **Development** 환경설정을 사용하여 컴파일되기 때문입니다. 
-로드할 실행파일이 존재하기 위해서는 먼저 **Debug** 환경설정을 사용해서 모듈을 로드해야 함은 물론입니다.
-[/REGION]
-
-[/PUBLISH:Rocket]
-
-### 명령줄에서 에디터 실행하기
-
-[PUBLISH:Licensee]
-1.	명령줄에서 `UE4` 아래 `\Engine\Binaries\Win64` 디렉토리로 이동합니다.
-
-1.	`UE4Editor.exe` 에 실행시킬 게임 이름을 인수로 붙여 실행합니다:
-
-|프로젝트 위치|명령줄|
-|----------------|--------------|
-|UE4 루트 | `UE4Editor.exe MyGame`|
-|다른 위치| `UE4Editor.exe "[ProjectPath]\[ProjectName].uproject"`|
-
-
-
-[/PUBLISH:Licensee]
-
-[PUBLISH:Rocket]
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	active_button_content
-	[/PARAMLITERAL]
-	[PARAM:content]
-	1.	명령줄에서 `[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64` 디렉토리로 이동합니다.
-
-	1.	`UE4Editor.exe` 에 프로젝트 경로를 인수로 붙여 실행합니다.
-
-			UE4Editor.exe "[ProjectPath]\[ProjectName].uproject"
-	[/PARAM]
-[/OBJECT]
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	1.	명령줄에서 `[LauncherInstall]\[VersionNumber]/Engine/Binaries/Mac` 디렉토리로 이동합니다.
-
-	1.	`UE4Editor.app` 에 프로젝트 경로를 붙여서 실행합니다.
-
-			open UE4Editor.app --args "[ProjectPath]/[ProjectName].uproject"
-	[/PARAM]
-[/OBJECT]
-[/PUBLISH:Rocket]
-
-
-### 실행파일에서 에디터 실행하기
-
-[PUBLISH:Licensee]
-
-
-1.	`UE4` 아래 `\Engine\Binaries\Win64` 디렉토리로 이동합니다.
-
-1.	`UE4Editor.exe` 실행파일에 우클릭한 다음 **바로 가기 만들기** 를 선택합니다.
-
-1.	실행시킬 게임 이름과 에디터를 실행시킨다는 사실을 반영하여 바로 가기 이름을 **MyGameEditor.exe** 식으로 바꿔줍니다.
-
-1.	새로 만든 바로 가기에 우클릭한 다음 **속성** 을 선택합니다.
-
-1.	**대상** 칸 끝에 실행시킬 게임 이름을 인수로 추가해 줍니다:
-
-|프로젝트 위치|타겟|
-|----------------|--------------|
-|UE4 루트 | `[UE4Directory]\Engine\Binaries\Win64\UE4Editor.exe MyGame`|
-|다른 위치| `[UE4Directory]\Engine\Binaries\Win64\UE4Editor.exe "[ProjectPath]\[ProjectName].uproject"`|
-
-
-1. **OK** 를 눌러 변경내용을 저장합니다.
-
-1.	바로 가기를 더블클릭하여 에디터를 실행시킵니다.
-
-[/PUBLISH:Licensee]
-
-[PUBLISH:Rocket]
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	active_button_content
-	[/PARAMLITERAL]
-	[PARAM:content]
-	1.	`[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64` 디렉토리로 이동합니다.
-
-	1.	`UE4Editor.exe` 실행파일에 우클릭한 다음 **바로 가기 만들기** 를 선택합니다.
-
-	1.	실행시킬 게임 이름과 에디터를 실행시킨다는 사실을 반영하여 바로 가기 이름을 **MyProject - Editor.exe** 식으로 바꿔줍니다.
-
-	1.	새로 만든 바로 가기에 우클릭한 다음 **속성** 을 선택합니다.
-
-	1.	**대상** 칸 끝에 실행시킬 게임 이름을 인수로 추가해 줍니다:
-
-			[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64\UE4Editor.exe "[ProjectPath]\[ProjectName].uproject"
-
-	1. **OK** 를 눌러 변경내용을 저장합니다.
-
-	1.	바로 가기를 더블클릭하여 에디터를 실행시킵니다.
-	[/PARAM]
-[/OBJECT]
-[OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	에디터는 반드시 명령줄에서 실행시켜야 특정 프로젝트를 바로 로드할 수 있으며, 인수가 없으면 프로젝트 브라우저가 열립니다.
-	[/PARAM]
-[/OBJECT]
-[/PUBLISH:Rocket]
-
-### 인수 없이 에디터 실행하기 (독립형)
-
-에디터 시작시 가장 최근 프로젝트를 열도록 설정되지 않았을 때, 에디터 실행파일을 아무런 인수 없이 실행시키면 프로젝트 브라우저가 뜹니다. 
-여기서 [새 프로젝트를 만들거나](Engine/Basics/Projects/Browser#새프로젝트만들기), [기존 프로젝트를 열거나](Engine/Basics/Projects/Browser#프로젝트열기), 
-[콘텐츠 예제 또는 샘플 게임을 열 수](Resources) 있습니다.
-
-[/EXCERPT:RunEditor]
+[INCLUDE:#RunEditor]
 
 ## 쿠킹되지 않은 게임 실행하기
 
 언리얼 에디터에 프로젝트가 로드되고 나면, **플레이:** 메뉴에서 Uncooked Game 모드로 [게임플레이 테스트](Engine/UI/LevelEditor/InEditorTesting#모드) 가 가능합니다.
 독립된 창에서 쿠킹안된 게임을 플레이하려면, 레벨 에디터 툴바의 [**플레이:** 드롭다운 메뉴](Engine/UI/LevelEditor/InEditorTesting#툴바) 를 사용하여 
-[**새 창 위치:** > **기본 플레이어 스타트** 모드](Engine/UI/LevelEditor/InEditorTesting#모드) 를 선택하시기 바랍니다.
+[**새 창 위치:** > **기본 플레이어 스타트** 모드](Engine/UI/LevelEditor/InEditorTesting) 를 선택하시기 바랍니다.
 
 
 
@@ -517,37 +366,159 @@ $ VIEWMODE [Mode] :
 
 	travel DM-Deck
 
+[/EXCERPT:Main]
 
 [COMMENT:none]
+[EXCERPT:RunEditor]
+[PUBLISH:Licensee]
+
+언리얼 에디터 사본을 실행시키는 프로세스 입니다.
+
+[/PUBLISH:Licensee]
+
+[PUBLISH:Rocket]
+
+에디터 실행은, 단순히 실행시킬 프로젝트 이름을 실행파일에 인수로 붙여 전달해 주기만 하면 됩니다.
+
+[REGION:note]
+실행파일에 `-debug` 스위치를 붙이면 프로젝트의 디버그 버전 모듈을 강제 로드시킬 수 있으며, 여기에는 
+디버깅 심볼이 전부 포함됩니다. 이 작업은 Visual Studio 환경설정이 **Debug** 로 설정된 것을 디버깅할 때도 필수인데,
+그 이유는 주 실행파일은 항상 **Development** 환경설정을 사용하여 컴파일되기 때문입니다. 
+로드할 실행파일이 존재하기 위해서는 먼저 **Debug** 환경설정을 사용해서 모듈을 로드해야 함은 물론입니다.
+[/REGION]
+
+[/PUBLISH:Rocket]
+
+### 명령줄에서 에디터 실행하기
 
 [PUBLISH:Licensee]
-## 쿠킹된 콘텐츠로 게임 실행하기
+1.	명령줄에서 `UE4` 아래 `\Engine\Binaries\Win64` 디렉토리로 이동합니다.
 
-게임 실행파일은 쿠킹된 콘텐츠가 있어야 실행시킬 수 있습니다.
+1.	`UE4Editor.exe` 에 실행시킬 게임 이름을 인수로 붙여 실행합니다:
 
+|프로젝트 위치|명령줄|
+|----------------|--------------|
+|UE4 루트 | `UE4Editor.exe MyGame`|
+|다른 위치| `UE4Editor.exe "[ProjectPath]\[ProjectName].uproject"`|
 
-### 명령줄에서 실행
-
-1.	명령줄 대기상태에서 게임 디렉토리 아래 `\Binaries\Win32` 폴더로 이동합니다.
-
-1.	**[게임명].exe** 를 실행시킵니다.
-
-		[게임명].exe
-
-
-### 실행파일에서 실행
-
-
-1.	게임 디렉토리 내 `\Binaries\Win32` 폴더로 이동합니다.
-
-1.	**[게임명].exe** 를 더블클릭하여 게임을 실행시킵니다.
 
 
 [/PUBLISH:Licensee]
 
+[PUBLISH:Rocket]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	1.	명령줄에서 `[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64` 디렉토리로 이동합니다.
+
+	1.	`UE4Editor.exe` 에 프로젝트 경로를 인수로 붙여 실행합니다.
+
+			UE4Editor.exe "[ProjectPath]\[ProjectName].uproject"
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	1.	명령줄에서 `[LauncherInstall]\[VersionNumber]/Engine/Binaries/Mac` 디렉토리로 이동합니다.
+
+	1.	`UE4Editor.app` 에 프로젝트 경로를 붙여서 실행합니다.
+
+			open UE4Editor.app --args "[ProjectPath]/[ProjectName].uproject"
+	[/PARAM]
+[/OBJECT]
+[/PUBLISH:Rocket]
+
+
+### 실행파일에서 에디터 실행하기
+
+[PUBLISH:Licensee]
+
+
+1.	`UE4` 아래 `\Engine\Binaries\Win64` 디렉토리로 이동합니다.
+
+1.	`UE4Editor.exe` 실행파일에 우클릭한 다음 **바로 가기 만들기** 를 선택합니다.
+
+1.	실행시킬 게임 이름과 에디터를 실행시킨다는 사실을 반영하여 바로 가기 이름을 **MyGameEditor.exe** 식으로 바꿔줍니다.
+
+1.	새로 만든 바로 가기에 우클릭한 다음 **속성** 을 선택합니다.
+
+1.	**대상** 칸 끝에 실행시킬 게임 이름을 인수로 추가해 줍니다:
+
+|프로젝트 위치|타겟|
+|----------------|--------------|
+|UE4 루트 | `[UE4Directory]\Engine\Binaries\Win64\UE4Editor.exe MyGame`|
+|다른 위치| `[UE4Directory]\Engine\Binaries\Win64\UE4Editor.exe "[ProjectPath]\[ProjectName].uproject"`|
+
+
+1. **OK** 를 눌러 변경내용을 저장합니다.
+
+1.	바로 가기를 더블클릭하여 에디터를 실행시킵니다.
+
+[/PUBLISH:Licensee]
+
+[PUBLISH:Rocket]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	1.	`[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64` 디렉토리로 이동합니다.
+
+	1.	`UE4Editor.exe` 실행파일에 우클릭한 다음 **바로 가기 만들기** 를 선택합니다.
+
+	1.	실행시킬 게임 이름과 에디터를 실행시킨다는 사실을 반영하여 바로 가기 이름을 **MyProject - Editor.exe** 식으로 바꿔줍니다.
+
+	1.	새로 만든 바로 가기에 우클릭한 다음 **속성** 을 선택합니다.
+
+	1.	**대상** 칸 끝에 실행시킬 게임 이름을 인수로 추가해 줍니다:
+
+			[LauncherInstall]\[VersionNumber]\Engine\Binaries\Win64\UE4Editor.exe "[ProjectPath]\[ProjectName].uproject"
+
+	1. **OK** 를 눌러 변경내용을 저장합니다.
+
+	1.	바로 가기를 더블클릭하여 에디터를 실행시킵니다.
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	에디터는 반드시 명령줄에서 실행시켜야 특정 프로젝트를 바로 로드할 수 있으며, 인수가 없으면 프로젝트 브라우저가 열립니다.
+	[/PARAM]
+[/OBJECT]
+[/PUBLISH:Rocket]
+
+### 인수 없이 에디터 실행하기 (독립형)
+
+에디터가 시작시 가장 최근 프로젝트를 열도록 설정되지 않은 경우, 별다른 인수 없이 에디터 실행파일을 실행시키면 프로젝트 브라우저가 뜹니다. 여기서 
+[새 프로젝트 생성](Engine/Basics/Projects/Browser), 기존 프로젝트 열기, 
+[콘텐츠 예제 및 샘플 게임 열기](Resources) 가 가능합니다.
+[/EXCERPT:RunEditor]
 [/COMMENT]
-
-
-
-
-[/EXCERPT:Main]

@@ -28,6 +28,9 @@ enum class EFrameHitchType : uint8
 	// Hitched and it was likely caused by the render thread
 	RenderThread,
 
+	// Hitched and it was likely caused by the RHI thread
+	RHIThread,
+
 	// Hitched and it was likely caused by the GPU
 	GPU
 };
@@ -59,11 +62,15 @@ public:
 		// Duration of each of the major functional units (GPU time is frequently inferred rather than actual)
 		double GameThreadTimeSeconds;
 		double RenderThreadTimeSeconds;
+		double RHIThreadTimeSeconds;
 		double GPUTimeSeconds;
 		/** Duration of the primary networking portion of the frame (that is, communication between server and clients). Currently happens on the game thread on both client and server. */
 		double GameDriverTickFlushTimeSeconds;
 		/** Duration of the replay networking portion of the frame. Can happen in a separate thread (not on servers). */
 		double DemoDriverTickFlushTimeSeconds;
+
+		/** Dynamic resolution screen percentage. 0.0 if dynamic resolution is disabled. */
+		double DynamicResolutionScreenPercentage;
 
 		/** Total time spent flushing async loading on the game thread this frame. */
 		double FlushAsyncLoadingTime;
@@ -78,6 +85,7 @@ public:
 		// Was this frame bound in one of the major functional units (only set if bBinThisFrame is true and the frame was longer than FEnginePerformanceTargets::GetTargetFrameTimeThresholdMS) 
 		bool bGameThreadBound;
 		bool bRenderThreadBound;
+		bool bRHIThreadBound;
 		bool bGPUBound;
 
 		// Did we hitch?
@@ -93,15 +101,18 @@ public:
 			, IdleOvershootSeconds(0.0)
 			, GameThreadTimeSeconds(0.0)
 			, RenderThreadTimeSeconds(0.0)
+			, RHIThreadTimeSeconds(0.0)
 			, GPUTimeSeconds(0.0)
 			, GameDriverTickFlushTimeSeconds(0.0)
 			, DemoDriverTickFlushTimeSeconds(0.0)
+			, DynamicResolutionScreenPercentage(0.0)
 			, FlushAsyncLoadingTime(0.0)
 			, FlushAsyncLoadingCount(0)
 			, SyncLoadCount(0)
 			, bBinThisFrame(false)
 			, bGameThreadBound(false)
 			, bRenderThreadBound(false)
+			, bRHIThreadBound(false)
 			, bGPUBound(false)
 			, HitchStatus(EFrameHitchType::NoHitch)
 		{
@@ -130,19 +141,25 @@ public:
 	// Hitch time histogram (in seconds)
 	FHistogram HitchTimeHistogram;
 
+	// Hitch time histogram (in seconds)
+	FHistogram DynamicResHistogram;
+
 	/** Number of frames for each time of <boundtype> **/
 	uint32 NumFramesBound_GameThread;
 	uint32 NumFramesBound_RenderThread;
+	uint32 NumFramesBound_RHIThread;
 	uint32 NumFramesBound_GPU;
 
 	/** Time spent bound on each kind of thing (in seconds) */
 	double TotalFramesBoundTime_GameThread;
 	double TotalFramesBoundTime_RenderThread;
+	double TotalFramesBoundTime_RHIThread;
 	double TotalFramesBoundTime_GPU;
 
 	/** Total time spent on each thread (in seconds) */
 	double TotalFrameTime_GameThread;
 	double TotalFrameTime_RenderThread;
+	double TotalFrameTime_RHIThread;
 	double TotalFrameTime_GPU;
 
 	/** Total time spent flushing async loading (in seconds), and call count */
@@ -156,6 +173,7 @@ public:
 	/** Total number of hitches bound by each kind of thing */
 	int32 TotalGameThreadBoundHitchCount;
 	int32 TotalRenderThreadBoundHitchCount;
+	int32 TotalRHIThreadBoundHitchCount;
 	int32 TotalGPUBoundHitchCount;
 
 	/** Total number of draw calls made */
@@ -173,6 +191,15 @@ public:
 
 	/** Total accumulated raw (including idle) time spent with the chart registered */
 	double AccumulatedChartTime;
+
+	float StartTemperatureLevel;
+	float StopTemperatureLevel;
+	float MinTemperatureLevel;
+	float MaxTemperatureLevel;
+
+	int StartBatteryLevel;
+	int StopBatteryLevel;
+	FHistogram BatteryLevelHistogram;
 
 public:
 	FPerformanceTrackingChart(const FDateTime& InStartTime, const FString& InChartLabel);
@@ -283,6 +310,7 @@ public:
 	TArray<float> GPUFrameTimes;
 	TArray<float> FrameTimes;
 	TArray<int32> ActiveModes;
+	TArray<float> DynamicResolutionScreenPercentages;
 
 	/** Start time of the capture */
 	const FDateTime CaptureStartTime;
@@ -369,6 +397,8 @@ protected:
 	float AvgFPS;
 	float TimeDisregarded;
 	float AvgGPUFrameTime;
+	float AvgRenderThreadFrameTime;
+	float AvgGameThreadFrameTime;
 
 	double TotalFlushAsyncLoadingTimeInMS;
 	int32  TotalFlushAsyncLoadingCalls;
@@ -402,5 +432,6 @@ protected:
 	virtual void HandleHitchBucket(const FHistogram& HitchHistogram, int32 BucketIndex);
 	virtual void HandleHitchSummary(int32 TotalHitchCount, double TotalTimeSpentInHitchBuckets);
 	virtual void HandleFPSThreshold(int32 TargetFPS, int32 NumFramesBelow, float PctTimeAbove, float PctMissedFrames);
+	virtual void HandleDynamicResThreshold(int32 TargetScreenPercentage, float PctTimeAbove);
 	virtual void HandleBasicStats();
 };

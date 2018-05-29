@@ -617,7 +617,10 @@ void USceneComponent::UpdateComponentToWorldWithParent(USceneComponent* Parent,F
 		//QUICK_SCOPE_CYCLE_COUNTER(STAT_USceneComponent_UpdateComponentToWorldWithParent_HasChanged);
 		bHasChanged = !GetComponentTransform().Equals(NewTransform, SMALL_NUMBER);
 	}
-	if (bHasChanged)
+
+	// We propagate here based on more than just the transform changing, as other components may depend on the teleport flag
+	// to detect transforms out of the component direct hierarchy (such as the actor transform)
+	if (bHasChanged || Teleport != ETeleportType::None)
 	{
 		//QUICK_SCOPE_CYCLE_COUNTER(STAT_USceneComponent_UpdateComponentToWorldWithParent_Changed);
 		// Update transform
@@ -693,10 +696,10 @@ void USceneComponent::PropagateTransformUpdate(bool bTransformChanged, EUpdateTr
 	{
 		FScopedMovementUpdate* CurrentUpdate = GetCurrentScopedMovement();
 
-		if (CurrentUpdate && Teleport == ETeleportType::TeleportPhysics)
+		if (CurrentUpdate && Teleport != ETeleportType::None)
 		{
 			// Remember this was a teleport
-			CurrentUpdate->SetHasTeleported();
+			CurrentUpdate->SetHasTeleported(Teleport);
 		}
 
 		// We are deferring these updates until later.
@@ -805,7 +808,7 @@ void USceneComponent::EndScopedMovementUpdate(class FScopedMovementUpdate& Compl
 			if (bTransformChanged)
 			{
 				// Pass teleport flag if set
-				PropagateTransformUpdate(true, EUpdateTransformFlags::None, CurrentScopedUpdate->bHasTeleported ? ETeleportType::TeleportPhysics : ETeleportType::None);
+				PropagateTransformUpdate(true, EUpdateTransformFlags::None, CurrentScopedUpdate->TeleportType);
 			}
 
 			// We may have moved somewhere and then moved back to the start, we still need to update overlaps if we touched things along the way.
@@ -2634,6 +2637,11 @@ void USceneComponent::SetPhysicsVolume( APhysicsVolume * NewVolume,  bool bTrigg
 	}
 }
 
+bool USceneComponent::IsPostLoadThreadSafe() const
+{
+	return GetClass() == USceneComponent::StaticClass();
+}
+
 void USceneComponent::BeginDestroy()
 {
 	PhysicsVolumeChangedDelegate.Clear();
@@ -3289,12 +3297,12 @@ static uint32 s_ScopedWarningCount = 0;
 FScopedMovementUpdate::FScopedMovementUpdate( class USceneComponent* Component, EScopedUpdate::Type ScopeBehavior, bool bRequireOverlapsEventFlagToQueueOverlaps )
 : Owner(Component)
 , OuterDeferredScope(nullptr)
+, CurrentOverlapState(EOverlapState::eUseParent)
+, TeleportType(ETeleportType::None)
+, FinalOverlapCandidatesIndex(INDEX_NONE)
 , bDeferUpdates(ScopeBehavior == EScopedUpdate::DeferredUpdates)
 , bHasMoved(false)
-, bHasTeleported(false)
 , bRequireOverlapsEventFlag(bRequireOverlapsEventFlagToQueueOverlaps)
-, CurrentOverlapState(EOverlapState::eUseParent)
-, FinalOverlapCandidatesIndex(INDEX_NONE)
 {
 	if (IsValid(Component))
 	{
@@ -3378,6 +3386,7 @@ void FScopedMovementUpdate::RevertMove()
 	}
 	bHasMoved = false;
 	CurrentOverlapState = EOverlapState::eUseParent;
+	TeleportType = ETeleportType::None;
 }
 
 void FScopedMovementUpdate::AppendOverlapsAfterMove(const TArray<FOverlapInfo>& NewPendingOverlaps, bool bSweep, bool bIncludesOverlapsAtEnd)
@@ -3446,6 +3455,11 @@ void FScopedMovementUpdate::OnInnerScopeComplete(const FScopedMovementUpdate& In
 				}
 				PendingOverlaps.Append(InnerScope.GetPendingOverlaps());
 				checkSlow(FinalOverlapCandidatesIndex < PendingOverlaps.Num());
+			}
+
+			if (InnerScope.TeleportType > TeleportType)
+			{
+				SetHasTeleported(InnerScope.TeleportType);
 			}
 		}
 		else

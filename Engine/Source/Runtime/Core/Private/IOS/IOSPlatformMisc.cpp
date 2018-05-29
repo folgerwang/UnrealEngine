@@ -9,6 +9,7 @@
 #include "HAL/ExceptionHandling.h"
 #include "Misc/SecureHash.h"
 #include "Misc/EngineVersion.h"
+#include "Templates/Function.h"
 #include "IOS/IOSMallocZone.h"
 #include "IOS/IOSApplication.h"
 #include "IOS/IOSAppDelegate.h"
@@ -16,6 +17,7 @@
 #include "IOSChunkInstaller.h"
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Misc/CoreDelegates.h"
 #include "Apple/ApplePlatformCrashContext.h"
 #include "IOS/IOSPlatformCrashContext.h"
 #if !PLATFORM_TVOS
@@ -38,8 +40,12 @@
 #include <AdSupport/ASIdentifierManager.h> 
 #endif
 
+#include "Async/TaskGraphInterfaces.h"
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <netinet/in.h>
+
+#import <StoreKit/StoreKit.h>
+#import <DeviceCheck/DeviceCheck.h>
 
 //#include <libproc.h>
 // @pjs commented out to resolve issue with PLATFORM_TVOS being defined by mach-o loader
@@ -55,6 +61,7 @@ void (* GMemoryWarningHandler)(const FGenericMemoryWarningContext& Context) = NU
 
 /** global for showing the splash screen */
 bool GShowSplashScreen = true;
+float GOriginalBrightness = 1.0f;
 
 static int32 GetFreeMemoryMB()
 {
@@ -72,6 +79,8 @@ static int32 GetFreeMemoryMB()
 void FIOSPlatformMisc::PlatformInit()
 {
 	FAppEntry::PlatformInit();
+    
+    GOriginalBrightness = FIOSPlatformMisc::GetBrightness();
 
 	// Increase the maximum number of simultaneously open files
 	struct rlimit Limit;
@@ -96,7 +105,14 @@ void FIOSPlatformMisc::PlatformInit()
 
 void FIOSPlatformMisc::PlatformHandleSplashScreen(bool ShowSplashScreen)
 {
-    GShowSplashScreen = ShowSplashScreen;
+    if (GShowSplashScreen != ShowSplashScreen)
+    {
+        // put a render thread job to turn off the splash screen after the first render flip
+        FGraphEventRef SplashTask = FFunctionGraphTask::CreateAndDispatchWhenReady([ShowSplashScreen]()
+        {
+            GShowSplashScreen = ShowSplashScreen;
+        }, TStatId(), NULL, ENamedThreads::ActualRenderingThread);
+    }
 }
 
 const TCHAR* FIOSPlatformMisc::GamePersistentDownloadDir()
@@ -157,10 +173,49 @@ int FIOSPlatformMisc::GetBatteryLevel()
 	return [[IOSAppDelegate GetDelegate] GetBatteryLevel];
 }
 
+float FIOSPlatformMisc::GetBrightness()
+{
+#if !PLATFORM_TVOS
+	return [UIScreen mainScreen].brightness;
+#else
+	return 1.0f;
+#endif // !PLATFORM_TVOS
+}
+
+void FIOSPlatformMisc::SetBrightness(float Brightness)
+{
+#if !PLATFORM_TVOS
+	[UIScreen mainScreen].brightness = Brightness;
+#endif // !PLATFORM_TVOS
+}
+
+void FIOSPlatformMisc::ResetBrightness()
+{
+    SetBrightness(GOriginalBrightness);
+}
+
 bool FIOSPlatformMisc::IsRunningOnBattery()
 {
 	return [[IOSAppDelegate GetDelegate] IsRunningOnBattery];
 }
+
+float FIOSPlatformMisc::GetDeviceTemperatureLevel()
+{
+#if !PLATFORM_TVOS
+	if (@available(iOS 11, *))
+	{
+		switch ([[NSProcessInfo processInfo] thermalState])
+		{
+		case NSProcessInfoThermalStateNominal:	return (float)FCoreDelegates::ETemperatureSeverity::Good; break;
+		case NSProcessInfoThermalStateFair:		return (float)FCoreDelegates::ETemperatureSeverity::Bad; break;
+		case NSProcessInfoThermalStateSerious:	return (float)FCoreDelegates::ETemperatureSeverity::Serious; break;
+		case NSProcessInfoThermalStateCritical:	return (float)FCoreDelegates::ETemperatureSeverity::Critical; break;
+		}
+	}
+#endif
+	return -1.0f;
+}
+
 
 #if !PLATFORM_TVOS
 EDeviceScreenOrientation ConvertFromUIDeviceOrientation(UIDeviceOrientation Orientation)
@@ -581,6 +636,15 @@ bool FIOSPlatformMisc::GetDiskTotalAndFreeSpace(const FString& InPath, uint64& T
 	return false;
 }
 
+void FIOSPlatformMisc::RequestStoreReview()
+{
+#if !PLATFORM_TVOS
+	if (@available(iOS 10, *))
+	{
+		[SKStoreReviewController requestReview];
+	}
+#endif
+}
 
 /**
 * Returns a unique string for advertising identification
@@ -640,8 +704,168 @@ class IPlatformChunkInstall* FIOSPlatformMisc::GetPlatformChunkInstall()
 	return ChunkInstall;
 }
 
+#if !PLATFORM_TVOS
+static UIFeedbackGenerator* GFeedbackGenerator = nullptr;
+#endif // !PLATFORM_TVOS
+static EMobileHapticsType GHapticsType;
+void FIOSPlatformMisc::PrepareMobileHaptics(EMobileHapticsType Type)
+{
+	// these functions must run on the main IOS thread
+	dispatch_async(dispatch_get_main_queue(), ^
+	{
+#if !PLATFORM_TVOS
+		if (GFeedbackGenerator != nullptr)
+		{
+            UE_LOG(LogIOS, Warning, TEXT("Multiple haptics were prepared at once! Implement a stack of haptics types, or a wrapper object that is returned, with state"));
+			[GFeedbackGenerator release];
+		}
+
+		GHapticsType = Type;
+		switch (GHapticsType)
+		{
+			case EMobileHapticsType::FeedbackSuccess:
+			case EMobileHapticsType::FeedbackWarning:
+			case EMobileHapticsType::FeedbackError:
+				GFeedbackGenerator = [[UINotificationFeedbackGenerator alloc] init];
+				break;
+
+			case EMobileHapticsType::SelectionChanged:
+				GFeedbackGenerator = [[UISelectionFeedbackGenerator alloc] init];
+				break;
+
+			default:
+				GHapticsType = EMobileHapticsType::ImpactLight;
+				// fall-through, and treat like Impact
+
+			case EMobileHapticsType::ImpactLight:
+				GFeedbackGenerator = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
+				break;
+
+			case EMobileHapticsType::ImpactMedium:
+				GFeedbackGenerator = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
+				break;
+
+			case EMobileHapticsType::ImpactHeavy:
+				GFeedbackGenerator = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleHeavy];
+				break;
+		}
+
+		// prepare the generator object so Trigger won't delay
+		[GFeedbackGenerator prepare];
+#endif // !PLATFORM_TVOS
+	});
+}
+
+void FIOSPlatformMisc::TriggerMobileHaptics()
+{
+	dispatch_async(dispatch_get_main_queue(), ^
+	{
+#if !PLATFORM_TVOS
+		if (GFeedbackGenerator == nullptr)
+		{
+			return;
+		}
+
+		switch (GHapticsType)
+		{
+			case EMobileHapticsType::FeedbackSuccess:
+				[(UINotificationFeedbackGenerator*)GFeedbackGenerator notificationOccurred:UINotificationFeedbackTypeSuccess];
+				break;
+
+			case EMobileHapticsType::FeedbackWarning:
+				[(UINotificationFeedbackGenerator*)GFeedbackGenerator notificationOccurred:UINotificationFeedbackTypeWarning];
+				break;
+
+			case EMobileHapticsType::FeedbackError:
+				[(UINotificationFeedbackGenerator*)GFeedbackGenerator notificationOccurred:UINotificationFeedbackTypeError];
+				break;
+
+			case EMobileHapticsType::SelectionChanged:
+				[(UISelectionFeedbackGenerator*)GFeedbackGenerator selectionChanged];
+				break;
+
+			case EMobileHapticsType::ImpactLight:
+			case EMobileHapticsType::ImpactMedium:
+			case EMobileHapticsType::ImpactHeavy:
+				[(UIImpactFeedbackGenerator*)GFeedbackGenerator impactOccurred];
+				break;
+		}
+#endif // !PLATFORM_TVOS
+	});
+}
+
+void FIOSPlatformMisc::ReleaseMobileHaptics()
+{
+	dispatch_async(dispatch_get_main_queue(), ^
+	{
+#if !PLATFORM_TVOS
+		if (GFeedbackGenerator == nullptr)
+		{
+			return;
+		}
+
+		[GFeedbackGenerator release];
+		GFeedbackGenerator = nullptr;
+#endif // !PLATFORM_TVOS
+	});
+}
+
+void FIOSPlatformMisc::ShareURL(const FString& URL, const FText& Description, int32 LocationHintX, int32 LocationHintY)
+{
+	NSString* SharedString = [NSString stringWithFString:Description.ToString()];
+	NSURL* SharedURL = [NSURL URLWithString:[NSString stringWithFString:URL]];
+	CGRect PopoverLocation = CGRectMake(LocationHintX, LocationHintY, 1, 1);
+
+	dispatch_async(dispatch_get_main_queue(),^ {
+		NSArray* ObjectsToShare = @[SharedString, SharedURL];
+#if !PLATFORM_TVOS
+		// create the share sheet view
+		UIActivityViewController* ActivityVC = [[UIActivityViewController alloc] initWithActivityItems:ObjectsToShare applicationActivities:nil];
+		[ActivityVC autorelease];
+	
+		// skip over some things that don't make sense
+		ActivityVC.excludedActivityTypes = @[UIActivityTypePrint,
+											 UIActivityTypeAssignToContact,
+											 UIActivityTypeSaveToCameraRoll,
+											 UIActivityTypePostToFlickr,
+											 UIActivityTypePostToVimeo];
+		
+		if ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPhone)
+		{
+			[[IOSAppDelegate GetDelegate].IOSController presentViewController:ActivityVC animated:YES completion:nil];
+		}
+		else
+		{
+			// Present the view controller using the popover style.
+			ActivityVC.modalPresentationStyle = UIModalPresentationPopover;
+			[[IOSAppDelegate GetDelegate].IOSController presentViewController:ActivityVC
+							   animated:YES
+							 completion:nil];
+			
+			// Get the popover presentation controller and configure it.
+			UIPopoverPresentationController* PresentationController = [ActivityVC popoverPresentationController];
+			PresentationController.sourceView = [IOSAppDelegate GetDelegate].IOSView;
+			PresentationController.sourceRect = PopoverLocation;
+			
+		}
+#endif // !PLATFORM_TVOS
+	});
+}
+
+
+void FIOSPlatformMisc::EnableVoiceChat(bool bEnable)
+{
+	return [[IOSAppDelegate GetDelegate] EnableVoiceChat:bEnable];
+}
+
+bool FIOSPlatformMisc::IsVoiceChatEnabled()
+{
+	return [[IOSAppDelegate GetDelegate] IsVoiceChatEnabled];
+}
+
 void FIOSPlatformMisc::RegisterForRemoteNotifications()
 {
+    dispatch_async(dispatch_get_main_queue(), ^{
 #if !PLATFORM_TVOS && NOTIFICATIONS_ENABLED
 	UIApplication* application = [UIApplication sharedApplication];
 	if ([application respondsToSelector : @selector(registerUserNotificationSettings:)])
@@ -662,6 +886,7 @@ void FIOSPlatformMisc::RegisterForRemoteNotifications()
 #endif
 	}
 #endif
+    });
 }
 
 bool FIOSPlatformMisc::IsRegisteredForRemoteNotifications()
@@ -684,7 +909,7 @@ void FIOSPlatformMisc::GetValidTargetPlatforms(TArray<FString>& TargetPlatformNa
 #endif
 }
 
-bool FIOSPlatformMisc::HasActiveWiFiConnection()
+ENetworkConnectionType FIOSPlatformMisc::GetNetworkConnectionType()
 {
 	struct sockaddr_in ZeroAddress;
 	FMemory::Memzero(&ZeroAddress, sizeof(ZeroAddress));
@@ -697,6 +922,8 @@ bool FIOSPlatformMisc::HasActiveWiFiConnection()
 	CFRelease(ReachabilityRef);
 	
 	bool bHasActiveWiFiConnection = false;
+    bool bHasActiveCellConnection = false;
+    bool bInAirplaneMode = false;
 	if (bFlagsAvailable)
 	{
 		bool bReachable =	(ReachabilityFlags & kSCNetworkReachabilityFlagsReachable) != 0 &&
@@ -705,9 +932,28 @@ bool FIOSPlatformMisc::HasActiveWiFiConnection()
 		(ReachabilityFlags & kSCNetworkReachabilityFlagsInterventionRequired) == 0;
 		
 		bHasActiveWiFiConnection = bReachable && (ReachabilityFlags & kSCNetworkReachabilityFlagsIsWWAN) == 0;
+        bHasActiveCellConnection = bReachable && (ReachabilityFlags & kSCNetworkReachabilityFlagsIsWWAN) != 0;
+        bInAirplaneMode = ReachabilityFlags == 0;
 	}
 	
-	return bHasActiveWiFiConnection;
+    if (bHasActiveWiFiConnection)
+    {
+        return ENetworkConnectionType::WiFi;
+    }
+    else if (bHasActiveCellConnection)
+    {
+        return ENetworkConnectionType::Cell;
+    }
+    else if (bInAirplaneMode)
+    {
+        return ENetworkConnectionType::AirplaneMode;
+    }
+    return ENetworkConnectionType::None;
+}
+
+bool FIOSPlatformMisc::HasActiveWiFiConnection()
+{
+    return GetNetworkConnectionType() == ENetworkConnectionType::WiFi;
 }
 
 FString FIOSPlatformMisc::GetCPUVendor()
@@ -752,6 +998,24 @@ int32 FIOSPlatformMisc::IOSVersionCompare(uint8 Major, uint8 Minor, uint8 Revisi
 	}
 
 	return 0;
+}
+
+void FIOSPlatformMisc::RequestDeviceCheckToken(TFunction<void(const TArray<uint8>&)> QueryCompleteFunc)
+{
+	DCDevice* DeviceCheckDevice = [DCDevice currentDevice];
+	if ([DeviceCheckDevice isSupported])
+	{
+		[DeviceCheckDevice generateTokenWithCompletionHandler : ^ (NSData * _Nullable token, NSError * _Nullable error)
+		{
+			bool bSuccess = (error == NULL);
+			if (bSuccess)
+			{
+				TArray<uint8> DeviceToken((uint8*)[token bytes], [token length]);
+
+				QueryCompleteFunc(DeviceToken);
+			}
+		}];
+	}
 }
 
 /*------------------------------------------------------------------------------
@@ -1092,7 +1356,7 @@ void FIOSPlatformMisc::EndNamedEvent()
 
 void FIOSPlatformMisc::CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit)
 {
-	FRAMEPRO_DYNAMIC_CUSTOM_STAT(Text, Value, Graph, Unit);
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(TCHAR_TO_WCHAR(Text), Value, TCHAR_TO_WCHAR(Graph), TCHAR_TO_WCHAR(Unit));
 }
 
 void FIOSPlatformMisc::CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit)

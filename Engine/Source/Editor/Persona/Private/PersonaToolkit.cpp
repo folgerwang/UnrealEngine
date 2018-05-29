@@ -340,6 +340,20 @@ void FPersonaToolkit::SetPreviewMesh(class USkeletalMesh* InSkeletalMesh, bool b
 	}
 }
 
+int32 FPersonaToolkit::GetCustomData(const int32 Key) const
+{
+	if (!CustomEditorData.Contains(Key))
+	{
+		return INDEX_NONE;
+	}
+	return CustomEditorData[Key];
+}
+
+void FPersonaToolkit::SetCustomData(const int32 Key, const int32 CustomData)
+{
+	CustomEditorData.FindOrAdd(Key) = CustomData;
+}
+
 FName FPersonaToolkit::GetContext() const
 {
 	if (InitialAssetClass != nullptr)

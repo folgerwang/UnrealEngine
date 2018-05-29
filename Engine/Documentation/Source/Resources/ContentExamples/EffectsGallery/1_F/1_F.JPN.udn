@@ -1,72 +1,16 @@
-﻿INTSourceChangelist:2714464
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1.6 - パーティクル、ライト、サウンドのランダムなバースト
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/EffectsGallery
 Description:エフェクト ギャラリーのサンプル レベルの概要
-Related: Engine/Rendering/ParticleSystems/Overview
-Related: Engine/Rendering/ParticleSystems/Reference
-Related: Engine/Rendering/ParticleSystems/Optimization
-Related: Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites
-Related: Engine/Rendering/ParticleSystems/ParticleLights
-Related: Engine/Rendering/ParticleSystems/Reference/Modules/VectorField
+Related:Engine/Rendering/ParticleSystems/Overview
+Related:Engine/Rendering/ParticleSystems/Reference
+Related:Engine/Rendering/ParticleSystems/Optimization
+Related:Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites
+Related:Engine/Rendering/ParticleSystems/ParticleLights
+Related:Engine/Rendering/ParticleSystems/Reference/Modules/VectorField
 Version:4.9
-
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[前のサンプル](Resources/ContentExamples/EffectsGallery/1_E "%Resources/ContentExamples/EffectsGallery/1_E:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[エフェクト ギャラリー ホーム](Resources/ContentExamples/EffectsGallery)
-	[/PARAM]
-	[PARAM:next]
-		[次のサンプル](Resources/ContentExamples/EffectsGallery/1_G "%Resources/ContentExamples/EffectsGallery/1_G:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources\ContentExamples\EffectsGallery\1_F:title%](%ROOT%\Resources\ContentExamples\EffectsGallery\1_F\1_FTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\EffectsGallery\1_F:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\EffectsGallery\1_F:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\EffectsGallery\1_F]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources\ContentExamples\EffectsGallery\1_F:title%](%ROOT%\Resources\ContentExamples\EffectsGallery\1_F\1_FTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\EffectsGallery\1_F:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\EffectsGallery\1_F:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\EffectsGallery\1_F]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:1_FTopic.png
 
 [REGION:fullwidth]
 ![](image026.png)
@@ -98,7 +42,7 @@ Version:4.9
 パーティクルシステムは単一バーストの発行のみを目的に設定しているため、ライトとサウンドと同時にきれいに「発生」する単一のパーティクルが生成されます。
 
 
-**クリックして画像をフルサイズで表示**
+**クリックしてフルサイズで表示**
 [REGION:lightbox]
 [![](RandomFlashBPNetwork.png)(w:935)](RandomFlashBPNetwork.png)
 [/REGION]

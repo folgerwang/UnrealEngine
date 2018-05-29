@@ -15,9 +15,6 @@ related:Programming/Basics/ConfigurationFiles
 topic-image:GettingStarted_Topic.png
 prereq:Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow
 
-[COMMENT:none]
-- %Globals:BinarySourceSelectVar% -
-[/COMMENT]
 
 [TOC(start:2 end:3)]
 
@@ -72,7 +69,7 @@ Internet connection, downloading the toolchain can take anywhere from a few minu
 		Click for full image.
 	[/REGION]
 
-1.	Open the `[ROOT]/Linux_CrossCompileToolChain/v8_clang-3.9.0-centos7` folder to view the extracted files.
+1.	Open the `[ROOT]/Linux_CrossCompileToolChain/v11_clang-5.0.0-centos7` folder to view the extracted files.
 
 	[REGION:lightbox]
 		[![](LinuxXC_Step4.png)(w:600)](LinuxXC_Step4.png)
@@ -109,7 +106,7 @@ Internet connection, downloading the toolchain can take anywhere from a few minu
 		Click for full image.
 	[/REGION]
 
-1.	At this point, a new **OutputEnvVars** text file should be located inside of the `v8_clang-3.9.0-centos7` folder. 
+1.	At this point, a new **OutputEnvVars** text file should be located inside of the `v11_clang-5.0.0-centos7` folder. 
 
 	[REGION:lightbox]
 		[![](LinuxXC_Step6.png)(w:600)](LinuxXC_Step6.png)

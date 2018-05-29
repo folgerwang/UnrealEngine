@@ -119,6 +119,46 @@ static mtlpp::ColorWriteMask TranslateWriteMask(EColorWriteMask WriteMask)
 	return (mtlpp::ColorWriteMask)Result;
 }
 
+static EBlendOperation TranslateBlendOp(MTLBlendOperation BlendOp)
+{
+	switch(BlendOp)
+	{
+		case MTLBlendOperationSubtract:		return BO_Subtract;
+		case MTLBlendOperationMin:			return BO_Min;
+		case MTLBlendOperationMax:			return BO_Max;
+		case MTLBlendOperationAdd: default:	return BO_Add;
+	};
+}
+
+
+static EBlendFactor TranslateBlendFactor(MTLBlendFactor BlendFactor)
+{
+	switch(BlendFactor)
+	{
+		case MTLBlendFactorOne:							return BF_One;
+		case MTLBlendFactorSourceColor:					return BF_SourceColor;
+		case MTLBlendFactorOneMinusSourceColor:			return BF_InverseSourceColor;
+		case MTLBlendFactorSourceAlpha:					return BF_SourceAlpha;
+		case MTLBlendFactorOneMinusSourceAlpha:			return BF_InverseSourceAlpha;
+		case MTLBlendFactorDestinationAlpha:			return BF_DestAlpha;
+		case MTLBlendFactorOneMinusDestinationAlpha:	return BF_InverseDestAlpha;
+		case MTLBlendFactorDestinationColor:			return BF_DestColor;
+		case MTLBlendFactorOneMinusDestinationColor:	return BF_InverseDestColor;
+		case MTLBlendFactorZero: default:				return BF_Zero;
+	};
+}
+
+static EColorWriteMask TranslateWriteMask(MTLColorWriteMask WriteMask)
+{
+	uint32 Result = 0;
+	Result |= (WriteMask & MTLColorWriteMaskRed) ? (CW_RED) : 0;
+	Result |= (WriteMask & MTLColorWriteMaskGreen) ? (CW_GREEN) : 0;
+	Result |= (WriteMask & MTLColorWriteMaskBlue) ? (CW_BLUE) : 0;
+	Result |= (WriteMask & MTLColorWriteMaskAlpha) ? (CW_ALPHA) : 0;
+	
+	return (EColorWriteMask)Result;
+}
+
 static bool operator==(const FSamplerStateInitializerRHI& Left, const FSamplerStateInitializerRHI& Right)
 {
 	bool bSame = Left.Filter == Right.Filter
@@ -328,11 +368,18 @@ FMetalRasterizerState::~FMetalRasterizerState()
 	
 }
 
+bool FMetalRasterizerState::GetInitializer(FRasterizerStateInitializerRHI& Init)
+{
+	Init = State;
+	return true;
+}
 
 static FMetalStateObjectCache<FDepthStencilStateInitializerRHI, mtlpp::DepthStencilState> DepthStencilStates;
 
-FMetalDepthStencilState::FMetalDepthStencilState(mtlpp::Device Device, const FDepthStencilStateInitializerRHI& Initializer)
+FMetalDepthStencilState::FMetalDepthStencilState(mtlpp::Device Device, const FDepthStencilStateInitializerRHI& InInitializer)
 {
+	Initializer = InInitializer;
+
 	State = DepthStencilStates.Find(Initializer);
 	if (!State.GetPtr())
 	{
@@ -394,6 +441,12 @@ FMetalDepthStencilState::~FMetalDepthStencilState()
 {
 }
 
+bool FMetalDepthStencilState::GetInitializer(FDepthStencilStateInitializerRHI& Init)
+{
+	Init = Initializer;
+	return true;
+}
+
 
 
 // statics
@@ -404,6 +457,7 @@ FCriticalSection FMetalBlendState::Mutex;
 
 FMetalBlendState::FMetalBlendState(const FBlendStateInitializerRHI& Initializer)
 {
+	bUseIndependentRenderTargetBlendStates = Initializer.bUseIndependentRenderTargetBlendStates;
 	for(uint32 RenderTargetIndex = 0;RenderTargetIndex < MaxSimultaneousRenderTargets; ++RenderTargetIndex)
 	{
 		// which initializer to use
@@ -466,6 +520,35 @@ FMetalBlendState::FMetalBlendState(const FBlendStateInitializerRHI& Initializer)
 
 FMetalBlendState::~FMetalBlendState()
 {
+}
+
+bool FMetalBlendState::GetInitializer(FBlendStateInitializerRHI& Initializer)
+{
+	Initializer.bUseIndependentRenderTargetBlendStates = bUseIndependentRenderTargetBlendStates;
+	for(uint32 RenderTargetIndex = 0;RenderTargetIndex < MaxSimultaneousRenderTargets; ++RenderTargetIndex)
+	{
+		// which initializer to use
+		FBlendStateInitializerRHI::FRenderTarget& Init = Initializer.RenderTargets[RenderTargetIndex];
+		MTLRenderPipelineColorAttachmentDescriptor* CurrentState = RenderTargetStates[RenderTargetIndex].BlendState;
+		
+		if (CurrentState)
+		{
+			Init.ColorSrcBlend = TranslateBlendFactor(CurrentState.sourceRGBBlendFactor);
+			Init.ColorDestBlend = TranslateBlendFactor(CurrentState.destinationRGBBlendFactor);
+			Init.ColorBlendOp = TranslateBlendOp(CurrentState.rgbBlendOperation);
+			Init.AlphaSrcBlend = TranslateBlendFactor(CurrentState.sourceAlphaBlendFactor);
+			Init.AlphaDestBlend = TranslateBlendFactor(CurrentState.destinationAlphaBlendFactor);
+			Init.AlphaBlendOp = TranslateBlendOp(CurrentState.alphaBlendOperation);
+			Init.ColorWriteMask = TranslateWriteMask(CurrentState.writeMask);
+		}
+		
+		if (!bUseIndependentRenderTargetBlendStates)
+		{
+			break;
+		}
+	}
+	
+	return true;
 }
 
 

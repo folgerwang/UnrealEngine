@@ -178,10 +178,10 @@ bool FSoftObjectPath::operator==(FSoftObjectPath const& Other) const
 	return AssetPathName == Other.AssetPathName && SubPathString == Other.SubPathString;
 }
 
-FSoftObjectPath& FSoftObjectPath::operator=(FSoftObjectPath const& Other)
+FSoftObjectPath& FSoftObjectPath::operator=(FSoftObjectPath Other)
 {
 	AssetPathName = Other.AssetPathName;
-	SubPathString = Other.SubPathString;
+	SubPathString = MoveTemp(Other.SubPathString);
 	return *this;
 }
 
@@ -209,7 +209,7 @@ bool FSoftObjectPath::ExportTextItem(FString& ValueStr, FSoftObjectPath const& D
 
 bool FSoftObjectPath::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText)
 {
-	FString ImportedPath = TEXT("");
+	FString ImportedPath;
 	const TCHAR* NewBuffer = UPropertyHelpers::ReadToken(Buffer, ImportedPath, 1);
 	if (!NewBuffer)
 	{

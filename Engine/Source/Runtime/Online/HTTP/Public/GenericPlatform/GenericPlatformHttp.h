@@ -8,9 +8,6 @@
 class FHttpManager;
 class IHttpRequest;
 
-// Temporary define until UE4Main has this function so OSS can know to avoid it
-#define HTTP_GENERIC_PLATFORM_HAS_GETURLDOMAIN 1
-
 /**
  * Platform specific Http implementations
  * Intended usage is to use FPlatformHttp instead of FGenericPlatformHttp
@@ -90,6 +87,7 @@ public:
 	 * @return the default User-Agent string that requests should use.
 	 */
 	static FString GetDefaultUserAgent();
+	static FString EscapeUserAgentString(const FString& UnescapedString);
 
 	/**
 	 * Get the proxy address specified by the operating system

@@ -31,12 +31,15 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/ConstraintInstance.h"
 #include "PhysicsReplication.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 /** Physics stats **/
 
 DEFINE_STAT(STAT_TotalPhysicsTime);
 DEFINE_STAT(STAT_NumCloths);
 DEFINE_STAT(STAT_NumClothVerts);
+
+CSV_DECLARE_CATEGORY_MODULE_EXTERN(CORE_API, Basic);
 
 DECLARE_CYCLE_STAT(TEXT("Start Physics Time (sync)"), STAT_PhysicsKickOffDynamicsTime, STATGROUP_Physics);
 DECLARE_CYCLE_STAT(TEXT("Fetch Results Time (sync)"), STAT_PhysicsFetchDynamicsTime, STATGROUP_Physics);
@@ -118,6 +121,20 @@ FAutoConsoleTaskPriority CPrio_FPhysXTask_Cloth(
 	ENamedThreads::HighTaskPriority // if we don't have hi pri threads, then use normal priority threads at high task priority instead
 	);
 
+int32 GPhysXOverrideMbpNumSubdivisions_Client = 0;
+int32 GPhysXOverrideMbpNumSubdivisions_Server = 0;
+int32 GPhysXForceMbp_Client = 0;
+int32 GPhysXForceMbp_Server = 0;
+int32 GPhysXForceNoKinematicStaticPairs = 0;
+int32 GPhysXForceNoKinematicKinematicPairs = 0;
+
+FAutoConsoleVariableRef CVarOverrideMbpNumSubdivisionsClient(TEXT("p.OverrideMbpNumSubdivisionsClient"), GPhysXOverrideMbpNumSubdivisions_Client, TEXT("Override for number of subdivisions to perform when building MBP regions on a client, note regions are only generated when a scene is created - this will not update the scene if it's already running (0 = No override, 1>16 - Override number)"), ECVF_Default);
+FAutoConsoleVariableRef CVarOverrideMbpNumSubdivisionsServer(TEXT("p.OverrideMbpNumSubdivisionsServer"), GPhysXOverrideMbpNumSubdivisions_Server, TEXT("Override for number of subdivisions to perform when building MBP regions on a server, note regions are only generated when a scene is created - this will not update the scene if it's already running (0 = No override, 1>16 - Override number)"), ECVF_Default);
+FAutoConsoleVariableRef CVarForceMbpClient(TEXT("p.ForceMbpClient"), GPhysXForceMbp_Client, TEXT("Forces all created scenes to use MBP on client builds"), ECVF_Default);
+FAutoConsoleVariableRef CVarForceMbpServer(TEXT("p.ForceMbpServer"), GPhysXForceMbp_Server, TEXT("Forces all created scenes to use MBP on server builds"), ECVF_Default);
+FAutoConsoleVariableRef CVarForceNoKSPairs(TEXT("p.ForceNoKSPairs"), GPhysXForceNoKinematicStaticPairs, TEXT("Disables kinematic-static pairs. This makes converting from static to dynamic a little slower - but provides better broadphase performance because we early reject those pairs."), ECVF_Default);
+FAutoConsoleVariableRef CVarForceNoKKPairs(TEXT("p.ForceNoKKPairs"), GPhysXForceNoKinematicKinematicPairs, TEXT("Disables kinematic-kinematic pairs. This is required when using APEX destruction to correctly generate chunk pairs - when not using destruction this speeds up the broadphase by early rejecting KK pairs."), ECVF_Default);
+
 DECLARE_STATS_GROUP(TEXT("PhysXTasks"), STATGROUP_PhysXTasks, STATCAT_Advanced);
 
 struct FPhysXRingBuffer
@@ -139,6 +156,42 @@ struct FBatchPhysXTasks
 	{
 		GBatchPhysXTasksSize = FMath::Max(1, FMath::Min(FPhysXRingBuffer::Size / 2, CVarBatchPhysXTasksSize.GetValueOnGameThread()));
 	}
+};
+
+struct FPhysTaskScopedNamedEvent
+{
+	FPhysTaskScopedNamedEvent() = delete;
+	FPhysTaskScopedNamedEvent(const FPhysTaskScopedNamedEvent& InOther) = delete;
+	FPhysTaskScopedNamedEvent& operator=(const FPhysTaskScopedNamedEvent& InOther) = delete;
+
+	FPhysTaskScopedNamedEvent(PxBaseTask* InTask)
+	{
+#if ENABLE_STATNAMEDEVENTS
+		check(InTask);
+		const char* TaskName = InTask->getName();
+		
+		bEmittedEvent = GCycleStatsShouldEmitNamedEvents != 0;
+
+		if(bEmittedEvent)
+		{
+			FPlatformMisc::BeginNamedEvent(FColor::Green, TaskName);
+		}
+#endif
+	}
+
+	~FPhysTaskScopedNamedEvent()
+	{
+#if ENABLE_STATNAMEDEVENTS
+		if(bEmittedEvent)
+		{
+			FPlatformMisc::EndNamedEvent();
+		}
+#endif
+	}
+
+private:
+
+	bool bEmittedEvent;
 };
 
 static FAutoConsoleVariableSink CVarBatchPhysXTasks(FConsoleCommandDelegate::CreateStatic(&FBatchPhysXTasks::SetPhysXTasksSinkFunc));
@@ -330,16 +383,20 @@ void FPhysXTask<IsCloth>::DoTask(ENamedThreads::Type CurrentThread, const FGraph
 	{
 		PxBaseTask* Task = RingBuffer.Buffer[RingBuffer.Start];
 
-#if STATS
-		const char* StatName = Task->getName();
-		FScopeCycleCounter CycleCounter(DynamicStatsHelper::FindOrCreateStatId(StatName));
+#if ENABLE_STATNAMEDEVENTS || STATS
+		FPhysTaskScopedNamedEvent TaskEvent(Task);
 #endif
+
+#if STATS
+		const char* TaskName = Task->getName();
+		FScopeCycleCounter CycleCounter(DynamicStatsHelper::FindOrCreateStatId(TaskName));
+#endif
+
 		Task->run();
 		Task->release();
 
 		RingBuffer.Start = (RingBuffer.Start + 1) % RingBuffer.Size;
 		--RingBuffer.Num;
-
 	}
 }
 
@@ -370,10 +427,15 @@ class FPhysXCPUDispatcherSingleThread : public PxCpuDispatcher
 		}
 
 		{
-#if STATS
-			const char* StatName = Task.getName();
-			FScopeCycleCounter CycleCounter(DynamicStatsHelper::FindOrCreateStatId(StatName));
+#if ENABLE_STATNAMEDEVENTS || STATS
+			FPhysTaskScopedNamedEvent TaskEvent(&Task);
 #endif
+
+#if STATS
+			const char* TaskName = Task.getName();
+			FScopeCycleCounter CycleCounter(DynamicStatsHelper::FindOrCreateStatId(TaskName));
+#endif
+
 			Task.run();
 			Task.release();
 		}
@@ -382,9 +444,14 @@ class FPhysXCPUDispatcherSingleThread : public PxCpuDispatcher
 		{
 			PxBaseTask& ChildTask = *TaskStack.Pop();
 			{
+
+#if ENABLE_STATNAMEDEVENTS || STATS
+				FPhysTaskScopedNamedEvent TaskEvent(&ChildTask);
+#endif
+
 #if STATS
-				const char* StatName = ChildTask.getName();
-				FScopeCycleCounter CycleCounter(DynamicStatsHelper::FindOrCreateStatId(StatName));
+				const char* ChildTaskName = ChildTask.getName();
+				FScopeCycleCounter CycleCounter(DynamicStatsHelper::FindOrCreateStatId(ChildTaskName));
 #endif
 				ChildTask.run();
 				ChildTask.release();
@@ -400,6 +467,7 @@ class FPhysXCPUDispatcherSingleThread : public PxCpuDispatcher
 };
 
 TSharedPtr<ISimEventCallbackFactory> FPhysScene::SimEventCallbackFactory;
+TSharedPtr<IContactModifyCallbackFactory> FPhysScene::ContactModifyCallbackFactory;
 
 #endif // WITH_PHYSX
 
@@ -1008,11 +1076,12 @@ void FPhysScene::UpdateKinematicsOnDeferredSkelMeshes()
 	DeferredKinematicUpdateSkelMeshes.Reset();
 }
 
-
 /** Exposes ticking of physics-engine scene outside Engine. */
 void FPhysScene::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletionEvent)
 {
 	SCOPE_CYCLE_COUNTER(STAT_TotalPhysicsTime);
+	CSV_SCOPED_TIMING_STAT(Basic, TotalPhysicsTime);
+
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_PhysicsKickOffDynamicsTime, SceneType == PST_Sync);
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_PhysicsKickOffDynamicsTime_Async, SceneType == PST_Async);
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_PhysicsKickOffDynamicsTime_Cloth, SceneType == PST_Cloth);
@@ -1026,12 +1095,6 @@ void FPhysScene::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletion
 		// Already executing this scene, must call WaitPhysScene before calling this function again.
 		UE_LOG(LogPhysics, Log, TEXT("TickPhysScene: Already executing scene (%d) - aborting."), SceneType);
 		return;
-	}
-
-	if (IsSubstepping(SceneType))	//we don't bother sub-stepping cloth
-	{
-		//We're about to start stepping so swap buffers. Might want to find a better place for this?
-		PhysSubSteppers[SceneType]->SwapBuffers();
 	}
 
 	/**
@@ -1070,6 +1133,25 @@ void FPhysScene::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletion
 	// Update any skeletal meshes that need their bone transforms sent to physics sim
 	UpdateKinematicsOnDeferredSkelMeshes();
 
+#if !WITH_PHYSX
+	const bool bSimulateScene = false;
+#else
+#if !WITH_APEX
+	PxScene* PScene = GetPhysXScene(SceneType);
+	const bool bSimulateScene = PScene && (UseDelta > 0.f);
+#else
+	apex::Scene* ApexScene = GetApexScene(SceneType);
+	const bool bSimulateScene = ApexScene && UseDelta > 0.f;
+#endif
+#endif
+
+	// Replicate physics
+#if WITH_PHYSX
+	if (bSimulateScene && PhysicsReplication)
+	{
+		PhysicsReplication->Tick(AveragedFrameTime[SceneType]);
+	}
+#endif
 
 	float PreTickTime = IsSubstepping(SceneType) ? UseDelta : AveragedFrameTime[SceneType];
 
@@ -1077,30 +1159,21 @@ void FPhysScene::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletion
 	OnPhysScenePreTick.Broadcast(this, SceneType, PreTickTime);
 
 	// If not substepping, call this delegate here. Otherwise we call it in FPhysSubstepTask::SubstepSimulationStart
-		if (IsSubstepping(SceneType) == false)
-		{
+	if (IsSubstepping(SceneType) == false)
+	{
 		OnPhysSceneStep.Broadcast(this, SceneType, PreTickTime);
-		}
-
+	}
+	else
+	{
+		//We're about to start stepping so swap buffers. Might want to find a better place for this?
+		PhysSubSteppers[SceneType]->SwapBuffers();
+	}
 
 #if WITH_PHYSX
-
 	FlushDeferredActors((EPhysicsSceneType)SceneType);
 	DeferredSceneData[SceneType].bIsSimulating = true;
-
-#if !WITH_APEX
-	PxScene* PScene = GetPhysXScene(SceneType);
-	if (PScene && (UseDelta > 0.f))
-#else
-	apex::Scene* ApexScene = GetApexScene(SceneType);
-	if (ApexScene && UseDelta > 0.f)
-#endif
+	if (bSimulateScene)
 	{
-		if (PhysicsReplication)
-		{
-			PhysicsReplication->Tick(AveragedFrameTime[SceneType]);
-		}
-
 		if(IsSubstepping(SceneType)) //we don't bother sub-stepping cloth
 		{
 			bTaskOutstanding = SubstepSimulation(SceneType, InOutCompletionEvent);
@@ -1130,6 +1203,7 @@ void FPhysScene::TickPhysScene(uint32 SceneType, FGraphEventRef& InOutCompletion
 		TArray<FBaseGraphTask*> NewTasks;
 		InOutCompletionEvent->DispatchSubsequents(NewTasks, ENamedThreads::AnyThread); // nothing to do, so nothing to wait for
 	}
+
 	bSubstepping = UPhysicsSettings::Get()->bSubstepping;
 	bSubsteppingAsync = UPhysicsSettings::Get()->bSubsteppingAsync;
 }
@@ -1186,6 +1260,7 @@ void FPhysScene::ProcessPhysScene(uint32 SceneType)
 	checkSlow(SceneType < PST_MAX);
 
 	SCOPE_CYCLE_COUNTER(STAT_TotalPhysicsTime);
+	CSV_SCOPED_TIMING_STAT(Basic, TotalPhysicsTime);
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_PhysicsFetchDynamicsTime, SceneType == PST_Sync);
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_PhysicsFetchDynamicsTime_Cloth, SceneType == PST_Cloth);
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_PhysicsFetchDynamicsTime_Async, SceneType == PST_Async);
@@ -1249,6 +1324,9 @@ void FPhysScene::ProcessPhysScene(uint32 SceneType)
 	DeferredSceneData[SceneType].bIsSimulating = false;
 	FlushDeferredActors((EPhysicsSceneType)SceneType);
 #endif
+
+	// Broadcast 'post tick' delegate
+	OnPhysScenePostTick.Broadcast(this, SceneType);
 }
 
 /** Struct to remember a pending component transform change */
@@ -1856,6 +1934,18 @@ void FPhysScene::AddDebugLines(uint32 SceneType, class ULineBatchComponent* Line
 	}
 }
 
+#if !UE_BUILD_SHIPPING
+int32 ForceSubstep = 0;
+FAutoConsoleVariableRef CVarSubStep(
+	TEXT("p.ForceSubstep"),
+	ForceSubstep,
+	TEXT("Whether to force substepping on")
+	TEXT("0: Ignore, 1: Force"),
+	ECVF_Default);
+#else
+constexpr int32 ForceSubstep = 0;
+#endif
+
 bool FPhysScene::IsSubstepping(uint32 SceneType) const
 {
 	// Substepping relies on interpolating transforms over frames, but only game worlds will be ticked,
@@ -1867,7 +1957,7 @@ bool FPhysScene::IsSubstepping(uint32 SceneType) const
 
 	if (SceneType == PST_Sync)
 	{
-		return bSubstepping;
+		return ForceSubstep == 1 || bSubstepping;
 	}
 
 	if (SceneType == PST_Async)
@@ -1951,6 +2041,7 @@ void FPhysScene::InitPhysScene(uint32 SceneType)
 
 	// Create sim event callback
 	SimEventCallback[SceneType] = SimEventCallbackFactory.IsValid() ? SimEventCallbackFactory->Create(this, SceneType) : new FPhysXSimEventCallback(this, SceneType);
+	ContactModifyCallback[SceneType] = ContactModifyCallbackFactory.IsValid() ? ContactModifyCallbackFactory->Create(this, SceneType) : nullptr;
 
 	// Include scene descriptor in loop, so that we might vary it with scene type
 	PxSceneDesc PSceneDesc(GPhysXSDK->getTolerancesScale());
@@ -1963,6 +2054,7 @@ void FPhysScene::InitPhysScene(uint32 SceneType)
 
 	PSceneDesc.filterShader = GSimulationFilterShader ? GSimulationFilterShader : PhysXSimFilterShader;
 	PSceneDesc.simulationEventCallback = SimEventCallback[SceneType];
+	PSceneDesc.contactModifyCallback = ContactModifyCallback[SceneType];
 
 	if(UPhysicsSettings::Get()->bEnablePCM)
 	{
@@ -2007,9 +2099,16 @@ void FPhysScene::InitPhysScene(uint32 SceneType)
 		PSceneDesc.flags |= PxSceneFlag::eENABLE_CCD;
 	}
 
-	// Need to turn this on to consider kinematics turning into dynamic. Otherwise, you'll need to call resetFiltering to do the expensive broadphase reinserting
-	PSceneDesc.flags |= PxSceneFlag::eENABLE_KINEMATIC_STATIC_PAIRS;
-	PSceneDesc.flags |= PxSceneFlag::eENABLE_KINEMATIC_PAIRS;	//this is only needed for destruction, but unfortunately this flag cannot be modified after creation and the plugin has no hook (yet)
+	if(!UPhysicsSettings::Get()->bDisableKinematicStaticPairs && GPhysXForceNoKinematicStaticPairs == 0)
+	{
+		// Need to turn this on to consider kinematics turning into dynamic. Otherwise, you'll need to call resetFiltering to do the expensive broadphase reinserting
+		PSceneDesc.flags |= PxSceneFlag::eENABLE_KINEMATIC_STATIC_PAIRS;
+	}
+
+	if(!UPhysicsSettings::Get()->bDisableKinematicKinematicPairs && GPhysXForceNoKinematicKinematicPairs == 0)
+	{
+		PSceneDesc.flags |= PxSceneFlag::eENABLE_KINEMATIC_PAIRS;	//this is only needed for destruction, but unfortunately this flag cannot be modified after creation and the plugin has no hook (yet)
+	}
 
 	// @TODO Should we set up PSceneDesc.limits? How?
 
@@ -2028,11 +2127,69 @@ void FPhysScene::InitPhysScene(uint32 SceneType)
 		UE_LOG(LogPhysics, Log, TEXT("Invalid PSceneDesc"));
 	}
 
+	// Setup MBP desc settings if required
+	FBroadphaseSettings& BroadphaseSettings = IsRunningDedicatedServer() ? UPhysicsSettings::Get()->ServerBroadphaseSettings : UPhysicsSettings::Get()->ClientBroadphaseSettings;
+	bool bUseMBP = (GPhysXForceMbp_Server != 0 && IsRunningDedicatedServer()) || (GPhysXForceMbp_Client != 0 && !IsRunningDedicatedServer()) || BroadphaseSettings.bUseMBP;
+
+	if(bUseMBP)
+	{
+		MbpBroadphaseCallbacks[SceneType] = new FPhysXMbpBroadphaseCallback();
+		PSceneDesc.broadPhaseType = PxBroadPhaseType::eMBP;
+		PSceneDesc.broadPhaseCallback = MbpBroadphaseCallbacks[SceneType];
+	}
+	else
+	{
+		MbpBroadphaseCallbacks[SceneType] = nullptr;
+	}
+
 	// Create scene, and add to map
 	PxScene* PScene = GPhysXSDK->createScene(PSceneDesc);
 	if(PxPvdSceneClient* PVDClient = PScene->getScenePvdClient())
 	{
 		PVDClient->setScenePvdFlags(PxPvdSceneFlag::eTRANSMIT_CONSTRAINTS | PxPvdSceneFlag::eTRANSMIT_CONTACTS | PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES);
+	}
+
+	// Setup actual MBP data on live scene
+	if(bUseMBP)
+	{
+		uint32 NumSubdivisions = BroadphaseSettings.MBPNumSubdivs;
+		
+		if(IsRunningDedicatedServer())
+		{
+			if(GPhysXOverrideMbpNumSubdivisions_Server > 0)
+			{
+				NumSubdivisions = GPhysXOverrideMbpNumSubdivisions_Server;
+			}
+		}
+		else
+		{
+			if(GPhysXOverrideMbpNumSubdivisions_Client > 0)
+			{
+				NumSubdivisions = GPhysXOverrideMbpNumSubdivisions_Client;
+			}
+		}
+
+		// Must have at least one and no more than 256 regions, subdivision is num^2 so only up to 16
+		NumSubdivisions = FMath::Clamp<uint32>(NumSubdivisions, 1, 16);
+
+		const FBox& Bounds = BroadphaseSettings.MBPBounds;
+		PxBounds3 MbpBounds(U2PVector(Bounds.Min), U2PVector(Bounds.Max));
+
+		// Storage for generated regions, the generation function will create num^2 regions
+		TArray<PxBounds3> GeneratedRegions;
+		GeneratedRegions.AddZeroed(NumSubdivisions * NumSubdivisions);
+
+		// Final parameter is up axis (2 == Z for Unreal Engine)
+		PxBroadPhaseExt::createRegionsFromWorldBounds(GeneratedRegions.GetData(), MbpBounds, NumSubdivisions, 2);
+
+		for(const PxBounds3& Region : GeneratedRegions)
+		{
+			PxBroadPhaseRegion NewRegion;
+			NewRegion.bounds = Region;
+			NewRegion.userData = nullptr; // No need to track back to an Unreal instance at the moment
+
+			PScene->addBroadPhaseRegion(NewRegion);
+		}
 	}
 
 #if WITH_APEX
@@ -2113,6 +2270,8 @@ void FPhysScene::TermPhysScene(uint32 SceneType)
 		// @todo block on any running scene before calling this
 		GPhysCommandHandler->DeferredRelease(PScene);
 		GPhysCommandHandler->DeferredDeleteSimEventCallback(SimEventCallback[SceneType]);
+		GPhysCommandHandler->DeferredDeleteContactModifyCallback(ContactModifyCallback[SceneType]);
+		GPhysCommandHandler->DeferredDeleteMbpBroadphaseCallback(MbpBroadphaseCallbacks[SceneType]);
 
 		// Commands may have accumulated as the scene is terminated - flush any commands for this scene.
 		GPhysCommandHandler->Flush();

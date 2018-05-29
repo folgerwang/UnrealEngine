@@ -187,6 +187,13 @@ public:
 	{
 		IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
 
+		TArray<FVector> VertexPositions;
+		TArray<uint32> Indices;
+		if (InSettings.WeldingThreshold > 0.0f)
+		{
+			WeldVertexPositions(InMesh, InSettings.WeldingThreshold, VertexPositions, Indices);
+		}
+
 		const uint32 NumTexCoords = MAX_STATIC_TEXCOORDS;
 
 		TArray< TVertSimp< NumTexCoords > >	Verts;
@@ -203,7 +210,14 @@ public:
 			FVector Positions[3];
 			for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
 			{
-				Positions[CornerIndex] = InMesh.VertexPositions[ InMesh.WedgeIndices[ FaceIndex * 3 + CornerIndex ] ];
+				if (InSettings.WeldingThreshold > 0.0f)
+				{
+					Positions[CornerIndex] = VertexPositions[Indices[FaceIndex * 3 + CornerIndex]];
+				}
+				else
+				{
+					Positions[CornerIndex] = InMesh.VertexPositions[InMesh.WedgeIndices[FaceIndex * 3 + CornerIndex]];
+				}
 			}
 
 			// Don't process degenerate triangles.
@@ -866,6 +880,53 @@ public:
 	static FQuadricSimplifierMeshReduction* Create()
 	{
 		return new FQuadricSimplifierMeshReduction;
+	}
+private:
+	void WeldVertexPositions(const FRawMesh& InMesh, const float WeldingThreshold, TArray<FVector>& OutVertexPositions, TArray<uint32>& OutIndices)
+	{
+		//The remap use to fix the indices after welding the vertex position buffer
+		TArray<int32> VertexRemap;
+		//Initialize some arrays
+		VertexRemap.AddZeroed(InMesh.VertexPositions.Num());
+		for (int32 VertexIndexRef = 0; VertexIndexRef < InMesh.VertexPositions.Num(); ++VertexIndexRef)
+		{
+			VertexRemap[VertexIndexRef] = INDEX_NONE;
+		}
+		OutVertexPositions.Reserve(InMesh.VertexPositions.Num());
+		//Weld overlapping vertex position
+		for (int32 VertexIndexRef = 0; VertexIndexRef < InMesh.VertexPositions.Num(); ++VertexIndexRef)
+		{
+			//Skip already remap vertex
+			if (VertexRemap[VertexIndexRef] != INDEX_NONE)
+			{
+				continue;
+			}
+			const FVector& PositionA = InMesh.VertexPositions[VertexIndexRef];
+			//Add this vertex to the new vertex buffer
+			VertexRemap[VertexIndexRef] = OutVertexPositions.Add(InMesh.VertexPositions[VertexIndexRef]);
+			//Find vertex to weld, search forward VertexIndexRef
+			for (int32 VertexIndex = VertexIndexRef + 1; VertexIndex < InMesh.VertexPositions.Num(); ++VertexIndex)
+			{
+				//skip already remap vertex
+				if (VertexRemap[VertexIndex] != INDEX_NONE)
+				{
+					continue;
+				}
+				const FVector& PositionB = InMesh.VertexPositions[VertexIndex];
+				if (PositionA.Equals(PositionB, WeldingThreshold))
+				{
+					//Remap this vertex to the "reference remapped vertex"
+					VertexRemap[VertexIndex] = VertexRemap[VertexIndexRef];
+				}
+			}
+		}
+		//Remap the indices to the new vertex position buffer
+		OutIndices.AddZeroed(InMesh.WedgeIndices.Num());
+		for (int32 WedgeIndex = 0; WedgeIndex < InMesh.WedgeIndices.Num(); ++WedgeIndex)
+		{
+			int32 VertexIndex = InMesh.WedgeIndices[WedgeIndex];
+			OutIndices[WedgeIndex] = VertexRemap[VertexIndex] == INDEX_NONE ? VertexIndex : VertexRemap[VertexIndex];
+		}
 	}
 };
 TUniquePtr<FQuadricSimplifierMeshReduction> GQuadricSimplifierMeshReduction;

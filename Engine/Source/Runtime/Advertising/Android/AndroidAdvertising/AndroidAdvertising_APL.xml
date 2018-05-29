@@ -15,17 +15,32 @@
 				<log text="Not including AdMob support. Enable in Android project settings if you need to use it."/>
 			</false>
 		</if>
+
+		<!-- check if using Gradle -->
+		<setBoolFromProperty result="bGradle" ini="Engine" section="/Script/AndroidRuntimeSettings.AndroidRuntimeSettings" property="bEnableGradle" default="false"/>
 	</init>
 
 	<!-- AAR dependencies -->
 	<AARImports>
 		<if condition="bSupportAdMob">
 			<true>
-				<insertValue value="com.google.android.gms,play-services-ads,11.0.4"/>
-				<insertNewline/>
+				<if condition="bGradle">
+					<false>
+						<insertValue value="com.google.android.gms,play-services-ads,11.0.4"/>
+						<insertNewline/>
+					</false>
+				</if>
 			</true>
 		</if>
 	</AARImports>
+
+	<buildGradleAdditions>
+		<insert>
+dependencies {
+	implementation('com.google.android.gms:play-services-ads:11.8.0')
+}
+		</insert>
+	</buildGradleAdditions>
 
 	<!-- optional updates applied to AndroidManifest.xml -->
 	<androidManifestUpdates>

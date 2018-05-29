@@ -126,6 +126,12 @@ UEnvQueryManager::UEnvQueryManager(const FObjectInitializer& ObjectInitializer) 
 #endif
 }
 
+void UEnvQueryManager::PostLoad()
+{
+	Super::PostLoad();
+	MarkPendingKill();
+}
+
 UWorld* UEnvQueryManager::GetWorld() const
 {
 	return Cast<UWorld>(GetOuter());

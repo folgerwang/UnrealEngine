@@ -86,6 +86,7 @@ struct FReverbSettings
 		: bApplyReverb(true)
 		, ReverbType_DEPRECATED(REVERB_Default)
 		, ReverbEffect(nullptr)
+		, ReverbPluginEffect(nullptr)
 		, Volume(0.5f)
 		, FadeTime(2.0f)
 	{

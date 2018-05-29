@@ -76,6 +76,7 @@ bool FAIDataProviderStructValue::IsMatchingType(UProperty* PropType) const
 // FAIDataProviderIntValue
 
 FAIDataProviderIntValue::FAIDataProviderIntValue()
+	: DefaultValue(0)
 {
 	PropertyType = UIntProperty::StaticClass();
 }
@@ -95,6 +96,7 @@ FString FAIDataProviderIntValue::ValueToString() const
 // FAIDataProviderFloatValue
 
 FAIDataProviderFloatValue::FAIDataProviderFloatValue()
+	: DefaultValue(0.0f)
 {
 	PropertyType = UFloatProperty::StaticClass();
 }
@@ -114,6 +116,7 @@ FString FAIDataProviderFloatValue::ValueToString() const
 // FAIDataProviderBoolValue
 
 FAIDataProviderBoolValue::FAIDataProviderBoolValue()
+	: DefaultValue(false)
 {
 	PropertyType = UBoolProperty::StaticClass();
 }

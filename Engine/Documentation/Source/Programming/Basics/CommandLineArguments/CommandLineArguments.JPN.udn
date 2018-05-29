@@ -3,7 +3,7 @@ Availability:Public
 Title:コマンドライン引数
 Crumbs: %ROOT%, Engine
 Description:エンジンの機能を制御するオプションを設定するためにエンジンの実行可能ファイルへ渡すことのできる引数
-Version:4.9
+Version: 4.9
 
 
 [TOC (start:2 end:3)]
@@ -41,7 +41,7 @@ Version:4.9
 
 URL は 2 部構成となっています。マップ名またはサーバー IP アドレスと任意の追加パラメータから成ります。マップ名はマップディレクトリ内のマップのどれでも構いません。ファイル拡張子 (例 .umap) を含むことは任意です。マップディレクトリで見つからないマップをロードするには、マップディレクトリの絶対パスまたは相対パスを使用します。この場合、ファイル拡張子は必須となります。サーバーの IP アドレスは通常の 4 つに分割された IP アドレスで、0 から 255 の間の 4 ケタの数字で構成され、ドットで区切られます。追加オプションはマップ名やサーバー IP アドレスに追加して指定出来ます。各オプションは '?' で始まり、値を '=' で設定することができます。'-' で開始するオプションは、キャッシュされた URL オプションから削除されます。
 
-* 例:*
+*Examples:*
 
 	MyGame.exe /Game/Maps/MyMap
 	UE4Editor.exe MyGame.uproject /Game/Maps/MyMap?game=MyGameInfo -game
@@ -142,22 +142,22 @@ URL は 2 部構成となっています。マップ名またはサーバー IP 
 * `OUTPUTHEADERS`:ヘッダの出力をスクリプトパッチエクスポートの際に強制する。 
 
 [/COMMENT]
-* `SEEKFREELOADING`:クックしたデータのみ使用する。
+* `SEEKFREELOADING`: クックしたデータのみ使用する。
 * `SEEKFREEPACKAGEMAP`:seekfree (クックした) バージョンでパッケージ マップをオーバーライドする。
 * `SEEKFREELOADINGPCCONSOLE`:PC コンソールモードにのみクックしたデータを使用する。
-* `SEEKFREELOADINGSERVER`:サーバーのみにクックしたデータを使用する。
+* `SEEKFREELOADINGSERVER`: サーバーのみにクックしたデータを使用する。
 * `SETTHREADNAMES`:(Xbox のみ) 設定するスレッド名を強制する。XDK COM API を、混乱させる可能性があります。そのため、必要があれば実行を明示的に設定しなければなりません。
 * `SHOWMISSINGLOC`:ローカライズ化されたテキストが欠落している場合、英文の代わりにエラー文字列を返す。
 * `SILENT`:出力とフィードバックを無効化する。
-* `TRACEANIMUSAGE`:アニメーションの使用を追跡する。
-* `TREATLOADWARNINGSASERRORS`:ロード時の警告をエラーとして扱うことを強制する。 
-* `UNATTENDED`:不在モードとして設定。ユーザーからのフィードバックを必要とする全てを無効化する。
-* `UNINSTALLGE`:ゲームを **ゲーム エクスプローラー** から削除する。
-* `USEUNPUBLISHED`:「Unpublished」フォルダにあるパッケージの使用を強制する。(非推奨？)
-* `VADEBUG`:Visual Studio のデバッガ インターフェースを使用する。
-* `VERBOSE`:コンパイラーが詳細な出力を使用するように設定する。
-* `VERIFYGC`:ガーベジ コンパイラ アサンプションの検証を強制する。
-* `WARNINGSASERRORS`:警告をエラーとして扱う。
+* `TRACEANIMUSAGE`: アニメーションの使用を追跡する。
+* `TREATLOADWARNINGSASERRORS`: ロード時の警告をエラーとして扱うことを強制する。 
+* `UNATTENDED`: 不在モードとして設定。ユーザーからのフィードバックを必要とする全てを無効化する。
+* `UNINSTALLGE`: ゲームを **ゲーム エクスプローラー** から削除する。
+* `USEUNPUBLISHED`: 「Unpublished」フォルダにあるパッケージの使用を強制する。(非推奨？)
+* `VADEBUG`: Visual Studio のデバッガ インターフェースを使用する。
+* `VERBOSE`: コンパイラーが詳細な出力を使用するように設定する。
+* `VERIFYGC`: ガーベジ コンパイラ アサンプションの検証を強制する。
+* `WARNINGSASERRORS`: 警告をエラーとして扱う。
 
 
 
@@ -198,7 +198,7 @@ URL は 2 部構成となっています。マップ名またはサーバー IP 
 ###ユーザー
 
 
-* `NOHOMEDIR`:「My Document」フォルダの使用をホームディレクトリとしてオーバーライドする。
+* `NOHOMEDIR`:My Document フォルダの使用をホームディレクトリとしてオーバーライドする。
 * `NOFORCEFEEDBACK`:エンジンでフォース フィードバックを無効化する。
 * `NOSOUND`:エンジンからのサウンド出力を無効化する。
 * `NOSPLASH`:ゲームのロード中にスプラッシュ画像の使用を無効化する。
@@ -226,7 +226,7 @@ URL は 2 部構成となっています。マップ名またはサーバー IP 
 
 
 
-###INI / config ファイル
+###INI / Config ファイル
 
 
 * `ENGLISHCOALESCED`:ローカライズされた言語バージョンが見つからない時、デフォルト(英語) の「Coalesced.ini」ファイルの状態へ戻す。

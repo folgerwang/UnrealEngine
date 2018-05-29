@@ -1,9 +1,14 @@
-﻿INTSourceChangelist:2690284
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:マテリアル関数
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials
 Description:マテリアル関数は、パッケージに保存可能であり、多数のマテリアルで再利用できるマテリアルグラフのスニペットです。
 Version:4.9
+parent:Engine/Rendering/Materials
+order:10
+topic-image:Engine/Rendering/Materials/FunctionTopic.png
+type:overview
+tags:Materials
 
 [REGION:full_feature]
 [/REGION]
@@ -20,8 +25,6 @@ Version:4.9
 その関数を使うマテリアルに対して、それぞれを編集しなくてもよいのです。
 
 
-
-[REGION:topics half]
 [OBJECT:Topic]
 	[PARAM:image]
 		![%Engine/Rendering/Materials/Functions/Overview:title%](Engine/Rendering/Materials/Functions/matfunc_topic.png)
@@ -93,7 +96,6 @@ Version:4.9
 		[RELATIVE:Engine/Rendering/Materials/Functions/Using]
 	[/PARAM]
 [/OBJECT]
-[/REGION]
 
 ## 関数のリファレンス
 

@@ -26,6 +26,17 @@ void FOnlineTestCommon::Cleanup()
 		OnlineFriends = nullptr;
 	}
 
+	if (OnlineMessage.IsValid())
+	{
+		OnlineMessage->ClearOnSendMessageCompleteDelegate_Handle(0, OnSendMessageCompleteDelegateHandle);
+		OnlineMessage = nullptr;
+	}
+
+	if (OnlineAchievements.IsValid())
+	{
+		OnlineAchievements = nullptr;
+	}
+
 	SubsystemType = TEXT("");
 
 	AccountCredentials = FOnlineAccountCredentials(TEXT(""), TEXT(""), TEXT(""));
@@ -358,7 +369,7 @@ void FOnlineTestCommon::BlockFriendOnTestAccount(IOnlineIdentityPtr OI, IOnlineF
 									}
 									else
 									{
-										UE_LOG(LogOnline, Error, TEXT("OSS Automation: IsValid() check on FriendAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
+										UE_LOG_ONLINE(Error, TEXT("OSS Automation: IsValid() check on FriendAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
 										TestDone.Execute();
 									}
 								}));
@@ -446,9 +457,130 @@ void FOnlineTestCommon::UnblockFriendOnTestAccount(IOnlineIdentityPtr OI, IOnlin
 		}
 		else
 		{
-			UE_LOG(LogOnline, Error, TEXT("OSS Automation: IsValid() check on FriendAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
+			UE_LOG_ONLINE(Error, TEXT("OSS Automation: IsValid() check on FriendAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
 			TestDone.Execute();
 		}
+	}));
+
+	OnlineIdentity->Login(0, AccountCredentials);
+}
+
+void FOnlineTestCommon::SendMessageToTestAccount(IOnlineIdentityPtr OI, IOnlineFriendsPtr OF, IOnlineMessagePtr OM, FName ST, const FDoneDelegate& TestDone)
+{
+	OnlineIdentity = OI;
+	OnlineMessage = OM;
+	SubsystemType = ST;
+
+	AccountCredentials = FOnlineTestCommon::GetSubsystemTestAccountCredentials(SubsystemType);
+	FOnlineAccountCredentials FriendAccountCredentials = FOnlineTestCommon::GetSubsystemFriendAccountCredentials(SubsystemType);
+
+	OnLoginCompleteDelegateHandle = OnlineIdentity->AddOnLoginCompleteDelegate_Handle(0, FOnLoginCompleteDelegate::CreateLambda([this, TestDone](int32 LoginLocalPlayerNumTestAccount, bool bLoginWasSuccessfulTestAccount, const FUniqueNetId& LoginUserIdTestAccount, const FString& LoginErrorTestAccount)
+	{
+		FString TestAccountIdString = FOnlineTestCommon::GetSubsystemTestAccountUniqueId(SubsystemType);
+		TSharedPtr<const FUniqueNetId> TestAccountId = OnlineIdentity->CreateUniquePlayerId(TestAccountIdString);
+
+		TArray<TSharedRef<const FUniqueNetId>> Recipients;
+		Recipients.Add(TestAccountId.ToSharedRef());
+
+		FOnlineMessagePayload TestPayload;
+		TArray<uint8> TestData;
+		TestData.Add(0xde);
+
+		TestPayload.SetAttribute(TEXT("STRINGValue"), FVariantData(TestData));
+
+		OnSendMessageCompleteDelegateHandle = OnlineMessage->AddOnSendMessageCompleteDelegate_Handle(0, FOnSendMessageCompleteDelegate::CreateLambda([this, TestDone](int32 SendMessageLocalUserNum, bool bSendMessageWasSuccessful, const FString& SendMessagePayload)
+		{
+			OnlineIdentity->ClearOnLogoutCompleteDelegate_Handle(0, OnLogoutCompleteDelegateHandle);
+			OnLogoutCompleteDelegateHandle = OnlineIdentity->AddOnLogoutCompleteDelegate_Handle(0, FOnLogoutCompleteDelegate::CreateLambda([this, TestDone](int32 LoggedOutLocalUserNum, bool bLogoutWasSuccessful)
+			{
+				TestDone.Execute();
+				Cleanup();
+			}));
+
+			OnlineIdentity->Logout(0);
+		}));
+
+		OnlineMessage->SendMessage(0, Recipients, TEXT("TEST"), TestPayload);
+	}));
+
+	OnlineIdentity->Login(0, FriendAccountCredentials);
+}
+
+void FOnlineTestCommon::AddAchievementToTestAccount(IOnlineIdentityPtr OI, IOnlineAchievementsPtr OA, const FDoneDelegate& TestDone)
+{
+	OnlineIdentity = OI;
+	OnlineAchievements = OA;
+
+	OnLoginCompleteDelegateHandle = OnlineIdentity->AddOnLoginCompleteDelegate_Handle(0, FOnLoginCompleteDelegate::CreateLambda([this, TestDone](int32 LoginLocalUserNum, bool bLoginWasSuccessful, const FUniqueNetId& LoginUserId, const FString& LoginError)
+	{
+		TSharedPtr<const FUniqueNetId> TestAccountId = OnlineIdentity->GetUniquePlayerId(0);
+
+		if (TestAccountId.IsValid())
+		{
+			OnlineAchievements->QueryAchievements(*TestAccountId, FOnQueryAchievementsCompleteDelegate::CreateLambda([this, TestAccountId, TestDone](const FUniqueNetId& QueryAchievementsPlayerId, const bool bQueryAchievementsWasSuccessful)
+			{
+				TArray<FOnlineAchievement> PlayerAchievements;
+				OnlineAchievements->GetCachedAchievements(QueryAchievementsPlayerId, PlayerAchievements);
+
+				if (PlayerAchievements.Num() > 0)
+				{
+					FString TestAchievement = PlayerAchievements[0].Id;
+
+					FOnlineAchievement SomeAchievement;
+					OnlineAchievements->GetCachedAchievement(*TestAccountId, TestAchievement, SomeAchievement);
+
+					FOnlineAchievementsWritePtr AchievementWriteObject = MakeShareable(new FOnlineAchievementsWrite());
+					FOnlineAchievementsWriteRef AchievementWriter = AchievementWriteObject.ToSharedRef();
+					AchievementWriteObject->SetFloatStat(FName(*TestAchievement), 1.0f);
+
+					OnlineAchievements->WriteAchievements(*TestAccountId, AchievementWriter, FOnAchievementsWrittenDelegate::CreateLambda([this, AchievementWriteObject, TestAccountId, TestAchievement, TestDone](const FUniqueNetId& WriteAchievements, bool bWriteAchievementsWasSuccessful)
+					{
+						OnLogoutCompleteDelegateHandle = OnlineIdentity->AddOnLogoutCompleteDelegate_Handle(0, FOnLogoutCompleteDelegate::CreateLambda([this, TestDone](int32 LoggedOutLocalUserNum, bool bLogoutWasSuccessful)
+						{
+							TestDone.Execute();
+							Cleanup();
+						}));
+
+						OnlineIdentity->Logout(0);
+					}));
+				}
+				else
+				{
+					UE_LOG_ONLINE(Error, TEXT("OSS Automation: PlayerAchievements array is empty after a call to GetCachedAchievements. No Achievements found for this subsystem."));
+				}
+			}));
+		}
+		else
+		{
+			UE_LOG_ONLINE(Error, TEXT("OSS Automation: IsValid() check on TestAccountId failed after a call to OnlineIdentity->GetUniquePlayerId()"));
+		}
+	}));
+
+	OnlineIdentity->Login(0, AccountCredentials);
+}
+
+void FOnlineTestCommon::ResetTestAccountAchievements(IOnlineIdentityPtr OI, IOnlineAchievementsPtr OA, const FDoneDelegate& TestDone)
+{
+	OnlineIdentity = OI;
+	OnlineAchievements = OA;
+
+	OnLoginCompleteDelegateHandle = OnlineIdentity->AddOnLoginCompleteDelegate_Handle(0, FOnLoginCompleteDelegate::CreateLambda([this, TestDone](int32 LoginLocalUserNum, bool bLoginWasSuccessful, const FUniqueNetId& LoginUserId, const FString& LoginError)
+	{
+		TSharedPtr<const FUniqueNetId> TestAccountId = OnlineIdentity->GetUniquePlayerId(0);
+
+		if (TestAccountId.IsValid())
+		{
+#if !UE_BUILD_SHIPPING
+			OnlineAchievements->ResetAchievements(*TestAccountId);
+#endif //!UE_BUILD_SHIPPING
+		}
+		else
+		{
+			UE_LOG_ONLINE(Error, TEXT("OSS Automation: IsValid() check on TestAccountId failed after a call to OnlineIdentity->CreateUniquePlayerId()"));
+		}
+
+		TestDone.Execute();
+		Cleanup();
 	}));
 
 	OnlineIdentity->Login(0, AccountCredentials);

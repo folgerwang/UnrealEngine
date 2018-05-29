@@ -1,11 +1,10 @@
-﻿INTSourceChangelist:3782314
-Availability:Public
+﻿Availability:Public
 Title:エディタの主要なユーザー インターフェース
 Crumbs:%ROOT%, Engine
 Description:エディタの基本原理とアンリアル エディタ ユーザーインターフェース各部の概要
 Navigation:topic
 Version:4.9
-parent:Engine/Editor/Content
+parent:Engine/Editor
 order:1
 topic-image:UserInterfaceTopic.png
 topic-icon:%ROOT%/editor_icon.png
@@ -93,6 +92,6 @@ mac
 
 [DIR(output:"playlist" type:"playlist" playlist_id:"PLZlv_N0_O1gasd4IcOe9Cx9wHoBB7rxFl")]
 
-
+[/EXCERPT:LevelEditor]
 
 

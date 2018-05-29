@@ -6,10 +6,12 @@
 
 #include "GameFramework/Character.h"
 #include "GameFramework/DamageType.h"
+#include "GameFramework/Controller.h"
 #include "Components/SkinnedMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/ArrowComponent.h"
 #include "Engine/CollisionProfile.h"
+#include "Engine/DemoNetDriver.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
@@ -270,7 +272,7 @@ bool ACharacter::CanJumpInternal_Implementation() const
 	if (bCanJump)
 	{
 		// Ensure JumpHoldTime and JumpCount are valid.
-		if (GetJumpMaxHoldTime() <= 0.0f || !bWasJumping)
+		if (!bWasJumping || GetJumpMaxHoldTime() <= 0.0f)
 		{
 			if (JumpCurrentCount == 0 && CharacterMovement->IsFalling())
 			{
@@ -283,12 +285,12 @@ bool ACharacter::CanJumpInternal_Implementation() const
 		}
 		else
 		{
-			// Only consider IsJumpProviding force as long as:
+			// Only consider JumpKeyHoldTime as long as:
 			// A) The jump limit hasn't been met OR
 			// B) The jump limit has been met AND we were already jumping
-			bCanJump = (IsJumpProvidingForce()) &&
-						(JumpCurrentCount < JumpMaxCount ||
-						(bWasJumping && JumpCurrentCount == JumpMaxCount));
+			const bool bJumpKeyHeld = (bPressedJump && JumpKeyHoldTime < GetJumpMaxHoldTime());
+			bCanJump = bJumpKeyHeld &&
+						((JumpCurrentCount < JumpMaxCount) || (bWasJumping && JumpCurrentCount == JumpMaxCount));
 		}
 	}
 
@@ -297,8 +299,10 @@ bool ACharacter::CanJumpInternal_Implementation() const
 
 void ACharacter::ResetJumpState()
 {
+	bPressedJump = false;
 	bWasJumping = false;
 	JumpKeyHoldTime = 0.0f;
+	JumpForceTimeRemaining = 0.0f;
 
 	if (CharacterMovement && !CharacterMovement->IsFalling())
 	{
@@ -312,7 +316,16 @@ void ACharacter::OnJumped_Implementation()
 
 bool ACharacter::IsJumpProvidingForce() const
 {
-	return (bPressedJump && JumpKeyHoldTime < GetJumpMaxHoldTime());
+	if (JumpForceTimeRemaining > 0.0f)
+	{
+		return true;
+	}
+	else if (bProxyIsJumpForceApplied && (Role==ROLE_SimulatedProxy))
+	{
+		return GetWorld()->TimeSince(ProxyJumpForceStartedTime) <= GetJumpMaxHoldTime();
+	}
+
+	return false;
 }
 
 void ACharacter::RecalculateBaseEyeHeight()
@@ -932,9 +945,18 @@ void ACharacter::LaunchCharacter(FVector LaunchVelocity, bool bXYOverride, bool 
 
 void ACharacter::OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PrevCustomMode)
 {
-	if (!bPressedJump)
+	if (!bPressedJump || !CharacterMovement->IsFalling())
 	{
+		// We reset jump state, but someone may have queued up a jump request we shouldn't disregard, so we restore the input flag.
+		const bool bSavedPressedJump = bPressedJump;
 		ResetJumpState();
+		bPressedJump = bSavedPressedJump;
+	}
+
+	// Recored jump force start time for proxies. Allows us to expire the jump even if not continually ticking down a timer.
+	if (bProxyIsJumpForceApplied && CharacterMovement->IsFalling())
+	{
+		ProxyJumpForceStartedTime = GetWorld()->GetTimeSeconds();
 	}
 
 	K2_OnMovementModeChanged(PrevMovementMode, CharacterMovement->MovementMode, PrevCustomMode, CharacterMovement->CustomMovementMode);
@@ -990,36 +1012,34 @@ void ACharacter::CheckJumpInput(float DeltaTime)
 				if (!bWasJumping)
 				{
 					JumpCurrentCount++;
+					JumpForceTimeRemaining = GetJumpMaxHoldTime();
 					OnJumped();
-				}
-				// Only increment the jump time if successfully jumped and it's
-				// the first jump. This prevents including the initial DeltaTime
-				// for the first frame of a jump.
-				if (!bFirstJump)
-				{
-					JumpKeyHoldTime += DeltaTime;
 				}
 			}
 
 			bWasJumping = bDidJump;
 		}
-
-		// If the jump key is no longer pressed and the character is no longer falling,
-		// but it still "looks" like the character was jumping, reset the counters.
-		else if (bWasJumping && !CharacterMovement->IsFalling())
-		{
-			ResetJumpState();
-		}
 	}
 }
 
 
-void ACharacter::ClearJumpInput()
+void ACharacter::ClearJumpInput(float DeltaTime)
 {
-	// Don't disable bPressedJump right away if it's still held
-	if (bPressedJump && (JumpKeyHoldTime >= GetJumpMaxHoldTime()))
+	if (bPressedJump)
 	{
-		bPressedJump = false;
+		JumpKeyHoldTime += DeltaTime;
+
+		// Don't disable bPressedJump right away if it's still held.
+		// Don't modify JumpForceTimeRemaining because a frame of update may be remaining.
+		if (JumpKeyHoldTime >= GetJumpMaxHoldTime())
+		{
+			bPressedJump = false;
+		}
+	}
+	else
+	{
+		JumpForceTimeRemaining = 0.0f;
+		bWasJumping = false;
 	}
 }
 
@@ -1391,6 +1411,7 @@ void ACharacter::PreReplication( IRepChangedPropertyTracker & ChangedPropertyTra
 		DOREPLIFETIME_ACTIVE_OVERRIDE( ACharacter, RepRootMotion, false );
 	}
 
+	bProxyIsJumpForceApplied = (JumpForceTimeRemaining > 0.0f);
 	ReplicatedServerLastTransformUpdateTimeStamp = CharacterMovement->GetServerLastTransformUpdateTimeStamp();
 	ReplicatedMovementMode = CharacterMovement->PackNetworkMovementMode();	
 	ReplicatedBasedMovement = BasedMovement;
@@ -1423,18 +1444,36 @@ void ACharacter::PreReplicationForReplay(IRepChangedPropertyTracker & ChangedPro
 	// We'll be able to look ahead in the replay to have these ahead of time for smoother playback
 	FCharacterReplaySample ReplaySample;
 
+	const UWorld* World = GetWorld();
+
 	// If this is a client-recorded replay, use the mesh location and rotation, since these will always
 	// be smoothed - unlike the actor position and rotation.
 	const USkeletalMeshComponent* const MeshComponent = GetMesh();
-	if (MeshComponent && GetWorld()->IsRecordingClientReplay())
+	if (MeshComponent && World && World->IsRecordingClientReplay())
 	{
-		// Remove the base transform from the mesh's transform, since on playback the base transform
-		// will be stored in the mesh's RelativeLocation and RelativeRotation.
-		const FTransform BaseTransform(GetBaseRotationOffset(), GetBaseTranslationOffset());
-		const FTransform MeshRootTransform = BaseTransform.Inverse() * MeshComponent->GetComponentTransform();
+		FNetworkPredictionData_Client_Character const* const ClientNetworkPredicationData = CharacterMovement->GetPredictionData_Client_Character();
+		if ((Role == ROLE_SimulatedProxy) && ClientNetworkPredicationData)
+		{
+			ReplaySample.Location = GetActorLocation() + ClientNetworkPredicationData->MeshRotationOffset.UnrotateVector(ClientNetworkPredicationData->MeshTranslationOffset);
+			ReplaySample.Rotation = GetActorRotation() + ClientNetworkPredicationData->MeshRotationOffset.Rotator();
+		}
+		else
+		{
+			// Remove the base transform from the mesh's transform, since on playback the base transform
+			// will be stored in the mesh's RelativeLocation and RelativeRotation.
+			const FTransform BaseTransform(GetBaseRotationOffset(), GetBaseTranslationOffset());
+			const FTransform MeshRootTransform = BaseTransform.Inverse() * MeshComponent->GetComponentTransform();
 
-		ReplaySample.Location = MeshRootTransform.GetLocation();
-		ReplaySample.Rotation = MeshRootTransform.GetRotation().Rotator();
+			ReplaySample.Location = MeshRootTransform.GetLocation();
+			ReplaySample.Rotation = MeshRootTransform.GetRotation().Rotator();
+		}
+
+		// On client replays, our view pitch will be set to 0 as by default we do not replicate
+		// pitch for owners, just for simulated. So instead push our rotation into the sampler
+		if (Controller != nullptr && Role == ROLE_AutonomousProxy && GetNetMode() == NM_Client)
+		{
+			SetRemoteViewPitch(Controller->GetControlRotation().Pitch);
+		}
 	}
 	else
 	{
@@ -1446,6 +1485,11 @@ void ACharacter::PreReplicationForReplay(IRepChangedPropertyTracker & ChangedPro
 	ReplaySample.Acceleration = CharacterMovement->GetCurrentAcceleration();
 	ReplaySample.RemoteViewPitch = RemoteViewPitch;
 
+	if (World && World->DemoNetDriver)
+	{
+		ReplaySample.Time = World->DemoNetDriver->DemoCurrentTime;
+	}
+	
 	FBitWriter Writer(0, true);
 	Writer << ReplaySample;
 
@@ -1462,6 +1506,7 @@ void ACharacter::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLi
 	DOREPLIFETIME_CONDITION( ACharacter, ReplicatedServerLastTransformUpdateTimeStamp, COND_SimulatedOnlyNoReplay );
 	DOREPLIFETIME_CONDITION( ACharacter, ReplicatedMovementMode,			COND_SimulatedOnly );
 	DOREPLIFETIME_CONDITION( ACharacter, bIsCrouched,						COND_SimulatedOnly );
+	DOREPLIFETIME_CONDITION( ACharacter, bProxyIsJumpForceApplied,			COND_SimulatedOnly );
 	DOREPLIFETIME_CONDITION( ACharacter, AnimRootMotionTranslationScale,	COND_SimulatedOnly );
 
 	// Change the condition of the replicated movement property to not replicate in replays since we handle this specifically via saving this out in external replay data

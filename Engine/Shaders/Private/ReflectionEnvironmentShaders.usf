@@ -267,15 +267,6 @@ void FilterPS(
 	float2 ScaledUVs = Input.UV * 2 - 1;
 	float3 CubeCoordinates = GetCubemapVector(ScaledUVs);
 
-#if ES2_PROFILE || ES3_1_PROFILE || METAL_PROFILE
-//@todo - mwassmer.  Write filtering that works for ES2 so specular will work.
-#define FILTER_CUBEMAP 0
-#else
-#define FILTER_CUBEMAP 1
-#endif
-
-#if FILTER_CUBEMAP
-
 	float3 N = normalize(CubeCoordinates);
 	float3x3 TangentToWorld = GetTangentBasis( N );
 
@@ -360,12 +351,6 @@ void FilterPS(
 
 		OutColor = FilteredColor / Weight;
 	}
-
-#else
-
-	OutColor = SampleCubemap(CubeCoordinates, MipIndex);
-
-#endif
 }
 
 float4 CoefficientMask0;

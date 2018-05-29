@@ -4,6 +4,7 @@
 #include "StompLog.h"
 
 #if WITH_STOMP
+#include "Stats/Stats.h"
 
 #include "StompMessage.h"
 #include "StompFrame.h"
@@ -290,6 +291,8 @@ void FStompClient::HandleIncomingFrame(const uint8* Data, SIZE_T Length)
 
 bool FStompClient::Tick(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FStompClient_Tick);
+
 	if (IsConnected())
 	{
 		FDateTime Now = FDateTime::UtcNow();

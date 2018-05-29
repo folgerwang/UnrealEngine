@@ -31,6 +31,7 @@ enum class EPlatformMemorySizeBucket
 	Default,
 	Smaller,
 	Smallest,
+    Tiniest
 };
 
 
@@ -273,6 +274,14 @@ struct CORE_API FGenericPlatformMemory
 	 * @return platform specific current memory statistics.
 	 */
 	static FPlatformMemoryStats GetStats();
+
+	/**
+	* @return memory used for platforms that can do it quickly (without affecting stat unit much)
+	*/
+	static uint64 GetMemoryUsedFast()
+	{
+		return 0;
+	}
 
 	/**
 	 * Writes all platform specific current memory statistics in the format usable by the malloc profiler.

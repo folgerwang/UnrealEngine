@@ -41,6 +41,11 @@ bool FJsonObject::TryGetNumberField( const FString& FieldName, uint32& OutNumber
 	return Field.IsValid() && Field->TryGetNumber(OutNumber);
 }
 
+bool FJsonObject::TryGetNumberField(const FString& FieldName, int64& OutNumber) const
+{
+	TSharedPtr<FJsonValue> Field = TryGetField(FieldName);
+	return Field.IsValid() && Field->TryGetNumber(OutNumber);
+}
 
 void FJsonObject::SetNumberField( const FString& FieldName, double Number )
 {

@@ -509,6 +509,8 @@ private:
 
 	void PurgeUnreferencedMIDs()
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_FTextRenderComponentMIDCache_PurgeUnreferencedMIDs);
+
 		checkfSlow(IsInGameThread(), TEXT("FTextRenderComponentMIDCache::PurgeUnreferencedMIDs is only expected to be called from the game thread!"));
 
 		TArray<FKey> MIDsToPurgeNow;

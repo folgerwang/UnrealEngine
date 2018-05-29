@@ -16,10 +16,9 @@
 #include "AI/NavigationSystemBase.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "NavigationOctree.h"
+#include "AI/NavigationSystemConfig.h"
 #include "NavigationSystem.generated.h"
 
-
-#define NAV_USE_MAIN_NAVIGATION_DATA NULL
 
 class AController;
 class ANavMeshBoundsVolume;
@@ -32,6 +31,7 @@ class INavRelevantInterface;
 class UCrowdManagerBase;
 class UNavArea;
 class UNavigationPath;
+class UNavigationSystemModuleConfig;
 struct FNavigationRelevantData;
 struct FNavigationOctreeElement;
 
@@ -43,7 +43,7 @@ class FEdMode;
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnNavAreaChanged, const UClass* /*AreaClass*/);
 
 /** Delegate to let interested parties know that Nav Data has been registered */
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnNavDataGenerigEvent, ANavigationData*, NavData);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnNavDataGenericEvent, ANavigationData*, NavData);
 
 DECLARE_MULTICAST_DELEGATE(FOnNavigationInitDone);
 
@@ -73,6 +73,7 @@ namespace FNavigationSystem
 	};
 
 	bool NAVIGATIONSYSTEM_API ShouldLoadNavigationOnClient(ANavigationData& NavData);
+	bool NAVIGATIONSYSTEM_API ShouldDiscardSubLevelNavData(ANavigationData& NavData);
 }
 
 struct FNavigationSystemExec: public FSelfRegisteringExec
@@ -97,6 +98,8 @@ class NAVIGATIONSYSTEM_API UNavigationSystemV1 : public UNavigationSystemBase
 {
 	GENERATED_BODY()
 
+	friend UNavigationSystemModuleConfig;
+
 public:
 	UNavigationSystemV1(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	virtual ~UNavigationSystemV1();
@@ -116,8 +119,14 @@ protected:
 	UPROPERTY(config, EditAnywhere, Category=NavigationSystem)
 	uint32 bAutoCreateNavigationData:1;
 
+	UPROPERTY(config, EditAnywhere, Category = NavigationSystem)
+	uint32 bSpawnNavDataInNavBoundsLevel:1;
+
 	UPROPERTY(config, EditAnywhere, Category=NavigationSystem)
 	uint32 bAllowClientSideNavigation:1;
+
+	UPROPERTY(config, EditAnywhere, Category = NavigationSystem)
+	uint32 bShouldDiscardSubLevelNavData:1;
 
 	UPROPERTY(config, EditAnywhere, Category=NavigationSystem)
 	uint32 bTickWhilePaused:1;
@@ -188,10 +197,10 @@ public:
 	TArray<FNavigationBoundsUpdateRequest> PendingNavBoundsUpdates;
 
  	UPROPERTY(/*BlueprintAssignable, */Transient)
-	FOnNavDataGenerigEvent OnNavDataRegisteredEvent;
+	FOnNavDataGenericEvent OnNavDataRegisteredEvent;
 
 	UPROPERTY(BlueprintAssignable, Transient, meta = (displayname = OnNavigationGenerationFinished))
-	FOnNavDataGenerigEvent OnNavigationGenerationFinishedDelegate;
+	FOnNavDataGenericEvent OnNavigationGenerationFinishedDelegate;
 
 	FOnNavigationInitDone OnNavigationInitDone;
 	
@@ -200,10 +209,12 @@ private:
 	
 	/** set to true when navigation processing was blocked due to missing nav bounds */
 	uint32 bNavDataRemovedDueToMissingNavBounds : 1;
-	
+
+protected:	
 	/** All areas where we build/have navigation */
 	TSet<FNavigationBounds> RegisteredNavBounds;
 
+private:
 	TMap<AActor*, FNavigationInvoker> Invokers;
 
 	float NextInvokersUpdateTime;
@@ -301,6 +312,7 @@ public:
 		RegistrationFailed_DataPendingKill,			// means navigation data being registered is marked as pending kill
 		RegistrationFailed_AgentAlreadySupported,	// this means that navigation agent supported by given nav data is already handled by some other, previously registered instance
 		RegistrationFailed_AgentNotValid,			// given instance contains navmesh that doesn't support any of expected agent types, or instance doesn't specify any agent
+		RegistrationFailed_NotSuitable,				// given instance had been considered unsuitable by current navigation system instance itself
 		RegistrationSuccessful,
 	};
 
@@ -452,12 +464,13 @@ public:
 
 	virtual bool IsNavigationBuilt(const AWorldSettings* Settings) const override;
 
-	bool IsThereAnywhereToBuildNavigation() const;
+	virtual bool IsThereAnywhereToBuildNavigation() const;
 
 	bool ShouldGenerateNavigationEverywhere() const { return bWholeWorldNavigable; }
 
 	bool ShouldAllowClientSideNavigation() const { return bAllowClientSideNavigation; }
 	virtual bool ShouldLoadNavigationOnClient(ANavigationData* NavData = nullptr) const { return bAllowClientSideNavigation; }
+	virtual bool ShouldDiscardSubLevelNavData(ANavigationData* NavData = nullptr) const { return bShouldDiscardSubLevelNavData; }
 
 	FBox GetWorldBounds() const;
 	
@@ -476,6 +489,7 @@ public:
 	static const FNavDataConfig& GetDefaultSupportedAgent();
 	FORCEINLINE const FNavDataConfig& GetDefaultSupportedAgentConfig() const { check(SupportedAgents.Num() > 0);  return SupportedAgents[0]; }
 	FORCEINLINE const TArray<FNavDataConfig>& GetSupportedAgents() const { return SupportedAgents; }
+	void OverrideSupportedAgents(const TArray<FNavDataConfig>& NewSupportedAgents);
 
 	virtual void ApplyWorldOffset(const FVector& InOffset, bool bWorldShift) override;
 
@@ -489,7 +503,7 @@ public:
 
 	static bool DoesPathIntersectBox(const FNavigationPath* Path, const FBox& Box, uint32 StartingIndex = 0, FVector* AgentExtent = NULL);
 	static bool DoesPathIntersectBox(const FNavigationPath* Path, const FBox& Box, const FVector& AgentLocation, uint32 StartingIndex = 0, FVector* AgentExtent = NULL);
-
+	
 	//----------------------------------------------------------------------//
 	// Active tiles
 	//----------------------------------------------------------------------//
@@ -506,8 +520,10 @@ public:
 	// @todo document
 	virtual void UnregisterNavData(ANavigationData* NavData);
 
-	/** adds NavData to registration candidates queue - NavDataRegistrationQueue */
-	void RequestRegistration(ANavigationData* NavData, bool bTriggerRegistrationProcessing = true);
+	/** adds NavData to registration candidates queue - NavDataRegistrationQueue
+	 *	@return true if registration request was successful, false if given NavData 
+	 *	was deemed unsuitable for registration consideration */
+	virtual void RequestRegistration(ANavigationData* NavData, bool bTriggerRegistrationProcessing = true);
 
 protected:
 
@@ -539,7 +555,7 @@ protected:
 	ANavigationData* GetNavDataWithID(const uint16 NavDataID) const;
 
 public:
-	void ReleaseInitialBuildingLock();
+	virtual void ReleaseInitialBuildingLock();
 
 	//----------------------------------------------------------------------//
 	// navigation octree related functions
@@ -766,7 +782,7 @@ public:
 	 * Exec command handlers
 	 */
 	bool HandleCycleNavDrawnCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleCountNavMemCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleCountNavMemCommand();
 	
 	//----------------------------------------------------------------------//
 	// debug
@@ -816,7 +832,7 @@ protected:
 	uint8 bInitialSetupHasBeenPerformed : 1;
 	uint8 bInitialLevelsAdded : 1;
 	uint8 bWorldInitDone : 1;
-	uint8 bAsyncBuildPaused : 1;
+	uint8 bAsyncBuildPaused : 1; // mz@todo remove, replaced by bIsPIEActive and IsGameWorld
 	uint8 bCanAccumulateDirtyAreas : 1;
 #if !UE_BUILD_SHIPPING
 	uint8 bDirtyAreasReportedWhileAccumulationLocked : 1;
@@ -840,6 +856,7 @@ protected:
 	static bool bNavigationAutoUpdateEnabled;
 	static bool bUpdateNavOctreeOnComponentChange;
 	static bool bStaticRuntimeNavigation;
+	static bool bIsPIEActive;
 
 	static TMap<INavLinkCustomInterface*, FWeakObjectPtr> PendingCustomLinkRegistration;
 	TSet<const UClass*> NavAreaClasses;
@@ -959,13 +976,28 @@ public:
 	DEPRECATED(4.16, "This version of GetRandomPointInNavigableRadius is deprecated. Please use the new version")
 	UFUNCTION(BlueprintPure, Category = "AI|Navigation", meta = (WorldContext = "WorldContextObject", DisplayName = "GetRandomPointInNavigableRadius_DEPRECATED", ScriptNoExport, DeprecatedFunction, DeprecationMessage = "This version of GetRandomPointInNavigableRadius is deprecated. Please use the new version"))
 	static FVector GetRandomPointInNavigableRadius(UObject* WorldContextObject, const FVector& Origin, float Radius, ANavigationData* NavData = NULL, TSubclassOf<UNavigationQueryFilter> FilterClass = NULL);
-
 	DEPRECATED(4.20, "SimpleMoveToActor is deprecated. Use UAIBlueprintHelperLibrary::SimpleMoveToActor instead")
 	UFUNCTION(BlueprintCallable, Category = "AI|Navigation", meta = (DisplayName = "SimpleMoveToActor_DEPRECATED", ScriptNoExport, DeprecatedFunction, DeprecationMessage = "SimpleMoveToActor is deprecated. Use AIBlueprintHelperLibrary::SimpleMoveToActor instead"))
 	static void SimpleMoveToActor(AController* Controller, const AActor* Goal);
-
 	DEPRECATED(4.20, "SimpleMoveToLocation is deprecated. Use UAIBlueprintHelperLibrary::SimpleMoveToLocation instead")
 	UFUNCTION(BlueprintCallable, Category = "AI|Navigation", meta = (DisplayName = "SimpleMoveToLocation_DEPRECATED", ScriptNoExport, DeprecatedFunction, DeprecationMessage = "SimpleMoveToLocation is deprecated. Use AIBlueprintHelperLibrary::SimpleMoveToLocation instead"))
 	static void SimpleMoveToLocation(AController* Controller, const FVector& Goal);
 };
 
+
+UCLASS()
+class NAVIGATIONSYSTEM_API UNavigationSystemModuleConfig : public UNavigationSystemConfig
+{
+	GENERATED_BODY()
+
+protected:
+	UPROPERTY(EditAnywhere, Category = Navigation)
+	uint32 bAutoSpawnMissingNavData : 1;
+
+	UPROPERTY(EditAnywhere, Category = Navigation)
+	uint32 bSpawnNavDataInNavBoundsLevel : 1;
+
+public:
+	UNavigationSystemModuleConfig(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+	virtual UNavigationSystemBase* CreateAndConfigureNavigationSystem(UWorld& World) const override;
+};

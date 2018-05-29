@@ -8,6 +8,9 @@
 
 class FOnlineSubsystemNull;
 
+// from OnlineSubsystemTypes.h
+TEMP_UNIQUENETIDSTRING_SUBCLASS(FUniqueNetIdNull, NULL_SUBSYSTEM);
+
 /** 
  * Implementation of session information
  */
@@ -40,7 +43,7 @@ PACKAGE_SCOPE:
 	/** The ip & port that the host is listening on (valid for LAN/GameServer) */
 	TSharedPtr<class FInternetAddr> HostAddr;
 	/** Unique Id for this session */
-	FUniqueNetIdString SessionId;
+	FUniqueNetIdNull SessionId;
 
 public:
 

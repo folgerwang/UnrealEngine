@@ -43,14 +43,16 @@ public:
 	/* Send the provided OSC packet */
 	bool SendPacket(FBackChannelOSCPacket& Packet);
 
-	/* Return our DispatchMap. This can be modified as necessary */
-	FBackChannelOSCDispatch& GetDispatchMap();
+	/* Bind a delegate to a message address */
+	FDelegateHandle AddMessageHandler(const TCHAR* Path, FBackChannelDispatchDelegate::FDelegate Delegate);
+	
+	/* Remove a delegate handle */
+	void RemoveMessageHandler(const TCHAR* Path, FDelegateHandle& InHandle);
 
 	/* Set options for the specified message path */
 	void SetMessageOptions(const TCHAR* Path, int32 MaxQueuedMessages);
 
 	FString GetDescription();
-
 
 protected:
 	// Begin protected FRunnable overrides

@@ -427,6 +427,7 @@ public:
 
 	TRefCountPtr<IPooledRenderTarget>& GetSceneColor();
 
+	EPixelFormat GetSceneColorFormat(ERHIFeatureLevel::Type InFeatureLevel) const;
 	EPixelFormat GetSceneColorFormat() const;
 	EPixelFormat GetDesiredMobileSceneColorFormat() const;
 	EPixelFormat GetMobileSceneColorFormat() const;

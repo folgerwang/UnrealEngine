@@ -217,6 +217,10 @@ public:
 	/** returns true if the movie being played in the last one in the play list */
 	virtual bool IsLastMovieInPlaylist() = 0;
 
+	/* Callback for when the LoadingScreen setup above in WidgetLoadingScreen is displayed **/
+	DECLARE_EVENT(IGameMoviePlayer, FOnMoviePlaybackStarted)
+	virtual FOnMoviePlaybackStarted& OnMoviePlaybackStarted() = 0;
+
 	DECLARE_EVENT(IGameMoviePlayer, FOnMoviePlaybackFinished)
 	virtual FOnMoviePlaybackFinished& OnMoviePlaybackFinished() = 0;
 

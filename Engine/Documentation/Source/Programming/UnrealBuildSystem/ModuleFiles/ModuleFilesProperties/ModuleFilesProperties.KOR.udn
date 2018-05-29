@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3735956
+﻿INTSourceChangelist:3808342
 Availability: NoPublish
 Title: 빌드 구성 프로퍼티 페이지
 Crumbs:
@@ -84,7 +84,9 @@ $ PublicAdditionalShadowFiles (List&lt;String&gt;): (iOS 등) 원격 머신에�
 
 $ PublicDelayLoadDLLs (List&lt;String&gt;): 딜레이 로드 DLL 목록입니다. 보통 외부 (써드 파티) 모듈에 사용됩니다.
 
-$ Definitions (List&lt;String&gt;): 이 모듈에 대한 부가 컴파일러 정의입니다.
+$ PrivateDefinitions (List&lt;String&gt;): 이 모듈에 대한 프라이빗 컴파일러 정의입니다.
+
+$ PublicDefinitions (List&lt;String&gt;): 이 모듈에 대한 퍼블릭 컴파일러 정의입니다.
 
 $ DynamicallyLoadedModuleNames (List&lt;String&gt;): 런타임에 이 모듈이 필요로 할 수 있는 부가 모듈입니다.
 

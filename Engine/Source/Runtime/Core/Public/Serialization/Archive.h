@@ -17,7 +17,13 @@
 #include "Templates/IsArrayOrRefOfType.h"
 
 class FCustomVersionContainer;
+class FLinker;
+class FName;
+class FString;
+class FText;
 class ITargetPlatform;
+class UObject;
+class UProperty;
 struct FUntypedBulkData;
 struct FArchiveSerializedPropertyChain;
 template<class TEnum> class TEnumAsByte;
@@ -114,7 +120,7 @@ public:
 		return bError;
 	}
 
-protected:
+private:
 	/** The object pointer */
 	T* Object;
 
@@ -157,7 +163,7 @@ public:
 	 * @param Value The value to serialize.
 	 * @return This instance.
 	 */
-	virtual FArchive& operator<<(class FName& Value)
+	virtual FArchive& operator<<(FName& Value)
 	{
 		return *this;
 	}
@@ -168,7 +174,7 @@ public:
 	 * @param Ar The archive to serialize from or to.
 	 * @param Value The value to serialize.
 	 */
-	virtual FArchive& operator<<(class FText& Value);
+	virtual FArchive& operator<<(FText& Value);
 
 	/**
 	 * Serializes an UObject value from or into this archive.
@@ -178,7 +184,7 @@ public:
 	 * @param Value The value to serialize.
 	 * @return This instance.
 	 */
-	virtual FArchive& operator<<(class UObject*& Value)
+	virtual FArchive& operator<<(UObject*& Value)
 	{
 		return *this;
 	}
@@ -624,7 +630,7 @@ public:
 	 *
 	 * @return The linker, or nullptr if the archive is not a linker.
 	 */
-	virtual class FLinker* GetLinker()
+	virtual FLinker* GetLinker()
 	{
 		return nullptr;
 	}
@@ -753,7 +759,7 @@ public:
 #if PLATFORM_LITTLE_ENDIAN
 		bool SwapBytes = ArForceByteSwapping;
 #else
-		bool SwapBytes = ArIsPersistent;
+		bool SwapBytes = this->IsPersistent();
 #endif
 		return SwapBytes;
 	}
@@ -825,8 +831,6 @@ public:
 		return nullptr;
 	}
 
-	virtual void IndicateSerializationMismatch() { }
-
 private:
 	void VARARGS LogfImpl(const TCHAR* Fmt, ...);
 
@@ -893,6 +897,7 @@ public:
 		return this;
 	}
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	FORCEINLINE bool IsLoading() const
 	{
 		return ArIsLoading;
@@ -934,6 +939,7 @@ public:
 	{
 		return ArIsPersistent;
 	}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	FORCEINLINE bool IsError() const
 	{
@@ -1050,55 +1056,6 @@ public:
 	}
 
 	/**
-	 * Sets the archive version number. Used by the code that makes sure that FLinkerLoad's 
-	 * internal archive versions match the file reader it creates.
-	 *
-	 * @param UE4Ver	new version number
-	 */
-	void SetUE4Ver(int32 InVer)
-	{
-		ArUE4Ver = InVer;
-	}
-
-	/**
-	 * Sets the archive licensee version number. Used by the code that makes sure that FLinkerLoad's 
-	 * internal archive versions match the file reader it creates.
-	 *
-	 * @param Ver	new version number
-	 */
-	void SetLicenseeUE4Ver(int32 InVer)
-	{
-		ArLicenseeUE4Ver = InVer;
-	}
-
-	/**
-	* Sets the archive engine version. Used by the code that makes sure that FLinkerLoad's
-	* internal archive versions match the file reader it creates.
-	*
-	* @param InVer	new version number
-	*/
-	void SetEngineVer(const FEngineVersionBase& InVer)
-	{
-		ArEngineVer = InVer;
-	}
-
-	/**
-	* Sets the archive engine network version.
-	*/
-	void SetEngineNetVer(const uint32 InEngineNetVer)
-	{
-		ArEngineNetVer = InEngineNetVer;
-	}
-
-	/**
-	* Sets the archive game network version.
-	*/
-	void SetGameNetVer(const uint32 InGameNetVer)
-	{
-		ArGameNetVer = InGameNetVer;
-	}
-
-	/**
 	 * Gets the custom version numbers for this archive.
 	 *
 	 * @return The container of custom versions in the archive.
@@ -1123,16 +1080,6 @@ public:
 	 * @param FriendlyName - Friendly name corresponding to the key
 	 */
 	void SetCustomVersion(const struct FGuid& Key, int32 Version, FName FriendlyName);
-
-	/**
-	 * Toggle saving as Unicode. This is needed when we need to make sure ANSI strings are saved as Unicode
-	 *
-	 * @param Enabled	set to true to force saving as Unicode
-	 */
-	void SetForceUnicode(bool Enabled)
-	{
-		ArForceUnicode = Enabled;
-	}
 
 	/**
 	 * Toggle byte order swapping. This is needed in rare cases when we already know that the data
@@ -1168,24 +1115,11 @@ public:
 	}
 
 	/**
-	 * Returns if an async close operation has finished or not, as well as if there was an error.
-	 *
-	 * @param bHasError true if there was an error.
-	 * @return true if the close operation is complete (or if Close is not an async operation).
-	 */
-	virtual bool IsCloseComplete(bool& bHasError)
-	{
-		bHasError = false;
-		
-		return true;
-	}
-
-	/**
 	 * Indicates whether this archive is filtering editor-only on save or contains data that had editor-only content stripped.
 	 *
 	 * @return true if the archive filters editor-only content, false otherwise.
 	 */
-	virtual bool IsFilterEditorOnly()
+	bool IsFilterEditorOnly()
 	{
 		return ArIsFilterEditorOnly;
 	}
@@ -1205,7 +1139,7 @@ public:
 	 *
 	 * @return true if the archive is dealing with save games, false otherwise.
 	 */
-	virtual bool IsSaveGame()
+	bool IsSaveGame()
 	{
 		return ArIsSaveGame;
 	}
@@ -1235,7 +1169,7 @@ public:
 	 *
 	 * @return Target platform.
 	 */
-	FORCEINLINE const class ITargetPlatform* CookingTarget() const 
+	FORCEINLINE const ITargetPlatform* CookingTarget() const 
 	{
 		return CookingTargetPlatform;
 	}
@@ -1245,7 +1179,7 @@ public:
 	 *
 	 * @param InCookingTarget The target platform to set.
 	 */
-	FORCEINLINE void SetCookingTarget(const class ITargetPlatform* InCookingTarget) 
+	FORCEINLINE void SetCookingTarget(const ITargetPlatform* InCookingTarget) 
 	{
 		CookingTargetPlatform = InCookingTarget;
 	}
@@ -1264,7 +1198,7 @@ public:
 	/**
 	 * Checks whether the archive wants to skip the property independent of the other flags
 	 */
-	virtual bool ShouldSkipProperty(const class UProperty* InProperty) const
+	virtual bool ShouldSkipProperty(const UProperty* InProperty) const
 	{
 		return false;
 	}
@@ -1275,7 +1209,7 @@ public:
 	 * 
 	 * @param InProperty Pointer to the property that is currently being serialized
 	 */
-	FORCEINLINE void SetSerializedProperty(class UProperty* InProperty)
+	FORCEINLINE void SetSerializedProperty(UProperty* InProperty)
 	{
 		SerializedProperty = InProperty;
 	}
@@ -1352,11 +1286,11 @@ public:
 	virtual FString GetLocalizationNamespace() const;
 #endif // USE_STABLE_LOCALIZATION_KEYS
 
-protected:
-
 	/** Resets all of the base archive members. */
-	void Reset();
+	virtual void Reset();
+
 #if DEVIRTUALIZE_FLinkerLoad_Serialize
+private:
 	template<SIZE_T Size>
 	FORCEINLINE bool FastPathLoad(void* InDest)
 	{
@@ -1393,6 +1327,7 @@ protected:
 		}
 		return false;
 	}
+
 public:
 	/* These are used for fastpath inline serializers  */
 	struct FFastPathLoadBuffer
@@ -1415,9 +1350,6 @@ public:
 	FFastPathLoadBuffer* ActiveFPLB;
 	FFastPathLoadBuffer InlineFPLB;
 
-
-
-
 #else
 	template<SIZE_T Size>
 	FORCEINLINE bool FastPathLoad(void* InDest)
@@ -1426,33 +1358,37 @@ public:
 	}
 #endif
 
-
 private:
-
 	/** Copies all of the members except CustomVersionContainer */
 	void CopyTrivialFArchiveStatusMembers(const FArchive& ArchiveStatusToCopy);
 
 public:
-
 	/** Whether this archive is for loading data. */
+	DEPRECATED(4.20, "Direct access to ArIsLoading has been deprecated - please use IsLoading() and SetIsLoading() instead.")
 	uint8 ArIsLoading : 1;
 
 	/** Whether this archive is for saving data. */
+	DEPRECATED(4.20, "Direct access to ArIsSaving has been deprecated - please use IsSaving() and SetIsSaving() instead.")
 	uint8 ArIsSaving : 1;
 
 	/** Whether archive is transacting. */
+	DEPRECATED(4.20, "Direct access to ArIsTransacting has been deprecated - please use IsTransacting() and SetIsTransacting() instead.")
 	uint8 ArIsTransacting : 1;
 
 	/** Whether this archive serializes to a text format. Text format archives should use high level constructs from FStructuredArchive for delimiting data rather than manually seeking through the file. */
+	DEPRECATED(4.20, "Direct access to ArIsTextFormat has been deprecated - please use IsTextFormat() and SetIsTextFormat() instead.")
 	uint8 ArIsTextFormat : 1;
 
 	/** Whether this archive wants properties to be serialized in binary form instead of tagged. */
+	DEPRECATED(4.20, "Direct access to ArWantBinaryPropertySerialization has been deprecated - please use WantBinaryPropertySerialization() and SetWantBinaryPropertySerialization() instead.")
 	uint8 ArWantBinaryPropertySerialization : 1;
 
 	/** Whether this archive wants to always save strings in unicode format */
+	DEPRECATED(4.20, "Direct access to ArForceUnicode has been deprecated - please use ForceUnicode() and SetForceUnicode() instead.")
 	uint8 ArForceUnicode : 1;
 
 	/** Whether this archive saves to persistent storage. */
+	DEPRECATED(4.20, "Direct access to ArIsPersistent has been deprecated - please use IsPersistent() and SetIsPersistent() instead.")
 	uint8 ArIsPersistent : 1;
 
 	/** Whether this archive contains errors. */
@@ -1524,8 +1460,91 @@ public:
 	/** Max size of data that this archive is allowed to serialize. */
 	int64 ArMaxSerializeSize;
 
-protected:
+	/**
+	 * Sets whether this archive is for loading data.
+	 *
+	 * @param bInIsLoading  true if this archive is for loading, false otherwise.
+	 */
+	virtual void SetIsLoading(bool bInIsLoading);
 
+	/**
+	 * Sets whether this archive is for saving data.
+	 *
+	 * @param bInIsSaving  true if this archive is for saving, false otherwise.
+	 */
+	virtual void SetIsSaving(bool bInIsSaving);
+
+	/**
+	 * Sets whether this archive is for transacting.
+	 *
+	 * @param bInIsTransacting  true if this archive is for transacting, false otherwise.
+	 */
+	virtual void SetIsTransacting(bool bInIsTransacting);
+
+	/**
+	 * Sets whether this archive is in text format.
+	 *
+	 * @param bInIsTextFormat  true if this archive is in text format, false otherwise.
+	 */
+	virtual void SetIsTextFormat(bool bInIsTextFormat);
+
+	/**
+	 * Sets whether this archive wants binary property serialization.
+	 *
+	 * @param bInWantBinaryPropertySerialization  true if this archive wants binary serialization, false otherwise.
+	 */
+	virtual void SetWantBinaryPropertySerialization(bool bInWantBinaryPropertySerialization);
+
+	/**
+	 * Sets whether this archive wants to force saving as Unicode.
+	 * This is needed when we need to make sure ANSI strings are saved as Unicode.
+	 *
+	 * @param bInForceUnicode  true if this archive wants to force saving as Unicode, false otherwise.
+	 */
+	virtual void SetForceUnicode(bool bInForceUnicode);
+
+	/**
+	 * Sets whether this archive is to persistent storage.
+	 *
+	 * @param bInIsPersistent  true if this archive is to persistent storage, false otherwise.
+	 */
+	virtual void SetIsPersistent(bool bInIsPersistent);
+
+	/**
+	 * Sets the archive version number. Used by the code that makes sure that FLinkerLoad's 
+	 * internal archive versions match the file reader it creates.
+	 *
+	 * @param UE4Ver	new version number
+	 */
+	virtual void SetUE4Ver(int32 InVer);
+
+	/**
+	 * Sets the archive licensee version number. Used by the code that makes sure that FLinkerLoad's 
+	 * internal archive versions match the file reader it creates.
+	 *
+	 * @param Ver	new version number
+	 */
+	virtual void SetLicenseeUE4Ver(int32 InVer);
+
+	/**
+	 * Sets the archive engine version. Used by the code that makes sure that FLinkerLoad's
+	 * internal archive versions match the file reader it creates.
+	 *
+	 * @param InVer	new version number
+	 */
+	virtual void SetEngineVer(const FEngineVersionBase& InVer);
+
+	/**
+	 * Sets the archive engine network version.
+	 */
+	virtual void SetEngineNetVer(const uint32 InEngineNetVer);
+
+	/**
+	 * Sets the archive game network version.
+	 */
+	virtual void SetGameNetVer(const uint32 InGameNetVer);
+
+private:
 	/** Holds the archive version. */
 	int32 ArUE4Ver;
 
@@ -1541,8 +1560,6 @@ protected:
 	/** Holds the game network protocol version. */
 	uint32 ArGameNetVer;
 
-private:
-
 	/**
 	* All the custom versions stored in the archive.
 	* Stored as a pointer to a heap-allocated object because of a 3-way dependency between TArray, FCustomVersionContainer and FArchive, which is too much work to change right now.
@@ -1551,7 +1568,6 @@ private:
 	mutable FCustomVersionContainer* CustomVersionContainer;
 
 public:
-
 	/** Custom property list attribute. If the flag below is set, only these properties will be iterated during serialization. If NULL, then no properties will be iterated. */
 	const struct FCustomPropertyListNode* ArCustomPropertyList;
 
@@ -1624,7 +1640,7 @@ private:
 	const ITargetPlatform* CookingTargetPlatform;
 
 	/** Holds the pointer to the property that is currently being serialized */
-	class UProperty* SerializedProperty;
+	UProperty* SerializedProperty;
 
 	/** Holds the chain of properties that are currently being serialized */
 	FArchiveSerializedPropertyChain* SerializedPropertyChain;
@@ -1635,7 +1651,7 @@ private:
 	 * This is typically the namespace used by the package being serialized (if serializing a package, or an object within a package).
 	 * Stored as a pointer to a heap-allocated string because of a dependency between TArray (thus FString) and FArchive; null should be treated as an empty string.
 	 */
-	class FString* LocalizationNamespacePtr;
+	FString* LocalizationNamespacePtr;
 
 	/** See SetLocalizationNamespace */
 	void SetBaseLocalizationNamespace(const FString& InLocalizationNamespace);

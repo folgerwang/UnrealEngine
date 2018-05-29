@@ -42,6 +42,7 @@
 #include "Rendering/SkeletalMeshModel.h"
 #include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
+#include "EditorFramework/AssetImportData.h"
 
 #if WITH_APEX_CLOTHING
 	#include "ApexClothingUtils.h"
@@ -75,6 +76,15 @@
 #include "IMeshReductionManagerModule.h"
 
 #define LOCTEXT_NAMESPACE "PersonaMeshDetails"
+
+/*
+* Custom data key
+*/
+enum SK_CustomDataKey
+{
+	CustomDataKey_LODVisibilityState = 0, //This is the key to know if a LOD is shown in custom mode. Do CustomDataKey_LODVisibilityState + LodIndex for a specific LOD
+	CustomDataKey_LODEditMode = 100 //This is the key to know the state of the custom lod edit mode.
+};
 
 namespace PersonaMeshDetailsConstants
 {
@@ -129,7 +139,7 @@ private:
 			{
 				FSkeletalMeshLODInfo& LODInfo = *(SkelMesh->GetLODInfo(LODIndex));
 
-				bDoesSourceFileExist_Cached = !LODInfo.SourceImportFilename.IsEmpty() && FPaths::FileExists(LODInfo.SourceImportFilename);
+				bDoesSourceFileExist_Cached = !LODInfo.SourceImportFilename.IsEmpty() && FPaths::FileExists(UAssetImportData::ResolveImportFilename(LODInfo.SourceImportFilename, nullptr));
 			}
 		}
 		return EActiveTimerReturnType::Continue;
@@ -796,8 +806,6 @@ void FPersonaMeshDetails::AddLODLevelCategories(IDetailLayoutBuilder& DetailLayo
 			.OnCheckStateChanged(this, &FPersonaMeshDetails::SetLODCustomModeCheck, (int32)INDEX_NONE)
 			.ToolTipText(LOCTEXT("LODCustomModeFirstRowTooltip", "Custom Mode allow editing multiple LOD in same time."))
 		];
-		//Set the custom mode to false
-		CustomLODEditMode = false;
 
 		LodCategories.Empty(SkelMeshLODCount);
 		DetailDisplayLODs.Reset();
@@ -866,7 +874,8 @@ void FPersonaMeshDetails::AddLODLevelCategories(IDetailLayoutBuilder& DetailLayo
 				SectionListDelegates.OnPasteSectionItem.BindSP(this, &FPersonaMeshDetails::OnPasteSectionItem);
 				SectionListDelegates.OnEnableSectionItem.BindSP(this, &FPersonaMeshDetails::OnSectionEnabledChanged);
 
-				LODCategory.AddCustomBuilder(MakeShareable(new FSectionList(LODCategory.GetParentLayout(), SectionListDelegates, false, 64, LODIndex)));
+				FName SkeletalMeshSectionListName = FName(*(FString(TEXT("SkeletalMeshSectionListNameLOD_")) + FString::FromInt(LODIndex)));
+				LODCategory.AddCustomBuilder(MakeShareable(new FSectionList(LODCategory.GetParentLayout(), SectionListDelegates, false, 64, LODIndex, SkeletalMeshSectionListName)));
 
 				GetPersonaToolkit()->GetPreviewScene()->RegisterOnSelectedLODChanged(FOnSelectedLODChanged::CreateSP(this, &FPersonaMeshDetails::UpdateLODCategoryVisibility));
 			}
@@ -998,6 +1007,35 @@ void FPersonaMeshDetails::AddLODLevelCategories(IDetailLayoutBuilder& DetailLayo
 			LODCustomModeCategory.SetCategoryVisibility(true);
 			LODCustomModeCategory.SetShowAdvanced(false);
 		}
+
+		//Restore the state of the custom check LOD
+		for (int32 DetailLODIndex = 0; DetailLODIndex < SkelMeshLODCount; ++DetailLODIndex)
+		{
+			int32 LodCheckValue = GetPersonaToolkit()->GetCustomData(CustomDataKey_LODVisibilityState + DetailLODIndex);
+			if (LodCheckValue != INDEX_NONE && DetailDisplayLODs.IsValidIndex(DetailLODIndex))
+			{
+				DetailDisplayLODs[DetailLODIndex] = LodCheckValue > 0;
+			}
+		}
+
+		//Restore the state of the custom LOD mode if its true (greater then 0)
+		bool bCustomLodEditMode = GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0;
+		if (bCustomLodEditMode)
+		{
+			for (int32 DetailLODIndex = 0; DetailLODIndex < SkelMeshLODCount; ++DetailLODIndex)
+			{
+				if (!LodCategories.IsValidIndex(DetailLODIndex))
+				{
+					break;
+				}
+				LodCategories[DetailLODIndex]->SetCategoryVisibility(DetailDisplayLODs[DetailLODIndex]);
+			}
+		}
+
+		if (LodCustomCategory != nullptr)
+		{
+			LodCustomCategory->SetShowAdvanced(bCustomLodEditMode);
+		}
 	}
 }
 
@@ -1025,7 +1063,7 @@ ECheckBoxState FPersonaMeshDetails::IsLODCustomModeCheck(int32 LODIndex) const
 	}
 	if (LODIndex == INDEX_NONE)
 	{
-		return CustomLODEditMode ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+		return (GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
 	return DetailDisplayLODs[LODIndex] ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
@@ -1041,7 +1079,7 @@ void FPersonaMeshDetails::SetLODCustomModeCheck(ECheckBoxState NewState, int32 L
 	{
 		if (NewState == ECheckBoxState::Unchecked)
 		{
-			CustomLODEditMode = false;
+			GetPersonaToolkit()->SetCustomData(CustomDataKey_LODEditMode, 0);
 			SetCurrentLOD(CurrentLodIndex);
 			for (int32 DetailLODIndex = 0; DetailLODIndex < LODCount; ++DetailLODIndex)
 			{
@@ -1054,16 +1092,17 @@ void FPersonaMeshDetails::SetLODCustomModeCheck(ECheckBoxState NewState, int32 L
 		}
 		else
 		{
-			CustomLODEditMode = true;
+			GetPersonaToolkit()->SetCustomData(CustomDataKey_LODEditMode, 1);
 			SetCurrentLOD(0);
 		}
 	}
-	else if (CustomLODEditMode)
+	else if ((GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0))
 	{
 		DetailDisplayLODs[LODIndex] = NewState == ECheckBoxState::Checked;
+		GetPersonaToolkit()->SetCustomData(CustomDataKey_LODVisibilityState + LODIndex, DetailDisplayLODs[LODIndex] ? 1 : 0);
 	}
 
-	if (CustomLODEditMode)
+	if ((GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0))
 	{
 		for (int32 DetailLODIndex = 0; DetailLODIndex < LODCount; ++DetailLODIndex)
 		{
@@ -1077,7 +1116,7 @@ void FPersonaMeshDetails::SetLODCustomModeCheck(ECheckBoxState NewState, int32 L
 
 	if (LodCustomCategory != nullptr)
 	{
-		LodCustomCategory->SetShowAdvanced(CustomLODEditMode);
+		LodCustomCategory->SetShowAdvanced((GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0));
 	}
 }
 
@@ -1088,7 +1127,7 @@ bool FPersonaMeshDetails::IsLODCustomModeEnable(int32 LODIndex) const
 		// Custom checkbox is always enable
 		return true;
 	}
-	return CustomLODEditMode;
+	return (GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0);
 }
 
 TOptional<int32> FPersonaMeshDetails::GetLodSliderMaxValue() const
@@ -2449,7 +2488,7 @@ void FPersonaMeshDetails::SetCurrentLOD(int32 NewLodIndex)
 
 void FPersonaMeshDetails::UpdateLODCategoryVisibility() const
 {
-	if (CustomLODEditMode == true)
+	if (GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0)
 	{
 		//Do not change the Category visibility if we are in custom mode
 		return;
@@ -2513,7 +2552,7 @@ TSharedRef<SWidget> FPersonaMeshDetails::OnGenerateLodComboBoxForLodPicker()
 EVisibility FPersonaMeshDetails::LodComboBoxVisibilityForLodPicker() const
 {
 	//No combo box when in Custom mode
-	if (CustomLODEditMode == true)
+	if (GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0)
 	{
 		return EVisibility::Hidden;
 	}
@@ -2523,7 +2562,7 @@ EVisibility FPersonaMeshDetails::LodComboBoxVisibilityForLodPicker() const
 bool FPersonaMeshDetails::IsLodComboBoxEnabledForLodPicker() const
 {
 	//No combo box when in Custom mode
-	return !CustomLODEditMode;
+	return !(GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0);
 }
 
 TSharedRef<SWidget> FPersonaMeshDetails::OnGenerateLodMenuForLodPicker()

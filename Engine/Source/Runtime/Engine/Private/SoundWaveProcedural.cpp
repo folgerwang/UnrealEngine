@@ -134,7 +134,7 @@ int32 USoundWaveProcedural::GeneratePCMData(uint8* PCMData, const int32 SamplesN
 		const int32 BytesToCopy = SamplesToCopy * SampleByteSize;
 
 		FMemory::Memcpy((void*)PCMData, &AudioBuffer[0], BytesToCopy);
-		AudioBuffer.RemoveAt(0, BytesToCopy);
+		AudioBuffer.RemoveAt(0, BytesToCopy, false);
 
 		// Decrease the available by count
 		if (bPumpQueuedAudio)

@@ -6,8 +6,9 @@
 #include "Widgets/SWidget.h"
 #include "Modules/ModuleInterface.h"
 #include "Widgets/SWindow.h"
+#include "Features/IModularFeatures.h"
+#include "HAL/IConsoleManager.h"
 
-class FConsoleCommandExecutor;
 class SMultiLineEditableTextBox;
 
 /** Style of the debug console */
@@ -46,6 +47,22 @@ public:
 	/** Closes the debug console for the specified window */
 	virtual void CloseDebugConsole();
 
+	/**  Sets the active command executor from another module */
+	virtual void SetActiveCommandExecutor(TSharedPtr<IConsoleCommandExecutor> InExecutor)
+	{
+		CmdExec = InExecutor;
+		IModularFeatures::Get().RegisterModularFeature(IConsoleCommandExecutor::ModularFeatureName(), CmdExec.Get());
+	};
+
+	/** Removes an active command executor from another module */
+	virtual void RemoveActiveCommandExecutor(TSharedPtr<IConsoleCommandExecutor> InExecutor)
+	{
+		if (CmdExec.IsValid())
+		{
+			IModularFeatures::Get().UnregisterModularFeature(IConsoleCommandExecutor::ModularFeatureName(), CmdExec.Get());
+		}
+		CmdExec = nullptr;
+	};
 
 private:
 
@@ -53,5 +70,5 @@ private:
 	TWeakPtr< SWidget > DebugConsole;
 
 	/** Pointer to the classic "Cmd" executor */
-	TSharedPtr<FConsoleCommandExecutor> CmdExec;
+	TSharedPtr<IConsoleCommandExecutor> CmdExec;
 };

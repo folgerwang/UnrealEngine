@@ -136,17 +136,23 @@ void FApplePlatformCrashContext::WriteLine(int ReportFile, const ANSICHAR* Line)
 void FApplePlatformCrashContext::WriteUTF16String(int ReportFile, const TCHAR* UTFString4BytesChar, uint32 NumChars)
 {
 	check(UTFString4BytesChar != NULL || NumChars == 0);
-	static_assert(sizeof(TCHAR) == 4, "Platform TCHAR is not 4 bytes. Revisit this function.");
+	static_assert(sizeof(TCHAR) == 4 || sizeof(TCHAR) == 2, "Unexpected platform TCHAR size. Revisit this function.");
 	
-	for (uint32 Idx = 0; Idx < NumChars; ++Idx)
-	{
-		write(ReportFile, &UTFString4BytesChar[Idx], 2);
-	}
+    if(sizeof(TCHAR) == 4)
+    {
+        for (uint32 Idx = 0; Idx < NumChars; ++Idx)
+        {
+            write(ReportFile, &UTFString4BytesChar[Idx], 2);
+        }
+    }
+    else // sizeof(TCHAR) == 2
+    {
+        write(ReportFile, UTFString4BytesChar, NumChars * 2);
+    }
 }
 
 void FApplePlatformCrashContext::WriteUTF16String(int ReportFile, const TCHAR* UTFString4BytesChar)
 {
-	static_assert(sizeof(TCHAR) == 4, "Platform TCHAR is not 4 bytes. Revisit this function.");
 	uint32 NumChars = FCString::Strlen(UTFString4BytesChar);
 	WriteUTF16String(ReportFile, UTFString4BytesChar, NumChars);
 }

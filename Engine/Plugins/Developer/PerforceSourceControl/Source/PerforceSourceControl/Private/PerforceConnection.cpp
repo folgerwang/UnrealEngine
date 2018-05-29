@@ -532,7 +532,7 @@ bool FPerforceConnection::GetWorkspaceList(const FPerforceConnectionInfo& InConn
 					}
 					else
 					{
-						UE_LOG(LogSourceControl, Error, TEXT(" %s client specs rejected due to root directory mismatch (%s)"), *ClientName, *ClientRootPath);
+						UE_LOG(LogSourceControl, Display, TEXT(" %s client specs rejected due to root directory mismatch (%s)"), *ClientName, *ClientRootPath);
 					}
 
 					//Other useful fields: Description, Owner, Host
@@ -540,7 +540,7 @@ bool FPerforceConnection::GetWorkspaceList(const FPerforceConnectionInfo& InConn
 				}
 				else
 				{
-					UE_LOG(LogSourceControl, Error, TEXT(" %s client specs rejected due to host name mismatch (%s)"), *ClientName, *HostName);
+					UE_LOG(LogSourceControl, Display, TEXT(" %s client specs rejected due to host name mismatch (%s)"), *ClientName, *HostName);
 				}
 			}
 		}

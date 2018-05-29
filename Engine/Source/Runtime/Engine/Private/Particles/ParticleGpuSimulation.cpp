@@ -58,12 +58,23 @@ DECLARE_GPU_STAT_NAMED(ParticleSimulation, TEXT("Particle Simulation"));
 #define TRACK_TILE_ALLOCATIONS 0
 
 /** The texture size allocated for GPU simulation. */
-extern const int32 GParticleSimulationTextureSizeX = 1024;
-extern const int32 GParticleSimulationTextureSizeY = 1024;
+int32 GParticleSimulationTextureSizeX = 1024;
+static FAutoConsoleVariableRef CVarParticleSimulationSizeX(
+	TEXT("fx.GPUSimulationTextureSizeX"),
+	GParticleSimulationTextureSizeX,
+	TEXT("GPU Particle simulation texture X dimension (default=1024); set in project renderer settings, potentially overridden by device profile."),
+	ECVF_ReadOnly
+);
 
-/** Texture size must be power-of-two. */
-static_assert((GParticleSimulationTextureSizeX & (GParticleSimulationTextureSizeX - 1)) == 0, "Particle simulation texture size X is not a power of two.");
-static_assert((GParticleSimulationTextureSizeY & (GParticleSimulationTextureSizeY - 1)) == 0, "Particle simulation texture size Y is not a power of two.");
+int32 GParticleSimulationTextureSizeY = 1024;
+FAutoConsoleVariableRef CVarParticleSimulationSizeY(
+	TEXT("fx.GPUSimulationTextureSizeY"),
+	GParticleSimulationTextureSizeY,
+	TEXT("GPU Particle simulation texture Y dimension (default=1024); set in project renderer settings, potentially overridden by device profile."),
+	ECVF_ReadOnly
+);
+
+
 
 /** The tile size. Texture space is allocated in TileSize x TileSize units. */
 const int32 GParticleSimulationTileSize = 4;
@@ -71,13 +82,11 @@ const int32 GParticlesPerTile = GParticleSimulationTileSize * GParticleSimulatio
 
 /** Tile size must be power-of-two and <= each dimension of the simulation texture. */
 static_assert((GParticleSimulationTileSize & (GParticleSimulationTileSize - 1)) == 0, "Particle simulation tile size is not a power of two.");
-static_assert(GParticleSimulationTileSize <= GParticleSimulationTextureSizeX, "Particle simulation tile size is larger than texture.");
-static_assert(GParticleSimulationTileSize <= GParticleSimulationTextureSizeY, "Particle simulation tile size is larger than texture.");
 
 /** How many tiles are in the simulation textures. */
-const int32 GParticleSimulationTileCountX = GParticleSimulationTextureSizeX / GParticleSimulationTileSize;
-const int32 GParticleSimulationTileCountY = GParticleSimulationTextureSizeY / GParticleSimulationTileSize;
-const int32 GParticleSimulationTileCount = GParticleSimulationTileCountX * GParticleSimulationTileCountY;
+int32 GParticleSimulationTileCountX = 0;
+int32 GParticleSimulationTileCountY = 0;
+int32 GParticleSimulationTileCount = 0;
 
 /** GPU particle rendering code assumes that the number of particles per instanced draw is <= 16. */
 static_assert(MAX_PARTICLES_PER_INSTANCE <= 16, "Max particles per instance is greater than 16.");
@@ -128,6 +137,15 @@ public:
 	FParticleTileAllocator()
 		: FreeTileCount(GParticleSimulationTileCount)
 	{
+		/** Texture size must be power-of-two. */
+		check((GParticleSimulationTextureSizeX & (GParticleSimulationTextureSizeX - 1)) == 0); // fx.GPUSimulationTextureSizeX is not a power of two.
+		check((GParticleSimulationTextureSizeY & (GParticleSimulationTextureSizeY - 1)) == 0); // fx.GPUSimulationTextureSizeY is not a power of two.
+
+		check(GParticleSimulationTileSize <= GParticleSimulationTextureSizeX); // Particle simulation tile size is larger than fx.GPUSimulationTextureSizeX.
+		check(GParticleSimulationTileSize <= GParticleSimulationTextureSizeY); // Particle simulation tile size is larger than fx.GPUSimulationTextureSizeY.
+
+		FreeTiles.AddUninitialized(GParticleSimulationTileCount);
+
 		for ( int32 TileIndex = 0; TileIndex < GParticleSimulationTileCount; ++TileIndex )
 		{
 			FreeTiles[TileIndex] = GParticleSimulationTileCount - TileIndex - 1;
@@ -153,7 +171,7 @@ public:
 	 * Frees a tile so it may be allocated by another emitter.
 	 * @param TileIndex - The index of the tile to free.
 	 */
-	void Free( uint32 TileIndex )
+	void Free( int32 TileIndex )
 	{
 		FScopeLock Lock(&CriticalSection);
 		check( TileIndex < GParticleSimulationTileCount );
@@ -174,7 +192,7 @@ public:
 private:
 
 	/** List of free tiles. */
-	uint32 FreeTiles[GParticleSimulationTileCount];
+	TArray<uint32> FreeTiles;
 	/** How many tiles are in the free list. */
 	int32 FreeTileCount;
 
@@ -366,6 +384,8 @@ public:
 	/** Vertex buffer that points to the current sorted vertex buffer. */
 	FParticleIndicesVertexBuffer SortedVertexBuffer;
 
+	FParticleSortBuffers ParticleSortBuffers;
+
 	/** Frame index used to track double buffered resources on the GPU. */
 	int32 FrameIndex;
 
@@ -486,8 +506,6 @@ private:
 	FParticleTileAllocator TileAllocator;
 };
 
-/** The global vertex buffers used for sorting particles on the GPU. */
-TGlobalResource<FParticleSortBuffers> GParticleSortBuffers(GParticleSimulationTextureSizeX * GParticleSimulationTextureSizeY);
 
 /*-----------------------------------------------------------------------------
 	Vertex factory.
@@ -523,6 +541,7 @@ typedef TUniformBufferRef<FGPUSpriteEmitterUniformParameters> FGPUSpriteEmitterU
  */
 BEGIN_UNIFORM_BUFFER_STRUCT( FGPUSpriteEmitterDynamicUniformParameters, )
 	UNIFORM_MEMBER( FVector2D, LocalToWorldScale )
+	UNIFORM_MEMBER( float, EmitterInstRandom)
 	UNIFORM_MEMBER( FVector4, AxisLockRight )
 	UNIFORM_MEMBER( FVector4, AxisLockUp )
 	UNIFORM_MEMBER( FVector4, DynamicColor)
@@ -949,8 +968,6 @@ public:
 	{
 		FGlobalShader::ModifyCompilationEnvironment( Parameters, OutEnvironment );
 		OutEnvironment.SetDefine(TEXT("TILES_PER_INSTANCE"), TILES_PER_INSTANCE);
-		OutEnvironment.SetDefine(TEXT("TILE_SIZE_X"), (float)GParticleSimulationTileSize / (float)GParticleSimulationTextureSizeX);
-		OutEnvironment.SetDefine(TEXT("TILE_SIZE_Y"), (float)GParticleSimulationTileSize / (float)GParticleSimulationTextureSizeY);
 
 		if (Parameters.Platform == SP_OPENGL_ES2_ANDROID)
 		{
@@ -968,6 +985,8 @@ public:
 		: FGlobalShader(Initializer)
 	{
 		TileOffsets.Bind(Initializer.ParameterMap, TEXT("TileOffsets"));
+		TileSizeX.Bind(Initializer.ParameterMap, TEXT("TileSizeX"));
+		TileSizeY.Bind(Initializer.ParameterMap, TEXT("TileSizeY"));
 	}
 
 	/** Serialization. */
@@ -975,6 +994,8 @@ public:
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize( Ar );
 		Ar << TileOffsets;
+		Ar << TileSizeX;
+		Ar << TileSizeY;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -986,12 +1007,16 @@ public:
 		{
 			RHICmdList.SetShaderResourceViewParameter(VertexShaderRHI, TileOffsets.GetBaseIndex(), TileOffsetsRef);
 		}
+		SetShaderValue(RHICmdList, VertexShaderRHI, TileSizeX, (float)GParticleSimulationTileSize / (float)GParticleSimulationTextureSizeX);
+		SetShaderValue(RHICmdList, VertexShaderRHI, TileSizeY, (float)GParticleSimulationTileSize / (float)GParticleSimulationTextureSizeY);
 	}
 
 private:
 
 	/** Buffer from which to read tile offsets. */
 	FShaderResourceParameter TileOffsets;
+	FShaderParameter TileSizeX;
+	FShaderParameter TileSizeY;
 };
 
 /**
@@ -2102,8 +2127,6 @@ public:
 	{
 		FGlobalShader::ModifyCompilationEnvironment( Parameters, OutEnvironment );
 		OutEnvironment.SetDefine( TEXT("THREAD_COUNT"), PARTICLE_BOUNDS_THREADS );
-		OutEnvironment.SetDefine( TEXT("TEXTURE_SIZE_X"), GParticleSimulationTextureSizeX );
-		OutEnvironment.SetDefine( TEXT("TEXTURE_SIZE_Y"), GParticleSimulationTextureSizeY );
 		OutEnvironment.CompilerFlags.Add( CFLAG_StandardOptimization );
 	}
 
@@ -2120,6 +2143,8 @@ public:
 		PositionTexture.Bind( Initializer.ParameterMap, TEXT("PositionTexture") );
 		PositionTextureSampler.Bind( Initializer.ParameterMap, TEXT("PositionTextureSampler") );
 		OutBounds.Bind( Initializer.ParameterMap, TEXT("OutBounds") );
+		TextureSizeX.Bind(Initializer.ParameterMap, TEXT("TextureSizeX"));
+		TextureSizeY.Bind(Initializer.ParameterMap, TEXT("TextureSizeY"));
 	}
 
 	/** Serialization. */
@@ -2130,6 +2155,8 @@ public:
 		Ar << PositionTexture;
 		Ar << PositionTextureSampler;
 		Ar << OutBounds;
+		Ar << TextureSizeX;
+		Ar << TextureSizeY;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -2165,6 +2192,9 @@ public:
 		{
 			RHICmdList.SetShaderTexture(ComputeShaderRHI, PositionTexture.GetBaseIndex(), PositionTextureRHI);
 		}
+
+		SetShaderValue(RHICmdList, ComputeShaderRHI, TextureSizeX, GParticleSimulationTextureSizeX);
+		SetShaderValue(RHICmdList, ComputeShaderRHI, TextureSizeY, GParticleSimulationTextureSizeY);
 	}
 
 	/**
@@ -2192,6 +2222,8 @@ private:
 	FShaderResourceParameter PositionTextureSampler;
 	/** Output key buffer. */
 	FShaderResourceParameter OutBounds;
+	FShaderParameter TextureSizeX;
+	FShaderParameter TextureSizeY;
 };
 IMPLEMENT_SHADER_TYPE(,FParticleBoundsCS,TEXT("/Engine/Private/ParticleBoundsShader.usf"),TEXT("ComputeParticleBounds"),SF_Compute);
 
@@ -3083,6 +3115,8 @@ class FGPUSpriteParticleEmitterInstance : public FParticleEmitterInstance
 	FRandomStream RandomStream;
 	/** The number of times this emitter should loop. */
 	int32 AllowedLoopCount;
+	/** Random number per emitter to allow each emitter to be randomized */
+	float EmitterInstRandom;
 
 	/**
 	 * Information used to spawn particles.
@@ -3107,17 +3141,17 @@ class FGPUSpriteParticleEmitterInstance : public FParticleEmitterInstance
 
 public:
 
-	/** Initialization constructor. */
-	FGPUSpriteParticleEmitterInstance(FFXSystem* InFXSystem, FGPUSpriteEmitterInfo& InEmitterInfo)
-		: FXSystem(InFXSystem)
-		, EmitterInfo(InEmitterInfo)
-		, LocalVectorFieldRotation(FRotator::ZeroRotator)
-		, PointAttractorStrength(0.0f)
-		, PendingDeltaSeconds(0.0f)
-		, OffsetSeconds(0.0f)
-		, TileToAllocateFrom(INDEX_NONE)
-		, FreeParticlesInTile(0)
-		, AllowedLoopCount(0)
+/** Initialization constructor. */
+FGPUSpriteParticleEmitterInstance(FFXSystem* InFXSystem, FGPUSpriteEmitterInfo& InEmitterInfo)
+	: FXSystem(InFXSystem)
+	, EmitterInfo(InEmitterInfo)
+	, LocalVectorFieldRotation(FRotator::ZeroRotator)
+	, PointAttractorStrength(0.0f)
+	, PendingDeltaSeconds(0.0f)
+	, OffsetSeconds(0.0f)
+	, TileToAllocateFrom(INDEX_NONE)
+	, FreeParticlesInTile(0)
+	, AllowedLoopCount(0)
 	{
 		Simulation = new FParticleSimulationGPU();
 		if (EmitterInfo.LocalVectorField.Field)
@@ -3276,6 +3310,8 @@ public:
 		DynamicData->MacroUVOverride.Radius = LODLevel->RequiredModule->MacroUVRadius;
 		DynamicData->MacroUVOverride.Position = LODLevel->RequiredModule->MacroUVPosition;
 
+		DynamicData->EmitterDynamicParameters.EmitterInstRandom = EmitterInstRandom;
+
 		const bool bSimulateGPUParticles = 
 			FXConsoleVariables::bFreezeGPUSimulation == false &&
 			FXConsoleVariables::bFreezeParticleSimulation == false &&
@@ -3414,6 +3450,7 @@ public:
 		FreeParticlesInTile = 0;
 
 		RandomStream.Initialize( FMath::Rand() );
+		EmitterInstRandom = RandomStream.GetFraction();
 
 		FParticleSimulationResources* ParticleSimulationResources = FXSystem->GetParticleSimulationResources();
 		const int32 MinTileCount = GetMinTileCount();
@@ -3776,15 +3813,22 @@ private:
 			EmitterInfo.LocalVectorField.MaxInitialRotation,
 			RandomStream.GetFraction() );
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FResetVectorFieldCommand,
-			FParticleSimulationGPU*,Simulation,Simulation,
+		// [op] This could cause trouble if the sim destroy render command gets	submitted before we call init, which ends up 
+		//		calling this; don't bother initializing the vector field if we're about to obliterate the sim and its resources anyway
+		//		FORT-79970
+		//
+		if (!Simulation->bDestroyed_GameThread)
 		{
-			if (Simulation && Simulation->LocalVectorField.Resource)
-			{
-				Simulation->LocalVectorField.Resource->ResetVectorField();
-			}
-		});
+			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+				FResetVectorFieldCommand,
+				FVectorFieldResource*, Resource, Simulation->LocalVectorField.Resource,
+				{
+					if (Resource)
+					{
+						Resource->ResetVectorField();
+					}
+				});
+		}
 	}
 
 	/**
@@ -4326,7 +4370,14 @@ FAutoConsoleCommand DumpTileAllocsCommand(
 void FFXSystem::InitGPUSimulation()
 {
 	check(ParticleSimulationResources == NULL);
+	ensure(GParticleSimulationTextureSizeX > 0 && GParticleSimulationTextureSizeY > 0);
+	/** How many tiles are in the simulation textures. */
+	GParticleSimulationTileCountX = GParticleSimulationTextureSizeX / GParticleSimulationTileSize;
+	GParticleSimulationTileCountY = GParticleSimulationTextureSizeY / GParticleSimulationTileSize;
+	GParticleSimulationTileCount = GParticleSimulationTileCountX * GParticleSimulationTileCountY;
+
 	ParticleSimulationResources = new FParticleSimulationResources();
+
 	InitGPUResources();
 }
 
@@ -4354,6 +4405,15 @@ void FFXSystem::InitGPUResources()
 	{
 		check(ParticleSimulationResources);
 		ParticleSimulationResources->Init();
+
+		ParticleSimulationResources->ParticleSortBuffers.SetBufferSize(GParticleSimulationTextureSizeX * GParticleSimulationTextureSizeY);
+		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+			FInitParticleSortBuffersCommand,
+			FParticleSimulationResources *, ParticleSimulationResources, ParticleSimulationResources,
+			{
+				ParticleSimulationResources->ParticleSortBuffers.InitRHI();
+			}
+		);
 	}
 }
 
@@ -4363,6 +4423,13 @@ void FFXSystem::ReleaseGPUResources()
 	{
 		check(ParticleSimulationResources);
 		ParticleSimulationResources->Release();
+		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+			FReleaseParticleSortBuffersCommand,
+			FParticleSimulationResources *, ParticleSimulationResources, ParticleSimulationResources,
+			{
+				ParticleSimulationResources->ParticleSortBuffers.ReleaseRHI();
+			}
+		);
 	}
 }
 
@@ -4428,22 +4495,18 @@ void FFXSystem::SortGPUParticles(FRHICommandListImmediate& RHICmdList)
 	{
 		int32 BufferIndex = SortParticlesGPU(
 			RHICmdList,
-			GParticleSortBuffers,
+			ParticleSimulationResources->ParticleSortBuffers,
 			ParticleSimulationResources->GetVisualizeStateTextures().PositionTextureRHI,
 			ParticleSimulationResources->SimulationsToSort,
 			GetFeatureLevel()
 			);
-		ParticleSimulationResources->SortedVertexBuffer.VertexBufferRHI =
-			GParticleSortBuffers.GetSortedVertexBufferRHI(BufferIndex);
-		ParticleSimulationResources->SortedVertexBuffer.VertexBufferSRV =
-			GParticleSortBuffers.GetSortedVertexBufferSRV(BufferIndex);
+		ParticleSimulationResources->SortedVertexBuffer.VertexBufferRHI = ParticleSimulationResources->ParticleSortBuffers.GetSortedVertexBufferRHI(BufferIndex);
+		ParticleSimulationResources->SortedVertexBuffer.VertexBufferSRV = ParticleSimulationResources->ParticleSortBuffers.GetSortedVertexBufferSRV(BufferIndex);
 	}
 	else
 	{
-		ParticleSimulationResources->SortedVertexBuffer.VertexBufferRHI =
-		GParticleSortBuffers.GetSortedVertexBufferRHI(0);
-		ParticleSimulationResources->SortedVertexBuffer.VertexBufferSRV =
-		GParticleSortBuffers.GetSortedVertexBufferSRV(0);
+		ParticleSimulationResources->SortedVertexBuffer.VertexBufferRHI = ParticleSimulationResources->ParticleSortBuffers.GetSortedVertexBufferRHI(0);
+		ParticleSimulationResources->SortedVertexBuffer.VertexBufferSRV = ParticleSimulationResources->ParticleSortBuffers.GetSortedVertexBufferSRV(0);
 	}
 }
 
@@ -4727,6 +4790,8 @@ void FFXSystem::SimulateGPUParticles(
 	
 	if ( SimulationCommands.Num() || TilesToClear.Num())
 	{
+		SCOPED_DRAW_EVENT(RHICmdList, GPUParticles_SimulateAndClear);
+
 		SetRenderTargets(RHICmdList, 2, CurrentStateRenderTargets, FTextureRHIParamRef(), 0, NULL);
 		FGraphicsPipelineStateInitializer GraphicsPSOInit;
 		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);

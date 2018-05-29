@@ -17,6 +17,12 @@ FArchiveObjectCrc32::FArchiveObjectCrc32()
 	, RootObject(NULL)
 {
 	ArIgnoreOuterRef = true;
+
+	// Set FArchiveObjectCrc32 to be a saving archive instead of a reference collector.
+	// Reference collection causes FSoftObjectPtrs to be serialized by their weak pointer,
+	// which doesn't give a stable CRC.  Serializing these to a saving archive will
+	// use a string reference instead, which is a more meaningful CRC'able state.
+	SetIsSaving(true);
 }
 
 void FArchiveObjectCrc32::Serialize(void* Data, int64 Length)

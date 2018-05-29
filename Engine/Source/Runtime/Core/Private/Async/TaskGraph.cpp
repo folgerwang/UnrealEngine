@@ -37,7 +37,7 @@ DEFINE_STAT(STAT_ParallelForTask);
 
 static int32 GNumWorkerThreadsToIgnore = 0;
 
-#if (PLATFORM_XBOXONE || PLATFORM_PS4 || PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_UNIX || PLATFORM_SWITCH) && !IS_PROGRAM && WITH_ENGINE && !UE_SERVER
+#if (PLATFORM_XBOXONE || PLATFORM_PS4 || PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_UNIX || PLATFORM_SWITCH || PLATFORM_ANDROID) && !IS_PROGRAM && WITH_ENGINE && !UE_SERVER
 	#define CREATE_HIPRI_TASK_THREADS (1)
 	#define CREATE_BACKGROUND_TASK_THREADS (1)
 #else
@@ -715,6 +715,7 @@ public:
 
 		if (ThreadToStart >= 0)
 		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_TaskGraph_EnqueueFromOtherThread_Trigger);
 			checkThreadGraph(ThreadToStart == 0);
 			TASKGRAPH_SCOPE_CYCLE_COUNTER(1, STAT_TaskGraph_EnqueueFromOtherThread_Trigger);
 			Queue(QueueIndex).StallRestartEvent->Trigger();
@@ -832,6 +833,7 @@ public:
 
 	virtual void WakeUp() final override
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_TaskGraph_Wakeup_Trigger);
 		TASKGRAPH_SCOPE_CYCLE_COUNTER(1, STAT_TaskGraph_Wakeup_Trigger);
 		Queue.StallRestartEvent->Trigger();
 	}
@@ -1208,10 +1210,11 @@ public:
 					Priority = ENamedThreads::NormalThreadPriority >> ENamedThreads::ThreadPriorityShift; // we don't have hi priority threads, demote to normal
 					TaskPriority = ENamedThreads::HighTaskPriority >> ENamedThreads::TaskPriorityShift; // promote to hi task pri
 				}
+				uint32 PriIndex = TaskPriority ? 0 : 1;
 				check(Priority >= 0 && Priority < MAX_THREAD_PRIORITIES);
 				{
 					TASKGRAPH_SCOPE_CYCLE_COUNTER(4, STAT_TaskGraph_QueueTask_IncomingAnyThreadTasks_Push);
-					int32 IndexToStart = IncomingAnyThreadTasks[Priority].Push(Task, TaskPriority);
+					int32 IndexToStart = IncomingAnyThreadTasks[Priority].Push(Task, PriIndex);
 					if (IndexToStart >= 0)
 					{
 						StartTaskThread(Priority, IndexToStart);

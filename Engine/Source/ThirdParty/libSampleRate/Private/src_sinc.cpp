@@ -24,7 +24,7 @@
 #define	FP_ONE					((double) (((increment_t) 1) << SHIFT_BITS))
 #define	INV_FP_ONE				(1.0 / FP_ONE)
 
-#define MAX_CHANNELS 128
+#define MAX_SINC_CHANNELS 128
 #define SINC_MIN_BUFFERSIZE 1
 
 /*========================================================================================
@@ -54,7 +54,7 @@ typedef struct
 	int b_current, b_end, b_real_end, b_len ;
 
 	/* Sure hope noone does more than 128 channels at once. */
-	double left_calc [MAX_CHANNELS], right_calc [MAX_CHANNELS] ;
+	double left_calc [MAX_SINC_CHANNELS], right_calc [MAX_SINC_CHANNELS] ;
 
 	/* This will start as minimum buffer size, but will be dynamically sized at runtime. */
 	float buffer[SINC_MIN_BUFFERSIZE];

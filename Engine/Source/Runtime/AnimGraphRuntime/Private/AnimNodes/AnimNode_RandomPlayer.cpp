@@ -5,7 +5,8 @@
 #include "Animation/AnimInstanceProxy.h"
 
 FAnimNode_RandomPlayer::FAnimNode_RandomPlayer()
-: CurrentEntry(INDEX_NONE)
+: bShuffleMode(false)
+, CurrentEntry(INDEX_NONE)
 , NextEntry(INDEX_NONE)
 , CurrentDataIndex(0)
 {

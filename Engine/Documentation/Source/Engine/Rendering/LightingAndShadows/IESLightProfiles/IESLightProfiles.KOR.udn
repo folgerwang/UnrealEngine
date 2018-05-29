@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title: IES 라이트 프로파일
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
@@ -19,7 +19,7 @@ topic-image:IES_topic.png
 [/EXCERPT:IES001]
 
 [REGION:lightbox]
-[![](IES_01.png)(w:225 h:225)](IES_01.png) [![](IES_02.png)(w:225 h:225)](IES_02.png) [![](IES_03.png)(w:225 h:225)](IES_03.png) [![](IES_04.png)(w:225 h:225)](IES_04.png)
+[![](IES_01.png)(w:225)](IES_01.png) [![](IES_02.png)(w:225)](IES_02.png) [![](IES_03.png)(w:225)](IES_03.png) [![](IES_04.png)(w:225)](IES_04.png)
 [/REGION]
 
 ## 어디서 얻을 수 있나요?

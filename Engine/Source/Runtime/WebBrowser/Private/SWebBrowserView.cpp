@@ -188,6 +188,7 @@ void SWebBrowserView::Construct(const FArguments& InArgs, const TSharedPtr<IWebB
 		{
 			SlateParentWindowSetupTickHandle = FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([this](float) -> bool
 			{
+                QUICK_SCOPE_CYCLE_COUNTER(STAT_SWebBrowserView_SetupParentWindowHandlers_LambdaTick);
 				this->SetupParentWindowHandlers();
 				bool ContinueTick = !SlateParentWindowPtr.IsValid();
 				return ContinueTick;

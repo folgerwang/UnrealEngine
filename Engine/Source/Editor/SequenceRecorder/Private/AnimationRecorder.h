@@ -92,7 +92,7 @@ private:
 
 	// recording curve data 
 	TArray< TArray<FCurveElement> >  RecordedCurves;
-	TArray<SmartName::UID_Type> const * UIDList;
+	TArray<uint16> const * UIDToArrayIndexLUT;
 };
 
 //////////////////////////////////////////////////////////////////////////

@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:2735872
-Availability:Public
+﻿Availability:Public
 Title:5.オーバーラップしているアクタをテストする
 Crumbs:%ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/QuickStart
 Description:ジャンプ台にオーバーラップしているのが自分のキャラクターであることを確認し、そのキャラクターのみを起動する
@@ -7,6 +6,7 @@ version:4.9
 parent:Engine/Blueprints/QuickStart
 order:5
 type:multi-step
+tags:Blueprints
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -15,8 +15,8 @@ type:multi-step
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
-	[PARAM:home]
-		[クイックスタートのホーム画面](Engine/Blueprints/QuickStart)
+	[PARAM:home]　
+		[クイックスタートホーム](Engine/Blueprints/QuickStart)
 	[/PARAM]
 	[PARAM:next]
 		[次の手順](Engine/Blueprints/QuickStart/6 "%Engine/Blueprints/QuickStart/6:title%")

@@ -7,6 +7,7 @@
 // FAnimNode_SaveCachedPose
 
 FAnimNode_SaveCachedPose::FAnimNode_SaveCachedPose()
+	: GlobalWeight(0.0f)
 {
 }
 

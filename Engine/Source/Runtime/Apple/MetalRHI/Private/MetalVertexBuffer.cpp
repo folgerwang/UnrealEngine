@@ -200,6 +200,8 @@ void FMetalRHIBuffer::Alloc(uint32 InSize, EResourceLockMode LockMode)
 		mtlpp::StorageMode Mode = (bUsePrivateMem ? mtlpp::StorageMode::Private : BUFFER_STORAGE_MODE);
 		FMetalPooledBufferArgs Args(GetMetalDeviceContext().GetDevice(), InSize, Mode);
 		Buffer = GetMetalDeviceContext().CreatePooledBuffer(Args);
+		check(Buffer && Buffer.GetPtr());
+
         METAL_INC_DWORD_STAT_BY(Type, MemAlloc, InSize);
         
 		if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures) && (Usage & (BUF_UnorderedAccess|BUF_ShaderResource)))
@@ -219,6 +221,7 @@ void FMetalRHIBuffer::Alloc(uint32 InSize, EResourceLockMode LockMode)
 	{
         FMetalPooledBufferArgs ArgsCPU(GetMetalDeviceContext().GetDevice(), InSize, mtlpp::StorageMode::Shared);
 		CPUBuffer = GetMetalDeviceContext().CreatePooledBuffer(ArgsCPU);
+		check(CPUBuffer && CPUBuffer.GetPtr());
         METAL_INC_DWORD_STAT_BY(Type, MemAlloc, InSize);
 	}
 }
@@ -309,6 +312,7 @@ void* FMetalRHIBuffer::Lock(EResourceLockMode LockMode, uint32 Offset, uint32 In
 	
 	if (Data)
 	{
+		check(Data->Data);
 		return ((uint8*)Data->Data) + Offset;
 	}
 	
@@ -375,7 +379,10 @@ void* FMetalRHIBuffer::Lock(EResourceLockMode LockMode, uint32 Offset, uint32 In
 		GetMetalDeviceContext().SubmitCommandBufferAndWait();
 	}
 #endif
-	
+
+	check(theBufferToUse && theBufferToUse.GetPtr());
+	check(theBufferToUse.GetContents());
+
 	return ((uint8*)MTLPP_VALIDATE(mtlpp::Buffer, theBufferToUse, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, GetContents())) + Offset;
 }
 

@@ -549,6 +549,8 @@ void FLevelEditorActionCallbacks::SetMaterialQualityLevel( EMaterialQualityLevel
 	static IConsoleVariable* MaterialQualityLevelVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MaterialQualityLevel"));
 	MaterialQualityLevelVar->Set(NewQualityLevel, ECVF_SetByScalability);
 
+	GUnrealEd->OnSceneMaterialsModified();
+
 	GUnrealEd->RedrawAllViewports();
 }
 
@@ -607,6 +609,7 @@ void FLevelEditorActionCallbacks::SetFeatureLevelPreview(ERHIFeatureLevel::Type 
 		}
 	}
 
+	GUnrealEd->OnSceneMaterialsModified();
 	GUnrealEd->RedrawAllViewports();
 }
 

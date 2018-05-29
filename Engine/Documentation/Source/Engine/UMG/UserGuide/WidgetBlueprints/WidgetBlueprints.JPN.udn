@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3612551
+﻿INTSourceChangelist:3807090
 Availability:Public
 Crumbs: %ROOT%
 Title:Widget ブループリント
@@ -45,7 +45,7 @@ Unreal Motion Graphics (UMG) で作業を開始するためには、まず以下
 **Widget ブループリント** が開かれると、**Widget ブループリント エディタ** は、デフォルトでは **[Designer]** タブで開きます。[Designer] タブは、レイアウトを視覚的に表したもので、ゲーム内で画面がどのように表示されるかがわかります。  
 
 [REGION:lightbox]
-	[![](WidgetBlueprintNumbers.png)(w:840 h:480)](WidgetBlueprintNumbers.png)
+	[![](WidgetBlueprintNumbers.png)(w:840)](WidgetBlueprintNumbers.png)
 [/REGION]
 
 _フルサイズ表示するにはここをクリック_

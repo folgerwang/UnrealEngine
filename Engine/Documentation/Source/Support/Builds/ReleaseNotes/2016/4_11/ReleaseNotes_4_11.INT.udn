@@ -32,11 +32,11 @@ Thousands of small optimizations throughout the engine have resulted in a big in
 
 **Faster garbage collection**.  We now support garbage collection "clusters", which allows the engine to treat groups of objects as a single unit, drastically reducing the number of objects that need to be considered. Currently, only subobjects for Materials and Particle Systems are clustered. Additionally, the mark and destroy phases are more cache-coherent, resulting in a 9x reduction in time, and memory churn has been reduced during reachability analysis.
 
-**Multi-threaded animation.  **Animation Graph updates can now run on worker threads allowing the number of animated characters to scale with the number of cores. Check out the Upgrade Notes as we've deprecated many animation related APIs and there are limitations on which animation graphs can run in worker threads.
+**Multi-threaded animation.** Animation Graph updates can now run on worker threads allowing the number of animated characters to scale with the number of cores. Check out the Upgrade Notes as we've deprecated many animation related APIs and there are limitations on which animation graphs can run in worker threads.
 
-**Instant animation variable access.  ** We've added a 'fast-path' for variable access in the Animation Graph update. This allows us to simply copy parameters internally rather than executing Blueprint code. The compiler can currently optimize the following constructs: member variables, negated boolean member variables, and members of a nested structure.
+**Instant animation variable access.** We've added a 'fast-path' for variable access in the Animation Graph update. This allows us to simply copy parameters internally rather than executing Blueprint code. The compiler can currently optimize the following constructs: member variables, negated boolean member variables, and members of a nested structure.
 
-**Additive animation 'baking'.  **We now have an option to turn on **baked additive animations**. This makes using **additive animations **roughly **3x faster.** The work involved in calculating the delta pose for an additive animation is done at cook time rather than run time. This saves not only the calculation work involved in creating the additive deltas but also the memory accesses and allocations involved with decompressing the base animation which is no longer needed at runtime. This feature increases cook times, so you'll need to enable it by setting the cvar "a.UseBakedAdditiveAnimations" to 1. Future versions of the engine will rework animation cooking to avoid this cost and permanently enable this optimization.
+**Additive animation 'baking'.** We now have an option to turn on **baked additive animations**. This makes using **additive animations **roughly **3x faster.** The work involved in calculating the delta pose for an additive animation is done at cook time rather than run time. This saves not only the calculation work involved in creating the additive deltas but also the memory accesses and allocations involved with decompressing the base animation which is no longer needed at runtime. This feature increases cook times, so you'll need to enable it by setting the cvar "a.UseBakedAdditiveAnimations" to 1. Future versions of the engine will rework animation cooking to avoid this cost and permanently enable this optimization.
 
 ## New: Realistic Hair Shading
 
@@ -786,7 +786,7 @@ You can turn on Sequencer by opening the Plugins panel and enabling the "Level S
 
 ![image alt text](image_52.png)
 
-* **New: Per-Animation ****Compression**** Settings**
+* **New: Per-Animation **Compression** Settings
 
     * You can now set **animation compression **on a **per-animation** basis. 
 

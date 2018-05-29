@@ -68,7 +68,8 @@ void UAudioSettings::AddDefaultSettings()
 	DefaultReverbSendLevel = 0.2f;
 	VoiPSampleRate = EVoiceSampleRate::Low16000Hz;
 	VoipBufferingDelay = 0.2f;
-	MaxOneShotActiveSoundCount = 85;
+	MaxWaveInstances = 100;
+	NumStoppingSources = 32;
 }
 
 #if WITH_EDITOR

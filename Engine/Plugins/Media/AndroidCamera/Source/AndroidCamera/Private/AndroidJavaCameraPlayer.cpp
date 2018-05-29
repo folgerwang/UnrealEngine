@@ -32,6 +32,7 @@ FJavaAndroidCameraPlayer::FJavaAndroidCameraPlayer(bool swizzlePixels, bool vulk
 	, IsPlayingMethod(GetClassMethod("isPlaying", "()Z"))
 	, IsPreparedMethod(GetClassMethod("isPrepared", "()Z"))
 	, SetDataSourceURLMethod(GetClassMethod("setDataSourceURL", "(Ljava/lang/String;)Z"))
+	, GetDataSourceURLMethod(GetClassMethod("getDataSourceURL", "()Ljava/lang/String;"))
 	, PrepareMethod(GetClassMethod("prepare", "()V"))
 	, PrepareAsyncMethod(GetClassMethod("prepareAsync", "()V"))
 	, SeekToMethod(GetClassMethod("seekTo", "(I)V"))
@@ -200,6 +201,11 @@ bool FJavaAndroidCameraPlayer::SetDataSource(const FString & Url)
 		PlayerState = FPlayerState::Active;
 	}
 	return Result;
+}
+
+FString FJavaAndroidCameraPlayer::GetDataSource()
+{
+	return CallMethod<FString>(GetDataSourceURLMethod);
 }
 
 bool FJavaAndroidCameraPlayer::Prepare()

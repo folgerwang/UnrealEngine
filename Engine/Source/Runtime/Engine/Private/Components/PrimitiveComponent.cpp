@@ -32,7 +32,7 @@
 #include "PrimitiveSceneProxy.h"
 #include "Algo/Copy.h"
 #include "UObject/RenderingObjectVersion.h"
-#include "UObject/AthenaObjectVersion.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 
 #if WITH_EDITOR
 #include "Engine/LODActor.h"
@@ -844,7 +844,7 @@ void UPrimitiveComponent::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
-	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
 	// as temporary fix for the bug TTP 299926
 	// permanent fix is coming
@@ -861,7 +861,7 @@ void UPrimitiveComponent::Serialize(FArchive& Ar)
 		}
 	}
 	
-	if (Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::CullDistanceRefactor_RemovedDefaultDistance)
+	if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::CullDistanceRefactor_RemovedDefaultDistance)
 	{
 		LDMaxDrawDistance = 0.f;
 	}
@@ -1090,6 +1090,14 @@ void UPrimitiveComponent::ReceiveComponentDamage(float DamageAmount, FDamageEven
 	}
 }
 
+void UPrimitiveComponent::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+	// Apply any deferred collision profile name we have (set in the constructor).
+	BodyInstance.ApplyDeferredCollisionProfileName();
+}
+
 void UPrimitiveComponent::PostLoad()
 {
 	Super::PostLoad();
@@ -1292,7 +1300,7 @@ bool UPrimitiveComponent::ShouldCreatePhysicsState() const
 	if (!bShouldCreatePhysicsState)
 	{
 		UWorld* World = GetWorld();
-		if (World && World->bEnableTraceCollision)
+		if (World && World->bEnableTraceCollision && !GetComponentTransform().GetScale3D().IsNearlyZero())
 		{
 			bShouldCreatePhysicsState = true;
 		}
@@ -1543,7 +1551,7 @@ UMaterialInstanceDynamic* UPrimitiveComponent::CreateAndSetMaterialInstanceDynam
 	return NULL;
 }
 
-UMaterialInstanceDynamic* UPrimitiveComponent::CreateDynamicMaterialInstance(int32 ElementIndex, class UMaterialInterface* SourceMaterial)
+UMaterialInstanceDynamic* UPrimitiveComponent::CreateDynamicMaterialInstance(int32 ElementIndex, class UMaterialInterface* SourceMaterial, FName OptionalName)
 {
 	if (SourceMaterial)
 	{
@@ -1556,7 +1564,7 @@ UMaterialInstanceDynamic* UPrimitiveComponent::CreateDynamicMaterialInstance(int
 	if (MaterialInstance && !MID)
 	{
 		// Create and set the dynamic material instance.
-		MID = UMaterialInstanceDynamic::Create(MaterialInstance, this);
+		MID = UMaterialInstanceDynamic::Create(MaterialInstance, this, OptionalName);
 		SetMaterial(ElementIndex, MID);
 	}
 	else if (!MaterialInstance)
@@ -3456,7 +3464,7 @@ void UPrimitiveComponent::SetLODParentPrimitive(UPrimitiveComponent * InLODParen
 		return nullptr;
 	}();
 
-	if (ShouldGenerateAutoLOD(ParentLODActor ? ParentLODActor->LODLevel - 1 : INDEX_NONE))
+	if (!GIsEditor || ShouldGenerateAutoLOD(ParentLODActor ? ParentLODActor->LODLevel - 1 : INDEX_NONE))
 #endif
 	{
 		// @todo, what do we do with old parent. We can't just reset undo parent because the parent might be used by other primitive

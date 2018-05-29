@@ -51,7 +51,7 @@ public class CameraPlayer14
 	private int CameraFPSMax = 0;
 	private int CameraOrientation = 0;
 	private int CameraRotationOffset = 0;
-	
+
 	private int iFrontId = 0;
 	private int iBackId = 0;
 
@@ -551,6 +551,13 @@ public class CameraPlayer14
 
 		CameraState = CameraStates.PREPARED;
 		return true;
+	}
+
+	public String getDataSourceURL()
+	{
+		String URL = "vidcap://" + ((CameraId == iFrontId) ? "front" : "rear") + "?width=" + CameraWidth + "?height=" + CameraHeight + "?fps=" + CameraFPS;
+		GameActivity.Log.debug("getDataSource: " + URL);
+		return URL;
 	}
 
 	public void setVideoEnabled(boolean enabled)

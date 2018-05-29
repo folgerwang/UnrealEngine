@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:2735872
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:5 - 配置したアクタの編集
 Crumbs:%ROOT%, GettingStarted, Engine/QuickStart
 Description:配置したアクタを使ってプロパティを編集し、レベルの外見をさらにカスタマイズしていきます。 
 SkillLevel:Beginner
-version:4.9
+Version:4.9
 Related:Engine/Rendering/Materials
 Related:Engine/Rendering/LightingAndShadows/LightTypes
 Related:Engine/Content/FBX/ImportOptions
@@ -62,7 +62,7 @@ checkpoint: editorqs
 
 	レベル内に **マテリアル** をもう少し適用したり、アクタの **Scale** を変更したりしてライトの **ライトカラー** を変えてみましょう。 
 
-## 結果
+## 最終結果
 
 **マテリアル** をレベル内の **Static Mesh アクタ** に適用する方法および **Actor** の **プロパティ** へアクセスする方法を学習しました。 
 各種プロパティを試してみると、始めは上図のようだったサンプル レベルはより完成度が高くなっていると思います。 

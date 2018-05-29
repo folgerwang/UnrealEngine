@@ -370,7 +370,7 @@ typedef std::list<SDMARange> TDMARangeList;
 typedef std::map<unsigned, TDMARangeList> TCBDMARangeMap;
 
 
-static void InsertRange( TCBDMARangeMap& CBAllRanges, unsigned SourceCB, unsigned SourceOffset, unsigned Size, unsigned DestCBIndex, unsigned DestCBPrecision, unsigned DestOffset )
+static void InsertRange( TCBDMARangeMap& CBAllRanges, unsigned SourceCB, unsigned SourceOffset, unsigned Size, unsigned DestCBIndex, unsigned DestCBPrecision, unsigned DestOffset ) 
 {
 	check(SourceCB < (1 << 12));
 	check(DestCBIndex < (1 << 12));
@@ -453,7 +453,7 @@ static void InsertRange( TCBDMARangeMap& CBAllRanges, unsigned SourceCB, unsigne
 	}
 }
 
-static TDMARangeList SortRanges( TCBDMARangeMap& CBRanges )
+static TDMARangeList SortRanges( TCBDMARangeMap& CBRanges ) 
 {
 	TDMARangeList Sorted;
 	for (auto& Pair : CBRanges)
@@ -559,6 +559,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 	bool bEmitPrecision;
 	bool bIsES31;
 	bool bIsWebGL;
+	EHlslCompileTarget CompileTarget;
 	_mesa_glsl_parser_targets ShaderTarget;
 
 	bool bGenerateLayoutLocations;
@@ -596,12 +597,15 @@ class ir_gen_glsl_visitor : public ir_visitor
 	/** Whether the shader being cross compiled needs EXT_shader_texture_lod. */
 	bool bUsesES2TextureLODExtension;
 
+	/** Whether the shader being cross compiled needs GL_EXT_texture_buffer. */
+	bool bUsesTexelFetch;
+
 	// Found dFdx or dFdy
 	bool bUsesDXDY;
 
 	// Uses gl_InstanceID
 	bool bUsesInstanceID;
-
+	
 	// Don't allow global uniforms; instead, wrap in a struct to make a proper uniform buffer
 	bool bNoGlobalUniforms;
 
@@ -614,7 +618,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 		if (type->base_type == GLSL_TYPE_ARRAY &&
 			type->fields.array->base_type == GLSL_TYPE_ARRAY)
 		{
-			foreach_iter(exec_list_iterator, iter, used_md_arrays)
+			foreach_iter(exec_list_iterator, iter, used_md_arrays) 
 			{
 				md_array_entry* entry = (md_array_entry*)iter.get();
 				if (entry->type == type)
@@ -697,7 +701,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 		if (t->base_type == GLSL_TYPE_ARRAY)
 		{
 			ralloc_asprintf_append(buffer, "_mdarr_");
-			do
+			do 
 			{
 				ralloc_asprintf_append(buffer, "%u_", t->length);
 				t = t->fields.array;
@@ -730,7 +734,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 		{
 			ralloc_asprintf_append(buffer, "%s", t->name);
 		}
-		else
+		else 
 		{
 			std::string Name = FixHlslName(t, bIsES && !bIsES31 && !bIsWebGL);
 			ralloc_asprintf_append(buffer, "%s", Name.c_str());
@@ -880,10 +884,11 @@ class ir_gen_glsl_visitor : public ir_visitor
 		const char * const ESFSmode_str[] = { "", "uniform ", "varying ", "attribute ", "", "in ", "", "shared " };
 		const char * const GLSLinterp_str[] = { "", "smooth ", "flat ", "noperspective " };
 		const char * const ESinterp_str[] = { "", "", "", "" };
+		const char * const ES31interp_str[] = { "", "smooth ", "flat ", "" };
 		const char * const layout_str[] = { "", "layout(origin_upper_left) ", "layout(pixel_center_integer) ", "layout(origin_upper_left,pixel_center_integer) " };
 
 		const char * const * mode_str = bIsES ? ((ShaderTarget == vertex_shader) ? ESVSmode_str : ESFSmode_str) : GLSLmode_str;
-		const char * const * interp_str = bIsES ? ESinterp_str : GLSLinterp_str;
+		const char * const * interp_str = bIsES ? ESinterp_str : (bIsES31 ? ES31interp_str : GLSLinterp_str);
 
 		// Check for an initialized const variable
 		// If var is read-only and initialized, set it up as an initialized const
@@ -929,7 +934,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 		}
 
 		const bool bBuiltinVariable = (var->name && strncmp(var->name, "gl_", 3) == 0);
-
+		
 		if (bBuiltinVariable && ShaderTarget == vertex_shader && strncmp(var->name, "gl_InstanceID", 13) == 0)
 		{
 			bUsesInstanceID = true;
@@ -953,7 +958,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 			int layout_bits =
 				(var->origin_upper_left ? 0x1 : 0) |
 				(var->pixel_center_integer ? 0x2 : 0);
-
+			
 			// this is for NVN which doesn't support global params, so we wrap each of the typed
 			// buffer in a struct, which ends up as a proper, non global parameter, uniform buffer
 			bool bUseGlobalUniformBufferWrapper = false;
@@ -963,7 +968,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 			}
 
 			if (scope_depth == 0 &&
-			   ((var->mode == ir_var_in) || (var->mode == ir_var_out)) &&
+			   ((var->mode == ir_var_in) || (var->mode == ir_var_out)) && 
 			   var->is_interface_block)
 			{
 				/**
@@ -984,19 +989,19 @@ class ir_gen_glsl_visitor : public ir_visitor
 				that dependency, we use structs.
 
 				*/
-
+				
 				if(bGenerateLayoutLocations && var->explicit_location && var->is_patch_constant == 0)
 				{
 					check(layout_bits == 0);
 
 					// Some devices (S6 G920L 6.0.1) may complain about second empty parameter in an INTERFACE_BLOCK macro
-					// Make sure we put something there
+					// Make sure we put something there 
 					const char* interp_qualifier = interp_str[var->interpolation];
 					if (bIsES31 && strlen(interp_qualifier) == 0)
 					{
 						interp_qualifier = "smooth ";
 					}
-
+										
 					ralloc_asprintf_append(
 						buffer,
 						"INTERFACE_BLOCK(%d, %s, %s%s%s%s, ",
@@ -1009,7 +1014,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 
 					print_type_pre(var->type);
 					ralloc_asprintf_append(buffer, ", ");
-
+					
 					const glsl_type* inner_type = var->type;
 					if (inner_type->is_array())
 					{
@@ -1019,7 +1024,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 					check(inner_type->length==1);
 					const glsl_struct_field* field = &inner_type->fields.structure[0];
 					check(strcmp(field->name,"Data")==0);
-
+					
 					if (bEmitPrecision)
 					{
 						if (field->type->is_integer())
@@ -1044,7 +1049,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 						patch_constant_str[var->is_patch_constant],
 						mode_str[var->mode]
 						);
-
+					
 					print_type_pre(var->type);
 
 					const glsl_type* inner_type = var->type;
@@ -1056,9 +1061,9 @@ class ir_gen_glsl_visitor : public ir_visitor
 					check(inner_type->length==1);
 					const glsl_struct_field* field = &inner_type->fields.structure[0];
 					check(strcmp(field->name,"Data")==0);
-
+					
 					ralloc_asprintf_append(buffer, " { %s", interp_str[var->interpolation]);
-
+					
 					print_type_pre(field->type);
 					ralloc_asprintf_append(buffer, " Data");
 					print_type_post(field->type);
@@ -1383,7 +1388,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 		static const char * const gather_str[] = { "", "Gather" };
 		static const char * const querymips_str[] = { "", "QueryLevels" };
 		static const char * const EXT_str[] = { "", "EXT" };
-		const bool cube_array = tex->sampler->type->sampler_dimensionality == GLSL_SAMPLER_DIM_CUBE &&
+		const bool cube_array = tex->sampler->type->sampler_dimensionality == GLSL_SAMPLER_DIM_CUBE && 
 			tex->sampler->type->sampler_array;
 
 		ir_texture_opcode op = tex->op;
@@ -1400,6 +1405,11 @@ class ir_gen_glsl_visitor : public ir_visitor
 			// See http://www.khronos.org/registry/gles/extensions/EXT/EXT_shader_texture_lod.txt
 			bUsesES2TextureLODExtension = true;
 			bEmitEXT = true;
+		}
+
+		if (op == ir_txf)
+		{
+			bUsesTexelFetch = true;
 		}
 
 		// Emit texture function and sampler.
@@ -1637,7 +1647,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 		};
 		const int dst_elements = deref->type->vector_elements;
 		const int src_elements = (src) ? src->type->vector_elements : 1;
-
+		
 		bool bIsStructured = deref->type->is_record() || (!strncmp(deref->image->type->name, "RWStructuredBuffer<", 19) || !strncmp(deref->image->type->name, "StructuredBuffer<", 17));
 
 		//!strncmp(var->type->name, "RWStructuredBuffer<")
@@ -2184,7 +2194,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 
 	virtual void visit(ir_atomic *ir)
 	{
-		const char *sharedAtomicFunctions[] =
+		const char *sharedAtomicFunctions[] = 
 		{
 			"atomicAdd",
 			"atomicAnd",
@@ -2195,7 +2205,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 			"atomicExchange",
 			"atomicCompSwap"
 		};
-		const char *imageAtomicFunctions[] =
+		const char *imageAtomicFunctions[] = 
 		{
 			"imageAtomicAdd",
 			"imageAtomicAnd",
@@ -2353,7 +2363,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 		// Generate structures that allow support for multi-dimensional arrays.
 		{
 			hash_table* ht = hash_table_ctor(32, hash_table_pointer_hash, hash_table_pointer_compare);
-			foreach_iter(exec_list_iterator, iter, used_md_arrays)
+			foreach_iter(exec_list_iterator, iter, used_md_arrays) 
 			{
 				md_array_entry* entry = (md_array_entry*)iter.get();
 				declare_md_array_struct(entry->type, ht);
@@ -3006,7 +3016,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 			ralloc_asprintf_append(buffer, "tessellation.patchconstantfunc =  %s \n", tessellation.patchconstantfunc);
 			ralloc_asprintf_append(buffer, " */\n");
 		}
-#endif
+#endif		
 	}
 
 	void print_extensions(_mesa_glsl_parse_state* state, bool bUsesFramebufferFetchES2, bool bUsesDepthbufferFetchES2, bool bUsesES31Extensions, bool bInUsesExternalTexture)
@@ -3023,7 +3033,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 			ralloc_asprintf_append(buffer, "#endif\n");
 		}
 
-		if (state->bSeparateShaderObjects && !state->bGenerateES &&
+		if (state->bSeparateShaderObjects && !state->bGenerateES && 
 			((state->target == tessellation_control_shader) || (state->target == tessellation_evaluation_shader)))
 		{
 			ralloc_asprintf_append(buffer, "#extension GL_ARB_tessellation_shader : enable\n");
@@ -3041,7 +3051,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 			ralloc_asprintf_append(buffer, "#define gl_InstanceID gl_InstanceIDEXT\n");
 			ralloc_asprintf_append(buffer, "#endif\n");
 		}
-
+		
 		if (bUsesFramebufferFetchES2)
 		{
 			ralloc_asprintf_append(buffer, "\n#ifdef UE_EXT_shader_framebuffer_fetch\n");
@@ -3063,7 +3073,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 			ralloc_asprintf_append(buffer, "\n#ifdef GL_EXT_gpu_shader5\n");
 			ralloc_asprintf_append(buffer, "#extension GL_EXT_gpu_shader5 : enable\n");
 			ralloc_asprintf_append(buffer, "\n#endif\n");
-
+			
 			ralloc_asprintf_append(buffer, "\n#ifdef GL_EXT_texture_buffer\n");
 			ralloc_asprintf_append(buffer, "#extension GL_EXT_texture_buffer : enable\n");
 			ralloc_asprintf_append(buffer, "\n#endif\n");
@@ -3085,7 +3095,15 @@ class ir_gen_glsl_visitor : public ir_visitor
 			{
 				ralloc_asprintf_append(buffer, "#extension GL_EXT_tessellation_shader : enable\n");
 			}
-
+		}
+		else if ((bIsES || bIsES31) && bUsesTexelFetch)
+		{
+			// Not supported by ES2 and ES3.1 spec, but many phones support this extension
+			// GPU particles require this
+			// App shall not use a shader if this extension is not supported on device
+			ralloc_asprintf_append(buffer, "\n#ifdef GL_EXT_texture_buffer\n");
+			ralloc_asprintf_append(buffer, "#extension GL_EXT_texture_buffer : enable\n");
+			ralloc_asprintf_append(buffer, "\n#endif\n");
 		}
 		ralloc_asprintf_append(buffer, "// end extensions\n");
 	}
@@ -3093,13 +3111,13 @@ class ir_gen_glsl_visitor : public ir_visitor
 public:
 
 	/** Constructor. */
-	ir_gen_glsl_visitor(bool bInIsES, bool bInEmitPrecision, bool bInIsES31, bool bInIsWebGL, _mesa_glsl_parser_targets InShaderTarget, bool bInGenerateLayoutLocations, bool bInDefaultPrecisionIsHalf, bool bInNoGlobalUniforms, bool bInUsesFrameBufferFetch, bool bInUsesExternalTexture)
+	ir_gen_glsl_visitor(bool bInIsES, bool bInEmitPrecision, bool bInIsWebGL, EHlslCompileTarget InCompileTarget, _mesa_glsl_parser_targets InShaderTarget, bool bInGenerateLayoutLocations, bool bInDefaultPrecisionIsHalf, bool bInNoGlobalUniforms, bool bInUsesFrameBufferFetch, bool bInUsesExternalTexture)
 		: early_depth_stencil(false)
 		, bIsES(bInIsES)
 		, bEmitPrecision(bInEmitPrecision)
-		, bIsES31(bInIsES31)
+		, bIsES31(InCompileTarget == HCT_FeatureLevelES3_1 || InCompileTarget == HCT_FeatureLevelES3_1Ext)
 		, bIsWebGL(bInIsWebGL)
-		, ShaderTarget(InShaderTarget)
+		, CompileTarget(InCompileTarget)		, ShaderTarget(InShaderTarget)
 		, bGenerateLayoutLocations(bInGenerateLayoutLocations)
 		, bDefaultPrecisionIsHalf(bInDefaultPrecisionIsHalf)
 		, bUsesFrameBufferFetch(bInUsesFrameBufferFetch)
@@ -3113,6 +3131,7 @@ public:
 		, should_print_uint_literals_as_ints(false)
 		, loop_count(0)
 		, bUsesES2TextureLODExtension(false)
+		, bUsesTexelFetch(false)
 		, bUsesDXDY(false)
 		, bUsesInstanceID(false)
 		, bNoGlobalUniforms(bInNoGlobalUniforms)
@@ -3144,11 +3163,11 @@ public:
 		if (bEmitPrecision && !(ShaderTarget == vertex_shader))
 		{
 			// TODO: Improve this...
-
+			
 			const char* DefaultPrecision = bDefaultPrecisionIsHalf ? "mediump" : "highp";
 			ralloc_asprintf_append(buffer, "precision %s float;\n", DefaultPrecision);
 			ralloc_asprintf_append(buffer, "precision %s int;\n", DefaultPrecision);
-			ralloc_asprintf_append(buffer, "\n#ifndef DONTEMITSAMPLERDEFAULTPRECISION\n");
+			ralloc_asprintf_append(buffer, "\n#ifndef DONTEMITSAMPLERDEFAULTPRECISION\n"); 
 			ralloc_asprintf_append(buffer, "precision %s sampler2D;\n", DefaultPrecision);
 			ralloc_asprintf_append(buffer, "precision %s samplerCube;\n\n", DefaultPrecision);
 			ralloc_asprintf_append(buffer, "#endif\n");
@@ -3210,8 +3229,8 @@ bool compiler_internal_AdjustIsFrontFacing(bool isFrontFacing)
 			if (state->language_version == 310)
 			{
 				// Append framebuffer fetch function. note: we want ES3.1 to throw an error if the device does not support framebuffer fetch.
-				// Fwd declare of FramebufferFetchES2 b/c we dont have access to out_Target0 yet,
-				// #define FramebufferFetchES2() (out_Target0) fails b/c adreno preprocessor does not consume braces at call site. i.e. (out_Target0)()
+				// Fwd declare of FramebufferFetchES2 b/c we dont have access to out_Target0 yet, 
+				// #define FramebufferFetchES2() (out_Target0) fails b/c adreno preprocessor does not consume braces at call site. i.e. (out_Target0)()			
 				ralloc_asprintf_append(buffer, "\n#ifdef UE_EXT_shader_framebuffer_fetch\n");
 				ralloc_asprintf_append(buffer, "	#define %sinout\n", ES31FrameBufferFetchStorageQualifier);
 				ralloc_asprintf_append(buffer, "	vec4 FramebufferFetchES2();\n");
@@ -3305,7 +3324,7 @@ bool compiler_internal_AdjustIsFrontFacing(bool isFrontFacing)
 
 		char* Extensions = ralloc_asprintf(mem_ctx, "");
 		buffer = &Extensions;
-		print_extensions(state, bUsesFrameBufferFetch, bUsesDepthbufferFetchES2, state->language_version == 310, bUsesExternalTexture);
+		print_extensions(state, bUsesFrameBufferFetch, bUsesDepthbufferFetchES2, CompileTarget == HCT_FeatureLevelES3_1Ext, bUsesExternalTexture);
 		if (state->bSeparateShaderObjects && !state->bGenerateES)
 		{
 			switch (state->target)
@@ -3386,7 +3405,7 @@ struct FBreakPrecisionChangesVisitor : public ir_rvalue_visitor
 	_mesa_glsl_parse_state* State;
 	const bool bDefaultPrecisionIsHalf;
 
-	FBreakPrecisionChangesVisitor(_mesa_glsl_parse_state* InState, bool bInDefaultPrecisionIsHalf)
+	FBreakPrecisionChangesVisitor(_mesa_glsl_parse_state* InState, bool bInDefaultPrecisionIsHalf) 
 		: State(InState)
 		, bDefaultPrecisionIsHalf(bInDefaultPrecisionIsHalf)
 	{}
@@ -3484,7 +3503,7 @@ char* FGlslCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* stat
 
 	const bool bDefaultPrecisionIsHalf = ((HlslCompileFlags & HLSLCC_UseFullPrecisionInPS) == 0);
 	const bool bUsesExternalTexture = ((HlslCompileFlags & HLSLCC_UsesExternalTexture) == HLSLCC_UsesExternalTexture);
-
+	
 	FBreakPrecisionChangesVisitor BreakPrecisionChangesVisitor(state, bDefaultPrecisionIsHalf);
 	BreakPrecisionChangesVisitor.run(ir);
 
@@ -3499,8 +3518,8 @@ char* FGlslCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* stat
 	const bool bUsesFrameBufferFetch = Frequency == HSF_PixelShader && UsesUEIntrinsic(ir, FRAMEBUFFER_FETCH_ES2);
 	ir_gen_glsl_visitor visitor(state->bGenerateES,
 								bEmitPrecision,
-								(Target == HCT_FeatureLevelES3_1Ext || Target == HCT_FeatureLevelES3_1),
 								bIsWebGL,
+								Target,
 								state->target,
 								bGenerateLayoutLocations,
 								bDefaultPrecisionIsHalf,
@@ -3560,7 +3579,7 @@ struct SPromoteSampleLevelES2 : public ir_hierarchical_visitor
 
 		return visit_continue;
 	}
-};
+}; 
 
 
 // Converts an array index expression using an integer input attribute, to a float input attribute using a conversion to int
@@ -3786,7 +3805,7 @@ static void ConfigureInOutVariableLayout(EHlslShaderFrequency Frequency,
 			)
 		{
 			int AttributeIndex = atoi(Semantic + PrefixLength);
-
+			
 			Variable->explicit_location = true;
 			Variable->location = AttributeIndex;
 			Variable->semantic = ralloc_strdup(Variable, Semantic);
@@ -3890,11 +3909,11 @@ static ir_rvalue* GenShaderInputSemantic(
 						if (FCStringAnsi::Stricmp(Semantic, "SV_Position") == 0 && Frequency == HSF_PixelShader)
 						{
 							// This is for input of gl_FragCoord into pixel shader only.
-
+							
 							// Generate a local variable to do the conversion in, keeping source type.
 							ir_variable* TempVariable = new(ParseState)ir_variable(Variable->type, NULL, ir_var_temporary);
 							DeclInstructions->push_tail(TempVariable);
-
+							
 							// Assign input to this variable
 							ir_dereference_variable* TempVariableDeref = new(ParseState)ir_dereference_variable(TempVariable);
 							DeclInstructions->push_tail(
@@ -3903,7 +3922,7 @@ static ir_rvalue* GenShaderInputSemantic(
 								VariableDeref
 								)
 							);
-
+							
 							// TempVariable.w = ( 1.0f / TempVariable.w );
 							DeclInstructions->push_tail(
 								new(ParseState)ir_assignment(
@@ -4016,7 +4035,9 @@ static ir_rvalue* GenShaderInputSemantic(
 
 	// Patch constants must be variables, not structs or interface blocks, in GLSL <= 4.10
 	bool bUseGLSL410Rules = InputQualifier.Fields.bIsPatchConstant && ParseState->language_version <= 410;
-	if (Frequency == HSF_VertexShader || ParseState->bGenerateES || bUseGLSL410Rules)
+	bool bUseESRules = ParseState->bGenerateES || ParseState->language_version == 310;
+
+	if (Frequency == HSF_VertexShader || bUseESRules || bUseGLSL410Rules)
 	{
 		const char* Prefix = "in";
 		if ((ParseState->bGenerateES && Frequency == HSF_PixelShader) || bUseGLSL410Rules)
@@ -4280,10 +4301,17 @@ static ir_rvalue* GenShaderOutputSemantic(
 	}
 
 	bool bUseGLSL410Rules = OutputQualifier.Fields.bIsPatchConstant && ParseState->language_version == 410;
-	if (Variable == NULL && (ParseState->bGenerateES || bUseGLSL410Rules))
+	bool bUseESRules = ParseState->bGenerateES || ParseState->language_version == 310;
+
+	if (Variable == NULL && (bUseESRules || bUseGLSL410Rules))
 	{
 		// Create a variable so that a struct will not get added
 		Variable = new(ParseState)ir_variable(Type, ralloc_asprintf(ParseState, "var_%s", Semantic), ir_var_out);
+	}
+
+	if (ParseState->bGenerateLayoutLocations && Variable && !Variable->is_patch_constant)
+	{
+		ConfigureInOutVariableLayout(Frequency, ParseState, Semantic, Variable, ir_var_out);
 	}
 
 	if (Variable)

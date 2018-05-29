@@ -6,6 +6,7 @@
 
 #include "BuildPatchUtil.h"
 #include "Misc/Paths.h"
+#include "Misc/OutputDeviceRedirector.h"
 #include "BuildPatchServicesModule.h"
 #include "Data/ChunkData.h"
 #include "BuildPatchHash.h"
@@ -21,7 +22,7 @@ FString FBuildPatchUtils::GetChunkNewFilename( const EBuildPatchAppManifestVersi
 	return FPaths::Combine( *RootDirectory, *FString::Printf( TEXT("%s/%02d/%016llX_%s.chunk"), *EBuildPatchAppManifestVersion::GetChunkSubdir( ManifestVersion ),FCrc::MemCrc32( &ChunkGUID, sizeof( FGuid ) ) % 100, ChunkHash, *ChunkGUID.ToString() ) );
 }
 
-FString FBuildPatchUtils::GetFileNewFilename(const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& FileGUID, const FSHAHashData& FileHash)
+FString FBuildPatchUtils::GetFileNewFilename(const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& FileGUID, const FSHAHash& FileHash)
 {
 	check( FileGUID.IsValid() );
 	return FPaths::Combine( *RootDirectory, *FString::Printf( TEXT("%s/%02d/%s_%s.file"), *EBuildPatchAppManifestVersion::GetFileSubdir( ManifestVersion ), FCrc::MemCrc32( &FileGUID, sizeof( FGuid ) ) % 100, *FileHash.ToString(), *FileGUID.ToString() ) );
@@ -46,7 +47,7 @@ void FBuildPatchUtils::GetChunkDetailFromNewFilename( const FString& ChunkNewFil
 	FGuid::Parse( GuidString, ChunkGUID );
 }
 
-void FBuildPatchUtils::GetFileDetailFromNewFilename(const FString& FileNewFilename, FGuid& FileGUID, FSHAHashData& FileHash)
+void FBuildPatchUtils::GetFileDetailFromNewFilename(const FString& FileNewFilename, FGuid& FileGUID, FSHAHash& FileHash)
 {
 	const FString FileFilename = FPaths::GetBaseFilename( FileNewFilename );
 	FString GuidString;
@@ -105,7 +106,7 @@ FString FBuildPatchUtils::GetDataFilename(const FBuildPatchAppManifestRef& Manif
 	}
 	else if (Manifest->GetManifestVersion() <= EBuildPatchAppManifestVersion::StoredAsCompressedUClass)
 	{
-		FSHAHashData FileHash;
+		FSHAHash FileHash;
 		const bool bFound = Manifest->GetFileHash(DataGUID, FileHash);
 		// Should be impossible to not exist
 		check(bFound);
@@ -143,7 +144,7 @@ bool FBuildPatchUtils::GetGUIDFromFilename( const FString& DataFilename, FGuid& 
 	return false;
 }
 
-uint8 FBuildPatchUtils::VerifyFile(IFileSystem* FileSystem, const FString& FileToVerify, const FSHAHashData& Hash1, const FSHAHashData& Hash2)
+uint8 FBuildPatchUtils::VerifyFile(IFileSystem* FileSystem, const FString& FileToVerify, const FSHAHash& Hash1, const FSHAHash& Hash2)
 {
 	FBuildPatchFloatDelegate NoProgressDelegate;
 	FBuildPatchBoolRetDelegate NoPauseDelegate;
@@ -151,7 +152,7 @@ uint8 FBuildPatchUtils::VerifyFile(IFileSystem* FileSystem, const FString& FileT
 	return VerifyFile(FileSystem, FileToVerify, Hash1, Hash2, NoProgressDelegate, NoPauseDelegate, NoAbortDelegate);
 }
 
-uint8 FBuildPatchUtils::VerifyFile(IFileSystem* FileSystem, const FString& FileToVerify, const FSHAHashData& Hash1, const FSHAHashData& Hash2, FBuildPatchFloatDelegate ProgressDelegate, FBuildPatchBoolRetDelegate ShouldPauseDelegate, FBuildPatchBoolRetDelegate ShouldAbortDelegate)
+uint8 FBuildPatchUtils::VerifyFile(IFileSystem* FileSystem, const FString& FileToVerify, const FSHAHash& Hash1, const FSHAHash& Hash2, FBuildPatchFloatDelegate ProgressDelegate, FBuildPatchBoolRetDelegate ShouldPauseDelegate, FBuildPatchBoolRetDelegate ShouldAbortDelegate)
 {
 	uint8 ReturnValue = 0;
 	TUniquePtr<FArchive> FileReader = FileSystem->CreateFileReader(*FileToVerify);
@@ -159,7 +160,7 @@ uint8 FBuildPatchUtils::VerifyFile(IFileSystem* FileSystem, const FString& FileT
 	if (FileReader.IsValid())
 	{
 		FSHA1 HashState;
-		FSHAHashData HashValue;
+		FSHAHash HashValue;
 		const int64 FileSize = FileReader->TotalSize();
 		uint8* FileReadBuffer = new uint8[FileBufferSize];
 		while (!FileReader->AtEnd() && (!ShouldAbortDelegate.IsBound() || !ShouldAbortDelegate.Execute()))

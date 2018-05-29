@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3481084
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title: 메인 메뉴 바
 Crumbs:%ROOT%, Engine, Engine/UI
@@ -117,7 +117,7 @@ mac
 %commonwindowmenu%
 
 [VAR:CommonWindowMenu]
-| [REGION:tablesection]** **[/REGION] ||
+| [REGION:tablesection] [/REGION] ||
 | **콘텐츠 브라우저** | 콘텐츠 애셋 작업용 [콘텐츠 브라우저](Engine/Content/Browser) 를 최대 4 개까지 엽니다. |
 | **개발자 툴** | 엔진 및 에디터 작업을 하는 프로그래머용 [다양한 툴](Engine\Tools\DevTools) 에 대한 바로가기가 제공됩니다. |
 | **블루프린트 디버거** | [](Engine/Blueprints/UserGuide/Debugging) 패널을 엽니다. |

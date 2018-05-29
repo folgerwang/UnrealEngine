@@ -183,7 +183,7 @@ public:
 	bool ReadFieldHeaderAndPayload( UObject* Object, const FClassNetCache* ClassCache, FNetFieldExportGroup* NetFieldExportGroup, FNetBitReader& Bunch, const FFieldNetCache** OutField, FNetBitReader& OutPayload ) const;
 
 	/** Finds the net field export group for a class net cache, if not found, creates one */
-	FNetFieldExportGroup* GetNetFieldExportGroupForClassNetCache( const UClass* ObjectClass );
+	FNetFieldExportGroup* GetNetFieldExportGroupForClassNetCache( UClass* ObjectClass );
 		
 	/** Finds (or creates) the net field export group for a class net cache, if not found, creates one */
 	FNetFieldExportGroup* GetOrCreateNetFieldExportGroupForClassNetCache( const UObject* Object );

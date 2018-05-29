@@ -1418,10 +1418,10 @@ public:
 	virtual void ClearAccumulatedForces();
 
 	/** Update the character state in PerformMovement right before doing the actual position change */
-	virtual void UpdateCharacterStateBeforeMovement();
+	virtual void UpdateCharacterStateBeforeMovement(float DeltaSeconds);
 
 	/** Update the character state in PerformMovement after the position change. Some rotation updates happen after this. */
-	virtual void UpdateCharacterStateAfterMovement();
+	virtual void UpdateCharacterStateAfterMovement(float DeltaSeconds);
 
 	/** 
 	 * Handle start swimming functionality
@@ -2352,6 +2352,12 @@ public:
 
 	virtual void FlushServerMoves();
 
+	/** 
+	 * When moving the character, we should inform physics as to whether we are teleporting.
+	 * This allows physics to avoid injecting forces into simulations from client corrections (etc.)
+	 */
+	ETeleportType GetTeleportType() const;
+
 protected:
 
 	/** called in Tick to update data in RVO avoidance manager */
@@ -2421,6 +2427,8 @@ public:
 	FSavedMove_Character();
 	virtual ~FSavedMove_Character();
 
+	ACharacter* CharacterOwner;
+
 	uint32 bPressedJump:1;
 	uint32 bWantsToCrouch:1;
 	uint32 bForceMaxAccel:1;
@@ -2431,15 +2439,21 @@ public:
 	/** If true this move is using an old TimeStamp, before a reset occurred. */
 	uint32 bOldTimeStampBeforeReset:1;
 
+	uint32 bWasJumping:1;
+
 	float TimeStamp;    // Time of this move.
 	float DeltaTime;    // amount of time for this move
 	float CustomTimeDilation;
 	float JumpKeyHoldTime;
+	float JumpForceTimeRemaining;
 	int32 JumpMaxCount;
 	int32 JumpCurrentCount;
-	uint8 MovementMode;	// packed movement mode
+	
+	DEPRECATED_FORGAME(4.20, "This property is deprecated, use StartPackedMovementMode or EndPackedMovementMode instead.")
+	uint8 MovementMode;
 
 	// Information at the start of the move
+	uint8 StartPackedMovementMode;
 	FVector StartLocation;
 	FVector StartRelativeLocation;
 	FVector StartVelocity;
@@ -2455,6 +2469,7 @@ public:
 	uint32 StartComponentOverlapCounter;
 
 	// Information after the move has been performed
+	uint8 EndPackedMovementMode;
 	FVector SavedLocation;
 	FRotator SavedRotation;
 	FVector SavedVelocity;
@@ -2466,6 +2481,7 @@ public:
 	uint32 EndComponentOverlapCounter;
 
 	FVector Acceleration;
+	float MaxSpeed;
 
 	// Cached to speed up iteration over IsImportantMove().
 	FVector AccelNormal;
@@ -2483,6 +2499,8 @@ public:
 	float AccelMagThreshold;	
 	/** Threshold for deciding if we can combine two moves, true if cosine of angle between them is <= this. */
 	float AccelDotThresholdCombine;
+	/** Client saved moves will not combine if the result of GetMaxSpeed() differs by this much between moves. */
+	float MaxSpeedThresholdCombine;
 	
 	/** Clear saved move properties, so it can be re-used. */
 	virtual void Clear();
@@ -2509,7 +2527,10 @@ public:
 	virtual void PostUpdate(ACharacter* C, EPostUpdateMode PostUpdateMode);
 	
 	/** @Return true if this move can be combined with NewMove for replication without changing any behavior */
-	virtual bool CanCombineWith(const FSavedMovePtr& NewMove, ACharacter* InPawn, float MaxDelta) const;
+	virtual bool CanCombineWith(const FSavedMovePtr& NewMove, ACharacter* InCharacter, float MaxDelta) const;
+
+	/** Combine this move with an older move and update relevant state. */
+	virtual void CombineWith(const FSavedMove_Character* OldMove, ACharacter* InCharacter, APlayerController* PC, const FVector& OldStartLocation);
 	
 	/** Called before ClientUpdatePosition uses this SavedMove to make a predictive correction	 */
 	virtual void PrepMoveFor(ACharacter* C);

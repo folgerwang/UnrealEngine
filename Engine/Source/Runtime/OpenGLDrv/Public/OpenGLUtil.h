@@ -11,7 +11,7 @@
 #define ENABLE_OPENGL_FRAMEDUMP 0
 
 /** Set to 1 to enable the VERIFY_GL macros which call glGetError */
-#define ENABLE_VERIFY_GL (0 & UE_BUILD_DEBUG)
+#define ENABLE_VERIFY_GL (0 & DO_CHECK)
 #define ENABLE_VERIFY_GL_TRACE 0
 
 // Additional check that our GL calls are occurring on the expected thread
@@ -62,11 +62,20 @@ FORCEINLINE GLenum GetOpenGLCubeFace(ECubeFace Face)
 extern bool PlatformOpenGLContextValid();
 
 #if ENABLE_VERIFY_GL_THREAD
+	#if UE_BUILD_TEST
+		#define GLCONTEXT_CLAUSE 
+	#else
+		#define GLCONTEXT_CLAUSE PlatformOpenGLContextValid() &&
+	#endif
 	// check that the current thread has a valid context and matches our RT / RHIT expectations.
 	// Note that the game thread can access the shared context.
-	#define CHECK_EXPECTED_GL_THREAD() if(!(PlatformOpenGLContextValid() && (IsInGameThread() || ( (IsInRenderingThread() && !IsRunningRHIInSeparateThread()) || (IsInRHIThread() && IsRunningRHIInSeparateThread()) ))))\
+	// use commandline switch -norhithread if this causes issues.
+	#define CHECK_EXPECTED_GL_THREAD() \
+		if(!( \
+			 GLCONTEXT_CLAUSE\
+			(IsInGameThread() || ( (IsInRenderingThread() && !IsRunningRHIInSeparateThread()) || (IsInRHIThread() && IsRunningRHIInSeparateThread()) ))))\
 		{ \
-			UE_LOG(LogRHI, Fatal, TEXT("Potential use of GL context from incorrect thread."));\
+			UE_LOG(LogRHI, Fatal, TEXT("Potential use of GL context from incorrect thread. [IsInGameThread() = %d, IsInRenderingThread() && !IsRunningRHIInSeparateThread() = %d, IsInRHIThread() && IsRunningRHIInSeparateThread() = %d]"), IsInGameThread(), IsInRenderingThread() && !IsRunningRHIInSeparateThread(), IsInRHIThread() && IsRunningRHIInSeparateThread());\
 		}
 #else
 	#define CHECK_EXPECTED_GL_THREAD() 
@@ -189,4 +198,8 @@ struct FRHICommandGLCommand final : public FRHICommand<FRHICommandGLCommand>
 	}
 };
 
-void RunOnGLRenderContextThread(TFunction<void(void)> GLFunc);
+void RunOnGLRenderContextThread(TFunction<void(void)> GLFunc, bool bWaitForCompletion = false);
+inline bool ShouldRunGLRenderContextOpOnThisThread(FRHICommandListImmediate& RHICmdList)
+{
+	return (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread() || IsInRHIThread());
+}

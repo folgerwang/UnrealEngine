@@ -563,6 +563,11 @@ public class MediaPlayer14
 
 	public void reset()
 	{
+		synchronized(this)
+		{
+			Prepared = false;
+			Completed = false;
+		}
 		if (null != mOESTextureRenderer)
 		{
 			while (WaitOnBitmapRender) ;

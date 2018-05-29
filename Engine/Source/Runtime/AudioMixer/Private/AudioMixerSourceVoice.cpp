@@ -14,11 +14,17 @@ namespace Audio
 
 	FMixerSourceVoice::FMixerSourceVoice()
 	{
+		SourceStoppedEvent = FPlatformProcess::GetSynchEventFromPool();;
+
 		Reset(nullptr);
 	}
 
 	FMixerSourceVoice::~FMixerSourceVoice()
 	{
+		if (SourceStoppedEvent != nullptr)
+		{
+			FPlatformProcess::ReturnSynchEventToPool(SourceStoppedEvent);
+		}
 	}
 
 	void FMixerSourceVoice::Reset(FMixerDevice* InMixerDevice)
@@ -65,6 +71,11 @@ namespace Audio
 			for (int32 i = 0; i < InitParams.SubmixSends.Num(); ++i)
 			{
 				SubmixSends.Add(InitParams.SubmixSends[i].Submix->GetId(), InitParams.SubmixSends[i]);
+			}
+
+			if (SourceStoppedEvent)
+			{
+				SourceStoppedEvent->Reset();
 			}
 
 			SourceManager->InitSource(SourceId, InitParams);
@@ -167,6 +178,7 @@ namespace Audio
 		bIsPlaying = true;
 		bIsPaused = false;
 		bIsActive = true;
+
 		SourceManager->Play(SourceId);
 	}
 
@@ -179,6 +191,31 @@ namespace Audio
 		bIsActive = false;
 		SourceManager->Stop(SourceId);
 	}
+
+	void FMixerSourceVoice::StopFade()
+	{
+		AUDIO_MIXER_CHECK_GAME_THREAD(MixerDevice);
+
+		bIsPaused = false;
+		SourceManager->StopFade(SourceId);
+	}
+
+	void FMixerSourceVoice::EnsureStopped()
+	{
+		if (SourceStoppedEvent)
+		{
+			SourceStoppedEvent->Wait();
+		}
+	}
+
+	void FMixerSourceVoice::NotifyStopped()
+	{
+		if (SourceStoppedEvent)
+		{
+			SourceStoppedEvent->Trigger();
+		}
+	}
+
 
 	void FMixerSourceVoice::Pause()
 	{

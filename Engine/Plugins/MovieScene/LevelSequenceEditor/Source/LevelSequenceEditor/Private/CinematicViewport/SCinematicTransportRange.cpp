@@ -86,7 +86,7 @@ void SCinematicTransportRange::SetTime(const FGeometry& MyGeometry, const FPoint
 	}
 }
 
-void SCinematicTransportRange::OnMouseCaptureLost()
+void SCinematicTransportRange::OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)
 {
 	bDraggingTime = false;
 }

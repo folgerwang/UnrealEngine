@@ -261,6 +261,9 @@
 #ifndef PLATFORM_TCHAR_IS_4_BYTES
 	#define PLATFORM_TCHAR_IS_4_BYTES			0
 #endif
+#ifndef PLATFORM_TCHAR_IS_CHAR16
+	#define PLATFORM_TCHAR_IS_CHAR16			0
+#endif
 #ifndef PLATFORM_HAS_BSD_TIME
 	#define PLATFORM_HAS_BSD_TIME				1
 #endif
@@ -873,6 +876,10 @@ namespace TypeTests
 
 // If we don't have a platform-specific define for the TEXT macro, define it now.
 #if !defined(TEXT) && !UE_BUILD_DOCS
+	#if PLATFORM_TCHAR_IS_CHAR16
+		#define TEXT_PASTE(x) u ## x
+	#else
 		#define TEXT_PASTE(x) L ## x
+	#endif
 		#define TEXT(x) TEXT_PASTE(x)
 #endif

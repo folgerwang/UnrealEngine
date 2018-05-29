@@ -78,7 +78,7 @@ protected:
 
 protected:
 
-	/** The FName of the image resource to show */
+	/** The slate brush to draw for the image, or a bound delegate to a brush. */
 	TAttribute< const FSlateBrush* > Image;
 
 	/** Color and opacity scale for this image */

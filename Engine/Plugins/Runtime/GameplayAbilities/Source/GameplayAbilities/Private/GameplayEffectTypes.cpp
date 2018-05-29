@@ -297,9 +297,9 @@ void FGameplayEffectContext::GetOwnedGameplayTags(OUT FGameplayTagContainer& Act
 	{
 		TagInterface->GetOwnedGameplayTags(ActorTagContainer);
 	}
-	else if (InstigatorAbilitySystemComponent.IsValid())
+	else if (UAbilitySystemComponent* ASC = InstigatorAbilitySystemComponent.Get())
 	{
-		InstigatorAbilitySystemComponent->GetOwnedGameplayTags(ActorTagContainer);
+		ASC->GetOwnedGameplayTags(ActorTagContainer);
 	}
 }
 

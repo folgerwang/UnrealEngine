@@ -123,6 +123,9 @@ public:
 	/** Resolve a filename that is relative to either the specified package, BaseDir() or absolute */
 	static FString ResolveImportFilename(const FString& InRelativePath, const UPackage* Outermost);
 
+	/** Convert an absolute import path so that it's relative to either this object's package, BaseDir() or leave it absolute */
+	static FString SanitizeImportFilename(const FString& InPath, const UPackage* Outermost);
+
 	virtual void PostLoad() override;
 
 protected:

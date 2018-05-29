@@ -494,6 +494,7 @@ private:
 	bool HandleAudioSoloSoundCue(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleAudioMixerDebugSound(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleSoundClassFixup(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleAudioDebugSound(const TCHAR* Cmd, FOutputDevice& Ar);
 
 	/**
 	* Lists a summary of loaded sound collated by class
@@ -985,12 +986,14 @@ public:
 
 		bHRTFEnabledForAll_OnGameThread = bNewHRTFEnabledForAll;
 
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.SetHRTFEnabledForAll"), STAT_SetHRTFEnabledForAll, STATGROUP_AudioThreadCommands);
+
 		FAudioDevice* AudioDevice = this;
 		FAudioThread::RunCommandOnAudioThread([AudioDevice, bNewHRTFEnabledForAll]()
 		{
 			AudioDevice->bHRTFEnabledForAll = bNewHRTFEnabledForAll;
 
-		});
+		}, GET_STATID(STAT_SetHRTFEnabledForAll));
 	}
 
 	void SetSpatializationInterfaceEnabled(bool InbSpatializationInterfaceEnabled)
@@ -1078,6 +1081,9 @@ public:
 
 	/** Returns the number of active sound sources */
 	virtual int32 GetNumActiveSources() const { return 0; }
+
+	/** Returns the number of free sources. */
+	int32 GetNumFreeSources() const { return Sources.Num(); }
 
 	/** Returns the sample rate used by the audio device. */
 	float GetSampleRate() const { return SampleRate; }
@@ -1341,6 +1347,11 @@ public:
 	{
 	}
 
+	/** Updates timing information for hardware. */
+	virtual void UpdateHardwareTiming()
+	{
+	}
+
 	/** Lets the platform any tick actions */
 	virtual void UpdateHardware()
 	{
@@ -1464,6 +1475,15 @@ public:
 
 	/** The maximum number of concurrent audible sounds */
 	int32 MaxChannels;
+
+	/** The number of sources to reserve for stopping sounds. */
+	int32 NumStoppingVoices;
+
+	/** The number of sources currently stopping. */
+	int32 CurrentStoppingVoiceCount;
+
+	/** The maximum number of wave instances allowed. */
+	int32 MaxWaveInstances;
 
 	/** The sample rate of all the audio devices */
 	int32 SampleRate;
@@ -1651,6 +1671,9 @@ private:
 	float DeviceDeltaTime;
 
 	TArray<FActiveSound*> ActiveSounds;
+	/** Array of sound waves to add references to avoid GC until gauranteed to be done with precache or decodes. */
+	TArray<USoundWave*> ReferencedSoundWaves;
+	TArray<USoundWave*> PrecachingSoundWaves;
 	TArray<FWaveInstance*> ActiveWaveInstances;
 
 	/** Cached copy of sound class adjusters array. Cached to avoid allocating every frame. */
@@ -1685,9 +1708,6 @@ private:
 
 	/** A count of the number of one-shot active sounds. */
 	uint32 OneShotCount;
-
-	/** The max number of one shot active sounds. */
-	uint32 MaxOneShotActiveSounds;
 
 	/** Threshold priority for allowing oneshot active sounds through the max oneshot active sound limit. */
 	float OneShotPriorityCullThreshold;

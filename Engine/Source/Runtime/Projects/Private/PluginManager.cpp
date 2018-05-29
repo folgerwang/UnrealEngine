@@ -619,6 +619,11 @@ bool FPluginManager::ConfigureEnabledPlugins()
 		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 		for (TSharedRef<IPlugin> Plugin: GetEnabledPluginsWithContent())
 		{
+			if (NewPluginMountedEvent.IsBound())
+			{
+				NewPluginMountedEvent.Broadcast(*Plugin);
+			}
+
 			if (ensure(RegisterMountPointDelegate.IsBound()))
 			{
 				FString ContentDir = Plugin->GetContentDir();
@@ -1156,6 +1161,11 @@ TArray<TSharedRef<IPlugin>> FPluginManager::GetPluginsWithPakFile() const
 	return PluginsWithPakFile;
 }
 
+IPluginManager::FNewPluginMountedEvent& FPluginManager::OnNewPluginCreated()
+{
+	return NewPluginCreatedEvent;
+}
+
 IPluginManager::FNewPluginMountedEvent& FPluginManager::OnNewPluginMounted()
 {
 	return NewPluginMountedEvent;
@@ -1205,9 +1215,9 @@ void FPluginManager::MountNewlyCreatedPlugin(const FString& PluginName)
 			}
 
 			// Notify any listeners that a new plugin has been mounted
-			if (NewPluginMountedEvent.IsBound())
+			if (NewPluginCreatedEvent.IsBound())
 			{
-				NewPluginMountedEvent.Broadcast(*Plugin);
+				NewPluginCreatedEvent.Broadcast(*Plugin);
 			}
 			break;
 		}

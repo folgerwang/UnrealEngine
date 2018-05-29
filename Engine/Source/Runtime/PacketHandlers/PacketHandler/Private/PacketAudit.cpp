@@ -147,7 +147,7 @@ public:
 
 		check(*MemSizeData <= (AUDIT_MAPPING_SIZE - sizeof(uint32)));
 
-		ArIsLoading = true;
+		this->SetIsLoading(true);
 	}
 
 	virtual int64 TotalSize() override
@@ -196,7 +196,7 @@ public:
 		MemSizeData = (uint32*)InData;
 		MemPayloadData = InData + sizeof(uint32);
 
-		ArIsSaving = true;
+		this->SetIsSaving(true);
 
 		*MemSizeData = 0;
 	}

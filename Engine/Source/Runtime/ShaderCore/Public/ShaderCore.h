@@ -356,6 +356,19 @@ inline FArchive& operator<<(FArchive& Ar, FResourceTableEntry& Entry)
 	return Ar;
 }
 
+/** Additional compilation settings that can be configured by each FMaterial instance before compilation */
+struct FExtraShaderCompilerSettings
+{
+	bool bExtractShaderSource = false;
+	FString OfflineCompilerPath;
+
+	friend FArchive& operator<<(FArchive& Ar, FExtraShaderCompilerSettings& StatsSettings)
+	{
+		// Note: this serialize is used to pass between UE4 and the shader compile worker, recompile both when modifying
+		return Ar << StatsSettings.bExtractShaderSource << StatsSettings.OfflineCompilerPath;
+	}
+};
+
 /** The environment used to compile a shader. */
 struct FShaderCompilerEnvironment : public FRefCountedObject
 {
@@ -485,6 +498,10 @@ struct FShaderCompilerInput
 	FShaderCompilerEnvironment Environment;
 	TRefCountPtr<FShaderCompilerEnvironment> SharedEnvironment;
 
+	// Additional compilation settings that can be filled by FMaterial::SetupExtaCompilationSettings
+	// FMaterial::SetupExtaCompilationSettings is usually called by each (*)MaterialShaderType::BeginCompileShader() function
+	FExtraShaderCompilerSettings ExtraSettings;
+
 	FShaderCompilerInput() :
 		bSkipPreprocessedCache(false),
 		bGenerateDirectCompileFile(false),
@@ -598,6 +615,7 @@ struct FShaderCompilerInput
 		Ar << Input.DumpDebugInfoPath;
 		Ar << Input.DebugGroupName;
 		Ar << Input.Environment;
+		Ar << Input.ExtraSettings;
 
 		// Note: skipping Input.SharedEnvironment, which is handled by FShaderCompileUtilities::DoWriteTasks in order to maintain sharing
 
@@ -933,6 +951,8 @@ struct FShaderCompilerOutput
 	bool bSupportsQueryingUsedAttributes;
 	TArray<FString> UsedAttributes;
 
+	FString OptionalFinalShaderSource;
+
 	/** Generates OutputHash from the compiler output. */
 	SHADERCORE_API void GenerateOutputHash();
 
@@ -941,6 +961,8 @@ struct FShaderCompilerOutput
 		// Note: this serialize is used to pass between UE4 and the shader compile worker, recompile both when modifying
 		Ar << Output.ParameterMap << Output.Errors << Output.Target << Output.ShaderCode << Output.NumInstructions << Output.NumTextureSamplers << Output.bSucceeded;
 		Ar << Output.bFailedRemovingUnused << Output.bSupportsQueryingUsedAttributes << Output.UsedAttributes;
+		Ar << Output.OptionalFinalShaderSource;
+
 		return Ar;
 	}
 };

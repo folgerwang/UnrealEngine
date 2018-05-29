@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2729971
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:オパシティ
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:マテリアル ネットワーク内でオパシティ値を処理する関数
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 
@@ -30,4 +31,4 @@ Version:4.9
 | **OutputNoDepthBias** | この出力は、カメラにたどり着くとオブジェクトを消失させます。つまり、オフセットはありません。 この出力は *OutputUsesDepthBias* よりも 12 命令分コストがかからずに済みます。|
 
 
-![Soft Opacity](SoftOpacity_Demo.png)(w:940 h:360)
+![Soft Opacity](SoftOpacity_Demo.png)(w:940)

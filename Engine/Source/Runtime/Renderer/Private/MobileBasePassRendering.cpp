@@ -21,6 +21,14 @@ static TAutoConsoleVariable<int32> CVarMobileDisableVertexFog(
 	TEXT("Set to 1 to disable vertex fogging in all mobile shaders."),
 	ECVF_ReadOnly | ECVF_RenderThreadSafe);
 
+
+static TAutoConsoleVariable<int32> CVarMobileUseLegacyShadingModel(
+	TEXT("r.Mobile.UseLegacyShadingModel"),
+	0,
+	TEXT("If 1 then use legacy (pre 4.20) shading model (such as spherical guassian specular calculation.) (will cause a shader rebuild)"),
+	ECVF_ReadOnly | ECVF_RenderThreadSafe);
+
+
 // Changing this causes a full shader recompile
 static TAutoConsoleVariable<int32> CVarMobileSeparateMaskedPass(
 	TEXT("r.Mobile.SeparateMaskedPass"),
@@ -100,15 +108,23 @@ bool TMobileBasePassPSPolicyParamType<PixelParametersType>::ModifyCompilationEnv
 	return true;
 }
 
-void GetSkyTextureParams(FPrimitiveSceneInfo* PrimitiveSceneInfo, float& AverageBrightnessOUT, FTexture*& ReflectionTextureOUT)
+bool UseSkyReflectionCapture(const FScene* RenderScene)
 {
-	if (PrimitiveSceneInfo && PrimitiveSceneInfo->Scene->SkyLight && PrimitiveSceneInfo->Scene->SkyLight->ProcessedTexture->TextureRHI)
-	{
-		AverageBrightnessOUT = PrimitiveSceneInfo->Scene->SkyLight->AverageBrightness;
-		ReflectionTextureOUT = PrimitiveSceneInfo->Scene->SkyLight->ProcessedTexture;
-	}
+	return RenderScene
+		&& RenderScene->ReflectionSceneData.RegisteredReflectionCapturePositions.Num() == 0
+		&& RenderScene->SkyLight
+		&& RenderScene->SkyLight->ProcessedTexture->TextureRHI;
 }
 
+void GetSkyTextureParams(const FScene* Scene, float& AverageBrightnessOUT, FTexture*& ReflectionTextureOUT, float& OutSkyMaxMipIndex)
+{
+	if (Scene && Scene->SkyLight && Scene->SkyLight->ProcessedTexture->TextureRHI)
+	{
+		AverageBrightnessOUT = Scene->SkyLight->AverageBrightness;
+		ReflectionTextureOUT = Scene->SkyLight->ProcessedTexture;
+		OutSkyMaxMipIndex = FMath::Log2(ReflectionTextureOUT->GetSizeX());
+	}
+}
 
 FMobileBasePassMovablePointLightInfo::FMobileBasePassMovablePointLightInfo(const FPrimitiveSceneProxy* InSceneProxy)
 : NumMovablePointLights(0)
@@ -697,7 +713,7 @@ void FMobileSceneRenderer::RenderMobileEditorPrimitives(FRHICommandList& RHICmdL
 	}
 }
 
-void FMobileSceneRenderer::RenderMobileBasePassDynamicData(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, bool bWireFrame, int32 FirstElement, int32 AfterLastElement)
+void FMobileSceneRenderer::RenderMobileBasePassDynamicData(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, EBlendMode BlendMode, bool bWireFrame, int32 FirstElement, int32 AfterLastElement)
 {
 	AfterLastElement = FMath::Min(View.DynamicMeshElements.Num(), AfterLastElement);
 
@@ -713,14 +729,15 @@ void FMobileSceneRenderer::RenderMobileBasePassDynamicData(FRHICommandList& RHIC
 	for (int32 Index = FirstElement; Index < AfterLastElement; Index++)
 	{
 		const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[Index];
-		if (MeshBatchAndRelevance.GetHasOpaqueOrMaskedMaterial() || bWireFrame)
+
+		if ((BlendMode == BLEND_Opaque && MeshBatchAndRelevance.GetHasOpaqueMaterial()) || 
+			(BlendMode == BLEND_Masked && MeshBatchAndRelevance.GetHasMaskedMaterial()) || bWireFrame)
 		{
 			const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
 			FMobileBasePassOpaqueDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, Context, MeshBatch, true, DrawRenderState, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId);
 		}
 	}
 }
-
 
 struct FMobileBasePassViewInfo
 {
@@ -826,6 +843,7 @@ class FRenderMobileBasePassDynamicDataThreadTask : public FRenderTask
 	FDrawingPolicyRenderState DrawRenderState;
 	int32 FirstElement;
 	int32 AfterLastElement;
+	EBlendMode BlendMode;
 	bool bWireFrame;
 
 public:
@@ -835,6 +853,7 @@ public:
 		FRHICommandList& InRHICmdList,
 		const FViewInfo& InView,
 		const FDrawingPolicyRenderState& InDrawRenderState,
+		EBlendMode InBlendMode,
 		bool bInWireFrame,
 		int32 InFirstElement,
 		int32 InAfterLastElement
@@ -846,6 +865,7 @@ public:
 		, DrawRenderState(InDrawRenderState)
 		, FirstElement(InFirstElement)
 		, AfterLastElement(InAfterLastElement)
+		, BlendMode(InBlendMode)
 		, bWireFrame(bInWireFrame)
 	{
 		check(FirstElement < AfterLastElement); // don't create useless tasks
@@ -860,10 +880,38 @@ public:
 
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
-		ThisRenderer.RenderMobileBasePassDynamicData(RHICmdList, View, DrawRenderState, bWireFrame, FirstElement, AfterLastElement);
+		ThisRenderer.RenderMobileBasePassDynamicData(RHICmdList, View, DrawRenderState, BlendMode, bWireFrame, FirstElement, AfterLastElement);
 		RHICmdList.HandleRTThreadTaskCompletion(MyCompletionGraphEvent);
 	}
 };
+
+static void RenderMobileBasePassDynamicDataParallel(FMobileSceneRenderer& ThisRenderer, FMobileBasePassParallelCommandListSet& ParallelSet, EBlendMode BlendMode, bool bWireframe)
+{
+	if (ParallelSet.View.DynamicMeshElements.Num() > 0)
+	{
+		int32 NumExpectedPrimitives = ParallelSet.View.DynamicMeshElements.Num() / 2; // opaque and masked rendered separately 
+		int32 EffectiveThreads = FMath::Min<int32>(NumExpectedPrimitives, ParallelSet.Width);
+
+		int32 NumPer = ParallelSet.View.DynamicMeshElements.Num() / EffectiveThreads;
+		int32 Extra = ParallelSet.View.DynamicMeshElements.Num() - NumPer * EffectiveThreads;
+		int32 Start = 0;
+		for (int32 ThreadIndex = 0; ThreadIndex < EffectiveThreads; ThreadIndex++)
+		{
+			int32 Last = Start + (NumPer - 1) + (ThreadIndex < Extra);
+			check(Last >= Start);
+
+			{
+				FRHICommandList* CmdList = ParallelSet.NewParallelCommandList();
+				FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FRenderMobileBasePassDynamicDataThreadTask>::CreateTask(ParallelSet.GetPrereqs(), ENamedThreads::ActualRenderingThread)
+					.ConstructAndDispatchWhenReady(ThisRenderer, *CmdList, ParallelSet.View, ParallelSet.DrawRenderState, BlendMode, bWireframe, Start, Last + 1);
+				ParallelSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent);
+			}
+
+			Start = Last + 1;
+		}
+		check(Start == ParallelSet.View.DynamicMeshElements.Num());
+	}
+}
 
 void FMobileSceneRenderer::RenderMobileBasePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, TArray<FViewInfo>& InViews, const FDrawingPolicyRenderState& DrawRenderState)
 {
@@ -891,31 +939,9 @@ void FMobileSceneRenderer::RenderMobileBasePassViewParallel(const FViewInfo& Vie
 		{
 			Scene->MobileBasePassUniformLightMapPolicyDrawList[EBasePass_Default].DrawVisibleParallel(View.StaticMeshVisibilityMap, View.StaticMeshBatchVisibility, ParallelSet);
 		}
-
-		if (View.DynamicMeshElements.Num() > 0)
-		{
-			int32 EffectiveThreads = FMath::Min<int32>(View.DynamicMeshElements.Num(), ParallelSet.Width);
-
-			int32 NumPer = View.DynamicMeshElements.Num() / EffectiveThreads;
-			int32 Extra = View.DynamicMeshElements.Num() - NumPer * EffectiveThreads;
-			int32 Start = 0;
-			for (int32 ThreadIndex = 0; ThreadIndex < EffectiveThreads; ThreadIndex++)
-			{
-				int32 Last = Start + (NumPer - 1) + (ThreadIndex < Extra);
-				check(Last >= Start);
-
-				{
-					FRHICommandList* CmdList = ParallelSet.NewParallelCommandList();
-					bool bWireframe = !!ViewFamily.EngineShowFlags.Wireframe;
-					FGraphEventRef AnyThreadCompletionEvent = TGraphTask<FRenderMobileBasePassDynamicDataThreadTask>::CreateTask(ParallelSet.GetPrereqs(), ENamedThreads::ActualRenderingThread)
-						.ConstructAndDispatchWhenReady(*this, *CmdList, ParallelSet.View, ParallelSet.DrawRenderState, bWireframe, Start, Last + 1);
-					ParallelSet.AddParallelCommandList(CmdList, AnyThreadCompletionEvent);
-				}
-
-				Start = Last + 1;
-			}
-			check(Start == View.DynamicMeshElements.Num());
-		}
+		
+		const bool bWireframe = !!ViewFamily.EngineShowFlags.Wireframe;
+		RenderMobileBasePassDynamicDataParallel(*this, ParallelSet, BLEND_Opaque, bWireframe);
 	}
 
 	RenderMobileEditorPrimitives(ParentCmdList, View, DrawRenderState);
@@ -937,6 +963,12 @@ void FMobileSceneRenderer::RenderMobileBasePassViewParallel(const FViewInfo& Vie
 		{
 			Scene->MobileBasePassUniformLightMapPolicyDrawList[EBasePass_Masked].DrawVisibleParallel(View.StaticMeshVisibilityMap, View.StaticMeshBatchVisibility, ParallelSet);
 		}
+
+		const bool bWireframe = !!ViewFamily.EngineShowFlags.Wireframe;
+		if (!bWireframe)
+		{
+			RenderMobileBasePassDynamicDataParallel(*this, ParallelSet, BLEND_Masked, false);
+		}
 	}
 
 }
@@ -948,6 +980,24 @@ void FMobileSceneRenderer::RenderMobileBasePass(FRHICommandListImmediate& RHICmd
 	SCOPE_CYCLE_COUNTER(STAT_BasePassDrawTime);
 
 	EBasePassSort::Type SortMode = GetSortMode();
+#if UE_BUILD_DEVELOPMENT
+	if (SortMode == EBasePassSort::SortPerMesh)
+	{
+		FDrawListSortKey Test1;
+		FDrawListSortKey Test2;
+		FDrawListSortKey Test3;
+
+		ZeroDrawListSortKey(Test1);
+		ZeroDrawListSortKey(Test2);
+		ZeroDrawListSortKey(Test3);
+		Test1.Fields.bBackground = 1;
+		Test2.Fields.MeshElementIndex = 1;
+		Test3.Fields.DepthBits = 1;
+
+		UE_CLOG(Test1 < Test2 || Test3 < Test2, LogRHI, Fatal, TEXT("FDrawListSortKey is using non-portable code that doesn't work"));
+	}
+#endif	
+
 	int32 MaxDraws = GMaxBasePassDraws.GetValueOnRenderThread();
 	if (MaxDraws <= 0)
 	{
@@ -989,7 +1039,6 @@ void FMobileSceneRenderer::RenderMobileBasePass(FRHICommandListImmediate& RHICmd
 	}
 	else
 	{
-		//UE_LOG(LogRHI, Fatal, TEXT("Not parallel %d %d %d %d %d"), !!PassViews.Num(), !Views[0].bIsMobileMultiViewEnabled, !!(SortMode != EBasePassSort::SortPerMesh), !!GRHICommandList.UseParallelAlgorithms(), CVarMobileParallelBasePass.GetValueOnRenderThread());
 		// Draw the scene's emissive and light-map color.
 		for (int32 ViewIndex = 0; ViewIndex < PassViews.Num(); ViewIndex++)
 		{
@@ -1020,7 +1069,9 @@ void FMobileSceneRenderer::RenderMobileBasePass(FRHICommandListImmediate& RHICmd
 			}
 			FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 
-			RenderMobileBasePassDynamicData(RHICmdList, View, DrawRenderState, ViewFamily.EngineShowFlags.Wireframe);
+			// render dynamic opaque primitives (or all if Wireframe)
+			const bool bWireframe = !!ViewFamily.EngineShowFlags.Wireframe;
+			RenderMobileBasePassDynamicData(RHICmdList, View, DrawRenderState, BLEND_Opaque, bWireframe);
 			FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 
 			RenderMobileEditorPrimitives(RHICmdList, View, DrawRenderState);
@@ -1035,6 +1086,13 @@ void FMobileSceneRenderer::RenderMobileBasePass(FRHICommandListImmediate& RHICmd
 				DrawVisible(RHICmdList, Scene, EBasePass_Masked, View, DrawRenderState, VI.MobileCSMVisibilityInfo, VI.StereoView, VI.StereoViewNonCSM, VI.StereoViewCSM);
 			}
 			FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
+
+			// render dynamic masked primitives (or none if Wireframe)
+			if (!bWireframe)
+			{
+				RenderMobileBasePassDynamicData(RHICmdList, View, DrawRenderState, BLEND_Masked, false);
+				FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
+			}
 		}
 	}
 }

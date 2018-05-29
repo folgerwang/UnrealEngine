@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2707725
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:マテリアル エディタ - マテリアル関数の作成方法
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/HowTo
@@ -11,7 +11,7 @@ Related:Engine/Rendering/Materials/ExpressionReference
 Related:Engine/Rendering/Materials
 Version:4.9
 SkillLevel:Intermediate
-
+tags:Materials
 
 [TOC(start:2)]
 
