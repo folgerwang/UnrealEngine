@@ -1694,8 +1694,7 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 						
 						FARFilter ARFilter;
 						ARFilter.ClassNames.Add(*USkeletalMesh::StaticClass()->GetName());
-						FString& Value = ARFilter.TagsAndValues.Add(TEXT("Skeleton"));
-						Value = FAssetData(Skeleton).GetExportTextName();
+						ARFilter.TagsAndValues.Add(TEXT("Skeleton"), FAssetData(Skeleton).GetExportTextName());
 
 						IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
 						if (AssetRegistry.GetAssets(ARFilter, SkeletalMeshAssetData))
