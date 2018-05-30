@@ -572,99 +572,102 @@ void FSlateMacMenu::UpdateMenu(FMacMenu* Menu)
 			}
 		}
 
-		TSharedPtr<TArray<FMacMenuItemState>> MenuState = GCachedMenuState[Menu];
-		int32 ItemIndexAdjust = 0;
-		for (int32 Index = 0; Index < MenuState->Num(); Index++)
+		TSharedPtr<TArray<FMacMenuItemState>> MenuState = GCachedMenuState.FindRef(Menu);
+		if(MenuState.IsValid())
 		{
-			FMacMenuItemState& MenuItemState = (*MenuState)[Index];
-			const int32 ItemIndex = (bIsWindowMenu ? Index + ItemIndexOffset : Index) - ItemIndexAdjust;
-			NSMenuItem* MenuItem = [Menu numberOfItems] > ItemIndex ? [Menu itemAtIndex:ItemIndex] : nil;
-
-			if (MenuItemState.Type == EMultiBlockType::MenuEntry)
+			int32 ItemIndexAdjust = 0;
+			for (int32 Index = 0; Index < MenuState->Num(); Index++)
 			{
-				if (MenuItem && (![MenuItem isKindOfClass:[FMacMenuItem class]] || (MenuItemState.IsSubMenu && [MenuItem submenu] == nil) || (!MenuItemState.IsSubMenu && [MenuItem submenu] != nil)))
-				{
-					[Menu removeItem:MenuItem];
-					MenuItem = nil;
-				}
-				if (!MenuItem)
-				{
-					MenuItem = [[[FMacMenuItem alloc] initWithMenuEntryBlock:MenuItemState.Block] autorelease];
+				FMacMenuItemState& MenuItemState = (*MenuState)[Index];
+				const int32 ItemIndex = (bIsWindowMenu ? Index + ItemIndexOffset : Index) - ItemIndexAdjust;
+				NSMenuItem* MenuItem = [Menu numberOfItems] > ItemIndex ? [Menu itemAtIndex:ItemIndex] : nil;
 
-					if (MenuItemState.IsSubMenu)
+				if (MenuItemState.Type == EMultiBlockType::MenuEntry)
+				{
+					if (MenuItem && (![MenuItem isKindOfClass:[FMacMenuItem class]] || (MenuItemState.IsSubMenu && [MenuItem submenu] == nil) || (!MenuItemState.IsSubMenu && [MenuItem submenu] != nil)))
 					{
-						FMacMenu* SubMenu = [[[FMacMenu alloc] initWithMenuEntryBlock:MenuItemState.Block] autorelease];
-						[MenuItem setSubmenu:SubMenu];
+						[Menu removeItem:MenuItem];
+						MenuItem = nil;
+					}
+					if (!MenuItem)
+					{
+						MenuItem = [[[FMacMenuItem alloc] initWithMenuEntryBlock:MenuItemState.Block] autorelease];
+
+						if (MenuItemState.IsSubMenu)
+						{
+							FMacMenu* SubMenu = [[[FMacMenu alloc] initWithMenuEntryBlock:MenuItemState.Block] autorelease];
+							[MenuItem setSubmenu:SubMenu];
+						}
+
+						if ([Menu numberOfItems] > ItemIndex)
+						{
+							[Menu insertItem:MenuItem atIndex:ItemIndex];
+						}
+						else
+						{
+							[Menu addItem:MenuItem];
+						}
 					}
 
-					if ([Menu numberOfItems] > ItemIndex)
+					[MenuItem setTitle:MenuItemState.Title];
+
+					[MenuItem setKeyEquivalent:MenuItemState.KeyEquivalent];
+					[MenuItem setKeyEquivalentModifierMask:MenuItemState.KeyModifiers];
+
+					if (bIsWindowMenu)
 					{
-						[Menu insertItem:MenuItem atIndex:ItemIndex];
+						NSImage* MenuImage = MenuItemState.Icon;
+						if(MenuImage)
+						{
+							[MenuItem setImage:MenuImage];
+						}
 					}
 					else
 					{
-						[Menu addItem:MenuItem];
+						[MenuItem setImage:nil];
+					}
+
+					[MenuItem setTarget:MenuItem];
+					if(!MenuItemState.IsSubMenu)
+					{
+					   if(MenuItemState.IsEnabled)
+						{
+							[MenuItem setAction:@selector(performAction)];
+						}
+						else
+						{
+							[MenuItem setAction:nil];
+						}
+					}
+					
+					if (!MenuItemState.IsSubMenu)
+					{
+						[MenuItem setState:MenuItemState.State];
 					}
 				}
-
-				[MenuItem setTitle:MenuItemState.Title];
-
-				[MenuItem setKeyEquivalent:MenuItemState.KeyEquivalent];
-				[MenuItem setKeyEquivalentModifierMask:MenuItemState.KeyModifiers];
-
-				if (bIsWindowMenu)
+				else if (MenuItemState.Type == EMultiBlockType::MenuSeparator)
 				{
-					NSImage* MenuImage = MenuItemState.Icon;
-					if(MenuImage)
+					if (MenuItem && ![MenuItem isSeparatorItem])
 					{
-						[MenuItem setImage:MenuImage];
+						[Menu removeItem:MenuItem];
+					}
+					else if (!MenuItem)
+					{
+						if ([Menu numberOfItems] > ItemIndex)
+						{
+							[Menu insertItem:[NSMenuItem separatorItem] atIndex:ItemIndex];
+						}
+						else
+						{
+							[Menu addItem:[NSMenuItem separatorItem]];
+						}
 					}
 				}
 				else
 				{
-					[MenuItem setImage:nil];
+					// If it's a type we skip, update ItemIndexAdjust so we can properly calculate item's index in NSMenu
+					ItemIndexAdjust++;
 				}
-
-                [MenuItem setTarget:MenuItem];
-                if(!MenuItemState.IsSubMenu)
-                {
-                   if(MenuItemState.IsEnabled)
-                    {
-                        [MenuItem setAction:@selector(performAction)];
-                    }
-                    else
-                    {
-                        [MenuItem setAction:nil];
-                    }
-                }
-				
-				if (!MenuItemState.IsSubMenu)
-				{
-					[MenuItem setState:MenuItemState.State];
-				}
-			}
-			else if (MenuItemState.Type == EMultiBlockType::MenuSeparator)
-			{
-				if (MenuItem && ![MenuItem isSeparatorItem])
-				{
-					[Menu removeItem:MenuItem];
-				}
-				else if (!MenuItem)
-				{
-					if ([Menu numberOfItems] > ItemIndex)
-					{
-						[Menu insertItem:[NSMenuItem separatorItem] atIndex:ItemIndex];
-					}
-					else
-					{
-						[Menu addItem:[NSMenuItem separatorItem]];
-					}
-				}
-			}
-			else
-			{
-				// If it's a type we skip, update ItemIndexAdjust so we can properly calculate item's index in NSMenu
-				ItemIndexAdjust++;
 			}
 		}
 	});
