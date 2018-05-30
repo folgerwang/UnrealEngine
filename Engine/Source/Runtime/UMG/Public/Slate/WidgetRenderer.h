@@ -23,7 +23,7 @@ class UTextureRenderTarget2D;
 /**
  * 
  */
-class UMG_API FWidgetRenderer
+class UMG_API FWidgetRenderer : public FDeferredCleanupInterface
 {
 public:
 	FWidgetRenderer(bool bUseGammaCorrection = false, bool bInClearTarget = true);
@@ -50,7 +50,8 @@ public:
 		UTextureRenderTarget2D* RenderTarget,
 		const TSharedRef<SWidget>& Widget,
 		FVector2D DrawSize,
-		float DeltaTime);
+		float DeltaTime,
+		bool bDeferRenderTargetUpdate = false);
 
 	void DrawWindow(
 		UTextureRenderTarget2D* RenderTarget,
@@ -58,7 +59,8 @@ public:
 		TSharedRef<SWindow> Window,
 		float Scale,
 		FVector2D DrawSize,
-		float DeltaTime);
+		float DeltaTime,
+		bool bDeferRenderTargetUpdate = false);
 
 	void DrawWindow(
 		UTextureRenderTarget2D* RenderTarget,
@@ -66,7 +68,8 @@ public:
 		TSharedRef<SWindow> Window,
 		FGeometry WindowGeometry,
 		FSlateRect WindowClipRect,
-		float DeltaTime);
+		float DeltaTime,
+		bool bDeferRenderTargetUpdate = false);
 
 	void DrawWindow(
 		const FPaintArgs& PaintArgs,
@@ -74,10 +77,13 @@ public:
 		TSharedRef<SWindow> Window,
 		FGeometry WindowGeometry,
 		FSlateRect WindowClipRect,
-		float DeltaTime);
+		float DeltaTime,
+		bool bDeferRenderTargetUpdate = false);
 
 	TArray< TSharedPtr<FSlateWindowElementList::FDeferredPaint> > DeferredPaints;
 
+	/** FDeferredCleanup interface */
+	virtual void FinishCleanup();
 private:
 	/** The slate 3D renderer used to render the user slate widget */
 	TSharedPtr<ISlate3DRenderer, ESPMode::ThreadSafe> Renderer;
@@ -89,7 +95,6 @@ private:
 	bool bUseGammaSpace;
 	/** Should we clear the render target before rendering. */
 	bool bClearTarget;
-
 public:
 	FVector2D ViewOffset;
 };

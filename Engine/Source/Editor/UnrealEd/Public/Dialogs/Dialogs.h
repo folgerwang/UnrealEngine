@@ -170,8 +170,21 @@ private:
 class SGenericDialogWidget : public SCompoundWidget
 {
 public:
-	SLATE_BEGIN_ARGS( SGenericDialogWidget ){}
+	SLATE_BEGIN_ARGS( SGenericDialogWidget )
+		: _UseScrollBox(true)
+		, _ScrollBoxMaxHeight(300.0f)
+	{
+	}
+		
+		/** Should this dialog use a scroll box for over-sized content? (default: true) */
+		SLATE_ARGUMENT( bool, UseScrollBox )
+
+		/** Max height for the scroll box (default: 300f) */
+		SLATE_ARGUMENT( int32, ScrollBoxMaxHeight )
+
+		/** Content for the dialog */
 		SLATE_DEFAULT_SLOT( FArguments, Content )
+
 	SLATE_END_ARGS()
 
 	void Construct( const FArguments& InArgs );
@@ -182,7 +195,7 @@ public:
 		MyWindow = InWindow;
 	}
 
-	UNREALED_API static void OpenDialog(const FText& InDialogTitle, const TSharedRef< SWidget >& DisplayContent);
+	UNREALED_API static void OpenDialog(const FText& InDialogTitle, const TSharedRef< SWidget >& DisplayContent, const FArguments& InArgs = FArguments());
 
 private:
 	FReply OnOK_Clicked(void);

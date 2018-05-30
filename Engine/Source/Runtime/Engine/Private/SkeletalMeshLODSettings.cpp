@@ -3,6 +3,8 @@
 #include "Engine/SkeletalMeshLODSettings.h"
 #include "Engine/SkeletalMesh.h"
 #include "UObject/UObjectIterator.h"
+#include "UObject/AthenaObjectVersion.h"
+
 DEFINE_LOG_CATEGORY_STATIC(LogSkeletalMeshLODSettings, Warning, All)
 
 
@@ -200,6 +202,29 @@ void USkeletalMeshLODSettings::PostEditChangeProperty(FPropertyChangedEvent& Pro
 }
 #endif // WITH_EDITOR
 
+void USkeletalMeshLODSettings::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+
+	if (Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::ConvertReductionSettingOptions)
+	{
+		for (int32 Index = 0; Index < LODGroups.Num(); ++Index)
+		{
+			FSkeletalMeshOptimizationSettings& ReductionSettings = LODGroups[Index].ReductionSettings;
+			// prior to this version, both of them were used
+			ReductionSettings.ReductionMethod = SMOT_TriangleOrDeviation;
+			if (ReductionSettings.MaxDeviationPercentage == 0.f)
+			{
+				// 0.f and 1.f should produce same result. However, it is bad to display 0.f in the slider
+				// as 0.01 and 0.f causes extreme confusion. 
+				ReductionSettings.MaxDeviationPercentage = 1.f;
+			}
+		}
+	}
+}
+
 /////////////////////////////////////////////////////////////
 // FSkeletalMeshOptimizationSettings 
 /////////////////////////////////////////////////////////////
@@ -210,6 +235,6 @@ FSkeletalMeshOptimizationSettings FSkeletalMeshLODGroupSettings::GetReductionSet
 
 const float FSkeletalMeshLODGroupSettings::GetScreenSize() const
 {
-	return ScreenSize;
+	return ScreenSize.Default;
 }
 

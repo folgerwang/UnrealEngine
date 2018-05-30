@@ -152,8 +152,13 @@ class UMaterialExpressionMaterialFunctionCall : public UMaterialExpression
 	 */
 	ENGINE_API void UpdateFromFunctionResource(bool bRecreateAndLinkNode = true);
 
-private:
-	
+	/** Temporary compilation state shared between function calls */
+	void SetSharedCompileState(FMaterialFunctionCompileState* SharedState)
+	{
+		SharedCompileState = SharedState;
+	}
+
+private:	
 	/** Helper that fixes up expression links where possible. */
 	void FixupReferencingExpressions(
 		const TArray<FFunctionExpressionOutput>& NewOutputs,
@@ -161,6 +166,9 @@ private:
 		TArray<UMaterialExpression*>& Expressions, 
 		TArray<FExpressionInput*>& MaterialInputs,
 		bool bMatchByName);
+
+	/** Temporary compilation state shared between function calls */
+	FMaterialFunctionCompileState* SharedCompileState;
 #endif // WITH_EDITOR
 };
 

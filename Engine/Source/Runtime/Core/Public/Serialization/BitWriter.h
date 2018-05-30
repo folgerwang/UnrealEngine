@@ -157,7 +157,7 @@ public:
 	/**
 	 * Resets the bit writer back to its initial state
 	 */
-	void Reset(void);
+	void Reset() override;
 
 	FORCEINLINE void WriteAlign()
 	{

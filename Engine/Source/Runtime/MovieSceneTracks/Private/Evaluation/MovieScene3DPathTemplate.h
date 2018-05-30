@@ -16,7 +16,13 @@ struct FMovieScene3DPathSectionTemplate : public FMovieSceneEvalTemplate
 {
 	GENERATED_BODY()
 	
-	FMovieScene3DPathSectionTemplate() {}
+	FMovieScene3DPathSectionTemplate() 
+		: FrontAxisEnum(MovieScene3DPathSection_Axis::X)
+		, UpAxisEnum(MovieScene3DPathSection_Axis::X)
+		, bFollow(false)
+		, bReverse(false)
+		, bForceUpright(false)
+	{}
 	FMovieScene3DPathSectionTemplate(const UMovieScene3DPathSection& Section);
 
 	/** The object binding ID of the path we should attach to */

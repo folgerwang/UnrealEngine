@@ -246,7 +246,7 @@ bool FLocTextWordCounts::FromCSV(const FString& InCSVString, FText* OutError)
 
 			// Parse required data
 			FDateTime::Parse(CsvCells[DateTimeColumn], RowData.Timestamp);
-			Lex::FromString(RowData.SourceWordCount, CsvCells[WordCountColumn]);
+			LexFromString(RowData.SourceWordCount, CsvCells[WordCountColumn]);
 
 			// Parse per-culture data
 			for (const auto& PerCultureColumnPair : PerCultureColumns)
@@ -254,7 +254,7 @@ bool FLocTextWordCounts::FromCSV(const FString& InCSVString, FText* OutError)
 				if (CsvCells.IsValidIndex(PerCultureColumnPair.Value))
 				{
 					int32 PerCultureWordCount = 0;
-					Lex::FromString(PerCultureWordCount, CsvCells[PerCultureColumnPair.Value]);
+					LexFromString(PerCultureWordCount, CsvCells[PerCultureColumnPair.Value]);
 					RowData.PerCultureWordCounts.Add(PerCultureColumnPair.Key, PerCultureWordCount);
 				}
 			}

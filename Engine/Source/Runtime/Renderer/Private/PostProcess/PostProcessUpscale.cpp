@@ -397,16 +397,25 @@ void FRCPassPostProcessUpscale::Process(FRenderingCompositePassContext& Context)
 
 	FIntPoint SrcSize = InputDesc->Extent;
 
-	// Set the view family's render target/viewport.
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-
+	bool bMobilePlatform = IsMobilePlatform(GShaderPlatformForFeatureLevel[Context.GetFeatureLevel()]);
+	if (bMobilePlatform)
+	{
+		// clear on mobile to avoid restore
+		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
+	}
+	else
+	{
+		// Set the view family's render target/viewport.
+		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
+	}
+	
 	bool bTessellatedQuad = PaniniConfig.D >= 0.01f;
 
 	// with distortion (bTessellatedQuad) we need to clear the background
 	FIntRect ExcludeRect = bTessellatedQuad ? FIntRect() : DestRect;
 
 	Context.SetViewportAndCallRHI(DestRect);
-	if (Context.GetLoadActionForRenderTarget(DestRenderTarget) == ERenderTargetLoadAction::EClear)
+	if (Context.GetLoadActionForRenderTarget(DestRenderTarget) == ERenderTargetLoadAction::EClear && !bMobilePlatform)
 	{
 		DrawClearQuad(Context.RHICmdList, true, FLinearColor::Black, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, ExcludeRect);
 	}

@@ -9,6 +9,17 @@
 #include "OnlineDelegateMacros.h"
 #include "Interfaces/OnlineChatInterface.h"
 
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineParty, Display, All);
+#define UE_LOG_ONLINE_PARTY(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogOnlineParty, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINE_PARTY(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogOnlineParty, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
 #define F_PREFIX(TypeToPrefix) F##TypeToPrefix
 #define PARTY_DECLARE_DELEGATETYPE(Type) typedef F##Type::FDelegate F##Type##Delegate
 
@@ -23,15 +34,6 @@ enum class ERejectPartyInvitationCompletionResult;
 enum class ERequestPartyInvitationCompletionResult;
 enum class ESendPartyInvitationCompletionResult;
 enum class EUpdateConfigCompletionResult;
-
-ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineParty, Display, All);
-
-#define ONLINEPARTY_LOG_PREFIX TEXT("OSS::Party: ")
-#define UE_LOG_ONLINEPARTY(Verbosity, Format, ...) \
-{ \
-	UE_LOG(LogOnlineParty, Verbosity, TEXT("%s%s"), ONLINEPARTY_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
-}
-
 
 /**
  * Party member user info returned by IOnlineParty interface
@@ -86,6 +88,7 @@ public:
 		if (FoundValuePtr != nullptr)
 		{
 			OutAttrValue = *FoundValuePtr;
+			return true;
 		}
 
 		return bResult;
@@ -239,16 +242,6 @@ public:
 	virtual const FOnlinePartyTypeId GetPartyTypeId() const = 0;
 
 	/**
-	 * @return user id of the leader of the party associated with this join info
-	 */
-	virtual const TSharedRef<const FUniqueNetId>& GetLeaderId() const = 0;
-
-	/**
-	 * @return user id of the leader of the party associated with this join info
-	 */
-	virtual const FString& GetLeaderDisplayName() const = 0;
-
-	/**
 	 * @return user id of where this join info came from
 	 */
 	virtual const TSharedRef<const FUniqueNetId>& GetSourceUserId() const = 0;
@@ -257,6 +250,11 @@ public:
 	 * @return user id of where this join info came from
 	 */
 	virtual const FString& GetSourceDisplayName() const = 0;
+
+	/** 
+	 * @return source platform string
+	 */
+	virtual const FString& GetSourcePlatform() const = 0;
 
 	/**
 	 * @return true if the join info has some form of key(does not guarantee the validity of that key)
@@ -315,68 +313,18 @@ public:
 namespace PartySystemPermissions
 {
 	/**
-	 * EPresencePermissions details who can publish what to presence.
-	 * DoNotPublish is a valid setting for primary parties.
+	 * Who has permissions to perform party actions
 	 */
-	enum class EPermissionType: uint8
+	enum class EPermissionType : uint8
 	{
-		None = 0x0,
-		Leader = 0x1,
-		Friend = 0x2,
-		Anyone = 0x4
-	};
-
-	/**
-	 * FPublishPermissionValidator uses meta programming to cause errors for invalid combinations of permission flags
-	 */
-	template<bool bIsValidPermissionCombo>
-		struct FPublishPermissionValidator;
-
-	template<> struct FPublishPermissionValidator<true> {};
-
-	template<EPermissionType PublishIdPermission, EPermissionType PublishKeyPermission>
-	struct FPublishPermissionBuilder : public FPublishPermissionValidator<(PublishKeyPermission <= PublishIdPermission)>
-	{
-		static const uint8 Value = static_cast<uint8>(PublishIdPermission) << 4 | static_cast<uint8>(PublishKeyPermission);
-	};
-
-	/**
-	 * Pre-defined presence permission objects
-	 */
-	enum class EPresencePermissions: uint8
-	{
-		DoNotPublish                    = FPublishPermissionBuilder<EPermissionType::None,   EPermissionType::None>::Value,
-		LeaderPublishIdNonePublishKey   = FPublishPermissionBuilder<EPermissionType::Leader, EPermissionType::None>::Value,
-		LeaderPublishIdLeaderPublishKey = FPublishPermissionBuilder<EPermissionType::Leader, EPermissionType::Leader>::Value,
-		FriendPublishIdNonePublishKey   = FPublishPermissionBuilder<EPermissionType::Friend, EPermissionType::None>::Value,
-		FriendPublishIdLeaderPublishKey = FPublishPermissionBuilder<EPermissionType::Friend, EPermissionType::Leader>::Value,
-		FriendPublishIdFriendPublishKey = FPublishPermissionBuilder<EPermissionType::Friend, EPermissionType::Friend>::Value,
-		AnyonePublishIdNonePublishKey   = FPublishPermissionBuilder<EPermissionType::Anyone, EPermissionType::None>::Value,
-		AnyonePublishIdLeaderPublishKey = FPublishPermissionBuilder<EPermissionType::Anyone, EPermissionType::Leader>::Value,
-		AnyonePublishIdFriendPublishKey = FPublishPermissionBuilder<EPermissionType::Anyone, EPermissionType::Friend>::Value,
-		AnyonePublishIdAnyonePublishKey = FPublishPermissionBuilder<EPermissionType::Anyone, EPermissionType::Anyone>::Value,
-	};
-
-	/**
-	 * Presence permission aliases
-	 */
-	static const EPresencePermissions FriendsInviteOnly = EPresencePermissions::LeaderPublishIdNonePublishKey;
-	static const EPresencePermissions FriendsOfFriendsInviteOnly = EPresencePermissions::FriendPublishIdNonePublishKey;
-	static const EPresencePermissions PublicInviteOnly = EPresencePermissions::AnyonePublishIdNonePublishKey;
-	static const EPresencePermissions FriendsOnly = EPresencePermissions::LeaderPublishIdLeaderPublishKey;
-	static const EPresencePermissions FriendsOfFriendsOnly = EPresencePermissions::FriendPublishIdFriendPublishKey;
-	static const EPresencePermissions Public = EPresencePermissions::AnyonePublishIdAnyonePublishKey;
-
-	enum class EInvitePermissions
-	{
+		/** Noone has access to do that action */
+		Noone,
 		/** Available to the leader only */
 		Leader,
-		/** Available to friends of the leader only */
+		/** Available to the leader and friends of the leader only */
 		Friends,
 		/** Available to anyone */
-		Anyone,
-		/** Noone can send invites */
-		Noone, 
+		Anyone
 	};
 }
 
@@ -393,8 +341,8 @@ struct ONLINESUBSYSTEM_API FPartyConfiguration : public TSharedFromThis<FPartyCo
 {
 	FPartyConfiguration()
 		: JoinRequestAction(EJoinRequestAction::Manual)
-		, PresencePermissions(PartySystemPermissions::EPresencePermissions::AnyonePublishIdAnyonePublishKey)
-		, InvitePermissions(PartySystemPermissions::EInvitePermissions::Leader)
+		, PresencePermissions(PartySystemPermissions::EPermissionType::Anyone)
+		, InvitePermissions(PartySystemPermissions::EPermissionType::Leader)
 		, bChatEnabled(true)
 		, bShouldRemoveOnDisconnection(false)
 		, bIsAcceptingMembers(false)
@@ -420,9 +368,9 @@ struct ONLINESUBSYSTEM_API FPartyConfiguration : public TSharedFromThis<FPartyCo
 	/** should publish info to presence */
 	EJoinRequestAction JoinRequestAction;
 	/** Permission for how the party can be  */
-	PartySystemPermissions::EPresencePermissions PresencePermissions;
+	PartySystemPermissions::EPermissionType PresencePermissions;
 	/** Permission who can send invites */
-	PartySystemPermissions::EInvitePermissions InvitePermissions;
+	PartySystemPermissions::EPermissionType InvitePermissions;
 	/** should have a muc room */
 	bool bChatEnabled;
 	/** should remove on disconnection */
@@ -762,8 +710,10 @@ PARTY_DECLARE_DELEGATETYPE(OnPartyInviteResponseReceived);
  * @param LocalUserId - id associated with this notification
  * @param PartyId - id associated with the party
  * @param SenderId - id of member that sent the request
+ * @param Platform - platform of member that sent the request
+ * @param PartyData - data provided by the sender for the leader to use to determine joinability
  */
-DECLARE_MULTICAST_DELEGATE_ThreeParams(F_PREFIX(OnPartyJoinRequestReceived), const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, const FUniqueNetId& /*SenderId*/);
+DECLARE_MULTICAST_DELEGATE_FiveParams(F_PREFIX(OnPartyJoinRequestReceived), const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, const FUniqueNetId& /*SenderId*/, const FString& /*Platform*/, const FOnlinePartyData& /*PartyData*/);
 PARTY_DECLARE_DELEGATETYPE(OnPartyJoinRequestReceived);
 
 /**
@@ -771,9 +721,20 @@ PARTY_DECLARE_DELEGATETYPE(OnPartyJoinRequestReceived);
  * @param LocalUserId - id associated with this notification
  * @param PartyId - id associated with the party
  * @param SenderId - id of member that sent the request
+ * @param Platform - platform of member that sent the request
+ * @param PartyData - data provided by the sender for the leader to use to determine joinability
  */
-DECLARE_MULTICAST_DELEGATE_ThreeParams(F_PREFIX(OnQueryPartyJoinabilityReceived), const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, const FUniqueNetId& /*SenderId*/);
+DECLARE_MULTICAST_DELEGATE_FiveParams(F_PREFIX(OnQueryPartyJoinabilityReceived), const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, const FUniqueNetId& /*SenderId*/, const FString& /*Platform*/, const FOnlinePartyData& /*PartyData*/);
 PARTY_DECLARE_DELEGATETYPE(OnQueryPartyJoinabilityReceived);
+
+/**
+ * Request for the game to fill in data to be sent with the join request for the leader to make an informed decision based on the joiner's state
+ * @param LocalUserId - id associated with this notification
+ * @param PartyId - id associated with the party
+ * @param PartyData - data for the game to populate
+ */
+DECLARE_MULTICAST_DELEGATE_ThreeParams(F_PREFIX(OnFillPartyJoinRequestData), const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, FOnlinePartyData& /*PartyData*/);
+PARTY_DECLARE_DELEGATETYPE(OnFillPartyJoinRequestData);
 
 /**
  * Interface definition for the online party services 
@@ -1215,7 +1176,7 @@ public:
 	 * OnPartyInviteResponseReceived
 	 * OnPartyJoinRequestReceived
 	 * OnPartyQueryJoinabilityReceived
-	 *
+	 * OnFillPartyJoinRequestData
 	 */
 
 	/**
@@ -1336,8 +1297,10 @@ public:
 	 * @param LocalUserId - id associated with this notification
 	 * @param PartyId - id associated with the party
 	 * @param SenderId - id of member that sent the request
+	 * @param Platform - platform of member that sent the request
+	 * @param PartyData - data provided by the sender for the leader to use to determine joinability
 	 */
-	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnPartyJoinRequestReceived, const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, const FUniqueNetId& /*SenderId*/);
+	DEFINE_ONLINE_DELEGATE_FIVE_PARAM(OnPartyJoinRequestReceived, const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, const FUniqueNetId& /*SenderId*/, const FString& /*Platform*/, const FOnlinePartyData& /*PartyData*/);
 
 	/**
 	 * Notification when a player wants to know if the party is in a joinable state
@@ -1345,8 +1308,19 @@ public:
 	 * @param LocalUserId - id associated with this notification
 	 * @param PartyId - id associated with the party
 	 * @param SenderId - id of member that sent the request
+	 * @param Platform - platform of member that sent the request
+	 * @param PartyData - data provided by the sender for the leader to use to determine joinability
 	 */
-	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnQueryPartyJoinabilityReceived, const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, const FUniqueNetId& /*SenderId*/);
+	DEFINE_ONLINE_DELEGATE_FIVE_PARAM(OnQueryPartyJoinabilityReceived, const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, const FUniqueNetId& /*SenderId*/, const FString& /*Platform*/, const FOnlinePartyData& /*PartyData*/);
+
+	/**
+	 * Notification when a player wants to know if the party is in a joinable state
+	 * Subscriber is expected to call RespondToQueryJoinability
+	 * @param LocalUserId - id associated with this notification
+	 * @param PartyId - id associated with the party
+	 * @param PartyData - data provided by the sender for the leader to use to determine joinability
+	 */
+	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnFillPartyJoinRequestData, const FUniqueNetId& /*LocalUserId*/, const FOnlinePartyId& /*PartyId*/, FOnlinePartyData& /*PartyData*/);
 
 	/**
 	 * Dump out party state for all known parties
@@ -1388,12 +1362,16 @@ enum class EJoinPartyCompletionResult
 	RequesteeNotMember,
 	/** The player you send the join request to is not the leader of the specified party */
 	RequesteeNotLeader,
+	/** The player you send the join request to is unavailable */
+	RequesteeUnavailable,
 	/** A response was not received from the party leader in a timely manner, the join attempt is considered failed */
 	NoResponse,
 	/** You were logged out while attempting to join the party */
 	LoggedOut,
 	/** You were unable to rejoin the party */
 	UnableToRejoin,
+	/** Your platform is not compatible with the party */
+	IncompatiblePlatform,
 
 	/** We are currently waiting for a response for a previous join request for the specified party.  No message sent to party leader. */
 	AlreadyJoiningParty,
@@ -1734,6 +1712,10 @@ inline const TCHAR* ToString(const EJoinPartyCompletionResult Value)
 	{
 		return TEXT("UnableToRejoin");
 	}
+	case EJoinPartyCompletionResult::IncompatiblePlatform:
+	{
+		return TEXT("IncompatiblePlatform");
+	}
 	case EJoinPartyCompletionResult::AlreadyJoiningParty:
 	{
 		return TEXT("AlreadyJoiningParty");
@@ -1753,6 +1735,10 @@ inline const TCHAR* ToString(const EJoinPartyCompletionResult Value)
 	case EJoinPartyCompletionResult::MessagingFailure:
 	{
 		return TEXT("MessagingFailure");
+	}
+	case EJoinPartyCompletionResult::RequesteeUnavailable:
+	{
+		return TEXT("RequesteeUnavailable");
 	}
 	case EJoinPartyCompletionResult::GameSpecificReason:
 	{
@@ -1974,67 +1960,23 @@ inline const TCHAR* ToString(const EPromoteMemberCompletionResult Value)
 	return TEXT("Unknown");
 }
 
-inline const TCHAR* ToString(const PartySystemPermissions::EPresencePermissions Value)
+inline const TCHAR* ToString(const PartySystemPermissions::EPermissionType Value)
 {
 	switch (Value)
 	{
-	case PartySystemPermissions::EPresencePermissions::DoNotPublish:
+	case PartySystemPermissions::EPermissionType::Noone:
 	{
-		return TEXT("DoNotPublish");
+		return TEXT("Noone");
 	}
-	case PartySystemPermissions::EPresencePermissions::LeaderPublishIdNonePublishKey:
-	{
-		return TEXT("LeaderPublishIdNonePublishKey");
-	}
-	case PartySystemPermissions::EPresencePermissions::LeaderPublishIdLeaderPublishKey:
-	{
-		return TEXT("LeaderPublishIdLeaderPublishKey");
-	}
-	case PartySystemPermissions::EPresencePermissions::FriendPublishIdNonePublishKey:
-	{
-		return TEXT("FriendPublishIdNonePublishKey");
-	}
-	case PartySystemPermissions::EPresencePermissions::FriendPublishIdLeaderPublishKey:
-	{
-		return TEXT("FriendPublishIdLeaderPublishKey");
-	}
-	case PartySystemPermissions::EPresencePermissions::FriendPublishIdFriendPublishKey:
-	{
-		return TEXT("FriendPublishIdFriendPublishKey");
-	}
-	case PartySystemPermissions::EPresencePermissions::AnyonePublishIdNonePublishKey:
-	{
-		return TEXT("AnyonePublishIdNonePublishKey");
-	}
-	case PartySystemPermissions::EPresencePermissions::AnyonePublishIdLeaderPublishKey:
-	{
-		return TEXT("AnyonePublishIdLeaderPublishKey");
-	}
-	case PartySystemPermissions::EPresencePermissions::AnyonePublishIdFriendPublishKey:
-	{
-		return TEXT("AnyonePublishIdFriendPublishKey");
-	}
-	case PartySystemPermissions::EPresencePermissions::AnyonePublishIdAnyonePublishKey:
-	{
-		return TEXT("AnyonePublishIdAnyonePublishKey");
-	}
-	}
-	return TEXT("Unknown");
-}
-
-inline const TCHAR* ToString(const PartySystemPermissions::EInvitePermissions Value)
-{
-	switch (Value)
-	{
-	case PartySystemPermissions::EInvitePermissions::Leader:
+	case PartySystemPermissions::EPermissionType::Leader:
 	{
 		return TEXT("Leader");
 	}
-	case PartySystemPermissions::EInvitePermissions::Friends:
+	case PartySystemPermissions::EPermissionType::Friends:
 	{
 		return TEXT("Friends");
 	}
-	case PartySystemPermissions::EInvitePermissions::Anyone:
+	case PartySystemPermissions::EPermissionType::Anyone:
 	{
 		return TEXT("Anyone");
 	}
@@ -2105,12 +2047,10 @@ inline FString ToDebugString(const FPartyConfiguration& PartyConfiguration)
 
 inline FString ToDebugString(const IOnlinePartyJoinInfo& JoinInfo)
 {
-	return FString::Printf(TEXT("SourceUserId(%s) SourceDisplayName(%s) PartyId(%s) LeaderUserId(%s) LeaderDisplayName(%s) HasKey(%d) HasPassword(%d) IsAcceptingMembers(%d) NotAcceptingReason(%d)"),
+	return FString::Printf(TEXT("SourceUserId(%s) SourceDisplayName(%s) PartyId(%s) HasKey(%d) HasPassword(%d) IsAcceptingMembers(%d) NotAcceptingReason(%d)"),
 			*(JoinInfo.GetSourceUserId()->ToDebugString()),
 			*(JoinInfo.GetSourceDisplayName()),
 			*(JoinInfo.GetPartyId()->ToDebugString()),
-			JoinInfo.GetLeaderId()->IsValid() ? *(JoinInfo.GetLeaderId()->ToString()) : TEXT("not set"),
-			!JoinInfo.GetLeaderDisplayName().IsEmpty() ? *(JoinInfo.GetLeaderDisplayName()) : TEXT("not set"),
 			JoinInfo.HasKey() ? 1 : 0,
 			JoinInfo.HasPassword() ? 1 : 0,
 			JoinInfo.IsAcceptingMembers() ? 1 : 0,

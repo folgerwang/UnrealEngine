@@ -25,6 +25,8 @@
 #include "Layout/WidgetPath.h"
 #include "Framework/Application/SlateApplication.h"
 #include "SAddNewGameplayTagWidget.h"
+#include "SAddNewGameplayTagSourceWidget.h"
+#include "SAddNewRestrictedGameplayTagWidget.h"
 #include "SRenameGameplayTagDialog.h"
 #include "AssetData.h"
 #include "AssetManagerEditorModule.h"
@@ -53,9 +55,24 @@ void SGameplayTagWidget::Construct(const FArguments& InArgs, const TArray<FEdita
 	bDelayRefresh = false;
 	MaxHeight = InArgs._MaxHeight;
 
+	bRestrictedTags = InArgs._RestrictedTags;
+
+	UGameplayTagsManager::OnEditorRefreshGameplayTagTree.AddSP(this, &SGameplayTagWidget::RefreshOnNextTick);
 	UGameplayTagsManager& Manager = UGameplayTagsManager::Get();
 
 	Manager.GetFilteredGameplayRootTags(RootFilterString, TagItems);
+
+	if (bRestrictedTags)
+	{
+		// We only want to show the restricted gameplay tags
+		for (int32 Idx = TagItems.Num() - 1; Idx >= 0; --Idx)
+		{
+			if (!TagItems[Idx]->IsRestrictedGameplayTag())
+			{
+				TagItems.RemoveAtSwap(Idx);
+			}
+		}
+	}
 
 	// Tag the assets as transactional so they can support undo/redo
 	TArray<UObject*> ObjectsToMarkTransactional;
@@ -81,6 +98,8 @@ void SGameplayTagWidget::Construct(const FArguments& InArgs, const TArray<FEdita
 			ObjectToMark->SetFlags(RF_Transactional);
 		}
 	}
+
+	const FText NewTagText = bRestrictedTags ? LOCTEXT("AddNewRestrictedTag", "Add New Restricted Gameplay Tag") : LOCTEXT("AddNewTag", "Add New Gameplay Tag");
 
 	ChildSlot
 	[
@@ -111,12 +130,25 @@ void SGameplayTagWidget::Construct(const FArguments& InArgs, const TArray<FEdita
 					.Visibility( this, &SGameplayTagWidget::DetermineExpandableUIVisibility )
 					[
 						SNew( STextBlock )
-						.Text( LOCTEXT("AddNewTag", "Add New Gameplay Tag"))
+						.Text( NewTagText )
 					]
 				]
 			]
 
-			// Expandable UI content
+
+			// Expandable UI for adding restricted tags
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.VAlign(VAlign_Top)
+			.Padding(16.0f, 0.0f)
+			[
+				SAssignNew(AddNewRestrictedTagWidget, SAddNewRestrictedGameplayTagWidget)
+				.Visibility(this, &SGameplayTagWidget::DetermineAddNewRestrictedTagWidgetVisibility)
+				.OnRestrictedGameplayTagAdded(this, &SGameplayTagWidget::OnGameplayTagAdded)
+				.NewRestrictedTagName(InArgs._NewTagName)
+			]
+
+			// Expandable UI for adding non-restricted tags
 			+SVerticalBox::Slot()
 			.AutoHeight()
 			.VAlign(VAlign_Top)
@@ -126,6 +158,42 @@ void SGameplayTagWidget::Construct(const FArguments& InArgs, const TArray<FEdita
 				.Visibility(this, &SGameplayTagWidget::DetermineAddNewTagWidgetVisibility)
 				.OnGameplayTagAdded(this, &SGameplayTagWidget::OnGameplayTagAdded)
 				.NewTagName(InArgs._NewTagName)
+			]
+
+			// Expandable UI controls
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.VAlign(VAlign_Top)
+			[
+				SNew(SHorizontalBox)
+
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SCheckBox)
+					.IsChecked(this, &SGameplayTagWidget::GetAddSourceSectionExpansionState)
+					.OnCheckStateChanged(this, &SGameplayTagWidget::OnAddSourceSectionExpansionStateChanged)
+					.CheckedImage(FEditorStyle::GetBrush("TreeArrow_Expanded"))
+					.CheckedHoveredImage(FEditorStyle::GetBrush("TreeArrow_Expanded_Hovered"))
+					.CheckedPressedImage(FEditorStyle::GetBrush("TreeArrow_Expanded"))
+					.UncheckedImage(FEditorStyle::GetBrush("TreeArrow_Collapsed"))
+					.UncheckedHoveredImage(FEditorStyle::GetBrush("TreeArrow_Collapsed_Hovered"))
+					.UncheckedPressedImage(FEditorStyle::GetBrush("TreeArrow_Collapsed"))
+					.Visibility(this, &SGameplayTagWidget::DetermineAddNewSourceExpandableUIVisibility)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("AddNewSource", "Add New Tag Source"))
+					]
+				]
+			]
+
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.VAlign(VAlign_Top)
+			.Padding(16.0f, 0.0f)
+			[
+				SAssignNew(AddNewTagSourceWidget, SAddNewGameplayTagSourceWidget)
+				.Visibility(this, &SGameplayTagWidget::DetermineAddNewSourceWidgetVisibility)
 			]
 
 			+SVerticalBox::Slot()
@@ -285,6 +353,11 @@ bool SGameplayTagWidget::FilterChildrenCheck( TSharedPtr<FGameplayTagNode> InIte
 		return false;
 	}
 
+	if (bRestrictedTags && !InItem->IsRestrictedGameplayTag())
+	{
+		return false;
+	}
+
 	auto FilterChildrenCheck_r = ([=]()
 	{
 		TArray< TSharedPtr<FGameplayTagNode> > Children = InItem->GetChildTagNodes();
@@ -323,27 +396,50 @@ TSharedRef<ITableRow> SGameplayTagWidget::OnGenerateRow(TSharedPtr<FGameplayTagN
 		UGameplayTagsManager& Manager = UGameplayTagsManager::Get();
 
 		FName TagName = InItem.Get()->GetCompleteTagName();
-		FString TagComment;
-		FName TagSource;
-
-		Manager.GetTagEditorData(TagName, TagComment, TagSource);
+		TSharedPtr<FGameplayTagNode> Node = Manager.FindTagNode(TagName);
 
 		FString TooltipString = TagName.ToString();
 
-		// Add Tag source in management mode
-		if (GameplayTagUIMode == EGameplayTagUIMode::ManagementMode)
+		if (Node.IsValid())
 		{
-			if (TagSource == NAME_None)
+			// Add Tag source if we're in management mode
+			if (GameplayTagUIMode == EGameplayTagUIMode::ManagementMode)
 			{
-				TagSource = FName(TEXT("Implicit"));
+				FName TagSource;
+
+				if (Node->bIsExplicitTag)
+				{
+					TagSource = Node->SourceName;
+				}
+				else
+				{
+					TagSource = FName(TEXT("Implicit"));
+				}
+
+				TooltipString.Append(FString::Printf(TEXT(" (%s)"), *TagSource.ToString()));
 			}
 
-			TooltipString.Append(FString::Printf(TEXT(" (%s)"), *TagSource.ToString()));
-		}
+			// tag comments
+			if (!Node->DevComment.IsEmpty())
+			{
+				TooltipString.Append(FString::Printf(TEXT("\n\n%s"), *Node->DevComment));
+			}
 
-		if (!TagComment.IsEmpty())
-		{
-			TooltipString.Append(FString::Printf(TEXT("\n\n%s"), *TagComment));
+			// info related to conflicts
+			if (Node->bDescendantHasConflict)
+			{
+				TooltipString.Append(TEXT("\n\nA tag that descends from this tag has a source conflict."));
+			}
+
+			if (Node->bAncestorHasConflict)
+			{
+				TooltipString.Append(TEXT("\n\nThis tag is descended from a tag that has a conflict. No operations can be performed on this tag until the conflict is resolved."));
+			}
+
+			if (Node->bNodeHasConflict)
+			{
+				TooltipString.Append(TEXT("\n\nThis tag comes from multiple sources. Tags may only have one source."));
+			}
 		}
 
 		TooltipText = FText::FromString(TooltipString);
@@ -379,7 +475,20 @@ TSharedRef<ITableRow> SGameplayTagWidget::OnGenerateRow(TSharedPtr<FGameplayTagN
 				SNew( STextBlock )
 				.ToolTip( FSlateApplication::Get().MakeToolTip(TooltipText) )
 				.Text(FText::FromName( InItem->GetSimpleTagName()) )
+				.ColorAndOpacity(this, &SGameplayTagWidget::GetTagTextColour, InItem)
 				.Visibility( GameplayTagUIMode != EGameplayTagUIMode::SelectionMode ? EVisibility::Visible : EVisibility::Collapsed )
+			]
+
+			// Allows non-restricted children checkbox
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.HAlign(HAlign_Right)
+			[
+				SNew(SCheckBox)
+				.ToolTipText(LOCTEXT("AllowsChildren", "Does this restricted tag allow non-restricted children"))
+				.OnCheckStateChanged(this, &SGameplayTagWidget::OnAllowChildrenTagCheckStatusChanged, InItem)
+				.IsChecked(this, &SGameplayTagWidget::IsAllowChildrenTagChecked, InItem)
+				.Visibility(this, &SGameplayTagWidget::DetermineAllowChildrenVisible, InItem)
 			]
 
 			// Add Subtag
@@ -389,7 +498,7 @@ TSharedRef<ITableRow> SGameplayTagWidget::OnGenerateRow(TSharedPtr<FGameplayTagN
 			[
 				SNew( SButton )
 				.ToolTipText( LOCTEXT("AddSubtag", "Add Subtag") )
-				.Visibility(this, &SGameplayTagWidget::DetermineExpandableUIVisibility)
+				.Visibility(this, &SGameplayTagWidget::DetermineAddNewSubTagWidgetVisibility, InItem)
 				.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
 				.OnClicked( this, &SGameplayTagWidget::OnAddSubtagClicked, InItem )
 				.DesiredSizeScale(FVector2D(0.75f, 0.75f))
@@ -601,6 +710,44 @@ ECheckBoxState SGameplayTagWidget::IsTagChecked(TSharedPtr<FGameplayTagNode> Nod
 	}
 }
 
+void SGameplayTagWidget::OnAllowChildrenTagCheckStatusChanged(ECheckBoxState NewCheckState, TSharedPtr<FGameplayTagNode> NodeChanged)
+{
+	if (NewCheckState == ECheckBoxState::Checked)
+	{
+		NodeChanged->bAllowNonRestrictedChildren = true;
+	}
+	else if (NewCheckState == ECheckBoxState::Unchecked)
+	{
+		NodeChanged->bAllowNonRestrictedChildren = false;
+	}
+}
+
+ECheckBoxState SGameplayTagWidget::IsAllowChildrenTagChecked(TSharedPtr<FGameplayTagNode> Node) const
+{
+	if (Node->GetAllowNonRestrictedChildren())
+	{
+		return ECheckBoxState::Checked;
+	}
+
+	return ECheckBoxState::Unchecked;
+}
+
+EVisibility SGameplayTagWidget::DetermineAllowChildrenVisible(TSharedPtr<FGameplayTagNode> Node) const
+{
+	// We do not allow you to modify nodes that have a conflict or inherit from a node with a conflict
+	if (Node->bNodeHasConflict || Node->bAncestorHasConflict)
+	{
+		return EVisibility::Hidden;
+	}
+
+	if (bRestrictedTags)
+	{
+		return EVisibility::Visible;
+	}
+
+	return EVisibility::Collapsed;
+}
+
 FReply SGameplayTagWidget::OnClearAllClicked()
 {
 	FScopedTransaction Transaction( LOCTEXT("GameplayTagWidget_RemoveAllTags", "Remove All Gameplay Tags") );
@@ -617,6 +764,31 @@ FReply SGameplayTagWidget::OnClearAllClicked()
 		}
 	}
 	return FReply::Handled();
+}
+
+FSlateColor SGameplayTagWidget::GetTagTextColour(TSharedPtr<FGameplayTagNode> Node) const
+{
+	static const FLinearColor DefaultTextColour = FLinearColor::White;
+	static const FLinearColor DescendantConflictTextColour = FLinearColor(1.f, 0.65f, 0.f); // orange
+	static const FLinearColor NodeConflictTextColour = FLinearColor::Red;
+	static const FLinearColor AncestorConflictTextColour = FLinearColor(1.f, 1.f, 1.f, 0.5f);
+
+	if (Node->bNodeHasConflict)
+	{
+		return NodeConflictTextColour;
+	}
+
+	if (Node->bDescendantHasConflict)
+	{
+		return DescendantConflictTextColour;
+	}
+
+	if (Node->bAncestorHasConflict)
+	{
+		return AncestorConflictTextColour;
+	}
+
+	return DefaultTextColour;
 }
 
 FReply SGameplayTagWidget::OnExpandAllClicked()
@@ -640,8 +812,11 @@ FReply SGameplayTagWidget::OnAddSubtagClicked(TSharedPtr<FGameplayTagNode> InTag
 		FString TagName = InTagNode->GetCompleteTagString();
 		FString TagComment;
 		FName TagSource;
+		bool bTagIsExplicit;
+		bool bTagIsRestricted;
+		bool bTagAllowsNonRestrictedChildren;
 
-		Manager.GetTagEditorData(InTagNode->GetCompleteTagName(), TagComment, TagSource);
+		Manager.GetTagEditorData(InTagNode->GetCompleteTagName(), TagComment, TagSource, bTagIsExplicit, bTagIsRestricted, bTagAllowsNonRestrictedChildren);
 
 		if (AddNewTagWidget.IsValid())
 		{
@@ -658,6 +833,12 @@ TSharedRef<SWidget> SGameplayTagWidget::MakeTagActionsMenu(TSharedPtr<FGameplayT
 	UGameplayTagsManager& Manager = UGameplayTagsManager::Get();
 
 	if (!Manager.ShouldImportTagsFromINI())
+	{
+		bShowManagement = false;
+	}
+
+	// You can't modify restricted tags in the normal tag menus
+	if (!bRestrictedTags && InTagNode->IsRestrictedGameplayTag())
 	{
 		bShowManagement = false;
 	}
@@ -959,17 +1140,76 @@ EVisibility SGameplayTagWidget::DetermineExpandableUIVisibility() const
 	return EVisibility::Visible;
 }
 
+EVisibility SGameplayTagWidget::DetermineAddNewSourceExpandableUIVisibility() const
+{
+	if (bRestrictedTags)
+	{
+		return EVisibility::Collapsed;
+	}
+
+	return DetermineExpandableUIVisibility();
+}
+
 EVisibility SGameplayTagWidget::DetermineAddNewTagWidgetVisibility() const
 {
 	UGameplayTagsManager& Manager = UGameplayTagsManager::Get();
 
-	if ( !Manager.ShouldImportTagsFromINI() || !bAddTagSectionExpanded )
+	if ( !Manager.ShouldImportTagsFromINI() || !bAddTagSectionExpanded || bRestrictedTags )
 	{
 		// If we can't support adding tags from INI files, we should never see this widget
 		return EVisibility::Collapsed;
 	}
 
 	return EVisibility::Visible;
+}
+
+EVisibility SGameplayTagWidget::DetermineAddNewRestrictedTagWidgetVisibility() const
+{
+	UGameplayTagsManager& Manager = UGameplayTagsManager::Get();
+
+	if (!Manager.ShouldImportTagsFromINI() || !bAddTagSectionExpanded || !bRestrictedTags)
+	{
+		// If we can't support adding tags from INI files, we should never see this widget
+		return EVisibility::Collapsed;
+	}
+
+	return EVisibility::Visible;
+}
+
+EVisibility SGameplayTagWidget::DetermineAddNewSourceWidgetVisibility() const
+{
+	UGameplayTagsManager& Manager = UGameplayTagsManager::Get();
+
+	if (!Manager.ShouldImportTagsFromINI() || !bAddSourceSectionExpanded || bRestrictedTags)
+	{
+		// If we can't support adding tags from INI files, we should never see this widget
+		return EVisibility::Collapsed;
+	}
+
+	return EVisibility::Visible;
+}
+
+EVisibility SGameplayTagWidget::DetermineAddNewSubTagWidgetVisibility(TSharedPtr<FGameplayTagNode> Node) const
+{
+	EVisibility LocalVisibility = DetermineExpandableUIVisibility();
+	if (LocalVisibility != EVisibility::Visible)
+	{
+		return LocalVisibility;
+	}
+
+	// We do not allow you to add child tags under a conflict
+	if (Node->bNodeHasConflict || Node->bAncestorHasConflict)
+	{
+		return EVisibility::Hidden;
+	}
+
+	// show if we're dealing with restricted tags exclusively or restricted tags that allow non-restricted children
+	if (Node->GetAllowNonRestrictedChildren() || bRestrictedTags)
+	{
+		return EVisibility::Visible;
+	}
+
+	return EVisibility::Hidden;
 }
 
 EVisibility SGameplayTagWidget::DetermineClearSelectionVisibility() const
@@ -995,6 +1235,16 @@ ECheckBoxState SGameplayTagWidget::GetAddTagSectionExpansionState() const
 void SGameplayTagWidget::OnAddTagSectionExpansionStateChanged(ECheckBoxState NewState)
 {
 	bAddTagSectionExpanded = NewState == ECheckBoxState::Checked;
+}
+
+ECheckBoxState SGameplayTagWidget::GetAddSourceSectionExpansionState() const
+{
+	return bAddSourceSectionExpanded ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+void SGameplayTagWidget::OnAddSourceSectionExpansionStateChanged(ECheckBoxState NewState)
+{
+	bAddSourceSectionExpanded = NewState == ECheckBoxState::Checked;
 }
 
 void SGameplayTagWidget::RefreshOnNextTick()

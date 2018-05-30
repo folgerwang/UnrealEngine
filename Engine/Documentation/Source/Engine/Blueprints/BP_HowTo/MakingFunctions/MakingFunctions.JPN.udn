@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:関数の作成
 Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\BP_HowTo
@@ -7,6 +7,7 @@ Related:Engine/Blueprints/UserGuide/Functions
 Related:Engine/Blueprints/UserGuide/Functions/FunctionCalls
 version:4.9
 skilllevel:Intermediate
+tags:Blueprints
 
 [INCLUDE:Engine/Blueprints/UserGuide/Functions#intro]
 
@@ -22,7 +23,7 @@ skilllevel:Intermediate
 
 1. ブループリントに名前を付けて、ブループリント エディタ上で **ダブルクリック** して開きます。 
 
-![](FunctionBlueprint.png)
+	![](FunctionBlueprint.png)
 
 1.	再びグラフ内を **右クリック** して、 **Event Begin Play** Event を選択して追加します。 
 

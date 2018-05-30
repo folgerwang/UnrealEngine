@@ -513,7 +513,15 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 	#endif
 #elif NUM_TEX_COORD_INTERPOLATORS
 	#if (ES2_PROFILE || ES3_1_PROFILE)
-		GetMaterialCustomizedUVs(VertexParameters, Interpolants.TexCoords);
+		float2 CustomizedUVs[NUM_TEX_COORD_INTERPOLATORS];
+		GetMaterialCustomizedUVs(VertexParameters, CustomizedUVs);
+		GetCustomInterpolators(VertexParameters, CustomizedUVs);
+
+		UNROLL
+		for(int CoordinateIndex = 0;CoordinateIndex < NUM_TEX_COORD_INTERPOLATORS;++CoordinateIndex)
+		{
+			Interpolants.TexCoords[CoordinateIndex] = CustomizedUVs[CoordinateIndex];
+		}
 	#else
 		// Ensure the unused components of the last packed texture coordinate are initialized.
 		Interpolants.TexCoords[(NUM_TEX_COORD_INTERPOLATORS + 1) / 2 - 1] = 0;

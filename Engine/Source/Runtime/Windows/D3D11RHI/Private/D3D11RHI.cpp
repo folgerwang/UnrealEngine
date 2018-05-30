@@ -575,6 +575,8 @@ extern CORE_API bool GIsGPUCrashed;
 bool FD3DGPUProfiler::CheckGpuHeartbeat() const
 {
 #if NV_AFTERMATH
+#define NVAFTERMATH_ON_ERROR() do { if (D3D11RHI) { D3D11RHI->StopNVAftermath(); GDX11NVAfterMathEnabled = false; } } while (false)
+
 	if (GDX11NVAfterMathEnabled && bTrackingGPUCrashData)
 	{
 		GFSDK_Aftermath_Device_Status Status;
@@ -611,11 +613,13 @@ bool FD3DGPUProfiler::CheckGpuHeartbeat() const
 					else
 					{
 						UE_LOG(LogRHI, Error, TEXT("[Aftermath] GFSDK_Aftermath_GetData failed with result: 0x%08X"), (uint32)Result);
+						NVAFTERMATH_ON_ERROR();
 					}
 				}
 				else
 				{
 					UE_LOG(LogRHI, Error, TEXT("[Aftermath] Invalid context handle"));
+					NVAFTERMATH_ON_ERROR();
 				}
 
 				return false;
@@ -624,8 +628,10 @@ bool FD3DGPUProfiler::CheckGpuHeartbeat() const
 		else
 		{
 			UE_LOG(LogRHI, Error, TEXT("[Aftermath] GFSDK_Aftermath_GetDeviceStatus failed with result: 0x%08X"), (uint32)Result);
+			NVAFTERMATH_ON_ERROR();
 		}
 	}
+#undef NVAFTERMATH_ON_ERROR
 #endif
 	return true;
 }

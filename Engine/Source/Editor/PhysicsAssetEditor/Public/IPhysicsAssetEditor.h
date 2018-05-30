@@ -4,13 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "WorkflowOrientedApp/WorkflowCentricApplication.h"
+#include "IHasPersonaToolkit.h"
 
 
 /*-----------------------------------------------------------------------------
    IPhysicsAssetEditor
 -----------------------------------------------------------------------------*/
 
-class IPhysicsAssetEditor : public FWorkflowCentricApplication
+class IPhysicsAssetEditor : public FWorkflowCentricApplication, public IHasPersonaToolkit
 {
 
 };

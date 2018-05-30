@@ -209,6 +209,10 @@ struct FSceneViewInitOptions : public FSceneViewProjectionData
 	/** Whether to use FOV when computing mesh LOD. */
 	bool bUseFieldOfViewForLOD;
 
+	/** Actual field of view and that desired by the camera originally */
+	float FOV;
+	float DesiredFOV;
+
 #if WITH_EDITOR
 	/** default to 0'th view index, which is a bitfield of 1 */
 	uint64 EditorViewBitflag;
@@ -241,6 +245,8 @@ struct FSceneViewInitOptions : public FSceneViewProjectionData
 		, OriginOffsetThisFrame(ForceInitToZero)
 		, bInCameraCut(false)
 		, bUseFieldOfViewForLOD(true)
+		, FOV(90.f)
+		, DesiredFOV(90.f)
 #if WITH_EDITOR
 		, EditorViewBitflag(1)
 		, OverrideLODViewOrigin(ForceInitToZero)
@@ -908,6 +914,10 @@ public:
 	// Whether to use FOV when computing mesh LOD.
 	bool bUseFieldOfViewForLOD;
 
+	/** Actual field of view and that desired by the camera originally */
+	float FOV;
+	float DesiredFOV;
+
 	EDrawDynamicFlags::Type DrawDynamicFlags;
 
 	/** Current buffer visualization mode */
@@ -1168,12 +1178,6 @@ public:
 	 * @return distance factor
 	 */
 	float GetLODDistanceFactor() const;
-
-	/** Get LOD distance factor for temporal LOD: Sqrt(GetTemporalLODDistanceFactor(?)*SphereRadius*SphereRadius / ScreenPercentage) = distance to this LOD transition
-	 * @param Index, 0 or 1, which temporal sample to return
-	 * @return distance factor
-	 */
-	float GetTemporalLODDistanceFactor(int32 Index, bool bUseLaggedLODTransition = true) const;
 
 	/** 
 	 * Returns the blend factor between the last two LOD samples

@@ -82,7 +82,7 @@ void AReplicationGraphDebugActor::ServerStartDebugging_Implementation()
 		if (GridNode)
 		{
 			break;
-		}
+	}
 	}
 
 	if (GridNode == nullptr)
@@ -173,7 +173,13 @@ void AReplicationGraphDebugActor::PrintCullDistances()
 	for (auto It = ReplicationGraph->GlobalActorReplicationInfoMap.CreateActorMapIterator(); It; ++It)
 	{
 		AActor* Actor = It.Key();
-		FGlobalActorReplicationInfo& Info = It.Value();
+		TUniquePtr<FGlobalActorReplicationInfo>& InfoPtr = It.Value();
+		if (!InfoPtr || InfoPtr.Get() == nullptr)
+		{
+			continue;
+		}
+
+		FGlobalActorReplicationInfo& Info = *InfoPtr.Get();
 
 		bool bFound = false;
 		for (FData& ExistingData : DataList)
@@ -256,7 +262,7 @@ void AReplicationGraphDebugActor::PrintAllActorInfo(FString MatchString)
 		}
 
 		UClass* ParentClass = Class;
-		while(ParentClass && !ParentClass->IsNative() && ParentClass->GetSuperClass() && ParentClass->GetSuperClass() != AActor::StaticClass())
+		while (ParentClass && !ParentClass->IsNative() && ParentClass->GetSuperClass() && ParentClass->GetSuperClass() != AActor::StaticClass())
 		{
 			ParentClass = ParentClass->GetSuperClass();
 		}
@@ -293,6 +299,12 @@ void AReplicationGraphDebugActor::PrintAllActorInfo(FString MatchString)
 			Info->LogDebugString(*GLog);
 		}
 	}
+
+	GLog->Logf(TEXT(""));
+	GLog->Logf(TEXT("sizeof(FGlobalActorReplicationInfo): %d"), sizeof(FGlobalActorReplicationInfo));
+	GLog->Logf(TEXT("sizeof(FConnectionReplicationActorInfo): %d"), sizeof(FConnectionReplicationActorInfo));
+	GLog->Logf(TEXT("Total GlobalActorReplicationInfoMap Num/Size (Unfiltered): %d elements / %d bytes"), ReplicationGraph->GlobalActorReplicationInfoMap.Num(), ReplicationGraph->GlobalActorReplicationInfoMap.Num() * sizeof(FGlobalActorReplicationInfo) );
+	GLog->Logf(TEXT("Total PerConnectionActorInfoMap Num/Size (Unfiltered, for this connection only): %d elements / %d bytes"), ConnectionManager->ActorInfoMap.Num(), ConnectionManager->ActorInfoMap.Num() * sizeof(FConnectionReplicationActorInfo) );
 }
 
 FAutoConsoleCommandWithWorldAndArgs NetRepGraphPrintAllActorInfoCmd(TEXT("Net.RepGraph.PrintAllActorInfo"),TEXT(""),
@@ -329,7 +341,7 @@ void AReplicationGraphDebugActor::ServerCellInfo_Implementation()
 		if (GridNode)
 		{
 			break;
-		}
+	}
 	}
 
 	if (GridNode == nullptr)
@@ -390,6 +402,74 @@ FAutoConsoleCommandWithWorldAndArgs NetRepGraphCellInfo(TEXT("Net.RepGraph.Spati
 	})
 );
 
+// -------------------------------------------------------------
+
+bool AReplicationGraphDebugActor::ServerSetCullDistanceForClass_Validate(UClass* Class, float CullDistance)
+{
+	return true;
+}
+
+void AReplicationGraphDebugActor::ServerSetCullDistanceForClass_Implementation(UClass* Class, float CullDistance)
+{
+	if (!Class)
+	{
+		UE_LOG(LogReplicationGraph, Display, TEXT("Invalid Class"));
+		return;
+	}
+
+	const float CullDistSq = CullDistance;
+
+	FClassReplicationInfo& ClassInfo = ReplicationGraph->GlobalActorReplicationInfoMap.GetClassInfo(Class);
+	ClassInfo.CullDistanceSquared = CullDistSq;
+	UE_LOG(LogReplicationGraph, Display, TEXT("Setting cull distance for class %s to %.2f"), *Class->GetName(), CullDistance);
+
+	for (TActorIterator<AActor> ActorIt(GetWorld(), Class); ActorIt; ++ActorIt)
+	{
+		AActor* Actor = *ActorIt;
+		if (FGlobalActorReplicationInfo* ActorInfo = ReplicationGraph->GlobalActorReplicationInfoMap.Find(Actor))
+		{
+			ActorInfo->Settings.CullDistanceSquared = CullDistSq;
+			UE_LOG(LogReplicationGraph, Display, TEXT("Setting GlobalActorInfo cull distance for %s to %.2f"), *Actor->GetName(), CullDistance);
+		}
+
+
+		if (FConnectionReplicationActorInfo* ConnectionActorInfo = ConnectionManager->ActorInfoMap.Find(Actor))
+		{
+			ConnectionActorInfo->CullDistanceSquared = CullDistSq;
+			UE_LOG(LogReplicationGraph, Display, TEXT("Setting Connection cull distance for %s to %.2f"), *Actor->GetName(), CullDistance);
+		}
+	}
+}
+
+FAutoConsoleCommandWithWorldAndArgs NetRepGraphSetClassCullDistance(TEXT("Net.RepGraph.SetClassCullDistance"),TEXT(""),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+	{
+		if (Args.Num() <= 1)
+		{
+			UE_LOG(LogReplicationGraph, Display, TEXT("Usage: Net.RepGraph.SetClassCullDistance <Class> <Distance>"));
+			return;
+		}
+
+		UClass* Class = FindObject<UClass>(ANY_PACKAGE, *Args[0]);
+		if (Class == nullptr)
+		{
+			UE_LOG(LogReplicationGraph, Display, TEXT("Could not find Class: %s"), *Args[0]);
+			return;
+		}
+
+		float Distance = 0.f;
+		if (!LexTryParseString<float>(Distance, *Args[1]))
+		{
+			UE_LOG(LogReplicationGraph, Display, TEXT("Could not parse %s as float."), *Args[1]);
+		}
+
+		for (TActorIterator<AReplicationGraphDebugActor> It(World); It; ++It)
+		{
+			It->ServerSetCullDistanceForClass(Class, Distance);
+		}
+	})
+);
+
 // --------------------------------------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------------------------------------
@@ -416,7 +496,7 @@ FAutoConsoleCommandWithWorldAndArgs NetRepGraphSetCellSize(TEXT("Net.RepGraph.Sp
 		float NewGridSize = 0.f;
 		if (Args.Num() > 0 )
 		{
-			Lex::FromString(NewGridSize, *Args[0]);
+			LexFromString(NewGridSize, *Args[0]);
 		}
 
 		if (NewGridSize <= 0.f)
@@ -453,7 +533,7 @@ FAutoConsoleCommand RepDriverListsAddTestmd(TEXT("Net.RepGraph.Lists.AddTest"), 
 	int32 Num = 1;
 	if (Args.Num() > 0 )
 	{
-		Lex::FromString(Num,*Args[0]);
+		LexFromString(Num,*Args[0]);
 	}
 	
 	while(Num-- > 0)
@@ -467,7 +547,7 @@ FAutoConsoleCommand RepDriverListsStatsCmd(TEXT("Net.RepGraph.Lists.Stats"), TEX
 	int32 Mode = 0;
 	if (Args.Num() > 0 )
 	{
-		Lex::FromString(Mode,*Args[0]);
+		LexFromString(Mode,*Args[0]);
 	}
 
 	PrintRepListStats(Mode);
@@ -481,17 +561,17 @@ FAutoConsoleCommand RepDriverListDetailsCmd(TEXT("Net.RepGraph.Lists.Details"), 
 	
 	if (Args.Num() > 0 )
 	{
-		Lex::FromString(PoolIdx,*Args[0]);
+		LexFromString(PoolIdx,*Args[0]);
 	}
 
 	if (Args.Num() > 1 )
 	{
-		Lex::FromString(BlockIdx,*Args[1]);
+		LexFromString(BlockIdx,*Args[1]);
 	}
 
 	if (Args.Num() > 2 )
 	{
-		Lex::FromString(ListIdx,*Args[2]);
+		LexFromString(ListIdx,*Args[2]);
 	}
 
 	PrintRepListDetails(PoolIdx, BlockIdx, ListIdx);
@@ -503,7 +583,7 @@ FAutoConsoleCommand RepDriverListsDisplayDebugCmd(TEXT("Net.RepGraph.Lists.Displ
 	static int32 Mode = 0;
 	if (Args.Num() > 0 )
 	{
-		Lex::FromString(Mode,*Args[0]);
+		LexFromString(Mode,*Args[0]);
 	}
 
 	if (Handle.IsValid())
@@ -542,7 +622,7 @@ FAutoConsoleCommand RepDriverStarvListCmd(TEXT("Net.RepGraph.StarvedList"), TEXT
 	static int32 ConnectionIdx = 0;
 	if (Args.Num() > 0 )
 	{
-		Lex::FromString(ConnectionIdx, *Args[0]);
+		LexFromString(ConnectionIdx, *Args[0]);
 	}
 	if (Handle.IsValid())
 	{
@@ -580,7 +660,7 @@ FAutoConsoleCommand RepDriverStarvListCmd(TEXT("Net.RepGraph.StarvedList"), TEXT
 
 									for (auto MapIt = ConIt->ActorInfoMap.CreateIterator(); MapIt; ++MapIt)
 									{
-										TheList.Emplace(MapIt.Key(), RepGraph->GetReplicationGraphFrame() - MapIt.Value().LastRepFrameNum);
+										TheList.Emplace(MapIt.Key(), RepGraph->GetReplicationGraphFrame() - MapIt.Value().Get()->LastRepFrameNum);
 									}
 									TheList.Sort();
 								
@@ -817,21 +897,6 @@ void UReplicationGraphNode_GridCell::LogNode(FReplicationGraphDebugInfo& DebugIn
 	DebugInfo.PopIndent();
 }
 
-void UReplicationGraphNode_ClassCategories::LogNode(FReplicationGraphDebugInfo& DebugInfo, const FString& NodeName) const
-{
-	DebugInfo.Log(NodeName);
-
-	DebugInfo.PushIndent();
-	for(const FCategoryMapping& Mapping : Categories)
-	{
-		if (Mapping.Node)
-		{
-			Mapping.Node->LogNode(DebugInfo, Mapping.Category.GetDebugStringSlow());
-		}
-	}
-	DebugInfo.PopIndent();
-}
-
 void UReplicationGraphNode_TearOff_ForConnection::LogNode(FReplicationGraphDebugInfo& DebugInfo, const FString& NodeName) const
 {
 	DebugInfo.Log(NodeName);
@@ -844,43 +909,42 @@ void UReplicationGraphNode_TearOff_ForConnection::LogNode(FReplicationGraphDebug
 //	Prioritization Debugging: help log/debug 
 // --------------------------------------------------------------------------------------------------------------------------------------------
 
-void PrintPrioritizedList(FOutputDevice& Ar, UNetReplicationGraphConnection* ConnectionManager, const TArrayView<FPrioritizedRepList>& List)
+void PrintPrioritizedList(FOutputDevice& Ar, UNetReplicationGraphConnection* ConnectionManager, FPrioritizedRepList* PrioritizedList)
 {
 	UReplicationGraph* RepGraph = ConnectionManager->NetConnection->Driver->GetReplicationDriver<UReplicationGraph>();
 	uint32 RepFrameNum = RepGraph->GetReplicationGraphFrame();
-	for (const FPrioritizedRepList& PrioritizedList : List)
-	{
-		// Skipped actors
+	
+	// Skipped actors
 #if REPGRAPH_DETAILS
-		Ar.Logf(TEXT("%s [%d Skipped Actors]"), *PrioritizedList.ListCategory.GetDebugStringSlow(), PrioritizedList.Items.Num());
+	Ar.Logf(TEXT("[%d Skipped Actors]"), PrioritizedList->SkippedDebugDetails->Num());
 
-		FNativeClassAccumulator DormantClasses;
-		FNativeClassAccumulator CulledClasses;
+	FNativeClassAccumulator DormantClasses;
+	FNativeClassAccumulator CulledClasses;
 
-		for (const FSkippedActorFullDebugDetails& SkippedDetails : *PrioritizedList.SkippedDebugDetails)
+	for (const FSkippedActorFullDebugDetails& SkippedDetails : *PrioritizedList->SkippedDebugDetails)
+	{
+		FString SkippedStr;
+		if (SkippedDetails.bWasDormant)
 		{
-			FString SkippedStr;
-			if (SkippedDetails.bWasDormant)
-			{
-				SkippedStr = TEXT("Dormant");
-				DormantClasses.Increment(SkippedDetails.Actor->GetClass());
-			}
-			else if (SkippedDetails.DistanceCulled > 0.f)
-			{
-				SkippedStr = FString::Printf(TEXT("Dist Culled %.2f"), SkippedDetails.DistanceCulled);
-				CulledClasses.Increment(SkippedDetails.Actor->GetClass());
-			}
-			else if (SkippedDetails.FramesTillNextReplication > 0)
-			{
-				SkippedStr = FString::Printf(TEXT("Not ready (%d frames left)"), SkippedDetails.FramesTillNextReplication);
-			}
-			else
-			{
-				SkippedStr = TEXT("Unknown???");
-			}
-
-			Ar.Logf(TEXT("%-40s %s"), *GetActorRepListTypeDebugString(SkippedDetails.Actor), *SkippedStr);
+			SkippedStr = TEXT("Dormant");
+			DormantClasses.Increment(SkippedDetails.Actor->GetClass());
 		}
+		else if (SkippedDetails.DistanceCulled > 0.f)
+		{
+			SkippedStr = FString::Printf(TEXT("Dist Culled %.2f"), SkippedDetails.DistanceCulled);
+			CulledClasses.Increment(SkippedDetails.Actor->GetClass());
+		}
+		else if (SkippedDetails.FramesTillNextReplication > 0)
+		{
+			SkippedStr = FString::Printf(TEXT("Not ready (%d frames left)"), SkippedDetails.FramesTillNextReplication);
+		}
+		else
+		{
+			SkippedStr = TEXT("Unknown???");
+		}
+
+		Ar.Logf(TEXT("%-40s %s"), *GetActorRepListTypeDebugString(SkippedDetails.Actor), *SkippedStr);
+	}
 
 		Ar.Logf(TEXT(" Dormant Classes: %s"), *DormantClasses.BuildString());
 		Ar.Logf(TEXT(" Culled Classes: %s"), *CulledClasses.BuildString());
@@ -888,34 +952,33 @@ void PrintPrioritizedList(FOutputDevice& Ar, UNetReplicationGraphConnection* Con
 #endif
 
 		// Passed (not skipped) actors
-		Ar.Logf(TEXT("%s [%d Passed Actors]"), *PrioritizedList.ListCategory.GetDebugStringSlow(), PrioritizedList.Items.Num());
-		for (const FPrioritizedRepList::FItem& Item : PrioritizedList.Items)
-		{
-			const FConnectionReplicationActorInfo& ActorInfo = ConnectionManager->ActorInfoMap.FindOrAdd(Item.Actor);
-			const bool bWasStarved = ActorInfo.StarvedFrameNum > 0;
-			FString StarvedString = bWasStarved ? FString::Printf(TEXT(" (Starved %d) "), RepFrameNum - ActorInfo.LastRepFrameNum) : TEXT("");
+	Ar.Logf(TEXT("[%d Passed Actors]"), PrioritizedList->Items.Num());
+	for (const FPrioritizedRepList::FItem& Item : PrioritizedList->Items)
+	{
+		const FConnectionReplicationActorInfo& ActorInfo = ConnectionManager->ActorInfoMap.FindOrAdd(Item.Actor);
+		const bool bWasStarved = ActorInfo.StarvedFrameNum > 0;
+		FString StarvedString = bWasStarved ? FString::Printf(TEXT(" (Starved %d) "), RepFrameNum - ActorInfo.LastRepFrameNum) : TEXT("");
 
 #if REPGRAPH_DETAILS
 			
-			if (FPrioritizedActorFullDebugDetails* FullDetails = PrioritizedList.FullDebugDetails.Get()->FindByKey(Item.Actor))
-			{
-				Ar.Logf(TEXT("%-40s %.4f %s %s"), *GetActorRepListTypeDebugString(Item.Actor), Item.Priority, *FullDetails->BuildString(), *StarvedString);
-				continue;
-			}
+		if (FPrioritizedActorFullDebugDetails* FullDetails = PrioritizedList->FullDebugDetails.Get()->FindByKey(Item.Actor))
+		{
+			Ar.Logf(TEXT("%-40s %.4f %s %s"), *GetActorRepListTypeDebugString(Item.Actor), Item.Priority, *FullDetails->BuildString(), *StarvedString);
+			continue;
+		}
 #endif
 
-			// Simplified version without full details
-			UClass* Class = Item.Actor->GetClass();
-			while (Class && !Class->IsNative())
-			{
-				Class = Class->GetSuperClass();
-			}
-
-			Ar.Logf(TEXT("%-40s %-20s %.4f %s"), *GetActorRepListTypeDebugString(Item.Actor), *GetNameSafe(Class), Item.Priority, *StarvedString);
+		// Simplified version without full details
+		UClass* Class = Item.Actor->GetClass();
+		while (Class && !Class->IsNative())
+		{
+			Class = Class->GetSuperClass();
 		}
 
-		Ar.Logf(TEXT(""));
+		Ar.Logf(TEXT("%-40s %-20s %.4f %s"), *GetActorRepListTypeDebugString(Item.Actor), *GetNameSafe(Class), Item.Priority, *StarvedString);
 	}
+
+	Ar.Logf(TEXT(""));
 }
 
 TFunction<void()> LogPrioritizedListHelper(FOutputDevice& Ar, const TArray< FString >& Args, bool bAutoUnregister)
@@ -941,7 +1004,7 @@ TFunction<void()> LogPrioritizedListHelper(FOutputDevice& Ar, const TArray< FStr
 	static int32 ConnectionIdx = 0;
 	if (Args.Num() > 0 ) 
 	{
-		Lex::FromString(ConnectionIdx, *Args[0]);
+		LexFromString(ConnectionIdx, *Args[0]);
 	}
 
 	if (Graph->Connections.IsValidIndex(ConnectionIdx) == false)
@@ -957,7 +1020,7 @@ TFunction<void()> LogPrioritizedListHelper(FOutputDevice& Ar, const TArray< FStr
 	WeakConnectionManager = ConnectionManager;
 
 	DO_REPGRAPH_DETAILS(ConnectionManager->bEnableFullActorPrioritizationDetails = true);
-	Handle = ConnectionManager->OnPostReplicatePrioritizeLists.AddLambda([&Ar, bAutoUnregister](UNetReplicationGraphConnection* InConnectionManager, TArrayView<FPrioritizedRepList> List)
+	Handle = ConnectionManager->OnPostReplicatePrioritizeLists.AddLambda([&Ar, bAutoUnregister](UNetReplicationGraphConnection* InConnectionManager, FPrioritizedRepList* List)
 	{
 		PrintPrioritizedList(Ar, InConnectionManager, List);
 		if (bAutoUnregister)
@@ -1033,13 +1096,13 @@ FAutoConsoleCommand RepGraphPrintAllCmd(TEXT("Net.RepGraph.PrintAll"), TEXT(""),
 	int32 FrameCount = 1;
 	if (Args.Num() > 0 )
 	{
-		Lex::FromString(FrameCount, *Args[0]);
+		LexFromString(FrameCount, *Args[0]);
 	}
 
 	int32 ConnectionIdx = 0;
 	if (Args.Num() > 1 )
 	{
-		Lex::FromString(ConnectionIdx, *Args[1]);
+		LexFromString(ConnectionIdx, *Args[1]);
 	}
 
 	if (Graph->Connections.IsValidIndex(ConnectionIdx) == false)
@@ -1054,7 +1117,7 @@ FAutoConsoleCommand RepGraphPrintAllCmd(TEXT("Net.RepGraph.PrintAll"), TEXT(""),
 	*FrameCountPtr = FrameCount;
 
 	DO_REPGRAPH_DETAILS(ConnectionManager->bEnableFullActorPrioritizationDetails = true);
-	*Handle = ConnectionManager->OnPostReplicatePrioritizeLists.AddLambda([Handle, FrameCountPtr, Graph](UNetReplicationGraphConnection* InConnectionManager, TArrayView<FPrioritizedRepList> List)
+	*Handle = ConnectionManager->OnPostReplicatePrioritizeLists.AddLambda([Handle, FrameCountPtr, Graph](UNetReplicationGraphConnection* InConnectionManager, FPrioritizedRepList* List)
 	{
 		GLog->Logf(TEXT(""));
 		GLog->Logf(TEXT("===================================================="));
@@ -1080,206 +1143,6 @@ FAutoConsoleCommand RepGraphPrintAllCmd(TEXT("Net.RepGraph.PrintAll"), TEXT(""),
 // --------------------------------------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------------------------------------
-
-
-TWeakObjectPtr<UNetReplicationGraphConnection> PacketBudgetHUDNetConnection;
-
-FPacketBudgetRecordBuffer DebugPacketBudgetBuffer;
-FPacketBudgetRecordBuffer** CurrentDebugPacketBudgetBufferPtr = nullptr;
-
-static void PacketBudgetOnHUDPostRender(AHUD* HUD, UCanvas* Canvas)
-{
-	if (PacketBudgetHUDNetConnection.IsValid() == false)
-	{
-		DebugPacketBudgetBuffer.Reset();
-		CurrentDebugPacketBudgetBufferPtr = nullptr;
-		return;
-	}
-
-	static float StartX = 100.f;
-	static float StartYOffset = -100.f;
-
-	static float BudgetWidth = 100.f;
-	static float BudgetHeightScale = 0.05f;
-
-	static float SpacingX = 10.f;
-	static float SpacingY = 5.f;
-
-	float CurrentX = StartX;
-	float StartY = Canvas->SizeY + StartYOffset;
-
-	for (int32 idx = DebugPacketBudgetBuffer.Num()-1; idx >= 0; --idx)
-	{
-		FPacketBudgetRecord& Record = DebugPacketBudgetBuffer.GetAtIndex(idx);
-		check(Record.Budget);
-
-		float CurrentY = StartY;
-
-		Canvas->SetDrawColor(FColor::White);
-		CurrentY -= Canvas->DrawText(GEngine->GetTinyFont(), Record.Budget->DebugName, CurrentX, CurrentY);
-		CurrentY -= SpacingY;
-
-		float BarStartY = CurrentY;
-
-		// -----------------------------------
-		// Draw budget
-		// -----------------------------------
-		static bool bDrawBudget = true;
-		if (bDrawBudget)
-		{
-			static float BudgetOverdraw = 10.f;
-
-			int64 BudgetTotalSize = 0;
-			for (const FPacketBudget::FItem& BudgetItem : Record.Budget->BudgetItems)
-			{
-				BudgetTotalSize += BudgetItem.MaxBits;
-
-				float Height = ((float)BudgetItem.MaxBits * BudgetHeightScale);
-				float LineY = CurrentY - Height;
-				Canvas->K2_DrawLine(FVector2D(CurrentX, LineY), FVector2D(CurrentX + BudgetWidth + BudgetOverdraw, LineY), 1.f, FColor::White);
-				
-				CurrentY -= Height;
-			}
-		}
-
-		CurrentY = BarStartY;
-
-		// -----------------------------------
-		// Draw packet
-		// -----------------------------------
-		
-		for (int32 ItemIdx=0; ItemIdx < Record.Items.Num(); ++ItemIdx)
-		{
-			FPacketBudgetRecord::FItem Item = Record.Items[ItemIdx];
-		
-			if (Item.BitsWritten <= 0)
-			{
-				continue;
-			}
-
-			float Height = (float)Item.BitsWritten * BudgetHeightScale;
-
-			Canvas->K2_DrawBox( FVector2D(CurrentX, CurrentY-Height), FVector2D(BudgetWidth, Height), 1.f, FColor::Red );
-			Canvas->DrawText(GEngine->GetTinyFont(), FString::Printf(TEXT("%s"), *Record.Budget->BudgetItems[ItemIdx].ListCategory.GetDebugStringSlow()), CurrentX, CurrentY - (Height / 2.f));
-			CurrentY -= Height;
-		}
-
-		CurrentX += BudgetWidth + SpacingX;
-	}
-
-}
-
-static void NetPacketBudgetHUDFunc(const TArray<FString>& Args, UWorld* World)
-{
-	static FDelegateHandle HUDDelegateHandle;
-	if (HUDDelegateHandle.IsValid())
-	{
-		AHUD::OnShowDebugInfo.Remove(HUDDelegateHandle);
-		HUDDelegateHandle.Reset();
-	}
-
-	UNetDriver* NetDriver = World->GetNetDriver();
-	int32 ConnectionIdx = 0;
-
-	// Force examine server for PIE
-	if (Args.FindByPredicate([](const FString& Str){ return Str.Contains(TEXT("SERVER")); }))
-	{
-		for (TObjectIterator<UWorld> It; It; ++It)
-		{		
-			UWorld* FoundWorld = *It;
-			if (FoundWorld && (FoundWorld->GetNetMode() == ENetMode::NM_DedicatedServer || FoundWorld->GetNetMode() == ENetMode::NM_ListenServer))
-			{
-				NetDriver = FoundWorld->GetNetDriver();
-				break;
-			}
-		}
-
-		for (const FString& Str : Args)
-		{
-			Lex::TryParseString<int32>(ConnectionIdx, *Str);
-		}
-	}
-
-	// Stop recording previous run
-	if (CurrentDebugPacketBudgetBufferPtr)
-	{
-		*CurrentDebugPacketBudgetBufferPtr = nullptr;
-		CurrentDebugPacketBudgetBufferPtr = nullptr;
-		DebugPacketBudgetBuffer.Reset();
-	}
-
-	UNetConnection* NetConnection = nullptr;
-
-	if (NetDriver)
-	{
-		if (NetDriver->ServerConnection)
-		{
-			NetConnection = NetDriver->ServerConnection;
-		}
-		else if (NetDriver->ClientConnections.IsValidIndex(ConnectionIdx))
-		{
-			NetConnection = NetDriver->ClientConnections[ConnectionIdx];
-		}
-		else
-		{
-			UE_LOG(LogNet, Warning, TEXT("Could Not find a valid connection for %d."), ConnectionIdx);
-		}
-
-
-		if (NetConnection)
-		{			
-			for (TObjectIterator<UNetReplicationGraphConnection> It; It; ++It)
-			{
-				if( It->NetConnection == NetConnection)
-				{
-					CurrentDebugPacketBudgetBufferPtr = &It->PacketRecordBuffer;
-					It->PacketRecordBuffer = &DebugPacketBudgetBuffer;
-					PacketBudgetHUDNetConnection = *It;
-					break;
-				}
-			}
-
-			if (CurrentDebugPacketBudgetBufferPtr)
-			{
-				HUDDelegateHandle = AHUD::OnHUDPostRender.AddStatic(&PacketBudgetOnHUDPostRender);
-			}
-			else
-			{
-				UE_LOG(LogNet, Warning, TEXT("Could Not find a valid ConnectionManager for %d."), ConnectionIdx);
-			}
-		}
-	}
-}
-
-FAutoConsoleCommandWithWorldAndArgs NetPacketBudgetHUDCmd(
-	TEXT("Net.PacketBudget.HUD"),
-	TEXT(""),
-	FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&NetPacketBudgetHUDFunc)
-);
-
-static void NetPacketBudgetHUDToggleFunc(const TArray<FString>& Args, UWorld* World)
-{
-	if (CurrentDebugPacketBudgetBufferPtr)
-	{
-		if (*CurrentDebugPacketBudgetBufferPtr)
-		{
-			*CurrentDebugPacketBudgetBufferPtr = nullptr;
-		}
-		else
-		{
-			*CurrentDebugPacketBudgetBufferPtr = &DebugPacketBudgetBuffer;
-		}
-	}
-
-}
-
-FAutoConsoleCommandWithWorldAndArgs NetPacketBudgetHUDToggleCmd(
-	TEXT("Net.PacketBudget.HUD.Toggle"),
-	TEXT(""),
-	FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&NetPacketBudgetHUDToggleFunc)
-);
-
-// ------------------------------------------------------------------------------
 
 
 #if USE_REPCSVPROFILER

@@ -160,7 +160,7 @@ int32 UGenerateTextLocalizationResourceCommandlet::Main(const FString& Params)
 		const bool bLocResFileSaved = FLocalizedAssetSCCUtil::SaveFileWithSCC(SourceControlInfo, TextLocalizationResourcePath, [&LocTextHelper, &CultureName, &bSkipSourceCheck](const FString& InSaveFileName) -> bool
 		{
 			FTextLocalizationResource LocRes;
-			return FTextLocalizationResourceGenerator::GenerateLocRes(LocTextHelper, CultureName, bSkipSourceCheck, InSaveFileName, LocRes) && LocRes.SaveToFile(InSaveFileName);
+			return FTextLocalizationResourceGenerator::GenerateLocRes(LocTextHelper, CultureName, bSkipSourceCheck, FTextLocalizationResourceId(InSaveFileName), LocRes) && LocRes.SaveToFile(InSaveFileName);
 		});
 
 		if (!bLocResFileSaved)

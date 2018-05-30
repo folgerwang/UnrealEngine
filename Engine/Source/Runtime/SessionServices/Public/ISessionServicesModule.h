@@ -21,7 +21,7 @@ public:
 	 * @return The session manager.
 	 * @see GetSessionService
 	 */
-	virtual TSharedRef<ISessionManager> GetSessionManager() = 0;
+	virtual TSharedPtr<ISessionManager> GetSessionManager() = 0;
 
 	/** 
 	 * Gets the session service.
@@ -29,7 +29,7 @@ public:
 	 * @return The session service.
 	 * @see GetSessionManager
 	 */
-	virtual TSharedRef<ISessionService> GetSessionService() = 0;
+	virtual TSharedPtr<ISessionService> GetSessionService() = 0;
 
 public:
 

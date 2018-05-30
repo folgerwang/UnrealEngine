@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Interfaces/OnlinePartyInterface.h"
+#include "OnlineSubsystem.h"
 #include "Policies/CondensedJsonPrintPolicy.h"
 #include "Serialization/JsonTypes.h"
 #include "Dom/JsonValue.h"
@@ -92,7 +93,7 @@ void FOnlinePartyData::FromJson(const FString& JsonString)
 			int32 NewRevisionCount = JsonObject->GetIntegerField(TEXT("Rev"));
 			if ((RevisionCount != 0) && (NewRevisionCount != RevisionCount) && (NewRevisionCount != (RevisionCount + 1)))
 			{
-				UE_LOG_ONLINEPARTY(Warning, TEXT("Unexpected revision received.  Current %d, new %d"), RevisionCount, NewRevisionCount);
+				UE_LOG_ONLINE_PARTY(Warning, TEXT("Unexpected revision received.  Current %d, new %d"), RevisionCount, NewRevisionCount);
 			}
 			RevisionCount = NewRevisionCount;
 		}

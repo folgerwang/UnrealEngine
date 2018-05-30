@@ -881,6 +881,9 @@ void FOpenGLDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI,FIntRe
 		return;
 	}
 
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	
+	RHITHREAD_GLCOMMAND_PROLOGUE();
 	TArray<uint8> Temp;
 
 	FOpenGLContextState& ContextState = GetContextStateForCurrentContext();
@@ -895,10 +898,15 @@ void FOpenGLDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI,FIntRe
 
 		FMemory::Memcpy(OutData.GetData(), Temp.GetData(), Size * sizeof(FColor));
 	}
+	RHITHREAD_GLCOMMAND_EPILOGUE();
 }
 
 void FOpenGLDynamicRHI::RHIMapStagingSurface(FTextureRHIParamRef TextureRHI,void*& OutData,int32& OutWidth,int32& OutHeight)
 {
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
+	RHITHREAD_GLCOMMAND_PROLOGUE();
+
 	VERIFY_GL_SCOPE();
 	
 	FOpenGLTexture2D* Texture2D = (FOpenGLTexture2D*)TextureRHI->GetTexture2D();
@@ -910,20 +918,30 @@ void FOpenGLDynamicRHI::RHIMapStagingSurface(FTextureRHIParamRef TextureRHI,void
 	
 	uint32 Stride = 0;
 	OutData = Texture2D->Lock( 0, 0, RLM_ReadOnly, Stride );
+	RHITHREAD_GLCOMMAND_EPILOGUE();
 }
 
 void FOpenGLDynamicRHI::RHIUnmapStagingSurface(FTextureRHIParamRef TextureRHI)
 {
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
+	RHITHREAD_GLCOMMAND_PROLOGUE();
+
 	VERIFY_GL_SCOPE();
 	
 	FOpenGLTexture2D* Texture2D = (FOpenGLTexture2D*)TextureRHI->GetTexture2D();
 	check(Texture2D);
 
 	Texture2D->Unlock( 0, 0 );
+	RHITHREAD_GLCOMMAND_EPILOGUE();
 }
 
 void FOpenGLDynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI,FIntRect Rect,TArray<FFloat16Color>& OutData,ECubeFace CubeFace,int32 ArrayIndex,int32 MipIndex)
 {
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
+	RHITHREAD_GLCOMMAND_PROLOGUE();
+
 	VERIFY_GL_SCOPE();	
 
 	//reading from arrays only supported on SM5 and up.
@@ -991,10 +1009,15 @@ void FOpenGLDynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI,F
 	}
 
 	GetContextStateForCurrentContext().Framebuffer = (GLuint)-1;
+	RHITHREAD_GLCOMMAND_EPILOGUE();
 }
 
 void FOpenGLDynamicRHI::RHIRead3DSurfaceFloatData(FTextureRHIParamRef TextureRHI,FIntRect Rect,FIntPoint ZMinMax,TArray<FFloat16Color>& OutData)
 {
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
+	RHITHREAD_GLCOMMAND_PROLOGUE();
+
 	VERIFY_GL_SCOPE();
 
 	check( FOpenGL::SupportsFloatReadSurface() );
@@ -1047,6 +1070,8 @@ void FOpenGLDynamicRHI::RHIRead3DSurfaceFloatData(FTextureRHIParamRef TextureRHI
 	glDeleteFramebuffers( 1, &SourceFramebuffer);
 	FOpenGL::DeleteTextures( 1, &TempTexture );
 	ContextState.Framebuffer = (GLuint)-1;
+
+	RHITHREAD_GLCOMMAND_EPILOGUE();
 }
 
 

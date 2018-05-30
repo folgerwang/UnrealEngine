@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810467
 Availability: Public
 Crumbs: %ROOT%
 Title: 기어 VR HMD 터치패드 사용
@@ -80,8 +80,8 @@ topic-image:Platforms\GearVR\HowTo\GearVR_How_To_Header.png
     |**Touch**  | N/A |
     |**Set Touch Start**  | N/A |
     |**Set Touch End**  | N/A |
-    |**Get Player Controller ** | N/A |
-    |**Get Input Touch State ** | N/A |
+    |**Get Player Controller** | N/A |
+    |**Get Input Touch State** | N/A |
     |**Make Vector 2D** | N/A |
 
 1. 터치 첫 위치와 마지막 위치를 기록하여 저장한 뒤 나중에 그 둘 사이 거리를 사용하여 탭인지 스와이프인지를 확인할 것입니다. 그러기 위해 먼저 Get Player Controller 노드를 Get Input Touch Start 에 연결하여 사용자의 첫 입력 위치를 트래킹합니다. 작업을 쉽게 하기 위해, Location X 와 Y 를 Make Vector 2D 노드에 연결한 뒤 Make Vector 2D 노드 출력을 Touch Start 와 Touch End 변수의 입력에 연결합니다. 터치 시작과 끝을 쉽게 저장할 수 있도록 도와줍니다. 마지막으로, Input Touch Pressed 를 Touch Start 변수에 연결한 뒤 Input Touch Released 를 Touch End 변수에 연결합니다. 이 작업을 완성한 블루프린트는 다음과 같습니다.
@@ -106,14 +106,14 @@ topic-image:Platforms\GearVR\HowTo\GearVR_How_To_Header.png
 
     |노드 이름 | 기본값 |
     |----------|--------------|
-    |**Touch Start  **| N/A |
-    |**Touch End ** | N/A |
-    |**Vector2d - Vector2d ** | N/A |
-    |**Vector 2d  Length ** | N/A |
-    |**Break Vector 2D ** | N/A |
+    |**Touch Start **| N/A |
+    |**Touch End** | N/A |
+    |**Vector2d - Vector2d** | N/A |
+    |**Vector 2d  Length** | N/A |
+    |**Break Vector 2D** | N/A |
     |**Absolute (Float)** | N/A |
-    |**float < float **| N/A |
-    |**float > float ** | N/A |
+    |**float < float**| N/A |
+    |**float > float** | N/A |
 
 1. 탭인지 스와이프인지 알아내기 전, 먼저 Touch Start 와 Touch End 변수의 차이를 구해 그 거리를 알아내야 합니다. 블루프린트에서 그 작업을 하기 위해, Touch Start 와 Touch End 변수 둘 다 Vector2d - Vector2d 노드 입력에 연결합니다.
 

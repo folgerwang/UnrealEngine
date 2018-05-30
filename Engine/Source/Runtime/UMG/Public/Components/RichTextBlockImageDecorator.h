@@ -28,6 +28,11 @@ public:
 	FSlateBrush Brush;
 };
 
+/**
+ * Allows you to setup an image decorator that can be configured
+ * to map certain keys to certain images.  We recommend you subclass this
+ * as a blueprint to configure the instance.
+ */
 UCLASS()
 class UMG_API URichTextBlockImageDecorator : public URichTextBlockDecorator
 {
@@ -41,6 +46,6 @@ public:
 	FRichImageRow* FindImageRow(FName TagOrId, bool bWarnIfMissing);
 
 protected:
-	UPROPERTY(EditAnywhere, Category = Appearance, meta=(RowType="RichImageRow"))
+	UPROPERTY(EditAnywhere, Category=Appearance, meta=(RowType="RichImageRow"))
 	class UDataTable* ImageSet;
 };

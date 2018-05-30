@@ -369,6 +369,9 @@ public:
 	/** Whether or not this active sound is playing audio, as in making audible sounds. */
 	uint8 bIsPlayingAudio:1;
 
+	/** Whether or not the active sound is stoppping. */
+	uint8 bIsStopping:1;
+
 public:
 	uint8 UserIndex;
 
@@ -590,7 +593,16 @@ private:
 	friend class FAudioDevice;
 
 	/** Stops the active sound. Can only be called from the owning audio device. */
-	void Stop();
+	void Stop(bool bStopNow);
+
+	/** Whether or not the active sound is stopping. */
+	bool IsStopping() const { return bIsStopping; }
+
+	/** Ensures that the sound has finished stopping. Waits until the sound finishes stopping naturally. */
+	void EnsureStopped();
+
+	/** Called when an active sound has been stopped but needs to update it's stopping sounds. Returns true when stopping sources have finished stopping. */
+	bool UpdateStoppingSources(uint64 CurrentTick, bool bEnsureStopped);
 
 	/** Sets the target volume multiplier to achieve over the specified time period */
 	void UpdateAdjustVolumeMultiplier(const float DeltaTime);

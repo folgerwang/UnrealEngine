@@ -359,7 +359,7 @@ const TCHAR* UByteProperty::ImportText_Internal( const TCHAR* InBuffer, void* Da
 			if (EnumIndex == INDEX_NONE && (Temp.IsNumeric() && !Algo::Find(Temp, TEXT('.'))))
 			{
 				int64 EnumValue = INDEX_NONE;
-				Lex::FromString(EnumValue, *Temp);
+				LexFromString(EnumValue, *Temp);
 				EnumIndex = Enum->GetIndexByValue(EnumValue);
 			}
 			if (EnumIndex != INDEX_NONE)

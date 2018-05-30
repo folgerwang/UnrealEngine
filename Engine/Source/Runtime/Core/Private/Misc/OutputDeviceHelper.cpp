@@ -61,21 +61,18 @@ FString FOutputDeviceHelper::FormatLogLine( ELogVerbosity::Type Verbosity, const
 		Format += Category.ToString();
 		Format += TEXT(": ");
 
-		if (Verbosity != ELogVerbosity::Log)
+		if (GPrintLogVerbosity && Verbosity != ELogVerbosity::Log)
 		{
 			Format += VerbosityToString(Verbosity);
 			Format += TEXT(": ");
 		}
 	}
-	else
+	else if (GPrintLogVerbosity && Verbosity != ELogVerbosity::Log)
 	{
-		if (Verbosity != ELogVerbosity::Log)
-		{
 #if !HACK_HEADER_GENERATOR
-			Format += VerbosityToString(Verbosity);
-			Format += TEXT(": ");
+		Format += VerbosityToString(Verbosity);
+		Format += TEXT(": ");
 #endif
-		}
 	}
 
 	if (Message)

@@ -118,6 +118,7 @@ void StaticFailDebug( const TCHAR* Error, const ANSICHAR* File, int32 Line, cons
 	}
 
 	FScopeLock Lock( &FailDebugCriticalSection );
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("%s") FILE_LINE_DESC TEXT("\n%s\n"), Error, ANSI_TO_TCHAR(File), Line, Description);
 
 	// Copy the detailed error into the error message.
 	FCString::Snprintf( GErrorMessage, ARRAY_COUNT( GErrorMessage ), TEXT( "%s" ) FILE_LINE_DESC TEXT( "\n%s\n" ), Error, ANSI_TO_TCHAR( File ), Line, DescriptionAndTrace);
@@ -290,7 +291,10 @@ void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line
 			// The reason why we don't call HeartBeat() at the end of this function is that maybe this thread
 			// Never had a heartbeat checked and may not be sending heartbeats at all which would later lead to a false positives when detecting hangs.
 			FThreadHeartBeat::Get().KillHeartBeat();
-			FGameThreadHitchHeartBeat::Get().FrameStart(true);
+			if (IsInGameThread())
+			{
+				FGameThreadHitchHeartBeat::Get().FrameStart(true);
+			}
 
 			{
 #if STATS

@@ -71,7 +71,14 @@ void UCameraShake::StopShake(bool bImmediately)
 	else
 	{
 		// advance to the blend out time
-		OscillatorTimeRemaining = FMath::Min(OscillatorTimeRemaining, OscillationBlendOutTime);
+		if (OscillatorTimeRemaining > 0.0f)
+		{
+			OscillatorTimeRemaining = FMath::Min(OscillatorTimeRemaining, OscillationBlendOutTime);
+		}
+		else
+		{
+			OscillatorTimeRemaining = OscillationBlendOutTime;
+		}
 
 		if (AnimInst && !AnimInst->bFinished)
 		{

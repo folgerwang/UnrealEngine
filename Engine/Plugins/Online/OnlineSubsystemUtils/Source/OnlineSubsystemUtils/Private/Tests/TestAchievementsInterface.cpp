@@ -17,7 +17,7 @@
 
 void FTestAchievementsInterface::Test(UWorld* InWorld)
 {
-	UE_LOG(LogOnline, Display, TEXT("FTestAchievementsInterface::Test"));
+	UE_LOG_ONLINE_ACHIEVEMENTS(Display, TEXT("FTestAchievementsInterface::Test"));
 
 	IOnlineSubsystem* OnlineSub = Online::GetSubsystem(InWorld, FName(*SubsystemName));
 	check(OnlineSub); 
@@ -35,7 +35,7 @@ void FTestAchievementsInterface::Test(UWorld* InWorld)
 	}
 	else
 	{
-		UE_LOG(LogOnline, Warning, TEXT("TEST FAILED: OSS [%s] does not have a valid achievement interface or identity interface for this test to run."), *SubsystemName );
+		UE_LOG_ONLINE_ACHIEVEMENTS(Warning, TEXT("TEST FAILED: OSS [%s] does not have a valid achievement interface or identity interface for this test to run."), *SubsystemName );
 		delete this;
 	}
 }
@@ -50,24 +50,24 @@ void FTestAchievementsInterface::ReadAchievements()
 
 void FTestAchievementsInterface::OnQueryAchievementsComplete(const FUniqueNetId& PlayerId, const bool bWasSuccessful)
 {
-	UE_LOG(LogOnline, Display, TEXT("FTestAchievementsInterface::OnQueryAchievementsComplete"));
+	UE_LOG_ONLINE_ACHIEVEMENTS(Display, TEXT("FTestAchievementsInterface::OnQueryAchievementsComplete"));
 
 	if (bWasSuccessful)
 	{
-		UE_LOG(LogOnline, Display, TEXT("Loaded Achievements"));
+		UE_LOG_ONLINE_ACHIEVEMENTS(Display, TEXT("Loaded Achievements"));
 
 		TArray<FOnlineAchievement> PlayerAchievements;
 		if (OnlineAchievements->GetCachedAchievements(*UserId.Get(), PlayerAchievements) != EOnlineCachedResult::Success || PlayerAchievements.Num() == 0)
 		{
-			UE_LOG(LogOnline, Warning, TEXT("TEST FAILED: Either GetCachedAchievements() failed or number of achievements is 0"));
+			UE_LOG_ONLINE_ACHIEVEMENTS(Warning, TEXT("TEST FAILED: Either GetCachedAchievements() failed or number of achievements is 0"));
 			delete this;
 			return;
 		}
 
-		UE_LOG(LogOnline, Display, TEXT("Number of Achievements: %d"), PlayerAchievements.Num());
+		UE_LOG_ONLINE_ACHIEVEMENTS(Display, TEXT("Number of Achievements: %d"), PlayerAchievements.Num());
 		for(int32 Idx = 0; Idx < PlayerAchievements.Num(); ++Idx)
 		{
-			UE_LOG(LogOnline, Display, TEXT(" Achievement %d: %s"), Idx, *PlayerAchievements[ Idx ].ToDebugString());
+			UE_LOG_ONLINE_ACHIEVEMENTS(Display, TEXT(" Achievement %d: %s"), Idx, *PlayerAchievements[ Idx ].ToDebugString());
 		}
 
 		QueryAchievementDescriptions( PlayerId );
@@ -75,7 +75,7 @@ void FTestAchievementsInterface::OnQueryAchievementsComplete(const FUniqueNetId&
 	else
 	{
 		// if our test failed, be sure to clean itself up
-		UE_LOG(LogOnline, Display, TEXT("TEST FAILED: Failed to Load Achievements"));
+		UE_LOG_ONLINE_ACHIEVEMENTS(Display, TEXT("TEST FAILED: Failed to Load Achievements"));
 		delete this;
 	}
 }
@@ -90,16 +90,16 @@ void FTestAchievementsInterface::QueryAchievementDescriptions(const FUniqueNetId
 
 void FTestAchievementsInterface::OnQueryAchievementDescriptionsComplete(const FUniqueNetId& PlayerId, const bool bWasSuccessful)
 {
-	UE_LOG(LogOnline, Display, TEXT("FTestAchievementsInterface::OnQueryAchievementDescriptionsComplete"));
+	UE_LOG_ONLINE_ACHIEVEMENTS(Display, TEXT("FTestAchievementsInterface::OnQueryAchievementDescriptionsComplete"));
 
 	if (bWasSuccessful)
 	{
-		UE_LOG(LogOnline, Display, TEXT("Loaded Achievement descriptions"));
+		UE_LOG_ONLINE_ACHIEVEMENTS(Display, TEXT("Loaded Achievement descriptions"));
 
 		TArray<FOnlineAchievement> PlayerAchievements;
 		if (OnlineAchievements->GetCachedAchievements(*UserId.Get(), PlayerAchievements) != EOnlineCachedResult::Success || PlayerAchievements.Num() == 0)
 		{
-			UE_LOG(LogOnline, Warning, TEXT("TEST FAILED: Either GetCachedAchievements() failed or number of achievements is 0"));
+			UE_LOG_ONLINE_ACHIEVEMENTS(Warning, TEXT("TEST FAILED: Either GetCachedAchievements() failed or number of achievements is 0"));
 			delete this;
 			return;
 		}
@@ -109,13 +109,13 @@ void FTestAchievementsInterface::OnQueryAchievementDescriptionsComplete(const FU
 			FOnlineAchievementDesc Desc;
 			if (OnlineAchievements->GetCachedAchievementDescription(PlayerAchievements[ Idx ].Id, Desc) != EOnlineCachedResult::Success)
 			{
-				UE_LOG(LogOnline, Warning, TEXT("Failed to GetCachedAchievementDescription() for achievement '%s'"),
+				UE_LOG_ONLINE_ACHIEVEMENTS(Warning, TEXT("Failed to GetCachedAchievementDescription() for achievement '%s'"),
 					*PlayerAchievements[ Idx ].Id
 					);
 				delete this;
 				return;
 			}
-			UE_LOG(LogOnline, Display, TEXT(" Descriptor for achievement '%s': %s"), *PlayerAchievements[ Idx ].Id, *Desc.ToDebugString());
+			UE_LOG_ONLINE_ACHIEVEMENTS(Display, TEXT(" Descriptor for achievement '%s': %s"), *PlayerAchievements[ Idx ].Id, *Desc.ToDebugString());
 		}
 		
 		WriteAchievements();
@@ -123,7 +123,7 @@ void FTestAchievementsInterface::OnQueryAchievementDescriptionsComplete(const FU
 	else
 	{
 		// if our test failed, be sure to clean itself up
-		UE_LOG(LogOnline, Warning, TEXT("TEST FAILED: Failed to Load Achievement descriptions"));
+		UE_LOG_ONLINE_ACHIEVEMENTS(Warning, TEXT("TEST FAILED: Failed to Load Achievement descriptions"));
 		delete this;
 	}
 }
@@ -137,7 +137,7 @@ void FTestAchievementsInterface::WriteAchievements()
 	TArray<FOnlineAchievement> PlayerAchievements;
 	if (OnlineAchievements->GetCachedAchievements(*UserId.Get(), PlayerAchievements) != EOnlineCachedResult::Success || PlayerAchievements.Num() == 0)
 	{
-		UE_LOG(LogOnline, Warning, TEXT("TEST FAILED: Either GetCachedAchievements() failed or number of achievements is 0"));
+		UE_LOG_ONLINE_ACHIEVEMENTS(Warning, TEXT("TEST FAILED: Either GetCachedAchievements() failed or number of achievements is 0"));
 		delete this;
 		return;
 	}
@@ -166,7 +166,7 @@ void FTestAchievementsInterface::WriteAchievements()
 
 void FTestAchievementsInterface::OnAchievementsWritten(const FUniqueNetId& PlayerId, bool bWasSuccessful)
 {
-	UE_LOG(LogOnline, Display, TEXT("FTestAchievementsInterface::OnAchievementsWritten( bWasSuccessful = %s )"), bWasSuccessful ? TEXT("true") : TEXT("false"));
+	UE_LOG_ONLINE_ACHIEVEMENTS(Display, TEXT("FTestAchievementsInterface::OnAchievementsWritten( bWasSuccessful = %s )"), bWasSuccessful ? TEXT("true") : TEXT("false"));
 
 	// Clear our delegate and delete this test.
 	OnlineAchievements->ClearOnAchievementUnlockedDelegate_Handle(OnAchievementUnlockedDelegateHandle);
@@ -177,13 +177,13 @@ void FTestAchievementsInterface::OnAchievementsWritten(const FUniqueNetId& Playe
 		OnlineAchievements->ResetAchievements(*UserId.Get());
 #endif // !UE_BUILD_SHIPPING
 		// TODO: spin for a while?
-		UE_LOG(LogOnline, Display, TEXT("TEST COMPLETED SUCCESSFULLY."));
+		UE_LOG_ONLINE_ACHIEVEMENTS(Display, TEXT("TEST COMPLETED SUCCESSFULLY."));
 	}
 	else
 	{
 		if (WriteObject->WriteState != EOnlineAsyncTaskState::Done)
 		{
-			UE_LOG(LogOnline, Warning, TEXT("TEST FAILED: WriteObject->WriteState is not in state %s, but instead %s"),
+			UE_LOG_ONLINE_ACHIEVEMENTS(Warning, TEXT("TEST FAILED: WriteObject->WriteState is not in state %s, but instead %s"),
 				EOnlineAsyncTaskState::ToString(EOnlineAsyncTaskState::Done),
 				EOnlineAsyncTaskState::ToString(WriteObject->WriteState)
 				);
@@ -191,7 +191,7 @@ void FTestAchievementsInterface::OnAchievementsWritten(const FUniqueNetId& Playe
 
 		if (!bWasSuccessful)
 		{
-			UE_LOG(LogOnline, Warning, TEXT("TEST FAILED: Write did not complete successfully") );
+			UE_LOG_ONLINE_ACHIEVEMENTS(Warning, TEXT("TEST FAILED: Write did not complete successfully") );
 		}
 	}
 
@@ -200,7 +200,7 @@ void FTestAchievementsInterface::OnAchievementsWritten(const FUniqueNetId& Playe
 
 void FTestAchievementsInterface::OnAchievementsUnlocked(const FUniqueNetId& PlayerId, const FString& AchievementId)
 {
-	UE_LOG(LogOnline, Display, TEXT("Achievement Unlocked - %s"), *AchievementId);
+	UE_LOG_ONLINE_ACHIEVEMENTS(Display, TEXT("Achievement Unlocked - %s"), *AchievementId);
 }
 
 #endif //WITH_DEV_AUTOMATION_TESTS

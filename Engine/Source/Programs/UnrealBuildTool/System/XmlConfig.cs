@@ -87,6 +87,8 @@ namespace UnrealBuildTool
 				{
 					if(!TryReadFile(InputFile, CategoryToFields, TypeToValues, Schema))
 					{
+						Log.TraceError("Failed to properly read XML file : {0}", InputFile.FullName);
+
 						return false;
 					}
 				}

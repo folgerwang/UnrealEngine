@@ -112,7 +112,8 @@ struct FCustomChannelSetup
 	bool bStaticObject;	
 
 	FCustomChannelSetup()
-		: DefaultResponse(ECR_Block)
+		: Channel(ECC_WorldStatic)
+		, DefaultResponse(ECR_Block)
 		, bTraceType(false)
 		, bStaticObject(false)
 	{ }

@@ -137,9 +137,9 @@ public:
 	int32 RemoveAllEvents(TFunctionRef<bool(FAutomationEvent&)> FilterPredicate);
 
 	/** Any errors that occurred during execution */
-	const TArray<FAutomationEvent>& GetEvents() const { return Events; }
+	const TArray<FAutomationExecutionEntry>& GetEntries() const { return Entries; }
 
-	void AddEvent(const FAutomationEvent& Event);
+	void AddEvent(const FAutomationEvent& Event, int StackOffset = 0);
 
 	void AddWarning(const FString& WarningMessage);
 	void AddError(const FString& ErrorMessage);
@@ -179,7 +179,7 @@ public:
 
 private:
 	/** Any errors that occurred during execution */
-	TArray<FAutomationEvent> Events;
+	TArray<FAutomationExecutionEntry> Entries;
 
 	int32 Errors;
 	int32 Warnings;
@@ -549,6 +549,7 @@ struct FAutomationScreenshotData
 {
 	FString Name;
 	FString Context;
+	FString Notes;
 
 	FGuid Id;
 	FString Commit;
@@ -623,6 +624,27 @@ struct FAutomationScreenshotData
 	}
 };
 
+struct CORE_API FAutomationScreenshotCompareResults
+{
+	FAutomationScreenshotCompareResults()
+		: UniqueId()
+		, bWasNew(false)
+		, bWasSimilar(false)
+		, MaxLocalDifference(0)
+		, GlobalDifference(0)
+		, ErrorMessage()
+	{
+	}
+
+	FGuid UniqueId;
+	bool bWasNew;
+	bool bWasSimilar;
+	double MaxLocalDifference;
+	double GlobalDifference;
+	FString ErrorMessage;
+
+	FAutomationEvent ToAutomationEvent(const FString& ScreenhotName) const;
+};
 
 
 /**
@@ -633,7 +655,7 @@ struct FAutomationScreenshotData
  */
 DECLARE_DELEGATE_TwoParams(FOnTestScreenshotCaptured, const TArray<FColor>&, const FAutomationScreenshotData&);
 
-DECLARE_MULTICAST_DELEGATE_FiveParams(FOnTestScreenshotComparisonComplete, bool /*bWasNew*/, bool /*bWasSimilar*/, double /*MaxLocalDifference*/, double /*GlobalDifference*/, FString /*ErrorMessage*/);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnTestScreenshotComparisonComplete, const FAutomationScreenshotCompareResults& /*CompareResults*/);
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTestDataRetrieved, bool /*bWasNew*/, const FString& /*JsonData*/);
 
@@ -832,7 +854,7 @@ public:
 	bool GetTreatWarningsAsErrors() const;
 	void SetTreatWarningsAsErrors(TOptional<bool> bTreatWarningsAsErrors);
 
-	void NotifyScreenshotComparisonComplete(bool bWasNew, bool bWasSimilar, double MaxLocalDifference, double GlobalDifference, FString ErrorMessage);
+	void NotifyScreenshotComparisonComplete(const FAutomationScreenshotCompareResults& CompareResults);
 	void NotifyTestDataRetrieved(bool bWasNew, const FString& JsonData);
 	void NotifyPerformanceDataRetrieved(bool bSuccess, const FString& ErrorMessage);
 
@@ -997,6 +1019,9 @@ public:
 	 */
 	virtual uint32 GetTestFlags() const = 0;
 
+	/** Gets the C++ name of the test. */
+	FString GetTestName() const { return TestName; }
+
 	/**
 	 * Pure virtual method; returns the number of participants for this test
 	 *
@@ -1021,7 +1046,7 @@ public:
 	 * @param	InFilename	The filename the error originated in
 	 * @param	InLineNumber	The line number in the file this error originated in
 	 */
-	virtual void AddError(const FString& InError, const FString& InFilename, int32 InLineNumber);
+	virtual void AddErrorS(const FString& InError, const FString& InFilename, int32 InLineNumber);
 
 	/**
 	 * Adds an warning message to this test
@@ -1030,7 +1055,7 @@ public:
 	 * @param	InFilename	The filename the error originated in
 	 * @param	InLineNumber	The line number in the file this error originated in
 	 */
-	virtual void AddWarning(const FString& InWarning, const FString& InFilename, int32 InLineNumber);
+	virtual void AddWarningS(const FString& InWarning, const FString& InFilename, int32 InLineNumber);
 
 	/**
 	 * Adds a warning to this test
@@ -1051,6 +1076,13 @@ public:
 	 * @param	InLogItem	Log item to add to this test
 	 */
 	virtual void AddInfo( const FString& InLogItem, int32 StackOffset = 0);
+
+	/**
+	 * Adds an automation event directly into the execution log.
+	 *
+	 * @param	InLogItem	Log item to add to this test
+	 */
+	virtual void AddEvent(const FAutomationEvent& InEvent, int32 StackOffset = 0);
 
 	/**
 	 * Adds a analytics string to parse later

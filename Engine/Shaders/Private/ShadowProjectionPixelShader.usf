@@ -100,8 +100,7 @@ void Main(
 	float SceneW = CalcSceneDepth( ScreenUV );
 	float4 ScreenPosition = float4(((ScreenUV.xy - View.ScreenPositionScaleBias.wz ) / View.ScreenPositionScaleBias.xy) * SceneW, SceneW, 1);
 	float4 ShadowPosition = mul(ScreenPosition, ScreenToShadowMatrix);
-	float4 HomogeneousWorldPosition = mul(ScreenPosition, View.ScreenToWorld);
-	float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+	float3 WorldPosition = mul(ScreenPosition, View.ScreenToWorld).xyz;
 
 	float ShadowZ = ShadowPosition.z;
 	ShadowPosition.xyz /= ShadowPosition.w;
@@ -315,8 +314,7 @@ void MainOnePassPointLightPS(
 	float2 ScreenUV = float2( SVPos.xy * View.BufferSizeAndInvSize.zw );
 	float SceneW = CalcSceneDepth( ScreenUV );
 	float2 ScreenPosition = ( ScreenUV.xy - View.ScreenPositionScaleBias.wz ) / View.ScreenPositionScaleBias.xy;
-	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition.xy * SceneW, SceneW, 1), View.ScreenToWorld);
- 	float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+	float3 WorldPosition = mul(float4(ScreenPosition.xy * SceneW, SceneW, 1), View.ScreenToWorld).xyz;
 
 	// For debugging
 #define OUTPUT_CUBE_SHADOW_DEPTH_NO_FILTERING 0

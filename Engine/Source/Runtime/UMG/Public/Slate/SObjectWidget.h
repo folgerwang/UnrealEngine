@@ -44,6 +44,7 @@ class UMG_API SObjectWidget : public SCompoundWidget, public FGCObject
 	void ResetWidget();
 
 	// FGCObject interface
+	virtual FString GetReferencerName() const override;
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 	// End of FGCObject interface
 
@@ -51,6 +52,7 @@ class UMG_API SObjectWidget : public SCompoundWidget, public FGCObject
 
 	void SetPadding(const TAttribute<FMargin>& InMargin);
 
+	/** SWidget Tick override.  Note this will not be called if bCanTick is set to false by the UserWidget */
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 
@@ -95,8 +97,10 @@ class UMG_API SObjectWidget : public SCompoundWidget, public FGCObject
 
 	virtual FNavigationReply OnNavigation(const FGeometry& MyGeometry, const FNavigationEvent& InNavigationEvent) override;
 
-	virtual void OnMouseCaptureLost() override;
+	virtual void OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent) override;
 
+	void SetCanTick(bool bInCanTick) { bCanTick = bInCanTick; }
+	bool GetCanTick() { return bCanTick; }
 protected:
 
 	/** The UWidget that created this SObjectWidget who needs to be kept alive. */
@@ -109,6 +113,7 @@ private:
 	}
 
 #if SLATE_VERBOSE_NAMED_EVENTS
+	FString DebugName;
 	FString DebugTickEventName;
 	FString DebugPaintEventName;
 #endif

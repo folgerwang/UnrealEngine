@@ -184,8 +184,8 @@ EScreenPhysicalAccuracy FAndroidApplicationMisc::ComputePhysicalScreenDensity(in
 	DPIStrings.ParseIntoArray(DPIValues, TEXT(","));
 
 	float xdpi, ydpi;
-	LexicalConversion::FromString(xdpi, *DPIValues[0]);
-	LexicalConversion::FromString(ydpi, *DPIValues[1]);
+	LexFromString(xdpi, *DPIValues[0]);
+	LexFromString(ydpi, *DPIValues[1]);
 
 	OutScreenDensity = ( xdpi + ydpi ) / 2.0f;
 

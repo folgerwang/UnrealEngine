@@ -57,8 +57,6 @@ public:
 	virtual bool ClientHasInitializedLevelFor( const AActor* TestActor ) const override;
 	virtual TSharedPtr<FObjectReplicator> CreateReplicatorForNewActorChannel(UObject* Object);
 
-	virtual void FlushDormancy( class AActor* Actor ) override;
-
 public:
 
 	/** @return The DemoRecording driver object */
@@ -75,6 +73,11 @@ public:
 
 	TArray<FQueuedDemoPacket> QueuedDemoPackets;
 	TArray<FQueuedDemoPacket> QueuedCheckpointPackets;
+
+protected:
+	virtual void DestroyIgnoredActor(AActor* Actor) override;
+
+	void QueueInitialDormantStartupActorForRewind(AActor* Actor);
 
 private:
 	void TrackSendForProfiler(const void* Data, int32 NumBytes);

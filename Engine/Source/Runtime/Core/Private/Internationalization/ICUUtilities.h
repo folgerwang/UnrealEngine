@@ -46,7 +46,7 @@ namespace ICUUtilities
 	template <> struct FStringConverterImpl_PlatformSpecific<true, 2> { typedef FStringConverterImpl_NativeUTF16 Type; }; // A unicode encoding with a wchar_t size of 2 bytes is assumed to be UTF-16
 	typedef FStringConverterImpl_PlatformSpecific<FPlatformString::IsUnicodeEncoded, sizeof(TCHAR)>::Type FStringConverterImpl;
 
-	/** 
+	/**
 	 * An object that can convert between FString and icu::UnicodeString
 	 * Note: This object is not thread-safe.
 	 */

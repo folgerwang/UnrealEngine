@@ -32,7 +32,7 @@ void HLODOutliner::FLODActorItem::GenerateContextMenu(FMenuBuilder& MenuBuilder,
 
 	MenuBuilder.AddMenuEntry(LOCTEXT("SelectContainedActors", "Select Contained Actors"), FText(), FSlateIcon(), FUIAction(FExecuteAction::CreateRaw(&Outliner, &SHLODOutliner::SelectContainedActors)));
 
-	if (LODActor->IsDirty())
+	if (!LODActor->IsBuilt())
 	{
 		MenuBuilder.AddMenuEntry(LOCTEXT("BuildLODActorMesh", "Build Proxy Mesh"), FText(), FSlateIcon(), FUIAction(FExecuteAction::CreateRaw(&Outliner, &SHLODOutliner::BuildLODActor)));
 	}
@@ -62,7 +62,7 @@ FString HLODOutliner::FLODActorItem::GetDisplayString() const
 {
 	if (ALODActor* ActorPtr = LODActor.Get())
 	{
-		FString DisplayName = ActorPtr->GetName() + (!ActorPtr->HasValidSubActors() ? FString(" (Not enough mesh components)") : ((ActorPtr->IsDirty()) ? FString(" (Not built)") : FString()));
+		FString DisplayName = ActorPtr->GetName() + (!ActorPtr->HasValidSubActors() ? FString(" (Not enough mesh components)") : ((!ActorPtr->IsBuilt()) ? FString(" (Not built)") : FString()));
 
 		// Temporary indication of custom settings
 		if (ActorPtr->bOverrideMaterialMergeSettings || ActorPtr->bOverrideScreenSize || ActorPtr->bOverrideTransitionScreenSize)
@@ -86,7 +86,7 @@ FSlateColor HLODOutliner::FLODActorItem::GetTint() const
 	ALODActor* LODActorPtr = LODActor.Get();
 	if (LODActorPtr)
 	{
-		return LODActorPtr->IsDirty() ? FSlateColor::UseSubduedForeground() : FLinearColor(1.0f, 1.0f, 1.0f);
+		return !LODActorPtr->IsBuilt() ? FSlateColor::UseSubduedForeground() : FLinearColor(1.0f, 1.0f, 1.0f);
 	}
 
 	return FLinearColor(1.0f, 1.0f, 1.0f);

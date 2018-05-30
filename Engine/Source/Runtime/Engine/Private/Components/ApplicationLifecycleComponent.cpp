@@ -22,6 +22,7 @@ void UApplicationLifecycleComponent::OnRegister()
 	FCoreDelegates::ApplicationReceivedStartupArgumentsDelegate.AddUObject(this, &UApplicationLifecycleComponent::ApplicationReceivedStartupArgumentsDelegate_Handler);
 
 	FCoreDelegates::OnTemperatureChange.AddUObject(this, &UApplicationLifecycleComponent::OnTemperatureChangeDelegate_Handler);
+	FCoreDelegates::OnLowPowerMode.AddUObject(this, &UApplicationLifecycleComponent::OnLowPowerModeDelegate_Handler);
 }
 
 void UApplicationLifecycleComponent::OnUnregister()
@@ -36,4 +37,5 @@ void UApplicationLifecycleComponent::OnUnregister()
  	FCoreDelegates::ApplicationShouldUnloadResourcesDelegate.RemoveAll(this);
  	FCoreDelegates::ApplicationReceivedStartupArgumentsDelegate.RemoveAll(this);
 	FCoreDelegates::OnTemperatureChange.RemoveAll(this);
+	FCoreDelegates::OnLowPowerMode.RemoveAll(this);
 }

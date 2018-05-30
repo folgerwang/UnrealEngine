@@ -466,7 +466,11 @@ void FVariantData::GetValue(TSharedPtr<FJsonObject>& OutData) const
 	{
 		FString SerializedData;
 		auto Reader = TJsonReaderFactory<TCHAR>::Create(Value.AsTCHAR);
-		FJsonSerializer::Deserialize(Reader, OutData);
+		if (!FJsonSerializer::Deserialize(Reader, OutData))
+		{
+			OutData = MakeShared<FJsonObject>();
+			UE_LOG_ONLINE(Warning, TEXT("Invalid serialized json in FVariantData: %s"), Value.AsTCHAR);
+		}
 	}
 	else
 	{
@@ -1060,7 +1064,7 @@ bool FVariantDataConverter::VariantMapToUStruct(const FOnlineKeyValuePairs<FStri
 		void* Value = Property->ContainerPtrToValuePtr<uint8>(OutStruct);
 		if (!VariantDataToUProperty(VariantData, Property, Value, CheckFlags, SkipFlags))
 		{
-			UE_LOG(LogOnline, Error, TEXT("VariantMapToUStruct - Unable to parse %s.%s from Variant"), *StructDefinition->GetName(), *PropertyName);
+			UE_LOG_ONLINE(Error, TEXT("VariantMapToUStruct - Unable to parse %s.%s from Variant"), *StructDefinition->GetName(), *PropertyName);
 			return false;
 		}
 	}
@@ -1072,13 +1076,13 @@ bool FVariantDataConverter::VariantDataToUProperty(const FVariantData* Variant, 
 {
 	if (!Variant)
 	{
-		UE_LOG(LogOnline, Error, TEXT("VariantDataToUProperty - Invalid value"));
+		UE_LOG_ONLINE(Error, TEXT("VariantDataToUProperty - Invalid value"));
 		return false;
 	}
 
 	if (Property->ArrayDim != 1)
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Ignoring excess properties when deserializing %s"), *Property->GetName());
+		UE_LOG_ONLINE(Warning, TEXT("Ignoring excess properties when deserializing %s"), *Property->GetName());
 	}
 
 	return ConvertScalarVariantToUProperty(Variant, Property, OutValue, CheckFlags, SkipFlags);
@@ -1146,7 +1150,7 @@ bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* 
 			EnumProperty->GetUnderlyingProperty()->SetIntPropertyValue(OutValue, Value);
 		}
 
-		UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable to import enum %s from %s value for property %s"), *Enum->CppType, Variant->GetTypeString(), *Property->GetNameCPP());
+		UE_LOG_ONLINE(Error, TEXT("ConvertScalarVariantToUProperty - Unable to import enum %s from %s value for property %s"), *Enum->CppType, Variant->GetTypeString(), *Property->GetNameCPP());
 		return false;
 	}
 	else if (UNumericProperty* NumericProperty = Cast<UNumericProperty>(Property))
@@ -1162,7 +1166,7 @@ bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* 
 			int32 IntValue = Enum->GetValueByName(FName(*StrValue));
 			if (IntValue == INDEX_NONE)
 			{
-				UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable import enum %s from string value %s for property %s"), *Enum->CppType, *StrValue, *Property->GetNameCPP());
+				UE_LOG_ONLINE(Error, TEXT("ConvertScalarVariantToUProperty - Unable import enum %s from string value %s for property %s"), *Enum->CppType, *StrValue, *Property->GetNameCPP());
 				return false;
 			}
 			NumericProperty->SetIntPropertyValue(OutValue, (int64)IntValue);
@@ -1238,7 +1242,7 @@ bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* 
 		}
 		else
 		{
-			UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable to set numeric property type %s for property %s"), *Property->GetClass()->GetName(), *Property->GetNameCPP());
+			UE_LOG_ONLINE(Error, TEXT("ConvertScalarVariantToUProperty - Unable to set numeric property type %s for property %s"), *Property->GetClass()->GetName(), *Property->GetNameCPP());
 			return false;
 		}
 	}
@@ -1263,13 +1267,13 @@ bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* 
 		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(StrValue);
 		if (!FJsonSerializer::Deserialize(JsonReader, JsonObject) || !JsonObject.IsValid())
 		{
-			UE_LOG(LogOnline, Warning, TEXT("ConvertScalarVariantToUProperty - Unable to parse json=[%s]"), *StrValue);
+			UE_LOG_ONLINE(Warning, TEXT("ConvertScalarVariantToUProperty - Unable to parse json=[%s]"), *StrValue);
 			return false;
 		}
 		
 		if (!FJsonObjectConverter::JsonValueToUProperty(JsonObject->GetField<EJson::Array>(Property->GetNameCPP()), Property, OutValue, 0, 0))
 		{
-			UE_LOG(LogOnline, Warning, TEXT("ConvertScalarVariantToUProperty - Unable to parse %s from JSON"), *Property->GetNameCPP());
+			UE_LOG_ONLINE(Warning, TEXT("ConvertScalarVariantToUProperty - Unable to parse %s from JSON"), *Property->GetNameCPP());
 			return false;
 		}
 	}
@@ -1284,7 +1288,7 @@ bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* 
 		}
 		else
 		{
-			UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Attempted to import FText from variant that was not a string for property %s"), *Property->GetNameCPP());
+			UE_LOG_ONLINE(Error, TEXT("ConvertScalarVariantToUProperty - Attempted to import FText from variant that was not a string for property %s"), *Property->GetNameCPP());
 			return false;
 		}
 	}
@@ -1314,7 +1318,7 @@ bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* 
 			}
 			else if (!FDateTime::ParseIso8601(*DateString, DateTimeOut))
 			{
-				UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable to import FDateTime from Iso8601 String for property %s"), *Property->GetNameCPP());
+				UE_LOG_ONLINE(Error, TEXT("ConvertScalarVariantToUProperty - Unable to import FDateTime from Iso8601 String for property %s"), *Property->GetNameCPP());
 				return false;
 			}
 		}
@@ -1323,18 +1327,33 @@ bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* 
 			FString StrValue;
 			Variant->GetValue(StrValue);
 
-			TSharedPtr<FJsonObject> JsonObject;
-			TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(StrValue);
-			if (!FJsonSerializer::Deserialize(JsonReader, JsonObject) || !JsonObject.IsValid())
+			UScriptStruct::ICppStructOps* TheCppStructOps = StructProperty->Struct->GetCppStructOps();
+			if (StructProperty->Struct != FJsonObjectWrapper::StaticStruct() && TheCppStructOps && TheCppStructOps->HasImportTextItem())
 			{
-				UE_LOG(LogOnline, Warning, TEXT("ConvertScalarVariantToUProperty - Unable to parse json=[%s]"), *StrValue);
-				return false;
+				// Has its own way of converting a string back to the right data type (FUniqueNetIdRepl for instance)
+				const TCHAR* ImportTextPtr = *StrValue;
+				if (!TheCppStructOps->ImportTextItem(ImportTextPtr, OutValue, PPF_None, nullptr, (FOutputDevice*)GWarn))
+				{
+					// Fall back to trying the tagged property approach if custom ImportTextItem couldn't get it done
+					Property->ImportText(ImportTextPtr, OutValue, PPF_None, nullptr);
+				}
 			}
-
-			if (!FJsonObjectConverter::JsonValueToUProperty(JsonObject->GetField<EJson::Object>(Property->GetNameCPP()), Property, OutValue, 0, 0))
+			else
 			{
-				UE_LOG(LogOnline, Warning, TEXT("ConvertScalarVariantToUProperty - Unable to parse %s from JSON"), *Property->GetNameCPP());
-				return false;
+				// More complicated UStructs convert to/from Json Objects
+				TSharedPtr<FJsonObject> JsonObject;
+				TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(StrValue);
+				if (!FJsonSerializer::Deserialize(JsonReader, JsonObject) || !JsonObject.IsValid())
+				{
+					UE_LOG_ONLINE(Warning, TEXT("ConvertScalarVariantToUProperty - Unable to parse json=[%s]"), *StrValue);
+					return false;
+				}
+
+				if (!FJsonObjectConverter::JsonValueToUProperty(JsonObject->GetField<EJson::Object>(Property->GetNameCPP()), Property, OutValue, 0, 0))
+				{
+					UE_LOG_ONLINE(Warning, TEXT("ConvertScalarVariantToUProperty - Unable to parse %s from JSON"), *Property->GetNameCPP());
+					return false;
+				}
 			}
 		}
 	}
@@ -1347,13 +1366,13 @@ bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* 
 			Variant->GetValue(StrValue);
 			if (Property->ImportText(*StrValue, OutValue, 0, nullptr) == nullptr)
 			{
-				UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable import property type %s from string value for property %s"), *Property->GetClass()->GetName(), *Property->GetNameCPP());
+				UE_LOG_ONLINE(Error, TEXT("ConvertScalarVariantToUProperty - Unable import property type %s from string value for property %s"), *Property->GetClass()->GetName(), *Property->GetNameCPP());
 				return false;
 			}
 		}
 		else
 		{
-			UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable import property type %s from string value for property %s"), *Property->GetClass()->GetName(), *Property->GetNameCPP());
+			UE_LOG_ONLINE(Error, TEXT("ConvertScalarVariantToUProperty - Unable import property type %s from string value for property %s"), *Property->GetClass()->GetName(), *Property->GetNameCPP());
 		}
 	}
 
@@ -1388,7 +1407,7 @@ bool FVariantDataConverter::UStructToVariantMap(const UStruct* StructDefinition,
 		{
 			VariantData.Empty();
 			UClass* PropClass = Property->GetClass();
-			UE_LOG(LogOnline, Error, TEXT("UStructToVariantMap - Unhandled property type '%s': %s"), *PropClass->GetName(), *Property->GetPathName());
+			UE_LOG_ONLINE(Error, TEXT("UStructToVariantMap - Unhandled property type '%s': %s"), *PropClass->GetName(), *Property->GetPathName());
 			return false;
 		}
 	}
@@ -1405,7 +1424,7 @@ bool FVariantDataConverter::UPropertyToVariantData(UProperty* Property, const vo
 	else 
 	{ 
 		UClass* PropClass = Property->GetClass();
-		UE_LOG(LogOnline, Error, TEXT("UPropertyToVariantData - ArrayDim > 1 for '%s': %s"), *PropClass->GetName(), *Property->GetPathName());
+		UE_LOG_ONLINE(Error, TEXT("UPropertyToVariantData - ArrayDim > 1 for '%s': %s"), *PropClass->GetName(), *Property->GetPathName());
 	}
 
 	return false;
@@ -1490,7 +1509,19 @@ bool FVariantDataConverter::ConvertScalarUPropertyToVariant(UProperty* Property,
 		}
 		else
 		{
-			ConvertScalarUPropertyToJsonObject_Helper(Property, Value, OutVariantData);
+			UScriptStruct::ICppStructOps* TheCppStructOps = StructProperty->Struct->GetCppStructOps();
+			if (StructProperty->Struct != FJsonObjectWrapper::StaticStruct() && TheCppStructOps && TheCppStructOps->HasExportTextItem())
+			{
+				// If the struct has its own way of making a string, store it as such (FUniqueNetIdRepl for instance)
+				FString OutValueStr;
+				TheCppStructOps->ExportTextItem(OutValueStr, Value, nullptr, nullptr, PPF_None, nullptr);
+				OutVariantData.SetValue(OutValueStr);
+			}
+			else
+			{
+				// More complicated UStructs convert to/from Json Objects
+				ConvertScalarUPropertyToJsonObject_Helper(Property, Value, OutVariantData);
+			}
 		}
 	}
 	

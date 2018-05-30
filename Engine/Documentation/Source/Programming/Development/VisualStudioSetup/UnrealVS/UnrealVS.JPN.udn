@@ -63,7 +63,7 @@ UnrealVS 拡張は Visual Studio Express 版と連動しません。Visual Studi
 
 	![UnrealVS Customize Toolbar](toolbar_customize.png)
 
-	1. **Customize**	のダイアログで、**[Add Command...]** を選択し、**カテゴリ** リストから **UnrealVS** を選択し、ツールバーに追加可能な UnrealVS コマンドのリストを表示します。
+1. **Customize**	のダイアログで、**[Add Command...]** を選択し、**カテゴリ** リストから **UnrealVS** を選択し、ツールバーに追加可能な UnrealVS コマンドのリストを表示します。
 
 	![UnrealVS Customize Commands](toolbar_customize_commands.png)
 
@@ -141,6 +141,7 @@ UnrealVS オプションにどのプロジェクトをリスト化するかを�
 プロジェクトファイルの同期と更新にかかる時間を短縮できます。
 
 **プロジェクトファイルをリフレッシュするには以下の手順に従います。**
+
 1. **[UnrealVS]** ツールバーに表示される Refresh Projects Refresh ボタンを押します。
 
 ![Refresh Projects](button_refresh.png)

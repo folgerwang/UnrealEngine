@@ -1,7 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MaterialEditor.h"
-#include "Widgets/Text/STextBlock.h"
 #include "EngineGlobals.h"
 #include "Engine/SkeletalMesh.h"
 #include "AI/NavigationSystemBase.h"
@@ -121,6 +120,8 @@
 #include "Materials/MaterialExpressionBlendMaterialAttributes.h"
 #include "Materials/MaterialExpressionMaterialLayerOutput.h"
 
+#include "MaterialStats.h"
+
 #define LOCTEXT_NAMESPACE "MaterialEditor"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMaterialEditor, Log, All);
@@ -134,9 +135,7 @@ static TAutoConsoleVariable<int32> CVarMaterialEdUseDevShaders(
 const FName FMaterialEditor::PreviewTabId( TEXT( "MaterialEditor_Preview" ) );
 const FName FMaterialEditor::GraphCanvasTabId( TEXT( "MaterialEditor_GraphCanvas" ) );
 const FName FMaterialEditor::PropertiesTabId( TEXT( "MaterialEditor_MaterialProperties" ) );
-const FName FMaterialEditor::HLSLCodeTabId( TEXT( "MaterialEditor_HLSLCode" ) );
 const FName FMaterialEditor::PaletteTabId( TEXT( "MaterialEditor_Palette" ) );
-const FName FMaterialEditor::StatsTabId( TEXT( "MaterialEditor_Stats" ) );
 const FName FMaterialEditor::FindTabId( TEXT( "MaterialEditor_Find" ) );
 const FName FMaterialEditor::PreviewSettingsTabId( TEXT ("MaterialEditor_PreviewSettings" ) );
 const FName FMaterialEditor::ParameterDefaultsTabId( TEXT ("MaterialEditor_ParameterDefaults" ) );
@@ -254,25 +253,16 @@ void FMaterialEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& I
 		.SetGroup( WorkspaceMenuCategoryRef )
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "Kismet.Tabs.Palette"));
 
-	InTabManager->RegisterTabSpawner( StatsTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_Stats) )
-		.SetDisplayName( LOCTEXT("StatsTab", "Stats") )
-		.SetGroup( WorkspaceMenuCategoryRef )
-		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.StatsViewer"));
-	
 	InTabManager->RegisterTabSpawner(FindTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_Find))
 		.SetDisplayName(LOCTEXT("FindTab", "Find Results"))
 		.SetGroup( WorkspaceMenuCategoryRef )
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "Kismet.Tabs.FindResults"));
 
-	InTabManager->RegisterTabSpawner( HLSLCodeTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_HLSLCode) )
-		.SetDisplayName( LOCTEXT("HLSLCodeTab", "HLSL Code") )
-		.SetGroup( WorkspaceMenuCategoryRef )
-		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "MaterialEditor.Tabs.HLSLCode"));
-
 	InTabManager->RegisterTabSpawner(PreviewSettingsTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_PreviewSettings))
 		.SetDisplayName( LOCTEXT("PreviewSceneSettingsTab", "Preview Scene Settings") )
 		.SetGroup( WorkspaceMenuCategoryRef )
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Details"));
+
 
 	InTabManager->RegisterTabSpawner(ParameterDefaultsTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_ParameterDefaults))
 		.SetDisplayName(LOCTEXT("ParameterDefaultsTab", "Parameter Defaults"))
@@ -288,6 +278,8 @@ void FMaterialEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& I
 			.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Layers"));
 	}
 
+	MaterialStatsManager->RegisterTabs();
+
 	OnRegisterTabSpawners().Broadcast(InTabManager);
 }
 
@@ -300,12 +292,12 @@ void FMaterialEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>&
 	InTabManager->UnregisterTabSpawner( GraphCanvasTabId );
 	InTabManager->UnregisterTabSpawner( PropertiesTabId );
 	InTabManager->UnregisterTabSpawner( PaletteTabId );
-	InTabManager->UnregisterTabSpawner( StatsTabId );
 	InTabManager->UnregisterTabSpawner( FindTabId );
-	InTabManager->UnregisterTabSpawner( HLSLCodeTabId );
 	InTabManager->UnregisterTabSpawner( PreviewSettingsTabId );
 	InTabManager->UnregisterTabSpawner( ParameterDefaultsTabId );
 	InTabManager->UnregisterTabSpawner( LayerPropertiesTabId );
+
+	MaterialStatsManager->UnregisterTabs();
 
 	OnUnregisterTabSpawners().Broadcast(InTabManager);
 }
@@ -385,6 +377,9 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 	Material->SetFlags(RF_Transactional);
 
 	GEditor->RegisterForUndo(this);
+
+	MaterialStatsManager = FMaterialStatsUtils::CreateMaterialStats(this);
+	MaterialStatsManager->SetMaterialDisplayName(OriginalMaterial->GetName());
 
 	if (!Material->MaterialGraph)
 	{
@@ -481,10 +476,10 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 				(
 					FTabManager::NewStack()
 					->SetSizeCoefficient( 0.20f )
-					->AddTab( StatsTabId, ETabState::ClosedTab )
+						->AddTab(FMaterialStats::GetGridStatsTabName(), ETabState::ClosedTab)
+						->AddTab(FMaterialStats::GetGridOldStatsTabName(), ETabState::ClosedTab)
 					->AddTab( FindTabId, ETabState::ClosedTab )
 				)
-				
 			)
 			->Split
 			(
@@ -685,7 +680,7 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 	// Store the name of this material (for the tutorial widget meta)
 	if (OriginalMaterial != nullptr)
 	{
-		Material->MaterialGraph->OriginalMaterialFullName = OriginalMaterial->GetName();
+	Material->MaterialGraph->OriginalMaterialFullName = OriginalMaterial->GetName();
 	}
 	Material->MaterialGraph->RebuildGraph();
 	RecenterEditor();
@@ -724,9 +719,7 @@ FMaterialEditor::FMaterialEditor()
 	, bHideUnusedConnectors(false)
 	, bLivePreview(true)
 	, bIsRealtime(false)
-	, bShowStats(true)
 	, bShowBuiltinStats(false)
-	, bShowMobileStats(false)
 	, MenuExtensibilityManager(new FExtensibilityManager)
 	, ToolBarExtensibilityManager(new FExtensibilityManager)
 	, MaterialEditorInstance(NULL)
@@ -948,41 +941,6 @@ void FMaterialEditor::CreateInternalWidgets()
 	FindResults =
 		SNew(SFindInMaterial, SharedThis(this));
 
-	CodeViewUtility =
-		SNew(SVerticalBox)
-		// Copy Button
-		+SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew( SHorizontalBox )
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding( 2.0f, 0.0f )
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Left)
-			[
-				SNew(SButton)
-				.Text( LOCTEXT("CopyHLSLButton", "Copy") )
-				.ToolTipText( LOCTEXT("CopyHLSLButtonToolTip", "Copies all HLSL code to the clipboard.") )
-				.ContentPadding(3)
-				.OnClicked(this, &FMaterialEditor::CopyCodeViewTextToClipboard)
-			]
-		]
-		// Separator
-		+SVerticalBox::Slot()
-		.FillHeight(1)
-		[
-			SNew(SSeparator)
-		];
-
-	CodeView =
-		SNew(SScrollBox)
-		+SScrollBox::Slot() .Padding(5)
-		[
-			SNew(STextBlock)
-			.Text(this, &FMaterialEditor::GetCodeViewText)
-		];
-
 	RegenerateCodeView();
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -1060,6 +1018,7 @@ FLinearColor FMaterialEditor::GetWorldCentricTabColorScale() const
 void FMaterialEditor::Tick( float InDeltaTime )
 {
 	UpdateMaterialInfoList();
+	UpdateMaterialinfoList_Old();
 	UpdateGraphNodeStates();
 }
 
@@ -1113,7 +1072,7 @@ void FMaterialEditor::ExtendToolbar()
 				ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().ToggleRealtimeExpressions);
 				ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().AlwaysRefreshAllPreviews);
 				ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().ToggleMaterialStats);
-				ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().ToggleMobileStats);
+				ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().TogglePlatformStats);
 			}
 			ToolbarBuilder.EndSection();
 		}
@@ -1174,13 +1133,8 @@ void FMaterialEditor::GetSaveableObjects(TArray<UObject*>& OutObjects) const
 void FMaterialEditor::SaveAsset_Execute()
 {
 	UE_LOG(LogMaterialEditor, Log, TEXT("Saving and Compiling material %s"), *GetEditingObjects()[0]->GetName());
-	
-	bool bUpdateSucceeded = true;
 
-	if (bMaterialDirty)
-	{
-		bUpdateSucceeded = UpdateOriginalMaterial();
-	}
+	const bool bUpdateSucceeded = (bMaterialDirty ? UpdateOriginalMaterial() : true);
 
 	if (bUpdateSucceeded)
 	{
@@ -1192,12 +1146,7 @@ void FMaterialEditor::SaveAssetAs_Execute()
 {
 	UE_LOG(LogMaterialEditor, Log, TEXT("Saving and Compiling material %s"), *GetEditingObjects()[0]->GetName());
 
-	bool bUpdateSucceeded = true;
-
-	if (bMaterialDirty)
-	{
-		bUpdateSucceeded = UpdateOriginalMaterial();
-	}
+	const bool bUpdateSucceeded = (bMaterialDirty ? UpdateOriginalMaterial() : true);
 
 	if (bUpdateSucceeded)
 	{
@@ -1262,18 +1211,17 @@ void FMaterialEditor::DrawMaterialInfoStrings(
 	if (bDrawInstructions)
 	{
 		// Display any errors and messages in the upper left corner of the viewport.
-		TArray<FString> Descriptions;
-		TArray<int32> InstructionCounts;
-		MaterialResource->GetRepresentativeInstructionCounts(Descriptions, InstructionCounts);
+		TArray<FMaterialStatsUtils::FShaderInstructionsInfo> Descriptions;
+		FMaterialStatsUtils::GetRepresentativeInstructionCounts(Descriptions, MaterialResource);
 
 		for (int32 InstructionIndex = 0; InstructionIndex < Descriptions.Num(); InstructionIndex++)
 		{
-			FString InstructionCountString = FString::Printf(TEXT("%s: %u instructions"),*Descriptions[InstructionIndex],InstructionCounts[InstructionIndex]);
+			FString InstructionCountString = FString::Printf(TEXT("%s: %u instructions"), *Descriptions[InstructionIndex].ShaderDescription, Descriptions[InstructionIndex].InstructionCount);
 			Canvas->DrawShadowedString(5, DrawPositionY, *InstructionCountString, FontToUse, FLinearColor(1, 1, 0));
 			DrawPositionY += SpacingBetweenLines;
 		}
 
-		// Display the number of samplers used by the material.
+		// Display the number of texture samplers and samplers used by the material.
 		const int32 SamplersUsed = MaterialResource->GetSamplerUsage();
 
 		if (SamplersUsed >= 0)
@@ -1286,6 +1234,21 @@ void FMaterialEditor::DrawMaterialInfoStrings(
 				*FString::Printf(TEXT("%s samplers: %u/%u"), FeatureLevel <= ERHIFeatureLevel::ES3_1 ? TEXT("Mobile texture") : TEXT("Texture"), SamplersUsed, MaxSamplers),
 				FontToUse,
 				SamplersUsed > MaxSamplers ? FLinearColor(1,0,0) : FLinearColor(1,1,0)
+				);
+			DrawPositionY += SpacingBetweenLines;
+		}
+
+		uint32 NumVSTextureSamples = 0, NumPSTextureSamples = 0;
+		MaterialResource->GetEstimatedNumTextureSamples(NumVSTextureSamples, NumPSTextureSamples);
+
+		if (NumVSTextureSamples > 0 || NumPSTextureSamples > 0)
+		{
+			Canvas->DrawShadowedString(
+				5,
+				DrawPositionY,
+				*FString::Printf(TEXT("Texture Lookups (Est.): VS(%u), PS(%u)"), NumVSTextureSamples, NumPSTextureSamples),
+				FontToUse,
+				FLinearColor(1,1,0)
 				);
 			DrawPositionY += SpacingBetweenLines;
 		}
@@ -1469,12 +1432,6 @@ void FMaterialEditor::LoadEditorSettings()
 		}
 	}
 
-	if (EditorOptions->bShowMobileStats)
-	{
-		ToggleMobileStats();
-	}
-
-
 	// Primitive type
 	int32 PrimType;
 	if(GConfig->GetInt(TEXT("MaterialEditor"), TEXT("PrimType"), PrimType, GEditorPerProjectIni))
@@ -1492,7 +1449,6 @@ void FMaterialEditor::SaveEditorSettings()
 	{
 		EditorOptions->bShowGrid					= PreviewViewport->IsTogglePreviewGridChecked();
 		EditorOptions->bRealtimeMaterialViewport	= PreviewViewport->IsRealtime();
-		EditorOptions->bShowMobileStats				= bShowMobileStats;
 		EditorOptions->bHideUnusedConnectors		= !IsOnShowConnectorsChecked();
 		EditorOptions->bAlwaysRefreshAllPreviews	= IsOnAlwaysRefreshAllPreviews();
 		EditorOptions->bRealtimeExpressionViewport	= IsToggleRealTimeExpressionsChecked();
@@ -1503,68 +1459,15 @@ void FMaterialEditor::SaveEditorSettings()
 	GConfig->SetInt(TEXT("MaterialEditor"), TEXT("PrimType"), PreviewViewport->PreviewPrimType, GEditorPerProjectIni);
 }
 
-FText FMaterialEditor::GetCodeViewText() const
-{
-	return FText::FromString(HLSLCode);
-}
-
-FReply FMaterialEditor::CopyCodeViewTextToClipboard()
-{
-	FPlatformApplicationMisc::ClipboardCopy(*HLSLCode);
-	return FReply::Handled();
-}
-
 void FMaterialEditor::RegenerateCodeView(bool bForce)
 {
-#define MARKTAG TEXT("/*MARK_")
-#define MARKTAGLEN 7
-
-	HLSLCode = TEXT("");
-
-	if (!CodeTab.IsValid() || (!bLivePreview && !bForce))
+	if (!bLivePreview && !bForce)
 	{
 		//When bLivePreview is false then the source can be out of date. 
 		return;
 	}
 
-	FString MarkupSource;
-	if (Material->GetMaterialResource(GMaxRHIFeatureLevel)->GetMaterialExpressionSource(MarkupSource))
-	{
-		// Remove line-feeds and leave just CRs so the character counts match the selection ranges.
-		MarkupSource.ReplaceInline(TEXT("\r"), TEXT(""));
-
-		// Improve formatting: Convert tab to 4 spaces since STextBlock (currently) doesn't show tab characters
-		MarkupSource.ReplaceInline(TEXT("\t"), TEXT("    "));
-
-		// Extract highlight ranges from markup tags
-
-		// Make a copy so we can insert null terminators.
-		TCHAR* MarkupSourceCopy = new TCHAR[MarkupSource.Len()+1];
-		FCString::Strcpy(MarkupSourceCopy, MarkupSource.Len()+1, *MarkupSource);
-
-		TCHAR* Ptr = MarkupSourceCopy;
-		while( Ptr && *Ptr != '\0' )
-		{
-			TCHAR* NextTag = FCString::Strstr( Ptr, MARKTAG );
-			if( !NextTag )
-			{
-				// No more tags, so we're done!
-				HLSLCode += Ptr;
-				break;
-			}
-
-			// Copy the text up to the tag.
-			*NextTag = '\0';
-			HLSLCode += Ptr;
-
-			// Advance past the markup tag to see what type it is (beginning or end)
-			NextTag += MARKTAGLEN;
-			int32 TagNumber = FCString::Atoi(NextTag+1);
-			Ptr = FCString::Strstr(NextTag, TEXT("*/")) + 2;
-		}
-
-		delete[] MarkupSourceCopy;
-	}
+	MaterialStatsManager->SignalMaterialChanged();
 }
 
 void FMaterialEditor::UpdatePreviewMaterial( bool bForce )
@@ -1625,6 +1528,10 @@ void FMaterialEditor::UpdatePreviewMaterial( bool bForce )
 			MaterialLayersFunctionsInstance->Refresh();
 		}
 	}
+
+	MaterialStatsManager->SetMaterial(bStatsFromPreviewMaterial ? Material : OriginalMaterial);
+	MaterialStatsManager->SignalMaterialChanged();
+
 	// Reregister all components that use the preview material, since UMaterial::PEC does not reregister components using a bIsPreviewMaterial=true material
 	RefreshPreviewViewport();
 }
@@ -1655,15 +1562,15 @@ bool FMaterialEditor::UpdateOriginalMaterial()
 			}
 			else
 			{
-				FSuppressableWarningDialog::FSetupInfo Info(
-					FText::Format(NSLOCTEXT("UnrealEd", "Warning_CompileErrorsInMaterial", "The current material has compilation errors, so it will not render correctly in feature level {0}.\nAre you sure you wish to continue?"), FText::FromString(*FeatureLevelName)),
-					NSLOCTEXT("UnrealEd", "Warning_CompileErrorsInMaterial_Title", "Warning: Compilation errors in this Material"), "Warning_CompileErrorsInMaterial");
-				Info.ConfirmText = NSLOCTEXT("ModalDialogs", "CompileErrorsInMaterialConfirm", "Continue");
-				Info.CancelText = NSLOCTEXT("ModalDialogs", "CompileErrorsInMaterialCancel", "Abort");
+			FSuppressableWarningDialog::FSetupInfo Info(
+				FText::Format(NSLOCTEXT("UnrealEd", "Warning_CompileErrorsInMaterial", "The current material has compilation errors, so it will not render correctly in feature level {0}.\nAre you sure you wish to continue?"),FText::FromString(*FeatureLevelName)),
+				NSLOCTEXT("UnrealEd", "Warning_CompileErrorsInMaterial_Title", "Warning: Compilation errors in this Material" ), "Warning_CompileErrorsInMaterial");
+			Info.ConfirmText = NSLOCTEXT("ModalDialogs", "CompileErrorsInMaterialConfirm", "Continue");
+			Info.CancelText = NSLOCTEXT("ModalDialogs", "CompileErrorsInMaterialCancel", "Abort");
 
-				FSuppressableWarningDialog CompileErrorsWarning(Info);
-				if (CompileErrorsWarning.ShowModal() == FSuppressableWarningDialog::Cancel)
-				{
+			FSuppressableWarningDialog CompileErrorsWarning( Info );
+			if( CompileErrorsWarning.ShowModal() == FSuppressableWarningDialog::Cancel )
+			{
 					return false;
 				}
 			}
@@ -1789,13 +1696,6 @@ bool FMaterialEditor::UpdateOriginalMaterial()
 		// Manually copy bUsedAsSpecialEngineMaterial as it is duplicate transient to prevent accidental creation of new special engine materials
 		OriginalMaterial->bUsedAsSpecialEngineMaterial = Material->bUsedAsSpecialEngineMaterial;
 
-		// If we are showing stats for mobile materials, compile the full material for ES2 here. That way we can see if permutations
-		// not used for preview materials fail to compile.
-		if (bShowMobileStats)
-		{
-			OriginalMaterial->SetFeatureLevelToCompile(ERHIFeatureLevel::ES3_1,true);
-		}
-
 		UMaterialEditingLibrary::RecompileMaterial(OriginalMaterial);
 
 		// clear the dirty flag
@@ -1808,8 +1708,9 @@ bool FMaterialEditor::UpdateOriginalMaterial()
 	return true;
 }
 
-void FMaterialEditor::UpdateMaterialInfoList(bool bForceDisplay)
+void FMaterialEditor::UpdateMaterialinfoList_Old()
 {
+	bool bForceDisplay = false;
 	TArray< TSharedRef<class FTokenizedMessage> > Messages;
 
 	TArray<TSharedPtr<FMaterialInfo>> TempMaterialInfoList;
@@ -1818,13 +1719,7 @@ void FMaterialEditor::UpdateMaterialInfoList(bool bForceDisplay)
 	int32 NumFeatureLevels = 0;
 	// Always show basic features so that errors aren't hidden
 	FeatureLevelsToDisplay[NumFeatureLevels++] = GMaxRHIFeatureLevel;
-	if (bShowMobileStats)
-	{
-		FeatureLevelsToDisplay[NumFeatureLevels++] = ERHIFeatureLevel::ES3_1;
-	}
 
-	if (NumFeatureLevels > 0) //-V547
-	{
 		UMaterial* MaterialForStats = bStatsFromPreviewMaterial ? Material : OriginalMaterial;
 
 		for (int32 i = 0; i < NumFeatureLevels; ++i)
@@ -1931,39 +1826,35 @@ void FMaterialEditor::UpdateMaterialInfoList(bool bForceDisplay)
 			}
 
 			// Only show general info if there are no errors and stats are enabled - Stats show for Materials, layers and blends
-			if (CompileErrors.Num() == 0 && (!MaterialFunction || MaterialFunction->GetMaterialFunctionUsage() != Default) && bShowStats)
+		if (CompileErrors.Num() == 0 && (!MaterialFunction || MaterialFunction->GetMaterialFunctionUsage() != Default))
 			{
-				// Display any errors and messages in the upper left corner of the viewport.
-				TArray<FString> Descriptions;
-				TArray<int32> InstructionCounts;
-				TArray<FString> EmptyDescriptions;
-				TArray<int32> EmptyInstructionCounts;
-
-				MaterialResource->GetRepresentativeInstructionCounts(Descriptions, InstructionCounts);
+			TArray<FMaterialStatsUtils::FShaderInstructionsInfo> Results;
+			TArray<FMaterialStatsUtils::FShaderInstructionsInfo> EmptyMaterialResults;
+			FMaterialStatsUtils::GetRepresentativeInstructionCounts(Results, MaterialResource);
 
 				//Built in stats is no longer exposed to the UI but may still be useful so they're still in the code.
 				bool bBuiltinStats = false;
-				const FMaterialResource* EmptyMaterialResource = EmptyMaterial ? EmptyMaterial->GetMaterialResource(FeatureLevel) : NULL;
-				if (bShowBuiltinStats && bStatsFromPreviewMaterial && EmptyMaterialResource && InstructionCounts.Num() > 0)
+			const FMaterialResource* EmptyMaterialResource = EmptyMaterial ? EmptyMaterial->GetMaterialResource(FeatureLevel) : nullptr;
+			if (bShowBuiltinStats && bStatsFromPreviewMaterial && EmptyMaterialResource && Results.Num() > 0)
 				{
-					EmptyMaterialResource->GetRepresentativeInstructionCounts(EmptyDescriptions, EmptyInstructionCounts);
+				FMaterialStatsUtils::GetRepresentativeInstructionCounts(EmptyMaterialResults, EmptyMaterialResource);
 
-					if (EmptyInstructionCounts.Num() > 0)
+				if (EmptyMaterialResults.Num() > 0)
 					{
 						//The instruction counts should match. If not, the preview material has been changed without the EmptyMaterial being updated to match.
-						if (ensure(InstructionCounts.Num() == EmptyInstructionCounts.Num()))
+					if (ensure(Results.Num() == EmptyMaterialResults.Num()))
 						{
 							bBuiltinStats = true;
 						}
 					}
 				}
 
-				for (int32 InstructionIndex = 0; InstructionIndex < Descriptions.Num(); InstructionIndex++)
+			for (int32 InstructionIndex = 0; InstructionIndex < Results.Num(); InstructionIndex++)
 				{
-					FString InstructionCountString = FString::Printf(TEXT("%s: %u instructions"),*Descriptions[InstructionIndex], InstructionCounts[InstructionIndex]);
+				FString InstructionCountString = FString::Printf(TEXT("%s: %u instructions"), *Results[InstructionIndex].ShaderDescription, Results[InstructionIndex].InstructionCount);
 					if (bBuiltinStats)
 					{
-						InstructionCountString += FString::Printf(TEXT(" - Built-in instructions: %u"), EmptyInstructionCounts[InstructionIndex]);
+					InstructionCountString += FString::Printf(TEXT(" - Built-in instructions: %u"), EmptyMaterialResults[InstructionIndex].InstructionCount);
 					}
 					TempMaterialInfoList.Add(MakeShareable(new FMaterialInfo(InstructionCountString, FLinearColor::Yellow)));
 					TSharedRef<FTokenizedMessage> Line = FTokenizedMessage::Create(EMessageSeverity::Info);
@@ -1981,6 +1872,20 @@ void FMaterialEditor::UpdateMaterialInfoList(bool bForceDisplay)
 					TempMaterialInfoList.Add(MakeShareable(new FMaterialInfo(SamplersString, FLinearColor::Yellow)));
 					TSharedRef<FTokenizedMessage> Line = FTokenizedMessage::Create( EMessageSeverity::Info );
 					Line->AddToken( FTextToken::Create( FText::FromString( SamplersString ) ) );
+					Messages.Add(Line);
+				}
+				
+				// Display estimated texture look-up/sample counts
+				uint32 NumVSTextureSamples = 0, NumPSTextureSamples = 0;
+				MaterialResource->GetEstimatedNumTextureSamples(NumVSTextureSamples, NumPSTextureSamples);
+
+				if (NumVSTextureSamples > 0 || NumPSTextureSamples > 0)
+				{
+					FString SamplesString = FString::Printf(TEXT("Texture Lookups (Est.): VS(%u), PS(%u)"), NumVSTextureSamples, NumPSTextureSamples);
+
+					TempMaterialInfoList.Add(MakeShareable(new FMaterialInfo(SamplesString, FLinearColor::Yellow)));
+					TSharedRef<FTokenizedMessage> Line = FTokenizedMessage::Create(EMessageSeverity::Info);
+					Line->AddToken(FTextToken::Create(FText::FromString(SamplesString)));
 					Messages.Add(Line);
 				}
 
@@ -2015,7 +1920,6 @@ void FMaterialEditor::UpdateMaterialInfoList(bool bForceDisplay)
 				bForceDisplay = true;
 			}
 		}
-	}
 
 	bool bNeedsRefresh = false;
 	if (TempMaterialInfoList.Num() != MaterialInfoList.Num())
@@ -2041,30 +1945,97 @@ void FMaterialEditor::UpdateMaterialInfoList(bool bForceDisplay)
 	if (bNeedsRefresh)
 	{
 		MaterialInfoList = TempMaterialInfoList;
-		/*TSharedPtr<SWidget> TitleBar = GraphEditor->GetTitleBar();
-		if (TitleBar.IsValid())
+
+		auto Listing = MaterialStatsManager->GetOldStatsListing();
+		Listing->ClearMessages();
+		Listing->AddMessages(Messages);
+
+		if (bForceDisplay)
 		{
-			StaticCastSharedPtr<SMaterialEditorTitleBar>(TitleBar)->RequestRefresh();
-		}*/
+			TabManager->InvokeTab(MaterialStatsManager->GetGridOldStatsTabName());
+		}
+	}
+}
+
+void FMaterialEditor::UpdateMaterialInfoList()
+{
+	// setup stats widget visibility
+	if (MaterialFunction)
+	{
+		return;
+	}
+
+	UMaterial* MaterialForStats = bStatsFromPreviewMaterial ? Material : OriginalMaterial;
+
+	// check for errors
+	TArray<FString> CompileErrors;
+	if (MaterialFunction && ExpressionPreviewMaterial)
+	{
+		// Add a compile error message for functions missing an output
+		CompileErrors = ExpressionPreviewMaterial->GetMaterialResource(GMaxRHIFeatureLevel)->GetCompileErrors();
+
+		bool bFoundFunctionOutput = false;
+		for (int32 ExpressionIndex = 0; ExpressionIndex < Material->Expressions.Num(); ExpressionIndex++)
+		{
+			if (Material->Expressions[ExpressionIndex]->IsA(UMaterialExpressionFunctionOutput::StaticClass()))
+			{
+				bFoundFunctionOutput = true;
+				break;
+			}
+		}
+
+		if (!bFoundFunctionOutput)
+		{
+			CompileErrors.Add(TEXT("Missing a function output"));
+		}
+	}
+
+	// compute error crc
+	FString NewErrorHash;
+	for (int32 ErrorIndex = 0; ErrorIndex < CompileErrors.Num(); ErrorIndex++)
+	{
+		NewErrorHash += FMD5::HashAnsiString(*CompileErrors[ErrorIndex]);
+	}
+
+	TSharedPtr<SWidget> TitleBar = GraphEditor->GetTitleBar();
+	if (NewErrorHash != MaterialErrorHash)
+	{
+		MaterialErrorHash = NewErrorHash;
+		MaterialInfoList.Reset();
+
+		TArray< TSharedRef<class FTokenizedMessage> > Messages;
+		FString FeatureLevelName;
+		GetFeatureLevelName(GMaxRHIFeatureLevel, FeatureLevelName);
+		for (int32 ErrorIndex = 0; ErrorIndex < CompileErrors.Num(); ErrorIndex++)
+		{
+			FString ErrorString = FString::Printf(TEXT("[%s] %s"), *FeatureLevelName, *CompileErrors[ErrorIndex]);
+			TSharedRef<FTokenizedMessage> Line = FTokenizedMessage::Create(EMessageSeverity::Error);
+			Line->AddToken(FTextToken::Create(FText::FromString(ErrorString)));
+			Messages.Add(Line);
+
+			MaterialInfoList.Add(MakeShareable(new FMaterialInfo(ErrorString, FLinearColor::Red)));
+		}
 
 		StatsListing->ClearMessages();
 		StatsListing->AddMessages(Messages);
 
-		if (bForceDisplay)
-		{
-			TabManager->InvokeTab(StatsTabId);
-		}
+		StaticCastSharedPtr<SMaterialEditorTitleBar>(TitleBar)->RequestRefresh();
+		TitleBar->SetVisibility(EVisibility::Visible);
 	}
+	else if (!CompileErrors.Num())
+		{
+		TitleBar->SetVisibility(EVisibility::Collapsed);
+	}
+
+	// extract material stats
+	MaterialStatsManager->SetMaterial(MaterialForStats);
+	MaterialStatsManager->Update();
 }
 
 void FMaterialEditor::UpdateGraphNodeStates()
 {
 	const FMaterialResource* ErrorMaterialResource = PreviewExpression ? ExpressionPreviewMaterial->GetMaterialResource(GMaxRHIFeatureLevel) : Material->GetMaterialResource(GMaxRHIFeatureLevel);
 	const FMaterialResource* ErrorMaterialResourceES2 = NULL;
-	if (bShowMobileStats)
-	{
-		ErrorMaterialResourceES2 = PreviewExpression ? ExpressionPreviewMaterial->GetMaterialResource(ERHIFeatureLevel::ES3_1) : Material->GetMaterialResource(ERHIFeatureLevel::ES3_1);
-	}
 
 	bool bUpdatedErrorState = false;
 
@@ -2171,18 +2142,6 @@ void FMaterialEditor::BindCommands()
 		FIsActionChecked::CreateSP(this, &FMaterialEditor::IsOnAlwaysRefreshAllPreviews));
 
 	ToolkitCommands->MapAction(
-		Commands.ToggleMaterialStats,
-		FExecuteAction::CreateSP(this, &FMaterialEditor::ToggleStats),
-		FCanExecuteAction(),
-		FIsActionChecked::CreateSP(this, &FMaterialEditor::IsToggleStatsChecked));
-
-	ToolkitCommands->MapAction(
-		Commands.ToggleMobileStats,
-		FExecuteAction::CreateSP(this, &FMaterialEditor::ToggleMobileStats),
-		FCanExecuteAction(),
-		FIsActionChecked::CreateSP(this, &FMaterialEditor::IsToggleMobileStatsChecked));
-
-	ToolkitCommands->MapAction(
 		Commands.UseCurrentTexture,
 		FExecuteAction::CreateSP(this, &FMaterialEditor::OnUseCurrentTexture));
 
@@ -2248,6 +2207,8 @@ void FMaterialEditor::OnApply()
 	UE_LOG(LogMaterialEditor, Log, TEXT("Applying material %s"), *GetEditingObjects()[0]->GetName());
 
 	UpdateOriginalMaterial();
+
+	GEditor->OnSceneMaterialsModified();
 }
 
 bool FMaterialEditor::OnApplyEnabled() const
@@ -2308,48 +2269,6 @@ void FMaterialEditor::OnAlwaysRefreshAllPreviews()
 bool FMaterialEditor::IsOnAlwaysRefreshAllPreviews() const
 {
 	return bAlwaysRefreshAllPreviews == true;
-}
-
-void FMaterialEditor::ToggleStats()
-{
-	// Toggle the showing of material stats each time the user presses the show stats button
-	bShowStats = !bShowStats;
-	UpdateMaterialInfoList(bShowStats);
-}
-
-bool FMaterialEditor::IsToggleStatsChecked() const
-{
-	return bShowStats == true;
-}
-
-void FMaterialEditor::ToggleMobileStats()
-{
-	// Toggle the showing of material stats each time the user presses the show stats button
-	bShowMobileStats = !bShowMobileStats;
-	UPreviewMaterial* PreviewMaterial = Cast<UPreviewMaterial>(Material);
-	if (PreviewMaterial)
-	{
-		{
-			// Sync with the rendering thread but don't reregister components. We will manually do so.
-			FMaterialUpdateContext UpdateContext(FMaterialUpdateContext::EOptions::SyncWithRenderingThread);
-			UpdateContext.AddMaterial(PreviewMaterial);
-			PreviewMaterial->SetFeatureLevelToCompile(ERHIFeatureLevel::ES3_1,bShowMobileStats);
-			PreviewMaterial->ForceRecompileForRendering();
-			if (!bStatsFromPreviewMaterial)
-			{
-				OriginalMaterial->SetFeatureLevelToCompile(ERHIFeatureLevel::ES3_1,bShowMobileStats);
-				OriginalMaterial->ForceRecompileForRendering();
-			}
-		}
-		UpdateStatsMaterials();
-		RefreshPreviewViewport();
-	}
-	UpdateMaterialInfoList(bShowMobileStats);
-}
-
-bool FMaterialEditor::IsToggleMobileStatsChecked() const
-{
-	return bShowMobileStats == true;
 }
 
 void FMaterialEditor::OnUseCurrentTexture()
@@ -3188,31 +3107,6 @@ TSharedRef<SDockTab> FMaterialEditor::SpawnTab_MaterialProperties(const FSpawnTa
 	return SpawnedTab;
 }
 
-TSharedRef<SDockTab> FMaterialEditor::SpawnTab_HLSLCode(const FSpawnTabArgs& Args)
-{
-	TSharedRef<SDockTab> SpawnedTab = SNew(SDockTab)
-		.Label(LOCTEXT("HLSLCodeTitle", "HLSL Code"))
-		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				CodeViewUtility.ToSharedRef()
-			]
-			+SVerticalBox::Slot()
-			.FillHeight(1)
-			[
-				CodeView.ToSharedRef()
-			]
-		];
-
-	CodeTab = SpawnedTab;
-
-	RegenerateCodeView();
-
-	return SpawnedTab;
-}
-
 TSharedRef<SDockTab> FMaterialEditor::SpawnTab_Palette(const FSpawnTabArgs& Args)
 {
 	check( Args.GetTabId() == PaletteTabId );
@@ -3225,24 +3119,6 @@ TSharedRef<SDockTab> FMaterialEditor::SpawnTab_Palette(const FSpawnTabArgs& Args
 			.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("MaterialPalette")))
 			[
 				Palette.ToSharedRef()
-			]
-		];
-
-	return SpawnedTab;
-}
-
-TSharedRef<SDockTab> FMaterialEditor::SpawnTab_Stats(const FSpawnTabArgs& Args)
-{
-	check( Args.GetTabId() == StatsTabId );
-
-	TSharedRef<SDockTab> SpawnedTab = SNew(SDockTab)
-		.Icon(FEditorStyle::GetBrush("Kismet.Tabs.CompilerResults"))
-		.Label(LOCTEXT("MaterialStatsTitle", "Stats"))
-		[
-			SNew( SBox )
-			.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("MaterialStats")))
-			[
-				Stats.ToSharedRef()
 			]
 		];
 
@@ -4346,8 +4222,8 @@ TSharedRef<SGraphEditor> FMaterialEditor::CreateGraphEditorWidget()
 
 	// Create the title bar widget
 	TSharedPtr<SWidget> TitleBarWidget = SNew(SMaterialEditorTitleBar)
-		.TitleText(this, &FMaterialEditor::GetOriginalObjectName);
-		//.MaterialInfoList(&MaterialInfoList);
+		.TitleText(this, &FMaterialEditor::GetOriginalObjectName)
+		.MaterialInfoList(&MaterialInfoList);
 
 	return SNew(SGraphEditor)
 		.AdditionalCommands(GraphEditorCommands)
@@ -4705,8 +4581,6 @@ void FMaterialEditor::UpdateStatsMaterials()
 		FString EmptyMaterialName = FString(TEXT("MEStatsMaterial_Empty_")) + Material->GetName();
 		EmptyMaterial = (UMaterial*)StaticDuplicateObject(Material, GetTransientPackage(), *EmptyMaterialName, ~RF_Standalone, UPreviewMaterial::StaticClass());
 
-		EmptyMaterial->SetFeatureLevelToCompile(ERHIFeatureLevel::ES3_1, bShowMobileStats);
-
 		EmptyMaterial->Expressions.Empty();
 
 		//Disconnect all properties from the expressions
@@ -4722,6 +4596,11 @@ void FMaterialEditor::UpdateStatsMaterials()
 		EmptyMaterial->PreEditChange(NULL);
 		EmptyMaterial->PostEditChange();
 	}
+}
+
+void FMaterialEditor::NotifyExternalMaterialChange()
+{
+	MaterialStatsManager->SignalMaterialChanged();
 }
 
 #undef LOCTEXT_NAMESPACE

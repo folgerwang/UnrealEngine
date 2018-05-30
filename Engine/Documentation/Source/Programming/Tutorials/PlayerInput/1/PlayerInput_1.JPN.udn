@@ -1,9 +1,9 @@
-﻿INTSourceChangelist:2620109
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1.ポーンのカスタマイズ
 Crumbs:%ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/PlayerInput
-Description:ポーン入門
-バージョン:4.9
+Description:ポーンの基礎
+version:4.9
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -12,21 +12,21 @@ Description:ポーン入門
 	[PARAM:current]
 	[/PARAM]
 	[PARAM:home]
-		[プレイヤー入力と Pawn クラス](Programming\Tutorials\PlayerInput)
+		[](Programming\Tutorials\PlayerInput)
 	[/PARAM]
 	[PARAM:next]
-		[次の手順](Programming\Tutorials\PlayerInput\2 "%Programming\Tutorials\PlayerInput\2:title%")
+		[次のステップ](Programming\Tutorials\PlayerInput\2 "%Programming\Tutorials\PlayerInput\2:title%")
 	[/PARAM]
 [/OBJECT]
 [/VAR]
 
 
 
-[REGION:tip] **アンリアルエンジン 4** 初心者の人は、最初に [%Programming\QuickStart:title% tutorial](Programming\QuickStart) をお読みください。このチュートリアルの対象者は、プロジェクトの作成、プロジェクトに C++ コードを追加、またコードをコンパイルできる方を想定しています。[/REGION]
+[REGION:tip] **アンリアルエンジン 4 (UE4)** にまだ慣れていない場合は、最初に [%Programming\QuickStart:title% tutorial](Programming\QuickStart) をお読みください。このチュートリアルの対象者は、プロジェクトの作成、プロジェクトに C++ コードを追加、またコードをコンパイルできる方を想定しています。[/REGION]
 
-1. まず「HowTo_PlayerInput」という名前のスターターコンテンツを使用して、Basic Code プロジェクトを作成します。その後「MyPawn」と名前を付けたカスタマイズした **Pawn** クラスをプロジェクトに追加します。
+1. まずスターターコンテンツを有効にして「HowTo_PlayerInput」という名前の新規 Basic Code プロジェクトを作成するところから始めます。その後「MyPawn」と名前を付けたカスタマイズした **Pawn** クラスをプロジェクトに追加します。
 
-	[REGION:note] ポーンは人間のプレイヤーまたは AI による制御が設定されている **アクタ** の一種です。[/REGION]
+	[REGION:note] ポーンは人プレイヤーまたは AI による制御が設定されている **アクタ** の一種です。[/REGION]
 
 	[![](AddPawn.png)](AddPawn.png)
 
@@ -37,12 +37,12 @@ Description:ポーン入門
 		// Set this pawn to be controlled by the lowest-numbered player (このポーンが最小値のプレイヤーで制御されるように設定)
 		AutoPossessPlayer = EAutoReceiveInput::Player0;
 
-1. 次に基本的な **コンポーネント** をいくつか構成します。コードによるコンポーネントの追加や管理に加えて、コンポーネントの共通タイプの詳細を知りたいユーザーは、[%Programming\Tutorials\Components:title% tutorial](Programming\Tutorials\Components) を参照してください。作成するコンポーネントを追跡するには、クラス定義の下にある「 `MyPawn.h` 」へ以下のコードを追加してください。
+1. 次に基本的な **コンポーネント** をいくつか構成します。コードによるコンポーネントの追加や管理に加えて、コンポーネントの一般的な種類の詳細については、[%Programming\Tutorials\Components:title% tutorial](Programming\Tutorials\Components) を参照してください。作成するコンポーネントを追跡するには、クラス定義の下にある「 `MyPawn.h` 」へ以下のコードを追加してください。
 
 		UPROPERTY(EditAnywhere)
 		USceneComponent* OurVisibleComponent;
 
-	[REGION:note]この変数は **アンリアルエンジン** で表示されるように **UPROPERTY** とタグが付けられます。ゲームの起動時や、プロジェクトまたはレベルが閉じられて再ロードされた時に変数のリセットを防ぐために、これは重要です。[/REGION]
+	[REGION:note]この変数は **アンリアルエンジン** で表示されるように **UPROPERTY** とタグ付けされます。これはゲームがローンチしたときや、プロジェクトまたはレベルが閉じられたり、再読み込みされたときに変数がリセットされるのを防ぐため重要です。[/REGION]
 
 	「MyPawn.cpp」ファイルへ戻って、以下のコードをAMyPawn::AMyPawnに追加します：
 
@@ -51,105 +51,101 @@ Description:ポーン入門
 		// Create a camera and a visible object (カメラと可視オブジェクトを作成)
 		UCameraComponent* OurCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("OurCamera"));
 		OurVisibleComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("OurVisibleComponent"));
-		// Attach our camera and visible object to our root component. (カメラと可視オブジェクトをルートコンポーネントに親子付け。カメラをオフセットして回転)
-		OurCamera->AttachTo(RootComponent);
+		// Attach our camera and visible object to our root component. (カメラと可視オブジェクトをルートコンポーネントに親子付け)Offset and rotate the camera. (カメラをオフセットして回転)
+		OurCamera->SetupAttachment(RootComponent);
 		OurCamera->SetRelativeLocation(FVector(-250.0f, 0.0f, 250.0f));
 		OurCamera->SetRelativeRotation(FRotator(-45.0f, 0.0f, 0.0f));
-		OurVisibleComponent->AttachTo(RootComponent);
+		OurVisibleComponent->SetupAttachment(RootComponent);
 
 1. 変更を保存してコンパイルできる状態になりました。**Visual Studio** の **Build** コマンドか、**アンリアルエンジン** エディタの **[Compile (コンパイル)]** ボタンでコンパイルを実行します。
 
 ----
 
-ゲーム入力に対応するカスタマイズ ポーンを作成したので、入力規則を定義しなくてはいけません。入力は **アンリアルエンジン** エディタの **[Input Settings (入力設定)]** で定義します。
+ゲーム入力に対応するカスタマイズ ポーンを作成したので、入力規則を定義しなくてはいけません。入力は **アンリアル エディタ** の **[Input Settings (入力設定)]** で定義します。
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    コード
-    [/PARAMLITERAL]
-    [PARAM:heading]
-    作業中のコード
-    [/PARAM]
-    [PARAM:content]
-		**MyPawn.h**
-			// Copyright 1998-2018 Epic Games, Inc.All Rights Reserved.
+## 作業中のコード
 
-			#pragma once
+**MyPawn.h**
 
-			#include "GameFramework/Pawn.h"
-			#include "MyPawn.generated.h"
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-			UCLASS()
-			class HOWTO_PLAYERINPUT_API AMyPawn : public APawn
-			{
-				GENERATED_BODY()
+	#pragma once
 
-			public:
-				// Sets default values (デフォルト値を設定)
-				AMyPawn();
+	#include "GameFramework/Pawn.h"
+	#include "MyPawn.generated.h"
 
-				// Called when the game starts or when spawned (ゲーム開始またはスポーン時に呼ばれます)
-				virtual void BeginPlay() override;
+	UCLASS()
+	class HOWTO_PLAYERINPUT_API AMyPawn : public APawn
+	{
+		GENERATED_BODY()
 
-				// Called every frame (フレームごとに呼ばれます)
-				virtual void Tick( float DeltaSeconds ) override;
+	public:
+		// Sets default values (デフォルト値を設定) 
+		AMyPawn();
 
-				// Called to bind functionality to input (機能と入力をバインドするために呼ばれます)
-				virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
+	protected:
+		// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
 
-				UPROPERTY(EditAnywhere)
-				USceneComponent* OurVisibleComponent;
-			};
+		virtual void BeginPlay() override;
 
-		**MyPawn.h**
-			// Copyright 1998-2018 Epic Games, Inc.All Rights Reserved.
+	public:
+		// Called every frame (フレーム毎に呼び出されます)
+		virtual void Tick( float DeltaSeconds ) override;
 
-			#include "HowTo_PlayerInput.h"
-			#include "MyPawn.h"
+		// Called to bind functionality to input (機能を入力にバインドするために呼び出されます)
+		virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
 
-			// Sets default values (デフォルト値を設定)
-			AMyPawn::AMyPawn()
-			{
- 				// Set this pawn to call Tick() every frame.(フレームごとに Tick() を呼び出すためこのポーンを設定)必要なければパフォーマンスを向上させるためにオフにできます。
-				PrimaryActorTick.bCanEverTick = true;
+		UPROPERTY(EditAnywhere)
+		USceneComponent* OurVisibleComponent;
+	};
 
-				// Set this pawn to be controlled by the lowest-numbered player (このポーンが最小値のプレイヤーで制御されるように設定)
-				AutoPossessPlayer = EAutoReceiveInput::Player0;
+**MyPawn.cpp**
 
-				// Create a dummy root component we can attach things to.(親子付け可能なダミーのルートコンポーネントを作成)
-				RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
-				// Create a camera and a visible object (カメラと可視オブジェクトを作成)
-				UCameraComponent* OurCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("OurCamera"));
-				OurVisibleComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("OurVisibleComponent"));
-				// Attach our camera and visible object to our root component. (カメラと可視オブジェクトをルートコンポーネントに親子付け。カメラをオフセットして回転)
-				OurCamera->AttachTo(RootComponent);
-				OurCamera->SetRelativeLocation(FVector(-250.0f, 0.0f, 250.0f));
-				OurCamera->SetRelativeRotation(FRotator(-45.0f, 0.0f, 0.0f));
-				OurVisibleComponent->AttachTo(RootComponent);
-			}
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-			// Called when the game starts or when spawned (ゲーム開始またはスポーン時に呼ばれます)
-			void AMyPawn::BeginPlay()
-			{
-				Super::BeginPlay();
+	#include "HowTo_PlayerInput.h"
+	#include "MyPawn.h"
 
-			}
+	// Sets default values (デフォルト値を設定) 
+	AMyPawn::AMyPawn()
+	{
+ 		// Set this pawn to call Tick() every frame. (フレーム毎に Tick() を呼び出すようにこのポーンを設定します。) You can turn this off to improve performance if you don't need it. (必要がなければパフォーマンスを向上させるためにオフにすることができます) 
+		PrimaryActorTick.bCanEverTick = true;
 
-			// Called every frame (フレームごとに呼ばれます)
-			void AMyPawn::Tick( float DeltaTime )
-			{
-				Super::Tick( DeltaTime );
+		// Set this pawn to be controlled by the lowest-numbered player (このポーンが最小値のプレイヤーで制御されるように設定)
+		AutoPossessPlayer = EAutoReceiveInput::Player0;
 
-			}
+		// Create a dummy root component we can attach things to.(親子付け可能なダミーのルートコンポーネントを作成)
+		RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
+		// Create a camera and a visible object (カメラと可視オブジェクトを作成)
+		UCameraComponent* OurCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("OurCamera"));
+		OurVisibleComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("OurVisibleComponent"));
+		// Attach our camera and visible object to our root component. (カメラと可視オブジェクトをルートコンポーネントに親子付け)Offset and rotate the camera. (カメラをオフセットして回転)
+		OurCamera->SetupAttachment(RootComponent);
+		OurCamera->SetRelativeLocation(FVector(-250.0f, 0.0f, 250.0f));
+		OurCamera->SetRelativeRotation(FRotator(-45.0f, 0.0f, 0.0f));
+		OurVisibleComponent->SetupAttachment(RootComponent);
+	}
 
-			// Called to bind functionality to input (機能と入力をバインドするために呼ばれます)
-			void AMyPawn::SetupPlayerInputComponent(class UInputComponent* InputComponent)
-			{
-				Super::SetupPlayerInputComponent(InputComponent);
+	// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
+	void AMyPawn::BeginPlay()
+	{
+		Super::BeginPlay();
 
-			}
+	}
 
-    [/PARAM]
-[/OBJECT]
+	// Called every frame (フレーム毎に呼び出されます)
+	void AMyPawn::Tick( float DeltaTime )
+	{
+		Super::Tick( DeltaTime );
+
+	}
+
+	// Called to bind functionality to input (機能を入力にバインドするために呼び出されます)
+	void AMyPawn::SetupPlayerInputComponent(class UInputComponent* InputComponent)
+	{
+		Super::SetupPlayerInputComponent(InputComponent);
+
+	}
 
 

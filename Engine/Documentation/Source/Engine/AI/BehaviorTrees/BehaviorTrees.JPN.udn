@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:3717065
+﻿INTSourceChangelist:3750351
 Availability:Public
 Title:ビヘイビアツリー
 Crumbs:%ROOT%, Engine, Gameplay/AI
 Description:ビヘイビアツリーに関連する全ドキュメントへのランディング ページです。
 parent:Engine
 order:6
-topic-image:AI_topic.png
+topic-image:AI_Topic.png
 
 
 **Behavior Trees (ビヘイビアツリー)** は、闇に潜む憎きゴキブリから、シューティング ゲームの Bot に至るまで、撃つタイミングやヘルス値と弾薬を求めるタイミングが分かる AI をアンリアル エンジン 4 で作るパワフルなツールです。 

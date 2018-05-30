@@ -100,7 +100,7 @@ private:
 	 * Delegate called when current permission request completes
 	 *
 	 * @param LocalUserNum user that made the request
-	 * @param bWasSuccesful was the request successful
+	 * @param bWasSuccessful was the request successful
 	 * @param NewPermissions array of all known permissions
 	 */
 	void OnRequestCurrentPermissionsComplete(int32 LocalUserNum, bool bWasSuccessful, const TArray<FSharingPermission>& NewPermissions);

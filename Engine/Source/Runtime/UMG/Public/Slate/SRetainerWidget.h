@@ -22,8 +22,12 @@
 class FArrangedChildren;
 class UMaterialInstanceDynamic;
 class UMaterialInterface;
+class UTextureRenderTarget2D;
+class FRetainerWidgetRenderingResources;
 
 DECLARE_MULTICAST_DELEGATE( FOnRetainedModeChanged );
+
+
 
 /**
  * The SRetainerWidget renders children widgets to a render target first before
@@ -32,7 +36,7 @@ DECLARE_MULTICAST_DELEGATE( FOnRetainedModeChanged );
  * frequency of the main game render.  It also has the side benefit of allow materials
  * to be applied to the render target after drawing the widgets to apply a simple post process.
  */
-class UMG_API SRetainerWidget : public SCompoundWidget, public FGCObject, public ILayoutCache
+class UMG_API SRetainerWidget : public SCompoundWidget,  public ILayoutCache
 {
 public:
 	static int32 Shared_MaxRetainerWorkPerFrame;
@@ -60,6 +64,8 @@ public:
 	/** Constructor */
 	void Construct(const FArguments& Args);
 
+	void SetRenderingPhase(int32 Phase, int32 PhaseCount);
+
 	/** Requests that the retainer redraw the hosted content next time it's painted. */
 	void RequestRender();
 
@@ -78,21 +84,12 @@ public:
 	virtual FCachedWidgetNode* CreateCacheNode() const override;
 	// End ILayoutCache
 
-	// FGCObject
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
-	// FGCObject
-
 	// SWidget
 	virtual FChildren* GetChildren() override;
 	virtual bool ComputeVolatility() const override;
 	// SWidget
 
-	virtual bool PaintRetainedContent(const FPaintArgs& Args);
-
-	FORCEINLINE const FGeometry& GetCachedAllottedGeometry() const
-	{
-		return CachedAllottedGeometry;
-	}
+	virtual bool PaintRetainedContent(const FPaintArgs& Args, const FGeometry& AllottedGeometry);
 
 	void SetWorld(UWorld* World);
 
@@ -106,23 +103,20 @@ protected:
 	bool ShouldBeRenderingOffscreen() const;
 	bool IsAnythingVisibleToRender() const;
 	void OnRetainerModeChanged();
-
+	void OnGlobalInvalidate();
 private:
 #if !UE_BUILD_SHIPPING
 	static void OnRetainerModeCVarChanged( IConsoleVariable* CVar );
 	static FOnRetainedModeChanged OnRetainerModeChangedDelegate;
 #endif
-
-	mutable FGeometry CachedAllottedGeometry;
-	mutable FVector2D CachedWindowToDesktopTransform;
-
 	FSimpleSlot EmptyChildSlot;
 
 	mutable FSlateBrush SurfaceBrush;
 
+	mutable FVector2D PreviousRenderSize;
+
 	void UpdateWidgetRenderer();
-	mutable TSharedPtr<class FWidgetRenderer> WidgetRenderer;
-	mutable class UTextureRenderTarget2D* RenderTarget;
+
 	mutable TSharedPtr<SWidget> MyWidget;
 
 	bool bEnableRetainedRenderingDesire;
@@ -142,10 +136,12 @@ private:
 	TSharedPtr<SVirtualWindow> Window;
 	TWeakObjectPtr<UWorld> OuterWorld;
 
+	FRetainerWidgetRenderingResources* RenderingResources;
+
 	STAT(TStatId MyStatId;)
 
-	FSlateBrush DynaicBrush;
-	UMaterialInstanceDynamic* DynamicEffect;
+	FSlateBrush DynamicBrush;
+
 	FName DynamicEffectTextureParameter;
 
 	static TArray<SRetainerWidget*, TInlineAllocator<3>> Shared_WaitingToRender;

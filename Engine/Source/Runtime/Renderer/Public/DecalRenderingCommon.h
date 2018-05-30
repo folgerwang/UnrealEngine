@@ -27,6 +27,13 @@ enum EDecalRenderStage
 	// later we could add "after lighting" and multiply
 };
 
+enum EDecalRasterizerState
+{
+	DRS_Undefined,
+	DRS_CCW,
+	DRS_CW,
+};
+
 /**
  * Shared decal functionality for deferred and forward shading
  */
@@ -90,6 +97,9 @@ struct FDecalRenderingCommon
 			case DBM_Emissive:
 				return RTM_SceneColor;
 
+			case DBM_AlphaComposite:
+				return RTM_SceneColorAndGBufferNoNormal;
+
 			case DBM_DBuffer_ColorNormalRoughness:
 			case DBM_DBuffer_Color:
 			case DBM_DBuffer_ColorNormal:
@@ -134,6 +144,7 @@ struct FDecalRenderingCommon
 			case DBM_Stain:
 			case DBM_Normal:
 			case DBM_Emissive:
+			case DBM_AlphaComposite:
 				return DRS_BeforeLighting;
 		
 			case DBM_Volumetric_DistanceFunction:
@@ -168,5 +179,22 @@ struct FDecalRenderingCommon
 		}
 
 		return 0;
+	}
+
+
+	static EDecalRasterizerState ComputeDecalRasterizerState(bool bInsideDecal, bool bIsInverted, bool ViewReverseCulling)
+	{
+		bool bClockwise = bInsideDecal;
+
+		if (ViewReverseCulling)
+		{
+			bClockwise = !bClockwise;
+		}
+
+		if (bIsInverted)
+		{
+			bClockwise = !bClockwise;
+		}
+		return bClockwise ? DRS_CW : DRS_CCW;
 	}
 };

@@ -316,6 +316,8 @@ public:
 
 	bool Tick(float DeltaTime)
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_FAutomationExecCmd_Tick);
+
 		// Update the automation controller to keep it running
 		AutomationController->Tick();
 

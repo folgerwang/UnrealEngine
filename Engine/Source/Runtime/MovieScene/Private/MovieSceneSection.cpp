@@ -57,6 +57,11 @@ void UMovieSceneSection::PostInitProperties()
 	}
 }
 
+bool UMovieSceneSection::IsPostLoadThreadSafe() const
+{
+	return true;
+}
+
 void UMovieSceneSection::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);

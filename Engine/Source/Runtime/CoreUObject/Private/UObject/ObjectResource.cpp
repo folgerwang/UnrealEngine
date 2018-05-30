@@ -15,20 +15,6 @@ namespace
 }
 
 /*-----------------------------------------------------------------------------
-FPackageIndex Lex functions
------------------------------------------------------------------------------*/
-
-FString ToString(const FPackageIndex& Value)
-{
-	return FString::FromInt(Value.Index);
-}
-
-void FromString(FPackageIndex& Value, const TCHAR* String)
-{
-	Value.Index = FCString::Atoi(String);
-}
-
-/*-----------------------------------------------------------------------------
 	FObjectResource
 -----------------------------------------------------------------------------*/
 

@@ -109,6 +109,7 @@ public:
 
 #if WITH_EDITOR
 	void SetOverrideScreenInformation(TOptional<FVector2D> InScreenSize, TOptional<float> InOverrideDpiScale);
+	void DebugSafeAreaUpdated(const FMargin& NewSafeZone);
 #endif
 
 	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -87,9 +87,6 @@ namespace AutomationTool
                 string CulturesToCookArg = "-CookCultures=" + CombineCommandletParams(CulturesToCook).Trim();
                 CommandletArguments += (CommandletArguments.Length > 0 ? " " : "") + CulturesToCookArg;
             }
-
-			// UAT has it's own option for appending log timestamps; we don't need the UE4 timestamps too.
-			CommandletArguments += " -NoLogTimes";
 
             RunCommandlet(ProjectName, UE4Exe, "Cook", String.Format("{0} -TargetPlatform={1} {2}",  CommandletArguments, TargetPlatform, Parameters));
 		}
@@ -257,7 +254,7 @@ namespace AutomationTool
 			string LocalLogFile = LogUtils.GetUniqueLogName(CombinePaths(CmdEnv.EngineSavedFolder, Commandlet));
 			Log("Commandlet log file is {0}", LocalLogFile);
 			string Args = String.Format(
-				"{0} -run={1} {2} -abslog={3} -stdout -CrashForUAT -unattended {5}{4}",
+				"{0} -run={1} {2} -abslog={3} -stdout -CrashForUAT -unattended -NoLogTimes {5}{4}",
 				(ProjectName == null) ? "" : CommandUtils.MakePathSafeToUseWithCommandLine(ProjectName.FullName),
 				Commandlet,
 				String.IsNullOrEmpty(Parameters) ? "" : Parameters,

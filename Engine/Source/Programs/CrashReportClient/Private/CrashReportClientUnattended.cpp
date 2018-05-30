@@ -4,6 +4,7 @@
 #include "Containers/Ticker.h"
 #include "CrashReportClientConfig.h"
 #include "CrashDescription.h"
+#include "Stats/Stats.h"
 
 FCrashReportClientUnattended::FCrashReportClientUnattended(FPlatformErrorReport& InErrorReport)
 	: ReceiverUploader(FCrashReportClientConfig::Get().GetReceiverAddress())
@@ -23,6 +24,8 @@ FCrashReportClientUnattended::FCrashReportClientUnattended(FPlatformErrorReport&
 
 bool FCrashReportClientUnattended::Tick(float UnusedDeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FCrashReportClientUnattended_Tick);
+
 	if (!FCrashUploadBase::IsInitialized())
 	{
 		FCrashUploadBase::StaticInitialize(ErrorReport);

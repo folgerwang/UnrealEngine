@@ -229,7 +229,6 @@ void SGameLayerManager::ClearWidgets()
 		PlayerLayers.Remove(LayerIt.Key());
 	}
 
-	WindowTitleBarStateStack.Empty();
 	SetWindowTitleBarState(nullptr, EWindowTitleBarMode::Overlay, false, false, false);
 }
 
@@ -387,7 +386,7 @@ void SGameLayerManager::AddOrUpdatePlayerLayers(const FGeometry& AllottedGeometr
 	ESplitScreenType::Type SplitType = ViewportClient->GetCurrentSplitscreenConfiguration();
 	TArray<struct FSplitscreenData>& SplitInfo = ViewportClient->SplitscreenInfo;
 
-	float InverseDPIScale = 1.0f / GetGameViewportDPIScale();
+	float InverseDPIScale = ViewportClient->Viewport ? 1.0f / GetGameViewportDPIScale() : 1.0f;
 
 	// Add and Update Player Layers
 	for ( int32 PlayerIndex = 0; PlayerIndex < GamePlayers.Num(); PlayerIndex++ )
@@ -414,7 +413,6 @@ void SGameLayerManager::AddOrUpdatePlayerLayers(const FGeometry& AllottedGeometr
 			Size = Size * AllottedGeometry.GetLocalSize() * InverseDPIScale;
 			Position = Position * AllottedGeometry.GetLocalSize() * InverseDPIScale;
 
-			const FWindowTitleBarState& WindowTitleBarState = WindowTitleBarStateStack.Top();
 			if (WindowTitleBarState.Mode == EWindowTitleBarMode::VerticalBox && Size.Y > WindowTitleBarVerticalBox->GetDesiredSize().Y)
 			{
 				Size.Y -= WindowTitleBarVerticalBox->GetDesiredSize().Y;
@@ -432,11 +430,11 @@ FVector2D SGameLayerManager::GetAspectRatioInset(ULocalPlayer* LocalPlayer) cons
 	FVector2D Offset(0.f, 0.f);
 	if ( LocalPlayer )
 	{
-		FSceneViewInitOptions ViewInitOptions;
-		if (LocalPlayer->CalcSceneViewInitOptions(ViewInitOptions, LocalPlayer->ViewportClient->Viewport))
+		FSceneViewProjectionData ProjectionData;
+		if (LocalPlayer->GetProjectionData(LocalPlayer->ViewportClient->Viewport, eSSP_FULL, ProjectionData))
 		{
-			FIntRect ViewRect = ViewInitOptions.GetViewRect();
-			FIntRect ConstrainedViewRect = ViewInitOptions.GetConstrainedViewRect();
+			const FIntRect ViewRect = ProjectionData.GetViewRect();
+			const FIntRect ConstrainedViewRect = ProjectionData.GetConstrainedViewRect();
 
 			// Return normalized coordinates.
 			Offset.X = ( ConstrainedViewRect.Min.X - ViewRect.Min.X ) / (float)ViewRect.Width();
@@ -452,34 +450,35 @@ void SGameLayerManager::SetDefaultWindowTitleBarHeight(float Height)
 	DefaultWindowTitleBarHeight = Height;
 }
 
-void SGameLayerManager::SetWindowTitleBarState(const TSharedPtr<SWidget>& TitleBarContent, EWindowTitleBarMode Mode, bool bIsTitleBarVisible, bool bWindowButtonsVisible, bool bTitleBarVisible)
+void SGameLayerManager::SetWindowTitleBarState(const TSharedPtr<SWidget>& TitleBarContent, EWindowTitleBarMode Mode, bool bTitleBarDragEnabled, bool bWindowButtonsVisible, bool bTitleBarVisible)
 {
-	WindowTitleBarStateStack.Push(FWindowTitleBarState(TitleBarContent.IsValid() ? TitleBarContent : DefaultTitleBarContentWidget, Mode, bIsTitleBarVisible, bWindowButtonsVisible, bTitleBarVisible && bIsGameUsingBorderlessWindow));
+	UE_LOG(LogSlate, Log, TEXT("Updating window title bar state: %s mode, drag %s, window buttons %s, title bar %s"),
+		Mode == EWindowTitleBarMode::Overlay ? TEXT("overlay") : TEXT("vertical box"),
+		bTitleBarDragEnabled ? TEXT("enabled") : TEXT("disabled"),
+		bWindowButtonsVisible ? TEXT("visible") : TEXT("hidden"),
+		bTitleBarVisible ? TEXT("visible") : TEXT("hidden"));
+	WindowTitleBarState.ContentWidget = TitleBarContent.IsValid() ? TitleBarContent : DefaultTitleBarContentWidget;
+	WindowTitleBarState.Mode = Mode;
+	WindowTitleBarState.bTitleBarDragEnabled = bTitleBarDragEnabled;
+	WindowTitleBarState.bWindowButtonsVisible = bWindowButtonsVisible;
+	WindowTitleBarState.bTitleBarVisible = bTitleBarVisible && bIsGameUsingBorderlessWindow;
 	UpdateWindowTitleBar();
 }
 
 void SGameLayerManager::RestorePreviousWindowTitleBarState()
 {
-	if (WindowTitleBarStateStack.Num() > 1)
-	{
-		WindowTitleBarStateStack.Pop();
-		UpdateWindowTitleBar();
-	}
-	else
-	{
-		UE_LOG(LogSlate, Warning, TEXT("SGameLayerManager::RestorePreviousWindowTitleBarState() called without a matching SGameLayerManager::SetWindowTitleBarState() call."));
-	}
+	// TODO: remove RestorePreviousWindowTitleBarState() and replace its usage in widget blueprints with SetWindowTitleBarState() calls
+	SetWindowTitleBarState(nullptr, EWindowTitleBarMode::Overlay, false, false, false);
 }
 
 void SGameLayerManager::SetWindowTitleBarVisibility(bool bIsVisible)
 {
-	WindowTitleBarStateStack.Top().bTitleBarVisible = bIsVisible && bIsGameUsingBorderlessWindow;
+	WindowTitleBarState.bTitleBarVisible = bIsVisible && bIsGameUsingBorderlessWindow;
 	UpdateWindowTitleBarVisibility();
 }
 
 void SGameLayerManager::UpdateWindowTitleBar()
 {
-	const FWindowTitleBarState& WindowTitleBarState = WindowTitleBarStateStack.Top();
 	if (WindowTitleBarState.ContentWidget.IsValid())
 	{
 		if (WindowTitleBarState.Mode == EWindowTitleBarMode::Overlay)
@@ -499,7 +498,6 @@ void SGameLayerManager::UpdateWindowTitleBar()
 
 void SGameLayerManager::UpdateWindowTitleBarVisibility()
 {
-	const FWindowTitleBarState& WindowTitleBarState = WindowTitleBarStateStack.Top();
 	const EVisibility VisibilityWhenEnabled = WindowTitleBarState.bTitleBarDragEnabled ? EVisibility::Visible : EVisibility::SelfHitTestInvisible;
 	if (WindowTitleBarState.Mode == EWindowTitleBarMode::Overlay)
 	{

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3429247
+﻿INTSourceChangelist:3801260
 Availability:Public
 Title:カスケード パーティクル エディタのリファレンス
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems
@@ -9,26 +9,6 @@ parent:Engine/Rendering/ParticleSystems
 order:2
 type:reference
 topic-image:cascade_topic.png
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/ParticleSystems/Cascade:title%](cascade_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/ParticleSystems/Cascade:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/ParticleSystems/Cascade:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/ParticleSystems/Cascade]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [TOC (start:2 end:3)]
 
@@ -303,14 +283,9 @@ Shader Complexity (シェーダの複雑度) では、特定のシェーダに�
 
 エミッタ リストを使用する場合、リスト内にあるエミッタの基本的なアナトミー (分析) を理解することが重要です。詳細です。
 
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![EmitterCallout.png](EmitterCallout.png)(w:400)
-	[/PARAM]
-	[PARAM:description]
-	[INCLUDE:#Emitters]
-	[/PARAM]
-[/OBJECT]
+![EmitterCallout.png](EmitterCallout.png)(w:400)
+
+[INCLUDE:#Emitters]
 
 [COMMENT:none]
 
@@ -321,10 +296,6 @@ Shader Complexity (シェーダの複雑度) では、特定のシェーダに�
 [/EXCERPT:Emitters]
 
 [/COMMENT]
-
-[REGION:raw]
-![](Engine\Rendering\LightingAndShadows\LightTypes\Point\spacer.png)
-[/REGION]
 
 [COMMENT:none]
 

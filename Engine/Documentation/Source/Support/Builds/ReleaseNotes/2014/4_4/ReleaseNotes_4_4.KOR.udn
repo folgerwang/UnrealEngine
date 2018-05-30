@@ -68,7 +68,7 @@ Matinee Fight Scene (마티네 격투 씬) - 마티네로 제작된 격투 씬�
 
 ![](Mixamo.png)
 
-**신규 페이퍼 2D 콘텐츠 예제 맵** - 2D 게임 제작 관련 여러가지 주제를 다룹니다. 스프라이트 에디터를 통한 스프라이트 생성 및 편집, 스프라이트와 키프레임을 사용하여 2D 애니메이션 애셋 제작이 가능한 플립북, 블루프린트로 플립북 제어, 2D 애셋에 피직스 추가, 스프라이트에 고전 저해상도 픽셀 느낌 내는 법 등이 포함되어 있습니다. 자세한 정보는 [페이퍼 2D 문서](https://docs.unrealengine.com/latest/INT/Resources/ContentExamples/Paper2D/index.html" style="line-height: 1.6em;)<span style="line-height: 1.6em;"> 를 참고하세요!</span>
+**신규 페이퍼 2D 콘텐츠 예제 맵** - 2D 게임 제작 관련 여러가지 주제를 다룹니다. 스프라이트 에디터를 통한 스프라이트 생성 및 편집, 스프라이트와 키프레임을 사용하여 2D 애니메이션 애셋 제작이 가능한 플립북, 블루프린트로 플립북 제어, 2D 애셋에 피직스 추가, 스프라이트에 고전 저해상도 픽셀 느낌 내는 법 등이 포함되어 있습니다. 자세한 정보는 [](Resources/ContentExamples/Paper2D) 를 참고하세요!
 
 ![](Paper2DExamplePic.png)
 
@@ -113,9 +113,9 @@ Clear Coat (클리어 코팅) 셰이딩 모델은 반투명 코팅이 덮여있�
 예로는 아크릴이나 락카 투명 코팅, 소다 캔이나 차량 도색처럼 금속 위에 입힌 색 필름을 들 수 있습니다.
 
 새로 노출된 파라미터는 두 가지입니다:
-* **Clear Coat** (투명 코팅)은 <span style="color: rgb(76, 76, 78); font-family: 'Lucida Grande', 'Lucida Sans Unicode', Helvetica, Arial, Verdana, sans-serif; font-size: 14px; line-height: 21px; background-color: rgb(250, 250, 250);">투명 코팅 막의 양으로, 0 은 표준 셰이딩 모델처럼, 1 은 최대 투명 코팅 모델처럼 작동합니다. 마스킹에 좋습니다</span>.
+* **Clear Coat** (투명 코팅)은 투명 코팅 막의 양으로, 0 은 표준 셰이딩 모델처럼, 1 은 최대 투명 코팅 모델처럼 작동합니다. 마스킹에 좋습니다.
 
-* **Clear Coat Roughness** (투명 코팅 러프니스)는. <span style="color: rgb(76, 76, 78); font-family: 'Lucida Grande', 'Lucida Sans Unicode', Helvetica, Arial, Verdana, sans-serif; font-size: 14px; line-height: 21px; background-color: rgb(250, 250, 250);">투명 코팅 막에 대한 러프니스입니다. 작은 값에는 정확한 모방이 나옵니다. 매우 거친 투명막도 지원은 됩니다만, 현실에서 볼 수 있는 것에 비하면 아주 정확하게 모방되지는 않을 것입니다.</span>
+* **Clear Coat Roughness** (투명 코팅 러프니스)는. 투명 코팅 막에 대한 러프니스입니다. 작은 값에는 정확한 모방이 나옵니다. 매우 거친 투명막도 지원은 됩니다만, 현실에서 볼 수 있는 것에 비하면 아주 정확하게 모방되지는 않을 것입니다.
 
 ##### 신규: 형광등
 뛰어난 [커뮤니티 제출](https://forums.unrealengine.com/showthread.php?5670-Capsule-light-functionality-added-in-lightmass&p=41896#post41896) 덕에, 라이트매스 레이트레이서가 캡슐 모양 포인트 라이트를 지원합니다.
@@ -399,7 +399,7 @@ Clear Coat (클리어 코팅) 셰이딩 모델은 반투명 코팅이 덮여있�
 * 튜토리얼에 애셋을 열거나 강조하는 기능이 지원됩니다.
 * 애셋 선택기에서 필터 생성 이후 변경하는 기능이 지원됩니다.
 * PropertyHandles 를 통해 FAssetData 로 오브젝트 프로퍼티를 설정하는 기능이 지원됩니다.
-	* CameraActor 'AutoActivateForPlayer' 옵션을 추가, 레벨에 배치된 카메라가 PlayerController 에 자동으로 링크되도록 할 수 있습니다.
+* CameraActor 'AutoActivateForPlayer' 옵션을 추가, 레벨에 배치된 카메라가 PlayerController 에 자동으로 링크되도록 할 수 있습니다.
 	* 액터가 PlayerController 의 뷰타겟이 되기 시작하고 끝날 때를 위한 블루프린트를 추가했습니다 (OnBecomeViewTarget / OnEndViewTarget).
 	* 그에 대한 네이티브 C++ 이벤트 (BecomeViewTarget / EndViewTarget) 는 이미 존재하며, 이제 블루프린트 이벤트를 트리거합니다.
 	* PlayerCameraManager 에서 EndViewTarget / BecomeViewTarget 로의 호출 순서를 변경, 예전 타겟에는 End 이벤트가 먼저 발생한 다음 새로운 것에 Begin 이벤트가 발생하도록 했습니다 (예전에는 반대였습니다).
@@ -430,8 +430,9 @@ Clear Coat (클리어 코팅) 셰이딩 모델은 반투명 코팅이 덮여있�
 * 퍼시스턴트 레벨 로드 이후 서브레벨을 로드할 때 더이상 레벨의 트랜스폼이 유지되지 않습니다.
 * 이제 커스텀 스플래시 화면이 정상 표시됩니다.
 * AActor::GetPawn() 와의 혼동을 피하기 위해 AActor::GetControlledPawn() 를 폐기시켰습니다.
+* 열린 마티네에 액터가 레퍼런싱된 경우 액터를 다른 레벨로 이동시킬 수 없도록 했습니다.
 * 버전비교된 애셋은 더이상 애셋 선택기에 나타나지 않습니다.
-* DestroyApplication 가상 함수는 F<platform>Application.</platform> 에 대해 제대로 호출됩니다.
+* DestroyApplication 가상 함수는 `F<Platform>Application` 에 대해 제대로 호출됩니다.
 * 모든 클래스 메타데이터 태그를 문서화했습니다.
 * 패키지 메타데이터를 사용하려 할 때 로그되도록 합니다.
 * 레벨 삭제시 렌더링 리소스가 해제되도록 했습니다.
@@ -494,7 +495,7 @@ Clear Coat (클리어 코팅) 셰이딩 모델은 반투명 코팅이 덮여있�
 * 레벨을 넘나드는 데이터 저장, 게임의 어플리케이션 상태 관리, 게임 세션의 수명 내도록 존재했으면 하는 오브젝트의 오너 역할을 하는 데도 사용할 수 있습니다.
 * Game Instance 는 클라이언트와 서버 양쪽에 존재하지만, UObject 이기 때문에 인스턴스간의 데이터 리플리케이션은 현재 없습니다.
 
-#### 페이퍼 2D
+#### 페이퍼 2D 
 * 스프라이트 렌더 지오메트리 다이싱 기능이 지원, 반투명/마스크드 쿼드를 불투명 쿼드에서 분리해 냅니다 (작업중).
 	* 이제 스프라이트에 생긴 대체 머티리얼로 이차 렌더 섹션을 정의할 수 있게 되었습니다 (현재는 다이싱된 지오메트리에만 사용되며, 그 경우 대체 머티리얼은 불투명한 것이어야 한다는 규칙이 있습니다).
 	* ESpritePolygonMode::Diced 값을 새로 추가, 렌더 지오메트리에만 유효합니다 (콜리전용 SourceBoundingBox 처럼 취급됩니다).
@@ -567,7 +568,6 @@ Clear Coat (클리어 코팅) 셰이딩 모델은 반투명 코팅이 덮여있�
 * UE4EditorServices 에 설치된 엔진 버전을 나열하는 코드가 미완 또는 삭제된 버전을 포함하지 않도록 개선시켰습니다.
 * SNodePanel 에서 매직 마우스 및 트랙패드용 우클릭 처리가 개선되었습니다.
 * 맥 IME 지원이 개선되었습니다:
-
 * 편집중인 범위를 팝업 글리프 선택 창으로 표시합니다.
 * 추가적인 입력 및 클릭이 예상대로 작동하도록 IME 종료시 마킹 및 작성된 범위를 제대로 소거시킵니다.
 * 작성된 범위 편집시 탈자 위치가 제대로 업데이트되도록 했습니다.
@@ -590,7 +590,6 @@ Clear Coat (클리어 코팅) 셰이딩 모델은 반투명 코팅이 덮여있�
 * 여러 iOS 디플로이 및 패키징 오류에 대한 에디터내 도움말 및 확장 오류 검사 추가는 물론, 안드로이드 디바이스 호환성이 지속적으로 향상되고 있습니다.
 * 모바일 머티리얼에 PerInstanceFadeAmount 가 지원됩니다.
 * BlackBody 머티리얼 표현식이 이제 ES2 에 지원됩니다.
-* 에디터가 이제 프로젝트 plist 를
 * 에디터가 (iOS 용 프로젝트 세팅에서 찾은) 프로젝트 plist 를 Game/Build/Info.plist 에 저장합니다. Game/Build/Game-Info.plist 에 저장했던 기존 버전과는 다릅니다. 지금 당장은 에디터와 툴이 Game-Info.plist 를 계속해서 찾아 봅니다만, 나중에 폐기될 것입니다.
 **iOS**
 * 블루프린트에 기본적인 iOS 앱 내 구매가 지원됩니다.
@@ -611,16 +610,18 @@ Clear Coat (클리어 코팅) 셰이딩 모델은 반투명 코팅이 덮여있�
 * 에디터로 패키징 도중 콘솔 로그의 여분 공백줄을 제거했습니다.
 * 태피 치킨
 	* 안드로이드의 뒤로 특수 뒤로 버튼 지원을 위해 'Android Back' 을 추가했습니다.
+
 * 안드로이드 호환 디바이스 목록
-	* LG G2 (LG-LS980)
-	* Samsung Galaxy Note 3 (SM-N900)
-	* Samsung Galaxy Note 3 (SM-N900P)
-	* Samsung Galaxy S 2 Intn'l (GT-I9100)
-	* Samsung Galaxy S 4 mini (GT-i9190)
-	* Samsung Galaxy S 5 (SM-G900H)
-	* Samsung Galaxy Tab 3 10.1 (GT-P5200)
-	* NVIDIA Shield
-	* 자세한 정보는 [Android Device compatibility wiki page](https://wiki.unrealengine.com/Android_Device_Compatibility) 를 참고하세요.
+* LG G2 (LG-LS980)
+* Samsung Galaxy Note 3 (SM-N900)
+* Samsung Galaxy Note 3 (SM-N900P)
+* Samsung Galaxy S 2 Intn'l (GT-I9100)
+* Samsung Galaxy S 4 mini (GT-i9190)
+* Samsung Galaxy S 5 (SM-G900H)
+* Samsung Galaxy Tab 3 10.1 (GT-P5200)
+* NVIDIA Shield
+
+자세한 정보는 [Android Device compatibility wiki page](https://wiki.unrealengine.com/Android_Device_Compatibility) 를 참고하세요. 
 
 **Xbox One**
 * New: Improved handling and cleanup of orphaned Xbox Live sessions.

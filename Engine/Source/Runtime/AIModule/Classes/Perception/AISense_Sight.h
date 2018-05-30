@@ -38,7 +38,7 @@ struct AIMODULE_API FAISightEvent
 	UPROPERTY()
 	AActor* Observer;
 
-	FAISightEvent(){}
+	FAISightEvent() : SeenActor(nullptr), Observer(nullptr) {}
 
 	FAISightEvent(AActor* InSeenActor, AActor* InObserver, ESightPerceptionEventName::Type InEventType)
 		: Age(0.f), EventType(InEventType), SeenActor(InSeenActor), Observer(InObserver)

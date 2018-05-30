@@ -221,7 +221,7 @@ void FSceneViewState::TrimOcclusionHistory(float CurrentTime, float MinHistoryTi
 			// If the primitive has an old pending occlusion query, release it.
 			if(PrimitiveIt->LastConsideredTime < MinQueryTime)
 			{
-				PrimitiveIt->ReleaseQueries(OcclusionQueryPool, NumBufferedFrames);
+				PrimitiveIt->ReleaseStaleQueries(OcclusionQueryPool, FrameNumber, NumBufferedFrames);
 			}
 
 			// If the primitive hasn't been considered for visibility recently, remove its history from the set.
@@ -261,25 +261,7 @@ bool FSceneViewState::IsShadowOccluded(FRHICommandListImmediate& RHICmdList, FSc
 
 void FSceneViewState::ConditionallyAllocateSceneSoftwareOcclusion(ERHIFeatureLevel::Type InFeatureLevel)
 {
-	static bool bOnce = false;
-	static bool bForceByCmdLine = false;
-	static bool bCmdLineShouldBeEnabledValue = false;
-	if (!bOnce)
-	{
-		bOnce = true;
-		if (FParse::Param(FCommandLine::Get(), TEXT("softwareocclusionculling")) && GMobileAllowSoftwareOcclusion == 0)
-		{
-			bForceByCmdLine = true;
-			bCmdLineShouldBeEnabledValue = true;
-		}
-		else if (FParse::Param(FCommandLine::Get(), TEXT("hardwareocclusionculling")) && GMobileAllowSoftwareOcclusion >= 1)
-		{
-			bForceByCmdLine = true;
-			bCmdLineShouldBeEnabledValue = false;
-		}
-	}
-	// Want to use software occlusion only for "Mobile" feature level
-	bool bShouldBeEnabled = bForceByCmdLine ? bCmdLineShouldBeEnabledValue : (InFeatureLevel <= ERHIFeatureLevel::ES3_1 && GMobileAllowSoftwareOcclusion != 0);
+	bool bShouldBeEnabled = InFeatureLevel <= ERHIFeatureLevel::ES3_1 && GMobileAllowSoftwareOcclusion != 0;
 
 	if (bShouldBeEnabled && !SceneSoftwareOcclusion)
 	{
@@ -633,7 +615,7 @@ static bool AllocatePlanarReflectionOcclusionQuery(FViewInfo& View, const FPlana
 	
 	uint32 OcclusionFrameCounter = ViewState->OcclusionFrameCounter;
 	FIndividualOcclusionHistory& OcclusionHistory = ViewState->PlanarReflectionOcclusionHistories.FindOrAdd(SceneProxy->PlanarReflectionId);
-	ViewState->OcclusionQueryPool.ReleaseQuery(OcclusionHistory.GetPastQuery(OcclusionFrameCounter, NumBufferedFrames));
+	OcclusionHistory.ReleaseQuery(ViewState->OcclusionQueryPool, OcclusionFrameCounter, NumBufferedFrames);
 	
 	if (bAllowBoundsTest)
 	{
@@ -1552,12 +1534,12 @@ void FSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, b
 					VertexShader->SetParameters(RHICmdList, View);
 
 					{
-						SCOPED_DRAW_EVENT(RHICmdList, IndividualQueries);
-						View.IndividualOcclusionQueries.Flush(RHICmdList);
-					}
-					{
 						SCOPED_DRAW_EVENT(RHICmdList, GroupedQueries);
 						View.GroupedOcclusionQueries.Flush(RHICmdList);
+					}
+					{
+						SCOPED_DRAW_EVENT(RHICmdList, IndividualQueries);
+						View.IndividualOcclusionQueries.Flush(RHICmdList);
 					}
 				}
 			}

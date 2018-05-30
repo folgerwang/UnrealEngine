@@ -726,10 +726,13 @@ void FNewProcessCapture::Cancel()
 
 	// Attempt to send a remote command to gracefully terminate the process
 	ISessionServicesModule& SessionServices = FModuleManager::Get().LoadModuleChecked<ISessionServicesModule>("SessionServices");
-	TSharedRef<ISessionManager> SessionManager = SessionServices.GetSessionManager();
+	TSharedPtr<ISessionManager> SessionManager = SessionServices.GetSessionManager();
 
 	TArray<TSharedPtr<ISessionInfo>> Sessions;
-	SessionManager->GetSessions(Sessions);
+	if (SessionManager.IsValid())
+	{
+		SessionManager->GetSessions(Sessions);
+	}
 
 	for (const TSharedPtr<ISessionInfo>& Session : Sessions)
 	{

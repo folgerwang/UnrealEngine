@@ -143,6 +143,8 @@ enum EMaterialDomain
 	MD_MAX
 };
 
+ENGINE_API FString MaterialDomainString(EMaterialDomain MaterialDomain);
+
 /**
  * The context of a material being rendered.
  */
@@ -381,6 +383,8 @@ public:
 	FMaterialCompilationOutput() :
 		NumUsedUVScalars(0),
 		NumUsedCustomInterpolatorScalars(0),
+		EstimatedNumTextureSamplesVS(0),
+		EstimatedNumTextureSamplesPS(0),
 		bRequiresSceneColorCopy(false),
 		bNeedsSceneTextures(false),
 		bUsesEyeAdaptation(false),
@@ -401,6 +405,10 @@ public:
 
 	/** Number of used custom vertex interpolation scalars. */
 	uint8 NumUsedCustomInterpolatorScalars;
+
+	/** Number of times SampleTexture is called, excludes custom nodes. */
+	uint16 EstimatedNumTextureSamplesVS;
+	uint16 EstimatedNumTextureSamplesPS;
 
 	/** Indicates whether the material uses scene color. */
 	bool bRequiresSceneColorCopy;
@@ -737,8 +745,15 @@ public:
 	 */
 	bool TryToAddToExistingCompilationTask(FMaterial* Material);
 
+#if WITH_EDITOR
+	ENGINE_API const FString *GetShaderSource(const FName ShaderTypeName) const;
+#endif
+
 	/** Builds a list of the shaders in a shader map. */
 	ENGINE_API void GetShaderList(TMap<FShaderId, FShader*>& OutShaders) const;
+
+	/** Builds a list of the shaders in a shader map. Key is FShaderType::TypeName */
+	ENGINE_API void GetShaderList(TMap<FName, FShader*>& OutShaders) const;
 
 	/** Builds a list of the shader pipelines in a shader map. */
 	ENGINE_API void GetShaderPipelineList(TArray<FShaderPipeline*>& OutShaderPipelines) const;
@@ -835,6 +850,7 @@ public:
 	bool UsesSceneDepthLookup() const { return MaterialCompilationOutput.bUsesSceneDepthLookup; }
 	uint32 GetNumUsedUVScalars() const { return MaterialCompilationOutput.NumUsedUVScalars; }
 	uint32 GetNumUsedCustomInterpolatorScalars() const { return MaterialCompilationOutput.NumUsedCustomInterpolatorScalars; }
+	void GetEstimatedNumTextureSamples(uint32& VSSamples, uint32& PSSamples) const { VSSamples = MaterialCompilationOutput.EstimatedNumTextureSamplesVS; PSSamples = MaterialCompilationOutput.EstimatedNumTextureSamplesPS; }
 
 	bool IsValidForRendering() const
 	{
@@ -859,6 +875,8 @@ public:
 			}
 		}
 	}
+	void DumpDebugInfo();
+	void SaveShaderStableKeys(EShaderPlatform TargetShaderPlatform, const struct FStableShaderKeyAndValue& SaveKeyVal);
 
 private:
 
@@ -926,6 +944,11 @@ private:
 #if ALLOW_SHADERMAP_DEBUG_DATA
 	/** Debug information about how the material shader map was compiled. */
 	FString DebugDescription;
+
+#if WITH_EDITOR
+	/** Map that stores source code used to compile a certain shader present in this FMaterialShaderMap instance. Key is ShaderType::TypeName. */
+	TMap<FName, FString> ShaderProcessedSource;
+#endif
 #endif
 
 	FShader* ProcessCompilationResultsForSingleJob(class FShaderCompileJob* SingleJob, const FShaderPipelineType* ShaderPipeline, const FSHAHash& MaterialShaderMapHash);
@@ -999,6 +1022,41 @@ public:
 class FMaterialFunctionCompileState
 {
 public:
+	explicit FMaterialFunctionCompileState(UMaterialExpressionMaterialFunctionCall* InFunctionCall)
+		: FunctionCall(InFunctionCall)
+	{}
+
+	~FMaterialFunctionCompileState()
+	{
+		ClearSharedFunctionStates();
+	}
+
+	FMaterialFunctionCompileState* FindOrAddSharedFunctionState(FMaterialExpressionKey& ExpressionKey, class UMaterialExpressionMaterialFunctionCall* SharedFunctionCall)
+	{
+		if (FMaterialFunctionCompileState** ExistingState = SharedFunctionStates.Find(ExpressionKey))
+		{
+			return *ExistingState;
+		}
+		return SharedFunctionStates.Add(ExpressionKey, new FMaterialFunctionCompileState(SharedFunctionCall));
+	}
+
+	void ClearSharedFunctionStates()
+	{
+		for (auto SavedStateIt = SharedFunctionStates.CreateIterator(); SavedStateIt; ++SavedStateIt)
+		{
+			FMaterialFunctionCompileState* SavedState = SavedStateIt.Value();
+			SavedState->ClearSharedFunctionStates();
+			delete SavedState;
+		}
+		SharedFunctionStates.Empty();
+	}
+
+	void Reset()
+	{
+		ExpressionStack.Empty();
+		ExpressionCodeMap.Empty();
+		ClearSharedFunctionStates();
+	}
 
 	class UMaterialExpressionMaterialFunctionCall* FunctionCall;
 
@@ -1008,9 +1066,9 @@ public:
 	/** A map from material expression to the index into CodeChunks of the code for the material expression. */
 	TMap<FMaterialExpressionKey,int32> ExpressionCodeMap;
 
-	explicit FMaterialFunctionCompileState(UMaterialExpressionMaterialFunctionCall* InFunctionCall) :
-		FunctionCall(InFunctionCall)
-	{}
+private:
+	/** Cache of MaterialFunctionOutput CodeChunks.  Allows for further reuse than just the ExpressionCodeMap */
+	TMap<FMaterialExpressionKey, FMaterialFunctionCompileState*> SharedFunctionStates;
 };
 
 /** Returns whether the given expression class is allowed. */
@@ -1344,6 +1402,13 @@ public:
 			&& !((bShadowPass || !CVarStencilDitheredLOD->GetValueOnAnyThread()) && IsDitheredLODTransition())
 			&& !IsWireframe();
 	}
+
+	/** call during shader compilation jobs setup to fill additional settings that may be required by classes who inherit from this */
+	virtual void SetupExtaCompilationSettings(const EShaderPlatform Platform, FExtraShaderCompilerSettings& Settings) const
+	{}
+
+	void DumpDebugInfo();
+	void SaveShaderStableKeys(EShaderPlatform TargetShaderPlatform, struct FStableShaderKeyAndValue& SaveKeyVal); // arg is non-const, we modify it as we go
 
 	/** 
 	 * Adds an FMaterial to the global list.
@@ -1779,6 +1844,7 @@ public:
 	/** Returns the number of samplers used in this material, or -1 if the material does not have a valid shader map (compile error or still compiling). */
 	ENGINE_API int32 GetSamplerUsage() const;
 	ENGINE_API void GetUserInterpolatorUsage(uint32& NumUsedUVScalars, uint32& NumUsedCustomInterpolatorScalars) const;
+	ENGINE_API void GetEstimatedNumTextureSamples(uint32& VSSamples, uint32& PSSamples) const;
 
 	ENGINE_API virtual FString GetMaterialUsageDescription() const override;
 
@@ -1872,16 +1938,6 @@ public:
 
 	ENGINE_API virtual void NotifyCompilationFinished() override;
 
-	/**
-	 * Gets instruction counts that best represent the likely usage of this material based on shading model and other factors.
-	 * @param Descriptions - an array of descriptions to be populated
-	 * @param InstructionCounts - an array of instruction counts matching the Descriptions.  
-	 *		The dimensions of these arrays are guaranteed to be identical and all values are valid.
-	 */
-	ENGINE_API void GetRepresentativeInstructionCounts(TArray<FString> &Descriptions, TArray<int32> &InstructionCounts) const;
-
-	ENGINE_API void GetRepresentativeShaderTypesAndDescriptions(TMap<FName, FString>& OutShaderTypeNameAndDescriptions) const;
-
 	ENGINE_API void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize);
 
 	ENGINE_API virtual void LegacySerialize(FArchive& Ar) override;
@@ -1914,6 +1970,7 @@ protected:
 	ENGINE_API virtual FString GetDebugName() const override;
 
 	friend class FDebugViewModeMaterialProxy; // Needed to redirect compilation
+
 };
 
 /**
@@ -2149,6 +2206,11 @@ public:
 	/** Returns a list of registered custom attributes */
 	ENGINE_API static void GetCustomAttributeList(TArray<FMaterialCustomOutputAttributeDefintion>& CustomAttributeList);
 
+	ENGINE_API static const TArray<FGuid>& GetOrderedVisibleAttributeList()
+	{
+		return GMaterialPropertyAttributesMap.OrderedVisibleAttributeList;
+	}
+
 private:
 	// Customization class for displaying data in the material editor
 	friend class FMaterialAttributePropertyDetails;
@@ -2170,9 +2232,8 @@ private:
 
 	TMap<EMaterialProperty, FMaterialAttributeDefintion>	AttributeMap; // Fixed map of compile-time definitions
 	TArray<FMaterialCustomOutputAttributeDefintion>			CustomAttributes; // Array of custom output definitions
+	TArray<FGuid>											OrderedVisibleAttributeList; // List used for consistency with e.g. combobox filling
 
 	FString													AttributeDDCString;
 	bool bIsInitialized;
 };
-
-

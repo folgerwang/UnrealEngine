@@ -859,7 +859,7 @@ struct FSoftObjectPathRenameSerializer : public FArchiveUObject
 		, bFoundReference(false)
 	{
 		// Mark it as saving to correctly process all references
-		ArIsSaving = true;
+		this->SetIsSaving(true);
 	}
 
 	FArchive& operator<<(FSoftObjectPath& Value)

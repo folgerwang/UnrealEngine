@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3665412
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%
 Title:GoogleVR タッチパッドの使用方法 
@@ -6,7 +6,7 @@ Description:GoogleVR モーション コントローラー タッチパッドの
 Type: how-to
 SkillLevel:Intermediate
 Version:4.16
-Parent:Platforms/GoogleVR/HowTo
+Parent:Platforms/GoogleVR
 Order:3
 Tags:GoogleVR
 topic-image:Platforms\GoogleVR\HowTo\HT_GoogleVR_Camera_Setup_Topic_Image.png
@@ -14,13 +14,17 @@ prereq:Platforms\GoogleVR\QuickStart
 prereq:Platforms\GoogleVR\HowTo\CameraSetup
 prereq:Platforms\GoogleVR\HowTo\MotionController
 
+![](HTGVRMCTouchpad_Hero_Image.png)
+
 GoogleVR モーション コントローラー (MC) タッチパッドは非常に正確なので、高い精度が要求される様々なインタラクションの実行に使用することができます。メニュー オプションのスクロールからマップ上への正確な位置の描画まで、タッチパッドには仮想世界とインタラクトする様々な使い方があります。GoogleVR モーション コントローラー タッチパッドを触る現在位置の取得および表示方法を説明します。
 
 [region:note]
 この操作ガイドでは、VR カメラとモーション コントローラーへのサポートが設定されているポーンを使用します。この設定をまだ行っていない場合は、本ページ冒頭の **Prerequisite Topics** で紹介されているドキュメントをご覧ください。
 [/region]
 
-## GoogleVR タッチパッドの設定方法
+## ステップ
+
+以下のセクションでは、Google Daydream モーション コントローラーのタッチパッドを設定する方法を説明します。
 
 1. まず Player Pawn ブループリントを開きます。まず最初に **[Component]** タブで、**X_Position** および **Y_Position**.という名前の **Text Render** コンポーネントを追加します。以下のように、2 つとも **GoogleVRMotion Controller** コンポーネントが親になるようにしてください。
 
@@ -100,25 +104,27 @@ GoogleVR モーション コントローラー (MC) タッチパッドは非常�
     |**Get Motion Controller**|N/A|
     |**Google Motion Controller**|N/A|
 
-1. ブループリントをコンパイルおよび保存し、スマートフォンへプロジェクトがデプロイされたら、GoogleVR HMD とモーション コントローラーを手に持ちます。タッチパッドを触ると、以下の動画のように現在触っている位置に数字が更新されます。
+## 最終結果
 
-    [OBJECT:EmbeddedVideo]
-        [PARAMLITERAL:videoid]
-        sr43LB7wSJ8
-        [/PARAMLITERAL]
-        [PARAMLITERAL:width]
-        100
-        [/PARAMLITERAL]
-        [PARAMLITERAL:height]
-        56.25
-        [/PARAMLITERAL]
-        [PARAMLITERAL:units]
-        %
-        [/PARAMLITERAL]
-        [PARAMLITERAL:type]
-        simple
-        [/PARAMLITERAL]
-    [/OBJECT]
+ブループリントをコンパイルおよび保存し、スマートフォンへプロジェクトがデプロイされたら、GoogleVR HMD とモーション コントローラーを手に持ちます。タッチパッドを触ると、以下の動画のように現在触っている位置に数字が更新されます。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    sr43LB7wSJ8
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
 
 ## アンリアル エンジン プロジェクトをダウンロードする
 

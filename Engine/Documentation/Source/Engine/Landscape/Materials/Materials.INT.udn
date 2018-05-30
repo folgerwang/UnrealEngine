@@ -122,7 +122,7 @@ You can set the properties of the LandscapeLayerSwitch node in the **Details** p
 |2:| **Preview Used**   | If checked, uses a preview. |
 |3:| **LayerUsed**      | The result to use when the layer specified in the node's properties is in use by the current region of the Landscape.|
 |4:| **LayerNotUsed**   | The result to use when the layer is not used by the current region of the Landscape and has a weight of zero.|
-|5:| ** Unlabeled Output**        | Either the **LayerUsed** or **LayerNotUsed** inputs, depending on whether or not the layer contributes to the particular region of the Landscape.|  
+|5:| **Unlabeled Output**        | Either the **LayerUsed** or **LayerNotUsed** inputs, depending on whether or not the layer contributes to the particular region of the Landscape.|  
 
 [/EXCERPT:TerrainLayerSwitch]
 
@@ -294,14 +294,6 @@ You can use the same Material for your Landscape Material and your Landscape Hol
 1. First either open up or create a new Material in the Material Editor. Once the Material is open, look in the **Details** panel and set the **Blend Mode**  to **Masked**.
 
 	![](Landscape_BaseNodeOpacity.png)
-
-	[COMMENT:none]
-
-	[REGION:tip]
-	If you are using a separate Material for your Landscape hole you need to make sure that you also have a texture feeding into the Base Color slot or when you try and make parts of your Landscape invisible you will end up turning parts of your Landscape black.
-	[/REGION]
-	
-[/COMMENT]
 
 1. Next, search for and add a **LandscapeVisibilityMask** node to the Material Graph and connect its output to the **Opacity Mask** input.
 

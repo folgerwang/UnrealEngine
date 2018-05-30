@@ -169,10 +169,10 @@ void FOnlineIdentityGoogle::OnAccessTokenLoginComplete(int32 LocalUserNum, bool 
 	OnLoginAttemptComplete(LocalUserNum, Error);
 }
 
-void FOnlineIdentityGoogle::OnExternalUILoginComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex)
+void FOnlineIdentityGoogle::OnExternalUILoginComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex, const FOnlineError& Error)
 {
-	FString ErrorStr;
-	bool bWasSuccessful = UniqueId.IsValid() && UniqueId->IsValid();
+	const FString& ErrorStr = Error.ErrorCode;
+	const bool bWasSuccessful = Error.WasSuccessful() && UniqueId.IsValid() && UniqueId->IsValid();
 	OnAccessTokenLoginComplete(ControllerIndex, bWasSuccessful, bWasSuccessful ? *UniqueId : GetEmptyUniqueId(), ErrorStr);
 }
 

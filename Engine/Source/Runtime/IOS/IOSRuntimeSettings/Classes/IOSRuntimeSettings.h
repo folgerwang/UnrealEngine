@@ -7,12 +7,7 @@
 #include "UObject/Object.h"
 #include "UObject/Class.h"
 #include "UObject/PropertyPortFlags.h"
-
-#if WITH_ENGINE
 #include "AudioCompressionSettings.h"
-#else
-struct FPlatformRuntimeAudioCompressionOverrides;
-#endif
 
 #include "IOSRuntimeSettings.generated.h"
 
@@ -313,6 +308,10 @@ public:
 	// If checked, the center of the trackpad is 0,0 (center) for the virtual joystick. If unchecked, the location the user taps becomes 0,0
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Input, meta = (DisplayName = "Use AppleTV Remote absolute trackpad values"))
 	bool bUseRemoteAbsoluteDpadValues;
+	
+	// If checked, Bluetooth connected controllers will send input
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Input, meta = (DisplayName = "Allow MFi (Bluetooth) controllers"))
+	bool bAllowControllers;
 	
 	// Supports default portrait orientation. Landscape will not be supported.
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = DeviceOrientations)

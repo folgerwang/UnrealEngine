@@ -2562,7 +2562,7 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 					bFirstEnumMember = false;
 				}
 
-				ExportConstantValue(UTF8_TO_TCHAR(EnumMember.EntryName.GetData()), UTF8_TO_TCHAR(EnumMember.EntryDoc.GetData()), *Lex::ToString(EnumMember.EntryValue));
+				ExportConstantValue(UTF8_TO_TCHAR(EnumMember.EntryName.GetData()), UTF8_TO_TCHAR(EnumMember.EntryDoc.GetData()), *LexToString(EnumMember.EntryValue));
 			}
 		}
 	}

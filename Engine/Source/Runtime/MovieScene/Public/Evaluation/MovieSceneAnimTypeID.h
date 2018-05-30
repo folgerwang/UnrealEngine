@@ -7,11 +7,6 @@
 
 struct FMovieSceneAnimTypeID;
 
-namespace Lex
-{
-	MOVIESCENE_API FString ToString(const FMovieSceneAnimTypeID& AnimTypeID);
-}
-
 /**
  * Animation type ID that uniquely identifies the type of a change made
  * (ie changing a transform, spawning an object, etc) as part of a sequence evaluation
@@ -39,7 +34,7 @@ struct FMovieSceneAnimTypeID
 
 protected:
 
-	friend FString Lex::ToString(const FMovieSceneAnimTypeID&);
+	friend MOVIESCENE_API FString LexToString(const FMovieSceneAnimTypeID&);
 
 	FMovieSceneAnimTypeID(uint64* StaticPtr, uint32 Seed = 0)
 		: ID(*StaticPtr ? *StaticPtr : Initialize(StaticPtr, Seed))

@@ -114,11 +114,12 @@ struct FCsvCaptureCommand
 		, Value(-1)
 	{}
 
-	FCsvCaptureCommand(ECsvCommandType InCommandType, uint32 InFrameRequested, uint32 InValue = -1, const FString& InDestinationFolder = FString(), bool InbWriteCompletionFile = false)
+	FCsvCaptureCommand(ECsvCommandType InCommandType, uint32 InFrameRequested, uint32 InValue = -1, const FString& InDestinationFolder = FString(), const FString& InFilename = FString(), bool InbWriteCompletionFile = false)
 		: CommandType(InCommandType)
 		, FrameRequested(InFrameRequested)
 		, Value(InValue)
 		, DestinationFolder(InDestinationFolder)
+		, Filename(InFilename)
 		, bWriteCompletionFile(InbWriteCompletionFile)
 	{}
 
@@ -126,6 +127,7 @@ struct FCsvCaptureCommand
 	uint32 FrameRequested;
 	uint32 Value;
 	FString DestinationFolder;
+	FString Filename;
 	bool bWriteCompletionFile;
 };
 
@@ -138,9 +140,10 @@ class FCsvProfiler
 	friend class FCsvProfilerThreadData;
 	friend struct FCsvCategory;
 private:
-	static FCsvProfiler* Instance;
-	FCsvProfiler();
+	static TUniquePtr<FCsvProfiler> Instance;		
 public:
+	FCsvProfiler();
+	~FCsvProfiler();
 	static CORE_API FCsvProfiler* Get();
 
 	CORE_API void Init();
@@ -180,8 +183,9 @@ public:
 	CORE_API void EndFrame();
 
 	/** Begin/End Capture */
-	CORE_API void BeginCapture(int InNumFramesToCapture = -1,
+	CORE_API void BeginCapture( int InNumFramesToCapture = -1,
 		const FString& InDestinationFolder = FString(),
+		const FString& InFilename = FString(),
 		bool bInWriteCompletionFile = false);
 
 	CORE_API void EndCapture();
@@ -192,6 +196,8 @@ public:
 	/** Renderthread begin/end frame */
 	CORE_API void BeginFrameRT();
 	CORE_API void EndFrameRT();
+
+	CORE_API void SetDeviceProfileName(FString InDeviceProfileName);
 
 private:
 	CORE_API void VARARGS RecordEventfInternal(int32 CategoryIndex, const TCHAR* Fmt, ...);
@@ -209,10 +215,11 @@ private:
 
 	int32 NumFramesToCapture;
 	int32 CaptureFrameNumber;
+
 	volatile bool bCapturing;
 	volatile bool bCapturingRT; // Renderthread version of the above
-
 	bool bInsertEndFrameAtFrameStart;
+	bool bWriteCompletionFile;
 
 	uint64 LastEndFrameTimestamp;
 	uint32 CaptureEndFrameCount;
@@ -221,10 +228,13 @@ private:
 	TArray<FCsvProfilerThreadData*> ProfilerThreadDataArray;
 	FCriticalSection ProfilerThreadDataArrayLock;
 
-	bool bWriteCompletionFile;
-	FString DestinationFolder;
+	FString OutputFilename;
 	TQueue<FCsvCaptureCommand> CommandQueue;
 	FCsvProfilerProcessingThread* ProcessingThread;
+
+	FString DeviceProfileName;
+
+	FThreadSafeCounter IsShuttingDown;
 };
 
 class FScopedCsvStat

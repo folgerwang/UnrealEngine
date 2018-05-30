@@ -25,6 +25,14 @@ private:
 	 */
 	FName DefaultPlatformService;
 
+	/**
+	 * Name of the online service associated with the native platform
+	 * Specified in Base<Platform>Engine.ini
+	 *	[OnlineSubsystem]
+	 *	NativePlatformService
+	 */
+	FName NativePlatformService;
+
 	/** Existing instances of any online subsystems created <PlatformName:InstanceName> */
 	TMap<FName, class IOnlineFactory*> OnlineFactories;
 
@@ -89,6 +97,15 @@ public:
 	 * @return Requested online subsystem, or NULL if that subsystem was unable to load or doesn't exist
 	 */
 	virtual IOnlineSubsystem* GetOnlineSubsystem(const FName InSubsystemName = NAME_None);
+
+	/** 
+	 * Get the online subsystem native to the current hardware
+	 *
+	 * @param bAutoLoad - load the module if not already loaded
+	 *
+	 * @return pointer to the appropriate online subsystem
+	 */
+	virtual IOnlineSubsystem* GetNativeSubsystem(bool bAutoLoad);
 
 	/**
 	 * Destroys an online subsystem created internally via access with GetOnlineSubsystem

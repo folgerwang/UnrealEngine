@@ -2,6 +2,7 @@
 
 #include "Slate/SObjectWidget.h"
 
+#include "UMGPrivate.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Slate/UMGDragDropOp.h"
 #include "SlateGlobals.h"
@@ -15,17 +16,32 @@ void SObjectWidget::Construct(const FArguments& InArgs, UUserWidget* InWidgetObj
 		InArgs._Content.Widget
 	];
 
-#if SLATE_VERBOSE_NAMED_EVENTS
+	// The user widget will tell us if we can tick but default to false for now
+	bCanTick = false;
+
 	if (WidgetObject)
 	{
-		DebugPaintEventName = WidgetObject->GetFullName() + TEXT("_Paint");
-		DebugTickEventName = WidgetObject->GetFullName() + TEXT("_Tick");
-	}
+#if SLATE_VERBOSE_NAMED_EVENTS
+		DebugName = WidgetObject->GetFullName();
+		DebugPaintEventName = DebugName + TEXT("_Paint");
+		DebugTickEventName = DebugName + TEXT("_Tick");
 #endif
+		WidgetObject->UpdateCanTick();
+	}
+
 }
 
 SObjectWidget::~SObjectWidget(void)
 {
+#if SLATE_VERBOSE_NAMED_EVENTS
+	// This can happen during blueprint compiling, so just ignore it if it happens then, this is really only a concern
+	// in a running game.
+	if (!GCompilingBlueprint)
+	{
+		ensureMsgf(!IsGarbageCollecting(), TEXT("SObjectWidget for '%s' destroyed while collecting garbage.  This can lead to multiple GCs being required to cleanup the object.  Possible causes might be,\n1) ReleaseSlateResources not being implemented for the owner of this pointer.\n2) You may just be holding onto some slate pointers on an actor that don't get reset until the actor is Garbage Collected.  You should avoid doing this, and instead reset those references when the actor is Destroyed."), *DebugName);
+	}
+#endif
+
 	ResetWidget();
 }
 
@@ -60,6 +76,11 @@ void SObjectWidget::ResetWidget()
 	];
 }
 
+FString SObjectWidget::GetReferencerName() const
+{
+	return FString("SObjectWidget( ") + WidgetObject->GetName() + FString(" )");
+}
+
 void SObjectWidget::AddReferencedObjects(FReferenceCollector& Collector)
 {
 	Collector.AddReferencedObject(WidgetObject);
@@ -73,7 +94,7 @@ void SObjectWidget::SetPadding(const TAttribute<FMargin>& InMargin)
 void SObjectWidget::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 #if SLATE_VERBOSE_NAMED_EVENTS
-	FScopedNamedEvent TickEvent(FColor::Turquoise, *DebugTickEventName);
+	SCOPED_NAMED_EVENT_FSTRING(DebugTickEventName, FColor::Turquoise);
 #endif
 
 #if WITH_VERY_VERBOSE_SLATE_STATS
@@ -89,7 +110,7 @@ void SObjectWidget::Tick( const FGeometry& AllottedGeometry, const double InCurr
 int32 SObjectWidget::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 {
 #if SLATE_VERBOSE_NAMED_EVENTS
-	FScopedNamedEvent PaintEvent(FColor::Silver, *DebugPaintEventName);
+	SCOPED_NAMED_EVENT_FSTRING(DebugPaintEventName, FColor::Silver);
 #endif
 
 #if WITH_VERY_VERBOSE_SLATE_STATS
@@ -336,7 +357,7 @@ FReply SObjectWidget::OnDragDetected(const FGeometry& MyGeometry, const FPointer
 
 			float DPIScale = UWidgetLayoutLibrary::GetViewportScale(WidgetObject);
 
-			TSharedRef<FUMGDragDropOp> DragDropOp = FUMGDragDropOp::New(Operation, ScreenCursorPos, ScreenDrageePosition, DPIScale, SharedThis(this));
+			TSharedRef<FUMGDragDropOp> DragDropOp = FUMGDragDropOp::New(Operation, PointerEvent.GetPointerIndex(), ScreenCursorPos, ScreenDrageePosition, DPIScale, SharedThis(this));
 
 			return FReply::Handled().BeginDragDrop(DragDropOp);
 		}
@@ -481,12 +502,12 @@ FNavigationReply SObjectWidget::OnNavigation(const FGeometry& MyGeometry, const 
 	return Reply;
 }
 
-void SObjectWidget::OnMouseCaptureLost()
+void SObjectWidget::OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)
 {
-	SCompoundWidget::OnMouseCaptureLost();
+	SCompoundWidget::OnMouseCaptureLost(CaptureLostEvent);
 
 	if ( CanRouteEvent() )
 	{
-		return WidgetObject->NativeOnMouseCaptureLost();
+		return WidgetObject->NativeOnMouseCaptureLost(CaptureLostEvent);
 	}
 }

@@ -413,12 +413,31 @@ struct FCachedSystemScalabilityCVars
 	int32 MaxCSMShadowResolution;
 	float ViewDistanceScale;
 	float ViewDistanceScaleSquared;
+	int32 FieldOfViewAffectsHLOD;
+
+	float CalculateFieldOfViewDistanceScale(const float FieldOfView) const
+	{
+		if (!FMath::IsNearlyEqual(FieldOfViewMaxAngleScale, FieldOfViewMinAngleScale))
+		{
+			float ClampedFoV = FMath::Clamp(FieldOfView, FieldOfViewMinAngle, FieldOfViewMaxAngle);
+			ClampedFoV = (ClampedFoV - FieldOfViewMinAngle) / (FieldOfViewMaxAngle - FieldOfViewMinAngle);
+			return FMath::Lerp<float>(FieldOfViewMinAngleScale, FieldOfViewMaxAngleScale, ClampedFoV);
+		}
+		
+		return FieldOfViewMaxAngleScale;
+	}
 
 	FCachedSystemScalabilityCVars();
 
 protected:
 	// This isn't public as it's only used to detect the change. Use ComputeAnisotropyRT()
 	int32 MaxAnisotropy;
+
+	// Scaling view distance with active camera field of view
+	float FieldOfViewMinAngle;
+	float FieldOfViewMinAngleScale;
+	float FieldOfViewMaxAngle;
+	float FieldOfViewMaxAngleScale;
 
 	friend void ScalabilityCVarsSinkCallback();
 };
@@ -456,3 +475,4 @@ struct ENGINE_API FSystemResolution
 };
 
 ENGINE_API extern FSystemResolution GSystemResolution;
+ENGINE_API extern int32 GUnbuiltHLODCount;

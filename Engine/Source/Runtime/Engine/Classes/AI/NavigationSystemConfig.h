@@ -30,7 +30,7 @@ public:
 public:
 	UNavigationSystemConfig(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-	UNavigationSystemBase* CreateAndConfigureNavigationSystem(UWorld& World) const;
+	virtual UNavigationSystemBase* CreateAndConfigureNavigationSystem(UWorld& World) const;
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:2702661
-Availability:Public
+﻿Availability:Public
 Title:4.ランドスケープ マテリアルの作成
 Crumbs:%ROOT%, GettingStarted, Engine/Landscape/QuickStart
 Description:ランドスケープで使用するマテリアルを作成する方法
@@ -36,7 +35,7 @@ version:4.9
 1. Landscape 
 2. Materials
 3. Resources
-4. Textures
+4. テクスチャ
 
 完了すると以下のようになります。
 
@@ -80,7 +79,7 @@ Landscapes Content Example プロジェクトにある以下のフォルダに�
 
 ![](T_Landscape_Create_New_Material.png)
 
-新規ランドスケープ マテリアルが作成された状態で **コンテンツブラウザ** 内でそのマテリアルを **ダブルクリック** して開きます。その結果、以下のような画面が表示されます。
+新規ランドスケープ マテリアルが作成された状態で **コンテンツブラウザ** 内でそのマテリアルを **ダブルクリック** して開きます。その結果、以下のような画面が表示されるはずです。
 [REGION:fullwidth] 
 ![](T_Landscape_Blank_Material.png)
 [/REGION]

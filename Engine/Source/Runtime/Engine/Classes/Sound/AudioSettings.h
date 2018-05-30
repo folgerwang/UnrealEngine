@@ -126,14 +126,20 @@ class ENGINE_API UAudioSettings : public UDeveloperSettings
 	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
 	uint32 bDisableMasterEQ : 1;
 
-
 	/** Enables the surround sound spatialization calculations to include the center channel. */
 	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
 	uint32 bAllowCenterChannel3DPanning : 1;
 
 	/** The max number of active sounds allowed. Used to cull numbers of active sounds, which reduces CPU cost of audio thread. */
 	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
-	uint32 MaxOneShotActiveSoundCount;
+	uint32 MaxWaveInstances;
+
+	/** 
+	 * The max number of sources to reserve for "stopping" sounds. A "stopping" sound applies a fast fade in the DSP
+	 * render to prevent discontinuities when stopping sources.  
+	 */
+	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
+	uint32 NumStoppingSources;
 
 	/**
 	 * The format string to use when generating the filename for contexts within dialogue waves. This must generate unique names for your project.

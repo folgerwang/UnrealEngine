@@ -52,7 +52,7 @@ void USoundNodeRandom::PostLoad()
 	Super::PostLoad();
 
 	// get a per-platform override
-	if (!bShouldExcludeFromBranchCulling)
+	if (!bShouldExcludeFromBranchCulling && !bSoundCueExcludedFromBranchCulling)
 	{
 		int32 AmountOfBranchesToPreselect = 0;
 		int32 PlatformOverride = FPlatformCompressionUtilities::GetMaxPreloadedBranchesForCurrentPlatform();

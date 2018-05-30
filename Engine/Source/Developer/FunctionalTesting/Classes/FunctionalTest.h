@@ -17,6 +17,7 @@ class UBillboardComponent;
 class UTraceQueryTestResults;
 class UWorld;
 
+#if UE_EXTERNAL_PROFILING_ENABLED
 //Experimental effort at automated cpu captures from the functional testing.
 class FFunctionalTestExternalProfiler : public FScopedExternalProfilerBase
 {
@@ -24,6 +25,7 @@ public:
 	void StartProfiler(const bool bWantPause){ StartScopedTimer(bWantPause); }
 	void StopProfiler(){StopScopedTimer();}
 }; 
+#endif	// UE_EXTERNAL_PROFILING_ENABLED
 
 struct FStatsData
 {
@@ -174,7 +176,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Perf)
 	void EndStatsFile();
 
+#if UE_EXTERNAL_PROFILING_ENABLED
 	FFunctionalTestExternalProfiler ExternalProfiler;
+#endif
 
 	/** The path and base name for all output files. */
 	FString OutputFileBase;
@@ -590,6 +594,7 @@ public:
 
 	TArray<FString> Steps;
 	
+	UPROPERTY(BlueprintReadOnly, Category = "Functional Testing")
 	float TotalTime;
 
 	uint32 RunFrame;

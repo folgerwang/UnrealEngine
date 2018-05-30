@@ -119,6 +119,9 @@ namespace UnrealBuildTool
 			StripPath = ToolsDict["STRIP"];
 			ObjCopyPath = ToolsDict["OBJCOPY"];
 
+			// force the compiler to be executed through a command prompt instance
+			bExecuteCompilerThroughShell = true;
+
 			// toolchain params
 			ToolchainParamsArm64 = " --sysroot=\"" + Path.Combine(MLSDKPath, "lumin") + "\"";
 

@@ -1,48 +1,11 @@
-﻿INTSourceChangelist:2688239
+﻿INTSourceChangelist:3736174
 Availability:Public
 Title:ディスパッチャーイベントの作成
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide, Engine/Blueprints/UserGuide/EventDispatcher
 Description:イベントディスパッチャーのイベントリストへ結合および追加可能なイベントを作成する
-Version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\EventDispatcher\CreatingEvents:title%](Engine\Blueprints\UserGuide\create_eventdispatcher_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\EventDispatcher\CreatingEvents:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\EventDispatcher\CreatingEvents:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\EventDispatcher\CreatingEvents]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\EventDispatcher\CreatingEvents:title%](Engine\Blueprints\UserGuide\create_eventdispatcher_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\EventDispatcher\CreatingEvents:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\EventDispatcher\CreatingEvents:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\EventDispatcher\CreatingEvents]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
+version:4.9
+tags:Blueprints
+topic-image:Engine\Blueprints\UserGuide\create_eventdispatcher_topic.png
 
 
 [TOC(start:2 end:3)]
@@ -62,7 +25,7 @@ Event Dispatcher **Event** ノードは、右上隅の赤く四角いピンを *
 
 1. **Event** 入力ピンをドラッグし、コンテクストメニューを表示するためにリリースします。
 
-1. コンテクストメニューで **[Add Custom Event for Dispatcher ([ディスパッチャーにカスタムイベントを追加)]** を選択します。
+1. コンテキストメニューで **[Add Custom Event for Dispatcher ([ディスパッチャーにカスタムイベントを追加)]** を選択します。
 
 	![](add_custom_event_for_dispatcher.png)
 

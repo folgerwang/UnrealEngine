@@ -26,8 +26,6 @@
 #include "Compilation/MovieSceneCompiler.h"
 #include "TimerManager.h"
 
-DECLARE_CYCLE_STAT(TEXT("UserWidget Create"), STAT_CreateWidget, STATGROUP_Slate);
-
 #define LOCTEXT_NAMESPACE "UMG"
 
 bool UUserWidget::bTemplateInitializing = false;
@@ -58,10 +56,11 @@ FPaintContext::FPaintContext()
 // UUserWidget
 UUserWidget::UUserWidget(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, bCanEverTick(true)
-	, bCanEverPaint(true)
+	, bHasScriptImplementedTick(true)
+	, bHasScriptImplementedPaint(true)
 	, bInitialized(false)
 	, bStoppingAllAnimations(false)
+	, TickFrequency(EWidgetTickFrequency::Auto)
 {
 	ViewportAnchors = FAnchors(0, 0, 1, 1);
 	Visibility = ESlateVisibility::SelfHitTestInvisible;
@@ -76,6 +75,13 @@ UUserWidget::UUserWidget(const FObjectInitializer& ObjectInitializer)
 	PaletteCategory = LOCTEXT("UserCreated", "User Created");
 	DesignSizeMode = EDesignPreviewSizeMode::FillScreen;
 #endif
+
+	static bool bStaticInit = false;
+	if (!bStaticInit)
+	{
+		bStaticInit = true;
+		FLatentActionManager::OnLatentActionsChanged().AddStatic(&UUserWidget::OnLatentActionsChanged);
+	}
 }
 
 UWidgetBlueprintGeneratedClass* UUserWidget::GetWidgetTreeOwningClass()
@@ -89,7 +95,7 @@ UWidgetBlueprintGeneratedClass* UUserWidget::GetWidgetTreeOwningClass()
 		// Force post load on the generated class so all subobjects are done (specifically the widget tree).
 		BGClass->ConditionalPostLoad();
 
-		const bool bNoRootWidget = !BGClass->HasTemplate() && ( ( nullptr == BGClass->WidgetTree ) || ( nullptr == BGClass->WidgetTree->RootWidget ) );
+		const bool bNoRootWidget = ( nullptr == BGClass->WidgetTree ) || ( nullptr == BGClass->WidgetTree->RootWidget );
 
 		if ( bNoRootWidget )
 		{
@@ -250,7 +256,9 @@ bool UUserWidget::VerifyTemplateIntegrity(TArray<FText>& OutErrors)
 	// See if a matching name appeared
 	if ( UWidgetBlueprintGeneratedClass* TemplateClass = GetWidgetTreeOwningClass() )
 	{
-
+		// This code is only functional in the editor, because we don't always have a widget tree on the class
+		// in non-editor builds that tree is going to be transient for fast template code, so there won't be
+		// a tree available in cooked builds.
 		if (TemplateClass->WidgetTree != nullptr)
 		{
 			TemplateClass->WidgetTree->ForEachWidgetAndDescendants([&OutErrors, &QuickLookup, &bIsTemplateSafe, TemplateClass] (UWidget* Widget) {
@@ -351,8 +359,14 @@ bool UUserWidget::Initialize()
 	{
 		bInitialized = true;
 
+		UWidgetBlueprintGeneratedClass* BGClass = Cast<UWidgetBlueprintGeneratedClass>(GetClass());
+		if (BGClass && !BGClass->HasTemplate())
+		{
+			BGClass = GetWidgetTreeOwningClass();
+		}
+
 		// Only do this if this widget is of a blueprint class
-		if ( UWidgetBlueprintGeneratedClass* BGClass = GetWidgetTreeOwningClass() )
+		if (BGClass)
 		{
 			BGClass->InitializeWidget(this);
 		}
@@ -639,6 +653,8 @@ void UUserWidget::PlayAnimation( UWidgetAnimation* InAnimation, float StartAtTim
 		Invalidate();
 
 		OnAnimationStarted(InAnimation);
+
+		UpdateCanTick();
 	}
 
 	//return Player;
@@ -656,8 +672,9 @@ void UUserWidget::PlayAnimationTo(UWidgetAnimation* InAnimation, float StartAtTi
 		Invalidate();
 
 		OnAnimationStarted(InAnimation);
-	}
 
+		UpdateCanTick();
+	}
 	//return Player;
 }
 
@@ -672,6 +689,8 @@ void UUserWidget::StopAnimation(const UWidgetAnimation* InAnimation)
 		{
 			(*FoundPlayer)->Stop();
 		}
+
+		UpdateCanTick();
 	}
 }
 
@@ -683,6 +702,8 @@ void UUserWidget::StopAllAnimations()
 		FoundPlayer->Stop();
 	}
 	bStoppingAllAnimations = false;
+
+	UpdateCanTick();
 }
 
 float UUserWidget::PauseAnimation(const UWidgetAnimation* InAnimation)
@@ -802,6 +823,8 @@ void UUserWidget::OnAnimationFinishedPlaying(UUMGSequencePlayer& Player)
 	{
 		StoppedSequencePlayers.Add(&Player);
 	}
+
+	UpdateCanTick();
 }
 
 void UUserWidget::PlaySound(USoundBase* SoundToPlay)
@@ -1120,6 +1143,13 @@ bool UUserWidget::IsInViewport() const
 void UUserWidget::SetPlayerContext(const FLocalPlayerContext& InPlayerContext)
 {
 	PlayerContext = InPlayerContext;
+
+	WidgetTree->ForEachWidget([&InPlayerContext](UWidget* Widget) {
+		if (UUserWidget* UserWidget = Cast<UUserWidget>(Widget))
+		{
+			UserWidget->SetPlayerContext(InPlayerContext);
+		}
+	});
 }
 
 const FLocalPlayerContext& UUserWidget::GetPlayerContext() const
@@ -1274,6 +1304,17 @@ void UUserWidget::OnDesignerChanged(const FDesignerChangedEventArgs& EventArgs)
 	}
 }
 
+void UUserWidget::ValidateBlueprint(const UWidgetTree& BlueprintWidgetTree, FCompilerResultsLog& CompileLog) const
+{
+	ValidateCompiledDefaults(CompileLog);
+	ValidateCompiledWidgetTree(BlueprintWidgetTree, CompileLog);
+	BlueprintWidgetTree.ForEachWidget(
+		[&CompileLog] (UWidget* Widget)
+		{
+			Widget->ValidateCompiledDefaults(CompileLog);
+		});
+}
+
 void UUserWidget::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -1312,6 +1353,7 @@ void UUserWidget::NativePreConstruct()
 void UUserWidget::NativeConstruct()
 {
 	Construct();
+	UpdateCanTick();
 }
 
 void UUserWidget::NativeDestruct()
@@ -1321,14 +1363,18 @@ void UUserWidget::NativeDestruct()
 }
 
 void UUserWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
-{
-	GInitRunaway();
-
-	TickActionsAndAnimation(MyGeometry, InDeltaTime);
-
-	if ( bCanEverTick )
+{ 
+	// If this ensure is hit it is likely UpdateCanTick as not called somewhere
+	if(ensureMsgf(TickFrequency != EWidgetTickFrequency::Never, TEXT("SObjectWidget and UUserWidget have mismatching tick states or UUserWidget::NativeTick was called manually (Never do this)")))
 	{
-		Tick(MyGeometry, InDeltaTime);
+		GInitRunaway();
+
+		TickActionsAndAnimation(MyGeometry, InDeltaTime);
+
+		if (bHasScriptImplementedTick)
+		{
+			Tick(MyGeometry, InDeltaTime);
+		}
 	}
 }
 
@@ -1521,9 +1567,31 @@ void UUserWidget::InitializeInputComponent()
 	}
 }
 
+void UUserWidget::UpdateCanTick() 
+{
+	TSharedPtr<SObjectWidget> SafeGCWidget = MyGCWidget.Pin();
+	UWorld* World = GetWorld();
+
+	if(SafeGCWidget.IsValid() && World)
+	{
+		// Default to never tick, only recompute for auto
+		bool bCanTick = false;
+		if (TickFrequency == EWidgetTickFrequency::Auto)
+		{
+			UWidgetBlueprintGeneratedClass* WidgetBPClass = Cast<UWidgetBlueprintGeneratedClass>(GetClass());
+			bCanTick |= WidgetBPClass->ClassRequiresNativeTick();
+			bCanTick |= bHasScriptImplementedTick;
+			bCanTick |= World->GetLatentActionManager().GetNumActionsForObject(this) != 0;
+			bCanTick |= ActiveSequencePlayers.Num() > 0;
+		}
+
+		SafeGCWidget->SetCanTick(bCanTick);
+	}
+}
+
 int32 UUserWidget::NativePaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
-	if ( bCanEverPaint )
+	if ( bHasScriptImplementedPaint )
 	{
 		FPaintContext Context(AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
 		OnPaint( Context );
@@ -1722,7 +1790,7 @@ FNavigationReply UUserWidget::NativeOnNavigation(const FGeometry& InGeometry, co
 	return FNavigationReply::Escape();
 }
 	
-void UUserWidget::NativeOnMouseCaptureLost()
+void UUserWidget::NativeOnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)
 {
 	OnMouseCaptureLost();
 }
@@ -1812,9 +1880,9 @@ void UUserWidget::PostLoad()
 #if WITH_EDITOR
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		UUserWidget* DefeaultWidget = Cast<UUserWidget>(GetClass()->GetDefaultObject());
-		bCanEverTick = DefeaultWidget->bCanEverTick;
-		bCanEverPaint = DefeaultWidget->bCanEverPaint;
+		UUserWidget* DefaultWidget = Cast<UUserWidget>(GetClass()->GetDefaultObject());
+		bHasScriptImplementedTick = DefaultWidget->bHasScriptImplementedTick;
+		bHasScriptImplementedPaint = DefaultWidget->bHasScriptImplementedPaint;
 	}
 #else
 	if ( HasAnyFlags(RF_ArchetypeObject) && !HasAllFlags(RF_ClassDefaultObject) )
@@ -1861,46 +1929,84 @@ void UUserWidget::Serialize(FArchive& Ar)
 
 /////////////////////////////////////////////////////
 
-UUserWidget* UUserWidget::NewWidgetObject(UObject* Outer, UClass* UserWidgetClass, FName WidgetName, EObjectFlags Flags)
+UUserWidget* UUserWidget::CreateWidgetInstance(UWidget& OwningWidget, TSubclassOf<UUserWidget> UserWidgetClass, FName WidgetName)
 {
-	UWidgetBlueprintGeneratedClass* WBGC = Cast<UWidgetBlueprintGeneratedClass>(UserWidgetClass);
-	if ( WBGC && WBGC->HasTemplate() )
+	UUserWidget* ParentUserWidget = Cast<UUserWidget>(&OwningWidget);
+	if (!ParentUserWidget && OwningWidget.GetOuter())
 	{
-		if ( UUserWidget* Template = WBGC->GetTemplate() )
-		{
-#if UE_BUILD_DEBUG
-			UE_LOG(LogUMG, Log, TEXT("Widget Class %s - Using Fast CreateWidget Path."), *UserWidgetClass->GetName());
-#endif
-
-			FObjectInstancingGraph ObjectInstancingGraph;
-			UUserWidget* NewUserWidget = NewObject<UUserWidget>(Outer, UserWidgetClass, WidgetName, Flags, Template, false, &ObjectInstancingGraph);
-
-			return NewUserWidget;
-		}
-		else
-		{
-#if !WITH_EDITOR && (UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT)
-			UE_LOG(LogUMG, Error, TEXT("Widget Class %s - Using Slow CreateWidget path because no template found."), *UserWidgetClass->GetName());
-#endif
-		}
-	}
-	else
-	{
-#if !WITH_EDITOR && (UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT)
-		UE_LOG(LogUMG, Warning, TEXT("Widget Class %s - Using Slow CreateWidget path because this class could not be templated."), *UserWidgetClass->GetName());
-#endif
+		// If we were given a UWidget, the nearest parent UserWidget is the outer of the UWidget's WidgetTree outer
+		ParentUserWidget = Cast<UUserWidget>(OwningWidget.GetOuter()->GetOuter());
 	}
 
-	return NewObject<UUserWidget>(Outer, UserWidgetClass, WidgetName, Flags);
+	if (ensure(ParentUserWidget && ParentUserWidget->WidgetTree))
+	{
+		UUserWidget* NewWidget = CreateInstanceInternal(ParentUserWidget->WidgetTree, UserWidgetClass, WidgetName, ParentUserWidget->GetWorld(), ParentUserWidget->GetOwningLocalPlayer());
+#if WITH_EDITOR
+		if (NewWidget)
+		{
+			NewWidget->SetDesignerFlags(OwningWidget.GetDesignerFlags());
+		}
+#endif
+		return NewWidget;
+	}
+
+	return nullptr;
 }
 
-UUserWidget* UUserWidget::CreateWidgetOfClass(UClass* UserWidgetClass, UGameInstance* InGameInstance, UWorld* InWorld, APlayerController* InOwningPlayer)
+UUserWidget* UUserWidget::CreateWidgetInstance(UWidgetTree& OwningWidgetTree, TSubclassOf<UUserWidget> UserWidgetClass, FName WidgetName)
 {
-	SCOPE_CYCLE_COUNTER(STAT_CreateWidget);
+	if (UUserWidget* OwningUserWidget = Cast<UUserWidget>(OwningWidgetTree.GetOuter()))
+	{
+		return CreateWidgetInstance(*OwningUserWidget, UserWidgetClass, WidgetName);
+	}
 
+	return CreateInstanceInternal(&OwningWidgetTree, UserWidgetClass, WidgetName, nullptr, nullptr);
+}
+
+UUserWidget* UUserWidget::CreateWidgetInstance(APlayerController& OwnerPC, TSubclassOf<UUserWidget> UserWidgetClass, FName WidgetName)
+{
+	if (!OwnerPC.IsLocalPlayerController())
+	{
+		const FText FormatPattern = LOCTEXT("NotLocalPlayer", "Only Local Player Controllers can be assigned to widgets. {PlayerController} is not a Local Player Controller.");
+		FFormatNamedArguments FormatPatternArgs;
+		FormatPatternArgs.Add(TEXT("PlayerController"), FText::FromName(OwnerPC.GetFName()));
+		FMessageLog("PIE").Error(FText::Format(FormatPattern, FormatPatternArgs));
+	}
+	else if (!OwnerPC.Player)
+	{
+		const FText FormatPattern = LOCTEXT("NoPlayer", "CreateWidget cannot be used on Player Controller with no attached player. {PlayerController} has no Player attached.");
+		FFormatNamedArguments FormatPatternArgs;
+		FormatPatternArgs.Add(TEXT("PlayerController"), FText::FromName(OwnerPC.GetFName()));
+		FMessageLog("PIE").Error(FText::Format(FormatPattern, FormatPatternArgs));
+	}
+	else if (UWorld* World = OwnerPC.GetWorld())
+	{
+		UGameInstance* GameInstance = World->GetGameInstance();
+		UObject* Outer = GameInstance ? StaticCast<UObject*>(GameInstance) : StaticCast<UObject*>(World);
+		return CreateInstanceInternal(Outer, UserWidgetClass, WidgetName, World, CastChecked<ULocalPlayer>(OwnerPC.Player));
+	}
+	return nullptr;
+}
+
+UUserWidget* UUserWidget::CreateWidgetInstance(UGameInstance& GameInstance, TSubclassOf<UUserWidget> UserWidgetClass, FName WidgetName)
+{
+	return CreateInstanceInternal(&GameInstance, UserWidgetClass, WidgetName, GameInstance.GetWorld(), GameInstance.GetFirstGamePlayer());
+}
+
+UUserWidget* UUserWidget::CreateWidgetInstance(UWorld& World, TSubclassOf<UUserWidget> UserWidgetClass, FName WidgetName)
+{
+	if (UGameInstance* GameInstance = World.GetGameInstance())
+	{
+		return CreateWidgetInstance(*GameInstance, UserWidgetClass, WidgetName);
+	}
+	return CreateInstanceInternal(&World, UserWidgetClass, WidgetName, &World, World.GetFirstLocalPlayerFromController());
+}
+
+UUserWidget* UUserWidget::CreateInstanceInternal(UObject* Outer, TSubclassOf<UUserWidget> UserWidgetClass, FName InstanceName, UWorld* World, ULocalPlayer* LocalPlayer)
+{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	// Only do this on a non-shipping or test build.
-	if ( !CreateWidgetHelpers::ValidateUserWidgetClass(UserWidgetClass) )
+	if (!CreateWidgetHelpers::ValidateUserWidgetClass(UserWidgetClass))
 	{
 		return nullptr;
 	}
@@ -1910,69 +2016,71 @@ UUserWidget* UUserWidget::CreateWidgetOfClass(UClass* UserWidgetClass, UGameInst
 	// In non-shipping builds, ensure that users are allowed to dynamic construct this widget.
 	if (UWidgetBlueprintGeneratedClass* BPClass = Cast<UWidgetBlueprintGeneratedClass>(UserWidgetClass))
 	{
-		ensure(BPClass->bAllowDynamicCreation);
+		if (World && World->IsGameWorld())
+		{
+			ensureMsgf(BPClass->bAllowDynamicCreation, TEXT("This Widget Blueprint's 'Support Dynamic Creation' option either defaults to Off or was explictly turned off.  If you need to create this widget at runtime, turn this option on."));
+		}
 	}
 #endif
 
-	UObject* Outer = nullptr;
-	ULocalPlayer* PlayerContext = nullptr;
-	UWorld* World = InWorld;
-
-	if ( InOwningPlayer )
-	{
-		if ( !InOwningPlayer->IsLocalPlayerController() )
-		{
-			const FText FormatPattern = LOCTEXT("NotLocalPlayer", "Only Local Player Controllers can be assigned to widgets. {PlayerController} is not a Local Player Controller.");
-			FFormatNamedArguments FormatPatternArgs;
-			FormatPatternArgs.Add(TEXT("PlayerController"), FText::FromName(InOwningPlayer->GetFName()));
-			FMessageLog("PIE").Error(FText::Format(FormatPattern, FormatPatternArgs));
-			return nullptr;
-		}
-
-		if ( !InOwningPlayer->Player )
-		{
-			const FText FormatPattern = LOCTEXT("NoPlayer", "CreateWidget cannot be used on Player Controller with no attached player. {PlayerController} has no Player attached.");
-			FFormatNamedArguments FormatPatternArgs;
-			FormatPatternArgs.Add(TEXT("PlayerController"), FText::FromName(InOwningPlayer->GetFName()));
-			FMessageLog("PIE").Error(FText::Format(FormatPattern, FormatPatternArgs));
-			return nullptr;
-		}
-
-		// Assign the outer to the game instance if it exists, otherwise use the player controller's world
-		World = InOwningPlayer->GetWorld();
-
-		Outer = World->GetGameInstance() ? StaticCast<UObject*>(World->GetGameInstance()) : StaticCast<UObject*>(World);
-		PlayerContext = CastChecked<ULocalPlayer>(InOwningPlayer->Player);
-	}
-	else if ( InWorld )
-	{
-		// Assign the outer to the game instance if it exists, otherwise use the world
-		Outer = InWorld->GetGameInstance() ? StaticCast<UObject*>(InWorld->GetGameInstance()) : StaticCast<UObject*>(InWorld);
-		PlayerContext = InWorld->GetFirstLocalPlayerFromController();
-	}
-	else if ( InGameInstance )
-	{
-		Outer = InGameInstance;
-		PlayerContext = InGameInstance->GetFirstGamePlayer();
-	}
-
-	if ( Outer == nullptr )
+	if (!Outer)
 	{
 		FMessageLog("PIE").Error(FText::Format(LOCTEXT("OuterNull", "Unable to create the widget {0}, no outer provided."), FText::FromName(UserWidgetClass->GetFName())));
 		return nullptr;
 	}
 
-	UUserWidget* NewWidget = UUserWidget::NewWidgetObject(Outer, UserWidgetClass);
-
-	if ( PlayerContext )
+	UUserWidget* NewWidget = nullptr;
+	UWidgetBlueprintGeneratedClass* WBGC = Cast<UWidgetBlueprintGeneratedClass>(UserWidgetClass);
+	if (WBGC && WBGC->HasTemplate())
 	{
-		NewWidget->SetPlayerContext(FLocalPlayerContext(PlayerContext, World));
-	}
+		if (UUserWidget* Template = WBGC->GetTemplate())
+		{
+#if UE_BUILD_DEBUG
+			UE_LOG(LogUMG, Log, TEXT("Widget Class %s - Using Fast CreateWidget Path."), *UserWidgetClass->GetName());
+#endif
 
+			FObjectInstancingGraph ObjectInstancingGraph;
+			NewWidget = NewObject<UUserWidget>(Outer, UserWidgetClass, InstanceName, RF_NoFlags, Template, false, &ObjectInstancingGraph);
+		}
+#if !WITH_EDITOR && (UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT)
+		else
+		{
+
+			UE_LOG(LogUMG, Error, TEXT("Widget Class %s - Using Slow CreateWidget path because no template found."), *UserWidgetClass->GetName());
+		}
+#endif
+	}
+#if !WITH_EDITOR && (UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT)
+	else
+	{
+		UE_LOG(LogUMG, Warning, TEXT("Widget Class %s - Using Slow CreateWidget path because this class could not be templated."), *UserWidgetClass->GetName());
+	}
+#endif
+
+	if (!NewWidget)
+	{
+		NewWidget = NewObject<UUserWidget>(Outer, UserWidgetClass, InstanceName, RF_NoFlags);
+	}
+	
 	NewWidget->Initialize();
+	
+	if (LocalPlayer)
+	{
+		NewWidget->SetPlayerContext(FLocalPlayerContext(LocalPlayer, World));
+	}
 
 	return NewWidget;
 }
+
+
+void UUserWidget::OnLatentActionsChanged(UObject* ObjectWhichChanged, ELatentActionChangeType ChangeType)
+{
+	if (UUserWidget* WidgetThatChanged = Cast<UUserWidget>(ObjectWhichChanged))
+	{
+		WidgetThatChanged->UpdateCanTick();
+	}
+}
+
 
 /////////////////////////////////////////////////////
 

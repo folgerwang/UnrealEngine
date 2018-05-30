@@ -489,6 +489,10 @@ namespace UnrealBuildTool
 				{
 					Executor = new SNDBS();
 				}
+				else if(ParallelExecutor.IsAvailable() && BuildConfiguration.bAllowParallelExecutor)
+				{
+					Executor = new ParallelExecutor();
+				}
 				else
 				{
 					Executor = new LocalExecutor();

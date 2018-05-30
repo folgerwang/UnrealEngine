@@ -193,10 +193,6 @@ namespace IncludeTool
 			{
 				return true;
 			}
-			if(NormalizedPath.EndsWith("/guidgenerator.cpp"))
-			{
-				return true;
-			}
 			if(NormalizedPath.EndsWith("/recastmesh.cpp") || NormalizedPath.EndsWith("/recastfilter.cpp") || NormalizedPath.EndsWith("/recastcontour.cpp") || NormalizedPath.EndsWith("/framepro.h") || NormalizedPath.EndsWith("/framepro.cpp"))
 			{
 				return true;

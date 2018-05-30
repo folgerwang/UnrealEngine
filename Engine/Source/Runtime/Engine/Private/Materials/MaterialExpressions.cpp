@@ -203,6 +203,7 @@
 #include "Materials/MaterialExpressionAtmosphericLightVector.h"
 #include "Materials/MaterialExpressionAtmosphericLightColor.h"
 #include "Materials/MaterialExpressionMaterialLayerOutput.h"
+#include "Materials/MaterialExpressionCurveAtlasRowParameter.h"
 #include "EditorSupportDelegates.h"
 #include "MaterialCompiler.h"
 #if WITH_EDITOR
@@ -212,6 +213,7 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #endif //WITH_EDITOR
 #include "Materials/MaterialInstanceConstant.h"
+#include "Curves/CurveLinearColorAtlas.h"
 
 #define LOCTEXT_NAMESPACE "MaterialExpression"
 
@@ -598,7 +600,7 @@ bool UMaterialExpression::NeedsLoadForClient() const
 {
 	// Expressions that reference texture objects need to be cooked
 	UMaterialExpression* MutableThis = const_cast<UMaterialExpression*>(this);
-	return MutableThis->GetReferencedTexture() != nullptr;
+	return MutableThis->GetReferencedTexture() != nullptr || CanReferenceTexture();
 }
 
 void UMaterialExpression::PostInitProperties()
@@ -1395,6 +1397,10 @@ bool UMaterialExpressionTextureSample::CanEditChange(const UProperty* InProperty
 			// The Texture property is overridden by a connection to TextureObject
 			bIsEditable = TextureObject.GetTracedInput().Expression == NULL;
 		}
+		else if (PropertyFName == GET_MEMBER_NAME_CHECKED(UMaterialExpressionTextureSample, AutomaticViewMipBias))
+		{
+			bIsEditable = AutomaticViewMipBiasValue.GetTracedInput().Expression == NULL;
+		}
 	}
 
 	return bIsEditable;
@@ -1473,6 +1479,8 @@ FExpressionInput* UMaterialExpressionTextureSample::GetInput(int32 InputIndex)
 		IF_INPUT_RETURN(MipValue);
 	}
 
+	IF_INPUT_RETURN(AutomaticViewMipBiasValue);
+
 	return NULL;
 }
 #undef IF_INPUT_RETURN
@@ -1501,6 +1509,8 @@ FName UMaterialExpressionTextureSample::GetInputName(int32 InputIndex) const
 		IF_INPUT_RETURN(CoordinatesDX, TEXT("DDX(UVs)"));
 		IF_INPUT_RETURN(CoordinatesDY, TEXT("DDY(UVs)"));
 	}
+
+	IF_INPUT_RETURN(AutomaticViewMipBiasValue, TEXT("View MipBias"));
 
 	return TEXT("");
 }
@@ -1570,6 +1580,18 @@ int32 UMaterialExpressionTextureSample::Compile(class FMaterialCompiler* Compile
 	{
 		int32 TextureReferenceIndex = INDEX_NONE;
 		int32 TextureCodeIndex = INDEX_NONE;
+
+		bool bDoAutomaticViewMipBias = AutomaticViewMipBias;
+		if (AutomaticViewMipBiasValue.GetTracedInput().Expression)
+		{
+			bool bSucceeded;
+			bool bValue = Compiler->GetStaticBoolValue(AutomaticViewMipBiasValue.Compile(Compiler), bSucceeded);
+
+			if (bSucceeded)
+			{
+				bDoAutomaticViewMipBias = bValue;
+			}
+		}
 
 		if (InputExpression)
 		{
@@ -1660,7 +1682,7 @@ int32 UMaterialExpressionTextureSample::Compile(class FMaterialCompiler* Compile
 				MipValueMode,
 				SamplerSource,
 				TextureReferenceIndex,
-				AutomaticViewMipBias);
+				bDoAutomaticViewMipBias);
 		}
 		else
 		{
@@ -1715,6 +1737,8 @@ uint32 UMaterialExpressionTextureSample::GetInputType(int32 InputIndex)
 		IF_INPUT_RETURN(CoordinatesDX, MCT_Float);
 		IF_INPUT_RETURN(CoordinatesDY, MCT_Float);
 	}
+
+	IF_INPUT_RETURN(AutomaticViewMipBiasValue, MCT_StaticBool);
 
 	return MCT_Unknown;
 }
@@ -2189,7 +2213,7 @@ bool UMaterialExpressionTextureSampleParameter2D::TextureIsValid( UTexture* InTe
 	bool Result=false;
 	if (InTexture)		
 	{
-		if( InTexture->GetClass() == UTexture2D::StaticClass() ) 
+		if (InTexture->IsA(UTexture2D::StaticClass()))
 		{
 			Result = true;
 		}
@@ -4676,8 +4700,21 @@ void UMaterialExpressionGetMaterialAttributes::PostEditChangeProperty(FPropertyC
 	{
 		if (PreEditAttributeGetTypes.Num() < AttributeGetTypes.Num())
 		{
-			// Attribute type added
+			// Attribute type added so default out type
 			AttributeGetTypes.Last() = FMaterialAttributeDefinitionMap::GetDefaultID();
+
+			// Attempt to find a valid attribute that's not already listed
+			const TArray<FGuid>& OrderedVisibleAttributes = FMaterialAttributeDefinitionMap::GetOrderedVisibleAttributeList();
+			for (const FGuid& AttributeID : OrderedVisibleAttributes)
+			{
+				if (PreEditAttributeGetTypes.Find(AttributeID) == INDEX_NONE)
+				{
+					 AttributeGetTypes.Last() = AttributeID;
+					 break;
+				}
+			}
+		
+			// Copy final defaults to new output
 			FString AttributeName = FMaterialAttributeDefinitionMap::GetDisplayName(AttributeGetTypes.Last());
 			Outputs.Add(FExpressionOutput(*AttributeName, 0, 0, 0, 0, 0));
 
@@ -4888,8 +4925,21 @@ void UMaterialExpressionSetMaterialAttributes::PostEditChangeProperty(FPropertyC
 	{
 		if (PreEditAttributeSetTypes.Num() < AttributeSetTypes.Num())
 		{
-			// Attribute type added
+			// Attribute type added so default out type
 			AttributeSetTypes.Last() = FMaterialAttributeDefinitionMap::GetDefaultID();
+
+			// Attempt to find a valid attribute that's not already listed
+			const TArray<FGuid>& OrderedVisibleAttributes = FMaterialAttributeDefinitionMap::GetOrderedVisibleAttributeList();
+			for (const FGuid& AttributeID : OrderedVisibleAttributes)
+			{
+				if (PreEditAttributeSetTypes.Find(AttributeID) == INDEX_NONE)
+				{
+					 AttributeSetTypes.Last() = AttributeID;
+					 break;
+				}
+			}
+		
+			// Copy final defaults to new input
 			Inputs.Add(FExpressionInput());
 			GraphNode->ReconstructNode();
 		}	 
@@ -5060,6 +5110,8 @@ FName UMaterialExpressionBlendMaterialAttributes::GetInputName(int32 InputIndex)
 //
 UMaterialExpressionMaterialAttributeLayers::UMaterialExpressionMaterialAttributeLayers(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)	
+	, NumActiveLayerCallers(0)
+	, NumActiveBlendCallers(0)
 	, bIsLayerGraphBuilt(false)
 	, ParamLayers(nullptr)
 {
@@ -5120,10 +5172,22 @@ void UMaterialExpressionMaterialAttributeLayers::RebuildLayerGraph(bool bReportE
 	const TArray<UMaterialFunctionInterface*>& Layers = GetLayers();
 	const TArray<UMaterialFunctionInterface*>& Blends = GetBlends();
 	const TArray<bool>& LayerStates = GetLayerStates();
+	
+	// Pre-populate callers, we maintain these transient objects to avoid
+	// heavy UObject recreation as the graphs are frequently rebuilt
+	while (LayerCallers.Num() < Layers.Num())
+	{
+		LayerCallers.Add(NewObject<UMaterialExpressionMaterialFunctionCall>(GetTransientPackage()));
+	}
+	while (BlendCallers.Num() < Blends.Num())
+	{
+		BlendCallers.Add(NewObject<UMaterialExpressionMaterialFunctionCall>(GetTransientPackage()));
+	}
 
+	// Reset graph connectivity
 	bIsLayerGraphBuilt = false;
-	LayerCallers.Empty(Layers.Num());
-	BlendCallers.Empty(Blends.Num());
+	NumActiveLayerCallers = 0;
+	NumActiveBlendCallers = 0;
 
 	if (ValidateLayerConfiguration(nullptr, bReportErrors))
 	{
@@ -5132,10 +5196,11 @@ void UMaterialExpressionMaterialAttributeLayers::RebuildLayerGraph(bool bReportE
 		{
 			if (Layers[LayerIndex] && LayerStates[LayerIndex])
 			{
-				int32 CallerIndex = LayerCallers.Add(NewObject<UMaterialExpressionMaterialFunctionCall>(GetTransientPackage()));
+				int32 CallerIndex = NumActiveLayerCallers;
 				LayerCallers[CallerIndex]->MaterialFunction = Layers[LayerIndex];
 				LayerCallers[CallerIndex]->FunctionParameterInfo.Association = EMaterialParameterAssociation::LayerParameter;
 				LayerCallers[CallerIndex]->FunctionParameterInfo.Index = LayerIndex;
+				++NumActiveLayerCallers;
 
 #if WITH_EDITOR
 				Layers[LayerIndex]->GetInputsAndOutputs(LayerCallers[CallerIndex]->FunctionInputs, LayerCallers[CallerIndex]->FunctionOutputs);
@@ -5153,7 +5218,7 @@ void UMaterialExpressionMaterialAttributeLayers::RebuildLayerGraph(bool bReportE
 					}
 				}
 
-				// Recursively run through internal functions to allow connection of inputs/ouputs
+				// Recursively run through internal functions to allow connection of inputs/outputs
 				LayerCallers[CallerIndex]->UpdateFromFunctionResource();
 #endif
 			}
@@ -5164,9 +5229,11 @@ void UMaterialExpressionMaterialAttributeLayers::RebuildLayerGraph(bool bReportE
 			const int32 LayerIndex = BlendIndex + 1;
 			if (Layers[LayerIndex] && LayerStates[LayerIndex])
 			{
+				int32 CallerIndex = NumActiveBlendCallers;
+				++NumActiveBlendCallers;
+
 				if (Blends[BlendIndex])
 				{
-					int32 CallerIndex = BlendCallers.Add(NewObject<UMaterialExpressionMaterialFunctionCall>(GetTransientPackage()));
 					BlendCallers[CallerIndex]->MaterialFunction = Blends[BlendIndex];
 					BlendCallers[CallerIndex]->FunctionParameterInfo.Association = EMaterialParameterAssociation::BlendParameter;
 					BlendCallers[CallerIndex]->FunctionParameterInfo.Index = BlendIndex;
@@ -5185,28 +5252,39 @@ void UMaterialExpressionMaterialAttributeLayers::RebuildLayerGraph(bool bReportE
 				else
 				{
 					// Empty entries for opaque layers
-					BlendCallers.Add(nullptr);
+					BlendCallers[CallerIndex]->MaterialFunction = nullptr;
 				}
 			}
 		}
 
+		// Empty out unused callers
+		for (int32 CallerIndex = NumActiveLayerCallers; CallerIndex < LayerCallers.Num(); ++CallerIndex)
+		{
+			LayerCallers[CallerIndex]->MaterialFunction = nullptr;
+		}
+
+		for (int32 CallerIndex = NumActiveBlendCallers; CallerIndex < BlendCallers.Num(); ++CallerIndex)
+		{
+			BlendCallers[CallerIndex]->MaterialFunction = nullptr;
+		}
+
 #if WITH_EDITOR
 		// Assemble function chain so each layer blends with the previous
-		if (LayerCallers.Num() >= 2 && BlendCallers.Num() >= 1)
+		if (NumActiveLayerCallers >= 2 && NumActiveBlendCallers >= 1)
 		{
-			if (BlendCallers[0])
+			if (BlendCallers[0]->MaterialFunction)
 			{
 				BlendCallers[0]->FunctionInputs[0].Input.Connect(0, LayerCallers[0]);
 				BlendCallers[0]->FunctionInputs[1].Input.Connect(0, LayerCallers[1]);
 			}
 
-			for (int32 LayerIndex = 2; LayerIndex < LayerCallers.Num(); ++LayerIndex)
+			for (int32 LayerIndex = 2; LayerIndex < NumActiveLayerCallers; ++LayerIndex)
 			{
-				if (BlendCallers[LayerIndex - 1])
+				if (BlendCallers[LayerIndex - 1]->MaterialFunction)
 				{
 					// Active blend input is previous blend or direct layer if previous is opaque
 					UMaterialExpressionMaterialFunctionCall* BlendInput = BlendCallers[LayerIndex - 2];
-					BlendInput = BlendInput ? BlendInput : LayerCallers[LayerIndex - 1];
+					BlendInput = BlendInput->MaterialFunction ? BlendInput : LayerCallers[LayerIndex - 1];
 
 					BlendCallers[LayerIndex - 1]->FunctionInputs[0].Input.Connect(0, BlendInput);
 					BlendCallers[LayerIndex - 1]->FunctionInputs[1].Input.Connect(0, LayerCallers[LayerIndex]);
@@ -5440,17 +5518,17 @@ int32 UMaterialExpressionMaterialAttributeLayers::Compile(FMaterialCompiler* Com
 
 	if (ValidateLayerConfiguration(Compiler, true) && bIsLayerGraphBuilt)
 	{
-		if (BlendCallers.Num() && BlendCallers.Last())
+		if (NumActiveBlendCallers > 0 && BlendCallers[NumActiveBlendCallers-1]->MaterialFunction)
 		{
 			// Multiple blended layers
-			Result = BlendCallers.Last()->Compile(Compiler, 0);
+			Result = BlendCallers[NumActiveBlendCallers-1]->Compile(Compiler, 0);
 		}
-		else if (LayerCallers.Num() && LayerCallers.Last())
+		else if (NumActiveLayerCallers > 0 && LayerCallers[NumActiveLayerCallers-1]->MaterialFunction)
 		{
 			// Single layer
-			Result = LayerCallers.Last()->Compile(Compiler, 0);
+			Result = LayerCallers[NumActiveLayerCallers-1]->Compile(Compiler, 0);
 		}
-		else if (LayerCallers.Num() == 0)
+		else if (NumActiveLayerCallers == 0)
 		{
 			// Pass-through
 			const FGuid AttributeID = Compiler->GetMaterialAttribute();
@@ -9845,15 +9923,15 @@ int32 UMaterialFunction::Compile(FMaterialCompiler* Compiler, const FFunctionExp
 
 	if (ValidateFunctionUsage(Compiler, Output))
 	{
-	if (Output.ExpressionOutput->A.GetTracedInput().Expression)
-	{
-		// Compile the given function output
-		ReturnValue = Output.ExpressionOutput->A.Compile(Compiler);
-	}
-	else
-	{
-		ReturnValue = Compiler->Errorf(TEXT("Missing function output connection '%s'"), *Output.ExpressionOutput->OutputName.ToString());
-	}
+		if (Output.ExpressionOutput->A.GetTracedInput().Expression)
+		{
+			// Compile the given function output
+			ReturnValue = Output.ExpressionOutput->A.Compile(Compiler);
+		}
+		else
+		{
+			ReturnValue = Compiler->Errorf(TEXT("Missing function output connection '%s'"), *Output.ExpressionOutput->OutputName.ToString());
+		}
 	}
 
 	return ReturnValue;
@@ -9970,11 +10048,13 @@ void UMaterialFunction::AppendReferencedTextures(TArray<UTexture*>& InOutTexture
 	{
 		if(CurrentExpression)
 		{
+			// Append even if null as textures can be stripped at cook without our knowledge
+			// so we want to maintain the indices. This will waste a small amount of memory
 			UTexture* ReferencedTexture = CurrentExpression->GetReferencedTexture();
-
-			if (ReferencedTexture)
+			checkf(!ReferencedTexture || CurrentExpression->CanReferenceTexture(), TEXT("This expression type missing an override for CanReferenceTexture?"));
+			if (CurrentExpression->CanReferenceTexture())
 			{
-				InOutTextures.AddUnique(ReferencedTexture);
+				InOutTextures.Add(ReferencedTexture);
 			}
 		}
 	}
@@ -10457,7 +10537,7 @@ void UMaterialFunctionInstance::AppendReferencedTextures(TArray<UTexture*>& InOu
 	// @TODO: This should be able to replace base textures rather than append
 	for (const FTextureParameterValue& TextureParam : TextureParameterValues)
 	{
-		InOutTextures.AddUnique(TextureParam.ParameterValue);
+		InOutTextures.Add(TextureParam.ParameterValue);
 	}
 }
 
@@ -10751,15 +10831,19 @@ int32 UMaterialExpressionMaterialFunctionCall::Compile(class FMaterialCompiler* 
 	// Link the function's inputs into the caller graph before entering
 	LinkFunctionIntoCaller(Compiler);
 
+	// Some functions (e.g. layers) don't benefit from re-using state so we locally create one as we did before sharing was added
+	FMaterialFunctionCompileState LocalState(this);
+
 	// Tell the compiler that we are entering a function
-	Compiler->PushFunction(FMaterialFunctionCompileState(this));
+	const int32 ExpressionStackCheckSize = SharedCompileState ? SharedCompileState->ExpressionStack.Num() : 0;
+	Compiler->PushFunction(SharedCompileState ? SharedCompileState : &LocalState);
 
 	// Compile the requested output
 	const int32 ReturnValue = MaterialFunction->Compile(Compiler, FunctionOutputs[OutputIndex]);
 
 	// Tell the compiler that we are leaving a function
-	const FMaterialFunctionCompileState CompileState = Compiler->PopFunction();
-	check(CompileState.ExpressionStack.Num() == 0);
+	FMaterialFunctionCompileState* CompileState = Compiler->PopFunction();
+	check(!SharedCompileState || CompileState->ExpressionStack.Num() == ExpressionStackCheckSize);
 
 	// Restore the function since we are leaving it
 	UnlinkFunctionFromCaller(Compiler);
@@ -11326,7 +11410,18 @@ int32 UMaterialExpressionFunctionInput::CompilePreviewValue(FMaterialCompiler* C
 {
 	if (Preview.GetTracedInput().Expression)
 	{
-		return Preview.Compile(Compiler);
+		int32 ExpressionResult;
+		if (Preview.Expression->GetOuter() == GetOuter())
+		{
+			ExpressionResult = Preview.Compile(Compiler);
+		}
+		else
+		{
+			FMaterialFunctionCompileState* FunctionState = Compiler->PopFunction();
+			ExpressionResult = Preview.Compile(Compiler);
+			Compiler->PushFunction(FunctionState);
+		}
+		return ExpressionResult;
 	}
 	else
 	{
@@ -11389,19 +11484,19 @@ int32 UMaterialExpressionFunctionInput::Compile(class FMaterialCompiler* Compile
 		else
 		{
 			// Tell the compiler that we are leaving the function
-			const FMaterialFunctionCompileState FunctionState = Compiler->PopFunction();
+			FMaterialFunctionCompileState* FunctionState = Compiler->PopFunction();
 
 			// Backup EffectivePreviewDuringCompile which will be modified by UnlinkFromCaller and LinkIntoCaller of any potential chained function calls to the same function
 			FExpressionInput LocalPreviewDuringCompile = EffectivePreviewDuringCompile;
 
 			// Restore the function since we are leaving it
-			FunctionState.FunctionCall->UnlinkFunctionFromCaller(Compiler);
+			FunctionState->FunctionCall->UnlinkFunctionFromCaller(Compiler);
 
 			// Compile the function input
 			ExpressionResult = LocalPreviewDuringCompile.Compile(Compiler);
 
 			// Link the function's inputs into the caller graph before entering
-			FunctionState.FunctionCall->LinkFunctionIntoCaller(Compiler);
+			FunctionState->FunctionCall->LinkFunctionIntoCaller(Compiler);
 
 			// Tell the compiler that we are re-entering the function
 			Compiler->PushFunction(FunctionState);
@@ -14347,4 +14442,93 @@ void UMaterialExpressionPreSkinnedNormal::GetExpressionToolTip(TArray<FString>& 
 }
 #endif // WITH_EDITOR
 
+//
+//  UMaterialExpressionCurveAtlasRowParameter
+//
+UMaterialExpressionCurveAtlasRowParameter::UMaterialExpressionCurveAtlasRowParameter(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+#if WITH_EDITORONLY_DATA
+	bCollapsed = true;
+	Outputs.Reset();
+	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 1, 1, 0));
+	Outputs.Add(FExpressionOutput(TEXT(""), 1, 1, 0, 0, 0));
+	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 1, 0, 0));
+	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 0, 1, 0));
+	Outputs.Add(FExpressionOutput(TEXT(""), 1, 0, 0, 0, 1));
+#endif // WITH_EDITORONLY_DATA
+
+}
+
+UTexture* UMaterialExpressionCurveAtlasRowParameter::GetReferencedTexture()
+{
+	return Atlas;
+};
+
+#if WITH_EDITOR
+
+void UMaterialExpressionCurveAtlasRowParameter::GetTexturesForceMaterialRecompile(TArray<UTexture *> &Textures) const
+{	
+	if (Atlas)
+	{
+		Textures.AddUnique(Atlas);
+	}
+}
+
+
+int32 UMaterialExpressionCurveAtlasRowParameter::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex)
+{
+	// Need to recalculate the row index b/c a recompile could be triggered from the texture changing
+	int32 SlotIndex = INDEX_NONE;
+	if (Atlas && Curve)
+	{
+		SlotIndex = Atlas->GradientCurves.Find(Curve);
+	}
+	if (SlotIndex != INDEX_NONE)
+	{
+		float NewValue = ((float)SlotIndex * Atlas->GradientPixelSize) / Atlas->TextureSize + (0.5f * Atlas->GradientPixelSize) / Atlas->TextureSize;
+		SetParameterValue(ParameterName, NewValue);
+	}
+	// if the input is hooked up, use it, otherwise use the internal constant
+	int32 Arg1 = InputTime.GetTracedInput().Expression ? InputTime.Compile(Compiler) : Compiler->Constant(0);
+	int32 Arg2 = Compiler->ScalarParameter(ParameterName, DefaultValue);
+
+	int32 UV = Compiler->AppendVector(Arg1, Arg2);
+	return CompileTextureSample(
+		Compiler,
+		Atlas,
+		UV,
+		SAMPLERTYPE_LinearColor,
+		TOptional<FName>(),
+		INDEX_NONE,
+		INDEX_NONE,
+		TMVM_None,
+		SSM_Clamp_WorldGroupSettings);
+}
+
+void UMaterialExpressionCurveAtlasRowParameter::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	if (PropertyChangedEvent.Property 
+		&& (PropertyChangedEvent.Property->GetName() == TEXT("Atlas") || PropertyChangedEvent.Property->GetName() == TEXT("Curve")))
+	{
+		int32 SlotIndex = INDEX_NONE;
+		if (Atlas && Curve)
+		{
+			SlotIndex = Atlas->GradientCurves.Find(Curve);
+		}
+		if (SlotIndex != INDEX_NONE)
+		{
+			float NewValue = ((float)SlotIndex * Atlas->GradientPixelSize) / Atlas->TextureSize + (0.5f * Atlas->GradientPixelSize) / Atlas->TextureSize;
+			SetParameterValue(ParameterName, NewValue);
+		}
+		else
+		{
+			SetParameterValue(ParameterName, 0.0f);
+		}
+	}
+
+	// Need to update expression properties before super call (which triggers recompile)
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif
 #undef LOCTEXT_NAMESPACE

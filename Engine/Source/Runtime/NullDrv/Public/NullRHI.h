@@ -718,10 +718,6 @@ public:
 
 	}
 
-	virtual void RHIDiscardRenderTargets(bool Depth,bool Stencil,uint32 ColorBitMask) final override
-	{
-
-	}
 	virtual void RHISetRenderTargetsAndClear(const FRHISetRenderTargetsInfo& RenderTargetsInfo) final override
 	{
 

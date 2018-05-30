@@ -1339,7 +1339,7 @@ namespace InstancedPropertyUtils
 			, InstancedPropertyMap(PropertyMapOut)
 		{
 			ArIsObjectReferenceCollector = true;
-			ArIsPersistent = false;
+			this->SetIsPersistent(false);
 			ArIgnoreArchetypeRef = false;
 
 			if (bAutoSerialize)

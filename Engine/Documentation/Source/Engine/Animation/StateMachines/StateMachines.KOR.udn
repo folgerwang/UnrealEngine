@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3809606
 Availability:Public
 Title: 스테이트 머신
 Crumbs: %ROOT%, Engine, Engine/Animation
@@ -13,7 +13,7 @@ related:Gameplay/HowTo/CharacterMovement/Blueprints
 ![](StateMachineImage.png)
 [/REGION]
 
-[COMMENT]
+[COMMENT:none]
 
 [EXCERPT:Intro]
 **State Machine** (스테이트 머신)은 도식적인 방법으로 스켈레탈 메시의 애니메이션을 일련의 _State_ (스테이트, 상태)로 나눠 볼 수 있습니다. 그렇게 나뉜 상태는 한 상태에서 다른 상태로의 블렌딩 방식을 제어하는 _Translation Rule_ (트랜지션 룰, 전환 규칙)에 의해 관장됩니다. 하나의 툴로써, 복잡한 블루프린트 망을 만들 필요 없이 그래프 하나만 만들면 캐릭터가 가질 수 있는 여러 유형 애니메이션 간의 흐름을 쉽게 제어할 수 있다는 점에서, 스켈레탈 메시 애니메이션의 디자인 프로세스를 크게 단순화시켜 줍니다.

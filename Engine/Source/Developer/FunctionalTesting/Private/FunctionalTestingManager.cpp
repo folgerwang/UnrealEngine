@@ -187,14 +187,22 @@ UFunctionalTestingManager* UFunctionalTestingManager::GetManager(UObject* WorldC
 
 	if (Manager == nullptr)
 	{
-		if (UObject* World = GEngine->GetWorldFromContextObject(WorldContext, EGetWorldErrorMode::LogAndReturnNull))
+		if (UWorld* World = GEngine->GetWorldFromContextObject(WorldContext, EGetWorldErrorMode::LogAndReturnNull))
 		{
-			Manager = NewObject<UFunctionalTestingManager>(World);
-			IFunctionalTestingModule::Get().SetManager(Manager);
+			// Only add functional test managers for the PIE and Game Worlds.
+			if (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game)
+			{
+				Manager = NewObject<UFunctionalTestingManager>(World);
+				IFunctionalTestingModule::Get().SetManager(Manager);
 
-			// add to root and get notified on world cleanup to remove from root on map cleanup
-			Manager->AddToRoot();
-			FWorldDelegates::OnWorldCleanup.AddUObject(Manager, &UFunctionalTestingManager::OnWorldCleanedUp);
+				// add to root and get notified on world cleanup to remove from root on map cleanup
+				Manager->AddToRoot();
+				FWorldDelegates::OnWorldCleanup.AddUObject(Manager, &UFunctionalTestingManager::OnWorldCleanedUp);
+			}
+		}
+		else
+		{
+			ensureMsgf(false, TEXT("Tried to add a functional test manager to a non-game world."));
 		}
 	}
 

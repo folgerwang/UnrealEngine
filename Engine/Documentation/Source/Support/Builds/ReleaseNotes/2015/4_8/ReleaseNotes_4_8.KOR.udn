@@ -3185,7 +3185,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
     * 씬의 GPU 활용이 훨씬 나아진 것이 보일 것입니다.
 
-* Git 종속성 다운로드를 위한 프록시 서버 세팅은 이제 --proxy=http://<login>:<password>@<server> 인수 하나로 지정할 수 있습니다.
+* Git 종속성 다운로드를 위한 프록시 서버 세팅은 이제 `--proxy=http://<login>:<password>@<server>` 인수 하나로 지정할 수 있습니다.
 
 * IMessageHandler.h 에 헤더 종속성이 없도록 리팩터링했습니다.
 
@@ -3663,7 +3663,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * 디스트럭터블 메시의 머티리얼 설정이 청크 머티리얼과 피지컬 머티리얼을 업데이트하지 않던 것을 고쳤습니다.
 
-* 스플라인 메시 컨벡스 컬리전 엘리먼트의 바운딩 박스를 수정했습니다.
+* 스플라인 메시 컨벡스 콜리전 엘리먼트의 바운딩 박스를 수정했습니다.
 
 * 이때문에 스플라인 메시 관련 몇 가지 이상한 PhysX 동작이 생겼을 것입니다.
 
@@ -5227,16 +5227,16 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 * 이제 포인트 샘플링이 아닌 바이리니어 샘플링을 사용합니다.
 
 ## Programming Release Notes
-역주: 과도히 테크니컬한 부분이라 번역 제공하지 않는 점 양해바랍니다.
+
 ### AI
 
-* Added versions of UEnvQueryTest::GetItem[Actor/Location/Rotation] parametric with FEnvQueryInstance::ItemIterator to avoid conversion-related issues when accessing query's items with item iterator
+* New: Added versions of UEnvQueryTest::GetItem[Actor/Location/Rotation] parametric with FEnvQueryInstance::ItemIterator to avoid conversion-related issues when accessing query's items with item iterator
 
-* Modified Blackboard-key-change notifications to allow observers specify if they need to continue observing given blackboard key.
+* New: Modified Blackboard-key-change notifications to allow observers specify if they need to continue observing given blackboard key.
 
-* SightTargetInterface got a new parameter allowing implementing code to indicate "how visible" (if at all) an actor is.
+* New: SightTargetInterface got a new parameter allowing implementing code to indicate "how visible" (if at all) an actor is.
 
-* Team affiliation handling to has been added to Sight and Hearing AI senses.
+* New: Team affiliation handling to has been added to Sight and Hearing AI senses.
 
 * A bunch of Pawn.BaseEyeHeight uses were replaced with appropriate Pawn and Actor function calls to improve AI code consistency.
 
@@ -5258,7 +5258,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * Replaced operator * from EQS item iterators with new function: GetIndex()
 
-* Two new functions has been introduced to Navigation System, GetRandomReachablePointInRadius ?and GetRandomPointInNavigableRadius, to replace a mis-named GetRandomPointInRadius
+* New: Two new functions has been introduced to Navigation System, GetRandomReachablePointInRadius ?and GetRandomPointInNavigableRadius, to replace a mis-named GetRandomPointInRadius
 
     * As a side note, GetRandomPointInNavigableRadius produces items distributed uniformly.
 
@@ -5268,9 +5268,9 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 #### Behavior Tree
 
-* Added instancing for blackboard key types to support custom memory allocations.
+* New: Added instancing for blackboard key types to support custom memory allocations.
 
-* Parametrized focus priority used by BTService_DefaultFocus, but kept it unexposed. The goal here is to allow easy expanding the logic by deriving the class.
+* New: Parametrized focus priority used by BTService_DefaultFocus, but kept it unexposed. The goal here is to allow easy expanding the logic by deriving the class.
 
 * Added a safety check to not crash if BTTaskNode, that's no longer part of active BT, gets a notification via UBTTaskNode::ReceivedMessage call
 
@@ -5278,23 +5278,23 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 #### Debugging Tools
 
-* Added a function to VisualLog allowing users to add arbitrary FVisualLogShapeElement instances to given log entry which results in even more flexibility in logging spatial data.
+* New: Added a function to VisualLog allowing users to add arbitrary FVisualLogShapeElement instances to given log entry which results in even more flexibility in logging spatial data.
 
-* Made AIController automatically redirect all visual logs of its components to controller's log
+* New: Made AIController automatically redirect all visual logs of its components to controller's log
 
 #### Navigation
 
-* Added a generic support for navigation relevant actors being able to supply NavMesh generation process with subsections of their collision geometry
+* New: Added a generic support for navigation relevant actors being able to supply NavMesh generation process with subsections of their collision geometry
 
 * LandscapeHeightfieldCollisionComponent is a working example here
 
 * Done by expanding INavigationRelevantInterface
 
-* Added a way to query navigation data if a specified world location is inside a given navigation node (like a NavMesh polygon).
+* New: Added a way to query navigation data if a specified world location is inside a given navigation node (like a NavMesh polygon).
 
-* Added support for based navigation paths.
+* New: Added support for based navigation paths.
 
-* Made navigation path types derivable so that game-specific navigation data can create game-specific path types and have them still treated properly on the engine level
+* New: Made navigation path types derivable so that game-specific navigation data can create game-specific path types and have them still treated properly on the engine level
 
 * Optimized use of NavMesh boundary data in crowd simulation, fixed multiple samples created in the same location.
 
@@ -5334,33 +5334,33 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * Performance: USkinnedMeshComponent::AnimUpdateRateTick() optimized to reduce potential dynamic allocations. 0.40ms -> 0.26ms in test scene with many characters.
 
-* Added a new stat that represents all game thread time taken by the animation system (STAT_AnimGameThreadTime, "AnimGameThreadTime")
+* New: Added a new stat that represents all game thread time taken by the animation system (STAT_AnimGameThreadTime, "AnimGameThreadTime")
 
-* Added a stat to track time spent triggering notifies (STAT_AnimTriggerAnimNotifies, "Trigger Notifies")
+* New: Added a stat to track time spent triggering notifies (STAT_AnimTriggerAnimNotifies, "Trigger Notifies")
 
-* Added SkeletalMeshComponent version of GetDistanceToCollision(), taking into account PhysicsAsset rigid bodies. Fixed ?FBodyInstance::GetDistanceToBody not handling PhysicsAsset rigidbodies properly.
+* New: Added SkeletalMeshComponent version of GetDistanceToCollision(), taking into account PhysicsAsset rigid bodies. Fixed ?FBodyInstance::GetDistanceToBody not handling PhysicsAsset rigidbodies properly.
 
-* Added stats for UAnimInstance construction and init time
+* New: Added stats for UAnimInstance construction and init time
 
-* Added status for animation importing to identify where it's taking a long time.
+* New: Added status for animation importing to identify where it's taking a long time.
 
-* Added UninitializeAnimation, so that we can clear all data that it was being held
+* New: Added UninitializeAnimation, so that we can clear all data that it was being held
 
     * It will trigger all end notification
 
     * It stops montages
 
-* Changed DoesSocketExist to support bone names as well. This now is consistent with any other socket APIs.
+* New: Changed DoesSocketExist to support bone names as well. This now is consistent with any other socket APIs.
 
-* Exposed GetCurveValue to outsider, so you can query.
+* New: Exposed GetCurveValue to outsider, so you can query.
 
     * This still depends on tick order. If you tick before animation, you'll get last frame data, not up-to-date data.
 
 * Renamed UpdateKinematicBonesToPhysics to UpdateKinematicBonesToAnim to correctly describe what it does.
 
-* PreClothTick is now dynamically registered based on the need of the SkeletalMeshComponent
+* New: PreClothTick is now dynamically registered based on the need of the SkeletalMeshComponent
 
-* We now flip bone transform buffers in RefreshBoneTransforms if we are not part of actor ticking. Should resolve issues when RefreshBoneTransforms is called manually from other systems (e.g Matinee)
+* New: We now flip bone transform buffers in RefreshBoneTransforms if we are not part of actor ticking. Should resolve issues when RefreshBoneTransforms is called manually from other systems (e.g Matinee)
 
 * Added logic to RefreshBoneTransforms so that if we already have an evaluation task in flight we don't crash.
 
@@ -5404,7 +5404,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 ### Audio
 
-* Export AudioVolume class to allow subclassing.
+* New: Export AudioVolume class to allow subclassing.
 
 * Cleanup audio module linking
 
@@ -5418,17 +5418,17 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 ### Blueprints
 
-* Added a fast calling mechanism for no-argument thunks into the event graph
+* New: Added a fast calling mechanism for no-argument thunks into the event graph
 
     * No-argument thunks into the event graph (for notification events and animation EvaluateGraphExposedInputs type calls) now call directly into the event graph, skipping one function frame and the associated invocation time
 
-* The Spawn Actor From Class nodes can now be extended by C++ projects.
+* New: The Spawn Actor From Class nodes can now be extended by C++ projects.
 
-* Moved blueprint replicated property handling to UBlueprintGeneratedClass instead of an inaccessible static (mod/plugin support)
+* New: Moved blueprint replicated property handling to UBlueprintGeneratedClass instead of an inaccessible static (mod/plugin support)
 
-* Support for localized metadata retrieval through the use of UField::GetMetaDataText
+* New: Support for localized metadata retrieval through the use of UField::GetMetaDataText
 
-* This change brings SMultiLineEditableText functionality closer to parity with the SEditableText.
+* New: This change brings SMultiLineEditableText functionality closer to parity with the SEditableText.
 
 * Implemented SelectAllTextWhenFocused
 
@@ -5456,7 +5456,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * Split out SGraphPinInteger from SGraphPinNum to push schema checking into the NodeFactory where it belongs and fixed SGraphPinNum::Construct skipping the direct parent
 
-* Making a base async node based on the LatentOnlineCall node. From now on to create any async action just create a UObject that extends from UBllueprintAsyncActionBase and a new node entry will be added that spawns that class and activates it.
+* New: Making a base async node based on the LatentOnlineCall node. From now on to create any async action just create a UObject that extends from UBllueprintAsyncActionBase and a new node entry will be added that spawns that class and activates it.
 
 * Fixed UScriptFactory not returning created script blueprint object
 
@@ -5486,121 +5486,121 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 		![image alt text](image_61.png)
 
-* AActor::GetComponents() can now support TArrays with different allocator types.
+* New: AActor::GetComponents() can now support TArrays with different allocator types.
 
     * It's now recommended to use TArrays with a TInlineAllocator to potentially avoid memory allocation costs.
 
     * TInlineComponentArray is defined to make this easier, for example: TInlineComponentArray<UPrimitiveComponent*> PrimComponents(Actor);
 
-* Add Begin/EndPlay virtual functions to UActorComponent
+* New: Add Begin/EndPlay virtual functions to UActorComponent
 
 * BeginPlay called if bWantsBeginPlay is true, EndPlay called if BeginPlay called.
 
-* Add conditional and no stats versions of FPlatformProcess::Sleep
+* New: Add conditional and no stats versions of FPlatformProcess::Sleep
 
-* Added "Stat Math" to Core stats.
+* New: Added "Stat Math" to Core stats.
 
 * Added stat counters for Rotator->Quat and Quat->Rotator conversion.
 
-* Added an overload for GetTypeHash that allows the TMap template type to use a key type that is a C++11 enum class.
+* New: Added an overload for GetTypeHash that allows the TMap template type to use a key type that is a C++11 enum class.
 
-* Added EMIT_CUSTOM_WARNING_AT_LINE macro to emit warnings at given line rather than on macro's location.
+* New: Added EMIT_CUSTOM_WARNING_AT_LINE macro to emit warnings at given line rather than on macro's location.
 
-* Added ensureOnce and ensurceOnceMsgf macros which works like the standard ensure macros but will only fires on the first false result.
+* New: Added ensureOnce and ensurceOnceMsgf macros which works like the standard ensure macros but will only fires on the first false result.
 
-* Added FCString::Strrstr, which finds the last occurrence of a substring in a zero-terminated string.
+* New: Added FCString::Strrstr, which finds the last occurrence of a substring in a zero-terminated string.
 
-* Added FString::Reset() which allows emptying a string without reallocating memory
+* New: Added FString::Reset() which allows emptying a string without reallocating memory
 
-* Added heterogeneous comparison support to TArray::Contains, so that you can now find elements by any type which is comparable to the array element type, even if it's not convertible, e.g. searching a TArray<AActor*> for a UObject*.
+* New: Added heterogeneous comparison support to TArray::Contains, so that you can now find elements by any type which is comparable to the array element type, even if it's not convertible, e.g. searching a TArray<AActor*> for a UObject*.
 
-* Added IsValid and Reset functions added to FDelegateHandle to make it easier to use.
+* New: Added IsValid and Reset functions added to FDelegateHandle to make it easier to use.
 
-* Added method for converting binary data into encoded hex string and vice-versa
+* New: Added method for converting binary data into encoded hex string and vice-versa
 
-* Added new C++ utility function to draw oriented wire boxes with a matrix transform (DrawWireBox)
+* New: Added new C++ utility function to draw oriented wire boxes with a matrix transform (DrawWireBox)
 
-* Added ON_SCOPE_EXIT - a generalized scope guard macro which allows arbitrary code to be run automatically when a scope is left.
+* New: Added ON_SCOPE_EXIT - a generalized scope guard macro which allows arbitrary code to be run automatically when a scope is left.
 
-* Added RandBool() function (in UnrealMathUtility.h)
+* New: Added RandBool() function (in UnrealMathUtility.h)
 
-* Added support for FEvent pooling to GenericPlatform
+* New: Added support for FEvent pooling to GenericPlatform
 
-* Added support for shared shapes between sync and async scene of static actors. Reduces memory usage and makes streaming faster.
+* New: Added support for shared shapes between sync and async scene of static actors. Reduces memory usage and makes streaming faster.
 
-* Added support for specifying default values for FColor types in reflected methods to UnrealHeaderTool
+* New: Added support for specifying default values for FColor types in reflected methods to UnrealHeaderTool
 
-* Added support for suspending async loading.
+* New: Added support for suspending async loading.
 
 * Async loading can be suspended and resumed by calling SuspendAsyncLoading and ResumeAsyncLoading respectively
 
 * Async loading is automatically suspended when the rendering thread is suspended.
 
-* Added TArray::AddDefaulted to allow default constructed new elements to be added to the end of an array.
+* New: Added TArray::AddDefaulted to allow default constructed new elements to be added to the end of an array.
 
-* Added TUniquePtr::IsValid function to make it match other UE smart pointers, and made its operators work as expected with nullptr.
+* New: Added TUniquePtr::IsValid function to make it match other UE smart pointers, and made its operators work as expected with nullptr.
 
-* Added variadic template support to TGraphTask::ConstructAndDispatchWhenReady and TGraphTask::ConstructAndHold.
+* New: Added variadic template support to TGraphTask::ConstructAndDispatchWhenReady and TGraphTask::ConstructAndHold.
 
-* Any build targets may now choose whether to use the shared build environment (which can share engine intermediates between projects) or a custom build environment (which can have custom compiler settings), by overriding the TargetRules.ShouldUseSharedBuildEnvironment() function. Previous setting was to use a shared build environment for the editor, and custom environment for monolithic games.
+* New: Any build targets may now choose whether to use the shared build environment (which can share engine intermediates between projects) or a custom build environment (which can have custom compiler settings), by overriding the TargetRules.ShouldUseSharedBuildEnvironment() function. Previous setting was to use a shared build environment for the editor, and custom environment for monolithic games.
 
-* Changed FMath::DegreesToRadians and FMath::RadiansToDegrees to use auto-deduced return types, which prevents accidental integer coercion and allows them to be called with any type which supports arithmetic operators, like FVector.
+* New: Changed FMath::DegreesToRadians and FMath::RadiansToDegrees to use auto-deduced return types, which prevents accidental integer coercion and allows them to be called with any type which supports arithmetic operators, like FVector.
 
-* Changed the Exchange function to use Memswap in all cases, as this was an assumption used by a lot of code.
+* New: Changed the Exchange function to use Memswap in all cases, as this was an assumption used by a lot of code.
 
-* Core - Added dynamic stats for packages loading, disabled by default
+* New: Core - Added dynamic stats for packages loading, disabled by default
 
-* Core - Log should have the time markers from the beginning
+* New: Core - Log should have the time markers from the beginning
 
-* Default arguments to the Git dependencies download tool may now be specified through the UE4_GITDEPS_ARGS environment variable.
+* New: Default arguments to the Git dependencies download tool may now be specified through the UE4_GITDEPS_ARGS environment variable.
 
-* Exposed FFilePath and FDirectoryPath as Blueprint types
+* New: Exposed FFilePath and FDirectoryPath as Blueprint types
 
-* Exposed FPS (frames per second) chart global variables as Engine's module's API.
+* New: Exposed FPS (frames per second) chart global variables as Engine's module's API.
 
-* Git binary dependencies are now cached after being downloaded, allowing faster switching between branches and use of the git clean command.
+* New: Git binary dependencies are now cached after being downloaded, allowing faster switching between branches and use of the git clean command.
 
-* Greatly improved support for compiling UE4 using Clang/LLVM on Windows platform (ongoing work in progress!)
+* New: Greatly improved support for compiling UE4 using Clang/LLVM on Windows platform (ongoing work in progress!)
 
-* Greatly improved the quality of IntelliSense results with UE4 in Visual C++ and Xcode
+* New: Greatly improved the quality of IntelliSense results with UE4 in Visual C++ and Xcode
 
-* Hot-reload will now always call ShutdownModule, even when abondoning DLLs
+* New: Hot-reload will now always call ShutdownModule, even when abondoning DLLs
 
-* Implemented user feedback on automatic generation of Remote Procedure Calls (RPC) and C++ functions usable in Blueprints.
+* New: Implemented user feedback on automatic generation of Remote Procedure Calls (RPC) and C++ functions usable in Blueprints.
 
 * Fixed missing directory crash in Unreal Build Tool when creating project timestamp file
 
-* Improve error message when using TSharedPtr with UObjects.
+* New: Improve error message when using TSharedPtr with UObjects.
 
-* Make asserts trigger debug break in current stack frame.
+* New: Make asserts trigger debug break in current stack frame.
 
-* Modules can now specify additional support files that need to be staged, allowing plugins that depend on third party DLLs to have them automatically included in packaged builds.
+* New: Modules can now specify additional support files that need to be staged, allowing plugins that depend on third party DLLs to have them automatically included in packaged builds.
 
 * Add entries to the RuntimeDependencies array from your module's .build.cs file to have them included in staged builds. See /Engine/Source/ThirdParty/Ogg/UEOgg.build.cs for an example.
 
 * The list of files required for a target is stored in an XML receipt file under <ProjectDir>/Build/Receipts.
 
-* Now UnrealHeaderTool will accept GENERATED_BODY macro in every place you had to insert a type specific GENERATED_*_BODY macros (e.g. GENERATED_UINTERFACE_BODY)! It will figure out the context without your help.
+* New: Now UnrealHeaderTool will accept GENERATED_BODY macro in every place you had to insert a type specific GENERATED_*_BODY macros (e.g. GENERATED_UINTERFACE_BODY)! It will figure out the context without your help.
 
-* Now you can specify your own function names for _Implementation and _Validate methods using keywords! E.g. UFUNCTION(Server="MyServerImplementationMethodName", WithValidation="MyServerValidateMethodName").
+* New: Now you can specify your own function names for _Implementation and _Validate methods using keywords! E.g. UFUNCTION(Server="MyServerImplementationMethodName", WithValidation="MyServerValidateMethodName").
 
 * Note that when you decide to specify your own function name, you also have to declare it manually in the class header.
 
-* Optimized UObject::IsA - it is now faster than testing cast flags and runs in constant time in all cases!
+* New: Optimized UObject::IsA - it is now faster than testing cast flags and runs in constant time in all cases!
 
-* Script Plugin was updated to support Lua 5.3.0
+* New: Script Plugin was updated to support Lua 5.3.0
 
-* Simplified UObject creation. Only NewObject<T> should be used to create UObjects.
+* New: Simplified UObject creation. Only NewObject<T> should be used to create UObjects.
 
-* Stats - Added generalized method for dynamic stats
+* New: Stats - Added generalized method for dynamic stats
 
 * Check the example here FModuleManager::LoadModuleWithFailureReason or UObjectBase::CreateStatID
 
-* TAssetPtr now correctly handles derived to base conversions. Conversion to bool is now explicit.
+* New: TAssetPtr now correctly handles derived to base conversions. Conversion to bool is now explicit.
 
-* Threading - Thread singleton implementation is now cleaner, faster, thread-safe by default and no longer leaks memory
+* New: Threading - Thread singleton implementation is now cleaner, faster, thread-safe by default and no longer leaks memory
 
-* TLazyObjectPtr has been overhauled
+* New: TLazyObjectPtr has been overhauled
 
 * Implicit upcasting has been added. A TLazyObjectPtr<Derived> can now be passed to a function expecting a TLazyObjectPtr<Base> without problem.
 
@@ -5610,13 +5610,13 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * The constructor from TWeakObjectPtr has been removed (it didn't even compile)
 
-* Treat type truncation warnings as errors.
+* New: Treat type truncation warnings as errors.
 
-* UnrealHeaderTool: Added time logging for various phases and clarified code/comments surrounding the phases
+* New: UnrealHeaderTool: Added time logging for various phases and clarified code/comments surrounding the phases
 
-* Updated commonly-subclassed actor's and component's classes, and auto-generated constructors to take a default FObjectInitializer constructor argument. Now subclasses of almost every engine class doesn't have to provide FObjectInitializer paramter for parent class!
+* New: Updated commonly-subclassed actor's and component's classes, and auto-generated constructors to take a default FObjectInitializer constructor argument. Now subclasses of almost every engine class doesn't have to provide FObjectInitializer paramter for parent class!
 
-* Updated UnrealHeaderTool to allow it to skip inline function definitions inside UCLASSes and USTRUCTs.
+* New: Updated UnrealHeaderTool to allow it to skip inline function definitions inside UCLASSes and USTRUCTs.
 
 * Added functionality to uobject and fconfigfile to support writing only one property when updating a project setting.
 
@@ -5774,69 +5774,69 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * Updated config file hierarchy with enums that can be used to determine priority.
 
-* Standardised naming convention for class used to managed memory operations, the same names for template and pointer based functions
+* New: Standardised naming convention for class used to managed memory operations, the same names for template and pointer based functions
 
-* A dummy World is now created when the Game Instance is created when running standalone (not PIE).
+* New: A dummy World is now created when the Game Instance is created when running standalone (not PIE).
 
     * This World is not fully set up and many operations will not be useful, however, it does allow certain behaviors to work when being called from objects initialized before entering the initial map (e.g. UMG Widgets, Game Instance)
 
-* Add FJsonObjectWrapper struct to JsonUtilities, this allows inserting unconverted Json nodes into your structures that pass through JsonObjectConverter
+* New: Add FJsonObjectWrapper struct to JsonUtilities, this allows inserting unconverted Json nodes into your structures that pass through JsonObjectConverter
 
-* Added a new method for setting the content of the XML node
+* New: Added a new method for setting the content of the XML node
 
-* Added AActor::bActorHasBegunPlay to track that an Actor has had BeginPlay called for it and has not subsequently had EndPlay called. Use HasActorBegunPlay to query.
+* New: Added AActor::bActorHasBegunPlay to track that an Actor has had BeginPlay called for it and has not subsequently had EndPlay called. Use HasActorBegunPlay to query.
 
-* Added ability to set the thread priority of a monitored process
+* New: Added ability to set the thread priority of a monitored process
 
-* Added append operator to the chunked array class
+* New: Added append operator to the chunked array class
 
-* Added check for negative size of deserialized string.
+* New: Added check for negative size of deserialized string.
 
-* Added more detailed message when uncompression fails, which includes the exact cause of failure.
+* New: Added more detailed message when uncompression fails, which includes the exact cause of failure.
 
     * Added the ability to skip unccompression errors during serialization via FailOnUncompressErrors under [Core.Settings] section in engine ini.
 
-* Added safety path to ignore and recreate ActionHistory.bin if that happens instead of a crash. We were reported that UnrealBuildTool's ActionHistory.bin file for some users was corrupted and it looked like it had been caused by interruption during saving process. This situation shouldn't occur anymore.
+* New: Added safety path to ignore and recreate ActionHistory.bin if that happens instead of a crash. We were reported that UnrealBuildTool's ActionHistory.bin file for some users was corrupted and it looked like it had been caused by interruption during saving process. This situation shouldn't occur anymore.
 
-* Added better Unreal Objects hash stats
+* New: Added better Unreal Objects hash stats
 
-* Added stats for module manager
+* New: Added stats for module manager
 
-* Function for creating synchronization events in no longer publicly available (see FPlatformProcess::CreateSyncEvent)
+* New: Function for creating synchronization events in no longer publicly available (see FPlatformProcess::CreateSyncEvent)
 
-* Exporting Decal Component class from the DLL to give access from outside the module.
+* New: Exporting Decal Component class from the DLL to give access from outside the module.
 
-* FInterval is now templatized and can be used as a UPROPERTY. A Details panel customization for Interval properties was also added.
+* New: FInterval is now templatized and can be used as a UPROPERTY. A Details panel customization for Interval properties was also added.
 
-* Implemented faster unhashing of UObject FNames in case of conflicts (with subobjects which have hardcoded names). 
+* New: Implemented faster unhashing of UObject FNames in case of conflicts (with subobjects which have hardcoded names). 
 
-* Added memory stats to 'obj hash' and 'obj hashouter'
+* New: Added memory stats to 'obj hash' and 'obj hashouter'
 
-* Modules can now disable optimization in all configurations except shipping, by setting OptimizeCode to CodeOptimization.InShippingBuildsOnly in their module rules.
+* New: Modules can now disable optimization in all configurations except shipping, by setting OptimizeCode to CodeOptimization.InShippingBuildsOnly in their module rules.
 
-* Moved actor components into Components folder
+* New: Moved actor components into Components folder
 
-* Package files now include a CompatibleWithEngineVersion field, declaring the engine version that the package is compatible with separately to the engine version that it was saved by. Hotfix releases will set this field to the last major release version.
+* New: Package files now include a CompatibleWithEngineVersion field, declaring the engine version that the package is compatible with separately to the engine version that it was saved by. Hotfix releases will set this field to the last major release version.
 
-* Properties of class type in User Defined Struct can have a default value defined.
+* New: Properties of class type in User Defined Struct can have a default value defined.
 
-* QMake project generator will add info about include paths to aid indexing.
+* New: QMake project generator will add info about include paths to aid indexing.
 
-* Renamed ITlsAutoCleanup to FTlsAutoCleanup (it's not a [non-virtual] interface)
+* New: Renamed ITlsAutoCleanup to FTlsAutoCleanup (it's not a [non-virtual] interface)
 
-* Script generator plugin is now using the engine's modular features system instead of plugin category for registering itself with UnrealHeaderTool.
+* New: Script generator plugin is now using the engine's modular features system instead of plugin category for registering itself with UnrealHeaderTool.
 
-* Specifying -Timestamp on the commandline to AutomationTool will add timestamps to output logs.
+* New: Specifying -Timestamp on the commandline to AutomationTool will add timestamps to output logs.
 
-* StaticArray now has a Num() function. Useful when you just want to provide the length in the template arg, and just want to indirectly refer to it later.
+* New: StaticArray now has a Num() function. Useful when you just want to provide the length in the template arg, and just want to indirectly refer to it later.
 
-* The default engine resource file on Windows, PCLaunch.rc, has been split into two. PCLaunch.rc now opens correctly using the Visual Studio resource editor, while PCLaunch.rc2 contains any manual and preprocessor sensitive resource definitions.
+* New: The default engine resource file on Windows, PCLaunch.rc, has been split into two. PCLaunch.rc now opens correctly using the Visual Studio resource editor, while PCLaunch.rc2 contains any manual and preprocessor sensitive resource definitions.
 
-* Automatically compile C++ modules on editor startup.  The loading/saving section of the editor preferences now includes an option to always compile game modules on editor startup.
+* New: Automatically compile C++ modules on editor startup.  The loading/saving section of the editor preferences now includes an option to always compile game modules on editor startup.
 
-* The multicast analytics providers was only accessible to C++ projects that manually added a dependency upon the module. I moved this to a be a plugin instead to remove the C++ project requirements
+* New: The multicast analytics providers was only accessible to C++ projects that manually added a dependency upon the module. I moved this to a be a plugin instead to remove the C++ project requirements
 
-* UnrealBuildTool now supports creating precompiled distributions for any targets, similar to the releases which can be downloaded from the launcher. Teams which do not expect to modify the engine source often may wish to take advantage of this workflow for faster iteration times.
+* New: UnrealBuildTool now supports creating precompiled distributions for any targets, similar to the releases which can be downloaded from the launcher. Teams which do not expect to modify the engine source often may wish to take advantage of this workflow for faster iteration times.
 
     * To create precompiled modules, override the GetModulesToPrecompile() in your target.cs file and add a list of modules to build, then build the target using UnrealBuildTool passing the -precompile argument.
 
@@ -5884,7 +5884,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 ### Editor and Tools
 
-* Improved the performance of FText::AsNumber
+* New: Improved the performance of FText::AsNumber
 
     * Blueprints now try and use the default formatting options where possible, as they were previously always using custom formatters which was very expensive
 
@@ -5896,23 +5896,23 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
         * Format a number with grouping separators - FNumberFormattingOptions::DefaultWithGrouping()
 
-* Improved the performance of FText::Format
+* New: Improved the performance of FText::Format
 
-* LogFile wrapper improvements
+* New: LogFile wrapper improvements
 
     * Reduced verbosity to make it more usable for file open/close debugging
 
     * Added open file handle tracking to be able to dump all open file handles via 'filelogdump' console command
 
-* ScriptGeneratorPlugin will now be disabled by default. Projects can opt-in by enabling it in their uproject file.
+* New: ScriptGeneratorPlugin will now be disabled by default. Projects can opt-in by enabling it in their uproject file.
 
-* The Git source control plugin now has the option to intiialize a new local repository for the current project
+* New: The Git source control plugin now has the option to intiialize a new local repository for the current project
 
-* The Git source control plugin now supports merging
+* New: The Git source control plugin now supports merging
 
-* We now offer to show the Output Log when adding a new C++ class fails in the editor.
+* New: We now offer to show the Output Log when adding a new C++ class fails in the editor.
 
-* When compiling C++ from the editor, any errors are now output to the Message log as hyperlinks. Clicking on them will take you to the appropriate line of the source code in your IDE.
+* New: When compiling C++ from the editor, any errors are now output to the Message log as hyperlinks. Clicking on them will take you to the appropriate line of the source code in your IDE.
 
 * Deprecated GEditor->SetActorLabelUnique and GEditor->SplitActorLabel. Please replace calls with the static methods FActorLabelUtilities::SetActorLabelUnique and FActorLabelUtilities::SplitActorLabel
 
@@ -5936,51 +5936,51 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * ScriptPlugin will no longer attempt to import txt files resulting in creating invalid blueprints.
 
-* Added support for multithreaded bulk data loading.
+* New: Added support for multithreaded bulk data loading.
 
     * Any bulk data bigger than a specified threshold will be loaded on a separate thread
 
     * Size threshold can be set via MinBulkDataSizeForAsyncLoading value under [Core.System] section in engine ini
 
-* Added VerifyAsyncLoadAssumptions console command to check if flags on UObjects get properly reset after streaming has finished.
+* New: Added VerifyAsyncLoadAssumptions console command to check if flags on UObjects get properly reset after streaming has finished.
 
-* Added a ConfigRestartRequired meta-data property to allow you to tag config properties as requring an application restart before they take effect
+* New: Added a ConfigRestartRequired meta-data property to allow you to tag config properties as requring an application restart before they take effect
 
-* Added a utility function to the UnrealEd module in CommandletHelpers.h for generating the commandline arguments necessary to execute a commandlet.
+* New: Added a utility function to the UnrealEd module in CommandletHelpers.h for generating the commandline arguments necessary to execute a commandlet.
 
-* Added an assert if someone attempts to queue an async IO request without a valid destination buffer to prevent random crashes later in async loading code.
+* New: Added an assert if someone attempts to queue an async IO request without a valid destination buffer to prevent random crashes later in async loading code.
 
-* Added functionality to change the current URL of a web browser window
+* New: Added functionality to change the current URL of a web browser window
 
-* Added some additional methods to IAssetEditorInstance to support reasoning about their owning tab manager and last activation time
+* New: Added some additional methods to IAssetEditorInstance to support reasoning about their owning tab manager and last activation time
 
-* Changed UEditorEngine::SnapToSocket to use USceneComponent::SnapTo so that it works generically with any component which handles sockets.
+* New: Changed UEditorEngine::SnapToSocket to use USceneComponent::SnapTo so that it works generically with any component which handles sockets.
 
-* FArchive objects have now access to Engine Version (FEngineVersion) which they can use for upgrade path logic in serialization code.
+* New: FArchive objects have now access to Engine Version (FEngineVersion) which they can use for upgrade path logic in serialization code.
 
-* Fully DLL exposed UCurveFloat so you can derive from it
+* New: Fully DLL exposed UCurveFloat so you can derive from it
 
-* FWorldGetAssetTags delegate available for games to query world asset registry tags
+* New: FWorldGetAssetTags delegate available for games to query world asset registry tags
 
-* GraphEditor: Refactored connection drawing policy API to be more flexible
+* New: GraphEditor: Refactored connection drawing policy API to be more flexible
 
 * It now passes a parameter structure around instead of loose values (FConnectionParams)
 
 * Remove duplicated implementations of DrawConnection in subclasses that draw non-curved splines, overriding ComputeSplineTangent instead
 
-* Improved intellisense data for engine source in launcher projects
+* New: Improved intellisense data for engine source in launcher projects
 
-* JSON API improvements for numbers
+* New: JSON API improvements for numbers
 
 * Added int32/int64 overrides for the WriteValue functions that didn't take a key so that they matched the variations of the functions which did take a key.
 
 * Added an int64 override for TryGetNumber to match the int32/uint32 versions.
 
-* K2Node_CallFunction will now automatically fix up relevant execution pins when a Blueprint function changes from impure to pure.
+* New: K2Node_CallFunction will now automatically fix up relevant execution pins when a Blueprint function changes from impure to pure.
 
 * Several AActor functions changed to be pure functions (GetDistanceTo, et al).
 
-* Made a few UObject-related helper classes thread safe
+* New: Made a few UObject-related helper classes thread safe
 
     * FUnresolvedStructTracker
 
@@ -5990,11 +5990,11 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
     * FUObjectAnnotationDense
 
-* Made it possible to force auto-expansion on an IDetailPropertyRow in a property editor details customization
+* New: Made it possible to force auto-expansion on an IDetailPropertyRow in a property editor details customization
 
-* Made UGameViewportClient::NotifyPlayerRemoved() virtual
+* New: Made UGameViewportClient::NotifyPlayerRemoved() virtual
 
-* Mesh painting mode can now be overridden to work on other kinds of UMeshComponent subclasses besides UStaticMeshComponent
+* New: Mesh painting mode can now be overridden to work on other kinds of UMeshComponent subclasses besides UStaticMeshComponent
 
 * Create an IMeshPaintGeometryAdapter implementation for your component
 
@@ -6002,25 +6002,25 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * Note: Currently only texture painting is supported via the adapter, vertex painting may be added at a later time
 
-* Pak files are loaded in deterministic order based on directory
+* New: Pak files are loaded in deterministic order based on directory
 
-* Pak files can be unmounted now
+* New: Pak files can be unmounted now
 
-* Plugins can now define their own input sub-categories rather than having to choose Keyboard, Mouse, or Gamepad
+* New: Plugins can now define their own input sub-categories rather than having to choose Keyboard, Mouse, or Gamepad
 
 * EKeys::AddMenuCategoryDisplayInfo is used to define the name and icon for the category.
 
 * When creating the FKeyDetails for a new key added via EKeys::AddKey you can now specify the menu category to arrange within.
 
-* Temporary UObjects created for hot reload to get their virtual table pointers will now be marked as RF_TagGarbageTemp to be able to skip any hot reload incompatible logic inside their constructor.
+* New: Temporary UObjects created for hot reload to get their virtual table pointers will now be marked as RF_TagGarbageTemp to be able to skip any hot reload incompatible logic inside their constructor.
 
-* The settings system now creates a category if one did not exist when you attempt to add a new section to a category that did not previously exist, instead of ignoring your request.
+* New: The settings system now creates a category if one did not exist when you attempt to add a new section to a category that did not previously exist, instead of ignoring your request.
 
-* UDeveloperSettings is now available to create settings objects that can be auto-discovered by the editor without building a plugin or some other system to register the settings with the settings viewer.
+* New: UDeveloperSettings is now available to create settings objects that can be auto-discovered by the editor without building a plugin or some other system to register the settings with the settings viewer.
 
-* UnrealVS v1.34 (+v1.35 for VS2015)
+* New: UnrealVS v1.34 (+v1.35 for VS2015)
 
-* Duplicated actors maintain relative references
+* New: Duplicated actors maintain relative references
 
     * When duplicating multiple actors which reference one another, the relative references will be preserved in the duplicated actors, instead of referencing the original source actors.
 
@@ -6034,7 +6034,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * Quick switching of the IDE's build config and startup project at the same time via the build list in the Batch Builder window.
 
-* Various fixes to the in-game / in-editor screenshot facility:
+* New: Various fixes to the in-game / in-editor screenshot facility:
 
 * All captured screenshots are now saved as png files.
 
@@ -6112,15 +6112,15 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 ### Content Browser
 
-* Added support for saving unique per-filter state in a frontend filter by implementing SaveSettings and LoadSettings
+* New: Added support for saving unique per-filter state in a frontend filter by implementing SaveSettings and LoadSettings
 
-* Added the ability to register new advanced asset categories without editing engine or editor source
+* New: Added the ability to register new advanced asset categories without editing engine or editor source
 
     * This is done using new methods on IAssetTools (RegisterAdvancedAssetCategory, FindAdvancedAssetCategory, and GetAllAdvancedAssetCategories); an example can be found in the Paper2D module
 
 * Added F prefix to FAssetFilterType and FAssetFilterCollectionType, and removed a redundant declaration.
 
-* Opening a C++ class via the Content Browser now opens the source file as well as the header file
+* New: Opening a C++ class via the Content Browser now opens the source file as well as the header file
 
 ### Landscape
 
@@ -6134,7 +6134,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 ### Project Browser
 
-* Added some verbose logging to help diagonse issues when creating new project templates
+* New: Added some verbose logging to help diagonse issues when creating new project templates
 
 ### Static Mesh Editor
 
@@ -6142,7 +6142,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 ### Foliage
 
-* Moved Foliage into its own module
+* New: Moved Foliage into its own module
 
 * Removed the InstanceInverseTransform element from the FInstancingUserData struct used by InstancedStaticMeshComponent. This data was incorrectly calculated, wasted memory and was not used by the engine.
 
@@ -6160,17 +6160,17 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
     * While this boolean can also be set in C++ to prevent a component from being edited, it is generally more appropriate to use a UPROPERTY that is not marked as visible.
 
-* Made DefaultPawn more extensible by allowing subclasses to use any type of PawnMovementComponent
+* New: Made DefaultPawn more extensible by allowing subclasses to use any type of PawnMovementComponent
 
-* Added AActor::bActorHasBegunPlay to track that an Actor has had BeginPlay called for it and has not subsequently had EndPlay called. Use HasActorBegunPlay to query.
+* New: Added AActor::bActorHasBegunPlay to track that an Actor has had BeginPlay called for it and has not subsequently had EndPlay called. Use HasActorBegunPlay to query.
 
-* Added FTimerData::Clear to make it easier to reset a timer.
+* New: Added FTimerData::Clear to make it easier to reset a timer.
 
-* Removed "virtual" keyword from several engine-level BlueprintImplementableEvents to conform to the new "BlueprintImplementableEvents should not be virtual" standard.
+* New: Removed "virtual" keyword from several engine-level BlueprintImplementableEvents to conform to the new "BlueprintImplementableEvents should not be virtual" standard.
 
-* SpawnActor will now log a warning and fail if the input location or rotation contains NaNs.
+* New: SpawnActor will now log a warning and fail if the input location or rotation contains NaNs.
 
-* The OnTeleported event is now defined in UMovementComponent (rather than UCharacterMovementComponent), meaning any type of movement component can now handle that event.
+* New: The OnTeleported event is now defined in UMovementComponent (rather than UCharacterMovementComponent), meaning any type of movement component can now handle that event.
 
 * Added missing call to Super function in APawn::TeleportSucceeded().
 
@@ -6192,17 +6192,17 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * Removed UPROPERTY tags from several PlayerCameraManager members that didn't need it.
 
-* Added Auto Destroy Delay property to GameplayCueNotify_Actor so if Auto Destroy On Remove is true it will set the lifespan of the gameplay cue instead of destroying it immediately.
+* New: Added Auto Destroy Delay property to GameplayCueNotify_Actor so if Auto Destroy On Remove is true it will set the lifespan of the gameplay cue instead of destroying it immediately.
 
-* Added GameplayStatics::GrassOverlappingSphereCount(), which returns the the number of instances of a specific grass mesh within a sphere (in C++ or Blueprints)
+* New: Added GameplayStatics::GrassOverlappingSphereCount(), which returns the the number of instances of a specific grass mesh within a sphere (in C++ or Blueprints)
 
-* Added GetActorTickableWhenPaused function to Actor
+* New: Added GetActorTickableWhenPaused function to Actor
 
-* Added some simple versioning to the engine-provided savegame serialization (via UGameplayStatics::SaveGameToSlot and LoadGameToSlot). This will enable us to handle future updates more robustly.
+* New: Added some simple versioning to the engine-provided savegame serialization (via UGameplayStatics::SaveGameToSlot and LoadGameToSlot). This will enable us to handle future updates more robustly.
 
-* Fixed comment on GetActorsInSelectionRectangle function
+* New: Fixed comment on GetActorsInSelectionRectangle function
 
-* PlayerController ClientStopCameraShake and ClientStopForceFeedback are now reliable.
+* New: PlayerController ClientStopCameraShake and ClientStopForceFeedback are now reliable.
 
 * Added nullptr check to SpawnDecalAttached
 
@@ -6220,9 +6220,9 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 ### Localization
 
-* The text from UI_COMMAND macros will be nested under the namespace specified by LOCTEXT_NAMESPACE, nested under the "UICommands" namespace. IE: "UICommands.MyNamespace"
+* New: The text from UI_COMMAND macros will be nested under the namespace specified by LOCTEXT_NAMESPACE, nested under the "UICommands" namespace. IE: "UICommands.MyNamespace"
 
-* Vastly improved in-code documentation, type and function names, and intelligibility of much of the text localization system.
+* New: Vastly improved in-code documentation, type and function names, and intelligibility of much of the text localization system.
 
 * Tidied up some old localization code by removing the following: PPF_LocalizedOnly, CPF_Localized, CLASS_Localized, UProperty::IsLocalized.
 
@@ -6240,7 +6240,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
     * This is an experimental feature that should hopefully continue to improve over time.
 
-* Added an interface for network replay streaming, INetworkReplayStreamer, in the new NetworkReplayStreaming module.
+* New: Added an interface for network replay streaming, INetworkReplayStreamer, in the new NetworkReplayStreaming module.
 
     * This interface encapsulates the behavior of saving and retrieving replays from a storage provider.
 
@@ -6250,7 +6250,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
         * Each replay is now stored in it own directory, which contains the various data files that make up the replay.
 
-* Added new API functions to make using network replay features easier.
+* New: Added new API functions to make using network replay features easier.
 
     * UGameInstance::StartRecordingReplay to start recording a replay.
 
@@ -6258,13 +6258,13 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
     * UGameInstance::PlayReplay to start playing a replay.
 
-* IsLocalPlayerController should now be accurate at all times, removing any undefined behavior if called early or late in a PlayerController lifetime
+* New: IsLocalPlayerController should now be accurate at all times, removing any undefined behavior if called early or late in a PlayerController lifetime
 
-* Removed some obsolete protocol version variables from the UNetConnection class.
+* New: Removed some obsolete protocol version variables from the UNetConnection class.
 
-* ServerReplicateActors no longer does hard casts to PlayerController or Pawn to resolve owner issues. There is now a GetNetOwner function to return the actor that "owns" the connection. Typically APlayerController, but AOnlineBeacon overrides this as well. Allows replication of any UPROPERTY values on AActors as if regular game replication was taking place.
+* New: ServerReplicateActors no longer does hard casts to PlayerController or Pawn to resolve owner issues. There is now a GetNetOwner function to return the actor that "owns" the connection. Typically APlayerController, but AOnlineBeacon overrides this as well. Allows replication of any UPROPERTY values on AActors as if regular game replication was taking place.
 
-* The server now closes channels for torn-off Actors (actors whose bTearOff flag is true) the next time they would be considered for replication.
+* New: The server now closes channels for torn-off Actors (actors whose bTearOff flag is true) the next time they would be considered for replication.
 
 * Added some missing error codes in FSocketSubsystemBSDCommon::TranslateGAIErrorCode, which handles errors returned from getaddrinfo()
 
@@ -6280,13 +6280,13 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * When using the NullNetworkReplayStreaming module, enumerated replays will now correctly report the friendly name that was assigned when the replay was recorded. By default this is the name of the map on which the replay was recorded.
 
-* Added GetMaxAvailableTeamSize to reservation beacon API for returning the max available space on any one team for an incoming group.
+* New: Added GetMaxAvailableTeamSize to reservation beacon API for returning the max available space on any one team for an incoming group.
 
-* Made it possible to inherit from UControlChannel
+* New: Made it possible to inherit from UControlChannel
 
-* Marked the UVoiceChannel class for export
+* New: Marked the UVoiceChannel class for export
 
-* We now replicate the component in FHitResult
+* New: We now replicate the component in FHitResult
 
 * Fast TArray now tracks unmapped properties on the client side, freeing up the server, and simplifying things there.
 
@@ -6294,11 +6294,11 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 ### Online
 
-* Added a new function to the online sessions API to find a session by id. Not implemented by most platforms yet.
+* New: Added a new function to the online sessions API to find a session by id. Not implemented by most platforms yet.
 
-* Added a new macro ONLINE_JSON_SERIALIZE_OBJECT_SERIALIZABLE which allows serialization of nested JSON objects.
+* New: Added a new macro ONLINE_JSON_SERIALIZE_OBJECT_SERIALIZABLE which allows serialization of nested JSON objects.
 
-* The OnSessionInviteAccepted delegate in the OnlineSessionInterface has been removed, and has been fully replaced with the OnSessionUserInviteAccepted delegate.
+* New: The OnSessionInviteAccepted delegate in the OnlineSessionInterface has been removed, and has been fully replaced with the OnSessionUserInviteAccepted delegate.
 
 * Added support for the FOnlineSessionSettings class to properly serialize boolean values.
 
@@ -6310,25 +6310,25 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 ### Other
 
-* Added navigation filter support in EQS pathfinding tests.
+* New: Added navigation filter support in EQS pathfinding tests.
 
-* Added new EQS generator for creating rings of points.
+* New: Added new EQS generator for creating rings of points.
 
-* Now UnrealBuildTool warns if you are trying to build the project with SQLiteSupport module using Rocket build, which is not supported.
+* New: Now UnrealBuildTool warns if you are trying to build the project with SQLiteSupport module using Rocket build, which is not supported.
 
-* Removed deprecated file Media.h
+* New: Removed deprecated file Media.h
 
-* Simplify creating subobjects in Engine module.
+* New: Simplify creating subobjects in Engine module.
 
 * Removed private precompiled header inclusion in public header of SQLiteSupport module, which caused building breaks.
 
-* Added GetTextSafeRegionBounds() function to the stereo rendering interface, to make it easier to place debug text in the readable area of VR headsets
+* New: Added GetTextSafeRegionBounds() function to the stereo rendering interface, to make it easier to place debug text in the readable area of VR headsets
 
-* Added new console command ?'ShowDebugForReticleTargetToggle <DesiredClass>' Toggles 'ShowDebug' from showing debug info between reticle target actor (of subclass <DesiredClass>) and camera view target.
+* New: Added new console command ?'ShowDebugForReticleTargetToggle <DesiredClass>' Toggles 'ShowDebug' from showing debug info between reticle target actor (of subclass <DesiredClass>) and camera view target.
 
 ### Paper2D
 
-* Added/improved comments for various Paper2D types
+* New: Added/improved comments for various Paper2D types
 
 * Added getters for CollisionThickness and SpriteCollisionDomain to UPaperSprite
 
@@ -6346,11 +6346,11 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * Renamed PaperJsonImporter module and associated classes to PaperSpriteSheetImporter
 
-* Added SetPlaybackPositionInFrames and GetPlaybackPositionInFrames to UPaperFlipbookComponent
+* New: Added SetPlaybackPositionInFrames and GetPlaybackPositionInFrames to UPaperFlipbookComponent
 
-* Exposed UPaperSpriteComponent::GetSpriteColor, allowing you to query the current color of a sprite instance
+* New: Exposed UPaperSpriteComponent::GetSpriteColor, allowing you to query the current color of a sprite instance
 
-* Implemented a stable vertex buffer as an opt-in fast path for FPaperRenderSceneProxy subclasses
+* New: Implemented a stable vertex buffer as an opt-in fast path for FPaperRenderSceneProxy subclasses
 
 * Made members of UPaperTileSet private and added accessors
 
@@ -6368,37 +6368,37 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * Turned on sync scene lock warning. This is needed to ensure accessing PhysX from multiple threads is safe. Introduced a new lock semantic to make this more explicit.
 
-* "p.ShowInitialOverlaps" now also draws the triangles of a trianglemesh or heightfield which the query overlaps.
+* New: "p.ShowInitialOverlaps" now also draws the triangles of a trianglemesh or heightfield which the query overlaps.
 
-* Added an optional memory validation for the physx allocator
+* New: Added an optional memory validation for the physx allocator
 
-* Added stat counter for USceneComponent::EndScopedMovementUpdate, under "Stat Game"
+* New: Added stat counter for USceneComponent::EndScopedMovementUpdate, under "Stat Game"
 
-* Added support for querying the number of instances in an area for an HISMC
+* New: Added support for querying the number of instances in an area for an HISMC
 
-* Added tunable control of FloatingPawnMovement's turning responsiveness.
+* New: Added tunable control of FloatingPawnMovement's turning responsiveness.
 
     * Simplified compact statement that was computing the turning vector in order to make it easier to read.
 
-* Added virtual hook in CharacterMovementComponent to determine if a client's state is too different from the server's (ServerCheckClientError).
+* New: Added virtual hook in CharacterMovementComponent to determine if a client's state is too different from the server's (ServerCheckClientError).
 
     * This is used by ServerMoveHandleClientError() to determine whether to send a client error correction.
 
     * Added FNetworkPredictionData_Server_Character::bForceClientUpdate to allow users to force a client correction.
 
-* Deprecated OverlapSingle and introduced OverlapBlockingTest, OverlapAnyTest
+* New: Deprecated OverlapSingle and introduced OverlapBlockingTest, OverlapAnyTest
 
-* Introduce contact modify flag for body instance. This is needed for destruction impact resistance.
+* New: Introduce contact modify flag for body instance. This is needed for destruction impact resistance.
 
-* Performance: FQuat, FRotator, FRotationMatrix optimizations across multiple platforms.
+* New: Performance: FQuat, FRotator, FRotationMatrix optimizations across multiple platforms.
 
     * Optimized FQuat<->FRotator conversions.
 
     * Optimized FRotator::Vector, FQuat::RotateVector, AActor::GetActor<Forward|Up|Right>Vector
 
-* Refactor overlap/sweep/raycast so that they explicitly use channel object type or profile
+* New: Refactor overlap/sweep/raycast so that they explicitly use channel object type or profile
 
-* Various Actor and SceneComponent methods that use FRotator now have overloads taking rotation as an FQuat (Quaternion).
+* New: Various Actor and SceneComponent methods that use FRotator now have overloads taking rotation as an FQuat (Quaternion).
 
     * Current calling code should still function normally (old APIs are maintained).
 
@@ -6532,17 +6532,17 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
     * Return value of both methods has been changed to the value of IsPendingKillPending().
 
-* Added a helper function (ScaleByMomentOfInertia) for scaling torque by moment of inertia. This effectively does the world to local space conversion for you and scales by the inertia tensor.
+* New: Added a helper function (ScaleByMomentOfInertia) for scaling torque by moment of inertia. This effectively does the world to local space conversion for you and scales by the inertia tensor.
 
-* Added a 'ToString' helper function to the FHitResult struct to aid debugging collisions
+* New: Added a 'ToString' helper function to the FHitResult struct to aid debugging collisions
 
 * Allow querying for counts using an FBox
 
 * Allow collection of instance transforms in provided FBox
 
-* Added serialization support to TQuadTree
+* New: Added serialization support to TQuadTree
 
-* Remove triangles with very small area when cooking collision trimesh data (area is controlled by physics settings "TriangleMeshTriangleMinAreaThreshold").
+* New: Remove triangles with very small area when cooking collision trimesh data (area is controlled by physics settings "TriangleMeshTriangleMinAreaThreshold").
 
 * Added 'bInitialOverlap' to BreakHitResult. Improved comments/documentation for initial overlap case.
 
@@ -6562,7 +6562,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 #### Android
 
-* Added GExternalFilePath to allow access to Android getExternalFilesDir path
+* New: Added GExternalFilePath to allow access to Android getExternalFilesDir path
 
 * Allow volume buttons to be handled by game or system with FPlatformMisc::SetVolumeButtonsHandledBySystem and FPlatformMisc::GetVolumeButtonsHandledBySystem
 
@@ -6574,23 +6574,23 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 #### Mac
 
-* A Manifest_DebugFiles.txt is now generated on Mac similar to other platforms. This contains file paths to debug and test apps built in addition to the primary (typically shipping) app.
+* New: A Manifest_DebugFiles.txt is now generated on Mac similar to other platforms. This contains file paths to debug and test apps built in addition to the primary (typically shipping) app.
 
-* Added ?FApplePlatformFile::CopyFile() that differs from the generic implementation in that it also copies the file permission bits
+* New: Added ?FApplePlatformFile::CopyFile() that differs from the generic implementation in that it also copies the file permission bits
 
-* Added support for HasSizingFrame in window definition
+* New: Added support for HasSizingFrame in window definition
 
-* Don't report mouse move to Slate on Mac if the cursor is not over a Slate window.
+* New: Don't report mouse move to Slate on Mac if the cursor is not over a Slate window.
 
-* iOS SDK info is no longer printed when generating Xcode project. Generating data for project indexing uses different description as "Binding IntellliSense data" was misleading
+* New: iOS SDK info is no longer printed when generating Xcode project. Generating data for project indexing uses different description as "Binding IntellliSense data" was misleading
 
-* Mac event handling code was heavily refactored for improved stability
+* New: Mac event handling code was heavily refactored for improved stability
 
-* Removed mouse capture code from Mac version as we no longer need it
+* New: Removed mouse capture code from Mac version as we no longer need it
 
-* Simplified dylibs setting in Mac toolchain, so we use rpaths for almost everything.
+* New: Simplified dylibs setting in Mac toolchain, so we use rpaths for almost everything.
 
-* Swapped the way we treat main and key windows in Slate on Mac to be consistent with native window buttons behavior
+* New: Swapped the way we treat main and key windows in Slate on Mac to be consistent with native window buttons behavior
 
 * Add write permission to files copied with FApplePlatformFile::CopyFile() as this is what engine expects in some places
 
@@ -6610,7 +6610,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * Use relative paths in the response file used for linking on Mac to fix the posix_spawn_failed error in non-unity builds
 
-* Added sorting of display modes to ?FOpenGLDynamicRHI::RHIGetAvailableResolutions()
+* New: Added sorting of display modes to ?FOpenGLDynamicRHI::RHIGetAvailableResolutions()
 
 * Call TConsoleVariableData<int>::GetValueOnAnyThread in UConsole::Serialize to fix crash reporting on OS X when the crashed thread is not the game thread.
 
@@ -6624,13 +6624,13 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 #### Playstation 4
 
-* Added console variable 'r.PS4StallsOnMarkers' which will cause thread traces to line up with markers on RazorGPU thread trace timeline. Adds GPU overhead.
+* New: Added console variable 'r.PS4StallsOnMarkers' which will cause thread traces to line up with markers on RazorGPU thread trace timeline. Adds GPU overhead.
 
-* Added extra assembly info for PS4 shaders when using r.DumpShaderDebugInfo
+* New: Added extra assembly info for PS4 shaders when using r.DumpShaderDebugInfo
 
-* Added new RHI command 'RHISubmitCommandsHint'. Hints to the driver to submit the currently accumulated GPU commands, regardless of how many commands there are.
+* New: Added new RHI command 'RHISubmitCommandsHint'. Hints to the driver to submit the currently accumulated GPU commands, regardless of how many commands there are.
 
-* GNM debug libs are now linked when bEnableGnmLCUEDebug is set. Also we define LCUE validation in debug builds, and for bEnableGnmLCUEDebug.
+* New: GNM debug libs are now linked when bEnableGnmLCUEDebug is set. Also we define LCUE validation in debug builds, and for bEnableGnmLCUEDebug.
 
 * Added a define for ALLOW_UAV_CONDITION for multi-platform support.
 
@@ -6652,81 +6652,81 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 #### Xbox One
 
-* Added support for RQT_Undefined in Xbox query code. Like on Windows, this waits for the GPU to catch up.
+* New: Added support for RQT_Undefined in Xbox query code. Like on Windows, this waits for the GPU to catch up.
 
-* Enabled the linking of PIX libraries and addition of PIX labels by default in all configurations except Shipping.
+* New: Enabled the linking of PIX libraries and addition of PIX labels by default in all configurations except Shipping.
 
-* Many bug fixes and improvements to session handling in OnlineSubsystemLive, including:
+* New: Many bug fixes and improvements to session handling in OnlineSubsystemLive, including:
 
 * Canceling a matchmaking session is now more reliable.
 
 * Added support for JSON objects and arrays in session settings.
 
-* OnlineSubsystemLive now uses the new Xbox Live 2015 multiplayer APIs.
+* New: OnlineSubsystemLive now uses the new Xbox Live 2015 multiplayer APIs.
 
-* Removed Windows only functions from the Xbox One Render Hardware Interface (RHI).
+* New: Removed Windows only functions from the Xbox One Render Hardware Interface (RHI).
 
 * Fixed a D3D11 reference count leak in the DECLARE_ISBOUNDSHADER macro.
 
 #### VR
 
-* The SteamVR plugin is now in the Runtime plugins folder rather than Experimental.
+* New: The SteamVR plugin is now in the Runtime plugins folder rather than Experimental.
 
 #### Windows
 
-* Allowing for checking major AND minor version of Windows
+* New: Allowing for checking major AND minor version of Windows
 
 ### Programming
 
-* Added API for getting handle of top-level window on Windows
+* New: Added API for getting handle of top-level window on Windows
 
-* Added API for intercepting Windows messages
+* New: Added API for intercepting Windows messages
 
-* Added FPaths method named EngineSourceDir for getting the path to the Engine's source code directory.
+* New: Added FPaths method named EngineSourceDir for getting the path to the Engine's source code directory.
 
-* Added new debug helper to draw planes with differently sized extents
+* New: Added new debug helper to draw planes with differently sized extents
 
-* Added support for TSharedPtr<void>
+* New: Added support for TSharedPtr<void>
 
-* Allow locating of SCSNodes by both template and component instance name.
+* New: Allow locating of SCSNodes by both template and component instance name.
 
-* Async: Added support for scheduling tasks on the queued thread pool
+* New: Async: Added support for scheduling tasks on the queued thread pool
 
-* Async: Added support for TAsync<void>
+* New: Async: Added support for TAsync<void>
 
-* Deprecated 'operator new' for UObjects. It's not safe to construct new objects using C++ operator new.
+* New: Deprecated 'operator new' for UObjects. It's not safe to construct new objects using C++ operator new.
 
-* Deprecating UProperties does not cause deprecation warnings in generated code.
+* New: Deprecating UProperties does not cause deprecation warnings in generated code.
 
-* EditorUtilities::CopyActorProperties can now be used for target actors that are a subclass of the source actor.
+* New: EditorUtilities::CopyActorProperties can now be used for target actors that are a subclass of the source actor.
 
-* Exposed generic Get/SetAxisProperties accessors to UPlayerInput.
+* New: Exposed generic Get/SetAxisProperties accessors to UPlayerInput.
 
     * Deprecated UPlayer::SetMouseSensitivityToDefault and InvertMouse
 
     * Moved SetMouseSensitivityToDefault and InvertMouse exec functions to UCheatManager instead of UPlayerInput
 
-* Fixed shadow variable warnings when a class has a member named Result
+* New: Fixed shadow variable warnings when a class has a member named Result
 
-* FMemberReference moved out of K2Node.h and in to Engine module in MemberReference.h
+* New: FMemberReference moved out of K2Node.h and in to Engine module in MemberReference.h
 
-* Implemented Future/Promise/Async concepts
+* New: Implemented Future/Promise/Async concepts
 
-* Inheritable component records can now be looked up via template name as well as component name.
+* New: Inheritable component records can now be looked up via template name as well as component name.
 
-* Optimized processing of UWorld::ComponentsThatNeedEndOfFrameUpdate by eliminating TSet hash comparison overhead
+* New: Optimized processing of UWorld::ComponentsThatNeedEndOfFrameUpdate by eliminating TSet hash comparison overhead
 
-* Renamed FQueuedWork to IQueuedWork
+* New: Renamed FQueuedWork to IQueuedWork
 
-* SessionServices: Made public headers compilable individually
+* New: SessionServices: Made public headers compilable individually
 
-* Slate's FInputGesture and Engine's FInputChord unified as FInputChord defined in Slate
+* New: Slate's FInputGesture and Engine's FInputChord unified as FInputChord defined in Slate
 
-* TInlineComponentArray can now have an Actor supplied to the constructor to void the need to call GetComponents on the subsequent line.
+* New: TInlineComponentArray can now have an Actor supplied to the constructor to void the need to call GetComponents on the subsequent line.
 
-* UActorComponent now caches Owner as an optimization on GetOwner() calls.
+* New: UActorComponent now caches Owner as an optimization on GetOwner() calls.
 
-* UBT: Enabled PrivateIncludePaths in arbitrary project sub-directories
+* New: UBT: Enabled PrivateIncludePaths in arbitrary project sub-directories
 
 * AActor::GetActorClass deprecated, use GetClass instead.
 
@@ -6754,7 +6754,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
     * In a future release this will be made a Unreal Header Tool error.
 
-* Default AGameMode::ChoosePlayerStart implementation now uses GetDefaultPawnClassForController instead of DefaultPawnClass directly.
+* New: Default AGameMode::ChoosePlayerStart implementation now uses GetDefaultPawnClassForController instead of DefaultPawnClass directly.
 
 * Fixed occasional shutdown crash in source code navigation database (due to static destruction order)
 
@@ -6764,21 +6764,21 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 ### Rendering
 
-* Added a Thickness option to DrawFlatArrow, DrawDirectionalArrow, and DrawCoordinateSystem
+* New: Added a Thickness option to DrawFlatArrow, DrawDirectionalArrow, and DrawCoordinateSystem
 
-* Moved some shaders used by RHIs directly into the new UtilityShaders module
+* New: Moved some shaders used by RHIs directly into the new UtilityShaders module
 
-* Reworked shader stream out support, now works properly with FShaderResource sharing
+* New: Reworked shader stream out support, now works properly with FShaderResource sharing
 
     * GetStreamOutElements is a callback function on the shadertype, just like ModifyCompilationEnvironment
 
     * If GetStreamOutElements is specified, the FShaderResource includes that shader type in its ID as it can't be shared with any other shader type.
 
-* Stationary lights with CastDynamicShadows disabled no longer do dynamic shadow setup, minor optimization
+* New: Stationary lights with CastDynamicShadows disabled no longer do dynamic shadow setup, minor optimization
 
-* The D3D RHI now uses a DXGI1.1 factory rather than 1.0. It still uses 1.0 interfaces.
+* New: The D3D RHI now uses a DXGI1.1 factory rather than 1.0. It still uses 1.0 interfaces.
 
-* XGE Distributed Shader Compilation from Luke Thatcher of Lionhead Studios
+* New: XGE Distributed Shader Compilation from Luke Thatcher of Lionhead Studios
 
 * Enabled with either r.XGEShaderCompile=1 in ConsoleVariables.ini, or -xgeshadercompile command line argument
 
@@ -6792,9 +6792,9 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 ### UI
 
-* Converted UTextRenderComponent to use FText so it can respond to live-culture updates
+* New: Converted UTextRenderComponent to use FText so it can respond to live-culture updates
 
-* Input bindings for Motion, Gesture, Android, Steam, and XBox One keys now appear in their own sub categories under Input.
+* New: Input bindings for Motion, Gesture, Android, Steam, and XBox One keys now appear in their own sub categories under Input.
 
 * Added a fallback font when calling AHUD::GetTextSize to mirror the behavior of AHUD::DrawText
 
@@ -6812,33 +6812,33 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * SLATE_TEXT_ATTRIBUTE provided a way for the transition between FString and FText to happen slowly, however that transition period has ended, and soon the FString support will be removed (likely by 4.10).
 
-* Added a way for STableViewBase (and its derived types) to notify you when they are scrolled
+* New: Added a way for STableViewBase (and its derived types) to notify you when they are scrolled
 
-* Added an option to create Slate window without a close button and used it for Source Control Login window, replacing a custom title bar it was using that didn't look well on Mac
+* New: Added an option to create Slate window without a close button and used it for Source Control Login window, replacing a custom title bar it was using that didn't look well on Mac
 
-* Added another column sizing mode to STableRow which allows Excel like sizing
+* New: Added another column sizing mode to STableRow which allows Excel like sizing
 
     * EColumnSizeMode::Manual
 
-* Added custom slate stats. See SlateStats.h for details on the new system, which allows for full hierarchical profiling with limited overhead.
+* New: Added custom slate stats. See SlateStats.h for details on the new system, which allows for full hierarchical profiling with limited overhead.
 
-* Added FTabManager::GetOwnerTab() to return the tab that owns the specified tab manager
+* New: Added FTabManager::GetOwnerTab() to return the tab that owns the specified tab manager
 
-* Added SContentPicker::OpenAssetPickerMenu to programmatically trigger the asset picker
+* New: Added SContentPicker::OpenAssetPickerMenu to programmatically trigger the asset picker
 
-* Added the ability to specify a minimum desired width for SViewportToolBarComboMenu
+* New: Added the ability to specify a minimum desired width for SViewportToolBarComboMenu
 
-* Added tracking of the last activation time to SDockTab instances
+* New: Added tracking of the last activation time to SDockTab instances
 
-* Added warnings for when FSlateFontInfo is created with a null font, or a font that can't provide a valid composite font
+* New: Added warnings for when FSlateFontInfo is created with a null font, or a font that can't provide a valid composite font
 
     * This also stops offline (bitmap) cached fonts from reporting that they're able to provide a composite font (they can't).
 
     * This makes it clearer when Slate will be forced to use the fallback font path, which may not always be as fast as the standard font path.
 
-* Exposed a variant of SWidget::FindChildUnderMouse that takes the position to check directly instead of a pointer event
+* New: Exposed a variant of SWidget::FindChildUnderMouse that takes the position to check directly instead of a pointer event
 
-* Slate is now able to "sleep" when there is no user input and no widgets need to update. While sleeping, the entire Tick/Paint pass is skipped. This can be useful for those running the editor on battery power.
+* New: Slate is now able to "sleep" when there is no user input and no widgets need to update. While sleeping, the entire Tick/Paint pass is skipped. This can be useful for those running the editor on battery power.
 
     * This is currently only relevant to Slate widgets used in the editor (in-game Slate should still be ticked every frame as before)
 
@@ -6846,7 +6846,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
     * The active timer portion of the system is active at all times, but sleeping can currently be disabled prevented by typing "Slate.AllowSlateToSleep 0" in the console
 
-* WebBrowser: Converted OnTitleChanged delegate to an event
+* New: WebBrowser: Converted OnTitleChanged delegate to an event
 
 * Changed SFxWidget's HAlign and VAlign attributes to arguments to match how they were actually used.
 
@@ -6868,13 +6868,13 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 ### UMG
 
-* Adding a reference implementation of a web browser wrapper around the SWebBrowser Slate widget to the WebBrowserAsPlugin module.
+* New: Adding a reference implementation of a web browser wrapper around the SWebBrowser Slate widget to the WebBrowserAsPlugin module.
 
-* Adding an experimental wrapper for SRichTextBlock. A lot of work remains for supporting links and images but this will serve as a nice starting point.
+* New: Adding an experimental wrapper for SRichTextBlock. A lot of work remains for supporting links and images but this will serve as a nice starting point.
 
-* Adding ExpandableArea as an experimental widget, demonstraits how you can use the named slot interface on a non-user widget to provide multiple slots, but not N slots like a normal panel.
+* New: Adding ExpandableArea as an experimental widget, demonstraits how you can use the named slot interface on a non-user widget to provide multiple slots, but not N slots like a normal panel.
 
-* It's now easier to provide settings to the Editor. If you derive from UDeveloperSettings, but otherwise have all the typical config related metadata for the class your settings will automatically be registered with the editor. This avoids needing to make a plugin or editor module just to register your settings class for your game.
+* New: It's now easier to provide settings to the Editor. If you derive from UDeveloperSettings, but otherwise have all the typical config related metadata for the class your settings will automatically be registered with the editor. This avoids needing to make a plugin or editor module just to register your settings class for your game.
 
 * Exporting 3 blueprint function libraries UMG exposes to be linkable from C++ DLL
 
@@ -7052,35 +7052,35 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 ### C++ API Changes
 
-* Various fixes to the in-game / in-editor screenshot facility:
+* New: Various fixes to the in-game / in-editor screenshot facility:
 
     * The OnPNGScreenshotCaptured delegate was removed as all screenshots are now saved as pngs.
 
-* Removed deprecated file Media.h
+* New: Removed deprecated file Media.h
 
     * Instead of Media.h, include the individual header files in the Media module that you actually use
 
-* Allowing message handlers to decide for themselves whether they want to handle a message; documentation updates.
+* New: Allowing message handlers to decide for themselves whether they want to handle a message; documentation updates.
 
     * If one of your classes implements IMessageHandler, you must remove GetHandledMessageType() and instead verify the type of message in HandleMessage(). See TMessageHandler<> for details.
 
-* Refactored IMessageHandler.h so that it doesn't have header dependencies
+* New: Refactored IMessageHandler.h so that it doesn't have header dependencies
 
     * Default message handler implementations have been moved into MessageHandlers.h
 
-* Allowing for checking major AND minor version of Windows
+* New: Allowing for checking major AND minor version of Windows
 
     * You must rename your usages of VerifyWindowsMajorVersion() to VerifyWindowsVersion() and pass a second parameter for the minor version number (pass '0' to check for Windows Vista, as before).
 
-* Removed AutoPlay feature in MediaPlayer assets.
+* New: Removed AutoPlay feature in MediaPlayer assets.
 
     * The AutoPlay feature turned out to be quite dangerous, because it causes media playback to start as soon as a MediaPlayer is loaded, thus consuming resources even if it is not used anywhere. Media should be played and stopped on demand using Blueprints (MediaPlayer.Play) or C++ instead.
 
-* Slate is now able to "sleep" when there is no user input and no widgets need to update. While sleeping, the entire Tick/Paint pass is skipped. This can be useful for those running the editor on battery power.
+* New: Slate is now able to "sleep" when there is no user input and no widgets need to update. While sleeping, the entire Tick/Paint pass is skipped. This can be useful for those running the editor on battery power.
 
     * FCurveSequence now requires that a Slate widget be provided to it and all Active Timer registrations are handled automatically on behalf of that widget. While the curve sequence is playing, Slate will not sleep.
 
-* Various Actor and SceneComponent methods that use FRotator now have overloads taking rotation as an FQuat (Quaternion).
+* New: Various Actor and SceneComponent methods that use FRotator now have overloads taking rotation as an FQuat (Quaternion).
 
     * In rare cases where virtual methods using FRotator could be overridden, there are now non-virtual overloads that forward to a single virtual implementation.
 
@@ -7114,7 +7114,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * GameplayCueActor and GameplayCueView have been deprecated and removed in favor of GameplayCueNotify_Actor
 
-* Added support for extension-less streaming media URI schemes
+* New: Added support for extension-less streaming media URI schemes
 
     * IMediaModule::GetSupportedFormats() has been renamed to IMediaModule::GetSupportedFileTypes(); FMediaFormats has been renamed to FMediaFileTypes; IMediaPlayerFactory::GetSupportedFormats() has been renamed to IMediaPlayerFactory::GetSupportedFileTypes(); IMediaPlayerFactory::SupportsFile() has been replaced with IMediaPlayerFactory::SupportsUrl(), which must now be implemented by media plug-ins
 
@@ -7128,7 +7128,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
         * ReadyToStartMatch, ReadyToEndMatch, ShouldReset, MustSpectate, GetDefaultPawnClassForController, InitStartSpot, SpawnDefaultPawnFor, CanSpectate, FindPlayerStart, ChoosePlayerStart, PlayerCanRestart
 
-* GraphEditor: Refactored connection drawing policy API to be more flexible
+* New: GraphEditor: Refactored connection drawing policy API to be more flexible
 
     * Any editor plugins that contain a FConnectionDrawingPolicy subclass will need to update calls to DrawSplineWithArrow, DrawConnection, and DetermineWiringStyle to match the new signature that takes a FConnectionParams structure
 
@@ -7148,7 +7148,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
     * Forward declarations of FColor, FVector, FTimespan etc. as classes will generate Visual C++ warnings like "type name first seen using 'struct' now seen using 'class'".
 
-* Changed the Exchange function to use Memswap in all cases, as this was an assumption used by a lot of code.
+* New: Changed the Exchange function to use Memswap in all cases, as this was an assumption used by a lot of code.
 
     * This may break types which are not trivially-swappable, but have well-defined move constructors. These should be rare, if any exist at all.
 
@@ -7160,7 +7160,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
     * Any code which tests for PLATFORM_COMPILER_HAS_RANGED_FOR_LOOP may get skipped.
 
-* Added heterogeneous comparison support to TArray::Contains, so that you can now find elements by any type which is comparable to the array element type, even if it's not convertible, e.g. searching a TArray<AActor*> for a UObject*.
+* New: Added heterogeneous comparison support to TArray::Contains, so that you can now find elements by any type which is comparable to the array element type, even if it's not convertible, e.g. searching a TArray<AActor*> for a UObject*.
 
     * Existing calls to TArray::Contains may fail if your comparison type is implicitly convertible to the array element type, but does not have an operator== which compares those two types.
 
@@ -7184,15 +7184,15 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
     * Linkers are no longer UObjects. Renamed ULinker, ULinkerLoad and ULinkerSave to FLinker, FLinkerLoad, FLinke]rSave respectively.
 
-* Exposed generic Get/SetAxisProperties accessors to UPlayerInput.
+* New: Exposed generic Get/SetAxisProperties accessors to UPlayerInput.
 
     * Deprecated UPlayer::SetMouseSensitivityToDefault and InvertMouse
 
-* Fixed shadow variable warnings when a class has a member named Result
+* New: Fixed shadow variable warnings when a class has a member named Result
 
     * Custom thunk blueprint function implementations that return a result need to use RESULT_PARAM instead of Result.
 
-* Deprecated 'operator new' for UObjects. It's not safe to construct new objects using C++ operator new.
+* New: Deprecated 'operator new' for UObjects. It's not safe to construct new objects using C++ operator new.
 
     * UObjects can't be created using C++ operator new
 
@@ -7218,7 +7218,7 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
 * AActor::GetActorClass deprecated, use GetClass instead.
 
-* Slate's FInputGesture and Engine's FInputChord unified as FInputChord defined in Slate
+* New: Slate's FInputGesture and Engine's FInputChord unified as FInputChord defined in Slate
 
     * Slate's FInputGesture and Engine's FInputChord unified as FInputChord defined in Slate
 
@@ -7228,11 +7228,11 @@ World Position Offset 으로 애니메이팅되는 나무에서의 픽셀별 속
 
         * Where previously including "InputComponent.h" to access FInputChord, include "InputChord.h" instead.
 
-* Renamed FQueuedWork to IQueuedWork
+* New: Renamed FQueuedWork to IQueuedWork
 
     * Existing usages of FQueuedWork must be renamed to IQueuedWork
 
-* Renamed ITlsAutoCleanup to FTlsAutoCleanup (it's not a [non-virtual] interface)
+* New: Renamed ITlsAutoCleanup to FTlsAutoCleanup (it's not a [non-virtual] interface)
 
     * Existing usages of ITlsAutoCleanup must be renamed to FTlsAutoCleanup
 

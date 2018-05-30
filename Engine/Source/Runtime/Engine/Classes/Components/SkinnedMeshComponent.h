@@ -249,12 +249,19 @@ protected:
 	/** Incremented every time the master bone map changes. Used to keep in sync with any duplicate data needed by other threads */
 	int32 MasterBoneMapCacheCount;
 
+	/**
+	*	Mapping for socket overrides, key is the Source socket name and the value is the override socket name
+	*/
+	TMap<FName, FName> SocketOverrideLookup;
+
 public:
+#if WITH_EDITORONLY_DATA
 	/**
 	 * Wireframe color
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=SkeletalMesh)
-	FColor WireframeColor;
+	UPROPERTY()
+	FColor WireframeColor_DEPRECATED;
+#endif
 
 protected:
 	/** Information for current ref pose override, if present */
@@ -806,6 +813,7 @@ public:
 	 * @return true if LOD has been changed. false otherwise.
 	 */
 	virtual bool UpdateLODStatus();
+	virtual void UpdateVisualizeLODString(FString& DebugString) {}
 
 	/**
 	 * Finalize bone transform of this current tick
@@ -950,6 +958,9 @@ public:
 	 */
 	class USkeletalMeshSocket const* GetSocketByName( FName InSocketName ) const;
 
+	void AddSocketOverride(FName SourceSocketName, FName OverrideSocketName, bool bWarnHasOverrided = true);
+	void RemoveSocketOverrides(FName SourceSocketName);
+	void RemoveAllSocketOverrides();
 
 	/** 
 	 * Get Bone Matrix from index

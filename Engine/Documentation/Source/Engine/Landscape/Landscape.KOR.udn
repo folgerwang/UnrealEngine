@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3429242
+﻿INTSourceChangelist:3810467
 Availability: Public
 Title:랜드스케이프 야외 지형
 Crumbs:%ROOT%, Engine
@@ -37,9 +37,9 @@ topic-image:landscape_topic.png
 [EXCERPT:LandscapeToolModes2] 
 | 아이콘 | 모드 | 설명 |
 | ---- | ---- | ----------- |
-| ![](Engine/Landscape\Editing\Landscape_ManageMode.png) | **Manage 모드** | 관리 모드 - 새 랜드스케이프를 만들고, 랜드스케이프 컴포넌트를 편집할 수 있습니다. 관리 모드는 **[랜드스케이프 기즈모](Engine/Landscape\Editing\Gizmos)** 를 가지고 작업을 하는 곳이기도 한데, 랜드스케이프를 부분적으로 복사/붙여넣기, 임포트/익스포트할 수 있습니다. <br/>관리 모드 관련 상세 정보는 [](Engine/Landscape\Editing\ManageMode) 문서를 참고하세요.|
-| ![](Engine/Landscape\Editing\Landscape_SculptMode.png)| **Sculpt 모드** | 조각 모드 - 전용 툴을 사용해서 랜드스케이프의 모양을 변경할 수 있습니다. <br/>조각 모드 관련 상세 정보는 [](Engine/Landscape\Editing\SculptMode) 문서를 참고하세요.|
-| ![](Engine/Landscape\Editing\Landscape_PaintMode.png)| **Paint 모드** | 페인트 모드 - 랜드스케이프의 머티리얼에 정의된 레이어에 따라 랜드스케이프에 텍스처를 칠하여, 랜드스케이프의 부분적인 겉모습을 변경할 수 있습니다. <br/>페인트 모드 관련 상세 정보는, [](Engine/Landscape\Editing\PaintMode) 문서를 참고하세요.|
+| ![](Engine/Landscape\Editing\Landscape_ManageMode.png) | **Manage 모드** | 관리 모드 - 새 랜드스케이프를 만들고, 랜드스케이프 컴포넌트를 편집할 수 있습니다. 관리 모드는 **[랜드스케이프 기즈모](Engine/Landscape\Editing\Gizmos)** 를 가지고 작업을 하는 곳이기도 한데, 랜드스케이프를 부분적으로 복사/붙여넣기, 임포트/익스포트할 수 있습니다. 관리 모드 관련 상세 정보는 [](Engine/Landscape\Editing\ManageMode) 문서를 참고하세요.|
+| ![](Engine/Landscape\Editing\Landscape_SculptMode.png)| **Sculpt 모드** | 조각 모드 - 전용 툴을 사용해서 랜드스케이프의 모양을 변경할 수 있습니다. 조각 모드 관련 상세 정보는 [](Engine/Landscape\Editing\SculptMode) 문서를 참고하세요.|
+| ![](Engine/Landscape\Editing\Landscape_PaintMode.png)| **Paint 모드** | 페인트 모드 - 랜드스케이프의 머티리얼에 정의된 레이어에 따라 랜드스케이프에 텍스처를 칠하여, 랜드스케이프의 부분적인 겉모습을 변경할 수 있습니다. 페인트 모드 관련 상세 정보는, [](Engine/Landscape\Editing\PaintMode) 문서를 참고하세요.|
 [/EXCERPT:LandscapeToolModes2]
 
 [REGION:tip]
@@ -82,7 +82,7 @@ topic-image:landscape_topic.png
 [REGION:imagetable]
 | ![](Landscape_LOD1.png) | ![](Landscape_LOD1toLOD2.png) |  ![](Landscape_LOD2.png) |
 | -------- | ----------- | ------- |
-| ** 완전 LOD 1 **| ** LOD 1 에서 LOD 2 로 모핑** | ** 완전 LOD 2**|
+| **완전 LOD 1**| **LOD 1 에서 LOD 2 로 모핑** | **완전 LOD 2**|
 [/REGION]
 
 ### 하이트맵과 웨이트맵 데이터 스트리밍
@@ -97,7 +97,7 @@ topic-image:landscape_topic.png
 [REGION:imagetable]
 | ![](Landscape_LODs.png) | ![](Landscape_FullResNormals.png) |
 | -------- |-------- |
-| ** 랜드스케이프 LOD **| ** 전해상도 노멀 ** |
+| **랜드스케이프 LOD**| **전해상도 노멀** |
 [/REGION]
 
 이 방법으로 멀리 있어서 LOD 가 낮아진 컴포넌트에도 픽셀별 라이팅을 하는 데 항상 최고해상도 지형을 사용할 수 있는 것입니다.
@@ -106,7 +106,7 @@ topic-image:landscape_topic.png
 [REGION:imagetable]
 | ![](Landscape_SimpleVertexLighting.png) | ![](Landscape_HRPerPixel.png) | 
 | -------- | ----------- | 
-| ** 심플 버텍스 라이팅 **| ** 고해상도 픽셀별 라이팅 ** | 
+| **심플 버텍스 라이팅**| **고해상도 픽셀별 라이팅** | 
 [/REGION]
 
 
@@ -117,7 +117,7 @@ topic-image:landscape_topic.png
 [REGION:imagetable]
 | ![](Landscape_GeometryNormals.png) | ![](Landscape_DetailNormals.png) | 
 | -------- | ----------- | 
-| ** 지오메트리 노멀만 **| ** 디테일 노멀 포함 ** | 
+| **지오메트리 노멀만**| **디테일 노멀 포함** | 
 [/REGION]
 
 ### PhysX 콜리전

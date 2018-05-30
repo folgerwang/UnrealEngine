@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3242329
+﻿INTSourceChangelist:3810467
 Availability: Public
 Title:머티리얼 파라미터 제작
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/HowTo
@@ -93,8 +93,8 @@ fyVkiBqwyWw
 
 1. 우선 다음의 머티리얼 파라미터 표현식 노드를 찾아 갯수대로 머티리얼 그래프에 추가합니다.
 
-	* ** Vector Parameter ** x 1
-	* ** Scalar Node** x 2
+	* **Vector Parameter** x 1
+	* **Scalar Node** x 2
 	
 	[OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:width]

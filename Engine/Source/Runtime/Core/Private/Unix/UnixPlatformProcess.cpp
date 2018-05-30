@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Unix/UnixPlatformProcess.h"
+#include "Unix/UnixPlatformCrashContext.h"
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "Containers/StringConv.h"
 #include "Logging/LogMacros.h"
@@ -365,7 +366,7 @@ const TCHAR* FUnixPlatformProcess::ExecutableName(bool bRemoveExtension)
 
 FString FUnixPlatformProcess::GenerateApplicationPath( const FString& AppName, EBuildConfigurations::Type BuildConfiguration)
 {
-	FString PlatformName = GetBinariesSubdirectory();
+	FString PlatformName = FPlatformProcess::GetBinariesSubdirectory();
 	FString ExecutablePath = FString::Printf(TEXT("../../../Engine/Binaries/%s/%s"), *PlatformName, *AppName);
 	
 	if (BuildConfiguration != EBuildConfigurations::Development && BuildConfiguration != EBuildConfigurations::DebugGame)
@@ -1328,6 +1329,9 @@ FGenericPlatformProcess::EWaitAndForkResult FUnixPlatformProcess::WaitAndFork()
 						UE_LOG(LogHAL, Fatal, TEXT("WaitAndFork failed to set process name with prctl! error:%d"), ErrNo);
 					}
 				}
+
+				// Need to remove the child process from the responsibility of keeping track of a valid sibling process.
+				UnixCrashReporterTracker::RemoveValidCrashReportTickerForChildProcess();
 
 				// If requested, now wait for a SIGRTMIN+2 signal before continuing execution.
 				if (bRequireResponseSignal && NumForksToNotRequireResponse <= 0)

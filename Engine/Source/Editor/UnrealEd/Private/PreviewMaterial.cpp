@@ -30,6 +30,7 @@
 #include "IDetailsView.h"
 #include "MaterialEditingLibrary.h"
 #include "MaterialPropertyHelpers.h"
+#include "MaterialStatsCommon.h"
 
 /**
  * Class for rendering the material on the preview mesh in the Material Editor
@@ -114,20 +115,33 @@ public:
 				}
 			}
 
-			if (bEditorStatsMaterial || IsMobilePlatform(Platform))
+			// Only allow shaders that are used in the stats.
+			if (bEditorStatsMaterial)
 			{
-				TMap<FName, FString> ShaderTypeNamesAndDescriptions;
-				GetRepresentativeShaderTypesAndDescriptions(ShaderTypeNamesAndDescriptions);
+				TMap<FName, TArray<FMaterialStatsUtils::FRepresentativeShaderInfo>> ShaderTypeNamesAndDescriptions;
+				FMaterialStatsUtils::GetRepresentativeShaderTypesAndDescriptions(ShaderTypeNamesAndDescriptions, this);
 
-				//Only allow shaders that are used in the stats.
-				return ShaderTypeNamesAndDescriptions.Contains(ShaderType->GetFName());
+				for (auto DescriptionPair : ShaderTypeNamesAndDescriptions)
+				{
+					auto &DescriptionArray = DescriptionPair.Value;
+					if (DescriptionArray.FindByPredicate([ShaderType = ShaderType](auto& Info) { return Info.ShaderName == ShaderType->GetFName(); }))
+					{
+						return true;
+					}
+				}
+
+				return false;
 			}
 
 			// look for any of the needed type
 			bool bShaderTypeMatches = false;
 
 			// For FMaterialResource::GetRepresentativeInstructionCounts
-			if (FCString::Stristr(ShaderType->GetName(), TEXT("BasePassPSTDistanceFieldShadowsAndLightMapPolicyHQ")))
+			if (FCString::Stricmp(ShaderType->GetName(), TEXT("MobileDirectionalLight")))
+			{
+				bShaderTypeMatches = true;
+			}
+			else if (FCString::Stristr(ShaderType->GetName(), TEXT("BasePassPSTDistanceFieldShadowsAndLightMapPolicyHQ")))
 			{
 				bShaderTypeMatches = true;
 			}
@@ -363,6 +377,7 @@ void UMaterialEditorPreviewParameters::RegenerateArrays()
 			if (PreviewMaterial->GetScalarParameterValue(ParameterValue.ParameterInfo, Value))
 			{
 				ParentMaterial->GetScalarParameterSliderMinMax(ParameterName, ParameterValue.SliderMin, ParameterValue.SliderMax);
+				ParentMaterial->IsScalarParameterUsedAsAtlasPosition(ParameterName, ParameterValue.AtlasData.bIsUsedAsAtlasPosition, ParameterValue.AtlasData.Curve, ParameterValue.AtlasData.Atlas);
 				ParameterValue.ParameterValue = Value;
 			}
 			if (ParentMaterial->GetParameterSortPriority(ParameterName, SortPriority))
@@ -963,6 +978,7 @@ void UMaterialEditorInstanceConstant::RegenerateArrays()
 
 			if (SourceInstance->GetScalarParameterValue(ParameterInfo, ParameterValue.ParameterValue))
 			{
+				SourceInstance->IsScalarParameterUsedAsAtlasPosition(ParameterInfo, ParameterValue.AtlasData.bIsUsedAsAtlasPosition, ParameterValue.AtlasData.Curve, ParameterValue.AtlasData.Atlas);
 				SourceInstance->GetScalarParameterSliderMinMax(ParameterInfo, ParameterValue.SliderMin, ParameterValue.SliderMax);		
 			}
 

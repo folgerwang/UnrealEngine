@@ -95,17 +95,17 @@ struct ENGINE_API FMaterialLayersFunctions
 	TArray<class UMaterialFunctionInterface*> Blends;
 
 #if WITH_EDITORONLY_DATA
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = MaterialLayers)
 	TArray<FText> LayerNames;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = MaterialLayers)
 	TArray<bool> RestrictToLayerRelatives;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = MaterialLayers)
 	TArray<bool> RestrictToBlendRelatives;
 #endif
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category = MaterialLayers)
 	TArray<bool> LayerStates;
 
 
@@ -144,6 +144,13 @@ struct ENGINE_API FMaterialLayersFunctions
 	{
 		check(LayerStates.IsValidIndex(Index));
 		LayerStates[Index] = !LayerStates[Index];
+		KeyString = GetStaticPermutationString();
+	}
+
+	void SetBlendedLayerVisibility(int32 Index, bool InNewVisibility)
+	{
+		check(LayerStates.IsValidIndex(Index));
+		LayerStates[Index] = InNewVisibility;
 		KeyString = GetStaticPermutationString();
 	}
 

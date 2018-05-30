@@ -28,6 +28,29 @@ namespace Audio
 		{}
 	};
 
+	/** Data used to schedule events automatically in the audio renderer in audio mixer. */
+	struct FAudioThreadTimingData
+	{
+		/** The time since audio device started. */
+		double StartTime;
+
+		/** The clock of the audio thread, periodically synced to the audio render thread time. */
+		double AudioThreadTime;
+
+		/** The clock of the audio render thread. */
+		double AudioRenderThreadTime;
+
+		/** The current audio thread fraction for audio events relative to the render thread. */
+		double AudioThreadTimeJitterDelta;
+
+		FAudioThreadTimingData()
+			: StartTime(0.0)
+			, AudioThreadTime(0.0)
+			, AudioRenderThreadTime(0.0)
+			, AudioThreadTimeJitterDelta(0.05)
+		{}
+	};
+
 	// Master submixes
 	namespace EMasterSubmixType
 	{
@@ -55,6 +78,7 @@ namespace Audio
 		virtual void FadeIn() override;
 		virtual void FadeOut() override;
 		virtual void TeardownHardware() override;
+		virtual void UpdateHardwareTiming() override;
 		virtual void UpdateHardware() override;
 		virtual double GetAudioTime() const override;
 		virtual FAudioEffectsManager* CreateEffectsManager() override;
@@ -150,6 +174,11 @@ namespace Audio
 		// Retrieves the listener transforms
 		const TArray<FTransform>* GetListenerTransforms();
 
+		// Audio thread tick timing relative to audio render thread timing
+		double GetAudioThreadTime() const { return AudioThreadTimingData.AudioThreadTime; }
+		double GetAudioRenderThreadTime() const { return AudioThreadTimingData.AudioRenderThreadTime; }
+		double GetAudioClockDelta() const { return AudioClockDelta; }
+
 	private:
 		// Resets the thread ID used for audio rendering
 		void ResetAudioRenderingThreadId();
@@ -200,6 +229,9 @@ namespace Audio
 
 		/** The audio clock from device initialization, updated at block rate. */
 		double AudioClock;
+
+		/** Timing data for audio thread. */
+		FAudioThreadTimingData AudioThreadTimingData;
 
 		/** The platform device info for this mixer device. */
 		FAudioPlatformDeviceInfo PlatformInfo;

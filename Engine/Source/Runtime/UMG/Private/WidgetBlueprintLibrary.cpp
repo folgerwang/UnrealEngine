@@ -20,6 +20,7 @@
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Engine/Engine.h"
 #include "Engine/GameEngine.h"
+#include "Widgets/Layout/SWindowTitleBarArea.h"
 
 //For PIE error messages
 
@@ -41,15 +42,15 @@ UUserWidget* UWidgetBlueprintLibrary::Create(UObject* WorldContextObject, TSubcl
 	}
 
 	UUserWidget* UserWidget = nullptr;
-	if ( OwningPlayer == nullptr )
+	if (OwningPlayer)
 	{
-		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
-		UserWidget = CreateWidget<UUserWidget>(World, WidgetType);
+		UserWidget = CreateWidget(OwningPlayer, WidgetType);
 	}
-	else
+	else if (UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull))
 	{
-		UserWidget = CreateWidget<UUserWidget>(OwningPlayer, WidgetType);
+		UserWidget = CreateWidget(World, WidgetType);
 	}
+
 	return UserWidget;
 }
 
@@ -596,13 +597,15 @@ void UWidgetBlueprintLibrary::GetSafeZonePadding(UObject* WorldContextObject, FV
 {
 	FVector2D ViewportSize = UWidgetLayoutLibrary::GetViewportSize(WorldContextObject);
 
-	FDisplayMetrics Metrics;
-	FSlateApplication::Get().GetDisplayMetrics(Metrics);
-
-	SafePadding = Metrics.TitleSafePaddingSize;
+	FMargin PaddingSize;
+	FSlateApplication::Get().GetSafeZoneSize(PaddingSize, ViewportSize);
+	SafePadding.X = PaddingSize.Left;
+	SafePadding.Y = PaddingSize.Top;
+	SafePadding.Z = PaddingSize.Right;
+	SafePadding.W = PaddingSize.Bottom;
 	FVector2D padding(FMath::Max(SafePadding.Z, SafePadding.X), FMath::Max(SafePadding.W, SafePadding.Y));
 	SafePaddingScale = padding / ViewportSize;
-	SpillOverPadding = Metrics.ActionSafePaddingSize;
+	SpillOverPadding = SafePadding;
 }
 
 bool UWidgetBlueprintLibrary::SetHardwareCursor(UObject* WorldContextObject, EMouseCursor::Type CursorShape, FName CursorName, FVector2D HotSpot)
@@ -643,6 +646,36 @@ void UWidgetBlueprintLibrary::RestorePreviousWindowTitleBarState()
 			LayerManager->RestorePreviousWindowTitleBarState();
 		}
 	}
+}
+
+static UWidgetBlueprintLibrary::FOnGameWindowCloseButtonClickedDelegate OnGameWindowCloseButtonClicked;
+
+static void OnGameWindowCloseButtonClickedSimpleDelegate()
+{
+	if (OnGameWindowCloseButtonClicked.IsBound())
+	{
+		OnGameWindowCloseButtonClicked.Execute();
+	}
+	else
+	{
+		UGameEngine* GameEngine = Cast<UGameEngine>(GEngine);
+		TSharedPtr<SWindow> GameViewportWindow = GameEngine->GameViewportWindow.Pin();
+		if (GameViewportWindow.IsValid())
+		{
+			GameViewportWindow->RequestDestroyWindow();
+		}
+	}
+}
+
+void UWidgetBlueprintLibrary::SetWindowTitleBarOnCloseClickedDelegate(UWidgetBlueprintLibrary::FOnGameWindowCloseButtonClickedDelegate Delegate)
+{
+	OnGameWindowCloseButtonClicked = Delegate;
+	SWindowTitleBarArea::SetOnCloseButtonClickedDelegate(FSimpleDelegate::CreateStatic(&OnGameWindowCloseButtonClickedSimpleDelegate));
+}
+
+void UWidgetBlueprintLibrary::SetWindowTitleBarCloseButtonActive(bool bActive)
+{
+	SWindowTitleBarArea::SetIsCloseButtonActive(bActive);
 }
 
 #undef LOCTEXT_NAMESPACE

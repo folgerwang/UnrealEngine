@@ -420,6 +420,9 @@ private:
 	/** Toggles the favorite status of an array of folders*/
 	void ToggleFolderFavorite(const TArray<FString>& FolderPaths);
 
+	/** Called when Asset View Options "Search" options change */
+	void HandleAssetViewSearchOptionsChanged();
+
 private:
 
 	/** The tab that contains this browser */

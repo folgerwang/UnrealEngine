@@ -1,3 +1,19 @@
+# 2018-1-8 -- v4.1.2
+- Add `pod try` support for the GoogleSignIn CocoaPod.
+
+# 2017-10-17 -- v4.1.1
+- Fixes an issue that `GIDSignInUIDelegate`'s `signInWillDispatch:error:` was
+  not called on iOS 11. Please note that it is intended that neither
+  `signIn:presentViewController:` nor `signIn:dimissViewController:` is called
+  on iOS 11 because SFAuthenticationSession is not presented by the app's view
+  controller.
+
+# 2017-09-13 -- v4.1.0
+- Uses SFAuthenticationSession on iOS 11.
+
+# 2017-02-06 -- v4.0.2
+- No longer depends on GoogleAppUtilities.
+
 # 2016-10-24 -- v4.0.1
 - Switches to open source pod dependencies.
 - Appearance of sign-in button no longer depends on requested scopes.

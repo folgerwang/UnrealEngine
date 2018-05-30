@@ -71,6 +71,9 @@ protected:
 	/** if we should auto checkout packages that need to be saved**/
 	bool bAutoCheckOut;
 
+	/** if we should simply skip checked out files rather than error-ing out */
+	bool bSkipCheckedOutFiles;
+
 	/** if we should auto checkin packages that were checked out**/
 	bool bAutoCheckIn;
 
@@ -184,7 +187,9 @@ protected:
 	// Get the changelist description to use if automatically checking packages out
 	virtual FText GetChangelistDescription() const;
 
-	bool CheckoutFile(const FString& Filename, bool bAddFile = false);
+	bool CheckoutFile(const FString& Filename, bool bAddFile = false, bool bIgnoreAlreadyCheckedOut = false);
+
+	bool CanCheckoutFile(const FString& Filename, FString& CheckedOutUser);
 
 	// Print out a message only if running in very verbose mode
 	void VerboseMessage(const FString& Message);

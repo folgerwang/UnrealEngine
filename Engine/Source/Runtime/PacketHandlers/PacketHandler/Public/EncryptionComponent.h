@@ -28,6 +28,11 @@ public:
 	virtual void DisableEncryption() = 0;
 
 	/**
+	 * Returns true if encryption is currently enabled.
+	 */
+	virtual bool IsEncryptionEnabled() const = 0;
+
+	/**
 	 * Sets the encryption key to be used by this component. The key must be the correct size for the encryption algorithm
 	 * that the component implements. This should be called before EnableEncryption.
 	 */

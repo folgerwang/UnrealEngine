@@ -49,6 +49,15 @@ void FAndroidESDeferredOpenGL::ProcessExtensions(const FString& ExtensionsString
 
 	bSupportsBindlessTexture = ExtensionsString.Contains(TEXT("GL_NV_bindless_texture"));
 
+	// Disable ASTC if requested by device profile
+	static const auto CVarDisableASTC = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Android.DisableASTCSupport"));
+	if (bSupportsASTC && CVarDisableASTC->GetValueOnAnyThread())
+	{
+		bSupportsASTC = false;
+		FAndroidGPUInfo::Get().RemoveTargetPlatform(TEXT("Android_ASTC"));
+		UE_LOG(LogRHI, Log, TEXT("ASTC was disabled via r.OpenGL.DisableASTCSupport"));
+	}
+
 	// Nexus 9 running Android < 6.0 runs slow with NvTimerQuery so disable it
 	if (FAndroidMisc::GetDeviceModel() == FString(TEXT("Nexus 9")))
 	{
@@ -629,11 +638,6 @@ bool FAndroidMisc::SupportsShaderFramebufferFetch()
 bool FAndroidMisc::SupportsES30()
 {
 	return FAndroidGPUInfo::Get().bES30Support;
-}
-
-bool FAndroidMisc::SupportsShaderIOBlocks()
-{
-	return FAndroidGPUInfo::Get().bSupportsShaderIOBlocks;
 }
 
 void FAndroidMisc::GetValidTargetPlatforms(TArray<FString>& TargetPlatformNames)

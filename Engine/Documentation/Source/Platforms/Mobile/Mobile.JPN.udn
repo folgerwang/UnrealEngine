@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3467293
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title: モバイル ゲームの開発
 Crumbs:%ROOT%, Platforms
@@ -18,33 +18,17 @@ topic-image:MobileGameDevelopment_topic.png
 
 ## はじめよう
 
-[REGION:buttonlist]
-
-		[DIR(output:"topiccompact" type:"quick start" tags:"mobile")]
-	
-[/REGION]
+[DIR(output:"topiccompact" type:"quick start" tags:"mobile")]
 
 ## モバイル プラットフォーム
 
-[REGION:buttonlist]
-
-		[DIR(output:"listbutton" type:"landing" parent:"Platforms/Mobile")]
-	
-[/REGION]
+[DIR(output:"listbutton" type:"landing" parent:"Platforms/Mobile")]
 
 ## モバイル サービス
 
-[REGION:buttonlist]
-
-		[DIR(end:"1" output:"listbutton" type:"how-to" parent:"Platforms/Mobile")]
-	
-[/REGION]
+[DIR(end:"1" output:"listbutton" type:"how-to" parent:"Platforms/Mobile")]
 
 ## 一般的なモバイル ゲーム開発
 
-[REGION:buttonlist]
-
-		[DIR(end:"1" output:"listbutton" type:"overview" parent:"Platforms/Mobile")]
-	
-[/REGION]
+[DIR(end:"1" output:"listbutton" type:"overview" parent:"Platforms/Mobile")]
 

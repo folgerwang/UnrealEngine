@@ -96,5 +96,6 @@ void FAnimNode_Slot::GatherDebugData(FNodeDebugData& DebugData)
 
 FAnimNode_Slot::FAnimNode_Slot()
 	: SlotName(FAnimSlotGroup::DefaultSlotName)
+	, bAlwaysUpdateSourcePose(false)
 {
 }

@@ -195,11 +195,8 @@ private:
 	/** Renders the scene's atmosphere. */
 	void RenderAtmosphere(FRHICommandListImmediate& RHICmdList, const FLightShaftsOutput& LightShaftsOutput);
 
-	/** Renders reflections that can be done in a deferred pass. */
-	void RenderDeferredReflections(FRHICommandListImmediate& RHICmdList, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO, TRefCountPtr<IPooledRenderTarget>& VelocityRT);
-
-	/** Render dynamic sky lighting from Movable sky lights. */
-	void RenderDynamicSkyLighting(FRHICommandListImmediate& RHICmdList, const TRefCountPtr<IPooledRenderTarget>& VelocityTexture, TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO);
+	/** Renders sky lighting and reflections that can be done in a deferred pass. */
+	void RenderDeferredReflectionsAndSkyLighting(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO, TRefCountPtr<IPooledRenderTarget>& VelocityRT);
 
 	/** Computes DFAO, modulates it to scene color (which is assumed to contain diffuse indirect lighting), and stores the output bent normal for use occluding specular. */
 	void RenderDFAOAsIndirectShadowing(
@@ -212,22 +209,18 @@ private:
 		FRHICommandListImmediate& RHICmdList, 
 		const class FDistanceFieldAOParameters& Parameters, 
 		const TRefCountPtr<IPooledRenderTarget>& VelocityTexture,
-		TRefCountPtr<IPooledRenderTarget>& OutDynamicBentNormalAO, 
-		TRefCountPtr<IPooledRenderTarget>& OutDynamicIrradiance,
+		TRefCountPtr<IPooledRenderTarget>& OutDynamicBentNormalAO,
 		bool bModulateToSceneColor,
-		bool bVisualizeAmbientOcclusion,
-		bool bVisualizeGlobalIllumination);
+		bool bVisualizeAmbientOcclusion);
 
 	/** Render Ambient Occlusion using mesh distance fields on a screen based grid. */
 	void RenderDistanceFieldAOScreenGrid(
 		FRHICommandListImmediate& RHICmdList, 
 		const FViewInfo& View,
-		FIntPoint TileListGroupSize,
 		const FDistanceFieldAOParameters& Parameters, 
 		const TRefCountPtr<IPooledRenderTarget>& VelocityTexture,
 		const TRefCountPtr<IPooledRenderTarget>& DistanceFieldNormal, 
-		TRefCountPtr<IPooledRenderTarget>& OutDynamicBentNormalAO, 
-		TRefCountPtr<IPooledRenderTarget>& OutDynamicIrradiance);
+		TRefCountPtr<IPooledRenderTarget>& OutDynamicBentNormalAO);
 
 	void RenderMeshDistanceFieldVisualization(FRHICommandListImmediate& RHICmdList, const FDistanceFieldAOParameters& Parameters);
 
@@ -432,12 +425,6 @@ private:
 	void ComputeVolumetricFog(FRHICommandListImmediate& RHICmdList);
 
 	void VisualizeVolumetricLightmap(FRHICommandListImmediate& RHICmdList);
-
-	/** Output SpecularColor * IndirectDiffuseGI for metals so they are not black in reflections */
-	void RenderReflectionCaptureSpecularBounceForAllViews(FRHICommandListImmediate& RHICmdList);
-
-	/** Render image based reflections (SSR, Env, SkyLight) with compute shaders */
-	void RenderTiledDeferredImageBasedReflections(FRHICommandListImmediate& RHICmdList, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO, TRefCountPtr<IPooledRenderTarget>& VelocityRT);
 
 	/** Render image based reflections (SSR, Env, SkyLight) without compute shaders */
 	void RenderStandardDeferredImageBasedReflections(FRHICommandListImmediate& RHICmdList, FGraphicsPipelineStateInitializer& GraphicsPSOInit, bool bReflectionEnv, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO, TRefCountPtr<IPooledRenderTarget>& VelocityRT);

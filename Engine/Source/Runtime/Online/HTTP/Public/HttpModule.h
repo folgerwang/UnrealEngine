@@ -48,6 +48,11 @@ public:
 	HTTP_API static FHttpModule& Get();
 
 	/**
+	 * Update all config-based values
+	 */
+	HTTP_API void UpdateConfigs();
+
+	/**
 	 * Instantiates a new Http request for the current platform
 	 *
 	 * @return new Http request instance

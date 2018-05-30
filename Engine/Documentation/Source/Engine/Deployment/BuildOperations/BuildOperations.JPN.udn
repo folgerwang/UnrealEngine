@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3757231
+﻿INTSourceChangelist:3801260
 Availability:Docs
 Crumbs: %ROOT%
 Title:ビルド作業:クック、パッケージ、デプロイ、実行
@@ -12,12 +12,6 @@ Tags:Nintendo Switch
 Topic-image:BuildOps_Topic.png
 
 [TOC(start:2 end:3)]
-
-
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
-
-
 
 
 アンリアル エンジン 4 (UE4) プロジェクトの操作のための一連のユーティリティ スクリプトを機能させるために、[Automation Tool](Programming/Automation) (略してUnreal Automation Tool を略して UAT と呼ばれる場合もあります) をパッケージ化の一環として使用します。Automation Tool は、**BuildCookRun** という特別なコマンドを使用してパッケージ化を行います。これらのビルド作業では、プラットフォーム用にコンテンツをクックし、プラットフォーム固有のファイル形式にパッケージ化して、デバイスにデプロイし、(必要な場合は) プロジェクトを自動的に実行します。この処理では、テスト中、デバッグ中、さらにプロジェクト全体の配布中であっても、いつでもコンテンツをデプロイすることができるようになります。

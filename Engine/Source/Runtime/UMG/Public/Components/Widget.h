@@ -19,9 +19,15 @@
 #include "Slate/WidgetTransform.h"
 #include "UObject/UObjectThreadContext.h"
 
+#if WITH_EDITOR
+// This violates IWYU, but the alternative is .cpp includes that are invariably not within #if WITH_EDITOR and cause non-editor build failures
+#include "Kismet2/CompilerResultsLog.h"
+#endif
+
 #include "Widget.generated.h"
 
 class APlayerController;
+class ULocalPlayer;
 class SObjectWidget;
 class UPanelSlot;
 class UPropertyBinding;
@@ -31,22 +37,45 @@ enum class ECheckBoxState : uint8;
 
 namespace UMWidget
 {
-	// valid keywords for the UPROPERTY macro
+	// valid keywords for the UCLASS macro
 	enum
 	{
-		/// [PropertyMetadata] This property if changed will rebuild the widget designer preview.  Use sparingly, try to update most properties by
-		/// setting them in the SynchronizeProperties function.
-		/// UPROPERTY(meta=(DesignerRebuild))
+		// [ClassMetadata] [PropertyMetadata] Specifies the base class by which to filter available entry classes within DynamicEntryBox and any ListViewBase.
+		EntryClass,
+
+		// [ClassMetadata] [PropertyMetadata] Specifies the base class by which to filter available entry classes within DynamicEntryBox and any ListViewBase.
+		EntryInterface,
+	};
+
+	// valid metadata keywords for the UPROPERTY macro
+	enum
+	{
+		// [PropertyMetadata] This property if changed will rebuild the widget designer preview.  Use sparingly, try to update most properties by
+		// setting them in the SynchronizeProperties function.
+		// UPROPERTY(meta=(DesignerRebuild))
 		DesignerRebuild,
-		/// [PropertyMetadata] This property requires a widget be bound to it in the designer.  Allows easy native access to designer defined controls.
-		/// UPROPERTY(meta=(BindWidget))
+
+		// [PropertyMetadata] This property requires a widget be bound to it in the designer.  Allows easy native access to designer defined controls.
+		// UPROPERTY(meta=(BindWidget))
 		BindWidget,
-		/// [PropertyMetadata] This property optionally allows a widget be bound to it in the designer.  Allows easy native access to designer defined controls.
-		/// UPROPERTY(meta=(BindWidgetOptional))
+
+		// [PropertyMetadata] This property optionally allows a widget be bound to it in the designer.  Allows easy native access to designer defined controls.
+		// UPROPERTY(meta=(BindWidgetOptional))
 		BindWidgetOptional,
-		/// [PropertyMetadata] This property optionally allows a widget be bound to it in the designer.  Allows easy native access to designer defined controls.
-		/// UPROPERTY(meta=(BindWidget, OptionalWidget=true))
-		OptionalWidget
+
+		// [PropertyMetadata] This property optionally allows a widget be bound to it in the designer.  Allows easy native access to designer defined controls.
+		// UPROPERTY(meta=(BindWidget, OptionalWidget=true))
+		OptionalWidget,
+
+		// [PropertyMetadata] Exposes a dynamic delegate property in the details panel for the widget.
+		// UPROPERTY(meta=(IsBindableEvent))
+		IsBindableEvent,
+
+		// [ClassMetadata] [PropertyMetadata] Specifies the base class by which to filter available entry classes within DynamicEntryBox and any ListViewBase.
+		// EntryClass, (Commented out so as to avoid duplicate name with version in the Class section, but still show in the property section)
+
+		// [ClassMetadata] [PropertyMetadata] Specifies the base class by which to filter available entry classes within DynamicEntryBox and any ListViewBase.
+		//EntryInterface, (Commented out so as to avoid duplicate name with version in the Class section, but still show in the property section)
 	};
 }
 
@@ -463,6 +492,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	bool HasMouseCapture() const;
 
+	/**
+	 * Checks to see if this widget is the current mouse captor
+	 *	@param User index to check for capture
+	 *	@param Optional pointer index to check for capture
+	 *	@return  True if this widget has captured the mouse with given user and pointer
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Widget")
+	bool HasMouseCaptureByUser(int32 UserIndex, int32 PointerIndex = -1) const;
+
 	/** Sets the focus to this widget. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void SetKeyboardFocus();
@@ -580,10 +618,11 @@ public:
 	 *		});
 	 * 
 	 */
-	template <class WidgetType, class = typename TEnableIf<TIsDerivedFrom<WidgetType, SObjectWidget>::IsDerived, WidgetType>::Type>
-	TSharedRef<WidgetType> TakeDerivedWidget( ConstructMethodType ConstructMethod )
+	template <class WidgetType = SObjectWidget>
+	TSharedRef<WidgetType> TakeDerivedWidget(ConstructMethodType ConstructMethod)
 	{
-		return StaticCastSharedRef<WidgetType>( TakeWidget_Private( ConstructMethod ) );
+		static_assert(TIsDerivedFrom<WidgetType, SObjectWidget>::IsDerived, "TakeDerivedWidget can only be used to create SObjectWidget instances");
+		return StaticCastSharedRef<WidgetType>(TakeWidget_Private(ConstructMethod));
 	}
 	
 private:
@@ -594,12 +633,22 @@ public:
 	/** Gets the last created widget does not recreate the gc container for the widget if one is needed. */
 	TSharedPtr<SWidget> GetCachedWidget() const;
 
+	/** Gets the last created widget does not recreate the gc container for the widget if one is needed. */
+	bool IsConstructed() const;
+
 	/**
 	 * Gets the player controller associated with this UI.
 	 * @return The player controller that owns the UI.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Player")
-	virtual class APlayerController* GetOwningPlayer() const;
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Player)
+	virtual APlayerController* GetOwningPlayer() const;
+
+	/**
+	 * Gets the local player associated with this UI.
+	 * @return The owning local player.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Player)
+	virtual ULocalPlayer* GetOwningLocalPlayer() const;
 
 	/**
 	 * Applies all properties to the native widget if possible.  This is called after a widget is constructed.
@@ -646,6 +695,12 @@ public:
 	/** Sets the friendly name of the widget to display in the editor */
 	void SetDisplayLabel(const FString& DisplayLabel);
 
+	/**
+	 * Called at the end of Widget Blueprint compilation.
+	 * Allows UMG elements to evaluate their default states and determine whether they are acceptable.
+	 * To trigger compilation failure, add an error to the log. Warnings and notes will be visible, but will not cause compiles to fail.
+	 */
+	virtual void ValidateCompiledDefaults(class FCompilerResultsLog& CompileLog) const {}
 #else
 	FORCEINLINE bool IsDesignTime() const { return false; }
 #endif
@@ -666,6 +721,7 @@ public:
 
 	// Begin UObject
 	virtual UWorld* GetWorld() const override;
+	virtual void FinishDestroy() override;
 	// End UObject
 
 #if WITH_EDITOR

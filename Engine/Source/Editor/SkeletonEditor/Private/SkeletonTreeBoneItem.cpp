@@ -175,6 +175,10 @@ TSharedRef< SWidget > FSkeletonTreeBoneItem::CreateBoneTranslationRetargetingMod
 
 		FUIAction ActionRetargetingAnimationRelative = FUIAction(FExecuteAction::CreateSP(this, &FSkeletonTreeBoneItem::SetBoneTranslationRetargetingMode, EBoneTranslationRetargetingMode::AnimationRelative));
 		MenuBuilder.AddMenuEntry( Enum->GetDisplayNameTextByValue(EBoneTranslationRetargetingMode::AnimationRelative), LOCTEXT("BoneTranslationRetargetingAnimationRelativeToolTip", "Use relative translation from animation similar to an additive animation."), FSlateIcon(), ActionRetargetingAnimationRelative);
+
+		FUIAction ActionRetargetingOrientAndScale = FUIAction(FExecuteAction::CreateSP(this, &FSkeletonTreeBoneItem::SetBoneTranslationRetargetingMode, EBoneTranslationRetargetingMode::OrientAndScale));
+		MenuBuilder.AddMenuEntry(Enum->GetDisplayNameTextByValue(EBoneTranslationRetargetingMode::OrientAndScale), LOCTEXT("BoneTranslationRetargetingOrientAndScaleToolTip", "Orient And Scale Translation."), FSlateIcon(), ActionRetargetingOrientAndScale);
+
 	}
 	MenuBuilder.EndSection();
 

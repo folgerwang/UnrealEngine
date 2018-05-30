@@ -1,9 +1,9 @@
-﻿INTSourceChangelist:3482177
+﻿INTSourceChangelist:3782314
 Availability:Public
-Title:1.Android 向けゲーム開発に必要なセットアップ
+Title:1. Android 向けゲーム開発に必要な設定
 Crumbs:%ROOT%, Platforms, Platforms/Android, Platforms/Android/GettingStarted
-Description:CodeWorks for Android 1R6 SDK をインストーする
-Version:4.16
+Description:Install the CodeWorks for Android 1R6u1 SDK.
+Version:4.17
 Skilllevel:Intermediate
 Tags:Android
 type:multi-step
@@ -12,12 +12,11 @@ order:1
 Checkpoint:AndroidQS
 
 
+
 [nav]
 
 ## ステップ
-Android 向けゲーム開発の最初の作業は CodeWorks for Android 1R6 のインストールです。 
-CodeWorks for Android 1R6 をインストールすれば、Android デバイスのデプロイに必要なプログラムとコードがすべてそろいます。
-このステップでは、開発用 PC に CodeWorks for Android 1R6 をインストールする方法を説明します。
+Android 向けゲーム開発で最初にする作業は CodeWorks for Android 1R6u1 のインストールです。Android デバイスにデプロイするために必要なすべてのプログラムとコードを確実にそろえることができます。このステップでは、開発用 PC に CodeWorks for Android 1R6u1 をインストールする方法を説明します。
 
 
 %Globals:osselect_linux%
@@ -66,22 +65,23 @@ CodeWorks for Android 1R6 をインストールすれば、Android デバイス�
 [/OBJECT]
 
 
+
 [COMMENT:none]
 
 [EXCERPT:WindowsSetup]
 
 [REGION:note]
-CodeWorks for Android 1R6 のインストールを完了している場合は、以下の手順をすべてスキップし、 **[Edit Menu (メニューの編集)]** -> **[Project Settings (プロジェクト設定)]** -> **[Android SDK]** プロパティを使ってエディタをインストール場所に指定してください。
+CodeWorks for Android 1R6u1 のインストールを完了している場合は、以下の手順をすべてスキップし、 **[Edit Menu (メニューの編集)]** -> **[Project Settings (プロジェクト設定)]** -> **[Android SDK]** プロパティを使ってエディタをインストール場所に指定してください。
 [/REGION]
 
 [region:warning]
-CodeWorks for Android 1R6 のインストール中は、インストールに問題が発生しないように、エディタとランチャーを閉じることをお勧めします。
+CodeWorks for Android 1R6u1 のインストール中は、インストールに問題が発生しないように、エディタとランチャーを閉じることをお勧めします。
 [/region]
 
-1. CodeWorks for Android 1R6 をインストールをするには、**[Engine]** > **[Extras]** > **[Android]** フォルダを開きます。 
+1. CodeWorks for Android 1R6u1 をインストールをするには、**[Engine]** > **[Extras]** > **[Android]** フォルダを開きます。 
 
 	[region:note]
-	CodeWorks for Android 1R6 インストーラを正常に完了するためには、Visual Studio をインストールする必要があります。サポートしているバージョンは、2010、2012、2013 (2015 は対象外) です。
+	CodeWorks for Android 1R6u1 インストーラを正常に完了するためには、Visual Studio をインストールする必要があります。サポートしているバージョンは、2013、2015、2017 です。
 	[/region]
 
 	| インストールの種類 | 保存場所 |
@@ -90,17 +90,15 @@ CodeWorks for Android 1R6 のインストール中は、インストールに問
 	| GitHub | [EngineSyncLocation\UE4\Engine\Extras\Android |
 
 	[region:note]
-	**Github** から UE4 をダウンロードする場合は、まず次のステップを完了しないと CodeWorks for Android 1R6 インストーラを実行できません。 
-	以下は、UE4 ソースコードを Github からダウンロードした Windows と Mac の入った PC 向けの手順になりますのでご注意ください。
-	ランチャーからダウンロードしたバイナリ ビルドを使用する場合は、このステップをスキップして CodeWorks for Android 1R6 をすぐにインストールできます。 
+	**Github** からアンリアル エンジン 4 をダウンロードする場合は、まず次のステップを完了しないと CodeWorks for Android 1R6u1 インストーラを実行できません。以下は、アンリアル エンジン 4 ソースコードを Github からダウンロードした Windows と Mac の入った PC 向けの手順になりますのでご注意ください。ランチャーからダウンロードしたバイナリ ビルドを使用する場合は、このステップをスキップして CodeWorks for Android 1R6u1 をすぐにインストールできます。
 
-	1. UE4 を Github からダウンロードして展開したら、**Setup.bat** ファイルを実行して、必要なファイルおよび **CodeWorks for Android 1R6** インストーラをダウンロードします。
+	1. アンリアル エンジン 4 を Github からダウンロードして展開したら、**Setup.bat** ファイルを実行して、必要なファイルおよび **CodeWorks for Android 1R6u1** インストーラをダウンロードします。
 
-	1. **Setup.bat** の実行が完了したら、以下の手順で CodeWorks for Android 1R6 を実行します。
+	1. **Setup.bat** の実行が完了したら、以下の手順で CodeWorks for Android 1R6u1 を実行します。
 
 	[/region]
 
-1. **CodeWorksforAndroid-1R6-windows.exe** ファイルをダブルクリックしてインストール処理を開始します。
+1. **CodeWorksforAndroid-1R6u1-windows.exe** ファイルをダブルクリックしてインストール処理を開始します。
 
 	![](AndroidWorks_11.png)
 
@@ -112,7 +110,7 @@ CodeWorks for Android 1R6 のインストール中は、インストールに問
 
 	![](AndroidWorks_01.png)
 
-1.	CodeWorks for Android 1R6 のダウンロードおよびインストール先を設定したら、**[Next]** ボタンをクリックします。
+1.	CodeWorks for Android 1R6u1 のダウンロードおよびインストール先を設定したら、**[Next]** ボタンをクリックします。
 
 	![](AndroidWorks_02.png)
 
@@ -120,22 +118,21 @@ CodeWorks for Android 1R6 のインストール中は、インストールに問
 	この設定のままデフォルト位置にしても全く問題ありません。
 	[/region]
 
-1.	**CodeWorks for Android 1r6u1** がインストールされていることを確認したら、**[Next]** ボタンをクリックします。
-
+1.	**CodeWorks for Android 1R6u1 ** がインストールされていることを確認したら、**[Next]** ボタンをクリックします。
 	![](AndroidWorks_03.png)
 
-1.	ライセンス条件に同意する場合は **[Accept All (すべてに同意)]** のボックスにチェックを入れて、**[Accept]** ボタンを押します。
+1.	ライセンス条件に同意する場合は **[Accept All (すべてに同意)]** と書かれているボックスにチェックを入れて、**[Accept]** ボタンを押します。
 
 	![](AndroidWorks_04.png)
 
-1.	新規ウィンドウが開いて、必要な CodeWorks for Android 1R6 ツールのダウンロードおよびインストールの進捗が表示されます。 
+1.	新規ウィンドウが開いて、必要な CodeWorks for Android 1R6u1 ツールのダウンロードおよびインストールの進捗が表示されます。 
 	[region:note]
 	インターネットへ接続する必要があります。インターネットの接続速度によって数分、もしくは数時間かかる場合があります。
 	[/region]
 
 	![](AndroidWorks_06.png)
 
-1.	**[Next]** ボタンを押して CodeWorks for Android 1R6 のインストールを続行します。
+1.	**[Next]** ボタンを押して CodeWorks for Android 1R6u1 のインストールを続行します。
 
 	![](AndroidWorks_09.png)
 
@@ -148,46 +145,43 @@ CodeWorks for Android 1R6 のインストール中は、インストールに問
 	![](AndroidWorks_12.png)
 
 	[region:note]
-	UE4 を Github からダウンロードした場合、CodeWorks for Android 1R6 のインストールが完了したら PC あるいは Mac を再起動して環境変数を設定します。その後で **Setup.bat** ファイルをもう一度実行して、必要な Android 開発ファイルをダウンロードしてください。
+	アンリアル エンジン 4 を Github からダウンロードした場合、CodeWorks for Android 1R6u1 のインストールが完了したら PC あるいは Mac を再起動して環境変数を設定します。その後で **Setup.bat** ファイルをもう一度実行して、必要な Android 開発ファイルをダウンロードしてください。
 	[/region]
 [/EXCERPT:WindowsSetup]
 
 [EXCERPT:MacOSSetup]
 
 [REGION:note]
-CodeWorks for Android 1R6 のインストールを完了している場合は、以下の手順をすべてスキップし、 **[Edit Menu (メニューの編集)]** -> **[Project Settings (プロジェクト設定)]** -> **[Android SDK]** プロパティを使ってエディタをインストール場所に指定してください。
+CodeWorks for Android 1R6u1 のインストールを完了している場合は、以下の手順をすべてスキップし、 **[Edit Menu (メニューの編集)]** -> **[Project Settings (プロジェクト設定)]** -> **[Android SDK]** プロパティを使ってエディタをインストール場所に指定してください。
 [/REGION]
 
 [region:warning]
-CodeWorks for Android 1R6 のインストール中は、インストールに問題が発生しないように、エディタとランチャーを閉じることをお勧めします。
+CodeWorks for Android 1R6u1 のインストール中は、インストールに問題が発生しないように、エディタとランチャーを閉じることをお勧めします。
 [/region]
-CodeWorks for Android 1R6 を Mac にインストールするには、Java 8 が両方インストールされている必要があります。ご確認ください。 
-以下のリンクから、Java 8 をダウンロードおよびインストールしてください。
+CodeWorks for Android  1R6u1 を Mac にインストールするには、Java 8 が両方インストールされている必要があります。ご確認ください。以下のリンクから、Java 8 をダウンロードおよびインストールしてください。
 
-* **Java 8** のダウンロードは [こちら](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html) から行えます。
+* Java 8 のダウンロードは [こちら](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html) から行えます。
 
-1. CodeWorks for Android 1R6 をインストールをするには、**[Engine]** > **[Extras]** > **[Android]** フォルダを開きます。 
+1. CodeWorks for Android 1R6u1 をインストールをするには、**[Engine]** > **[Extras]** > **[Android]** フォルダを開きます。 
 	| インストールの種類 | 保存場所 |
 	| --- | --- |
 	| Binary | [EngineInstallLocation]\Unreal Engine[EngineVersion]\Engine\Extras\AndroidWorks\Mac |
 	| GitHub | [EngineSyncLocation\UE4\Engine\Extras\AndroidWorks\Mac |
 
 	[region:note]
-	**Github** から UE4 をダウンロードする場合は、まず次のステップを完了しないと CodeWorks for Android 1R6 インストーラを実行できません。 
-	以下は、UE4 ソースコードを Githum からダウンロードした Windows と Mac の入った PC 向けの手順になりますのでご注意ください。
-	ランチャーからダウンロードしたバイナリ ビルドを使用する場合は、このステップを抜かして CodeWorks for Android 1R6 をすぐにインストールできます。 
+	**Github** からアンリアル エンジン 4 をダウンロードする場合は、まず次のステップを完了しないと CodeWorks for Android 1R6u1 インストーラを実行できません。以下は、アンリアル エンジン 4 ソースコードを Github からダウンロードした Windows と Mac の入った PC 向けの手順になりますのでご注意ください。ランチャーからダウンロードしたバイナリ ビルドを使用する場合は、このステップをスキップして CodeWorks for Android 1R6u1 をすぐにインストールできます。
 
-	1. UE4 を Github からダウンロードして展開したら、**Setup.command** ファイルを実行して、必要なファイルおよび CodeWorks for Android 1R6 インストーラをダウンロードします。
+	1. アンリアル エンジン 4 を Github からダウンロードして展開したら、**Setup.command** ファイルを実行して、必要なファイルおよび CodeWorks for Android 1R6u1 インストーラをダウンロードします。
 
-	1. **Setup.command** の実行が完了したら、以下の手順で CodeWorks for Android 1R6 を実行します。
+	1. **Setup.command** の実行が完了したら、以下の手順で CodeWorks for Android 1R6u1 を実行します。
 
 	[/region]
 
-1. ** CodeWorks for Android 1R6-osx.dmg** をダブルクリックして、CodeWorks for Android 1R6 インストーラをロードします。
+1. **CodeWorks for Android 1R6u1-osx.dmg** をダブルクリックして、CodeWorks for Android 1R6u1 インストーラをロードします。
 
 	![](AndroidWorks_Mac_00.png)
 
-1. CodeWorks for Android 1R6 インストーラ アイコンをダブルクリックしてインストール処理を開始します。
+1. CodeWorks for Android 1R6u1 インストーラ アイコンをダブルクリックしてインストール処理を開始します。
 
 	![](AndroidWorks_Mac_01.png)
 
@@ -199,7 +193,7 @@ CodeWorks for Android 1R6 を Mac にインストールするには、Java 8 が
 
 	![](AndroidWorks_Mac_03.png)
 
-1. CodeWorks for Android 1R6 のインストール先を指定して **[Next]** ボタンを押します。
+1. CodeWorks for Android 1R6u1 のインストール先を指定して **[Next]** ボタンを押します。
 
 	[region:note]
 	この設定のままデフォルト位置にしても全く問題ありません。
@@ -207,15 +201,15 @@ CodeWorks for Android 1R6 を Mac にインストールするには、Java 8 が
 
 	![](AndroidWorks_Mac_04.png)
 
-1. Android 1R6 Component Manager が表示されたら、**[Next]** ボタンを押してダウンロードとインストール処理を開始します。
+1. Android 1R6u1 Component Manager が表示されたら、**[Next]** ボタンを押してダウンロードとインストール処理を開始します。
 
 	![](AndroidWorks_Mac_05.png)
 
-1. ライセンス条件に同意する場合は **[Accept All (すべてに同意)]** のボックスにチェックを入れて、**[Accept]** ボタンを押します。
+1. ライセンス条件に同意する場合は **[Accept All (すべてに同意)]** と書かれているボックスにチェックを入れて、**[Accept]** ボタンを押します。
 
 	![](AndroidWorks_Mac_06.png)
 
-1. Android 1R6 Component Manager が必要なツールのダウンロードとインストールを開始します。 
+1. Android 1R6u1 Component Manager が必要なツールのダウンロードとインストールを開始します。 
 	[region:note]
 	インターネットへ接続する必要があります。インターネットの接続速度によって数分、もしくは数時間かかる場合があります。
 	[/region]
@@ -224,15 +218,15 @@ CodeWorks for Android 1R6 を Mac にインストールするには、Java 8 が
 
 	![](AndroidWorks_Mac_08.png)
 
-1. **[Finish (終了)]** ボタンを押して、CodeWorks for Android 1R6 のインストールを完了します。
+1. **[Finish (終了)]** ボタンを押して、CodeWorks for Android 1R6u1 のインストールを完了します。
 
 	![](AndroidWorks_Mac_09.png)
 
 	[region:note]
-	UE4 を Github からダウンロードした場合は、CodeWorks for Android 1R6 のインストールが終了した際に、Mac を再起動して環境変数が設定されてから **Setup.command** ファイルをもう一度実行して、必要な Android 開発ファイルをダウンロードしてください。
+	アンリアル エンジン 4 を Github からダウンロードした場合、CodeWorks for Android 1R6u1 のインストールが完了したら PC あるいは Mac を再起動して環境変数を設定します。その後で **Setup.command** ファイルをもう一度実行して、必要な Android 開発ファイルをダウンロードしてください。
 	[/region]
 
-Once CodeWorks for Android 1R6 のインストールが完了したら、以下の操作をして Bash ファイルを編集する必要があります。
+Once CodeWorks for Android 1R6u1 のインストールが完了したら、以下の操作をして Bash ファイルを編集する必要があります。
 
 1. Mac Terminal を開きます。  
 
@@ -265,7 +259,7 @@ Once CodeWorks for Android 1R6 のインストールが完了したら、以下�
 [/COMMENT]
 
 ## 結果
-ダウンロードが完了すれば、必要な Android SDK のインストールはすべて完了し、Android デバイス向けに UE4 プロジェクトのビルドが可能な状態です。
+ダウンロードが完了すれば、必要な Android SDK のインストールはすべて完了し、Android デバイス向けにアンリアル エンジン 4 プロジェクトのビルドが可能な状態です。
 
 [nav]
 

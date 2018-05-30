@@ -148,7 +148,7 @@ Python および P4Python をインストールしたら、以下を実行しま
                              p4 環境で P4CLIENT を検索します。
       -r, --reverse         指定した場合、branchspec をリバースします。Default = False
       -b BRANCHSPEC, --branchspec=BRANCHSPEC
-                            <Required> 使用する Branchspec。
+                            <Required> 使用する Branchspec
       -m MERGETYPE, --mergetype=MERGETYPE
                             有効なオプションを実行するためのマージの種類は、 SAFE と 
                             NULL です。Default = SAFE

@@ -597,8 +597,10 @@ public:
 	LANDSCAPE_API static ULandscapeLayerInfoObject* VisibilityLayer;
 #endif
 
+#if WITH_EDITORONLY_DATA
 	/** Map of material instance constants used to for the components. Key is generated with ULandscapeComponent::GetLayerAllocationKey() */
 	TMap<FString, UMaterialInstanceConstant*> MaterialInstanceConstantMap;
+#endif
 
 	/** Map of weightmap usage */
 	TMap<UTexture2D*, FLandscapeWeightmapUsage> WeightmapUsageMap;
@@ -708,6 +710,12 @@ public:
 
 	/** Frame counter to count down to the next time we check to update baked textures, so we don't check every frame */
 	int32 UpdateBakedTexturesCountdown;
+
+	/** Editor notification when changing feature level, used to flush grass */
+	void OnFeatureLevelChanged(ERHIFeatureLevel::Type NewFeatureLevel);
+
+	/** Handle so we can unregister the delegate */
+	FDelegateHandle FeatureLevelChangedDelegateHandle;
 #endif
 
 	//~ Begin AActor Interface.

@@ -12,6 +12,7 @@
 #include "Particles/ParticleCurveTexture.h"
 #include "VectorField/VectorField.h"
 #include "Components/VectorFieldComponent.h"
+#include "SceneUtils.h"
 
 /*-----------------------------------------------------------------------------
 	External FX system interface.
@@ -343,6 +344,7 @@ void FFXSystem::PreRender(FRHICommandListImmediate& RHICmdList, const FGlobalDis
 {
 	if (RHISupportsGPUParticles())
 	{
+		SCOPED_DRAW_EVENT(RHICmdList, GPUParticles_PreRender);
 		UpdateMultiGPUResources(RHICmdList);
 
 		RHICmdList.SetCurrentStat(GET_STATID(STAT_CLM_FXPreRender_Prepare));
@@ -376,6 +378,7 @@ void FFXSystem::PostRenderOpaque(
 {
 	if (RHISupportsGPUParticles() && IsParticleCollisionModeSupported(GetShaderPlatform(), PCM_DepthBuffer))
 	{
+		SCOPED_DRAW_EVENT(RHICmdList, GPUParticles_PostRenderOpaque);
 		PrepareGPUSimulation(RHICmdList);
 		
 		SimulateGPUParticles(RHICmdList, EParticleSimulatePhase::CollisionDepthBuffer, ViewUniformBuffer, NULL, SceneTexturesUniformBufferStruct, SceneTexturesUniformBuffer);

@@ -42,6 +42,7 @@ FString const FAndroidDeviceProfileSelectorRuntimeModule::GetRuntimeDeviceProfil
 		FString GLVersion = FAndroidMisc::GetGLVersion();
 
 		FString VulkanVersion = FAndroidMisc::GetVulkanVersion();
+		FString VulkanAvailable = FAndroidMisc::IsVulkanAvailable() ? TEXT("true") : TEXT("false");
 		FString AndroidVersion = FAndroidMisc::GetAndroidVersion();
 		FString DeviceMake = FAndroidMisc::GetDeviceMake();
 		FString DeviceModel = FAndroidMisc::GetDeviceModel();
@@ -52,12 +53,13 @@ FString const FAndroidDeviceProfileSelectorRuntimeModule::GetRuntimeDeviceProfil
 #else
 		bool bUsingHoudini = false;
 #endif
-		FString UsingHoudini = bUsingHoudini ? "true" : "false";
+		FString UsingHoudini = bUsingHoudini ? TEXT("true") : TEXT("false");
 
 		UE_LOG(LogAndroid, Log, TEXT("Checking %d rules from DeviceProfile ini file."), FAndroidDeviceProfileSelector::GetNumProfiles() );
-		UE_LOG(LogAndroid, Log, TEXT("  Default profile: %s"), *ProfileName);
+		UE_LOG(LogAndroid, Log, TEXT("  Default profile: %s"), * ProfileName);
 		UE_LOG(LogAndroid, Log, TEXT("  GpuFamily: %s"), *GPUFamily);
 		UE_LOG(LogAndroid, Log, TEXT("  GlVersion: %s"), *GLVersion);
+		UE_LOG(LogAndroid, Log, TEXT("  VulkanAvailable: %s"), *VulkanAvailable);
 		UE_LOG(LogAndroid, Log, TEXT("  VulkanVersion: %s"), *VulkanVersion);
 		UE_LOG(LogAndroid, Log, TEXT("  AndroidVersion: %s"), *AndroidVersion);
 		UE_LOG(LogAndroid, Log, TEXT("  DeviceMake: %s"), *DeviceMake);
@@ -66,7 +68,7 @@ FString const FAndroidDeviceProfileSelectorRuntimeModule::GetRuntimeDeviceProfil
 
 		CheckForJavaSurfaceViewWorkaround(DeviceMake, DeviceModel);
 
-		ProfileName = FAndroidDeviceProfileSelector::FindMatchingProfile(GPUFamily, GLVersion, AndroidVersion, DeviceMake, DeviceModel, VulkanVersion, UsingHoudini, ProfileName);
+		ProfileName = FAndroidDeviceProfileSelector::FindMatchingProfile(GPUFamily, GLVersion, AndroidVersion, DeviceMake, DeviceModel, VulkanAvailable, VulkanVersion, UsingHoudini, ProfileName);
 
 		UE_LOG(LogAndroid, Log, TEXT("Selected Device Profile: [%s]"), *ProfileName);
 	}

@@ -110,7 +110,7 @@ void FALSoundBuffer::CreateNativeBuffer(FALAudioDevice* AudioDevice, USoundWave*
 	{
 		SCOPE_CYCLE_COUNTER( STAT_AudioResourceCreationTime );
 
-		check(Wave->bIsPrecacheDone);
+		check(Wave->GetPrecacheState() == ESoundWavePrecacheState::Done);
 
 		// Create new buffer.
 		Buffer = new FALSoundBuffer(AudioDevice);

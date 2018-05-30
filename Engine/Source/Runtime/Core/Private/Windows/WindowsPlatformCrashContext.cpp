@@ -242,8 +242,37 @@ int32 ReportCrashUsingCrashReportClient(FWindowsPlatformCrashContext& InContext,
 				CrashReportClientArguments += FString(TEXT(" -DebugSymbols=")) + DownstreamStorage;
 			}
 
+			// CrashReportClient.exe should run without dragging in binaries from an inherited dll directory
+			// So, get the current dll directory for restore and clear before creating process
+			TCHAR* CurrentDllDirectory = nullptr;
+			DWORD BufferSize = (GetDllDirectory(0, nullptr) + 1) * sizeof(TCHAR);
+			
+			if (BufferSize > 0)
+			{
+				CurrentDllDirectory = (TCHAR*) FMemory::Malloc(BufferSize);
+				if (CurrentDllDirectory)
+				{
+					FMemory::Memset(CurrentDllDirectory, BufferSize, 0);
+					GetDllDirectory(BufferSize, CurrentDllDirectory);
+					SetDllDirectory(nullptr);
+				}
+			}
+
+			FString AbsCrashReportClientLog;
+			if (FParse::Value(FCommandLine::Get(), TEXT("AbsCrashReportClientLog="), AbsCrashReportClientLog))
+			{
+				CrashReportClientArguments += FString::Format(TEXT(" -abslog=\"{0}\""), { AbsCrashReportClientLog });
+			}
+
 			FString CrashClientPath = FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries"), FPlatformProcess::GetBinariesSubdirectory(), CrashReportClientExeName);
 			bCrashReporterRan = FPlatformProcess::CreateProc(*CrashClientPath, *CrashReportClientArguments, true, false, false, NULL, 0, NULL, NULL).IsValid();
+
+			// Restore the dll directory
+			if (CurrentDllDirectory)
+			{
+				SetDllDirectory(CurrentDllDirectory);
+				FMemory::Free(CurrentDllDirectory);
+			}
 		}
 
 		if (!bCrashReporterRan && !bNoDialog)
@@ -308,7 +337,10 @@ void NewReportEnsure( const TCHAR* ErrorMessage )
 	// The reason why we don't call HeartBeat() at the end of this function is that maybe this thread
 	// Never had a heartbeat checked and may not be sending heartbeats at all which would later lead to a false positives when detecting hangs.
 	FThreadHeartBeat::Get().KillHeartBeat();
-	FGameThreadHitchHeartBeat::Get().FrameStart(true);
+	if (IsInGameThread())
+	{
+		FGameThreadHitchHeartBeat::Get().FrameStart(true);
+	}
 
 	bReentranceGuard = true;
 

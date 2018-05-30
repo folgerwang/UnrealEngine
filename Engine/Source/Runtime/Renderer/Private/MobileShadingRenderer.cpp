@@ -57,13 +57,20 @@ static TAutoConsoleVariable<int32> CVarMobileForceDepthResolve(
 	TEXT("1: Depth buffer is resolved by switching out render targets and drawing with the depth texture.\n"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarMobileMoveSubmissionHintAfterTranslucency(
+	TEXT("r.Mobile.MoveSubmissionHintAfterTranslucency"),
+	1,
+	TEXT("0: Submission hint occurs after occlusion query.\n")
+	TEXT("1: Submission hint occurs after translucency. (Default)"),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
 DECLARE_CYCLE_STAT(TEXT("SceneStart"), STAT_CLMM_SceneStart, STATGROUP_CommandListMarkers);
 DECLARE_CYCLE_STAT(TEXT("SceneEnd"), STAT_CLMM_SceneEnd, STATGROUP_CommandListMarkers);
 DECLARE_CYCLE_STAT(TEXT("InitVIews"), STAT_CLMM_InitVIews, STATGROUP_CommandListMarkers);
 DECLARE_CYCLE_STAT(TEXT("BasePass"), STAT_CLMM_BasePass, STATGROUP_CommandListMarkers);
 DECLARE_CYCLE_STAT(TEXT("Occlusion"), STAT_CLMM_Occlusion, STATGROUP_CommandListMarkers);
 DECLARE_CYCLE_STAT(TEXT("Post"), STAT_CLMM_Post, STATGROUP_CommandListMarkers);
-DECLARE_CYCLE_STAT(TEXT("Translency"), STAT_CLMM_Translency, STATGROUP_CommandListMarkers);
+DECLARE_CYCLE_STAT(TEXT("Translucency"), STAT_CLMM_Translucency, STATGROUP_CommandListMarkers);
 DECLARE_CYCLE_STAT(TEXT("Shadows"), STAT_CLMM_Shadows, STATGROUP_CommandListMarkers);
 
 FMobileSceneRenderer::FMobileSceneRenderer(const FSceneViewFamily* InViewFamily,FHitProxyConsumer* HitProxyConsumer)
@@ -125,6 +132,7 @@ void FMobileSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdList)
 
 	UpdatePostProcessUsageFlags();
 
+	
 	PostInitViewCustomData();
 	
 	OnStartFrame(RHICmdList);
@@ -190,18 +198,21 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	// Dynamic vertex and index buffers need to be committed before rendering.
 	FGlobalDynamicVertexBuffer::Get().Commit();
 	FGlobalDynamicIndexBuffer::Get().Commit();
+	RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 
 	// Notify the FX system that the scene is about to be rendered.
 	if (Scene->FXSystem && !Views[0].bIsPlanarReflection && ViewFamily.EngineShowFlags.Particles)
 	{
 		Scene->FXSystem->PreRender(RHICmdList, NULL);
 	}
+	RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 
 	GRenderTargetPool.VisualizeTexture.OnStartFrame(Views[0]);
 
 	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_Shadows));
 
 	RenderShadowDepthMaps(RHICmdList);
+	RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
 
 	// This might eventually be a problem with multiple views.
 	// Using only view 0 to check to do on-chip transform of alpha.
@@ -286,7 +297,7 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		Scene->FXSystem->PostRenderOpaque(RHICmdList);
 	}
 
-	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_Translency));
+	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_Translucency));
 	if (!View.bIsPlanarReflection)
 	{
 		RenderModulatedShadowProjections(RHICmdList);
@@ -368,6 +379,16 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	if (!bKeepDepthContent)
 	{
 		RHICmdList.DiscardRenderTargets(true, true, 0);
+	}
+
+	if (DoOcclusionQueries(FeatureLevel))
+	{
+		// Optionally hint submission later to avoid render pass churn but delay query results
+		const bool bSubmissionAfterTranslucency = (CVarMobileMoveSubmissionHintAfterTranslucency.GetValueOnRenderThread() == 1);
+		if (bSubmissionAfterTranslucency)
+		{
+			RHICmdList.SubmitCommandsHint();
+		}
 	}
 	
 	if (ViewFamily.bResolveScene)
@@ -475,7 +496,15 @@ void FMobileSceneRenderer::RenderOcclusion(FRHICommandListImmediate& RHICmdList)
 
 	BeginOcclusionTests(RHICmdList, true);
 	FenceOcclusionTests(RHICmdList);
+
+	// Optionally hint submission later to avoid render pass churn but delay query results
+	const bool bSubmissionAfterTranslucency = (CVarMobileMoveSubmissionHintAfterTranslucency.GetValueOnRenderThread() == 1);
+	if (!bSubmissionAfterTranslucency)
+	{	
+		RHICmdList.SubmitCommandsHint();
+	}
 }
+
 
 void FMobileSceneRenderer::ConditionalResolveSceneDepth(FRHICommandListImmediate& RHICmdList, const FViewInfo& View)
 {
@@ -491,7 +520,9 @@ void FMobileSceneRenderer::ConditionalResolveSceneDepth(FRHICommandListImmediate
 		&& !View.bIsPlanarReflection)	// exclude depth resolve from planar reflection captures, can't do it reliably more than once per frame
 	{
 		bool bSceneDepthInAlpha = (SceneContext.GetSceneColor()->GetDesc().Format == PF_FloatRGBA);
-		bool bOnChipDepthFetch = (GSupportsShaderDepthStencilFetch || (bSceneDepthInAlpha && GSupportsShaderFramebufferFetch));
+		bool bOnChipDepthFetch = 
+			(GSupportsShaderDepthStencilFetch || 
+			(GSupportsShaderFramebufferFetch && (bSceneDepthInAlpha || IsMetalPlatform(ShaderPlatform))));
 		
 		const bool bAlwaysResolveDepth = CVarMobileAlwaysResolveDepth.GetValueOnRenderThread() == 1;
 

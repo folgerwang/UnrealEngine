@@ -329,4 +329,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Widget|Window Title Bar")
 	static void RestorePreviousWindowTitleBarState();
+
+	DECLARE_DYNAMIC_DELEGATE(FOnGameWindowCloseButtonClickedDelegate);
+
+	UFUNCTION(BlueprintCallable, Category = "Widget|Window Title Bar")
+	static void SetWindowTitleBarOnCloseClickedDelegate(FOnGameWindowCloseButtonClickedDelegate Delegate);
+
+	UFUNCTION(BlueprintCallable, Category = "Widget|Window Title Bar")
+	static void SetWindowTitleBarCloseButtonActive(bool bActive);
 };

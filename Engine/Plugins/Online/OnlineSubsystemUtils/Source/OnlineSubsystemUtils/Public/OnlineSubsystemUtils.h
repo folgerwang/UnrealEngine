@@ -94,6 +94,36 @@ public:
 	virtual FName GetOnlineIdentifier(UWorld* World, const FName Subsystem = NAME_None) const = 0;
 
 	/**
+	 * Create a TRANSPORT LAYER unique id
+	 * NOTE: Do NOT Use this for anything other than replication to non native platforms
+	 * This is NOT a shortcut for creating unique ids
+	 * 
+	 * @param Str string form an opaque unique net id
+	 * @param Type name of the online subsystem this unique id belongs to
+	 *
+	 * @return unique net id in "transport" format
+	 */
+	virtual TSharedPtr<const FUniqueNetId> CreateForeignUniqueNetId(const FString& Str, FName Type) const = 0;
+
+	/** 
+	 * Return the replication hash for a given subsystem
+	 *
+	 * @param InSubsystemName name of subsystem to retrieve hash from
+	 *
+	 * @return replication hash, or 0 if invalid/unknown
+	 */
+	virtual uint8 GetReplicationHashForSubsystem(FName SubsystemName) const = 0;
+
+	/**
+	 * Return the name of the online subsystem associated with this hash
+	 *
+	 * @param InHash replication hash for an online subsystem
+	 *
+	 * @return name of subsystem this hash belongs to
+	 */
+	virtual FName GetSubsystemFromReplicationHash(uint8 InHash) const = 0;
+
+	/**
 	 * Bind a notification delegate when any subsystem external UI is opened/closed
 	 * *NOTE* there is only meant to be one delegate needed for this, game code should bind manually
 	 *

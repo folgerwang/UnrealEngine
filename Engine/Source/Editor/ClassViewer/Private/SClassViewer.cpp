@@ -8,6 +8,7 @@
 #include "Modules/ModuleManager.h"
 #include "UObject/UObjectHash.h"
 #include "UObject/UObjectIterator.h"
+#include "UObject/CoreRedirects.h"
 #include "Misc/PackageName.h"
 #include "Widgets/SOverlay.h"
 #include "Layout/WidgetPath.h"
@@ -1933,20 +1934,22 @@ void FClassHierarchy::LoadUnloadedTagData(TSharedPtr<FClassViewerNode>& InOutCla
 	{
 		FString FullInterface;
 		FString RemainingString;
-		FString InterfaceName;
+		FString InterfacePath;
 		FString CurrentString = *ImplementedInterfaces;
 		while(CurrentString.Split(TEXT(","), &FullInterface, &RemainingString))
 		{
-			if(FullInterface.Split(TEXT("."), &CurrentString, &InterfaceName, ESearchCase::CaseSensitive, ESearchDir::FromEnd))
+			if (!CurrentString.StartsWith(TEXT("Graphs=(")))
 			{
-				if(!CurrentString.StartsWith(TEXT("Graphs=(")))
+				if (FullInterface.Split(TEXT("\""), &CurrentString, &InterfacePath, ESearchCase::CaseSensitive))
 				{
-					// The interfaces end with ' because of the path reference, so remove it.
-					InterfaceName.RemoveFromEnd("'");
+					// The interface paths in metadata end with "', so remove those
+					InterfacePath.RemoveFromEnd(TEXT("\"'"));
 
-					UnloadedBlueprintData->AddImplementedInterfaces(InterfaceName);
+					FCoreRedirectObjectName ResolvedInterfaceName = FCoreRedirects::GetRedirectedName(ECoreRedirectFlags::Type_Class, FCoreRedirectObjectName(InterfacePath));
+					UnloadedBlueprintData->AddImplementedInterface(ResolvedInterfaceName.ObjectName.ToString());
 				}
 			}
+			
 			CurrentString = RemainingString;
 		}
 	}

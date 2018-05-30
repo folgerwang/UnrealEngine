@@ -70,7 +70,13 @@ class UMaterialExpressionMaterialAttributeLayers : public UMaterialExpression
 	TArray<UMaterialExpressionMaterialFunctionCall*> LayerCallers;
 
 	UPROPERTY(Transient)
+	int32 NumActiveLayerCallers;
+
+	UPROPERTY(Transient)
 	TArray<UMaterialExpressionMaterialFunctionCall*> BlendCallers;
+
+	UPROPERTY(Transient)
+	int32 NumActiveBlendCallers;
 
 	UPROPERTY(Transient)
 	bool bIsLayerGraphBuilt;

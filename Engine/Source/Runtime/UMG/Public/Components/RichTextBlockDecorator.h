@@ -36,7 +36,7 @@ protected:
 	URichTextBlock* Owner;
 };
 
-UCLASS(Abstract, BlueprintType, EditInlineNew)
+UCLASS(Abstract, BlueprintType)
 class UMG_API URichTextBlockDecorator : public UObject
 {
 	GENERATED_BODY()

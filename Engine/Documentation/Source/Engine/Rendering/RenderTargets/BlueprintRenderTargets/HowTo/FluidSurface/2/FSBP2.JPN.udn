@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:3259022
+﻿INTSourceChangelist:3782314
 availability:Public
-title:2.必要なアセットの作成と設定
+title:2. 必要なアセットの作成と設定
 description:Fluid Surface ブループリントで必要なアセットの作成と設定の説明
 crumbs:%ROOT%, Engine, Engine\Rendering\RenderTargets
 version:4.13
@@ -17,7 +17,7 @@ checkpoint:FSB
 流体サーフェスを正しく機能させるには、新しいアセットを作成する必要があります。ハイト フィールド ペインター用に作成したアセットもいくつか使用します。次のセクションでは、これらのアセットの設定方法と、使用する必要のある特別なプロパティについて説明します。 
 
 ## レンダー ターゲットの作成と設定
-流体サーフェスを正しく機能させるには、レンダー ターゲットを新規作成する必要があります。手順は、**コンテンツ ブラウザ** の右クリックで表示されるメニューから **[Create Advanced Asset (詳細アセットの作成)]** > **[Materials & Textures (マテリアルとテクスチャ)]** を選んで **[Render Target]** オプションを選択します。
+流体サーフェスを正しく機能させるには、レンダー ターゲットを新規作成する必要があります。手順は、**コンテンツ ブラウザ** の右クリック メニューから **[Create Advanced Asset (詳細アセットの作成)]** > **[Materials & Textures (マテリアルとテクスチャ)]**、そして **[Render Target]** オプションを選択します。
 
 ![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_RT_Creation_00.png)
 
@@ -31,13 +31,13 @@ checkpoint:FSB
 ![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\FS_Render_Targets.png)
 
 ## マテリアルの作成と設定
-流体シミュレーションを使用するには、水用とハイトマップ シミュレーション用にそれぞれ 1 つずつ、合わせて 2 つのマテリアルを新規作成する必要があります。マテリアルを作成するには、**コンテンツ ブラウザ** をクリックして **[Create Basic Assets (基本アセットを作成)]** リストから [Material] オプションを選択します。
+流体シミュレーションを機能させるには、水とハイトマップ シミュレーションのそれぞれにマテリアルを 1 つずつ、合計 2 つのマテリアルを新規作成する必要があります。マテリアルを作成するには、**コンテンツ ブラウザ** を右クリックして **[Create Basic Assets (基本アセットを作成)]** リストから [Material] オプションを選択します。
 
 [region:note]
-必ずブループリントをコンパイルおよび保存して使えるようにしてください。
+ブループリントは必ずコンパイルおよび保存して、使える状態にしておきましょう。
 [/region]
 
-* **WaterMaterial** は、サーフェスを水のような外見と動きにします。WaterMaterial マテリアルを作成する前に、WaterMaterial マテリアルの **[Details (詳細)]** パネルで、以下のオプションが設定されているか確認してください。
+* **WaterMaterial** は、サーフェスに水のような外観と動きを与えるマテリアルです。WaterMaterial マテリアルを作成する前に、WaterMaterial マテリアルの **[Details (詳細)]** パネルで、以下のオプションが設定されていることを確認してください。
 	* **Blend Mode:** Translucent
 	* **Lighting Mode:** Surface Translucency Volume
 	* **Used with Static Lighting:** True
@@ -48,7 +48,7 @@ checkpoint:FSB
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\2\#WaterMaterial]
 	[/REGION]
 
-* **HeightSim** は、流体シミュレーションのサーフェスに向かって発砲した時に、様々な波を起こすマテリアルです。HeightSim マテリアルを作成する前に、HeightSim マテリアルの **[Details (詳細)]** パネルで、以下のオプションが設定されているか確認してください。
+* **HeightSim** は、流体シミュレーションのサーフェスに向かって発砲した時に、さまざまな種類の波を発生させるマテリアルです。HeightSim マテリアルを作成する前に、HeightSim マテリアルの **[Details (詳細)]** パネルで、以下のオプションが設定されていることを確認してください。
 	* **[Shading Model]:** Unlit (ライティング無し)
 	* **Allow Negative Emissive Color:** True
 
@@ -56,7 +56,7 @@ checkpoint:FSB
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\2\#HeightSim]
 	[/REGION]
 
-* **ComputeNormal** マテリアルは、水のサーフェスに必要となる法線を作成します。ComputeNormal マテリアルを作成する前に、ComputeNormal マテリアルの **[Details (詳細)]** パネルで、以下のオプションが設定されているか確認してください。
+* **ComputeNormal** マテリアルは、水のサーフェスに必要となる法線を作成するマテリアルです。ComputeNormal マテリアルを作成する前に、ComputeNormal マテリアルの **[Details (詳細)]** パネルで、以下のオプションが設定されていることを確認してください。
 	* **[Shading Model]:** Unlit (ライティング無し)
 	* **Allow Negative Emissive Color:** True
 
@@ -64,18 +64,18 @@ checkpoint:FSB
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\2\#CompNormal]
 	[/REGION]
 
-* **MAT_ForceSplat** は、衝撃を受ける場所と大きさを決定するマテリアルです。MAT_ForceSplat マテリアルを作成する前に、MAT_ForceSplat マテリアルの **[Details (詳細)]** パネルで、以下のオプションが設定されているか確認してください。 
-	* **Blend Mode:** Additive
+* **MAT_ForceSplat** は、衝撃を受ける場所と衝撃の大きさを決定するマテリアルです。MAT_ForceSplat マテリアルを作成する前に、MAT_ForceSplat マテリアルの **[Details (詳細)]** パネルで、以下のオプションが設定されていることを確認してください。 
 
+	* **Blend Mode:** Additive
 	* **[Shading Model]:** Unlit (ライティング無し)
-	* **Allow Negative Emissive Color:** Checked
+	* **Allow Negative Emissive Color:** チェックを入れる
 
 	[REGION:fullwidth]
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\2\#ForceSplat]
 	[/REGION]
 
 	[region:note]
-	MAT_ForceSplat マテリアルは [ハイトフィールド ペインター](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter) で使われているマテリアルと同じものです。このマテリアルを既に作成していれば、それを使用することができます。 
+	MAT_ForceSplat マテリアルは [ハイトフィールド ペインター](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter) で使われているマテリアルと同じものです。作成済みのマテリアルをお持ちであれば、自由に使用してください。 
 	[/region]
 
 

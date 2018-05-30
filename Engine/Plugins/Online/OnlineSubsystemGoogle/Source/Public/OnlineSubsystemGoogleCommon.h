@@ -12,6 +12,22 @@ typedef TSharedPtr<class FOnlineIdentityGoogleCommon, ESPMode::ThreadSafe> FOnli
 typedef TSharedPtr<class FOnlineExternalUIGoogleCommon, ESPMode::ThreadSafe> FOnlineExternalUIGoogleCommonPtr;
 
 /**
+ * Configuration structure for overriding auth id parameters required by Google
+ */
+class FGoogleAuthConfig
+{
+public:
+	FGoogleAuthConfig() {}
+
+	/** 
+	 * Backend Name
+	 *
+	 * Added to [OnlineSubsystemGoogle <Backend>] to search the ini for specific overrides
+	 */
+	FString Backend;
+};
+
+/**
  *	OnlineSubsystemGoogleCommon - Implementation of the online subsystem for Google services
  */
 class ONLINESUBSYSTEMGOOGLE_API FOnlineSubsystemGoogleCommon 
@@ -61,11 +77,23 @@ public:
 	 */
 	virtual ~FOnlineSubsystemGoogleCommon();
 
+	/**
+	 * Delegate fired at initialization allowing the application to override the configuration parameters 
+	 *
+	 * @param ConfigOverride unused
+	 * @param OutConfig config parameters needed to be filled in in order to override the default engine ini settings
+	 */
+	DECLARE_DELEGATE_TwoParams(FGoogleConfigurationDelegate, const FString& /*ConfigOverride*/, FGoogleAuthConfig& /*OutConfig*/);
+	static FOnlineSubsystemGoogleCommon::FGoogleConfigurationDelegate& GetConfigurationDelegate();
+
 PACKAGE_SCOPE:
 
 	/** Only the factory makes instances */
 	FOnlineSubsystemGoogleCommon();
 	FOnlineSubsystemGoogleCommon(FName InInstanceName);
+
+	/** @return the backend server client id */
+	FString GetClientId() const { return ClientId; }
 
 	/** @return the backend server client id */
 	FString GetServerClientId() const { return ServerClientId; }

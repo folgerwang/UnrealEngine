@@ -486,7 +486,7 @@ namespace UnrealBuildTool
 			{
 				MinSourceFilesForUnityBuild = Rules.MinSourceFilesForUnityBuildOverride;
 			}
-			else if (!Rules.bTreatAsEngineModule)
+			else if (Target.ProjectFile != null && RulesFile.IsUnderDirectory(DirectoryReference.Combine(Target.ProjectFile.Directory, "Source")))
 			{
 				// Game modules with only a small number of source files are usually better off having faster iteration times
 				// on single source file changes, so we forcibly disable unity build for those modules

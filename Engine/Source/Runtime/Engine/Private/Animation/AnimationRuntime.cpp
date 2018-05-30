@@ -1726,45 +1726,73 @@ void FAnimationRuntime::RetargetBoneTransform(const USkeleton* MySkeleton, const
 	{
 		switch (MySkeleton->GetBoneTranslationRetargetingMode(SkeletonBoneIndex))
 		{
-		case EBoneTranslationRetargetingMode::AnimationScaled:
-		{
-			// @todo - precache that in FBoneContainer when we have SkeletonIndex->TrackIndex mapping. So we can just apply scale right away.
-			const TArray<FTransform>& SkeletonRefPoseArray = MySkeleton->GetRefLocalPoses(RetargetSource);
-			const float SourceTranslationLength = SkeletonRefPoseArray[SkeletonBoneIndex].GetTranslation().Size();
-			if (SourceTranslationLength > KINDA_SMALL_NUMBER)
+			case EBoneTranslationRetargetingMode::AnimationScaled:
 			{
-				const float TargetTranslationLength = RequiredBones.GetRefPoseTransform(BoneIndex).GetTranslation().Size();
-				BoneTransform.ScaleTranslation(TargetTranslationLength / SourceTranslationLength);
+				// @todo - precache that in FBoneContainer when we have SkeletonIndex->TrackIndex mapping. So we can just apply scale right away.
+				const TArray<FTransform>& SkeletonRefPoseArray = MySkeleton->GetRefLocalPoses(RetargetSource);
+				const float SourceTranslationLength = SkeletonRefPoseArray[SkeletonBoneIndex].GetTranslation().Size();
+				if (SourceTranslationLength > KINDA_SMALL_NUMBER)
+				{
+					const float TargetTranslationLength = RequiredBones.GetRefPoseTransform(BoneIndex).GetTranslation().Size();
+					BoneTransform.ScaleTranslation(TargetTranslationLength / SourceTranslationLength);
+				}
+				break;
 			}
-			break;
-		}
 
-		case EBoneTranslationRetargetingMode::Skeleton:
-		{
-			BoneTransform.SetTranslation(bIsBakedAdditive ? FVector::ZeroVector : RequiredBones.GetRefPoseTransform(BoneIndex).GetTranslation());
-			break;
-		}
-
-
-		case EBoneTranslationRetargetingMode::AnimationRelative:
-		{
-			// With baked additive animations, Animation Relative delta gets canceled out, so we can skip it.
-			// (A1 + Rel) - (A2 + Rel) = A1 - A2.
-			if (!bIsBakedAdditive)
+			case EBoneTranslationRetargetingMode::Skeleton:
 			{
-				const TArray<FTransform>& AuthoredOnRefSkeleton = MySkeleton->GetRefLocalPoses(RetargetSource);
-				const TArray<FTransform>& PlayingOnRefSkeleton = RequiredBones.GetRefPoseArray();
-
-				const FTransform& RefPoseTransform = RequiredBones.GetRefPoseTransform(BoneIndex);
-
-				// Apply the retargeting as if it were an additive difference between the current skeleton and the retarget skeleton. 
-				BoneTransform.SetRotation(BoneTransform.GetRotation() * AuthoredOnRefSkeleton[SkeletonBoneIndex].GetRotation().Inverse() * RefPoseTransform.GetRotation());
-				BoneTransform.SetTranslation(BoneTransform.GetTranslation() + (RefPoseTransform.GetTranslation() - AuthoredOnRefSkeleton[SkeletonBoneIndex].GetTranslation()));
-				BoneTransform.SetScale3D(BoneTransform.GetScale3D() * (RefPoseTransform.GetScale3D() * AuthoredOnRefSkeleton[SkeletonBoneIndex].GetSafeScaleReciprocal(AuthoredOnRefSkeleton[SkeletonBoneIndex].GetScale3D())));
-				BoneTransform.NormalizeRotation();
+				BoneTransform.SetTranslation(bIsBakedAdditive ? FVector::ZeroVector : RequiredBones.GetRefPoseTransform(BoneIndex).GetTranslation());
+				break;
 			}
-			break;
-		}
+
+			case EBoneTranslationRetargetingMode::AnimationRelative:
+			{
+				// With baked additive animations, Animation Relative delta gets canceled out, so we can skip it.
+				// (A1 + Rel) - (A2 + Rel) = A1 - A2.
+				if (!bIsBakedAdditive)
+				{
+					const TArray<FTransform>& AuthoredOnRefSkeleton = MySkeleton->GetRefLocalPoses(RetargetSource);
+					const TArray<FTransform>& PlayingOnRefSkeleton = RequiredBones.GetRefPoseCompactArray();
+
+					const FTransform& RefPoseTransform = RequiredBones.GetRefPoseTransform(BoneIndex);
+
+					// Apply the retargeting as if it were an additive difference between the current skeleton and the retarget skeleton. 
+					BoneTransform.SetRotation(BoneTransform.GetRotation() * AuthoredOnRefSkeleton[SkeletonBoneIndex].GetRotation().Inverse() * RefPoseTransform.GetRotation());
+					BoneTransform.SetTranslation(BoneTransform.GetTranslation() + (RefPoseTransform.GetTranslation() - AuthoredOnRefSkeleton[SkeletonBoneIndex].GetTranslation()));
+					BoneTransform.SetScale3D(BoneTransform.GetScale3D() * (RefPoseTransform.GetScale3D() * AuthoredOnRefSkeleton[SkeletonBoneIndex].GetSafeScaleReciprocal(AuthoredOnRefSkeleton[SkeletonBoneIndex].GetScale3D())));
+					BoneTransform.NormalizeRotation();
+				}
+				break;
+			}
+
+			case EBoneTranslationRetargetingMode::OrientAndScale:
+			{
+				if (!bIsBakedAdditive)
+				{
+					const FRetargetSourceCachedData& RetargetSourceCachedData = RequiredBones.GetRetargetSourceCachedData(RetargetSource);
+					const TArray<FOrientAndScaleRetargetingCachedData>& OrientAndScaleDataArray = RetargetSourceCachedData.OrientAndScaleData;
+					const TArray<int32>& CompactPoseIndexToOrientAndScaleIndex = RetargetSourceCachedData.CompactPoseIndexToOrientAndScaleIndex;
+
+					// If we have any cached retargeting data.
+					if ((OrientAndScaleDataArray.Num() > 0) && (CompactPoseIndexToOrientAndScaleIndex.Num() == RequiredBones.GetCompactPoseNumBones()))
+					{
+						const int32 OrientAndScaleIndex = CompactPoseIndexToOrientAndScaleIndex[BoneIndex.GetInt()];
+						if (OrientAndScaleIndex != INDEX_NONE)
+						{
+							const FOrientAndScaleRetargetingCachedData& OrientAndScaleData = OrientAndScaleDataArray[OrientAndScaleIndex];
+							const FVector AnimatedTranslation = BoneTransform.GetTranslation();
+
+							// If Translation is not animated, we can just copy the TargetTranslation. No retargeting needs to be done.
+							const FVector NewTranslation = (AnimatedTranslation - OrientAndScaleData.SourceTranslation).IsNearlyZero(BONE_TRANS_RT_ORIENT_AND_SCALE_PRECISION) ?
+								OrientAndScaleData.TargetTranslation :
+								OrientAndScaleData.TranslationDeltaOrient.RotateVector(AnimatedTranslation) * OrientAndScaleData.TranslationScale;
+
+							BoneTransform.SetTranslation(NewTranslation);
+						}
+					}
+				}
+				break;
+			}
 		}
 	}
 }

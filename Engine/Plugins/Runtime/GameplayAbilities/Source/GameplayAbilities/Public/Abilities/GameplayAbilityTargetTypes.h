@@ -151,6 +151,10 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData
 		return false;
 	}
 
+	virtual void ReplaceHitWith(AActor* NewHitActor, const FHitResult* NewHitResult)
+	{
+		// Intended to be implemented in derived structs.
+	}
 };
 
 UENUM(BlueprintType)
@@ -603,6 +607,15 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData_SingleTargetHit : public
 	virtual FVector GetEndPoint() const override
 	{
 		return HitResult.Location;
+	}
+
+	virtual void ReplaceHitWith(AActor* NewHitActor, const FHitResult* NewHitResult)
+	{
+		HitResult = FHitResult();
+		if (NewHitResult != nullptr)
+		{
+			HitResult = *NewHitResult;
+		}
 	}
 
 	// -------------------------------------

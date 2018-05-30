@@ -1,23 +1,19 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Layout/SlateRect.h"
-#include "Layout/Margin.h"
 
-
-/* FSlateRect interface
- *****************************************************************************/
-
-FSlateRect FSlateRect::InsetBy( const FMargin& InsetAmount ) const
+FString FSlateRect::ToString() const
 {
-	return FSlateRect(Left + InsetAmount.Left, Top + InsetAmount.Top, Right - InsetAmount.Right, Bottom - InsetAmount.Bottom);
+	return FString::Printf(TEXT("Left=%3.3f Top=%3.3f Right=%3.3f Bottom=%3.3f"), Left, Top, Right, Bottom);
 }
 
-FSlateRect FSlateRect::ExtendBy(const FMargin& InsetAmount) const
+bool FSlateRect::InitFromString(const FString& InSourceString)
 {
-	return FSlateRect(Left - InsetAmount.Left, Top - InsetAmount.Top, Right + InsetAmount.Right, Bottom + InsetAmount.Bottom);
-}
+	// The initialization is only successful if the values can all be parsed from the string
+	const bool bSuccessful = FParse::Value(*InSourceString, TEXT("Left="), Left) &&
+		FParse::Value(*InSourceString, TEXT("Top="), Top) &&
+		FParse::Value(*InSourceString, TEXT("Right="), Right) &&
+		FParse::Value(*InSourceString, TEXT("Bottom="), Bottom);
 
-FSlateRect FSlateRect::OffsetBy(const FVector2D& OffsetAmount) const
-{
-	return FSlateRect(GetTopLeft() + OffsetAmount, GetBottomRight() + OffsetAmount);
+	return bSuccessful;
 }

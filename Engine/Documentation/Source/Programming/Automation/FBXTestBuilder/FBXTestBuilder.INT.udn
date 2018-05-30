@@ -134,7 +134,7 @@ For each Test Plan, a list of **Expected Results** will be evaluated to determin
 [INCLUDE:#expectedpresettype]
 [EXCERPT:expectedpresettype]
 | Check Type | Description | Required Data Types |
-| --- | --- |
+| --- | --- | --- |
 | **Error Number** | Data should contain the number of error [int0]. | Integer | 
 | **Warning Number** | Data should contain the number of warning [int0]. | Integer |
 | **Created Static Mesh Number** | Data should contain the number of Static Mesh created [int0]. | Integer |

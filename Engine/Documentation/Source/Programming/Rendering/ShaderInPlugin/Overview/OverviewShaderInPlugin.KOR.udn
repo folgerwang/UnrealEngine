@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810467
 Availability:Public
 Crumbs: %ROOT%
 Title: 플러그인 내 셰이더 개요
@@ -284,11 +284,11 @@ C/C++ 파일과 동일하게, #include "HelloWorld.usf" 로 usf 파일을 포함
 |셰이더 도메인 | 접미사 |
 |-------------- |--------|
 |**Vertex Shader**  |VS|
-|**Hull Shader **   |HS|
+|**Hull Shader**   |HS|
 |**Domain Shader**  |DS|
 |**Geometry Shader**|GS|
-|**Pixel Shader  ** |PS|
-|**Compute Shader **|CS|
+|**Pixel Shader** |PS|
+|**Compute Shader**|CS|
 
 예를 들어, C++ 파일에서, **FLensDistortionUVGenerationVS** 호출 끝에 붙은 VS 는 버텍스 셰이더의 약자입니다. USF 파일 네 **void MainVS(...)** 끝에 붙은 VS 는 버텍스 셰이더를 사용할 것임을 나타냅니다. HLSL 구조체 관련해서도, FBasePassInterpolators 처럼 구조체 이름이 **F** 로 시작합니다.
 

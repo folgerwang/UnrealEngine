@@ -13,7 +13,7 @@ Version: 4.9
 이번 튜토리얼에서는 **시작용 콘텐츠** 를 포함한 **블루프린트 일인칭** 템플릿을 사용합니다.
 [/REGION]
 
-1. **콘텐츠 브라우저** 안에서 **Geometry** > **Meshes** 폴더로 이동하여 **1M_Cube** 스태틱 메시를 선택합니다.
+1. **콘텐츠 브라우저** 안에서 **Geometry** - **Meshes** 폴더로 이동하여 **1M_Cube** 스태틱 메시를 선택합니다.
 
 	![](Pick_SM_For_Des.png)
 
@@ -22,7 +22,7 @@ Version: 4.9
 	![](Create_Des_Mesh.png)
 
 1. **디스트럭터블 메시 에디터** 탭에서 **프랙처 세팅** 을 찾아 **[Voronoi](https://en.wikipedia.org/wiki/Voronoi_diagram)** 섹션 아래 **Cell Site Count** 를 25 에서 **50** 으로 변경하여 파괴 조각 수를 늘린 다음,
-**Random Seed** 를 **240** 으로 설정하여 약간 다변화시킵니다.
+**Random Seed** 를 **240** 으로 설정하여 약간 변화를 줍니다.
 
 	![](Setting_Up_Fracture.png)
 

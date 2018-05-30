@@ -635,6 +635,8 @@ bool FVoiceCaptureWindows::CreateNotifications(uint32 BufferSize)
 
 bool FVoiceCaptureWindows::Tick(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FVoiceCaptureWindows_Tick);
+
 	if (VoiceCaptureState != EVoiceCaptureState::UnInitialized &&
 		VoiceCaptureState != EVoiceCaptureState::NotCapturing)
 	{

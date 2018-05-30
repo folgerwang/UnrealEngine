@@ -388,6 +388,9 @@ public:
 	/** Gets package names to add to the cook, and packages to never cook even if in startup set memory or referenced */
 	virtual void ModifyCook(TArray<FName>& PackagesToCook, TArray<FName>& PackagesToNeverCook);
 
+	/** Returns whether or not a specific UPackage should be cooked for the provied TargetPlatform */
+	virtual bool ShouldCookForPlatform(const UPackage* Package, const ITargetPlatform* TargetPlatform);
+
 	/** Returns cook rule for a package name using Management rules, games should override this to take into account their individual workflows */
 	virtual EPrimaryAssetCookRule GetPackageCookRule(FName PackageName) const;
 

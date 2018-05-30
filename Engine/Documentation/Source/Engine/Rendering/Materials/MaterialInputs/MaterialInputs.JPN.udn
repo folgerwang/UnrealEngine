@@ -1,9 +1,15 @@
-﻿INTSourceChangelist:2699495
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:Material 入力			
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/IntroductionToMaterials
 Description:マテリアルに利用可能なさまざまな入力ポートの詳細とその使用方法
 Version:4.9
+parent:Engine/Rendering/Materials
+order:5
+topic-image:Engine/Rendering/Materials/MaterialInputsTopic.png
+type:reference
+tags:Materials
+
 
 ここではマテリアル作成時に利用可能な入力ポートに注目していきます。これらの入力ポートに値を入力する (定数、パラメータ、テクスチャなどとして) ことによって、思いつくほとんどの物理表面を定義することができます。
 
@@ -21,38 +27,36 @@ Version:4.9
 幸運なことに、どのマテリアル タイプにどの入力ポートが必要かを推測する作業は、アンリアル・エンジン 4 から除外されています。マテリアルのこれらの設定を変更すると、使用できる入力ポートが更新され、必要のない入力ポートが無効になります。
 
 
-## Base Color (基本色) 
+## Base Color （基本色） 
 
 [INCLUDE:Engine/Rendering/Materials\PhysicallyBased#BaseColor]
 
 
 
-## Metallic (メタリック)
+## Metallic （メタリック）
 
 [INCLUDE:Engine/Rendering/Materials\PhysicallyBased#Metallic] 
 
 ![](Engine/Rendering/Materials\PhysicallyBased\Metallic_21.png)
 
-## Specular (スペキュラ)
+## スペキュラ
 
 [INCLUDE:Engine/Rendering/Materials\PhysicallyBased#Specular]
 
 ![](Engine/Rendering/Materials\PhysicallyBased\Specular_21.png)
 
 
-## Roughness (ラフネス)
+## Roughness （ラフネス）
 
 [INCLUDE:Engine/Rendering/Materials\PhysicallyBased#Roughness]
 
 [INCLUDE:Engine/Rendering/Materials\PhysicallyBased#RoughnessMap]
 
-[EXCERPT:lightbox]
 **クリックしてフルサイズで表示**
 
 [REGION:lightbox]
 [![](Engine/Rendering/Materials\PhysicallyBased/RoughBias_12.png)(w:935)](Engine/Rendering/Materials\PhysicallyBased/RoughBias_12.png)
 [/REGION]
-[/EXCERPT:lightbox]
 
 ## Emissive Color (エミッシブ色)
 
@@ -61,16 +65,14 @@ Version:4.9
 
 値が 1 より大きいと、HDR ライティングとしてサポートされます。
 
-[EXCERPT:lightbox]
 **クリックしてフルサイズで表示**
 
 [REGION:lightbox]
 [![](Emissive_21.png)(w:935)](Emissive_21.png)
 [/REGION]
-[/EXCERPT:lightbox]
 [/EXCERPT:Emissive]
 
-## Opacity (オパシティ)
+## Opacity （オパシティ）
 
 [EXCERPT:Opacity]
 [Translucent Blend Mode](Engine/Rendering/Materials\MaterialProperties\BlendModes#Translucent) を使用する場合は **Opacity** 入力が使用されます。以下の条件で 0 と 1 の間の値の入力が有効になります。
@@ -80,13 +82,11 @@ Version:4.9
 
 サブサーフェス シェーディング モデルのどれかを使う場合、不透明でマスクされたブレンド モードも Opacity を使います。
 
-[EXCERPT:lightbox]
 **クリックしてフルサイズで表示**
 
 [REGION:lightbox]
 [![](TranslucencyImage.png)(w:935)](TranslucencyImage.png)
 [/REGION]
-[/EXCERPT:lightbox]
 
 Opacity は主に、 _半透明_ 、 _加算_ 、 _変調マテリアル_ に使用します。
 [/EXCERPT:Opacity]
@@ -99,17 +99,15 @@ Opacity は主に、 _半透明_ 、 _加算_ 、 _変調マテリアル_ に使
 
 **Opacity Mask Clip Value** プロパティをベースの Material ノードに使用して、クリッピングが生じる場所を制御することができます。詳細は [Material Blend モード](Engine/Rendering/Materials\MaterialProperties\BlendModes#Masked) を参照してください。
 
-[EXCERPT:lightbox]
 **クリックしてフルサイズで表示**
 
 [REGION:lightbox]
 [![](MaskedChainlink.png)(w:935)](Engine/Rendering/Materials\MaterialInputs/MaskedChainlink.png)
 [/REGION]
-[/EXCERPT:lightbox]
 
 [/EXCERPT:OpacityMask]
 
-## Normal
+## Normal （法線）
 
 [EXCERPT:Normal]
 **Normal** 入力は法線マップを受け取り、各ピクセルの「法線」または対向方向を摂動して、表面に多くの物理的な詳細を与えます。 
@@ -137,7 +135,7 @@ Opacity は主に、 _半透明_ 、 _加算_ 、 _変調マテリアル_ に使
 上記ネットワークは、らせん運動と上下への波打ちをオブジェクトに対して同時に実行し、ダンスをしているような動作を引き起こします。
 
 [REGION:warning]
-World Position Offset を使用して元の範囲を超えてオブジェクトを展開する時、オクルージョン カリングは元の範囲を使用していることに留意してください。つまり、カリングおよびシャドウイング エラーが発生するかもしれません。パフォーマンスの妨げとなりシャドーイング エラーに繋がる恐れもありますが、メッシュのプロパティの **Scale Bounds** プロパティを設定してこれを補います。
+World Position Offset を使用して元の範囲を超えてオブジェクトを展開する時、オクルージョン カリングは元の範囲を使用していることに留意してください。つまり、カリングおよびシャドウイング エラーが発生するかもしれません。メッシュのプロパティの **Scale Bounds** プロパティを設定して調整してください。ただし、パフォーマンスの妨げとなりシャドーイング エラーが起こる可能性があります。
 [/REGION]
 
 [/EXCERPT:WPO]
@@ -161,12 +159,12 @@ World Position Offset を使用して元の範囲を超えてオブジェクト�
 
 
 [REGION:warning]
-World Position Offset を使用して元の範囲を超えてオブジェクトを展開する時、オクルージョン カリングは元の範囲を使用していることに留意してください。つまり、カリングおよびシャドウイング エラーが発生するかもしれません。メッシュのプロパティの **Scale Bounds** プロパティを設定して調整してください。ただし、パフォーマンスの妨げとなりシャドーイング エラーが起こる可能性があります。
+World Displacement を使用して元の範囲を超えてオブジェクトを展開する時、オクルージョン カリングは元の範囲を使用していることに留意してください。つまり、カリングおよびシャドウイング エラーが発生するかもしれません。メッシュのプロパティの **Scale Bounds** プロパティを設定して調整してください。ただし、パフォーマンスの妨げとなりシャドーイング エラーが起こる可能性があります。
 [/REGION]
 
 [/EXCERPT:WorldDispAndTess]
 
-## Subsurface Color (サブサーフェス カラー)
+## Subsurface Color （サブサーフェス カラー）
 
 [EXCERPT:SubsurfColor]
 Subsurface Color入力は、 [Shading Model](Engine/Rendering/Materials\MaterialProperties\LightingModels) プロパティが Subsurface に設定されているときのみ有効になります。この入力は、表面を通過するライトに色の変化をシミュレートするために Material ノードへ色を追加します。例えば、人間のキャラクターの皮膚表面下を流れる血液をシミュレートするには、表皮に赤のサブサーフェスカラーを使用します。
@@ -179,7 +177,7 @@ Subsurface Color入力は、 [Shading Model](Engine/Rendering/Materials\Material
 
 [/EXCERPT:SubsurfColor]
 
-## Ambient Occlusion (環境オクルージョン)
+## アンビエント オクルージョン （AO）
 
 環境オクルージョンは表面の隙間内に生じる、セルフシャドーイングのシミュレーションを行うために使用します。一般的に、この入力は何らかのタイプの AP マップへ接続します。 Maya 、 3ds Max 、 ZBrush などの 3D モデリング パッケージ内でよく作成されます。
 
@@ -206,7 +204,7 @@ Refraction 入力は、表面の屈折インデックスをシミュレーショ
 
 [/EXCERPT:Refraction]
 
-## Clear Coat (クリアコート)
+## [Clear Coat]
 
 Clear Coat Shading Model は、マテリアルのサーフェス上に薄い半透明層のフィルムを持つマルチレイヤーのマテリアルを、より適切にシミュレーションするために使用できます。
 それ以外にも、金属、非金属のサーフェスで使用できます。実際、無色系の金属マテリアルの上に 
@@ -216,7 +214,7 @@ Clear Coat Shading Model は、マテリアルのサーフェス上に薄い半�
 
 Clear Coat Shading Model は、Main Material ノード上に新しい Material 入力を 2 つ開きます。 
 
-**Clear Coat**:クリアコート層の量を調整します。0 にすると、スタンダードなシェイディングモデルとおなじになります。1 でクリアコート層がフルにかかります。このパラメータはマスク素材と相性がいいです。 
+**Clear Coat**:クリアコート層の量を調整します。0 にすると、スタンダードなシェーディングモデルとおなじになります。1 でクリアコート層が 100 % かかります。このパラメータはマスク素材と相性がいいです。 
 
 **Clear Coat Roughness**:クリアコート レイヤーのラフネス (拡散具合) を調節します。小さい値に対して精度の高い近似値を使います。非常にラフなクリアコート レイヤーもサポートされていますが、現実世界のクリアコートほど精度は高くなりません。 
 

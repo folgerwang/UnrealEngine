@@ -25,8 +25,12 @@ protected:
 	EVisibility IsUseLandscapeCullingVisible() const;
 	EVisibility IsUseLandscapeCullingPrecisionVisible() const;
 	EVisibility IsMergeDistanceVisible() const;
+	EVisibility IsUnresolvedGeometryColorVisible() const;
 	EVisibility IsVoxelSizeVisible() const;
+	EVisibility IsNormalCalcMethodVisible() const;
+	EVisibility IsSearchDistanceVisible() const;
 
 	EVisibility IsThirdPartySpecificVisible() const;
+	EVisibility IsProxyLODSpecificVisible() const;
 	bool UseNativeProxyLODTool() const;
 };

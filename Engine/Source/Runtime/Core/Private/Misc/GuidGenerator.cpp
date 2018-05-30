@@ -19,6 +19,8 @@
 ** this software for any purpose.
 */
 
+#include "CoreTypes.h"
+
 #ifdef __GNUC__
 
 #include <sys/types.h>

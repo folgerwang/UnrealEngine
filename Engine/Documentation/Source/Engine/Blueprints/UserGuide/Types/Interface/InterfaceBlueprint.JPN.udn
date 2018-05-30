@@ -1,51 +1,14 @@
-﻿INTSourceChangelist:2695775
-Availability:Public
+﻿Availability:Public
 Title:ブループリント インターフェース
 Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/UserGuide/Types
 Description:ブループリント間のインターフェースの定義に関数を宣言するブループリント
-Related:Engine\Blueprints\UserGuide\BlueprintCommsUsage
-Related:Engine\Blueprints\UserGuide\BlueprintCommsUsage\BPComHowTo
-Related:Engine\Blueprints\UserGuide\EventDispatcher
-Related:Engine\Blueprints\UserGuide\BlueprintComms
+related:Engine/Blueprints/UserGuide/BlueprintCommsUsage
+related:Engine/Blueprints/UserGuide/BlueprintCommsUsage/BPComHowTo
+related:Engine/Blueprints/UserGuide/EventDispatcher
+related:Engine/Blueprints/UserGuide/BlueprintComms
 version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints\UserGuide\Types\Interface:title%](Engine/Blueprints/UserGuide/Types/blueprint_interface.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints\UserGuide\Types\Interface:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints\UserGuide\Types\Interface:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints\UserGuide\Types\Interface]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints\UserGuide\Types\Interface:title%](Engine/Blueprints/UserGuide/Types/blueprint_interface.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints\UserGuide\Types\Interface:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints\UserGuide\Types\Interface:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints\UserGuide\Types\Interface]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/Types/blueprint_interface.png
 
 [TOC (start:2)]
 
@@ -54,7 +17,7 @@ version:4.9
 他のブループリントへ追加することができます。インターフェースが追加されたブループリントには、必ずこれらの関数が格納されます。インターフェースの 
 関数には、追加されるそれぞれのブループリントで機能性が与えられます。一般のプログラミングの 
 インターフェースのコンセプトと基本的に一緒で、共通のインターフェースを通じてさまざまなタイプのオブジェクトの 
-共有やアクセスが可能となります。簡単に言うと、ブループリントの相互共有やデータの送信を、ブループリントインターフェースが可能にします。
+共有やアクセスが可能となります。簡単に言うと、ブループリント インターフェースはブループリントの相互共有やデータの送信を可能にします。
 
 ブループリント インターフェースは他のブループリントと同様に、エディタを使用してコンテンツ クリエーターが作成します。 
 しかしある程度の制限があり以下の作業はできません。
@@ -67,10 +30,10 @@ version:4.9
 [/EXCERPT:Intro]
 
 ブループリント インターフェースの使用により、ある特有の機能性を共有する複数の異種タイプのオブジェクトの相互作用に 
-共通のメソッドを使用することができます。つまり車や木など、狙撃されてダメージを受けるといったある特定の共通項はあるものの、 
-まったく異なるタイプのオブジェクトを持つことができます。`OnTakeWeaponFire`関数を格納するブループリントインターフェースを作成し、 
-車と木の両方のオブジェクトを作成したブループリント インターフェースへ実装することによって、 
-車と木を同タイプのオブジェクトとみなし、いずれかが撃たれた時に OnTakeWeaponFire 関数を呼ぶことができます。ブループリント インターフェースの実装方法については、
+共通メソッドを使用することができます。つまり車や木など、狙撃されてダメージを受けるといったある特定の共通項はあるものの、 
+まったく異なるタイプのオブジェクトを持つことができます。 `OnTakeWeaponFire` 関数を格納するブループリント インターフェースを作成し、 
+車と木の両オブジェクトを作成したブループリント インターフェースへ実装することによって、 
+車と木を同タイプのオブジェクトとみなし、いずれかが撃たれた時に`OnTakeWeaponFire` 関数を呼び出すことができます。ブループリント インターフェースの実装方法については、
 [](Engine/Blueprints\UserGuide\Types\Interface\UsingInterfaces) ページのブループリント インターフェースを参照してください。
 
 ## ブループリント インターフェースの作成
@@ -99,7 +62,7 @@ version:4.9
 
 新規の関数の追加は、以下のように行います。
 
-1. 関数リストヘッダー ![](Engine\Blueprints\Editor\UIComponents\MyBlueprint\myblueprint_function.png) の **[Add] ボタン** ![](Engine\Blueprints\Editor\UIComponents\MyBlueprint\plus_Button.png) をクリックして、**My Blueprint** タブで新規関数を作成します。
+1. 関数リストヘッダー ![](Engine\Blueprints\Editor\UIComponents\MyBlueprint\myblueprint_function.png) の **[Add (追加)] ボタン** ![](Engine\Blueprints\Editor\UIComponents\MyBlueprint\plus_Button.png) をクリックして、**My Blueprint** タブで新規関数を作成します。
 
 1. **[My Blueprint]** ペインで新関数の名前を入力します。
 

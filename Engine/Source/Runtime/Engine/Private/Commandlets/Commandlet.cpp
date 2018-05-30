@@ -9,4 +9,5 @@ UCommandlet::UCommandlet(const FObjectInitializer& ObjectInitializer)
 	IsClient = true;
 	IsEditor = true;
 	ShowErrorCount = true;
+	ShowProgress = true;
 }

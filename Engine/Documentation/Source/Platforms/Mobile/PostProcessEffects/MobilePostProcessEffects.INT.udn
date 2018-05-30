@@ -39,10 +39,10 @@ To use the Tonemapper Post Processing options on Mobile Devices, you will need t
 
 ### Enabling Tonemapper Film via the Console
 You can enable the Tonemapper in the UE4 Editor by first opening up the console by pressing the **Backtick key(`)** and then entering the following command:
-* ** r.Mobile.TonemapperFilm 1** 
+* **r.Mobile.TonemapperFilm 1** 
 
 To disable the Tonemapper, open up the console and enter the following command:
-*  ** r.Mobile.TonemapperFilm 0**
+*  **r.Mobile.TonemapperFilm 0**
 
 [region:note]
 This method will enable the Tonemapper only for this session. If you want the Tonemapper to always be on you will need to add the Tonemapper settings you want to use to the DefaultEngine.INI.

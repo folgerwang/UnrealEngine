@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2725276
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:オンライン サブシステムのタイプ
 Crumbs:%ROOT%, Programming
@@ -59,31 +59,31 @@ Version:4.9
 **FUniqueNetId** は、プロファイル サービス オンライン ID を格納し、個人プレイヤー、フレンド、またはセッションから何でも表現します。
 
 [COMMENT:none]
-[](Programming/Online/Interfaces/Profile) をご覧ください。
+**カスタム コリジョン チャネル** の詳細は、[](Programming/Online/Interfaces/Profile)
 [/COMMENT]
 
 
 ### FSharedContentHandle
 
-**FSharedContentHandle** は、プロファイルサービスの共有ファイル処理を格納します。適切な権限が付与されると、この処理は共有コンテンツへアクセスするためにどこからでも渡されたり使用することができます。
+**FSharedContentHandle** は、プロファイルサービスの共有ファイル処理を格納します。* 適切な権限が付与されると、この処理は共有コンテンツへアクセスするためにどこからでも渡されたり使用することができます。
 
 [COMMENT:none]
-:
- * [](Programming/Online/Interfaces/SharedCloud) をご覧ください。
+カスタム コリジョン チャネル の詳細は、
+ * [](Programming/Online/Interfaces/SharedCloud)
 [/COMMENT]
 
 
  
 ### FSessionInfo
 
-**FSessionInfo** は、セッションのプラットーフォーム固有の情報を格納します。大抵の場合、セッションID、ホストアドレス、もしくは作成されたセッションの特定や、接続を試みる別の手段です。
+**FSessionInfo** は、セッションのプラットーフォーム固有の情報を格納します。* 大抵の場合、セッションID、ホストアドレス、もしくは作成されたセッションの特定や、接続を試みる別の手段です。
 
-以下のリンクを参照してください。[](Programming/Online/Interfaces/Session)
+カスタム コリジョン チャネル の詳細は、[](Programming/Online/Interfaces/Session)
 
 
 ### FEmsFile
 
-**FEmsFile** は、ダウンロードが可能な任意のファイルに関するメタデータです。この構造体は、任意のサービスから利用可能なデータを列挙する際に使用します。 
+**FEmsFile** は、ダウンロードが可能な任意のファイルに関するメタデータです。* この構造体は、任意のサービスから利用可能なデータを列挙する際に使用します。 
 
 以下の要素を格納します。
  * Hash - 任意のファイル コンテンツのハッシュ値です。
@@ -93,9 +93,9 @@ Version:4.9
 
 
 [COMMENT:none]
-:
+カスタム コリジョン チャネル の詳細は、
  * [](Programming/Online/Interfaces/SharedCloud)
- * [](Programming/Online/Interfaces/UserCloud) をご覧ください。
+ * [](Programming/Online/Interfaces/UserCloud)
 [/COMMENT]
 
 
@@ -105,14 +105,14 @@ Version:4.9
 
 以下の要素を格納します。
  * Filename - ダウンロード時のファイル名です。
- * Async state - ダウンロードされたファイルのステートです。（[Async States](#EOnlineAsyncTaskState) をご覧ください。）
+ * Async state - ダウンロードされたファイルのステートです （[Async States](#EOnlineAsyncTaskState) をご覧ください。）
  * Data - ファイル コンテンツを格納するバッファです。
 
 
 [COMMENT:none]
-:
+カスタム コリジョン チャネル の詳細は、 
  * [](Programming/Online/Interfaces/SharedCloud)
- * [](Programming/Online/Interfaces/UserCloud) をご覧ください。
+ * [](Programming/Online/Interfaces/UserCloud)
 [/COMMENT]
 
 

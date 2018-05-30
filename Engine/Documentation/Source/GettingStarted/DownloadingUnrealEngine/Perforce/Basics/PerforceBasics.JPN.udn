@@ -77,10 +77,10 @@ P4V はその新しいエンドポイントを信用するように促します�
 
 [REGION:tip]
 	上記のアドレスは地理的位置に応じて最適なレイテンシーで地域のブローカーに自動的に接続します。何らかの理由で、特定の地域のブローカーに接続する必要があれば、以下のアドレスを使用して接続することができます。
-			* **米国東部 (バージニア)**: _ssl:p4-licensee-east.us.epicgames.com:1666_
 
-	* **アジア太平洋北東地域 (東京)**: _ssl:p4-licensee-northeast.ap.epicgames.com:1666_
-	* **欧州中央部 (フランクフルト)**: _ssl:p4-licensee-central.eu.epicgames.com:1666_
+	* **United States East (Virginia)**: _ssl:p4-licensee-east.us.epicgames.com:1666_
+	* **Asia Pacific Northeast (Tokyo)**: _ssl:p4-licensee-northeast.ap.epicgames.com:1666_
+	* **Europe Central (Frankfurt)**: _ssl:p4-licensee-central.eu.epicgames.com:1666_
 [/REGION]
 
 ## アンリアル エンジン 4 のダウンロード

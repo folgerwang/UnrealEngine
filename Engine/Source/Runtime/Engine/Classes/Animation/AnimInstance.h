@@ -181,6 +181,8 @@ struct FSlotEvaluationPose
 	FBlendedCurve Curve;
 
 	FSlotEvaluationPose()
+		: AdditiveType(AAT_None)
+		, Weight(0.0f)
 	{
 	}
 
@@ -354,10 +356,6 @@ class ENGINE_API UAnimInstance : public UObject
 	~UAnimInstance() {}
 	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
-	/** DeltaTime **/
-	UPROPERTY()
-	float DeltaTime_DEPRECATED;
-
 	/** This is used to extract animation. If Mesh exists, this will be overwritten by Mesh->Skeleton */
 	UPROPERTY(transient)
 	USkeleton* CurrentSkeleton;
@@ -365,6 +363,11 @@ class ENGINE_API UAnimInstance : public UObject
 	// Sets where this blueprint pulls Root Motion from
 	UPROPERTY(Category = RootMotion, EditDefaultsOnly)
 	TEnumAsByte<ERootMotionMode::Type> RootMotionMode;
+
+#if WITH_EDITORONLY_DATA
+	/** DeltaTime **/
+	UPROPERTY()
+	float DeltaTime_DEPRECATED;
 
 	/** 
 	 * DEPRECATED: No longer used.
@@ -375,7 +378,7 @@ class ENGINE_API UAnimInstance : public UObject
 	 */
 	DEPRECATED(4.15, "This variable is no longer used. Use bUseMultiThreadedAnimationUpdate on the UAnimBlueprint to control this.")
 	UPROPERTY()
-	bool bRunUpdatesInWorkerThreads_DEPRECATED;
+	uint8 bRunUpdatesInWorkerThreads_DEPRECATED : 1;
 
 	/** 
 	 * DEPRECATED: No longer used.
@@ -386,7 +389,17 @@ class ENGINE_API UAnimInstance : public UObject
 	 */
 	DEPRECATED(4.15, "This variable is no longer used. Use bUseMultiThreadedAnimationUpdate on the UAnimBlueprint to control this.")
 	UPROPERTY()
-	bool bCanUseParallelUpdateAnimation_DEPRECATED;
+	uint8 bCanUseParallelUpdateAnimation_DEPRECATED : 1;
+
+
+	/**
+	 * Selecting this option will cause the compiler to emit warnings whenever a call into Blueprint
+	 * is made from the animation graph. This can help track down optimizations that need to be made.
+	 */
+	DEPRECATED(4.15, "This variable is no longer used. Use bWarnAboutBlueprintUsage on the UAnimBlueprint to control this.")
+	UPROPERTY()
+	uint8 bWarnAboutBlueprintUsage_DEPRECATED : 1;
+#endif
 
 	/**
 	 * Allows this anim instance to update its native update, blend tree, montages and asset players on
@@ -396,18 +409,28 @@ class ENGINE_API UAnimInstance : public UObject
 	 * Animation Update" should be set.
 	 */
 	UPROPERTY(meta=(BlueprintCompilerGeneratedDefaults))
-	bool bUseMultiThreadedAnimationUpdate;
+	uint8 bUseMultiThreadedAnimationUpdate : 1;
 
-	/**
-	 * Selecting this option will cause the compiler to emit warnings whenever a call into Blueprint
-	 * is made from the animation graph. This can help track down optimizations that need to be made.
-	 */
-	DEPRECATED(4.15, "This variable is no longer used. Use bWarnAboutBlueprintUsage on the UAnimBlueprint to control this.")
-	UPROPERTY()
-	bool bWarnAboutBlueprintUsage_DEPRECATED;
+	/** If this AnimInstance has nodes using 'CopyPoseFromMesh' this will be true. */
+	UPROPERTY(meta = (BlueprintCompilerGeneratedDefaults))
+	uint8 bUsingCopyPoseFromMesh : 1;
 
 	/** Flag to check back on the game thread that indicates we need to run PostUpdateAnimation() in the post-eval call */
-	bool bNeedsUpdate;
+	uint8 bNeedsUpdate : 1;
+
+private:
+	/** True when Montages are being ticked, and Montage Events should be queued. 
+	 * When Montage are being ticked, we queue AnimNotifies and Events. We trigger notifies first, then Montage events. */
+	UPROPERTY(Transient)
+	uint8 bQueueMontageEvents : 1;
+
+#if DO_CHECK
+	/** Used to guard against recursive calls to UpdateAnimation */
+	bool bPostUpdatingAnimation;
+
+	/** Used to guard against recursive calls to UpdateAnimation */
+	bool bUpdatingAnimation;
+#endif
 
 public:
 
@@ -660,6 +683,9 @@ public:
 	/** Get the FAnimMontageInstance currently running that matches this ID.  Will return NULL if no instance is found. */
 	FAnimMontageInstance* GetMontageInstanceForID(int32 MontageInstanceID);
 
+	/** Stop all montages that are active **/
+	void StopAllMontages(float BlendOut);
+
 	/** AnimMontage instances that are running currently
 	* - only one is primarily active per group, and the other ones are blending out
 	*/
@@ -673,9 +699,6 @@ public:
 protected:
 	/** Map between Active Montages and their FAnimMontageInstance */
 	TMap<class UAnimMontage*, struct FAnimMontageInstance*> ActiveMontagesMap;
-
-	/** Stop all montages that are active **/
-	void StopAllMontages(float BlendOut);
 
 	/** Stop all active montages belonging to 'InGroupName' */
 	void StopAllMontagesByGroupName(FName InGroupName, const FAlphaBlend& BlendOut);
@@ -693,11 +716,6 @@ public:
 	void QueueMontageEndedEvent(const FQueuedMontageEndedEvent& MontageEndedEvent);
 
 private:
-	/** True when Montages are being ticked, and Montage Events should be queued. 
-	 * When Montage are being ticked, we queue AnimNotifies and Events. We trigger notifies first, then Montage events. */
-	UPROPERTY(Transient)
-	bool bQueueMontageEvents;
-
 	/** Trigger queued Montage events. */
 	void TriggerQueuedMontageEvents();
 
@@ -713,16 +731,12 @@ private:
 	/** Trigger a Montage Ended event */
 	void TriggerMontageEndedEvent(const FQueuedMontageEndedEvent& MontageEndedEvent);
 
-	/** Used to guard against recursive calls to UpdateAnimation */
-	bool bUpdatingAnimation;
-
-	/** Used to guard against recursive calls to UpdateAnimation */
-	bool bPostUpdatingAnimation;
-
 public:
 
+#if DO_CHECK
 	/** Is this animation currently running post update */
 	bool IsPostUpdatingAnimation() const { return bPostUpdatingAnimation; }
+#endif
 
 	/** Set RootMotionMode */
 	UFUNCTION(BlueprintCallable, Category = "Animation")
@@ -1003,7 +1017,17 @@ public:
 
 	/** Reset any dynamics running simulation-style updates (e.g. on teleport, time skip etc.) */
 	UFUNCTION(BlueprintCallable, Category = "Animation", meta = (NotBlueprintThreadSafe))
+	void ResetDynamics(ETeleportType InTeleportType);
+
+	DEPRECATED(4.20, "Please use ResetDynamics with a ETeleportType argument")
 	void ResetDynamics();
+
+	/** 
+	 * Get the 'animation' LOD level, which by default is the PredictedLODLevel of this anim instance's skeletal mesh component.
+	 * This function is used by the anim graph to determine the LOD level at which to run.
+	 * @return the current LOD level
+	 */
+	virtual int32 GetLODLevel() const;
 
 public:
 	/** Access a read only version of the Updater Counter from the AnimInstanceProxy on the GameThread. */
@@ -1012,6 +1036,7 @@ public:
 	/** Access the required bones array */
 	FBoneContainer& GetRequiredBones();
 	const FBoneContainer& GetRequiredBones() const;
+	const FBoneContainer& GetRequiredBonesOnAnyThread() const;
 
 	/** Animation Notifies that has been triggered in the latest tick **/
 	UPROPERTY(transient)
@@ -1045,6 +1070,9 @@ public:
 
 	/** Check whether we have active morph target curves */
 	bool HasMorphTargetCurves() const;
+
+	/** Check whether we have any active curves */
+	bool HasActiveCurves() const;
 
 	/** 
 	 * Append the type of curve to the OutCurveList specified by Curve Flags

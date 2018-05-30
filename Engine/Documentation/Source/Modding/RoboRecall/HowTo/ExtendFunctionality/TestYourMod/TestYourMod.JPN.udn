@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:7.テストと次のステップ
 Crumbs:%ROOT%
@@ -24,7 +24,7 @@ checkpoint:mod_extend
 
 カスタム ピストルが完成した状態で、ハブ レべルのロード中に **[Play]** をクリックすると、mod メニューから GrenadeGunPistol を有効にすることができます。これで Gun Range を使ってターゲットに向けて銃を投げて爆発させることができます。
 
-![image alt text](image_1.png)(w:934 h:604 convert:false)
+![image alt text](image_1.png)(w:934 convert:false)
 
 ## 次のステップ
 
@@ -56,7 +56,7 @@ checkpoint:mod_extend
 
 GrenadeGunPistol ブループリントの右上部に、小さな虫眼鏡アイコンがあります。
 
-![image alt text](image_2.png)(w:486 h:78 convert:false)
+![image alt text](image_2.png)(w:486 convert:false)
 
 このボタンは現在のブループリントの親をコンテンツ ブラウザでハイライトします。このボタンを使うと、Pistol の豊富な機能を含む Gun_Pistol と Gun_Base までナビゲートします。ブラウズして使用可能な変数や関数を見ます。
 

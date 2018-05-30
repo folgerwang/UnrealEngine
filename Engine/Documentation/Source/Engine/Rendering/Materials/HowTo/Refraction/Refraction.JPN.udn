@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2738751
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:マテリアル エディタ - 屈折の操作ガイド
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials
@@ -8,6 +8,7 @@ Related:Resources/ContentExamples/MaterialProperties/1_11
 Related:Engine/Rendering/Materials/MaterialInputs
 Version:4.9
 SkillLevel:Intermediate
+tags:Materials
 
 
 [TOC(start:2 end:3)]

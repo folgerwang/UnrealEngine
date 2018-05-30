@@ -56,7 +56,7 @@
 /* #undef LWS_USE_LIBUV */
 
 /* Build with support for ipv6 */
-/* #undef LWS_USE_IPV6 */
+#define LWS_USE_IPV6
 
 /* Build with support for UNIX domain socket */
 /* #undef LWS_USE_UNIX_SOCK */

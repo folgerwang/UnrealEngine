@@ -120,6 +120,9 @@ bool GIsRunningRHIInSeparateThread_InternalUseOnly = false;
 bool GIsRunningRHIInDedicatedThread_InternalUseOnly = false;
 bool GIsRunningRHIInTaskThread_InternalUseOnly = false;
 
+uint32 GWorkingRHIThreadTime = 0;
+uint32 GWorkingRHIThreadStallTime = 0;
+
 RHI_API bool GEnableAsyncCompute = true;
 RHI_API FRHICommandListExecutor GRHICommandList;
 
@@ -371,8 +374,12 @@ public:
 		}
 		{
 			FScopeLock Lock(&GRHIThreadOnTasksCritical);
+			uint32 StartCycles = FPlatformTime::Cycles();
+
 			FRHICommandListExecutor::ExecuteInner_DoExecute(*RHICmdList);
 			delete RHICmdList;
+
+			GWorkingRHIThreadTime += (FPlatformTime::Cycles() - StartCycles); // this subtraction often wraps and the math stuff works
 		}
 		if (IsRunningRHIInTaskThread())
 		{
@@ -1935,9 +1942,14 @@ void* FDynamicRHI::LockVertexBuffer_RenderThread(class FRHICommandListImmediate&
 	void* Result;
 	if (!bBuffer || LockMode != RLM_WriteOnly || RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
 	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_LockVertexBuffer_Flush);
-		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread); 
-		Result = GDynamicRHI->RHILockVertexBuffer(VertexBuffer, Offset, SizeRHI, LockMode);
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_LockVertexBuffer_Flush);
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+		}
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_LockVertexBuffer_Lock);
+			Result = GDynamicRHI->RHILockVertexBuffer(VertexBuffer, Offset, SizeRHI, LockMode);
+		}
 	}
 	else
 	{
@@ -1957,10 +1969,15 @@ void FDynamicRHI::UnlockVertexBuffer_RenderThread(class FRHICommandListImmediate
 	FLockTracker::FLockParams Params = GLockTracker.Unlock(VertexBuffer);
 	if (!bBuffer || Params.LockMode != RLM_WriteOnly || RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
 	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_UnlockVertexBuffer_Flush);
-		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread); 
-		GDynamicRHI->RHIUnlockVertexBuffer(VertexBuffer);
-		GLockTracker.TotalMemoryOutstanding = 0;
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_UnlockVertexBuffer_Flush);
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+		}
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_UnlockVertexBuffer_Unlock);
+			GDynamicRHI->RHIUnlockVertexBuffer(VertexBuffer);
+			GLockTracker.TotalMemoryOutstanding = 0;
+		}
 	}	
 	else
 	{
@@ -1984,9 +2001,14 @@ void* FDynamicRHI::LockIndexBuffer_RenderThread(class FRHICommandListImmediate& 
 	void* Result;
 	if (!bBuffer || LockMode != RLM_WriteOnly || RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
 	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_LockIndexBuffer_Flush);
-		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread); 
-		Result = GDynamicRHI->RHILockIndexBuffer(IndexBuffer, Offset, SizeRHI, LockMode);
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_LockIndexBuffer_Flush);
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+		}
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_LockIndexBuffer_Lock);
+			Result = GDynamicRHI->RHILockIndexBuffer(IndexBuffer, Offset, SizeRHI, LockMode);
+		}
 	}
 	else
 	{
@@ -2006,10 +2028,15 @@ void FDynamicRHI::UnlockIndexBuffer_RenderThread(class FRHICommandListImmediate&
 	FLockTracker::FLockParams Params = GLockTracker.Unlock(IndexBuffer);
 	if (!bBuffer || Params.LockMode != RLM_WriteOnly || RHICmdList.Bypass() || !IsRunningRHIInSeparateThread())
 	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_UnlockIndexBuffer_Flush);
-		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread); 
-		GDynamicRHI->RHIUnlockIndexBuffer(IndexBuffer);
-		GLockTracker.TotalMemoryOutstanding = 0;
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_UnlockIndexBuffer_Flush);
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+		}
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_UnlockIndexBuffer_Unlock);
+			GDynamicRHI->RHIUnlockIndexBuffer(IndexBuffer);
+			GLockTracker.TotalMemoryOutstanding = 0;
+		}
 	}	
 	else
 	{
@@ -2195,10 +2222,10 @@ void FDynamicRHI::UnlockTexture2D_RenderThread(class FRHICommandListImmediate& R
 	GDynamicRHI->RHIUnlockTexture2D(Texture, MipIndex, bLockWithinMiptail);
 }
 
-FRHIShaderLibraryRef FDynamicRHI::RHICreateShaderLibrary_RenderThread(class FRHICommandListImmediate& RHICmdList, EShaderPlatform Platform, FString FilePath)
+FRHIShaderLibraryRef FDynamicRHI::RHICreateShaderLibrary_RenderThread(class FRHICommandListImmediate& RHICmdList, EShaderPlatform Platform, FString FilePath, FString Name)
 {
 	FScopedRHIThreadStaller StallRHIThread(RHICmdList);
-	return GDynamicRHI->RHICreateShaderLibrary(Platform, FilePath);
+	return GDynamicRHI->RHICreateShaderLibrary(Platform, FilePath, Name);
 }
 
 FTextureReferenceRHIRef FDynamicRHI::RHICreateTextureReference_RenderThread(class FRHICommandListImmediate& RHICmdList, FLastRenderTimeContainer* LastRenderTime)

@@ -239,6 +239,7 @@ void UParty::RegisterPartyDelegates()
 			PartyMemberDataReceivedDelegateHandle = PartyInt->AddOnPartyMemberDataReceivedDelegate_Handle(FOnPartyMemberDataReceivedDelegate::CreateUObject(this, &ThisClass::PartyMemberDataReceivedInternal));
 			PartyJoinRequestReceivedDelegateHandle = PartyInt->AddOnPartyJoinRequestReceivedDelegate_Handle(FOnPartyJoinRequestReceivedDelegate::CreateUObject(this, &ThisClass::PartyJoinRequestReceivedInternal));
 			PartyQueryJoinabilityReceivedDelegateHandle = PartyInt->AddOnQueryPartyJoinabilityReceivedDelegate_Handle(FOnPartyJoinRequestReceivedDelegate::CreateUObject(this, &ThisClass::PartyQueryJoinabilityReceivedInternal));
+			PartyFillPartyJoinRequestDataDelegateHandle = PartyInt->AddOnFillPartyJoinRequestDataDelegate_Handle(FOnFillPartyJoinRequestDataDelegate::CreateUObject(this, &ThisClass::PartyFillJoinRequestData));
 			PartyMemberPromotedDelegateHandle = PartyInt->AddOnPartyMemberPromotedDelegate_Handle(FOnPartyMemberPromotedDelegate::CreateUObject(this, &ThisClass::PartyMemberPromotedInternal));
 			PartyMemberExitedDelegateHandle = PartyInt->AddOnPartyMemberExitedDelegate_Handle(FOnPartyMemberExitedDelegate::CreateUObject(this, &ThisClass::PartyMemberExitedInternal));
 			PartyPromotionLockoutChangedDelegateHandle = PartyInt->AddOnPartyPromotionLockoutChangedDelegate_Handle(FOnPartyPromotionLockoutChangedDelegate::CreateUObject(this, &ThisClass::PartyPromotionLockoutStateChangedInternal));
@@ -262,6 +263,7 @@ void UParty::UnregisterPartyDelegates()
 			PartyInt->ClearOnPartyMemberDataReceivedDelegate_Handle(PartyMemberDataReceivedDelegateHandle);
 			PartyInt->ClearOnPartyJoinRequestReceivedDelegate_Handle(PartyJoinRequestReceivedDelegateHandle);
 			PartyInt->ClearOnQueryPartyJoinabilityReceivedDelegate_Handle(PartyQueryJoinabilityReceivedDelegateHandle);
+			PartyInt->ClearOnFillPartyJoinRequestDataDelegate_Handle(PartyFillPartyJoinRequestDataDelegateHandle);
 			PartyInt->ClearOnPartyMemberPromotedDelegate_Handle(PartyMemberPromotedDelegateHandle);
 			PartyInt->ClearOnPartyMemberExitedDelegate_Handle(PartyMemberExitedDelegateHandle);
 			PartyInt->ClearOnPartyPromotionLockoutChangedDelegate_Handle(PartyPromotionLockoutChangedDelegateHandle);
@@ -396,12 +398,12 @@ void UParty::PartyMemberDataReceivedInternal(const FUniqueNetId& InLocalUserId, 
 	}
 }
 
-void UParty::PartyJoinRequestReceivedInternal(const FUniqueNetId& InLocalUserId, const FOnlinePartyId& InPartyId, const FUniqueNetId& SenderId)
+void UParty::PartyJoinRequestReceivedInternal(const FUniqueNetId& InLocalUserId, const FOnlinePartyId& InPartyId, const FUniqueNetId& SenderId, const FString& Platform, const FOnlinePartyData& JoinData)
 {
 	UPartyGameState* PartyState = GetParty(InPartyId);
 	if (PartyState)
 	{
-		PartyState->HandlePartyJoinRequestReceived(InLocalUserId, SenderId);
+		PartyState->HandlePartyJoinRequestReceived(InLocalUserId, SenderId, Platform, JoinData);
 	}
 	else
 	{
@@ -409,17 +411,21 @@ void UParty::PartyJoinRequestReceivedInternal(const FUniqueNetId& InLocalUserId,
 	}
 }
 
-void UParty::PartyQueryJoinabilityReceivedInternal(const FUniqueNetId& InLocalUserId, const FOnlinePartyId& InPartyId, const FUniqueNetId& SenderId)
+void UParty::PartyQueryJoinabilityReceivedInternal(const FUniqueNetId& InLocalUserId, const FOnlinePartyId& InPartyId, const FUniqueNetId& SenderId, const FString& Platform, const FOnlinePartyData& JoinData)
 {
 	UPartyGameState* PartyState = GetParty(InPartyId);
 	if (PartyState)
 	{
-		PartyState->HandlePartyQueryJoinabilityRequestReceived(InLocalUserId, SenderId);
+		PartyState->HandlePartyQueryJoinabilityRequestReceived(InLocalUserId, SenderId, Platform, JoinData);
 	}
 	else
 	{
 		UE_LOG(LogParty, Warning, TEXT("[%s]: Missing party state to process join request."), *InPartyId.ToString());
 	}
+}
+
+void UParty::PartyFillJoinRequestData(const FUniqueNetId& InLocalUserId, const FOnlinePartyId& InPartyId, FOnlinePartyData& PartyData)
+{
 }
 
 void UParty::PartyMemberPromotedInternal(const FUniqueNetId& InLocalUserId, const FOnlinePartyId& InPartyId, const FUniqueNetId& InNewLeaderId)
@@ -683,6 +689,7 @@ void UParty::OnLeavePersistentPartyForRejoinComplete(const FUniqueNetId& LocalUs
 		{
 			FOnJoinPartyComplete CompletionDelegate;
 			CompletionDelegate.BindUObject(this, &ThisClass::OnRejoinPartyComplete);
+			// CODEREVIEW - don.eubanks - Not sure how to pipe the data here, this seems like a weird case 
 			PartyInt->RejoinParty(LocalUserId, *RejoinableParty->PartyId, IOnlinePartySystem::GetPrimaryPartyTypeId(), RejoinableParty->Members, CompletionDelegate);
 			JoinResult = EJoinPartyCompletionResult::Succeeded;
 		}
@@ -1103,27 +1110,20 @@ void UParty::GetPersistentPartyConfiguration(FPartyConfiguration& PartyConfig)
 
 	bool bIsPrivate = (PartyType == EPartyType::Private);
 
-	PartySystemPermissions::EPresencePermissions PresencePermissions;
-	if (bLeaderFriendsOnly)
+	PartySystemPermissions::EPermissionType PresencePermissions;
+	if (bIsPrivate)
 	{
-		if (bIsPrivate)
-		{
-			PresencePermissions = PartySystemPermissions::FriendsInviteOnly;
-		}
-		else
-		{
-			PresencePermissions = PartySystemPermissions::FriendsOnly;
-		}
+		PresencePermissions = PartySystemPermissions::EPermissionType::Noone;
 	}
 	else
 	{
-		if (bIsPrivate)
+		if (bLeaderFriendsOnly)
 		{
-			PresencePermissions = PartySystemPermissions::PublicInviteOnly;
+			PresencePermissions = PartySystemPermissions::EPermissionType::Leader;
 		}
 		else
 		{
-			PresencePermissions = PartySystemPermissions::Public;
+			PresencePermissions = PartySystemPermissions::EPermissionType::Anyone;
 		}
 	}
 
@@ -1131,7 +1131,7 @@ void UParty::GetPersistentPartyConfiguration(FPartyConfiguration& PartyConfig)
 	PartyConfig.bIsAcceptingMembers = bIsPrivate ? false : true;
 	PartyConfig.bShouldRemoveOnDisconnection = true;
 	PartyConfig.PresencePermissions = PresencePermissions;
-	PartyConfig.InvitePermissions = bAllowInvites ? (bLeaderInvitesOnly ? PartySystemPermissions::EInvitePermissions::Leader : PartySystemPermissions::EInvitePermissions::Anyone) : PartySystemPermissions::EInvitePermissions::Noone;
+	PartyConfig.InvitePermissions = bAllowInvites ? (bLeaderInvitesOnly ? PartySystemPermissions::EPermissionType::Leader : PartySystemPermissions::EPermissionType::Anyone) : PartySystemPermissions::EPermissionType::Noone;
 
 	PartyConfig.MaxMembers = DefaultMaxPartySize;
 }

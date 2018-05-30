@@ -6,7 +6,7 @@ Description:アンリアル エンジン 4 の Parallel Rendering の概要
 Type:Overview
 SkillLevel: advanced
 Version:4.18
-Programming\Rendering\
+Parent:Programming\Rendering\
 Order:5
 Tags: rendering
 

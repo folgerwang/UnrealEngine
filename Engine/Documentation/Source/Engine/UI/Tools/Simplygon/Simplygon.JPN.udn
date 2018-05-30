@@ -2,18 +2,16 @@
 Title:Simplygon
 Crumbs:%ROOT%, Engine
 Description:UE4 に統合されたメッシュの単純化およびマージのためのサードパーティ製のツール
-Version:4.9
+Version: 4.9
 
 [REGION:raw]
 ![](SimplygonLogo.png)
 [/REGION]
 
-## Essentials
+## 基本
 
 [REGION:buttonlist]
-
-		* [](Engine/UI/Tools/Simplygon/Compiling "%Engine/UI/Tools/Simplygon/Compiling:description%")
-	
+* [](Engine/UI/Tools/Simplygon/Compiling "%Engine/UI/Tools/Simplygon/Compiling:description%")	
 [/REGION]
 
 [COMMENT:none]

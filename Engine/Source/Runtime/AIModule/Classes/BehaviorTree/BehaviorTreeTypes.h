@@ -458,7 +458,7 @@ struct AIMODULE_API FBlackboardKeySelector
 {
 	GENERATED_USTRUCT_BODY()
 
-	FBlackboardKeySelector() : SelectedKeyID(FBlackboard::InvalidKey)
+	FBlackboardKeySelector() : SelectedKeyID(FBlackboard::InvalidKey), bNoneIsAllowedValue(false)
 	{}
 
 	/** array of allowed types with additional properties (e.g. uobject's base class) 

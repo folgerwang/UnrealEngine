@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2762523
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title:アンリアル エンジン 4.10 リリースノート
 Crumbs:%ROOT%, Engine
@@ -7,7 +7,7 @@ order:10
 
 今回のリリースには、アンリアル エンジン 4 の数百のアップデートが含まれており、そのうち 53 の改善点は GitHub のアンリアル エンジンのデベロッパーのコミュニティから寄せられたものです。アンリアル エンジン 4.10 に貢献をいただいた以下の皆様に謝意を表します (以下、敬称略)。
 
-Andreas Axelsson (judgeaxl), Andrew Scheidecker (AndrewScheidecker), Artem (umerov1999), Artem V. Navrotskiy (bozaro), Cengiz, Terzibas (yaakuro), Christopher P. Yarger (cpyarger), Clay Chai (chaiyuntian), Cliff Jolly (ExpiredPopsicle), Coherent UI (CoherentUE4), Derek van Vliet (derekvanvliet), Frugality, Guillaume Buisson (monsieurgustav), Ian Fox (MaideCa), Jay Mattis (braindx), Jeff Rous (JeffRous), Joshua Olson (MrMormon), Kacper Kowalczuk (Ogniok), Marat Radchenko (slonopotamus), Markus Breyer (pluranium), Michael Allar (Allar), ondys, Piotr Bąk (Pierdek), Rama (EverNewJoy), Ren Wilson (rwils), Rene Rivera (grafikrobot), Robert Khalikov (nbjk667), Robert Williams (Rottbott), Ryan Luck (overlawled), Salamanderrake, Sébastien Rombauts (Srombauts), Sergey Vikhirev (BorMor), Shaijan, ssoria, Sylvain Rochette (labidus), Tam Armstrong (tamarmstrong), TheSoeldner, x414e54
+Andreas Axelsson (judgeaxl), Andrew Scheidecker (AndrewScheidecker), Artem (umerov1999), Artem V. Navrotskiy (bozaro), Cengiz, Terzibas (yaakuro), Christopher P. Yarger (cpyarger), Clay Chai (chaiyuntian), Cliff Jolly (ExpiredPopsicle), Coherent UI (CoherentUE4), Derek van Vliet (derekvanvliet), Frugality, Guillaume Buisson (monsieurgustav), Ian Fox (MaideCa), Jay Mattis (braindx), Jeff Rous (JeffRous), Joshua Olson (MrMormon), Kacper Kowalczuk (Ogniok), Marat Radchenko (slonopotamus), Markus Breyer (pluranium), Michael Allar (Allar), ondys, Piotr Bﾄ・ (Pierdek), Rama (EverNewJoy), Ren Wilson (rwils), Rene Rivera (grafikrobot), Robert Khalikov (nbjk667), Robert Williams (Rottbott), Ryan Luck (overlawled), Salamanderrake, Sﾃｩbastien Rombauts (Srombauts), Sergey Vikhirev (BorMor), Shaijan, ssoria, Sylvain Rochette (labidus), Tam Armstrong (tamarmstrong), TheSoeldner, x414e54
 
 # 新機能
 

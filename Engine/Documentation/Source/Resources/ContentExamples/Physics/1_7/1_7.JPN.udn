@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:2720060
+﻿INTSourceChangelist:3782314
 Availability:Public
-Title:1.7 - リニア モーター
+Title:1.7 - 線形モーター
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Physics
-Description: 物理のサンプル レベルの概要、サンプル 1.7:物理コンストレイント リニア モーター
+Description: 物理のサンプル レベルの概要、サンプル 1.7:物理コンストレイント 線形モーター
 Related:Engine/Physics/PhysicsBodies
 Related:Engine/Physics/PhAT/HowTo
 Related:Engine/Physics/Constraints/ConstraintsReference
@@ -10,63 +10,8 @@ Related:Engine/Physics/Constraints/ConstraintsUserGuide
 Related:Engine/Physics/Collision
 Related:Engine/Physics/PhysicalMaterials/Reference
 Version:4.9
+topic-image:physics_1_7_topic.png
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[前のサンプル](Resources/ContentExamples/Physics/1_6 "%Resources/ContentExamples/Physics/1_6:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[物理のホーム](Resources/ContentExamples/Physics)
-	[/PARAM]
-	[PARAM:next]
-		[次のサンプル](Resources/ContentExamples/Physics/1_8 "%Resources/ContentExamples/Physics/1_8:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources\ContentExamples\Physics\1_7:title%](physics_1_7_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\Physics\1_7:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\Physics\1_7:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\Physics\1_7]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources\ContentExamples\Physics\1_7:title%](physics_1_7_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\Physics\1_7:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\Physics\1_7:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\Physics\1_7]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 
 [REGION:fullwidth]
@@ -74,11 +19,11 @@ Version:4.9
 [/REGION]
 
 
-**PhyiscsConstraint** 上でリニア モーターを有効にすると、2 種類のいずれかの方法で、アタッチされている物理シミュレーション オブジェクトを軸に沿って動かすことができます。
+**PhyiscsConstraint** 上で線形モーターを有効にすると、2 種類のいずれかの方法で、アタッチされている物理シミュレーション オブジェクトを軸に沿って動かすことができます。
 
-1 つ目は、 **Linear Position Drive (直線ポジションドライブ)** でコンストレイントの位置に対し相対な位置を取得する方法です。スプリングのようなものだと考えてください。スプリングは位置静止をを取得しようとします。圧縮でも引張でも、押したり引いたりすることで位置静止を取得しようとします。**Linear Drive Spring**、**Linear Drive Damping**、**Maximum Spring Force** で、どのくらい迅速に、どのくらい弾んでスプリングが静止ステートを取得するのか定義できます。
+1 つ目は、 **Linear Position Drive ** でコンストレイントの位置に相対的な位置を取得する方法です。スプリングのようなものだと考えてください。スプリングは静止位置を取得しようとします。圧縮でも伸張でも、押したり引いたりすることで静止位置を取得しようとします。**Linear Drive Spring**、**Linear Drive Damping**、**Maximum Spring Force** で、どのくらい迅速に、どのくらい弾んでスプリングが静止ステートを取得するのか定義できます。
 
-Linear Velocity Drive (直線速度ドライブ) は、コンストレイントの位置から特定の方向にフォースを適用します。シミュレーション中のオブジェクトは、コンストレイントの長さに達するまで、コンストレイントから遠ざかります。逆向きのフォースを使って、コンストレイントされたオブジェクトをまとめて引き寄せます。
+Linear Velocity Drive (直線速度ドライブ) は、コンストレイントの位置から特定の方向に力を適用します。シミュレーション中のオブジェクトは、コンストレイントの長さに達するまで、コンストレイントから遠ざかります。逆向きの力を使って、コンストレイントされたオブジェクトをまとめて引き寄せます。
 
 
 

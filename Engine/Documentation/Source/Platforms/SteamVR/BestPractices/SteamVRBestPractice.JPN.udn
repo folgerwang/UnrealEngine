@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3622866
+﻿INTSourceChangelist:3766333
 Title:SteamVR のベストプラクティス
 Crumbs:%ROOT%, Platforms
 Description:SteamVR をはじめよう
@@ -10,8 +10,14 @@ type:overview
 parent:Platforms/SteamVR
 tags:VR
 tags:SteamVR
+Skilllevel:Beginner
+Order:
+Topic-image:SteamVRTopicImage.png
+social-images:SteamVRTopicImage.png
 
-![](Platforms\SteamVR\T_Vive_HMD.png)
+![](Platforms\SteamVR\T_Vive_HMD.png)(w:866)
+
+[TOC(start:1 end:2)]
 
 SteamVR SDK は専用のヘッドマウント ディスプレイ (HMD) を使用しないという点で、他のアンリアル エンジン 4 (UE4) Virtual Reality SDK と異なります。この UE4 プロジェクトは SteamVR 向けに開発されているので、SteamVR 対応のどの HMD でも利用することができます。本ガイドでは、SteamVR と UE4 向けコンテンツ開発で知っておく必要のある情報をまとめました。
 
@@ -27,8 +33,8 @@ SteamVR SDK は専用のヘッドマウント ディスプレイ (HMD) を使用
 
 | HMD デバイス  | ターゲット フレーム レート |
 | --- | --- |
-| HTC Vive      | 90 FPS|
-| Oculus Rift | 90 FPS|
+| **HTC Vive**      | 90 FPS|
+| **Oculus Rift**   | 90 FPS|
 
 
 ## SteamVR サニティ チェック
@@ -43,9 +49,9 @@ SteamVR SDK は専用のヘッドマウント ディスプレイ (HMD) を使用
 クリックしてフルサイズで表示
 [/REGION]
 
-## SteamVR で作業を確認する 
+## SteamVR の動作を確認する 
 
-SteamVR は UE4 Editor ビューポート、またはデフォルトの Play In Editor(PIE) セッションでは動きません。SteamVR にプロジェクトを表示するには、**[VR Preview (VR プレビュー)]** オプションを使います。[VR Preview] オプションを使用するには、UE4 エディタで以下の操作が必要です。 
+SteamVR は UE4 Editor ビューポート、またはデフォルトの Play In Editor (PIE) セッションでは動きません。SteamVR にプロジェクトを表示するには、**[VR Preview (VR プレビュー)]** オプションを使います。[VR Preview] オプションを使用するには、UE4 エディタで以下の操作が必要です。 
 
 1. メイン ツールバー上にある **[Play (プレイ)]** セクションの [Play (プレイ)] ボタンの横の小さな白い三角をクリックします。 
 
@@ -65,16 +71,18 @@ SteamVR Headset Mirror は、ユーザーが HMD で見ているものを他の�
 
 1. まず、SteamVR ツールを右クリックしてメニューを表示させ **[Display Mirror]** オプションを選択します。
 
+	[REGION:raw]
     ![](SteamVRBP_02.png)
+	[/REGION]
 
-1. 以下の画像のようにミラーが **[HeadSetMirror]** という名前の新規ウィンドウ内に表示されます。
+1. 以下の画像のようにミラーが **[HeadSet Mirror]** という名前の新規ウィンドウ内に表示されます。
 
     [REGION:lightbox]
     [![](SteamVRBP_03.png)(w:540)](SteamVRBP_03.png)
     [/REGION]
 
     [REGION:caption]
-    クリックしてフルサイズで表示
+    ユーザーは HMD を装着すると上の画像をまったく同じものが見えます。
     [/REGION]
 
 
@@ -82,7 +90,7 @@ SteamVR Headset Mirror は、ユーザーが HMD で見ているものを他の�
 
 以下のリンクは、SteamVR のハード / ソフトウェアに関する問題など役立つ情報が提供されています。
 
-* [**SteamVR Developer Support**](https://support.steampowered.com/kb_article.php?ref=1131-WSFG-3320)
-* [**HTC Vive Developer Support**](https://developer.viveport.com/us/develop_portal/)
+* [SteamVR Developer Support](https://support.steampowered.com/kb_article.php?ref=1131-WSFG-3320)
+* [HTC Vive Developer Support](https://developer.viveport.com/us/develop_portal/)
 
 

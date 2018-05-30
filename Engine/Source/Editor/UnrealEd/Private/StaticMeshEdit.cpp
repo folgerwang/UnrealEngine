@@ -1072,6 +1072,7 @@ struct ExistingLODMeshData
 	UMeshDescription*			ExistingMeshDescription;
 	TArray<FStaticMaterial>		ExistingMaterials;
 	FPerPlatformFloat			ExistingScreenSize;
+	FString						ExistingSourceImportFilename;
 };
 
 struct ExistingStaticMeshData
@@ -1101,6 +1102,7 @@ struct ExistingStaticMeshData
 	float						LpvBiasMultiplier;
 	bool						bHasNavigationData;
 	FName						LODGroup;
+	FPerPlatformInt				MinLOD;
 
 	int32						ImportVersion;
 
@@ -1219,14 +1221,10 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 				}
 			}
 
-			//The normals, tangent and tangent space build setting depend of the import options, so we cannot restore them, we have to set them when re-importing
-			ExistingMesh->SourceModels[i].BuildSettings.bRecomputeNormals = ImportOptions->NormalImportMethod == FBXNIM_ComputeNormals;
-			ExistingMesh->SourceModels[i].BuildSettings.bRecomputeTangents = ImportOptions->NormalImportMethod != FBXNIM_ImportNormalsAndTangents;
-			ExistingMesh->SourceModels[i].BuildSettings.bUseMikkTSpace = (ImportOptions->NormalGenerationMethod == EFBXNormalGenerationMethod::MikkTSpace) && (!ImportOptions->ShouldImportNormals() || !ImportOptions->ShouldImportTangents());
-
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings = ExistingMesh->SourceModels[i].BuildSettings;
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings = ExistingMesh->SourceModels[i].ReductionSettings;
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize = ExistingMesh->SourceModels[i].ScreenSize.Default;
+			ExistingMeshDataPtr->ExistingLODData[i].ExistingSourceImportFilename = ExistingMesh->SourceModels[i].SourceImportFilename;
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription = ExistingMesh->SourceModels[i].OriginalMeshDescription;
 			ExistingMesh->SourceModels[i].RawMeshBulkData->LoadRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);
 		}
@@ -1247,6 +1245,7 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 		ExistingMeshDataPtr->LpvBiasMultiplier = ExistingMesh->LpvBiasMultiplier;
 		ExistingMeshDataPtr->bHasNavigationData = ExistingMesh->bHasNavigationData;
 		ExistingMeshDataPtr->LODGroup = ExistingMesh->LODGroup;
+		ExistingMeshDataPtr->MinLOD = ExistingMesh->MinLOD;
 
 		ExistingMeshDataPtr->ExistingGenerateMeshDistanceField = ExistingMesh->bGenerateMeshDistanceField;
 		ExistingMeshDataPtr->ExistingLODForCollision = ExistingMesh->LODForCollision;
@@ -1288,6 +1287,7 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 		return;
 	}
 	NewMesh->LODGroup = ExistingMesh->LODGroup;
+	NewMesh->MinLOD = ExistingMesh->MinLOD;
 	int32 ExistingNumLods = ExistingMesh->ExistingLODData.Num();
 	int32 CurrentNumLods = NewMesh->SourceModels.Num();
 	if (LODIndex == INDEX_NONE)
@@ -1311,10 +1311,15 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 			{
 				NewMesh->AddSourceModel();
 			}
-
-			NewMesh->SourceModels[i].ReductionSettings = ExistingMesh->ExistingLODData[i].ExistingReductionSettings;
+			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[i].ExistingRawMesh.IsValid() && !NewMesh->SourceModels[i].RawMeshBulkData->IsEmpty();
+			bool bWasReduced = ExistingMesh->ExistingLODData[i].ExistingReductionSettings.PercentTriangles < 1.0f || ExistingMesh->ExistingLODData[i].ExistingReductionSettings.MaxDeviation > 0.0f;
+			if (!bSwapFromGeneratedToImported && bWasReduced)
+			{
+				NewMesh->SourceModels[i].ReductionSettings = ExistingMesh->ExistingLODData[i].ExistingReductionSettings;
+			}
 			NewMesh->SourceModels[i].BuildSettings = ExistingMesh->ExistingLODData[i].ExistingBuildSettings;
 			NewMesh->SourceModels[i].ScreenSize = ExistingMesh->ExistingLODData[i].ExistingScreenSize;
+			NewMesh->SourceModels[i].SourceImportFilename = ExistingMesh->ExistingLODData[i].ExistingSourceImportFilename;
 		}
 	}
 	else
@@ -1322,9 +1327,15 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 		//Just set the old configuration for the desired LODIndex
 		if(LODIndex >= 0 && LODIndex < CurrentNumLods && LODIndex < ExistingNumLods)
 		{
-			NewMesh->SourceModels[LODIndex].ReductionSettings = ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings;
+			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[LODIndex].ExistingRawMesh.IsValid() && !NewMesh->SourceModels[LODIndex].RawMeshBulkData->IsEmpty();
+			bool bWasReduced = ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings.PercentTriangles < 1.0f || ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings.MaxDeviation > 0.0f;
+			if (!bSwapFromGeneratedToImported && bWasReduced)
+			{
+				NewMesh->SourceModels[LODIndex].ReductionSettings = ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings;
+			}
 			NewMesh->SourceModels[LODIndex].BuildSettings = ExistingMesh->ExistingLODData[LODIndex].ExistingBuildSettings;
 			NewMesh->SourceModels[LODIndex].ScreenSize = ExistingMesh->ExistingLODData[LODIndex].ExistingScreenSize;
+			NewMesh->SourceModels[LODIndex].SourceImportFilename = ExistingMesh->ExistingLODData[LODIndex].ExistingSourceImportFilename;
 		}
 	}
 
@@ -1585,8 +1596,15 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 	for(int32 i=0; i<NumCommonLODs; i++)
 	{
 		NewMesh->SourceModels[i].BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
-		NewMesh->SourceModels[i].ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
+		//Restore the reduction settings only if the existing data was a using reduction. Because we can set some value if we reimport from existing rawmesh to auto generated.
+		bool bSwapFromGeneratedToImported = !ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh.IsValid() && !NewMesh->SourceModels[i].RawMeshBulkData->IsEmpty();
+		bool bWasReduced = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings.PercentTriangles < 1.0f || ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings.MaxDeviation > 0.0f;
+		if ( !bSwapFromGeneratedToImported && bWasReduced)
+		{
+			NewMesh->SourceModels[i].ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
+		}
 		NewMesh->SourceModels[i].ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;
+		NewMesh->SourceModels[i].SourceImportFilename = ExistingMeshDataPtr->ExistingLODData[i].ExistingSourceImportFilename;
 	}
 
 	for(int32 i=NumCommonLODs; i < ExistingMeshDataPtr->ExistingLODData.Num(); ++i)
@@ -1603,6 +1621,7 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 		SrcModel.BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
 		SrcModel.ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
 		SrcModel.ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;
+		SrcModel.SourceImportFilename = ExistingMeshDataPtr->ExistingLODData[i].ExistingSourceImportFilename;
 	}
 
 	// Restore the section info of the just imported LOD so is section info map is remap to fit the mesh material array

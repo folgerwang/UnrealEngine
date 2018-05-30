@@ -96,13 +96,13 @@ bool FNiagaraEditorFloatTypeUtilities::CanHandlePinDefaults() const
 FString FNiagaraEditorFloatTypeUtilities::GetPinDefaultStringFromValue(const FNiagaraVariable& AllocatedVariable) const
 {
 	checkf(AllocatedVariable.IsDataAllocated(), TEXT("Can not generate a default value string for an unallocated variable."));
-	return Lex::ToString(AllocatedVariable.GetValue<FNiagaraFloat>().Value);
+	return LexToString(AllocatedVariable.GetValue<FNiagaraFloat>().Value);
 }
 
 bool FNiagaraEditorFloatTypeUtilities::SetValueFromPinDefaultString(const FString& StringValue, FNiagaraVariable& Variable) const
 {
 	FNiagaraFloat FloatValue;
-	if (Lex::TryParseString(FloatValue.Value, *StringValue))
+	if (LexTryParseString(FloatValue.Value, *StringValue))
 	{
 		Variable.SetValue<FNiagaraFloat>(FloatValue);
 		return true;

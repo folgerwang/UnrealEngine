@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Installer/ChunkReferenceTracker.h"
+#include "Templates/Greater.h"
 #include "Algo/Sort.h"
 #include "Misc/ScopeLock.h"
 
@@ -39,10 +40,10 @@ namespace BuildPatchServices
 		// Create our full list of chunks, including dupe references, and track the reference count of each chunk.
 		for (const FString& File : FilesToConstruct)
 		{
-			const FFileManifestData* NewFileManifest = InstallManifest->GetFileManifest(File);
+			const FFileManifest* NewFileManifest = InstallManifest->GetFileManifest(File);
 			if (NewFileManifest != nullptr)
 			{
-				for (const FChunkPartData& ChunkPart : NewFileManifest->FileChunkParts)
+				for (const FChunkPart& ChunkPart : NewFileManifest->FileChunkParts)
 				{
 					ReferenceCount.FindOrAdd(ChunkPart.Guid)++;
 					UseStack.Add(ChunkPart.Guid);
@@ -65,10 +66,10 @@ namespace BuildPatchServices
 		InstallManifest->GetFileList(AllFiles);
 		for (const FString& File : AllFiles)
 		{
-			const FFileManifestData* NewFileManifest = InstallManifest->GetFileManifest(File);
+			const FFileManifest* NewFileManifest = InstallManifest->GetFileManifest(File);
 			if (NewFileManifest != nullptr)
 			{
-				for (const FChunkPartData& ChunkPart : NewFileManifest->FileChunkParts)
+				for (const FChunkPart& ChunkPart : NewFileManifest->FileChunkParts)
 				{
 					bool bWasAlreadyInSet = false;
 					AllChunks.Add(ChunkPart.Guid, &bWasAlreadyInSet);

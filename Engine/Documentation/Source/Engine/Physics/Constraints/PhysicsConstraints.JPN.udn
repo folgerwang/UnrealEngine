@@ -1,19 +1,22 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:物理コンストレイント
 Crumbs: %ROOT%, Engine, Engine/Physics
 Description:複数の物理オブジェクトを一緒に、およびワールドに対して制約する方法
 Version:4.9
+Type:landing
+tags:Physics
+tags:constraints
+topic-image:Engine\Physics\physics_topic.png
+
 
 
 ## 基本
 
 [REGION:buttonlist]
-
-		* [物理コンストレイントのユーザーガイド](Engine/Physics/Constraints/ConstraintsUserGuide "%Engine/Physics/Constraints/ConstraintsUserGuide:description%")
-		* [](Engine/Physics/Constraints/ConstraintsBlueprints "%Engine/Physics/Constraints/ConstraintsBlueprints:description%")
-		* [](Engine/Physics/Constraints/ConstraintsReference "%Engine/Physics/Constraints/ConstraintsReference:description%")
-		* [](Engine/Physics/FrictionRestitutionAndDamping "%Engine/Physics/FrictionRestitutionAndDamping:description%")
-	
+* [物理コンストレイントのユーザーガイド](Engine/Physics/Constraints/ConstraintsUserGuide "%Engine/Physics/Constraints/ConstraintsUserGuide:description%")
+* [](Engine/Physics/Constraints/ConstraintsBlueprints "%Engine/Physics/Constraints/ConstraintsBlueprints:description%")
+* [](Engine/Physics/Constraints/ConstraintsReference "%Engine/Physics/Constraints/ConstraintsReference:description%")
+* [](Engine/Physics/FrictionRestitutionAndDamping "%Engine/Physics/FrictionRestitutionAndDamping:description%")
 [/REGION]
 

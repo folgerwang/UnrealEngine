@@ -839,6 +839,8 @@ static void CookSimpleWave(USoundWave* SoundWave, FName FormatName, const IAudio
 
 	bool bWasLocked = false;
 
+	int32 WaveSampleRate = 0;
+
 	// check if there is any raw sound data
 	if( SoundWave->RawData.GetBulkDataSize() > 0 )
 	{
@@ -870,18 +872,20 @@ static void CookSimpleWave(USoundWave* SoundWave, FName FormatName, const IAudio
 	}
 	else
 	{
+		WaveSampleRate = *WaveInfo.pSamplesPerSec;
+
 		float SampleRateOverride = -1.0f;
 
 		if (CompressionOverrides && CompressionOverrides->bResampleForDevice)
 		{
 			SampleRateOverride = SoundWave->GetSampleRateForCompressionOverrides(CompressionOverrides);
 			// Check for a platform resample override here and resample if neccesary:
-			if (SampleRateOverride > 0 && SampleRateOverride != (float)*WaveInfo.pSamplesPerSec)
+			if (SampleRateOverride > 0 && SampleRateOverride != (float)WaveSampleRate)
 			{
 				size_t TotalDataSize = WaveInfo.SampleDataSize;
 				
-				ResampleWaveData(Input, TotalDataSize, *WaveInfo.pChannels, *WaveInfo.pSamplesPerSec, SampleRateOverride);
-				*WaveInfo.pSamplesPerSec = SampleRateOverride;
+				ResampleWaveData(Input, TotalDataSize, *WaveInfo.pChannels, WaveSampleRate, SampleRateOverride);
+				WaveSampleRate = SampleRateOverride;
 				WaveInfo.SampleDataSize = TotalDataSize;
 			}
 		}
@@ -910,7 +914,7 @@ static void CookSimpleWave(USoundWave* SoundWave, FName FormatName, const IAudio
 		}
 		
 		QualityInfo.NumChannels = *WaveInfo.pChannels;
-		QualityInfo.SampleRate = *WaveInfo.pSamplesPerSec;
+		QualityInfo.SampleRate = WaveSampleRate;
 		QualityInfo.SampleDataSize = Input.Num();
 		QualityInfo.DebugName = SoundWave->GetFullName();
 
@@ -1053,6 +1057,8 @@ static void CookSurroundWave( USoundWave* SoundWave, FName FormatName, const IAu
 		// Only allow the formats that can be played back through
 		if( ChannelCount == 4 || ChannelCount == 6 || ChannelCount == 7 || ChannelCount == 8 )
 		{
+			int32 WaveSampleRate = *WaveInfo.pSamplesPerSec;
+
 			// Check for a platform resample override here and resample if neccesary:
 			float SampleRateOverride = -1.0f;
 			if (CompressionOverrides && CompressionOverrides->bResampleForDevice)
@@ -1060,14 +1066,14 @@ static void CookSurroundWave( USoundWave* SoundWave, FName FormatName, const IAu
 				SampleRateOverride = SoundWave->GetSampleRateForCompressionOverrides(CompressionOverrides);
 			}
 
-			if (SampleRateOverride > 0 && SampleRateOverride != (float)*WaveInfo.pSamplesPerSec)
+			if (SampleRateOverride > 0 && SampleRateOverride != (float)WaveSampleRate)
 			{
 				for (int ChannelIndex = 1; ChannelIndex < ChannelCount; ChannelIndex++)
 				{
-					ResampleWaveData(SourceBuffers[ChannelIndex], SampleDataSize, 1, *WaveInfo.pSamplesPerSec, SampleRateOverride);
+					ResampleWaveData(SourceBuffers[ChannelIndex], SampleDataSize, 1, WaveSampleRate, SampleRateOverride);
 				}	
 
-				*WaveInfo.pSamplesPerSec = SampleRateOverride;
+				WaveSampleRate = SampleRateOverride;
 			}
 
 			UE_LOG(LogAudioDerivedData, Log,  TEXT( "Cooking %d channels for: %s" ), ChannelCount, *SoundWave->GetFullName() );
@@ -1090,7 +1096,7 @@ static void CookSurroundWave( USoundWave* SoundWave, FName FormatName, const IAu
 			}
 
 			QualityInfo.NumChannels = ChannelCount;
-			QualityInfo.SampleRate = *WaveInfo.pSamplesPerSec;
+			QualityInfo.SampleRate = WaveSampleRate;
 			QualityInfo.SampleDataSize = SampleDataSize;
 			QualityInfo.DebugName = SoundWave->GetFullName();
 			//@todo tighten up the checking for empty results here

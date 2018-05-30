@@ -69,6 +69,40 @@ class GAMEPLAYTAGS_API UGameplayTagsList : public UObject
 	void SortTags();
 };
 
+/** Base class for storing a list of restricted gameplay tags as an ini list. This is used for both the central list and additional lists */
+UCLASS(config = GameplayTags, notplaceable)
+class GAMEPLAYTAGS_API URestrictedGameplayTagsList : public UObject
+{
+	GENERATED_UCLASS_BODY()
+
+	/** Relative path to the ini file that is backing this list */
+	UPROPERTY()
+	FString ConfigFileName;
+
+	/** List of restricted tags saved to this file */
+	UPROPERTY(config, EditAnywhere, Category = GameplayTags)
+	TArray<FRestrictedGameplayTagTableRow> RestrictedGameplayTagList;
+
+	/** Sorts tags alphabetically */
+	void SortTags();
+};
+
+USTRUCT()
+struct GAMEPLAYTAGS_API FRestrictedConfigInfo
+{
+	GENERATED_BODY()
+
+	/** Allows new tags to be saved into their own INI file. This is make merging easier for non technical developers by setting up their own ini file. */
+	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = GameplayTags)
+	FString RestrictedConfigName;
+
+	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = GameplayTags)
+	TArray<FString> Owners;
+
+	bool operator==(const FRestrictedConfigInfo& Other) const;
+	bool operator!=(const FRestrictedConfigInfo& Other) const;
+};
+
 /**
  *	Class for importing GameplayTags directly from a config file.
  *	FGameplayTagsEditorModule::StartupModule adds this class to the Project Settings menu to be edited.
@@ -123,10 +157,23 @@ class GAMEPLAYTAGS_API UGameplayTagsSettings : public UGameplayTagsList
 	UPROPERTY(config, EditAnywhere, Category= "Advanced Replication")
 	int32 NetIndexFirstBitSegment;
 
-#if WITH_EDITOR
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	/** Allows new tags to be saved into their own INI file. */
+	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = "Advanced Gameplay Tags")
+	TArray<FRestrictedConfigInfo> RestrictedConfigFiles;
+#if WITH_EDITORONLY_DATA
+	// Dummy parameter used to hook the editor UI
+	UPROPERTY(EditAnywhere, AdvancedDisplay, transient, Category = "Advanced Gameplay Tags")
+	FString RestrictedTagList;
 #endif
+#if WITH_EDITOR
+	virtual void PreEditChange(UProperty* PropertyThatWillChange) override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
+private:
+	// temporary copy of RestrictedConfigFiles that we use to identify changes in the list
+	// this is required to autopopulate the owners field
+	TArray<FRestrictedConfigInfo> RestrictedConfigFilesTempCopy;
+#endif
 };
 
 UCLASS(config=GameplayTags, notplaceable)

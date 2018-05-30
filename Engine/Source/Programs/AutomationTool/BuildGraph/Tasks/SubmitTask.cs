@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -118,7 +118,7 @@ namespace AutomationTool.Tasks
 				}
 
 				// Get the latest version of it
-				int NewCL = SubmitP4.CreateChange(Description: Parameters.Description);
+				int NewCL = SubmitP4.CreateChange(Description: Parameters.Description.Replace("\\n", "\n"));
 				foreach(FileReference File in Files)
 				{
 					SubmitP4.Revert(String.Format("-k \"{0}\"", File.FullName));

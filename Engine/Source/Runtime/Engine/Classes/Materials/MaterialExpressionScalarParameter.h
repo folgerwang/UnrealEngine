@@ -46,6 +46,8 @@ class UMaterialExpressionScalarParameter : public UMaterialExpressionParameter
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
+
+	virtual bool IsUsedAsAtlasPosition() { return false; }
 };
 
 

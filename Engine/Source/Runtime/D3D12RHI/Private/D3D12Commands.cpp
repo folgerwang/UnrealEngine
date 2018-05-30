@@ -1090,11 +1090,6 @@ void FD3D12CommandContext::RHISetRenderTargets(
 	}
 }
 
-void FD3D12DynamicRHI::RHIDiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask)
-{
-	// Could support in DX12 via ID3D12CommandList::DiscardResource function.
-}
-
 void FD3D12CommandContext::RHISetRenderTargetsAndClear(const FRHISetRenderTargetsInfo& RenderTargetsInfo)
 {
 	FUnorderedAccessViewRHIParamRef UAVs[MaxSimultaneousUAVs] = {};

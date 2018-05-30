@@ -254,6 +254,8 @@ public:
 	 */
 	void DumpRegionStats();
 
+	void RegisterQoSSettingsChangedDelegate(const FSimpleDelegate& OnQoSSettingsChanged);
+
 public:
 
 	/** Begin UObject interface */
@@ -314,5 +316,6 @@ private:
 	FString SelectedRegionId;
 
 	TArray<FSimpleDelegate> OnQosEvalCompleteDelegate;
+	FSimpleDelegate OnQoSSettingsChangedDelegate;
 };
 

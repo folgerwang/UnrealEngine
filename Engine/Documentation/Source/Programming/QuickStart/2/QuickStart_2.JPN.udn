@@ -1,41 +1,55 @@
-﻿INTSourceChangelist:2725386
+﻿INTSourceChangelist:3728517
 Availability:Public
 Title:2 - C++ クラスを作成する
 Crumbs:%ROOT%, Programming, Programming/QuickStart
 Description:C++ クラスを作成する
 SkillLevel:Beginner
 Version:4.9
+parent:Programming/QuickStart
+order:2
+type:quick start
+type:multi-step
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[前のステップ](Programming\QuickStart\1 "%Programming\QuickStart\1:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[クイックスタート ホーム](Programming\QuickStart)
-	[/PARAM]
-	[PARAM:next]
-		[次のステップ](Programming\QuickStart\3 "%Programming\QuickStart\3:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+[NAV]
 
-
-
- 1. **アンリアル エディタ** では、**[File]** ドロップダウン メニューの **Add Code to Project** コマンドを使って C++ クラスを作成することができます。
+1. **アンリアル エディタ** では、**[File]** ドロップダウン メニューの **Add Code to Project** コマンドを使って C++ クラスを作成することができます。
  
 	[![](AddCPPClass.png)](AddCPPClass.png)
 
- 2. **[Choose Parent Class (親クラスを選択)]** メニューが開きます。**Actor** は **Unreal Engine** レベルに存在可能な最も基本的なクラスなので、 **Actor** クラスをベースとして使用します。
+2.**[Choose Parent Class (親クラスを選択)]** メニューが開きます。**Actor** は **Unreal Engine** レベルに存在可能な最も基本的なクラスなので、 **Actor** クラスをベースとして使用します。
  
 	[![](ChooseParentClass.png)](ChooseParentClass.png)
 
- 3. **[Name Your New Actor (新規アクタに名前を付ける)]** メニューが開きます。ここでは名前を「FloatingActor」と入力して、 **[Create Class (クラスを作成)]** をクリックします。
+3.**[Name Your New Actor (新規アクタに名前を付ける)]** メニューが開きます。ここでは名前を「FloatingActor」と入力して、 **[Create Class (クラスを作成)]** をクリックします。
  
 	[![](NameActorClass.png)](NameActorClass.png)
 
-C++ クラスが作成されたので、プログラミングを行うために **Visual Studio** へ切り替えることができます。`FloatingActor.cpp` が自動的に開き、**アンリアル エンジン** が自動的に新規クラスをコンパイルおよびリロードしてくれます。
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	windows
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	active_button_content
+	[/PARAMLITERAL]
+	[PARAM:content]
+	C++ クラスが作成されたので、プログラミングを行うために **Visual Studio** へ切り替えることができます。`FloatingActor.cpp` が自動的に開き、**アンリアル エンジン** が自動的に新規クラスをコンパイルおよびリロードしてくれます。
+	[/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+	[PARAMLITERAL:category]
+	OS
+	[/PARAMLITERAL]
+	[PARAMLITERAL:id]
+	mac
+	[/PARAMLITERAL]
+	[PARAMLITERAL:active]
+	[/PARAMLITERAL]
+	[PARAM:content]
+	C++ クラスが作成されたので、プログラミングを行うために **Xcode** へ切り替えることができます。`FloatingActor.cpp` が自動的に開き、**アンリアル エンジン** が自動的に新規クラスをコンパイルおよびリロードしてくれます。
+	[/PARAM]
+[/OBJECT]
 
-
+[NAV]

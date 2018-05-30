@@ -171,10 +171,11 @@ void AFunctionalUIScreenshotTest::RequestScreenshot()
 			// Draw the game viewport (overlaid with the widget to screenshot) to our ScreenshotRT.
 			// Need to do this manually because the game viewport doesn't have a valid FViewportRHIRef
 			// when rendering to a separate render target
-			TSharedPtr<FWidgetRenderer> WidgetRenderer = MakeShareable(new FWidgetRenderer(true, false));
-			check(WidgetRenderer.IsValid());
+			FWidgetRenderer* WidgetRenderer = new FWidgetRenderer(true, false);
+			check(WidgetRenderer);
 			WidgetRenderer->DrawWidget(ScreenshotRT, ViewportWidget.ToSharedRef(), ScreenshotSize, 0.f);
 			FlushRenderingCommands();
+			BeginCleanup(WidgetRenderer);
 
 			ReadPixelsFromRT(ScreenshotRT, &OutColorData);
 		}

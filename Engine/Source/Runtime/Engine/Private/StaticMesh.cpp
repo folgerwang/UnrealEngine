@@ -781,8 +781,14 @@ void FStaticMeshRenderData::Serialize(FArchive& Ar, UStaticMesh* Owner, bool bCo
 			for (int32 ResourceIndex = 0; ResourceIndex < LODResources.Num(); ResourceIndex++)
 			{
 				FStaticMeshLODResources& LOD = LODResources[ResourceIndex];
-
-				bool bValid = LOD.DistanceFieldData != NULL;
+				
+				bool bStripDistanceFields = false;
+				if (Ar.IsCooking())
+				{
+					bStripDistanceFields = !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::DeferredRendering);
+				}
+				
+				bool bValid = (LOD.DistanceFieldData != NULL) && !bStripDistanceFields;
 
 				Ar << bValid;
 
@@ -1403,7 +1409,7 @@ static FString BuildStaticMeshDerivedDataKey(UStaticMesh* Mesh, const FStaticMes
 	// Add LightmapUVVersion to key going forward
 	if ( (ELightmapUVVersion)Mesh->LightmapUVVersion > ELightmapUVVersion::BitByBit )
 	{
-		KeySuffix += Lex::ToString(Mesh->LightmapUVVersion);
+		KeySuffix += LexToString(Mesh->LightmapUVVersion);
 	}
 #if WITH_EDITOR
 	if (GIsAutomationTesting && Mesh->BuildCacheAutomationTestGuid.IsValid())
@@ -1848,12 +1854,30 @@ int32 UStaticMesh::GetNumLODs() const
 	return NumLODs;
 }
 
-bool UStaticMesh::HasValidRenderData() const
+// pass false for bCheckLODForVerts for any runtime code that can handle empty LODs, for example due to them being stripped
+//  as a result of minimum LOD setup on the static mesh; in cooked builds, those verts are stripped, but systems still need to
+//  be able to handle these cases; to check specifically for an LOD, pass true (default arg), and an LOD index (default arg implies MinLOD)
+//
+bool UStaticMesh::HasValidRenderData(bool bCheckLODForVerts, int32 LODIndex) const
 {
-	return RenderData != NULL
+	if (RenderData != nullptr
 		&& RenderData->LODResources.Num() > 0
-		&& RenderData->LODResources.GetData() != NULL
-		&& RenderData->LODResources[0].VertexBuffers.StaticMeshVertexBuffer.GetNumVertices() > 0;
+		&& RenderData->LODResources.GetData() != nullptr)
+	{
+		if (bCheckLODForVerts)
+		{
+		    if (LODIndex == INDEX_NONE)
+		    {
+			    LODIndex = FMath::Clamp<int32>(MinLOD.GetValueForFeatureLevel(GMaxRHIFeatureLevel), 0, RenderData->LODResources.Num() - 1);
+		    }
+			return (RenderData->LODResources[LODIndex].VertexBuffers.StaticMeshVertexBuffer.GetNumVertices() > 0);
+		}
+		else
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 FBoxSphereBounds UStaticMesh::GetBounds() const
@@ -2136,40 +2160,40 @@ void UStaticMesh::SetLODGroup(FName NewGroup, bool bRebuildImmediately)
 		Modify();
 	}
 	LODGroup = NewGroup;
-
-	const ITargetPlatform* Platform = GetTargetPlatformManagerRef().GetRunningTargetPlatform();
-	check(Platform);
-	const FStaticMeshLODGroup& GroupSettings = Platform->GetStaticMeshLODSettings().GetLODGroup(NewGroup);
-
-	// Set the number of LODs to at least the default. If there are already LODs they will be preserved, with default settings of the new LOD group.
-	int32 DefaultLODCount = GroupSettings.GetDefaultNumLODs();
-
-	if (SourceModels.Num() > DefaultLODCount)
+	if (NewGroup != NAME_None)
 	{
-		int32 NumToRemove = SourceModels.Num() - DefaultLODCount;
-		SourceModels.RemoveAt(DefaultLODCount, NumToRemove);
-	}
-	else if (DefaultLODCount > SourceModels.Num())
-	{
-		int32 NumToAdd = DefaultLODCount - SourceModels.Num();
-		SourceModels.AddDefaulted(NumToAdd);
-	}
+		const ITargetPlatform* Platform = GetTargetPlatformManagerRef().GetRunningTargetPlatform();
+		check(Platform);
+		const FStaticMeshLODGroup& GroupSettings = Platform->GetStaticMeshLODSettings().GetLODGroup(NewGroup);
 
-	check(SourceModels.Num() == DefaultLODCount);
+		// Set the number of LODs to at least the default. If there are already LODs they will be preserved, with default settings of the new LOD group.
+		int32 DefaultLODCount = GroupSettings.GetDefaultNumLODs();
 
-	// Set reduction settings to the defaults.
-	for (int32 LODIndex = 0; LODIndex < DefaultLODCount; ++LODIndex)
-	{
-		SourceModels[LODIndex].ReductionSettings = GroupSettings.GetDefaultSettings(LODIndex);
-	}
-	LightMapResolution = GroupSettings.GetDefaultLightMapResolution();
-	
-	if (!bBeforeDerivedDataCached)
-	{
-		bAutoComputeLODScreenSize = true;
-		
-	}
+		if (SourceModels.Num() > DefaultLODCount)
+		{
+			int32 NumToRemove = SourceModels.Num() - DefaultLODCount;
+			SourceModels.RemoveAt(DefaultLODCount, NumToRemove);
+		}
+		else if (DefaultLODCount > SourceModels.Num())
+		{
+			int32 NumToAdd = DefaultLODCount - SourceModels.Num();
+			SourceModels.AddDefaulted(NumToAdd);
+		}
 
+		check(SourceModels.Num() == DefaultLODCount);
+
+		// Set reduction settings to the defaults.
+		for (int32 LODIndex = 0; LODIndex < DefaultLODCount; ++LODIndex)
+		{
+			SourceModels[LODIndex].ReductionSettings = GroupSettings.GetDefaultSettings(LODIndex);
+		}
+		LightMapResolution = GroupSettings.GetDefaultLightMapResolution();
+
+		if (!bBeforeDerivedDataCached)
+		{
+			bAutoComputeLODScreenSize = true;
+		}
+	}
 	if (bRebuildImmediately && !bBeforeDerivedDataCached)
 	{
 		PostEditChange();
@@ -2284,7 +2308,7 @@ void UStaticMesh::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	FString ComplexityString;
 	if (BodySetup != nullptr)
 	{
-		ComplexityString = Lex::ToString((ECollisionTraceFlag)BodySetup->GetCollisionTraceFlag());
+		ComplexityString = LexToString((ECollisionTraceFlag)BodySetup->GetCollisionTraceFlag());
 	}
 
 	OutTags.Add( FAssetRegistryTag("Triangles", FString::FromInt(NumTriangles), FAssetRegistryTag::TT_Numerical) );
@@ -2328,12 +2352,17 @@ void UStaticMesh::GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetad
 
 FStaticMeshSourceModel::FStaticMeshSourceModel()
 {
+	LODDistance_DEPRECATED = 0.0f;
 #if WITH_EDITOR
 	RawMeshBulkData = new FRawMeshBulkData();
 	ScreenSize.Default = 0.0f;
 	OriginalMeshDescription = nullptr;
 	StaticMeshOwner = nullptr;
 #endif // #if WITH_EDITOR
+	SourceImportFilename = FString();
+#if WITH_EDITORONLY_DATA
+	bImportWithBaseMesh = false;
+#endif
 }
 
 FStaticMeshSourceModel::~FStaticMeshSourceModel()
@@ -3231,6 +3260,11 @@ void UStaticMesh::Serialize(FArchive& Ar)
 		}
 	}
 #endif // WITH_EDITOR
+}
+
+bool UStaticMesh::IsPostLoadThreadSafe() const
+{
+	return false;
 }
 
 //

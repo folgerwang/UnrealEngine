@@ -22,6 +22,7 @@
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "UObject/ReleaseObjectVersion.h"
 #include "SceneManagement.h"
+#include "AI/AISystemBase.h"
 #include "AI/NavigationSystemConfig.h"
 #include "AI/NavigationSystemBase.h"
 
@@ -95,6 +96,8 @@ AWorldSettings::AWorldSettings(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITORONLY_DATA
 	bActorLabelEditable = false;
 #endif // WITH_EDITORONLY_DATA
+
+	bReplayRewindable = true;
 }
 
 void AWorldSettings::PostInitProperties()
@@ -621,6 +624,11 @@ void UHierarchicalLODSetup::PostEditChangeProperty(struct FPropertyChangedEvent&
 }
 
 #endif // WITH_EDITOR
+
+FSoftClassPath AWorldSettings::GetAISystemClassName() const
+{
+	return bEnableAISystem ? UAISystemBase::GetAISystemClassName() : FSoftClassPath();
+}
 
 #undef LOCTEXT_NAMESPACE
 

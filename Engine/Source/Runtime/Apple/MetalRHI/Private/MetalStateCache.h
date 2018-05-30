@@ -158,6 +158,7 @@ public:
     void SetComputePipelineState(FMetalCommandEncoder& CommandEncoder);
 	void FlushVisibilityResults(FMetalCommandEncoder& CommandEncoder);
 
+	void DiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask);
 private:
 	void ConditionalUpdateBackBuffer(FMetalSurface& Surface);
 	

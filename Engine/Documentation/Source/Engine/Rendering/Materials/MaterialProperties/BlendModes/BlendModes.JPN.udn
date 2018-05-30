@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2855948
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:Material Blend モード
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/IntroductionToMaterials,  Engine/Rendering/Materials/MaterialProperties
 Description:Material Blend モードの一覧とマテリアルのレンダリングに与える影響
 Version:4.9
+tags:Materials
 
 
 [TOC(start:2 end:2)]
@@ -58,7 +59,7 @@ _透明性_ と _レンダリング処理をしない_ ことの違いは、留�
 Masked Blend モードを使用時は、**Opacity Mask Clip Value** プロパティに特別な注意をはらわなくてはいけません。このプロパティは、カットオフ ポイントとして使用されるオパシティマスク テクスチャの値を制御する 0-1 のスカラー値を保持します。この値を超えると **darker** ピクセルとなりレンダリングされません。 
 
 [REGION:imagetable]
-| [INCLUDE:#OpacityMaskClipValue] | ![](OpacityMaskMaterial.png)(w:445 h:465) |
+| [INCLUDE:#OpacityMaskClipValue] | ![](OpacityMaskMaterial.png)(w:445) |
 | --- | --- |
 | Opacity Mask Clip Value (スライダーをドラッグしてプレビューする) | マテリアル ネットワーク |
 [/REGION]
@@ -75,7 +76,7 @@ Translucent Blend モードは、何らかの形で透過処理が必要なオ�
 
 ![](TranslucentNetwork.png)(w:400)
 
-Blend モードはオパシティ値またはテクスチャを受け取り、黒い領域が完全に透過している表面、白い領域が完全に不透明な表面、その間のさまざまな影のグラデーションが対応する透明レベルの結果へ適用することにより機能します。つまり、グレーのオパシティ テクスチャは、背景の一部のみを透過した処理がされているように見えるオブジェクトを持つことができます。
+Blend モードはオパシティ値またはテクスチャを受け取り、黒い領域が完全に透過している表面、白い領域が完全に不透明な表面、その間のさまざまな影のグラデーションが対応する透明レベルの結果へ適用することにより機能します。つまり、グレーのオパシティテクスチャは、背景の一部のみを透過した処理がされているように見えるオブジェクトを持つことができます。
 
 [REGION:imagetable]
 | ![](TranslucentSetup.png)(w:500) | ![](TranslucentCamera.png)(h:192) |
@@ -130,8 +131,16 @@ Modulate Blend モードは、マテリアルの値を背景のピクセルに�
 Modulate ブレンドモードは、一部のパーティクル エフェクトで最適なものです。しかし、ライティングや透過分離をサポートしていないため注意を払わなければなりません。
 [/REGION]
 
-<!------------------- 
+| モード | 説明 |
+| ---- | ----------- |
+| **_BLEND_Opaque_** | 最終カラーはソースカラーになります。つまり、マテリアルは背景の上に描画されるということです。ブレンドモードは光源処理と互換性があります。
+| **_BLEND_Masked_** | OpacityMask > OpacityMaskClipValue の場合、最終カラーはソースカラーになります。そうでなければ、ピクセルは破棄されます。ブレンドモードは光源処理と互換性があります。
+| **_BLEND_Translucent_** | 最終カラーは「ソースカラー * オパシティ + Dest カラー * (1-オパシティ)」となります。このブレンドモードは、動的な光源処理と互換性が **ありません**。
+| **_BLEND_Additive_** | 最終カラーは「ソースカラー + Dest カラー」となります。このブレンドモードは、動的な光源処理と互換性が **ありません**。
+| **_BLEND_Modulate_** | 最終カラーは「ソースカラー + Dest カラー」となります。デカール マテリアルでない限り、このブレンドモードは動的な光源処理とは互換性が **ありません**。
+[/EXCERPT:BlendModes]
 
+[COMMENT:none]
 [EXCERPT:OpacityMaskClipValue]
 [OBJECT:SliderSequence]
 	[PARAMLITERAL:max]
@@ -169,16 +178,4 @@ Modulate ブレンドモードは、一部のパーティクル エフェクト�
 	[/PARAM]
 [/OBJECT]
 [/EXCERPT:OpacityMaskClipValue]
-
-
-
-
-| モード | 説明 |
-| ---- | ----------- |
-| **_BLEND_Opaque_** | 最終カラーはソースカラーになります。つまり、マテリアルは背景の上に描画されるということです。ブレンドモードは光源処理と互換性があります。
-| **_BLEND_Masked_** | OpacityMask > OpacityMaskClipValue の場合、最終カラーはソースカラーになります。そうでなければ、ピクセルは破棄されます。ブレンドモードは光源処理と互換性があります。
-| **_BLEND_Translucent_** | 最終カラーは「ソースカラー * オパシティ + Dest カラー * (1-オパシティ)」となります。このブレンドモードは、動的な光源処理と互換性が **ありません**。
-| **_BLEND_Additive_** | 最終カラーは「ソースカラー + Dest カラー」となります。このブレンドモードは、動的な光源処理と互換性が **ありません**。
-| **_BLEND_Modulate_** | 最終カラーは「ソースカラー + Dest カラー」となります。デカール マテリアルでない限り、このブレンドモードは動的な光源処理とは互換性が **ありません**。
-[/EXCERPT:BlendModes]
-
+[/COMMENT]

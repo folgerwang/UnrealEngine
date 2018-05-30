@@ -3,8 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
-class IVirtualKeyboardEntry;
+#include "Widgets/Input/IVirtualKeyboardEntry.h"
 
 class IPlatformTextField
 {
@@ -13,6 +12,8 @@ public:
 
 	virtual void ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSharedPtr<IVirtualKeyboardEntry> TextEntryWidget) = 0;
 	virtual bool AllowMoveCursor() { return true; }
+
+	static bool ShouldUseVirtualKeyboardAutocorrect(TSharedPtr<IVirtualKeyboardEntry> TextEntryWidget);
 
 private:
 

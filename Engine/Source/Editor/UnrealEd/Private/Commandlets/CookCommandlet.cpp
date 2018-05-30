@@ -202,13 +202,13 @@ namespace DetailedCookStats
 				double AssetTimeSec = 0.0;
 				if (AssetTimeSecAttr)
 				{
-					Lex::FromString(AssetTimeSec, *AssetTimeSecAttr->Value);
+					LexFromString(AssetTimeSec, *AssetTimeSecAttr->Value);
 				}
 				const FCookStatsManager::StringKeyValue* AssetSizeMBAttr = StatAttributes.FindByPredicate([](const FCookStatsManager::StringKeyValue& Item) { return Item.Key == TEXT("MB"); });
 				double AssetSizeMB = 0.0;
 				if (AssetSizeMBAttr)
 				{
-					Lex::FromString(AssetSizeMB, *AssetSizeMBAttr->Value);
+					LexFromString(AssetSizeMB, *AssetSizeMBAttr->Value);
 				}
 				const FCookStatsManager::StringKeyValue* ThreadNameAttr = StatAttributes.FindByPredicate([](const FCookStatsManager::StringKeyValue& Item) { return Item.Key == TEXT("ThreadName"); });
 				bool bIsGameThreadTime = ThreadNameAttr != nullptr && ThreadNameAttr->Value == TEXT("GameThread");
@@ -221,7 +221,7 @@ namespace DetailedCookStats
 					const FCookStatsManager::StringKeyValue* CountAttr = StatAttributes.FindByPredicate([](const FCookStatsManager::StringKeyValue& Item) { return Item.Key == TEXT("Count"); });
 					if (CountAttr)
 					{
-						Lex::FromString(AssetsBuilt, *CountAttr->Value);
+						LexFromString(AssetsBuilt, *CountAttr->Value);
 					}
 				}
 
@@ -465,7 +465,7 @@ bool UCookCommandlet::CookOnTheFly( FGuid InstanceId, int32 Timeout, bool bForce
 	while (!GIsRequestingExit)
 	{
 		uint32 CookedPkgCount = 0;
-		uint32 TickResults = CookOnTheFlyServer->TickCookOnTheSide(/*TimeSlice =*/10.f, CookedPkgCount);
+		uint32 TickResults = CookOnTheFlyServer->TickCookOnTheSide(/*TimeSlice =*/10.f, CookedPkgCount, ShowProgress ? ECookTickFlags::None : ECookTickFlags::HideProgressDisplay);
 
 		// Flush the asset registry before GC
 		FAssetRegistryModule::TickAssetRegistry(-1.0f);
@@ -543,7 +543,8 @@ int32 UCookCommandlet::Main(const FString& CmdLineParams)
 	bCookSinglePackage = Switches.Contains(TEXT("cooksinglepackage"));
 	bVerboseCookerWarnings = Switches.Contains(TEXT("verbosecookerwarnings"));
 	bPartialGC = Switches.Contains(TEXT("Partialgc"));
-	ShowErrorCount = !Switches.Contains(TEXT("DIFFONLY")); // Suppress warning summary when diffing against existing cook
+	ShowErrorCount = !Switches.Contains(TEXT("DIFFONLY"));
+	ShowProgress = !Switches.Contains(TEXT("DIFFONLY"));
 
 	COOK_STAT(DetailedCookStats::CookProject = FApp::GetProjectName());
 
@@ -910,7 +911,7 @@ bool UCookCommandlet::CookByTheBook( const TArray<ITargetPlatform*>& Platforms, 
 				uint32 TickResults = 0;
 				static const float CookOnTheSideTimeSlice = 10.0f;
 
-				TickResults = CookOnTheFlyServer->TickCookOnTheSide( CookOnTheSideTimeSlice, NonMapPackageCountSinceLastGC );
+				TickResults = CookOnTheFlyServer->TickCookOnTheSide( CookOnTheSideTimeSlice, NonMapPackageCountSinceLastGC, ShowProgress ? ECookTickFlags::None : ECookTickFlags::HideProgressDisplay );
 
 				{
 					COOK_STAT(FScopedDurationTimer ShaderProcessAsyncTimer(DetailedCookStats::TickLoopShaderProcessAsyncResultsTimeSec));

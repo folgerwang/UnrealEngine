@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3347993
-Availability:Public
+﻿Availability:Public
 Title:カスタム仕様の高さマップとレイヤーの作成および使用方法
 Crumbs:
 Description:ランドスケープ用のカスタム仕様の高さマップとレイヤーの作成と使用方法
@@ -11,6 +10,7 @@ SkillLevel:Intermediate
 related:Engine/Landscape/Editing
 related:Engine/Landscape/Editing/PaintMode
 related:Engine/Landscape/Creation
+tags:Landscape
 
 [TOC(start:2 end:3)]
 
@@ -127,6 +127,7 @@ related:Engine/Landscape/Creation
 
 PC 上に高さマップを保存したら Landscape ツールの中で使ってみましょう。 
 1. Landscape ツールを開いたら、[Manage モード](Engine/Landscape/Editing/ManageMode) を開きます。
+
 	![](Landscape_Open_Manage_Mode.png)
 
 1. **[Import from File (ファイルからインポート)]** のオプションを選択します。

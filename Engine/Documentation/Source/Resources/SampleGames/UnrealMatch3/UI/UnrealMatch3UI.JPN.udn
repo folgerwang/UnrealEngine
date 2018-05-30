@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2804026
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Unreal Match 3 の UI の作成
 Crumbs:%ROOT%, Resources
@@ -6,40 +6,8 @@ Description:Unreal Match 3 サンプル ゲームの UI の作成で行ったプ
 Version:4.10
 Related:Engine/UMG
 Related:Engine/Blueprints
+topic-image:Resources/SampleGames/UnrealMatch3/unrealmatch3_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/SampleGames/UnrealMatch3/UI:title%](Resources/SampleGames/UnrealMatch3/unrealmatch3_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/SampleGames/UnrealMatch3/UI:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/SampleGames/UnrealMatch3/UI:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/SampleGames/UnrealMatch3/UI]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/SampleGames/UnrealMatch3/UI:title%](Resources/SampleGames/UnrealMatch3/unrealmatch3_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/SampleGames/UnrealMatch3/UI:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/SampleGames/UnrealMatch3/UI:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/SampleGames/UnrealMatch3/UI]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [TOC(start:2 end:2)]
 
@@ -50,18 +18,9 @@ Related:Engine/Blueprints
 
 ## タイトル画面
 
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](TitleScreen.png)(w:200 convert:false)
-	[/PARAM]
-	[PARAM:description]
-	タイトル画面は、この **Content/UI** フォルダ内に **TitleScreen** Widget Blueprint として置かれています。主にアニメートするいくつかの Text ウィジェットとボタンから構成されています。プレイヤーがボタンをクリックまたは押すと、ゲームのメインメニューに進みます。グラフでは、Timer を使ってパルス アニメーションを呼び出して 5 秒毎に再生します。ボタンをクリックすると、Main Menu Widget ブループリントが作成され、タイトル画面を取り除く前にビューポートに追加されます。 
-	[/PARAM]
-[/OBJECT]
+![](TitleScreen.png)(w:200 convert:false)
 
-[REGION:raw]
-![](spacer.png)(w:540)
-[/REGION]
+タイトル画面は、この **Content/UI** フォルダ内に **TitleScreen** Widget Blueprint として置かれています。主にアニメートするいくつかの Text ウィジェットとボタンから構成されています。プレイヤーがボタンをクリックまたは押すと、ゲームのメインメニューに進みます。グラフでは、Timer を使ってパルス アニメーションを呼び出して 5 秒毎に再生します。ボタンをクリックすると、Main Menu Widget ブループリントが作成され、タイトル画面を取り除く前にビューポートに追加されます。 
 
 タイトル画面で使われるボタンのセットアップはサンプル全体を通して非常に頻繁に使用されます。
 
@@ -73,20 +32,11 @@ Related:Engine/Blueprints
 
 ## メイン メニュー
 
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](MainMenu.png)(w:200 convert:false)
-	[/PARAM]
-	[PARAM:description]
-	メイン メニューは、**Content/UI** フォルダ内に **MainMenu** Widget Blueprint として置かれています。プレイヤーが数種類のアクションを行うことができるハブであるこの画面には、10 種類のボタンがあります。こうしたボタンを使ってプレイヤーは設定にアクセス、インゲーム ストアにアクセス、ゲームをプレイ、レベル選択などを行うことができます。モバイル デバイスでプレイする場合、プラットフォーム (Android または iOS) に応じて、プレイヤーはプラットフォーム固有の Leaderboard (スコア ランキング) と achievements (アチーブメント、成績) にアクセスできます。 
+![](MainMenu.png)(w:200 convert:false)
 
-	この Widget ブループリントのグラフは、プレイヤーがボタンのひとつをクリックすると、新しいメニュー画面 (設定、レベル選択、ストアなど) に移行するようにセットアップされています。まず、プレイヤーがその画面にこれまでにアクセスしたことがあるかをチェックし、アクセスしたことがなければ、対応する Widget ブループリントを作成して表示し、それを次回その画面にアクセスするための変数として保存します。これにより、毎回ユーザが各画面にアクセスするたびに画面を作成 / 破棄しなくてすむようにします。 
-	[/PARAM]
-[/OBJECT]
+メイン メニューは、**Content/UI** フォルダ内に **MainMenu** Widget Blueprint として置かれています。プレイヤーが数種類のアクションを行うことができるハブであるこの画面には、10 種類のボタンがあります。こうしたボタンを使ってプレイヤーは設定にアクセス、インゲーム ストアにアクセス、ゲームをプレイ、レベル選択などを行うことができます。モバイル デバイスでプレイする場合、プラットフォーム (Android または iOS) に応じて、プレイヤーはプラットフォーム固有の Leaderboard (スコア ランキング) と achievements (アチーブメント、成績) にアクセスできます。 
 
-[REGION:raw]
-![](spacer.png)(w:120)
-[/REGION]
+この Widget ブループリントのグラフは、プレイヤーがボタンのひとつをクリックすると、新しいメニュー画面 (設定、レベル選択、ストアなど) に移行するようにセットアップされています。まず、プレイヤーがその画面にこれまでにアクセスしたことがあるかをチェックし、アクセスしたことがなければ、対応する Widget ブループリントを作成して表示し、それを次回その画面にアクセスするための変数として保存します。これにより、毎回ユーザが各画面にアクセスするたびに画面を作成 / 破棄しなくてすむようにします。 
 
 この画面のセットアップにおけるデザイン上の決定事項のひとつとして、上部と下部のボタンのレイアウトに関するものがあります。 
 
@@ -97,21 +47,12 @@ Related:Engine/Blueprints
 
 ## オプション メニュー
 
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](Options1.png)(w:200 convert:false) ![](Options2.png)(w:200 convert:false)
-	[/PARAM]
-	[PARAM:description]
-	オプション メニューは、**Content/UI** フォルダ内に **OptionsMenu** Widget Blueprint として置かれています。左側の画像のように、オプション メニューは、オプション ボタンを押すと、メイン メニューとインゲームの表示で再利用されます。コンテキストに応じて、コンテンツは若干変わり、追加オプションが表示され、スタイライズド処理が使用されます。 
-	この Widget ブループリントのグラフには、変更されるオプションのロード / 保存のロジックがあり、**Global Game Instance** ブループリントによって処理されます。 
+![](Options1.png)(w:200 convert:false) ![](Options2.png)(w:200 convert:false)
 
-	プレイヤーがインゲームまたはメイン メニューからオプションにアクセスしているかをチェックし、下部のボタンを置き換えるか、バックグラウンドの色調を弱めることを有効/無効にします。 
-	[/PARAM]
-[/OBJECT]
+オプション メニューは、**Content/UI** フォルダ内に **OptionsMenu** Widget Blueprint として置かれています。左側の画像のように、オプション メニューは、オプション ボタンを押すと、メイン メニューとインゲームの表示で再利用されます。コンテキストに応じて、コンテンツは若干変わり、追加オプションが表示され、スタイライズド処理が使用されます。 
 
-[REGION:raw]
-![](spacer.png)(w:60)
-[/REGION]
+この Widget ブループリントのグラフには、変更されるオプションのロード / 保存のロジックがあり、**Global Game Instance** ブループリントによって処理されます。 
+プレイヤーがインゲームまたはメイン メニューからオプションにアクセスしているかをチェックし、下部のボタンを置き換えるか、バックグラウンドの色調を弱めることを有効/無効にします。 
 
 インゲームのオプション メニューは、何らかのアクションを行った場合に確認画面を使用するインスタンスのひとつです。 
 UI 画面 (ゲーム終了、アイテム購入、アイテム削除など) を作成する場合は常に、ユーザーが誤って何かを選択したり、意図しないアクションを行うことを防ぐために「破壊的 (destructive) 」アクションの確認画面を提示するのがベストプラクティスです。 
@@ -129,20 +70,11 @@ UI 画面 (ゲーム終了、アイテム購入、アイテム削除など) を�
 
 ## インゲーム表示
 
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](InGameDisplay.png)(w:200 convert:false)
-	[/PARAM]
-	[PARAM:description]
-	主なインゲームの HUD は、**Content/UI** フォルダの **GameScreen** Widget ブループリントにあります。Widget ブループリントでは全体的な表示を構成する個々の部分のレイアウトを定義します。すなわち、ScoreBoard (**ScoreBoardWB** Widget ブループリント) および Bomb Power (**PowerBarHorz** Widget ブループリント) および Settings Button (これは **OptionsMenu** Widget ブループリントを表示します) があります。 
+![](InGameDisplay.png)(w:200 convert:false)
 
-	GameScreen Widget ブループリントのグラフには、オプション メニューを表示するためのロジックのみがあります。Score Board と Bomb Power メーターを更新するロジックは、それぞれの Widget ブループリントで処理され、モジュール式でわかりやすくなっています (何もかもをひとつの Widget ブループリントに入れることに比べて)。 
-	[/PARAM]
-[/OBJECT]
+主なインゲームの HUD は、**Content/UI** フォルダの **GameScreen** Widget ブループリントにあります。Widget ブループリントでは全体的な表示を構成する個々の部分のレイアウトを定義します。すなわち、ScoreBoard (**ScoreBoardWB** Widget ブループリント) および Bomb Power (**PowerBarHorz** Widget ブループリント) および Settings Button (これは **OptionsMenu** Widget ブループリントを表示します) があります。 
 
-[REGION:raw]
-![](spacer.png)(w:260)
-[/REGION]
+GameScreen Widget ブループリントのグラフには、オプション メニューを表示するためのロジックのみがあります。Score Board と Bomb Power メーターを更新するロジックは、それぞれの Widget ブループリントで処理され、モジュール式でわかりやすくなっています (何もかもをひとつの Widget ブループリントに入れることに比べて)。 
 
 #### スコアボード表示
 
@@ -185,22 +117,13 @@ Bomb Power Meter 表示 (**PowerBarHorz** Widget ブループリント) の処�
 
 ## ゲーム オーバー表示
 
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](YouWinScreen.png)(w:200 convert:false) ![](YouLoseScreen.png)(w:200 convert:false)
-	[/PARAM]
-	[PARAM:description]
-	ゲームオーバー画面 (You Win および You Lose) は、**Content/UI** フォルダ内に **VictoryScreen** Widget Blueprint として置かれています。ゲームオーバーになると同じ Widget ブループリントが呼び出されますが、セッション結果に基づいて更新されます。 
+![](YouWinScreen.png)(w:200 convert:false) ![](YouLoseScreen.png)(w:200 convert:false)
 
-	勝った場合は、青の背景と達成したメダルが表示されます。負けた場合は、赤の背景が表示され、テキストの内容が対応する "you lose" テキストに置き換えられます。 
+ゲームオーバー画面 (You Win および You Lose) は、**Content/UI** フォルダ内に **VictoryScreen** Widget Blueprint として置かれています。ゲームオーバーになると同じ Widget ブループリントが呼び出されますが、セッション結果に基づいて更新されます。 
 
-	勝っても負けても、達成したスコアが一連のボタンと共に表示されます。こうしたボタンを使ってメイン メニューに戻ったり、プラットフォーム固有の Leaderboard (ランキング表) や成績を表示したり、レベルを再生したりすることができます。 
-	[/PARAM]
-[/OBJECT]
+勝った場合は、青の背景と達成したメダルが表示されます。負けた場合は、赤の背景が表示され、テキストの内容が対応する "you lose" テキストに置き換えられます。 
 
-[REGION:raw]
-![](spacer.png)(w:10)
-[/REGION]
+勝っても負けても、達成したスコアが一連のボタンと共に表示されます。こうしたボタンを使ってメイン メニューに戻ったり、プラットフォーム固有の Leaderboard (ランキング表) や成績を表示したり、レベルを再生したりすることができます。 
 
 画面下部に表示されるボタンは **GameOverButtons** Widget ブループリント内にあります。これらは、Game Over Screen ウィジェットからは分けられ、こうしたオプションをユーザー向けに表示する必要があるたびに、毎回このセットアップを再作成するのではなく他の画面で再利用できるようになっています。 
 
@@ -213,22 +136,12 @@ Bomb Power Meter 表示 (**PowerBarHorz** Widget ブループリント) の処�
 
 ## レベル選択
 
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](LevelSelect.png)(w:200 convert:false) ![](LevelSelect2.png)(w:200 convert:false)
-	[/PARAM]
-	[PARAM:description]
-	レベル選択メニューは、**「Content/UI」** フォルダ内に **LevelSelect** Widget ブループリントとして置かれています。この画面では、プレイヤーはゲーム内のレベル間や各メダルを獲得するためにレベルで必要なスコアの間を循環することができます。 
+![](LevelSelect.png)(w:200 convert:false) ![](LevelSelect2.png)(w:200 convert:false)
+
+レベル選択メニューは、**「Content/UI」** フォルダ内に **LevelSelect** Widget ブループリントとして置かれています。この画面では、プレイヤーはゲーム内のレベル間や各メダルを獲得するためにレベルで必要なスコアの間を循環することができます。 
 	この画面をナビゲーションするために必要な中心的機能は、Level Select Widget ブループリントにあります。ただし、その情報は同じく **Content/UI** にある **LevelSelectWidget** という別の Widget ブループリントを通して送られます。 
 
-
-	ユーザーがまだそのレベルを購入していなければ、アクセプト ボタンをストアへのリンクに置き換えて、ユーザーが購入のために直接ストア メニューに進めるようにします。 
-	[/PARAM]
-[/OBJECT]
-
-[REGION:raw]
-![](spacer.png)(w:10)
-[/REGION]
+ユーザーがまだそのレベルを購入していなければ、アクセプト ボタンをストアへのリンクに置き換えて、ユーザーが購入のために直接ストア メニューに進めるようにします。 
 
 #### レベル選択ウィジェット
 
@@ -251,20 +164,11 @@ Bomb Power Meter 表示 (**PowerBarHorz** Widget ブループリント) の処�
 
 ## How To Play
 
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](HowToPlayScreen.png)(w:200 convert:false)
-	[/PARAM]
-	[PARAM:description]
-	How To Play 画面は、**Content/UI** フォルダに **HowToScreen** Widget Blueprint として置かれています。この画面には、ゲームのプレイ方法の説明があり、非常にシンプルなレイアウトになっています。テキストには数種類の Text ウィジェットが使用されており、画面は一貫性を持たせるためにメインメニューと同じレイアウトとフォーマットになっています。 
-	他の数種類の画面と同様に、このプレイ方法画面は、Google Play Store 認証の要件であるいくつかの特殊機能を実装しています。デバイスの戻るボタンを使用して画面を戻ることができます。 
+![](HowToPlayScreen.png)(w:200 convert:false)
 
-	[/PARAM]
-[/OBJECT]
+How To Play 画面は、**Content/UI** フォルダに **HowToScreen** Widget Blueprint として置かれています。この画面には、ゲームのプレイ方法の説明があり、非常にシンプルなレイアウトになっています。テキストには数種類の Text ウィジェットが使用されており、画面は一貫性を持たせるためにメインメニューと同じレイアウトとフォーマットになっています。 
 
-[REGION:raw]
-![](spacer.png)(w:10)
-[/REGION]
+他の数種類の画面と同様に、このプレイ方法画面は、Google Play Store 認証の要件であるいくつかの特殊機能を実装しています。デバイスの戻るボタンを使用して画面を戻ることができます。 
 
 #### Android の Back ボタン
 
@@ -285,28 +189,16 @@ Android のアプリの要件として、デバイスの Back ボタンを使っ
 
 ## ストア メニュー
 
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](StoreMenu.png)(w:200 convert:false)
-	[/PARAM]
-	[PARAM:description]
-	Store 画面は、**Content/UI** フォルダに **StoreScreen** Widget として置かれています。この画面のレイアウトは、意図的にレベル選択レイアウトに非常に類似させており、プレイヤーがレベル選択メニューからプレイのために利用できる新しいレベルをアンロックできるようにします。 
+![](StoreMenu.png)(w:200 convert:false)
+
+Store 画面は、**Content/UI** フォルダに **StoreScreen** Widget として置かれています。この画面のレイアウトは、意図的にレベル選択レイアウトに非常に類似させており、プレイヤーがレベル選択メニューからプレイのために利用できる新しいレベルをアンロックできるようにします。 
 	メインメニューからこの画面に入ると、まずプレイヤーに対して確認メッセージ (ConfirmationScreen Widget ブループリント) が表示されます。この画面からアイテムが購入可能であることと、先に進む前にプレイヤーが戻ることが可能であることが示されます。確認メッセージをアクセプトしたら、プレイヤーはメインのストア メニューに進みます。 
 
-	この画面のコンテンツの大部分は、ボーダー、オーバーレイ、テキスト ウィジェット、画像、アライメントのためのVertical Box (垂直ボックス) から構成されます。レイアウトの構造上、レベル間を移動するためのメニューのナビゲーションをこのメニューにコピー / 貼り付け可能であり、ストアから購入可能なアイテムのページをさらに追加できます。 
-
-	[/PARAM]
-[/OBJECT]
-
-[REGION:raw]
-![](spacer.png)(w:10)
-[/REGION]
+この画面のコンテンツの大部分は、ボーダー、オーバーレイ、テキスト ウィジェット、画像、アライメントのためのVertical Box (垂直ボックス) から構成されます。レイアウトの構造上、レベル間を移動するためのメニューのナビゲーションをこのメニューにコピー / 貼り付け可能であり、ストアから購入可能なアイテムのページをさらに追加できます。 
 
 #### ストアから購入
 
-[REGION:topics third]
 %Platforms/Mobile/InAppPurchases:topic%
-[/REGION]
 
 ## 参考文献
 

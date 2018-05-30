@@ -53,8 +53,8 @@ struct FInstanceUpdateCmdBuffer
 	
 	// Commands that can modify render data in place
 	void HideInstance(int32 RenderIndex);
-	void AddInstance(int32 RenderIndex, const FMatrix& InXForm);
-	void UpdateInstance(int32 RenderIndex, const FMatrix& InXForm);
+	void AddInstance(const FMatrix& InTransform);
+	void UpdateInstance(int32 RenderIndex, const FMatrix& InTransform);
 	void SetEditorData(int32 RenderIndex, const FColor& Color, bool bSelected);
 	void ResetInlineCommands();
 	int32 NumInlineCommands() const { return Cmds.Num(); }
@@ -151,6 +151,9 @@ class ENGINE_API UInstancedStaticMeshComponent : public UStaticMeshComponent
 	/** Add an instance to this component. Transform is given in world space. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
 	int32 AddInstanceWorldSpace(const FTransform& WorldTransform);
+
+	/** Preallocated memory to include the new added instances count, to prevent reallloc during the add operation. */
+	virtual void PreAllocateInstancesMemory(int32 AddedInstanceCount);
 
 	/** Get the transform for the instance specified. Instance is returned in local space of this component unless bWorldSpace is set.  Returns True on success. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")

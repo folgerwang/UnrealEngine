@@ -59,11 +59,11 @@ class ENGINESETTINGS_API UGeneralProjectSettings
 	UPROPERTY(config, EditAnywhere, Category=Publisher)
 	FString SupportContact;
 
-	/** The project's title as displayed on the window title bar (can include the tokens {GameName}, {PlatformArchitecture}, or {RHIName}, which will be replaced with the specified text) */
+	/** The project's title as displayed on the window title bar (can include the tokens {GameName}, {PlatformArchitecture}, {BuildConfiguration} or {RHIName}, which will be replaced with the specified text) */
 	UPROPERTY(config, EditAnywhere, Category=Displayed)
 	FText ProjectDisplayedTitle;
 
-	/** Additional data to be displayed on the window title bar in non-shipping configurations (can include the tokens {GameName}, {PlatformArchitecture}, or {RHIName}, which will be replaced with the specified text) */
+	/** Additional data to be displayed on the window title bar in non-shipping configurations (can include the tokens {GameName}, {PlatformArchitecture}, {BuildConfiguration} or {RHIName}, which will be replaced with the specified text) */
 	UPROPERTY(config, EditAnywhere, Category=Displayed)
 	FText ProjectDebugTitleInfo;
 

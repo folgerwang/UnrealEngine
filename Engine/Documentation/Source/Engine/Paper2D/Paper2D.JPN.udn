@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3467293
-Availability:Public
+﻿Availability:Public
 Title:Paper 2D
 Crumbs: %ROOT%, Engine
 Description:Paper 2D は 2D および 2D/3D のハイブリッドなゲームをアンリアル エンジン 4 で作成するためのスプライト ベースのシステムです。
@@ -19,11 +18,11 @@ Topic-image:Paper2D_Topic.png
 
 ## はじめよう
 
-[DIR(output:"topic" parent:"Engine/Paper2D" org:"hierarchy" path:"!Engine/Paper2D/HowTo")]
+[DIR(output:"topic" parent:"Engine/Paper2D" org:"hierarchy" type:"landing,overview,quick start, reference")]
 
 ## ガイド
 
-[DIR(output:"fancy" parent:"Engine/Paper2D/HowTo" org:"hierarchy")]
+[DIR(output:"fancy" parent:"Engine/Paper2D/HowTo" org:"hierarchy" type:"how-to")]
 
 ## 動画チュートリアル
 
