@@ -156,7 +156,7 @@ namespace InternalEditorPythonRunner
 			// if we are here the editor is ready.
 			if (!GIsRequestingExit && !bIsRunning && GWorld && GEngine && GEditor && DeltaTime > 0 && GLog)
 			{
-				if (!FileName.IsEmpty() && IFileManager::Get().FileExists(*FileName))
+				if (!FileName.IsEmpty())
 				{
 					// check if the AssetRegistryModule is ready
 					FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
