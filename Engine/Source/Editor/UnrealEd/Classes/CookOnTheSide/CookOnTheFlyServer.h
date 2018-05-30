@@ -370,7 +370,6 @@ private:
 	private:
 		mutable FCriticalSection	SynchronizationObject;
 		TMap<FName, FFilePlatformCookedPackage> FilesProcessed;
-	public:
 
 		void Lock()
 		{
@@ -381,7 +380,8 @@ private:
 			SynchronizationObject.Unlock();
 		}
 
-		int32 Num() 
+	public:
+		int32 Num()
 		{ 
 			return FilesProcessed.Num();
 		}
@@ -1775,6 +1775,8 @@ private:
 
 	uint32 FullLoadAndSave(uint32& CookedPackageCount);
 
+	uint32		StatLoadedPackageCount = 0;
+	uint32		StatSavedPackageCount = 0;
 };
 
 FORCEINLINE uint32 GetTypeHash(const UCookOnTheFlyServer::FFilePlatformRequest &Key)

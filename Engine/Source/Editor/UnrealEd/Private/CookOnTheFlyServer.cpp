@@ -95,11 +95,16 @@
 #include "Commandlets/ShaderPipelineCacheToolsCommandlet.h"
 
 #define LOCTEXT_NAMESPACE "Cooker"
+#define REMAPPED_PLUGGINS TEXT("RemappedPlugins")
 
 DEFINE_LOG_CATEGORY_STATIC(LogCook, Log, All);
 
 #define DEBUG_COOKONTHEFLY 0
 #define OUTPUT_TIMING 1
+
+#if OUTPUT_TIMING || ENABLE_COOK_STATS
+#include "ProfilingDebugging/ScopedTimers.h"
+#endif
 
 #define PROFILE_NETWORK 0
 
@@ -119,361 +124,161 @@ static FAutoConsoleVariableRef CVarCookDisplayMode(
 
 
 #if OUTPUT_TIMING
-#include "ProfilingDebugging/ScopedTimers.h"
 
-#define HIERARCHICAL_TIMER 1
-#define PERPACKAGE_TIMER 0
-
-#define REMAPPED_PLUGGINS TEXT("RemappedPlugins")
-
-struct FTimerInfo
+struct FHierarchicalTimerInfo
 {
 public:
+	FHierarchicalTimerInfo(const FHierarchicalTimerInfo& InTimerInfo) = delete;
+	FHierarchicalTimerInfo(FHierarchicalTimerInfo&& InTimerInfo) = delete;
 
-	FTimerInfo( FTimerInfo &&InTimerInfo )
-	{
-		Swap( Name, InTimerInfo.Name );
-		Length = InTimerInfo.Length;
-	}
-
-	FTimerInfo( const FTimerInfo &InTimerInfo )
-	{
-		Name = InTimerInfo.Name;
-		Length = InTimerInfo.Length;
-	}
-
-	FTimerInfo( FString &&InName, double InLength ) : Name(MoveTemp(InName)), Length(InLength) { }
-
-	FString Name;
-	double Length;
-};
-
-#if HIERARCHICAL_TIMER
-struct FHierarchicalTimerInfo : public FTimerInfo
-{
-public:
-	FHierarchicalTimerInfo *Parent;
-	TMap<FString, FHierarchicalTimerInfo*> Children;
-
-	FHierarchicalTimerInfo(const FHierarchicalTimerInfo& InTimerInfo) : FTimerInfo(InTimerInfo)
-	{
-		Children = InTimerInfo.Children;
-		for (auto& Child : Children)
-		{
-			Child.Value->Parent = this;
-		}
-	}
-
-	FHierarchicalTimerInfo(FHierarchicalTimerInfo&& InTimerInfo) : FTimerInfo(InTimerInfo)
-	{
-		Swap(Children, InTimerInfo.Children);
-
-		for (auto& Child : Children)
-		{
-			Child.Value->Parent = this;
-		}
-	}
-
-	FHierarchicalTimerInfo(FString &&Name) : FTimerInfo(MoveTemp(Name), 0.0)
+	explicit FHierarchicalTimerInfo(const char* InName)
+	:	Name(InName)
 	{
 	}
 
 	~FHierarchicalTimerInfo()
 	{
-		Parent = NULL;
 		ClearChildren();
 	}
 
 	void ClearChildren()
 	{
-		for (auto& Child : Children)
-		{
-			delete Child.Value;
-		}
-		Children.Empty();
+		for (int i = 0; i < ChildCount; ++i)
+			delete Children[i];
+
+		ChildCount = 0;
 	}
 
-	FHierarchicalTimerInfo* FindChild(const FString& InName)
+	FHierarchicalTimerInfo* GetChild(int InId, const char* InName)
 	{
-		FHierarchicalTimerInfo* Child = (FHierarchicalTimerInfo*)(Children.FindRef(InName));
-		if ( !Child )
+		for (int i = 0; i < ChildCount; ++i)
 		{
-			FString Temp = InName;
-			Child = Children.Add(InName, new FHierarchicalTimerInfo(MoveTemp(Temp)));
-			Child->Parent = this;
+			if (ChildrenIds[i] == InId)
+			{
+				return Children[i];
+			}
 		}
 
-		check(Child);
+		FHierarchicalTimerInfo* Child = new FHierarchicalTimerInfo(InName);
+		const int Index = ChildCount++;
+
+		check(Index < MaxChildCount);
+
+		Children[Index]		= Child;
+		ChildrenIds[Index]	= InId;
+
 		return Child;
 	}
+
+	enum { MaxChildCount = 9 };
+
+	uint32							HitCount = 0;
+	uint16							ChildCount = 0;
+	uint8							ChildrenIds[MaxChildCount];
+	bool							IncrementDepth = true;
+	double							Length = 0;
+	const char*						Name;
+
+	FHierarchicalTimerInfo*			Children[MaxChildCount];
 };
 
-static TMap<FName, int32> IntStats;
-void IncIntStat(const FName& Name, const int32 Amount)
-{
-	int32* Value = IntStats.Find(Name);
-
-	if (Value == NULL)
-	{
-		IntStats.Add(Name, Amount);
-	}
-	else
-	{
-		*Value += Amount;
-	}
-}
-
-
-static FHierarchicalTimerInfo RootTimerInfo(FString(TEXT("Root")));
+static FHierarchicalTimerInfo RootTimerInfo("Root");
 static FHierarchicalTimerInfo* CurrentTimerInfo = &RootTimerInfo;
-#endif
-
-
-static TArray<FTimerInfo> GTimerInfo;
-
-
 
 struct FScopeTimer
 {
-private:
-	bool Started;
-	bool DecrementScope;
-	static int GScopeDepth;
-#if HIERARCHICAL_TIMER
-	FHierarchicalTimerInfo* HeirarchyTimerInfo;
-#endif
 public:
+	FScopeTimer(const FScopeTimer&) = delete;
+	FScopeTimer(FScopeTimer&&) = delete;
 
-	FScopeTimer( const FScopeTimer &outer )
+	FScopeTimer(int InId, const char* InName, bool IncrementScope = false )
 	{
-		Index = outer.Index;
-		DecrementScope = false;
-		Started = false;
-	}
+		HierarchyTimerInfo = CurrentTimerInfo->GetChild(InId, InName);
 
-	FScopeTimer( const FString &InName, bool IncrementScope = false )
-	{
-		DecrementScope = IncrementScope;
-		
-		FString Name = InName;
-		for ( int i =0; i < GScopeDepth; ++i )
-		{
-			Name = FString(TEXT("  ")) + Name;
-		}
-		if( DecrementScope)
-		{
-			++GScopeDepth;
-		}
+		HierarchyTimerInfo->IncrementDepth = IncrementScope;
 
-#if HIERARCHICAL_TIMER
-		HeirarchyTimerInfo = CurrentTimerInfo->FindChild(Name);
-		CurrentTimerInfo = HeirarchyTimerInfo;
-#endif
-#if PERPACKAGE_TIMER
-		Index = GTimerInfo.Emplace(MoveTemp(Name), 0.0);
-#endif
-		Started = false;
+		OldTimerInfo		= CurrentTimerInfo;
+		CurrentTimerInfo	= HierarchyTimerInfo;
 	}
 
 	void Start()
 	{
-		if ( !Started )
-		{
-#if PERPACKAGE_TIMER
-			GTimerInfo[Index].Length -= FPlatformTime::Seconds();
-#endif
-			Started = true;
-#if HIERARCHICAL_TIMER
-			HeirarchyTimerInfo->Length -= FPlatformTime::Seconds();
-#endif
-		}
+		if (StartTime)
+			return;
+
+		StartTime = FPlatformTime::Cycles64();
 	}
 
 	void Stop()
 	{
-		if ( Started )
-		{
-#if HIERARCHICAL_TIMER
-			HeirarchyTimerInfo->Length += FPlatformTime::Seconds();
-#endif
-#if PERPACKAGE_TIMER
-			GTimerInfo[Index].Length += FPlatformTime::Seconds();
-#endif
-			Started = false;
-		}
+		if (!StartTime)
+			return;
+
+		HierarchyTimerInfo->Length += (FPlatformTime::Cycles64() - StartTime) * FPlatformTime::GetSecondsPerCycle();
+		++HierarchyTimerInfo->HitCount;
+
+		StartTime = 0;
 	}
 
 	~FScopeTimer()
 	{
 		Stop();
-#if HIERARCHICAL_TIMER
-		check(CurrentTimerInfo == HeirarchyTimerInfo);
-		CurrentTimerInfo = HeirarchyTimerInfo->Parent;
-#endif
-		if ( DecrementScope )
-		{
-			--GScopeDepth;
-		}
+
+		check(CurrentTimerInfo == HierarchyTimerInfo);
+		CurrentTimerInfo = OldTimerInfo;
 	}
 
-	int Index;
+private:
+	uint64					StartTime = 0;
+	FHierarchicalTimerInfo* HierarchyTimerInfo;
+	FHierarchicalTimerInfo* OldTimerInfo;
 };
 
-int FScopeTimer::GScopeDepth = 0;
-
-
-
-void OutputTimers()
+void OutputHierarchyTimers(const FHierarchicalTimerInfo* TimerInfo, int32 Depth)
 {
-#if PERPACKAGE_TIMER
-	if (GTimerInfo.Num() <= 0)
+	static const TCHAR LeftPad[] = TEXT("                                ");
+
+	FString TimerName(TimerInfo->Name);
+
+	UE_LOG(LogCook, Display, TEXT("  %s%s: %.3fs (%u)"), &LeftPad[_countof(LeftPad) - 1 - Depth * 2], *TimerName, TimerInfo->Length, TimerInfo->HitCount);
+
+	const int32 ChildDepth = Depth + TimerInfo->IncrementDepth;
+
+	for (int i = 0, n = TimerInfo->ChildCount; i < n; ++i)
 	{
-		return;
+		OutputHierarchyTimers(TimerInfo->Children[i], ChildDepth);
 	}
-	
-	static FArchive *OutputDevice = nullptr;
-
-	static TMap<FString, int32> TimerIndexMap;
-	
-	if ( OutputDevice == nullptr )
-	{
-		OutputDevice = IFileManager::Get().CreateFileWriter(TEXT("CookOnTheFlyServerTiming.csv") );
-	}
-
-	TArray<FString> OutputValues;
-	OutputValues.AddZeroed(TimerIndexMap.Num());
-
-	bool OutputTimerIndexMap = false;
-	for ( const FTimerInfo& TimerInfo : GTimerInfo )
-	{
-		int *IndexPtr = TimerIndexMap.Find(TimerInfo.Name);
-		int Index = 0;
-		if (IndexPtr == nullptr)
-		{
-			Index = TimerIndexMap.Num();
-			TimerIndexMap.Add( TimerInfo.Name, Index );
-			OutputValues.AddZeroed();
-			OutputTimerIndexMap = true;
-		}
-		else
-		{
-			Index = *IndexPtr;
-		}
-
-		OutputValues[Index] = FString::Printf(TEXT("%f"),TimerInfo.Length);
-	}
-	static FString NewLine = FString(TEXT("\r\n"));
-
-	if (OutputTimerIndexMap)
-	{
-		TArray<FString> OutputHeader;
-		OutputHeader.AddZeroed( TimerIndexMap.Num() );
-		for ( const auto& TimerIndex : TimerIndexMap )
-		{
-			int32 LocalIndex = TimerIndex.Value;
-			OutputHeader[LocalIndex] = TimerIndex.Key;
-		}
-
-		for ( FString OutputString : OutputHeader)
-		{
-			OutputString.Append(TEXT(", "));
-			OutputDevice->Serialize( (void*)(*OutputString), OutputString.Len() * sizeof(TCHAR));
-		}
-		
-		OutputDevice->Serialize( (void*)*NewLine, NewLine.Len() * sizeof(TCHAR) );
-	}
-
-	for ( FString OutputString : OutputValues)
-	{
-		OutputString.Append(TEXT(", "));
-		OutputDevice->Serialize( (void*)(*OutputString), OutputString.Len() * sizeof(TCHAR));
-	}
-	OutputDevice->Serialize( (void*)*NewLine, NewLine.Len() * sizeof(TCHAR) );
-
-	OutputDevice->Flush();
-
-	UE_LOG( LogCook, Display, TEXT("Timing information for cook") );
-	UE_LOG( LogCook, Display, TEXT("Name\tlength(ms)") );
-	for ( const FTimerInfo& TimerInfo : GTimerInfo )
-	{
-		UE_LOG( LogCook, Display, TEXT("%s\t%.2f"), *TimerInfo.Name, TimerInfo.Length * 1000.0f );
-	}
-
-	// first item is the total
-	if ( GTimerInfo.Num() > 0 && ( ( GTimerInfo[0].Length * 1000.0f ) > 40.0f ) )
-	{
-		UE_LOG( LogCook, Display, TEXT("Cook tick exceeded 40ms by  %f"), GTimerInfo[0].Length * 1000.0f  );
-	}
-
-	GTimerInfo.Empty();
-#endif
-}
-#if HIERARCHICAL_TIMER
-void OutputHierarchyTimers(const FHierarchicalTimerInfo* TimerInfo, int32& Depth)
-{
-	UE_LOG(LogCook, Display, TEXT("  %s: %fms"), *TimerInfo->Name, TimerInfo->Length * 1000);
-
-	++Depth;
-	for (const auto& ChildInfo : TimerInfo->Children)
-	{
-		OutputHierarchyTimers(ChildInfo.Value, Depth);
-	}
-	--Depth;
 }
 
 void OutputHierarchyTimers()
 {
 	UE_LOG(LogCook, Display, TEXT("Hierarchy Timer Information:"));
 
-	FHierarchicalTimerInfo* TimerInfo = &RootTimerInfo;
-	int32 Depth = 0;
-	OutputHierarchyTimers(TimerInfo, Depth);
-
-	UE_LOG(LogCook, Display, TEXT("IntStats:"));
-	for (const auto& IntStat : IntStats)
-	{
-		UE_LOG(LogCook, Display, TEXT("  %s=%d"), *IntStat.Key.ToString(), IntStat.Value);
-	}
+	OutputHierarchyTimers(&RootTimerInfo, 0);
 }
 
 void ClearHierarchyTimers()
 {
 	RootTimerInfo.ClearChildren();
 }
-#endif
 
-#define CREATE_TIMER(name, incrementScope) FScopeTimer ScopeTimer##name(#name, incrementScope); 
+#define CREATE_TIMER(name, incrementScope) FScopeTimer ScopeTimer##name(__COUNTER__, #name, incrementScope); 
 
-#define SCOPE_TIMER(name) CREATE_TIMER(name, true); ScopeTimer##name.Start();
-#define STOP_TIMER( name ) ScopeTimer##name.Stop();
+#define SCOPE_TIMER(name)				CREATE_TIMER(name, true); ScopeTimer##name.Start();
 
+#define ACCUMULATE_TIMER(name)			CREATE_TIMER(name, false);
+#define ACCUMULATE_TIMER_START(name)	ScopeTimer##name.Start();
+#define ACCUMULATE_TIMER_STOP(name)		ScopeTimer##name.Stop();
 
-#define ACCUMULATE_TIMER(name) CREATE_TIMER(name, false);
-#define ACCUMULATE_TIMER_SCOPE(name) FScopeTimer ScopeTimerInner##name(ScopeTimer##name); ScopeTimerInner##name.Start();
-#define ACCUMULATE_TIMER_START(name) ScopeTimer##name.Start();
-#define ACCUMULATE_TIMER_STOP(name) ScopeTimer##name.Stop();
-#if HIERARCHICAL_TIMER
-#define INC_INT_STAT( name, amount ) { static FName StaticName##name(#name); IncIntStat(StaticName##name, amount); }
+#define OUTPUT_HIERARCHYTIMERS()		OutputHierarchyTimers();
+#define CLEAR_HIERARCHYTIMERS()			ClearHierarchyTimers();
 #else
-#define INC_INT_STAT( name, amount ) 
-#endif
-
-#define OUTPUT_TIMERS() OutputTimers();
-#define OUTPUT_HIERARCHYTIMERS() OutputHierarchyTimers();
-#define CLEAR_HIERARCHYTIMERS() ClearHierarchyTimers();
-#else
-#define CREATE_TIMER(name)
-
 #define SCOPE_TIMER(name)
-#define STOP_TIMER(name)
 
 #define ACCUMULATE_TIMER(name) 
-#define ACCUMULATE_TIMER_SCOPE(name) 
 #define ACCUMULATE_TIMER_START(name) 
 #define ACCUMULATE_TIMER_STOP(name) 
-#define INC_INT_STAT( name, amount ) 
 
-#define OUTPUT_TIMERS()
 #define OUTPUT_HIERARCHYTIMERS()
 #define CLEAR_HIERARCHYTIMERS() 
 #endif
@@ -770,6 +575,7 @@ const FString& UCookOnTheFlyServer::GetCachedSandboxFilename( const UPackage* Pa
 const UCookOnTheFlyServer::FCachedPackageFilename& UCookOnTheFlyServer::Cache(const FName& PackageName) const 
 {
 	check( IsInGameThread() );
+
 	FCachedPackageFilename *Cached = PackageFilenameCache.Find( PackageName );
 	if ( Cached != NULL )
 	{
@@ -1847,8 +1653,6 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 		}
 	}
 
-	OUTPUT_TIMERS();
-
 	if (CookByTheBookOptions)
 	{
 		CookByTheBookOptions->CookTime += Timer.GetTimeTillNow();
@@ -2043,7 +1847,8 @@ UPackage* UCookOnTheFlyServer::LoadPackageForCooking(const FString& BuildFilenam
 		GIsCookerLoadingPackage = true;
 		SCOPE_TIMER(LoadPackage);
 		Package = LoadPackage(NULL, *BuildFilename, LOAD_None);
-		INC_INT_STAT(LoadPackage, 1);
+
+		++this->StatLoadedPackageCount;
 
 		GIsCookerLoadingPackage = false;
 	}
@@ -2672,46 +2477,29 @@ void UCookOnTheFlyServer::GetUnsolicitedPackages(TArray<UPackage*>& PackagesToSa
 	PackageNames.Empty(ObjectsInOuter.Num());
 	{
 		SCOPE_TIMER(GeneratePackageNames);
-		ACCUMULATE_TIMER(UnsolicitedPackageAlreadyCooked);
-		ACCUMULATE_TIMER(PackageCast);
-		ACCUMULATE_TIMER(FullGCAssetsContains);
-		ACCUMULATE_TIMER(AddUnassignedPackageToManifest);
-		ACCUMULATE_TIMER(GetCachedName);
-		ACCUMULATE_TIMER(AddToPackageList);
 		for (int32 Index = 0; Index < ObjectsInOuter.Num(); Index++)
 		{
-			ACCUMULATE_TIMER_START(PackageCast);
 			UPackage* Package = Cast<UPackage>(ObjectsInOuter[Index]);
-			ACCUMULATE_TIMER_STOP(PackageCast);
 
-			ACCUMULATE_TIMER_START(FullGCAssetsContains);
 			UObject* Object = ObjectsInOuter[Index];
 			if (FullGCAssetClasses.Contains(Object->GetClass()))
 			{
 				ContainsFullGCAssetClasses = true;
 			}
-			
-			ACCUMULATE_TIMER_STOP(FullGCAssetsContains);
 
 			if (Package)
 			{
-				ACCUMULATE_TIMER_START(GetCachedName);
 				FName StandardPackageFName = GetCachedStandardPackageFileFName(Package);
-				ACCUMULATE_TIMER_STOP(GetCachedName);
 				if (StandardPackageFName == NAME_None)
 					continue;
 
-				ACCUMULATE_TIMER_START(UnsolicitedPackageAlreadyCooked);
 				// package is already cooked don't care about processing it again here
 				/*if ( CookRequests.Exists( StandardPackageFName, AllTargetPlatformNames) )
 					continue;*/
 
 				if (CookedPackages.Exists(StandardPackageFName, TargetPlatformNames))
 					continue;
-				ACCUMULATE_TIMER_STOP(UnsolicitedPackageAlreadyCooked);
 				
-				ACCUMULATE_TIMER_START(AddToPackageList);
-
 				if (StandardPackageFName != NAME_None) // if we have name none that means we are in core packages or something...
 				{
 					if (IsChildCooker())
@@ -2731,7 +2519,6 @@ void UCookOnTheFlyServer::GetUnsolicitedPackages(TArray<UPackage*>& PackagesToSa
 						continue;
 					}
 				}
-				ACCUMULATE_TIMER_STOP(AddToPackageList);
 			}
 		}
 	}
@@ -3503,7 +3290,8 @@ void UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uint32 SaveFlags,
 							SCOPE_TIMER(ConvertingBlueprints);
 							IBlueprintNativeCodeGenModule::Get().Convert(Package, Result.Result, *(Target->PlatformName()));
 						}
-						INC_INT_STAT(SavedPackage, 1);
+
+						++this->StatSavedPackageCount;
 
 						// If package was actually saved check with asset manager to make sure it wasn't excluded for being a development or never cook package. We do this after Editor Only filtering
 						if (Result == ESavePackageResult::Success && UAssetManager::IsValid())
@@ -3779,7 +3567,10 @@ bool UCookOnTheFlyServer::Exec(class UWorld* InWorld, const TCHAR* Cmd, FOutputD
 
 void UCookOnTheFlyServer::DumpStats()
 {
-	OUTPUT_TIMERS();
+	UE_LOG(LogCook, Display, TEXT("IntStats:"));
+	UE_LOG(LogCook, Display, TEXT("  %s=%d"), L"LoadPackage", this->StatLoadedPackageCount);
+	UE_LOG(LogCook, Display, TEXT("  %s=%d"), L"SavedPackage", this->StatSavedPackageCount);
+
 	OUTPUT_HIERARCHYTIMERS();
 #if PROFILE_NETWORK
 	UE_LOG(LogCook, Display, TEXT("Network Stats \n"
@@ -6005,7 +5796,7 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 	const FPlatformMemoryStats MemStats = FPlatformMemory::GetStats();
 
 
-	UE_LOG(LogCook, Display, TEXT("Peak Used virtual %u Peak Used phsical %u"), MemStats.PeakUsedVirtual / 1024 / 1024, MemStats.PeakUsedPhysical / 1024 / 1024 );
+	UE_LOG(LogCook, Display, TEXT("Peak Used virtual %uMB Peak Used physical %uMB"), MemStats.PeakUsedVirtual / 1024 / 1024, MemStats.PeakUsedPhysical / 1024 / 1024 );
 
 	OUTPUT_HIERARCHYTIMERS();
 	CLEAR_HIERARCHYTIMERS();
@@ -7607,8 +7398,6 @@ uint32 UCookOnTheFlyServer::FullLoadAndSave(uint32& CookedPackageCount)
 						FSavePackageResultStruct SaveResult = GEditor->Save(Package, World, FlagsToCook, *PlatFilename, GError, NULL, bSwap, false, SaveFlags, Target, FDateTime::MinValue(), false);
 						GIsCookerLoadingPackage = false;
 
-						//INC_INT_STAT(SavedPackage, 1);
-
 						const bool bSucceededSavePackage = (SaveResult == ESavePackageResult::Success || SaveResult == ESavePackageResult::GenerateStub || SaveResult == ESavePackageResult::ReplaceCompletely);
 						if (bSucceededSavePackage)
 						{
@@ -7666,10 +7455,6 @@ uint32 UCookOnTheFlyServer::FullLoadAndSave(uint32& CookedPackageCount)
 			World->PostSaveRoot(WorldIt.Value());
 		}
 	}
-
-	UE_LOG(LogCook, Display, TEXT("Outputing timers..."));
-
-	OUTPUT_TIMERS();
 
 	UE_LOG(LogCook, Display, TEXT("Finishing up..."));
 
