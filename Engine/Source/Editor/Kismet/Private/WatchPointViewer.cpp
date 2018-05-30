@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WatchPointViewer.h"
 
@@ -852,7 +852,7 @@ void WatchViewer::RegisterTabSpawner(FTabManager& TabManager)
 	const auto SpawnWatchViewTab = []( const FSpawnTabArgs& Args )
 	{
 		return SNew(SDockTab)
-			.TabRole( ETabRole::NomadTab )
+			.TabRole( ETabRole::PanelTab )
 			.Label( LOCTEXT("TabTitle", "Watches") )
 			[
 				SNew(SBorder)
