@@ -2082,6 +2082,10 @@ void FMaterialEditor::AddReferencedObjects( FReferenceCollector& Collector )
 	Collector.AddReferencedObject( ExpressionPreviewMaterial );
 	Collector.AddReferencedObject( EmptyMaterial );
 	Collector.AddReferencedObject( MaterialEditorInstance );
+	for (FMatExpressionPreview& ExpressionPreview : ExpressionPreviews)
+	{
+		ExpressionPreview.AddReferencedObjects(Collector);
+	}
 }
 
 void FMaterialEditor::BindCommands()
