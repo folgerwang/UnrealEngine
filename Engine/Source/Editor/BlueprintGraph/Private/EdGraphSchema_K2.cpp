@@ -1490,9 +1490,15 @@ void UEdGraphSchema_K2::GetContextMenuActions(const UEdGraph* CurrentGraph, cons
 					MenuBuilder->AddMenuEntry( FGraphEditorCommands::Get().RecombineStructPin );
 				}
 	
-				// Conditionally add the execution path pin removal if this is an execution branching node
+				// Conditionally add the execution path pin options if this is an execution branching node
 				if( InGraphPin->Direction == EGPD_Output && InGraphPin->GetOwningNode())
 				{
+					if (CastChecked<UK2Node>(InGraphPin->GetOwningNode())->CanEverInsertExecutionPin())
+					{
+						MenuBuilder->AddMenuEntry(FGraphEditorCommands::Get().InsertExecutionPinBefore);
+						MenuBuilder->AddMenuEntry(FGraphEditorCommands::Get().InsertExecutionPinAfter);
+					}
+
 					if (CastChecked<UK2Node>(InGraphPin->GetOwningNode())->CanEverRemoveExecutionPin())
 					{
 						MenuBuilder->AddMenuEntry( FGraphEditorCommands::Get().RemoveExecutionPin );
