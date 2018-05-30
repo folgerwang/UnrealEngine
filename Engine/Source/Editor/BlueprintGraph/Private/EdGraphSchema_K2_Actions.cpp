@@ -284,7 +284,7 @@ UEdGraphNode* FEdGraphSchemaAction_K2NewNode::CreateNode(
 	ResultNode->ErrorMsg.Empty();
 	ResultNode->bHasCompilerMessage = false;
 
-	if (bGotoNode && ResultNode)
+	if (bGotoNode)
 	{
 		// Select existing node
 		FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(ResultNode);
