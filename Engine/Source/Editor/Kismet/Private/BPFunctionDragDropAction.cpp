@@ -338,15 +338,22 @@ FReply FKismetMacroDragDropAction::DroppedOnPanel(TSharedRef<SWidget> const& Pan
 	check(CanBeDroppedDelegate.IsBound());
 
 	FReply Reply = FReply::Unhandled();
-
 	FText CannotDropReason = FText::GetEmpty();
+	UEdGraph* MacroForCapture = Macro;
+	FNodeCreationAnalytic& AnalyticCallbackForCapture = AnalyticCallback;
+
 	if (CanBeDroppedDelegate.Execute(TSharedPtr<FEdGraphSchemaAction>(), &Graph, CannotDropReason))
 	{
-		UK2Node_MacroInstance* MacroTemplate = NewObject<UK2Node_MacroInstance>();
-		MacroTemplate->SetMacroGraph(Macro);
-		AnalyticCallback.ExecuteIfBound();
-		
-		FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_MacroInstance>(&Graph, MacroTemplate, GraphPosition);
+		FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_MacroInstance>(
+			&Graph,
+			GraphPosition,
+			EK2NewNodeFlags::SelectNewNode,
+			[MacroForCapture, &AnalyticCallbackForCapture](UK2Node_MacroInstance* NewInstance)
+			{
+				NewInstance->SetMacroGraph(MacroForCapture);
+				AnalyticCallbackForCapture.ExecuteIfBound();
+			}
+		);
 		Reply = FReply::Handled();
 	}
 	return Reply;

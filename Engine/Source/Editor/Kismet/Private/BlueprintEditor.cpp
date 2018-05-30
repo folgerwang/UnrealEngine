@@ -3015,10 +3015,15 @@ void FBlueprintEditor::OnGraphEditorDropActor(const TArray< TWeakObjectPtr<AActo
 			AActor* DroppedActor = Actors[i].Get();
 			if (DroppedActor&& (DroppedActor->GetLevel() == BlueprintLevel) && !DroppedActor->IsChildActor())
 			{
-				UK2Node_Literal* LiteralNodeTemplate = NewObject<UK2Node_Literal>();
-				LiteralNodeTemplate->SetObjectRef(DroppedActor);
-
-				UK2Node_Literal* ActorRefNode = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_Literal>(Graph, LiteralNodeTemplate, NodeLocation);
+				UK2Node_Literal* ActorRefNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_Literal>(
+					Graph,
+					NodeLocation,
+					EK2NewNodeFlags::SelectNewNode,
+					[DroppedActor](UK2Node_Literal* NewInstance)
+					{
+						NewInstance->SetObjectRef(DroppedActor);
+					}
+				);
 				NodeLocation.Y += UEdGraphSchema_K2::EstimateNodeHeight(ActorRefNode);
 			}
 		}
@@ -3036,11 +3041,15 @@ void FBlueprintEditor::OnGraphEditorDropStreamingLevel(const TArray< TWeakObject
 		if ((DroppedLevel != NULL) && 
 			(DroppedLevel->IsA(ULevelStreamingKismet::StaticClass()))) 
 		{
-			const FVector2D NodeLocation = DropLocation + (i * FVector2D(0,80));
-				
-			UK2Node_CallFunction* NodeTemplate = NewObject<UK2Node_CallFunction>(Graph);
-			NodeTemplate->SetFromFunction(TargetFunc);
-			UK2Node_CallFunction* Node = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_CallFunction>(Graph, NodeTemplate, NodeLocation);
+			UK2Node_CallFunction* Node = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_CallFunction>(
+				Graph,
+				DropLocation + (i * FVector2D(0, 80)),
+				EK2NewNodeFlags::SelectNewNode,
+				[TargetFunc](UK2Node_CallFunction* NewInstance)
+				{
+					NewInstance->SetFromFunction(TargetFunc);
+				}
+			);
 						
 			// Set dropped level package name
 			UEdGraphPin* PackageNameInputPin = Node->FindPinChecked(TEXT("PackageName"));
@@ -6699,8 +6708,7 @@ void FBlueprintEditor::CollapseNodes(TSet<UEdGraphNode*>& InCollapsableNodes)
 	// Create the composite node that will serve as the gateway into the subgraph
 	UK2Node_Composite* GatewayNode = NULL;
 	{
-		UK2Node_Composite* TemplateNode = NewObject<UK2Node_Composite>();
-		GatewayNode = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_Composite>(SourceGraph, TemplateNode, FVector2D(0,0));
+		GatewayNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_Composite>(SourceGraph, FVector2D(0,0), EK2NewNodeFlags::SelectNewNode);
 		GatewayNode->bCanRenameNode = true;
 		check(GatewayNode);
 	}
@@ -6789,10 +6797,15 @@ UEdGraph* FBlueprintEditor::CollapseSelectionToMacro(TSharedPtr<SGraphEditor> In
 	DestinationGraph = FBlueprintEditorUtils::CreateNewGraph(GetBlueprintObj(), DocumentName, UEdGraph::StaticClass(), UEdGraphSchema_K2::StaticClass());
 	FBlueprintEditorUtils::AddMacroGraph(GetBlueprintObj(), DestinationGraph, /*bIsUserCreated=*/ true, NULL);
 
-	UK2Node_MacroInstance* MacroTemplate = NewObject<UK2Node_MacroInstance>();
-	MacroTemplate->SetMacroGraph(DestinationGraph);
-
-	UK2Node_MacroInstance* GatewayNode = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_MacroInstance>(SourceGraph, MacroTemplate, FVector2D(0.0f, 0.0f), false);
+	UK2Node_MacroInstance* GatewayNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_MacroInstance>(
+		SourceGraph,
+		FVector2D(0.0f, 0.0f),
+		EK2NewNodeFlags::None,
+		[DestinationGraph](UK2Node_MacroInstance* NewInstance)
+		{
+			NewInstance->SetMacroGraph(DestinationGraph);
+		}
+	);
 
 	TArray<UK2Node_Tunnel*> TunnelNodes;
 	GatewayNode->GetMacroGraph()->GetNodesOfClass(TunnelNodes);
