@@ -105,13 +105,37 @@ static FAutoConsoleVariableRef CVarMetalPresentFramePacing(
 #endif
 
 #if PLATFORM_MAC
+static ns::AutoReleased<ns::Object<id <NSObject>>> GMetalDeviceObserver;
 static mtlpp::Device GetMTLDevice(uint32& DeviceIndex)
 {
 	SCOPED_AUTORELEASE_POOL;
 	
 	DeviceIndex = 0;
 	
-	ns::Array<mtlpp::Device> DeviceList = mtlpp::Device::CopyAllDevices();
+	ns::Array<mtlpp::Device> DeviceList;
+	
+	if (FPlatformMisc::MacOSXVersionCompare(10, 13, 4) >= 0)
+	{
+			DeviceList = mtlpp::Device::CopyAllDevicesWithObserver(GMetalDeviceObserver, ^(const mtlpp::Device & Device, const ns::String & Notification)
+			{
+				if ([Notification.GetPtr() isEqualToString:MTLDeviceWasAddedNotification])
+				{
+					FPlatformMisc::GPUChangeNotification(Device.GetRegistryID(), FPlatformMisc::EMacGPUNotification::Added);
+				}
+				else if ([Notification.GetPtr() isEqualToString:MTLDeviceRemovalRequestedNotification])
+				{
+					FPlatformMisc::GPUChangeNotification(Device.GetRegistryID(), FPlatformMisc::EMacGPUNotification::RemovalRequested);
+				}
+				else if ([Notification.GetPtr() isEqualToString:MTLDeviceWasRemovedNotification])
+				{
+					FPlatformMisc::GPUChangeNotification(Device.GetRegistryID(), FPlatformMisc::EMacGPUNotification::Removed);
+				}
+			});
+	}
+	else
+	{
+		DeviceList = mtlpp::Device::CopyAllDevices();
+	}
 	
 	const int32 NumDevices = DeviceList.GetSize();
 	
@@ -359,6 +383,13 @@ FMetalDeviceContext::~FMetalDeviceContext()
 {
 	SubmitCommandsHint(EMetalSubmitFlagsWaitOnCommandBuffer);
 	delete &(GetCommandQueue());
+	
+#if PLATFORM_MAC
+	if (FPlatformMisc::MacOSXVersionCompare(10, 13, 4) >= 0)
+	{
+		mtlpp::Device::RemoveDeviceObserver(GMetalDeviceObserver);
+	}
+#endif
 }
 
 void FMetalDeviceContext::Init(void)
