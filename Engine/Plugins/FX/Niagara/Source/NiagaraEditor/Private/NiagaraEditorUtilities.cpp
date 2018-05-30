@@ -877,4 +877,11 @@ const FNiagaraEmitterHandle* FNiagaraEditorUtilities::GetEmitterHandleForEmitter
 		[&Emitter](const FNiagaraEmitterHandle& EmitterHandle) { return EmitterHandle.GetInstance() == &Emitter; });
 }
 
+FText FNiagaraEditorUtilities::FormatScriptAssetDescription(FText Description, FName Path)
+{
+	return Description.IsEmptyOrWhitespace()
+		? FText::Format(LOCTEXT("ScriptAssetDescriptionFormatPathOnly", "Path: {0}"), FText::FromName(Path))
+		: FText::Format(LOCTEXT("ScriptAssetDescriptionFormat", "Description: {1}\nPath: {0}"), FText::FromName(Path), Description);
+}
+
 #undef LOCTEXT_NAMESPACE

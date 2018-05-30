@@ -39,6 +39,11 @@ public:
 		return FText::FromString(RendererClass->GetDescription());
 	}
 
+	virtual FText GetKeywords() const override
+	{
+		return FText();
+	}
+
 	UClass* GetRendererClass() const
 	{
 		return RendererClass;

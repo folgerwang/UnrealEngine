@@ -149,4 +149,6 @@ namespace FNiagaraEditorUtilities
 	 * @returns The emitter handle for the supplied emitter, or nullptr if the emitter isn't owned by this system.
 	 */
 	const FNiagaraEmitterHandle* GetEmitterHandleForEmitter(UNiagaraSystem& System, UNiagaraEmitter& Emitter);
+
+	NIAGARAEDITOR_API FText FormatScriptAssetDescription(FText Description, FName Path);
 };

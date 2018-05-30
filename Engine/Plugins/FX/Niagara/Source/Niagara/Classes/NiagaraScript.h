@@ -314,6 +314,10 @@ public:
 	UPROPERTY(AssetRegistrySearchable, EditAnywhere, Category = Script, meta = (MultiLine = true))
 	FText Description;
 
+	/** A list of space separated keywords which can be used to find this script in editor menus. */
+	UPROPERTY(AssetRegistrySearchable, EditAnywhere, Category = Script)
+	FText Keywords;
+
 	UPROPERTY(EditAnywhere, Category = Script)
 	TMap<FName, FString> ScriptMetaData;
 #endif

@@ -15,6 +15,9 @@ public:
 	/** Gets a long description of what will happen if this add action is executed. */
 	virtual FText GetDescription() const = 0;
 
+	/** Gets a space separated string of keywords which expose additional search terms for this action. */
+	virtual FText GetKeywords() const = 0;
+
 	virtual ~INiagaraStackItemGroupAddAction() { }
 };
 

@@ -47,6 +47,11 @@ public:
 		return FText::Format(LOCTEXT("AddParameterActionDescriptionFormat", "Create a new {0} parameter."), GetDisplayName());
 	}
 
+	virtual FText GetKeywords() const override
+	{
+		return FText();
+	}
+
 private:
 	FNiagaraVariable NewParameterVariable;
 };

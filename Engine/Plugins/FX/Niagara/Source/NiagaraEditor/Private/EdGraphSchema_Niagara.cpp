@@ -314,7 +314,7 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 		const TArray<FNiagaraOpInfo>& OpInfos = FNiagaraOpInfo::GetOpInfoArray();
 		for (const FNiagaraOpInfo& OpInfo : OpInfos)
 		{
-			TSharedPtr<FNiagaraSchemaAction_NewNode> AddOpAction = AddNewNodeAction(NewActions, OpInfo.Category, OpInfo.FriendlyName, OpInfo.Name, FText::GetEmpty());
+			TSharedPtr<FNiagaraSchemaAction_NewNode> AddOpAction = AddNewNodeAction(NewActions, OpInfo.Category, OpInfo.FriendlyName, OpInfo.Name, OpInfo.Description, OpInfo.Keywords);
 			UNiagaraNodeOp* OpNode = NewObject<UNiagaraNodeOp>(OwnerOfTemporaries);
 			OpNode->OpName = OpInfo.Name;
 			AddOpAction->NodeTemplate = OpNode;
@@ -331,6 +331,26 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 		FunctionCallAction->NodeTemplate = CustomHlslNode;
 	}
 
+	auto AddScriptFunctionAction = [&NewActions, OwnerOfTemporaries](const FText& Category, const FAssetData& ScriptAsset)
+	{
+		FText AssetDesc;
+		ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Description), AssetDesc);
+
+		FText Keywords;
+		ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Keywords), Keywords);
+
+		FString DisplayNameString = FName::NameToDisplayString(ScriptAsset.AssetName.ToString(), false);
+
+		const FText MenuDesc = FText::FromString(DisplayNameString);
+		const FText TooltipDesc = FNiagaraEditorUtilities::FormatScriptAssetDescription(AssetDesc, ScriptAsset.ObjectPath);
+
+		TSharedPtr<FNiagaraSchemaAction_NewNode> FunctionCallAction = AddNewNodeAction(NewActions, Category, MenuDesc, *DisplayNameString, TooltipDesc, Keywords);
+
+		UNiagaraNodeFunctionCall* FunctionCallNode = NewObject<UNiagaraNodeFunctionCall>(OwnerOfTemporaries);
+		FunctionCallNode->FunctionScriptAssetObjectPath = ScriptAsset.ObjectPath;
+		FunctionCallAction->NodeTemplate = FunctionCallNode;
+	};
+
 	//Add functions
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	TArray<FAssetData> ScriptAssets;
@@ -343,9 +363,6 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 			FName UsageName;
 			ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Usage), UsageName);
 
-			FText AssetDesc;
-			ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Description), AssetDesc);
-
 			FString QualifiedUsageName = "ENiagaraScriptUsage::" + UsageName.ToString();
 			int32 UsageIndex = NiagaraScriptUsageEnum->GetIndexByNameString(QualifiedUsageName);
 			if (UsageIndex != INDEX_NONE)
@@ -353,23 +370,13 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 				ENiagaraScriptUsage Usage = static_cast<ENiagaraScriptUsage>(NiagaraScriptUsageEnum->GetValueByIndex(UsageIndex));
 				if (Usage == ENiagaraScriptUsage::Function)
 				{
-					FString DisplayNameString = FName::NameToDisplayString(ScriptAsset.AssetName.ToString(), false);
-					const FText MenuDesc = FText::FromString(DisplayNameString);
-					const FText TooltipDesc = FText::Format(LOCTEXT("FunctionPopupTooltip", "Path: {0}\nDescription: {1}"), FText::FromString(ScriptAsset.ObjectPath.ToString()), AssetDesc);
-
-
-					TSharedPtr<FNiagaraSchemaAction_NewNode> FunctionCallAction = AddNewNodeAction(NewActions, LOCTEXT("Function Menu Title", "Functions"), MenuDesc, *DisplayNameString, FText::FromName(ScriptAsset.ObjectPath));
-
-					UNiagaraNodeFunctionCall* FunctionCallNode = NewObject<UNiagaraNodeFunctionCall>(OwnerOfTemporaries);
-					FunctionCallNode->FunctionScriptAssetObjectPath = ScriptAsset.ObjectPath;
-					FunctionCallAction->NodeTemplate = FunctionCallNode;
+					AddScriptFunctionAction(LOCTEXT("Function Menu Title", "Functions"), ScriptAsset);
 				}
 			}
 		}
 	}
 
 	//Add modules
-	//if (GraphUsage == ENiagaraScriptUsage::ParticleSpawnScript || GraphUsage == ENiagaraScriptUsage::ParticleUpdateScript) 
 	if (!bFunctionGraph)
 	{
 		for (const FAssetData& ScriptAsset : ScriptAssets)
@@ -378,8 +385,6 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 			ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Usage), UsageName);
 			const FString BitfieldTagValue = ScriptAsset.GetTagValueRef<FString>(GET_MEMBER_NAME_CHECKED(UNiagaraScript, ModuleUsageBitmask));
 			int32 BitfieldValue = FCString::Atoi(*BitfieldTagValue);
-			FText AssetDesc;
-			ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Description), AssetDesc);
 
 			ENiagaraScriptUsage TargetUsage = ENiagaraScriptUsage::Module;
 			if (bUpdateGraph)
@@ -400,15 +405,7 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 				ENiagaraScriptUsage Usage = static_cast<ENiagaraScriptUsage>(NiagaraScriptUsageEnum->GetValueByIndex(UsageIndex));
 				if (Usage == ENiagaraScriptUsage::Module)
 				{
-					FString DisplayNameString = FName::NameToDisplayString(ScriptAsset.AssetName.ToString(), false);
-					const FText MenuDesc = FText::FromString(DisplayNameString);
-					const FText TooltipDesc = FText::Format(LOCTEXT("ModulePopupTooltip", "Path: {0}\nDescription: {1}"), FText::FromString(ScriptAsset.ObjectPath.ToString()), AssetDesc);
-
-					TSharedPtr<FNiagaraSchemaAction_NewNode> FunctionCallAction = AddNewNodeAction(NewActions, LOCTEXT("Module Menu Title", "Modules"), MenuDesc, *DisplayNameString, FText::FromName(ScriptAsset.ObjectPath));
-
-					UNiagaraNodeFunctionCall* FunctionCallNode = NewObject<UNiagaraNodeFunctionCall>(OwnerOfTemporaries);
-					FunctionCallNode->FunctionScriptAssetObjectPath = ScriptAsset.ObjectPath;
-					FunctionCallAction->NodeTemplate = FunctionCallNode;
+					AddScriptFunctionAction(LOCTEXT("Module Menu Title", "Modules"), ScriptAsset);
 				}
 			}
 		}
@@ -428,17 +425,7 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 				ENiagaraScriptUsage Usage = static_cast<ENiagaraScriptUsage>(NiagaraScriptUsageEnum->GetValueByIndex(UsageIndex));
 				if (Usage == ENiagaraScriptUsage::DynamicInput)
 				{
-					FString DisplayNameString = FName::NameToDisplayString(ScriptAsset.AssetName.ToString(), false);
-					const FText MenuDesc = FText::FromString(DisplayNameString);
-					FText AssetDesc;
-					ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Description), AssetDesc);
-					const FText TooltipDesc = FText::Format(LOCTEXT("DynamicInputPopupTooltip", "Path: {0}\nDescription: {1}"), FText::FromString(ScriptAsset.ObjectPath.ToString()), AssetDesc);
-
-					TSharedPtr<FNiagaraSchemaAction_NewNode> FunctionCallAction = AddNewNodeAction(NewActions, LOCTEXT("DynamicInputMenu", "Dynamic Inputs"), MenuDesc, *DisplayNameString, FText::FromName(ScriptAsset.ObjectPath));
-
-					UNiagaraNodeFunctionCall* FunctionCallNode = NewObject<UNiagaraNodeFunctionCall>(OwnerOfTemporaries);
-					FunctionCallNode->FunctionScriptAssetObjectPath = ScriptAsset.ObjectPath;
-					FunctionCallAction->NodeTemplate = FunctionCallNode;
+					AddScriptFunctionAction(LOCTEXT("Dynamic Input Menu Title", "Dynamic Inputs"), ScriptAsset);
 				}
 			}
 		}
