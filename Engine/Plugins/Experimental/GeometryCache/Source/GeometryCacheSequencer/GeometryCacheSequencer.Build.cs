@@ -2,33 +2,36 @@
 
 namespace UnrealBuildTool.Rules
 {
-	public class GeometryCacheSequencer : ModuleRules
-	{
-		public GeometryCacheSequencer(ReadOnlyTargetRules Target) : base(Target)
-		{
-            OptimizeCode = CodeOptimization.Never;
-
+    public class GeometryCacheSequencer : ModuleRules
+    {
+        public GeometryCacheSequencer(ReadOnlyTargetRules Target) : base(Target)
+        {
+            PublicIncludePathModuleNames.AddRange(
+                new string[] {
+                "Sequencer",
+                }
+            );
             PrivateDependencyModuleNames.AddRange(
-				new string[]
-				{
-					"AssetTools",
-					"Core",
-					"CoreUObject",
-					"EditorStyle",
-					"Engine",
-					"MovieScene",
-					"MovieSceneTools",
-					"MovieSceneTracks",
-					"RHI",
-					"Sequencer",
-					"Slate",
-					"SlateCore",
+                new string[]
+                {
+                    "AssetTools",
+                    "Core",
+                    "CoreUObject",
+                    "EditorStyle",
+                    "Engine",
+                    "MovieScene",
+                    "MovieSceneTools",
+                    "MovieSceneTracks",
+                    "RHI",
+                    "Sequencer",
+                    "Slate",
+                    "SlateCore",
                     "TimeManagement",
-					"UnrealEd",
+                    "UnrealEd",
                     "GeometryCacheTracks",
                     "GeometryCache"
                 }
-			);
+            );
         }
-	}
+    }
 }
