@@ -29,7 +29,6 @@ namespace UnrealBuildTool.Rules
 					"Engine",
                     "AnimGraphRuntime",
                     "TimeManagement",
-					"Sequencer"
 				}
 			);
 
