@@ -45,6 +45,18 @@ bool CORE_API GSuppressDwarfParsing    = false;
 // Used in UnixPlatformStackwalk to skip the crash handling callstack frames.
 bool CORE_API GFullCrashCallstack = false;
 
+// Used to set the maximum number of file mappings.
+#if UE_EDITOR
+int32 CORE_API GMaxNumberFileMappingCache = 10000;
+#else
+int32 CORE_API GMaxNumberFileMappingCache = 100;
+#endif
+namespace
+{
+	// The max allowed to be set for the caching
+	const int32 MaximumAllowedMaxNumFileMappingCache = 1000000;
+}
+
 void FUnixPlatformMemory::Init()
 {
 	FGenericPlatformMemory::Init();
@@ -135,6 +147,13 @@ class FMalloc* FUnixPlatformMemory::BaseAllocator()
 				if (FCStringAnsi::Stricmp(Arg, "-fullcrashcallstack") == 0)
 				{
 					GFullCrashCallstack = true;
+				}
+
+				const char FileMapCacheCmd[] = "-filemapcachesize=";
+				if (const char* Cmd = FCStringAnsi::Stristr(Arg, FileMapCacheCmd))
+				{
+					int32 Max = FCStringAnsi::Atoi(Cmd + sizeof(FileMapCacheCmd) - 1);
+					GMaxNumberFileMappingCache = FMath::Clamp(Max, 0, MaximumAllowedMaxNumFileMappingCache);
 				}
 
 #if UE_USE_MALLOC_REPLAY_PROXY
