@@ -120,6 +120,7 @@ struct FMetalCodeBackend : public FCodeBackend
 	uint32 InvariantBuffers;
 	uint32 TypedBuffers;
     uint32 TypedUAVs;
+	uint32 ConstantBuffers;
     
     uint8 Version;
 	EMetalGPUSemantics bIsDesktop;

@@ -947,6 +947,7 @@ void BuildMetalShaderOutput(
 	uint32 TypedBuffers,
 	uint32 InvariantBuffers,
 	uint32 TypedUAVs,
+	uint32 ConstantBuffers,
 	TArray<uint8> const& TypedBufferFormats,
 	bool bAllowFastIntriniscs
 	)
@@ -1001,6 +1002,7 @@ void BuildMetalShaderOutput(
 	Header.SourceLen = SourceCRCLen;
 	Header.SourceCRC = SourceCRC;
     Header.Bindings.bDiscards = false;
+	Header.Bindings.ConstantBuffers = ConstantBuffers;
 	if (Version >= 2)
 	{
 		Header.Bindings.TypedBufferFormats.SetNumZeroed(METAL_MAX_BUFFERS);
