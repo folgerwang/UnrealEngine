@@ -814,7 +814,7 @@ public:
 	/* Helper to presize reschedule array */
 	void ReserveTickFunctionCooldowns(int32 NumToReserve)
 	{
-		TickFunctionsToReschedule.Reserve(NumToReserve);
+		TickFunctionsToReschedule.Reserve(TickFunctionsToReschedule.Num() + NumToReserve);
 	}
 	/* Puts a TickFunction in to the cooldown state*/
 	void ScheduleTickFunctionCooldowns()
