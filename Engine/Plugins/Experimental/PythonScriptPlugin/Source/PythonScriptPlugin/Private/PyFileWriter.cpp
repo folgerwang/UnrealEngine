@@ -49,7 +49,7 @@ void FPyFileWriter::Write(const FString& InStr)
 
 void FPyFileWriter::WriteDocString(const TCHAR* InDocString)
 {
-	if (*InDocString)
+	if (InDocString && *InDocString)
 	{
 		WriteDocString(FString(InDocString));
 	}
