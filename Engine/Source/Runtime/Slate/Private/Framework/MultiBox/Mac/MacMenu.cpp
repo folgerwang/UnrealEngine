@@ -53,6 +53,7 @@ static FCriticalSection GCachedMenuStateCS;
 	if ( !CocoaMenu || ![CocoaMenu isHighlightingKeyEquivalent] )
 	{
 		FSlateMacMenu::ExecuteMenuItemAction(self.MenuEntryBlock.ToSharedRef());
+		FPlatformApplicationMisc::bChachedMacMenuStateNeedsUpdate = true;
 	}
 }
 
