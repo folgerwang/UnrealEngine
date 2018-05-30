@@ -24,15 +24,6 @@
 #endif
 
 
-
-static int32 GbLogNiagaraSystemCompileResults = 1;
-static FAutoConsoleVariableRef CVarLogNiagaraSystemCompileResults(
-	TEXT("fx.LogNiagaraSystemCompileResults"),
-	GbLogNiagaraSystemCompileResults,
-	TEXT("If > 0 Niagara System scripts hlsl will be written to a text format when opened and closed in the editor. \n"),
-	ECVF_Default
-);
-
 DECLARE_STATS_GROUP(TEXT("Niagara Detailed"), STATGROUP_NiagaraDetailed, STATCAT_Advanced);
 
 FNiagaraScriptDebuggerInfo::FNiagaraScriptDebuggerInfo() : FrameLastWriteId(-1)
@@ -770,36 +761,7 @@ void UNiagaraScript::SetVMCompilationResults(const FNiagaraVMExecutableDataId& I
 	}
 
 	InvalidateExecutionReadyParameterStores();
-
-	if (GbLogNiagaraSystemCompileResults > 0)
-	{
-		FString ExportText = CachedScriptVM.LastHlslTranslation;
-		FString ExportTextAsm = CachedScriptVM.LastAssemblyTranslation;
-		if (IsGPUScript(GetUsage()))
-		{
-			ExportText = CachedScriptVM.LastHlslTranslationGPU;
-			ExportTextAsm = "";
-		}
-		FString ExportTextParams;
-		for (const FNiagaraVariable& Var : CachedScriptVM.Parameters.Parameters)
-		{
-			ExportTextParams += Var.ToString();
-			ExportTextParams += "\n";
-		}
-
-		FString ExportRIParams = RapidIterationParameters.ToString();
-		
-		UEnum* UsageEnum = Cast<UEnum>(FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptUsage"), true));
-		FString TypeName = UsageEnum->GetNameStringByValue((int64)GetUsage());
-		FString FilePath = GetOutermost()->FileName.ToString();
-		FString PathPart, FilenamePart, ExtensionPart;
-		FPaths::Split(FilePath, PathPart, FilenamePart, ExtensionPart);
-		WriteTextFileToDisk(FPaths::ProjectLogDir(), FilenamePart + TEXT(".")+ TypeName + TEXT(".hlsl"), ExportText, true);
-		WriteTextFileToDisk(FPaths::ProjectLogDir(), FilenamePart + TEXT(".")+ TypeName + TEXT(".asm"), ExportTextAsm, true);
-		WriteTextFileToDisk(FPaths::ProjectLogDir(), FilenamePart + TEXT(".") + TypeName + TEXT(".params"), ExportTextParams, true);
-		WriteTextFileToDisk(FPaths::ProjectLogDir(), FilenamePart + TEXT(".") + TypeName + TEXT(".riparams"), ExportRIParams, true);
-	}
-
+	
 	OnVMScriptCompiled().Broadcast(this);
 }
 

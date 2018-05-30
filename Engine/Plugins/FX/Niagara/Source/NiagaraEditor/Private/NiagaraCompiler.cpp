@@ -665,8 +665,39 @@ FNiagaraCompileResults FHlslNiagaraCompiler::CompileScript(const FNiagaraCompile
 	
 	CompileResults.Data->LastHlslTranslation = TEXT("");
 
+	FShaderCompilerInput Input;
+	Input.VirtualSourceFilePath = TEXT("/Engine/Private/NiagaraEmitterInstanceShader.usf");
+	Input.EntryPointName = TEXT("SimulateMain");
+	Input.Environment.SetDefine(TEXT("VM_SIMULATION"), 1);
+	Input.Environment.IncludeVirtualPathToContentsMap.Add(TEXT("/Engine/Generated/NiagaraEmitterInstance.ush"), TranslatedHLSL);
+	Input.bGenerateDirectCompileFile = false;
+	Input.DumpDebugInfoRootPath = GShaderCompilingManager->GetAbsoluteShaderDebugInfoDirectory() / TEXT("VM");
+	FString UsageIdStr = !InOptions.TargetUsageId.IsValid() ? TEXT("") : (TEXT("_") + InOptions.TargetUsageId.ToString());
+	Input.DebugGroupName = InCompileRequest->SourceName / InCompileRequest->EmitterUniqueName / InCompileRequest->ENiagaraScriptUsageEnum->GetNameStringByValue((int64)InOptions.TargetUsage) + UsageIdStr;
+	Input.DumpDebugInfoPath = Input.DumpDebugInfoRootPath / Input.DebugGroupName;
+
+	if (GShaderCompilingManager->GetDumpShaderDebugInfo())
+	{
+		// Sanitize the name to be used as a path
+		// List mostly comes from set of characters not allowed by windows in a path.  Just try to rename a file and type one of these for the list.
+		Input.DumpDebugInfoPath.ReplaceInline(TEXT("<"), TEXT("("));
+		Input.DumpDebugInfoPath.ReplaceInline(TEXT(">"), TEXT(")"));
+		Input.DumpDebugInfoPath.ReplaceInline(TEXT("::"), TEXT("=="));
+		Input.DumpDebugInfoPath.ReplaceInline(TEXT("|"), TEXT("_"));
+		Input.DumpDebugInfoPath.ReplaceInline(TEXT("*"), TEXT("-"));
+		Input.DumpDebugInfoPath.ReplaceInline(TEXT("?"), TEXT("!"));
+		Input.DumpDebugInfoPath.ReplaceInline(TEXT("\""), TEXT("\'"));
+
+		if (!IFileManager::Get().DirectoryExists(*Input.DumpDebugInfoPath))
+		{
+			verifyf(IFileManager::Get().MakeDirectory(*Input.DumpDebugInfoPath, true), TEXT("Failed to create directory for shader debug info '%s'"), *Input.DumpDebugInfoPath);
+		}
+	}
+
+	bool bGPUScript = false;
 	if (InOptions.TargetUsage == ENiagaraScriptUsage::ParticleGPUComputeScript)
 	{
+		bGPUScript = true;
 		CompileResults.bComputeSucceeded = false;
 		if (TranslatorOutput != nullptr && TranslatorOutput->Errors.Len() > 0)
 		{
@@ -688,35 +719,6 @@ FNiagaraCompileResults FHlslNiagaraCompiler::CompileScript(const FNiagaraCompile
 	}
 	else
 	{
-		FShaderCompilerInput Input;
-		Input.VirtualSourceFilePath = TEXT("/Engine/Private/NiagaraEmitterInstanceShader.usf");
-		Input.EntryPointName = TEXT("SimulateMain");
-		Input.Environment.SetDefine(TEXT("VM_SIMULATION"), 1);
-		Input.Environment.IncludeVirtualPathToContentsMap.Add(TEXT("/Engine/Generated/NiagaraEmitterInstance.ush"), TranslatedHLSL);
-		Input.bGenerateDirectCompileFile = false;
-		Input.DumpDebugInfoRootPath = GShaderCompilingManager->GetAbsoluteShaderDebugInfoDirectory() / TEXT("VM");
-		FString UsageIdStr = !InOptions.TargetUsageId.IsValid() ? TEXT("") : (TEXT("_") + InOptions.TargetUsageId.ToString());
-		Input.DebugGroupName = InCompileRequest->SourceName / InCompileRequest->EmitterUniqueName / InCompileRequest->ENiagaraScriptUsageEnum->GetNameStringByValue((int64)InOptions.TargetUsage) + UsageIdStr;
-		Input.DumpDebugInfoPath = Input.DumpDebugInfoRootPath / Input.DebugGroupName;
-
-		if (GShaderCompilingManager->GetDumpShaderDebugInfo())
-		{
-			// Sanitize the name to be used as a path
-			// List mostly comes from set of characters not allowed by windows in a path.  Just try to rename a file and type one of these for the list.
-			Input.DumpDebugInfoPath.ReplaceInline(TEXT("<"), TEXT("("));
-			Input.DumpDebugInfoPath.ReplaceInline(TEXT(">"), TEXT(")"));
-			Input.DumpDebugInfoPath.ReplaceInline(TEXT("::"), TEXT("=="));
-			Input.DumpDebugInfoPath.ReplaceInline(TEXT("|"), TEXT("_"));
-			Input.DumpDebugInfoPath.ReplaceInline(TEXT("*"), TEXT("-"));
-			Input.DumpDebugInfoPath.ReplaceInline(TEXT("?"), TEXT("!"));
-			Input.DumpDebugInfoPath.ReplaceInline(TEXT("\""), TEXT("\'"));
-
-			if (!IFileManager::Get().DirectoryExists(*Input.DumpDebugInfoPath))
-			{
-				verifyf(IFileManager::Get().MakeDirectory(*Input.DumpDebugInfoPath, true), TEXT("Failed to create directory for shader debug info '%s'"), *Input.DumpDebugInfoPath);
-			}
-		}
-
 		FShaderCompilerOutput Output;
 
 		FVectorVMCompilationOutput CompilationOutput;
@@ -840,6 +842,26 @@ FNiagaraCompileResults FHlslNiagaraCompiler::CompileScript(const FNiagaraCompile
 		}
 	}
 
+	if (GShaderCompilingManager->GetDumpShaderDebugInfo() && CompileResults.Data.IsValid())
+	{
+		FString ExportText = CompileResults.Data->LastHlslTranslation;
+		FString ExportTextAsm = CompileResults.Data->LastAssemblyTranslation;
+		if (bGPUScript)
+		{
+			ExportText = CompileResults.Data->LastHlslTranslationGPU;
+			ExportTextAsm = "";
+		}
+		FString ExportTextParams;
+		for (const FNiagaraVariable& Var : CompileResults.Data->Parameters.Parameters)
+		{
+			ExportTextParams += Var.ToString();
+			ExportTextParams += "\n";
+		}
+		
+		FNiagaraEditorUtilities::WriteTextFileToDisk(Input.DumpDebugInfoPath, TEXT("NiagaraEmitterInstance.ush"), ExportText, true);
+		FNiagaraEditorUtilities::WriteTextFileToDisk(Input.DumpDebugInfoPath, TEXT("NiagaraEmitterInstance.asm"), ExportTextAsm, true);
+		FNiagaraEditorUtilities::WriteTextFileToDisk(Input.DumpDebugInfoPath, TEXT("NiagaraEmitterInstance.params"), ExportTextParams, true);
+	}
 	return CompileResults;
 }
 
