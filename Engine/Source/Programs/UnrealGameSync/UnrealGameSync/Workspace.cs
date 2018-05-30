@@ -731,6 +731,7 @@ namespace UnrealGameSync
 							Log.WriteLine("Removing {0} binaries...", ArchiveTypeAndDepotPath.Key);
 							Progress.Set(String.Format("Removing {0} binaries...", ArchiveTypeAndDepotPath.Key), 0.0f);
 							ArchiveUtils.RemoveExtractedFiles(LocalRootPath, ManifestFileName, Progress, Log);
+							File.Delete(ManifestFileName);
 							Log.WriteLine();
 						}
 
