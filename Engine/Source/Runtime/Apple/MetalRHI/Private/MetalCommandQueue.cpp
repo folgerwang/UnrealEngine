@@ -112,14 +112,12 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		
 		Features |= EMetalFeaturesLinearTextures;
 		
-		// Using Private Memory & BlitEncoders for Vertex & Index data is slower on the Mac Pro's DXXX GPUs
-		// Everywhere else it should be *much* faster.
-		if (!FString(Device.GetName()).Contains(TEXT("FirePro")))
-		{
-			Features |= EMetalFeaturesEfficientBufferBlits;
-		}
-		if (!FString(Device.GetName()).Contains(TEXT("Vega")))
-		{
+		// Using Private Memory & BlitEncoders for Vertex & Index data should be *much* faster.
+        Features |= EMetalFeaturesEfficientBufferBlits;
+		
+        // On earlier OS versions Vega didn't like non-zero blit offsets
+        if (!FString(Device.GetName()).Contains(TEXT("Vega")) || FPlatformMisc::MacOSXVersionCompare(10,13,5) >= 0)
+        {
 			Features |= EMetalFeaturesPrivateBufferSubAllocation;
 		}
     }
