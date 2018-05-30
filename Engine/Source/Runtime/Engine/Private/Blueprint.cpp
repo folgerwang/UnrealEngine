@@ -26,6 +26,7 @@
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Kismet2/CompilerResultsLog.h"
 #include "Kismet2/StructureEditorUtils.h"
+#include "WatchPointViewer.h"
 #include "FindInBlueprintManager.h"
 #include "CookerSettings.h"
 #include "Editor.h"
@@ -1384,6 +1385,7 @@ void UBlueprint::BeginDestroy()
 	Super::BeginDestroy();
 
 	FBlueprintEditorUtils::RemoveAllLocalBookmarks(this);
+	WatchViewer::ClearWatchListFromBlueprint(this);
 }
 
 #endif // WITH_EDITOR
