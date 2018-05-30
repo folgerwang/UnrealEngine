@@ -133,6 +133,16 @@ struct CORE_API FMacPlatformMisc : public FApplePlatformMisc
 		bool GPUHeadless;
 	};
 	
+	enum class EMacGPUNotification : uint8
+	{
+		Added,
+		RemovalRequested,
+		Removed
+	};
+	
+	/** Handle GPU change notifications. */
+	static void GPUChangeNotification(uint64_t DeviceRegistryID, EMacGPUNotification Notification);
+	
 	/** Returns the static list of GPUs in the current machine. */
 	static TArray<FGPUDescriptor> const& GetGPUDescriptors();
 	
