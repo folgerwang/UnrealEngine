@@ -17,6 +17,8 @@ struct FTrackRenderData
 {
 	GENERATED_USTRUCT_BODY()
 
+	FTrackRenderData() : Matrix(FMatrix::Identity), BoundingBox(EForceInit::ForceInitToZero), MatrixSampleIndex(INDEX_NONE), BoundsSampleIndex(INDEX_NONE) {}
+
 	/** Transform matrix used to render this specific track. 
 		This goes from track local space to component local space.
 	*/
