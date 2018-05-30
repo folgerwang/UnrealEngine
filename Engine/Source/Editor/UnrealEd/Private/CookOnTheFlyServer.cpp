@@ -240,7 +240,7 @@ void OutputHierarchyTimers(const FHierarchicalTimerInfo* TimerInfo, int32 Depth)
 
 	FString TimerName(TimerInfo->Name);
 
-	UE_LOG(LogCook, Display, TEXT("  %s%s: %.3fs (%u)"), &LeftPad[_countof(LeftPad) - 1 - Depth * 2], *TimerName, TimerInfo->Length, TimerInfo->HitCount);
+	UE_LOG(LogCook, Display, TEXT("  %s%s: %.3fs (%u)"), &LeftPad[sizeof(LeftPad)/sizeof(LeftPad[0]) - 1 - Depth * 2], *TimerName, TimerInfo->Length, TimerInfo->HitCount);
 
 	const int32 ChildDepth = Depth + TimerInfo->IncrementDepth;
 
