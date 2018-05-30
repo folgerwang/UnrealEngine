@@ -828,7 +828,7 @@ bool UNiagaraSystem::QueryCompileComplete(bool bWait, bool bDoPost, bool bDoNotA
 
 			if (CompiledScript->GetUsage() == ENiagaraScriptUsage::ParticleSpawnScript)
 			{
-				if (Emitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)
+				if (Emitter && Emitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)
 				{
 					Scripts.AddUnique(Emitter->GetGPUComputeScript());
 					ScriptDependencyMap.Add(CompiledScript, Emitter->GetGPUComputeScript());
@@ -838,13 +838,13 @@ bool UNiagaraSystem::QueryCompileComplete(bool bWait, bool bDoPost, bool bDoNotA
 
 			if (CompiledScript->GetUsage() == ENiagaraScriptUsage::ParticleUpdateScript)
 			{
-				if (Emitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)
+				if (Emitter && Emitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)
 				{
 					Scripts.AddUnique(Emitter->GetGPUComputeScript());
 					ScriptDependencyMap.Add(CompiledScript, Emitter->GetGPUComputeScript());
 					ScriptToEmitterNameMap.Add(Emitter->GetGPUComputeScript(), Emitter->GetUniqueEmitterName());
 				}
-				else if (Emitter->bInterpolatedSpawning)
+				else if (Emitter && Emitter->bInterpolatedSpawning)
 				{
 					Scripts.AddUnique(Emitter->SpawnScriptProps.Script);
 					ScriptDependencyMap.Add(CompiledScript, Emitter->SpawnScriptProps.Script);
