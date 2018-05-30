@@ -6,8 +6,6 @@ namespace UnrealBuildTool.Rules
 	{
 		public GeometryCacheTracks(ReadOnlyTargetRules Target) : base(Target)
 		{
-            OptimizeCode = CodeOptimization.Never;
-
             PublicDependencyModuleNames.AddRange(
 				new string[]
 				{
