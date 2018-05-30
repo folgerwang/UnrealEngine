@@ -1004,6 +1004,16 @@ TSharedRef<SGraphEditor> FBlueprintEditor::CreateGraphEditorWidget(TSharedRef<FT
 				FCanExecuteAction::CreateSP( this, &FBlueprintEditor::CanAddExecutionPin )
 				);
 
+			GraphEditorCommands->MapAction( FGraphEditorCommands::Get().InsertExecutionPinBefore,
+				FExecuteAction::CreateSP( this, &FBlueprintEditor::OnInsertExecutionPinBefore ),
+				FCanExecuteAction::CreateSP( this, &FBlueprintEditor::CanInsertExecutionPin )
+				);
+
+			GraphEditorCommands->MapAction(FGraphEditorCommands::Get().InsertExecutionPinAfter,
+				FExecuteAction::CreateSP(this, &FBlueprintEditor::OnInsertExecutionPinAfter),
+				FCanExecuteAction::CreateSP(this, &FBlueprintEditor::CanInsertExecutionPin)
+			);
+
 			GraphEditorCommands->MapAction( FGraphEditorCommands::Get().RemoveExecutionPin,
 				FExecuteAction::CreateSP( this, &FBlueprintEditor::OnRemoveExecutionPin ),
 				FCanExecuteAction::CreateSP( this, &FBlueprintEditor::CanRemoveExecutionPin )
@@ -3885,6 +3895,64 @@ void FBlueprintEditor::OnAddExecutionPin()
 bool FBlueprintEditor::CanAddExecutionPin() const
 {
 	return true;
+}
+
+void FBlueprintEditor::OnInsertExecutionPinBefore()
+{
+	OnInsertExecutionPin(EPinInsertPosition::Before);
+}
+
+void FBlueprintEditor::OnInsertExecutionPinAfter()
+{
+	OnInsertExecutionPin(EPinInsertPosition::After);
+}
+
+void FBlueprintEditor::OnInsertExecutionPin(EPinInsertPosition Position)
+{
+	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
+	if (FocusedGraphEd.IsValid())
+	{
+		const FScopedTransaction Transaction(LOCTEXT("InsertExecutionPinBefore", "Insert Execution Pin Before"));
+
+		UEdGraphPin* SelectedPin = FocusedGraphEd->GetGraphPinForMenu();
+		if (SelectedPin)
+		{
+			UEdGraphNode* OwningNode = SelectedPin->GetOwningNode();
+
+			if (OwningNode)
+			{
+				if (UK2Node_ExecutionSequence* SeqNode = Cast<UK2Node_ExecutionSequence>(OwningNode))
+				{
+					SeqNode->InsertPinIntoExecutionNode(SelectedPin, Position);
+					FocusedGraphEd->RefreshNode(*OwningNode);
+
+					if (UBlueprint* BP = SeqNode->GetBlueprint())
+					{
+						FBlueprintEditorUtils::MarkBlueprintAsModified(BP);
+					}
+				}
+			}
+		}
+	}
+}
+
+bool FBlueprintEditor::CanInsertExecutionPin() const
+{
+	// We likely don't need to validate here, as we validated on menu population,
+	// but better to grey out the option if it is somehow created but will
+	// not execute correctly
+	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
+	if (FocusedGraphEd.IsValid())
+	{
+		UEdGraphPin* SelectedPin = FocusedGraphEd->GetGraphPinForMenu();
+		if (SelectedPin)
+		{
+			UEdGraphNode* OwningNode = SelectedPin->GetOwningNode();
+			return Cast<UK2Node_ExecutionSequence>(OwningNode) != nullptr;
+		}
+	}
+
+	return false;
 }
 
 void  FBlueprintEditor::OnRemoveExecutionPin()
