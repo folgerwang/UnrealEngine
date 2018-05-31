@@ -188,7 +188,7 @@ inline void SetPixelShaderBool(
  * Sets the value of a shader texture parameter.  Template'd on shader type
  */
 template<typename ShaderTypeRHIParamRef, typename TRHICmdList>
- void SetTextureParameter(
+FORCEINLINE void SetTextureParameter(
 	TRHICmdList& RHICmdList,
 	ShaderTypeRHIParamRef Shader,
 	const FShaderResourceParameter& TextureParameter,
