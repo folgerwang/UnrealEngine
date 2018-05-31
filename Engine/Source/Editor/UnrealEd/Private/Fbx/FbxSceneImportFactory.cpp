@@ -132,6 +132,8 @@ bool GetFbxSceneImportOptions(UnFbx::FFbxImporter* FbxImporter
 	//Prefix materials package name to put all material under Material folder (this avoid name clash with meshes)
 	GlobalImportSettings->MaterialBasePath = NAME_None;
 
+	GlobalImportSettings->OverrideMaterials.Reset();
+
 	TSharedPtr<SWindow> ParentWindow;
 	if (FModuleManager::Get().IsModuleLoaded("MainFrame"))
 	{
