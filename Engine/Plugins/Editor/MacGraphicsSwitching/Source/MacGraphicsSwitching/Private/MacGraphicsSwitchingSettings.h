@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -14,4 +14,7 @@ public:
 	
 	UPROPERTY(Config, EditAnywhere, Category=RHI, meta = (ConfigRestartRequired=true))
 	int32 RendererID;
+	
+	UPROPERTY(Config, EditAnywhere, Category=RHI, meta = (DisplayName = "Show Editor GPU Selector", ToolTip = "Adds a drop-down menu to the main Editor window allowing GPU selection. Requires restarting the Editor.", ConfigRestartRequired=true))
+	bool bShowGraphicsSwitching;
 };

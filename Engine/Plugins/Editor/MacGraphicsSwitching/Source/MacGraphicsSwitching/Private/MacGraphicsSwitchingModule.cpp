@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MacGraphicsSwitchingModule.h"
 #include "IMacGraphicsSwitchingModule.h"
@@ -65,15 +65,19 @@ void FMacGraphicsSwitchingModule::Initialize( TSharedPtr<SWindow> InRootWindow, 
 
 		FMacGraphicsSwitchingStyle::Initialize();
 		
-		NotificationBarExtender = MakeShareable( new FExtender() );
-		NotificationBarExtender->AddToolBarExtension("Start",
-													 EExtensionHook::After,
-													 nullptr,
-													 FToolBarExtensionDelegate::CreateRaw(this, &FMacGraphicsSwitchingModule::AddGraphicsSwitcher));
-		
-		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-		LevelEditorModule.GetNotificationBarExtensibilityManager()->AddExtender( NotificationBarExtender );
-		LevelEditorModule.BroadcastNotificationBarChanged();
+		bool MacUseAutomaticGraphicsSwitching = false;
+		if ( GConfig->GetBool(TEXT("/Script/MacGraphicsSwitching.MacGraphicsSwitchingSettings"), TEXT("bShowGraphicsSwitching"), MacUseAutomaticGraphicsSwitching, GEditorSettingsIni) && MacUseAutomaticGraphicsSwitching )
+		{
+			NotificationBarExtender = MakeShareable( new FExtender() );
+			NotificationBarExtender->AddToolBarExtension("Start",
+														 EExtensionHook::After,
+														 nullptr,
+														 FToolBarExtensionDelegate::CreateRaw(this, &FMacGraphicsSwitchingModule::AddGraphicsSwitcher));
+			
+			FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+			LevelEditorModule.GetNotificationBarExtensibilityManager()->AddExtender( NotificationBarExtender );
+			LevelEditorModule.BroadcastNotificationBarChanged();
+		}
 	}
 }
 
