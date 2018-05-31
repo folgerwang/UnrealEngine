@@ -1017,8 +1017,9 @@ void SNiagaraAddParameterMenu::AddParameterSelected(FNiagaraVariable NewVariable
 {
 	if (bCreateCustomName)
 	{
+		const static FString NewVariableDefaultName = FString("NewVariable");
 		const FString ResultName = (InSection != NiagaraParameterMapSectionID::NONE ? NiagaraParameterMapSectionID::OnGetSectionTitle(InSection).ToString() + TEXT(".") : FString())
-			+ NewVariable.GetName().ToString();
+			+ NewVariableDefaultName;
 		NewVariable.SetName(FName(*ResultName));
 	}
 
