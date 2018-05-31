@@ -1392,6 +1392,8 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 	{
 		SkelType = 1;
 	}
+	//Make sure the render thread is done
+	FlushRenderingCommands();
 
 	// warning for missing smoothing group info
 	CheckSmoothingInfo(FbxMesh);
