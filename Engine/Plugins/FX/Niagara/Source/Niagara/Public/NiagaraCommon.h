@@ -514,6 +514,7 @@ namespace FNiagaraUtilities
 
 	void CollectScriptDataInterfaceParameters(const UObject& Owner, const TArray<UNiagaraScript*>& Scripts, FNiagaraParameterStore& OutDataInterfaceParameters);
 
+#if WITH_EDITORONLY_DATA
 	/**
 	 * Prepares rapid iteration parameter stores for simulation by removing old parameters no longer used by functions, by initializing new parameters
 	 * added to functions, and by copying parameters across parameter stores for interscript dependencies.
@@ -524,4 +525,5 @@ namespace FNiagaraUtilities
 	 * scripts array must have an entry in this map.
 	 */
 	void NIAGARA_API PrepareRapidIterationParameters(const TArray<UNiagaraScript*>& Scripts, const TMap<UNiagaraScript*, UNiagaraScript*>& ScriptDependencyMap, const TMap<UNiagaraScript*, FString>& ScriptToEmitterNameMap);
+#endif
 };
