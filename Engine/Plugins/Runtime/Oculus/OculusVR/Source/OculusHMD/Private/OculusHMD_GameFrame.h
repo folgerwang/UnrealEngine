@@ -27,6 +27,8 @@ public:
 	FVector PlayerLocation;			// (CalculateStereoViewOffset)
 	float NearClippingPlane;		// (GetStereoProjectionMatrix)
 
+	FTransform TrackingToWorld;		// (OnEndGameFrame)
+
 	ETiledMultiResLevel MultiResLevel; // OnStartGameFrame
 
 	FIntRect FinalViewRect[3]; // SetFinalViewRect
