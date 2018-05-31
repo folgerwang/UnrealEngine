@@ -4062,8 +4062,11 @@ APhysicsVolume* UWorld::GetDefaultPhysicsVolume() const
 		}
 
 		// Spawn volume
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.bAllowDuringConstructionScript = true;
+
 		UWorld* MutableThis = const_cast<UWorld*>(this);
-		MutableThis->DefaultPhysicsVolume = MutableThis->SpawnActor<APhysicsVolume>(DefaultPhysicsVolumeClass);
+		MutableThis->DefaultPhysicsVolume = MutableThis->SpawnActor<APhysicsVolume>(DefaultPhysicsVolumeClass, SpawnParams);
 		MutableThis->DefaultPhysicsVolume->Priority = -1000000;
 	}
 	return DefaultPhysicsVolume;
