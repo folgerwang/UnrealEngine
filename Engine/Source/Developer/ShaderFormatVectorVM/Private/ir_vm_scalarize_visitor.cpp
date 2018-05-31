@@ -398,6 +398,11 @@ class ir_scalarize_visitor2 : public ir_hierarchical_visitor
 				if (comp_assign)
 				{
 					assign->insert_before(comp_assign);
+					//Ensure that we have a valid write mask if we're splitting down a structure assignment.
+					if (comp_assign->lhs->type->is_scalar())
+					{
+						comp_assign->write_mask = 1;
+					}
 					comp_assign = NULL;
 				}
 
@@ -428,6 +433,11 @@ class ir_scalarize_visitor2 : public ir_hierarchical_visitor
 		if (comp_assign)
 		{
 			assign->replace_with(comp_assign);
+			//Ensure that we have a valid write mask if we're splitting down a structure assignment.
+			if (comp_assign->lhs->type->is_scalar())
+			{
+				comp_assign->write_mask = 1;
+			}
 		}
 
 		return visit_continue_with_parent;

@@ -2004,32 +2004,28 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 #if VM_VERBOSE_LOGGING
 		UE_LOG(LogVVMBackend, Log, TEXT("\n-------------------------------\nTemporary Allocations\n------------------------------\n"));
 #endif
-		TArray<int32> ops_to_strip;
+		TArray<op_base*> stripped_ops;
+		stripped_ops.Reserve(ordered_ops.Num());
 		for (int32 i = 0; i < ordered_ops.Num(); ++i)
 		{
-			if (!ordered_ops[i]->finalize(parse_state, CompilationOutput, num_temp_registers, registers, i))
+			if (ordered_ops[i]->finalize(parse_state, CompilationOutput, num_temp_registers, registers, i))
 			{
-				ops_to_strip.Add(i);
+				stripped_ops.Add(ordered_ops[i]);
 			}
 		}
-
-		for (int32 op_idx : ops_to_strip)
-		{
-			ordered_ops.RemoveAt(op_idx);
-		}
-
+		
 		//Final error checking.
-		for (int32 i = 0; i < ordered_ops.Num(); ++i)
+		for (int32 i = 0; i < stripped_ops.Num(); ++i)
 		{
-			ordered_ops[i]->validate(parse_state);
+			stripped_ops[i]->validate(parse_state);
 		}
 
 		if (!parse_state->error)
 		{
 			//Now emit the bytecode
-			for (int32 op_idx = 0; op_idx < ordered_ops.Num(); ++op_idx)
+			for (int32 op_idx = 0; op_idx < stripped_ops.Num(); ++op_idx)
 			{
-				ordered_ops[op_idx]->add_to_bytecode(CompilationOutput.ByteCode);
+				stripped_ops[op_idx]->add_to_bytecode(CompilationOutput.ByteCode);
 			}
 
 			emit_byte((uint8)EVectorVMOp::done, CompilationOutput.ByteCode);
