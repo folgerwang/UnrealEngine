@@ -79,13 +79,13 @@ class WebViewControl
 
 	public class FrameUpdateInfo 
 	{
-		java.nio.Buffer Buffer;
-		boolean FrameReady;
-		boolean RegionChanged;
-		float UScale;
-		float UOffset;
-		float VScale;
-		float VOffset;
+		public java.nio.Buffer Buffer;
+		public boolean FrameReady;
+		public boolean RegionChanged;
+		public float UScale;
+		public float UOffset;
+		public float VScale;
+		public float VOffset;
 	}
 
 	public WebViewControl(long inNativePtr, int width, int height, boolean swizzlePixels, boolean vulkanRenderer, final boolean bEnableRemoteDebugging, final boolean bUseTransparency)
