@@ -588,10 +588,10 @@ static bool CompareGraphActionNode(TSharedPtr<FGraphActionNode> A, TSharedPtr<FG
 		return false;
 	}
 
-	/*if (A->SectionID != B->SectionID)
+	if (A->SectionID != B->SectionID)
 	{
 		return false;
-	}*/
+	}
 
 	if (A->HasValidAction() && B->HasValidAction())
 	{
