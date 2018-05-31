@@ -101,8 +101,10 @@ struct FTAAPassParameters
 	// Shifts input and output view rect to top left corner
 	FORCEINLINE void TopLeftCornerViewRects()
 	{
-		InputViewRect -= InputViewRect.Min;
-		OutputViewRect -= OutputViewRect.Min;
+		InputViewRect.Max -= InputViewRect.Min;
+		InputViewRect.Min = FIntPoint::ZeroValue;
+		OutputViewRect.Max -= OutputViewRect.Min;
+		OutputViewRect.Min = FIntPoint::ZeroValue;
 	}
 };
 
