@@ -11,5 +11,4 @@ UMrcFrameworkSettings::UMrcFrameworkSettings(const FObjectInitializer& ObjectIni
 	, DefaulGarbageMatteMesh(TEXT("/MixedRealityCaptureFramework/SM_GarbageMattePlane"))
 	, DefaulGarbageMatteMaterial(TEXT("/MixedRealityCaptureFramework/M_GarbageMatte"))
 	, DefaulGarbageMatteTarget(TEXT("/MixedRealityCaptureFramework/T_MrcGarbageMatteRenderTarget"))
-	, CalibratedFOVOverride(90.f)
 {}
