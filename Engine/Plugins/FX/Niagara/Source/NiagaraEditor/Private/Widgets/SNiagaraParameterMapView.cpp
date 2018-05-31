@@ -341,7 +341,7 @@ void SNiagaraParameterMapView::CollectAllActions(FGraphActionListBuilderBase& Ou
 
 	ParameterEntries.KeySort([](const FNiagaraVariable& A, const FNiagaraVariable& B) { return (A.GetName() < B.GetName()); });
 
-	const FText TooltipFormat = LOCTEXT("Parameters", "Name: {0} Type: {1}");
+	const FText TooltipFormat = LOCTEXT("Parameters", "Name: {0} \nType: {1}");
 	for (const auto& ParameterEntry : ParameterEntries)
 	{
 		const FNiagaraVariable& Parameter = ParameterEntry.Key;

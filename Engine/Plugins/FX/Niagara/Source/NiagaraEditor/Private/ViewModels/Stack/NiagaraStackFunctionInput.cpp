@@ -287,12 +287,16 @@ FText UNiagaraStackFunctionInput::GetTooltipText(EValueMode InValueMode) const
 		MetaData = NodeGraph->GetMetaData(ValueVariable);
 	}
 
+	FText Description = FText::GetEmpty();
 	if (MetaData != nullptr)
 	{
-		return MetaData->Description;
+		Description = MetaData->Description;
 	}
 
-	return FText::FromName(ValueVariable.GetName());
+	return FText::Format(LOCTEXT("FunctionInputTooltip", "Name: {0} \nType: {1} \nDesc: {2}"),
+		FText::FromName(ValueVariable.GetName()),
+		ValueVariable.GetType().GetNameText(),
+		Description);
 }
 
 void UNiagaraStackFunctionInput::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)
