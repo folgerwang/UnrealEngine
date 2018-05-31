@@ -50,7 +50,7 @@ public:
 	TMulticastCVarCommand(const TCHAR* Name, const T& DefaultVal, const TCHAR* Help)
 		: TAutoConsoleVariable<U>(Name, (U)DefaultVal, Help)
 	{
-		AsVariable()->SetOnChangedCallback(FConsoleVariableDelegate::CreateRaw(this, &TMulticastCVarCommand<T,U>::OnChanged));
+		TAutoConsoleVariable<U>::AsVariable()->SetOnChangedCallback(FConsoleVariableDelegate::CreateRaw(this, &TMulticastCVarCommand<T,U>::OnChanged));
 	}
 
 	void OnChanged(IConsoleVariable* /*This*/)
@@ -60,7 +60,7 @@ public:
 
 	T GetValue() const
 	{
-		return (T)GetValueOnGameThread();
+		return (T)TAutoConsoleVariable<U>::GetValueOnGameThread();
 	}
 
 	operator T() const
@@ -68,6 +68,13 @@ public:
 		return GetValue();
 	}
 };
+
+// specialization to avoid warning C4800 ('int32': forcing value to bool 'true' or 'false')
+template<>
+bool TMulticastCVarCommand<bool, int32>::GetValue() const
+{
+	return GetValueOnGameThread() != 0;
+}
 
 typedef TMulticastCVarCommand<bool, int32> FMulticastBoolCVar;
 typedef TMulticastCVarCommand<float> FMulticastFloatCVar;
