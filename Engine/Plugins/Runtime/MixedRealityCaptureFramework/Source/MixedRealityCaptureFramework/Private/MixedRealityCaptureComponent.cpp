@@ -78,6 +78,7 @@ bool TMulticastCVarCommand<bool, int32>::GetValue() const
 
 typedef TMulticastCVarCommand<bool, int32> FMulticastBoolCVar;
 typedef TMulticastCVarCommand<float> FMulticastFloatCVar;
+typedef TMulticastCVarCommand<int32> FMulticastIntCVar;
 
 /* MRCaptureComponent_Impl
  *****************************************************************************/
@@ -112,6 +113,12 @@ namespace MRCaptureComponent_Impl
 		TEXT("mrc.FovOverride"),
 		0.0f,
 		TEXT("When set to be greater than zero, MixedRealityCaptures will use this for the FOV instead of what was previously set.")
+	);
+
+	static FMulticastIntCVar TrackingLatencyOverride(
+		TEXT("mrc.TrackingLatencyOverride"),
+		0,
+		TEXT("When set to be greater than zero, MixedRealityCaptures will use this for their TrackingLatency instead of what's set. The higher the value (in ms), the more delay there will be introduced to tracked components.")
 	);
 
 	static const FName DefaultDistortionMapParamName(TEXT("DistortionDisplacementMap"));
@@ -826,6 +833,12 @@ void UMixedRealityCaptureComponent::SetLensDistortionParameters(const FMrcLensDi
 }
 
 //------------------------------------------------------------------------------
+int32 UMixedRealityCaptureComponent::GetTrackingDelay() const
+{
+	return (MRCaptureComponent_Impl::TrackingLatencyOverride > 0) ? (int32)MRCaptureComponent_Impl::TrackingLatencyOverride : TrackingLatency;
+}
+
+//------------------------------------------------------------------------------
 void UMixedRealityCaptureComponent::SetTrackingDelay(int32 DelayMS)
 {
 	TrackingLatency = FMath::Max(DelayMS, 0);
@@ -1076,7 +1089,7 @@ void UMixedRealityCaptureComponent::FillOutCalibrationData(UMrcCalibrationData* 
 		{
 			Dst->CompositingData.CaptureDeviceURL = CaptureFeedRef;
 			Dst->CompositingData.DepthOffset = ProjectionDepthOffset;
-			Dst->CompositingData.TrackingLatency = TrackingLatency;
+			Dst->CompositingData.TrackingLatency = GetTrackingDelay();
 			Dst->CompositingData.VideoProcessingParams = VideoProcessingParams;
 		}
 		// garbage matte
