@@ -1104,6 +1104,12 @@ void FAppleARKitSystem::SessionDidAddAnchors_Internal( TSharedRef<FAppleARKitAnc
 		UpdateFrame();
 	}
 
+	// If this object is valid, we are running a face session and we need to publish LiveLink data on the game thread
+	if (FaceARSupport != nullptr && AnchorData->AnchorType == EAppleAnchorType::FaceAnchor)
+	{
+		FaceARSupport->PublishLiveLinkData(AnchorData, GameThreadTimestamp, GameThreadFrameNumber);
+	}
+
 	FString NewAnchorDebugName;
 	UARTrackedGeometry* NewGeometry = nullptr;
 	switch (AnchorData->AnchorType)
@@ -1160,6 +1166,12 @@ void FAppleARKitSystem::SessionDidUpdateAnchors_Internal( TSharedRef<FAppleARKit
 	if (!GetSessionConfig().ShouldEnableCameraTracking())
 	{
 		UpdateFrame();
+	}
+
+	// If this object is valid, we are running a face session and we need to publish LiveLink data on the game thread
+	if (FaceARSupport != nullptr && AnchorData->AnchorType == EAppleAnchorType::FaceAnchor)
+	{
+		FaceARSupport->PublishLiveLinkData(AnchorData, GameThreadTimestamp, GameThreadFrameNumber);
 	}
 
 	UARTrackedGeometry** GeometrySearchResult = TrackedGeometries.Find(AnchorData->AnchorGUID);

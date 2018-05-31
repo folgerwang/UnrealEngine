@@ -116,6 +116,8 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 void FAppleARKitLiveLinkSource::PublishBlendShapes(FName SubjectName, double Timestamp, uint32 FrameNumber, const FARBlendShapeMap& FaceBlendShapes)
 {
 	check(Client != nullptr);
+	// This code touches UObjects so needs to be run only in the game thread
+	check(IsInGameThread());
 
 	if (SubjectName != LastSubjectName)
 	{

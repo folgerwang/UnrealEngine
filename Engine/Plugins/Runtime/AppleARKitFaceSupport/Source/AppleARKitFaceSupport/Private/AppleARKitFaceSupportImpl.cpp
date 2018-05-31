@@ -87,16 +87,19 @@ TArray<TSharedPtr<FAppleARKitAnchorData>> FAppleARKitFaceSupport::MakeAnchorData
 		TSharedPtr<FAppleARKitAnchorData> AnchorData = ::MakeAnchorData(Anchor);
 		if (AnchorData.IsValid())
 		{
-			// Update LiveLink first, because the other updates use MoveTemp for efficiency
-			if (LiveLinkSource.IsValid())
-			{
-				LiveLinkSource->PublishBlendShapes(FaceTrackingLiveLinkSubjectName, Timestamp, FrameNumber, AnchorData->BlendShapes);
-			}
 			AnchorList.Add(AnchorData);
 		}
 	}
 
 	return AnchorList;
+}
+
+void FAppleARKitFaceSupport::PublishLiveLinkData(TSharedPtr<FAppleARKitAnchorData> Anchor, double Timestamp, uint32 FrameNumber)
+{
+	if (LiveLinkSource.IsValid())
+	{
+        LiveLinkSource->PublishBlendShapes(FaceTrackingLiveLinkSubjectName, Timestamp, FrameNumber, Anchor->BlendShapes);
+	}
 }
 
 #endif

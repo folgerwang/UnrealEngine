@@ -32,6 +32,18 @@ public:
 	virtual TArray<TSharedPtr<FAppleARKitAnchorData>> MakeAnchorData(NSArray<ARAnchor*>* NewAnchors, double Timestamp, uint32 FrameNumber) = 0;
 
 	/**
+	 * Publishes any face AR data that needs to be sent to LiveLink. Done as a separate step because MakeAnchorData is called
+	 * on an arbitrary thread and we can't access UObjects there safely
+	 *
+	 * @param AnchorList the list of anchors to publish to LiveLink
+	 * @param Timestamp the timestamp of this update
+	 * @param FrameNumber the frame number for this update
+	 *
+	 * @return the set of face anchors to dispatch
+	 */
+	virtual void PublishLiveLinkData(TSharedPtr<FAppleARKitAnchorData> Anchor, double Timestamp, uint32 FrameNumber) = 0;
+
+	/**
 	 * Creates a face ar specific configuration object if that is requested without exposing the main code to the face APIs
 	 *
 	 * @param SessionConfig the UE4 configuration object that needs processing
@@ -39,9 +51,6 @@ public:
 	 */
 	virtual ARConfiguration* ToARConfiguration(UARSessionConfig* SessionConfig, FAppleARKitConfiguration& InConfiguration) = 0;
 #endif
-
-	IAppleARKitFaceSupport() { }
-	virtual ~IAppleARKitFaceSupport() { }
 };
 
 class APPLEARKIT_API IAppleARKitFaceSupportFactory :
