@@ -1532,6 +1532,7 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(FImportSkeletalMeshArgs &
 
 	// Store whether or not this mesh has vertex colors
 	SkeletalMesh->bHasVertexColors = SkelMeshImportDataPtr->bHasVertexColors;
+	SkeletalMesh->VertexColorGuid = SkeletalMesh->bHasVertexColors ? FGuid::NewGuid() : FGuid();
 
 	FSkeletalMeshLODModel& LODModel = ImportedResource->LODModels[0];
 	

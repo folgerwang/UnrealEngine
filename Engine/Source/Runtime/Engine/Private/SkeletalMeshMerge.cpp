@@ -134,6 +134,9 @@ bool FSkeletalMeshMerge::FinalizeMesh()
 			if (SrcMesh->bHasVertexColors)
 			{
 				MergeMesh->bHasVertexColors = true;
+#if WITH_EDITORONLY_DATA
+				MergeMesh->VertexColorGuid = FGuid::NewGuid();
+#endif
 			}
 
 			FMergeMeshInfo& MeshInfo = SrcMeshInfo[MeshIdx];
