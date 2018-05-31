@@ -200,10 +200,11 @@ public:
 		FMRMeshProxySection* NewSection = new FMRMeshProxySection(Args.BrickId, FeatureLevel);
 		ProxySections.Add(NewSection);
 
+		// Vulkan requires that all the buffers be full.
 		const int32 NumVerts = Args.PositionData.Num();
-		check((NumVerts == Args.ColorData.Num()) || Args.ColorData.Num() == 0);
-		check((NumVerts == Args.UVData.Num()) || Args.UVData.Num() == 0);
-		check(((NumVerts * 2) == Args.TangentXZData.Num()) || Args.TangentXZData.Num() == 0);
+		check((NumVerts == Args.ColorData.Num()));
+		check((NumVerts == Args.UVData.Num()));
+		check((NumVerts * 2) == Args.TangentXZData.Num());
 
 		// POSITION BUFFER
 		{
@@ -228,18 +229,6 @@ public:
 			if (Args.TangentXZData.Num())
 			{
 				NewSection->TangentXZBuffer.InitRHIWith(Args.TangentXZData);
-			}
-			else
-			{
-				// Vulkan requires that the tangent data exist, so we fill it in with fake data if necessary.
-				TArray<FPackedNormal> FakeData;
-				FakeData.Reserve(NumVerts * 2);
-				for (int32 i = 0; i < NumVerts; i++)
-				{
-					FakeData.Add(FPackedNormal(FVector::UpVector));
-					FakeData.Add(FPackedNormal(FVector::RightVector));
-				}
-				NewSection->TangentXZBuffer.InitRHIWith(FakeData);
 			}
 
 			if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))

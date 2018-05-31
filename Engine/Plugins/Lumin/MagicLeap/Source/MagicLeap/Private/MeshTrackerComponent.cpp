@@ -706,27 +706,43 @@ void UMeshTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 					}
 
 					// Read normal stream
-					if (Impl->Data.normal_stream_index != MLDataArray_InvalidStreamIndex && CurrentMeshData.streams[Impl->Data.normal_stream_index].type != MLDataArrayType_None)
 					{
-						const uint32 NormalsCount = CurrentMeshData.streams[Impl->Data.normal_stream_index].count;
-						CurrentMeshDataCache->Normals.Reserve(NormalsCount);
-						for (uint32 i = 0; i < NormalsCount; ++i)
+						uint32 NormalsCount = 0;
+						if (Impl->Data.normal_stream_index != MLDataArray_InvalidStreamIndex && CurrentMeshData.streams[Impl->Data.normal_stream_index].type != MLDataArrayType_None)
 						{
-							const auto &normal = CurrentMeshData.streams[Impl->Data.normal_stream_index].xyz_array[i];
-							CurrentMeshDataCache->Normals.Add(MagicLeap::ToFVector(normal, 1.0f));
+							NormalsCount = CurrentMeshData.streams[Impl->Data.normal_stream_index].count;
+							CurrentMeshDataCache->Normals.Reserve(NormalsCount);
+							for (uint32 i = 0; i < NormalsCount; ++i)
+							{
+								const auto &normal = CurrentMeshData.streams[Impl->Data.normal_stream_index].xyz_array[i];
+								CurrentMeshDataCache->Normals.Add(MagicLeap::ToFVector(normal, 1.0f));
+							}
+						}
+						else
+						{
+							// Vulkan requires that tangent data exist, so we provide fake normals and tangents even if it does not
+
+							NormalsCount = CurrentMeshDataCache->Vertices.Num();
+							CurrentMeshDataCache->Normals.Reserve(NormalsCount);
+							for (uint32 i = 0; i < NormalsCount; ++i)
+							{
+								FVector Normal = CurrentMeshDataCache->Vertices[i];
+								Normal.Normalize();
+								CurrentMeshDataCache->Normals.Add(Normal);
+							}
 						}
 
 						// Also write normals into tangents
 						CurrentMeshDataCache->Tangents.Reserve(NormalsCount * 2);
 						for (uint32 i = 0; i < NormalsCount; ++i)
 						{
-							const auto &MLNormal = CurrentMeshData.streams[Impl->Data.normal_stream_index].xyz_array[i];
-							const FVector Normal = MagicLeap::ToFVector(MLNormal, 1.0f);
-							const FVector NonNormal = Normal.X < Normal.Z ? FVector(1,0,0) : FVector(0,1,0);
+							const FVector Normal = CurrentMeshDataCache->Normals[i];
+							const FVector NonNormal = Normal.X < Normal.Z ? FVector(0, 0, 1) : FVector(0, 1, 0);
 							const FVector TangentX = FVector::CrossProduct(Normal, NonNormal);
 							CurrentMeshDataCache->Tangents.Add(TangentX);
 							CurrentMeshDataCache->Tangents.Add(Normal);
 						}
+
 					}
 
 					// Read confidence stream
@@ -741,8 +757,7 @@ void UMeshTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 						}
 					}
 
-					// Write VertexColor, if necessary
-					if (VertexColorMode != EMLMeshVertexColorMode::None)
+					// Write VertexColor
 					{
 						switch (VertexColorMode)
 						{
@@ -779,6 +794,16 @@ void UMeshTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 							}
 							break;
 						}
+						case EMLMeshVertexColorMode::None:
+						{
+							// Vulkan requires that we fill everything in.
+							const uint32 VertexCount = CurrentMeshDataCache->Vertices.Num();
+							for (uint32 i = 0; i < VertexCount; ++i)
+							{
+								CurrentMeshDataCache->VertexColors.Add(FColor::White);
+							}
+							break;
+						}
 						default:
 							check(false);
 						}
@@ -786,6 +811,16 @@ void UMeshTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 
 					// Unlock mesh data array.
 					MLDataArrayUnlock(CurrentMeshHandle);
+				}
+
+				// Write UVs
+				{
+					const uint32 VertexCount = CurrentMeshDataCache->Vertices.Num();
+					for (uint32 i = 0; i < VertexCount; ++i)
+					{
+						const float FakeCoord = (float)i / (float)VertexCount;
+						CurrentMeshDataCache->UV0.Add(FVector2D(FakeCoord, FakeCoord));
+					}
 				}
 
 				// We don't add any sections to the procedural mesh component for point clouds.
@@ -936,9 +971,6 @@ void UMeshTrackerComponent::TickWithFakeData()
 
 				const int32 VertCount = 8;
 				CurrentMeshDataCache->Vertices.Reserve(VertCount);
-				CurrentMeshDataCache->UV0.Reserve(VertCount);
-				CurrentMeshDataCache->VertexColors.Reserve(VertCount);
-				CurrentMeshDataCache->Triangles.Reserve(6*2*3);
 
 				CurrentMeshDataCache->Vertices.Add(FVector(Origin.X + Extents.X, Origin.Y - Extents.Y, Origin.Z + Extents.Z));  // 0
 				CurrentMeshDataCache->Vertices.Add(FVector(Origin.X + Extents.X, Origin.Y + Extents.Y, Origin.Z + Extents.Z));  // 1
@@ -948,16 +980,36 @@ void UMeshTrackerComponent::TickWithFakeData()
 				CurrentMeshDataCache->Vertices.Add(FVector(Origin.X - Extents.X, Origin.Y + Extents.Y, Origin.Z + Extents.Z));  // 5
 				CurrentMeshDataCache->Vertices.Add(FVector(Origin.X - Extents.X, Origin.Y + Extents.Y, Origin.Z - Extents.Z));  // 6
 				CurrentMeshDataCache->Vertices.Add(FVector(Origin.X - Extents.X, Origin.Y - Extents.Y, Origin.Z - Extents.Z));  // 7
+
+				CurrentMeshDataCache->UV0.Reserve(VertCount);
+				CurrentMeshDataCache->VertexColors.Reserve(VertCount);
 				for (int i = 0; i < VertCount; ++i)
 				{
 					int imod = i % 10;
 					CurrentMeshDataCache->VertexColors.Emplace(FColor::MakeRandomColor());
 					CurrentMeshDataCache->UV0.Add(FVector2D(imod*0.1f, imod*0.1f));
-					//FVector Tangent(imod*0.1f, imod*imod*0.5f, 1.0f);
-					//Tangent.Normalize();
-					//CurrentMeshDataCache->Tangents.Add(Tangent);
+				}
+				
+				// Vulkan requires that tangent data exist
+
+				CurrentMeshDataCache->Normals.Reserve(VertCount);
+				for (uint32 i = 0; i < VertCount; ++i)
+				{
+					CurrentMeshDataCache->Normals.Add(FVector(0,0,1));
 				}
 
+				// Also write normals into tangents
+				CurrentMeshDataCache->Tangents.Reserve(VertCount * 2);
+				for (uint32 i = 0; i < VertCount; ++i)
+				{
+					const FVector Normal = CurrentMeshDataCache->Normals[i];
+					const FVector NonNormal = Normal.X < Normal.Z ? FVector(0, 0, 1) : FVector(0, 1, 0);
+					const FVector TangentX = FVector::CrossProduct(Normal, NonNormal);
+					CurrentMeshDataCache->Tangents.Add(TangentX);
+					CurrentMeshDataCache->Tangents.Add(Normal);
+				}
+				
+				CurrentMeshDataCache->Triangles.Reserve(6 * 2 * 3);
 				// Read triangle (indices) stream
 				// This makes half the triangles of a box, one per side.
 				//CurrentMeshDataCache->Triangles.Add(0);
