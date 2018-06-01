@@ -753,7 +753,7 @@ bool USkeletalMeshComponent::InitializeAnimScriptInstance(bool bForceReinit)
 			PostProcessAnimInstance = nullptr;
 		}
 
-		if(NeedToSpawnPostPhysicsInstance())
+		if(bForceReinit || NeedToSpawnPostPhysicsInstance())
 		{
 			PostProcessAnimInstance = NewObject<UAnimInstance>(this, *SkeletalMesh->PostProcessAnimBlueprint);
 
