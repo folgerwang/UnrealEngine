@@ -24,6 +24,107 @@ namespace Tools.DotNETCommon
 	}
 
 	/// <summary>
+	/// Tracks a set of processes, and destroys them when the object is disposed.
+	/// </summary>
+	public class ManagedProcessGroup : IDisposable
+	{
+		const UInt32 JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000;
+		const UInt32 JOB_OBJECT_LIMIT_BREAKAWAY_OK = 0x00000800;
+
+		[StructLayout(LayoutKind.Sequential)]
+		struct JOBOBJECT_BASIC_LIMIT_INFORMATION
+		{
+			public Int64 PerProcessUserTimeLimit;
+			public Int64 PerJobUserTimeLimit;
+			public UInt32 LimitFlags;
+			public UIntPtr MinimumWorkingSetSize;
+			public UIntPtr MaximumWorkingSetSize;
+			public UInt32 ActiveProcessLimit;
+			public Int64 Affinity;
+			public UInt32 PriorityClass;
+			public UInt32 SchedulingClass;
+		}
+
+		[StructLayout(LayoutKind.Sequential)]
+		struct IO_COUNTERS
+		{
+			public UInt64 ReadOperationCount;
+			public UInt64 WriteOperationCount;
+			public UInt64 OtherOperationCount;
+			public UInt64 ReadTransferCount;
+			public UInt64 WriteTransferCount;
+			public UInt64 OtherTransferCount;
+		}
+
+		[StructLayout(LayoutKind.Sequential)]
+		struct JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+		{
+			public JOBOBJECT_BASIC_LIMIT_INFORMATION BasicLimitInformation;
+			public IO_COUNTERS IoInfo;
+			public UIntPtr ProcessMemoryLimit;
+			public UIntPtr JobMemoryLimit;
+			public UIntPtr PeakProcessMemoryUsed;
+			public UIntPtr PeakJobMemoryUsed;
+		}
+
+		[DllImport("kernel32.dll", SetLastError=true)]
+		static extern SafeFileHandle CreateJobObject(IntPtr SecurityAttributes, IntPtr Name);
+
+		const int JobObjectExtendedLimitInformation = 9;
+
+        [DllImport("kernel32.dll", SetLastError=true)]
+        static extern int SetInformationJobObject(SafeFileHandle hJob, int JobObjectInfoClass, IntPtr lpJobObjectInfo, int cbJobObjectInfoLength);
+
+		/// <summary>
+		/// Handle to the native job object that this process is added to. This handle is closed by the Dispose() method (and will automatically be closed by the OS on process exit),
+		/// resulting in the child process being killed.
+		/// </summary>
+		public SafeFileHandle JobHandle
+		{
+			get;
+			private set;
+		}
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		public ManagedProcessGroup()
+		{
+			// Create the job object that the child process will be added to
+			JobHandle = CreateJobObject(IntPtr.Zero, IntPtr.Zero);
+			if(JobHandle == null)
+			{
+				throw new Win32Exception();
+			}
+
+			// Configure the job object to terminate the processes added to it when the handle is closed
+			JOBOBJECT_EXTENDED_LIMIT_INFORMATION LimitInformation = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION();
+			LimitInformation.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_BREAKAWAY_OK;
+
+			int Length = Marshal.SizeOf(typeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
+			IntPtr LimitInformationPtr = Marshal.AllocHGlobal(Length);
+			Marshal.StructureToPtr(LimitInformation, LimitInformationPtr, false);
+
+			if(SetInformationJobObject(JobHandle, JobObjectExtendedLimitInformation, LimitInformationPtr, Length) == 0)
+			{
+				throw new Win32Exception();
+			}
+		}
+
+		/// <summary>
+		/// Dispose of the process group
+		/// </summary>
+		public void Dispose()
+		{
+			if(JobHandle != null)
+			{
+				JobHandle.Dispose();
+				JobHandle = null;
+			}
+		}
+	}
+
+	/// <summary>
 	/// Encapsulates a managed child process, from which we can read the console output.
 	/// Uses job objects to ensure that the process will be terminated automatically by the O/S if the current process is terminated, and polls pipe reads to avoid blocking on unmanaged code
 	/// if the calling thread is terminated. Currently only implemented for Windows; makes heavy use of P/Invoke.
@@ -69,52 +170,6 @@ namespace Tools.DotNETCommon
 			public SafeHandle hStdOutput;
 			public SafeHandle hStdError;
 		}
-
-		const UInt32 JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000;
-
-		[StructLayout(LayoutKind.Sequential)]
-		struct JOBOBJECT_BASIC_LIMIT_INFORMATION
-		{
-			public Int64 PerProcessUserTimeLimit;
-			public Int64 PerJobUserTimeLimit;
-			public UInt32 LimitFlags;
-			public UIntPtr MinimumWorkingSetSize;
-			public UIntPtr MaximumWorkingSetSize;
-			public UInt32 ActiveProcessLimit;
-			public Int64 Affinity;
-			public UInt32 PriorityClass;
-			public UInt32 SchedulingClass;
-		}
-
-		[StructLayout(LayoutKind.Sequential)]
-		struct IO_COUNTERS
-		{
-			public UInt64 ReadOperationCount;
-			public UInt64 WriteOperationCount;
-			public UInt64 OtherOperationCount;
-			public UInt64 ReadTransferCount;
-			public UInt64 WriteTransferCount;
-			public UInt64 OtherTransferCount;
-		}
-
-		[StructLayout(LayoutKind.Sequential)]
-		struct JOBOBJECT_EXTENDED_LIMIT_INFORMATION
-		{
-			public JOBOBJECT_BASIC_LIMIT_INFORMATION BasicLimitInformation;
-			public IO_COUNTERS IoInfo;
-			public UIntPtr ProcessMemoryLimit;
-			public UIntPtr JobMemoryLimit;
-			public UIntPtr PeakProcessMemoryUsed;
-			public UIntPtr PeakJobMemoryUsed;
-		}
-
-		[DllImport("kernel32.dll", SetLastError=true)]
-		static extern SafeFileHandle CreateJobObject(IntPtr SecurityAttributes, IntPtr Name);
-
-		const int JobObjectExtendedLimitInformation = 9;
-
-        [DllImport("kernel32.dll", SetLastError=true)]
-        static extern int SetInformationJobObject(SafeFileHandle hJob, int JobObjectInfoClass, IntPtr lpJobObjectInfo, int cbJobObjectInfoLength);
 
 		[DllImport("kernel32.dll", SetLastError=true)]
 		static extern int AssignProcessToJobObject(SafeFileHandle hJob, IntPtr hProcess);
@@ -204,12 +259,6 @@ namespace Tools.DotNETCommon
 		StreamReader ReadStream;
 
 		/// <summary>
-		/// Handle to the native job object that this process is added to. This handle is closed by the Dispose() method (and will automatically be closed by the OS on process exit),
-		/// resulting in the child process being killed.
-		/// </summary>
-		SafeFileHandle JobHandle;
-
-		/// <summary>
 		/// Static lock object. This is used to synchronize the creation of child processes - in particular, the inheritance of stdout/stderr write pipes. If processes
 		/// inherit pipes meant for other processes, they won't be closed until both terminate.
 		/// </summary>
@@ -218,33 +267,14 @@ namespace Tools.DotNETCommon
 		/// <summary>
 		/// Spawns a new managed process.
 		/// </summary>
+		/// <param name="Group">The managed process group to add to</param>
 		/// <param name="FileName">Path to the executable to be run</param>
 		/// <param name="CommandLine">Command line arguments for the process</param>
 		/// <param name="WorkingDirectory">Working directory for the new process. May be null to use the current working directory.</param>
 		/// <param name="Environment">Environment variables for the new process. May be null, in which case the current process' environment is inherited</param>
 		/// <param name="Input">Text to be passed via stdin to the new process. May be null.</param>
-		public ManagedProcess(string FileName, string CommandLine, string WorkingDirectory, IReadOnlyDictionary<string, string> Environment, string Input, ManagedProcessPriority Priority)
+		public ManagedProcess(ManagedProcessGroup Group, string FileName, string CommandLine, string WorkingDirectory, IReadOnlyDictionary<string, string> Environment, string Input, ManagedProcessPriority Priority)
 		{
-			// Create the job object that the child process will be added to
-			JobHandle = CreateJobObject(IntPtr.Zero, IntPtr.Zero);
-			if(JobHandle == null)
-			{
-				throw new Win32Exception();
-			}
-
-			// Configure the job object to terminate the processes added to it when the handle is closed
-			JOBOBJECT_EXTENDED_LIMIT_INFORMATION LimitInformation = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION();
-			LimitInformation.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-
-			int Length = Marshal.SizeOf(typeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
-			IntPtr LimitInformationPtr = Marshal.AllocHGlobal(Length);
-			Marshal.StructureToPtr(LimitInformation, LimitInformationPtr, false);
-
-			if(SetInformationJobObject(JobHandle, JobObjectExtendedLimitInformation, LimitInformationPtr, Length) == 0)
-			{
-				throw new Win32Exception();
-			}
-
 			// Create the child process
 			IntPtr EnvironmentBlock = IntPtr.Zero;
 			try
@@ -349,7 +379,7 @@ namespace Tools.DotNETCommon
 					}
 
 					// Add it to our job object
-					if(AssignProcessToJobObject(JobHandle, ProcessInfo.hProcess) == 0)
+					if(AssignProcessToJobObject(Group.JobHandle, ProcessInfo.hProcess) == 0)
 					{
 						// Support for nested job objects was only addeed in Windows 8; prior to that, assigning processes to job objects would fail. Figure out if we're already in a job, and ignore the error if we are.
 						int OriginalError = Marshal.GetLastWin32Error();
@@ -430,11 +460,6 @@ namespace Tools.DotNETCommon
 			{
 				StdOutRead.Dispose();
 				StdOutRead = null;
-			}
-			if(JobHandle != null)
-			{
-				JobHandle.Dispose();
-				JobHandle = null;
 			}
 		}
 
