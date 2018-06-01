@@ -59,6 +59,7 @@ private:
 		bool bIsInBackground;
 		FString CurrentUserActivity;
 		bool bIsVanilla;
+		bool bIsTerminating;
 	};
 
 private:
@@ -73,6 +74,7 @@ private:
 	void OnAppDeactivate();
 	void OnAppBackground();
 	void OnAppForeground();
+	void OnTerminate();
 	FString GetStoreSectionString(FString InSuffix);
 	void OnUserActivity(const FUserActivity& UserActivity);
 	void OnVanillaStateChanged(bool bIsVanilla);
