@@ -1847,4 +1847,26 @@ void FNiagaraStackGraphUtilities::MoveModule(UNiagaraScript& SourceScript, UNiag
 	}
 }
 
+bool FNiagaraStackGraphUtilities::ParameterAllowedInExecutionCategory(const FName InParameterName, const FName ExecutionCategory)
+{
+	FNiagaraParameterHandle Handle = FNiagaraParameterHandle(InParameterName);
+	if (Handle.IsSystemHandle())
+	{
+		return ExecutionCategory == UNiagaraStackEntry::FExecutionCategoryNames::System
+			|| ExecutionCategory == UNiagaraStackEntry::FExecutionCategoryNames::Emitter
+			|| ExecutionCategory == UNiagaraStackEntry::FExecutionCategoryNames::Particle;
+	}
+	else if (Handle.IsEmitterHandle())
+	{
+		return ExecutionCategory == UNiagaraStackEntry::FExecutionCategoryNames::Emitter
+			|| ExecutionCategory == UNiagaraStackEntry::FExecutionCategoryNames::Particle;
+	}
+	else if (Handle.IsParticleAttributeHandle())
+	{
+		return ExecutionCategory == UNiagaraStackEntry::FExecutionCategoryNames::Particle;
+	}
+
+	return true;
+}
+
 #undef LOCTEXT_NAMESPACE
