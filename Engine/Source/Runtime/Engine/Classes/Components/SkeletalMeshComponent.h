@@ -1800,7 +1800,7 @@ public:
 
 protected:
 	bool NeedToSpawnAnimScriptInstance() const;
-	bool NeedToSpawnPostPhysicsInstance() const;
+	bool NeedToSpawnPostPhysicsInstance(bool bForceReinit) const;
 
 	bool ShouldBlendPhysicsBones() const;
 
