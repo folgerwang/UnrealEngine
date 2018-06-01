@@ -23,7 +23,7 @@
 			"Name" : "MagicLeapAnalytics",
 			"Type" : "Runtime",
 			"LoadingPhase" : "PreDefault",
-			"BlacklistPlatforms" :
+			"WhitelistPlatforms" :
 			[
 				"Win64",
 				"Mac",
