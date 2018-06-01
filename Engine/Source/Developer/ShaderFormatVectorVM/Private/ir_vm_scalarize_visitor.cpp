@@ -135,6 +135,8 @@ class ir_scalarize_visitor2 : public ir_hierarchical_visitor
 		else if (mode == ECallScalarizeMode::SplitParams)
 		{
 			new_sig = new(parse_state) ir_function_signature(in_sig->return_type);
+			check(in_sig->is_builtin);
+			new_sig->is_builtin = true;
 
 			TFunction<void(const ir_variable*, const glsl_type*, FString)> append_scalar_params = [&](const ir_variable* original, const glsl_type* type, FString Name)
 			{

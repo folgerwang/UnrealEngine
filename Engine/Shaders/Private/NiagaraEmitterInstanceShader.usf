@@ -125,11 +125,6 @@ NiagaraSimulationShader.usf:
 #endif
 
 
-/** Hooks into the stats system. */
-void EnterStatScope(int ScopeIdx);
-void ExitStatScope();
-
-
 /* -----------------------------------------------------------------
  * VM simulation function declarations
  * -----------------------------------------------------------------

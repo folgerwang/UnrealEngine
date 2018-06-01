@@ -2030,6 +2030,8 @@ class ir_gen_vvm_visitor : public ir_hierarchical_visitor
 
 			emit_byte((uint8)EVectorVMOp::done, CompilationOutput.ByteCode);
 		}
+
+		ordered_ops = stripped_ops;
 	}
 
 	FString DumpOps(uint32& OutNumOps)
