@@ -2281,6 +2281,10 @@ namespace UnrealBuildTool
 				{
 					Binary.GatherDataForProjectFiles(Rules, GlobalCompileEnvironment);
 				}
+				foreach (UEBuildBinary Binary in PrecompileOnlyBinaries)
+				{
+					Binary.GatherDataForProjectFiles(Rules, GlobalCompileEnvironment);
+				}
 				return ECompilationResult.Succeeded;
 			}
 
