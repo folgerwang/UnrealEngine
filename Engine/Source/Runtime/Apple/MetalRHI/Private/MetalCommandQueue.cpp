@@ -227,8 +227,8 @@ mtlpp::CommandBuffer FMetalCommandQueue::CreateCommandBuffer(void)
 		CmdBuffer = bUnretainedRefs ? MTLPP_VALIDATE(mtlpp::CommandQueue, CommandQueue, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, CommandBufferWithUnretainedReferences()) : MTLPP_VALIDATE(mtlpp::CommandQueue, CommandQueue, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, CommandBuffer());
 		
 		if (RuntimeDebuggingLevel > EMetalDebugLevelLogDebugGroups)
-		{
-			CmdBuffer = [[[FMetalDebugCommandBuffer alloc] initWithCommandBuffer:CmdBuffer.GetPtr()] autorelease];
+		{			
+			METAL_DEBUG_OPTION(FMetalCommandBufferDebugging AddDebugging(CmdBuffer));
 			MTLPP_VALIDATION(mtlpp::CommandBufferValidationTable ValidatedCommandBuffer(CmdBuffer));
 		}
 		else if (RuntimeDebuggingLevel == EMetalDebugLevelLogDebugGroups)

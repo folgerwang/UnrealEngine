@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include <Metal/Metal.h>
+#include "MetalCommandBuffer.h"
 
 // For some reason when including this file while building the editor Clang 9 ignores this pragma from MacPlatformCompilerPreSetup.h,
 // resulting in errors in FMetalDebugBufferBindings, FMetalDebugTextureBindings and FMetalDebugSamplerBindings. Readding it here works around this problem.
@@ -80,8 +80,8 @@ struct FMetalDebugSamplerBindings
     id<MTLSamplerState> _Nullable Samplers[ML_MaxSamplers];
 };
 
+class FMetalCommandBufferDebugging;
 @class FMetalDebugCommandBuffer;
-
 @class FMetalDebugFence;
 
 @interface FMetalDebugCommandEncoder : FApplePlatformObject
@@ -91,10 +91,17 @@ struct FMetalDebugSamplerBindings
 	NSHashTable<FMetalDebugFence*>* WaitingFences;
 }
 -(instancetype)init;
--(id<MTLCommandEncoder>)commandEncoder;
--(void)addUpdateFence:(id)Fence;
--(void)addWaitFence:(id)Fence;
 @end
+
+class FMetalCommandEncoderDebugging : public ns::Object<FMetalDebugCommandEncoder*>
+{
+public:
+	FMetalCommandEncoderDebugging();
+	FMetalCommandEncoderDebugging(FMetalDebugCommandEncoder* handle);
+	
+	void AddUpdateFence(id Fence);
+	void AddWaitFence(id Fence);
+};
 
 NS_ASSUME_NONNULL_END
 
