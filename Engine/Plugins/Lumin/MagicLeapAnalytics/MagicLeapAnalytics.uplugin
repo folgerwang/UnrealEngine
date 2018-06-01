@@ -23,11 +23,12 @@
 			"Name" : "MagicLeapAnalytics",
 			"Type" : "Runtime",
 			"LoadingPhase" : "PreDefault",
-			"WhitelistPlatforms" :
+			"BlacklistPlatforms" :
 			[
 				"Win64",
 				"Mac",
-				"Lumin"
+				"Lumin",
+				"Linux"
 			]			
 		}
 	],
