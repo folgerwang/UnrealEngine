@@ -50,9 +50,7 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	//-----------------------------------------------------------------------------------------
 	//  MEMBER FUNCTIONS
 	//-----------------------------------------------------------------------------------------
-
-	virtual void GetAssetRegistryTags(TArray< FAssetRegistryTag > & OutTags) const override;
-
+		
 	bool UpdateFromFile( const FString& TheFileName );
 	bool UpdateFromStringArray( TArray<FString>& StringArray );
 
@@ -158,7 +156,9 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 
 	virtual void PostInitProperties() override;
 
-	virtual void PostEditChangeProperty( FPropertyChangedEvent & PropertyChangedEvent ) override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent & PropertyChangedEvent) override;
+
+	virtual void GetAssetRegistryTags(TArray< FAssetRegistryTag > & OutTags) const override;
 #endif
 
 	protected:
