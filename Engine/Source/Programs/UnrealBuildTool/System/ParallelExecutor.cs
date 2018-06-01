@@ -14,7 +14,7 @@ namespace UnrealBuildTool
 	/// </summary>
 	class ParallelExecutor : ActionExecutor
 	{
-		[DebuggerDisplay("{Caption}")]
+		[DebuggerDisplay("{Inner}")]
 		class BuildAction
 		{
 			public int SortIndex;
@@ -143,83 +143,86 @@ namespace UnrealBuildTool
 				Dictionary<BuildAction, Thread> ExecutingActions = new Dictionary<BuildAction,Thread>();
 				List<BuildAction> CompletedActions = new List<BuildAction>();
 
-				using(AutoResetEvent CompletedEvent = new AutoResetEvent(false))
+				using(ManagedProcessGroup ProcessGroup = new ManagedProcessGroup())
 				{
-					int NumCompletedActions = 0;
-					using (ProgressWriter ProgressWriter = new ProgressWriter("Compiling C++ source code...", false))
+					using(AutoResetEvent CompletedEvent = new AutoResetEvent(false))
 					{
-						while(QueuedActions.Count > 0 || ExecutingActions.Count > 0)
+						int NumCompletedActions = 0;
+						using (ProgressWriter ProgressWriter = new ProgressWriter("Compiling C++ source code...", false))
 						{
-							// Sort the actions by the number of things dependent on them
-							QueuedActions.Sort((A, B) => (A.TotalDependantCount == B.TotalDependantCount)? (B.SortIndex - A.SortIndex) : (B.TotalDependantCount - A.TotalDependantCount));
-
-							// Create threads up to the maximum number of actions
-							while(ExecutingActions.Count < MaxProcesses && QueuedActions.Count > 0)
+							while(QueuedActions.Count > 0 || ExecutingActions.Count > 0)
 							{
-								BuildAction Action = QueuedActions[QueuedActions.Count - 1];
-								QueuedActions.RemoveAt(QueuedActions.Count - 1);
+								// Sort the actions by the number of things dependent on them
+								QueuedActions.Sort((A, B) => (A.TotalDependantCount == B.TotalDependantCount)? (B.SortIndex - A.SortIndex) : (B.TotalDependantCount - A.TotalDependantCount));
 
-								Thread ExecutingThread = new Thread(() => { ExecuteAction(Action, CompletedActions, CompletedEvent); });
-								ExecutingThread.Name = String.Format("Build:{0}", Action.Inner.StatusDescription);
-								ExecutingThread.Start();
-
-								ExecutingActions.Add(Action, ExecutingThread);
-							}
-
-							// Wait for something to finish
-							CompletedEvent.WaitOne();
-
-							// Wait for something to finish and flush it to the log
-							lock(CompletedActions)
-							{
-								foreach(BuildAction CompletedAction in CompletedActions)
+								// Create threads up to the maximum number of actions
+								while(ExecutingActions.Count < MaxProcesses && QueuedActions.Count > 0)
 								{
-									// Join the thread
-									Thread CompletedThread = ExecutingActions[CompletedAction];
-									CompletedThread.Join();
-									ExecutingActions.Remove(CompletedAction);
+									BuildAction Action = QueuedActions[QueuedActions.Count - 1];
+									QueuedActions.RemoveAt(QueuedActions.Count - 1);
 
-									// Write it to the log
-									if(CompletedAction.LogLines.Count > 0)
+									Thread ExecutingThread = new Thread(() => { ExecuteAction(ProcessGroup, Action, CompletedActions, CompletedEvent); });
+									ExecutingThread.Name = String.Format("Build:{0}", Action.Inner.StatusDescription);
+									ExecutingThread.Start();
+
+									ExecutingActions.Add(Action, ExecutingThread);
+								}
+
+								// Wait for something to finish
+								CompletedEvent.WaitOne();
+
+								// Wait for something to finish and flush it to the log
+								lock(CompletedActions)
+								{
+									foreach(BuildAction CompletedAction in CompletedActions)
 									{
-										foreach(string LogLine in CompletedAction.LogLines)
-										{
-											Log.TraceInformation(LogLine);
-										}
-									}
+										// Join the thread
+										Thread CompletedThread = ExecutingActions[CompletedAction];
+										CompletedThread.Join();
+										ExecutingActions.Remove(CompletedAction);
 
-									// Update the progress
-									NumCompletedActions++;
-									ProgressWriter.Write(NumCompletedActions, InputActions.Count);
-
-									// Check the exit code
-									if(CompletedAction.ExitCode == 0)
-									{
-										// Mark all the dependents as done
-										foreach(BuildAction DependantAction in CompletedAction.Dependants)
+										// Write it to the log
+										if(CompletedAction.LogLines.Count > 0)
 										{
-											if(--DependantAction.MissingDependencyCount == 0)
+											foreach(string LogLine in CompletedAction.LogLines)
 											{
-												QueuedActions.Add(DependantAction);
+												Log.TraceInformation(LogLine);
+											}
+										}
+
+										// Update the progress
+										NumCompletedActions++;
+										ProgressWriter.Write(NumCompletedActions, InputActions.Count);
+
+										// Check the exit code
+										if(CompletedAction.ExitCode == 0)
+										{
+											// Mark all the dependents as done
+											foreach(BuildAction DependantAction in CompletedAction.Dependants)
+											{
+												if(--DependantAction.MissingDependencyCount == 0)
+												{
+													QueuedActions.Add(DependantAction);
+												}
+											}
+										}
+										else
+										{
+											// Update the exit code if it's not already set
+											if(bResult && CompletedAction.ExitCode != 0)
+											{
+												bResult = false;
 											}
 										}
 									}
-									else
-									{
-										// Update the exit code if it's not already set
-										if(bResult && CompletedAction.ExitCode != 0)
-										{
-											bResult = false;
-										}
-									}
+									CompletedActions.Clear();
 								}
-								CompletedActions.Clear();
-							}
 
-							// If we've already got a non-zero exit code, clear out the list of queued actions so nothing else will run
-							if(!bResult && bStopCompilationAfterErrors)
-							{
-								QueuedActions.Clear();
+								// If we've already got a non-zero exit code, clear out the list of queued actions so nothing else will run
+								if(!bResult && bStopCompilationAfterErrors)
+								{
+									QueuedActions.Clear();
+								}
 							}
 						}
 					}
@@ -232,17 +235,18 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Execute an individual action
 		/// </summary>
+		/// <param name="ProcessGroup">The process group</param>
 		/// <param name="Action">The action to execute</param>
 		/// <param name="CompletedActions">On completion, the list to add the completed action to</param>
 		/// <param name="CompletedEvent">Event to set once an event is complete</param>
-		static void ExecuteAction(BuildAction Action, List<BuildAction> CompletedActions, AutoResetEvent CompletedEvent)
+		static void ExecuteAction(ManagedProcessGroup ProcessGroup, BuildAction Action, List<BuildAction> CompletedActions, AutoResetEvent CompletedEvent)
 		{
 			if (Action.Inner.bShouldOutputStatusDescription && !String.IsNullOrEmpty(Action.Inner.StatusDescription))
 			{
 				Action.LogLines.Add(Action.Inner.StatusDescription);
 			}
 
-			using(ManagedProcess Process = new ManagedProcess(Action.Inner.CommandPath, Action.Inner.CommandArguments, Action.Inner.WorkingDirectory, null, null, ManagedProcessPriority.BelowNormal))
+			using(ManagedProcess Process = new ManagedProcess(ProcessGroup, Action.Inner.CommandPath, Action.Inner.CommandArguments, Action.Inner.WorkingDirectory, null, null, ManagedProcessPriority.BelowNormal))
 			{
 				Action.LogLines.AddRange(Process.ReadAllLines());
 				Action.ExitCode = Process.ExitCode;
