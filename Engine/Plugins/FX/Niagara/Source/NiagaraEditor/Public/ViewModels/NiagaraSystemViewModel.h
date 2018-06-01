@@ -53,9 +53,6 @@ struct FNiagaraSystemViewModelOptions
 	/** A delegate which is used to generate the content for the add menu in sequencer. */
 	FOnGetAddMenuContent OnGetSequencerAddMenuContent;
 
-	/** Whether or not we use the system's execution state to drive when we reset the timeline*/
-	bool bUseSystemExecStateForTimelineReset;
-
 	/** Whether or not the system represented by this view model can be automatically compiled.  True by default. */
 	bool bCanAutoCompile;
 
@@ -258,6 +255,8 @@ public:
 	const TArray<FNiagaraStackModuleData>& GetStackModuleDataForEmitter(TSharedRef<FNiagaraEmitterViewModel> EmitterViewModel);
 
 private:
+	/** Reset the current simulation for the system */
+	void ResetSystemInternal(bool bCanResetTime);
 
 	/** Sets up the preview component and System instance. */
 	void SetupPreviewComponentAndInstance();
@@ -405,9 +404,6 @@ private:
 
 	/** Whether or not the user can edit emitters from the timeline. */
 	bool bCanModifyEmittersFromTimeline;
-
-	/** Whether or not we use the system's execution state to drive when we reset the timeline*/
-	bool bUseSystemExecStateForTimelineReset;
 
 	/** Whether or not the system represented by this view model can be automatically compiled. */
 	bool bCanAutoCompile;
