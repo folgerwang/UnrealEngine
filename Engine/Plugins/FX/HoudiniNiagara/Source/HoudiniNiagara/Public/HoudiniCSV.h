@@ -29,6 +29,26 @@
 
 DECLARE_LOG_CATEGORY_EXTERN( LogHoudiniNiagara, All, All );
 
+UENUM()
+enum EHoudiniAttributes
+{
+	HOUDINI_ATTR_BEGIN,
+
+	POSITION = HOUDINI_ATTR_BEGIN,
+	NORMAL,
+	TIME,
+	POINTID,
+	ALIVE,
+	LIFE,
+	COLOR,
+	ALPHA,
+	VELOCITY,
+	TYPE,
+
+	HOUDINI_ATTR_SIZE,
+	HOUDINI_ATTR_END = HOUDINI_ATTR_SIZE - 1
+	
+};
 
 USTRUCT()
 struct FPointIndexes
@@ -43,6 +63,8 @@ struct FPointIndexes
 UCLASS()
 class HOUDININIAGARA_API UHoudiniCSV : public UObject
 {
+	friend class UNiagaraDataInterfaceHoudiniCSV;
+
     GENERATED_UCLASS_BODY()
  
     public:
@@ -50,28 +72,34 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	//-----------------------------------------------------------------------------------------
 	//  MEMBER FUNCTIONS
 	//-----------------------------------------------------------------------------------------
-		
+
 	bool UpdateFromFile( const FString& TheFileName );
 	bool UpdateFromStringArray( TArray<FString>& StringArray );
 
 	void SetFileName( const FString& TheFilename );
 
 	// Returns the number of points found in the CSV file
-	int32 GetNumberOfPoints();
+	int32 GetNumberOfPoints() const;
 
 	// Returns the number of rows found in the CSV file
-	int32 GetNumberOfRows();
+	int32 GetNumberOfRows() const ;
 
 	// Returns the number of columns found in the CSV file
-	int32 GetNumberOfColumns();
+	int32 GetNumberOfColumns() const;
+
+	// Return the column index for a specific attribute
+	int32 GetAttributeColumnIndex(const EHoudiniAttributes& Attr) const;
+
+	// Returns if the specific attribute has a valid column index
+	bool IsValidAttributeColumnIndex(const EHoudiniAttributes& Attr) const;
 
 	// Returns the column index for a given string
-	bool GetColumnIndexFromString(const FString& ColumnTitle, int32& ColumnIndex);
+	bool GetColumnIndexFromString(const FString& ColumnTitle, int32& ColumnIndex) const;
 
 	// Returns the float value at a given point in the CSV file
-	bool GetFloatValue( const int32& rowIndex, const int32& colIndex, float& value );
+	bool GetFloatValue( const int32& rowIndex, const int32& colIndex, float& value ) const;
 	// Returns the float value at a given point in the CSV file
-	bool GetFloatValue( const int32& rowIndex, const FString& ColumnTitle, float& value );
+	bool GetFloatValue( const int32& rowIndex, const FString& ColumnTitle, float& value ) const;
 	/*
 	// Returns the float value at a given point in the CSV file
 	bool GetCSVStringValue( const int32& rowIndex, const int32& colIndex, FString& value );
@@ -79,49 +107,50 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	bool GetCSVStringValue( const int32& rowIndex, const FString& ColumnTitle, FString& value );
 	*/
 	// Returns a Vector3 for a given point in the CSV file
-	bool GetVectorValue( const int32& rowIndex, const int32& colIndex, FVector& value, const bool& DoSwap = true, const bool& DoScale = true );
+	bool GetVectorValue( const int32& rowIndex, const int32& colIndex, FVector& value, const bool& DoSwap = true, const bool& DoScale = true ) const;
 	
 	// Returns a time value for a given point in the CSV file
-	bool GetTimeValue( const int32& rowIndex, float& value );
+	bool GetTimeValue( const int32& rowIndex, float& value ) const;
 	// Returns a Position Vector3 for a given point in the CSV file (converted to unreal's coordinate system)
-	bool GetPositionValue( const int32& rowIndex, FVector& value );
+	bool GetPositionValue( const int32& rowIndex, FVector& value ) const;
 	// Returns a Normal Vector3 for a given point in the CSV file (converted to unreal's coordinate system)
-	bool GetNormalValue( const int32& rowIndex, FVector& value );
+	bool GetNormalValue( const int32& rowIndex, FVector& value ) const;
 	// Returns a Color for a given point in the CSV file
-	bool GetColorValue( const int32& rowIndex, FLinearColor& value );
+	bool GetColorValue( const int32& rowIndex, FLinearColor& value ) const;
 	// Returns a Velocity Vector3 for a given point in the CSV file
-	bool GetVelocityValue(const int32& rowIndex, FVector& value );
+	bool GetVelocityValue(const int32& rowIndex, FVector& value ) const;
 
 	// Get the last row index for a given time value (the row with a time smaller or equal to desiredTime)
 	// If the CSV file doesn't have time informations, returns false and set LastRowIndex to the last row in the file
 	// If desiredTime is smaller than the time value in the first row, LastRowIndex will be set to -1
 	// If desiredTime is higher than the last time value in the last row of the csv file, LastIndex will be set to the last row's index
-	bool GetLastRowIndexAtTime( const float& desiredTime, int32& lastRowIndex );
+	bool GetLastRowIndexAtTime( const float& desiredTime, int32& lastRowIndex ) const;
 
 	// Get the last pointID of the points to be spawned at time t
 	// Invalid Index are used to indicate edge cases:
 	// -1 will be returned if there is no points to spawn ( t is smaller than the first point time )
 	// NumberOfRows will be returned if all points in the CSV have been spawned ( t is higher than the last point time )
-	bool GetLastPointIDToSpawnAtTime( const float& time, int32& lastIndex );
+	bool GetLastPointIDToSpawnAtTime( const float& time, int32& lastIndex ) const;
 
 	// Returns the previous and next indexes for reading the values of a specified point at a given time
-	bool GetRowIndexesForPointAtTime(const int32& PointID, const float& desiredTime, int32& PrevIndex, int32& NextIndex, float& PrevWeight);
+	bool GetRowIndexesForPointAtTime(const int32& PointID, const float& desiredTime, int32& PrevIndex, int32& NextIndex, float& PrevWeight) const;
 	// Returns the value for a point at a given time value (linearly interpolated) 
-	bool GetPointValueAtTime(const int32& PointID, const int32& ColumnIndex, const float& desiredTime, float& Value);
+	bool GetPointValueAtTime(const int32& PointID, const int32& ColumnIndex, const float& desiredTime, float& Value) const;
 	// Returns the Vector Value for a given point at a given time value (linearly interpolated) 
-	bool GetPointVectorValueAtTime(const int32& PointID, const int32& ColumnIndex, const float& desiredTime, FVector& Vector, const bool& DoSwap, const bool& DoScale);
+	bool GetPointVectorValueAtTime(const int32& PointID, const int32& ColumnIndex, const float& desiredTime, FVector& Vector, const bool& DoSwap, const bool& DoScale) const;
 	// Returns the Position Value for a given point at a given time value (linearly interpolated) 
-	bool GetPointPositionAtTime(const int32& PointID, const float& desiredTime, FVector& Vector);
+	bool GetPointPositionAtTime(const int32& PointID, const float& desiredTime, FVector& Vector) const;
 	// Return a given point's life value at spawn
-	bool GetPointLife(const int32& PointID, float& Value);
+	bool GetPointLife(const int32& PointID, float& Value) const;
 	// Return a point's life for a given time value
-	bool GetPointLifeAtTime(const int32& PointID, const float& DesiredTime, float& Value);
+	bool GetPointLifeAtTime(const int32& PointID, const float& DesiredTime, float& Value) const;
 	// Return a point's type at spawn
-	bool GetPointType(const int32& PointID, int32& Value);
+	bool GetPointType(const int32& PointID, int32& Value) const;
 
 	//-----------------------------------------------------------------------------------------
 	//  MEMBER VARIABLES
 	//-----------------------------------------------------------------------------------------
+
 	UPROPERTY( VisibleAnywhere, Category = "Houdini CSV File Properties" )
 	FString FileName;
 
@@ -155,9 +184,7 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	class UAssetImportData* AssetImportData;
 
 	virtual void PostInitProperties() override;
-
 	virtual void PostEditChangeProperty(FPropertyChangedEvent & PropertyChangedEvent) override;
-
 	virtual void GetAssetRegistryTags(TArray< FAssetRegistryTag > & OutTags) const override;
 #endif
 
@@ -171,9 +198,11 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 
 	static bool SortPredicate(const TArray<FString>& A, const TArray<FString>& B);
 
+	/*
 	// Array containing the Raw String data
-	//UPROPERTY()
-	//TArray<FString> StringCSVData;
+	UPROPERTY()
+	TArray<FString> StringCSVData;
+	*/
 
 	// Array containing all the CSV data converted to floats
 	UPROPERTY()
@@ -191,49 +220,15 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	UPROPERTY()
 	TArray<int32> PointTypes;
 
-	// Index of the Position values in the buffer
+	// Array containing the column indexes of the special attributes
 	UPROPERTY()
-	int32 PositionColumnIndex;
+	TArray<int32> SpecialAttributesColumnIndexes;
 
-	// Index of the Normal values in the buffer
-	UPROPERTY()
-	int32 NormalColumnIndex;
-
-	// Index of the time values in the buffer
-	UPROPERTY()
-	int32 TimeColumnIndex;
-
-	// Index of the point id values in the buffer
-	UPROPERTY()
-	int32 IDColumnIndex;
-
-	// Index of the alive values in the buffer
-	UPROPERTY()
-	int32 AliveColumnIndex;
-
-	// Index of the life values in the buffer
-	UPROPERTY()
-	int32 LifeColumnIndex;
-
-	// Index of the color values in the buffer
-	UPROPERTY()
-	int32 ColorColumnIndex;
-
-	// Index of the color values in the buffer
-	UPROPERTY()
-	int32 AlphaColumnIndex;
-
-	// Index of the velocity values in the buffer
-	UPROPERTY()
-	int32 VelocityColumnIndex;
-
-	// Column index of the "type" values in the buffer
-	UPROPERTY()
-	int32 TypeColumnIndex;
-
+	/*
 	// Row indexes for new time values
-	//UPROPERTY()
-	//TMap<float, int32> TimeValuesIndexes;
+	UPROPERTY()
+	TMap<float, int32> TimeValuesIndexes;
+	*/
 
 	// Row indexes for each point
 	UPROPERTY()
