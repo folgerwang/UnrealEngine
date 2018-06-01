@@ -1998,7 +1998,7 @@ float FLandscapeComponentSceneProxy::GetNeighborLOD(const FSceneView& InView, fl
 			if (Neighbor->GetLandscapeComponent() != nullptr)
 			{
 				LandscapeComponentOrigin = NeighborComponent->Bounds.Origin;
-				LandscapeComponentMaxExtends = NeighborComponent->Bounds.BoxExtent[0];
+				LandscapeComponentMaxExtends = NeighborComponent->SubsectionSizeQuads * FMath::Max(NeighborComponent->GetComponentTransform().GetScale3D().X, NeighborComponent->GetComponentTransform().GetScale3D().Y);
 			}
 		}
 
