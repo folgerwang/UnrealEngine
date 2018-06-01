@@ -77,6 +77,30 @@ namespace UnrealGameSync
 			Inner.WriteLine(Prefix + Line);
 		}
 	}
+
+	class TimestampLogWriter : LineBasedTextWriter
+	{
+		LineBasedTextWriter Inner;
+
+		public TimestampLogWriter(LineBasedTextWriter Inner)
+		{
+			this.Inner = Inner;
+		}
+
+		protected override void Dispose(bool bDisposing)
+		{
+			if(Inner != null)
+			{
+				Inner.Dispose();
+				Inner = null;
+			}
+		}
+
+		protected override void FlushLine(string Line)
+		{
+			Inner.WriteLine("[{0}] {1}", DateTime.Now, Line);
+		}
+	}
 	
 	class BoundedLogWriter : LineBasedTextWriter
 	{

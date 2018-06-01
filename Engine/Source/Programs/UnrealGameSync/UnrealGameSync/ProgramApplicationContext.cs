@@ -24,7 +24,7 @@ namespace UnrealGameSync
 		bool bUnstable;
 		bool bIsClosing;
 
-		BoundedLogWriter Log;
+		TimestampLogWriter Log;
 		UserSettings Settings;
 		ActivationListener ActivationListener;
 
@@ -62,7 +62,7 @@ namespace UnrealGameSync
 			MainThreadSynchronizationContext = WindowsFormsSynchronizationContext.Current;
 
 			// Create the log file
-			Log = new BoundedLogWriter(Path.Combine(DataFolder, "UnrealGameSync.log"));
+			Log = new TimestampLogWriter(new BoundedLogWriter(Path.Combine(DataFolder, "UnrealGameSync.log")));
 			Log.WriteLine("Application version: {0}", Assembly.GetExecutingAssembly().GetName().Version);
 			Log.WriteLine("Started at {0}", DateTime.Now.ToString());
 
@@ -145,7 +145,8 @@ namespace UnrealGameSync
 			List<DetectProjectSettingsTask> Tasks = new List<DetectProjectSettingsTask>();
 			foreach(UserSelectedProjectSettings OpenProject in Settings.OpenProjects)
 			{
-				Tasks.Add(new DetectProjectSettingsTask(OpenProject, DataFolder, Log));
+				Log.WriteLine("Detecting settings for {0}", OpenProject);
+				Tasks.Add(new DetectProjectSettingsTask(OpenProject, DataFolder, new PrefixedTextWriter("  ", Log)));
 			}
 
 			// Detect settings for the project we want to open
