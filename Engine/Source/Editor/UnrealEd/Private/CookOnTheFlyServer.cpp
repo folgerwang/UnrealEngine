@@ -124,6 +124,7 @@ static FAutoConsoleVariableRef CVarCookDisplayMode(
 
 
 #if OUTPUT_TIMING
+#include <Containers/AllocatorFixedSizeFreeList.h>
 
 struct FHierarchicalTimerInfo
 {
@@ -131,8 +132,9 @@ public:
 	FHierarchicalTimerInfo(const FHierarchicalTimerInfo& InTimerInfo) = delete;
 	FHierarchicalTimerInfo(FHierarchicalTimerInfo&& InTimerInfo) = delete;
 
-	explicit FHierarchicalTimerInfo(const char* InName)
+	explicit FHierarchicalTimerInfo(const char* InName, uint16 InId)
 	:	Name(InName)
+	,	Id(InId)
 	{
 	}
 
@@ -141,49 +143,69 @@ public:
 		ClearChildren();
 	}
 
-	void ClearChildren()
-	{
-		for (int i = 0; i < ChildCount; ++i)
-			delete Children[i];
-
-		ChildCount = 0;
-	}
-
-	FHierarchicalTimerInfo* GetChild(int InId, const char* InName)
-	{
-		for (int i = 0; i < ChildCount; ++i)
-		{
-			if (ChildrenIds[i] == InId)
-			{
-				return Children[i];
-			}
-		}
-
-		FHierarchicalTimerInfo* Child = new FHierarchicalTimerInfo(InName);
-		const int Index = ChildCount++;
-
-		check(Index < MaxChildCount);
-
-		Children[Index]		= Child;
-		ChildrenIds[Index]	= InId;
-
-		return Child;
-	}
-
-	enum { MaxChildCount = 9 };
+	void							ClearChildren();
+	FHierarchicalTimerInfo*			GetChild(int InId, const char* InName);
 
 	uint32							HitCount = 0;
-	uint16							ChildCount = 0;
-	uint8							ChildrenIds[MaxChildCount];
+	uint16							Id = 0;
 	bool							IncrementDepth = true;
 	double							Length = 0;
 	const char*						Name;
 
-	FHierarchicalTimerInfo*			Children[MaxChildCount];
+	FHierarchicalTimerInfo*			FirstChild = nullptr;
+	FHierarchicalTimerInfo*			NextSibling = nullptr;
+
+private:
+	static FHierarchicalTimerInfo*	AllocNew(const char* InName, uint16 InId);
+	static void						DestroyAndFree(FHierarchicalTimerInfo*);
 };
 
-static FHierarchicalTimerInfo RootTimerInfo("Root");
+static FHierarchicalTimerInfo RootTimerInfo("Root", 0);
 static FHierarchicalTimerInfo* CurrentTimerInfo = &RootTimerInfo;
+static TAllocatorFixedSizeFreeList<sizeof(FHierarchicalTimerInfo), 256> TimerInfoAllocator;
+
+FHierarchicalTimerInfo* FHierarchicalTimerInfo::AllocNew(const char* InName, uint16 InId)
+{
+	return new(TimerInfoAllocator.Allocate()) FHierarchicalTimerInfo(InName, InId);
+}
+
+void FHierarchicalTimerInfo::DestroyAndFree(FHierarchicalTimerInfo* InPtr)
+{
+	InPtr->~FHierarchicalTimerInfo();
+	TimerInfoAllocator.Free(InPtr);
+}
+
+void FHierarchicalTimerInfo::ClearChildren()
+{
+	for (FHierarchicalTimerInfo* Child = FirstChild; Child;)
+	{
+		FHierarchicalTimerInfo* NextChild = Child->NextSibling;
+
+		DestroyAndFree(Child);
+
+		Child = NextChild;
+	}
+
+	FirstChild = nullptr;
+}
+
+FHierarchicalTimerInfo* FHierarchicalTimerInfo::GetChild(int InId, const char* InName)
+{
+	for (FHierarchicalTimerInfo* Child = FirstChild; Child;)
+	{
+		if (Child->Id == InId)
+			return Child;
+
+		Child = Child->NextSibling;
+	}
+
+	FHierarchicalTimerInfo* Child = AllocNew(InName, InId);
+
+	Child->NextSibling	= FirstChild;
+	FirstChild			= Child;
+
+	return Child;
+}
 
 struct FScopeTimer
 {
@@ -193,11 +215,13 @@ public:
 
 	FScopeTimer(int InId, const char* InName, bool IncrementScope = false )
 	{
+		checkSlow(IsInGameThread());
+
 		HierarchyTimerInfo = CurrentTimerInfo->GetChild(InId, InName);
 
 		HierarchyTimerInfo->IncrementDepth = IncrementScope;
 
-		OldTimerInfo		= CurrentTimerInfo;
+		PrevTimerInfo		= CurrentTimerInfo;
 		CurrentTimerInfo	= HierarchyTimerInfo;
 	}
 
@@ -225,28 +249,38 @@ public:
 		Stop();
 
 		check(CurrentTimerInfo == HierarchyTimerInfo);
-		CurrentTimerInfo = OldTimerInfo;
+		CurrentTimerInfo = PrevTimerInfo;
 	}
 
 private:
 	uint64					StartTime = 0;
 	FHierarchicalTimerInfo* HierarchyTimerInfo;
-	FHierarchicalTimerInfo* OldTimerInfo;
+	FHierarchicalTimerInfo* PrevTimerInfo;
 };
 
 void OutputHierarchyTimers(const FHierarchicalTimerInfo* TimerInfo, int32 Depth)
 {
-	static const TCHAR LeftPad[] = TEXT("                                ");
-
 	FString TimerName(TimerInfo->Name);
 
-	UE_LOG(LogCook, Display, TEXT("  %s%s: %.3fs (%u)"), &LeftPad[sizeof(LeftPad)/sizeof(LeftPad[0]) - 1 - Depth * 2], *TimerName, TimerInfo->Length, TimerInfo->HitCount);
+	static const TCHAR LeftPad[] = TEXT("                                ");
+	const SIZE_T PadOffset = FMath::Max<int>(ARRAY_COUNT(LeftPad) - 1 - Depth * 2, 0);
+
+	UE_LOG(LogCook, Display, TEXT("  %s%s: %.3fs (%u)"), &LeftPad[PadOffset], *TimerName, TimerInfo->Length, TimerInfo->HitCount);
+
+	// We need to print in reverse order since the child list begins with the most recently added child
+
+	TArray<const FHierarchicalTimerInfo*> Stack;
+
+	for (const FHierarchicalTimerInfo* Child = TimerInfo->FirstChild; Child; Child = Child->NextSibling)
+	{
+		Stack.Add(Child);
+	}
 
 	const int32 ChildDepth = Depth + TimerInfo->IncrementDepth;
 
-	for (int i = 0, n = TimerInfo->ChildCount; i < n; ++i)
+	for (size_t i = Stack.Num(); i > 0; --i)
 	{
-		OutputHierarchyTimers(TimerInfo->Children[i], ChildDepth);
+		OutputHierarchyTimers(Stack[i - 1], ChildDepth);
 	}
 }
 
