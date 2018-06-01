@@ -65,6 +65,7 @@ void UNiagaraStackObject::FinalizeInternal()
 	if (PropertyRowGenerator.IsValid())
 	{
 		PropertyRowGenerator->OnRowsRefreshed().RemoveAll(this);
+		PropertyRowGenerator.Reset();
 	}
 	Super::FinalizeInternal();
 }
