@@ -545,7 +545,15 @@ namespace UnrealBuildTool
 					if (Args.Data != null && Args.Data.StartsWith(ProgressMarkupPrefix))
 					{
 						Writer.Write(++NumCompletedActions, NumActions);
-						Args = ConstructDataReceivedEventArgs(Args.Data.Substring(ProgressMarkupPrefix.Length));
+
+						// Strip out anything that is just an XGE timer. Some programs don't output anything except the progress text.
+						string RemainingData = Args.Data.Substring(ProgressMarkupPrefix.Length);
+						if(RemainingData.StartsWith(" (") && RemainingData.EndsWith(")"))
+						{
+							RemainingData = null;
+						}
+
+						Args = ConstructDataReceivedEventArgs(RemainingData);
 					}
 					if (OutputEventHandler != null)
 					{
