@@ -11,6 +11,7 @@
 #include "MetalFence.h"
 #include "MetalPipeline.h"
 
+#if METAL_DEBUG_OPTIONS
 NS_ASSUME_NONNULL_BEGIN
 
 #if METAL_DEBUG_OPTIONS
@@ -554,3 +555,4 @@ void FMetalComputeCommandEncoderDebugging::Validate()
 }
 
 NS_ASSUME_NONNULL_END
+#endif

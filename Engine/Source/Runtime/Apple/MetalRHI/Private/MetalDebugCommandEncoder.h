@@ -80,6 +80,7 @@ struct FMetalDebugSamplerBindings
     id<MTLSamplerState> _Nullable Samplers[ML_MaxSamplers];
 };
 
+#if METAL_DEBUG_OPTIONS
 class FMetalCommandBufferDebugging;
 @class FMetalDebugCommandBuffer;
 @class FMetalDebugFence;
@@ -103,5 +104,5 @@ public:
 	void AddWaitFence(id Fence);
 };
 
+#endif
 NS_ASSUME_NONNULL_END
-

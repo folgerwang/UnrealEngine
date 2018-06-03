@@ -10,6 +10,7 @@
 #include "MetalCommandBuffer.h"
 #include "MetalFence.h"
 
+#if METAL_DEBUG_OPTIONS
 extern int32 GMetalRuntimeDebugLevel;
 
 @interface FMetalDebugBlitCommandEncoder : FMetalDebugCommandEncoder
@@ -341,3 +342,5 @@ void FMetalBlitCommandEncoderDebugging::Copy(FMetalBuffer const& sourceBuffer, N
 	}
 #endif
 }
+
+#endif

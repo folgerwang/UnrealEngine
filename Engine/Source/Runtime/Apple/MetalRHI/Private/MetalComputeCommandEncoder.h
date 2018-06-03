@@ -4,6 +4,7 @@
 
 #include "MetalDebugCommandEncoder.h"
 
+#if METAL_DEBUG_OPTIONS
 NS_ASSUME_NONNULL_BEGIN
 
 @class FMetalDebugComputeCommandEncoder;
@@ -38,3 +39,4 @@ public:
 };
 
 NS_ASSUME_NONNULL_END
+#endif

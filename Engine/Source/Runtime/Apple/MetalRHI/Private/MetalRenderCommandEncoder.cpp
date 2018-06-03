@@ -12,6 +12,7 @@
 #include "MetalFence.h"
 #include "MetalPipeline.h"
 
+#if METAL_DEBUG_OPTIONS
 NS_ASSUME_NONNULL_BEGIN
 
 @interface FMetalDebugRenderCommandEncoder : FMetalDebugCommandEncoder
@@ -951,3 +952,5 @@ void FMetalRenderCommandEncoderDebugging::EndEncoder()
 {
 	((FMetalDebugRenderCommandEncoder*)m_ptr)->Buffer.EndCommandEncoder();
 }
+#endif
+
