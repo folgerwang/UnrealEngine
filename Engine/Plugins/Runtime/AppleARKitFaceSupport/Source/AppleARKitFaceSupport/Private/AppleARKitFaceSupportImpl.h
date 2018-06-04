@@ -9,11 +9,15 @@
 
 
 class APPLEARKITFACESUPPORT_API FAppleARKitFaceSupport :
-	public IAppleARKitFaceSupport
+	public IAppleARKitFaceSupport,
+	public TSharedFromThis<FAppleARKitFaceSupport, ESPMode::ThreadSafe>
 {
 public:
 	FAppleARKitFaceSupport();
 	virtual ~FAppleARKitFaceSupport();
+
+	void Init();
+	void Shutdown();
 
 private:
 #if SUPPORTS_ARKIT_1_0

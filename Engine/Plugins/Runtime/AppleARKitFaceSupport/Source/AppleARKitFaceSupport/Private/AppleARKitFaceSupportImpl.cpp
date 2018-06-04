@@ -46,6 +46,16 @@ FAppleARKitFaceSupport::~FAppleARKitFaceSupport()
 	check(GIsRequestingExit);
 }
 
+void FAppleARKitFaceSupport::Init()
+{
+	IModularFeatures::Get().RegisterModularFeature(GetModularFeatureName(), this);
+}
+
+void FAppleARKitFaceSupport::Shutdown()
+{
+	IModularFeatures::Get().UnregisterModularFeature(GetModularFeatureName(), this);
+}
+
 #if SUPPORTS_ARKIT_1_0
 
 ARConfiguration* FAppleARKitFaceSupport::ToARConfiguration(UARSessionConfig* SessionConfig)
@@ -102,7 +112,7 @@ void FAppleARKitFaceSupport::PublishLiveLinkData(TSharedPtr<FAppleARKitAnchorDat
 	#endif
 		}
 	}
-	
+
 	if (LiveLinkSource.IsValid())
 	{
         LiveLinkSource->PublishBlendShapes(FaceTrackingLiveLinkSubjectName, Timestamp, FrameNumber, Anchor->BlendShapes);

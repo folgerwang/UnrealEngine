@@ -13,14 +13,14 @@ IMPLEMENT_MODULE(FAppleARKitFaceSupportModule, AppleARKitFaceSupport);
 
 DEFINE_LOG_CATEGORY(LogAppleARKitFace);
 
-FAppleARKitFaceSupport* FaceSupportInstance = nullptr;
+TSharedPtr<FAppleARKitFaceSupport, ESPMode::ThreadSafe> FaceSupportInstance;
 
 void FAppleARKitFaceSupportModule::StartupModule()
 {
 	ensureMsgf(FModuleManager::Get().LoadModule("AppleARKit"), TEXT("ARKitFaceSupport depends on the AppleARKit module."));
 
-	FaceSupportInstance = new FAppleARKitFaceSupport();
-	IModularFeatures::Get().RegisterModularFeature(FaceSupportInstance->GetModularFeatureName(), FaceSupportInstance);
+	FaceSupportInstance = MakeShared<FAppleARKitFaceSupport, ESPMode::ThreadSafe>();
+	FaceSupportInstance->Init();
 
 	// LiveLink listener needs to be created here so that the editor can receive remote publishing events
 #if PLATFORM_DESKTOP
@@ -35,8 +35,7 @@ void FAppleARKitFaceSupportModule::StartupModule()
 
 void FAppleARKitFaceSupportModule::ShutdownModule()
 {
-	IModularFeatures::Get().UnregisterModularFeature(FaceSupportInstance->GetModularFeatureName(), FaceSupportInstance);
-	delete FaceSupportInstance;
+	FaceSupportInstance->Shutdown();
 	FaceSupportInstance = nullptr;
 }
 

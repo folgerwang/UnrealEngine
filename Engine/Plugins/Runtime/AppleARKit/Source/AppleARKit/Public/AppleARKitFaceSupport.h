@@ -29,7 +29,7 @@ public:
 	 *
 	 * @return the set of face anchors to dispatch
 	 */
-	virtual TArray<TSharedPtr<FAppleARKitAnchorData>> MakeAnchorData(NSArray<ARAnchor*>* NewAnchors, double Timestamp, uint32 FrameNumber) = 0;
+	virtual TArray<TSharedPtr<FAppleARKitAnchorData>> MakeAnchorData(NSArray<ARAnchor*>* NewAnchors, double Timestamp, uint32 FrameNumber) { return TArray<TSharedPtr<FAppleARKitAnchorData>>(); }
 
 	/**
 	 * Publishes any face AR data that needs to be sent to LiveLink. Done as a separate step because MakeAnchorData is called
@@ -41,14 +41,14 @@ public:
 	 *
 	 * @return the set of face anchors to dispatch
 	 */
-	virtual void PublishLiveLinkData(TSharedPtr<FAppleARKitAnchorData> Anchor, double Timestamp, uint32 FrameNumber) = 0;
+	virtual void PublishLiveLinkData(TSharedPtr<FAppleARKitAnchorData> Anchor, double Timestamp, uint32 FrameNumber) { }
 
 	/**
 	 * Creates a face ar specific configuration object if that is requested without exposing the main code to the face APIs
 	 *
 	 * @param SessionConfig the UE4 configuration object that needs processing
 	 */
-	virtual ARConfiguration* ToARConfiguration(UARSessionConfig* SessionConfig) = 0;
+	virtual ARConfiguration* ToARConfiguration(UARSessionConfig* SessionConfig) { return nullptr; }
 #endif
 
 	static FName GetModularFeatureName()
