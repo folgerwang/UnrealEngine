@@ -9,6 +9,22 @@
 
 #include "ARSessionConfig.generated.h"
 
+UENUM(BlueprintType, Category="AR AugmentedReality", meta=(Experimental))
+enum class EARWorldAlignment : uint8
+{
+	/** Aligns the world with gravity that is defined by vector (0, -1, 0) */
+	Gravity,
+
+	/**
+	 * Aligns the world with gravity that is defined by the vector (0, -1, 0)
+	 * and heading (w.r.t. True North) that is given by the vector (0, 0, -1)
+	 */
+	GravityAndHeading,
+
+	/** Aligns the world with the camera's orientation, which is best for Face AR */
+	Camera
+};
+
 UENUM(BlueprintType, Category = "AR AugmentedReality", meta = (Experimental))
 enum class EARSessionType : uint8
 {
@@ -71,6 +87,9 @@ public:
 	UARSessionConfig();
 	
 public:
+	/** @see EARWorldAlignment */
+	EARWorldAlignment GetWorldAlignment() const;
+
 	/** @see SessionType */
 	EARSessionType GetSessionType() const;
 
@@ -101,7 +120,9 @@ private:
 	//~ UObject interface
 
 protected:
-	
+	/** @see EARWorldAlignment */
+	EARWorldAlignment WorldAlignment;
+
 	/** @see EARSessionType */
 	UPROPERTY(EditAnywhere, Category = "AR Settings")
 	EARSessionType SessionType;

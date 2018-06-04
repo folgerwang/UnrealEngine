@@ -3,7 +3,7 @@
 #include "AppleARKitFaceSupportImpl.h"
 #include "AppleARKitSettings.h"
 #include "AppleARKitFaceMeshConversion.h"
-#include "AppleARKitConfiguration.h"
+#include "AppleARKitConversion.h"
 #include "Async/TaskGraphInterfaces.h"
 #include "ARSystem.h"
 #include "Misc/ConfigCacheIni.h"
@@ -53,12 +53,13 @@ FAppleARKitFaceSupport::FAppleARKitFaceSupport()
 
 FAppleARKitFaceSupport::~FAppleARKitFaceSupport()
 {
-
+	// Should only be called durirng shutdown
+	check(GIsRequestingExit);
 }
 
 #if SUPPORTS_ARKIT_1_0
 
-ARConfiguration* FAppleARKitFaceSupport::ToARConfiguration(UARSessionConfig* SessionConfig, FAppleARKitConfiguration& InConfiguration)
+ARConfiguration* FAppleARKitFaceSupport::ToARConfiguration(UARSessionConfig* SessionConfig)
 {
 	ARConfiguration* SessionConfiguration = nullptr;
 	if (SessionConfig->GetSessionType() == EARSessionType::Face)
@@ -71,9 +72,9 @@ ARConfiguration* FAppleARKitFaceSupport::ToARConfiguration(UARSessionConfig* Ses
 	}
 
 	// Copy / convert properties
-	SessionConfiguration.lightEstimationEnabled = InConfiguration.bLightEstimationEnabled;
-	SessionConfiguration.providesAudioData = InConfiguration.bProvidesAudioData;
-	SessionConfiguration.worldAlignment = FAppleARKitConversion::ToARWorldAlignment(InConfiguration.Alignment);
+	SessionConfiguration.lightEstimationEnabled = SessionConfig->GetLightEstimationMode() != EARLightEstimationMode::None;
+	SessionConfiguration.providesAudioData = NO;
+	SessionConfiguration.worldAlignment = FAppleARKitConversion::ToARWorldAlignment(SessionConfig->GetWorldAlignment());
 
 	return SessionConfiguration;
 }

@@ -12,7 +12,6 @@
 #endif
 
 class UARSessionConfig;
-class FAppleARKitConfiguration;
 struct FAppleARKitAnchorData;
 
 
@@ -47,9 +46,8 @@ public:
 	 * Creates a face ar specific configuration object if that is requested without exposing the main code to the face APIs
 	 *
 	 * @param SessionConfig the UE4 configuration object that needs processing
-	 * @param InConfiguration the legacy configuration object that needs to go away
 	 */
-	virtual ARConfiguration* ToARConfiguration(UARSessionConfig* SessionConfig, FAppleARKitConfiguration& InConfiguration) = 0;
+	virtual ARConfiguration* ToARConfiguration(UARSessionConfig* SessionConfig) = 0;
 #endif
 };
 

@@ -4,7 +4,8 @@
 #include "UObject/VRObjectVersion.h"
 
 UARSessionConfig::UARSessionConfig()
-: SessionType(EARSessionType::World)
+: WorldAlignment(EARWorldAlignment::Gravity)
+, SessionType(EARSessionType::World)
 , PlaneDetectionMode_DEPRECATED(EARPlaneDetectionMode::HorizontalPlaneDetection)
 , bHorizontalPlaneDetection(true)
 , bVerticalPlaneDetection(true)
@@ -15,6 +16,12 @@ UARSessionConfig::UARSessionConfig()
 , bEnableAutomaticCameraTracking(true)
 {
 }
+
+EARWorldAlignment UARSessionConfig::GetWorldAlignment() const
+{
+	return WorldAlignment;
+}
+
 EARSessionType UARSessionConfig::GetSessionType() const
 {
 	return SessionType;

@@ -10,7 +10,7 @@
 #include "AppleARKitFrame.h"
 #include "AppleARKitAnchor.h"
 #include "AppleARKitPlaneAnchor.h"
-#include "AppleARKitConfiguration.h"
+#include "AppleARKitConversion.h"
 #include "GeneralProjectSettings.h"
 #include "ARSessionConfig.h"
 #include "AppleARKitSettings.h"
@@ -828,8 +828,6 @@ bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 		return true;
 	}
 
-	// @todo arkit FAppleARKitSystem::GetWorldToMetersScale needs a real scale somehow
-	FAppleARKitConfiguration Config;
 #if SUPPORTS_ARKIT_1_0
 	if (FAppleARKitAvailability::SupportsARKit10())
 	{
@@ -839,11 +837,11 @@ bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 		CheckForFaceARSupport(SessionConfig);
 		if (FaceARSupport == nullptr)
 		{
-			Configuration = ToARConfiguration(SessionConfig, Config, CandidateImages, ConvertedCandidateImages);
+			Configuration = FAppleARKitConversion::ToARConfiguration(SessionConfig, CandidateImages, ConvertedCandidateImages);
 		}
 		else
 		{
-			Configuration = FaceARSupport->ToARConfiguration(SessionConfig, Config);
+			Configuration = FaceARSupport->ToARConfiguration(SessionConfig);
 		}
 
 		// Not all session types are supported by all devices

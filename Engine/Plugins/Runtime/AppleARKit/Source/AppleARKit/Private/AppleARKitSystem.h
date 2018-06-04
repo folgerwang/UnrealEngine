@@ -3,7 +3,6 @@
 #pragma once
 
 #include "XRTrackingSystemBase.h"
-#include "AppleARKitConfiguration.h"
 #include "ARSystem.h"
 #include "AppleARKitHitTestResult.h"
 #include "AppleARKitTextures.h"
