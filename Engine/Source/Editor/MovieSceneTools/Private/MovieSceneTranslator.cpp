@@ -25,11 +25,6 @@ FMovieSceneExportData::FMovieSceneExportData(const UMovieScene* InMovieScene, FF
 	}
 
 	ExportContext = InContext;
-	if (ExportContext.IsValid())
-	{
-		ExportContext->Init();
-	}
-
 	FrameRate = InFrameRate;
 	ResX = InResX;
 	ResY = InResY;

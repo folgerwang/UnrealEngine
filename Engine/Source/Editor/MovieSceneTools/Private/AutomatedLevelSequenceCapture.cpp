@@ -824,6 +824,7 @@ void UAutomatedLevelSequenceCapture::ExportFCPXML()
 	}
 
 	FString SaveFilename = Settings.OutputDirectory.Path / MovieScene->GetOuter()->GetName() + TEXT(".xml");
+	FString FilenameFormat = Settings.OutputFormat;
 	int32 HandleFrames = Settings.HandleFrames;
 	FFrameRate FrameRate = Settings.FrameRate;
 	uint32 ResX = Settings.Resolution.ResX;
@@ -833,7 +834,11 @@ void UAutomatedLevelSequenceCapture::ExportFCPXML()
 
 	TSharedRef<FMovieSceneTranslatorContext> ExportContext(new FMovieSceneTranslatorContext);
 	ExportContext->Init();
-	bool bSuccess = Exporter->Export(MovieScene, FrameRate, ResX, ResY, HandleFrames, SaveFilename, ExportContext);
+
+	bool bSuccess = Exporter->Export(MovieScene, FilenameFormat, FrameRate, ResX, ResY, HandleFrames, SaveFilename, ExportContext);
+
+	// Log any messages in context
+	MovieSceneToolHelpers::MovieSceneTranslatorLogMessages(Exporter, ExportContext, false);
 
 	delete Exporter;
 }
