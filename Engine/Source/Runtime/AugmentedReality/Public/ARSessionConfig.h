@@ -120,6 +120,7 @@ private:
 	//~ UObject interface
 
 protected:
+	UPROPERTY(EditAnywhere, Category = "AR Settings")
 	/** @see EARWorldAlignment */
 	EARWorldAlignment WorldAlignment;
 
