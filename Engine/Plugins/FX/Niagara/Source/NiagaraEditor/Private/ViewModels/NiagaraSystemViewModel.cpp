@@ -1422,7 +1422,7 @@ void FNiagaraSystemViewModel::SequencerTimeChanged()
 			bool bStartedPlaying = CurrentStatus == EMovieScenePlayerStatus::Playing && PreviousSequencerStatus != EMovieScenePlayerStatus::Playing;
 			bool bEndedPlaying = CurrentStatus != EMovieScenePlayerStatus::Playing && PreviousSequencerStatus == EMovieScenePlayerStatus::Playing;
 
-			bool bUpdateDesiredAge = bStartedPlaying == false && bStartedPlaying == false;
+			bool bUpdateDesiredAge = bStartedPlaying == false;
 			bool bResetSystemInstance = SystemInstance->IsComplete();
 
 			if (bUpdateDesiredAge)
