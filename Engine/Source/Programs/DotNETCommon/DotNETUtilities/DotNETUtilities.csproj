@@ -57,7 +57,6 @@
     <Compile Include="AssemblyUtils.cs" />
     <Compile Include="BinaryReaderExtensions.cs" />
     <Compile Include="BinaryWriterExtensions.cs" />
-    <Compile Include="ConsoleTraceListener.cs" />
     <Compile Include="CsProjectInfo.cs" />
     <Compile Include="DirectoryReference.cs" />
     <Compile Include="ExceptionUtils.cs" />
@@ -76,6 +75,8 @@
     <Compile Include="FileSystemReference.cs" />
     <Compile Include="JsonObject.cs" />
     <Compile Include="Log.cs" />
+    <Compile Include="LogIndentScope.cs" />
+    <Compile Include="LogStatusScope.cs" />
     <Compile Include="ManagedProcess.cs" />
     <Compile Include="Perforce\PerforceAttributes.cs" />
     <Compile Include="Perforce\PerforceChildProcess.cs" />

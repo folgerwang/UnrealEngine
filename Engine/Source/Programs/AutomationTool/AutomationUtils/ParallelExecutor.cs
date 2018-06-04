@@ -85,7 +85,7 @@ namespace AutomationTool
 
 			CommandUtils.Log("Building with {0} {1}...", MaxProcesses, (MaxProcesses == 1)? "process" : "processes");
 
-			using (ScopedLogIndent Indent = new ScopedLogIndent("  "))
+			using (LogIndentScope Indent = new LogIndentScope("  "))
 			{
 				// Create the list of things to process
 				List<BuildAction> QueuedActions = new List<BuildAction>();

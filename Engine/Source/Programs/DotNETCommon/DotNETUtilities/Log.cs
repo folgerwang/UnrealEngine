@@ -85,10 +85,37 @@ namespace Tools.DotNETCommon
 	static public class Log
 	{
 		/// <summary>
+		/// Temporary status message displayed on the console.
+		/// </summary>
+		[DebuggerDisplay("{HeadingText}")]
+		class StatusMessage
+		{
+			/// <summary>
+			/// The heading for this status message.
+			/// </summary>
+			public string HeadingText;
+
+			/// <summary>
+			/// The current status text.
+			/// </summary>
+			public string CurrentText;
+
+			/// <summary>
+			/// Whether the heading has been written to the console. Before the first time that lines are output to the log in the midst of a status scope, the heading will be written on a line of its own first.
+			/// </summary>
+			public bool bHasFlushedHeadingText;
+		}
+
+		/// <summary>
 		/// Guard our initialization. Mainly used by top level exception handlers to ensure its safe to call a logging function.
 		/// In general user code should not concern itself checking for this.
 		/// </summary>
 		private static bool bIsInitialized = false;
+
+		/// <summary>
+		/// Object used for synchronization
+		/// </summary>
+		private static object SyncObject = new object();
 
 		/// <summary>
 		/// When true, verbose logging is enabled.
@@ -104,6 +131,7 @@ namespace Tools.DotNETCommon
 		/// When true, warnings and errors will have a prefix suitable for display by MSBuild (avoiding error messages showing as (EXEC : Error : ")
 		/// </summary>
 		private static bool bLogProgramNameWithSeverity = false;
+
 		/// <summary>
 		/// When true, logs will have the calling mehod prepended to the output as MethodName:
 		/// </summary>
@@ -133,6 +161,16 @@ namespace Tools.DotNETCommon
 		/// A collection of strings that have been already written once
 		/// </summary>
 		private static List<string> WriteOnceSet = new List<string>();
+
+		/// <summary>
+		/// Stack of status scope information.
+		/// </summary>
+		private static Stack<StatusMessage> StatusMessageStack = new Stack<StatusMessage>();
+
+		/// <summary>
+		/// The currently visible status text
+		/// </summary>
+		private static string StatusText = "";
 
 		/// <summary>
 		/// Indent added to every output line
@@ -348,46 +386,73 @@ namespace Tools.DotNETCommon
 
 			if (Verbosity <= LogLevel)
 			{
-				// Do console color highlighting here.
-				bool bResetConsoleColor = false;
-				if (bColorConsoleOutput)
+				lock (SyncObject)
 				{
-					if(Verbosity == LogEventType.Warning)
+					// Output to all the other trace listeners
+					List<string> Lines = FormatMessage(StackFramesToSkip + 1, Verbosity, FormatOptions, false, Format, Args);
+					foreach (TraceListener Listener in Trace.Listeners)
 					{
-						Console.ForegroundColor = ConsoleColor.Yellow;
-						bResetConsoleColor = true;
-					}
-					if(Verbosity <= LogEventType.Error)
-					{
-						Console.ForegroundColor = ConsoleColor.Red;
-						bResetConsoleColor = true;
-					}
-				}
-				try
-				{
-					lock (((System.Collections.ICollection)Trace.Listeners).SyncRoot)
-					{
-						foreach (TraceListener l in Trace.Listeners)
+						foreach(string Line in Lines)
 						{
-							bool bIsConsole = l is Tools.DotNETCommon.ConsoleTraceListener;
-							if (Verbosity != LogEventType.Log || !bIsConsole || LogLevel >= LogEventType.Verbose)
-							{
-								List<string> Lines = FormatMessage(StackFramesToSkip + 1, Verbosity, FormatOptions, bIsConsole, Format, Args);
-								foreach (string Line in Lines)
-								{
-									l.WriteLine(Line);
-								}
-							}
-							l.Flush();
+							Listener.WriteLine(Line);
 						}
+						Listener.Flush();
 					}
-				}
-				finally
-				{
-					// make sure we always put the console color back.
-					if(bResetConsoleColor)
+
+					// Handle the console output separately; we format things differently
+					if (Verbosity != LogEventType.Log || LogLevel >= LogEventType.Verbose)
 					{
-						Console.ResetColor();
+						if(StatusMessageStack.Count > 0)
+						{
+							StatusMessage CurrentStatus = StatusMessageStack.Peek();
+							if(CurrentStatus.HeadingText.Length > 0 && !CurrentStatus.bHasFlushedHeadingText)
+							{
+								SetStatusText(CurrentStatus.HeadingText);
+								Console.WriteLine();
+								StatusText = "";
+								CurrentStatus.bHasFlushedHeadingText = true;
+							}
+							else
+							{
+								SetStatusText("");
+							}
+						}
+
+						bool bResetConsoleColor = false;
+						if (bColorConsoleOutput)
+						{
+							if(Verbosity == LogEventType.Warning)
+							{
+								Console.ForegroundColor = ConsoleColor.Yellow;
+								bResetConsoleColor = true;
+							}
+							if(Verbosity <= LogEventType.Error)
+							{
+								Console.ForegroundColor = ConsoleColor.Red;
+								bResetConsoleColor = true;
+							}
+						}
+						try
+						{
+							List<string> ConsoleLines = FormatMessage(StackFramesToSkip + 1, Verbosity, FormatOptions, true, Format, Args);
+							foreach (string ConsoleLine in ConsoleLines)
+							{
+								Console.WriteLine(ConsoleLine);
+							}
+						}
+						finally
+						{
+							// make sure we always put the console color back.
+							if(bResetConsoleColor)
+							{
+								Console.ResetColor();
+							}
+						}
+
+						if(StatusMessageStack.Count > 0)
+						{
+							SetStatusText(StatusMessageStack.Peek().CurrentText);
+						}
 					}
 				}
 			}
@@ -636,37 +701,98 @@ namespace Tools.DotNETCommon
 		{
 			WriteLinePrivate(1, true, LogEventType.Log, LogFormatOptions.None, Format, Args);
 		}
-	}
-
-	/// <summary>
-	/// Class to apply a log indent for the lifetime of an object 
-	/// </summary>
-	public class ScopedLogIndent : IDisposable
-	{
-		/// <summary>
-		/// The previous indent
-		/// </summary>
-		string PrevIndent;
 
 		/// <summary>
-		/// Constructor
+		/// Enter a scope with the given status message. The message will be written to the console without a newline, allowing it to be updated through subsequent calls to UpdateStatus().
+		/// The message will be written to the log immediately. If another line is written while in a status scope, the initial status message is flushed to the console first.
 		/// </summary>
-		/// <param name="Indent">Indent to append to the existing indent</param>
-		public ScopedLogIndent(string Indent)
+		/// <param name="Message">The status message</param>
+		[Conditional("TRACE")]
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void PushStatus(string Message)
 		{
-			PrevIndent = Log.Indent;
-			Log.Indent += Indent;
+			lock(SyncObject)
+			{
+				StatusMessage NewStatusMessage = new StatusMessage();
+				NewStatusMessage.HeadingText = Message;
+				NewStatusMessage.CurrentText = Message;
+				StatusMessageStack.Push(NewStatusMessage);
+
+				if(Message.Length > 0)
+				{
+					WriteLine(LogEventType.Log, "{0}", Message);
+					SetStatusText(Message);
+				}
+			}
 		}
 
 		/// <summary>
-		/// Restore the log indent to normal
+		/// Updates the current status message. This will overwrite the previous status line.
 		/// </summary>
-		public void Dispose()
+		/// <param name="Message">The status message</param>
+		[Conditional("TRACE")]
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void UpdateStatus(string Message)
 		{
-			if (PrevIndent != null)
+			lock(SyncObject)
 			{
-				Log.Indent = PrevIndent;
-				PrevIndent = null;
+				StatusMessage CurrentStatusMessage = StatusMessageStack.Peek();
+				CurrentStatusMessage.CurrentText = Message;
+
+				SetStatusText(Message);
+			}
+		}
+
+		/// <summary>
+		/// Updates the Pops the top status message from the stack. The mess
+		/// </summary>
+		/// <param name="Message"></param>
+		[Conditional("TRACE")]
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void PopStatus()
+		{
+			lock(SyncObject)
+			{
+				if(StatusText.Length > 0)
+				{
+					Console.WriteLine();
+					StatusText = "";
+				}
+				StatusMessageStack.Pop();
+			}
+		}
+
+		/// <summary>
+		/// Update the status text. For internal use only; does not modify the StatusMessageStack objects.
+		/// </summary>
+		/// <param name="NewStatusText">New status text to display</param>
+		private static void SetStatusText(string NewStatusText)
+		{
+			if(NewStatusText.Length > 0)
+			{
+				NewStatusText = Indent + NewStatusText;
+			}
+
+			if(StatusText != NewStatusText)
+			{
+				int NumCommonChars = 0;
+				while(NumCommonChars < StatusText.Length && NumCommonChars < NewStatusText.Length && StatusText[NumCommonChars] == NewStatusText[NumCommonChars])
+				{
+					NumCommonChars++;
+				}
+
+				StringBuilder Text = new StringBuilder();
+				Text.Append('\b', StatusText.Length - NumCommonChars);
+				Text.Append(NewStatusText, NumCommonChars, NewStatusText.Length - NumCommonChars);
+				if(NewStatusText.Length < StatusText.Length)
+				{
+					int NumChars = StatusText.Length - NewStatusText.Length;
+					Text.Append(' ', NumChars);
+					Text.Append('\b', NumChars);
+				}
+				Console.Write(Text.ToString());
+
+				StatusText = NewStatusText;
 			}
 		}
 	}

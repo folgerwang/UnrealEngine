@@ -136,7 +136,7 @@ namespace UnrealBuildTool
 			}
 
 			// Execute the actions
-			using (ScopedLogIndent Indent = new ScopedLogIndent("  "))
+			using (LogIndentScope Indent = new LogIndentScope("  "))
 			{
 				// Create a job object for all the child processes
 				bool bResult = true;

@@ -57,7 +57,6 @@ namespace AutomationTool
                 bColorConsoleOutput: true,
                 TraceListeners: new TraceListener[]
                 {
-                    new Tools.DotNETCommon.ConsoleTraceListener(),
 					StartupListener
 				}
 			);

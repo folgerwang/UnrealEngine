@@ -1737,7 +1737,7 @@ namespace UnrealBuildTool
 						}
 						catch(Exception Ex)
 						{
-							Progress.LogMessage(LogEventType.Warning, "Exception while generating include data for {0}: {1}", CurTarget.TargetFilePath.GetFileNameWithoutAnyExtensions(), Ex.ToString());
+							Log.TraceWarning("Exception while generating include data for {0}: {1}", CurTarget.TargetFilePath.GetFileNameWithoutAnyExtensions(), Ex.ToString());
 						}
 
 						ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject = null;
