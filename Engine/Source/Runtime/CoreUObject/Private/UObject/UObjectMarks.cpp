@@ -8,49 +8,120 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/UObjectIterator.h"
 
-#include "UObject/UObjectAnnotation.h"
-
 
 struct FObjectMark
 {
-	/**
-	 * default contructor
-	 * Default constructor must be the default item
-	 */
-	FObjectMark() :
-		Marks(OBJECTMARK_NOMARKS)
-	{
-	}
-	/**
-	 * Intilialization constructor
-	 * @param InMarks marks to initialize to
-	 */
+	FObjectMark() = default;
+
 	FObjectMark(EObjectMark InMarks) :
 		Marks(InMarks)
 	{
 	}
-	/**
-	 * Determine if this annotation is the default
-	 * @return true is this is a default pair. We only check the linker because CheckInvariants rules out bogus combinations
-	 */
-	FORCEINLINE bool IsDefault()
+
+	bool IsDefault()
 	{
 		return Marks == OBJECTMARK_NOMARKS;
 	}
 
-	/**
-	 * Marks associated with an object
-	 */
-	EObjectMark				Marks; 
-
+	EObjectMark				Marks = OBJECTMARK_NOMARKS;
 };
 
 template <> struct TIsPODType<FObjectMark> { enum { Value = true }; };
 
 
-/**
- * Annotation to relate objects with object marks
- */
+template<typename TAnnotation>
+class FUObjectAnnotationSparseNoSync : public FUObjectArray::FUObjectDeleteListener
+{
+public:
+	virtual void NotifyUObjectDeleted(const UObjectBase *Object, int32 Index) override
+	{
+		RemoveAnnotation(Object);
+	}
+
+	FUObjectAnnotationSparseNoSync() :
+		AnnotationCacheKey(NULL)
+	{
+	}
+
+	virtual ~FUObjectAnnotationSparseNoSync()
+	{
+		RemoveAllAnnotations();
+	}
+
+	void AddAnnotation(const UObjectBase* Object,TAnnotation Annotation)
+	{
+		check(Object);
+		AnnotationCacheKey = Object;
+		AnnotationCacheValue = Annotation;
+		if (Annotation.IsDefault())
+		{
+			RemoveAnnotation(Object); // adding the default annotation is the same as removing an annotation
+		}
+		else
+		{
+			if (AnnotationMap.Num() == 0)
+			{
+				// we are adding the first one, so if we are auto removing or verifying removal, register now
+				GUObjectArray.AddUObjectDeleteListener(this);
+			}
+			AnnotationMap.Add(AnnotationCacheKey,AnnotationCacheValue);
+		}
+	}
+
+	void RemoveAnnotation(const UObjectBase* Object)
+	{
+		check(Object);
+		AnnotationCacheKey = Object;
+		AnnotationCacheValue = TAnnotation();
+		const bool bHadElements = (AnnotationMap.Num() > 0);
+		AnnotationMap.Remove(AnnotationCacheKey);
+		if (bHadElements && AnnotationMap.Num() == 0)
+		{
+			// we are removing the last one, so unregister now
+			GUObjectArray.RemoveUObjectDeleteListener(this);
+		}
+	}
+
+	void RemoveAllAnnotations()
+	{
+		AnnotationCacheKey = NULL;
+		AnnotationCacheValue = TAnnotation();
+		const bool bHadElements = (AnnotationMap.Num() > 0);
+		AnnotationMap.Empty();
+		if (bHadElements)
+		{
+			GUObjectArray.RemoveUObjectDeleteListener(this);
+		}
+	}
+
+	TAnnotation GetAnnotation(const UObjectBase* Object)
+	{
+		check(Object);
+		if (Object == AnnotationCacheKey)
+			return AnnotationCacheValue;
+
+		AnnotationCacheKey = Object;
+		if (TAnnotation* Entry = AnnotationMap.Find(AnnotationCacheKey))
+		{
+			return AnnotationCacheValue = *Entry;
+		}
+		else
+		{
+			return AnnotationCacheValue = TAnnotation();
+		}
+	}
+
+	const TMap<const UObjectBase*, TAnnotation>& GetAnnotationMap() const
+	{
+		return AnnotationMap;
+	}
+
+private:
+	TMap<const UObjectBase*, TAnnotation>	AnnotationMap;
+	const UObjectBase*						AnnotationCacheKey;
+	TAnnotation								AnnotationCacheValue;
+};
+
 class FThreadMarkAnnotation : public TThreadSingleton<FThreadMarkAnnotation>
 {
 	friend class TThreadSingleton<FThreadMarkAnnotation>;
@@ -58,32 +129,18 @@ class FThreadMarkAnnotation : public TThreadSingleton<FThreadMarkAnnotation>
 	FThreadMarkAnnotation()	{}
 
 public:
-
-	FUObjectAnnotationSparse<FObjectMark, true> MarkAnnotation;
+	FUObjectAnnotationSparseNoSync<FObjectMark> MarkAnnotation;
 };
 
-
-/**
- * Adds marks to an object
- *
- * @param	Object	Object to add marks to
- * @param	Marks	Logical OR of OBJECTMARK_'s to apply 
- */
 void MarkObject(const class UObjectBase* Object, EObjectMark Marks)
 {
-	FUObjectAnnotationSparse<FObjectMark, true>& ThreadMarkAnnotation = FThreadMarkAnnotation::Get().MarkAnnotation;
+	FUObjectAnnotationSparseNoSync<FObjectMark>& ThreadMarkAnnotation = FThreadMarkAnnotation::Get().MarkAnnotation;
 	ThreadMarkAnnotation.AddAnnotation(Object,FObjectMark(EObjectMark(ThreadMarkAnnotation.GetAnnotation(Object).Marks | Marks)));
 }
 
-/**
- * Removes marks from and object
- *
- * @param	Object	Object to remove marks from
- * @param	Marks	Logical OR of OBJECTMARK_'s to remove 
- */
 void UnMarkObject(const class UObjectBase* Object, EObjectMark Marks)
 {
-	FUObjectAnnotationSparse<FObjectMark, true>& ThreadMarkAnnotation = FThreadMarkAnnotation::Get().MarkAnnotation;
+	FUObjectAnnotationSparseNoSync<FObjectMark>& ThreadMarkAnnotation = FThreadMarkAnnotation::Get().MarkAnnotation;
 	FObjectMark Annotation = ThreadMarkAnnotation.GetAnnotation(Object);
 	if(Annotation.Marks & Marks)
 	{
@@ -93,15 +150,15 @@ void UnMarkObject(const class UObjectBase* Object, EObjectMark Marks)
 
 void MarkAllObjects(EObjectMark Marks)
 {
-	for( FObjectIterator It; It; ++It )
+	for (FObjectIterator It; It; ++It)
 	{
-		MarkObject(*It,Marks);
+		MarkObject(*It, Marks);
 	}
 }
 
 void UnMarkAllObjects(EObjectMark Marks)
 {
-	FUObjectAnnotationSparse<FObjectMark, true>& ThreadMarkAnnotation = FThreadMarkAnnotation::Get().MarkAnnotation;
+	FUObjectAnnotationSparseNoSync<FObjectMark>& ThreadMarkAnnotation = FThreadMarkAnnotation::Get().MarkAnnotation;
 	if (Marks == OBJECTMARK_ALLMARKS)
 	{
 		ThreadMarkAnnotation.RemoveAllAnnotations();
@@ -179,4 +236,3 @@ void GetObjectsWithAnyMarks(TArray<UObject *>& Results, EObjectMark Marks)
 		}
 	}
 }
-
