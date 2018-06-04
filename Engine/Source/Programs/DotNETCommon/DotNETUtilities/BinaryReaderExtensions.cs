@@ -17,7 +17,7 @@ namespace Tools.DotNETCommon
 		/// <typeparam name="T">The element type for the array</typeparam>
 		/// <param name="Reader">Reader to read data from</param>
 		/// <returns>Object instance.</returns>
-		public static T ReadObject<T>(this BinaryReader Reader) where T : IBinarySerializable
+		public static T ReadObject<T>(this BinaryReader Reader) where T : class, IBinarySerializable
 		{
 			return (T)Activator.CreateInstance(typeof(T), Reader);
 		}
@@ -38,7 +38,7 @@ namespace Tools.DotNETCommon
 		/// <typeparam name="T">The element type for the array</typeparam>
 		/// <param name="Reader">Reader to read data from</param>
 		/// <returns>Array of objects, as serialized. May be null.</returns>
-		public static T[] ReadArray<T>(this BinaryReader Reader) where T : IBinarySerializable
+		public static T[] ReadArray<T>(this BinaryReader Reader) where T : class, IBinarySerializable
 		{
 			return ReadArray<T>(Reader, () => Reader.ReadObject<T>());
 		}
@@ -83,7 +83,7 @@ namespace Tools.DotNETCommon
 		/// <param name="Reader">Reader to read data from</param>
 		/// <param name="ReadElement">Delegate to call to serialize each element</param>
 		/// <returns>List of objects, as serialized. May be null.</returns>
-		public static List<T> ReadList<T>(this BinaryReader Reader) where T : IBinarySerializable
+		public static List<T> ReadList<T>(this BinaryReader Reader) where T : class, IBinarySerializable
 		{
 			return ReadList<T>(Reader, () => Reader.ReadObject<T>());
 		}
@@ -135,6 +135,25 @@ namespace Tools.DotNETCommon
 				Items.Add(Key, Value);
 			}
 			return Items;
+		}
+
+		/// <summary>
+		/// Read a nullable object from a binary reader
+		/// </summary>
+		/// <typeparam name="T">Type of the object</typeparam>
+		/// <param name="Reader">Reader to read data from</param>
+		/// <param name="ReadItem">Function to read the payload, if non-null</param>
+		/// <returns>Object instance or null</returns>
+		public static T ReadNullable<T>(this BinaryReader Reader, Func<T> ReadItem) where T : class
+		{
+			if(Reader.ReadBoolean())
+			{
+				return ReadItem();
+			}
+			else
+			{
+				return null;
+			}
 		}
 
 		/// <summary>

@@ -50,9 +50,9 @@ namespace Tools.DotNETCommon
 		/// <typeparam name="T">The array element type</typeparam>
 		/// <param name="Writer">Writer to serialize to</param>
 		/// <param name="Items">Array of items</param>
-		public static void Write<T>(this BinaryWriter Writer, T[] Items) where T : IBinarySerializable
+		public static void Write<T>(this BinaryWriter Writer, T[] Items) where T : class, IBinarySerializable
 		{
-			Write(Writer, Items, Item => Item.Write(Writer));
+			Write(Writer, Items, Item => Writer.Write(Item));
 		}
 
 		/// <summary>
@@ -83,7 +83,7 @@ namespace Tools.DotNETCommon
 		/// </summary>
 		/// <param name="Writer">Writer to serialize to</param>
 		/// <param name="Items">Array of items</param>
-		public static void Write<T>(this BinaryWriter Writer, List<string> Items)
+		public static void Write(this BinaryWriter Writer, List<string> Items)
 		{
 			Write(Writer, Items, Item => Writer.Write(Item));
 		}
@@ -94,9 +94,9 @@ namespace Tools.DotNETCommon
 		/// <typeparam name="T">The array element type</typeparam>
 		/// <param name="Writer">Writer to serialize to</param>
 		/// <param name="Items">Array of items</param>
-		public static void Write<T>(this BinaryWriter Writer, List<T> Items) where T : IBinarySerializable
+		public static void Write<T>(this BinaryWriter Writer, List<T> Items) where T : class, IBinarySerializable
 		{
-			Write(Writer, Items, Item => Item.Write(Writer));
+			Write(Writer, Items, Item => Writer.Write(Item));
 		}
 
 		/// <summary>
@@ -134,7 +134,7 @@ namespace Tools.DotNETCommon
 		/// <returns>Dictionary of objects, as serialized. May be null.</returns>
 		public static void Write<K, V>(this BinaryWriter Writer, Dictionary<K, V> Items, Action<K> WriteKey, Action<V> WriteValue)
 		{
-			if(Items.Count == 0)
+			if(Items == null)
 			{
 				Writer.Write(-1);
 			}
@@ -146,6 +146,26 @@ namespace Tools.DotNETCommon
 					WriteKey(Item.Key);
 					WriteValue(Item.Value);
 				}
+			}
+		}
+
+		/// <summary>
+		/// Read a nullable object from a binary reader
+		/// </summary>
+		/// <typeparam name="T">Type of the object</typeparam>
+		/// <param name="Writer">Reader to read data from</param>
+		/// <param name="WriteItem">Function to read the payload, if non-null</param>
+		/// <returns>Object instance or null</returns>
+		public static void WriteNullable<T>(this BinaryWriter Writer, T Item, Action WriteItem) where T : class
+		{
+			if(Item == null)
+			{
+				Writer.Write(false);
+			}
+			else
+			{
+				Writer.Write(true);
+				WriteItem();
 			}
 		}
 
