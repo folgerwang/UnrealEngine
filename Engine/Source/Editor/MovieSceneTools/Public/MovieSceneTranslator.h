@@ -95,7 +95,7 @@ struct FMovieSceneExportMovieSceneData
 {
 	FString Name;
 	FString Path;
-	FFrameRate Resolution;
+	FFrameRate TickResolution;
 	int32 Duration;
 	FFrameNumber PlaybackRangeStartFrame;
 	FFrameNumber PlaybackRangeEndFrame;
@@ -116,7 +116,7 @@ class MOVIESCENETOOLS_API FMovieSceneExportData : public TSharedFromThis<FMovieS
 {
 public:
 	/** Constructor */
-	FMovieSceneExportData(const UMovieScene* InMovieScene, FFrameRate InFrameRate, int32 InHandleFrames, FString InSaveFilename, TSharedPtr<FMovieSceneTranslatorContext> InContext);
+	FMovieSceneExportData(const UMovieScene* InMovieScene, FFrameRate InFrameRate, uint32 InResX, uint32 InResY, int32 InHandleFrames, FString InSaveFilename, TSharedPtr<FMovieSceneTranslatorContext> InContext);
 	/** Default constructor, necessary for shared ref - should not be used */
 	FMovieSceneExportData();
 	/** Destructor */
@@ -129,6 +129,10 @@ public:
 
 	/** Gets export frame rate */
 	FFrameRate GetFrameRate() const;
+	/** Gets x resolution */
+	uint32 GetResX() const;
+	/** Gets y resolution */
+	uint32 GetResY() const;
 	/** Returns true if frame rate is a non-integral frame rate */
 	bool GetFrameRateIsNTSC() const;
 	/** Returns the nearest integral frame rate */
@@ -170,6 +174,8 @@ public:
 private:
 
 	FFrameRate FrameRate;
+	uint32 ResX;
+	uint32 ResY;
 	FFrameTime HandleFrames;
 	FString SaveFilename;
 	FString SaveFilenamePath;
@@ -320,12 +326,14 @@ public:
 	* Export movie scene
 	*
 	* @param InMovieScene The movie scene with the cinematic shot track and audio tracks to export
-	* @param InFrameRate The frame rate to export the XML at
-	* @param InSaveFilename The file path to save to.
+	* @param InFrameRate The frame rate for export
+	* @param InResX Sequence resolution x.
+	* @param InResY Sequence resolution y.
 	* @param InHandleFrames The number of handle frames to include for each shot.
+	* @param InSaveFilename The file path to save to.
 	* @param OutError The return error message
 	* @return Whether the export was successful
 	*/
-	virtual bool Export(const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveFilename, int32 InHandleFrames, TSharedRef<FMovieSceneTranslatorContext> InContext) = 0;
+	virtual bool Export(const UMovieScene* InMovieScene, FFrameRate InFrameRate, uint32 InResX, uint32 InResY, int32 InHandleFrames, FString InSaveFilename, TSharedRef<FMovieSceneTranslatorContext> InContext) = 0;
 };
 

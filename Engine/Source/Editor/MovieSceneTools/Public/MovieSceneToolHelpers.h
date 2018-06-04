@@ -13,6 +13,7 @@
 #include "ISequencer.h"
 #include "Logging/TokenizedMessage.h"
 #include "MovieSceneTranslator.h"
+#include "MovieSceneCaptureSettings.h"
 
 class ISequencer;
 class UMovieScene;
@@ -167,7 +168,7 @@ public:
 	* @param InHandleFrames The number of handle frames to include for each shot.
 	* @return Whether the export was successful
 	*/
-	static bool MovieSceneTranslatorExport(FMovieSceneExporter* InExporter, const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveDirectory = TEXT(""), int32 InHandleFrames = 8);
+	static bool MovieSceneTranslatorExport(FMovieSceneExporter* InExporter, const UMovieScene* InMovieScene, const FMovieSceneCaptureSettings& Settings);
 
 	/** 
 	* Display error message window for MovieScene translators

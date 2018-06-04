@@ -153,19 +153,6 @@ bool FFCPXMLExportVisitor::ConstructMasterClipNodes(TSharedRef<FFCPXMLNode> InPa
 			continue;
 		}
 
-		// skip sections if media file does not exist
-		FString FilePathName = GetFilePathName(CinematicSection->ShotFilename);
-		if (!FPaths::FileExists(FilePathName))
-		{
-			// add warning message and skip this section
-			ExportContext->AddMessage(
-				EMessageSeverity::Warning,
-				FText::Format(LOCTEXT("SkippingSection", "Warning: Skipping section {0}, media file does not exist: {1}."), FText::FromString(CinematicSection->ShotDisplayName), FText::FromString(FilePathName)));
-			CinematicSection->bEnabled = false;
-			continue;
-		}
-
-
 		if (!ConstructMasterClipNode(InParentNode, CinematicSection, ++MasterClipId))
 		{
 			return false;
@@ -370,10 +357,8 @@ bool FFCPXMLExportVisitor::ConstructVideoNode(TSharedRef<FFCPXMLNode> InParentNo
 	TSharedRef<FFCPXMLNode> VideoNode = InParentNode->CreateChildNode(TEXT("video"));
 
 	TSharedRef<FFCPXMLNode> FormatNode = VideoNode->CreateChildNode(TEXT("format"));
-	int32 Width{ 0 };
-	int32 Height{ 0 };
-	GetDefaultImageResolution(Width, Height);
-	if (!ConstructSampleCharacteristicsNode(FormatNode, Width, Height))
+
+	if (!ConstructSampleCharacteristicsNode(FormatNode, ExportData->GetResX(), ExportData->GetResY()))
 	{
 		return false;
 	}
@@ -553,7 +538,7 @@ bool FFCPXMLExportVisitor::ConstructAudioClipItemNode(TSharedRef<FFCPXMLNode> In
 
 bool FFCPXMLExportVisitor::ConstructVideoFileNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, uint32 Duration, bool bInMasterClip)
 {
-	if (!InCinematicSectionData.IsValid())
+	if (!ExportData->IsExportDataValid() || !InCinematicSectionData.IsValid())
 	{
 		return false;
 	}
@@ -596,10 +581,7 @@ bool FFCPXMLExportVisitor::ConstructVideoFileNode(TSharedRef<FFCPXMLNode> InPare
 		TSharedRef<FFCPXMLNode> MediaNode = FileNode->CreateChildNode(TEXT("media"));
 		TSharedRef<FFCPXMLNode> VideoNode = MediaNode->CreateChildNode(TEXT("video"));
 
-		int32 Width{ 0 };
-		int32 Height{ 0 };
-		GetDefaultImageResolution(Width, Height);
-		if (!ConstructSampleCharacteristicsNode(VideoNode, Width, Height))
+		if (!ConstructSampleCharacteristicsNode(VideoNode, ExportData->GetResX(), ExportData->GetResY()))
 		{
 			return false;
 		}
@@ -737,12 +719,6 @@ bool FFCPXMLExportVisitor::GetMasterClipItemIdName(const TSharedPtr<FMovieSceneE
 bool FFCPXMLExportVisitor::GetMasterClipFileIdName(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, FString& OutName)
 {
 	return GetIdName(InCinematicSectionData, FString(TEXT("file")), OutName);
-}
-
-void FFCPXMLExportVisitor::GetDefaultImageResolution(int32& OutWidth, int32& OutHeight)
-{
-	OutWidth = 1280;
-	OutHeight = 720;
 }
 
 FString FFCPXMLExportVisitor::GetFilePathName(const FString& InSectionName) const

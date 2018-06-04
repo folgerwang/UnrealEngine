@@ -36,6 +36,7 @@
 #include "MovieSceneTimeHelpers.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "MovieSceneCaptureSettings.h"
 
 #define LOCTEXT_NAMESPACE "FCinematicShotTrackEditor"
 
@@ -941,12 +942,10 @@ void FCinematicShotTrackEditor::ExportFCPXML()
 	}
 
 	const FMovieSceneCaptureSettings& Settings = MovieSceneCapture->GetSettings();
-	FString SaveDirectory = FPaths::ConvertRelativePathToFull(Settings.OutputDirectory.Path);
-	int32 HandleFrames = Settings.HandleFrames;
 
 	FFCPXMLExporter *Exporter = new FFCPXMLExporter;
 
-	MovieSceneToolHelpers::MovieSceneTranslatorExport(Exporter, MovieScene, MovieScene->GetDisplayRate(), SaveDirectory, HandleFrames);
+	MovieSceneToolHelpers::MovieSceneTranslatorExport(Exporter, MovieScene, Settings);
 
 	delete Exporter;
 }
