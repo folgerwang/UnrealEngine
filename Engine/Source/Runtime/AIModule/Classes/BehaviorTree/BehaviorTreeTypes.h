@@ -287,6 +287,7 @@ struct FBehaviorTreeInstanceId
 };
 
 struct FBehaviorTreeSearchData;
+DECLARE_DELEGATE_TwoParams(FBTInstanceDeactivation, UBehaviorTreeComponent&, EBTNodeResult::Type);
 
 /** data required for instance of single subtree */
 struct FBehaviorTreeInstance
@@ -311,6 +312,9 @@ struct FBehaviorTreeInstance
 
 	/** active node type */
 	TEnumAsByte<EBTActiveNode::Type> ActiveNodeType;
+
+	/** delegate sending a notify when tree instance is removed from active stack */
+	FBTInstanceDeactivation DeactivationNotify;
 
 	FBehaviorTreeInstance() { IncMemoryStats(); }
 	FBehaviorTreeInstance(const FBehaviorTreeInstance& Other) { *this = Other; IncMemoryStats(); }
@@ -390,6 +394,16 @@ struct FBehaviorTreeSearchUpdate
 	{}
 };
 
+/** instance notify data */
+struct FBehaviorTreeSearchUpdateNotify
+{
+	uint16 InstanceIndex;
+	TEnumAsByte<EBTNodeResult::Type> NodeResult;
+
+	FBehaviorTreeSearchUpdateNotify() : InstanceIndex(0), NodeResult(EBTNodeResult::Succeeded) {}
+	FBehaviorTreeSearchUpdateNotify(uint16 InInstanceIndex, EBTNodeResult::Type InNodeResult) : InstanceIndex(InInstanceIndex), NodeResult(InNodeResult) {}
+};
+
 /** node search data */
 struct FBehaviorTreeSearchData
 {
@@ -399,6 +413,9 @@ struct FBehaviorTreeSearchData
 	/** requested updates of additional nodes (preconditions, services, parallels)
 	 *  buffered during search to prevent instant add & remove pairs */
 	TArray<FBehaviorTreeSearchUpdate> PendingUpdates;
+
+	/** notifies for tree instances */
+	TArray<FBehaviorTreeSearchUpdateNotify> PendingNotifies;
 
 	/** first node allowed in search */
 	FBTNodeIndex SearchStart;
