@@ -462,7 +462,7 @@ void UNiagaraStackModuleItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 									{
 										continue;
 									}
-									bool bDependencyMet = false;
+
 									if (CurrentNode->FunctionScript->ProvidedDependencies.Contains(Requirement.Id))
 									{
 										if (Requirement.Type == ENiagaraModuleDependencyType::PreDependency)
