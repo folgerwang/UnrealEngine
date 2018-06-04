@@ -38,17 +38,6 @@ static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData(ARAnchor* Anchor)
 
 FAppleARKitFaceSupport::FAppleARKitFaceSupport()
 {
-    // Create our LiveLink provider if the project setting is enabled
-    if (GetDefault<UAppleARKitSettings>()->bEnableLiveLinkForFaceTracking)
-    {
-        FaceTrackingLiveLinkSubjectName = GetDefault<UAppleARKitSettings>()->DefaultFaceTrackingLiveLinkSubjectName;
-#if PLATFORM_IOS
-        LiveLinkSource = FAppleARKitLiveLinkSourceFactory::CreateLiveLinkSource(true);
-#else
-        // This should be started already, but just in case
-        FAppleARKitLiveLinkSourceFactory::CreateLiveLinkRemoteListener();
-#endif
-    }
 }
 
 FAppleARKitFaceSupport::~FAppleARKitFaceSupport()
@@ -97,6 +86,23 @@ TArray<TSharedPtr<FAppleARKitAnchorData>> FAppleARKitFaceSupport::MakeAnchorData
 
 void FAppleARKitFaceSupport::PublishLiveLinkData(TSharedPtr<FAppleARKitAnchorData> Anchor, double Timestamp, uint32 FrameNumber)
 {
+	static bool bNeedsInit = true;
+	if (bNeedsInit)
+	{
+		bNeedsInit = false;
+	    // Create our LiveLink provider if the project setting is enabled
+		if (GetDefault<UAppleARKitSettings>()->bEnableLiveLinkForFaceTracking)
+		{
+			FaceTrackingLiveLinkSubjectName = GetDefault<UAppleARKitSettings>()->DefaultFaceTrackingLiveLinkSubjectName;
+	#if PLATFORM_IOS
+			LiveLinkSource = FAppleARKitLiveLinkSourceFactory::CreateLiveLinkSource(true);
+	#else
+			// This should be started already, but just in case
+			FAppleARKitLiveLinkSourceFactory::CreateLiveLinkRemoteListener();
+	#endif
+		}
+	}
+	
 	if (LiveLinkSource.IsValid())
 	{
         LiveLinkSource->PublishBlendShapes(FaceTrackingLiveLinkSubjectName, Timestamp, FrameNumber, Anchor->BlendShapes);

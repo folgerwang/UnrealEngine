@@ -15,7 +15,8 @@ class UARSessionConfig;
 struct FAppleARKitAnchorData;
 
 
-class APPLEARKIT_API IAppleARKitFaceSupport
+class APPLEARKIT_API IAppleARKitFaceSupport :
+	public IModularFeature
 {
 public:
 #if SUPPORTS_ARKIT_1_0
@@ -49,18 +50,10 @@ public:
 	 */
 	virtual ARConfiguration* ToARConfiguration(UARSessionConfig* SessionConfig) = 0;
 #endif
-};
-
-class APPLEARKIT_API IAppleARKitFaceSupportFactory :
-	public IModularFeature
-{
-public:
-	/** Factory method that returns the object to use to handle face ar requests */
-	virtual IAppleARKitFaceSupport* CreateFaceSupport() = 0;
 
 	static FName GetModularFeatureName()
 	{
-		static FName FeatureName = FName(TEXT("AppleARKitFaceSupportFactory"));
+		static FName FeatureName = FName(TEXT("AppleARKitFaceSupport"));
 		return FeatureName;
 	}
 };

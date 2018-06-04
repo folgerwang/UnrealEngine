@@ -13,54 +13,14 @@ IMPLEMENT_MODULE(FAppleARKitFaceSupportModule, AppleARKitFaceSupport);
 
 DEFINE_LOG_CATEGORY(LogAppleARKitFace);
 
-class APPLEARKITFACESUPPORT_API FAppleARKitFaceSupportFactory :
-	public IAppleARKitFaceSupportFactory
-{
-public:
-	static void CreateInstance()
-	{
-		Factory = new FAppleARKitFaceSupportFactory();
-		IModularFeatures::Get().RegisterModularFeature(Factory->GetModularFeatureName(), Factory);
-	}
-
-	static void DestroyInstance()
-	{
-		IModularFeatures::Get().UnregisterModularFeature(Factory->GetModularFeatureName(), Factory);
-		delete Factory;
-		Factory = nullptr;
-	}
-
-private:
-	FAppleARKitFaceSupportFactory() :
-		FaceARSupport(nullptr)
-	{
-	}
-
-	virtual ~FAppleARKitFaceSupportFactory()
-	{
-		delete FaceARSupport;
-	}
-
-	virtual IAppleARKitFaceSupport* CreateFaceSupport()
-	{
-		if (FaceARSupport == nullptr)
-		{
-			FaceARSupport = new FAppleARKitFaceSupport();
-		}
-		return FaceARSupport;
-	};
-
-	static FAppleARKitFaceSupportFactory* Factory;
-	IAppleARKitFaceSupport* FaceARSupport;
-};
-
-FAppleARKitFaceSupportFactory* FAppleARKitFaceSupportFactory::Factory = nullptr;
+FAppleARKitFaceSupport* FaceSupportInstance = nullptr;
 
 void FAppleARKitFaceSupportModule::StartupModule()
 {
 	ensureMsgf(FModuleManager::Get().LoadModule("AppleARKit"), TEXT("ARKitFaceSupport depends on the AppleARKit module."));
 
-	FAppleARKitFaceSupportFactory::CreateInstance();
+	FaceSupportInstance = new FAppleARKitFaceSupport();
+	IModularFeatures::Get().RegisterModularFeature(FaceSupportInstance->GetModularFeatureName(), FaceSupportInstance);
 
 	// LiveLink listener needs to be created here so that the editor can receive remote publishing events
 #if PLATFORM_DESKTOP
@@ -75,6 +35,8 @@ void FAppleARKitFaceSupportModule::StartupModule()
 
 void FAppleARKitFaceSupportModule::ShutdownModule()
 {
-	FAppleARKitFaceSupportFactory::DestroyInstance();
+	IModularFeatures::Get().UnregisterModularFeature(FaceSupportInstance->GetModularFeatureName(), FaceSupportInstance);
+	delete FaceSupportInstance;
+	FaceSupportInstance = nullptr;
 }
 

@@ -193,11 +193,10 @@ void FAppleARKitSystem::CheckForFaceARSupport(UARSessionConfig* InSessionConfig)
 	}
 
 	// We need to get the face support from the factory method, which is a modular feature to avoid dependencies
-	IModularFeature* Feature = IModularFeatures::Get().GetModularFeatureImplementation("AppleARKitFaceSupportFactory", 0);
-	if (ensureAlwaysMsgf(Feature != nullptr, TEXT("Face AR session has been requested but the face ar plugin is not enabled")))
+	TArray<IAppleARKitFaceSupport*> Impls = IModularFeatures::Get().GetModularFeatureImplementations<IAppleARKitFaceSupport>("AppleARKitFaceSupport");
+	if (ensureAlwaysMsgf(Impls.Num() > 0, TEXT("Face AR session has been requested but the face ar plugin is not enabled")))
 	{
-		IAppleARKitFaceSupportFactory* Factory = static_cast<IAppleARKitFaceSupportFactory*>(Feature);
-		FaceARSupport = Factory->CreateFaceSupport();
+		FaceARSupport = Impls[0];
 		ensureAlwaysMsgf(FaceARSupport != nullptr, TEXT("Face AR session has been requested but the face ar plugin is not enabled"));
 	}
 }
@@ -819,6 +818,7 @@ void FAppleARKitSystem::SetDeviceOrientation( EScreenOrientation::Type InOrienta
 }
 
 
+PRAGMA_DISABLE_OPTIMIZATION
 bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 {
 	if (IsRunning())
@@ -901,6 +901,7 @@ bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 	OnARSessionStarted.Broadcast();
 	return true;
 }
+PRAGMA_ENABLE_OPTIMIZATION
 
 bool FAppleARKitSystem::IsRunning() const
 {
