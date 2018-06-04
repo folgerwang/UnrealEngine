@@ -109,7 +109,7 @@ void FEmitDefaultValueHelper::OuterGenerate(FEmitterLocalContext& Context
 					if (ObjectPropertyValue && ObjectPropertyValue->IsDefaultSubobject())
 					{
 						UClass* SubobjectClass = ObjectPropertyValue->GetClass();
-						OverrideTypeDeclaration = FString::Printf(TEXT("%s%s*"), SubobjectClass->GetPrefixCPP(), *SubobjectClass->GetName());
+						OverrideTypeDeclaration = FString::Printf(TEXT("%s*"), *FEmitHelper::GetCppName(SubobjectClass));
 					}
 				}
 
