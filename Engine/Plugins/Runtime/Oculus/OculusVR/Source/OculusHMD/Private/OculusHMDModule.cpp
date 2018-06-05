@@ -215,11 +215,13 @@ TSharedPtr< class IXRTrackingSystem, ESPMode::ThreadSafe > FOculusHMDModule::Cre
 TSharedPtr< IHeadMountedDisplayVulkanExtensions, ESPMode::ThreadSafe >  FOculusHMDModule::GetVulkanExtensions()
 {
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
-	if (!VulkanExtensions.IsValid())
+	if (PreInit())
 	{
-		VulkanExtensions = MakeShareable(new OculusHMD::FVulkanExtensions);
+		if (!VulkanExtensions.IsValid())
+		{
+			VulkanExtensions = MakeShareable(new OculusHMD::FVulkanExtensions);
+		}
 	}
-
 	return VulkanExtensions;
 #endif
 	return nullptr;
