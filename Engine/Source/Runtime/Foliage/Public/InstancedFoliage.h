@@ -83,6 +83,7 @@ struct FFoliageInstance : public FFoliageInstancePlacementInfo
 
 	FFoliageInstance()
 		: BaseId(0)
+		, BaseComponent(nullptr)
 	{}
 
 	friend FArchive& operator<<(FArchive& Ar, FFoliageInstance& Instance);
@@ -224,13 +225,13 @@ struct FFoliageMeshInfo
 	FOLIAGE_API void SelectInstances(AInstancedFoliageActor* InIFA, bool bSelect);
 
 	// Get the number of placed instances
-	FOLIAGE_API int32 GetInstanceCount() const;
+	FOLIAGE_API int32 GetPlacedInstanceCount() const;
 
 	FOLIAGE_API void AddToBaseHash(int32 InstanceIdx);
 	FOLIAGE_API void RemoveFromBaseHash(int32 InstanceIdx);
 
 	// Create and register a new component
-	void CreateNewComponent(AInstancedFoliageActor* InIFA, const UFoliageType* InSettings);
+	FOLIAGE_API void CreateNewComponent(AInstancedFoliageActor* InIFA, const UFoliageType* InSettings);
 
 	// For debugging. Validate state after editing.
 	void CheckValid();

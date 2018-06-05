@@ -2981,10 +2981,12 @@ void FEdModeFoliage::PopulateFoliageMeshList()
 						ElementIdx = FoliageMeshList.Add(MakeShareable(new FFoliageMeshUIInfo(MeshPair.Key)));
 					}
 
-					FoliageMeshList[ElementIdx]->InstanceCountTotal += MeshPair.Value->GetInstanceCount();
+					int32 PlacedInstanceCount = MeshPair.Value->GetPlacedInstanceCount();
+					FoliageMeshList[ElementIdx]->InstanceCountTotal += PlacedInstanceCount;
+
 					if (Level == World->GetCurrentLevel())
 					{
-						FoliageMeshList[ElementIdx]->InstanceCountCurrentLevel += MeshPair.Value->GetInstanceCount();
+						FoliageMeshList[ElementIdx]->InstanceCountCurrentLevel += PlacedInstanceCount;
 					}
 				}
 			}
