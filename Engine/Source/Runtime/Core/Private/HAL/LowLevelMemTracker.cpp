@@ -433,9 +433,10 @@ static FName TagToFName(int64 Tag)
 	return FName(NameIndex, NameIndex, NameNumber);
 }
 
-FLowLevelMemTracker& FLowLevelMemTracker::Get()
+FLowLevelMemTracker& FLowLevelMemTracker::Construct()
 {
 	static FLowLevelMemTracker Tracker;
+	TrackerInstance = &Tracker;
 	return Tracker;
 }
 
@@ -444,9 +445,11 @@ bool FLowLevelMemTracker::IsEnabled()
 	return !bIsDisabled;
 }
 
+FLowLevelMemTracker* FLowLevelMemTracker::TrackerInstance;
+bool FLowLevelMemTracker::bIsDisabled; // must start off enabled because allocations happen before the command line enables/disables us
+
 FLowLevelMemTracker::FLowLevelMemTracker()
 	: bFirstTimeUpdating(true)
-	, bIsDisabled(false)		// must start off enabled because allocations happen before the command line enables/disables us
 	, bCanEnable(true)
 	, bCsvWriterEnabled(false)
 	, bInitialisedTrackers(false)
