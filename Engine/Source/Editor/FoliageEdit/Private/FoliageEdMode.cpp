@@ -1818,6 +1818,7 @@ void FEdModeFoliage::TransformSelectedInstances(UWorld* InWorld, const FVector& 
 					if (bDuplicate)
 					{
 						MeshInfo.DuplicateInstances(IFA, MeshPair.Key, SelectedIndices);
+						OnInstanceCountUpdated(MeshPair.Key);
 					}
 
 					MeshInfo.PreMoveInstances(IFA, SelectedIndices);
