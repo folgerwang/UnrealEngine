@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Tools.DotNETCommon.Perforce
 {
-	class PerforceUtils
+	public static class PerforceUtils
 	{
 		static public string EscapePath(string Path)
 		{
