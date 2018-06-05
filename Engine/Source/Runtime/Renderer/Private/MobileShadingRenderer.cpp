@@ -516,13 +516,13 @@ void FMobileSceneRenderer::ConditionalResolveSceneDepth(FRHICommandListImmediate
 
 	if ((IsMobileHDR() || IsHTML5Platform())
 		&& IsMobilePlatform(ShaderPlatform) 
+		&& !IsVulkanPlatform(ShaderPlatform)
+		&& !IsMetalPlatform(ShaderPlatform)
 		&& !IsPCPlatform(ShaderPlatform) // exclude mobile emulation on PC
 		&& !View.bIsPlanarReflection)	// exclude depth resolve from planar reflection captures, can't do it reliably more than once per frame
 	{
 		bool bSceneDepthInAlpha = (SceneContext.GetSceneColor()->GetDesc().Format == PF_FloatRGBA);
-		bool bOnChipDepthFetch = 
-			(GSupportsShaderDepthStencilFetch || 
-			(GSupportsShaderFramebufferFetch && (bSceneDepthInAlpha || IsMetalPlatform(ShaderPlatform))));
+		bool bOnChipDepthFetch = (GSupportsShaderDepthStencilFetch || (GSupportsShaderFramebufferFetch && bSceneDepthInAlpha));
 		
 		const bool bAlwaysResolveDepth = CVarMobileAlwaysResolveDepth.GetValueOnRenderThread() == 1;
 

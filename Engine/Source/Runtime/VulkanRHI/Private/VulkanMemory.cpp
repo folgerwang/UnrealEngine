@@ -1613,6 +1613,14 @@ namespace VulkanRHI
 
 		{
 			FScopeLock ScopeLock(&CS);
+
+#if VULKAN_HAS_DEBUGGING_ENABLED
+			FEntry* ExistingEntry = Entries.FindByPredicate([&](const FEntry& InEntry) { 
+				return InEntry.Handle == Entry.Handle; 
+			});
+			checkf(ExistingEntry == nullptr, TEXT("Attempt to double-delete resource, Type: %d, Handle: %llu"), (int32)Type, Handle);
+#endif
+
 			Entries.Add(Entry);
 		}
 	}
