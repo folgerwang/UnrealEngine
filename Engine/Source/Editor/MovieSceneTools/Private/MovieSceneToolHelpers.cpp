@@ -1284,6 +1284,11 @@ void ImportFBXCamera(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene
 			}
 		}
 
+		if (!CameraNode)
+		{
+			continue;
+		}
+
 		float FieldOfView;
 		float FocalLength;
 
