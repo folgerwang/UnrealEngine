@@ -114,7 +114,7 @@
 #define SSSSSampleLevelZero(tex, coord) tex.SampleLevel(LinearSampler, coord, 0)
 #define SSSSSampleLevelZeroPoint(tex, coord) tex.SampleLevel(PointSampler, coord, 0)
 #define SSSSSampleShadowmap(coord)	float4(0,0,0,0)	// todo: not used yet
-#define SSSSSampleMasking(texcoord)	(GetScreenSpaceData(texcoord).GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE)	// todo: masking doesn't work with filtering ideally put in alpha to get it filtered
+#define SSSSSampleMasking(texcoord)	(HasSubsurfaceProfile(GetScreenSpaceData(texcoord).GBuffer.ShadingModelID))	// todo: masking doesn't work with filtering ideally put in alpha to get it filtered
 #define SSSSSampleSceneColor(coord) SampleSetup(coord)
 #define SSSSSampleSceneColorPoint(coord) SampleSetup(coord) // todo: could be made point
 #define SSSSSampleProfileId(coord) SampleSetupProfileId(coord)

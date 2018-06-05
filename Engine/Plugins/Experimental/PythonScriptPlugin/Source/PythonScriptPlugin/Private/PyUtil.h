@@ -215,6 +215,9 @@ namespace PyUtil
 	/** Validate that the given index is valid for the container length */
 	int ValidateContainerIndexParam(const Py_ssize_t InIndex, const Py_ssize_t InLen, const UProperty* InProp, const TCHAR* InErrorCtxt);
 
+	/** Resolve a container index (taking into account negative indices) */
+	Py_ssize_t ResolveContainerIndexParam(const Py_ssize_t InIndex, const Py_ssize_t InLen);
+
 	/**
 	 * Given a Python object, try and get the owner Unreal object for the instance.
 	 * For wrapped objects this is the wrapped instance, for wrapped structs it will attempt to walk through the owner chain to find a wrapped object.

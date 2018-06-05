@@ -13,6 +13,7 @@
 #include "StereoLayerManager.h"
 #include "XRRenderTargetManager.h"
 #include "XRRenderBridge.h"
+#include "IHeadMountedDisplayVulkanExtensions.h"
 
 #if PLATFORM_WINDOWS
 #include "Windows/AllowWindowsPlatformTypes.h"

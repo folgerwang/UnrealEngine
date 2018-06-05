@@ -10,6 +10,7 @@ ENUM_VK_ENTRYPOINTS_ALL(DEFINE_VK_ENTRYPOINTS)
 
 #define CHECK_VK_ENTRYPOINTS(Type,Func) if (VulkanDynamicAPI::Func == NULL) { bFoundAllEntryPoints = false; UE_LOG(LogRHI, Warning, TEXT("Failed to find entry point for %s"), TEXT(#Func)); }
 
+static bool GFoundTegraGfxDebugger = false;
 
 void* FVulkanLuminPlatform::VulkanLib = nullptr;
 bool FVulkanLuminPlatform::bAttemptedLoad = false;
@@ -95,13 +96,39 @@ void FVulkanLuminPlatform::CreateSurface(void* WindowHandle, VkInstance Instance
 	//VERIFYVULKANRESULT(vkCreateLuminSurfaceKHR(Instance, &SurfaceCreateInfo, nullptr, OutSurface));
 }
 
+void FVulkanLuminPlatform::NotifyFoundInstanceLayersAndExtensions(const TArray<FString>& Layers, const TArray<FString>& Extensions)
+{
+	if (Extensions.Find(TEXT("VK_LAYER_NV_vgd")))
+	{
+		GFoundTegraGfxDebugger = true;
+	}
+}
 
+void FVulkanLuminPlatform::NotifyFoundDeviceLayersAndExtensions(VkPhysicalDevice PhysicalDevice, const TArray<FString>& Layers, const TArray<FString>& Extensions)
+{
+	if (Extensions.Find(TEXT("VK_LAYER_NV_vgd")))
+	{
+		GFoundTegraGfxDebugger = true;
+	}
+}
 
 void FVulkanLuminPlatform::GetInstanceExtensions(TArray<const ANSICHAR*>& OutExtensions)
 {
+	if (GFoundTegraGfxDebugger)
+	{
+		OutExtensions.Add("VK_LAYER_NV_vgd");
+	}
 }
 
 void FVulkanLuminPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExtensions)
 {
+	if (GFoundTegraGfxDebugger)
+	{
+		OutExtensions.Add("VK_LAYER_NV_vgd");
+	}
 }
 
+bool FVulkanLuminPlatform::ForceEnableDebugMarkers()
+{
+	return GFoundTegraGfxDebugger;
+}

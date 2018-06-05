@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "WatchPointViewer.h"
 
@@ -800,29 +800,29 @@ FName WatchViewer::GetTabName()
 	return TabName;
 }
 
-void WatchViewer::UpdateWatchListFromBlueprint(UBlueprint* BlueprintObj)
+void UpdateWatchListFromBlueprintImpl(UBlueprint* BlueprintObj, const bool bShouldWatch)
 {
 	if (!ensure(BlueprintObj))
 	{
 		return;
 	}
 
-	if (BlueprintObj->WatchedPins.Num() == 0)
+	if (bShouldWatch)
 	{
-		// if this blueprint doesn't have any watched pins and we aren't watching it already then there is nothing to do
+		// make sure the blueprint is in our list
+		WatchedBlueprints.AddUnique(BlueprintObj);
+	}
+	else
+	{
+		// if this blueprint shouldn't be watched and we aren't watching it already then there is nothing to do
 		int32 FoundIdx = WatchedBlueprints.Find(BlueprintObj);
 		if (FoundIdx == INDEX_NONE)
 		{
 			return;
 		}
 
-		// since we're not watching any pins anymore we should remove it from the watched list
+		// since we're not watching the blueprint anymore we should remove it from the watched list
 		WatchedBlueprints.RemoveAt(FoundIdx);
-	}
-	else
-	{
-		// make sure the blueprint is in our list
-		WatchedBlueprints.AddUnique(BlueprintObj);
 	}
 
 	// something changed so we need to update the lists shown in the UI
@@ -837,12 +837,22 @@ void WatchViewer::UpdateWatchListFromBlueprint(UBlueprint* BlueprintObj)
 	WatchListSubscribers.Broadcast(&Private_WatchSource);
 }
 
+void WatchViewer::UpdateWatchListFromBlueprint(UBlueprint* BlueprintObj)
+{
+	UpdateWatchListFromBlueprintImpl(BlueprintObj, BlueprintObj && BlueprintObj->WatchedPins.Num() > 0);
+}
+
+void WatchViewer::ClearWatchListFromBlueprint(UBlueprint* BlueprintObj)
+{
+	UpdateWatchListFromBlueprintImpl(BlueprintObj, false);
+}
+
 void WatchViewer::RegisterTabSpawner(FTabManager& TabManager)
 {
 	const auto SpawnWatchViewTab = []( const FSpawnTabArgs& Args )
 	{
 		return SNew(SDockTab)
-			.TabRole( ETabRole::NomadTab )
+			.TabRole( ETabRole::PanelTab )
 			.Label( LOCTEXT("TabTitle", "Watches") )
 			[
 				SNew(SBorder)

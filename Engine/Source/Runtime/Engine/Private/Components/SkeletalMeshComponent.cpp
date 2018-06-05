@@ -476,7 +476,7 @@ bool USkeletalMeshComponent::NeedToSpawnAnimScriptInstance() const
 	return false;
 }
 
-bool USkeletalMeshComponent::NeedToSpawnPostPhysicsInstance() const
+bool USkeletalMeshComponent::NeedToSpawnPostPhysicsInstance(bool bForceReinit) const
 {
 	if(SkeletalMesh)
 	{
@@ -485,7 +485,7 @@ bool USkeletalMeshComponent::NeedToSpawnPostPhysicsInstance() const
 		const UClass* CurrentClass = PostProcessAnimInstance ? PostProcessAnimInstance->GetClass() : nullptr;
 
 		// We need to have an instance, and we have the wrong class (different or null)
-		if(ClassToUse && ClassToUse != CurrentClass && MainInstanceClass != ClassToUse)
+		if(ClassToUse && (ClassToUse != CurrentClass || bForceReinit ) && MainInstanceClass != ClassToUse)
 		{
 			return true;
 		}
@@ -753,7 +753,7 @@ bool USkeletalMeshComponent::InitializeAnimScriptInstance(bool bForceReinit)
 			PostProcessAnimInstance = nullptr;
 		}
 
-		if(NeedToSpawnPostPhysicsInstance())
+		if(NeedToSpawnPostPhysicsInstance(bForceReinit))
 		{
 			PostProcessAnimInstance = NewObject<UAnimInstance>(this, *SkeletalMesh->PostProcessAnimBlueprint);
 
@@ -768,6 +768,10 @@ bool USkeletalMeshComponent::InitializeAnimScriptInstance(bool bForceReinit)
 
 				bInitializedPostInstance = true;
 			}
+		}
+		else if (!SkeletalMesh->PostProcessAnimBlueprint.Get())
+		{
+			PostProcessAnimInstance = nullptr;
 		}
 
 		if (AnimScriptInstance && !bInitializedMainInstance && bForceReinit)
@@ -2440,6 +2444,17 @@ void USkeletalMeshComponent::SetSkeletalMesh(USkeletalMesh* InSkelMesh, bool bRe
 	{
 		// do nothing if the input mesh is the same mesh we're already using.
 		return;
+	}
+
+	if(!bReinitPose)	// To stop double ticking when reusing the anim instance we need to make sure 
+						// we have completed animation parallel work before continuing with SetSkeletalMesh	
+	{
+		// We may be doing parallel evaluation on the current anim instance
+		// Calling this here with true will block this init till that thread completes
+		// and it is safe to continue
+		const bool bBlockOnTask = true; // wait on evaluation task so it is safe to continue with Init
+		const bool bPerformPostAnimEvaluation = true;
+		HandleExistingParallelEvaluationTask(bBlockOnTask, bPerformPostAnimEvaluation);
 	}
 
 	UPhysicsAsset* OldPhysAsset = GetPhysicsAsset();

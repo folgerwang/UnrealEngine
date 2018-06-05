@@ -1,5 +1,6 @@
-#include "EditorScriptingUtils.h"
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
+#include "EditorScriptingUtils.h"
 #include "Algo/Count.h"
 #include "AssetRegistryModule.h"
 #include "Editor.h"

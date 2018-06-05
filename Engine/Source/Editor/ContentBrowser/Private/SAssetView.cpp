@@ -1362,7 +1362,8 @@ FReply SAssetView::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& Dr
 						const FString& Filename = FilesAndDestinations[FileIdx].Key;
 						const FString& DestinationPath = FilesAndDestinations[FileIdx].Value;
 						FString Name = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(Filename));
-						FString PackageName = DestinationPath + TEXT("/") + Name;
+						FString PackageName = ObjectTools::SanitizeInvalidChars(DestinationPath + TEXT("/") + Name, INVALID_LONGPACKAGE_CHARACTERS);
+
 
 						// We can not create assets that share the name of a map file in the same location
 						if (FEditorFileUtils::IsMapPackageAsset(PackageName))

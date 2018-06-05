@@ -505,10 +505,23 @@ bool UAssetRegistryImpl::GetAssetsByClass(FName ClassName, TArray<FAssetData>& O
 	return GetAssets(Filter, OutAssetData);
 }
 
+bool UAssetRegistryImpl::GetAssetsByTags(const TArray<FName>& AssetTags, TArray<FAssetData>& OutAssetData) const
+{
+	FARFilter Filter;
+	for (const FName AssetTag : AssetTags)
+	{
+		Filter.TagsAndValues.Add(AssetTag);
+	}
+	return GetAssets(Filter, OutAssetData);
+}
+
 bool UAssetRegistryImpl::GetAssetsByTagValues(const TMultiMap<FName, FString>& AssetTagsAndValues, TArray<FAssetData>& OutAssetData) const
 {
 	FARFilter Filter;
-	Filter.TagsAndValues = AssetTagsAndValues;
+	for (const auto& AssetTagsAndValue : AssetTagsAndValues)
+	{
+		Filter.TagsAndValues.Add(AssetTagsAndValue.Key, AssetTagsAndValue.Value);
+	}
 	return GetAssets(Filter, OutAssetData);
 }
 
@@ -586,13 +599,13 @@ bool UAssetRegistryImpl::GetAssets(const FARFilter& InFilter, TArray<FAssetData>
 					for (auto FilterTagIt = Filter.TagsAndValues.CreateConstIterator(); FilterTagIt; ++FilterTagIt)
 					{
 						const FName Tag = FilterTagIt.Key();
-						const FString& Value = FilterTagIt.Value();
+						const TOptional<FString>& Value = FilterTagIt.Value();
 
 						for (UObject::FAssetRegistryTag& AssetRegistryTag : ObjectTags)
 						{
 							if (AssetRegistryTag.Name == Tag)
 							{
-								if (AssetRegistryTag.Value == Value)
+								if (!Value.IsSet() || AssetRegistryTag.Value == Value.GetValue())
 								{
 									bMatch = true;
 								}

@@ -838,6 +838,7 @@ void MeshPaintHelpers::FillVertexColors(UMeshComponent* MeshComponent, const FCo
 			Mesh->SetFlags(RF_Transactional);
 			Mesh->Modify();
 			Mesh->bHasVertexColors = true;
+			Mesh->VertexColorGuid = FGuid::NewGuid();
 
 			// Release the static mesh's resources.
 			Mesh->ReleaseResources();

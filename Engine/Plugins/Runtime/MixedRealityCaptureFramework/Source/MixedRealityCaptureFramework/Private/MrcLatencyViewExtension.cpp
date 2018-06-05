@@ -27,7 +27,7 @@ static uint32 MRLatencyViewExtension_Impl::GetDesiredDelay(TWeakObjectPtr<UMixed
 	uint32 DesiredDelay = CVarMotionCaptureLatencyOverride.GetValueOnGameThread();
 	if (DesiredDelay <= 0 && Target.IsValid())
 	{
-		DesiredDelay = Target->TrackingLatency;
+		DesiredDelay = Target->GetTrackingDelay();
 	}
 	return DesiredDelay;
 }
@@ -124,7 +124,7 @@ uint32 FMrcLatencyViewExtension::GetDesiredDelay() const
 	uint32 DesiredDelay = MRLatencyViewExtension_Impl::CVarMotionCaptureLatencyOverride.GetValueOnGameThread();
 	if (DesiredDelay <= 0 && Owner.IsValid())
 	{
-		DesiredDelay = Owner->TrackingLatency;
+		DesiredDelay = Owner->GetTrackingDelay();
 	}
 	return DesiredDelay;
 }

@@ -81,6 +81,8 @@ struct FMetalTessellationPipelineDesc
 	ns::String VertexSource;
 	ns::String FragmentSource;
 	ns::String ComputeSource;
+	mtlpp::RenderPipelineDescriptor RenderDesc;
+	mtlpp::ComputePipelineDescriptor ComputeDesc;
 #endif
 }
 #if METAL_DEBUG_OPTIONS

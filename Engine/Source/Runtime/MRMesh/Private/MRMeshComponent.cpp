@@ -138,12 +138,13 @@ static void InitVertexFactory(FLocalVertexFactory* VertexFactory, const FMRMeshP
 			NewData.PositionComponentSRV = MRMeshSection.PositionBufferSRV;
 			NewData.PositionComponent = FVertexStreamComponent(&MRMeshSection.PositionBuffer, 0, sizeof(FVector), VET_Float3, EVertexStreamUsage::Default);
 		}
-		
-		//{
-		//	NewData.TextureCoordinatesSRV = MRMeshSection.UVBufferSRV;
-		//	NewData.TextureCoordinates.Add(FVertexStreamComponent(&MRMeshSection.UVBuffer, 0, sizeof(FVector2D), VET_Float2, EVertexStreamUsage::ManualFetch));
-		//	NewData.NumTexCoords = 1;
-		//}
+
+		if (MRMeshSection.UVBuffer.NumVerts != 0)
+		{
+			NewData.TextureCoordinatesSRV = MRMeshSection.UVBufferSRV;
+			NewData.TextureCoordinates.Add(FVertexStreamComponent(&MRMeshSection.UVBuffer, 0, sizeof(FVector2D), VET_Float2, EVertexStreamUsage::ManualFetch));
+			NewData.NumTexCoords = 1;
+		}
 
 		if (MRMeshSection.TangentXZBuffer.NumVerts != 0)
 		{
@@ -199,9 +200,11 @@ public:
 		FMRMeshProxySection* NewSection = new FMRMeshProxySection(Args.BrickId, FeatureLevel);
 		ProxySections.Add(NewSection);
 
-		check((Args.PositionData.Num() == Args.ColorData.Num()) || Args.ColorData.Num() == 0);
-		check((Args.PositionData.Num() == Args.UVData.Num()) || Args.UVData.Num() == 0);
-		check(((Args.PositionData.Num() * 2) == Args.TangentXZData.Num()) || Args.TangentXZData.Num() == 0);
+		// Vulkan requires that all the buffers be full.
+		const int32 NumVerts = Args.PositionData.Num();
+		check((NumVerts == Args.ColorData.Num()));
+		check((NumVerts == Args.UVData.Num()));
+		check((NumVerts * 2) == Args.TangentXZData.Num());
 
 		// POSITION BUFFER
 		{
@@ -226,10 +229,11 @@ public:
 			if (Args.TangentXZData.Num())
 			{
 				NewSection->TangentXZBuffer.InitRHIWith(Args.TangentXZData);
-				if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
-				{
-					NewSection->TangentXZBufferSRV = RHICreateShaderResourceView(NewSection->TangentXZBuffer.VertexBufferRHI, 4, PF_R8G8B8A8_SNORM);
-				}
+			}
+
+			if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
+			{
+				NewSection->TangentXZBufferSRV = RHICreateShaderResourceView(NewSection->TangentXZBuffer.VertexBufferRHI, 4, PF_R8G8B8A8_SNORM);
 			}
 		}
 

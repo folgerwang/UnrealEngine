@@ -57,6 +57,10 @@ public:
 	
 	GENERATED_BODY()
 
+	/** Whether to match fbx node names to sequencer node names. */
+	UPROPERTY(EditAnywhere, config, Category=Import, meta= (ToolTip = "Match fbx node names to sequencer node names"))
+	bool bMatchByNameOnly;
+
 	/** Whether to force the front axis to be align with X instead of -Y. */
 	UPROPERTY(EditAnywhere, config, Category=Import, meta= (ToolTip = "Convert the scene from FBX coordinate system to UE4 coordinate system with front X axis instead of -Y"))
 	bool bForceFrontXAxis;

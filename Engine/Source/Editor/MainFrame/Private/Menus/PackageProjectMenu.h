@@ -190,7 +190,10 @@ protected:
 
 		// Add the Client configurations if there is a {ProjectName}Client.Target.cs file.
 		TArray<FString> ClientTargetFileNames;
-		IFileManager::Get().FindFiles(ClientTargetFileNames, *(FPaths::GameSourceDir() / TEXT("*client.target.cs")), true, false);
+		if (FInstalledPlatformInfo::Get().IsValidPlatformType(PlatformInfo::EPlatformType::Client))
+		{
+			IFileManager::Get().FindFiles(ClientTargetFileNames, *(FPaths::GameSourceDir() / TEXT("*client.target.cs")), true, false);
+		}
 
 		if (ClientTargetFileNames.Num() > 0)
 		{

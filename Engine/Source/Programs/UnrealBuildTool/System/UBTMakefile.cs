@@ -279,6 +279,7 @@ namespace UnrealBuildTool
 			catch (Exception Ex)
 			{
 				Log.TraceWarning("Failed to read makefile: {0}", Ex.Message);
+				Log.TraceLog("Exception: {0}", Ex.ToString());
 				ReasonNotLoaded = "couldn't read existing makefile";
 				return null;
 			}
@@ -322,7 +323,7 @@ namespace UnrealBuildTool
 					}
 				}
 
-				foreach (FlatModuleCsDataType FlatCsModuleData in Target.FlatModuleCsData.Values)
+				foreach (FlatModuleCsDataType FlatCsModuleData in Target.FlatModuleCsData)
 				{
 					if (FlatCsModuleData.BuildCsFilename != null && FlatCsModuleData.ExternalDependencies.Count > 0)
 					{
@@ -351,13 +352,13 @@ namespace UnrealBuildTool
 				HashSet<string> HFilesNewerThanMakefile =
 					new HashSet<string>(
 						Target.FlatModuleCsData
-						.SelectMany(x => x.Value.ModuleSourceFolder != null ? Directory.EnumerateFiles(x.Value.ModuleSourceFolder.FullName, "*.h", SearchOption.AllDirectories) : Enumerable.Empty<string>())
+						.SelectMany(x => x.ModuleSourceFolder != null ? Directory.EnumerateFiles(x.ModuleSourceFolder.FullName, "*.h", SearchOption.AllDirectories) : Enumerable.Empty<string>())
 						.Where(y => Directory.GetLastWriteTimeUtc(y) > UBTMakefileInfo.LastWriteTimeUtc)
 						.OrderBy(z => z).Distinct()
 					);
 
 				// Get all H files in all modules processed in the last makefile build
-				HashSet<string> AllUHTHeaders = new HashSet<string>(Target.FlatModuleCsData.Select(x => x.Value).SelectMany(x => x.UHTHeaderNames));
+				HashSet<string> AllUHTHeaders = new HashSet<string>(Target.FlatModuleCsData.SelectMany(x => x.UHTHeaderNames));
 
 				// Check whether any headers have been deleted. If they have, we need to regenerate the makefile since the module might now be empty. If we don't,
 				// and the file has been moved to a different module, we may include stale generated headers.

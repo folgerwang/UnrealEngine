@@ -555,6 +555,7 @@ public:
 
 	/** Imports the animation from an fbx file. */
 	void ImportFBX();
+	void ImportFBXOntoSelectedNodes();
 
 	/** Exports the animation to an fbx file. */
 	void ExportFBX();

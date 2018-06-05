@@ -25,6 +25,7 @@
 #include "HAL/PlatformMallocCrash.h"
 #include "Unix/UnixPlatformRunnableThread.h"
 #include "HAL/ExceptionHandling.h"
+#include "Stats/Stats.h"
 
 #include "HAL/ThreadHeartBeat.h"
 
@@ -119,11 +120,15 @@ void FUnixCrashContext::InitFromEnsureHandler(const TCHAR* EnsureMessage, const 
 	}
 }
 
+volatile sig_atomic_t GEnteredSignalHandler = 0;
+
 /**
  * Handles graceful termination. Gives time to exit gracefully, but second signal will quit immediately.
  */
 void GracefulTerminationHandler(int32 Signal, siginfo_t* Info, void* Context)
 {
+	GEnteredSignalHandler = 1;
+
 	// do not flush logs at this point; this can result in a deadlock if the signal was received while we were holding lock in the malloc (flushing allocates memory)
 	if( !GIsRequestingExit )
 	{
@@ -133,6 +138,8 @@ void GracefulTerminationHandler(int32 Signal, siginfo_t* Info, void* Context)
 	{
 		FPlatformMisc::RequestExit(true);
 	}
+
+	GEnteredSignalHandler = 0;
 }
 
 void CreateExceptionInfoString(int32 Signal, siginfo_t* Info, ucontext_t *Context)
@@ -303,7 +310,7 @@ namespace UnixCrashReporterTracker
 
 	bool Tick(float DeltaTime)
 	{
-        QUICK_SCOPE_CYCLE_COUNTER(STAT_UnixCrashReporterTracker_Tick);
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_UnixCrashReporterTracker_Tick);
 
 		if (!FPlatformProcess::IsProcRunning(CurrentlyRunningCrashReporter))
 		{
