@@ -76,10 +76,12 @@ public:
 	 *
 	 * @param InMovieScene The movie scene with the cinematic shot track and audio tracks to export
 	 * @param InFrameRate The frame rate to export the XML at
-	 * @param InSaveFilename The file path to save to.
+	 * @param InResX Sequence resolution x.
+	 * @param InResY Sequence resolution y.
 	 * @param InHandleFrames The number of handle frames to include for each shot.
+	 * @param InSaveFilename The file path to save to.
 	 * @param OutError The return error message
 	 * @return Whether the export was successful
 	 */
-	virtual bool Export(const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveFilename, int32 InHandleFrames, TSharedRef<FMovieSceneTranslatorContext> InContext);
+	virtual bool Export(const UMovieScene* InMovieScene, FFrameRate InFrameRate, uint32 InResX, uint32 InResY, int32 InHandleFrames, FString InSaveFilename, TSharedRef<FMovieSceneTranslatorContext> InContext);
 };
