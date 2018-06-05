@@ -147,6 +147,9 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	// Return a point's type at spawn
 	bool GetPointType(const int32& PointID, int32& Value) const;
 
+	// Returns the maximum number of indexes per point, used for flattening the buffer for HLSL conversion
+	int32 GetMaxNumberOfPointValueIndexes() const;
+
 	//-----------------------------------------------------------------------------------------
 	//  MEMBER VARIABLES
 	//-----------------------------------------------------------------------------------------

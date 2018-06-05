@@ -972,6 +972,18 @@ bool UHoudiniCSV::GetPointVectorValueAtTime( const int32& PointID, const int32& 
 	return true;
 }
 
+int32 UHoudiniCSV::GetMaxNumberOfPointValueIndexes() const
+{
+	int32 MaxNum = 0;
+	for ( auto ValueIndexes : PointValueIndexes )
+	{
+		if ( MaxNum < ValueIndexes.RowIndexes.Num() )
+			MaxNum = ValueIndexes.RowIndexes.Num();
+	}
+
+	return MaxNum;
+}
+
 bool UHoudiniCSV::GetRowIndexesForPointAtTime(const int32& PointID, const float& desiredTime, int32& PrevIndex, int32& NextIndex, float& PrevWeight ) const
 {
 	float PrevTime = -1.0f;
