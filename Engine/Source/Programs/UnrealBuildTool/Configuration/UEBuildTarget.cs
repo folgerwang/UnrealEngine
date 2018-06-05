@@ -422,7 +422,7 @@ namespace UnrealBuildTool
 			}
 			if (Desc.ForeignPlugin != null)
 			{
-				RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(Desc.ForeignPlugin, RulesAssembly);
+				RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(Desc.ForeignPlugin, RulesAssembly, true);
 			}
 
 			FileReference TargetFileName;
@@ -599,7 +599,7 @@ namespace UnrealBuildTool
 				FileReference PluginFile = FileReference.Combine(RulesObject.ProjectFile.Directory, "Intermediate", "Plugins", "NativizedAssets", PlatformName, ProjectTargetType, "NativizedAssets.uplugin");
 				if (FileReference.Exists(PluginFile))
 				{
-					RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(PluginFile, RulesAssembly);
+					RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(PluginFile, RulesAssembly, false);
 				}
 				else
 				{
