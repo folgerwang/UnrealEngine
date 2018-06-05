@@ -6,6 +6,7 @@
 #include "MetalCommandBuffer.h"
 #include "MetalFence.h"
 
+#if METAL_DEBUG_OPTIONS
 extern int32 GMetalRuntimeDebugLevel;
 
 @implementation FMetalDebugCommandEncoder
@@ -59,3 +60,5 @@ void FMetalCommandEncoderDebugging::AddWaitFence(id Fence)
 		[(FMetalDebugFence*)Fence waitingEncoder:m_ptr];
 	}
 }
+#endif
+

@@ -46,7 +46,7 @@ uint32 SafeGetRuntimeDebuggingLevel()
 }
 @end
 
-#if MTLPP_CONFIG_VALIDATE
+#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
 
 @implementation FMetalDebugCommandBuffer
 

@@ -60,7 +60,7 @@ struct FMetalDebugCommand
 @property (nonatomic, strong) NSMutableArray<NSString*>* debugGroups;
 @end
 
-#if MTLPP_CONFIG_VALIDATE
+#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
 
 /**
  * FMetalDebugCommandBuffer: Wrapper around id<MTLCommandBuffer> that records information about commands.
