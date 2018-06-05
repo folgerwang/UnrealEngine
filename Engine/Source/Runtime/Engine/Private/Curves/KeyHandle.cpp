@@ -221,3 +221,15 @@ void FKeyHandleLookupTable::Reset()
 	KeyHandles.Reset();
 	KeyHandlesToIndices.Reset();
 }
+
+bool FKeyHandleLookupTable::Serialize(FArchive& Ar)
+{
+	// We're only concerned with Undo/Redo transactions
+	if (Ar.IsTransacting())
+	{
+		Ar << KeyHandles;
+		Ar << KeyHandlesToIndices;
+	}
+
+	return true;
+}

@@ -280,6 +280,7 @@ void FBehaviorTreeSearchData::AssignSearchId()
 void FBehaviorTreeSearchData::Reset()
 {
 	PendingUpdates.Reset();
+	PendingNotifies.Reset();
 	SearchStart = FBTNodeIndex();
 	SearchEnd = FBTNodeIndex();
 	RollbackInstanceIdx = INDEX_NONE;

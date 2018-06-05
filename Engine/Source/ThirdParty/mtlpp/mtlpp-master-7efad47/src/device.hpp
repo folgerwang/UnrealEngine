@@ -179,7 +179,7 @@ namespace mtlpp
 		static ns::AutoReleased<ns::String> GetRemovalRequestedNotification() MTLPP_AVAILABLE_MAC(10_13);
 		static ns::AutoReleased<ns::String> GetWasRemovedNotification() MTLPP_AVAILABLE_MAC(10_13);
 		
-		static ns::Array<Device> CopyAllDevicesWithObserver(ns::Object<id <NSObject>> observer, DeviceHandler handler) MTLPP_AVAILABLE_MAC(10_13);
+		static ns::Array<Device> CopyAllDevicesWithObserver(ns::Object<id <NSObject>>& observer, DeviceHandler handler) MTLPP_AVAILABLE_MAC(10_13);
 		static void RemoveDeviceObserver(ns::Object<id <NSObject>> observer) MTLPP_AVAILABLE_MAC(10_13);
 		
         static Device CreateSystemDefaultDevice() MTLPP_AVAILABLE(10_11, 8_0);

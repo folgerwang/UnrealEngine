@@ -1385,7 +1385,7 @@ void FSequencer::BakeTransform()
 			TArray<FFrameNumber> KeyTimes;
 
 			FFrameRate   Resolution  = FocusedMovieScene->GetTickResolution();
-			FFrameRate   SnapRate    = FocusedMovieScene->GetEvaluationType() == EMovieSceneEvaluationType::FrameLocked ? FocusedMovieScene->GetDisplayRate() : Resolution;
+			FFrameRate   SnapRate    = FocusedMovieScene->GetDisplayRate();
 
 			FFrameNumber InFrame     = MovieScene::DiscreteInclusiveLower(GetPlaybackRange());
 			FFrameNumber OutFrame    = MovieScene::DiscreteExclusiveUpper(GetPlaybackRange());
@@ -7480,6 +7480,25 @@ void FSequencer::ImportFBX()
 {
 	UMovieScene* MovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
 
+	TMap<FGuid, FString> ObjectBindingNameMap;
+
+	TArray<TSharedRef<FSequencerObjectBindingNode>> RootObjectBindingNodes;
+	GetRootObjectBindingNodes( NodeTree->GetRootNodes(), RootObjectBindingNodes );
+
+	for (auto RootObjectBindingNode : RootObjectBindingNodes)
+	{
+		FGuid ObjectBinding = RootObjectBindingNode.Get().GetObjectBinding();
+
+		ObjectBindingNameMap.Add(ObjectBinding, RootObjectBindingNode.Get().GetDisplayName().ToString());
+	}
+
+	MovieSceneToolHelpers::ImportFBX(MovieScene, *this, ObjectBindingNameMap, TOptional<bool>());
+}
+
+void FSequencer::ImportFBXOntoSelectedNodes()
+{
+	UMovieScene* MovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
+
 	// The object binding and names to match when importing from fbx
 	TMap<FGuid, FString> ObjectBindingNameMap;
 
@@ -7495,21 +7514,7 @@ void FSequencer::ImportFBX()
 		}
 	}
 
-	// If nothing selected, try to map onto everything
-	if (ObjectBindingNameMap.Num() == 0)
-	{
-		TArray<TSharedRef<FSequencerObjectBindingNode>> RootObjectBindingNodes;
-		GetRootObjectBindingNodes( NodeTree->GetRootNodes(), RootObjectBindingNodes );
-
-		for (auto RootObjectBindingNode : RootObjectBindingNodes)
-		{
-			FGuid ObjectBinding = RootObjectBindingNode.Get().GetObjectBinding();
-
-			ObjectBindingNameMap.Add(ObjectBinding, RootObjectBindingNode.Get().GetDisplayName().ToString());
-		}
-	}
-	
-	MovieSceneToolHelpers::ImportFBX(MovieScene, *this, ObjectBindingNameMap);
+	MovieSceneToolHelpers::ImportFBX(MovieScene, *this, ObjectBindingNameMap, TOptional<bool>(false));
 }
 
 

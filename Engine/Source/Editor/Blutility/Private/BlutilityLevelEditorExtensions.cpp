@@ -28,26 +28,31 @@ public:
 
 		// Run thru the assets to determine if any meet our criteria
 		TArray<UGlobalEditorUtilityBase*> SupportedUtils;
-		for (AActor* Actor : SelectedActors)
-		{			
-			if(Actor)
+		if (SelectedActors.Num() > 0)
+		{
+			// Check blueprint utils (we need to load them to query their validity against these actors)
+			TArray<FAssetData> UtilAssets;
+			FBlutilityMenuExtensions::GetBlutilityClasses(UtilAssets, UActorActionUtility::StaticClass()->GetFName());
+			if (UtilAssets.Num() > 0)
 			{
-				// Check blueprint utils (we need to load them to query their validity against these actors)
-				TArray<FAssetData> UtilAssets;
-				FBlutilityMenuExtensions::GetBlutilityClasses(UtilAssets, UActorActionUtility::StaticClass()->GetFName());
-
-				for(FAssetData& UtilAsset : UtilAssets)
-				{
-					if(UEditorUtilityBlueprint* Blueprint = Cast<UEditorUtilityBlueprint>(UtilAsset.GetAsset()))
+				for (AActor* Actor : SelectedActors)
+				{			
+					if(Actor)
 					{
-						if(UClass* BPClass = Blueprint->GeneratedClass.Get())
+						for(FAssetData& UtilAsset : UtilAssets)
 						{
-							if(UActorActionUtility* DefaultObject = Cast<UActorActionUtility>(BPClass->GetDefaultObject()))
+							if(UEditorUtilityBlueprint* Blueprint = Cast<UEditorUtilityBlueprint>(UtilAsset.GetAsset()))
 							{
-								UClass* SupportedClass = DefaultObject->GetSupportedClass();
-								if(SupportedClass == nullptr || (SupportedClass && Actor->GetClass()->IsChildOf(SupportedClass)))
+								if(UClass* BPClass = Blueprint->GeneratedClass.Get())
 								{
-									SupportedUtils.AddUnique(DefaultObject);
+									if(UActorActionUtility* DefaultObject = Cast<UActorActionUtility>(BPClass->GetDefaultObject()))
+									{
+										UClass* SupportedClass = DefaultObject->GetSupportedClass();
+										if(SupportedClass == nullptr || (SupportedClass && Actor->GetClass()->IsChildOf(SupportedClass)))
+										{
+											SupportedUtils.AddUnique(DefaultObject);
+										}
+									}
 								}
 							}
 						}

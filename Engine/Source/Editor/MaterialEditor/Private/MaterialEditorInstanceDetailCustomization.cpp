@@ -703,7 +703,7 @@ EVisibility FMaterialInstanceParameterDetails::ShouldShowSubsurfaceProfile() con
 {
 	EMaterialShadingModel Model = MaterialEditorInstance->SourceInstance->GetShadingModel();
 
-	return (Model == MSM_SubsurfaceProfile) ? EVisibility::Visible : EVisibility::Collapsed;
+	return UseSubsurfaceProfile(Model) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 

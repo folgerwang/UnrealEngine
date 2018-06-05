@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -22,8 +24,9 @@ namespace UnrealGameSync
 		bool bRestoreState;
 		string UpdateSpawn;
 		bool bUnstable;
+		bool bIsClosing;
 
-		BoundedLogWriter Log;
+		TimestampLogWriter Log;
 		UserSettings Settings;
 		ActivationListener ActivationListener;
 
@@ -61,7 +64,7 @@ namespace UnrealGameSync
 			MainThreadSynchronizationContext = WindowsFormsSynchronizationContext.Current;
 
 			// Create the log file
-			Log = new BoundedLogWriter(Path.Combine(DataFolder, "UnrealGameSync.log"));
+			Log = new TimestampLogWriter(new BoundedLogWriter(Path.Combine(DataFolder, "UnrealGameSync.log")));
 			Log.WriteLine("Application version: {0}", Assembly.GetExecutingAssembly().GetName().Version);
 			Log.WriteLine("Started at {0}", DateTime.Now.ToString());
 
@@ -144,7 +147,8 @@ namespace UnrealGameSync
 			List<DetectProjectSettingsTask> Tasks = new List<DetectProjectSettingsTask>();
 			foreach(UserSelectedProjectSettings OpenProject in Settings.OpenProjects)
 			{
-				Tasks.Add(new DetectProjectSettingsTask(OpenProject, DataFolder, Log));
+				Log.WriteLine("Detecting settings for {0}", OpenProject);
+				Tasks.Add(new DetectProjectSettingsTask(OpenProject, DataFolder, new PrefixedTextWriter("  ", Log)));
 			}
 
 			// Detect settings for the project we want to open
@@ -215,8 +219,9 @@ namespace UnrealGameSync
 
 		private void OnUpdateAvailable()
 		{
-			if(MainWindowInstance != null && MainWindowInstance.CanPerformUpdate())
+			if(MainWindowInstance != null && !bIsClosing && MainWindowInstance.CanPerformUpdate())
 			{
+				bIsClosing = true;
 				MainWindowInstance.ForceClose();
 			}
 		}

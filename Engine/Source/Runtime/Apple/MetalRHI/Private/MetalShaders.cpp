@@ -643,12 +643,13 @@ FMetalShaderPipeline* FMetalComputeShader::GetPipeline(EPixelFormat const* const
 		
 		METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewComputePipeline: %d_%d"), SourceLen, SourceCRC)));
     #if METAL_DEBUG_OPTIONS
-        if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
+        if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation METAL_STATISTIC(|| GetMetalDeviceContext().GetCommandQueue().GetStatistics()))
         {
 			ns::AutoReleasedError ComputeError;
             mtlpp::AutoReleasedComputePipelineReflection ComputeReflection;
 			
-			Kernel = GetMetalDeviceContext().GetDevice().NewComputePipelineState(Func, mtlpp::PipelineOption::ArgumentInfo, ComputeReflection, &ComputeError);
+			NSUInteger ComputeOption = mtlpp::PipelineOption::ArgumentInfo|mtlpp::PipelineOption::BufferTypeInfo METAL_STATISTIC(|NSUInteger(EMTLPipelineStats));
+			Kernel = GetMetalDeviceContext().GetDevice().NewComputePipelineState(Func, mtlpp::PipelineOption(ComputeOption), ComputeReflection, &ComputeError);
 			Error = ComputeError;
 			Reflection = ComputeReflection;
         }
@@ -671,6 +672,12 @@ FMetalShaderPipeline* FMetalComputeShader::GetPipeline(EPixelFormat const* const
 #if METAL_DEBUG_OPTIONS
         Pipeline[BT]->ComputePipelineReflection = Reflection;
         Pipeline[BT]->ComputeSource = GetSourceCode();
+		if (Reflection)
+		{
+			Pipeline[BT]->ComputeDesc = mtlpp::ComputePipelineDescriptor();
+			Pipeline[BT]->ComputeDesc.SetLabel(Func.GetName());
+			Pipeline[BT]->ComputeDesc.SetComputeFunction(Func);
+		}
 #endif
         METAL_DEBUG_OPTION(FMemory::Memzero(Pipeline[BT]->ResourceMask, sizeof(Pipeline[BT]->ResourceMask)));
 	}

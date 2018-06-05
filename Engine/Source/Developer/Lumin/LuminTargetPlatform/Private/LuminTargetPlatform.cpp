@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "LuminTargetPlatform.h"
 #include "CoreTypes.h"
 #include "Misc/AssertionMacros.h"

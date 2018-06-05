@@ -17,7 +17,7 @@
 
 uint32 FAssetTypeActions_BehaviorTree::GetCategories() 
 { 
-	IAIModule& AIModule = FModuleManager::GetModuleChecked<IAIModule>("AIModule").Get();
+	IAIModule& AIModule = FModuleManager::LoadModuleChecked<IAIModule>("AIModule").Get();
 	return AIModule.GetAIAssetCategoryBit();
 }
 
