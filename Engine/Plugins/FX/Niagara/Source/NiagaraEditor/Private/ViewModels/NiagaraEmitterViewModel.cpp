@@ -36,26 +36,9 @@ FNiagaraEmitterViewModel::FNiagaraEmitterViewModel(UNiagaraEmitter* InEmitter, T
 	, Simulation(InSimulation)
 	, SharedScriptViewModel(MakeShareable(new FNiagaraScriptViewModel(InEmitter, LOCTEXT("SharedDisplayName", "Graph"), ENiagaraParameterEditMode::EditAll)))
 	, bUpdatingSelectionInternally(false)
-	, LastEventScriptStatus(ENiagaraScriptCompileStatus::NCS_Unknown)
-{
-	//UE_LOG(LogNiagaraEditor, Warning, TEXT("FNiagaraEmitterViewModel %p"), this);
-
-	ExecutionStateEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraExecutionState"));
-
-	if (Emitter.IsValid() && Emitter->GetEventHandlers().Num() != 0 && Emitter->GetEventHandlers()[0].Script && Emitter->GetEventHandlers()[0].Script->GetVMExecutableData().IsValid()
-		&& Emitter->GetEventHandlers()[0].Script->GetVMExecutableData().ByteCode.Num() != 0)
-	{
-		LastEventScriptStatus = ENiagaraScriptCompileStatus::NCS_UpToDate;
-	}
-	
-	if (Emitter.IsValid())
-	{
-		Emitter->OnEmitterVMCompiled().AddRaw(this, &FNiagaraEmitterViewModel::OnVMCompiled);
-	}
-
-	RegisteredHandle = RegisterViewModelWithMap(Emitter.Get(), this);
-
-	AddScriptEventHandlers();
+	, ExecutionStateEnum(FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraExecutionState")))
+{	
+	SetEmitter(InEmitter);
 }
 
 void FNiagaraEmitterViewModel::Cleanup()
@@ -95,6 +78,7 @@ void FNiagaraEmitterViewModel::SetEmitter(UNiagaraEmitter* InEmitter)
 	if (Emitter.IsValid())
 	{
 		Emitter->OnEmitterVMCompiled().RemoveAll(this);
+		Emitter->OnPropertiesChanged().RemoveAll(this);
 	}
 
 	UnregisterViewModelWithMap(RegisteredHandle);
@@ -106,6 +90,7 @@ void FNiagaraEmitterViewModel::SetEmitter(UNiagaraEmitter* InEmitter)
 	if (Emitter.IsValid())
 	{
 		Emitter->OnEmitterVMCompiled().AddRaw(this, &FNiagaraEmitterViewModel::OnVMCompiled);
+		Emitter->OnPropertiesChanged().AddRaw(this, &FNiagaraEmitterViewModel::OnEmitterPropertiesChanged);
 	}
 
 	AddScriptEventHandlers();
@@ -393,6 +378,13 @@ void FNiagaraEmitterViewModel::ScriptGraphChanged(const FEdGraphEditAction& InAc
 void FNiagaraEmitterViewModel::ScriptParameterStoreChanged(const FNiagaraParameterStore& ChangedParameterStore, const UNiagaraScript& OwningScript)
 {
 	OnScriptParameterStoreChangedDelegate.Broadcast(ChangedParameterStore, OwningScript);
+}
+
+void FNiagaraEmitterViewModel::OnEmitterPropertiesChanged()
+{
+	// When the properties change we reset the scripts on the script view model because gpu/cpu or interpolation may have changed.
+	SharedScriptViewModel->SetScripts(Emitter.Get());
+	OnPropertyChangedDelegate.Broadcast();
 }
 
 #undef LOCTEXT_NAMESPACE

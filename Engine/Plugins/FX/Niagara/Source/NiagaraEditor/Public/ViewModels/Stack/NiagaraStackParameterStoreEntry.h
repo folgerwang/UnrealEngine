@@ -26,7 +26,6 @@ public:
 public:
 	UNiagaraStackParameterStoreEntry();
 
-	virtual void BeginDestroy() override;
 	/** 
 	 * Sets the input data for this entry.
 	 * @param InSystemViewModel The view model for the system which owns the stack containing this entry.

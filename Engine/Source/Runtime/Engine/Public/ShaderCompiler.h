@@ -532,6 +532,8 @@ public:
 		NumExternalJobs = NumJobs;
 	}
 
+	ENGINE_API bool GetDumpShaderDebugInfo() const;
+
 	const FString& GetAbsoluteShaderDebugInfoDirectory() const
 	{
 		return AbsoluteShaderDebugInfoDirectory;

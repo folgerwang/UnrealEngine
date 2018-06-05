@@ -65,6 +65,7 @@ FNiagaraScriptToolkit::FNiagaraScriptToolkit()
 FNiagaraScriptToolkit::~FNiagaraScriptToolkit()
 {
 	EditedNiagaraScript->OnVMScriptCompiled().RemoveAll(this);
+	ScriptViewModel->GetGraphViewModel()->GetGraph()->RemoveOnGraphNeedsRecompileHandler(OnEditedScriptGraphChangedHandle);
 }
 
 void FNiagaraScriptToolkit::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
@@ -112,8 +113,12 @@ void FNiagaraScriptToolkit::Initialize( const EToolkitMode::Type Mode, const TSh
 	GetTransientPackage()->LinkerCustomVersion.Empty();
 	EditedNiagaraScript = (UNiagaraScript*)StaticDuplicateObject(OriginalNiagaraScript, GetTransientPackage(), NAME_None, ~RF_Standalone, UNiagaraScript::StaticClass());
 	EditedNiagaraScript->OnVMScriptCompiled().AddSP(this, &FNiagaraScriptToolkit::OnVMScriptCompiled);
+	bEditedScriptHasPendingChanges = false;
 	
 	ScriptViewModel = MakeShareable(new FNiagaraScriptViewModel(EditedNiagaraScript, LOCTEXT("NiagaraScriptDisplayName", "Niagara Script"), ENiagaraParameterEditMode::EditAll));
+	OnEditedScriptGraphChangedHandle = ScriptViewModel->GetGraphViewModel()->GetGraph()->AddOnGraphNeedsRecompileHandler(
+		FOnGraphChanged::FDelegate::CreateRaw(this, &FNiagaraScriptToolkit::OnEditedScriptGraphChanged));
+
 	DetailsSelection = MakeShareable(new FNiagaraObjectSelection());
 	DetailsSelection->SetSelectedObject(EditedNiagaraScript);
 	
@@ -229,7 +234,7 @@ TSharedRef<SDockTab> FNiagaraScriptToolkit::SpawnTabNodeGraph( const FSpawnTabAr
 		];
 }
 
-void FNiagaraScriptToolkit::OnDetailsSelectionPropertyFinishedChanging(const FPropertyChangedEvent& InEvent)
+void FNiagaraScriptToolkit::OnEditedScriptPropertyFinishedChanging(const FPropertyChangedEvent& InEvent)
 {
 	// We need to synchronize the Usage field in the property editor with the actual node
 	// in the graph.
@@ -261,6 +266,7 @@ void FNiagaraScriptToolkit::OnDetailsSelectionPropertyFinishedChanging(const FPr
 			}
 		}
 	}
+	bEditedScriptHasPendingChanges = true;
 }
 
 void FNiagaraScriptToolkit::OnVMScriptCompiled(UNiagaraScript* InScript)
@@ -281,7 +287,7 @@ TSharedRef<SDockTab> FNiagaraScriptToolkit::SpawnTabNodeDetails(const FSpawnTabA
 	FDetailsViewArgs DetailsViewArgs(false, false, true, FDetailsViewArgs::HideNameArea, true);
 	TSharedRef<IDetailsView> DetailsView = PropertyEditorModule.CreateDetailView(DetailsViewArgs);
 
-	DetailsView->OnFinishedChangingProperties().AddRaw(this, &FNiagaraScriptToolkit::OnDetailsSelectionPropertyFinishedChanging);
+	DetailsView->OnFinishedChangingProperties().AddRaw(this, &FNiagaraScriptToolkit::OnEditedScriptPropertyFinishedChanging);
 	DetailsView->RegisterInstancedCustomPropertyLayout(
 		UNiagaraScript::StaticClass(),
 		FOnGetDetailCustomizationInstance::CreateStatic(&FNiagaraScriptDetails::MakeInstance, ScriptViewModelWeakPtr)
@@ -446,6 +452,7 @@ FText FNiagaraScriptToolkit::GetRefreshStatusTooltip() const
 void FNiagaraScriptToolkit::CompileScript(bool bForce)
 {
 	ScriptViewModel->CompileStandaloneScript();
+	ScriptViewModel->RefreshMetadataCollection();
 }
 
 void FNiagaraScriptToolkit::RefreshNodes()
@@ -455,9 +462,7 @@ void FNiagaraScriptToolkit::RefreshNodes()
 
 bool FNiagaraScriptToolkit::IsEditScriptDifferentFromOriginalScript() const
 {
-	UNiagaraScript* EditScript = ScriptViewModel->GetScript(OriginalNiagaraScript->GetUsage(), OriginalNiagaraScript->GetUsageId());
-	return EditScript->AreScriptAndSourceSynchronized() == false ||
-		EditScript->GetBaseChangeID() != OriginalNiagaraScript->GetBaseChangeID();
+	return bEditedScriptHasPendingChanges;
 }
 
 void FNiagaraScriptToolkit::OnApply()
@@ -535,6 +540,7 @@ void FNiagaraScriptToolkit::UpdateOriginalNiagaraScript()
 
 	// Compile and then overwrite the original script in place by constructing a new one with the same name
 	ScriptViewModel->CompileStandaloneScript();
+	ScriptViewModel->RefreshMetadataCollection();
 	OriginalNiagaraScript = (UNiagaraScript*)StaticDuplicateObject(EditedNiagaraScript, OriginalNiagaraScript->GetOuter(), OriginalNiagaraScript->GetFName(),
 		RF_AllFlags,
 		OriginalNiagaraScript->GetClass());
@@ -631,6 +637,7 @@ void FNiagaraScriptToolkit::UpdateOriginalNiagaraScript()
 	FNiagaraEditorUtilities::CompileExistingEmitters(AffectedEmitters);
 
 	GWarn->EndSlowTask();
+	bEditedScriptHasPendingChanges = false;
 }
 
 
@@ -664,6 +671,11 @@ bool FNiagaraScriptToolkit::OnRequestClose()
 	}
 
 	return true;
+}
+
+void FNiagaraScriptToolkit::OnEditedScriptGraphChanged(const FEdGraphEditAction& InAction)
+{
+	bEditedScriptHasPendingChanges = true;
 }
 
 #undef LOCTEXT_NAMESPACE

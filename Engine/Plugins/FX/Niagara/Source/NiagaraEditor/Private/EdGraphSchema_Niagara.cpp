@@ -54,6 +54,7 @@ const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_FunctionCall = FLinear
 const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_CustomHlsl = FLinearColor::Yellow;
 const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_Event = FLinearColor::Red;
 const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_TranslatorConstant = FLinearColor::Gray;
+const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_RapidIteration = FLinearColor::Black;
 
 const FName UEdGraphSchema_Niagara::PinCategoryType("Type");
 const FName UEdGraphSchema_Niagara::PinCategoryMisc("Misc");
@@ -313,7 +314,7 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 		const TArray<FNiagaraOpInfo>& OpInfos = FNiagaraOpInfo::GetOpInfoArray();
 		for (const FNiagaraOpInfo& OpInfo : OpInfos)
 		{
-			TSharedPtr<FNiagaraSchemaAction_NewNode> AddOpAction = AddNewNodeAction(NewActions, OpInfo.Category, OpInfo.FriendlyName, OpInfo.Name, FText::GetEmpty());
+			TSharedPtr<FNiagaraSchemaAction_NewNode> AddOpAction = AddNewNodeAction(NewActions, OpInfo.Category, OpInfo.FriendlyName, OpInfo.Name, OpInfo.Description, OpInfo.Keywords);
 			UNiagaraNodeOp* OpNode = NewObject<UNiagaraNodeOp>(OwnerOfTemporaries);
 			OpNode->OpName = OpInfo.Name;
 			AddOpAction->NodeTemplate = OpNode;
@@ -330,6 +331,26 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 		FunctionCallAction->NodeTemplate = CustomHlslNode;
 	}
 
+	auto AddScriptFunctionAction = [&NewActions, OwnerOfTemporaries](const FText& Category, const FAssetData& ScriptAsset)
+	{
+		FText AssetDesc;
+		ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Description), AssetDesc);
+
+		FText Keywords;
+		ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Keywords), Keywords);
+
+		FString DisplayNameString = FName::NameToDisplayString(ScriptAsset.AssetName.ToString(), false);
+
+		const FText MenuDesc = FText::FromString(DisplayNameString);
+		const FText TooltipDesc = FNiagaraEditorUtilities::FormatScriptAssetDescription(AssetDesc, ScriptAsset.ObjectPath);
+
+		TSharedPtr<FNiagaraSchemaAction_NewNode> FunctionCallAction = AddNewNodeAction(NewActions, Category, MenuDesc, *DisplayNameString, TooltipDesc, Keywords);
+
+		UNiagaraNodeFunctionCall* FunctionCallNode = NewObject<UNiagaraNodeFunctionCall>(OwnerOfTemporaries);
+		FunctionCallNode->FunctionScriptAssetObjectPath = ScriptAsset.ObjectPath;
+		FunctionCallAction->NodeTemplate = FunctionCallNode;
+	};
+
 	//Add functions
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	TArray<FAssetData> ScriptAssets;
@@ -342,9 +363,6 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 			FName UsageName;
 			ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Usage), UsageName);
 
-			FText AssetDesc;
-			ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Description), AssetDesc);
-
 			FString QualifiedUsageName = "ENiagaraScriptUsage::" + UsageName.ToString();
 			int32 UsageIndex = NiagaraScriptUsageEnum->GetIndexByNameString(QualifiedUsageName);
 			if (UsageIndex != INDEX_NONE)
@@ -352,23 +370,13 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 				ENiagaraScriptUsage Usage = static_cast<ENiagaraScriptUsage>(NiagaraScriptUsageEnum->GetValueByIndex(UsageIndex));
 				if (Usage == ENiagaraScriptUsage::Function)
 				{
-					FString DisplayNameString = FName::NameToDisplayString(ScriptAsset.AssetName.ToString(), false);
-					const FText MenuDesc = FText::FromString(DisplayNameString);
-					const FText TooltipDesc = FText::Format(LOCTEXT("FunctionPopupTooltip", "Path: {0}\nDescription: {1}"), FText::FromString(ScriptAsset.ObjectPath.ToString()), AssetDesc);
-
-
-					TSharedPtr<FNiagaraSchemaAction_NewNode> FunctionCallAction = AddNewNodeAction(NewActions, LOCTEXT("Function Menu Title", "Functions"), MenuDesc, *DisplayNameString, FText::FromName(ScriptAsset.ObjectPath));
-
-					UNiagaraNodeFunctionCall* FunctionCallNode = NewObject<UNiagaraNodeFunctionCall>(OwnerOfTemporaries);
-					FunctionCallNode->FunctionScriptAssetObjectPath = ScriptAsset.ObjectPath;
-					FunctionCallAction->NodeTemplate = FunctionCallNode;
+					AddScriptFunctionAction(LOCTEXT("Function Menu Title", "Functions"), ScriptAsset);
 				}
 			}
 		}
 	}
 
 	//Add modules
-	//if (GraphUsage == ENiagaraScriptUsage::ParticleSpawnScript || GraphUsage == ENiagaraScriptUsage::ParticleUpdateScript) 
 	if (!bFunctionGraph)
 	{
 		for (const FAssetData& ScriptAsset : ScriptAssets)
@@ -377,8 +385,6 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 			ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Usage), UsageName);
 			const FString BitfieldTagValue = ScriptAsset.GetTagValueRef<FString>(GET_MEMBER_NAME_CHECKED(UNiagaraScript, ModuleUsageBitmask));
 			int32 BitfieldValue = FCString::Atoi(*BitfieldTagValue);
-			FText AssetDesc;
-			ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Description), AssetDesc);
 
 			ENiagaraScriptUsage TargetUsage = ENiagaraScriptUsage::Module;
 			if (bUpdateGraph)
@@ -399,15 +405,7 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 				ENiagaraScriptUsage Usage = static_cast<ENiagaraScriptUsage>(NiagaraScriptUsageEnum->GetValueByIndex(UsageIndex));
 				if (Usage == ENiagaraScriptUsage::Module)
 				{
-					FString DisplayNameString = FName::NameToDisplayString(ScriptAsset.AssetName.ToString(), false);
-					const FText MenuDesc = FText::FromString(DisplayNameString);
-					const FText TooltipDesc = FText::Format(LOCTEXT("ModulePopupTooltip", "Path: {0}\nDescription: {1}"), FText::FromString(ScriptAsset.ObjectPath.ToString()), AssetDesc);
-
-					TSharedPtr<FNiagaraSchemaAction_NewNode> FunctionCallAction = AddNewNodeAction(NewActions, LOCTEXT("Module Menu Title", "Modules"), MenuDesc, *DisplayNameString, FText::FromName(ScriptAsset.ObjectPath));
-
-					UNiagaraNodeFunctionCall* FunctionCallNode = NewObject<UNiagaraNodeFunctionCall>(OwnerOfTemporaries);
-					FunctionCallNode->FunctionScriptAssetObjectPath = ScriptAsset.ObjectPath;
-					FunctionCallAction->NodeTemplate = FunctionCallNode;
+					AddScriptFunctionAction(LOCTEXT("Module Menu Title", "Modules"), ScriptAsset);
 				}
 			}
 		}
@@ -427,17 +425,7 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 				ENiagaraScriptUsage Usage = static_cast<ENiagaraScriptUsage>(NiagaraScriptUsageEnum->GetValueByIndex(UsageIndex));
 				if (Usage == ENiagaraScriptUsage::DynamicInput)
 				{
-					FString DisplayNameString = FName::NameToDisplayString(ScriptAsset.AssetName.ToString(), false);
-					const FText MenuDesc = FText::FromString(DisplayNameString);
-					FText AssetDesc;
-					ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Description), AssetDesc);
-					const FText TooltipDesc = FText::Format(LOCTEXT("DynamicInputPopupTooltip", "Path: {0}\nDescription: {1}"), FText::FromString(ScriptAsset.ObjectPath.ToString()), AssetDesc);
-
-					TSharedPtr<FNiagaraSchemaAction_NewNode> FunctionCallAction = AddNewNodeAction(NewActions, LOCTEXT("DynamicInputMenu", "Dynamic Inputs"), MenuDesc, *DisplayNameString, FText::FromName(ScriptAsset.ObjectPath));
-
-					UNiagaraNodeFunctionCall* FunctionCallNode = NewObject<UNiagaraNodeFunctionCall>(OwnerOfTemporaries);
-					FunctionCallNode->FunctionScriptAssetObjectPath = ScriptAsset.ObjectPath;
-					FunctionCallAction->NodeTemplate = FunctionCallNode;
+					AddScriptFunctionAction(LOCTEXT("Dynamic Input Menu Title", "Dynamic Inputs"), ScriptAsset);
 				}
 			}
 		}
@@ -798,6 +786,27 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 					InputAction->NodeTemplate = InputNode;
 				}
 
+				// TODO sckime please remove this..
+				for (FNiagaraTypeDefinition Type : RegisteredTypes)
+				{
+					FText MenuCat;
+					if (const UClass* Class = Type.GetClass())
+					{
+						continue;
+					}
+					else
+					{
+						MenuCat = LOCTEXT("AddRIParameterCat", "Add Rapid Iteration Param");
+					}
+
+					const FText MenuDesc = FText::Format(MenuDescFmt, Type.GetStruct()->GetDisplayNameText());
+					TSharedPtr<FNiagaraSchemaAction_NewNode> InputAction = AddNewNodeAction(NewActions, MenuCat, MenuDesc, *MenuDesc.ToString(), FText::GetEmpty());
+					UNiagaraNodeInput* InputNode = NewObject<UNiagaraNodeInput>(OwnerOfTemporaries);
+					FNiagaraEditorUtilities::InitializeParameterInputNode(*InputNode, Type, NiagaraGraph);
+					InputNode->Usage = ENiagaraInputNodeUsage::RapidIterationParameter;
+					InputAction->NodeTemplate = InputNode;
+				}
+				
 				if (PinType != FNiagaraTypeDefinition::GetGenericNumericDef())
 				{
 					//For correctly typed pins, offer the correct type at the top level.				
@@ -924,6 +933,12 @@ const FPinConnectionResponse UEdGraphSchema_Niagara::CanCreateConnection(const U
 		{
 			return FPinConnectionResponse(CONNECT_RESPONSE_DISALLOW, TEXT("Types are not compatible"));
 		}
+	}
+
+	int32 Depth = 0;
+	if (UEdGraphSchema_Niagara::CheckCircularConnection(PinB->GetOwningNode(), PinB->Direction, PinA, Depth))
+	{
+		return FPinConnectionResponse(CONNECT_RESPONSE_DISALLOW, TEXT("Circular connection found"));
 	}
 
 	// See if we want to break existing connections (if its an input with an existing connection)
@@ -1406,6 +1421,44 @@ void UEdGraphSchema_Niagara::ConvertNumericPinToType(UEdGraphPin* InGraphPin, FN
 			}
 		}
 	}
+}
+
+bool UEdGraphSchema_Niagara::CheckCircularConnection(const UEdGraphNode* InRootNode, const EEdGraphPinDirection InRootPinDirection, const UEdGraphPin* InPin, int32& OutDepth)
+{
+	if (InPin->GetOwningNode() == InRootNode)
+	{
+		return true;
+	}
+
+	static const int32 MaxDepth = 3;
+	OutDepth++;
+	if (OutDepth > MaxDepth)
+	{
+		return false;
+	}
+
+	for (const UEdGraphPin* Pin : InPin->GetOwningNode()->GetAllPins())
+	{
+		if (Pin->Direction == InRootPinDirection && Pin != InPin)
+		{
+			for (const UEdGraphPin* LinkedPin : Pin->LinkedTo)
+			{
+				if (UEdGraphSchema_Niagara::CheckCircularConnection(InRootNode, InRootPinDirection, LinkedPin, OutDepth))
+				{
+					return true;
+				}
+
+				// If the CheckCircularConnection call above returned without finding the root node and was too deep.
+				if (OutDepth > MaxDepth)
+				{
+					return false;
+				}
+			}
+		}
+	}
+
+	OutDepth--;
+	return false;
 }
 
 void UEdGraphSchema_Niagara::GetNumericConversionToSubMenuActions(class FMenuBuilder& MenuBuilder, UEdGraphPin* InGraphPin)

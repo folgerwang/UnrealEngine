@@ -75,28 +75,27 @@ bool CompileShader_VectorVM(const FShaderCompilerInput& Input, FShaderCompilerOu
 
 	const EHlslShaderFrequency Frequency = HSF_VertexShader;
 
-	//TODO: Do this later when we implement the rest of the shader plumbing stuff.
-// 		// Write out the preprocessed file and a batch file to compile it if requested (DumpDebugInfoPath is valid)
-// 		if (bDumpDebugInfo)
-// 		{
-// 			FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*(Input.DumpDebugInfoPath / Input.GetSourceFilename()));
-// 			if (FileWriter)
-// 			{
-// 				auto AnsiSourceFile = StringCast<ANSICHAR>(*PreprocessedShader);
-// 				FileWriter->Serialize((ANSICHAR*)AnsiSourceFile.Get(), AnsiSourceFile.Length());
-//				{
-//					FString Line = CrossCompiler::CreateResourceTableFromEnvironment(Input.Environment);
-//					FileWriter->Serialize(TCHAR_TO_ANSI(*Line), Line.Len());
-//				}
-// 				FileWriter->Close();
-// 				delete FileWriter;
-// 			}
-// 
-// 			if (Input.bGenerateDirectCompileFile)
-// 			{
-// 				FFileHelper::SaveStringToFile(CreateShaderCompilerWorkerDirectCommandLine(Input), *(Input.DumpDebugInfoPath / TEXT("DirectCompile.txt")));
-// 			}
-// 		}
+ 		// Write out the preprocessed file and a batch file to compile it if requested (DumpDebugInfoPath is valid)
+	if (bDumpDebugInfo)
+	{
+		FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*(Input.DumpDebugInfoPath / Input.GetSourceFilename()));
+		if (FileWriter)
+		{
+			auto AnsiSourceFile = StringCast<ANSICHAR>(*PreprocessedShader);
+			FileWriter->Serialize((ANSICHAR*)AnsiSourceFile.Get(), AnsiSourceFile.Length());
+			{
+				FString Line = CrossCompiler::CreateResourceTableFromEnvironment(Input.Environment);
+				FileWriter->Serialize(TCHAR_TO_ANSI(*Line), Line.Len());
+			}
+			FileWriter->Close();
+			delete FileWriter;
+		}
+
+		if (Input.bGenerateDirectCompileFile)
+		{
+			FFileHelper::SaveStringToFile(CreateShaderCompilerWorkerDirectCommandLine(Input), *(Input.DumpDebugInfoPath / TEXT("DirectCompile.txt")));
+		}
+	}
 
 	//Is stuff like this needed? What others?
 	uint32 CCFlags = HLSLCC_NoPreprocess;
