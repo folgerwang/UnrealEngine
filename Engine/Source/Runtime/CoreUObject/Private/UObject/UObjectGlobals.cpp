@@ -2043,7 +2043,7 @@ UObject* StaticDuplicateObjectEx( FObjectDuplicationParameters& Parameters )
 														);
 	}
 
-	TArray<uint8> ObjectData;
+	FLargeMemoryData ObjectData;
 
 	FUObjectAnnotationSparse<FDuplicatedObject,false>  DuplicatedObjectAnnotation;
 
