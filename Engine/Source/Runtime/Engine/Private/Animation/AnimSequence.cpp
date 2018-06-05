@@ -259,6 +259,12 @@ void UAnimSequence::Serialize(FArchive& Ar)
 				Ar << SourceRawAnimationData;
 			}
 		}
+
+		// If we have transform curves but no SourceRawAnimationData then we need to rebake
+		if (DoesContainTransformCurves() && RawAnimationData.Num() > 0 && SourceRawAnimationData.Num() == 0)
+		{
+			bNeedsRebake = true;
+		}
 #endif // WITH_EDITORONLY_DATA
 	}
 
