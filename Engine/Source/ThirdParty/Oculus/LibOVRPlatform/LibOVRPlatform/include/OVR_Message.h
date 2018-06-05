@@ -4,10 +4,13 @@
 #define OVR_MESSAGE_H
 
 #include "OVR_Platform_Defs.h"
+#include "OVR_AbuseReportRecording.h"
 #include "OVR_AchievementDefinitionArray.h"
 #include "OVR_AchievementProgressArray.h"
 #include "OVR_AchievementUpdate.h"
 #include "OVR_ApplicationVersion.h"
+#include "OVR_AssetDetails.h"
+#include "OVR_AssetDetailsArray.h"
 #include "OVR_AssetFileDeleteResult.h"
 #include "OVR_AssetFileDownloadCancelResult.h"
 #include "OVR_AssetFileDownloadResult.h"
@@ -22,6 +25,7 @@
 #include "OVR_InstalledApplicationArray.h"
 #include "OVR_LeaderboardEntryArray.h"
 #include "OVR_LeaderboardUpdateStatus.h"
+#include "OVR_LinkedAccountArray.h"
 #include "OVR_LivestreamingApplicationStatus.h"
 #include "OVR_LivestreamingStartResult.h"
 #include "OVR_LivestreamingStatus.h"
@@ -61,10 +65,13 @@
 
 typedef struct ovrMessage *ovrMessageHandle;
 
+OVRP_PUBLIC_FUNCTION(ovrAbuseReportRecordingHandle)            ovr_Message_GetAbuseReportRecording(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrAchievementDefinitionArrayHandle)      ovr_Message_GetAchievementDefinitionArray(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrAchievementProgressArrayHandle)        ovr_Message_GetAchievementProgressArray(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrAchievementUpdateHandle)               ovr_Message_GetAchievementUpdate(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrApplicationVersionHandle)              ovr_Message_GetApplicationVersion(const ovrMessageHandle obj);
+OVRP_PUBLIC_FUNCTION(ovrAssetDetailsHandle)                    ovr_Message_GetAssetDetails(const ovrMessageHandle obj);
+OVRP_PUBLIC_FUNCTION(ovrAssetDetailsArrayHandle)               ovr_Message_GetAssetDetailsArray(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrAssetFileDeleteResultHandle)           ovr_Message_GetAssetFileDeleteResult(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrAssetFileDownloadCancelResultHandle)   ovr_Message_GetAssetFileDownloadCancelResult(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrAssetFileDownloadResultHandle)         ovr_Message_GetAssetFileDownloadResult(const ovrMessageHandle obj);
@@ -79,6 +86,7 @@ OVRP_PUBLIC_FUNCTION(ovrHttpTransferUpdateHandle)              ovr_Message_GetHt
 OVRP_PUBLIC_FUNCTION(ovrInstalledApplicationArrayHandle)       ovr_Message_GetInstalledApplicationArray(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrLeaderboardEntryArrayHandle)           ovr_Message_GetLeaderboardEntryArray(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrLeaderboardUpdateStatusHandle)         ovr_Message_GetLeaderboardUpdateStatus(const ovrMessageHandle obj);
+OVRP_PUBLIC_FUNCTION(ovrLinkedAccountArrayHandle)              ovr_Message_GetLinkedAccountArray(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrLivestreamingApplicationStatusHandle)  ovr_Message_GetLivestreamingApplicationStatus(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrLivestreamingStartResultHandle)        ovr_Message_GetLivestreamingStartResult(const ovrMessageHandle obj);
 OVRP_PUBLIC_FUNCTION(ovrLivestreamingStatusHandle)             ovr_Message_GetLivestreamingStatus(const ovrMessageHandle obj);

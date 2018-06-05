@@ -9,14 +9,18 @@
 
 typedef struct ovrAssetFileDownloadUpdate *ovrAssetFileDownloadUpdateHandle;
 
-/// ID of the asset file.
+/// DEPRECATED. Alias to asset id.
 OVRP_PUBLIC_FUNCTION(ovrID) ovr_AssetFileDownloadUpdate_GetAssetFileId(const ovrAssetFileDownloadUpdateHandle obj);
+
+/// ID of the asset file
+OVRP_PUBLIC_FUNCTION(ovrID) ovr_AssetFileDownloadUpdate_GetAssetId(const ovrAssetFileDownloadUpdateHandle obj);
 
 /// Total number of bytes.
 OVRP_PUBLIC_FUNCTION(unsigned int) ovr_AssetFileDownloadUpdate_GetBytesTotal(const ovrAssetFileDownloadUpdateHandle obj);
 
-/// Number of bytes have been downloaded.
-OVRP_PUBLIC_FUNCTION(unsigned int) ovr_AssetFileDownloadUpdate_GetBytesTransferred(const ovrAssetFileDownloadUpdateHandle obj);
+/// Number of bytes have been downloaded. -1 If the download hasn't started
+/// yet.
+OVRP_PUBLIC_FUNCTION(int) ovr_AssetFileDownloadUpdate_GetBytesTransferred(const ovrAssetFileDownloadUpdateHandle obj);
 
 /// Flag indicating a download is completed.
 OVRP_PUBLIC_FUNCTION(bool) ovr_AssetFileDownloadUpdate_GetCompleted(const ovrAssetFileDownloadUpdateHandle obj);

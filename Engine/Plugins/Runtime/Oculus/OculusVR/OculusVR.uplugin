@@ -33,5 +33,12 @@
 			"LoadingPhase" : "PreDefault",
 			"WhitelistPlatforms" : [ "Win64" ]
 		},
+	],
+	"Plugins" :
+	[
+		{
+			"Name" : "ProceduralMeshComponent",
+			"Enabled": true
+		}
 	]
 }

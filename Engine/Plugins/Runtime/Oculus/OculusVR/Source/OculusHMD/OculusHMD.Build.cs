@@ -18,6 +18,12 @@ namespace UnrealBuildTool.Rules
 					"../../../../../Source/Runtime/Engine/Classes/Components",
 				});
 
+			PublicIncludePathModuleNames.AddRange(
+				new string[] {
+					"Launch",
+					"ProceduralMeshComponent",
+				});			
+
 			if (Target.Platform == UnrealTargetPlatform.Android)
 			{
 				PrivateIncludePaths.Add("../../../../../Source/Runtime/VulkanRHI/Private/Android");
@@ -35,7 +41,6 @@ namespace UnrealBuildTool.Rules
 				PrivateIncludePaths.Add("../../../../../Source/Runtime/VulkanRHI/Private/Windows");
 			}
 
-			PublicIncludePathModuleNames.Add("Launch");
 
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
@@ -58,6 +63,7 @@ namespace UnrealBuildTool.Rules
 					"OpenGLDrv",
 					"VulkanRHI",
 					"OVRPlugin",
+					"ProceduralMeshComponent",
 				});
 
 			if (Target.bBuildEditor == true)
