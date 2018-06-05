@@ -226,7 +226,7 @@ public:
 		}
 
 		Empty(Copy.Num());
-		NumBits = MaxBits = Copy.NumBits;
+		NumBits = Copy.NumBits;
 		if(NumBits)
 		{
 			const int32 NumDWORDs = FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD);
