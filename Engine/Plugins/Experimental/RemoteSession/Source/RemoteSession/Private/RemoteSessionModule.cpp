@@ -26,8 +26,9 @@ protected:
 	int32								Quality;
 	int32								Framerate;
 
-	bool bAutoHostWithPIE;
-	bool bAutoHostWithGame;
+	bool                                bAutoHostWithPIE;
+	bool                                bAutoHostWithGame;
+    
 	FDelegateHandle PostPieDelegate;
 	FDelegateHandle EndPieDelegate;
 	FDelegateHandle GameStartDelegate;

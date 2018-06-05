@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Channels/RemoteSessionARCameraChannel.h"
+#include "RemoteSession.h"
 #include "Framework/Application/SlateApplication.h"
 #include "BackChannel/Protocol/OSC/BackChannelOSCConnection.h"
 #include "BackChannel/Protocol/OSC/BackChannelOSCMessage.h"
@@ -92,7 +93,7 @@ public:
 	{
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FSceneView View)
+	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View)
 	{
 		const FVertexShaderRHIParamRef ShaderRHI = GetVertexShader();
 		FMaterialShader::SetViewParameters(RHICmdList, ShaderRHI, View, View.ViewUniformBuffer);
@@ -139,7 +140,7 @@ public:
 		}
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FSceneView View, const FMaterialRenderProxy* Material)
+	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, const FMaterialRenderProxy* Material)
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, Material, *Material->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, ESceneTextureSetupMode::None);
@@ -462,18 +463,25 @@ void FRemoteSessionARCameraChannel::QueueARCameraImage()
 	}
 
 	UARTextureCameraImage* CameraImage = UARBlueprintLibrary::GetCameraImage();
-	if (CameraImage != nullptr && CameraImage->Timestamp > LastQueuedTimestamp)
-	{
-		TSharedPtr<FCompressionTask, ESPMode::ThreadSafe> CompressionTask = MakeShareable(new FCompressionTask());
-		CompressionTask->Width = CameraImage->Size.X;
-		CompressionTask->Height = CameraImage->Size.Y;
-		CompressionTask->AsyncTask = IAppleImageUtilsPlugin::Get().ConvertToJPEG(CameraImage, CVarJPEGQuality.GetValueOnGameThread(), !!CVarJPEGColor.GetValueOnGameThread(), !!CVarJPEGGpu.GetValueOnGameThread());
-		if (CompressionTask->AsyncTask.IsValid())
-		{
-			LastQueuedTimestamp = CameraImage->Timestamp;
-			CompressionQueue.Add(CompressionTask);
-		}
-	}
+	if (CameraImage != nullptr)
+    {
+        if (CameraImage->Timestamp > LastQueuedTimestamp)
+        {
+            TSharedPtr<FCompressionTask, ESPMode::ThreadSafe> CompressionTask = MakeShareable(new FCompressionTask());
+            CompressionTask->Width = CameraImage->Size.X;
+            CompressionTask->Height = CameraImage->Size.Y;
+            CompressionTask->AsyncTask = IAppleImageUtilsPlugin::Get().ConvertToJPEG(CameraImage, CVarJPEGQuality.GetValueOnGameThread(), !!CVarJPEGColor.GetValueOnGameThread(), !!CVarJPEGGpu.GetValueOnGameThread());
+            if (CompressionTask->AsyncTask.IsValid())
+            {
+                LastQueuedTimestamp = CameraImage->Timestamp;
+                CompressionQueue.Add(CompressionTask);
+            }
+        }
+    }
+    else
+    {
+        UE_LOG(LogRemoteSession, Warning, TEXT("No AR Camera Image to send!"));
+    }
 }
 
 void FRemoteSessionARCameraChannel::SendARCameraImage()

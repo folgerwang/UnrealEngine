@@ -11,7 +11,7 @@
 #include "UObject/PackageFileSummary.h"
 #include "UObject/Linker.h"
 #include "Templates/UniquePtr.h"
-#include "UObject/AthenaObjectVersion.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 
 FArchive& operator<<( FArchive& Ar, FWorldTileLayer& D )
 {
@@ -76,9 +76,9 @@ void operator<<(FStructuredArchive::FSlot Slot, FWorldTileLODInfo& D)
 FArchive& operator<<( FArchive& Ar, FWorldTileInfo& D )
 {
 	// Serialized with FPackageFileSummary
-	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
-	if (Ar.IsLoading() && Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::WorldCompositionTile3DOffset)
+	if (Ar.IsLoading() && Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::WorldCompositionTile3DOffset)
 	{
 		FIntPoint Position2D;
 		Ar << Position2D;

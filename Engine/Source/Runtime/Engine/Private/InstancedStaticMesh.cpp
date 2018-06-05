@@ -30,7 +30,7 @@
 #include "DeviceProfiles/DeviceProfile.h"
 #include "DeviceProfiles/DeviceProfileManager.h"
 #endif // WITH_EDITOR
-#include "UObject/AthenaObjectVersion.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 #include "UObject/EditorObjectVersion.h"
 
 
@@ -1602,11 +1602,11 @@ void UInstancedStaticMeshComponent::Serialize(FArchive& Ar)
 	Super::Serialize(Ar);
 
 	Ar.UsingCustomVersion(FMobileObjectVersion::GUID);
-	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 	Ar.UsingCustomVersion(FEditorObjectVersion::GUID);	
 	
 	bool bCooked = Ar.IsCooking();
-	if (Ar.CustomVer(FAthenaObjectVersion::GUID) >= FAthenaObjectVersion::SerializeInstancedStaticMeshRenderData || Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::SerializeInstancedStaticMeshRenderData)
+	if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) >= FFortniteMainBranchObjectVersion::SerializeInstancedStaticMeshRenderData || Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::SerializeInstancedStaticMeshRenderData)
 	{
 		Ar << bCooked;
 	}
@@ -1627,7 +1627,7 @@ void UInstancedStaticMeshComponent::Serialize(FArchive& Ar)
 		PerInstanceSMData.BulkSerialize(Ar);
 	}
 
-	if (bCooked && (Ar.CustomVer(FAthenaObjectVersion::GUID) >= FAthenaObjectVersion::SerializeInstancedStaticMeshRenderData || Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::SerializeInstancedStaticMeshRenderData))
+	if (bCooked && (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) >= FFortniteMainBranchObjectVersion::SerializeInstancedStaticMeshRenderData || Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::SerializeInstancedStaticMeshRenderData))
 	{
 		SerializeRenderData(Ar);
 	}

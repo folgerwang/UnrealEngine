@@ -3300,7 +3300,7 @@ void UMaterial::Serialize(FArchive& Ar)
 	SCOPED_LOADTIMER(MaterialSerializeTime);
 
 	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
-	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
 	Super::Serialize(Ar);
 
@@ -3383,7 +3383,7 @@ void UMaterial::Serialize(FArchive& Ar)
 	}
 #endif
 
-	if (Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::CachedMaterialQualityNodeUsage)
+	if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::CachedMaterialQualityNodeUsage)
 	{
 		TArray<bool, TInlineAllocator<EMaterialQualityLevel::Num>> QualityLevelsUsed;
 		GetQualityLevelNodeUsage(QualityLevelsUsed);

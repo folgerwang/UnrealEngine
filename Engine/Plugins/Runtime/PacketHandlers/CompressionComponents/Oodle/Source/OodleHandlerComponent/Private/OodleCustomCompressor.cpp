@@ -1,6 +1,11 @@
 #include "CoreTypes.h"
 #include "Misc/Compression.h"
+
+#if HAS_OODLE_SDK
 #include "oodle2.h"
+#endif
+
+#if HAS_OODLE_SDK
 
 struct FOodleCustomCompressor : ICustomCompressor
 {
@@ -48,3 +53,5 @@ ICustomCompressor* CreateOodleCustomCompressor()
 {
 	return new FOodleCustomCompressor(OodleLZ_Compressor_Mermaid, OodleLZ_CompressionLevel_Optimal2, 256);
 }
+
+#endif

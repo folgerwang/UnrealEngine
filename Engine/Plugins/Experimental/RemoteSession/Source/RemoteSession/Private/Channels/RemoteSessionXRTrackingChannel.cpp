@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Channels/RemoteSessionXRTrackingChannel.h"
+#include "RemoteSession.h"
 #include "Framework/Application/SlateApplication.h"
 #include "BackChannel/Protocol/OSC/BackChannelOSCConnection.h"
 #include "BackChannel/Protocol/OSC/BackChannelOSCMessage.h"
@@ -83,27 +84,41 @@ void FRemoteSessionXRTrackingChannel::Tick(const float InDeltaTime)
 
 void FRemoteSessionXRTrackingChannel::SendXRTracking()
 {
-	if (Connection.IsValid() && XRSystem.IsValid() && XRSystem->IsTracking(IXRTrackingSystem::HMDDeviceId))
-	{
-		FVector Location;
-		FQuat Orientation;
-		if (XRSystem->GetCurrentPose(IXRTrackingSystem::HMDDeviceId, Orientation, Location))
-		{
-			FRotator Rotation(Orientation);
+	if (Connection.IsValid())
+    {
+        if (XRSystem.IsValid() && XRSystem->IsTracking(IXRTrackingSystem::HMDDeviceId))
+        {
+            FVector Location;
+            FQuat Orientation;
+            if (XRSystem->GetCurrentPose(IXRTrackingSystem::HMDDeviceId, Orientation, Location))
+            {
+                FRotator Rotation(Orientation);
 
-			TwoParamMsg<FVector, FRotator> MsgParam(Location, Rotation);
-			FBackChannelOSCMessage Msg(MESSAGE_ADDRESS);
-			Msg.Write(MsgParam.AsData());
+                TwoParamMsg<FVector, FRotator> MsgParam(Location, Rotation);
+                FBackChannelOSCMessage Msg(MESSAGE_ADDRESS);
+                Msg.Write(MsgParam.AsData());
 
-			Connection->SendPacket(Msg);
-		}
-	}
+                Connection->SendPacket(Msg);
+                
+                UE_LOG(LogRemoteSession, Verbose, TEXT("Sent Rotation (%.02f,%.02f,%.02f)"), Rotation.Pitch,Rotation.Yaw,Rotation.Roll);
+            }
+            else
+            {
+                 UE_LOG(LogRemoteSession, Warning, TEXT("Failed to get XRPose"));
+            }
+        }
+        else
+        {
+            UE_LOG(LogRemoteSession, Warning, TEXT("XR Tracking not available to send"));
+        }
+    }
 }
 
 void FRemoteSessionXRTrackingChannel::ReceiveXRTracking(FBackChannelOSCMessage& Message, FBackChannelOSCDispatch& Dispatch)
 {
 	if (!ProxyXRSystem.IsValid())
 	{
+        UE_LOG(LogRemoteSession, Warning, TEXT("XRProxy is invalid. Cannot receive pose"));
 		return;
 	}
 
@@ -116,6 +131,8 @@ void FRemoteSessionXRTrackingChannel::ReceiveXRTracking(FBackChannelOSCMessage& 
 	{
 		FMemoryReader Ar(*DataCopy);
 		TwoParamMsg<FVector, FRotator> MsgParam(Ar);
+        
+        UE_LOG(LogRemoteSession, Verbose, TEXT("Received Rotation (%.02f,%.02f,%.02f)"), MsgParam.Param2.Pitch,MsgParam.Param2.Yaw,MsgParam.Param2.Roll);
 
 		FTransform NewTransform(MsgParam.Param2, MsgParam.Param1);
         TaskXRSystem->UpdateTrackingToWorldTransform(NewTransform);
