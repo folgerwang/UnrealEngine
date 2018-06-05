@@ -32,7 +32,7 @@ struct FGrassVariety
 	UStaticMesh* GrassMesh;
 
 	/* Instances per 10 square meters. */
-	UPROPERTY(EditAnywhere, Category=Grass, meta = (UIMin = 0, ClampMin = 0, UIMax = 10000, ClampMax = 10000))
+	UPROPERTY(EditAnywhere, Category=Grass, meta = (UIMin = 0, ClampMin = 0, UIMax = 1000, ClampMax = 1000))
 	FPerPlatformFloat GrassDensity;
 
 	/* If true, use a jittered grid sequence for placement, otherwise use a halton sequence. */
