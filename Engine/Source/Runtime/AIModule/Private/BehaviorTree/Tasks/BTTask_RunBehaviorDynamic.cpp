@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "BehaviorTree/Tasks/BTTask_RunBehaviorDynamic.h"
+#include "VisualLogger/VisualLogger.h"
 #include "BehaviorTree/BehaviorTree.h"
 
 UBTTask_RunBehaviorDynamic::UBTTask_RunBehaviorDynamic(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -12,13 +13,33 @@ UBTTask_RunBehaviorDynamic::UBTTask_RunBehaviorDynamic(const FObjectInitializer&
 EBTNodeResult::Type UBTTask_RunBehaviorDynamic::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
 	const bool bPushed = BehaviorAsset != nullptr && OwnerComp.PushInstance(*BehaviorAsset);
-	return bPushed ? EBTNodeResult::InProgress : EBTNodeResult::Failed;
+	if (bPushed && OwnerComp.InstanceStack.Num() > 0)
+	{
+		FBehaviorTreeInstance& MyInstance = OwnerComp.InstanceStack[OwnerComp.InstanceStack.Num() - 1];
+		MyInstance.DeactivationNotify.BindUObject(this, &UBTTask_RunBehaviorDynamic::OnSubtreeDeactivated);
+		// unbinding is not required, MyInstance will be destroyed after firing that delegate (usually by UBehaviorTreeComponent::ProcessPendingExecution) 
+
+		return EBTNodeResult::InProgress;
+	}
+
+	return EBTNodeResult::Failed;
 }
 
 void UBTTask_RunBehaviorDynamic::OnInstanceCreated(UBehaviorTreeComponent& OwnerComp)
 {
 	Super::OnInstanceCreated(OwnerComp);
 	BehaviorAsset = DefaultBehaviorAsset;
+}
+
+void UBTTask_RunBehaviorDynamic::OnSubtreeDeactivated(UBehaviorTreeComponent& OwnerComp, EBTNodeResult::Type NodeResult)
+{
+	const int32 MyInstanceIdx = OwnerComp.FindInstanceContainingNode(this);
+	uint8* NodeMemory = OwnerComp.GetNodeMemory(this, MyInstanceIdx);
+
+	UE_VLOG(OwnerComp.GetOwner(), LogBehaviorTree, Verbose, TEXT("OnSubtreeDeactivated: %s (result: %s)"),
+		*UBehaviorTreeTypes::DescribeNodeHelper(this), *UBehaviorTreeTypes::DescribeNodeResult(NodeResult));
+
+	OnTaskFinished(OwnerComp, NodeMemory, NodeResult);
 }
 
 FString UBTTask_RunBehaviorDynamic::GetStaticDescription() const
