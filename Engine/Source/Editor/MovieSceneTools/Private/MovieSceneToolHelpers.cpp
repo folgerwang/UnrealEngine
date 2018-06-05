@@ -717,7 +717,7 @@ bool MovieSceneToolHelpers::MovieSceneTranslatorImport(FMovieSceneImporter* InIm
 	bool bSuccess = InImporter->Import(InMovieScene, InFrameRate, OpenFilenames[0], ImportContext);
 
 	// Display any messages in context
-	MovieSceneTranslatorDisplayMessages(InImporter, ImportContext);
+	MovieSceneTranslatorLogMessages(InImporter, ImportContext, true);
 
 	// Roll back transaction when import fails.
 	if (!bSuccess)
@@ -774,10 +774,10 @@ bool MovieSceneToolHelpers::MovieSceneTranslatorExport(FMovieSceneExporter* InEx
 	TSharedRef<FMovieSceneTranslatorContext> ExportContext(new FMovieSceneTranslatorContext);
 	ExportContext->Init();
 
-	bool bSuccess = InExporter->Export(InMovieScene, FrameRate, ResX, ResY, HandleFrames, SaveFilenames[0], ExportContext);
+	bool bSuccess = InExporter->Export(InMovieScene, FilenameFormat, FrameRate, ResX, ResY, HandleFrames, SaveFilenames[0], ExportContext);
 	
 	// Display any messages in context
-	MovieSceneTranslatorDisplayMessages(InExporter, ExportContext);
+	MovieSceneTranslatorLogMessages(InExporter, ExportContext, true);
 
 	if (bSuccess)
 	{
@@ -794,13 +794,13 @@ bool MovieSceneToolHelpers::MovieSceneTranslatorExport(FMovieSceneExporter* InEx
 	return bSuccess;
 }
 
-void MovieSceneToolHelpers::MovieSceneTranslatorDisplayMessages(FMovieSceneTranslator *InTranslator, TSharedRef<FMovieSceneTranslatorContext> InContext)
+void MovieSceneToolHelpers::MovieSceneTranslatorLogMessages(FMovieSceneTranslator *InTranslator, TSharedRef<FMovieSceneTranslatorContext> InContext, bool bDisplayMessages)
 {
 	if (InTranslator == nullptr || InContext->GetMessages().Num() == 0)
 	{
 		return;
 	}
-
+	
 	// Clear any old messages after an import or export
 	const FName LogTitle = InTranslator->GetMessageLogWindowTitle();
 	FMessageLogModule& MessageLogModule = FModuleManager::LoadModuleChecked<FMessageLogModule>("MessageLog");
@@ -813,7 +813,31 @@ void MovieSceneToolHelpers::MovieSceneTranslatorDisplayMessages(FMovieSceneTrans
 		LogListing->AddMessage(Message);
 	}
 
-	MessageLogModule.OpenMessageLog(LogTitle);
+	if (bDisplayMessages)
+	{
+		MessageLogModule.OpenMessageLog(LogTitle);
+	}
+}
+
+void MovieSceneToolHelpers::MovieSceneTranslatorLogOutput(FMovieSceneTranslator *InTranslator, TSharedRef<FMovieSceneTranslatorContext> InContext)
+{
+	if (InTranslator == nullptr || InContext->GetMessages().Num() == 0)
+	{
+		return;
+	}
+
+	for (TSharedRef<FTokenizedMessage> Message : InContext->GetMessages())
+	{
+		if (Message->GetSeverity() == EMessageSeverity::Error)
+		{
+			UE_LOG(LogMovieScene, Error, TEXT("%s"), *Message->ToText().ToString());
+		}
+		else if (Message->GetSeverity() == EMessageSeverity::Warning)
+		{
+			UE_LOG(LogMovieScene, Warning, TEXT("%s"), *Message->ToText().ToString());
+
+		}
+	}
 }
 
 bool ImportFBXProperty(FString NodeName, FString AnimatedPropertyName, FGuid ObjectBinding, UnFbx::FFbxCurvesAPI& CurveAPI, UMovieScene* InMovieScene, ISequencer& InSequencer)
