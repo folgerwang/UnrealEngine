@@ -39,7 +39,7 @@ FText UNiagaraNodeCustomHlsl::GetHlslText() const
 void UNiagaraNodeCustomHlsl::OnCustomHlslTextCommitted(const FText& InText, ETextCommit::Type InType)
 {
 	FString NewValue = InText.ToString();
-	if (NewValue != CustomHlsl)
+	if (!NewValue.Equals(CustomHlsl, ESearchCase::CaseSensitive))
 	{
 		FScopedTransaction Transaction(LOCTEXT("CustomHlslCommit", "Edited Custom Hlsl"));
 		Modify();
