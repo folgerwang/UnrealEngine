@@ -480,12 +480,6 @@ public:
 
 	const TSet<FNavigationBounds>& GetNavigationBounds() const;
 
-	/** @return default walkable area class */
-	FORCEINLINE static TSubclassOf<UNavArea> GetDefaultWalkableArea() { return DefaultWalkableArea; }
-
-	/** @return default obstacle area class */
-	FORCEINLINE static TSubclassOf<UNavArea> GetDefaultObstacleArea() { return DefaultObstacleArea; }
-	
 	static const FNavDataConfig& GetDefaultSupportedAgent();
 	FORCEINLINE const FNavDataConfig& GetDefaultSupportedAgentConfig() const { check(SupportedAgents.Num() > 0);  return SupportedAgents[0]; }
 	FORCEINLINE const TArray<FNavDataConfig>& GetSupportedAgents() const { return SupportedAgents; }
@@ -590,10 +584,20 @@ public:
 	const FNavigationOctree* GetNavOctree() const { return NavOctree.Get(); }
 	FNavigationOctree* GetMutableNavOctree() { return NavOctree.Get(); }
 
-	FORCEINLINE void SetObjectsNavOctreeId(UObject* Object, FOctreeElementId Id) { ObjectToOctreeId.Add(Object, Id); }
-	FORCEINLINE const FOctreeElementId* GetObjectsNavOctreeId(const UObject* Object) const { return ObjectToOctreeId.Find(Object); }
+	// coppied from GetObjectOuterHash
+	FORCEINLINE static int32 HashObject(const UObject& Object)
+	{
+		return ((Object.GetFName().GetComparisonIndex() ^ Object.GetFName().GetNumber()) ^ (PTRINT(Object.GetOuter()) >> 6));
+	}
+	FORCEINLINE void SetObjectsNavOctreeId(const UObject& Object, FOctreeElementId Id) { ObjectToOctreeId.Add(HashObject(Object), Id); }
+	FORCEINLINE const FOctreeElementId* GetObjectsNavOctreeId(const UObject& Object) const { return ObjectToOctreeId.Find(HashObject(Object)); }
 	FORCEINLINE bool HasPendingObjectNavOctreeId(UObject* Object) const { return PendingOctreeUpdates.Contains(FNavigationDirtyElement(Object)); }
-	FORCEINLINE	void RemoveObjectsNavOctreeId(UObject* Object) { ObjectToOctreeId.Remove(Object); }
+	FORCEINLINE	void RemoveObjectsNavOctreeId(const UObject& Object) { ObjectToOctreeId.Remove(HashObject(Object)); }
+
+	/*FORCEINLINE void SetObjectsNavOctreeId(UObject* Object, FOctreeElementId Id) { ObjectToOctreeId.Add(HashObject(Object), Id); }
+	FORCEINLINE const FOctreeElementId* GetObjectsNavOctreeId(const UObject* Object) const { return ObjectToOctreeId.Find(HashObject(Object)); }
+	FORCEINLINE bool HasPendingObjectNavOctreeId(UObject* Object) const { return PendingOctreeUpdates.Contains(FNavigationDirtyElement(Object)); }
+	FORCEINLINE	void RemoveObjectsNavOctreeId(UObject* Object) { ObjectToOctreeId.Remove(HashObject(Object)); }*/
 	void RemoveNavOctreeElementId(const FOctreeElementId& ElementId, int32 UpdateFlags);
 
 	const FNavigationRelevantData* GetDataForObject(const UObject& Object) const;
@@ -802,7 +806,7 @@ protected:
 
 	TMap<FNavAgentProperties, TWeakObjectPtr<ANavigationData> > AgentToNavDataMap;
 	
-	TMap<const UObject*, FOctreeElementId> ObjectToOctreeId;
+	TMap<int32, FOctreeElementId> ObjectToOctreeId;
 
 	/** Map of all objects that are tied to indexed navigation parent */
 	TMultiMap<UObject*, FWeakObjectPtr> OctreeChildNodesMap;
@@ -860,8 +864,6 @@ protected:
 
 	static TMap<INavLinkCustomInterface*, FWeakObjectPtr> PendingCustomLinkRegistration;
 	TSet<const UClass*> NavAreaClasses;
-	static TSubclassOf<UNavArea> DefaultWalkableArea;
-	static TSubclassOf<UNavArea> DefaultObstacleArea;
 
 	/** delegate handler for PostLoadMap event */
 	void OnPostLoadMap(UWorld* LoadedWorld);
@@ -897,7 +899,8 @@ protected:
 	void UnregisterNavOctreeElement(UObject* ElementOwner, INavRelevantInterface* ElementInterface, int32 UpdateFlags);
 	
 	/** read element data from navigation octree */
-	bool GetNavOctreeElementData(UObject* NodeOwner, int32& DirtyFlags, FBox& DirtyBounds);
+	bool GetNavOctreeElementData(const UObject& NodeOwner, int32& DirtyFlags, FBox& DirtyBounds);
+	//bool GetNavOctreeElementData(UObject* NodeOwner, int32& DirtyFlags, FBox& DirtyBounds);
 
 	/** Adds given element to NavOctree. No check for owner's validity are performed, 
 	 *	nor its presence in NavOctree - function assumes callee responsibility 
@@ -982,6 +985,10 @@ public:
 	DEPRECATED(4.20, "SimpleMoveToLocation is deprecated. Use UAIBlueprintHelperLibrary::SimpleMoveToLocation instead")
 	UFUNCTION(BlueprintCallable, Category = "AI|Navigation", meta = (DisplayName = "SimpleMoveToLocation_DEPRECATED", ScriptNoExport, DeprecatedFunction, DeprecationMessage = "SimpleMoveToLocation is deprecated. Use AIBlueprintHelperLibrary::SimpleMoveToLocation instead"))
 	static void SimpleMoveToLocation(AController* Controller, const FVector& Goal);
+	DEPRECATED(4.20, "UNavigationSystem::GetDefaultWalkableArea is deprecated. Use FNavigationSystem::GetDefaultWalkableArea instead")
+	static TSubclassOf<UNavAreaBase> GetDefaultWalkableArea() { return FNavigationSystem::GetDefaultWalkableArea(); }
+	DEPRECATED(4.20, "UNavigationSystem::GetDefaultObstacleArea is deprecated. Use FNavigationSystem::GetDefaultObstacleArea instead")
+	static TSubclassOf<UNavAreaBase> GetDefaultObstacleArea() { return FNavigationSystem::GetDefaultObstacleArea(); }
 };
 
 

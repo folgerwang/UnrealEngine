@@ -558,7 +558,8 @@ struct FNavigationProjectionWork
 	// if set, projection function scoring will be biased for 2D work (e.g. in case of navmesh, findNearestPoly2D)
 	uint32 bHintProjection2D : 1;
 
-	// result of projection function
+	// result of projection function. 'true' means nav projection was successful
+	// and OutLocation contains Point projected to the nav data's surface
 	uint32 bResult : 1;
 
 	// if set, data in this structure is valid

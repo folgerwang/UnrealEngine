@@ -734,14 +734,14 @@ void LogPathPartHelper(AActor* LogOwner, FNavMeshPath* NavMeshPath, int32 StartI
 			CenterPt /= Verts.Num();
 
 			const UNavArea* DefArea = AreaClass ? ((UClass*)AreaClass)->GetDefaultObject<UNavArea>() : NULL;
-			const FColor PolygonColor = AreaClass != UNavigationSystemV1::GetDefaultWalkableArea() ? (DefArea ? DefArea->DrawColor : NavMesh->GetConfig().Color) : FColorList::LightSteelBlue;
+			const FColor PolygonColor = AreaClass != FNavigationSystem::GetDefaultWalkableArea() ? (DefArea ? DefArea->DrawColor : NavMesh->GetConfig().Color) : FColorList::LightSteelBlue;
 
 			CorridorPoly.SetColor(PolygonColor.WithAlpha(100));
 			CorridorPoly.Points.Reset();
 			CorridorPoly.Points.Append(Verts);
 			Snapshot->ElementsToDraw.Add(CorridorPoly);
 
-			if (AreaClass && AreaClass != UNavigationSystemV1::GetDefaultWalkableArea())
+			if (AreaClass && AreaClass != FNavigationSystem::GetDefaultWalkableArea())
 			{
 				FVisualLogShapeElement AreaMarkElem(EVisualLoggerShapeElement::Segment);
 				AreaMarkElem.SetColor(FColorList::Orange.WithAlpha(100));

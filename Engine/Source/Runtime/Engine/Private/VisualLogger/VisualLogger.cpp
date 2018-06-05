@@ -338,7 +338,16 @@ void FVisualLogger::NavigationDataDump(const UObject* Object, const FLogCategory
 void FVisualLogger::NavigationDataDump(const UObject* Object, const FName& CategoryName, const ELogVerbosity::Type Verbosity, const FBox& Box)
 {
 	SCOPE_CYCLE_COUNTER(STAT_VisualLog);
-	NavigationDataDumpDelegate.Broadcast(Object, CategoryName, Verbosity, Box);
+
+	UWorld* World = nullptr;
+	FVisualLogEntry* CurrentEntry = nullptr;
+	if (CheckVisualLogInputInternal(Object, CategoryName, Verbosity, &World, &CurrentEntry) == false 
+		|| CurrentEntry == nullptr)
+	{
+		return;
+	}
+	
+	NavigationDataDumpDelegate.Broadcast(Object, CategoryName, Verbosity, Box, *World, *CurrentEntry);
 }
 
 

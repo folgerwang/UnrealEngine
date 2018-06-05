@@ -222,7 +222,7 @@ float FMetaNavMeshPath::GetLengthFromPosition(FVector SegmentStart, uint32 NextP
 float FMetaNavMeshPath::GetCostFromIndex(int32 PathPointIndex) const
 {
 	// return approximation of full path * default cost, there's not enough data to give accurate value
-	const UNavArea* DefaultAreaOb = UNavigationSystemV1::GetDefaultWalkableArea().GetDefaultObject();
+	const UNavArea* DefaultAreaOb = static_cast<const UNavArea*>(FNavigationSystem::GetDefaultWalkableArea().GetDefaultObject());
 	const float DefaultAreaCost = DefaultAreaOb ? DefaultAreaOb->DefaultCost : 1.0f;
 	return ApproximateLength * DefaultAreaCost;
 }

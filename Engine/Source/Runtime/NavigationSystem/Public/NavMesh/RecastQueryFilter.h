@@ -41,6 +41,11 @@ public:
 
 	/** note that it results in losing all area cost setup. Call it before setting anything else */
 	void SetIsVirtual(bool bIsVirtual);
+
+	//----------------------------------------------------------------------//
+	// @note you might also want to override following functions from dtQueryFilter	
+	// virtual bool passVirtualFilter(const dtPolyRef ref, const dtMeshTile* tile, const dtPoly* poly) const;
+	// virtual float getVirtualCost(const float* pa, const float* pb, const dtPolyRef prevRef, const dtMeshTile* prevTile, const dtPoly* prevPoly, const dtPolyRef curRef, const dtMeshTile* curTile, const dtPoly* curPoly, const dtPolyRef nextRef, const dtMeshTile* nextTile, const dtPoly* nextPoly) const;
 };
 
 struct NAVIGATIONSYSTEM_API FRecastSpeciaLinkFilter : public dtQuerySpecialLinkFilter

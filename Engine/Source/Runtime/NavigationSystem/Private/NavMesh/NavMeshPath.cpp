@@ -816,7 +816,7 @@ void FNavMeshPath::DescribeSelfToVisLog(FVisualLogEntry* Snapshot) const
 		}
 
 		const UNavArea* DefArea = AreaClass ? ((UClass*)AreaClass)->GetDefaultObject<UNavArea>() : NULL;
-		TSubclassOf<UNavAreaBase> DefaultWalkableArea = FNavigationSystem::GetDefaultWalkableArea();
+		const TSubclassOf<UNavAreaBase> DefaultWalkableArea = FNavigationSystem::GetDefaultWalkableArea();
 		const FColor PolygonColor = AreaClass != DefaultWalkableArea ? (DefArea ? DefArea->DrawColor : NavMesh->GetConfig().Color) : FColorList::Cyan;
 
 		CorridorPoly.SetColor(PolygonColor.WithAlpha(100));
