@@ -221,7 +221,10 @@ UEdGraphNode* FEdGraphSchemaAction_K2NewNode::CreateNode(
 	ParentGraph->Modify();
 	for(UEdGraphPin* FromPin : FromPins)
 	{
-		FromPin->Modify();
+		if (FromPin != nullptr)
+		{
+			FromPin->Modify();
+		}
 	}
 
 	// Smart pointer that handles fixup after potential node reconstruction
