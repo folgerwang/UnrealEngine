@@ -29,26 +29,33 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugCommandEncoder)
 	[WaitingFences release];
 	[super dealloc];
 }
-
--(id<MTLCommandEncoder>)commandEncoder
-{
-	check(false);
-	return nil;
-}
--(void)addUpdateFence:(id)Fence
-{
-	if ((EMetalDebugLevel)GMetalRuntimeDebugLevel >= EMetalDebugLevelValidation && Fence)
-	{
-		[UpdatedFences addObject:(FMetalDebugFence*)Fence];
-		[(FMetalDebugFence*)Fence updatingEncoder:self];
-	}
-}
--(void)addWaitFence:(id)Fence
-{
-	if ((EMetalDebugLevel)GMetalRuntimeDebugLevel >= EMetalDebugLevelValidation && Fence)
-	{
-		[WaitingFences addObject:(FMetalDebugFence*)Fence];
-		[(FMetalDebugFence*)Fence waitingEncoder:self];
-	}
-}
 @end
+
+FMetalCommandEncoderDebugging::FMetalCommandEncoderDebugging()
+{
+	
+}
+
+FMetalCommandEncoderDebugging::FMetalCommandEncoderDebugging(FMetalDebugCommandEncoder* handle)
+: ns::Object<FMetalDebugCommandEncoder*>(handle)
+{
+	
+}
+
+void FMetalCommandEncoderDebugging::AddUpdateFence(id Fence)
+{
+	if ((EMetalDebugLevel)GMetalRuntimeDebugLevel >= EMetalDebugLevelValidation && Fence)
+	{
+		[m_ptr->UpdatedFences addObject:(FMetalDebugFence*)Fence];
+		[(FMetalDebugFence*)Fence updatingEncoder:m_ptr];
+	}
+}
+
+void FMetalCommandEncoderDebugging::AddWaitFence(id Fence)
+{
+	if ((EMetalDebugLevel)GMetalRuntimeDebugLevel >= EMetalDebugLevelValidation && Fence)
+	{
+		[m_ptr->WaitingFences addObject:(FMetalDebugFence*)Fence];
+		[(FMetalDebugFence*)Fence waitingEncoder:m_ptr];
+	}
+}

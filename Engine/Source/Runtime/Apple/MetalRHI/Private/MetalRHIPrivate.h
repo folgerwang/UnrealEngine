@@ -88,8 +88,10 @@ extern FMetalBufferFormat GMetalBufferFormats[PF_MAX];
 #define METAL_DEBUG_OPTIONS !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 #if METAL_DEBUG_OPTIONS
 #define METAL_DEBUG_OPTION(Code) Code
+#define METAL_DEBUG_LAYER(Level, Code) if (SafeGetRuntimeDebuggingLevel() >= Level) Code
 #else
 #define METAL_DEBUG_OPTION(Code)
+#define METAL_DEBUG_LAYER(Level, Code)
 #endif
 
 extern bool GMetalSupportsTileShaders;
