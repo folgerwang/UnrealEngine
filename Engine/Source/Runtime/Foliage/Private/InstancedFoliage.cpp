@@ -1216,7 +1216,7 @@ void FFoliageMeshInfo::PreMoveInstances(AInstancedFoliageActor* InIFA, const TAr
 }
 
 
-void FFoliageMeshInfo::PostUpdateInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesUpdated, bool bReAddToHash)
+void FFoliageMeshInfo::PostUpdateInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesUpdated, bool bReAddToHash, bool InUpdateSelection)
 {
 	if (InInstancesUpdated.Num())
 	{
@@ -1236,6 +1236,12 @@ void FFoliageMeshInfo::PostUpdateInstances(AInstancedFoliageActor* InIFA, const 
 			{
 				InstanceHash->InsertInstance(Instance.Location, InstanceIndex);
 			}
+
+			// Reselect the instance to update the render update to include selection as by default it gets removed
+			if (InUpdateSelection)
+			{
+				Component->SelectInstance(true, InstanceIndex);
+			}
 		}
 
 		Component->InvalidateLightingCache();
@@ -1245,7 +1251,7 @@ void FFoliageMeshInfo::PostUpdateInstances(AInstancedFoliageActor* InIFA, const 
 
 void FFoliageMeshInfo::PostMoveInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesMoved)
 {
-	PostUpdateInstances(InIFA, InInstancesMoved, true);
+	PostUpdateInstances(InIFA, InInstancesMoved, true, true);
 }
 
 void FFoliageMeshInfo::DuplicateInstances(AInstancedFoliageActor* InIFA, UFoliageType* InSettings, const TArray<int32>& InInstancesToDuplicate)

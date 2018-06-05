@@ -799,8 +799,7 @@ public:
 
 	/**
 	 * Constructor
-	 * @param InNeedsCPUAccess - true if resource array data should be CPU accessible
-	 * @param bSupportsVertexHalfFloat - true if device has support for half float in vertex arrays
+	 * @param bInUseHalfFloat - true if device has support for half float in vertex arrays
 	 */
 	FStaticMeshInstanceData(bool bInUseHalfFloat)
 		: bUseHalfFloat(PLATFORM_BUILTIN_VERTEX_HALF_FLOAT || bInUseHalfFloat)
