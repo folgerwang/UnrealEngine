@@ -250,15 +250,17 @@ FString FNiagaraParameterMapHistory::MakeSafeNamespaceString(const FString& InSt
 }
 
 
-FNiagaraVariable FNiagaraParameterMapHistory::ResolveAsBasicAttribute(const FNiagaraVariable& InVar)
+FNiagaraVariable FNiagaraParameterMapHistory::ResolveAsBasicAttribute(const FNiagaraVariable& InVar, bool bSanitizeString)
 {
 	if (IsAttribute(InVar))
 	{
 		FString ParamName = InVar.GetName().ToString();
 		ParamName.RemoveAt(0, FString(PARAM_MAP_ATTRIBUTE_STR).Len());
 
-		ParamName = MakeSafeNamespaceString(ParamName);
-
+		if (bSanitizeString)
+		{
+			ParamName = MakeSafeNamespaceString(ParamName);
+		}
 		FNiagaraVariable RetVar = InVar;
 		RetVar.SetName(*ParamName);
 		return RetVar;
@@ -269,12 +271,15 @@ FNiagaraVariable FNiagaraParameterMapHistory::ResolveAsBasicAttribute(const FNia
 	}
 }
 
-FNiagaraVariable FNiagaraParameterMapHistory::BasicAttributeToNamespacedAttribute(const FNiagaraVariable& InVar)
+FNiagaraVariable FNiagaraParameterMapHistory::BasicAttributeToNamespacedAttribute(const FNiagaraVariable& InVar, bool bSanitizeString)
 {
 	FString ParamName = InVar.GetName().ToString();
 	ParamName.InsertAt(0, FString(PARAM_MAP_ATTRIBUTE_STR));
 
-	ParamName = MakeSafeNamespaceString(ParamName);
+	if (bSanitizeString)
+	{
+		ParamName = MakeSafeNamespaceString(ParamName);
+	}
 
 	FNiagaraVariable RetVar = InVar;
 	RetVar.SetName(*ParamName);
