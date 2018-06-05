@@ -25,6 +25,7 @@
 #include "NiagaraTypes.h"
 #include "Misc/FileHelper.h"
 #include "NiagaraShader.h"
+#include "ShaderParameterUtils.h"
 
 #define LOCTEXT_NAMESPACE "HoudiniNiagaraCSVDataInterface"
 

@@ -1124,7 +1124,7 @@ bool UHoudiniCSV::GetColumnIndexFromString( const FString& ColumnTitle, int32& C
 }
 
 // Returns the float value at a given point in the CSV file
-bool UHoudiniCSV::GetFloatValue( const int32& rowIndex, const FString& ColumnTitle, float& value ) const
+bool UHoudiniCSV::GetFloatValueForString( const int32& rowIndex, const FString& ColumnTitle, float& value ) const
 {
     int32 ColIndex = -1;
     if ( !GetColumnIndexFromString( ColumnTitle, ColIndex ) )
