@@ -1083,6 +1083,8 @@ void FAnimInstanceProxy::UpdateAnimation()
 	ANIM_MT_SCOPE_CYCLE_COUNTER(ProxyUpdateAnimation, !IsInGameThread());
 	FScopeCycleCounterUObject AnimScope(GetAnimInstanceObject());
 
+	CacheBones();
+
 	// update native update
 	{
 		SCOPE_CYCLE_COUNTER(STAT_NativeUpdateAnimation);
