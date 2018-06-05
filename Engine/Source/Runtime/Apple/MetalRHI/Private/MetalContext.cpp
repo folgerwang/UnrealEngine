@@ -483,6 +483,21 @@ void FMetalDeviceContext::EndFrame()
 	
 	ClearFreeList();
 	
+	// A 'frame' in this context is from the beginning of encoding on the CPU
+	// to the end of all rendering operations on the GPU. So the semaphore is
+	// signalled when the last command buffer finishes GPU execution.
+	{
+		dispatch_semaphore_t CmdBufferSemaphore = CommandBufferSemaphore;
+		dispatch_retain(CmdBufferSemaphore);
+		
+		RenderPass.AddCompletionHandler(
+		[CmdBufferSemaphore](mtlpp::CommandBuffer const& cmd_buf)
+		{
+			dispatch_semaphore_signal(CmdBufferSemaphore);
+			dispatch_release(CmdBufferSemaphore);
+		});
+	}
+	
 	if (bPresented)
 	{
 		FMetalGPUProfiler::IncrementFrameIndex();
@@ -567,14 +582,6 @@ void FMetalDeviceContext::FlushFreeList()
 	ObjectFreeList.Empty(ObjectFreeList.Num());
 	FreeListMutex.Unlock();
 	
-	dispatch_semaphore_t CmdBufferSemaphore = CommandBufferSemaphore;
-	dispatch_retain(CmdBufferSemaphore);
-	
-	RenderPass.AddCompletionHandler([CmdBufferSemaphore](mtlpp::CommandBuffer const&)
-									{
-										dispatch_semaphore_signal(CmdBufferSemaphore);
-										dispatch_release(CmdBufferSemaphore);
-									});
 	DelayedFreeLists.Add(NewList);
 }
 
@@ -618,12 +625,6 @@ void FMetalDeviceContext::EndDrawingViewport(FMetalViewport* Viewport, bool bPre
 	if( FrameReadyEvent != nullptr && !GMetalSeparatePresentThread )
 	{
 		FrameReadyEvent->Wait();
-	}
-	
-	// The editor doesn't always call EndFrame appropriately so do so here
-	if (GIsEditor)
-	{
-		EndFrame();
 	}
 	
 	Viewport->ReleaseDrawable();
