@@ -29,6 +29,7 @@
 #include "InstancedStaticMesh.h"
 #include "SceneManagement.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "UObject/ReleaseObjectVersion.h"
 
 static TAutoConsoleVariable<int32> CVarFoliageSplitFactor(
 	TEXT("foliage.SplitFactor"),
@@ -446,6 +447,11 @@ public:
 				const FMatrix& ThisInstTrans = Transforms[SortedInstances[InstanceIndex]];
 				FBox ThisInstBox = InstBox.TransformBy(ThisInstTrans);
 				NodeBox += ThisInstBox;
+
+				FVector CurrentScale = ThisInstTrans.GetScaleVector();
+
+				Node.MinInstanceScale = Node.MinInstanceScale.ComponentMin(CurrentScale);
+				Node.MaxInstanceScale = Node.MaxInstanceScale.ComponentMax(CurrentScale);
 			}
 			Node.BoundMin = NodeBox.Min;
 			Node.BoundMax = NodeBox.Max;
@@ -621,6 +627,9 @@ public:
 						FClusterNode& ChildNode = Result->Nodes[ChildIndex];
 						NodeBox += ChildNode.BoundMin;
 						NodeBox += ChildNode.BoundMax;
+
+						Node.MinInstanceScale = Node.MinInstanceScale.ComponentMin(ChildNode.MinInstanceScale);
+						Node.MaxInstanceScale = Node.MaxInstanceScale.ComponentMax(ChildNode.MaxInstanceScale);
 					}
 					Node.BoundMin = NodeBox.Min;
 					Node.BoundMax = NodeBox.Max;
@@ -1113,7 +1122,7 @@ static FORCEINLINE_DEBUGGABLE bool CullNode(const FFoliageCullInstanceParams& Pa
 	return false;
 }
 
-inline void CalcLOD(int32& InOutMinLOD, int32& InOutMaxLOD, const FVector& BoundMin, const FVector& BoundMax, const FVector& ViewOriginInLocalZero, const FVector& ViewOriginInLocalOne, const float (&LODPlanesMin)[MAX_STATIC_MESH_LODS], const float (&LODPlanesMax)[MAX_STATIC_MESH_LODS])
+inline void CalcLOD(int32& InOutMinLOD, int32& InOutMaxLOD, const FVector& BoundMin, const FVector& BoundMax, const FVector& ViewOriginInLocalZero, const FVector& ViewOriginInLocalOne, const float (&LODPlanesMin)[MAX_STATIC_MESH_LODS], const float (&LODPlanesMax)[MAX_STATIC_MESH_LODS], float LODDistanceScaleFactor)
 {
 	if (InOutMinLOD != InOutMaxLOD)
 	{
@@ -1124,11 +1133,11 @@ inline void CalcLOD(int32& InOutMinLOD, int32& InOutMaxLOD, const FVector& Bound
 		const float NearDot = FMath::Min(DistCenterZero, DistCenterOne) - HalfWidth;
 		const float FarDot = FMath::Max(DistCenterZero, DistCenterOne) + HalfWidth;
 
-		while (InOutMaxLOD > InOutMinLOD && NearDot > LODPlanesMax[InOutMinLOD])
+		while (InOutMaxLOD > InOutMinLOD && NearDot > LODPlanesMax[InOutMinLOD] * LODDistanceScaleFactor)
 		{
 			InOutMinLOD++;
 		}
-		while (InOutMaxLOD > InOutMinLOD && FarDot < LODPlanesMin[InOutMaxLOD - 1])
+		while (InOutMaxLOD > InOutMinLOD && FarDot < LODPlanesMin[InOutMaxLOD - 1] * LODDistanceScaleFactor)
 		{
 			InOutMaxLOD--;
 		}
@@ -1163,7 +1172,10 @@ void FHierarchicalStaticMeshSceneProxy::Traverse(const FFoliageCullInstanceParam
 
 	if (MinLOD != MaxLOD)
 	{
-		CalcLOD(MinLOD, MaxLOD, Node.BoundMin, Node.BoundMax, Params.ViewOriginInLocalZero, Params.ViewOriginInLocalOne, Params.LODPlanesMin, Params.LODPlanesMax);
+		FVector ScaleAverage = (Node.MaxInstanceScale - Node.MinInstanceScale) / 2.0f;
+		float DistanceScale = FMath::Max(FMath::Max3(ScaleAverage.X, ScaleAverage.Y, ScaleAverage.Z), 0.001f);
+
+		CalcLOD(MinLOD, MaxLOD, Node.BoundMin, Node.BoundMax, Params.ViewOriginInLocalZero, Params.ViewOriginInLocalOne, Params.LODPlanesMin, Params.LODPlanesMax, DistanceScale);
 
 		if (MinLOD >= Params.LODs)
 		{
@@ -1529,7 +1541,7 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 				float FinalCull = MAX_flt;
 				if (MinSize > 0.0)
 				{
-					FinalCull = ComputeBoundsDrawDistance(MinSize, SphereRadius, View->ViewMatrices.GetProjectionMatrix()) * LODScale;
+					FinalCull = ComputeBoundsDrawDistance(MinSize, SphereRadius * FMath::Max(FMath::Min3(ClusterTree[0].MinInstanceScale.X, ClusterTree[0].MinInstanceScale.Y, ClusterTree[0].MinInstanceScale.Z), 0.001f), View->ViewMatrices.GetProjectionMatrix()) * LODScale;
 				}
 				if (UserData_AllInstances.EndCullDistance > 0.0f)
 				{
@@ -1714,16 +1726,18 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 						LODPlanesMin[NumLODs - 1] = FinalCull - LODRandom;
 						LODPlanesMax[NumLODs - 1] = FinalCull;				
 
+						// NOTE: in case of unbuilt we can't really apply the instance scales so the LOD won't be optimal until the build is completed
+
 						// calculate runs
 						int32 MinLOD = 0;
 						int32 MaxLOD = NumLODs;
-						CalcLOD(MinLOD, MaxLOD, UnbuiltBounds[0].Min, UnbuiltBounds[0].Max, ViewOriginInLocalZero, ViewOriginInLocalOne, LODPlanesMin, LODPlanesMax);
+						CalcLOD(MinLOD, MaxLOD, UnbuiltBounds[0].Min, UnbuiltBounds[0].Max, ViewOriginInLocalZero, ViewOriginInLocalOne, LODPlanesMin, LODPlanesMax, 1.0f);
 						int32 FirstIndexInRun = 0;
 						for (int32 Index = 1; Index < UnbuiltInstanceCount; ++Index)
 						{
 							int32 TempMinLOD = 0;
 							int32 TempMaxLOD = NumLODs;
-							CalcLOD(TempMinLOD, TempMaxLOD, UnbuiltBounds[Index].Min, UnbuiltBounds[Index].Max, ViewOriginInLocalZero, ViewOriginInLocalOne, LODPlanesMin, LODPlanesMax);
+							CalcLOD(TempMinLOD, TempMaxLOD, UnbuiltBounds[Index].Min, UnbuiltBounds[Index].Max, ViewOriginInLocalZero, ViewOriginInLocalOne, LODPlanesMin, LODPlanesMax, 1.0f);
 							if (TempMinLOD != MinLOD)
 							{
 								if (MinLOD < NumLODs)
@@ -1746,11 +1760,24 @@ void FHierarchicalStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<cons
 				FillDynamicMeshElements(Collector, ElementParams, InstanceParams);
 			}
 
-			if (View->Family->EngineShowFlags.FoliageOcclusionBounds)
+			if (View->Family->EngineShowFlags.HISMCOcclusionBounds)
 			{
 				for (auto& OcclusionBound : OcclusionBounds)
 				{
 					DrawWireBox(Collector.GetPDI(ViewIndex), OcclusionBound.GetBox(), FColor(255, 0, 0), View->Family->EngineShowFlags.Game ? SDPG_World : SDPG_Foreground);
+				}
+			}
+
+			if (View->Family->EngineShowFlags.HISMCClusterTree)
+			{
+				FColor StartingColor(100, 0, 0);
+
+				for (const FClusterNode& CulsterNode : ClusterTree)
+				{
+					DrawWireBox(Collector.GetPDI(ViewIndex), FBox(CulsterNode.BoundMin, CulsterNode.BoundMax), StartingColor, View->Family->EngineShowFlags.Game ? SDPG_World : SDPG_Foreground);
+					StartingColor.R += 5;
+					StartingColor.G += 5;
+					StartingColor.B += 5;
 				}
 			}
 		}
@@ -1872,6 +1899,8 @@ void UHierarchicalInstancedStaticMeshComponent::Serialize(FArchive& Ar)
 {
 	LLM_SCOPE(ELLMTag::StaticMesh);	
 
+	Ar.UsingCustomVersion(FReleaseObjectVersion::GUID);
+
 	// Before serializing the content to cook, wait for the async task to be completed
 	if (bIsAsyncBuilding && Ar.IsSaving() && Ar.IsCooking())
 	{
@@ -1899,10 +1928,24 @@ void UHierarchicalInstancedStaticMeshComponent::Serialize(FArchive& Ar)
 	{
 		ClusterTreePtr = MakeShareable(new TArray<FClusterNode>);
 	}
-	TArray<FClusterNode>& ClusterTree = *ClusterTreePtr;
-	ClusterTree.BulkSerialize(Ar);
+
+	if (Ar.IsLoading() && Ar.CustomVer(FReleaseObjectVersion::GUID) < FReleaseObjectVersion::HISMCClusterTreeMigration)
+	{
+		// Skip the serialized tree, we will regenerate it correctly to contains the new data
+		TArray<FClusterNode_DEPRECATED> ClusterTree_DEPRECATED;
+		ClusterTree_DEPRECATED.BulkSerialize(Ar);
+
+		BuildTreeIfOutdated(false, true);
+	}
+	else
+	{
+		ClusterTreePtr->BulkSerialize(Ar);
+	}
+
 	if (Ar.IsLoading() && !BuiltInstanceBounds.IsValid)
 	{
+		TArray<FClusterNode>& ClusterTree = *ClusterTreePtr.Get();
+
 		BuiltInstanceBounds = (ClusterTree.Num() > 0 ? FBox(ClusterTree[0].BoundMin, ClusterTree[0].BoundMax) : FBox(ForceInit));
 	}
 }
@@ -3047,3 +3090,5 @@ static FAutoConsoleCommand RebuildFoliageTreesCmd(
 	FConsoleCommandWithArgsDelegate::CreateStatic(&RebuildFoliageTrees)
 	);
 
+
+PRAGMA_ENABLE_OPTIMIZATION
