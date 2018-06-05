@@ -908,7 +908,7 @@ void FSteamVRHMD::PoseToOrientationAndPosition(const vr::HmdMatrix34_t& InPose, 
 	OutOrientation.Z = Orientation.Y;
 	OutOrientation.W = -Orientation.W;
 
-	FVector Position = ((FVector(-Pose.M[3][2], Pose.M[3][0], Pose.M[3][1]) - BaseOffset) * WorldToMetersScale);
+	FVector Position = ((FVector(-Pose.M[3][2], Pose.M[3][0], Pose.M[3][1])) * WorldToMetersScale - BaseOffset);
 	OutPosition = BaseOrientation.Inverse().RotateVector(Position);
 
 	OutOrientation = BaseOrientation.Inverse() * OutOrientation;
@@ -1208,7 +1208,7 @@ void FSteamVRHMD::ResetPosition()
 {
 	const FTrackingFrame& TrackingFrame = GetTrackingFrame();
 	FMatrix Pose = ToFMatrix(TrackingFrame.RawPoses[vr::k_unTrackedDeviceIndex_Hmd]);
-	BaseOffset = FVector(-Pose.M[3][2], Pose.M[3][0], Pose.M[3][1]);
+	BaseOffset = FVector(-Pose.M[3][2], Pose.M[3][0], Pose.M[3][1]) * TrackingFrame.WorldToMetersScale;
 }
 
 void FSteamVRHMD::SetBaseRotation(const FRotator& BaseRot)
@@ -1228,6 +1228,16 @@ void FSteamVRHMD::SetBaseOrientation(const FQuat& BaseOrient)
 FQuat FSteamVRHMD::GetBaseOrientation() const
 {
 	return BaseOrientation;
+}
+
+void FSteamVRHMD::SetBasePosition(const FVector& BasePosition)
+{
+	BaseOffset = BasePosition;
+}
+
+FVector FSteamVRHMD::GetBasePosition() const
+{
+	return BaseOffset;
 }
 
 bool FSteamVRHMD::IsStereoEnabled() const

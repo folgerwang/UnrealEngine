@@ -250,6 +250,24 @@ FTransform UHeadMountedDisplayFunctionLibrary::GetTrackingToWorldTransform(UObje
 	return FTransform::Identity;
 }
 
+void UHeadMountedDisplayFunctionLibrary::CalibrateExternalTrackingToHMD(const FTransform& ExternalTrackingTransform)
+{
+	IXRTrackingSystem* TrackingSys = GEngine->XRSystem.Get();
+	if (TrackingSys)
+	{
+		TrackingSys->CalibrateExternalTrackingSource(ExternalTrackingTransform);
+	}
+}
+
+void UHeadMountedDisplayFunctionLibrary::UpdateExternalTrackingHMDPosition(const FTransform& ExternalTrackingTransform)
+{
+	IXRTrackingSystem* TrackingSys = GEngine->XRSystem.Get();
+	if (TrackingSys)
+	{
+		TrackingSys->UpdateExternalTrackingPosition(ExternalTrackingTransform);
+	}
+}
+
 void UHeadMountedDisplayFunctionLibrary::GetVRFocusState(bool& bUseFocus, bool& bHasFocus)
 {
 	IHeadMountedDisplay* HMD = GEngine->XRSystem.IsValid() ? GEngine->XRSystem->GetHMDDevice() : nullptr;

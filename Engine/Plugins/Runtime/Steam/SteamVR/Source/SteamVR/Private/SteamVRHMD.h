@@ -154,7 +154,9 @@ public:
 	virtual FRotator GetBaseRotation() const override;
 	virtual void SetBaseOrientation(const FQuat& BaseOrient) override;
 	virtual FQuat GetBaseOrientation() const override;
-
+	virtual void SetBasePosition(const FVector& BasePosition) override;
+	virtual FVector GetBasePosition() const override;
+	
 	virtual void OnEndPlay(FWorldContext& InWorldContext) override;
 	virtual void RecordAnalytics() override;
 
