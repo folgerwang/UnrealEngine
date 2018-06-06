@@ -18,12 +18,27 @@ static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData(ARAnchor* Anchor)
     if ([Anchor isKindOfClass:[ARFaceAnchor class]])
     {
         ARFaceAnchor* FaceAnchor = (ARFaceAnchor*)Anchor;
-        NewAnchor = MakeShared<FAppleARKitAnchorData>(
+//@joeg -- Eye tracking support
+		FTransform LeftEyeTransform;
+		FTransform RightEyeTransform;
+		FVector LookAtTarget;
+#if SUPPORTS_ARKIT_2_0
+		if (FAppleARKitAvailability::SupportsARKit20())
+		{
+			LeftEyeTransform = FAppleARKitConversion::ToFTransform(FaceAnchor.leftEyeTransform);
+			RightEyeTransform = FAppleARKitConversion::ToFTransform(FaceAnchor.rightEyeTransform);
+			LookAtTarget = FAppleARKitConversion::ToFVector(FaceAnchor.lookAtPoint);
+		}
+#endif
+		NewAnchor = MakeShared<FAppleARKitAnchorData>(
 			FAppleARKitConversion::ToFGuid(FaceAnchor.identifier),
 			FAppleARKitConversion::ToFTransform(FaceAnchor.transform),
-			ToBlendShapeMap(FaceAnchor.blendShapes, FAppleARKitConversion::ToFTransform(FaceAnchor.transform)),
-			ToVertexBuffer(FaceAnchor.geometry.vertices, FaceAnchor.geometry.vertexCount)
-        );
+			ToBlendShapeMap(FaceAnchor.blendShapes, FAppleARKitConversion::ToFTransform(FaceAnchor.transform), LeftEyeTransform, RightEyeTransform),
+			ToVertexBuffer(FaceAnchor.geometry.vertices, FaceAnchor.geometry.vertexCount),
+			LeftEyeTransform,
+			RightEyeTransform,
+			LookAtTarget
+		);
         // Only convert from 16bit to 32bit once
         if (FAppleARKitAnchorData::FaceIndices.Num() == 0)
         {

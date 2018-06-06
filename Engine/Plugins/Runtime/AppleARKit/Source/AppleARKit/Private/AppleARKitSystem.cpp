@@ -14,7 +14,8 @@
 #include "GeneralProjectSettings.h"
 #include "ARSessionConfig.h"
 #include "AppleARKitSettings.h"
-#include "ARTrackable.h"
+//@joeg -- Environment capture support
+#include "AppleARKitTrackable.h"
 #include "ARLightEstimate.h"
 #include "ARTraceResult.h"
 #include "ARPin.h"
@@ -141,7 +142,6 @@ private:
 	FAppleARKitSystem& ARKitSystem;
 	FAppleARKitVideoOverlay VideoOverlay;
 };
-
 
 //
 //  FAppleARKitSystem
@@ -725,6 +725,241 @@ bool FAppleARKitSystem::OnIsTrackingTypeSupported(EARSessionType SessionType) co
 	return false;
 }
 
+//@joeg -- ARKit 2.0 additions
+
+bool FAppleARKitSystem::OnAddManualEnvironmentCaptureProbe(FVector Location, FVector Extent)
+{
+#if SUPPORTS_ARKIT_2_0
+	if (Session != nullptr)
+	{
+		if (FAppleARKitAvailability::SupportsARKit20())
+		{
+//@joeg -- Todo need to fix this transform as it needs to use the alignment transform too
+			// Build and add the anchor
+			simd_float4x4 AnchorMatrix = FAppleARKitConversion::ToARKitMatrix(FTransform(Location));
+			simd_float3 AnchorExtent = FAppleARKitConversion::ToARKitVector(Extent * 2.f);
+			AREnvironmentProbeAnchor* ARProbe = [[AREnvironmentProbeAnchor alloc] initWithTransform: AnchorMatrix extent: AnchorExtent];
+			[Session addAnchor: ARProbe];
+			[ARProbe release];
+		}
+		return true;
+	}
+#endif
+	return false;
+}
+
+#if SUPPORTS_ARKIT_2_0
+/** Since both the object extraction and world saving need to get the world map async, use a common chunk of code for this */
+class FAppleARKitGetWorldMapObjectAsyncTask
+{
+public:
+	/** Performs the call to get the world map and triggers the OnWorldMapAcquired() the completion handler */
+	void Run()
+	{
+		[Session getCurrentWorldMapWithCompletionHandler: ^(ARWorldMap* worldMap, NSError* error)
+		 {
+			 WorldMap = worldMap;
+			 [WorldMap retain];
+			 bool bWasSuccessful = error == nullptr;
+			 FString ErrorString;
+			 if (error != nullptr)
+			 {
+				 ErrorString = [error localizedDescription];
+			 }
+			 OnWorldMapAcquired(bWasSuccessful, ErrorString);
+		 }];
+	}
+	
+protected:
+	FAppleARKitGetWorldMapObjectAsyncTask(ARSession* InSession) :
+		Session(InSession)
+	{
+		CFRetain(Session);
+	}
+	
+	void Release()
+	{
+		if (Session != nullptr)
+		{
+			[Session release];
+			Session = nullptr;
+		}
+		if (WorldMap != nullptr)
+		{
+			[WorldMap release];
+			WorldMap = nullptr;
+		}
+	}
+
+	/** Called once the world map completion handler is called */
+	virtual void OnWorldMapAcquired(bool bWasSuccessful, FString ErrorString) = 0;
+
+	/** The session object that we'll grab the world from */
+	ARSession* Session;
+	/** The world map object once the call has completed */
+	ARWorldMap* WorldMap;
+};
+
+//@joeg -- The API changed last minute so you don't need to resolve the world to get an object anymore
+// This needs to be cleaned up
+class FAppleARKitGetCandidateObjectAsyncTask :
+	public FARGetCandidateObjectAsyncTask
+{
+public:
+	FAppleARKitGetCandidateObjectAsyncTask(ARSession* InSession, FVector InLocation, FVector InExtent) :
+		Location(InLocation)
+		, Extent(InExtent)
+		, ReferenceObject(nullptr)
+		, Session(InSession)
+	{
+		[Session retain];
+	}
+	
+	/** @return the candidate object that you can use for detection later */
+	virtual UARCandidateObject* GetCandidateObject() override
+	{
+		if (ReferenceObject != nullptr)
+		{
+			UARCandidateObject* CandidateObject = NewObject<UARCandidateObject>();
+			
+			FVector RefObjCenter = FAppleARKitConversion::ToFVector(ReferenceObject.center);
+			FVector RefObjExtent = 0.5f * FAppleARKitConversion::ToFVector(ReferenceObject.extent);
+			FBox BoundingBox(RefObjCenter, RefObjExtent);
+			CandidateObject->SetBoundingBox(BoundingBox);
+			
+			// Serialize the object into a byte array and stick that on the candidate object
+			NSData* RefObjData = [NSKeyedArchiver archivedDataWithRootObject: ReferenceObject];
+			uint32 SavedSize = RefObjData.length;
+			TArray<uint8> RawBytes;
+			RawBytes.AddUninitialized(SavedSize);
+			FPlatformMemory::Memcpy(RawBytes.GetData(), [RefObjData bytes], SavedSize);
+			CandidateObject->SetCandidateObjectData(RawBytes);
+
+			return CandidateObject;
+		}
+		return nullptr;
+	}
+	
+	virtual ~FAppleARKitGetCandidateObjectAsyncTask()
+	{
+		[Session release];
+		if (ReferenceObject != nullptr)
+		{
+			CFRelease(ReferenceObject);
+		}
+	}
+
+	/** Performs the call to get the world map and triggers the OnWorldMapAcquired() the completion handler */
+	void Run()
+	{
+		simd_float4x4 ARMatrix = FAppleARKitConversion::ToARKitMatrix(FTransform(Location));
+		simd_float3 Center = 0.f;
+		simd_float3 ARExtent = FAppleARKitConversion::ToARKitVector(Extent * 2.f);
+
+		[Session createReferenceObjectWithTransform: ARMatrix center: Center extent: ARExtent
+		 completionHandler: ^(ARReferenceObject* refObject, NSError* error)
+		{
+			ReferenceObject = refObject;
+			bool bWasSuccessful = error == nullptr;
+			bHadError = error != nullptr;
+			FString ErrorString;
+			if (error != nullptr)
+			{
+				ErrorString = [error localizedDescription];
+			}
+			bIsDone = true;
+		}];
+	}
+	
+private:
+	FVector Location;
+	FVector Extent;
+	ARReferenceObject* ReferenceObject;
+
+	/** The session object that we'll grab the object from */
+	ARSession* Session;
+};
+
+class FAppleARKitSaveWorldAsyncTask :
+	public FARSaveWorldAsyncTask,
+	public FAppleARKitGetWorldMapObjectAsyncTask
+{
+public:
+	FAppleARKitSaveWorldAsyncTask(ARSession* InSession) :
+		FAppleARKitGetWorldMapObjectAsyncTask(InSession)
+	{
+	}
+
+	virtual ~FAppleARKitSaveWorldAsyncTask()
+	{
+		Release();
+	}
+
+	virtual void OnWorldMapAcquired(bool bWasSuccessful, FString ErrorString) override
+	{
+		if (bWasSuccessful)
+		{
+			NSData* WorldNSData = [NSKeyedArchiver archivedDataWithRootObject: WorldMap];
+
+			// Copy to our TArray that will serve the data to the caller
+			uint32 SavedSize = WorldNSData.length;
+			WorldData.AddUninitialized(SavedSize);
+			FPlatformMemory::Memcpy(WorldData.GetData(), [WorldNSData bytes], SavedSize);
+		}
+		else
+		{
+			Error = ErrorString;
+			bHadError = true;
+		}
+		// Trigger that we're done
+		bIsDone = true;
+	}
+};
+#endif
+
+TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> FAppleARKitSystem::OnGetCandidateObject(FVector Location, FVector Extent) const
+{
+#if SUPPORTS_ARKIT_2_0
+	if (Session != nullptr)
+	{
+		if (FAppleARKitAvailability::SupportsARKit20())
+		{
+			TSharedPtr<FAppleARKitGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> Task = MakeShared<FAppleARKitGetCandidateObjectAsyncTask, ESPMode::ThreadSafe>(Session, Location, Extent);
+			Task->Run();
+			return Task;
+		}
+	}
+#endif
+	return  MakeShared<FARErrorGetCandidateObjectAsyncTask, ESPMode::ThreadSafe>(TEXT("GetCandidateObject - requires a valid, running ARKit 2.0 session"));
+}
+
+TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> FAppleARKitSystem::OnSaveWorld() const
+{
+#if SUPPORTS_ARKIT_2_0
+	if (Session != nullptr)
+	{
+		if (FAppleARKitAvailability::SupportsARKit20())
+		{
+			TSharedPtr<FAppleARKitSaveWorldAsyncTask, ESPMode::ThreadSafe> Task = MakeShared<FAppleARKitSaveWorldAsyncTask, ESPMode::ThreadSafe>(Session);
+			Task->Run();
+			return Task;
+		}
+	}
+#endif
+	return  MakeShared<FARErrorSaveWorldAsyncTask, ESPMode::ThreadSafe>(TEXT("SaveWorld - requires a valid, running ARKit 2.0 session"));
+}
+
+EARWorldMappingState FAppleARKitSystem::OnGetWorldMappingStatus() const
+{
+	if (GameThreadFrame.IsValid())
+	{
+		return GameThreadFrame->WorldMappingState;
+	}
+	return EARWorldMappingState::NotAvailable;
+}
+
+//@joeg -- End additions
+
 void FAppleARKitSystem::AddReferencedObjects( FReferenceCollector& Collector )
 {
 	FARSystemBase::AddReferencedObjects(Collector);
@@ -734,6 +969,8 @@ void FAppleARKitSystem::AddReferencedObjects( FReferenceCollector& Collector )
 	Collector.AddReferencedObject( CameraImage );
 	Collector.AddReferencedObject( CameraDepth );
 	Collector.AddReferencedObjects( CandidateImages );
+//@joeg -- Object detection
+	Collector.AddReferencedObjects( CandidateObjects );
 
 	if(LightEstimate)
 	{
@@ -828,6 +1065,14 @@ bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 		return true;
 	}
 
+//@joeg -- bug fix
+	{
+		// Clear out any existing frames since they aren't valid anymore
+		FScopeLock ScopeLock(&FrameLock);
+		GameThreadFrame = TSharedPtr<FAppleARKitFrame, ESPMode::ThreadSafe>();
+		LastReceivedFrame = TSharedPtr<FAppleARKitFrame, ESPMode::ThreadSafe>();
+	}
+	
 #if SUPPORTS_ARKIT_1_0
 	if (FAppleARKitAvailability::SupportsARKit10())
 	{
@@ -837,7 +1082,7 @@ bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 		CheckForFaceARSupport(SessionConfig);
 		if (FaceARSupport == nullptr)
 		{
-			Configuration = FAppleARKitConversion::ToARConfiguration(SessionConfig, CandidateImages, ConvertedCandidateImages);
+			Configuration = FAppleARKitConversion::ToARConfiguration(SessionConfig, CandidateImages, ConvertedCandidateImages, CandidateObjects);
 		}
 		else
 		{
@@ -1004,8 +1249,34 @@ static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData( ARAnchor* Anchor )
 		NewAnchor = MakeShared<FAppleARKitAnchorData>(
 			FAppleARKitConversion::ToFGuid(ImageAnchor.identifier),
 			FAppleARKitConversion::ToFTransform(ImageAnchor.transform),
+//@joeg -- Changed to share image and object detection
+			EAppleAnchorType::ImageAnchor,
 			FString(ImageAnchor.referenceImage.name)
 		);
+	}
+#endif
+//@joeg -- Added environmental texture probe support
+#if SUPPORTS_ARKIT_2_0
+	else if (FAppleARKitAvailability::SupportsARKit20() && [Anchor isKindOfClass:[AREnvironmentProbeAnchor class]])
+	{
+		AREnvironmentProbeAnchor* ProbeAnchor = (AREnvironmentProbeAnchor*)Anchor;
+		NewAnchor = MakeShared<FAppleARKitAnchorData>(
+			FAppleARKitConversion::ToFGuid(ProbeAnchor.identifier),
+			FAppleARKitConversion::ToFTransform(ProbeAnchor.transform),
+			0.5f * FAppleARKitConversion::ToFVector(ProbeAnchor.extent).GetAbs(),
+			ProbeAnchor.environmentTexture
+		);
+	}
+//@joeg -- Object dectection support
+	else if (FAppleARKitAvailability::SupportsARKit20() && [Anchor isKindOfClass:[ARObjectAnchor class]])
+	{
+		ARObjectAnchor* ObjectAnchor = (ARObjectAnchor*)Anchor;
+		NewAnchor = MakeShared<FAppleARKitAnchorData>(
+			  FAppleARKitConversion::ToFGuid(ObjectAnchor.identifier),
+			  FAppleARKitConversion::ToFTransform(ObjectAnchor.transform),
+			  EAppleAnchorType::ObjectAnchor,
+			  FString(ObjectAnchor.referenceObject.name)
+		  );
 	}
 #endif
 	else
@@ -1128,27 +1399,43 @@ void FAppleARKitSystem::SessionDidAddAnchors_Internal( TSharedRef<FAppleARKitAnc
 			NewGeometry = NewGeo;
 			break;
 		}
+		case EAppleAnchorType::FaceAnchor:
+		{
+			NewAnchorDebugName = FString::Printf(TEXT("FACE-%02d"), LastTrackedGeometry_DebugId++);
+			UARFaceGeometry* NewGeo = NewObject<UARFaceGeometry>();
+//@joeg -- Eye tracking support
+			NewGeo->UpdateFaceGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->BlendShapes, AnchorData->FaceVerts, AnchorData->FaceIndices, AnchorData->LeftEyeTransform, AnchorData->RightEyeTransform, AnchorData->LookAtTarget);
+			NewGeometry = NewGeo;
+			break;
+		}
 		case EAppleAnchorType::ImageAnchor:
 		{
 			NewAnchorDebugName = FString::Printf(TEXT("IMG-%02d"), LastTrackedGeometry_DebugId++);
 			UARTrackedImage* NewImage = NewObject<UARTrackedImage>();
-			UARCandidateImage** CandidateImage = CandidateImages.Find(AnchorData->DetectedImageName);
+			UARCandidateImage** CandidateImage = CandidateImages.Find(AnchorData->DetectedAnchorName);
 			ensure(CandidateImage != nullptr);
 			NewImage->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), *CandidateImage);
 			NewGeometry = NewImage;
 			break;
 		}
-		case EAppleAnchorType::FaceAnchor:
+//@joeg -- Added environmental texture probe support
+		case EAppleAnchorType::EnvironmentProbeAnchor:
 		{
-			UARFaceGeometry* NewGeo = NewObject<UARFaceGeometry>();
-			NewAnchorDebugName = FString::Printf(TEXT("FACE-%02d"), LastTrackedGeometry_DebugId++);
-			NewGeo->SetDebugName(FName(*NewAnchorDebugName));
-			NewGeo->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->BlendShapes, AnchorData->FaceVerts, AnchorData->FaceIndices);
-			NewGeometry = NewGeo;
+			NewAnchorDebugName = FString::Printf(TEXT("ENV-%02d"), LastTrackedGeometry_DebugId++);
+			UAppleARKitEnvironmentCaptureProbe* NewProbe = NewObject<UAppleARKitEnvironmentCaptureProbe>();
+			NewProbe->UpdateEnvironmentCapture(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->Extent, AnchorData->ProbeTexture);
+			NewGeometry = NewProbe;
+			break;
 		}
-		default:
+//@joeg -- Object detection
+		case EAppleAnchorType::ObjectAnchor:
 		{
-			NewAnchorDebugName = FString::Printf(TEXT("APPL-%02d"), LastTrackedGeometry_DebugId++);
+			NewAnchorDebugName = FString::Printf(TEXT("OBJ-%02d"), LastTrackedGeometry_DebugId++);
+			UARTrackedObject* NewTrackedObject = NewObject<UARTrackedObject>();
+			UARCandidateObject** CandidateObject = CandidateObjects.Find(AnchorData->DetectedAnchorName);
+			ensure(CandidateObject != nullptr);
+			NewTrackedObject->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), *CandidateObject);
+			NewGeometry = NewTrackedObject;
 			break;
 		}
 	}
@@ -1217,7 +1504,41 @@ void FAppleARKitSystem::SessionDidUpdateAnchors_Internal( TSharedRef<FAppleARKit
 			{
 				if (UARFaceGeometry* FaceGeo = Cast<UARFaceGeometry>(FoundGeometry))
 				{
-					FaceGeo->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->BlendShapes, AnchorData->FaceVerts, AnchorData->FaceIndices);
+//@joeg -- Eye tracking support
+					FaceGeo->UpdateFaceGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->BlendShapes, AnchorData->FaceVerts, AnchorData->FaceIndices, AnchorData->LeftEyeTransform, AnchorData->RightEyeTransform, AnchorData->LookAtTarget);
+					for (UARPin* Pin : PinsToUpdate)
+					{
+						const FTransform Pin_LocalToTrackingTransform_PostUpdate = Pin->GetLocalToTrackingTransform_NoAlignment() * AnchorDeltaTransform;
+						Pin->OnTransformUpdated(Pin_LocalToTrackingTransform_PostUpdate);
+					}
+				}
+				break;
+			}
+//@joeg -- Added image tracking support
+            case EAppleAnchorType::ImageAnchor:
+            {
+				if (UARTrackedImage* ImageAnchor = Cast<UARTrackedImage>(FoundGeometry))
+				{
+//@joeg -- Changed so object and image detection can share
+					UARCandidateImage** CandidateImage = CandidateImages.Find(AnchorData->DetectedAnchorName);
+					ensure(CandidateImage != nullptr);
+
+					ImageAnchor->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), *CandidateImage);
+					for (UARPin* Pin : PinsToUpdate)
+					{
+						const FTransform Pin_LocalToTrackingTransform_PostUpdate = Pin->GetLocalToTrackingTransform_NoAlignment() * AnchorDeltaTransform;
+						Pin->OnTransformUpdated(Pin_LocalToTrackingTransform_PostUpdate);
+					}
+				}
+                break;
+            }
+//@joeg -- Added environmental texture probe support
+			case EAppleAnchorType::EnvironmentProbeAnchor:
+			{
+				if (UAppleARKitEnvironmentCaptureProbe* ProbeAnchor = Cast<UAppleARKitEnvironmentCaptureProbe>(FoundGeometry))
+				{
+					// NOTE: The metal texture will be a different texture every time the cubemap is updated which requires a render resource flush
+					ProbeAnchor->UpdateEnvironmentCapture(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->Extent, AnchorData->ProbeTexture);
 					for (UARPin* Pin : PinsToUpdate)
 					{
 						const FTransform Pin_LocalToTrackingTransform_PostUpdate = Pin->GetLocalToTrackingTransform_NoAlignment() * AnchorDeltaTransform;

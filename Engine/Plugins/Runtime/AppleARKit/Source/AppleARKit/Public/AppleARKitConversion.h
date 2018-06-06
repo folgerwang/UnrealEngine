@@ -2,7 +2,6 @@
 
 #pragma once
 
-// UE4
 #include "Math/Transform.h"
 #include "ARPin.h"
 
@@ -46,7 +45,41 @@ struct FAppleARKitConversion
 		return FTransform( Rotation, Translation );
 	}
 
-	/** 
+    /**
+     * Convert's an Unreal 'Z up' transform to ARKit's 'Y up' 'right handed' coordinate system
+     * 'left handed' coordinate system.
+     *
+     * Ignores scale.
+     */
+    static FORCEINLINE matrix_float4x4 ToARKitMatrix( const FTransform& InTransform, float WorldToMetersScale = 100.0f )
+    {
+		if(!ensure(WorldToMetersScale != 0.f))
+		{
+			WorldToMetersScale = 100.f;
+		}
+
+        matrix_float4x4 RetVal;
+
+        const FVector   Translation = InTransform.GetLocation() / WorldToMetersScale;
+        const FQuat     UnrealRotation = InTransform.GetRotation();
+        const FQuat     ARKitRotation = FQuat(UnrealRotation.Y, UnrealRotation.Z, -UnrealRotation.X, UnrealRotation.W);
+
+        const FMatrix   UnrealRotationMatrix = FRotationMatrix::Make(ARKitRotation);
+
+        RetVal.columns[0][0] = UnrealRotationMatrix.M[0][0]; RetVal.columns[0][1] = UnrealRotationMatrix.M[0][1]; RetVal.columns[0][2] = -UnrealRotationMatrix.M[0][2]; RetVal.columns[0][3] = UnrealRotationMatrix.M[0][3];
+        RetVal.columns[1][0] = UnrealRotationMatrix.M[1][0]; RetVal.columns[1][1] = UnrealRotationMatrix.M[1][1]; RetVal.columns[1][2] = UnrealRotationMatrix.M[1][2]; RetVal.columns[1][3] = UnrealRotationMatrix.M[1][3];
+        RetVal.columns[2][0] = -UnrealRotationMatrix.M[2][0]; RetVal.columns[2][1] = UnrealRotationMatrix.M[2][1]; RetVal.columns[2][2] = UnrealRotationMatrix.M[2][2]; RetVal.columns[2][3] = UnrealRotationMatrix.M[2][3];
+        RetVal.columns[3][0] = UnrealRotationMatrix.M[3][0]; RetVal.columns[3][1] = UnrealRotationMatrix.M[3][1]; RetVal.columns[3][2] = UnrealRotationMatrix.M[3][2]; RetVal.columns[3][3] = UnrealRotationMatrix.M[3][3];
+
+        // Set the translation element
+        RetVal.columns[3][2] = -Translation.X;
+        RetVal.columns[3][0] = Translation.Y;
+        RetVal.columns[3][1] = Translation.Z;
+
+        return RetVal;
+    }
+
+	/**
 	 * Convert's an ARKit 'Y up' 'right handed' coordinate system vector to Unreal's 'Z up' 
 	 * 'left handed' coordinate system.
 	 */
@@ -54,6 +87,25 @@ struct FAppleARKitConversion
 	{
 		return FVector( -RawYUpVector.z, RawYUpVector.x, RawYUpVector.y ) * ToUE4Scale();
 	}
+
+    /**
+     * Convert's an Unreal's 'Z up' to ARKit's 'Y up' vector
+     * 'left handed' coordinate system.
+     */
+    static FORCEINLINE vector_float3 ToARKitVector( const FVector& InFVector, float WorldToMetersScale = 100.0f )
+    {
+		if(!ensure(WorldToMetersScale != 0.f))
+		{
+			WorldToMetersScale = 100.f;
+		}
+
+        vector_float3 RetVal;
+        RetVal.x = InFVector.Y;
+        RetVal.y = InFVector.Z;
+        RetVal.z = -InFVector.X;
+
+        return RetVal / WorldToMetersScale;
+    }
 
 	static FORCEINLINE FGuid ToFGuid( uuid_t UUID )
 	{
@@ -95,12 +147,12 @@ struct FAppleARKitConversion
 
 	#if SUPPORTS_ARKIT_1_5
 
-	static void InitImageDetection(UARSessionConfig* SessionConfig, ARWorldTrackingConfiguration* WorldConfig, TMap< FString, UARCandidateImage* >& CandidateImages, TMap< FString, CGImageRef >& ConvertedCandidateImages)
+	static NSSet* InitImageDetection(UARSessionConfig* SessionConfig, TMap< FString, UARCandidateImage* >& CandidateImages, TMap< FString, CGImageRef >& ConvertedCandidateImages)
 	{
 		const TArray<UARCandidateImage*>& ConfigCandidateImages = SessionConfig->GetCandidateImageList();
 		if (!ConfigCandidateImages.Num())
 		{
-			return;
+			return nullptr;
 		}
 
 		NSMutableSet* ConvertedImageSet = [[NSMutableSet new] autorelease];
@@ -136,12 +188,105 @@ struct FAppleARKitConversion
 				}
 			}
 		}
-		WorldConfig.detectionImages = ConvertedImageSet;
+		return ConvertedImageSet;
 	}
 
+	static void InitImageDetection(UARSessionConfig* SessionConfig, ARWorldTrackingConfiguration* WorldConfig, TMap< FString, UARCandidateImage* >& CandidateImages, TMap< FString, CGImageRef >& ConvertedCandidateImages)
+	{
+		if (FAppleARKitAvailability::SupportsARKit15())
+		{
+			WorldConfig.detectionImages = InitImageDetection(SessionConfig, CandidateImages, ConvertedCandidateImages);
+		}
+	//@joeg -- Added image tracking support
+	#if SUPPORTS_ARKIT_2_0
+		if (FAppleARKitAvailability::SupportsARKit20())
+		{
+			WorldConfig.maximumNumberOfTrackedImages = SessionConfig->GetMaxNumSimultaneousImagesTracked();
+		}
+	#endif
+	}
 	#endif
 
-	static ARConfiguration* ToARConfiguration( UARSessionConfig* SessionConfig, TMap< FString, UARCandidateImage* >& CandidateImages, TMap< FString, CGImageRef >& ConvertedCandidateImages )
+	//@joeg -- Added image tracking support
+	#if SUPPORTS_ARKIT_2_0
+	static void InitImageDetection(UARSessionConfig* SessionConfig, ARImageTrackingConfiguration* ImageConfig, TMap< FString, UARCandidateImage* >& CandidateImages, TMap< FString, CGImageRef >& ConvertedCandidateImages)
+	{
+		ImageConfig.trackingImages = InitImageDetection(SessionConfig, CandidateImages, ConvertedCandidateImages);
+		ImageConfig.maximumNumberOfTrackedImages = SessionConfig->GetMaxNumSimultaneousImagesTracked();
+		ImageConfig.autoFocusEnabled = SessionConfig->ShouldEnableAutoFocus();
+	}
+
+	//@joeg -- Added environmental texture probe support
+	static AREnvironmentTexturing ToAREnvironmentTexturing(EAREnvironmentCaptureProbeType CaptureType)
+	{
+		switch (CaptureType)
+		{
+			case EAREnvironmentCaptureProbeType::Manual:
+			{
+				return AREnvironmentTexturingManual;
+			}
+			case EAREnvironmentCaptureProbeType::Automatic:
+			{
+				return AREnvironmentTexturingAutomatic;
+			}
+		}
+		return AREnvironmentTexturingNone;
+	}
+
+	static ARWorldMap* ToARWorldMap(const TArray<uint8>& WorldMapData)
+	{
+		NSData* WorldNSData = [NSData dataWithBytesNoCopy: (uint8*)WorldMapData.GetData() length: WorldMapData.Num() freeWhenDone: NO];
+		ARWorldMap* WorldMap = [NSKeyedUnarchiver unarchiveObjectWithData: WorldNSData];
+		if (WorldMap == nullptr)
+		{
+//@todo joeg -- Make a way to log from here
+//			UE_LOG(LogAppleARKit, Log, TEXT("Failed to load the world map data from the session object"));
+		}
+		return WorldMap;
+	}
+
+	static NSSet* ToARReferenceObjectSet(const TArray<UARCandidateObject*>& CandidateObjects, TMap< FString, UARCandidateObject* >& CandidateObjectMap)
+	{
+		CandidateObjectMap.Empty();
+
+		if (CandidateObjects.Num() == 0)
+		{
+			return nullptr;
+		}
+
+		NSMutableSet* ConvertedObjectSet = [[NSMutableSet new] autorelease];
+		for (UARCandidateObject* Candidate : CandidateObjects)
+		{
+			if (Candidate != nullptr && Candidate->GetCandidateObjectData().Num() > 0)
+			{
+				NSData* CandidateData = [NSData dataWithBytesNoCopy: (uint8*)Candidate->GetCandidateObjectData().GetData() length: Candidate->GetCandidateObjectData().Num() freeWhenDone: NO];
+				ARReferenceObject* RefObject = [NSKeyedUnarchiver unarchiveObjectWithData: CandidateData];
+				if (RefObject != nullptr)
+				{
+					// Store off so the session object can quickly match the anchor to our representation
+					// This stores it even if we weren't able to convert to apple's type for GC reasons
+					CandidateObjectMap.Add(Candidate->GetFriendlyName(), Candidate);
+					RefObject.name = Candidate->GetFriendlyName().GetNSString();
+					[ConvertedObjectSet addObject: RefObject];
+				}
+				else
+				{
+//@todo joeg -- Make a way to log from here
+//					UE_LOG(LogAppleARKit, Log, TEXT("Failed to convert to ARReferenceObject (%s)"), *Candidate->GetFriendlyName());
+				}
+			}
+			else
+			{
+//@todo joeg -- Make a way to log from here
+//				UE_LOG(LogAppleARKit, Log, TEXT("Missing candidate object data for ARCandidateObject (%s)"), Candidate != nullptr ? *Candidate->GetFriendlyName() : TEXT("null"));
+			}
+		}
+		return ConvertedObjectSet;
+	}
+	#endif
+
+//@joeg -- Object detection addition
+	static ARConfiguration* ToARConfiguration( UARSessionConfig* SessionConfig, TMap< FString, UARCandidateImage* >& CandidateImages, TMap< FString, CGImageRef >& ConvertedCandidateImages, TMap< FString, UARCandidateObject* >& CandidateObjects )
 	{
 		EARSessionType SessionType = SessionConfig->GetSessionType();
 		ARConfiguration* SessionConfiguration = nullptr;
@@ -180,7 +325,67 @@ struct FAppleARKitConversion
 					FAppleARKitConversion::InitImageDetection(SessionConfig, WorldTrackingConfiguration, CandidateImages, ConvertedCandidateImages);
 				}
 #endif
+//@joeg -- Added environmental texture probe support
+#if SUPPORTS_ARKIT_2_0
+				if (FAppleARKitAvailability::SupportsARKit20())
+				{
+					// Check for environment capture probe types
+					WorldTrackingConfiguration.environmentTexturing = ToAREnvironmentTexturing(SessionConfig->GetEnvironmentCaptureProbeType());
+					// Load the world if requested
+					if (SessionConfig->GetWorldMapData().Num() > 0)
+					{
+						ARWorldMap* WorldMap = ToARWorldMap(SessionConfig->GetWorldMapData());
+						WorldTrackingConfiguration.initialWorldMap = WorldMap;
+						[WorldMap release];
+					}
+					// Convert any candidate objects that are to be detected
+					WorldTrackingConfiguration.detectionObjects = ToARReferenceObjectSet(SessionConfig->GetCandidateObjectList(), CandidateObjects);
+				}
+#endif
 				SessionConfiguration = WorldTrackingConfiguration;
+				break;
+			}
+//@joeg -- Added image tracking support
+			case EARSessionType::Image:
+			{
+#if SUPPORTS_ARKIT_2_0
+				if (FAppleARKitAvailability::SupportsARKit20())
+				{
+					if (ARImageTrackingConfiguration.isSupported == FALSE)
+					{
+						return nullptr;
+					}
+					ARImageTrackingConfiguration* ImageTrackingConfiguration = [ARImageTrackingConfiguration new];
+					// Add any images that wish to be detected
+					InitImageDetection(SessionConfig, ImageTrackingConfiguration, CandidateImages, ConvertedCandidateImages);
+					SessionConfiguration = ImageTrackingConfiguration;
+				}
+#endif
+				break;
+			}
+//@joeg -- Added object scanning support
+			case EARSessionType::ObjectScanning:
+			{
+#if SUPPORTS_ARKIT_2_0
+				if (FAppleARKitAvailability::SupportsARKit20())
+				{
+					if (ARObjectScanningConfiguration.isSupported == FALSE)
+					{
+						return nullptr;
+					}
+					ARObjectScanningConfiguration* ObjectScanningConfiguration = [ARObjectScanningConfiguration new];
+					if (EnumHasAnyFlags(EARPlaneDetectionMode::HorizontalPlaneDetection, SessionConfig->GetPlaneDetectionMode()))
+					{
+						ObjectScanningConfiguration.planeDetection |= ARPlaneDetectionHorizontal;
+					}
+					if (EnumHasAnyFlags(EARPlaneDetectionMode::VerticalPlaneDetection, SessionConfig->GetPlaneDetectionMode()))
+					{
+						ObjectScanningConfiguration.planeDetection |= ARPlaneDetectionVertical;
+					}
+					ObjectScanningConfiguration.autoFocusEnabled = SessionConfig->ShouldEnableAutoFocus();
+					SessionConfiguration = ObjectScanningConfiguration;
+				}
+#endif
 				break;
 			}
 			default:
@@ -206,6 +411,10 @@ enum class EAppleAnchorType : uint8
 	PlaneAnchor,
 	FaceAnchor,
 	ImageAnchor,
+//@joeg -- Added environmental texture probe support
+	EnvironmentProbeAnchor,
+//@joeg -- Object detection
+	ObjectAnchor,
 	MAX
 };
 
@@ -227,20 +436,35 @@ struct FAppleARKitAnchorData
 	{
 	}
 
-	FAppleARKitAnchorData(FGuid InAnchorGuid, FTransform InTransform, FString InDetectedImageName)
-		: Transform( InTransform )
-		, AnchorType( EAppleAnchorType::ImageAnchor )
-		, AnchorGUID( InAnchorGuid )
-		, DetectedImageName( MoveTemp(InDetectedImageName) )
+//@joeg -- Eye tracking support
+	FAppleARKitAnchorData(FGuid InAnchorGuid, FTransform InTransform, FARBlendShapeMap InBlendShapes, TArray<FVector> InFaceVerts, FTransform InLeftEyeTransform, FTransform InRightEyeTransform, FVector InLookAtTarget)
+	: Transform( InTransform )
+	, AnchorType( EAppleAnchorType::FaceAnchor )
+	, AnchorGUID( InAnchorGuid )
+	, BlendShapes( MoveTemp(InBlendShapes) )
+	, FaceVerts( MoveTemp(InFaceVerts) )
+	, LeftEyeTransform( InLeftEyeTransform )
+	, RightEyeTransform( InRightEyeTransform )
+	, LookAtTarget( InLookAtTarget )
 	{
 	}
 
-	FAppleARKitAnchorData(FGuid InAnchorGuid, FTransform InTransform, FARBlendShapeMap InBlendShapes, TArray<FVector> InFaceVerts)
-		: Transform( InTransform )
-		, AnchorType( EAppleAnchorType::FaceAnchor )
-		, AnchorGUID( InAnchorGuid )
-		, BlendShapes( MoveTemp(InBlendShapes) )
-		, FaceVerts( MoveTemp(InFaceVerts) )
+//@joeg -- Changed so object and image detection share
+	FAppleARKitAnchorData(FGuid InAnchorGuid, FTransform InTransform, EAppleAnchorType InAnchorType, FString InDetectedAnchorName)
+    : Transform( InTransform )
+    , AnchorType( InAnchorType )
+    , AnchorGUID( InAnchorGuid )
+    , DetectedAnchorName( MoveTemp(InDetectedAnchorName) )
+    {
+    }
+
+//@joeg -- Added environmental texture probe support
+	FAppleARKitAnchorData(FGuid InAnchorGuid, FTransform InTransform, FVector InExtent, id<MTLTexture> InProbeTexture)
+	: Transform( InTransform )
+	, AnchorType( EAppleAnchorType::EnvironmentProbeAnchor )
+	, AnchorGUID( InAnchorGuid )
+	, Extent(InExtent)
+	, ProbeTexture(InProbeTexture)
 	{
 	}
 
@@ -251,12 +475,21 @@ struct FAppleARKitAnchorData
 	FVector Extent;
 	TArray<FVector> BoundaryVerts;
 
-	FString DetectedImageName;
-
 	FARBlendShapeMap BlendShapes;
 	TArray<FVector> FaceVerts;
 	// Note: the index buffer never changes so can be safely read once
 	static TArray<int32> FaceIndices;
+
+//@joeg -- Changed this so both Image and Object anchors can share
+	FString DetectedAnchorName;
+
+//@joeg -- Environment texturing support
+	id<MTLTexture> ProbeTexture;
+
+//@joeg -- Eye tracking support
+	FTransform LeftEyeTransform;
+	FTransform RightEyeTransform;
+	FVector LookAtTarget;
 };
 
 namespace ARKitUtil

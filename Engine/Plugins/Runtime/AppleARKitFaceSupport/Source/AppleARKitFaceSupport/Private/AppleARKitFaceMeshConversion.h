@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "AppleARKitSettings.h"
+
 #if SUPPORTS_ARKIT_1_0
 
-FORCEINLINE TArray<int32> To32BitIndexBuffer(const int16_t* Indices, const uint64 IndexCount)
+static FORCEINLINE TArray<int32> To32BitIndexBuffer(const int16_t* Indices, const uint64 IndexCount)
 {
 	check(IndexCount % 3 == 0);
 
@@ -21,7 +23,7 @@ FORCEINLINE TArray<int32> To32BitIndexBuffer(const int16_t* Indices, const uint6
 }
 
 // @todo JoeG - An option for which way to orient tris (down +X or -X)
-FORCEINLINE TArray<FVector> ToVertexBuffer(const vector_float3* Vertices, const uint64 VertexCount)
+static FORCEINLINE TArray<FVector> ToVertexBuffer(const vector_float3* Vertices, const uint64 VertexCount)
 {
 	TArray<FVector> VertexBuffer;
 	VertexBuffer.AddUninitialized(VertexCount);
@@ -33,7 +35,7 @@ FORCEINLINE TArray<FVector> ToVertexBuffer(const vector_float3* Vertices, const 
 	return VertexBuffer;
 }
 
-FARBlendShapeMap ToBlendShapeMap(NSDictionary<ARBlendShapeLocation,NSNumber *>* BlendShapes, const FTransform& Transform)
+static FORCEINLINE FARBlendShapeMap ToBlendShapeMap(NSDictionary<ARBlendShapeLocation,NSNumber *>* BlendShapes, const FTransform& Transform, const FTransform& LeftEyeTransform, const FTransform& RightEyeTransform)
 {
 	FARBlendShapeMap BlendShapeMap;
 	FRotator TrackedRot(Transform.GetRotation());
@@ -44,6 +46,22 @@ FARBlendShapeMap ToBlendShapeMap(NSDictionary<ARBlendShapeLocation,NSNumber *>* 
 	BlendShapeMap.Add(EARFaceBlendShape::HeadYaw, HeadYaw);
 	BlendShapeMap.Add(EARFaceBlendShape::HeadPitch, HeadPitch);
 	BlendShapeMap.Add(EARFaceBlendShape::HeadRoll, HeadRoll);
+//@joeg -- Eye tracking support
+	FRotator LeftEyeRot(LeftEyeTransform.GetRotation());
+	float LeftEyeYaw = (float)LeftEyeRot.Yaw / 180.f;
+	float LeftEyePitch = (float)LeftEyeRot.Pitch / 180.f;
+	float LeftEyeRoll = (float)LeftEyeRot.Roll / 180.f;
+	BlendShapeMap.Add(EARFaceBlendShape::LeftEyeYaw, LeftEyeYaw);
+	BlendShapeMap.Add(EARFaceBlendShape::LeftEyePitch, LeftEyePitch);
+	BlendShapeMap.Add(EARFaceBlendShape::LeftEyeRoll, LeftEyeRoll);
+	FRotator RightEyeRot(RightEyeTransform.GetRotation());
+	float RightEyeYaw = (float)RightEyeRot.Yaw / 180.f;
+	float RightEyePitch = (float)RightEyeRot.Pitch / 180.f;
+	float RightEyeRoll = (float)RightEyeRot.Roll / 180.f;
+	BlendShapeMap.Add(EARFaceBlendShape::RightEyeYaw, RightEyeYaw);
+	BlendShapeMap.Add(EARFaceBlendShape::RightEyePitch, RightEyePitch);
+	BlendShapeMap.Add(EARFaceBlendShape::RightEyeRoll, RightEyeRoll);
+
 
 #define SET_BLEND_SHAPE(AppleShape, UE4Shape) \
 	if (BlendShapes[AppleShape]) \
@@ -156,7 +174,13 @@ FARBlendShapeMap ToBlendShapeMap(NSDictionary<ARBlendShapeLocation,NSNumber *>* 
 	SET_BLEND_SHAPE(ARBlendShapeLocationMouthShrugUpper, EARFaceBlendShape::MouthShrugUpper);
 	SET_BLEND_SHAPE(ARBlendShapeLocationBrowInnerUp, EARFaceBlendShape::BrowInnerUp);
 	SET_BLEND_SHAPE(ARBlendShapeLocationCheekPuff, EARFaceBlendShape::CheekPuff);
-
+//@joeg -- Tongue blend shape
+#if SUPPORTS_ARKIT_2_0
+	if (FAppleARKitAvailability::SupportsARKit20())
+	{
+		SET_BLEND_SHAPE(ARBlendShapeLocationTongueOut, EARFaceBlendShape::TongueOut);
+	}
+#endif
 
 #undef SET_BLEND_SHAPE
 

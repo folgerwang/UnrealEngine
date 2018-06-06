@@ -4,6 +4,7 @@
 #include "IXRTrackingSystem.h"
 #include "Features/IModularFeatures.h"
 #include "ARBlueprintLibrary.h"
+#include "ARBlueprintProxy.h"
 #include "ARSessionConfig.h"
 #include "GeneralProjectSettings.h"
 #include "Engine/Engine.h"
@@ -23,7 +24,8 @@ void FARSystemBase::InitializeARSystem()
 	IModularFeatures::Get().RegisterModularFeature(FARSystemBase::GetModularFeatureName(), this);
 	
 	UARBlueprintLibrary::RegisterAsARSystem( SharedThis(this) );
-	
+	UARBaseAsyncTaskBlueprintProxy::RegisterAsARSystem( SharedThis(this) );
+
 	OnARSystemInitialized();
 }
 
@@ -32,6 +34,7 @@ FARSystemBase::~FARSystemBase()
 	IModularFeatures::Get().UnregisterModularFeature(FARSystemBase::GetModularFeatureName(), this);
 	
 	UARBlueprintLibrary::RegisterAsARSystem( nullptr );
+	UARBaseAsyncTaskBlueprintProxy::RegisterAsARSystem( nullptr );
 }
 
 EARTrackingQuality FARSystemBase::GetTrackingQuality() const
@@ -107,6 +110,29 @@ UARTextureCameraDepth* FARSystemBase::GetCameraDepth()
 {
 	return OnGetCameraDepth();
 }
+
+//@joeg -- ARKit 2.0 additions
+
+bool FARSystemBase::AddManualEnvironmentCaptureProbe(FVector Location, FVector Extent)
+{
+	return OnAddManualEnvironmentCaptureProbe(Location, Extent);
+}
+
+TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> FARSystemBase::GetCandidateObject(FVector Location, FVector Extent) const
+{
+	return OnGetCandidateObject(Location, Extent);
+}
+
+TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> FARSystemBase::SaveWorld() const
+{
+	return OnSaveWorld();
+}
+
+EARWorldMappingState FARSystemBase::GetWorldMappingStatus() const
+{
+	return OnGetWorldMappingStatus();
+}
+//@joeg -- End additions
 
 bool FARSystemBase::IsSessionTypeSupported(EARSessionType SessionType) const
 {
