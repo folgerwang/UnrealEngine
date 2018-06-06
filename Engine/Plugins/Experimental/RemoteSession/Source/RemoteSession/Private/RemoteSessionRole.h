@@ -4,10 +4,11 @@
 
 #include "RemoteSession/RemoteSessionRole.h"
 #include "BackChannel/Protocol/OSC/BackChannelOSCConnection.h"
-#include "Channels/RemoteSessionChannel.h"
+
 #include "Tickable.h"
 
-
+class FBackChannelOSCConnection;
+enum class ERemoteSessionChannelMode;
 
 class FRemoteSessionRole : public IRemoteSessionRole, FRunnable
 {

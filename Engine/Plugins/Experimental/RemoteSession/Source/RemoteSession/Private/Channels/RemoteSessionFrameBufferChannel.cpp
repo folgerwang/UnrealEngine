@@ -48,7 +48,7 @@ FRemoteSessionFrameBufferChannel::FRemoteSessionFrameBufferChannel(ERemoteSessio
 	Role = InRole;
 	ViewportResized = false;
 
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		auto Delegate = FBackChannelDispatchDelegate::FDelegate::CreateRaw(this, &FRemoteSessionFrameBufferChannel::ReceiveHostImage);
 		MessageCallbackHandle = InConnection->AddMessageHandler(TEXT("/Screen"), Delegate);
@@ -59,7 +59,7 @@ FRemoteSessionFrameBufferChannel::FRemoteSessionFrameBufferChannel(ERemoteSessio
 
 FRemoteSessionFrameBufferChannel::~FRemoteSessionFrameBufferChannel()
 {
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		TSharedPtr<FBackChannelOSCConnection, ESPMode::ThreadSafe> LocalConnection = Connection.Pin();
 		if (LocalConnection.IsValid())
@@ -187,7 +187,7 @@ void FRemoteSessionFrameBufferChannel::Tick(const float InDeltaTime)
 		}
 	}
 	
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_TextureUpdate);
 
