@@ -1193,11 +1193,11 @@ int32 FNiagaraParameterMapHistoryBuilder::HandleVariableRead(int32 ParamMapIdx, 
 			{
 				FoundIdx = Histories[ParamMapIdx].Variables.Add(Var);
 				Histories[ParamMapIdx].VariablesWithOriginalAliasesIntact.Add(AliasedVar);
+				Histories[ParamMapIdx].PerVariableWarnings.AddDefaulted(1);
+				Histories[ParamMapIdx].PerVariableWriteHistory.AddDefaulted(1);
+				Histories[ParamMapIdx].PerVariableReadHistory.AddDefaulted(1);
 
 			}
-			Histories[ParamMapIdx].PerVariableWarnings.AddDefaulted(1);
-			Histories[ParamMapIdx].PerVariableWriteHistory.AddDefaulted(1);
-			Histories[ParamMapIdx].PerVariableReadHistory.AddDefaulted(1);
 			Histories[ParamMapIdx].PerVariableReadHistory[FoundIdx].Add(TTuple<const UEdGraphPin*, const UEdGraphPin*>(InPin, nullptr));
 
 			if (InDefaultPin && OutUsedDefault)
