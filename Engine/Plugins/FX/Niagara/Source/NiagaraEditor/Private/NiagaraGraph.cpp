@@ -587,7 +587,7 @@ bool UNiagaraGraph::RenameParameter(const FNiagaraVariable& Parameter, FName New
 	// Create the new parameter
 	FNiagaraVariable NewParameter = Parameter;
 	NewParameter.SetName(NewName);
-	
+
 	FNiagaraGraphParameterReferenceCollection* ReferenceCollection = Parameters.Find(Parameter);
 	if (ReferenceCollection)
 	{
@@ -1107,30 +1107,33 @@ void UNiagaraGraph::FindParameters()
 
 	auto AddParameterReference = [&](const FNiagaraVariable& Parameter, const UEdGraphPin* Pin, FNiagaraGraphParameterReferenceCollection*& ReferenceCollection)
 	{
-		const FNiagaraGraphParameterReference Reference(Pin->PersistentGuid, Cast<UNiagaraNode>(Pin->GetOwningNode()));
-		bool bNewReference = true;
-		if (ReferenceCollection)
+		if (Pin->PinType.PinSubCategory == UNiagaraNodeParameterMapBase::ParameterPinSubCategory)
 		{
-			ReferenceCollection->ParameterReferences.AddUnique(Reference);
-			bNewReference = false;
-		}
-		else
-		{
-			FNiagaraGraphParameterReferenceCollection* FoundReferenceCollection = Parameters.Find(Parameter);
-			if (FoundReferenceCollection)
+			const FNiagaraGraphParameterReference Reference(Pin->PersistentGuid, Cast<UNiagaraNode>(Pin->GetOwningNode()));
+			bool bNewReference = true;
+			if (ReferenceCollection)
 			{
-				ReferenceCollection = FoundReferenceCollection;
-				FoundReferenceCollection->ParameterReferences.AddUnique(Reference);
+				ReferenceCollection->ParameterReferences.AddUnique(Reference);
 				bNewReference = false;
 			}
-		}
+			else
+			{
+				FNiagaraGraphParameterReferenceCollection* FoundReferenceCollection = Parameters.Find(Parameter);
+				if (FoundReferenceCollection)
+				{
+					ReferenceCollection = FoundReferenceCollection;
+					FoundReferenceCollection->ParameterReferences.AddUnique(Reference);
+					bNewReference = false;
+				}
+			}
 
-		if (bNewReference)
-		{
-			FNiagaraGraphParameterReferenceCollection NewReferenceCollection;
-			NewReferenceCollection.ParameterReferences.Add(Reference);
-			NewReferenceCollection.Graph = this;
-			Parameters.Add(Parameter, NewReferenceCollection);
+			if (bNewReference)
+			{
+				FNiagaraGraphParameterReferenceCollection NewReferenceCollection;
+				NewReferenceCollection.ParameterReferences.Add(Reference);
+				NewReferenceCollection.Graph = this;
+				Parameters.Add(Parameter, NewReferenceCollection);
+			}
 		}
 	};
 
@@ -1160,26 +1163,26 @@ void UNiagaraGraph::FindParameters()
 	{
 		for (UEdGraphPin* Pin : Node->Pins)
 		{
-			const FNiagaraVariable Parameter = NiagaraSchema->PinToNiagaraVariable(Pin, false);
-			const FNiagaraParameterHandle Handle = FNiagaraParameterHandle(Parameter.GetName());
+			if (Pin->PinType.PinSubCategory == UNiagaraNodeParameterMapBase::ParameterPinSubCategory)
+			{
+				const FNiagaraVariable Parameter = NiagaraSchema->PinToNiagaraVariable(Pin, false);
+				const FNiagaraParameterHandle Handle = FNiagaraParameterHandle(Parameter.GetName());
 
-			if (Handle.IsModuleHandle() && !FNiagaraConstants::IsNiagaraConstant(Parameter))
-			{
-				FNiagaraVariableMetaData* MetaData = VariableToMetaData.Find(Parameter);
-				if (MetaData)
+				if (Handle.IsModuleHandle() && !FNiagaraConstants::IsNiagaraConstant(Parameter))
 				{
-					MetaData->ReferencerNodes.AddUnique(Node);
+					FNiagaraVariableMetaData* MetaData = VariableToMetaData.Find(Parameter);
+					if (MetaData)
+					{
+						MetaData->ReferencerNodes.AddUnique(Node);
+					}
+					else
+					{
+						FNiagaraVariableMetaData NewVariableMetadata;
+						NewVariableMetadata.ReferencerNodes.Add(Node);
+						VariableToMetaData.Add(Parameter, NewVariableMetadata);
+					}
 				}
-				else
-				{
-					FNiagaraVariableMetaData NewVariableMetadata;
-					NewVariableMetadata.ReferencerNodes.Add(Node);
-					VariableToMetaData.Add(Parameter, NewVariableMetadata);
-				}
-			}
 			
-			if (!Handle.GetNamespace().IsNone())
-			{
 				const FNiagaraGraphParameterReference Reference(Pin->PersistentGuid, Cast<UNiagaraNode>(Pin->GetOwningNode()));
 				FNiagaraGraphParameterReferenceCollection* FoundParameterReferenceCollection = Parameters.Find(Parameter);
 				if (FoundParameterReferenceCollection)

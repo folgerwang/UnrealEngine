@@ -115,8 +115,10 @@ public:
 	FString EmitterUniqueName;
 	TArray<TSharedPtr<FNiagaraCompileRequestData, ESPMode::ThreadSafe>> EmitterData;
 	UNiagaraScriptSource* Source;
+	FString SourceName;
 
 	UEnum* ENiagaraScriptCompileStatusEnum;
+	UEnum* ENiagaraScriptUsageEnum;
 
 	struct FunctionData
 	{
@@ -198,12 +200,15 @@ struct FNiagaraCodeChunk
 	bool bIsTerminated;
 	/** Chunks used as input for this chunk. */
 	TArray<int32> SourceChunks;
+	/** Component mask for access to padded uniforms; will be empty except for float2 and float3 uniforms */
+	FString ComponentMask;
 
 	ENiagaraCodeChunkMode Mode;
 
 	FNiagaraCodeChunk()
 		: bDecl(true)
 		, bIsTerminated(true)
+		, ComponentMask("")
 		, Mode(ENiagaraCodeChunkMode::Num)
 	{
 		Type = FNiagaraTypeDefinition::GetFloatDef();
@@ -385,6 +390,9 @@ protected:
 	int32 AddBodyChunk(FString SymbolName, FString Definition, const FNiagaraTypeDefinition& Type, TArray<int32>& SourceChunks, bool bDecl = true, bool bIsTerminated = true);
 	int32 AddBodyChunk(FString SymbolName, FString Definition, const FNiagaraTypeDefinition& Type, int32 SourceChunk, bool bDecl = true, bool bIsTerminated = true);
 	int32 AddBodyChunk(FString SymbolName, FString Definition, const FNiagaraTypeDefinition& Type, bool bDecl = true, bool bIsTerminated = true);
+	int32 AddBodyComment(const FString& Comment);
+	int32 AddBodyChunk(const FString& Definition);
+
 
 	FString GetFunctionDefinitions();
 
@@ -405,6 +413,8 @@ public:
 	virtual void Output(UNiagaraNodeOutput* OutputNode, const TArray<int32>& ComputedInputs);
 
 	virtual int32 GetParameter(const FNiagaraVariable& Parameter);
+	virtual int32 GetRapidIterationParameter(const FNiagaraVariable& Parameter);
+
 
 	virtual int32 GetAttribute(const FNiagaraVariable& Attribute);
 
@@ -469,10 +479,10 @@ public:
 
 private:
 	void InitializeParameterMapDefaults(int32 ParamMapHistoryIdx);
-	void HandleParameterRead(int32 ParamMapHistoryIdx, const FNiagaraVariable& Var, const UEdGraphPin* DefaultPin, UNiagaraNode* ErrorNode, int32& OutputChunkId, bool bTreatAsUnknownParameterMap = false);
+	void HandleParameterRead(int32 ParamMapHistoryIdx, const FNiagaraVariable& Var, const UEdGraphPin* DefaultPin, UNiagaraNode* ErrorNode, int32& OutputChunkId,  bool bTreatAsUnknownParameterMap = false);
 	bool ShouldConsiderTargetParameterMap(ENiagaraScriptUsage InUsage) const;
 	FString BuildParameterMapHlslDefinitions(TArray<FNiagaraVariable>& PrimaryDataSetOutputEntries);
-	FString BuildMissingDefaults();
+	void BuildMissingDefaults();
 	void FinalResolveNamespacedTokens(const FString& ParameterMapInstanceNamespace, TArray<FString>& Tokens, TArray<FString>& ValidChildNamespaces, FNiagaraParameterMapHistoryBuilder& Builder, TArray<FNiagaraVariable>& UniqueParameterMapEntriesAliasesIntact, TArray<FNiagaraVariable>& UniqueParameterMapEntries, int32 ParamMapHistoryIdx);
 
 	void HandleNamespacedExternalVariablesToDataSetRead(TArray<FNiagaraVariable>& InDataSetVars, FString InNamespaceStr);
@@ -484,7 +494,8 @@ private:
 		FNiagaraFunctionSignature& OutSignature, TArray<int32>& Inputs);
 	
 	// Add a raw float constant chunk
-	int32 GetConstantFloat(float InValue);
+	int32 GetConstantDirect(float InValue);
+	int32 GetConstantDirect(bool InValue);
 
 	FNiagaraTypeDefinition GetChildType(const FNiagaraTypeDefinition& BaseType, const FName& PropertyName);
 	FString NamePathToString(const FString& Prefix, const FNiagaraTypeDefinition& RootType, const TArray<FName>& NamePath);
@@ -522,6 +533,9 @@ private:
 	bool IsSpawnScript() const;
 	bool RequiresInterpolation() const;
 
+	/** If OutVar can be replaced by a literal constant, it's data is initialized with the correct value and we return true. Returns false otherwise. */
+	bool GetLiteralConstantVariable(FNiagaraVariable& OutVar);
+
 	/** Map of symbol names to count of times it's been used. Used for generating unique symbol names. */
 	TMap<FName, uint32> SymbolCounts;
 
@@ -556,6 +570,18 @@ private:
 	// Synced to the external variables used when bulk compiling system scripts.
 	TArray<FNiagaraVariable> ExternalVariablesForBulkUsage;
 
+	// List of primary output variables encountered that need to be properly handled in spawn scripts.
+	TArray<FNiagaraVariable> UniqueVars;
+	
+	// Map of primary ouput variable description to its default value pin
+	TMap<FNiagaraVariable, const UEdGraphPin*> UniqueVarToDefaultPin;
+	
+	// Map of primary output variable description to whether or not it came from this script's parameter map
+	TMap<FNiagaraVariable, bool> UniqueVarToWriteToParamMap;
+	
+	// Map ofthe primary output variable description to the actual chunk id that wrote to it.
+	TMap<FNiagaraVariable, int32> UniqueVarToChunk;
+
 	// Strings to be inserted within the main function
 	TArray<FString> MainPreSimulateChunks;
 
@@ -584,5 +610,8 @@ private:
 	bool bInitializedDefaults;
 
 	TArray<const UEdGraphPin*> CurrentDefaultPinTraversal;
+	// Variables that need to be initialized based on some other variable's value at the end of spawn.
 	TArray<FNiagaraVariable> InitialNamespaceVariablesMissingDefault;
+	// Variables that need to be initialized in the body or at the end of spawn.
+	TArray<FNiagaraVariable> DeferredVariablesMissingDefault;
 };

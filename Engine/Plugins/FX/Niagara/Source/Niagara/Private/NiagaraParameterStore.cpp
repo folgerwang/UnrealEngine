@@ -62,6 +62,9 @@ FNiagaraParameterStore& FNiagaraParameterStore::operator=(const FNiagaraParamete
 	INC_MEMORY_STAT_BY(STAT_NiagaraParamStoreMemory, ParameterData.Num());
 	DataInterfaces = Other.DataInterfaces;
 	++LayoutVersion;
+#if WITH_EDITOR
+	OnChangedDelegate.Broadcast();
+#endif
 	//Don't copy bindings. We just want the data.
 	return *this;
 }

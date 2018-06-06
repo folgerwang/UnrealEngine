@@ -38,6 +38,7 @@ public:
 
 	DECLARE_MULTICAST_DELEGATE(FOnStructureChanged);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnDataObjectModified, UObject*);
+	DECLARE_MULTICAST_DELEGATE(FOnRequestFullRefresh);
 	DECLARE_DELEGATE_RetVal_TwoParams(TOptional<FDropResult>, FOnRequestDrop, const UNiagaraStackEntry&, const TArray<UNiagaraStackEntry*>&);
 	DECLARE_DELEGATE_RetVal_OneParam(bool, FOnFilterChild, const UNiagaraStackEntry&);
 	DECLARE_DELEGATE(FStackIssueFixDelegate);
@@ -103,28 +104,57 @@ public:
 	// stack issue stuff
 	struct FStackIssueFix
 	{
-	public:
-		bool operator == (const FStackIssueFix &Other) const
-		{
-			return Description.CompareTo(Other.Description) == 0 && FixDelegate.GetHandle() == Other.FixDelegate.GetHandle();
-		}
-	public:
+		FStackIssueFix();
+
+		FStackIssueFix(FText InDescription, FStackIssueFixDelegate InFixDelegate);
+
+		bool IsValid() const;
+
+		const FText& GetDescription() const;
+
+		void SetFixDelegate(const FStackIssueFixDelegate& InFixDelegate);
+
+		const FStackIssueFixDelegate& GetFixDelegate() const;
+
+		const FString& GetUniqueIdentifier() const;
+
+	private:
 		FText Description;
 		FStackIssueFixDelegate FixDelegate;
+		FString UniqueIdentifier;
 	};
 
 	struct FStackIssue
 	{
-		FStackIssue()
-			: Severity(EStackIssueSeverity::Error)
-			, bCanBeDismissed(false)
-		{}
+		FStackIssue();
+
+		FStackIssue(EStackIssueSeverity InSeverity, FText InShortDescription, FText InLongDescription, FString InStackEditorDataKey, bool bInCanBeDismissed, const TArray<FStackIssueFix>& InFixes);
+
+		FStackIssue(EStackIssueSeverity InSeverity, FText InShortDescription, FText InLongDescription, FString InStackEditorDataKey, bool bInCanBeDismissed, FStackIssueFix InFix);
+
+		FStackIssue(EStackIssueSeverity InSeverity, FText InShortDescription, FText InLongDescription, FString InStackEditorDataKey, bool bInCanBeDismissed);
+
+		bool IsValid();
+
+		EStackIssueSeverity GetSeverity() const;
+
+		const FText& GetShortDescription() const;
+
+		const FText& GetLongDescription() const;
+
+		const FString& GetUniqueIdentifier() const;
+
+		bool GetCanBeDismissed() const;
+
+		const TArray<FStackIssueFix>& GetFixes() const;
+
+	private:
+		EStackIssueSeverity Severity;
 		FText ShortDescription;
 		FText LongDescription;
-		FName UniqueIdentifier;
-		EStackIssueSeverity Severity;
-		TArray<FStackIssueFix> Fixes;
+		FString UniqueIdentifier;
 		bool bCanBeDismissed;
+		TArray<FStackIssueFix> Fixes;
 	};
 
 public:
@@ -132,7 +162,7 @@ public:
 
 	void Initialize(FRequiredEntryData InRequiredEntryData, FString InStackEditorDataKey);
 
-	bool IsValid() const;
+	void Finalize();
 
 	virtual FText GetDisplayName() const;
 
@@ -174,6 +204,8 @@ public:
 
 	FOnDataObjectModified& OnDataObjectModified();
 
+	FOnRequestFullRefresh& OnRequestFullRefresh();
+
 	void RefreshChildren();
 
 
@@ -197,14 +229,6 @@ public:
 		return nullptr;
 	}
 
-	template<typename ChildType, typename PredicateType>
-	ChildType* FindChildOfTypeByPredicate(PredicateType Predicate)
-	{
-		TArray<UNiagaraStackEntry*> CurrentChildren;
-		GetUnfilteredChildren(CurrentChildren);
-		return FindCurrentChildOfTypeByPredicate<ChildType>(CurrentChildren, Predicate);
-	}
-
 	void GetSearchItems(TArray<FStackSearchItem>& SearchItems) const;
 
 	virtual UObject* GetExternalAsset() const;
@@ -220,6 +244,8 @@ public:
 	void SetOnRequestDrop(FOnRequestDrop InOnRequestCanDrop);
 
 protected:
+	virtual void BeginDestroy() override;
+
 	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues);
 
 	virtual void PostRefreshChildrenInternal();
@@ -240,10 +266,14 @@ protected:
 
 	virtual void ChlildStructureChangedInternal();
 
+	virtual void FinalizeInternal();
+
 private:
 	void ChildStructureChanged();
 	
 	void ChildDataObjectModified(UObject* ChangedObject);
+
+	void ChildRequestFullRefresh();
 
 	TOptional<FDropResult> ChildRequestCanDrop(const UNiagaraStackEntry& TargetChild, const TArray<UNiagaraStackEntry*>& DraggedEntries);
 
@@ -265,6 +295,8 @@ private:
 
 	FOnDataObjectModified DataObjectModifiedDelegate;
 
+	FOnRequestFullRefresh RequestFullRefreshDelegate;
+
 	TArray<FOnFilterChild> ChildFilters;
 
 	UPROPERTY()
@@ -284,4 +316,6 @@ private:
 	FOnRequestDrop OnRequestDropDelegate;
 	
 	TArray<FStackIssue> StackIssues;
+
+	bool bIsFinalized;
 };

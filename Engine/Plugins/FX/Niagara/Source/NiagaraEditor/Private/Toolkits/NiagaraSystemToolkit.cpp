@@ -168,7 +168,6 @@ void FNiagaraSystemToolkit::InitializeWithSystem(const EToolkitMode::Type Mode, 
 
 	FNiagaraSystemViewModelOptions SystemOptions;
 	SystemOptions.bCanModifyEmittersFromTimeline = true;
-	SystemOptions.bUseSystemExecStateForTimelineReset = true;
 	SystemOptions.EditMode = ENiagaraSystemViewModelEditMode::SystemAsset;
 	SystemOptions.OnGetSequencerAddMenuContent.BindSP(this, &FNiagaraSystemToolkit::GetSequencerAddMenuContent);
 
@@ -197,14 +196,50 @@ void FNiagaraSystemToolkit::InitializeWithEmitter(const EToolkitMode::Type Mode,
 
 	Emitter = &InEmitter;
 
+	// Before copying the emitter prepare the rapid iteration parameters so that the post compile prepare doesn't
+	// cause the change ids to become out of sync.
+	FString EmitterName = "Emitter";
+	TArray<UNiagaraScript*> Scripts;
+	TMap<UNiagaraScript*, UNiagaraScript*> ScriptDependencyMap;
+	TMap<UNiagaraScript*, FString> ScriptToEmitterNameMap;
+
+	Scripts.Add(Emitter->EmitterSpawnScriptProps.Script);
+	ScriptToEmitterNameMap.Add(Emitter->EmitterSpawnScriptProps.Script, EmitterName);
+
+	Scripts.Add(Emitter->EmitterUpdateScriptProps.Script);
+	ScriptToEmitterNameMap.Add(Emitter->EmitterUpdateScriptProps.Script, EmitterName);
+
+	Scripts.Add(Emitter->SpawnScriptProps.Script);
+	ScriptToEmitterNameMap.Add(Emitter->SpawnScriptProps.Script, EmitterName);
+
+	Scripts.Add(Emitter->UpdateScriptProps.Script);
+	ScriptToEmitterNameMap.Add(Emitter->UpdateScriptProps.Script, EmitterName);
+
+	if (Emitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)
+	{
+		Scripts.Add(Emitter->GetGPUComputeScript());
+		ScriptToEmitterNameMap.Add(Emitter->GetGPUComputeScript(), EmitterName);
+		ScriptDependencyMap.Add(Emitter->SpawnScriptProps.Script, Emitter->GetGPUComputeScript());
+		ScriptDependencyMap.Add(Emitter->UpdateScriptProps.Script, Emitter->GetGPUComputeScript());
+	}
+	else if (Emitter->bInterpolatedSpawning)
+	{
+		ScriptDependencyMap.Add(Emitter->UpdateScriptProps.Script, Emitter->SpawnScriptProps.Script);
+	}
+
+	FNiagaraUtilities::PrepareRapidIterationParameters(Scripts, ScriptDependencyMap, ScriptToEmitterNameMap);
+
 	ResetLoaders(GetTransientPackage()); // Make sure that we're not going to get invalid version number linkers into the package we are going into. 
 	GetTransientPackage()->LinkerCustomVersion.Empty();
 
 	UNiagaraEmitter* EditableEmitter = (UNiagaraEmitter*)StaticDuplicateObject(Emitter, GetTransientPackage(), NAME_None, ~RF_Standalone, UNiagaraEmitter::StaticClass());
+	
+	// We set this to the copy's change id here instead of the original emitter's change id because the copy's change id may have been
+	// updated from the original as part of post load and we use this id to detect if the editable emitter has been changed.
+	LastSyncedEmitterChangeId = EditableEmitter->GetChangeId();
 
 	FNiagaraSystemViewModelOptions SystemOptions;
 	SystemOptions.bCanModifyEmittersFromTimeline = false;
-	SystemOptions.bUseSystemExecStateForTimelineReset = false;
 	SystemOptions.EditMode = ENiagaraSystemViewModelEditMode::EmitterAsset;
 
 	SystemViewModel = MakeShareable(new FNiagaraSystemViewModel(*System, SystemOptions));
@@ -933,6 +968,9 @@ void FNiagaraSystemToolkit::UpdateOriginalEmitter()
 		RF_AllFlags,
 		Emitter->GetClass());
 
+	// Record the last synced change id to detect future changes.
+	LastSyncedEmitterChangeId = EditableEmitter->GetChangeId();
+
 	checkSlow (UNiagaraEmitter::GetForceCompileOnLoad() || Emitter->GetChangeId() == EditableEmitter->GetChangeId());
 
 	// Restore RF_Standalone on the original emitter, as it had been removed from the preview emitter so that it could be GC'd.
@@ -1042,7 +1080,7 @@ bool FNiagaraSystemToolkit::OnRequestClose()
 	if (SystemToolkitMode == ESystemToolkitMode::Emitter)
 	{
 		TSharedPtr<FNiagaraEmitterViewModel> EmitterViewModel = SystemViewModel->GetEmitterHandleViewModels()[0]->GetEmitterViewModel();
-		if (EmitterViewModel->GetEmitter()->GetChangeId() != Emitter->GetChangeId())
+		if (EmitterViewModel->GetEmitter()->GetChangeId() != LastSyncedEmitterChangeId)
 		{
 			// find out the user wants to do with this dirty NiagaraScript
 			EAppReturnType::Type YesNoCancelReply = FMessageDialog::Open(EAppMsgType::YesNoCancel,
@@ -1102,7 +1140,7 @@ bool FNiagaraSystemToolkit::OnApplyEnabled() const
 	if (Emitter != nullptr)
 	{
 		TSharedPtr<FNiagaraEmitterViewModel> EmitterViewModel = SystemViewModel->GetEmitterHandleViewModels()[0]->GetEmitterViewModel();
-		return EmitterViewModel->GetEmitter()->GetChangeId() != Emitter->GetChangeId();
+		return EmitterViewModel->GetEmitter()->GetChangeId() != LastSyncedEmitterChangeId;
 	}
 	return false;
 }

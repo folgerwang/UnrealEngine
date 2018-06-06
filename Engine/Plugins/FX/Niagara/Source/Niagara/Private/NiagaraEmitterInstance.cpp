@@ -253,19 +253,6 @@ void FNiagaraEmitterInstance::Init(int32 InEmitterIdx, FName InSystemInstanceNam
 		EmitterAgeBindingGPU.Init(GPUExecContext.CombinedParamStore, EmitterAgeParam);
 	}
 
-	FNiagaraVariable EmitterLocalSpaceParam = CachedEmitter->ToEmitterParameter(SYS_PARAM_EMITTER_LOCALSPACE);
-	SpawnEmitterLocalSpaceBinding.Init(SpawnExecContext.Parameters, EmitterLocalSpaceParam);
-	UpdateEmitterLocalSpaceBinding.Init(UpdateExecContext.Parameters, EmitterLocalSpaceParam);
-	EventEmitterLocalSpaceBindings.SetNum(NumEvents);
-	for (int32 i = 0; i < NumEvents; i++)
-	{
-		EventEmitterLocalSpaceBindings[i].Init(EventExecContexts[i].Parameters, EmitterLocalSpaceParam);
-	}
-	if (CachedEmitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)
-	{
-		EmitterLocalSpaceBindingGPU.Init(GPUExecContext.CombinedParamStore, EmitterLocalSpaceParam);
-	}
-
 	SpawnExecCountBinding.Init(SpawnExecContext.Parameters, SYS_PARAM_ENGINE_EXEC_COUNT);
 	UpdateExecCountBinding.Init(UpdateExecContext.Parameters, SYS_PARAM_ENGINE_EXEC_COUNT);
 	EventExecCountBindings.SetNum(NumEvents);
@@ -847,17 +834,9 @@ void FNiagaraEmitterInstance::Tick(float DeltaSeconds)
 			Binding.SetValue(Age);
 		}
 		
-		SpawnEmitterLocalSpaceBinding.SetValue(CachedEmitter->bLocalSpace);
-		UpdateEmitterLocalSpaceBinding.SetValue(CachedEmitter->bLocalSpace);
-		for (FNiagaraParameterDirectBinding<FNiagaraBool>& Binding : EventEmitterLocalSpaceBindings)
-		{
-			Binding.SetValue(CachedEmitter->bLocalSpace);
-		}
-
 		if (CachedEmitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)
 		{
 			EmitterAgeBindingGPU.SetValue(Age);
-			EmitterLocalSpaceBindingGPU.SetValue(CachedEmitter->bLocalSpace);
 		}
 	}
 	

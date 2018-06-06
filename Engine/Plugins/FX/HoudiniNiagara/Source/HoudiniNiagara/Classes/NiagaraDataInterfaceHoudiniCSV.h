@@ -1,5 +1,5 @@
 /*
-* Copyright (c) <2017> Side Effects Software Inc.
+* Copyright (c) <2018> Side Effects Software Inc.
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -33,19 +33,14 @@
 
 
 /** Data Interface allowing sampling of Houdini CSV files. */
-UCLASS(EditInlineNew, Category = "Houdini Niagara", meta = (DisplayName = "Houdini CSV File"))
+UCLASS(EditInlineNew, Category = "Houdini Niagara", meta = (DisplayName = "Houdini Array Info"))
 class HOUDININIAGARA_API UNiagaraDataInterfaceHoudiniCSV : public UNiagaraDataInterface
 {
 	GENERATED_UCLASS_BODY()
 public:
 
-	//UPROPERTY( EditAnywhere, Category = "Houdini Niagara", meta = (DisplayName = "Houdini CSV File Path" ) )
-	//FFilePath CSVFileName;
-
-	UPROPERTY( EditAnywhere, Category = "Houdini Niagara", meta = (DisplayName = "Houdini CSV File" ) )
-	UHoudiniCSV* CSVFile;
-
-	//void UpdateDataFromCSVFile();
+	UPROPERTY( EditAnywhere, Category = "Houdini Niagara", meta = (DisplayName = "Houdini CSV Asset" ) )
+	UHoudiniCSV* HoudiniCSVAsset;
 
 	//----------------------------------------------------------------------------
 	//UObject Interface
@@ -66,43 +61,95 @@ public:
 	//----------------------------------------------------------------------------
 	// EXPOSED FUNCTIONS
 
-	// Returns the float value at a given point in the CSV file
+	// Returns the float value at a given row and column in the CSV file
 	template<typename RowParamType, typename ColParamType>
-	void GetCSVFloatValue(FVectorVMContext& Context);
+	void GetFloatValue(FVectorVMContext& Context);
 
+	/*
 	template<typename RowParamType, typename ColTitleParamType>
-	void GetCSVFloatValueByString(FVectorVMContext& Context);
+	void GetFloatValueByString(FVectorVMContext& Context);
+	*/
 
-	// Returns a Vector3 value for a given point in the csv file
+	// Returns a Vector3 value for a given row in the CSV file
 	template<typename RowParamType, typename ColParamType>
-	void GetCSVVectorValue(FVectorVMContext& Context);
+	void GetVectorValue(FVectorVMContext& Context);
 
-	// Returns the positions for a given point in the CSV file
-	template<typename NParamType>
-	void GetCSVPosition(FVectorVMContext& Context);
+	// Returns a Vector3 value for a given row in the CSV file
+	template<typename RowParamType, typename ColParamType, typename DoSwapParamType, typename DoScaleParamType>
+	void GetVectorValueEx(FVectorVMContext& Context);
 
-	// Returns the normals for a given point in the CSV file
-	template<typename NParamType>
-	void GetCSVNormal(FVectorVMContext& Context);
+	// Returns the positions for a given row in the CSV file
+	template<typename RowParamType>
+	void GetPosition(FVectorVMContext& Context);
 
-	// Returns the time for a given point in the CSV file
-	template<typename NParamType>
-	void GetCSVTime(FVectorVMContext& Context);
+	// Returns the normals for a given row in the CSV file
+	template<typename RowParamType>
+	void GetNormal(FVectorVMContext& Context);
 
-	// Returns the position and time for a given point in the CSV file
-	template<typename NParamType>
-	void GetCSVPositionAndTime(FVectorVMContext& Context);
+	// Returns the time for a given row in the CSV file
+	template<typename RowParamType>
+	void GetTime(FVectorVMContext& Context);
+
+	// Returns the velocity for a given row in the CSV file
+	template<typename RowParamType>
+	void GetVelocity(FVectorVMContext& Context);
+
+	// Returns the color for a given row in the CSV file
+	template<typename RowParamType>
+	void GetColor(FVectorVMContext& Context);
+
+	// Returns the position and time for a given row in the CSV file
+	template<typename RowParamType>
+	void GetPositionAndTime(FVectorVMContext& Context);
+
+	// Returns the number of rows found in the CSV file
+	void GetNumberOfRows(FVectorVMContext& Context);
+
+	// Returns the number of columns found in the CSV file
+	void GetNumberOfColumns(FVectorVMContext& Context);
 
 	// Returns the number of points found in the CSV file
-	void GetNumberOfPointsInCSV(FVectorVMContext& Context);
+	void GetNumberOfPoints(FVectorVMContext& Context);
 
-	// Returns the last index of the particles that should be spawned at time t
+	// Returns the last index of the points that should be spawned at time t
 	template<typename TimeParamType>
-	void GetLastParticleIndexAtTime(FVectorVMContext& Context);
+	void GetLastRowIndexAtTime(FVectorVMContext& Context);
 
-	// Returns the indexes (min, max) and number of particles that should be spawned at time t
+	// Returns the indexes (min, max) and number of points that should be spawned at time t
 	template<typename TimeParamType>
-	void GetParticleIndexesToSpawnAtTime(FVectorVMContext& Context);
+	void GetPointIDsToSpawnAtTime(FVectorVMContext& Context);
+
+	// Returns the position for a given point at a given time
+	template<typename PointIDParamType, typename TimeParamType>
+	void GetPointPositionAtTime(FVectorVMContext& Context);
+
+	// Returns a float value for a given point at a given time
+	template<typename PointIDParamType, typename ColParamType, typename TimeParamType>
+	void GetPointValueAtTime(FVectorVMContext& Context);
+
+	// Returns a Vector value for a given point at a given time
+	template<typename PointIDParamType, typename ColParamType, typename TimeParamType>
+	void GetPointVectorValueAtTime(FVectorVMContext& Context);
+
+	// Returns a Vector value for a given point at a given time
+	template<typename PointIDParamType, typename ColParamType, typename TimeParamType, typename DoSwapParamType, typename DoScaleParamType>
+	void GetPointVectorValueAtTimeEx(FVectorVMContext& Context);
+
+	// Returns the line indexes (previous, next) for reading values for a given point at a given time
+	template<typename PointIDParamType, typename TimeParamType>
+	void GetRowIndexesForPointAtTime(FVectorVMContext& Context);
+
+	// Return the life value for a given point
+	template<typename PointIDParamType>
+	void GetPointLife(FVectorVMContext& Context);
+
+	// Return the life of a given point at a given time
+	//template<typename PointIDParamType, typename TimeParamType>
+	//void GetPointLifeAtTime(FVectorVMContext& Context);
+
+	// Return the type value for a given point
+	template<typename PointIDParamType>
+	void GetPointType( FVectorVMContext& Context );
 	
 	//----------------------------------------------------------------------------
 	// GPU / HLSL Functions
@@ -120,7 +167,7 @@ protected:
 	UPROPERTY()
 	bool GPUBufferDirty;
 
-	// Last Index used to spawn particles
+	// Last Spawned PointID
 	UPROPERTY()
-	int32 LastSpawnIndex;
+	int32 LastSpawnedPointID;
 };

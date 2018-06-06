@@ -41,9 +41,12 @@ private:
 
 	void OnEmitterPinnedChanged();
 
-	void ClearViewModels();
+	void ResetWidgets();
+
+	void ResetViewModels();
 
 	void CollapseToHeaders();
+
 private:
 	TSharedPtr<FNiagaraSystemViewModel> SystemViewModel;
 

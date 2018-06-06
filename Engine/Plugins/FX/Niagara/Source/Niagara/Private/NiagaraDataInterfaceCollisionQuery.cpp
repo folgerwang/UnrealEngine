@@ -126,6 +126,7 @@ void UNiagaraDataInterfaceCollisionQuery::GetFunctions(TArray<FNiagaraFunctionSi
 // build the shader function HLSL; function name is passed in, as it's defined per-DI; that way, configuration could change
 // the HLSL in the spirit of a static switch
 // TODO: need a way to identify each specific function here
+
 // 
 bool UNiagaraDataInterfaceCollisionQuery::GetFunctionHLSL(const FName& DefinitionFunctionName, FString InstanceFunctionName, FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL)
 {
@@ -135,12 +136,6 @@ bool UNiagaraDataInterfaceCollisionQuery::GetFunctionHLSL(const FName& Definitio
 	{
 		OutHLSL += TEXT("float3 WorldPositionFromSceneDepth(float2 ScreenPosition, float SceneDepth)\n{\n\tfloat4 HomogeneousWorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld);\n\treturn HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;\n}\n");
 		OutHLSL += TEXT("\n");
-		OutHLSL += TEXT("// For retrieving the world-space normal.\n\
-							//#if FORWARD_SHADING\n\
-							Texture2D GBufferATexture;\n\
-							SamplerState GBufferATextureSampler;\n\
-							//#endif\n\n\
-							");
 		OutHLSL += TEXT("void ") + InstanceFunctionName + TEXT("(in int InQueryID, in float3 In_ParticlePos, in float3 In_ParticleVel, in float In_DeltaSeconds, float CollisionRadius, in float CollisionDepthBounds, int In_InstanceData, \
 			out int Out_QueryID, out bool OutCollisionValid, out float3 Out_CollisionPos, out float3 Out_CollisionNormal, out float Out_Friction, out float Out_Restitution) \n{\n");
 		// get the screen position
@@ -166,34 +161,10 @@ bool UNiagaraDataInterfaceCollisionQuery::GetFunctionHLSL(const FName& Definitio
 			float SceneDepth = CalcSceneDepth(ScreenUV);\n\
 			if (abs(ClipPosition.w - SceneDepth) < CollisionDepthBounds)\n\
 			{\n\
-			/*#if FORWARD_SHADING_ACCURATE_NORMAL && FORWARD_SHADING\n\
-				float SceneDepth0 = CalcSceneDepth(ScreenUV + float2(View.BufferSizeAndInvSize.z, 0.0));\n\
-				float SceneDepth1 = CalcSceneDepth(ScreenUV + float2(0.0, View.BufferSizeAndInvSize.w));\n\
-				// When using the forward shading, the normal of the pixel is approximated by the derivative of the world position\n\
-				// of the pixel. But in on the visible edge this derivative can become very high, making CollisionPlane almost\n\
-				// perpendicular to the view plane. In these case the particle may collide the visible edges of the diferent meshes\n\
-				// in the view frustum. To avoid this, we disable the collision test if one of the derivate is above a threshold.\n\
-				if (max(abs(SceneDepth - SceneDepth0), abs(SceneDepth - SceneDepth1)) > CollisionDepthBounds)\n\
-				{\n\
-					OutCollisionValid = false;\n\
-					return;\n\
-				}\n\
-			#endif*/\n\
 				// Reconstruct world position.\n\
 				float3 WorldPosition = WorldPositionFromSceneDepth(ScreenPosition.xy, SceneDepth);\n\
-			/*#if FORWARD_SHADING && FORWARD_SHADING_ACCURATE_NORMAL\n\
-				// Compute normal using the two additional neighbooring pixel depth buffer fetches.\n\
-				float3 WorldPosition0 = WorldPositionFromSceneDepth(ScreenPosition.xy + float2(2 * View.ViewSizeAndInvSize.z, 0.0), SceneDepth0);\n\
-				float3 WorldPosition1 = WorldPositionFromSceneDepth(ScreenPosition.xy - float2(0.0, 2 * View.ViewSizeAndInvSize.w), SceneDepth1);\n\
-				float3 WorldNormal = normalize(cross(WorldPosition0 - WorldPosition, WorldPosition1 - WorldPosition));\n\
-			#elif FORWARD_SHADING // && !FORWARD_SHADING_ACCURATE_NORMAL\n\
-				// Compute normal using a ddx/ddy hack, hopefully the neighbooring particules will be close enough...\n\
-				float3 WorldNormal = normalize(cross(ddx(WorldPosition), ddy(WorldPosition)));\n\
-				WorldNormal *= sign(dot(View.WorldCameraOrigin - NewPosition, WorldNormal));\n\
-			#else*/ //!FORWARD_SHADING\n\
 				// Sample the normal buffer to create a plane to collide against.\n\
-				float3 WorldNormal = Texture2DSampleLevel(GBufferATexture, GBufferATextureSampler, ScreenUV, 0).xyz * 2.0 - 1.0;\n\
-			//#endif\n\
+				float3 WorldNormal = Texture2DSampleLevel(SceneTexturesStruct.GBufferATexture, SceneTexturesStruct.GBufferATextureSampler, ScreenUV, 0).xyz * 2.0 - 1.0;\n\
 				float4 CollisionPlane = float4(WorldNormal, dot(WorldPosition.xyz, WorldNormal));\n\
 				// Compute the portion of velocity normal to the collision plane.\n\
 				float VelocityDot = dot(CollisionPlane.xyz, DeltaPosition.xyz);\n\
@@ -228,7 +199,6 @@ bool UNiagaraDataInterfaceCollisionQuery::GetFunctionHLSL(const FName& Definitio
 void UNiagaraDataInterfaceCollisionQuery::GetParameterDefinitionHLSL(FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL)
 {
 	// we don't need to add these to hlsl, as they're already in common.ush
-	//OutHLSL = "Texture2D GBufferATexture;\nSamplerState GBufferATextureSampler;";	
 }
 
 DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceCollisionQuery, SubmitQuery);
@@ -473,18 +443,13 @@ struct FNiagaraDataInterfaceParametersCS_CollisionQuery : public FNiagaraDataInt
 {
 	virtual void Bind(const FNiagaraDataInterfaceParamRef& ParamRef, const class FShaderParameterMap& ParameterMap) override
 	{
-		SceneDepthTextureParameter.Bind(ParameterMap, TEXT("SceneDepthTexture"));
-		SceneDepthTextureParameterSampler.Bind(ParameterMap, TEXT("SceneDepthTextureSampler"));
-		GBufferATextureParameter.Bind(ParameterMap, TEXT("GBufferATexture"));
-		GBufferATextureParameterSampler.Bind(ParameterMap, TEXT("GBufferATextureSampler"));
+		PassUniformBuffer.Bind(ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
+		check(PassUniformBuffer.IsBound());
 	}
 
 	virtual void Serialize(FArchive& Ar)override
 	{
-		Ar << SceneDepthTextureParameter;
-		Ar << SceneDepthTextureParameterSampler;
-		Ar << GBufferATextureParameter;
-		Ar << GBufferATextureParameterSampler;
+		Ar << PassUniformBuffer;
 	}
 
 	virtual void Set(FRHICommandList& RHICmdList, FNiagaraShader* Shader, class UNiagaraDataInterface* DataInterface) const override
@@ -492,40 +457,15 @@ struct FNiagaraDataInterfaceParametersCS_CollisionQuery : public FNiagaraDataInt
 		check(IsInRenderingThread());
 
 		const FComputeShaderRHIParamRef ComputeShaderRHI = Shader->GetComputeShader();
-		//UNiagaraDataInterfaceCollisionQuery* CollisionDI = CastChecked<UNiagaraDataInterfaceCollisionQuery>(DataInterface);
 
-		FTexture2DRHIParamRef SceneDepthTexture = GNiagaraViewDataManager.GetSceneDepthTexture();
-		FTexture2DRHIParamRef GBufferATexture = GNiagaraViewDataManager.GetSceneNormalTexture() ? GNiagaraViewDataManager.GetSceneNormalTexture() : nullptr;
-		RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, SceneDepthTexture);
-		RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, GBufferATexture);
-
-		SetTextureParameter(
-			RHICmdList,
-			ComputeShaderRHI,
-			SceneDepthTextureParameter,
-			SceneDepthTextureParameterSampler,
-			TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(),
-			SceneDepthTexture//TODO: Does this work for multiple views?
-		);
-
-		SetTextureParameter(
-			RHICmdList,
-			ComputeShaderRHI,
-			GBufferATextureParameter,
-			GBufferATextureParameterSampler,
-			TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(),
-			GBufferATexture//TODO: Does this work for multiple views?
-		);
+		TUniformBufferRef<FSceneTexturesUniformParameters> SceneTextureUniformParams = GNiagaraViewDataManager.GetSceneTextureUniformParameters();
+		SetUniformBufferParameter(RHICmdList, ComputeShaderRHI, PassUniformBuffer/*Shader->GetUniformBufferParameter(SceneTexturesUniformBufferStruct)*/, SceneTextureUniformParams);
 	}
 
 private:
 
 	/** The SceneDepthTexture parameter for depth buffer collision. */
-	FShaderResourceParameter SceneDepthTextureParameter;
-	FShaderResourceParameter SceneDepthTextureParameterSampler;
-	/** The GBufferATexture parameter for depth buffer collision. */
-	FShaderResourceParameter GBufferATextureParameter;
-	FShaderResourceParameter GBufferATextureParameterSampler;
+	FShaderUniformBufferParameter PassUniformBuffer;
 };
 
 FNiagaraDataInterfaceParametersCS* UNiagaraDataInterfaceCollisionQuery::ConstructComputeParameters()const

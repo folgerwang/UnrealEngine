@@ -22,21 +22,6 @@
 
 #define LOCTEXT_NAMESPACE "NiagaraEditor"
 
-#define PARAM_MAP_NPC_STR TEXT("NPC.")
-#define PARAM_MAP_ENGINE_STR TEXT("Engine.")
-#define PARAM_MAP_ENGINE_OWNER_STR TEXT("Engine.Owner.")
-#define PARAM_MAP_ENGINE_SYSTEM_STR TEXT("Engine.System.")
-#define PARAM_MAP_ENGINE_EMITTER_STR TEXT("Engine.Emitter.")
-#define PARAM_MAP_USER_STR TEXT("User.")
-#define PARAM_MAP_SYSTEM_STR TEXT("System.")
-#define PARAM_MAP_EMITTER_STR TEXT("Emitter.")
-#define PARAM_MAP_MODULE_STR TEXT("Module.")
-#define PARAM_MAP_ATTRIBUTE_STR TEXT("Particles.")
-#define PARAM_MAP_INITIAL_STR TEXT("Initial.")
-#define PARAM_MAP_INITIAL_BASE_STR TEXT("Initial")
-#define PARAM_MAP_RAPID_ITERATION_STR TEXT("Constants.")
-#define PARAM_MAP_RAPID_ITERATION_BASE_STR TEXT("Constants")
-
 
 FNiagaraParameterMapHistory::FNiagaraParameterMapHistory() 
 {
@@ -45,20 +30,32 @@ FNiagaraParameterMapHistory::FNiagaraParameterMapHistory()
 
 void FNiagaraParameterMapHistory::GetValidNamespacesForReading(const UNiagaraScript* InScript, TArray<FString>& OutputNamespaces)
 {
-	GetValidNamespacesForReading(InScript->GetUsage(), OutputNamespaces);
+	GetValidNamespacesForReading(InScript->GetUsage(), 0, OutputNamespaces);
 }
 
-void FNiagaraParameterMapHistory::GetValidNamespacesForReading(ENiagaraScriptUsage InScriptUsage, TArray<FString>& OutputNamespaces)
+void FNiagaraParameterMapHistory::GetValidNamespacesForReading(ENiagaraScriptUsage InScriptUsage, int32 InUsageBitmask, TArray<FString>& OutputNamespaces)
 {
+	TArray<ENiagaraScriptUsage> SupportedContexts;
+	SupportedContexts.Add(InScriptUsage);
+	if (UNiagaraScript::IsStandaloneScript(InScriptUsage))
+	{
+		SupportedContexts.Append(UNiagaraScript::GetSupportedUsageContextsForBitmask(InUsageBitmask));
+	}
+
 	OutputNamespaces.Add(PARAM_MAP_MODULE_STR);
 	OutputNamespaces.Add(PARAM_MAP_ENGINE_STR);
 	OutputNamespaces.Add(PARAM_MAP_NPC_STR);
 	OutputNamespaces.Add(PARAM_MAP_USER_STR);
 	OutputNamespaces.Add(PARAM_MAP_SYSTEM_STR);
 	OutputNamespaces.Add(PARAM_MAP_EMITTER_STR);
-	if (UNiagaraScript::IsParticleScript(InScriptUsage))
+
+	for (ENiagaraScriptUsage Usage : SupportedContexts)
 	{
-		OutputNamespaces.Add(PARAM_MAP_ATTRIBUTE_STR);
+		if (UNiagaraScript::IsParticleScript(Usage))
+		{
+			OutputNamespaces.Add(PARAM_MAP_ATTRIBUTE_STR);
+			break;
+		}
 	}
 }
 
@@ -79,16 +76,26 @@ FString FNiagaraParameterMapHistory::GetNamespace(const FNiagaraVariable& InVar,
 	}
 }
 
-bool FNiagaraParameterMapHistory::IsValidNamespaceForReading(ENiagaraScriptUsage InScriptUsage, FString Namespace)
+bool FNiagaraParameterMapHistory::IsValidNamespaceForReading(ENiagaraScriptUsage InScriptUsage, int32 InUsageBitmask, FString Namespace)
 {
 	TArray<FString> OutputNamespaces;
-	GetValidNamespacesForReading(InScriptUsage, OutputNamespaces);
+	GetValidNamespacesForReading(InScriptUsage, InUsageBitmask, OutputNamespaces);
+
+	TArray<FString> ConcernedNamespaces;
+	ConcernedNamespaces.Add(PARAM_MAP_MODULE_STR);
+	ConcernedNamespaces.Add(PARAM_MAP_ENGINE_STR);
+	ConcernedNamespaces.Add(PARAM_MAP_NPC_STR);
+	ConcernedNamespaces.Add(PARAM_MAP_USER_STR);
+	ConcernedNamespaces.Add(PARAM_MAP_SYSTEM_STR);
+	ConcernedNamespaces.Add(PARAM_MAP_EMITTER_STR);
+	ConcernedNamespaces.Add(PARAM_MAP_ATTRIBUTE_STR);
 	
 	if (!Namespace.EndsWith(TEXT(".")))
 	{
 		Namespace.Append(TEXT("."));
 	}
 
+	// Pass if we are in the allowed list
 	for (const FString& ValidNamespace : OutputNamespaces)
 	{
 		if (Namespace.StartsWith(ValidNamespace))
@@ -97,7 +104,17 @@ bool FNiagaraParameterMapHistory::IsValidNamespaceForReading(ENiagaraScriptUsage
 		}
 	}
 
-	return false;
+	// Only fail if we're using a namespace that we know is one of the reserved ones.
+	for (const FString& ConcernedNamespace : ConcernedNamespaces)
+	{
+		if (Namespace.StartsWith(ConcernedNamespace))
+		{
+			return false;
+		}
+	}
+
+	// This means that we are using a namespace that isn't one of the primary engine namespaces, so we don't care and let it go.
+	return true;
 }
 
 
@@ -337,7 +354,7 @@ bool FNiagaraParameterMapHistory::IsRapidIterationParameter(const FNiagaraVariab
 	return IsInNamespace(InVar, PARAM_MAP_RAPID_ITERATION_STR);
 }
 
-bool FNiagaraParameterMapHistory::TryGetEmitterAndFunctionCallNamesFromRapidIterationParameter(const FNiagaraVariable& InVar, FString& EmitterName, FString& FunctionCallName)
+bool FNiagaraParameterMapHistory::SplitRapidIterationParameterName(const FNiagaraVariable& InVar, FString& EmitterName, FString& FunctionCallName, FString& InputName)
 {
 	TArray<FString> SplitName;
 	InVar.GetName().ToString().ParseIntoArray(SplitName, TEXT("."));
@@ -345,6 +362,11 @@ bool FNiagaraParameterMapHistory::TryGetEmitterAndFunctionCallNamesFromRapidIter
 	{
 		EmitterName = SplitName[1];
 		FunctionCallName = SplitName[2];
+		InputName = SplitName[3];
+		for (int i = 4; i < SplitName.Num(); i++)
+		{
+			InputName += TEXT(".") + SplitName[i];
+		}
 		return true;
 	}
 	return false;
@@ -740,7 +762,7 @@ int32 FNiagaraParameterMapHistoryBuilder::RegisterParameterMapPin(int32 WhichPar
 
 int32 FNiagaraParameterMapHistoryBuilder::TraceParameterMapOutputPin(const UEdGraphPin* OutputPin)
 {
-	if (OutputPin->Direction == EEdGraphPinDirection::EGPD_Output)
+	if (OutputPin && OutputPin->Direction == EEdGraphPinDirection::EGPD_Output)
 	{
 		OutputPin = UNiagaraNode::TraceOutputPin(const_cast<UEdGraphPin*>(OutputPin));
 		if (OutputPin)

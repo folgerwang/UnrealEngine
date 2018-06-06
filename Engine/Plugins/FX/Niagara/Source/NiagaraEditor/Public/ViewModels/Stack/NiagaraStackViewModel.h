@@ -38,6 +38,8 @@ public:
 	TSharedPtr<FNiagaraSystemViewModel> GetSystemViewModel();
 	void Initialize(TSharedPtr<FNiagaraSystemViewModel> InSystemViewModel, TSharedPtr<FNiagaraEmitterHandleViewModel> InEmitterHandleViewModel);
 
+	void Finalize();
+
 	virtual void BeginDestroy() override;
 
 	TArray<UNiagaraStackEntry*>& GetRootEntries();
@@ -98,6 +100,7 @@ private:
 private:
 	void EntryStructureChanged();
 	void EntryDataObjectModified(UObject* ChangedObject);
+	void EntryRequestFullRefresh();
 	void OnSystemCompiled();
 	void OnEmitterCompiled();
 	/** Called by the tick function to perform partial search */
