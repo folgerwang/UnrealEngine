@@ -318,7 +318,7 @@ public:
 	FVector GetExtent() const;
 	/** @see EnvironmentCaptureTexture */
 	UFUNCTION(BlueprintPure, Category="AR AugmentedReality|Environment Capture Probe")
-	UAREnvironmentCaptureProbeTexture* GetEnvironmentCaptureTexture() const;
+	UAREnvironmentCaptureProbeTexture* GetEnvironmentCaptureTexture();
 
 protected:
 	/** The size of area this probe covers */

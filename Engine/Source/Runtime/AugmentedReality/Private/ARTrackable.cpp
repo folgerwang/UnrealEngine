@@ -276,7 +276,7 @@ FVector UAREnvironmentCaptureProbe::GetExtent() const
 	return Extent;
 }
 
-UAREnvironmentCaptureProbeTexture* UAREnvironmentCaptureProbe::GetEnvironmentCaptureTexture() const
+UAREnvironmentCaptureProbeTexture* UAREnvironmentCaptureProbe::GetEnvironmentCaptureTexture()
 {
 	return EnvironmentCaptureTexture;
 }
