@@ -83,6 +83,7 @@ class NIAGARAEDITOR_API UEdGraphSchema_Niagara : public UEdGraphSchema
 
 	TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > GetGraphContextActions(const UEdGraph* CurrentGraph, TArray<UObject*>& SelectedObjects, const UEdGraphPin* FromPin, UEdGraph* OwnerOfTemporaries) const;
 	void PromoteSinglePinToParameter(UEdGraphPin* SourcePin);
+	static bool CanPromoteSinglePinToParameter(const UEdGraphPin* SourcePin);
 	void ToggleNodeEnabledState(class UNiagaraNode* InNode) const;
 
 	/** 
