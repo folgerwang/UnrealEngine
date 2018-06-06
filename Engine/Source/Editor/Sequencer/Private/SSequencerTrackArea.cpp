@@ -444,9 +444,21 @@ void SSequencerTrackArea::Tick( const FGeometry& AllottedGeometry, const double 
 		const float Difference = Size.X - SizeLastFrame->X;
 		TRange<double> OldRange = TimeSliderController->GetViewRange().GetAnimationTarget();
 
+		double NewRangeMin = OldRange.GetLowerBoundValue();
+		double NewRangeMax = OldRange.GetUpperBoundValue() + (Difference * OldRange.Size<double>() / SizeLastFrame->X);
+
+		TRange<double> ClampRange = TimeSliderController->GetClampRange();
+
+		if (NewRangeMin < ClampRange.GetLowerBoundValue() || NewRangeMax > ClampRange.GetUpperBoundValue())
+		{
+			double NewClampRangeMin = NewRangeMin < ClampRange.GetLowerBoundValue() ? NewRangeMin : ClampRange.GetLowerBoundValue();
+			double NewClampRangeMax = NewRangeMax > ClampRange.GetUpperBoundValue() ? NewRangeMax : ClampRange.GetUpperBoundValue();
+
+			TimeSliderController->SetClampRange(NewClampRangeMin, NewClampRangeMax);
+		}
+
 		TimeSliderController->SetViewRange(
-			OldRange.GetLowerBoundValue(),
-			OldRange.GetUpperBoundValue() + (Difference * OldRange.Size<double>() / SizeLastFrame->X),
+			NewRangeMin, NewRangeMax,
 			EViewRangeInterpolation::Immediate
 		);
 	}
