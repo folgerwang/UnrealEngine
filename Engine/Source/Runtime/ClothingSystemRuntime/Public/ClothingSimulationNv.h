@@ -96,6 +96,10 @@ public:
 	bool bUseGravityOverride;
 	FVector GravityOverride;
 
+	// Cache for previous state for handling teleports
+	FVector LastVelocity;
+	FTransform LastRootTransform;
+
 private:
 
 	// Builds a list of particle velocities given the current simulation state

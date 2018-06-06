@@ -18,7 +18,6 @@
 #include "Editor/PropertyEditor/Public/IDetailsView.h"
 #include "SMaterialEditorViewport.h"
 #include "Materials/Material.h"
-#include "Widgets/Layout/SScrollBox.h"
 #include "Tickable.h"
 
 struct FAssetData;
@@ -312,10 +311,9 @@ public:
 
 	/**
 	 * Updates list of Material Info used to show stats
-	 *
-	 * @param bForceDisplay	Whether we want to ensure stats tab is displayed.
 	 */
-	void UpdateMaterialInfoList(bool bForceDisplay = false);
+	void UpdateMaterialInfoList();
+	void UpdateMaterialinfoList_Old();
 
 	/**
 	 * Updates flags on the Material Nodes to avoid expensive look up calls when rendering
@@ -374,6 +372,14 @@ public:
 	/** Gets the extensibility managers for outside entities to extend material editor's menus and toolbars */
 	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() { return MenuExtensibilityManager; }
 	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager() { return ToolBarExtensibilityManager; }
+
+	FORCEINLINE bool IsShowingBuiltinStats()
+	{
+		return bShowBuiltinStats;
+	}
+
+	/** call this to notify the editor that the edited material changed from outside */
+	virtual void NotifyExternalMaterialChange() override;
 
 public:
 	/** Set to true when modifications have been made to the material */
@@ -520,12 +526,6 @@ private:
 	 */
 	void SaveEditorSettings();
 
-	/** Gets the text in the code view widget */
-	FText GetCodeViewText() const;
-
-	/** Copies all the HLSL Code View code to the clipboard */
-	FReply CopyCodeViewTextToClipboard();
-
 	/**
 	* Rebuilds dependant Material Instance Editors
 	* @param		MatInst	Material Instance to search dependent editors and force refresh of them.
@@ -555,16 +555,12 @@ private:
 	void OnAlwaysRefreshAllPreviews();
 	bool IsOnAlwaysRefreshAllPreviews() const;
 	/** Command for the stats button */
-	void ToggleStats();
-	bool IsToggleStatsChecked() const;
+
 	void ToggleReleaseStats();
 	bool IsToggleReleaseStatsChecked() const;
 	void ToggleBuiltinStats();
 	bool IsToggleBuiltinStatsChecked() const;
 
-	/** Mobile stats button. */
-	void ToggleMobileStats();
-	bool IsToggleMobileStatsChecked() const;
 	/** Command for using currently selected texture */
 	void OnUseCurrentTexture();
 	/** Command for converting nodes to objects */
@@ -692,9 +688,7 @@ private:
 	TSharedRef<SDockTab> SpawnTab_Preview(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnTab_GraphCanvas(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnTab_MaterialProperties(const FSpawnTabArgs& Args);
-	TSharedRef<SDockTab> SpawnTab_HLSLCode(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnTab_Palette(const FSpawnTabArgs& Args);
-	TSharedRef<SDockTab> SpawnTab_Stats(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnTab_Find(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnTab_PreviewSettings(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnTab_ParameterDefaults(const FSpawnTabArgs& Args);
@@ -720,16 +714,8 @@ private:
 	/** Preview viewport widget used for UI materials */
 	TSharedPtr<class SMaterialEditorUIPreviewViewport> PreviewUIViewport;
 
-	/** Widget to hold utility components for the HLSL Code View */
-	TSharedPtr<SWidget> CodeViewUtility;
-
-	/** Widget for the HLSL Code View */
-	TSharedPtr<class SScrollBox> CodeView;
-	/** Cached Code for the widget */
-	FString HLSLCode;
-
-	/** Tracks whether the code tab is open, so we don't have to update it when closed. */
-	TWeakPtr<SDockTab> CodeTab;
+	/** Hashed error code use to refresh the error displaying widget when this will change */
+	FString MaterialErrorHash;
 
 	/** Palette of Material Expressions and functions */
 	TSharedPtr<class SMaterialPalette> Palette;
@@ -753,7 +739,7 @@ private:
 	/** Material expression previews. */
 	TIndirectArray<class FMatExpressionPreview> ExpressionPreviews;
 
-	/** Information about material to show when stats are enabled */
+	/** Used to store material errors */
 	TArray<TSharedPtr<FMaterialInfo>> MaterialInfoList;
 
 	TArray<FName> OverriddenVectorParametersToRevert;
@@ -768,14 +754,8 @@ private:
 	/** Just storing this choice for now, not sure what difference it will make to Graph Editor */
 	bool bIsRealtime;
 
-	/** If true, show material stats like number of shader instructions. */
-	bool bShowStats;
-
 	/** If true, show stats for an empty material. Helps artists to judge the cost of their changes to the graph. */
 	bool bShowBuiltinStats;
-
-	/** If true, show material stats and errors for mobile. */
-	bool bShowMobileStats;
 
 	/** Command list for this editor */
 	TSharedPtr<FUICommandList> GraphEditorCommands;
@@ -784,12 +764,10 @@ private:
 	TSharedPtr<FExtensibilityManager> ToolBarExtensibilityManager;
 
 	/**	The tab ids for the material editor */
-	static const FName PreviewTabId;		
-	static const FName GraphCanvasTabId;	
-	static const FName PropertiesTabId;	
-	static const FName HLSLCodeTabId;	
+	static const FName PreviewTabId;
+	static const FName GraphCanvasTabId;
+	static const FName PropertiesTabId;
 	static const FName PaletteTabId;
-	static const FName StatsTabId;
 	static const FName FindTabId;
 	static const FName PreviewSettingsTabId;
 	static const FName ParameterDefaultsTabId;
@@ -797,4 +775,7 @@ private:
 
 	/** Object that stores all of the possible parameters we can edit. */
 	class UMaterialEditorPreviewParameters* MaterialEditorInstance;
+
+	/** Object used as material statistics manager */
+	TSharedPtr<class FMaterialStats> MaterialStatsManager;
 };

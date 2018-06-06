@@ -39,6 +39,11 @@ struct FUniqueNetIdRepl : public FUniqueNetIdWrapper
 	{
 	}
 
+	FUniqueNetIdRepl(const FUniqueNetId& InUniqueNetId)
+		: FUniqueNetIdWrapper(InUniqueNetId)
+	{
+	}
+
 	FUniqueNetIdRepl(const TSharedRef<const FUniqueNetId>& InUniqueNetId)
 		: FUniqueNetIdWrapper(InUniqueNetId)
 	{
@@ -73,13 +78,13 @@ struct FUniqueNetIdRepl : public FUniqueNetIdWrapper
 	bool Serialize(FArchive& Ar);
 	
 	/** Convert this unique id to a json value */
-	TSharedRef<FJsonValue> ToJson() const;
+	ENGINE_API TSharedRef<FJsonValue> ToJson() const;
 	/** Create a unique id from a json string */
 	ENGINE_API void FromJson(const FString& InValue);
 
 	/**
-	* For FUniqueNetIdRepl objects, we use the same hashing function as any other wrapper.
-	*/
+	 * For FUniqueNetIdRepl objects, we use the same hashing function as any other wrapper.
+	 */
 	friend inline uint32 GetTypeHash(FUniqueNetIdRepl const& Value)
 	{
 		if (Value.IsValid())
@@ -95,16 +100,14 @@ struct FUniqueNetIdRepl : public FUniqueNetIdWrapper
 
 protected:
 
-	/** Helper to create an FUniqueNetId from a string */
-	void UniqueIdFromString(const FString& Contents);
+	/** Helper to create an FUniqueNetId from a string and its type */
+	void UniqueIdFromString(FName Type, const FString& Contents);
 	/** Helper to make network serializable representation */
 	void MakeReplicationData();
 	/** Network serialized data cache */
 	UPROPERTY(Transient)
 	TArray<uint8> ReplicationBytes;
 };
-
-//static ENGINE_API uint32 GetTypeHash(FUniqueNetIdRepl const& Value);
 
 /** Specify type trait support for various low level UPROPERTY overrides */
 template<>

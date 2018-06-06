@@ -57,10 +57,10 @@ struct FAnalyticsEventAttribute
 			return AttrValueString;
 		case AttrTypeEnum::Number:
 			if (AttrValueNumber - FMath::TruncToFloat(AttrValueNumber) == 0.0)
-				return Lex::ToSanitizedString((int64)AttrValueNumber);
-			return Lex::ToSanitizedString(AttrValueNumber);
+				return LexToSanitizedString((int64)AttrValueNumber);
+			return LexToSanitizedString(AttrValueNumber);
 		case AttrTypeEnum::Boolean:
-			return Lex::ToString(AttrValueBool);
+			return LexToString(AttrValueBool);
 		case AttrTypeEnum::Null:
 			return TEXT("null");
 		default:
@@ -72,7 +72,7 @@ struct FAnalyticsEventAttribute
 public: // null
 	template <typename NameType>
 	FAnalyticsEventAttribute(NameType&& InName, FJsonNull)
-		: AttrName(Lex::ToString(Forward<NameType>(InName)))
+		: AttrName(LexToString(Forward<NameType>(InName)))
 		, AttrValueString()
 		, AttrValueNumber(0)
 		, AttrValueBool(false)
@@ -83,7 +83,7 @@ public: // null
 public: // numeric types
 	template <typename NameType>
 	FAnalyticsEventAttribute(NameType&& InName, double InValue)
-		: AttrName(Lex::ToString(Forward<NameType>(InName)))
+		: AttrName(LexToString(Forward<NameType>(InName)))
 		, AttrValueString()
 		, AttrValueNumber(InValue)
 		, AttrValueBool(false)
@@ -92,7 +92,7 @@ public: // numeric types
 	}
 	template <typename NameType>
 	FAnalyticsEventAttribute(NameType&& InName, float InValue)
-		: AttrName(Lex::ToString(Forward<NameType>(InName)))
+		: AttrName(LexToString(Forward<NameType>(InName)))
 		, AttrValueString()
 		, AttrValueNumber(InValue)
 		, AttrValueBool(false)
@@ -101,7 +101,7 @@ public: // numeric types
 	}
 	template <typename NameType>
 	FAnalyticsEventAttribute(NameType&& InName, int32 InValue)
-		: AttrName(Lex::ToString(Forward<NameType>(InName)))
+		: AttrName(LexToString(Forward<NameType>(InName)))
 		, AttrValueString()
 		, AttrValueNumber(InValue)
 		, AttrValueBool(false)
@@ -110,7 +110,7 @@ public: // numeric types
 	}
 	template <typename NameType>
 	FAnalyticsEventAttribute(NameType&& InName, uint32 InValue)
-		: AttrName(Lex::ToString(Forward<NameType>(InName)))
+		: AttrName(LexToString(Forward<NameType>(InName)))
 		, AttrValueString()
 		, AttrValueNumber(InValue)
 		, AttrValueBool(false)
@@ -121,7 +121,7 @@ public: // numeric types
 public: // boolean
 	template <typename NameType>
 	FAnalyticsEventAttribute(NameType&& InName, bool InValue)
-		: AttrName(Lex::ToString(Forward<NameType>(InName)))
+		: AttrName(LexToString(Forward<NameType>(InName)))
 		, AttrValueString()
 		, AttrValueNumber(0)
 		, AttrValueBool(InValue)
@@ -132,7 +132,7 @@ public: // boolean
 public: // json fragment
 	template <typename NameType>
 	FAnalyticsEventAttribute(NameType&& InName, FJsonFragment&& Fragment)
-		: AttrName(Lex::ToString(Forward<NameType>(InName)))
+		: AttrName(LexToString(Forward<NameType>(InName)))
 		, AttrValueString(MoveTemp(Fragment.FragmentString))
 		, AttrValueNumber(0)
 		, AttrValueBool(false)
@@ -142,14 +142,14 @@ public: // json fragment
 
 public: // string (catch-all)
 	/**
-	 * Helper constructor to make an attribute from a name/value pair by forwarding through Lex::ToString and AnalyticsConversion::ToString.
+	 * Helper constructor to make an attribute from a name/value pair by forwarding through LexToString and AnalyticsConversion::ToString.
 	 * 
-	 * @param InName Name of the attribute. Will be converted to a string via forwarding to Lex::ToString
+	 * @param InName Name of the attribute. Will be converted to a string via forwarding to LexToString
 	 * @param InValue Value of the attribute. Will be converted to a string via forwarding to AnalyticsConversion::ToString (same as Lex but with basic support for arrays and maps)
 	 */
 	template <typename NameType, typename ValueType>
 	FAnalyticsEventAttribute(NameType&& InName, ValueType&& InValue)
-		: AttrName(Lex::ToString(Forward<NameType>(InName)))
+		: AttrName(LexToString(Forward<NameType>(InName)))
 		, AttrValueString(AnalyticsConversion::ToString(Forward<ValueType>(InValue)))
 		, AttrValueNumber(0)
 		, AttrValueBool(false)

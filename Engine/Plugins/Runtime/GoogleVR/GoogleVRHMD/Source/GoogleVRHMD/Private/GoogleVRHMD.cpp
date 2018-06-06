@@ -2201,13 +2201,13 @@ bool FGoogleVRHMD::OnStartGameFrame( FWorldContext& WorldContext )
 			GEngine->GameViewport->Viewport &&
 			GEngine->GameViewport->Viewport->GetClient() )
 		{
-			GEngine->GameViewport->Viewport->GetClient()->InputTouch(GEngine->GameViewport->Viewport, 0, 0, ETouchType::Began, FVector2D(-1, -1), FDateTime::Now(), 0);
-			GEngine->GameViewport->Viewport->GetClient()->InputTouch(GEngine->GameViewport->Viewport, 0, 0, ETouchType::Ended, FVector2D(-1, -1), FDateTime::Now(), 0);
+			GEngine->GameViewport->Viewport->GetClient()->InputTouch(GEngine->GameViewport->Viewport, 0, 0, ETouchType::Began, FVector2D(-1, -1), 1.f, FDateTime::Now(), 0);
+			GEngine->GameViewport->Viewport->GetClient()->InputTouch(GEngine->GameViewport->Viewport, 0, 0, ETouchType::Ended, FVector2D(-1, -1), 1.f, FDateTime::Now(), 0);
 		}
 		bTriggerDetected = false;
 	}
 
-	//Update the head pose at the begnning of a frame. This headpose will be used for both simulation and rendering.
+	//Update the head pose at the beginning of a frame. This headpose will be used for both simulation and rendering.
 	UpdatePoses();
 
 	// Update ViewportList from GVR API

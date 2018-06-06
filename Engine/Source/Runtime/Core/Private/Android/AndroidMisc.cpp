@@ -15,6 +15,7 @@
 #include <sys/statfs.h>
 #include <sys/syscall.h>
 #include <sched.h>
+#include <jni.h>
 
 #include "Android/AndroidPlatformCrashContext.h"
 #include "HAL/PlatformMallocCrash.h"
@@ -139,7 +140,7 @@ static volatile bool HeadPhonesArePluggedIn = false;
 static FAndroidMisc::FBatteryState CurrentBatteryState;
 
 static FCriticalSection ReceiversLock;
-static struct  
+static struct
 {
 	int		Volume;
 	double	TimeOfChange;
@@ -450,8 +451,14 @@ bool FAndroidMisc::HasPlatformFeature(const TCHAR* FeatureName)
 	return FGenericPlatformMisc::HasPlatformFeature(FeatureName);
 }
 
-bool FAndroidMisc::AllowRenderThread()
+bool FAndroidMisc::UseRenderThread()
 {
+	// if we in general don't want to use the render thread due to commandline, etc, then don't
+	if (!FGenericPlatformMisc::UseRenderThread())
+	{
+		return false;
+	}
+
 	// Check for DisableThreadedRendering CVar from DeviceProfiles config
 	// Any devices in the future that need to disable threaded rendering should be given a device profile and use this CVar
 	const IConsoleVariable *const CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.AndroidDisableThreadedRendering"));
@@ -460,10 +467,10 @@ bool FAndroidMisc::AllowRenderThread()
 		return false;
 	}
 
-	// there is a crash with the nvidia tegra dual core processors namely the optimus 2x and xoom 
+	// there is a crash with the nvidia tegra dual core processors namely the optimus 2x and xoom
 	// when running multithreaded it can't handle multiple threads using opengl (bug)
-	// tested with lg optimus 2x and motorola xoom 
-	// come back and revisit this later 
+	// tested with lg optimus 2x and motorola xoom
+	// come back and revisit this later
 	// https://code.google.com/p/android/issues/detail?id=32636
 	if (FAndroidMisc::GetGPUFamily() == FString(TEXT("NVIDIA Tegra")) && FPlatformMisc::NumberOfCores() <= 2 && FAndroidMisc::GetGLVersion().StartsWith(TEXT("OpenGL ES 2.")))
 	{
@@ -637,7 +644,7 @@ FAndroidMisc::FCPUState& FAndroidMisc::GetCPUState(){
 			CurrentCPUState.Status[n] = 0;
 			CurrentCPUState.PreviousUsage[n] = CurrentCPUState.CurrentUsage[n];
 		}
-		
+
 		while (fgets(Buffer, 100, FileHandle)) {
 #if PLATFORM_64BITS
 			sscanf(Buffer, "%5s %8lu %8lu %8lu %8lu %8lu %8lu %8lu", CurrentCPUState.Name,
@@ -676,7 +683,7 @@ FAndroidMisc::FCPUState& FAndroidMisc::GetCPUState(){
 
 		double WallTime;
 		double CPULoad[CurrentCPUState.CoreCount];
-		CurrentCPUState.AverageUtilization = 0.0; 
+		CurrentCPUState.AverageUtilization = 0.0;
 		for (size_t n = 0; n < CurrentCPUState.CoreCount; n++) {
 			if (CurrentCPUState.CurrentUsage[n].TotalTime <= CurrentCPUState.PreviousUsage[n].TotalTime) {
 				CPULoad[n] = 0;
@@ -696,7 +703,7 @@ FAndroidMisc::FCPUState& FAndroidMisc::GetCPUState(){
 		}
 		CurrentCPUState.AverageUtilization /= (double)CurrentCPUState.CoreCount;
 	}else{
-		FMemory::Memzero(CurrentCPUState);		
+		FMemory::Memzero(CurrentCPUState);
 	}
 	return CurrentCPUState;
 }
@@ -738,7 +745,7 @@ void DefaultCrashHandler(const FAndroidCrashContext& Context)
 			GLog->SetCurrentThreadAsMasterThread();
 			GLog->Flush();
 		}
-		
+
 		if (GWarn)
 		{
 			GWarn->Flush();
@@ -749,7 +756,7 @@ void DefaultCrashHandler(const FAndroidCrashContext& Context)
 /** Global pointer to crash handler */
 void (* GCrashHandlerPointer)(const FGenericCrashContext& Context) = NULL;
 
-const int32 TargetSignals[] = 
+const int32 TargetSignals[] =
 {
 	SIGQUIT, // SIGQUIT is a user-initiated "crash".
 	SIGILL,
@@ -924,6 +931,33 @@ class IPlatformChunkInstall* FAndroidMisc::GetPlatformChunkInstall()
 
 	return ChunkInstall;
 }
+
+void FAndroidMisc::PrepareMobileHaptics(EMobileHapticsType Type)
+{
+}
+
+void FAndroidMisc::TriggerMobileHaptics()
+{
+#if USE_ANDROID_JNI
+	extern void AndroidThunkCpp_Vibrate(int32 Duration);
+	// tiny little vibration
+	AndroidThunkCpp_Vibrate(10);
+#endif
+}
+
+void FAndroidMisc::ReleaseMobileHaptics()
+{
+
+}
+
+void FAndroidMisc::ShareURL(const FString& URL, const FText& Description, int32 LocationHintX, int32 LocationHintY)
+{
+#if USE_ANDROID_JNI
+	extern void AndroidThunkCpp_ShareURL(const FString& URL, const FText& Description, const FText& SharePrompt, int32 LocationHintX, int32 LocationHintY);
+	AndroidThunkCpp_ShareURL(URL, Description, NSLOCTEXT("AndroidMisc", "ShareURL", "Share URL"), LocationHintX, LocationHintY);
+#endif
+}
+
 
 void FAndroidMisc::SetVersionInfo( FString InAndroidVersion, FString InDeviceMake, FString InDeviceModel, FString InOSLanguage )
 {
@@ -1302,12 +1336,12 @@ static EDeviceVulkanSupportStatus AttemptVulkanInit(void* VulkanLib)
 	PFN_vkDestroyInstance vkDestroyInstance = (PFN_vkDestroyInstance)dlsym(VulkanLib, "vkDestroyInstance");
 	PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices = (PFN_vkEnumeratePhysicalDevices)dlsym(VulkanLib, "vkEnumeratePhysicalDevices");
 	PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties = (PFN_vkGetPhysicalDeviceProperties)dlsym(VulkanLib, "vkGetPhysicalDeviceProperties");
-	
+
 	if (!vkCreateInstance || !vkDestroyInstance || !vkEnumeratePhysicalDevices || !vkGetPhysicalDeviceProperties)
 	{
 		return EDeviceVulkanSupportStatus::NotSupported;
 	}
-		
+
 	// try to create instance to verify driver available
 	VkApplicationInfo App;
 	FMemory::Memzero(App);
@@ -1361,8 +1395,7 @@ static EDeviceVulkanSupportStatus AttemptVulkanInit(void* VulkanLib)
 	return EDeviceVulkanSupportStatus::Supported;
 }
 
-// Test for device vulkan support.
-static void EstablishVulkanDeviceSupport()
+bool FAndroidMisc::HasVulkanDriverSupport()
 {
 // @todo Lumin: this isn't really the best #define to check here - but basically, without JNI and other version checking, we can't safely do it - we'll need
 // non-JNI platforms that support Vulkan to figure out a way to force it (if they want GL + Vulkan support)
@@ -1370,110 +1403,144 @@ static void EstablishVulkanDeviceSupport()
 	VulkanSupport = EDeviceVulkanSupportStatus::NotSupported;
 	VulkanVersionString = TEXT("0.0.0");
 #else
-	// just do this check once
-	check(VulkanSupport == EDeviceVulkanSupportStatus::Uninitialized);
-	// assume no
-	VulkanSupport = EDeviceVulkanSupportStatus::NotSupported;
-	VulkanVersionString = TEXT("0.0.0");
+	// this version does not check for VulkanRHI or disabled by cvars!
+	if (VulkanSupport == EDeviceVulkanSupportStatus::Uninitialized)
 
-	// make sure the Vulkan RHI is compiled in
-	if (FModuleManager::Get().ModuleExists(TEXT("VulkanRHI")))
 	{
-		FPlatformMisc::LowLevelOutputDebugString(TEXT("Testing for Vulkan availability:"));
+		// assume no
+		VulkanSupport = EDeviceVulkanSupportStatus::NotSupported;
+		VulkanVersionString = TEXT("0.0.0");
 
-		// does commandline override (using GL or ES2 for legacy commandlines)
-		bool bForceOpenGL = FParse::Param(FCommandLine::Get(), TEXT("GL")) || FParse::Param(FCommandLine::Get(), TEXT("OpenGL")) || FParse::Param(FCommandLine::Get(), TEXT("ES2"));
-
-		if (!bForceOpenGL)
+		// check for libvulkan.so
+		void* VulkanLib = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
+		if (VulkanLib != nullptr)
 		{
-			// check for libvulkan.so
-			void* VulkanLib = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
-			if (VulkanLib != nullptr)
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan library detected, checking for available driver"));
+
+			// if Nougat, we can check the Vulkan version
+			if (FAndroidMisc::GetAndroidBuildVersion() >= 24)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan library detected, checking for available driver"));
-
-				// if Nougat, we can check the Vulkan version
-				if (FAndroidMisc::GetAndroidBuildVersion() >= 24)
+				extern int32 AndroidThunkCpp_GetMetaDataInt(const FString& Key);
+				int32 VulkanVersion = AndroidThunkCpp_GetMetaDataInt(TEXT("android.hardware.vulkan.version"));
+				if (VulkanVersion >= UE_VK_API_VERSION)
 				{
-					extern int32 AndroidThunkCpp_GetMetaDataInt(const FString& Key);
-					int32 VulkanVersion = AndroidThunkCpp_GetMetaDataInt(TEXT("android.hardware.vulkan.version"));
-					if (VulkanVersion >= UE_VK_API_VERSION)
-					{
-						// final check, try initializing the instance
-						VulkanSupport = AttemptVulkanInit(VulkanLib);
-					}
-				}
-				else
-				{
-					// otherwise, we need to try initializing the instance
+					// final check, try initializing the instance
 					VulkanSupport = AttemptVulkanInit(VulkanLib);
-				}
-
-				dlclose(VulkanLib);
-
-				if (VulkanSupport == EDeviceVulkanSupportStatus::Supported)
-				{
-					FPlatformMisc::LowLevelOutputDebugString(TEXT("VulkanRHI is available, Vulkan capable device detected."));
-				}
-				else
-				{
-					FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan driver NOT available."));
 				}
 			}
 			else
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan library NOT detected."));
+				// otherwise, we need to try initializing the instance
+				VulkanSupport = AttemptVulkanInit(VulkanLib);
+			}
+
+			dlclose(VulkanLib);
+
+			if (VulkanSupport == EDeviceVulkanSupportStatus::Supported)
+			{
+				FPlatformMisc::LowLevelOutputDebugString(TEXT("VulkanRHI is available, Vulkan capable device detected."));
+				return true;
+			}
+			else
+			{
+				FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan driver NOT available."));
 			}
 		}
 		else
 		{
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("VulkanRHI disabled due to command line forcing OpenGL ES."));
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan library NOT detected."));
 		}
 	}
-	else
-	{
-		FPlatformMisc::LowLevelOutputDebugString(TEXT("VulkanRHI not present."));
-	}
 #endif
+	return VulkanSupport == EDeviceVulkanSupportStatus::Supported;
+}
+
+// Test for device vulkan support.
+static void EstablishVulkanDeviceSupport()
+{
+	// just do this check once
+	if (VulkanSupport == EDeviceVulkanSupportStatus::Uninitialized)
+	{
+		// this call will initialize VulkanSupport
+		FAndroidMisc::HasVulkanDriverSupport();
+	}
+}
+
+bool FAndroidMisc::IsVulkanAvailable()
+{
+	check(VulkanSupport != EDeviceVulkanSupportStatus::Uninitialized);
+
+	static int CachedVulkanAvailable = -1;
+	if (CachedVulkanAvailable == -1)
+	{
+		CachedVulkanAvailable = 0;
+		if (VulkanSupport == EDeviceVulkanSupportStatus::Supported)
+		{
+			bool bSupportsVulkan = false;
+			GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bSupportsVulkan"), bSupportsVulkan, GEngineIni);
+
+			// @todo Lumin: Double check all this stuff after merging general android Vulkan SM5 from main
+			const bool bSupportsVulkanSM5 = ShouldUseDesktopVulkan();
+
+			const bool bVulkanDisabledCmdLine = FParse::Param(FCommandLine::Get(), TEXT("GL")) || FParse::Param(FCommandLine::Get(), TEXT("OpenGL")) || FParse::Param(FCommandLine::Get(), TEXT("ES2"));
+
+			if (!FModuleManager::Get().ModuleExists(TEXT("VulkanRHI")))
+			{
+				FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan not available as VulkanRHI not present."));
+			}
+			else if (!(bSupportsVulkan || bSupportsVulkanSM5))
+			{
+				FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan not available as project packaged without bSupportsVulkan or bSupportsVulkanSM5."));
+			}
+			else if (bVulkanDisabledCmdLine)
+			{
+				FPlatformMisc::LowLevelOutputDebugString(TEXT("Vulkan is disabled by a command line option."));
+			}
+			else
+			{
+				CachedVulkanAvailable = 1;
+			}
+		}
+	}
+
+	return CachedVulkanAvailable == 1;
 }
 
 bool FAndroidMisc::ShouldUseVulkan()
 {
 	check(VulkanSupport != EDeviceVulkanSupportStatus::Uninitialized);
-	static int CachedVulkanSupport = -1;
+	static int CachedShouldUseVulkan = -1;
 
-	if (CachedVulkanSupport == -1)
+	if (CachedShouldUseVulkan == -1)
 	{
-		static const auto CVarDisableVulkan = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Android.DisableVulkanSupport"));
-		bool bSupportsVulkan = false;
-		GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bSupportsVulkan"), bSupportsVulkan, GEngineIni);
-		const bool bShouldUseVulkan = (bSupportsVulkan || ShouldUseDesktopVulkan()) && VulkanSupport == EDeviceVulkanSupportStatus::Supported && CVarDisableVulkan->GetValueOnAnyThread() == 0;
-		CachedVulkanSupport = bShouldUseVulkan ? 1 : 0;
+		CachedShouldUseVulkan = 0;
 
-		if (bShouldUseVulkan)
+		static const auto CVarDisableVulkan = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Android.DisableVulkanSupport"));
+
+		const bool bVulkanAvailable = IsVulkanAvailable();
+		const bool bVulkanDisabledCVar = CVarDisableVulkan->GetValueOnAnyThread() == 1;
+
+		if (bVulkanAvailable && !bVulkanDisabledCVar)
 		{
+			CachedShouldUseVulkan = 1;
 			FPlatformMisc::LowLevelOutputDebugString(TEXT("VulkanRHI will be used!"));
 		}
 		else
 		{
 			FPlatformMisc::LowLevelOutputDebugString(TEXT("VulkanRHI will NOT be used:"));
-			if(!bSupportsVulkan)
+			if (!bVulkanAvailable)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(" ** Vulkan support is disabled in config."));
+				FPlatformMisc::LowLevelOutputDebugString(TEXT(" ** Vulkan support is not available (Driver, RHI or shaders are missing, or disabled by cmdline)"));
 			}
-			if (CVarDisableVulkan->GetValueOnAnyThread() != 0)
+			if (bVulkanDisabledCVar)
 			{
 				FPlatformMisc::LowLevelOutputDebugString(TEXT(" ** Vulkan is disabled via console variable."));
-			}
-			if (VulkanSupport != EDeviceVulkanSupportStatus::Supported)
-			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(" ** Vulkan is not support by the device."));
 			}
 			FPlatformMisc::LowLevelOutputDebugString(TEXT("OpenGL ES will be used."));
 		}
 	}
 
-	return CachedVulkanSupport == 1;
+	return CachedShouldUseVulkan == 1;
 }
 
 bool FAndroidMisc::ShouldUseDesktopVulkan()
@@ -1503,27 +1570,70 @@ bool FAndroidMisc::IsDaydreamApplication()
 #endif
 }
 
+static bool bDetectedDebugger = false;
+
+JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetAndroidStartupState(JNIEnv* jenv, jobject thiz, jboolean bDebuggerAttached)
+{
+	// if Java debugger attached, mark detected (but don't lose previous trigger state)
+	if (bDebuggerAttached)
+	{
+		bDetectedDebugger = true;
+	}
+}
+
 #if !UE_BUILD_SHIPPING
 bool FAndroidMisc::IsDebuggerPresent()
 {
-	bool Result = false;
-#if 0
-	JNIEnv* JEnv = AndroidJavaEnv::GetJavaEnv();
-	if (nullptr != JEnv)
+	extern CORE_API bool GIgnoreDebugger;
+	if (GIgnoreDebugger)
 	{
-		jclass Class = AndroidJavaEnv::FindJavaClass("android/os/Debug");
-		if (nullptr != Class)
-		{
-			// This segfaults for some reason. So this is all disabled for now.
-			jmethodID Method = JEnv->GetStaticMethodID(Class, "isDebuggerConnected", "()Z");
-			if (nullptr != Method)
-			{
-				Result = JEnv->CallStaticBooleanMethod(Class, Method);
-			}
-		}
+		return false;
 	}
-#endif
-	return Result;
+
+	if (bDetectedDebugger)
+	{
+		return true;
+	}
+
+	// If a process is tracing this one then TracerPid in /proc/self/status will
+	// be the id of the tracing process. Use SignalHandler safe functions
+
+	int StatusFile = open("/proc/self/status", O_RDONLY);
+	if (StatusFile == -1)
+	{
+		// Failed - unknown debugger status.
+		return false;
+	}
+
+	char Buffer[256];
+	ssize_t Length = read(StatusFile, Buffer, sizeof(Buffer));
+
+	bool bDebugging = false;
+	const char* TracerString = "TracerPid:\t";
+	const ssize_t LenTracerString = strlen(TracerString);
+	int i = 0;
+
+	while ((Length - i) > LenTracerString)
+	{
+		// TracerPid is found
+		if (strncmp(&Buffer[i], TracerString, LenTracerString) == 0)
+		{
+			// 0 if no process is tracing.
+			bDebugging = Buffer[i + LenTracerString] != '0';
+			break;
+		}
+		++i;
+	}
+
+	close(StatusFile);
+
+	// remember if we detected debugger so we can skip check next time
+	if (bDebugging)
+	{
+		bDetectedDebugger = true;
+	}
+
+	return bDebugging;
 }
 #endif
 
@@ -1625,12 +1735,22 @@ FString FAndroidMisc::GetLoginId()
 	}
 
 	// Check for existing identifier file
+	extern FString GInternalFilePath;
 	extern FString GExternalFilePath;
+	FString InternalLoginIdFilename = GInternalFilePath / TEXT("login-identifier.txt");
+	if (FPaths::FileExists(InternalLoginIdFilename))
+	{
+		if (FFileHelper::LoadFileToString(LoginId, *InternalLoginIdFilename))
+		{
+			return LoginId;
+		}
+	}
 	FString LoginIdFilename = GExternalFilePath / TEXT("login-identifier.txt");
 	if (FPaths::FileExists(LoginIdFilename))
 	{
 		if (FFileHelper::LoadFileToString(LoginId, *LoginIdFilename))
 		{
+			FFileHelper::SaveStringToFile(LoginId, *InternalLoginIdFilename);
 			return LoginId;
 		}
 	}
@@ -1639,7 +1759,7 @@ FString FAndroidMisc::GetLoginId()
 	FGuid DeviceGuid;
 	FPlatformMisc::CreateGuid(DeviceGuid);
 	LoginId = DeviceGuid.ToString();
-	FFileHelper::SaveStringToFile(LoginId, *LoginIdFilename);
+	FFileHelper::SaveStringToFile(LoginId, *InternalLoginIdFilename);
 
 	return LoginId;
 }
@@ -1686,16 +1806,49 @@ bool FAndroidMisc::IsRunningOnBattery()
 	return BatteryState.State == BATTERY_STATE_DISCHARGING;
 }
 
+float FAndroidMisc::GetDeviceTemperatureLevel()
+{
+	return GetBatteryState().Temperature;
+}
+
 bool FAndroidMisc::AreHeadPhonesPluggedIn()
 {
 	return HeadPhonesArePluggedIn;
 }
 
+#define ANDROIDTHUNK_CONNECTION_TYPE_NONE 0
+#define ANDROIDTHUNK_CONNECTION_TYPE_AIRPLANEMODE 1
+#define ANDROIDTHUNK_CONNECTION_TYPE_ETHERNET 2
+#define ANDROIDTHUNK_CONNECTION_TYPE_CELL 3
+#define ANDROIDTHUNK_CONNECTION_TYPE_WIFI 4
+#define ANDROIDTHUNK_CONNECTION_TYPE_WIMAX 5
+#define ANDROIDTHUNK_CONNECTION_TYPE_BLUETOOTH 6
+
+ENetworkConnectionType FAndroidMisc::GetNetworkConnectionType()
+{
+#if USE_ANDROID_JNI
+	extern int32 AndroidThunkCpp_GetNetworkConnectionType();
+
+	switch (AndroidThunkCpp_GetNetworkConnectionType())
+	{
+		case ANDROIDTHUNK_CONNECTION_TYPE_NONE:				return ENetworkConnectionType::None;
+		case ANDROIDTHUNK_CONNECTION_TYPE_AIRPLANEMODE:		return ENetworkConnectionType::AirplaneMode;
+		case ANDROIDTHUNK_CONNECTION_TYPE_ETHERNET:			return ENetworkConnectionType::Ethernet;
+		case ANDROIDTHUNK_CONNECTION_TYPE_CELL:				return ENetworkConnectionType::Cell;
+		case ANDROIDTHUNK_CONNECTION_TYPE_WIFI:				return ENetworkConnectionType::WiFi;
+		case ANDROIDTHUNK_CONNECTION_TYPE_WIMAX:			return ENetworkConnectionType::WiMAX;
+		case ANDROIDTHUNK_CONNECTION_TYPE_BLUETOOTH:		return ENetworkConnectionType::Bluetooth;
+	}
+#endif
+	return ENetworkConnectionType::Unknown;
+}
+
 #if USE_ANDROID_JNI
 bool FAndroidMisc::HasActiveWiFiConnection()
 {
-	extern bool AndroidThunkCpp_HasActiveWiFiConnection();
-	return AndroidThunkCpp_HasActiveWiFiConnection();
+	ENetworkConnectionType ConnectionType = GetNetworkConnectionType();
+	return (ConnectionType == ENetworkConnectionType::WiFi ||
+			ConnectionType == ENetworkConnectionType::WiMAX);
 }
 #endif
 
@@ -1712,7 +1865,7 @@ void FAndroidMisc::SetOnReInitWindowCallback(FAndroidMisc::ReInitWindowCallbackT
 }
 
 FString FAndroidMisc::GetCPUVendor()
-{	
+{
 	return DeviceMake;
 }
 
@@ -1744,7 +1897,7 @@ bool FAndroidMisc::GetDiskTotalAndFreeSpace(const FString& InPath, uint64& Total
 	struct statfs FSStat = { 0 };
 	FTCHARToUTF8 Converter(*GExternalFilePath);
 	int Err = statfs((ANSICHAR*)Converter.Get(), &FSStat);
-	
+
 	if (Err == 0)
 	{
 		TotalNumberOfBytes = FSStat.f_blocks * FSStat.f_bsize;
@@ -1755,7 +1908,7 @@ bool FAndroidMisc::GetDiskTotalAndFreeSpace(const FString& InPath, uint64& Total
 		int ErrNo = errno;
 		UE_LOG(LogAndroid, Warning, TEXT("Unable to statfs('%s'): errno=%d (%s)"), *GExternalFilePath, ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
 	}
-	
+
 	return (Err == 0);
 #else
 	return false;

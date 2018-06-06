@@ -102,6 +102,9 @@ struct FCompilerNativizationOptions
 	bool ClientOnlyPlatform;
 
 	UPROPERTY()
+	bool bExcludeMonolithicHeaders;
+
+	UPROPERTY()
 	TArray<FName> ExcludedModules;
 
 	// Individually excluded assets
@@ -115,6 +118,7 @@ struct FCompilerNativizationOptions
 	FCompilerNativizationOptions()
 		: ServerOnlyPlatform(false)
 		, ClientOnlyPlatform(false)
+		, bExcludeMonolithicHeaders(false)
 	{}
 };
 
@@ -255,6 +259,7 @@ struct FBPVariableDescription
 
 	FBPVariableDescription()
 		: PropertyFlags(CPF_Edit)
+		, ReplicationCondition(ELifetimeCondition::COND_None)
 	{
 	}
 

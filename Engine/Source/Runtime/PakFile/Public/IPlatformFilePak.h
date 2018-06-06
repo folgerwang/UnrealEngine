@@ -459,7 +459,8 @@ public:
 				//     FString RelativeFilename(Filename.Mid(Path.Len() + 1));
 				//     Path = Path.Mid(MountPoint.Len()) / RelativeFilename;
 				// Hash the Path.
-				uint32 PathHash = FCrc::MemCrc32(*Path + MountPoint.Len(), (Path.Len() - MountPoint.Len()) * sizeof(TCHAR), FilenameStartHash);
+				int AdjustedMountPointLen = Path.Len() < MountPoint.Len() ? Path.Len() : MountPoint.Len();
+				uint32 PathHash = FCrc::MemCrc32(*Path + AdjustedMountPointLen, (Path.Len() - AdjustedMountPointLen) * sizeof(TCHAR), FilenameStartHash);
 				// Hash the RelativeFilename.
 				PathHash = FCrc::MemCrc32(*Filename + Path.Len(), (Filename.Len() - Path.Len()) * sizeof(TCHAR), PathHash);
 
@@ -1290,6 +1291,9 @@ public:
 
 	bool Unmount(const TCHAR* InPakFilename);
 
+	int32 MountAllPakFiles(const TArray<FString>& PakFilesToMount);
+
+
 	/**
 	 * Finds a file in the specified pak files.
 	 *
@@ -1674,7 +1678,15 @@ public:
 		TSet<FString> FilesVisitedInPak;
 
 		TArray<FPakListEntry> Paks;
-		GetMountedPaks(Paks);
+		FString StandardDirectory = Directory;
+		FPaths::MakeStandardFilename(StandardDirectory);
+		
+		// don't look for in pak files for target-only locations
+		if (!StandardDirectory.StartsWith(FPaths::ProjectPersistentDownloadDir()) &&
+			!StandardDirectory.StartsWith(FPaths::CloudDir()))
+		{
+			GetMountedPaks(Paks);
+		}
 
 		// Iterate pak files first
 		for (int32 PakIndex = 0; PakIndex < Paks.Num(); PakIndex++)
@@ -1684,8 +1696,6 @@ public:
 			const bool bIncludeFiles = true;
 			const bool bIncludeFolders = true;
 			TSet<FString> FilesVisitedInThisPak;
-			FString StandardDirectory = Directory;
-			FPaths::MakeStandardFilename(StandardDirectory);
 
 			PakFile.FindFilesAtPath(FilesVisitedInThisPak, *StandardDirectory, bIncludeFiles, bIncludeFolders);
 			for (TSet<FString>::TConstIterator SetIt(FilesVisitedInThisPak); SetIt && Result; ++SetIt)
@@ -1778,7 +1788,16 @@ public:
 		TSet<FString> FilesVisitedInPak;
 
 		TArray<FPakListEntry> Paks;
-		GetMountedPaks(Paks);
+ 
+		FString StandardDirectory = Directory;
+		FPaths::MakeStandardFilename(StandardDirectory);
+
+		// don't look for in pak files for target-only locations
+		if (!StandardDirectory.StartsWith(FPaths::ProjectPersistentDownloadDir()) &&
+			!StandardDirectory.StartsWith(FPaths::CloudDir()))
+		{
+			GetMountedPaks(Paks);
+		}
 
 		// Iterate pak files first
 		for (int32 PakIndex = 0; PakIndex < Paks.Num(); PakIndex++)
@@ -1788,8 +1807,6 @@ public:
 			const bool bIncludeFiles = true;
 			const bool bIncludeFolders = true;
 			TSet<FString> FilesVisitedInThisPak;
-			FString StandardDirectory = Directory;
-			FPaths::MakeStandardFilename(StandardDirectory);
 
 			PakFile.FindFilesAtPath(FilesVisitedInThisPak, *StandardDirectory, bIncludeFiles, bIncludeFolders);
 			for (TSet<FString>::TConstIterator SetIt(FilesVisitedInThisPak); SetIt && Result; ++SetIt)

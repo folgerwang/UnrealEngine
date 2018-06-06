@@ -140,10 +140,7 @@ void FCameraShakeTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuil
 		{
 			FARFilter Filter;
 			Filter.ClassNames.Add(UBlueprint::StaticClass()->GetFName());
-
-			TMultiMap<FName, FString> TagsAndValuesFilter;
-			TagsAndValuesFilter.Add(FBlueprintTags::ParentClassPath, CameraShakeClassPath);
-			Filter.TagsAndValues = TagsAndValuesFilter;
+			Filter.TagsAndValues.Add(FBlueprintTags::ParentClassPath, CameraShakeClassPath);
 
 			AssetRegistryModule.Get().GetAssets(Filter, AssetDataList);
 		}

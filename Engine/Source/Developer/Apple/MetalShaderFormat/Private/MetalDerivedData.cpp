@@ -46,6 +46,7 @@ extern void BuildMetalShaderOutput(
 	uint32 TypedBuffers,
 	uint32 InvariantBuffers,
 	uint32 TypedUAVs,
+	uint32 ConstantBuffers,
 	TArray<uint8> const& TypedBufferFormats,
 	bool bAllowFastIntriniscs
 );
@@ -372,7 +373,7 @@ bool FMetalShaderOutputCooker::Build(TArray<uint8>& OutData)
 	FString const* FastIntrinsics = Input.Environment.GetDefinitions().Find(TEXT("METAL_USE_FAST_INTRINSICS"));
 	if (FastIntrinsics)
 	{
-		LexicalConversion::FromString(bAllowFastIntriniscs, *(*FastIntrinsics));
+		LexFromString(bAllowFastIntriniscs, *(*FastIntrinsics));
 	}
 
 	bool bForceInvariance = false;
@@ -437,7 +438,7 @@ bool FMetalShaderOutputCooker::Build(TArray<uint8>& OutData)
 	if (Result != 0)
 	{
 		Output.Target = Input.Target;
-		BuildMetalShaderOutput(Output, Input, GUIDHash, MetalShaderSource, SourceLen, CRCLen, CRC, VersionEnum, *Standard, *MinOSVersion, TypeMode, Output.Errors, Attribs, MetalBackEnd.TypedBuffers, MetalBackEnd.InvariantBuffers, MetalBackEnd.TypedUAVs, MetalBackEnd.TypedBufferFormats, bAllowFastIntriniscs);
+		BuildMetalShaderOutput(Output, Input, GUIDHash, MetalShaderSource, SourceLen, CRCLen, CRC, VersionEnum, *Standard, *MinOSVersion, TypeMode, Output.Errors, Attribs, MetalBackEnd.TypedBuffers, MetalBackEnd.InvariantBuffers, MetalBackEnd.TypedUAVs, MetalBackEnd.ConstantBuffers, MetalBackEnd.TypedBufferFormats, bAllowFastIntriniscs);
 
 		FMemoryWriter Ar(OutData);
 		Ar << Output;

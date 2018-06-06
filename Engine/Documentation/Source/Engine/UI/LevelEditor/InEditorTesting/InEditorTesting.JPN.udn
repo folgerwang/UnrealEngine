@@ -1,50 +1,13 @@
-﻿INTSourceChangelist:3481084
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:エディタ内テスト （プレイ＆シミュレート）
 Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor
 Description:エディタ内でレベルとゲームプレイを直接テストするためのガイド
 Version:4.9
+topic-image:InEditorTesting_Topic.png
 
 [TOC(start:2 end:2)]
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](InEditorTesting_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		エディタ内テスト
-	[/PARAM]
-	[PARAM:description]
-		エディタ内テストおよびビューポート内で直接ゲームをプレイまたシミュレートする方法に関するドキュメントです。
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/LevelEditor/InEditorTesting]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](InEditorTesting_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		エディタ内テスト
-	[/PARAM]
-	[PARAM:description]
-		エディタ内テストおよびビューポート内で直接ゲームをプレイまたシミュレートする方法に関するドキュメントです。
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/LevelEditor/InEditorTesting]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [EXCERPT:overview]
 エディタでは、どこでもプレイヤーをスポーンし、ファイルの保存を待たずにエディタ内でゲームを即時にプレビューできます。2 種類のプレビュータイプを利用できます。**Play In Editor** (PIE) は、メインツールバーにある **[Play]** ボタンから直接アクセスします。
@@ -93,7 +56,7 @@ _Play In Editor_ ではエディタから直接現在のレベルを再生でき
 
 #### 表示タイプ
 
-$ Viewport :ゲームプレイはアクティブになっているレベル エディタのビューポートに表示されます。 
+$ Viewport : ゲームプレイはアクティブになっているレベル エディタのビューポートに表示されます。 
 
 	**ここをクリックしてフルサイズ表示にする**
 
@@ -148,7 +111,7 @@ $ Viewport :ゲームプレイはアクティブになっているレベル エ�
 	マウス制御を切り替えると、プレビュー ウィンドウに小さなラベルが表示されます。マウス制御オプションまたはマウス制御ラベル表示方法を変更するには、 [PlayInEditor設定ウィンドウ](Engine/UI/LevelEditor\InEditorTesting\Settings#PlayInEditor) を使用します。
 
 
-$ New Window :ゲームプレイは新規ウィンドウに表示されます。デフォルトの新規ウィンドウ サイズを変更するには [PlayInEditor 設定ウィンドウ](Engine/UI/LevelEditor\InEditorTesting\Settings#新規ウィンドウでプレイ) を使用します。
+$ New Window : ゲームプレイは新規ウィンドウに表示されます。デフォルトの新規ウィンドウ サイズを変更するには [PlayInEditor 設定ウィンドウ](Engine/UI/LevelEditor\InEditorTesting\Settings#新規ウィンドウでプレイ) を使用します。
 
 	**ここをクリックしてフルサイズ表示にする**
 
@@ -232,9 +195,9 @@ $ Standalone Game :ゲームプレイはそのプロセスで実行している�
 
 #### 開始位置
 
-$ Camera Location :ゲームプレイは現在のカメラ位置からスタートします
+$ Camera Location : ゲームプレイは現在のカメラ位置からスタートします
 
-$ Default Player Start :ゲームプレイはプレイヤー開始位置からスタートします。
+$ Default Player Start : ゲームプレイはプレイヤー開始位置からスタートします。
 
 [REGION:note]
 ゲームの中でプレイヤー制御あるいは AI 制御の移動に NavMesh を使用する場合は、_Play In Editor_ 開始位置に Camera Location を使って、

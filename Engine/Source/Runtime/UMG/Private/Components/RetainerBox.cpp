@@ -24,6 +24,17 @@ URetainerBox::URetainerBox(const FObjectInitializer& ObjectInitializer)
 	TextureParameter = DefaultTextureParameterName;
 }
 
+void URetainerBox::SetRenderingPhase(int PhaseToRenderOn, int32 TotalRenderingPhases)
+{
+	Phase = PhaseToRenderOn;
+	PhaseCount = TotalRenderingPhases;
+
+	if (MyRetainerWidget.IsValid())
+	{
+		MyRetainerWidget->SetRenderingPhase(Phase, PhaseCount);
+	}
+}
+
 void URetainerBox::RequestRender()
 {
 	if ( MyRetainerWidget.IsValid() )
@@ -130,7 +141,7 @@ const FGeometry& URetainerBox::GetCachedAllottedGeometry() const
 {
 	if (MyRetainerWidget.IsValid())
 	{
-		return MyRetainerWidget->GetCachedAllottedGeometry();
+		return MyRetainerWidget->GetCachedGeometry();
 	}
 
 	static const FGeometry TempGeo;

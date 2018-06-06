@@ -4,7 +4,9 @@
 #include "HttpServiceTracker.h"
 #include "AnalyticsEventAttribute.h"
 #include "Interfaces/IAnalyticsProvider.h"
+#include "Misc/Guid.h"
 #include "Misc/ScopeLock.h"
+#include "Stats/Stats.h"
 
 #define ERROR_EVENT_SEND_LIMIT 20
 
@@ -158,6 +160,8 @@ namespace BuildPatchServices
 
 	bool FInstallerAnalytics::Tick(float Delta)
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_FInstallerAnalytics_Tick);
+
 		if (Analytics != nullptr)
 		{
 			// Process the Analytics Event queue

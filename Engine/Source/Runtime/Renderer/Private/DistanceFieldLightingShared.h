@@ -47,6 +47,8 @@ inline bool SupportsDistanceFieldGI(ERHIFeatureLevel::Type FeatureLevel, EShader
 }
 
 extern bool IsDistanceFieldGIAllowed(const FViewInfo& View);
+extern bool UseDistanceFieldAO();
+extern bool UseAOObjectDistanceField();
 
 class FDistanceFieldObjectBuffers
 {

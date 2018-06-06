@@ -1,9 +1,14 @@
-﻿INTSourceChangelist:2691837
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:サブサーフェス シェーディングモデル
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials
 Description:マテリアルで利用可能なサブサーフェス シェーディング モデルの説明と技術的な詳細。
 Version:4.9
+parent:Engine/Rendering/Materials/LightingModels
+order:1
+topic-image:sss_topic.png
+type:overview
+tags:Materials
 
 ワックスや淡緑色など不透明に表示されるマテリアルを対象とする新規のサブサーフェス シェーディング モデル (**_MLM_Subsurface_**) がマテリアルに加わりました。不透明に見えますが、ライティングが内側で散乱し、表面逆側からのライトの一部が透けて見えます。
 
@@ -36,6 +41,7 @@ SubsurfaceColor の入力チャンネルは、SSS ライティングに影響を
 
 * ポイントライトのシャドウイングに未対応です。
 * カスケードされたシャドウマップにシーム (継ぎ目) があります。 
-* シャドウ キャスターに十分近ければ、SSS マテリアルは完全に不透明なマテリアルを通してもリークしたライティングを受ける場合があります。
+* シャドウ キャスターに十分近ければ、SSS マテリアルは完全に不透明なマテリアルを通してもリークしたライティングを受ける場合があります
 * 低オパシティからの滑らかなシャドウは、滑らかさに制約があり、エイリアシングもあります。
+
 

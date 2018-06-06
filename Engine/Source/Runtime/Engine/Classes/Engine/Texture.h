@@ -757,7 +757,7 @@ public:
 #if WITH_EDITORONLY_DATA
 	ENGINE_API virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 #endif
-	ENGINE_API virtual bool IsPostLoadThreadSafe() const override{ return false; }
+	ENGINE_API virtual bool IsPostLoadThreadSafe() const override;
 	//~ End UObject Interface.
 
 	/**

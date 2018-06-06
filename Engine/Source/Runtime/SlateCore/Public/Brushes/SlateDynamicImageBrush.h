@@ -99,7 +99,7 @@ struct SLATECORE_API FSlateDynamicImageBrush
 	 */
 	void ReleaseResource();
 
-		/** Destructor. */
+	/** Destructor. */
 	virtual ~FSlateDynamicImageBrush();
 
 private:
@@ -107,15 +107,18 @@ private:
 
 	void InitFromTextureObject(FName InTextureName)
 	{
+		UObject* Object = GetResourceObject();
 		// if we have a texture, make a unique name
-		if (ResourceObject != nullptr)
+		if (Object != nullptr)
 		{
 			// @todo Slate - Hack:  This is to address an issue where the brush created and a GC occurs before the brush resource object becomes referenced
 			// by the Slate resource manager. Don't add objects that are already in root set (and mark them as such) to avoid incorrect removing objects
 			// from root set in destructor.
-			if (!ResourceObject->IsRooted())
+			if (!Object->IsRooted())
 			{
-				ResourceObject->AddToRoot();
+				ensureMsgf(false, TEXT("This hack usually results in a crash during loading screens in slate.  Please change any code that arrives here to not use FSlateDynamicImageBrush.  In the case of loading screens, you can use FDeferredCleanupSlateBrush.  Which correctly accounts for both GC lifetime, and the lifetime of the object through the slate rendering pipeline which may be several frames after you stop using it."));
+
+				Object->AddToRoot();
 				bRemoveResourceFromRootSet = true;
 			}
 

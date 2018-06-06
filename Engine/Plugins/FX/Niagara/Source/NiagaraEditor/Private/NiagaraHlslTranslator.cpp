@@ -2086,7 +2086,7 @@ FString FHlslNiagaraTranslator::GetUniqueSymbolName(FName BaseName)
 
 	if(*NameCount > 0)
 	{
-		RetString += LexicalConversion::ToString(*NameCount);
+		RetString += LexToString(*NameCount);
 	}
 	++(*NameCount);
 	return RetString;
@@ -2112,7 +2112,7 @@ void FHlslNiagaraTranslator::ExitFunction()
 
 FString FHlslNiagaraTranslator::GeneratedConstantString(float Constant)
 {
-	return LexicalConversion::ToString(Constant);
+	return LexToString(Constant);
 }
 
 static int32 GbNiagaraScriptStatTracking = 1;
@@ -2187,10 +2187,10 @@ TArray<FGuid> FHlslNiagaraTranslator::GetCallstackGuids()
 FString FHlslNiagaraTranslator::GeneratedConstantString(FVector4 Constant)
 {
 	TArray<FStringFormatArg> Args;
-	Args.Add(LexicalConversion::ToString(Constant.X));
-	Args.Add(LexicalConversion::ToString(Constant.Y));
-	Args.Add(LexicalConversion::ToString(Constant.Z));
-	Args.Add(LexicalConversion::ToString(Constant.W));
+	Args.Add(LexToString(Constant.X));
+	Args.Add(LexToString(Constant.Y));
+	Args.Add(LexToString(Constant.Z));
+	Args.Add(LexToString(Constant.W));
 	return FString::Format(TEXT("float4({0}, {1}, {2}, {3})"), Args);
 }
 
@@ -4287,7 +4287,7 @@ void FHlslNiagaraTranslator::RegisterFunctionCall(ENiagaraScriptUsage ScriptUsag
 				if (Info.UserPtrIdx != INDEX_NONE)
 				{
 					//This interface requires per instance data via a user ptr so place the index to it at the end of the inputs.
-					Inputs.Add(AddSourceChunk(LexicalConversion::ToString(Info.UserPtrIdx), FNiagaraTypeDefinition::GetIntDef()));
+					Inputs.Add(AddSourceChunk(LexToString(Info.UserPtrIdx), FNiagaraTypeDefinition::GetIntDef()));
 					OutSignature.Inputs.Add(FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("InstanceData")));
 				}
 			}

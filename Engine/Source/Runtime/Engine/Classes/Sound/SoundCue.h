@@ -82,6 +82,10 @@ class USoundCue : public USoundBase
 	UPROPERTY(EditAnywhere, Category=Attenuation)
 	uint32 bOverrideAttenuation:1;
 
+	/* Makes this sound cue ignore per-platform random node culling for memory purposes */
+	UPROPERTY(EditAnywhere, Category=Culling)
+	uint32 bExcludeFromRandomNodeBranchCulling:1;
+
 	UPROPERTY()
 	class USoundNode* FirstNode;
 
@@ -140,7 +144,7 @@ public:
 	virtual float GetVolumeMultiplier() override;
 	virtual float GetPitchMultiplier() override;
 	virtual float GetMaxDistance() const override;
-	virtual float GetDuration() const override;
+	virtual float GetDuration() override;
 	virtual const FSoundAttenuationSettings* GetAttenuationSettingsToApply() const override;
 	virtual float GetSubtitlePriority() const override;
 	//~ End USoundBase Interface.
@@ -211,6 +215,7 @@ private:
 	void OnPostEngineInit();
 	void EvaluateNodes(bool bAddToRoot);
 
+
 	FDelegateHandle OnPostEngineInitHandle;
 	static int32 CachedQualityLevel;
 
@@ -248,9 +253,11 @@ public:
 
 private:
 
+	/** Recursively sets the branch culling exclusion on random nodes in this sound cue. */
+	void RecursivelySetExcludeBranchCulling(USoundNode* CurrentNode);
+
 	/** Ptr to interface to sound cue editor operations. */
 	static ENGINE_API TSharedPtr<ISoundCueAudioEditor> SoundCueAudioEditor;
-
 #endif
 };
 

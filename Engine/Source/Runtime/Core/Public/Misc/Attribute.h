@@ -310,7 +310,7 @@ public:
 			}
 			else
 			{
-				return Value == InOther.Value;
+				return IsSet() == InOther.IsSet() && Value == InOther.Value;
 			}
 		}
 

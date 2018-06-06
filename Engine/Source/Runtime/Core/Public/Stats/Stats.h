@@ -486,7 +486,7 @@ public:
 
 	FORCEINLINE ~FLightweightStatScope()
 	{
-		if (GHitchDetected && StatString && IsInGameThread())
+		if (GHitchDetected && StatString)
 		{
 			ReportHitch();
 		}

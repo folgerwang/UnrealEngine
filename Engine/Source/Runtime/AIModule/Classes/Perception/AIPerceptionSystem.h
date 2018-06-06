@@ -120,6 +120,20 @@ public:
 	}
 
 	template<typename FEventClass>
+	void OnEventsBatch(const TArray<FEventClass>& Events)
+	{
+		if (Events.Num() > 0)
+		{
+			const FAISenseID SenseID = UAISense::GetSenseID<typename FEventClass::FSenseClass>();
+			if (Senses.IsValidIndex(SenseID) && Senses[SenseID] != nullptr)
+			{
+				((typename FEventClass::FSenseClass*)Senses[SenseID])->RegisterEventsBatch(Events);
+			}
+		}
+		// otherwise there's no one interested in this event, skip it.
+	}
+
+	template<typename FEventClass>
 	static void OnEvent(UWorld* World, const FEventClass& Event)
 	{
 		UAIPerceptionSystem* PerceptionSys = GetCurrent(World);

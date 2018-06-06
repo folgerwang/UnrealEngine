@@ -495,6 +495,24 @@ namespace UnrealBuildTool
 						Directory.SetCurrentDirectory(EngineSourceDirectory);
 					}
 
+					// Figure out if the engine is installed or not
+					foreach (string Argument in Arguments)
+					{
+						string LowercaseArg = Argument.ToLowerInvariant();
+						if (LowercaseArg == "-installed" || LowercaseArg == "-installedengine")
+						{
+							bIsEngineInstalled = true;
+						}
+						else if (LowercaseArg == "-notinstalledengine")
+						{
+							bIsEngineInstalled = false;
+						}
+					}
+					if (!bIsEngineInstalled.HasValue)
+					{
+						bIsEngineInstalled = FileReference.Exists(FileReference.Combine(RootDirectory, "Engine", "Build", "InstalledBuild.txt"));
+					}
+
 					// Read the XML configuration files
 					if (!XmlConfig.ReadConfigFiles())
 					{
@@ -538,14 +556,6 @@ namespace UnrealBuildTool
 							BuildConfiguration.bUseUBTMakefiles = false;
 							BuildConfiguration.SingleFileToCompile = LowercaseArg.Replace("-singlefile=", "");
 						}
-						else if (LowercaseArg == "-installed" || LowercaseArg == "-installedengine")
-						{
-							bIsEngineInstalled = true;
-						}
-						else if (LowercaseArg == "-notinstalledengine")
-						{
-							bIsEngineInstalled = false;
-						}
 						else if (LowercaseArg.StartsWith("-buildconfigurationdoc="))
 						{
 							XmlConfig.WriteDocumentation(new FileReference(Argument.Substring("-buildconfigurationdoc=".Length)));
@@ -561,12 +571,6 @@ namespace UnrealBuildTool
 							RulesDocumentation.WriteDocumentation(typeof(TargetRules), new FileReference(Argument.Substring("-targetrulesdoc=".Length)));
 							return 0;
 						}
-					}
-
-					// If it wasn't set explicitly by a command line option, check for the installed build marker file
-					if (!bIsEngineInstalled.HasValue)
-					{
-						bIsEngineInstalled = FileReference.Exists(FileReference.Combine(RootDirectory, "Engine", "Build", "InstalledBuild.txt"));
 					}
 
 					// Create the log file, and flush the startup listener to it
@@ -734,6 +738,11 @@ namespace UnrealBuildTool
 							bGenerateProjectFiles = true;
 							ProjectFileFormats.Add(ProjectFileFormat.VisualStudioCode);
 						}
+						else if (LowercaseArg == "-vsmac")
+						{
+							bGenerateProjectFiles = true;
+							ProjectFileFormats.Add(ProjectFileFormat.VisualStudioMac);
+						}
 						else if (LowercaseArg == "-clion")
 						{
 							bGenerateProjectFiles = true;
@@ -880,9 +889,6 @@ namespace UnrealBuildTool
 									break;
 								case ProjectFileFormat.VisualStudioCode:
 									Generator = new VSCodeProjectFileGenerator(ProjectFile);
-									break;
-								case ProjectFileFormat.CLion:
-									Generator = new CLionGenerator(ProjectFile);
 									break;
 								default:
 									throw new BuildException("Unhandled project file type '{0}", ProjectFileFormat);

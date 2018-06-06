@@ -54,7 +54,13 @@ namespace UnrealBuildTool
 		/// The version of Visual Studio to generate project files for.
 		/// </summary>
 		[XmlConfigFile(Name = "Version")]
-		VCProjectFileFormat ProjectFileFormat = VCProjectFileFormat.Default;
+		protected VCProjectFileFormat ProjectFileFormat = VCProjectFileFormat.Default;
+
+		/// <summary>
+		/// Whether to write a solution option (suo) file for the sln
+		/// </summary>
+		[XmlConfigFile(Category = "BuildConfiguration")]
+		protected bool bWriteSolutionOptionFile = true;
 
 		/// <summary>
 		/// Whether to add the -FastPDB option to build command lines by default
@@ -300,12 +306,15 @@ namespace UnrealBuildTool
 						// Don't worry about platforms that we're missing SDKs for
 						if (BuildPlatform.HasRequiredSDKsInstalled() == SDKStatus.Valid)
 						{
-							VCProjectFileFormat ProposedFormat = ProjectFileFormat;
+							VCProjectFileFormat ProposedFormat = BuildPlatform.GetRequiredVisualStudioVersion();
 
-							// Reduce the Visual Studio version to the max supported by each platform we plan to include.
-							if (ProjectFileFormat == VCProjectFileFormat.Default || ProposedFormat < ProjectFileFormat)
+							if (ProposedFormat != VCProjectFileFormat.Default)
 							{
-								ProjectFileFormat = ProposedFormat;
+								// Reduce the Visual Studio version to the max supported by each platform we plan to include.
+								if (ProjectFileFormat == VCProjectFileFormat.Default || ProposedFormat < ProjectFileFormat)
+								{
+									ProjectFileFormat = ProposedFormat;
+								}
 							}
 						}
 					}
@@ -958,7 +967,7 @@ namespace UnrealBuildTool
 
 
 			// Save a solution config file which selects the development editor configuration by default.
-			if (bSuccess)
+			if (bSuccess && bWriteSolutionOptionFile)
 			{
 				// Figure out the filename for the SUO file. VS will automatically import the options from earlier versions if necessary.
 				FileReference SolutionOptionsFileName;

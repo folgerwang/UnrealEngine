@@ -6,6 +6,7 @@
 
 #include "PyWrapperObject.h"
 #include "PyWrapperStruct.h"
+#include "PyWrapperEnum.h"
 #include "PyWrapperDelegate.h"
 #include "PyWrapperName.h"
 #include "PyWrapperText.h"
@@ -57,7 +58,7 @@ FPyConversionResult NativizeStructInstance(PyObject* PyObj, UScriptStruct* Struc
 		StructType->CopyScriptStruct(StructInstance, PyStruct->StructInstance);
 	}
 
-	PYCONVERSION_RETURN(Result, TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s'"), *PyUtil::GetFriendlyTypename(PyObj), *StructType->GetName()));
+	PYCONVERSION_RETURN(Result, TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s'"), *PyUtil::GetFriendlyTypename(PyObj), *PyUtil::GetFriendlyTypename(PyStructType)));
 }
 
 FPyConversionResult PythonizeStructInstance(UScriptStruct* StructType, const void* StructInstance, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
@@ -627,6 +628,48 @@ PyObject* PythonizeStruct(UScriptStruct* Val, const ESetErrorState SetErrorState
 	return Obj;
 }
 
+FPyConversionResult NativizeEnumEntry(PyObject* PyObj, const UEnum* EnumType, int64& OutVal, const ESetErrorState SetErrorState)
+{
+	FPyConversionResult Result = FPyConversionResult::Failure();
+
+	PyTypeObject* PyEnumType = FPyWrapperTypeRegistry::Get().GetWrappedEnumType(EnumType);
+	FPyWrapperEnumPtr PyEnum = FPyWrapperEnumPtr::StealReference(FPyWrapperEnum::CastPyObject(PyObj, PyEnumType, &Result));
+	if (PyEnum)
+	{
+		OutVal = FPyWrapperEnum::GetEnumEntryValue(PyEnum);
+	}
+
+	PYCONVERSION_RETURN(Result, TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s'"), *PyUtil::GetFriendlyTypename(PyObj), *PyUtil::GetFriendlyTypename(PyEnumType)));
+}
+
+FPyConversionResult PythonizeEnumEntry(const int64 Val, const UEnum* EnumType, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+{
+	PyTypeObject* PyEnumType = FPyWrapperTypeRegistry::Get().GetWrappedEnumType(EnumType);
+	if (const FPyWrapperEnumMetaData* PyEnumMetaData = FPyWrapperEnumMetaData::GetMetaData(PyEnumType))
+	{
+		// Find an enum entry using this value
+		for (FPyWrapperEnum* PyEnumEntry : PyEnumMetaData->EnumEntries)
+		{
+			const int64 EnumEntryVal = FPyWrapperEnum::GetEnumEntryValue(PyEnumEntry);
+			if (EnumEntryVal == Val)
+			{
+				Py_INCREF(PyEnumEntry);
+				OutPyObj = (PyObject*)PyEnumEntry;
+				return FPyConversionResult::Success();
+			}
+		}
+	}
+
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("Nativize"), *FString::Printf(TEXT("Cannot pythonize '%d' (int64) as '%s'"), Val, *PyUtil::GetFriendlyTypename(PyEnumType)));
+}
+
+PyObject* PythonizeEnumEntry(const int64 Val, const UEnum* EnumType, const ESetErrorState SetErrorState)
+{
+	PyObject* Obj = nullptr;
+	PythonizeEnumEntry(Val, EnumType, Obj, SetErrorState);
+	return Obj;
+}
+
 FPyConversionResult NativizeProperty(PyObject* PyObj, const UProperty* Prop, void* ValueAddr, const FPyWrapperOwnerContext& InChangeOwner, const ESetErrorState SetErrorState)
 {
 #define PYCONVERSION_PROPERTY_RETURN(RESULT) \
@@ -709,7 +752,6 @@ FPyConversionResult NativizeProperty_Direct(PyObject* PyObj, const UProperty* Pr
 
 	NATIVIZE_SETTER_PROPERTY(UBoolProperty);
 	NATIVIZE_INLINE_PROPERTY(UInt8Property);
-	NATIVIZE_INLINE_PROPERTY(UByteProperty);
 	NATIVIZE_INLINE_PROPERTY(UInt16Property);
 	NATIVIZE_INLINE_PROPERTY(UUInt16Property);
 	NATIVIZE_INLINE_PROPERTY(UIntProperty);
@@ -722,10 +764,74 @@ FPyConversionResult NativizeProperty_Direct(PyObject* PyObj, const UProperty* Pr
 	NATIVIZE_INLINE_PROPERTY(UNameProperty);
 	NATIVIZE_INLINE_PROPERTY(UTextProperty);
 
+	if (auto* CastProp = Cast<UByteProperty>(Prop))
+	{
+		uint8 NewValue = 0;
+		FPyConversionResult Result = FPyConversionResult::Failure();
+
+		if (CastProp->Enum)
+		{
+			int64 EnumVal = 0;
+			Result = NativizeEnumEntry(PyObj, CastProp->Enum, EnumVal, SetErrorState);
+			if (Result.GetState() == EPyConversionResultState::SuccessWithCoercion)
+			{
+				// Don't allow implicit conversion on enum properties
+				Result.SetState(EPyConversionResultState::Failure);
+			}
+			if (Result)
+			{
+				NewValue = (uint8)EnumVal;
+			}
+		}
+		else
+		{
+			Result = Nativize(PyObj, NewValue, SetErrorState);
+		}
+
+		if (Result)
+		{
+			auto* ValuePtr = static_cast<uint8*>(ValueAddr);
+			if (*ValuePtr != NewValue)
+			{
+				EmitPropertyChangeNotifications(InChangeOwner, [&]()
+				{
+					*ValuePtr = NewValue;
+				});
+			}
+		}
+		PYCONVERSION_PROPERTY_RETURN(Result);
+	}
+
 	if (auto* CastProp = Cast<UEnumProperty>(Prop))
 	{
+		FPyConversionResult Result = FPyConversionResult::Failure();
+
 		UNumericProperty* EnumInternalProp = CastProp->GetUnderlyingProperty();
-		PYCONVERSION_PROPERTY_RETURN(EnumInternalProp ? NativizeProperty_Direct(PyObj, EnumInternalProp, ValueAddr, InChangeOwner, SetErrorState) : FPyConversionResult::Failure());
+		if (EnumInternalProp)
+		{
+			int64 NewValue = 0;
+
+			Result = NativizeEnumEntry(PyObj, CastProp->GetEnum(), NewValue, SetErrorState);
+			if (Result.GetState() == EPyConversionResultState::SuccessWithCoercion)
+			{
+				// Don't allow implicit conversion on enum properties
+				Result.SetState(EPyConversionResultState::Failure);
+			}
+
+			if (Result)
+			{
+				const int64 OldValue = EnumInternalProp->GetSignedIntPropertyValue(ValueAddr);
+				if (OldValue != NewValue)
+				{
+					EmitPropertyChangeNotifications(InChangeOwner, [&]()
+					{
+						EnumInternalProp->SetIntPropertyValue(ValueAddr, NewValue);
+					});
+				}
+			}
+		}
+
+		PYCONVERSION_PROPERTY_RETURN(Result);
 	}
 
 	if (auto* CastProp = Cast<UClassProperty>(Prop))
@@ -912,7 +1018,6 @@ FPyConversionResult PythonizeProperty_Direct(const UProperty* Prop, const void* 
 
 	PYTHONIZE_GETTER_PROPERTY(UBoolProperty);
 	PYTHONIZE_GETTER_PROPERTY(UInt8Property);
-	PYTHONIZE_GETTER_PROPERTY(UByteProperty);
 	PYTHONIZE_GETTER_PROPERTY(UInt16Property);
 	PYTHONIZE_GETTER_PROPERTY(UUInt16Property);
 	PYTHONIZE_GETTER_PROPERTY(UIntProperty);
@@ -925,10 +1030,23 @@ FPyConversionResult PythonizeProperty_Direct(const UProperty* Prop, const void* 
 	PYTHONIZE_GETTER_PROPERTY(UNameProperty);
 	PYTHONIZE_GETTER_PROPERTY(UTextProperty);
 
+	if (auto* CastProp = Cast<UByteProperty>(Prop))
+	{
+		const uint8 Value = CastProp->GetPropertyValue(ValueAddr);
+		if (CastProp->Enum)
+		{
+			PYCONVERSION_PROPERTY_RETURN(PythonizeEnumEntry((int64)Value, CastProp->Enum, OutPyObj, SetErrorState));
+		}
+		else
+		{
+			PYCONVERSION_PROPERTY_RETURN(Pythonize(Value, OutPyObj, SetErrorState));
+		}
+	}
+
 	if (auto* CastProp = Cast<UEnumProperty>(Prop))
 	{
 		UNumericProperty* EnumInternalProp = CastProp->GetUnderlyingProperty();
-		PYCONVERSION_PROPERTY_RETURN(EnumInternalProp ? PythonizeProperty_Direct(EnumInternalProp, ValueAddr, OutPyObj, ConversionMethod, OwnerPyObj, SetErrorState) : FPyConversionResult::Failure());
+		PYCONVERSION_PROPERTY_RETURN(PythonizeEnumEntry(EnumInternalProp ? EnumInternalProp->GetSignedIntPropertyValue(ValueAddr) : 0, CastProp->GetEnum(), OutPyObj, SetErrorState));
 	}
 
 	if (auto* CastProp = Cast<UClassProperty>(Prop))

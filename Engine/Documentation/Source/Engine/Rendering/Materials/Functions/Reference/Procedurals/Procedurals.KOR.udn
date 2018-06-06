@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3242329
+﻿INTSourceChangelist:3807090
 Availability: Public
 title:프로시저럴 함수
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
@@ -92,7 +92,7 @@ GeneratedBand 함수처럼 GeneratedOffsetBands 도 UV 스페이스에 걸쳐 �
 	이 글 작성 시점에는, 하이트맵에 대한 입력이 없습니다. 그러한 입력은 아래 단계를 거쳐 추가할 수 있습니다. 그러나 하이트맵 입력이 보이는 상태라면, 이러한 문제가 수정된 것이니 아래 단계는 필요치 않습니다.
 [/REGION]
 
-![Input correction](NormalFromHeightMapChaos_Correction.png)(w:900 h:600)
+![Input correction](NormalFromHeightMapChaos_Correction.png)(w:900)
 
 1. NormalFromHeightmapChaos 함수 노드에 더블클릭하여 새로운 머티리얼 에디터에서 엽니다.
 

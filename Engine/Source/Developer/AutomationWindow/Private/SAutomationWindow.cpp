@@ -1486,18 +1486,18 @@ void SAutomationWindow::UpdateTestLog(TSharedPtr<IAutomationReport> Selection)
 					LogMessages.Add(MakeShareable(new FAutomationOutputMessage(PassHeader, TEXT("Automation.Header"))));
 				}
 
-				for (const FAutomationEvent& Event : TestResults.GetEvents())
+				for (const FAutomationExecutionEntry& Entry : TestResults.GetEntries())
 				{
-					switch ( Event.Type )
+					switch (Entry.Event.Type)
 					{
 					case EAutomationEventType::Info:
-						LogMessages.Add(MakeShareable(new FAutomationOutputMessage(Event.ToString(), TEXT("Automation.Normal"))));
+						LogMessages.Add(MakeShareable(new FAutomationOutputMessage(Entry.ToString(), TEXT("Automation.Normal"))));
 						break;
 					case EAutomationEventType::Warning:
-						LogMessages.Add(MakeShareable(new FAutomationOutputMessage(Event.ToString(), TEXT("Automation.Warning"))));
+						LogMessages.Add(MakeShareable(new FAutomationOutputMessage(Entry.ToString(), TEXT("Automation.Warning"))));
 						break;
 					case EAutomationEventType::Error:
-						LogMessages.Add(MakeShareable(new FAutomationOutputMessage(Event.ToString(), TEXT("Automation.Error"))));
+						LogMessages.Add(MakeShareable(new FAutomationOutputMessage(Entry.ToString(), TEXT("Automation.Error"))));
 						break;
 					}
 				}

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3244370
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title: 블루프린트 디버깅
 Crumbs:%ROOT%, Engine/Blueprints, Engine/Blueprints/Workflow
@@ -63,12 +63,9 @@ Blueprint 디버깅은 중단점 사용을 통해 Play In Editor 나 Simulate In
 
 ## 디버그 탭과 블루프린트 디버거
 
-
 [EXCERPT:DebugTab]
 
-[EXCERPT:DebugPanel]
-**디버그** 탭에는 디자이너가 중단점과 감시값 형태로 중요하다 지정한 정보가 표시됩니다. 그 뿐만 아니라 블루프린트에 속한 여지껏 실행된 모든 노드 스택을 추적하기도 합니다. 이 창에는 중단점 사용시 게임 실행 제어를 위한 콘트롤도 표시됩니다.
-[/EXCERPT:DebugPanel]
+[INCLUDE:#DebugPanel]
 
 ### 감시값
 
@@ -91,3 +88,9 @@ Blueprint 디버깅은 중단점 사용을 통해 Play In Editor 나 Simulate In
 디버깅시 그래프를 파고 들어감에 따라 이 목록이 업데이트됩니다.
 
 [/EXCERPT:DebugTab]
+
+[COMMENT:none]
+[EXCERPT:DebugPanel]
+**디버그** 탭에는 디자이너가 중단점과 감시값 형태로 중요하다 지정한 정보가 표시됩니다. 그 뿐만 아니라 블루프린트에 속한 여지껏 실행된 모든 노드 스택을 추적하기도 합니다. 이 창에는 중단점 사용시 게임 실행 제어를 위한 콘트롤도 표시됩니다.
+[/EXCERPT:DebugPanel]
+[/COMMENT]

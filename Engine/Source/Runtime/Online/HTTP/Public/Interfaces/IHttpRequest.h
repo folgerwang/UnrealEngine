@@ -55,6 +55,11 @@ namespace EHttpRequestStatus
 		}
 		return TEXT("");
 	}
+
+	inline bool IsFinished(const EHttpRequestStatus::Type Value)
+	{
+		return Value == Failed || Value == Failed_ConnectionError || Value == Succeeded;
+	}
 }
 
 typedef TSharedPtr<class IHttpRequest> FHttpRequestPtr;

@@ -78,7 +78,7 @@ type:how-to
 
 ## 최종 결과
 
-**RecordedSequence** 애셋을 열어 일반 레벨 시퀀스처럼 편집을 시작하면 됩니다. 아래는 녹화된 시퀀스로, 여기에 카메라와 [**카메라 컷**](Engine/Sequencer/HowTo/TracksCameraCut) 트랙을 추가하여 앵글이든 음악이든 이펙트든 원하는 대로 추가할 수 있습니다. 이 시퀀스를 가지고 [샷 트랙](Engine/Sequencer/HowTo/TracksShot) 의 일부분으로 다른 시퀀스에 삽입할 수도 있습니다.
+**RecordedSequence** 애셋을 열어 일반 레벨 시퀀스처럼 편집을 시작하면 됩니다. 아래는 녹화된 시퀀스로, 여기에 카메라와 [카메라 컷](Engine/Sequencer/HowTo/TracksCameraCut) 트랙을 추가하여 앵글이든 음악이든 이펙트든 원하는 대로 추가할 수 있습니다. 이 시퀀스를 가지고 [샷 트랙](Engine/Sequencer/HowTo/TracksShot) 의 일부분으로 다른 시퀀스에 삽입할 수도 있습니다.
 
 [OBJECT:EmbeddedVideo]
 [PARAMLITERAL:width]

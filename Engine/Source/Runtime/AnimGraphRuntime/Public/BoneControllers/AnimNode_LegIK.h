@@ -11,6 +11,87 @@
 #include "AnimNode_LegIK.generated.h"
 
 class USkeletalMeshComponent;
+struct FAnimLegIKData;
+
+USTRUCT()
+struct FIKChainLink
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	FVector Location;
+	float Length;
+	FVector LinkAxisZ;
+	FVector RealBendDir;
+	FVector BaseBendDir;
+	FName BoneName;
+
+	FIKChainLink()
+		: Location(FVector::ZeroVector)
+		, Length(0.f)
+		, LinkAxisZ(FVector::ZeroVector)
+		, RealBendDir(FVector::ZeroVector)
+		, BaseBendDir(FVector::ZeroVector)
+		, BoneName(NAME_None)
+	{}
+
+	FIKChainLink(FVector InLocation, float InLength)
+		: Location(InLocation)
+		, Length(InLength)
+		, LinkAxisZ(FVector::ZeroVector)
+		, RealBendDir(FVector::ZeroVector)
+		, BaseBendDir(FVector::ZeroVector)
+		, BoneName(NAME_None)
+	{}
+};
+
+USTRUCT()
+struct FIKChain
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	TArray<FIKChainLink> Links;
+	float MinRotationAngleRadians;
+
+private:
+	bool bInitialized;
+	float MaximumReach;
+	int32 NumLinks;
+	bool bEnableRotationLimit;
+	FAnimInstanceProxy* MyAnimInstanceProxy;
+	FVector HingeRotationAxis;
+
+public:
+	FIKChain()
+		: bInitialized(false)
+		, MaximumReach(0.f)
+		, NumLinks(INDEX_NONE)
+		, bEnableRotationLimit(false)
+		, MyAnimInstanceProxy(nullptr)
+		, HingeRotationAxis(FVector::ZeroVector)
+	{}
+
+	void InitializeFromLegData(FAnimLegIKData& InLegData, FAnimInstanceProxy* InAnimInstanceProxy);
+	void ReachTarget(const FVector& InTargetLocation, float InReachPrecision, int32 InMaxIterations);
+
+	float GetMaximumReach() const
+	{
+		return MaximumReach;
+	}
+
+private:
+	void OrientAllLinksToDirection(const FVector& InDirection);
+	void SolveTwoBoneIK(const FVector& InTargetLocation);
+	void SolveFABRIK(const FVector& InTargetLocation, float InReachPrecision, int32 InMaxIterations);
+
+	static void FABRIK_ForwardReach(const FVector& InTargetLocation, FIKChain& IKChain);
+	static void FABRIK_BackwardReach(const FVector& InRootTargetLocation, FIKChain& IKChain);
+	static void FABRIK_ApplyLinkConstraints_Forward(FIKChain& IKChain, int32 LinkIndex);
+	static void FABRIK_ApplyLinkConstraints_Backward(FIKChain& IKChain, int32 LinkIndex);
+
+	static void DrawDebugIKChain(const FIKChain& IKChain, const FColor& InColor);
+};
 
 /** Per foot definitions */
 USTRUCT()
@@ -31,6 +112,10 @@ struct FAnimLegIKDefinition
 	UPROPERTY(EditAnywhere, Category = "Settings")
 	TEnumAsByte<EAxis::Type> FootBoneForwardAxis;
 
+	/** Hinge Bones Rotation Axis. This is essentially the plane normal for (hip - knee - foot). */
+	UPROPERTY(EditAnywhere, Category = "Settings")
+	TEnumAsByte<EAxis::Type> HingeRotationAxis;
+
 	/** If enabled, we prevent the leg from bending backwards and enforce a min compression angle */
 	UPROPERTY(EditAnywhere, Category = "Settings")
 	bool bEnableRotationLimit;
@@ -47,6 +132,7 @@ struct FAnimLegIKDefinition
 	FAnimLegIKDefinition()
 		: NumBonesInLimb(2)
 		, FootBoneForwardAxis(EAxis::Y)
+		, HingeRotationAxis(EAxis::None)
 		, bEnableRotationLimit(false)
 		, MinRotationAngle(15.f)
 		, bEnableKneeTwistCorrection(true)
@@ -69,79 +155,17 @@ public:
 	TArray<FCompactPoseBoneIndex> FKLegBoneIndices;
 	TArray<FTransform> FKLegBoneTransforms;
 
+	FIKChain IKChain;
+
 public:
 	void InitializeTransforms(FAnimInstanceProxy* MyAnimInstanceProxy, FCSPose<FCompactPose>& MeshBases);
 
 	FAnimLegIKData()
 		: IKFootBoneIndex(INDEX_NONE)
+		, IKFootTransform(FTransform::Identity)
 		, LegDefPtr(nullptr)
 		, NumBones(INDEX_NONE)
 	{}
-};
-
-USTRUCT()
-struct FIKChainLink
-{
-	GENERATED_USTRUCT_BODY()
-
-		FVector Location;
-	float Length;
-	FVector LinkAxisZ;
-
-	FIKChainLink()
-		: Location(FVector::ZeroVector)
-		, Length(0.f)
-		, LinkAxisZ(FVector::ZeroVector)
-	{}
-
-	FIKChainLink(FVector InLocation, float InLength)
-		: Location(InLocation)
-		, Length(InLength)
-		, LinkAxisZ(FVector::ZeroVector)
-	{}
-};
-
-USTRUCT()
-struct FIKChain
-{
-	GENERATED_USTRUCT_BODY()
-
-public:
-	TArray<FIKChainLink> Links;
-	float MinRotationAngleRadians;
-
-private:
-	bool bInitialized;
-	float MaximumReach;
-	int32 NumLinks;
-	bool bEnableRotationLimit;
-	FAnimInstanceProxy* MyAnimInstanceProxy;
-
-public:
-	FIKChain()
-		: bInitialized(false)
-		, MaximumReach(0.f)
-		, MyAnimInstanceProxy(nullptr)
-	{}
-
-	void InitializeFromLegData(const FAnimLegIKData& InLegData, FAnimInstanceProxy* InAnimInstanceProxy);
-	void ReachTarget(const FVector& InTargetLocation, float InReachPrecision, int32 InMaxIterations);
-
-	float GetMaximumReach() const
-	{
-		return MaximumReach;
-	}
-
-private:
-	void OrientAllLinksToDirection(const FVector& InDirection);
-	void SolveFABRIK(const FVector& InTargetLocation, float InReachPrecision, int32 InMaxIterations);
-
-	static void FABRIK_ForwardReach(const FVector& InTargetLocation, FIKChain& IKChain);
-	static void FABRIK_BackwardReach(const FVector& InRootTargetLocation, FIKChain& IKChain);
-	static void FABRIK_ApplyLinkConstraints_Forward(FIKChain& IKChain, int32 LinkIndex);
-	static void FABRIK_ApplyLinkConstraints_Backward(FIKChain& IKChain, int32 LinkIndex);
-
-	static void DrawDebugIKChain(const FIKChain& IKChain, const FColor& InColor);
 };
 
 USTRUCT()
@@ -178,9 +202,9 @@ public:
 	virtual bool IsValidToEvaluate(const USkeleton* Skeleton, const FBoneContainer& RequiredBones) override;
 	// End of FAnimNode_SkeletalControlBase interface
 
-	void OrientLegTowardsIK(FAnimLegIKData& InLegData);
-	void DoLegReachIK(FAnimLegIKData& InLegData);
-	void AdjustKneeTwist(FAnimLegIKData& InLegData);
+	bool OrientLegTowardsIK(FAnimLegIKData& InLegData);
+	bool DoLegReachIK(FAnimLegIKData& InLegData);
+	bool AdjustKneeTwist(FAnimLegIKData& InLegData);
 
 private:
 	// FAnimNode_SkeletalControlBase interface

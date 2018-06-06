@@ -25,7 +25,7 @@ void ProxyLOD::MixedPolyMeshToRawMesh(const FMixedPolyMesh& SimpleMesh, FRawMesh
 		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumVerts),
 			[&SimpleMesh, &DstRawMesh](const ProxyLOD::FUIntRange& Range)
 		{
-			// @todo DJH tbb::ProxyLOD::Parallel_For
+	
 			for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
 			{
 				const openvdb::Vec3s& Vertex = SimpleMesh.Points[i];
@@ -101,7 +101,7 @@ void ProxyLOD::MixedPolyMeshToRawMesh(const FMixedPolyMesh& SimpleMesh, FRawMesh
 
 
 	// Generate Tangent-Space
-	// djh: adding default values for now
+	// NB: adding default values for now
 	ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes), [&DstRawMesh](const ProxyLOD::FUIntRange& Range)
 	{
 		for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
@@ -171,9 +171,10 @@ void ProxyLOD::AOSMeshToRawMesh(const FAOSMesh& AOSMesh, FRawMesh& OutRawMesh)
 		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes),
 			[&AOSMesh, &WedgeIndices](const ProxyLOD::FUIntRange& Range)
 		{
+			const auto& AOSIndexes = AOSMesh.Indexes;
 			for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
 			{
-				WedgeIndices[i] = AOSMesh.Indexes[i];
+				WedgeIndices[i] = AOSIndexes[i];
 			}
 		});
 
@@ -187,7 +188,7 @@ void ProxyLOD::AOSMeshToRawMesh(const FAOSMesh& AOSMesh, FRawMesh& OutRawMesh)
 		ResizeArray(OutRawMesh.WedgeTangentY, DstNumIndexes);
 
 		// Generate Tangent-Space
-		// djh: adding default values for now
+		// NB: adding default values for now
 		ProxyLOD::Parallel_For(ProxyLOD::FUIntRange(0, DstNumIndexes), [&OutRawMesh](const ProxyLOD::FUIntRange& Range)
 		{
 			for (uint32 i = Range.begin(), I = Range.end(); i < I; ++i)
@@ -357,7 +358,7 @@ void ProxyLOD::VertexDataMeshToRawMesh(const FVertexDataMesh& SrcVertexDataMesh,
 		}
 	}
 
-	// DJH Testing.
+	
 	// Is the handedness the same for all verts on a given face?
 	{
 		const uint32 DstNumTris = DstNumIndexes / 3;
@@ -429,7 +430,7 @@ void ProxyLOD::VertexDataMeshToRawMesh(const FVertexDataMesh& SrcVertexDataMesh,
 			}
 		}
 #if 0
-		// DJH
+		
 		// Testing with the handedness
 
 		for (uint32 i = 0; i < DstNumIndexes; ++i)

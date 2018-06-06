@@ -541,8 +541,9 @@ void UAbilitySystemComponent::NotifyTagMap_StackCountChange(const FGameplayTagCo
 FActiveGameplayEffectHandle UAbilitySystemComponent::ApplyGameplayEffectSpecToTarget(const FGameplayEffectSpec &Spec, UAbilitySystemComponent *Target, FPredictionKey PredictionKey)
 {
 	SCOPE_CYCLE_COUNTER(STAT_AbilitySystemComp_ApplyGameplayEffectSpecToTarget);
+	UAbilitySystemGlobals& AbilitySystemGlobals = UAbilitySystemGlobals::Get();
 
-	if (!UAbilitySystemGlobals::Get().ShouldPredictTargetGameplayEffects())
+	if (!AbilitySystemGlobals.ShouldPredictTargetGameplayEffects())
 	{
 		// If we don't want to predict target effects, clear prediction key
 		PredictionKey = FPredictionKey();
@@ -550,7 +551,7 @@ FActiveGameplayEffectHandle UAbilitySystemComponent::ApplyGameplayEffectSpecToTa
 
 	FActiveGameplayEffectHandle ReturnHandle;
 
-	if (!UAbilitySystemGlobals::Get().ShouldPredictTargetGameplayEffects())
+	if (!AbilitySystemGlobals.ShouldPredictTargetGameplayEffects())
 	{
 		// If we don't want to predict target effects, clear prediction key
 		PredictionKey = FPredictionKey();
@@ -2089,14 +2090,16 @@ void UAbilitySystemComponent::Debug_Internal(FAbilitySystemComponentDebugInfo& I
 	FGameplayTagContainer OwnerTags;
 	GetOwnedGameplayTags(OwnerTags);
 
-	if (Info.Canvas) Info.Canvas->SetDrawColor(FColor::White);
+	if (Info.Canvas)
+	{
+		Info.Canvas->SetDrawColor(FColor::White);
+	}
 
 	DebugLine(Info, FString::Printf(TEXT("Owned Tags: %s"), *OwnerTags.ToStringSimple()), 4.f, 0.f);
 
 	if (BlockedAbilityTags.GetExplicitGameplayTags().Num() > 0)
 	{
 		DebugLine(Info, FString::Printf(TEXT("BlockedAbilityTags: %s"), *BlockedAbilityTags.GetExplicitGameplayTags().ToStringSimple()), 4.f, 0.f);
-		
 	}
 
 	TSet<FGameplayAttribute> DrawAttributes;
@@ -2198,8 +2201,10 @@ void UAbilitySystemComponent::Debug_Internal(FAbilitySystemComponentDebugInfo& I
 	{
 		for (FActiveGameplayEffect& ActiveGE : &ActiveGameplayEffects)
 		{
-
-			if (Info.Canvas) Info.Canvas->SetDrawColor(FColor::White);
+			if (Info.Canvas)
+			{
+				Info.Canvas->SetDrawColor(FColor::White);
+			}
 
 			FString DurationStr = TEXT("Infinite Duration ");
 			if (ActiveGE.GetDuration() > 0.f)
@@ -2248,7 +2253,10 @@ void UAbilitySystemComponent::Debug_Internal(FAbilitySystemComponentDebugInfo& I
 				}
 			}
 
-			if (Info.Canvas) Info.Canvas->SetDrawColor(ActiveGE.bIsInhibited ? FColor(128, 128, 128) : FColor::White);
+			if (Info.Canvas)
+			{
+				Info.Canvas->SetDrawColor(ActiveGE.bIsInhibited ? FColor(128, 128, 128) : FColor::White);
+			}
 
 			DebugLine(Info, FString::Printf(TEXT("%s %s %s %s %s"), *CleanupName(GetNameSafe(ActiveGE.Spec.Def)), *DurationStr, *StackString, *LevelString, *PredictionString), 4.f, 0.f);
 
@@ -2272,7 +2280,10 @@ void UAbilitySystemComponent::Debug_Internal(FAbilitySystemComponentDebugInfo& I
 
 				DebugLine(Info, FString::Printf(TEXT("Mod: %s. %s. %.2f"), *ModInfo.Attribute.GetName(), *EGameplayModOpToString(ModInfo.ModifierOp), ModSpec.GetEvaluatedMagnitude()), 7.f, 0.f);
 
-				if (Info.Canvas) Info.Canvas->SetDrawColor(ActiveGE.bIsInhibited ? FColor(128, 128, 128) : FColor::White);
+				if (Info.Canvas)
+				{
+					Info.Canvas->SetDrawColor(ActiveGE.bIsInhibited ? FColor(128, 128, 128) : FColor::White);
+				}
 			}
 
 			AccumulateScreenPos(Info);
@@ -2283,7 +2294,10 @@ void UAbilitySystemComponent::Debug_Internal(FAbilitySystemComponentDebugInfo& I
 
 	if (Info.bShowAttributes)
 	{
-		if (Info.Canvas) Info.Canvas->SetDrawColor(FColor::White);
+		if (Info.Canvas)
+		{
+			Info.Canvas->SetDrawColor(FColor::White);
+		}
 		for (UAttributeSet* Set : SpawnedAttributes)
 		{
 			for (TFieldIterator<UProperty> It(Set->GetClass()); It; ++It)
@@ -2349,7 +2363,10 @@ void UAbilitySystemComponent::Debug_Internal(FAbilitySystemComponentDebugInfo& I
 			FString InputPressedStr = AbilitySpec.InputPressed ? TEXT("(InputPressed)") : TEXT("");
 			FString ActivationModeStr = AbilitySpec.IsActive() ? UEnum::GetValueAsString(TEXT("GameplayAbilities.EGameplayAbilityActivationMode"), AbilitySpec.ActivationInfo.ActivationMode) : TEXT("");
 
-			if (Info.Canvas) Info.Canvas->SetDrawColor(AbilityTextColor);
+			if (Info.Canvas)
+			{
+				Info.Canvas->SetDrawColor(AbilityTextColor);
+			}
 
 			DebugLine(Info, FString::Printf(TEXT("%s %s %s %s"), *CleanupName(GetNameSafe(AbilitySpec.Ability)), *StatusText, *InputPressedStr, *ActivationModeStr), 4.f, 0.f);
 
@@ -2362,7 +2379,10 @@ void UAbilitySystemComponent::Debug_Internal(FAbilitySystemComponentDebugInfo& I
 					if (!Instance)
 						continue;
 
-					if (Info.Canvas) Info.Canvas->SetDrawColor(FColor::White);
+					if (Info.Canvas)
+					{
+						Info.Canvas->SetDrawColor(FColor::White);
+					}
 					for (UGameplayTask* Task : Instance->ActiveTasks)
 					{
 						if (Task)
@@ -2406,7 +2426,10 @@ void UAbilitySystemComponent::Debug_Internal(FAbilitySystemComponentDebugInfo& I
 
 					if (InstanceIdx < Instances.Num() - 2)
 					{
-						if (Info.Canvas) Info.Canvas->SetDrawColor(FColor(128, 128, 128));
+						if (Info.Canvas)
+						{
+							Info.Canvas->SetDrawColor(FColor(128, 128, 128));
+						}
 						DebugLine(Info, FString::Printf(TEXT("--------")), 7.f, 0.f);
 					}
 				}

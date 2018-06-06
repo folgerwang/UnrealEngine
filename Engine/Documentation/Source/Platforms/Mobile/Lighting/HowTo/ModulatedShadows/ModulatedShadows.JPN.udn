@@ -1,4 +1,4 @@
-﻿INTSourceChangeList:3108692
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:変調シャドウの使用方法
 Crumbs:%ROOT%, Platforms, Platforms/Mobile
@@ -22,7 +22,7 @@ UE4 プロジェクトでこのオプションを有効にするには、以下�
 1. レベルに **指向性ライト** が配置され **[Mobility (移動性)]** が **[Stationary (固定)]** に設定されていることをご確認ください。 
 
 	[REGION:lightbox]
-	[![](Platforms\Mobile\Lighting\Mod_Setup_01.png)(w:342 h:137)](Platforms\Mobile\Lighting\Mod_Setup_01.png)
+	[![](Platforms\Mobile\Lighting\Mod_Setup_01.png)(w:342)](Platforms\Mobile\Lighting\Mod_Setup_01.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -36,7 +36,7 @@ UE4 プロジェクトでこのオプションを有効にするには、以下�
 1. 指向性ライトを選択し、**[Details (詳細)]** パネルの **[Light]** セクションにある小さな白い三角をクリックして **[Advanced (詳細)]** オプションを展開して [Modulated shadows (変調シャドウ)] オプションを表示します。
 
 	[REGION:lightbox]
-	[![](Platforms\Mobile\Lighting\Mod_Setup_02.png)(w:342 h:137)](Platforms\Mobile\Lighting\Mod_Setup_02.png)
+	[![](Platforms\Mobile\Lighting\Mod_Setup_02.png)(w:342)](Platforms\Mobile\Lighting\Mod_Setup_02.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -54,7 +54,7 @@ UE4 プロジェクトでこのオプションを有効にするには、以下�
 1. 変調シャドウの見え方を確認するには、**Mobile Previewer** を使用する、あるいは、プロジェクトをモバイル デバイスにデプロイしてゲームを実行する必要があります。このサンプルでも分かるように、変調シャドウの色はデフォルトのグレーから赤に変わって、エフェクトがはっきり見えるようになりました。
 
 	[REGION:lightbox]
-	[![](Platforms\Mobile\Lighting\Mod_Setup_04.png)(w:288 h:265)](Platforms\Mobile\Lighting\Mod_Setup_04.png)
+	[![](Platforms\Mobile\Lighting\Mod_Setup_04.png)(w:288)](Platforms\Mobile\Lighting\Mod_Setup_04.png)
 	[/REGION]
 
 	[REGION:caption]

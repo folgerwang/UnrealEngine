@@ -787,7 +787,7 @@ struct FSectionListItem
 class FSectionList : public IDetailCustomNodeBuilder, public TSharedFromThis<FSectionList>
 {
 public:
-	PROPERTYEDITOR_API FSectionList(IDetailLayoutBuilder& InDetailLayoutBuilder, FSectionListDelegates& SectionListDelegates, bool bInAllowCollapse, int32 InThumbnailSize, int32 InSectionsLodIndex);
+	PROPERTYEDITOR_API FSectionList(IDetailLayoutBuilder& InDetailLayoutBuilder, FSectionListDelegates& SectionListDelegates, bool bInInitiallyCollapsed, int32 InThumbnailSize, int32 InSectionsLodIndex, FName InSectionListName);
 
 	/**
 	* @return true if Sections are being displayed
@@ -810,8 +810,11 @@ private:
 	virtual void Tick(float DeltaTime) override;
 	virtual void GenerateHeaderRowContent(FDetailWidgetRow& NodeRow) override;
 	virtual void GenerateChildContent(IDetailChildrenBuilder& ChildrenBuilder) override;
-	virtual FName GetName() const override { return NAME_None; }
-	virtual bool InitiallyCollapsed() const override { return bAllowCollpase; }
+	virtual FName GetName() const override { return SectionListName; }
+	virtual bool InitiallyCollapsed() const override
+	{
+		return bInitiallyCollapsed;
+	}
 
 	/**
 	* Adds a new Section item to the list
@@ -847,8 +850,11 @@ private:
 	TSet<uint32> ExpandedSlots;
 	/** Section list builder used to generate Sections */
 	TSharedRef<class FSectionListBuilder> SectionListBuilder;
-	/** Allow Collapse of Section header row. Right now if you allow collapse, it will initially collapse. */
-	bool bAllowCollpase;
+
+	/** Set the initial state of the collapse. */
+	bool bInitiallyCollapsed;
+
+	FName SectionListName;
 
 	int32 ThumbnailSize;
 	int32 SectionsLodIndex;

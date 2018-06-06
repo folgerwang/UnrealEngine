@@ -33,12 +33,16 @@ void UGameplayAbility_Montage::ActivateAbility(const FGameplayAbilitySpecHandle 
 		// Apply GameplayEffects
 		TArray<const UGameplayEffect*> Effects;
 		GetGameplayEffectsWhileAnimating(Effects);
-		for (const UGameplayEffect* Effect : Effects)
+		if (Effects.Num() > 0)
 		{
-			FActiveGameplayEffectHandle EffectHandle = ActorInfo->AbilitySystemComponent->ApplyGameplayEffectToSelf(Effect, 1.f, MakeEffectContext(Handle, ActorInfo));
-			if (EffectHandle.IsValid())
+			UAbilitySystemComponent* const AbilitySystemComponent = ActorInfo->AbilitySystemComponent.Get();
+			for (const UGameplayEffect* Effect : Effects)
 			{
-				AppliedEffects.Add(EffectHandle);
+				FActiveGameplayEffectHandle EffectHandle = AbilitySystemComponent->ApplyGameplayEffectToSelf(Effect, 1.f, MakeEffectContext(Handle, ActorInfo));
+				if (EffectHandle.IsValid())
+				{
+					AppliedEffects.Add(EffectHandle);
+				}
 			}
 		}
 
@@ -55,10 +59,11 @@ void UGameplayAbility_Montage::ActivateAbility(const FGameplayAbilitySpecHandle 
 	}
 }
 
-void UGameplayAbility_Montage::OnMontageEnded(UAnimMontage* Montage, bool bInterrupted, TWeakObjectPtr<UAbilitySystemComponent> AbilitySystemComponent, TArray<FActiveGameplayEffectHandle> AppliedEffects)
+void UGameplayAbility_Montage::OnMontageEnded(UAnimMontage* Montage, bool bInterrupted, TWeakObjectPtr<UAbilitySystemComponent> AbilitySystemComponentPtr, TArray<FActiveGameplayEffectHandle> AppliedEffects)
 {
 	// Remove any GameplayEffects that we applied
-	if (AbilitySystemComponent.IsValid())
+	UAbilitySystemComponent* const AbilitySystemComponent = AbilitySystemComponentPtr.Get();
+	if (AbilitySystemComponent)
 	{
 		for (FActiveGameplayEffectHandle Handle : AppliedEffects)
 		{

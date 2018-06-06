@@ -601,28 +601,67 @@ bool FXmppMultiUserChatStrophe::ExitRoom(const FXmppRoomId& RoomId)
 {
 	UE_LOG(LogXmpp, Verbose, TEXT("MUC: ExitRoom RoomId=%s"), *RoomId);
 
+	bool bSuccess = false;
+	FString ErrorStr;
+	FXmppRoomStrophe* RoomPtr = Chatrooms.Find(RoomId);
+
 	if (ConnectionManager.GetLoginStatus() != EXmppLoginStatus::LoggedIn)
 	{
-		return false;
+		// Not logged in, so cannot leave the chat room
+		ErrorStr = TEXT("User not logged in");
+		bSuccess = false;
 	}
-
-	// If we're not in this room, we don't need to exit
-	FXmppRoomStrophe* RoomPtr = Chatrooms.Find(RoomId);
-	if (RoomPtr == nullptr)
+	else if (RoomPtr == nullptr)
 	{
-		return true;
+		ErrorStr = TEXT("Room was never created.");
+		bSuccess = true;	// Returning true since we can't be in the room at all.
 	}
-
-	// We're not in this room (probably)
-	if (RoomPtr->Status != ERoomStatusStrophe::Joined)
+	else
 	{
-		return false;
+		switch (RoomPtr->Status)
+		{
+		case ERoomStatusStrophe::ExitPending:
+			{
+				// We've already queued an exit, so do not queue again or trigger delegates
+				bSuccess = true;
+			}
+			break;
+		case ERoomStatusStrophe::Joined:
+			{
+				ERoomStatusStrophe OldStatus = RoomPtr->Status;
+
+				// Queue our exit
+				RoomPtr->Status = ERoomStatusStrophe::ExitPending;
+				bSuccess = SendExitRoomStanza(*RoomPtr);
+
+				if (!bSuccess)
+				{
+					ErrorStr = TEXT("Could not send ExitRoom stanza");
+					RoomPtr->Status = OldStatus;	// Restore old room status if we could not queue the exit operation
+				}
+			}
+			break;
+		case ERoomStatusStrophe::NotJoined:
+		case ERoomStatusStrophe::CreatePending:
+		case ERoomStatusStrophe::JoinPublicPending:
+		case ERoomStatusStrophe::JoinPrivatePending:
+		default:
+			{
+				// We're (probably) not in this room, so we don't need to exit
+				ErrorStr = FString::Printf(TEXT("User not in room: status is %s"), LexToString(RoomPtr->Status));
+				bSuccess = false;
+			}
+			break;
+		}
 	}
 
-	// Queue our exit
-	RoomPtr->Status = ERoomStatusStrophe::ExitPending;
+	if (!bSuccess || RoomPtr == nullptr)
+	{
+		UE_LOG(LogXmpp, Warning, TEXT("MUC: Cannot leave room %s: %s"), *RoomId, *ErrorStr);
+		OnXmppRoomExitCompleteDelegate.Broadcast(ConnectionManager.AsShared(), bSuccess, RoomId, ErrorStr);
+	}
 
-	return SendExitRoomStanza(*RoomPtr);
+	return bSuccess;
 }
 
 bool FXmppMultiUserChatStrophe::SendChat(const FXmppRoomId& RoomId, const FString& MsgBody, const FString& ChatInfo)
@@ -986,6 +1025,14 @@ void FXmppMultiUserChatStrophe::OnReceiveRoomConfigSuccess(FXmppRoomId&& RoomId)
 				OnXmppRoomConfiguredDelegate.Broadcast(ConnectionManager.AsShared(), true, RoomPtr->GetRoomId(), FString());
 				break;
 			case EConfigureRoomTypeStrophe::UseCreateCallback:
+				if (ensure(RoomPtr->Status == ERoomStatusStrophe::CreatePending))
+				{
+					RoomPtr->Status = ERoomStatusStrophe::Joined;
+				}
+				else
+				{
+					UE_LOG(LogXmpp, Warning, TEXT("OnReceiveRoomConfigSuccess: Room %s is not in the CreatePending state (%s)"), *RoomPtr->GetRoomId(), LexToString(RoomPtr->Status));
+				}
 				OnXmppRoomCreateCompleteDelegate.Broadcast(ConnectionManager.AsShared(), true, RoomPtr->GetRoomId(), FString());
 				break;
 			}
@@ -1196,7 +1243,7 @@ void FXmppMultiUserChatStrophe::HandleExitRoomComplete(FXmppRoomStrophe& Room, F
 	{
 		if (Room.Status != ERoomStatusStrophe::ExitPending)
 		{
-			UE_LOG(LogXmpp, Verbose, TEXT("MUC: Server initiated room exit complete; in state %s"), Lex::ToString(Room.Status));
+			UE_LOG(LogXmpp, Verbose, TEXT("MUC: Server initiated room exit complete; in state %s"), LexToString(Room.Status));
 		}
 		OnXmppRoomExitCompleteDelegate.Broadcast(ConnectionManager.AsShared(), true, Room.GetRoomId(), FString());
 	}

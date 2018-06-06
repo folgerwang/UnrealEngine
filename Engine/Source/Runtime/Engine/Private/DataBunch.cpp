@@ -39,8 +39,8 @@ FInBunch::FInBunch( UNetConnection* InConnection, uint8* Src, int64 CountBits )
 	SetByteSwapping(Connection->bNeedsByteSwapping);
 
 	// Copy network version info
-	ArEngineNetVer = InConnection->EngineNetworkProtocolVersion;
-	ArGameNetVer = InConnection->GameNetworkProtocolVersion;
+	this->SetEngineNetVer(InConnection->EngineNetworkProtocolVersion);
+	this->SetGameNetVer(InConnection->GameNetworkProtocolVersion);
 
 	// Crash protection: the max string size serializable on this archive 
 	ArMaxSerializeSize = MAX_STRING_SERIALIZE_SIZE;
@@ -71,8 +71,8 @@ FInBunch::FInBunch( FInBunch &InBunch, bool CopyBuffer )
 	bIgnoreRPCs = InBunch.bIgnoreRPCs;
 
 	// Copy network version info
-	ArEngineNetVer = InBunch.ArEngineNetVer;
-	ArGameNetVer = InBunch.ArGameNetVer;
+	this->SetEngineNetVer(InBunch.EngineNetVer());
+	this->SetGameNetVer(InBunch.GameNetVer());
 
 	PackageMap = InBunch.PackageMap;
 	

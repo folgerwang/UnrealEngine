@@ -412,8 +412,11 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 
 #if SLATE_REFLECTOR_HAS_SESSION_SERVICES
 	{
-		TSharedRef<ISessionManager> SessionManager = FModuleManager::LoadModuleChecked<ISessionServicesModule>("SessionServices").GetSessionManager();
-		SessionManager->OnSessionsUpdated().AddSP(this, &SWidgetReflector::OnAvailableSnapshotTargetsChanged);
+		TSharedPtr<ISessionManager> SessionManager = FModuleManager::LoadModuleChecked<ISessionServicesModule>("SessionServices").GetSessionManager();
+		if (SessionManager.IsValid())
+		{
+			SessionManager->OnSessionsUpdated().AddSP(this, &SWidgetReflector::OnAvailableSnapshotTargetsChanged);
+		}
 	}
 #endif // SLATE_REFLECTOR_HAS_SESSION_SERVICES
 	SelectedSnapshotTargetInstanceId = FApp::GetInstanceId();
@@ -1596,29 +1599,31 @@ void SWidgetReflector::UpdateAvailableSnapshotTargets()
 
 #if SLATE_REFLECTOR_HAS_SESSION_SERVICES
 	{
-		TSharedRef<ISessionManager> SessionManager = FModuleManager::LoadModuleChecked<ISessionServicesModule>("SessionServices").GetSessionManager();
-
-		TArray<TSharedPtr<ISessionInfo>> AvailableSessions;
-		SessionManager->GetSessions(AvailableSessions);
-
-		for (const auto& AvailableSession : AvailableSessions)
+		TSharedPtr<ISessionManager> SessionManager = FModuleManager::LoadModuleChecked<ISessionServicesModule>("SessionServices").GetSessionManager();
+		if (SessionManager.IsValid())
 		{
-			// Only allow sessions belonging to the current user
-			if (AvailableSession->GetSessionOwner() != FApp::GetSessionOwner())
+			TArray<TSharedPtr<ISessionInfo>> AvailableSessions;
+			SessionManager->GetSessions(AvailableSessions);
+
+			for (const auto& AvailableSession : AvailableSessions)
 			{
-				continue;
-			}
+				// Only allow sessions belonging to the current user
+				if (AvailableSession->GetSessionOwner() != FApp::GetSessionOwner())
+				{
+					continue;
+				}
 
-			TArray<TSharedPtr<ISessionInstanceInfo>> AvailableInstances;
-			AvailableSession->GetInstances(AvailableInstances);
+				TArray<TSharedPtr<ISessionInstanceInfo>> AvailableInstances;
+				AvailableSession->GetInstances(AvailableInstances);
 
-			for (const auto& AvailableInstance : AvailableInstances)
-			{
-				FWidgetSnapshotTarget SnapshotTarget;
-				SnapshotTarget.DisplayName = FText::Format(LOCTEXT("SnapshotTargetDisplayNameFmt", "{0} ({1})"), FText::FromString(AvailableInstance->GetInstanceName()), FText::FromString(AvailableInstance->GetPlatformName()));
-				SnapshotTarget.InstanceId = AvailableInstance->GetInstanceId();
+				for (const auto& AvailableInstance : AvailableInstances)
+				{
+					FWidgetSnapshotTarget SnapshotTarget;
+					SnapshotTarget.DisplayName = FText::Format(LOCTEXT("SnapshotTargetDisplayNameFmt", "{0} ({1})"), FText::FromString(AvailableInstance->GetInstanceName()), FText::FromString(AvailableInstance->GetPlatformName()));
+					SnapshotTarget.InstanceId = AvailableInstance->GetInstanceId();
 
-				AvailableSnapshotTargets.Add(MakeShareable(new FWidgetSnapshotTarget(SnapshotTarget)));
+					AvailableSnapshotTargets.Add(MakeShareable(new FWidgetSnapshotTarget(SnapshotTarget)));
+				}
 			}
 		}
 	}

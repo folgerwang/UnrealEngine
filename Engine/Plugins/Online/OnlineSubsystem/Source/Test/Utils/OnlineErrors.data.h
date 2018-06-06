@@ -1,4 +1,3 @@
-
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
@@ -45,4 +44,12 @@
 
 #ifndef ONLINE_EXPECTEDERROR_INVALID_USERID
 #define ONLINE_EXPECTEDERROR_INVALID_USERID TEXT("errors.com.epicgames.users.invalid_userid")
+#endif
+
+#ifndef ONLINE_EXPECTEDERROR_NONLOCALPLAYER
+#define ONLINE_EXPECTEDERROR_NONLOCALPLAYER TEXT("errors.com.epicgames.users.non_local_player")
+#endif
+
+#ifndef ONLINE_EXPECTEDERROR_INVALID_ACHIEVEMENT
+#define ONLINE_EXPECTEDERROR_INVALID_ACHIEVEMENT TEXT("errors.com.epicgames.achievements.invalid_achievement")
 #endif

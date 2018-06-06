@@ -97,6 +97,8 @@ protected:
 	/** Delegate called when the user has decided to cancel the check in process */
 	static void ChoosePackagesToCheckInCancelled(FSourceControlOperationRef InOperation);
 
+	/** Delegate called when the user clicks submit.  if the return value is true the submit dialog is closed.  Otherwise it is left open for further corrections */
+	static bool OnSubmitClicked(TSharedRef<class SSourceControlSubmitWidget> SourceControlWidget);
 private:
 	/** The notification in place while we choose packages to check in */
 	static TWeakPtr<class SNotificationItem> ChoosePackagesToCheckInNotification;

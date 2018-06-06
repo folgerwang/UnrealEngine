@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3736300
 Availability: Public
-Title: 6 - On Your Own!
+Title: 6 - 직접 해보기!
 Crumbs:%ROOT%
-Description:Do some exercises on your own.
+Description:직접 연습을 해봅니다.
 Version: 4.17
 type:quick start
 parent:Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux
@@ -14,31 +14,31 @@ Contributor:yaakuro
 
 [nav]
 
-Developing mobile games requires a high degree of attention, especially when it comes to device compatibility, mobile performance, and space limitations. 
-Applying best practices while you're designing mobile games will help you effectively refine your mobile game development skills. 
-After designing mobile content using the best practices you've just learned, learn how to preview and deploy your mobile game using an alternative deployment method. 
-Finally, at the end of this page, we've added a couple of exercises to help you practice your newly acquired mobile development skills.
+모바일 게임을 개발하는 것은 높은 수준의 주의가 필요한데, 특히 디바이스 호환성이나 모바일 퍼포먼스, 저장공간 제약과 같은 것을 고려하면 더욱 그렇습니다.
+실전 팁을 고려하여 모바일 게임을 디자인하면, 모바일 게임 개발 스킬을 효율적으로 개선하는 데 도움이 될 것입니다.
+그 실전 팁을 바탕으로 모바일 콘텐츠를 디자인하고, 대안적인 방법으로 모바일 게임을 미리보고 디플로이하는 방법을 배워봅니다.
+마지막으로, 새로 습득한 모바일 개발 지식을 연습하는 데 도움이 될 사례 몇 가지를 추가해 두었습니다.
 
-##Learning Some Best Practices
+##실전 팁 학습
 
-Now that you know how to create, package, and deploy a template mobile UE4 project for your Android device; it's a good time to consider device compatibility, mobile performance, and APK best practices that could impact your ability to create mobile games from UE4 on Linux. 
+안드로이드 디바이스용 템플릿 모바일 UE4 프로젝트를 생성, 패키징, 디플로이하는 방법을 알았으니, 디바이스 호환성, 모바일 퍼포먼스, APK 실전 팁 등 리눅스 UE4 에서 모바일 게임을 만드는 능력에 영향을 끼칠 수 있는 것들을 고려할 차례입니다.
 
-####Android Device Compatibility
+####안드로이드 디바이스 호환성
 
 * [](Platforms\Android\DeviceCompatibility) 
 * [](Platforms\DeviceProfiles)
 
-####Mobile Performance
+####모바일 퍼포먼스
 
 * [](Platforms\Mobile\Performance)
 
-####Reducing APK Package Sizes
+####APK 패키지 크기 감소
 
-There are times when you'll need to limit the size of your mobile game due to limitations imposed by targeted hardware or software platforms. If you encounter a situation where you need to reduce the size of your mobile game, you may need to reduce the size of your **Android Application Package** (APK), which is a custom file format that the Android operating system uses to package mobile applications for distribution. Check out the [Reducing APK Package Size Reference Page](Platforms/Android/ReducingAPKSize), where you'll learn ways to reduce the size of your packaged game.
+타겟 하드웨어 또는 소프트웨어 플랫폼에 따른 제약으로 인해 모바일 게임 크기도 제한할 필요가 있을 수 있습니다. 모바일 게임 크기를 줄여야 하는 상황에 닥치면, **Android Application Package** (APK) 파일 크기를 줄여야 합니다. 이 파일은 안드로이드 운영 체제에서 모바일 어플리케이션의 배포용 패키지를 만드는 데 사용하는 커스텀 파일 포맷입니다. 자세한 내용은 [](Platforms/Android/ReducingAPKSize) 문서를 참고하여 패키지 게임 크기를 줄이는 방법을 확인하시기 바랍니다.
 
-##Designing Mobile Content
+##모바일 콘텐츠 디자인
 
-If you want to harness what you've learned about mobile game development with UE4 on Linux, you'll want to design game content that'll take advantage of your device's available rendering capabilities. Go ahead and read the following reference information:
+리눅스 UE4 로 모바일 게임을 개발하는 데 관련해서 지금까지 배운 내용을 활용하려면, 디바이스에 지원되는 렌더링 피처를 활용할 수 있도록 게임 콘텐츠를 디자인해야 합니다. 다음 문서를 참고해 보세요:
 
 * [](Platforms\Mobile\Content) 
 * [](Platforms\Mobile\Lighting) 
@@ -46,19 +46,19 @@ If you want to harness what you've learned about mobile game development with UE
 * [](Platforms\Mobile\PostProcessEffects) 
 * [](Platforms\Mobile\Textures)
 
-##Previewing your Mobile Game
+##모바일 게임 프리뷰
 
-Prior to deploying your mobile game to an Android device, you might want to preview your game inside of the Editor. Read through our [](Platforms\Mobile\Previewer) Overview Page to learn how to preview your mobile game inside of the Editor.
+모바일 게임을 안드로이드 디바이스에 디플로이하기 전, 먼저 에디터 안에서 게임을 미리볼 수 있으면 좋습니다. [](Platforms\Mobile\Previewer) 문서를 통해 에디터 안에서 모바일 게임을 미리보는 방법을 살펴보시기 바랍니다.
 
-##Deploying Over a Wireless Network
+##무선 네트워크를 통한 디플로이
 
-At this point, you've learned some best practices for designing mobile game content, you've previewed your mobile game with the Editor, and you're ready to deploy your game onto an Android device over a wireless network. Please read through our [Gear VR Debugging Reference Page](Platforms/GearVR/Debugging) to learn more about deploying a UE4 project to an Android device over a wireless network.
+지금까지 모바일 게임 콘텐츠의 실전 팁 몇 가지를 살펴보고, 에디터로 모바일 게임을 미리보는 방법도 알았으니, 무선 네트워크를 통해 안드로이드 디바이스에 게임을 디플로이할 준비가 되었습니다. [](Platforms/GearVR/Debugging) 문서에서 무선 네트워크를 통해 안드로이드 디바이스에 UE4 프로젝트를 디플로이하는 방법 관련 상세 정보를 참고하시기 바랍니다.
 
-##Doing Some Exercises On Your Own
+##직접 연습해보기
  
-If you want to continue testing your mobile game development skills, try out a couple of exercises on your own:
+모바일 게임 개발 스킬을 계속해서 테스트해보려면, 몇 가지 직접 연습해볼 것들이 있습니다:
 
-* Create a new mobile project using something other than the Third Person template, subsequently trying to get your newly created project running on your Android device. 
-* Try packaging your project using different Android Texture formats, documenting which ones will work for your specific device.
+* 삼인칭 템플릿 이외 무언가를 사용하여 모바일 프로젝트를 새로 만들고, 새로 만든 프로젝트를 안드로이드 디바이스에서 실행되도록 해봅니다.
+* 다른 안드로이드 텍스처 포맷으로 프로젝트를 패키징해 보고, 어떤 디바이스에 어떤 포맷이 작동하는지 기록합니다.
 
 [nav]

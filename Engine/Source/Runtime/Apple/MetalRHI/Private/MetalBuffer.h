@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -53,6 +53,35 @@ private:
 	TArray<ns::Range> FreeRanges;
 };
 
+class FMetalSubBufferLinear
+{
+public:
+	FMetalSubBufferLinear(NSUInteger Size, NSUInteger Alignment, mtlpp::ResourceOptions, FCriticalSection& PoolMutex);
+	~FMetalSubBufferLinear();
+	
+	ns::String   GetLabel() const;
+	mtlpp::Device       GetDevice() const;
+	mtlpp::StorageMode  GetStorageMode() const;
+	mtlpp::CpuCacheMode GetCpuCacheMode() const;
+	NSUInteger     GetSize() const;
+	NSUInteger     GetUsedSize() const;
+	bool	 CanAllocateSize(NSUInteger Size) const;
+	
+	void SetLabel(const ns::String& label);
+	
+	FMetalBuffer NewBuffer(NSUInteger length);
+	mtlpp::PurgeableState SetPurgeableState(mtlpp::PurgeableState state);
+	void FreeRange(ns::Range const& Range);
+	
+private:
+	FCriticalSection& PoolMutex;
+	NSUInteger MinAlign;
+	NSUInteger WriteHead;
+	NSUInteger UsedSize;
+	NSUInteger FreedSize;
+	mtlpp::Buffer ParentBuffer;
+};
+
 class FMetalSubBufferMagazine
 {
 public:
@@ -75,7 +104,7 @@ public:
 
 private:
 	NSUInteger MinAlign;
-	NSUInteger UsedSize;
+	int64 volatile UsedSize;
 	mtlpp::Buffer ParentBuffer;
 	TLockFreePointerListLIFO<ns::Range> FreeRanges;
 };
@@ -371,6 +400,7 @@ private:
 	FMetalBufferPool Buffers[NumAllocTypes];
 #if PLATFORM_MAC // All managed buffers are bucketed & pooled rather than sub-allocated to avoid memory consistency complexities
 	FMetalBufferPool ManagedBuffers;
+	TArray<FMetalSubBufferLinear*> ManagedSubHeaps;
 #endif
 	/** Anything else is just allocated directly from the device! */
 	

@@ -11,11 +11,7 @@ related:Programming/Development/CompilingProjects
 related:Programming/Development/ManagingGameCode
 
 [EXCERPT:Main]
-[EXCERPT:Intro]
-
-[INCLUDE:Shared/Glossary/P/#Glossary_project]
-
-[/EXCERPT:Intro]
+[INCLUDE:#intro]
 
 %Engine/Basics/Projects/Browser:topic%
 [OBJECT:Topic]
@@ -33,20 +29,12 @@ related:Programming/Development/ManagingGameCode
 	[/PARAM]
 [/OBJECT]
 
+[/EXCERPT:Main]
 
 [COMMENT:none]
+[EXCERPT:Intro]
 
-Projects can be one of two types:
+[INCLUDE:Shared/Glossary/P/#Glossary_project]
 
-* **Content-Only** - These are projects where all development is done through the editor using content assets such as maps, art assets, _Blueprints_, etc.
-* **Code** - These projects allow programmer development in addition to regular content development available in _content-only_ projects. 
-
-[REGION:tip]
-Content projects can be converted to code projects using the [](Programming/Development/ManagingGameCode/CppClassWizard).
-[/REGION]
-
-
-
+[/EXCERPT:Intro]
 [/COMMENT]
-
-[/EXCERPT:Main]

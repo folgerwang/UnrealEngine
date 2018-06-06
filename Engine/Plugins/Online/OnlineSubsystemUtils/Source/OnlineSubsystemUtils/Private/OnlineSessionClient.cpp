@@ -32,7 +32,7 @@ IOnlineSessionPtr UOnlineSessionClient::GetSessionInt()
 	UWorld* World = GetWorld();
 	if (World == nullptr)
 	{
-		UE_LOG(LogOnline, Warning, TEXT("UOnlineSessionClient::GetSessionInt: Called with NULL world."));
+		UE_LOG_ONLINE(Warning, TEXT("UOnlineSessionClient::GetSessionInt: Called with NULL world."));
 		return nullptr;
 	}
 
@@ -76,7 +76,7 @@ void UOnlineSessionClient::ClearOnlineDelegates()
 
 void UOnlineSessionClient::OnSessionUserInviteAccepted(bool bWasSuccessful, int32 ControllerId, TSharedPtr<const FUniqueNetId> UserId, const FOnlineSessionSearchResult& SearchResult)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("OnSessionUserInviteAccepted LocalUserNum: %d bSuccess: %d"), ControllerId, bWasSuccessful);
+	UE_LOG_ONLINE(Verbose, TEXT("OnSessionUserInviteAccepted LocalUserNum: %d bSuccess: %d"), ControllerId, bWasSuccessful);
 	// Don't clear invite accept delegate
 
 	if (bWasSuccessful)
@@ -88,14 +88,14 @@ void UOnlineSessionClient::OnSessionUserInviteAccepted(bool bWasSuccessful, int3
 		}
 		else
 		{
-			UE_LOG(LogOnline, Warning, TEXT("Invite accept returned no search result."));
+			UE_LOG_ONLINE(Warning, TEXT("Invite accept returned no search result."));
 		}
 	}
 }
 
 void UOnlineSessionClient::OnEndForJoinSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("OnEndForJoinSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
+	UE_LOG_ONLINE(Verbose, TEXT("OnEndForJoinSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
 	IOnlineSessionPtr SessionInt = GetSessionInt();
 	if (SessionInt.IsValid())
 	{
@@ -130,7 +130,7 @@ FDelegateHandle UOnlineSessionClient::EndExistingSession_Impl(FName SessionName,
 
 void UOnlineSessionClient::OnDestroyForJoinSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("OnDestroyForJoinSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
+	UE_LOG_ONLINE(Verbose, TEXT("OnDestroyForJoinSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
 
 	IOnlineSessionPtr SessionInt = GetSessionInt();
 
@@ -149,7 +149,7 @@ void UOnlineSessionClient::OnDestroyForJoinSessionComplete(FName SessionName, bo
 
 void UOnlineSessionClient::OnDestroyForMainMenuComplete(FName SessionName, bool bWasSuccessful)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("OnDestroyForMainMenuComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
+	UE_LOG_ONLINE(Verbose, TEXT("OnDestroyForMainMenuComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
 
 	IOnlineSessionPtr SessionInt = GetSessionInt();
 
@@ -191,7 +191,7 @@ void UOnlineSessionClient::DestroyExistingSession_Impl(FDelegateHandle& OutResul
 
 void UOnlineSessionClient::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("OnJoinSessionComplete %s bSuccess: %d"), *SessionName.ToString(), static_cast<int32>(Result));
+	UE_LOG_ONLINE(Verbose, TEXT("OnJoinSessionComplete %s bSuccess: %d"), *SessionName.ToString(), static_cast<int32>(Result));
 
 	IOnlineSessionPtr SessionInt = GetSessionInt();
 
@@ -217,7 +217,7 @@ void UOnlineSessionClient::OnJoinSessionComplete(FName SessionName, EOnJoinSessi
 			}
 			else
 			{
-				UE_LOG(LogOnline, Warning, TEXT("Failed to join session %s"), *SessionName.ToString());
+				UE_LOG_ONLINE(Warning, TEXT("Failed to join session %s"), *SessionName.ToString());
 			}
 		}
 	}
@@ -290,7 +290,7 @@ void UOnlineSessionClient::StartOnlineSession(FName SessionName)
 
 void UOnlineSessionClient::OnStartSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("OnStartSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
+	UE_LOG_ONLINE(Verbose, TEXT("OnStartSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
 
 	IOnlineSessionPtr SessionInterface = Online::GetSessionInterface(GetWorld());
 	if (SessionInterface.IsValid())
@@ -316,7 +316,7 @@ void UOnlineSessionClient::EndOnlineSession(FName SessionName)
 
 void UOnlineSessionClient::OnEndSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("OnEndSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
+	UE_LOG_ONLINE(Verbose, TEXT("OnEndSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
 
 	IOnlineSessionPtr SessionInterface = Online::GetSessionInterface(GetWorld());
 	if (SessionInterface.IsValid())

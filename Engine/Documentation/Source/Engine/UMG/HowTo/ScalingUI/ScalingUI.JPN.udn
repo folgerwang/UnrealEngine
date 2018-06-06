@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3244089
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:様々なデバイス向けに UI をスケーリングする
 Crumbs: %ROOT%, Engine, Engine/UMG, Engine/UMG/HowTo
@@ -10,45 +10,7 @@ Related:Resources\SampleGames\UnrealMatch3
 Version:4.10
 SkillLevel:Intermediate
 tags:UMG UI Designer
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/UMG/HowTo/ScalingUI:title%](UIScaling.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/start_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UMG/HowTo/ScalingUI:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UMG/HowTo/ScalingUI:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UMG/HowTo/ScalingUI]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/UMG/HowTo/ScalingUI:title%](UIScaling.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/start_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UMG/HowTo/ScalingUI:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UMG/HowTo/ScalingUI:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UMG/HowTo/ScalingUI]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:UIScaling.png
 
 [REGION:note]
 この操作ガイドに進む前に、[](Engine/UMG) の概要を理解することをお勧めします。 
@@ -98,6 +60,7 @@ tags:UMG UI Designer
 	![](iPhone6Screensize.png)
 
 	このガイドのターゲット デバイスは、iPhone 6 であることを示しています。各自のプロジェクトで必要に応じてお好きなものを使用してください。 
+
 	画面サイズを選択すると、Visual Designer ウィンドウが更新し、使用する画面サイズが反映されるのがわかります。 
 
 	![](VisualDesignerUpdated.png)	

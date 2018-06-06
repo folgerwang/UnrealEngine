@@ -62,6 +62,11 @@ bool UKismetInputLibrary::Key_IsVectorAxis(const FKey& Key)
 	return Key.IsVectorAxis();
 }
 
+bool UKismetInputLibrary::Key_IsValid(const FKey& Key)
+{
+	return Key.IsValid();
+}
+
 FText UKismetInputLibrary::Key_GetDisplayName(const FKey& Key)
 {
 	return Key.GetDisplayName();

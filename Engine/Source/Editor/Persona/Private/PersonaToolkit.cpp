@@ -136,27 +136,7 @@ void FPersonaToolkit::CreatePreviewScene(const FPersonaToolkitArgs& PersonaToolk
 		bool bSetMesh = false;
 
 		// Set the mesh
-		// first check assets first
-		// mesh exists with anim BP
-		if (AnimationAsset != nullptr)
-		{
-			USkeletalMesh* AssetMesh = AnimationAsset->GetPreviewMesh();
-			if (AssetMesh)
-			{
-				PreviewScene->SetPreviewMesh(AssetMesh);
-				bSetMesh = true;
-			}
-		}
-		else if (AnimBlueprint != nullptr)
-		{
-			USkeletalMesh* AssetMesh = AnimBlueprint->GetPreviewMesh();
-			if (AssetMesh)
-			{
-				PreviewScene->SetPreviewMesh(AssetMesh);
-				bSetMesh = true;
-			}
-		}
-		else if (Mesh != nullptr)
+		if (Mesh)
 		{
 			PreviewScene->SetPreviewMesh(Mesh);
 			bSetMesh = true;
@@ -338,6 +318,20 @@ void FPersonaToolkit::SetPreviewMesh(class USkeletalMesh* InSkeletalMesh, bool b
 		
 		GetPreviewScene()->SetPreviewMesh(InSkeletalMesh);
 	}
+}
+
+int32 FPersonaToolkit::GetCustomData(const int32 Key) const
+{
+	if (!CustomEditorData.Contains(Key))
+	{
+		return INDEX_NONE;
+	}
+	return CustomEditorData[Key];
+}
+
+void FPersonaToolkit::SetCustomData(const int32 Key, const int32 CustomData)
+{
+	CustomEditorData.FindOrAdd(Key) = CustomData;
 }
 
 FName FPersonaToolkit::GetContext() const

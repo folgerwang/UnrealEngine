@@ -2503,13 +2503,22 @@ void FAnimBlueprintCompilerContext::PostCompileDiagnostics()
 
 	if (!bIsDerivedAnimBlueprint)
 	{
+		bool bUsingCopyPoseFromMesh = false;
+
 		// Run thru all nodes and make sure they like the final results
 		for (auto NodeIt = AllocatedAnimNodeIndices.CreateConstIterator(); NodeIt; ++NodeIt)
 		{
 			if (UAnimGraphNode_Base* Node = NodeIt.Key())
 			{
 				Node->ValidateAnimNodePostCompile(MessageLog, NewAnimBlueprintClass, NodeIt.Value());
+				bUsingCopyPoseFromMesh = bUsingCopyPoseFromMesh || Node->UsingCopyPoseFromMesh();
 			}
+		}
+
+		// Update CDO
+		if (UAnimInstance* const DefaultAnimInstance = CastChecked<UAnimInstance>(NewAnimBlueprintClass->GetDefaultObject()))
+		{
+			DefaultAnimInstance->bUsingCopyPoseFromMesh = bUsingCopyPoseFromMesh;
 		}
 
 		//

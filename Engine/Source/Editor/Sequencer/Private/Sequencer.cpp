@@ -6832,8 +6832,20 @@ void FSequencer::SetKey()
 		KeyAreas.Reset();
 		SequencerHelpers::GetAllKeyAreas(Node, KeyAreas);
 
-		TSharedPtr<FSequencerObjectBindingNode> ParentObjectBinding = Node->FindParentObjectBindingNode();
-		FGuid ObjectBinding = ParentObjectBinding.IsValid() ? ParentObjectBinding->GetObjectBinding() : FGuid();
+		FGuid ObjectBinding;
+		if (Node->GetType() == ESequencerNode::Object)
+		{
+			TSharedPtr<FSequencerObjectBindingNode> ObjectBindingNode = StaticCastSharedRef<FSequencerObjectBindingNode>(Node);
+			if (ObjectBindingNode.IsValid())
+			{
+				ObjectBinding = ObjectBindingNode->GetObjectBinding();
+			}
+		}
+		else
+		{
+			TSharedPtr<FSequencerObjectBindingNode> ParentObjectBinding = Node->FindParentObjectBindingNode();
+			ObjectBinding = ParentObjectBinding.IsValid() ? ParentObjectBinding->GetObjectBinding() : FGuid();
+		}
 
 		for (TSharedPtr<IKeyArea> KeyArea : KeyAreas)
 		{
@@ -7468,6 +7480,25 @@ void FSequencer::ImportFBX()
 {
 	UMovieScene* MovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
 
+	TMap<FGuid, FString> ObjectBindingNameMap;
+
+	TArray<TSharedRef<FSequencerObjectBindingNode>> RootObjectBindingNodes;
+	GetRootObjectBindingNodes( NodeTree->GetRootNodes(), RootObjectBindingNodes );
+
+	for (auto RootObjectBindingNode : RootObjectBindingNodes)
+	{
+		FGuid ObjectBinding = RootObjectBindingNode.Get().GetObjectBinding();
+
+		ObjectBindingNameMap.Add(ObjectBinding, RootObjectBindingNode.Get().GetDisplayName().ToString());
+	}
+
+	MovieSceneToolHelpers::ImportFBX(MovieScene, *this, ObjectBindingNameMap, TOptional<bool>());
+}
+
+void FSequencer::ImportFBXOntoSelectedNodes()
+{
+	UMovieScene* MovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
+
 	// The object binding and names to match when importing from fbx
 	TMap<FGuid, FString> ObjectBindingNameMap;
 
@@ -7483,21 +7514,7 @@ void FSequencer::ImportFBX()
 		}
 	}
 
-	// If nothing selected, try to map onto everything
-	if (ObjectBindingNameMap.Num() == 0)
-	{
-		TArray<TSharedRef<FSequencerObjectBindingNode>> RootObjectBindingNodes;
-		GetRootObjectBindingNodes( NodeTree->GetRootNodes(), RootObjectBindingNodes );
-
-		for (auto RootObjectBindingNode : RootObjectBindingNodes)
-		{
-			FGuid ObjectBinding = RootObjectBindingNode.Get().GetObjectBinding();
-
-			ObjectBindingNameMap.Add(ObjectBinding, RootObjectBindingNode.Get().GetDisplayName().ToString());
-		}
-	}
-	
-	MovieSceneToolHelpers::ImportFBX(MovieScene, *this, ObjectBindingNameMap);
+	MovieSceneToolHelpers::ImportFBX(MovieScene, *this, ObjectBindingNameMap, TOptional<bool>(false));
 }
 
 

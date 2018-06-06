@@ -36,10 +36,12 @@ public:
 	virtual FSlateResourceHandle GetResourceHandle( const FSlateBrush& Brush ) override;
 	virtual FSlateUpdatableTexture* CreateUpdatableTexture(uint32 Width, uint32 Height) override;
 	virtual void ReleaseUpdatableTexture(FSlateUpdatableTexture* Texture) override;
+	virtual FCriticalSection* GetResourceCriticalSection() override;
 	virtual int32 RegisterCurrentScene(FSceneInterface* Scene) override;
 	virtual int32 GetCurrentSceneIndex() const override;
 	virtual void ClearScenes() override;
 
 private:
 	TSharedPtr<FSlateShaderResourceManager> ResourceManager;
+	FCriticalSection ResourceCriticalSection;
 };

@@ -371,6 +371,23 @@ float SScrollBox::GetScrollOffset() const
 	return DesiredScrollOffset;
 }
 
+float SScrollBox::GetViewFraction() const
+{
+	const FGeometry ScrollPanelGeometry = FindChildGeometry(CachedGeometry, ScrollPanel.ToSharedRef());
+	const float ContentSize = GetScrollComponentFromVector(ScrollPanel->GetDesiredSize());
+
+	return FMath::Clamp<float>(GetScrollComponentFromVector(CachedGeometry.GetLocalSize()) > 0 ? GetScrollComponentFromVector(ScrollPanelGeometry.Size) / ContentSize : 1, 0.0f, 1.0f);
+}
+
+float SScrollBox::GetViewOffsetFraction() const
+{
+	const FGeometry ScrollPanelGeometry = FindChildGeometry(CachedGeometry, ScrollPanel.ToSharedRef());
+	const float ContentSize = GetScrollComponentFromVector(ScrollPanel->GetDesiredSize());
+
+	const float ViewFraction = GetViewFraction();
+	return FMath::Clamp<float>( DesiredScrollOffset/ContentSize, 0.0, 1.0 - ViewFraction );
+}
+
 void SScrollBox::SetScrollOffset( float NewScrollOffset )
 {
 	DesiredScrollOffset = NewScrollOffset;
@@ -588,8 +605,8 @@ void SScrollBox::Tick( const FGeometry& AllottedGeometry, const double InCurrent
 	}
 
 	// If this scroll box has no size, do not compute a view fraction because it will be wrong and causes pop in when the size is available
-	const float ViewFraction = FMath::Clamp<float>(GetScrollComponentFromVector(AllottedGeometry.GetLocalSize()) > 0 ? GetScrollComponentFromVector(ScrollPanelGeometry.Size) / ContentSize : 1, 0.0f, 1.0f);
-	const float ViewOffset = FMath::Clamp<float>( DesiredScrollOffset/ContentSize, 0.0, 1.0 - ViewFraction );
+	const float ViewFraction = GetViewFraction();
+	const float ViewOffset = GetViewOffsetFraction();
 	
 	// Update the scrollbar with the clamped version of the offset
 	float TargetPhysicalOffset = GetScrollComponentFromVector(ViewOffset*ScrollPanel->GetDesiredSize());
@@ -787,6 +804,22 @@ FReply SScrollBox::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent
 	return FReply::Unhandled();
 }
 
+void SScrollBox::OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+{
+	if ( MouseEvent.IsTouchEvent() )
+	{
+		if ( !bFingerOwningTouchInteraction.IsSet() )
+		{
+			// If we currently do not have touch capture, allow this widget to begin scrolling on pointer enter events
+			// if it comes from a child widget
+			if ( MyGeometry.IsUnderLocation(MouseEvent.GetLastScreenSpacePosition()) )
+			{
+				bFingerOwningTouchInteraction = MouseEvent.GetPointerIndex();
+			}
+		}
+	}
+}
+
 void SScrollBox::OnMouseLeave( const FPointerEvent& MouseEvent )
 {
 	if ( HasMouseCapture() == false )
@@ -896,9 +929,9 @@ FReply SScrollBox::OnTouchEnded(const FGeometry& MyGeometry, const FPointerEvent
 	return FReply::Unhandled();
 }
 
-void SScrollBox::OnMouseCaptureLost()
+void SScrollBox::OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)
 {
-	SCompoundWidget::OnMouseCaptureLost();
+	SCompoundWidget::OnMouseCaptureLost(CaptureLostEvent);
 }
 
 FNavigationReply SScrollBox::OnNavigation(const FGeometry& MyGeometry, const FNavigationEvent& InNavigationEvent)

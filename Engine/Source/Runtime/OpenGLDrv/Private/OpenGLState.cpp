@@ -87,6 +87,38 @@ static GLenum TranslateFillMode(ERasterizerFillMode FillMode)
 	return GL_FILL;
 }
 
+static ERasterizerCullMode TranslateCullMode(GLenum CullMode)
+{
+	if (FOpenGL::SupportsClipControl())
+	{
+		switch(CullMode)
+		{
+			case GL_BACK: return CM_CW;
+			case GL_FRONT: return CM_CCW;
+			default: return CM_None;	
+		}
+	}
+	else
+	{
+		switch(CullMode)
+		{
+			case GL_FRONT: return CM_CW;
+			case GL_BACK: return CM_CCW;
+			default: return CM_None;	
+		}
+	}
+}
+
+static ERasterizerFillMode TranslateFillMode(GLenum FillMode)
+{
+	switch(FillMode)
+	{
+		case GL_POINT: return FM_Point;
+		case GL_LINE: return FM_Wireframe;
+		default: return FM_Solid;
+	}
+}
+
 static GLenum TranslateCompareFunction(ECompareFunction CompareFunction)
 {
 	switch(CompareFunction)
@@ -114,6 +146,36 @@ static GLenum TranslateStencilOp(EStencilOp StencilOp)
 	case SO_Increment: return GL_INCR_WRAP;
 	case SO_Decrement: return GL_DECR_WRAP;
 	default: return GL_KEEP;
+	};
+}
+
+static ECompareFunction TranslateCompareFunction(GLenum CompareFunction)
+{
+	switch(CompareFunction)
+	{
+	case GL_LESS: return CF_Less;
+	case GL_LEQUAL: return CF_LessEqual;
+	case GL_GREATER: return CF_Greater;
+	case GL_GEQUAL: return CF_GreaterEqual;
+	case GL_EQUAL: return CF_Equal;
+	case GL_NOTEQUAL: return CF_NotEqual;
+	case GL_NEVER: return CF_Never;
+	default: return CF_Always;
+	};
+}
+
+static EStencilOp TranslateStencilOp(GLenum StencilOp)
+{
+	switch(StencilOp)
+	{
+	case GL_ZERO: return SO_Zero;
+	case GL_REPLACE: return SO_Replace;
+	case GL_INCR: return SO_SaturatedIncrement;
+	case GL_DECR: return SO_SaturatedDecrement;
+	case GL_INVERT: return SO_Invert;
+	case GL_INCR_WRAP: return SO_Increment;
+	case GL_DECR_WRAP: return SO_Decrement;
+	default: return SO_Keep;
 	};
 }
 
@@ -145,6 +207,37 @@ static GLenum TranslateBlendFactor(EBlendFactor BlendFactor)
 	case BF_ConstantBlendFactor: return GL_CONSTANT_COLOR;
 	case BF_InverseConstantBlendFactor: return GL_ONE_MINUS_CONSTANT_COLOR;
 	default: return GL_ZERO;
+	};
+}
+
+static EBlendOperation TranslateBlendOp(GLenum BlendOp)
+{
+	switch(BlendOp)
+	{
+	case GL_FUNC_SUBTRACT: return BO_Subtract;
+	case GL_MIN: return BO_Min;
+	case GL_MAX: return BO_Max;
+	case GL_FUNC_REVERSE_SUBTRACT: return BO_ReverseSubtract;
+	default: return BO_Add;
+	};
+}
+
+static EBlendFactor TranslateBlendFactor(GLenum BlendFactor)
+{
+	switch(BlendFactor)
+	{
+	case GL_ONE: return BF_One;
+	case GL_SRC_COLOR: return BF_SourceColor;
+	case GL_ONE_MINUS_SRC_COLOR: return BF_InverseSourceColor;
+	case GL_SRC_ALPHA: return BF_SourceAlpha;
+	case GL_ONE_MINUS_SRC_ALPHA: return BF_InverseSourceAlpha;
+	case GL_DST_ALPHA: return BF_DestAlpha;
+	case GL_ONE_MINUS_DST_ALPHA: return BF_InverseDestAlpha;
+	case GL_DST_COLOR: return BF_DestColor;
+	case GL_ONE_MINUS_DST_COLOR: return BF_InverseDestColor;
+	case GL_CONSTANT_COLOR: return BF_ConstantBlendFactor;
+	case GL_ONE_MINUS_CONSTANT_COLOR: return BF_InverseConstantBlendFactor;
+	default: return BF_Zero;
 	};
 }
 
@@ -290,6 +383,16 @@ FRasterizerStateRHIRef FOpenGLDynamicRHI::RHICreateRasterizerState(const FRaster
 	return RasterizerState;
 }
 
+bool FOpenGLRasterizerState::GetInitializer(FRasterizerStateInitializerRHI& Init)
+{
+	FMemory::Memzero(Init);
+	Init.CullMode = TranslateCullMode(Data.CullMode);
+	Init.FillMode = TranslateFillMode(Data.FillMode);
+	Init.DepthBias = Data.DepthBias;
+	Init.SlopeScaleDepthBias = Data.SlopeScaleDepthBias;
+	return true;
+}
+
 FDepthStencilStateRHIRef FOpenGLDynamicRHI::RHICreateDepthStencilState(const FDepthStencilStateInitializerRHI& Initializer)
 {
 	FOpenGLDepthStencilState* DepthStencilState = new FOpenGLDepthStencilState;
@@ -311,6 +414,59 @@ FDepthStencilStateRHIRef FOpenGLDynamicRHI::RHICreateDepthStencilState(const FDe
 
 	FShaderCache::LogDepthStencilState(FShaderCache::GetDefaultCacheState(), Initializer, DepthStencilState);
 	return DepthStencilState;
+}
+
+bool FOpenGLDepthStencilState::GetInitializer(FDepthStencilStateInitializerRHI& Init)
+{
+	Init.bEnableBackFaceStencil = Data.bTwoSidedStencilMode;
+	Init.bEnableFrontFaceStencil = Data.bStencilEnable;
+	Init.bEnableDepthWrite = Data.bZWriteEnable;
+	Init.StencilReadMask = Data.StencilReadMask;
+	Init.StencilWriteMask = Data.StencilWriteMask;
+	Init.DepthTest = TranslateCompareFunction(Data.ZFunc);
+	Init.FrontFaceStencilTest = TranslateCompareFunction(Data.StencilFunc);
+	Init.FrontFaceStencilFailStencilOp = TranslateStencilOp(Data.StencilFail);
+	Init.FrontFaceDepthFailStencilOp = TranslateStencilOp(Data.StencilZFail);
+	Init.FrontFacePassStencilOp = TranslateStencilOp(Data.StencilPass);
+	Init.BackFaceStencilTest = TranslateCompareFunction(Data.CCWStencilFunc);
+	Init.BackFaceStencilFailStencilOp = TranslateStencilOp(Data.CCWStencilFail);
+	Init.BackFaceDepthFailStencilOp = TranslateStencilOp(Data.CCWStencilZFail);
+	Init.BackFacePassStencilOp = TranslateStencilOp(Data.CCWStencilPass);
+	return true;
+}
+
+bool FOpenGLBlendState::GetInitializer(FBlendStateInitializerRHI& Init)
+{
+	Init.bUseIndependentRenderTargetBlendStates = true;
+	for(uint32 RenderTargetIndex = 0;RenderTargetIndex < MaxSimultaneousRenderTargets;++RenderTargetIndex)
+	{
+		FOpenGLBlendStateData::FRenderTarget const& RenderTarget = Data.RenderTargets[RenderTargetIndex];
+		FBlendStateInitializerRHI::FRenderTarget& RenderTargetInitializer = Init.RenderTargets[RenderTargetIndex];
+		
+		RenderTargetInitializer.ColorBlendOp = TranslateBlendOp(RenderTarget.ColorBlendOperation);
+		RenderTargetInitializer.ColorSrcBlend = TranslateBlendFactor(RenderTarget.ColorSourceBlendFactor);
+		RenderTargetInitializer.ColorDestBlend = TranslateBlendFactor(RenderTarget.ColorDestBlendFactor);
+		Init.bUseIndependentRenderTargetBlendStates &= (RenderTargetInitializer.ColorBlendOp == Init.RenderTargets[0].ColorBlendOp);
+		Init.bUseIndependentRenderTargetBlendStates &= (RenderTargetInitializer.ColorSrcBlend == Init.RenderTargets[0].ColorSrcBlend);
+		Init.bUseIndependentRenderTargetBlendStates &= (RenderTargetInitializer.ColorDestBlend == Init.RenderTargets[0].ColorDestBlend);
+		
+		RenderTargetInitializer.AlphaBlendOp = TranslateBlendOp(RenderTarget.AlphaBlendOperation);
+		RenderTargetInitializer.AlphaSrcBlend = TranslateBlendFactor(RenderTarget.AlphaSourceBlendFactor);
+		RenderTargetInitializer.AlphaDestBlend = TranslateBlendFactor(RenderTarget.AlphaDestBlendFactor);
+		Init.bUseIndependentRenderTargetBlendStates &= (RenderTargetInitializer.AlphaBlendOp == Init.RenderTargets[0].AlphaBlendOp);
+		Init.bUseIndependentRenderTargetBlendStates &= (RenderTargetInitializer.AlphaSrcBlend == Init.RenderTargets[0].AlphaSrcBlend);
+		Init.bUseIndependentRenderTargetBlendStates &= (RenderTargetInitializer.AlphaDestBlend == Init.RenderTargets[0].AlphaDestBlend);
+		
+		uint32 Mask = CW_NONE;
+		Mask |= (RenderTarget.ColorWriteMaskR) ? CW_RED : 0;
+		Mask |= (RenderTarget.ColorWriteMaskG) ? CW_GREEN : 0;
+		Mask |= (RenderTarget.ColorWriteMaskB) ? CW_BLUE : 0;
+		Mask |= (RenderTarget.ColorWriteMaskA) ? CW_ALPHA : 0;
+		RenderTargetInitializer.ColorWriteMask = (EColorWriteMask)Mask;
+		
+		Init.bUseIndependentRenderTargetBlendStates &= (RenderTargetInitializer.ColorWriteMask == Init.RenderTargets[0].ColorWriteMask);
+	}
+	return true;
 }
 
 FBlendStateRHIRef FOpenGLDynamicRHI::RHICreateBlendState(const FBlendStateInitializerRHI& Initializer)
@@ -361,6 +517,7 @@ void FOpenGLRHIState::InitializeResources(int32 NumCombinedTextures, int32 NumCo
 		ShaderParameters[CrossCompiler::SHADER_STAGE_DOMAIN].InitializeResources(FOpenGL::GetMaxDomainUniformComponents() * 4 * sizeof(float));
 	}
 
+	LinkedProgramAndDirtyFlag = nullptr;
 	if ( FOpenGL::SupportsComputeShaders() )
 	{
 		ShaderParameters[CrossCompiler::SHADER_STAGE_COMPUTE].InitializeResources(FOpenGL::GetMaxComputeUniformComponents() * 4 * sizeof(float));
@@ -370,4 +527,5 @@ void FOpenGLRHIState::InitializeResources(int32 NumCombinedTextures, int32 NumCo
 	{
 		DirtyUniformBuffers[Frequency] = MAX_uint16;
 	}
+	bAnyDirtyGraphicsUniformBuffers = true;
 }

@@ -3,6 +3,7 @@
 #include "Android/AndroidInputInterface.h"
 #if USE_ANDROID_INPUT
 //#include "AndroidInputDeviceMappings.h"
+#include "Misc/ConfigCacheIni.h"
 #include "IInputDevice.h"
 #include "GenericPlatform/GenericApplicationMessageHandler.h"
 #include "HAL/ThreadingBase.h"
@@ -19,6 +20,8 @@ FAndroidGamepadDeviceMapping FAndroidInputInterface::DeviceMapping[MAX_NUM_CONTR
 bool FAndroidInputInterface::VibeIsOn;
 FForceFeedbackValues FAndroidInputInterface::VibeValues;
 
+bool FAndroidInputInterface::bAllowControllers = true;
+
 FAndroidControllerData FAndroidInputInterface::OldControllerData[MAX_NUM_CONTROLLERS];
 FAndroidControllerData FAndroidInputInterface::NewControllerData[MAX_NUM_CONTROLLERS];
 
@@ -33,6 +36,9 @@ int32 FAndroidInputInterface::DeferredMessageQueueDroppedCount   = 0;
 TArray<FAndroidInputInterface::MotionData> FAndroidInputInterface::MotionDataStack
 	= TArray<FAndroidInputInterface::MotionData>();
 
+TArray<FAndroidInputInterface::MouseData> FAndroidInputInterface::MouseDataStack
+	= TArray<FAndroidInputInterface::MouseData>();
+
 int32 GAndroidOldXBoxWirelessFirmware = 0;
 static FAutoConsoleVariableRef CVarAndroidOldXBoxWirelessFirmware(
 	TEXT("Android.OldXBoxWirelessFirmware"),
@@ -40,9 +46,9 @@ static FAutoConsoleVariableRef CVarAndroidOldXBoxWirelessFirmware(
 	TEXT("Determines how XBox Wireless controller mapping is handled. 0 assumes new firmware, 1 will use old firmware mapping (Default: 0)"),
 	ECVF_Default);
 
-TSharedRef< FAndroidInputInterface > FAndroidInputInterface::Create(  const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler )
+TSharedRef< FAndroidInputInterface > FAndroidInputInterface::Create(const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler, const TSharedPtr< ICursor >& InCursor)
 {
-	return MakeShareable( new FAndroidInputInterface( InMessageHandler ) );
+	return MakeShareable(new FAndroidInputInterface(InMessageHandler, InCursor));
 }
 
 FAndroidInputInterface::~FAndroidInputInterface()
@@ -55,9 +61,12 @@ namespace AndroidKeyNames
 	const FGamepadKeyNames::Type Android_Menu("Android_Menu");
 }
 
-FAndroidInputInterface::FAndroidInputInterface( const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler )
+FAndroidInputInterface::FAndroidInputInterface(const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler, const TSharedPtr< ICursor >& InCursor)
 	: MessageHandler( InMessageHandler )
+	, Cursor(InCursor)
 {
+	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bAllowControllers"), bAllowControllers, GEngineIni);
+
 	ButtonMapping[0] = FGamepadKeyNames::FaceButtonBottom;
 	ButtonMapping[1] = FGamepadKeyNames::FaceButtonRight;
 	ButtonMapping[2] = FGamepadKeyNames::FaceButtonLeft;
@@ -716,140 +725,148 @@ static uint32 CharMapShift[] =
 	0
 };
 
+extern void AndroidThunkCpp_PushSensorEvents();
+
 void FAndroidInputInterface::SendControllerEvents()
 {
+	// trigger any motion updates before the lock so they can be queued
+	AndroidThunkCpp_PushSensorEvents();
+
 	FScopeLock Lock(&TouchInputCriticalSection);
 
-	// Check for gamepads needing validation
-	for (int32 DeviceIndex = 0; DeviceIndex < MAX_NUM_CONTROLLERS; DeviceIndex++)
+	// Check for gamepads needing validation if enabled
+	if (bAllowControllers)
 	{
-		FAndroidGamepadDeviceMapping& CurrentDevice = DeviceMapping[DeviceIndex];
-
-		if (CurrentDevice.DeviceState == MappingState::ToValidate)
+		for (int32 DeviceIndex = 0; DeviceIndex < MAX_NUM_CONTROLLERS; DeviceIndex++)
 		{
-			// Query for the device type from Java side
-			if (AndroidThunkCpp_GetInputDeviceInfo(CurrentDevice.DeviceInfo.DeviceId, CurrentDevice.DeviceInfo))
+			FAndroidGamepadDeviceMapping& CurrentDevice = DeviceMapping[DeviceIndex];
+
+			if (CurrentDevice.DeviceState == MappingState::ToValidate)
 			{
-				// It is possible this is actually a previously assigned controller if it disconnected and reconnected (device ID can change)
-				int32 FoundMatch = -1;
-				for (int32 DeviceScan = 0; DeviceScan < MAX_NUM_CONTROLLERS; DeviceScan++)
+				// Query for the device type from Java side
+				if (AndroidThunkCpp_GetInputDeviceInfo(CurrentDevice.DeviceInfo.DeviceId, CurrentDevice.DeviceInfo))
 				{
-					if (DeviceMapping[DeviceScan].DeviceState != MappingState::Valid)
-						continue;
-
-					if (DeviceMapping[DeviceScan].DeviceInfo.Descriptor.Equals(CurrentDevice.DeviceInfo.Descriptor))
+					// It is possible this is actually a previously assigned controller if it disconnected and reconnected (device ID can change)
+					int32 FoundMatch = -1;
+					for (int32 DeviceScan = 0; DeviceScan < MAX_NUM_CONTROLLERS; DeviceScan++)
 					{
-						FoundMatch = DeviceScan;
-						break;
+						if (DeviceMapping[DeviceScan].DeviceState != MappingState::Valid)
+							continue;
+
+						if (DeviceMapping[DeviceScan].DeviceInfo.Descriptor.Equals(CurrentDevice.DeviceInfo.Descriptor))
+						{
+							FoundMatch = DeviceScan;
+							break;
+						}
 					}
-				}
 
-				// Deal with new controller
-				if (FoundMatch == -1)
-				{
-					CurrentDevice.DeviceState = MappingState::Valid;
-
-					// Generic mappings
-					CurrentDevice.ButtonRemapping = ButtonRemapType::Normal;
-					CurrentDevice.LTAnalogRangeMinimum = 0.0f;
-					CurrentDevice.RTAnalogRangeMinimum = 0.0f;
-					CurrentDevice.bSupportsHat = false;
-					CurrentDevice.bMapL1R1ToTriggers = false;
-					CurrentDevice.bMapZRZToTriggers = false;
-					CurrentDevice.bRightStickZRZ = true;
-					CurrentDevice.bRightStickRXRY = false;
-
-					// Use device name to decide on mapping scheme
-					if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Amazon")))
+					// Deal with new controller
+					if (FoundMatch == -1)
 					{
-						if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Amazon Fire Game Controller")))
+						CurrentDevice.DeviceState = MappingState::Valid;
+
+						// Generic mappings
+						CurrentDevice.ButtonRemapping = ButtonRemapType::Normal;
+						CurrentDevice.LTAnalogRangeMinimum = 0.0f;
+						CurrentDevice.RTAnalogRangeMinimum = 0.0f;
+						CurrentDevice.bSupportsHat = false;
+						CurrentDevice.bMapL1R1ToTriggers = false;
+						CurrentDevice.bMapZRZToTriggers = false;
+						CurrentDevice.bRightStickZRZ = true;
+						CurrentDevice.bRightStickRXRY = false;
+
+						// Use device name to decide on mapping scheme
+						if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Amazon")))
+						{
+							if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Amazon Fire Game Controller")))
+							{
+								CurrentDevice.bSupportsHat = true;
+							}
+							else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Amazon Fire TV Remote")))
+							{
+							}
+							else
+							{
+							}
+						}
+						else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("NVIDIA Corporation NVIDIA Controller")))
 						{
 							CurrentDevice.bSupportsHat = true;
 						}
-						else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Amazon Fire TV Remote")))
+						else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Samsung Game Pad EI-GP20")))
 						{
-						}
-						else
-						{
-						}
-					}
-					else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("NVIDIA Corporation NVIDIA Controller")))
-					{
-						CurrentDevice.bSupportsHat = true;
-					}
-					else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Samsung Game Pad EI-GP20")))
-					{
-						CurrentDevice.bSupportsHat = true;
-						CurrentDevice.bMapL1R1ToTriggers = true;
-						CurrentDevice.bRightStickZRZ = false;
-						CurrentDevice.bRightStickRXRY = true;
-					}
-					else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Mad Catz C.T.R.L.R")))
-					{
-						CurrentDevice.bSupportsHat = true;
-					}
-					else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Xbox Wireless Controller")))
-					{
-						CurrentDevice.bSupportsHat = true;
-
-						if (GAndroidOldXBoxWirelessFirmware == 1)
-						{
-							// Apply mappings for older firmware before 3.1.1221.0
-							CurrentDevice.ButtonRemapping = ButtonRemapType::XBoxWireless;
-							CurrentDevice.bMapL1R1ToTriggers = false;
-							CurrentDevice.bMapZRZToTriggers = true;
+							CurrentDevice.bSupportsHat = true;
+							CurrentDevice.bMapL1R1ToTriggers = true;
 							CurrentDevice.bRightStickZRZ = false;
 							CurrentDevice.bRightStickRXRY = true;
 						}
+						else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Mad Catz C.T.R.L.R")))
+						{
+							CurrentDevice.bSupportsHat = true;
+						}
+						else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Xbox Wireless Controller")))
+						{
+							CurrentDevice.bSupportsHat = true;
+
+							if (GAndroidOldXBoxWirelessFirmware == 1)
+							{
+								// Apply mappings for older firmware before 3.1.1221.0
+								CurrentDevice.ButtonRemapping = ButtonRemapType::XBoxWireless;
+								CurrentDevice.bMapL1R1ToTriggers = false;
+								CurrentDevice.bMapZRZToTriggers = true;
+								CurrentDevice.bRightStickZRZ = false;
+								CurrentDevice.bRightStickRXRY = true;
+							}
+						}
+						else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("SteelSeries Stratus XL")))
+						{
+							CurrentDevice.bSupportsHat = true;
+
+							// For some reason the left trigger is at 0.5 when at rest so we have to adjust for that.
+							CurrentDevice.LTAnalogRangeMinimum = 0.5f;
+						}
+
+						// The PS4 controller name is just "Wireless Controller" which is hardly unique so we can't trust a name
+						// comparison. Instead we check the product and vendor IDs to ensure it's the correct one.
+						else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("PS4 Wireless Controller")))
+						{
+							CurrentDevice.ButtonRemapping = ButtonRemapType::PS4;
+							CurrentDevice.bSupportsHat = true;
+							CurrentDevice.bRightStickZRZ = true;
+						}
+
+						FCoreDelegates::OnControllerConnectionChange.Broadcast(true, -1, DeviceIndex);
+
+						FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Assigned new gamepad controller %d: DeviceId=%d, ControllerId=%d, DeviceName=%s, Descriptor=%s"),
+							DeviceIndex, CurrentDevice.DeviceInfo.DeviceId, CurrentDevice.DeviceInfo.ControllerId, *CurrentDevice.DeviceInfo.Name, *CurrentDevice.DeviceInfo.Descriptor);
+						continue;
 					}
-					else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("SteelSeries Stratus XL")))
+					else
 					{
-						CurrentDevice.bSupportsHat = true;
+						// Already assigned this controller so reconnect it
+						DeviceMapping[FoundMatch].DeviceInfo.DeviceId = CurrentDevice.DeviceInfo.DeviceId;
+						CurrentDevice.DeviceInfo.DeviceId = 0;
+						CurrentDevice.DeviceState = MappingState::Unassigned;
 
-						// For some reason the left trigger is at 0.5 when at rest so we have to adjust for that.
-						CurrentDevice.LTAnalogRangeMinimum = 0.5f;
+						// Transfer state back to this controller
+						NewControllerData[FoundMatch] = NewControllerData[DeviceIndex];
+						NewControllerData[FoundMatch].DeviceId = FoundMatch;
+						OldControllerData[FoundMatch].DeviceId = FoundMatch;
+
+						//@TODO: uncomment this line in the future when disconnects are detected
+						//FCoreDelegates::OnControllerConnectionChange.Broadcast(true, -1, FoundMatch);
+
+						FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Reconnected gamepad controller %d: DeviceId=%d, ControllerId=%d, DeviceName=%s, Descriptor=%s"),
+							FoundMatch, DeviceMapping[FoundMatch].DeviceInfo.DeviceId, CurrentDevice.DeviceInfo.ControllerId, *CurrentDevice.DeviceInfo.Name, *CurrentDevice.DeviceInfo.Descriptor);
 					}
-
-					// The PS4 controller name is just "Wireless Controller" which is hardly unique so we can't trust a name
-					// comparison. Instead we check the product and vendor IDs to ensure it's the correct one.
-					else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("PS4 Wireless Controller")))
-					{
-						CurrentDevice.ButtonRemapping = ButtonRemapType::PS4;
-						CurrentDevice.bSupportsHat = true;
-						CurrentDevice.bRightStickZRZ = true;
-					}
-
-					FCoreDelegates::OnControllerConnectionChange.Broadcast(true, -1, DeviceIndex);
-
-					FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Assigned new gamepad controller %d: DeviceId=%d, ControllerId=%d, DeviceName=%s, Descriptor=%s"),
-						DeviceIndex, CurrentDevice.DeviceInfo.DeviceId, CurrentDevice.DeviceInfo.ControllerId, *CurrentDevice.DeviceInfo.Name, *CurrentDevice.DeviceInfo.Descriptor);
-					continue;
 				}
 				else
 				{
-					// Already assigned this controller so reconnect it
-					DeviceMapping[FoundMatch].DeviceInfo.DeviceId = CurrentDevice.DeviceInfo.DeviceId;
-					CurrentDevice.DeviceInfo.DeviceId = 0;
-					CurrentDevice.DeviceState = MappingState::Unassigned;
-
-					// Transfer state back to this controller
-					NewControllerData[FoundMatch] = NewControllerData[DeviceIndex];
-					NewControllerData[FoundMatch].DeviceId = FoundMatch;
-					OldControllerData[FoundMatch].DeviceId = FoundMatch;
-
-					//@TODO: uncomment this line in the future when disconnects are detected
-					//FCoreDelegates::OnControllerConnectionChange.Broadcast(true, -1, FoundMatch);
-
-					FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Reconnected gamepad controller %d: DeviceId=%d, ControllerId=%d, DeviceName=%s, Descriptor=%s"),
-						FoundMatch, DeviceMapping[FoundMatch].DeviceInfo.DeviceId, CurrentDevice.DeviceInfo.ControllerId, *CurrentDevice.DeviceInfo.Name, *CurrentDevice.DeviceInfo.Descriptor);
+					// Did not find match so clear the assignment
+					FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Failed to assign gamepad controller %d: DeviceId=%d"), DeviceIndex, CurrentDevice.DeviceInfo.DeviceId);
 				}
-			}
-			else
-			{
-				// Did not find match so clear the assignment
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Failed to assign gamepad controller %d: DeviceId=%d"), DeviceIndex, CurrentDevice.DeviceInfo.DeviceId);
-			}
 
+			}
 		}
 	}
 
@@ -863,103 +880,106 @@ void FAndroidInputInterface::SendControllerEvents()
 		switch ( Touch.Type )
 		{
 		case TouchBegan:
-			MessageHandler->OnTouchStarted(nullptr, Touch.Position, Touch.Handle, ControllerId);
+			MessageHandler->OnTouchStarted(nullptr, Touch.Position, 1.0f, Touch.Handle, ControllerId);
 			break;
 		case TouchEnded:
 			MessageHandler->OnTouchEnded(Touch.Position, Touch.Handle, ControllerId);
 			break;
 		case TouchMoved:
-			MessageHandler->OnTouchMoved(Touch.Position, Touch.Handle, ControllerId);
+			MessageHandler->OnTouchMoved(Touch.Position, 1.0f, Touch.Handle, ControllerId);
 			break;
 		}
 	}
 
 	// Extract differences in new and old states and send messages
-	for (int32 ControllerIndex = 0; ControllerIndex < MAX_NUM_CONTROLLERS; ControllerIndex++)
+	if (bAllowControllers)
 	{
-		// Skip unassigned or invalid controllers (treat first one as special case)
-		if (ControllerIndex > 0 && (DeviceMapping[ControllerIndex].DeviceState !=  MappingState::Valid))
+		for (int32 ControllerIndex = 0; ControllerIndex < MAX_NUM_CONTROLLERS; ControllerIndex++)
 		{
-			continue;
-		}
-
-		FAndroidControllerData& OldControllerState = OldControllerData[ControllerIndex];
-		FAndroidControllerData& NewControllerState = NewControllerData[ControllerIndex];
-
-		if (NewControllerState.LXAnalog != OldControllerState.LXAnalog)
-		{
-			MessageHandler->OnControllerAnalog(FGamepadKeyNames::LeftAnalogX, NewControllerState.DeviceId, NewControllerState.LXAnalog);
-		}
-		if (NewControllerState.LYAnalog != OldControllerState.LYAnalog)
-		{
-			//LOGD("    Sending updated LeftAnalogY value of %f", NewControllerState.LYAnalog);
-			MessageHandler->OnControllerAnalog(FGamepadKeyNames::LeftAnalogY, NewControllerState.DeviceId, NewControllerState.LYAnalog);
-		}
-		if (NewControllerState.RXAnalog != OldControllerState.RXAnalog)
-		{
-			//LOGD("    Sending updated RightAnalogX value of %f", NewControllerState.RXAnalog);
-			MessageHandler->OnControllerAnalog(FGamepadKeyNames::RightAnalogX, NewControllerState.DeviceId, NewControllerState.RXAnalog);
-		}
-		if (NewControllerState.RYAnalog != OldControllerState.RYAnalog)
-		{
-			//LOGD("    Sending updated RightAnalogY value of %f", NewControllerState.RYAnalog);
-			MessageHandler->OnControllerAnalog(FGamepadKeyNames::RightAnalogY, NewControllerState.DeviceId, NewControllerState.RYAnalog);
-		}
-		if (NewControllerState.LTAnalog != OldControllerState.LTAnalog)
-		{
-			//LOGD("    Sending updated LeftTriggerAnalog value of %f", NewControllerState.LTAnalog);
-			MessageHandler->OnControllerAnalog(FGamepadKeyNames::LeftTriggerAnalog, NewControllerState.DeviceId, NewControllerState.LTAnalog);
-
-			// Handle the trigger theshold "virtual" button state
-			//check(ButtonMapping[10] == FGamepadKeyNames::LeftTriggerThreshold);
-			NewControllerState.ButtonStates[10] = NewControllerState.LTAnalog >= 0.1f;
-		}
-		if (NewControllerState.RTAnalog != OldControllerState.RTAnalog)
-		{
-			//LOGD("    Sending updated RightTriggerAnalog value of %f", NewControllerState.RTAnalog);
-			MessageHandler->OnControllerAnalog(FGamepadKeyNames::RightTriggerAnalog, NewControllerState.DeviceId, NewControllerState.RTAnalog);
-
-			// Handle the trigger theshold "virtual" button state
-			//check(ButtonMapping[11] == FGamepadKeyNames::RightTriggerThreshold);
-			NewControllerState.ButtonStates[11] = NewControllerState.RTAnalog >= 0.1f;
-		}
-
-		const double CurrentTime = FPlatformTime::Seconds();
-
-		// For each button check against the previous state and send the correct message if any
-		for (int32 ButtonIndex = 0; ButtonIndex < MAX_NUM_CONTROLLER_BUTTONS; ButtonIndex++)
-		{
-			if (NewControllerState.ButtonStates[ButtonIndex] != OldControllerState.ButtonStates[ButtonIndex])
+			// Skip unassigned or invalid controllers (treat first one as special case)
+			if (ControllerIndex > 0 && (DeviceMapping[ControllerIndex].DeviceState !=  MappingState::Valid))
 			{
-				if (NewControllerState.ButtonStates[ButtonIndex])
-				{
-					//LOGD("    Sending joystick button down %d (first)", ButtonMapping[ButtonIndex]);
-					MessageHandler->OnControllerButtonPressed(ButtonMapping[ButtonIndex], NewControllerState.DeviceId, false);
-				}
-				else
-				{
-					//LOGD("    Sending joystick button up %d", ButtonMapping[ButtonIndex]);
-					MessageHandler->OnControllerButtonReleased(ButtonMapping[ButtonIndex], NewControllerState.DeviceId, false);
-				}
+				continue;
+			}
 
-				if (NewControllerState.ButtonStates[ButtonIndex])
+			FAndroidControllerData& OldControllerState = OldControllerData[ControllerIndex];
+			FAndroidControllerData& NewControllerState = NewControllerData[ControllerIndex];
+
+			if (NewControllerState.LXAnalog != OldControllerState.LXAnalog)
+			{
+				MessageHandler->OnControllerAnalog(FGamepadKeyNames::LeftAnalogX, NewControllerState.DeviceId, NewControllerState.LXAnalog);
+			}
+			if (NewControllerState.LYAnalog != OldControllerState.LYAnalog)
+			{
+				//LOGD("    Sending updated LeftAnalogY value of %f", NewControllerState.LYAnalog);
+				MessageHandler->OnControllerAnalog(FGamepadKeyNames::LeftAnalogY, NewControllerState.DeviceId, NewControllerState.LYAnalog);
+			}
+			if (NewControllerState.RXAnalog != OldControllerState.RXAnalog)
+			{
+				//LOGD("    Sending updated RightAnalogX value of %f", NewControllerState.RXAnalog);
+				MessageHandler->OnControllerAnalog(FGamepadKeyNames::RightAnalogX, NewControllerState.DeviceId, NewControllerState.RXAnalog);
+			}
+			if (NewControllerState.RYAnalog != OldControllerState.RYAnalog)
+			{
+				//LOGD("    Sending updated RightAnalogY value of %f", NewControllerState.RYAnalog);
+				MessageHandler->OnControllerAnalog(FGamepadKeyNames::RightAnalogY, NewControllerState.DeviceId, NewControllerState.RYAnalog);
+			}
+			if (NewControllerState.LTAnalog != OldControllerState.LTAnalog)
+			{
+				//LOGD("    Sending updated LeftTriggerAnalog value of %f", NewControllerState.LTAnalog);
+				MessageHandler->OnControllerAnalog(FGamepadKeyNames::LeftTriggerAnalog, NewControllerState.DeviceId, NewControllerState.LTAnalog);
+
+				// Handle the trigger theshold "virtual" button state
+				//check(ButtonMapping[10] == FGamepadKeyNames::LeftTriggerThreshold);
+				NewControllerState.ButtonStates[10] = NewControllerState.LTAnalog >= 0.1f;
+			}
+			if (NewControllerState.RTAnalog != OldControllerState.RTAnalog)
+			{
+				//LOGD("    Sending updated RightTriggerAnalog value of %f", NewControllerState.RTAnalog);
+				MessageHandler->OnControllerAnalog(FGamepadKeyNames::RightTriggerAnalog, NewControllerState.DeviceId, NewControllerState.RTAnalog);
+
+				// Handle the trigger theshold "virtual" button state
+				//check(ButtonMapping[11] == FGamepadKeyNames::RightTriggerThreshold);
+				NewControllerState.ButtonStates[11] = NewControllerState.RTAnalog >= 0.1f;
+			}
+
+			const double CurrentTime = FPlatformTime::Seconds();
+
+			// For each button check against the previous state and send the correct message if any
+			for (int32 ButtonIndex = 0; ButtonIndex < MAX_NUM_CONTROLLER_BUTTONS; ButtonIndex++)
+			{
+				if (NewControllerState.ButtonStates[ButtonIndex] != OldControllerState.ButtonStates[ButtonIndex])
 				{
-					// This button was pressed - set the button's NextRepeatTime to the InitialButtonRepeatDelay
-					NewControllerState.NextRepeatTime[ButtonIndex] = CurrentTime + InitialButtonRepeatDelay;
+					if (NewControllerState.ButtonStates[ButtonIndex])
+					{
+						//LOGD("    Sending joystick button down %d (first)", ButtonMapping[ButtonIndex]);
+						MessageHandler->OnControllerButtonPressed(ButtonMapping[ButtonIndex], NewControllerState.DeviceId, false);
+					}
+					else
+					{
+						//LOGD("    Sending joystick button up %d", ButtonMapping[ButtonIndex]);
+						MessageHandler->OnControllerButtonReleased(ButtonMapping[ButtonIndex], NewControllerState.DeviceId, false);
+					}
+
+					if (NewControllerState.ButtonStates[ButtonIndex])
+					{
+						// This button was pressed - set the button's NextRepeatTime to the InitialButtonRepeatDelay
+						NewControllerState.NextRepeatTime[ButtonIndex] = CurrentTime + InitialButtonRepeatDelay;
+					}
+				}
+				else if (NewControllerState.ButtonStates[ButtonIndex] && NewControllerState.NextRepeatTime[ButtonIndex] <= CurrentTime)
+				{
+					// Send button repeat events
+					MessageHandler->OnControllerButtonPressed(ButtonMapping[ButtonIndex], NewControllerState.DeviceId, true);
+
+					// Set the button's NextRepeatTime to the ButtonRepeatDelay
+					NewControllerState.NextRepeatTime[ButtonIndex] = CurrentTime + ButtonRepeatDelay;
 				}
 			}
-			else if (NewControllerState.ButtonStates[ButtonIndex] && NewControllerState.NextRepeatTime[ButtonIndex] <= CurrentTime)
-			{
-				// Send button repeat events
-				MessageHandler->OnControllerButtonPressed(ButtonMapping[ButtonIndex], NewControllerState.DeviceId, true);
 
-				// Set the button's NextRepeatTime to the ButtonRepeatDelay
-				NewControllerState.NextRepeatTime[ButtonIndex] = CurrentTime + ButtonRepeatDelay;
-			}
+			// Update the state for next time
+			OldControllerState = NewControllerState;
 		}
-
-		// Update the state for next time
-		OldControllerState = NewControllerState;
 	}
 
 	for (int i = 0; i < FAndroidInputInterface::MotionDataStack.Num(); ++i)
@@ -970,6 +990,35 @@ void FAndroidInputInterface::SendControllerEvents()
 			motion_data.Tilt, motion_data.RotationRate,
 			motion_data.Gravity, motion_data.Acceleration,
 			0);
+	}
+
+	for (int i = 0; i < FAndroidInputInterface::MouseDataStack.Num(); ++i)
+	{
+		MouseData mouse_data = FAndroidInputInterface::MouseDataStack[i];
+
+		switch (mouse_data.EventType)
+		{
+			case MouseEventType::MouseMove:
+				if (Cursor.IsValid())
+				{
+					Cursor->SetPosition(mouse_data.AbsoluteX, mouse_data.AbsoluteX);
+					MessageHandler->OnMouseMove();
+				}
+				MessageHandler->OnRawMouseMove(mouse_data.DeltaX, mouse_data.DeltaY);
+				break;
+
+			case MouseEventType::MouseWheel:
+				MessageHandler->OnMouseWheel(mouse_data.WheelDelta);
+				break;
+
+			case MouseEventType::MouseButtonDown:
+				MessageHandler->OnMouseDown(nullptr, mouse_data.Button);
+				break;
+
+			case MouseEventType::MouseButtonUp:
+				MessageHandler->OnMouseUp(mouse_data.Button);
+				break;
+		}
 	}
 
 	for (int32 MessageIndex = 0; MessageIndex < FMath::Min(DeferredMessageQueueLastEntryIndex, MAX_DEFERRED_MESSAGE_QUEUE_SIZE); ++MessageIndex)
@@ -1005,6 +1054,8 @@ void FAndroidInputInterface::SendControllerEvents()
 
 	FAndroidInputInterface::MotionDataStack.Empty();
 
+	FAndroidInputInterface::MouseDataStack.Empty();
+
 	for (auto DeviceIt = ExternalInputDevices.CreateIterator(); DeviceIt; ++DeviceIt)
 	{
 		(*DeviceIt)->SendControllerEvents();
@@ -1020,6 +1071,11 @@ void FAndroidInputInterface::QueueTouchInput(const TArray<TouchInput>& InTouchEv
 
 int32 FAndroidInputInterface::FindExistingDevice(int32 deviceId)
 {
+	if (!bAllowControllers)
+	{
+		return -1;
+	}
+	
 	// Treat non-positive devices ids special
 	if (deviceId < 1)
 		return -1;
@@ -1038,6 +1094,11 @@ int32 FAndroidInputInterface::FindExistingDevice(int32 deviceId)
 
 int32 FAndroidInputInterface::GetControllerIndex(int32 deviceId)
 {
+	if (!bAllowControllers)
+	{
+		return -1;
+	}
+	
 	// Treat non-positive device ids special (always controller 0)
 	if (deviceId < 1)
 		return 0;
@@ -1269,6 +1330,35 @@ void FAndroidInputInterface::JoystickButtonEvent(int32 deviceId, int32 buttonId,
 			}
 			break;
 	}
+}
+
+void FAndroidInputInterface::MouseMoveEvent(int32 deviceId, float absoluteX, float absoluteY, float deltaX, float deltaY)
+{
+	// for now only deal with one mouse
+	FScopeLock Lock(&TouchInputCriticalSection);
+
+	FAndroidInputInterface::MouseDataStack.Push(
+		MouseData{ MouseEventType::MouseMove, EMouseButtons::Invalid, (int32)absoluteX, (int32)absoluteY, (int32)deltaX, (int32)deltaY, 0.0f });
+}
+
+void FAndroidInputInterface::MouseWheelEvent(int32 deviceId, float wheelDelta)
+{
+	// for now only deal with one mouse
+	FScopeLock Lock(&TouchInputCriticalSection);
+
+	FAndroidInputInterface::MouseDataStack.Push(
+		MouseData{ MouseEventType::MouseWheel, EMouseButtons::Invalid, 0, 0, 0, 0, wheelDelta });
+}
+
+void FAndroidInputInterface::MouseButtonEvent(int32 deviceId, int32 buttonId, bool buttonDown)
+{
+	// for now only deal with one mouse
+	FScopeLock Lock(&TouchInputCriticalSection);
+
+	MouseEventType EventType = buttonDown ? MouseEventType::MouseButtonDown : MouseEventType::MouseButtonUp;
+	EMouseButtons::Type UE4Button = (buttonId == 0) ? EMouseButtons::Left : (buttonId == 1) ? EMouseButtons::Right : EMouseButtons::Middle;
+	FAndroidInputInterface::MouseDataStack.Push(
+		MouseData{ EventType, UE4Button, 0, 0, 0, 0, 0.0f });
 }
 
 void FAndroidInputInterface::DeferMessage(const FDeferredAndroidMessage& DeferredMessage)

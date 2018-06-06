@@ -182,10 +182,18 @@ public:
 
 	/** 
 	 * Get the object belonging to the package, if any
-	 * 
+	 *
 	 * @return the object which is in the package, if any
 	 */
 	UObject* GetPackageObject() const;
+
+
+	/** 
+	 * Get whether the package contains multiple assets
+	 *
+	 * @return whether the package contains multiple assets
+	 */
+	bool HasMultipleAssets() const;
 
 	/**
 	 * Checks to see if the checkbox item is disabled

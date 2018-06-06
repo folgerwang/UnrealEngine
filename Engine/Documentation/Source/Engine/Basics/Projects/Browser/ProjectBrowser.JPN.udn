@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2735426
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:プロジェクト ブラウザ
 Crumbs: %ROOT%, Engine, Engine/Basics/Projects
@@ -8,23 +8,7 @@ Related:GettingStarted/HowTo
 Related:Engine/Content/Packs
 Version:4.9
 SkillLevel:Beginner
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](projectbrowser_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Basics/Projects/Browser:title%
-	[/PARAM]
-	[PARAM:description]
-	%Engine/Basics/Projects/Browser:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Basics/Projects/Browser]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:projectbrowser_topic.png
 
 [toc (start:2 end:2)]
 
@@ -32,7 +16,7 @@ SkillLevel:Beginner
 
 ![](ProjectBrowserBoth.png)(w:800)
 
-プロジェクト ブラウザ は、プロジェクトの作成、現行プロジェクトを開く、またはサンプルゲームやショーケースなどのサンプル コンテンツを開くための出発点です。
+プロジェクト ブラウザは、プロジェクトの作成、現行プロジェクトを開く、またはサンプルゲームやショーケースなどのサンプル コンテンツを開くための出発点です。
 
 
 [REGION:tip]
@@ -51,11 +35,11 @@ SkillLevel:Beginner
 プロジェクトを開くにはいずれかのサムネイルを **ダブルクリック** します。
 
 プロジェクトのサムネイルは、プロジェクト フォルダにあるプロジェクトと同じ名前を持つ 「192x192 `.png`」ファイルになります。キーを "Update Project Thumbnail" にバインドして、
-スクリーンショットを迅速にとってプロジェクトのサムネイルにすることができます。プロジェクトのサムネイルを作らないと、プロジェクトに対してエディタを終了するたびにスクリーンショットが自動的にとられます。 
+スクリーンショットを迅速に撮ってプロジェクトのサムネイルにすることができます。プロジェクトのサムネイルを作らないと、プロジェクトに対してエディタを終了するたびにスクリーンショットが自動的に撮られます。 
 
 プロジェクトを検索するには、 **[Filter Projects... (プロジェクトをフィルタリング)]** 検索ボックスにテキストを入力します。
 
-**[Browse... (ブラウズ)]** ボタンをクリックして、コンピュータをナビゲートし、「.uproject」ファイルを選択して手動で開くこともできます。  
+**[Browse... (ブラウズ)]** ボタンをクリックして、ナビゲートし、「.uproject」ファイルを選択して手動で開くこともできます。  
 
 [REGION:tip]
 **[Projects]** タブで **[Always load last project on startup (起動時に最後に使用したプロジェクトを常にロード)]** チェックボックスにチェックを入れて最近のプロジェクトを自動的に開くようにすることで **プロジェクト ブラウザ** をスキップすることもできます。エディタでこの設定を変更するには、
@@ -65,7 +49,7 @@ SkillLevel:Beginner
 1. **[Startup]** の見出しの下にある、 **[Load the Most Recently Loaded Project at Startup]** を切り替えます。
 [/REGION]
 
-このタブは、アンリアル エディタ内から **File > Open Project** を選択した場合にも表示されます。
+このタブは、アンリアル エディタ内から **File > Open Project** の順に選択した場合にも表示されます。
 
 ![](open_project_menu.png)
 
@@ -83,12 +67,12 @@ SkillLevel:Beginner
 例えば、 **Side Scroller (ブループリントのみ)** テンプレートと **Side Scroller (C++)** テンプレートがあります。この 2 つのテンプレートで制作されたゲームは、同一のレベルデザイン、キャラクター動作、またはカメラレイアウトをベースにしているため、
 同じようにプレイします。違いはプロジェクトの初期フレームワークの作成方法です。  
 
-* **Blueprints Only** - 最初のゲームプレイはブループリントで定義されます。ブループリントとは、アンリアル・エンジン 4 のビジュアル・スクリプティング・アセットです。ブループリントを使用すると、 C++ のコードを記述する必要なしに、 
+* **Blueprints Only** - 最初のゲームプレイはブループリントで定義されます。ブループリントとは、UE4 のビジュアル・スクリプティング・アセットです。ブループリントを使用すると、 C++ のコードを記述する必要なしに、 
 アンリアル エディタでゲームプレイの動作を作ることができます。しかし、 _Blueprints Only_ テンプレートで開始したプロジェクトに C++ コードを絶対に追加できないわけではありません。これは単に 
 最初の例がブループリントで提供されることを意味します。   
 
 * **C++** - 最初のゲームプレイは C++ コードで定義されます。_C++_ テンプレートで作成されたプロジェクトはアンリアル エディタで管理できますが、 Visual Studio で編集することもできます。ちょうど、 
-_Blueprints Only_ プロジェクトが C++ コードで拡張できるのと同じように、 _C++_ テンプレートで開始したプロジェクトにブループリントを追加するのも簡単です。  
+_Blueprints Only_ プロジェクトが C++ コードで拡張できるように、 _C++_ テンプレートで開始したプロジェクトにブループリントを追加するのも簡単です。  
 
 
 **プロジェクトの新規作成方法**
@@ -111,7 +95,7 @@ _Blueprints Only_ プロジェクトが C++ コードで拡張できるのと同
 
 ## プロジェクト設定 
 ![](Project_Options.png)
-**プロジェクト設定** を使って、対象のハードウェアの種類に応じて様々なパフォーマンス オプションを設定することができます。設定は **[Project Settings - Target Hardware]** にて、好きな時に変更することができます。
+**プロジェクト設定** を使って、対象のハードウェアの種類に応じて様々なパフォーマンス オプションを設定することができます。設定は **[Project Settings - Target Hardware]** で、お好きな時に変更することができます。
 
 | アイコン | 説明 |
 | --------|---------|

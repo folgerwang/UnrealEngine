@@ -1,4 +1,4 @@
-﻿INTSourceChangeList:3108692
+﻿INTSourceChangelist:3807090
 Availability:Docs
 Title:1.OSVR 前提条件 
 Crumbs:%ROOT%, Platforms/OSVR
@@ -23,22 +23,22 @@ tags:OSVR
 1. OSVR Developer ページが開いたら、**[OSVR Runtime for Windows]** オプションから **[Download]** オプションをクリックして、OSVR Windows ドライバーをダウンロードします。
 
 	[REGION:lightbox]
-	[![](OSVR_Driver_Download.png)(w:640 h:336)](OSVR_Driver_Download.png)
+	[![](OSVR_Driver_Download.png)(w:640)](OSVR_Driver_Download.png)
 	[/REGION]
-
 	[REGION:caption]
+
 	クリックしてフルサイズで表示
 	[/REGION]
 
-1. [OSVR Runtime for Windows] のダウンロードが完了したら、インストーラを探してインストールを開始します。
+1. [OSVR Runtime for Windows] のダウンロードが完了したら、インストーラを探してインストールを開始します。 
 
 1. インストールが完了したら、OSVR フォルダの **osvr_server.exe** をダブルクリックすると実行します。
 
 	[REGION:lightbox]
-	[![](OSVR_Server_Location.png)(w:407 h:293)](OSVR_Server_Location.png)
+	[![](OSVR_Server_Location.png)(w:407)](OSVR_Server_Location.png)
 	[/REGION]
-
 	[REGION:caption]
+
 	クリックしてフルサイズで表示
 	[/REGION]
 

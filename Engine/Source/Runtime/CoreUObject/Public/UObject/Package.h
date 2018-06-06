@@ -154,6 +154,7 @@ public:
 	virtual bool IsNameStableForNetworking() const override { return true; }		// For now, assume all packages have stable net names
 	virtual bool NeedsLoadForClient() const override { return true; }				// To avoid calling the expensive generic version, which only makes sure that the UPackage static class isn't excluded
 	virtual bool NeedsLoadForServer() const override { return true; }
+	virtual bool IsPostLoadThreadSafe() const override;
 
 #if WITH_EDITORONLY_DATA
 																					/** Sets the bLoadedByEditorPropertiesOnly flag */
@@ -199,20 +200,6 @@ public:
 
 	// World browser information
 	TUniquePtr< FWorldTileInfo > WorldTileInfo;
-
-private:
-	mutable TUniquePtr<TMap<FName, int32>> ClassUniqueNameIndexMap;
-
-public:
-
-	TMap<FName, int32>& GetClassUniqueNameIndexMap() const
-	{
-		if (ClassUniqueNameIndexMap == nullptr)
-		{
-			ClassUniqueNameIndexMap.Reset(new TMap<FName, int32>());
-		}
-		return *ClassUniqueNameIndexMap;
-	}
 
 	/**
 	* Called after the C++ constructor and after the properties have been initialized, but before the config has been loaded, etc.

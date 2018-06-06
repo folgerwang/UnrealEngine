@@ -125,7 +125,7 @@ See the individual editor pages for information on their interfaces and usage:
 
 
 
-[COMMENT]
+[COMMENT:none]
 
 [EXCERPT:SkeletonOverview]
 **Skeleton mode** allows for visualization and control over those aspects of a character or Skeletal Mesh involving its bone or joint hierarchy. Example uses include:
@@ -162,10 +162,6 @@ See the individual editor pages for information on their interfaces and usage:
 * Playing Animation Montages from within the Animation Blueprint's Event Graph.
 * Blending between different poses and animation results using the AnimGraph.
 [/EXCERPT:GraphOverview]
-
-[/COMMENT]
-
-[COMMENT]
 
 [EXCERPT:SkeletonUI]
 [REGION:simpletable]

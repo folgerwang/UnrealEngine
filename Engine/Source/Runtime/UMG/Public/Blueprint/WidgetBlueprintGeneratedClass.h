@@ -88,6 +88,10 @@ private:
 	UPROPERTY(Transient)
 	uint8 bCookedTemplate:1;
 
+	/** The classes native parent requires a native tick */
+	UPROPERTY()
+	uint8 bClassRequiresNativeTick:1;
+
 public:
 	UPROPERTY()
 	TArray< FDelegateRuntimeBinding > Bindings;
@@ -133,6 +137,10 @@ public:
 		, const TArray< UWidgetAnimation* >& InAnimations
 		, const TArray< FDelegateRuntimeBinding >& InBindings);
 
+	bool ClassRequiresNativeTick() const { return bClassRequiresNativeTick; }
+#if WITH_EDITOR
+	void SetClassRequiresNativeTick(bool InClassRequiresNativeTick);
+#endif
 private:
 	void InitializeTemplate(const ITargetPlatform* TargetPlatform);
 

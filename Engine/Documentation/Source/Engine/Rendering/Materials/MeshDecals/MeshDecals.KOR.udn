@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3809606
 Availability:Public
 Title: 메시 데칼 개요
 Description: 메시 데칼에 대한 개요입니다.
@@ -19,14 +19,6 @@ tags: Decals
 평면 표면 디테일에 거의 제한됩니다. 메시 데칼은 단순 투영을 따르지 않는 데칼을 제공해 주는 대신 
 에지를 감싸는 지오메트리나 스플라인 메시와 함께 사용할 수 있으며, 
 캐릭터의 외형을 강화시켜 줍니다.
-
-[COMMENT:none]
--
-<div align= "center">
-![](MeshDecalVsMasked.png)(w:700)
-</div>
--
-[/COMMENT]
 
 ## 메시 데칼 VS 마스크드 머티리얼
 
@@ -57,14 +49,11 @@ tags: Decals
 이런 작은 오프셋을 위해 이미 약간의 뎁스 바이어스가 하드코딩되어 있기 때문입니다. 또한, 데칼에서 점차 사라지는 지오메트리를 약간 사용하면 
 마스크드 머티리얼로는 얻을 수 없는 데칼의 부드러운 전환 효과를 내는 데 좋습니다.
 
-
-<div align= "left">
 [REGION:imagetable]
 | ![](MeshDecalAuthoring.png)(h:450) | ![](MeshDecalAuthoringComposite.png)(h:450) |
 | --- | --- |
 | 베이스 메시 및 데칼 지오메트리 (고립) | 합성 메시 |
 [/REGION]
-</div>
 
 또 한가지 콘텐츠 개발시 염두에 두어야 할 점은, 메시 데칼은 뎁스 버퍼 정밀도 제한으로 인해 레벨 오브 디테일(LOD)이나 원거리에서 볼 때 문제가 될 수 있습니다.
 지오메트리가 교차하거나 의도대로 일치하지 않기 때문입니다. 하지만 대부분의 경우 메시가 이 부분을 고려하도록 변경하거나, 머티리얼의 월드 포지션 오프셋을 사용하여 오프셋을 조절하면 

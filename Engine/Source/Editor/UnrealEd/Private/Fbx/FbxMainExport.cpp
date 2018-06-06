@@ -1598,14 +1598,16 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, bool bExportComponents, INodeN
 
 		// For cameras and lights: always add a rotation to get the correct coordinate system.
         FTransform RotationDirectionConvert = FTransform::Identity;
-		if (Actor->IsA(ACameraActor::StaticClass()) || Actor->IsA(ALight::StaticClass()))
+		const bool bIsCameraActor = Actor->IsA(ACameraActor::StaticClass());
+		const bool bIsLightActor = Actor->IsA(ALight::StaticClass());
+		if (bIsCameraActor || bIsLightActor)
 		{
-			if (Actor->IsA(ACameraActor::StaticClass()))
+			if (bIsCameraActor)
 			{
                 FRotator Rotator = FFbxDataConverter::GetCameraRotation().GetInverse();
 				RotationDirectionConvert = FTransform(Rotator);
 			}
-			else if (Actor->IsA(ALight::StaticClass()))
+			else if (bIsLightActor)
 			{
 				FRotator Rotator = FFbxDataConverter::GetLightRotation().GetInverse();
 				RotationDirectionConvert = FTransform(Rotator);
@@ -1700,15 +1702,16 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, bool bExportComponents, INodeN
 				USceneComponent* Component = ComponentsToExport[CompIndex];
 
                 RotationDirectionConvert = FTransform::Identity;
-                // For cameras and lights: always add a rotation to get the correct coordinate system.
+                // For cameras and lights: always add a rotation to get the correct coordinate system
+				// Unless we are parented to an Actor of the same type, since the rotation direction was already added
 				if (Component->IsA(UCameraComponent::StaticClass()) || Component->IsA(ULightComponent::StaticClass()))
 				{
-					if (Component->IsA(UCameraComponent::StaticClass()))
+					if (!bIsCameraActor && Component->IsA(UCameraComponent::StaticClass()))
 					{
                     	FRotator Rotator = FFbxDataConverter::GetCameraRotation().GetInverse();
 						RotationDirectionConvert = FTransform(Rotator);
 					}
-					else if (Component->IsA(ULightComponent::StaticClass()))
+					else if (!bIsLightActor && Component->IsA(ULightComponent::StaticClass()))
 					{
 						FRotator Rotator = FFbxDataConverter::GetLightRotation().GetInverse();
 						RotationDirectionConvert = FTransform(Rotator);

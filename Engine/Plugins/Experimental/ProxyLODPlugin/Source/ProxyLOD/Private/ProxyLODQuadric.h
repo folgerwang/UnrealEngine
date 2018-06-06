@@ -183,7 +183,7 @@ namespace ProxyLOD
 		// Compute the wedge product, giving the normal direction scaled by 
 		// twice the triangle area.
 
-		double nX, nY, nZ; 
+		double nX, nY, nZ;
 		{
 			double tmpA[3] = { p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2] };
 			double tmpB[3] = { p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2] };
@@ -493,7 +493,7 @@ namespace ProxyLOD
 		const double nX = n[0];
 		const double nY = n[1];
 		const double nZ = n[2];
-
+		
 		nxx = nX * nX;
 		nyy = nY * nY;
 		nzz = nZ * nZ;
@@ -533,14 +533,15 @@ namespace ProxyLOD
 			float a1 = AttributeWeights[i] * attr1[i];
 			float a2 = AttributeWeights[i] * attr2[i];
 
-			double grad[4];
-			//if( !CalcGradient( grad, p0, p1, p2, n, a0, a1, a2 ) )
-			if (!bInvertable)
+			a0 = FMath::IsFinite(a0) ? a0 : 0.0f;
+			a1 = FMath::IsFinite(a1) ? a1 : 0.0f;
+			a2 = FMath::IsFinite(a2) ? a2 : 0.0f;
+
+			double grad[4] = { 0., 0., 0., (a0 + a1 + a2) / 3.0 }; // default values for non-invert case
+			if (bInvertable)
 			{
-				grad[0] = 0.0;
-				grad[1] = 0.0;
-				grad[2] = 0.0;
-				grad[3] = (a0 + a1 + a2) / 3.0;
+				CalcGradient(GradMatrix, a0, a1, a2, grad);
+
 			}
 			else
 			{
@@ -549,12 +550,12 @@ namespace ProxyLOD
 				a2 = FMath::IsFinite(a2) ? a2 : 0.0f;
 
 				CalcGradient(GradMatrix, a0, a1, a2, grad);
-
-				checkSlow(!FMath::IsNaN(grad[0]));
-				checkSlow(!FMath::IsNaN(grad[1]));
-				checkSlow(!FMath::IsNaN(grad[2]));
-				checkSlow(!FMath::IsNaN(grad[3]));
 			}
+
+			checkSlow(!FMath::IsNaN(grad[0]));
+			checkSlow(!FMath::IsNaN(grad[1]));
+			checkSlow(!FMath::IsNaN(grad[2]));
+			checkSlow(!FMath::IsNaN(grad[3]));
 
 			//double t0 = grad[0] * p0.x + grad[1] * p0.y + grad[2] * p0.z + grad[3];
 			//double t1 = grad[0] * p1.x + grad[1] * p1.y + grad[2] * p1.z + grad[3];

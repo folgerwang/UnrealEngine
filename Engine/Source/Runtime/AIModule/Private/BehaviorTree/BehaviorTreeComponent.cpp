@@ -1079,6 +1079,17 @@ void UBehaviorTreeComponent::ApplySearchData(UBTNode* NewActiveNode)
 	// search is finalized, can't rollback anymore at this point
 	SearchData.RollbackInstanceIdx = INDEX_NONE;
 
+	// send all deactivation notifies for bookkeeping
+	for (int32 Idx = 0; Idx < SearchData.PendingNotifies.Num(); Idx++)
+	{
+		const FBehaviorTreeSearchUpdateNotify& NotifyInfo = SearchData.PendingNotifies[Idx];
+		if (InstanceStack.IsValidIndex(NotifyInfo.InstanceIndex))
+		{
+			InstanceStack[NotifyInfo.InstanceIndex].DeactivationNotify.ExecuteIfBound(*this, NotifyInfo.NodeResult);
+		}	
+	}
+
+	// apply changes to aux nodes and parallel tasks
 	const int32 NewNodeExecutionIndex = NewActiveNode ? NewActiveNode->GetExecutionIndex() : 0;
 
 	ApplySearchUpdates(SearchData.PendingUpdates, NewNodeExecutionIndex);
@@ -1103,6 +1114,7 @@ void UBehaviorTreeComponent::ApplySearchData(UBTNode* NewActiveNode)
 	// clear update list
 	// nothing should be added during application or tick - all changes are supposed to go to ExecutionRequest accumulator first
 	SearchData.PendingUpdates.Reset();
+	SearchData.PendingNotifies.Reset();
 }
 
 void UBehaviorTreeComponent::ApplyDiscardedSearch()
@@ -1128,6 +1140,9 @@ void UBehaviorTreeComponent::ApplyDiscardedSearch()
 
 	// remove everything else
 	SearchData.PendingUpdates.Reset();
+
+	// don't send deactivation notifies
+	SearchData.PendingNotifies.Reset();
 }
 
 void UBehaviorTreeComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
@@ -1254,6 +1269,10 @@ void UBehaviorTreeComponent::ProcessExecutionRequest()
 			const bool bDeactivated = DeactivateUpTo(ExecutionRequest.ExecuteNode, ExecutionRequest.ExecuteInstanceIdx, NodeResult);
 			if (!bDeactivated)
 			{
+				// error occurred and tree will restart, all pending deactivation notifies will be lost
+				// this is should happen
+				SearchData.PendingUpdates.Reset();
+
 				return;
 			}
 		}
@@ -1331,6 +1350,9 @@ void UBehaviorTreeComponent::ProcessExecutionRequest()
 						StoreDebuggerSearchStep(InstanceStack[ActiveInstanceIdx].ActiveNode, ActiveInstanceIdx, NodeResult);
 						StoreDebuggerRemovedInstance(ActiveInstanceIdx);
 						InstanceStack[ActiveInstanceIdx].DeactivateNodes(SearchData, ActiveInstanceIdx);
+
+						// store notify for later use if search is not reverted
+						SearchData.PendingNotifies.Add(FBehaviorTreeSearchUpdateNotify(ActiveInstanceIdx, NodeResult));
 
 						// and leave subtree
 						ActiveInstanceIdx--;
@@ -1551,6 +1573,9 @@ bool UBehaviorTreeComponent::DeactivateUpTo(UBTCompositeNode* Node, uint16 NodeI
 				RestartTree();
 				return false;
 			}
+
+			// store notify for later use if search is not reverted
+			SearchData.PendingNotifies.Add(FBehaviorTreeSearchUpdateNotify(ActiveInstanceIdx, NodeResult));
 
 			ActiveInstanceIdx--;
 			DeactivatedChild = InstanceStack[ActiveInstanceIdx].ActiveNode;

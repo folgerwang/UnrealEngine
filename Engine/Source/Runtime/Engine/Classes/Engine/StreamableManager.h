@@ -328,6 +328,7 @@ private:
 	void RemoveReferencedAsset(const FSoftObjectPath& Target, TSharedRef<FStreamableHandle> Handle);
 	void StartHandleRequests(TSharedRef<FStreamableHandle> Handle);
 	void FindInMemory(FSoftObjectPath& InOutTarget, struct FStreamable* Existing);
+	FSoftObjectPath HandleLoadedRedirector(UObjectRedirector* LoadedRedirector, FSoftObjectPath RequestedPath, struct FStreamable* RequestedStreamable);
 	struct FStreamable* FindStreamable(const FSoftObjectPath& Target) const;
 	struct FStreamable* StreamInternal(const FSoftObjectPath& Target, TAsyncLoadPriority Priority, TSharedRef<FStreamableHandle> Handle);
 	UObject* GetStreamed(const FSoftObjectPath& Target) const;
@@ -350,6 +351,7 @@ private:
 		UObjectRedirector* LoadedRedirector;
 
 		FRedirectedPath() : LoadedRedirector(nullptr) {}
+		FRedirectedPath(const FSoftObjectPath& InNewPath, UObjectRedirector* InLoadedRedirector) : NewPath(InNewPath),LoadedRedirector(InLoadedRedirector) {}
 	};
 	typedef TMap<FSoftObjectPath, FRedirectedPath> TStreamableRedirects;
 	TStreamableRedirects StreamableRedirects;

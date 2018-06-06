@@ -127,7 +127,7 @@ int32 GetVisualStudioVersionForSolution(const FString& InSolutionFile)
 			}
 
 			int32 Version = 0;
-			Lex::FromString(Version, *VersionString);
+			LexFromString(Version, *VersionString);
 			return Version;
 		}
 	}

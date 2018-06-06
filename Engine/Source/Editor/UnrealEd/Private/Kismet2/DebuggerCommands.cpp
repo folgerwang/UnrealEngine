@@ -842,9 +842,9 @@ TSharedRef< SWidget > FPlayWorldCommands::GeneratePlayMenuContent( TSharedRef<FU
 		{
 			TSharedRef<SWidget> NumPlayers = SNew(SSpinBox<int32>)	// Copy limits from PlayNumberOfClients meta data
 				.MinValue(1)
-				.MaxValue(TNumericLimits<int32>::Max())
+				.MaxValue(64)
 				.MinSliderValue(1)
-				.MaxSliderValue(64)
+				.MaxSliderValue(4)
 				.ToolTipText(LOCTEXT( "NumberOfClientsToolTip", "The editor and listen server count as players, a dedicated server will not. Clients make up the remainder." ))
 				.Value(FInternalPlayWorldCommandCallbacks::GetNumberOfClients())
 				.OnValueCommitted_Static(&FInternalPlayWorldCommandCallbacks::SetNumberOfClients);
@@ -963,6 +963,7 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 	PlatformsToMaybeInstallLinksFor.Add(TEXT("Android"));
 	PlatformsToMaybeInstallLinksFor.Add(TEXT("IOS"));
 	PlatformsToMaybeInstallLinksFor.Add(TEXT("Linux"));
+	PlatformsToMaybeInstallLinksFor.Add(TEXT("Lumin"));
 	TArray<FString> PlatformsToCheckFlavorsFor;
 	PlatformsToCheckFlavorsFor.Add(TEXT("Android"));
 	PlatformsToCheckFlavorsFor.Add(TEXT("IOS"));

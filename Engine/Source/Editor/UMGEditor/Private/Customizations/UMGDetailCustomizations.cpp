@@ -102,7 +102,7 @@ void FBlueprintWidgetCustomization::CreateEventCustomization( IDetailLayoutBuild
 	IDetailPropertyRow& PropertyRow = PropertyCategory.AddProperty(DelegatePropertyHandle);
 	PropertyRow.OverrideResetToDefault(FResetToDefaultOverride::Create(FResetToDefaultHandler::CreateSP(this, &FBlueprintWidgetCustomization::ResetToDefault_RemoveBinding)));
 
-	FString LabelStr = Property->GetName();
+	FString LabelStr = Property->GetDisplayNameText().ToString();
 	LabelStr.RemoveFromEnd(TEXT("Event"));
 
 	FText Label = FText::FromString(LabelStr);
@@ -220,7 +220,7 @@ void FBlueprintWidgetCustomization::CreateMulticastEventCustomization(IDetailLay
 
 	IDetailCategoryBuilder& PropertyCategory = DetailLayout.EditCategory("Events", LOCTEXT("Events", "Events"), ECategoryPriority::Uncommon);
 
-	FText DelegatePropertyName = FText::FromString(DelegateProperty->GetName());
+	FText DelegatePropertyName = DelegateProperty->GetDisplayNameText();
 	PropertyCategory.AddCustomRow(DelegatePropertyName)
 	.NameContent()
 	[
@@ -302,7 +302,7 @@ void FBlueprintWidgetCustomization::PerformBindingCustomization(IDetailLayoutBui
 			if ( UDelegateProperty* DelegateProperty = Cast<UDelegateProperty>(*PropertyIt) )
 			{
 				//TODO Remove the code to use ones that end with "Event".  Prefer metadata flag.
-				if ( DelegateProperty->GetBoolMetaData(IsBindableEventName) || DelegateProperty->GetName().EndsWith(TEXT("Event")) )
+				if ( DelegateProperty->HasMetaData(IsBindableEventName) || DelegateProperty->GetName().EndsWith(TEXT("Event")) )
 				{
 					CreateEventCustomization(DetailLayout, DelegateProperty, Widget);
 				}

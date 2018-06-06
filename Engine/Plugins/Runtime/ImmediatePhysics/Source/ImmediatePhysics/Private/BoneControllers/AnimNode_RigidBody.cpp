@@ -22,12 +22,13 @@ using namespace ImmediatePhysics;
 
 #define LOCTEXT_NAMESPACE "ImmediatePhysics"
 
-TAutoConsoleVariable<int32> CVarEnableRigidBodyNode(TEXT("p.RigidBodyNode"), 1, TEXT("Enables/disables rigid body node updates and evaluations"));
+TAutoConsoleVariable<int32> CVarEnableRigidBodyNode(TEXT("p.RigidBodyNode"), 1, TEXT("Enables/disables rigid body node updates and evaluations"), ECVF_Scalability);
+TAutoConsoleVariable<int32> CVarRigidBodyLODThreshold(TEXT("p.RigidBodyLODThreshold"), -1, TEXT("Max LOD that rigid body node is allowed to run on. Provides a global threshold that overrides per-node the LODThreshold property. -1 means no override."), ECVF_Scalability);
 
 FAnimNode_RigidBody::FAnimNode_RigidBody():
 	QueryParams(NAME_None, FCollisionQueryParams::GetUnknownStatId())
 {
-	bResetSimulated = false;
+	ResetSimulatedTeleportType = ETeleportType::None;
 	PhysicsSimulation = nullptr;
 	OverridePhysicsAsset = nullptr;
 	bOverrideWorldGravity = false;
@@ -41,6 +42,17 @@ FAnimNode_RigidBody::FAnimNode_RigidBody():
 	UnsafeWorld = nullptr;
 	bSimulationStarted = false;
 	bCheckForBodyTransformInit = false;
+	OverlapChannel = ECC_WorldStatic;
+	bEnableWorldGeometry = false;
+	bTransferBoneVelocities = false;
+	bFreezeIncomingPoseOnStart = false;
+
+	PreviousTransform = CurrentTransform = FTransform::Identity;
+	PreviousComponentLinearVelocity = FVector::ZeroVector;	
+
+	ComponentLinearAccScale = FVector::ZeroVector;
+	ComponentLinearVelScale = FVector::ZeroVector;
+	ComponentAppliedLinearAccClamp = FVector(100000,100000,100000);
 }
 
 FAnimNode_RigidBody::~FAnimNode_RigidBody()
@@ -103,7 +115,7 @@ FORCEINLINE_DEBUGGABLE FTransform ConvertCSTransformToSimSpace(ESimulationSpace 
 void FAnimNode_RigidBody::UpdateComponentPose_AnyThread(const FAnimationUpdateContext& Context)
 {
 	// Only freeze update graph after initial update, as we want to get that pose through.
-	if (bFreezeIncomingPoseOnStart && bSimulationStarted && !bResetSimulated)
+	if (bFreezeIncomingPoseOnStart && bSimulationStarted && ResetSimulatedTeleportType == ETeleportType::None)
 	{
 		// If we have a Frozen Pose captured, 
 		// then we don't need to update the rest of the graph.
@@ -132,7 +144,7 @@ void FAnimNode_RigidBody::EvaluateComponentPose_AnyThread(FComponentSpacePoseCon
 	{
 		// If we have a Frozen Pose captured, use it.
 		// Only after our intialize setup. As we need new pose for that.
-		if (!bResetSimulated && (CapturedFrozenPose.GetPose().GetNumBones() > 0))
+		if (ResetSimulatedTeleportType == ETeleportType::None && (CapturedFrozenPose.GetPose().GetNumBones() > 0))
 		{
 			Output.Pose.CopyPose(CapturedFrozenPose);
 			Output.Curve.CopyFrom(CapturedFrozenCurves);
@@ -203,12 +215,12 @@ void FAnimNode_RigidBody::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseC
 {
 	SCOPE_CYCLE_COUNTER(STAT_RigidBody_Eval);
 	SCOPE_CYCLE_COUNTER(STAT_ImmediateEvaluateSkeletalControl);
-	//FPlatformMisc::BeginNamedEvent(FColor::Magenta, "FAnimNode_Ragdoll::EvaluateSkeletalControl_AnyThread");
+	//SCOPED_NAMED_EVENT_TEXT("FAnimNode_Ragdoll::EvaluateSkeletalControl_AnyThread", FColor::Magenta);
 
 	// Update our eval counter, and decide whether we need to reset simulated bodies, if our anim instance hasn't updated in a while.
 	if(EvalCounter.HasEverBeenUpdated() && !EvalCounter.WasSynchronizedLastFrame(Output.AnimInstanceProxy->GetEvaluationCounter()))
 	{
-		bResetSimulated = true;
+		ResetSimulatedTeleportType = ETeleportType::ResetPhysics;
 	}
 	EvalCounter.SynchronizeWith(Output.AnimInstanceProxy->GetEvaluationCounter());
 
@@ -219,62 +231,98 @@ void FAnimNode_RigidBody::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseC
 	{
 		const FBoneContainer& BoneContainer = Output.Pose.GetPose().GetBoneContainer();
 		const FTransform CompWorldSpaceTM = Output.AnimInstanceProxy->GetComponentTransform();
+		if(!EvalCounter.HasEverBeenUpdated())
+		{
+			PreviousCompWorldSpaceTM = CompWorldSpaceTM;
+		}
 		const FTransform BaseBoneTM = Output.Pose.GetComponentSpaceTransform(BaseBoneRef.GetCompactPoseIndex(BoneContainer));
 
 		// Initialize potential new bodies because of LOD change.
-		if (!bResetSimulated && bCheckForBodyTransformInit)
+		if (ResetSimulatedTeleportType == ETeleportType::None && bCheckForBodyTransformInit)
 		{
 			bCheckForBodyTransformInit = false;
 			InitializeNewBodyTransformsDuringSimulation(Output, CompWorldSpaceTM, BaseBoneTM);
 		}
 
 		// If time advances, update simulation
-		if (DeltaSeconds > 0)
+		// Reset if necessary
+		if (ResetSimulatedTeleportType != ETeleportType::None)
 		{
-			// First update, initialize bodies from animation.
-			if (bResetSimulated)
+			// Capture bone velocities if we have captured a bone velocity pose.
+			if (bTransferBoneVelocities && (CapturedBoneVelocityPose.GetPose().GetNumBones() > 0))
 			{
-				bResetSimulated = false;
-
-				// Capture bone velocities if we have captured a bone velocity pose.
-				if (bTransferBoneVelocities && (CapturedBoneVelocityPose.GetPose().GetNumBones() > 0))
+				for (const FOutputBoneData& OutputData : OutputBoneData)
 				{
-					for (const FOutputBoneData& OutputData : OutputBoneData)
+					const int32 BodyIndex = OutputData.BodyIndex;
+					FBodyAnimData& BodyData = BodyAnimData[BodyIndex];
+
+					if (BodyData.bIsSimulated)
 					{
-						const int32 BodyIndex = OutputData.BodyIndex;
-						FBodyAnimData& BodyData = BodyAnimData[BodyIndex];
+						const FCompactPoseBoneIndex NextCompactPoseBoneIndex = OutputData.CompactPoseBoneIndex;
+						// Convert CompactPoseBoneIndex to SkeletonBoneIndex...
+						const int32 PoseSkeletonBoneIndex = BoneContainer.GetPoseToSkeletonBoneIndexArray()[NextCompactPoseBoneIndex.GetInt()];
+						// ... So we can convert to the captured pose CompactPoseBoneIndex. 
+						// In case there was a LOD change, and poses are not compatible anymore.
+						const FCompactPoseBoneIndex PrevCompactPoseBoneIndex = CapturedBoneVelocityBoneContainer.GetCompactPoseIndexFromSkeletonIndex(PoseSkeletonBoneIndex);
 
-						if (BodyData.bIsSimulated)
+						if (PrevCompactPoseBoneIndex != FCompactPoseBoneIndex(INDEX_NONE))
 						{
-							const FCompactPoseBoneIndex NextCompactPoseBoneIndex = OutputData.CompactPoseBoneIndex;
-							// Convert CompactPoseBoneIndex to SkeletonBoneIndex...
-							const int32 PoseSkeletonBoneIndex = BoneContainer.GetPoseToSkeletonBoneIndexArray()[NextCompactPoseBoneIndex.GetInt()];
-							// ... So we can convert to the captured pose CompactPoseBoneIndex. 
-							// In case there was a LOD change, and poses are not compatible anymore.
-							const FCompactPoseBoneIndex PrevCompactPoseBoneIndex = CapturedBoneVelocityBoneContainer.GetCompactPoseIndexFromSkeletonIndex(PoseSkeletonBoneIndex);
+							const FTransform PrevCSTM = CapturedBoneVelocityPose.GetComponentSpaceTransform(PrevCompactPoseBoneIndex);
+							const FTransform NextCSTM = Output.Pose.GetComponentSpaceTransform(NextCompactPoseBoneIndex);
 
-							if (PrevCompactPoseBoneIndex != FCompactPoseBoneIndex(INDEX_NONE))
+							const FTransform PrevSSTM = ConvertCSTransformToSimSpace(SimulationSpace, PrevCSTM, CompWorldSpaceTM, BaseBoneTM);
+							const FTransform NextSSTM = ConvertCSTransformToSimSpace(SimulationSpace, NextCSTM, CompWorldSpaceTM, BaseBoneTM);
+
+							// Linear Velocity
+							if(DeltaSeconds > 0.0f)
 							{
-								const FTransform PrevCSTM = CapturedBoneVelocityPose.GetComponentSpaceTransform(PrevCompactPoseBoneIndex);
-								const FTransform NextCSTM = Output.Pose.GetComponentSpaceTransform(NextCompactPoseBoneIndex);
-
-								const FTransform PrevSSTM = ConvertCSTransformToSimSpace(SimulationSpace, PrevCSTM, CompWorldSpaceTM, BaseBoneTM);
-								const FTransform NextSSTM = ConvertCSTransformToSimSpace(SimulationSpace, NextCSTM, CompWorldSpaceTM, BaseBoneTM);
-
-								// Linear Velocity
 								BodyData.TransferedBoneVelocity.SetTranslation((NextSSTM.GetLocation() - PrevSSTM.GetLocation()) / DeltaSeconds);
-
-								// Angular Velocity
-								const FQuat DeltaRotation = (NextSSTM.GetRotation().Inverse() * PrevSSTM.GetRotation());
-								const float RotationAngle = DeltaRotation.GetAngle() / DeltaSeconds;
-								BodyData.TransferedBoneVelocity.SetRotation(FQuat(DeltaRotation.GetRotationAxis(), RotationAngle)); 
 							}
+							else
+							{
+								BodyData.TransferedBoneVelocity.SetTranslation(FVector::ZeroVector);
+							}
+
+							// Angular Velocity
+							const FQuat DeltaRotation = (NextSSTM.GetRotation().Inverse() * PrevSSTM.GetRotation());
+							const float RotationAngle = DeltaRotation.GetAngle() / DeltaSeconds;
+							BodyData.TransferedBoneVelocity.SetRotation(FQuat(DeltaRotation.GetRotationAxis(), RotationAngle)); 
 						}
 					}
 				}
+			}
 
-				// Initialize bodies.
+			
+			switch(ResetSimulatedTeleportType)
+			{
+				case ETeleportType::TeleportPhysics:
 				{
+					// Teleport bodies.
+					for (const FOutputBoneData& OutputData : OutputBoneData)
+					{
+						const int32 BodyIndex = OutputData.BodyIndex;
+						BodyAnimData[BodyIndex].bBodyTransformInitialized = true;
+
+						FTransform BodyTM = Bodies[BodyIndex]->GetWorldTransform();
+						FTransform ComponentSpaceTM;
+
+						switch(SimulationSpace)
+						{
+							case ESimulationSpace::ComponentSpace: ComponentSpaceTM = BodyTM; break;
+							case ESimulationSpace::WorldSpace: ComponentSpaceTM = BodyTM.GetRelativeTransform(PreviousCompWorldSpaceTM); break;
+							case ESimulationSpace::BaseBoneSpace: ComponentSpaceTM = BodyTM * BaseBoneTM; break;
+							default: ensureMsgf(false, TEXT("Unsupported Simulation Space")); ComponentSpaceTM = BodyTM;
+						}
+
+						BodyTM = ConvertCSTransformToSimSpace(SimulationSpace, ComponentSpaceTM, CompWorldSpaceTM, BaseBoneTM);
+						Bodies[BodyIndex]->SetWorldTransform(BodyTM);
+					}
+				}
+				break;
+
+				case ETeleportType::ResetPhysics:
+				{
+					// Completely reset bodies.
 					for (const FOutputBoneData& OutputData : OutputBoneData)
 					{
 						const int32 BodyIndex = OutputData.BodyIndex;
@@ -285,57 +333,106 @@ void FAnimNode_RigidBody::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseC
 						Bodies[BodyIndex]->SetWorldTransform(BodyTM);
 					}
 				}
+				break;
 			}
-			// Subsequent updates, update kinematic bodies and run simulation.
-			else
+
+			// Always reset after a teleport
+			PreviousCompWorldSpaceTM = CompWorldSpaceTM;
+			ResetSimulatedTeleportType = ETeleportType::None;
+			PreviousComponentLinearVelocity = FVector::ZeroVector;
+		}
+		// Only need to tick physics if we didn't reset and we have some time to simulate
+		else if(DeltaSeconds > 0.0f)
+		{
+			// Transfer bone velocities previously captured.
+			if (bTransferBoneVelocities && (CapturedBoneVelocityPose.GetPose().GetNumBones() > 0))
 			{
-				// Transfer bone velocities previously captured.
-				if (bTransferBoneVelocities && (CapturedBoneVelocityPose.GetPose().GetNumBones() > 0))
-				{
-					for (const FOutputBoneData& OutputData : OutputBoneData)
-					{
-						const int32 BodyIndex = OutputData.BodyIndex;
-						const FBodyAnimData& BodyData = BodyAnimData[BodyIndex];
-
-						if (BodyData.bIsSimulated)
-						{
-							ImmediatePhysics::FActorHandle* Body = Bodies[BodyIndex];
-							Body->SetLinearVelocity(BodyData.TransferedBoneVelocity.GetTranslation());
-
-							const FQuat AngularVelocity = BodyData.TransferedBoneVelocity.GetRotation();
-							Body->SetAngularVelocity(AngularVelocity.GetRotationAxis() * AngularVelocity.GetAngle());
-						}
-					}
-
-					// Free up our captured pose after it's been used.
-					CapturedBoneVelocityPose.Empty();
-				}
-
 				for (const FOutputBoneData& OutputData : OutputBoneData)
 				{
 					const int32 BodyIndex = OutputData.BodyIndex;
-					if (!BodyAnimData[BodyIndex].bIsSimulated)
-					{
-						const FTransform& ComponentSpaceTM = Output.Pose.GetComponentSpaceTransform(OutputData.CompactPoseBoneIndex);
-						const FTransform BodyTM = ConvertCSTransformToSimSpace(SimulationSpace, ComponentSpaceTM, CompWorldSpaceTM, BaseBoneTM);
+					const FBodyAnimData& BodyData = BodyAnimData[BodyIndex];
 
-						Bodies[BodyIndex]->SetKinematicTarget(BodyTM);
+					if (BodyData.bIsSimulated)
+					{
+						ImmediatePhysics::FActorHandle* Body = Bodies[BodyIndex];
+						Body->SetLinearVelocity(BodyData.TransferedBoneVelocity.GetTranslation());
+
+						const FQuat AngularVelocity = BodyData.TransferedBoneVelocity.GetRotation();
+						Body->SetAngularVelocity(AngularVelocity.GetRotationAxis() * AngularVelocity.GetAngle());
 					}
 				}
 
-				UpdateWorldForces(CompWorldSpaceTM, BaseBoneTM);
-				const FVector SimSpaceGravity = WorldVectorToSpaceNoScale(SimulationSpace, WorldSpaceGravity, CompWorldSpaceTM, BaseBoneTM);
+				// Free up our captured pose after it's been used.
+				CapturedBoneVelocityPose.Empty();
+			}
+			else if (SimulationSpace != ESimulationSpace::WorldSpace)
+			{
+				// Calc linear velocity
+				const FVector ComponentDeltaLocation = CurrentTransform.GetTranslation() - PreviousTransform.GetTranslation();
+				const FVector ComponentLinearVelocity = ComponentDeltaLocation / DeltaSeconds;
+				// Apply acceleration that opposed velocity (basically 'drag')
+				FVector ApplyLinearAcc = WorldVectorToSpaceNoScale(SimulationSpace, -ComponentLinearVelocity, CompWorldSpaceTM, BaseBoneTM) * ComponentLinearVelScale;
 
-				// Run simulation at a minimum of 30 FPS to prevent system from exploding.
-				// DeltaTime can be higher due to URO, so take multiple iterations in that case.
-				const float MaxDeltaSeconds = 1.f / 30.f;
-				const int32 NumIterations = FMath::Clamp(FMath::CeilToInt(DeltaSeconds / MaxDeltaSeconds), 1, 4);
-				const float StepDeltaTime = DeltaSeconds / float(NumIterations);
+				// Calc linear acceleration
+				const FVector ComponentLinearAcceleration = (ComponentLinearVelocity - PreviousComponentLinearVelocity) / DeltaSeconds;
+				PreviousComponentLinearVelocity = ComponentLinearVelocity;
+				// Apply opposite acceleration to bodies
+				ApplyLinearAcc += WorldVectorToSpaceNoScale(SimulationSpace, -ComponentLinearAcceleration, CompWorldSpaceTM, BaseBoneTM) * ComponentLinearAccScale;
 
-				for (int32 Step = 1; Step <= NumIterations; Step++)
+				// Iterate over bodies
+				for (const FOutputBoneData& OutputData : OutputBoneData)
 				{
-					PhysicsSimulation->Simulate(StepDeltaTime, SimSpaceGravity);
+					const int32 BodyIndex = OutputData.BodyIndex;
+					const FBodyAnimData& BodyData = BodyAnimData[BodyIndex];
+
+					if (BodyData.bIsSimulated)
+					{
+						ImmediatePhysics::FActorHandle* Body = Bodies[BodyIndex];
+
+						// Apply 
+						const float BodyInvMass = Body->GetInverseMass();
+						if (BodyInvMass > 0.f)
+						{
+							// Final desired acceleration to apply to body
+							FVector FinalBodyLinearAcc = ApplyLinearAcc;
+
+							// Clamp if desired
+							if (!ComponentAppliedLinearAccClamp.IsNearlyZero())
+							{
+								FinalBodyLinearAcc = FinalBodyLinearAcc.BoundToBox(-ComponentAppliedLinearAccClamp, ComponentAppliedLinearAccClamp);
+							}
+
+							// Apply to body
+							Body->AddForce(FinalBodyLinearAcc / BodyInvMass);
+						}
+					}
 				}
+			}
+
+			for (const FOutputBoneData& OutputData : OutputBoneData)
+			{
+				const int32 BodyIndex = OutputData.BodyIndex;
+				if (!BodyAnimData[BodyIndex].bIsSimulated)
+				{
+					const FTransform& ComponentSpaceTM = Output.Pose.GetComponentSpaceTransform(OutputData.CompactPoseBoneIndex);
+					const FTransform BodyTM = ConvertCSTransformToSimSpace(SimulationSpace, ComponentSpaceTM, CompWorldSpaceTM, BaseBoneTM);
+
+					Bodies[BodyIndex]->SetKinematicTarget(BodyTM);
+				}
+			}
+
+			UpdateWorldForces(CompWorldSpaceTM, BaseBoneTM);
+			const FVector SimSpaceGravity = WorldVectorToSpaceNoScale(SimulationSpace, WorldSpaceGravity, CompWorldSpaceTM, BaseBoneTM);
+
+			// Run simulation at a minimum of 30 FPS to prevent system from exploding.
+			// DeltaTime can be higher due to URO, so take multiple iterations in that case.
+			const float MaxDeltaSeconds = 1.f / 30.f;
+			const int32 NumIterations = FMath::Clamp(FMath::CeilToInt(DeltaSeconds / MaxDeltaSeconds), 1, 4);
+			const float StepDeltaTime = DeltaSeconds / float(NumIterations);
+
+			for (int32 Step = 1; Step <= NumIterations; Step++)
+			{
+				PhysicsSimulation->Simulate(StepDeltaTime, SimSpaceGravity);
 			}
 		}
 		
@@ -359,8 +456,9 @@ void FAnimNode_RigidBody::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseC
 				OutBoneTransforms.Add(FBoneTransform(OutputData.CompactPoseBoneIndex, ComponentSpaceTM));
 			}
 		}
+
+		PreviousCompWorldSpaceTM = CompWorldSpaceTM;
 	}
-	//FPlatformMisc::EndNamedEvent();
 }
 
 void ComputeBodyInsertionOrder(TArray<FBoneIndexType>& InsertionOrder, const USkeletalMeshComponent& SKC)
@@ -428,6 +526,8 @@ void FAnimNode_RigidBody::InitPhysics(const UAnimInstance* InAnimInstance)
 	SkeletonBoneIndexToBodyIndex.Reset(NumSkeletonBones);
 	SkeletonBoneIndexToBodyIndex.Init(INDEX_NONE, NumSkeletonBones);
 
+	PreviousTransform = InAnimInstance->GetSkelMeshComponent()->GetComponentToWorld();
+
 	if(UsePhysicsAsset)
 	{
 		delete PhysicsSimulation;
@@ -441,7 +541,7 @@ void FAnimNode_RigidBody::InitPhysics(const UAnimInstance* InAnimInstance)
 		
 		TArray<FBodyInstance*> HighLevelBodyInstances;
 		TArray<FConstraintInstance*> HighLevelConstraintInstances;
-		SkeletalMeshComp->InstantiatePhysicsAsset(*UsePhysicsAsset, SimulationSpace == ESimulationSpace::WorldSpace ? SkeletalMeshComp->GetComponentToWorld().GetScale3D() : FVector(1.f), HighLevelBodyInstances, HighLevelConstraintInstances);
+		SkeletalMeshComp->InstantiatePhysicsAssetRefPose(*UsePhysicsAsset, SimulationSpace == ESimulationSpace::WorldSpace ? SkeletalMeshComp->GetComponentToWorld().GetScale3D() : FVector(1.f), HighLevelBodyInstances, HighLevelConstraintInstances);
 
 		TMap<FName, FActorHandle*> NamesToHandles;
 		TArray<FActorHandle*> IgnoreCollisionActors;
@@ -572,7 +672,7 @@ void FAnimNode_RigidBody::InitPhysics(const UAnimInstance* InAnimInstance)
 				delete CI;
 			}
 
-			bResetSimulated = true;
+			ResetSimulatedTeleportType = ETeleportType::ResetPhysics;
 		}
 
 		TArray<FSimulation::FIgnorePair> IgnorePairs;
@@ -676,10 +776,11 @@ bool FAnimNode_RigidBody::NeedsDynamicReset() const
 	return true;
 }
 
-void FAnimNode_RigidBody::ResetDynamics()
+void FAnimNode_RigidBody::ResetDynamics(ETeleportType InTeleportType)
 {
-	// This will be picked up next evaluate and reset our simulation
-	bResetSimulated = true;
+	// This will be picked up next evaluate and reset our simulation.
+	// Teleport type can only go higher - i.e. if we have requested a reset, then a teleport will still reset fully
+	ResetSimulatedTeleportType = ((InTeleportType > ResetSimulatedTeleportType) ? InTeleportType : ResetSimulatedTeleportType);
 }
 
 DECLARE_CYCLE_STAT(TEXT("RigidBody_PreUpdate"), STAT_RigidBody_PreUpdate, STATGROUP_Anim);
@@ -716,7 +817,29 @@ void FAnimNode_RigidBody::PreUpdate(const UAnimInstance* InAnimInstance)
 		}
 
 		PendingRadialForces = SKC->GetPendingRadialForces();
+
+		PreviousTransform = CurrentTransform;
+		CurrentTransform = SKC->GetComponentToWorld();
 	}	
+}
+
+int32 FAnimNode_RigidBody::GetLODThreshold() const
+{
+	if(CVarRigidBodyLODThreshold.GetValueOnAnyThread() != -1)
+	{
+		if(LODThreshold != -1)
+		{
+			return FMath::Min(LODThreshold, CVarRigidBodyLODThreshold.GetValueOnAnyThread());
+		}
+		else
+		{
+			return CVarRigidBodyLODThreshold.GetValueOnAnyThread();
+		}
+	}
+	else
+	{
+		return LODThreshold;
+	}
 }
 
 DECLARE_CYCLE_STAT(TEXT("RigidBody_Update"), STAT_RigidBody_Update, STATGROUP_Anim);

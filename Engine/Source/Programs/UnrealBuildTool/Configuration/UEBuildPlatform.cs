@@ -122,6 +122,14 @@ namespace UnrealBuildTool
 		public abstract SDKStatus HasRequiredSDKsInstalled();
 
 		/// <summary>
+		/// Whether this platform requires specific Visual Studio version.
+		/// </summary>
+		public virtual VCProjectFileFormat GetRequiredVisualStudioVersion()
+		{
+			return VCProjectFileFormat.Default;
+		}
+
+		/// <summary>
 		/// Gets all the registered platforms
 		/// </summary>
 		/// <returns>Sequence of registered platforms</returns>
@@ -179,6 +187,16 @@ namespace UnrealBuildTool
 					FindBuildProductsToClean(SubDir, NamePrefixes, NameSuffixes, FilesToClean, DirectoriesToClean);
 				}
 			}
+		}
+
+		/// <summary>
+		/// Enumerates any additional directories needed to clean this target
+		/// </summary>
+		/// <param name="Target">The target to clean</param>
+		/// <param name="FilesToDelete">Receives a list of files to be removed</param>
+		/// <param name="DirectoriesToDelete">Receives a list of directories to be removed</param>
+		public virtual void FindAdditionalBuildProductsToClean(ReadOnlyTargetRules Target, List<FileReference> FilesToDelete, List<DirectoryReference> DirectoriesToDelete)
+		{
 		}
 
 		/// <summary>
@@ -517,6 +535,14 @@ namespace UnrealBuildTool
 		public virtual bool CanUseXGE()
 		{
 			return true;
+		}
+
+		/// <summary>
+		/// If this platform can be compiled with the parallel executor
+		/// </summary>
+		public virtual bool CanUseParallelExecutor()
+		{
+			return CanUseXGE();
 		}
 
 		/// <summary>

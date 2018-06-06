@@ -54,7 +54,13 @@ typedef FAndroidTypes FPlatformTypes;
 #define PLATFORM_UI_HAS_MOBILE_SCROLLBARS			1
 #define PLATFORM_UI_NEEDS_TOOLTIPS					0
 #define PLATFORM_UI_NEEDS_FOCUS_OUTLINES			0
-#define PLATFORM_RHITHREAD_DEFAULT_BYPASS			1
+#define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK		1 // movies will start before engine is initalized
+
+#if defined(EXPERIMENTAL_OPENGL_RHITHREAD) && EXPERIMENTAL_OPENGL_RHITHREAD
+	#define PLATFORM_RHITHREAD_DEFAULT_BYPASS			0
+#else
+	#define PLATFORM_RHITHREAD_DEFAULT_BYPASS			1
+#endif
 
 // Conditionally set in AndroidToolChain.cs
 // always set to 1 for ARM64 builds

@@ -408,8 +408,10 @@ void UAttributeSet::PostNetReceive()
 }
 
 FAttributeMetaData::FAttributeMetaData()
-	: MinValue(0.f)
+	: BaseValue(0.0f)
+	, MinValue(0.f)
 	, MaxValue(1.f)
+	, bCanStack(false)
 {
 
 }

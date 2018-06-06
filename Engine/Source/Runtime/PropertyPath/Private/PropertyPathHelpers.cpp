@@ -787,7 +787,7 @@ namespace PropertyPathHelpers
 		if ( ArrayPos != INDEX_NONE )
 		{
 			FString IndexToken = OutFieldName.RightChop(ArrayPos + 1).LeftChop(1);
-			Lex::FromString(OutArrayIndex, *IndexToken);
+			LexFromString(OutArrayIndex, *IndexToken);
 
 			OutFieldName = OutFieldName.Left(ArrayPos);
 		}

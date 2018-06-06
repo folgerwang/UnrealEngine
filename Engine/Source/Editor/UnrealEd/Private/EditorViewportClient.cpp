@@ -1035,9 +1035,11 @@ FSceneView* FEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFamily, c
 	ViewInitOptions.OverrideLODViewOrigin = FVector::ZeroVector;
 	ViewInitOptions.bUseFauxOrthoViewPos = true;
 
+	ViewInitOptions.FOV = ViewFOV;
 	if (bUseControllingActorViewInfo)
 	{
 		ViewInitOptions.bUseFieldOfViewForLOD = ControllingActorViewInfo.bUseFieldOfViewForLOD;
+		ViewInitOptions.FOV = ControllingActorViewInfo.FOV;
 	}
 
 	ViewInitOptions.OverrideFarClippingPlaneDistance = FarPlane;
@@ -5330,7 +5332,7 @@ void FEditorViewportClient::ProcessScreenShots(FViewport* InViewport)
 		
 		// Done with the request
 		FScreenshotRequest::Reset();
-		FScreenshotRequest::OnScreenshotRequestProcessed().ExecuteIfBound();
+		FScreenshotRequest::OnScreenshotRequestProcessed().Broadcast();
 
 		// Re-enable screen messages - if we are NOT capturing a movie
 		GAreScreenMessagesEnabled = GScreenMessagesRestoreState;

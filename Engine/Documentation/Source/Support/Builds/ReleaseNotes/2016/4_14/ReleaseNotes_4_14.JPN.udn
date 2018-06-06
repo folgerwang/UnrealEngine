@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3304581
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title:アンリアル エンジン 4.14 リリース ノート
 Description:Unreal Engine 4.14 リリース ノート
@@ -30,7 +30,7 @@ reference-image:image_64.gif
 reference-image:image_65.gif
 reference-image:image_86.gif
 
-![image alt text](image_0.png)(h:304 w:936 convert:false)
+![image alt text](image_0.png)(w:936 convert:false)
 
 # 新機能
 
@@ -52,13 +52,13 @@ Adam Moss (adamnv), Alan Edwardes (alanedwardes), Andreas Axelsson (judgeaxl), A
 
 新たなフォワード シェーディング レンダラは、Multisample Anti-Aliasing (MSAA) のサポートが付いた高品質の UE4 ライティング機能です。MSAA およびマテリアルごとに最適化を有効化するオプションが付いて、フォワード レンダラが VR で使いやすくなりました。
 
-![image alt text](image_1.png)(w:929 h:664 convert:false)
+![image alt text](image_1.png)(w:929 convert:false)
 
 フォワード レンダラは、ライトと反射キャプチャを視界外のスペースグリッドへカリングして処理します。その後で、フォワード パスの各ピクセルがライトと反射キャプチャをイタレートし、影響を与えてマテリアルを共有します。Stationary light (固定ライト) の動的シャドウは予め計算されて、スクリーン空間シャドウ マスクのチャンネルにパックされるので、複数のシャドウイング機能が効率よく使用できます。
 
 フォワード レンダラを使用するには、[Rendering project (レンダリング プロジェクト)] 設定の [Forward Shading] を有効にして、エディタを再起動します。
 
-![image alt text](image_2.png)(w:240 h:24 convert:false)
+![image alt text](image_2.png)(w:240 convert:false)
 
 以下の **フォワード レンダリング機能** がサポートされています。
 
@@ -94,7 +94,7 @@ Adam Moss (adamnv), Alan Edwardes (alanedwardes), Andreas Axelsson (judgeaxl), A
 
 * D-Buffer デカール上での MSAA、モーション ブラー、動的シャドウ、カプセルシャドウ
 
-![image alt text](image_3.png)(w:929 h:664 convert:false)
+![image alt text](image_3.png)(w:929 convert:false)
 
 フォワード レンダリングは、マルチサンプル アンチエイリアシング (MSAA) とテンポラル アンチエイリアシング (TAA) の両方をサポートしています。ジオメトリ エイリアシングとスペキュラ エイリアシングの両方を除去するため、ほとんどのケースで TAA が好まれます。VR では、ヘッド トラッキングでサブピクセルが絶えず移動することで、不必要なぼやけが発生するので、MSAA の方が正解かもしれません。
 
@@ -104,7 +104,7 @@ MSAA を使用するプロジェクトでは、スペキュラ エイリアシ�
 
 MSAA を使うには、[Rendering project] 設定で [Anti-Aliasing Method] をデフォルトに設定します。
 
-![image alt text](image_4.png)(w:336 h:53 convert:false)
+![image alt text](image_4.png)(w:336 convert:false)
 
 コンソール変数 `r.MSAACount` を使って、ピクセルごとに計算する MSAA サンプル数を調節できます。 'r.MSAACount 1' には特別な意味がありテンポラル AA をフォールバックすることで、アンチエイリアシング メソッド間の切り替えが便利になります。  
 
@@ -112,7 +112,7 @@ MSAA を使うには、[Rendering project] 設定で [Anti-Aliasing Method] を�
 
 コンテンツによっては、ディファード レンダラよりもフォワード レンダラの方が速い場合があります。ほとんどのパフォーマンスは、マテリアルごとに無効化できる機能によって改善されます。デフォルトでは、マテリアルが高品質の反射を選択していない限り、最も近い反射キャプチャのみがパララックスなしで適用され、Height Fog (高さフォグ) は頂点ごとに計算され、それを有効にするマテリアルのみに Planar Reflection が適用されます。
 
-![image alt text](image_5.png)(w:228 h:73 convert:false)
+![image alt text](image_5.png)(w:228 convert:false)
 
 エピックの新しい VR ゲーム Robo Recall ではこれらのオプションを使用して、NVIDIA 970 GTX でのフォワード レンダラがディファード レンダラよりも約 22% 速くなりました。
 
@@ -121,25 +121,25 @@ MSAA を使うには、[Rendering project] 設定で [Anti-Aliasing Method] を�
 コンタクト シャドウを使うと、オブジェクト上に非常に詳細な動的シャドウを落とすことができます。
 
 [REGION:asyncgif]
-![image alt text](image_6.gif)(w:929 h:522)
+![image alt text](image_6.gif)(w:929)
 [/REGION]
 
 以下の画面のつたは、いくつかの平らなカード状のものですが、マテリアルでピクセル深度のオフセットを出力するため、非常に説得力のあるセルフシャドウを落とすことができます。
 
 [REGION:asyncgif]
-![image alt text](image_7.gif)(w:929 h:606)
+![image alt text](image_7.gif)(w:929)
 [/REGION]
 
 コンタクトシャドウ機能では、ピクセルがライトからオクルードされるかどうかを把握するために、深度バッファーに対してショート レイキャストをスクリーン空間に追加します。これにより、ジオメトリのコンタクト ポイントで鮮明で詳細なシャドウを落とすことができます。他のアルゴリズムによるシャドウでは、コンタクトが欠けていたり、ぼやけてしまうのには多くの理由があります。通常、解像度不足や深度バイアスが原因です。理由が何であれ、新しいコンタクト シャドウ機能はわずかなコストでギャップをうまく埋めることができます。
 
 コンタクト シャドウはご利用のライトで [Contact Shadow Length] プロパティを設定して使用することができます。これでスクリーン空間のレイキャストの長さを制御します。この場合、値 1 は画面全体を横断する長さです。値が大きいと品質とパフォーマンスが劣化するため、望ましい見た目になる最短の長さを維持するようにします。
 
-![image alt text](image_8.png)(w:434 h:118 convert:false)
+![image alt text](image_8.png)(w:434 convert:false)
 
 コンタクト シャドウの他の使用例として、任意のライトの視差オクルージョン マッピングからセルフ シャドウを得るというものがあります。これには、マテリアルでピクセル深度のオフセットを出力する必要があります。以下のアニメーションは、コンタクト シャドウの長さを 0.1 に設定した視差オクルージョンをマッピングしたサーフェスを表しています。
 
 [REGION:asyncgif]
-![image alt text](image_9.gif)(w:752 h:344)
+![image alt text](image_9.gif)(w:752)
 [/REGION]
 
 ## 新規：LOD の自動生成
@@ -147,7 +147,7 @@ MSAA を使うには、[Rendering project] 設定で [Anti-Aliasing Method] を�
 スタティックメッシュのポリゴン カウントを自動的に減らして LOD (Level of Detail) を作ることができるようになりました！ 
 
 [REGION:asyncgif]
-![image alt text](image_10.gif)(w:768 h:628)
+![image alt text](image_10.gif)(w:768)
 [/REGION]
 
 上のアニメーションは、自動生成された 5 種類の LOD を示しています。それぞれ、前のものよりトライアングル数が半減しています。
@@ -158,7 +158,7 @@ LOD の自動生成では、Quadric Mesh Simplification という方法を用い
 
 生成された LOD を制御するための一般的な設定は [LOD Settings (LOD 設定)] スタティックメッシュ ビューアにあります。
 
-![image alt text](image_11.png)(w:425 h:184 convert:false)
+![image alt text](image_11.png)(w:425 convert:false)
 
 "LOD Group" にはプリセットのリストがあります。これらは、[StaticMeshLODSettings] の BaseEngine.ini でプロジェクト毎に変更することができます。プロジェクトで適切なカテゴリを設定し、各 LOD の詳細を制御するのではなく、LOD グループを主に使うことをお勧めします。
 
@@ -170,13 +170,13 @@ LOD の自動生成では、Quadric Mesh Simplification という方法を用い
 
 同じジオメトリで複数ライティングの設定に対する事前計算済みのライティングをサポートするようになりました！ これは可能な限り速い処理速度で、最高レベルのクオリティが必要な VR や建築ビジュアリゼーションなどのユースケースで特に重要になります。
 
-![image alt text](image_12.png)(w:929 h:540 convert:false)
+![image alt text](image_12.png)(w:929 convert:false)
 
-![image alt text](image_13.png)(w:929 h:541 convert:false)
+![image alt text](image_13.png)(w:929 convert:false)
 
 上の例では、指向性ライト、スカイライト、スカイボックスが DayScenario と呼ばれる Lighting Scenario レベルに配置されています。NightScenario には街灯が配置されています。
 
-![image alt text](image_14.png)(w:260 h:164 convert:false)
+![image alt text](image_14.png)(w:260 convert:false)
 
 Lighting Scenario を使うには以下の手順に従います。
 
@@ -188,7 +188,7 @@ Lighting Scenario を使うには以下の手順に従います。
 
 * パーシスタント レベルの Level ブループリントの BeginPlay で、アクティブにする Lighting Scenario レベルで Load Stream Level を実行します。
 
-![image alt text](image_15.png)(w:552 h:196 convert:false)
+![image alt text](image_15.png)(w:552 convert:false)
 
 制限事項： 
 
@@ -203,20 +203,20 @@ Lighting Scenario を使うには以下の手順に従います。
 ディファード レンダラでは、新しいフォワード シェーディング機能を半透明のサーフェスに使って、複数ライトからのスペキュラ ハイライト、および視差補正された反射キャプチャからの画像ベースの反射を受けることができます。
 
 [REGION:asyncgif]
-![image alt text](image_16.gif)(w:664 h:401)
+![image alt text](image_16.gif)(w:664)
 [/REGION]
 
-![image alt text](image_17.jpg)(w:329 h:118 convert:false)
+![image alt text](image_17.jpg)(w:329 convert:false)
 
 ## 新規：フル解像度スキンシェーディング
 
 サブサーフェス プロファイル シェーディング モデルでフル解像度のスキンシェーディングをサポートするようになりました。毛穴やしわなどのサーフェスの詳細に対して忠実度の高いライティングを実現します。 
 
-![image alt text](image_18.png)(w:312 h:334 convert:false) ![image alt text](image_19.png)(w:312 h:334 convert:false)
+![image alt text](image_18.png)(w:312 convert:false) ![image alt text](image_19.png)(w:312 convert:false)
 
 *チェッカーボードでレンダリングしたスキン (左)、フル解像度スキン (右)*(注釈: Lee Perry-Smith 制作の 3D ヘッドモデル)
 
-![image alt text](image_20.png)(w:320 h:320 convert:false) ![image alt text](image_21.png)(w:321 h:321 convert:false)
+![image alt text](image_20.png)(w:320 convert:false) ![image alt text](image_21.png)(w:321 convert:false)
 
 *サーフェスの詳細 - チェッカーボード (左)、フル解像度 (右)*
 
@@ -258,40 +258,40 @@ Lighting Scenario を使うには以下の手順に従います。
 
 反射キャプチャを使用する場合、エンジンではライトマップからの間接ディフューズと、反射キャプチャからの間接スペキュラとをミックスします。これにより、リークを減らします。反射キューブマップは空間の一点でのみキャプチャーされますが、ライトマップはそれを受けるすべてのサーフェスで計算されてローカルのシャドウイングを含むからです。
 
-![image alt text](image_22.png)(w:757 h:436 convert:false)
+![image alt text](image_22.png)(w:757 convert:false)
 
 **(左側はライトマップをミックスしたもので、右側はライトマップなし**)
 
 ラフなサーフェスではライトマップをミックスするとうまく機能しますが、滑らかなサーフェスでは反射キャプチャーからの反射がスクリーン空間反射や平面反射のような他の方法からの反射に対応しなくなります。  
 
-**ライトマップのミックスは非常に滑らかなサーフェスでは行われなくなりました。**** **ラフネス.3 のサーフェスは、ライトマップのミックスをフルに受けて、ラフネス.1 以下でライトマップのミックスなしにフェードアウトします。これにより、反射キャプチャと SSR が一段と対応するようになり、遷移がわかりずらくなります。  
+**ライトマップのミックスは非常に滑らかなサーフェスでは行われなくなりました。** ラフネス.3 のサーフェスは、ライトマップのミックスをフルに受けて、ラフネス.1 以下でライトマップのミックスなしにフェードアウトします。これにより、反射キャプチャと SSR が一段と対応するようになり、遷移がわかりずらくなります。  
 
 以下のショットはミラー サーフェスの反射の前後を示しています。SSR と反射キャプチャとの間のウォールの反射の違いに注目してください。動作中はアーティファクトが特に目立ちます。SSR の制約上、カメラと一緒にアーティファクトが移動するからです。
 
 [REGION:asyncgif]
-![image alt text](image_23.gif)(w:762 h:440)
+![image alt text](image_23.gif)(w:762)
 [/REGION]
 
 **これにより、既存のコンテンツに影響を及ぼします。滑らかなサーフェスで反射のリークがあった場合には、それがかなり目立つようになります。** これに対処するには、反射プローブを追加で配置してリークを減らします。レベルには最低 1 つの大きな球体キャプチャーがあるようにします。レンダリングのプロジェクト設定を使って、従来のライトマップのミックスのビヘイビアに戻すこともできます。
 
-![image alt text](image_24.png)(w:356 h:53 convert:false)
+![image alt text](image_24.png)(w:356 convert:false)
 
 ## 新規：Visual Studio "15" をサポート
 
 アンリアル エンジン 4.14 (UE4 4.14 ) では、次期 Visual Studio "15" をすぐに使用できるようになります。Visual Studio 2015 も引き続きサポートします。Visual Studio “15” は現在、[Microsoft の Visual Studio ウェブサイト](https://www.visualstudio.com/en-us/news/releasenotes/vs15-relnotes) から “Preview” を利用できる状態です。
 
-![image alt text](image_25.png)(w:929 h:558 convert:false)
+![image alt text](image_25.png)(w:929 convert:false)
 
 複数バージョンの Visual Studio をインストールしている場合は、‘Editor Preferences’ の ‘Source Code’ セクションからどれを使用するかを選択できます。
 
-![image alt text](image_26.png)(w:670 h:132 convert:false)
+![image alt text](image_26.png)(w:670 convert:false)
 
 ## 新規：アクタからスタティックメッシュを作成
 
 レベル ビューポートでアクタを右クリックして現在の状態を新規 Static Mesh アセットに変換します。これはスケルタルメッシュでも機能します。ポーズをとった状態のキャラクターからメッシュをキャプチャーすることができます。
 
 [REGION:asyncgif]
-![image alt text](image_27.gif)(w:929 h:598)
+![image alt text](image_27.gif)(w:929)
 [/REGION]
 
 ## 新規：NVIDIA Ansel のサポート
@@ -300,12 +300,12 @@ UE4 4.14 では、NVIDIA Ansel Photography のサポートが加わります！
 
 Ansel は NVIDIA の新しいツールで、プレイヤーはインゲームのスクリーンショットを撮ることができます。Ansel モードの間、ゲームは一時停止し、プレイヤーはカメラを制御してショットを構成し様々なスクリーン エフェクトを適用することができます。HDR から 360 ステレオまで多様なスクリーン ショットをキャプチャーすることもできます。詳細は NVIDIA のウェブサイト [http://www.geforce.com/hardware/technology/ansel](http://www.geforce.com/hardware/technology/ansel) をご覧ください。
 
-![image alt text](image_28.jpg)(w:929 h:598 convert:false)
+![image alt text](image_28.jpg)(w:929 convert:false)
 
 Ansel のサポートは UE4 の新しいプラグインとして公開されています。プロジェクトでこのプラグインを有効にしたら、スタンドアロンのゲーム セッションで Ansel にアクセスすることができます。 
 
 [REGION:asyncgif]
-![image alt text](image_29.gif)(w:928 h:425)
+![image alt text](image_29.gif)(w:928)
 [/REGION]
 
 *(ウェブ ブラウザで Ansel 360 キャプチャーを表示)*
@@ -319,7 +319,7 @@ Player Camera Manager クラスに関数も公開したので、ゲームで Ans
 Cable コンポーネントのプラグインに新機能が加わりアップデートされました。アップデートには、コリジョンのサポート、オブジェクトをアタッチするためのソケット、エフェクトなどが含まれます。
 
 [REGION:asyncgif]
-![image alt text](image_30.gif)(w:781 h:496)
+![image alt text](image_30.gif)(w:781)
 [/REGION]
 
 Cable コンポーネントには以下の新機能があります。
@@ -336,16 +336,16 @@ Cable コンポーネントには以下の新機能があります。
 
 UMG とスレートのフォントでオプションのアウトラインが使えるようになりました！   
 
-![image alt text](image_31.png)(w:929 h:534 convert:false)
+![image alt text](image_31.png)(w:929 convert:false)
 
 フォントを指定するウィジェットでは、アウトラインの設定、色、マテリアルを変更することができます。
 
-![image alt text](image_32.png)(w:397 h:148 convert:false)
+![image alt text](image_32.png)(w:397 convert:false)
 
 アウトライン上のフォント マテリアルは他のフォント マテリアルと同じやり方で使うことができます。ただし、アウトラインに対して指定されたマテリアルはアウトラインだけに適用されます。フォント マテリアルをアウトラインに使用して多様なエフェクトを生み出すことができます。
 
 [REGION:asyncgif]
-![image alt text](image_33.gif)(w:645 h:194)
+![image alt text](image_33.gif)(w:645)
 [/REGION]
 
 ## 新規：編集可能な Map プロパティと Set プロパティ
@@ -354,11 +354,11 @@ UMG とスレートのフォントでオプションのアウトラインが使�
 
 **Sets ** は配列に似ていますが、set 内で同じエレメントを 2 回持つことはできません。また、エレメントの順序も保証されません。しかし、set をルックアップしてエレメントが含まれているかを確認するのは非常に速くなりました。
 
-![image alt text](image_34.png)(w:401 h:185 convert:false)
+![image alt text](image_34.png)(w:401 convert:false)
 
 **Maps ** にはキーと値があり、[Details (詳細)] パネルで編集することができます。Sets と同様にすべてのキーはユニークでなければならず、エレメントの順序が保たれる保証はありません。しかし、キーがわかっている限り、エレメント値のルックアップは非常に迅速です。
 
-![image alt text](image_35.png)(w:401 h:254 convert:false) 
+![image alt text](image_35.png)(w:401 convert:false) 
 
 ## 新規：マテリアルの Vector Noise
 
@@ -386,22 +386,22 @@ UMG とスレートのフォントでオプションのアウトラインが使�
 
 以下は、Vector Noise / Voronoi の距離コンポーネントを使って、サーフェスのバンプやクラックの苔のブレンドを調整したシンプルな地面の石のマテリアルです。シードの位置と Vector Noise / Cellnoise を合わせて石毎に色やバンプの高さを変えています。
 
-![image alt text](image_36.png)(w:626 h:304 convert:false)
+![image alt text](image_36.png)(w:626 convert:false)
 
 通常の Perlin ノイズで可能なように、Perlin Curl と Perlin Gradient はオクターブでまとめて追加することができます。より複雑な式については、表現式の結果の勾配を計算する必要があります。これを行うには、計算する表現式をマテリアル関数に配置し、それを**Prepare3DDeriv**、 **Compute3DDeriv**、および **GradFrom3DDeriv** または **CurlFrom3DDeriv** のいずれかのようなヘルパー ノードと併用します。これらは、四面体パターンに配置されたベースとなる式の 4 つの評価を用いて、微分係数ベースの演算を近似します。例えば、このネットワークではバンプの高さの関数からバンプの法線を計算するために勾配を使用します。
 
-![image alt text](image_37.png)(w:929 h:241 convert:false)
+![image alt text](image_37.png)(w:929 convert:false)
 
 ## 新規：PhysX 3.4 へのアップグレード
 
 アンリアル エンジンでは NVIDIA PhysX の最新バージョン、3.4 を使用するようになりました。剛体やシーンクエリのパフォーマンスとメモリ使用が改善します (特にマルチコアのパフォーマンスの場合)。 
 
-![image alt text](image_38.png)(w:441 h:197 convert:false)
+![image alt text](image_38.png)(w:441 convert:false)
 
 PhysX のこのバージョンでは **キネマティック オブジェクト** に対して **Continuous Collision Detection (連続したコリジョン検知)**(CCD) が可能になります。その結果、非常に高速に移動する剛体間で正確なコリジョンを実現します。Robo Recall のテスト レベルからの以下のアニメーションでは、プレイヤーが武器を振り回して向かってくる弾丸を打ち返しています。
 
 [REGION:asyncgif]
-![image alt text](image_39.gif)(w:674 h:378)
+![image alt text](image_39.gif)(w:674)
 [/REGION]
 
 UE4 ですぐに使える新機能は以下のとおりです。
@@ -418,7 +418,7 @@ UE4 ですぐに使える新機能は以下のとおりです。
 
 アニメーション関連ツールは、複数モードでひとつのエディタを使うのではなく、複数の個別のアセット エディタに分割されました。
 
-![image alt text](image_40.jpg)(w:929 h:560 convert:false)
+![image alt text](image_40.jpg)(w:929 convert:false)
 
 他にも多くの改善点があります。各エディタに共通の機能は通常ビューポートと改善されたスケルトンツリーにあります。
 
@@ -431,24 +431,24 @@ UE4 ですぐに使える新機能は以下のとおりです。
 * Animation ブループリント エディタでは、レイアウトを微調整し、標準のブループリント エディタに近いものになりました。Anim Preview エディタではオプションで、プレビューのプロパティでクラス デフォルトに加えた変更をオプションで適用できるようになりました。
 
 [REGION:asyncgif]
-![image alt text](image_41.gif)(w:409 h:552)
+![image alt text](image_41.gif)(w:409)
 [/REGION]
 
 ### アセットのショートカット バー
 
-![image alt text](image_42.png)(w:460 h:60 convert:false)
+![image alt text](image_42.png)(w:460 convert:false)
 
 改善されたアセット ショートカットバーを使って、スケルトンを共有する関連するアニメーション アセット間をジャンプすることができます。
 
 ### 記録がトランスポート コントロールに移動
 
-![image alt text](image_43.png)(w:252 h:68 convert:false)
+![image alt text](image_43.png)(w:252 convert:false)
 
 これまで、記録はツールバーのボタンを使って行っていました。現在、シーケンサーと同様にトランスポート コントロールにある記録ボタンに移動しました。
 
 ###プレビュー シーンの設定
 
-![image alt text](image_44.png)(w:605 h:378 convert:false)
+![image alt text](image_44.png)(w:605 convert:false)
 
 シーン内のオブジェクトとそのアニメーションは、各エディタの [Scene Setup] メニューで変更することができます。これにより、プレビュー アニメーションを適用し、様々なプレビュー メッシュを設定し (スケルトンに対して指定するか、個々のアニメーションに対して指定)、メッシュを追加でアタッチすることができます。追加したメッシュは、メインメッシュに従属するものとして操作されるスケルタルメッシュ一式を定義する独立したエディタ限定アセットとして指定されます。
 
@@ -457,7 +457,7 @@ UE4 ですぐに使える新機能は以下のとおりです。
 アニメーション エディタで新しい専用ウィンドウを使って簡単にアニメーション カーブを微調整することができます。カーブは編集しながらライブでプレビューできます。
 
 [REGION:asyncgif]
-![image alt text](image_45.gif)(w:761 h:537)
+![image alt text](image_45.gif)(w:761)
 [/REGION]
 
 これまではアニメーション アセット自体でのみカーブを設定可能でしたが、現在は代わりにスケルトンに対して設定できるようになりました。
@@ -466,7 +466,7 @@ UE4 ですぐに使える新機能は以下のとおりです。
 
 ブループリントに追加された Child Actor (子アクタ) コンポーネントは、Child Actor テンプレートからそのプロパティをカスタマイズすることができます。
 
-![image alt text](image_46.png)( w:929 h:658convert:false)
+![image alt text](image_46.png)( w:929)
 
 Child Actor コンポーネントを追加すると、所有するアクタのブループリント エディタの詳細パネルで展開可能なテンプレートが表示されます。ここから、公開変数を含む子アクタのすべてのプロパティにアクセスすることができます。 
 
@@ -482,10 +482,10 @@ Animation ブループリントをスケルタルメッシュに割り当てて�
 
 ‘Post process’ アニメーションのブループリントもそれ自体ネイティブのブループリントの更新ステップを持つため、アニメーション グラフで使用するようにパラメータを読み出して計算することができます。
 
-![image alt text](image_47.png)(w:356 h:69 convert:false)
+![image alt text](image_47.png)(w:356 convert:false)
 
 [REGION:asyncgif]
-![image alt text](image_48.gif)(w:740 h:441)
+![image alt text](image_48.gif)(w:740)
 [/REGION]
 
 ## 新規：VR でのランドスケープの編集
@@ -493,7 +493,7 @@ Animation ブループリントをスケルタルメッシュに割り当てて�
 VR でモーション コントローラーを使ってテレインを作成し、スカルプトし、ランドスケープのマテリアルをペイントできるようになりました。  
 
 [REGION:asyncgif]
-![image alt text](image_49.gif)(w:620 h:336)
+![image alt text](image_49.gif)(w:620)
 [/REGION]
 
 Quick Menu で [Modes] パネルからランドスケープ編集ツールを呼び出すことができます。次に UI からブラシを選択し、ペイントを開始します。モーション コントローラーで [Modifier] ボタンを押したままにすると、ペイントする代わりに消去することができます。
@@ -503,7 +503,7 @@ Quick Menu で [Modes] パネルからランドスケープ編集ツールを呼
 タイヤの力が適用される場所を変更しました。これまでタイヤの力はビークルの重心に適用されていました。現在は、**タイヤの重心** に適用されるようになり、車両の荷重の揺れを簡単に実現できるようになりました。 
 
 [REGION:asyncgif]
-![image alt text](image_50.gif)(w:736 h:372)
+![image alt text](image_50.gif)(w:736)
 [/REGION]
 
 **Simple Wheeled Vehicle Movement コンポーネント** も追加しました。これは、複雑なエンジンやドライブトレインのシミュレーションなしで、ホイールのサスペンションとタイヤの摩擦を実現します。このコンポーネントでは、**個々のタイヤへのトルク** を簡単に適用することができます。Wheeled Vehicle Movement コンポーネントから継承するすべてのコンポーネントは、任意のコンポーネントで使用可能になり、 Wheeled Vehicle アクタに頼らなくてもよくなりました。
@@ -515,7 +515,7 @@ Quick Menu で [Modes] パネルからランドスケープ編集ツールを呼
 UE4.14 では Vulkan をサポートするゲームの出荷に対応するようになりました。
 
 [REGION:raw]
-![image alt text](image_51.png)( w:837 h:409 convert:false)
+![image alt text](image_51.png)( w:837 convert:false)
 [/REGION]
 
 * UE4 は、最新の OTA アップデートを実行する Samsung Galaxy S7 だけでなく、Vulkan ドライバーを持つ Android 7 (Nougat) デバイスをサポートするようになりました。
@@ -531,7 +531,7 @@ UE4.14 では Vulkan をサポートするゲームの出荷に対応するよ�
 モバイルのレンダリング パスでカスタム深度をサポートするようになりました。カスタムのポストプロセス マテリアルは、シーン深度、カスタム深度、シーンカラーからサンプリングできるようになりました。 
 
 [REGION:raw]
-![image alt text](image_52.png)(w:804 h:394 convert:false)
+![image alt text](image_52.png)(w:804 convert:false)
 [/REGION]
 
 ポスト プロセスが必要になるため、Mobile HDR を有効にしなければなりませんが、この機能は現時点で、Mobile MSAA が有効な状態では動作しません。
@@ -541,7 +541,7 @@ UE4.14 では Vulkan をサポートするゲームの出荷に対応するよ�
 シーン キャプチャーをレンダリングする場合、Inverse Opacity と Depth の値を出力する [Scene Capture Source] 設定がモバイルでサポートされるようになりました。 
 
 [REGION:raw]
-![image alt text](image_53.png)(w:760 h:373 convert:false)
+![image alt text](image_53.png)(w:760 convert:false)
 [/REGION]
 
 * [SceneColor (HDR) in RGB, Inv Opacity in A] オプションを使用して透過オブジェクトをテクスチャにレンダリングすることができます。続いてそれをシーンや Widget ブループリントでアルファ ブレンドすることができます。 
@@ -558,7 +558,7 @@ UE4.14 では Vulkan をサポートするゲームの出荷に対応するよ�
 
 これにはいくつかの利点があります。これまでは法線が不正確に見えていて (以下の画像参照)、ひとつの UV チャンネルに制限されていました。この 2 つの問題は今回の新しいスキニング システムで解決しました。
 
-![image alt text](image_54.jpg)(w:510 h:585 convert:false)
+![image alt text](image_54.jpg)(w:510 convert:false)
 
 ## 新規：マテリアル属性ノード
 
@@ -572,13 +572,13 @@ UE4.14 では Vulkan をサポートするゲームの出荷に対応するよ�
 
 Get ノードと Set ノードの主な改善点は、すべての属性をデフォルトで公開する Break ノードや Make ノードとは異なり、ピンがオプションで追加されることです。これにより、グラフで属性ピン毎に手動で接続する必要があった古いワークフローを使用しないようにすることができます。ノードの選択では、現在のピンのリストが [Details (詳細)] パネルに表示されます。これは展開したり取り除くことが可能です。例えば、以下のマテリアル関数では属性一式を取り、Base Color と Roughness をブレンドして光沢のある赤いサーフェスにしています。
 
-![image alt text](image_55.png)(w:841 h:226 convert:false)
+![image alt text](image_55.png)(w:841 convert:false)
 
 グラフが乱雑になるのを軽減するだけでなく、こうしたノードは多くのバックエンドの変更を、プロジェクトで追加する必要があるかもしれないカスタム マテリアル属性に対して前方互換性のあるものにします。プロジェクト間でのマテリアル共有がより実行可能なものになりました。欠落している属性があれば自動検出し、ユーザーがエラーを処理する機会を与えられるからです。ノードに明示的にリストされていない属性があれば、マテリアル グラフ作成後に追加されたものも含めてメインの Material Attributes ピンを通して渡されます。Make ノードと Break ノードでは、新しいピンを追加してすべてのグラフを手動で更新する必要があります。
 
 新しい Blend ノードでは、詳細なマテリアル レイヤーで作業する場合に一般的なやり方であるマスクを使って複数の属性セットをブレンドできるようになっています。以下の例は、Red のマテリアルと Green のマテリアルを均一にブレンドしたものです (関数として定義)。次に、この結果にクリアコートを適用するノードがあります。
 
-![image alt text](image_56.png)(w:929 h:249 convert:false)
+![image alt text](image_56.png)(w:929 convert:false)
 
 デフォルトで Blend ノードは、Alpha 入力を使うすべてのマテリアル属性に対して線形補間 (Lerp) を行います。このノードには、頂点毎 / ピクセル レベルでブレンドをオプトアウトするチェックボックスがあります。これにより、頂点のみやピクセルのみのマスク データを使用する場合に一段と簡単に制御できるようになります。上記の新しい Get ノードと Set ノード同様に、Blend ノードは追加や除去されている新規属性を自動的に処理します。これにより、プログラマーは属性を登録するときにカスタムのブレンド ビヘイビアを指定することができます。
 
@@ -586,18 +586,18 @@ Get ノードと Set ノードの主な改善点は、すべての属性をデ�
 
 マテリアルでは、頂点毎の出力で使用するためにスケルタルメッシュの参照ポーズ位置を利用できるようになりました。これにより、アニメートしたキャラクター上で局所的なエフェクトが可能になります。このノードは、それに対して標準のローカル位置を戻すスタティックメッシュでも共有可能です。以下のサンプル グラフでは、アニメーション中にスケルタルメッシュに対して相対的な状態を維持するローカル空間のグリッド パターンを作成しています。
 
-[REGION:asyncgif]![image alt text](image_57.gif)(w:346 h:369)[/REGION] ![image alt text](image_58.png)(w:500 h:369 convert:false)
+[REGION:asyncgif]![image alt text](image_57.gif)(w:346)[/REGION] ![image alt text](image_58.png)(w:500 convert:false)
 
 ## 新規：シーケンサー ショットのインポート / エクスポートをサポート
 
-ショット毎にフレームを処理して動画を記録します。マスター シーケンスでは、各ショットの開始時と終了時にフレームを加えてレンダリングできるようになりました。こうした余分なフレームは、Edit Decision List (EDL) でカットイン、カットアウトすることができます。このリストは外部のビデオ編集パッケージで使用して、ショット間のカットを調整することができます。![image alt text](image_59.gif)(h:233 w:929 convert:false)
+ショット毎にフレームを処理して動画を記録します。マスター シーケンスでは、各ショットの開始時と終了時にフレームを加えてレンダリングできるようになりました。こうした余分なフレームは、Edit Decision List (EDL) でカットイン、カットアウトすることができます。このリストは外部のビデオ編集パッケージで使用して、ショット間のカットを調整することができます。![image alt text](image_59.gif)(w:929 convert:false)
 
 ## 新規：Camera Rig Crane の改善
 
 Camera rig crane のビヘイビアを調節して、物理クレーンの移動を模倣するようにしました。
 
 [REGION:asyncgif]
-![image alt text](image_60.gif)(w:773 h:457)
+![image alt text](image_60.gif)(w:773)
 [/REGION]
 
 * カメラ クレーン マウントのロール (進行軸回転) とヨー (左右回転) は 0 です。
@@ -606,14 +606,14 @@ Camera rig crane のビヘイビアを調節して、物理クレーンの移動
 
 ## 新規：シーケンサーの録音
 
-シーケンスへの記録中に、マイクから録音ができるようになりました。![image alt text](image_61.jpg)(h:288 w:929 convert:false) 
+シーケンサーへの記録中に、マイクから録音ができるようになりました。![image alt text](image_61.jpg)(w:929 convert:false)
 
 ## 新規：Pose Driver の改善
 
 Pose Driver ノードは、サンプル ポーズに応じてボーンが別のアニメーションの機能を使えるようにする機能です。今回のリリースでは、モーフ ターゲットに加えてボーン トランスフォームも可能になりました。例えば、腕の回転に合わせた肩パッド ボーンを操作します。方向指定の代わりに操作対象のボーンをトランスレーションするオプションも追加しました。デバッグ描画を改善し、それぞれの ‘target’ ポーズと、ボーンは現在それに対する似具合が表示されるよになりました。
 
 [REGION:asyncgif]
-![image alt text](image_62.gif)(w:449 h:390)
+![image alt text](image_62.gif)(w:449)
 [/REGION]
 
 ## 新規：仮想ボーン
@@ -621,7 +621,7 @@ Pose Driver ノードは、サンプル ポーズに応じてボーンが別の�
 仮想ボーンをスケルトンに追加する機能が加わりました。仮想ボーンにはスキン機能はありませんが、スケルトン上の 2 つの既存ボーン間で高速され、スケルトン上にある各アニメーションに対してデータを自動生成します。例えば、手の子となるジョイントを追加することはできますが、手の平ジョイントに制約されます。このジョイントはその後、Animation ブループリントで IK ターゲットや look at ターゲットなどのターゲットとして使用することができたり、後で使用するために AnimBP で修正することができます。この点がソケットと異なります。 
 
 [REGION:asyncgif]
-![image alt text](image_63.gif)(w:489 h:330)
+![image alt text](image_63.gif)(w:489)
 [/REGION]
 
 キャラクターのイタレーション時間の短縮に役立ちます。これまでは、IK または AIM に対してターゲット ジョイント階層を変更する場合、DCC であるエンジン外で変更してから、すべてのアニメーションを再度インポートして新規ジョイントでアニメーション データを修正する必要がありましたが、仮想ボーンを使えばこのステップは省略して、作業はすべてエンジンで行うことができます。ただし仮想ボーンを使用するには、アニメーション データを再圧縮して、そのジョイントをアニメーション データに入れる必要があります。 
@@ -633,7 +633,7 @@ Pose Driver ノードは、サンプル ポーズに応じてボーンが別の�
 新たなモーフターゲット ビューモードでは、影響を受ける頂点をモーフターゲットごとに簡単に表示できます。
 
 [REGION:asyncgif]
-![image alt text](image_64.gif)(w:545 h:396)
+![image alt text](image_64.gif)(w:545)
 [/REGION]
 
 ## 新規：子アニメーション モンタージュ
@@ -641,7 +641,7 @@ Pose Driver ノードは、サンプル ポーズに応じてボーンが別の�
 親モンタージュをベースに子モンタージュを作成すると、全体のタイミングを管理しながらアニメーション クリップの置き換えができるようになります。ゲームプレイに絶対に影響を与えないようにしながら、変数を移動に追加した場合に便利です。
 
 [REGION:asyncgif]
-![image alt text](image_65.gif)(w:566 h:624)
+![image alt text](image_65.gif)(w:566)
 [/REGION]
 
 ## 新規：MIDI Device プラグイン 
@@ -668,13 +668,13 @@ Pose Driver ノードは、サンプル ポーズに応じてボーンが別の�
 
 ランドスケープ ミラー ツールで反射ジオメトリをミラー プレーンに平行にフリップして、向かいの対角線上にマルチプレイヤー マップを作成することができるようになりました。
 
-![image alt text](image_67.jpg)(w:721 h:453 convert:false)
+![image alt text](image_67.jpg)(w:721 convert:false)
 
 ## 新規：メッシュのマテリアル スロットでのインポートの改善 
 
 マテリアル ワークフローが変更されて、調節機能が拡大し、各マテリアルのスタティックメッシュとスケルタルメッシュの使用方法に関する情報を増やして、メッシュの再インポート時に発生するマテリアルの順序の不一致を改善しました。
 
-![image alt text](image_68.jpg)(w:461 h:354 convert:false)
+![image alt text](image_68.jpg)(w:461 convert:false)
 
 リストに表示されるエレメントは、以下の情報を持ったマテリアル スロットです。
 
@@ -694,7 +694,7 @@ Pose Driver ノードは、サンプル ポーズに応じてボーンが別の�
 
 リリースの都度、プラットフォーム パートナーからの最新の SDK リリースに対応するようにエンジンをアップデートしています。
 
-![image alt text](image_69.png)(w:929 h:397 convert:false)
+![image alt text](image_69.png)(w:929 convert:false)
 
 * Xbox One:August 2016 QFE 2 にアップグレードされました。
 
@@ -710,7 +710,7 @@ Pose Driver ノードは、サンプル ポーズに応じてボーンが別の�
 
 新しい **Mobile Patch Utilities Blueprint library** には、App Store から初回ダウンロードの一部として分配されるのではなく、モバイル ゲームでクラウド ウェブサイトから **ゲーム コンテンツとパッチをダウンロードしてインストールする** ために必要なすべての機能が含まれています。
 
-![image alt text](image_70.png)(w:929 h:486 convert:false)
+![image alt text](image_70.png)(w:929 convert:false)
 
 更新されたゲーム コンテンツの可用性を判断、ダウンロードの開始、進捗のトラック、すべてのエラー処理、正常にダウンロードされたコンテンツ パックのインストールに対応する機能が付いています。空き容量および WiFi 接続の確認機能も付いているので、そのような場合はブループリントから警告を受けます。Android と iOS でサポートされています。
 
@@ -718,17 +718,17 @@ Pose Driver ノードは、サンプル ポーズに応じてボーンが別の�
 
 新しいオンライン サブシステム GameCircle プラグインが登場しました！ 
 
-![image alt text](image_71.jpg)(w:929 h:293 convert:false)
+![image alt text](image_71.jpg)(w:929 convert:false)
 
 Amazon In-App Purchases に加え、GameCircle Achievements、Leaderboards、Friends がサポートされます。プラグインを有効にすると、Plugins カテゴリにある新しい [Amazon GameCircle project] パネルを利用することができます。Fire TV 向け AndroidManifest.xml の変更もここパネルで有効にできます。
 
-![image alt text](image_72.jpg)(w:929 h:334 convert:false)
+![image alt text](image_72.jpg)(w:929 convert:false)
 
 ## 新規：リアルタイムの GPU プロファイラ
 
 UE 4.14 では、主要なレンダリング カテゴリに対してフレーム単位の統計を表示するリアルタイム GPU プロファイラが追加されました。この機能を使用するには、コンソール コマンド 'stat gpu*.*'* * を入力します。または、[Viewport Options] ドロップダウンの ‘Stat’ サブメニューを使ってエディタで開くこともできます。
 
-![image alt text](image_73.png)(w:929 h:293 convert:false)
+![image alt text](image_73.png)(w:929 convert:false)
 
 統計は階層ではなく累積なので、イベント ツリーの深い階層まで探さずに主要カテゴリを見ることができます。例えば、シャドウ プロジェクションは (ビュー全体の) すべてのライトに対するすべてのプロジェクションの合計です。 
 
@@ -736,7 +736,7 @@ UE 4.14 では、主要なレンダリング カテゴリに対してフレー�
 
 後に、分析用にタイトルを動かした時に、GPU 統計情報をファイルに記録することができます。既存の統計情報と同様に、コンソール コマンドの ‘stat startfile’* * と ‘stat stopfile’ を使って統計情報を ue4stats ファイルに記録し、Unreal Frontend ツールでファイルを開いてそれらを表示することができます。
 
-![image alt text](image_74.png)(w:929 h:402 convert:false)
+![image alt text](image_74.png)(w:929 convert:false)
 
 *UnrealFrontend で GPU をプロファイルした様子。合計時間、ポストプロセス時間、ベースパス時間が表示される*
 
@@ -756,7 +756,7 @@ CPU が結合されいるケースでは、CPU の処理が GPU に追いつか�
 
 **重み付け (グループ分け) したアトラス テクスチャ** を生成するオプションを追加して、アクタをマージしマテリアルを組み合わせた時の **テクスチャ空間の使い方** を改善しました。 
 
-![image alt text](image_75.png)(w:286 h:286 convert:false)![image alt text](image_76.png)(w:286 h:286 convert:false)
+![image alt text](image_75.png)(w:286 convert:false)![image alt text](image_76.png)(w:286 convert:false)
 
 *(左:均等に重み付けされたマテリアル右：グループ化メソッド)*
 
@@ -770,11 +770,11 @@ CPU が結合されいるケースでは、CPU の処理が GPU に追いつか�
 
 コンピュータからファイルをメディア プレイヤーのビューポートへドラッグ＆ドロップできるようになったので、FileMediaSource を先に作っておかなくてもビデオ ファイルがプレビューできます。
 
-![image alt text](image_77.jpg)(w:664 h:561 convert:false)
+![image alt text](image_77.jpg)(w:664 convert:false)
 
 *  デコーダー パフォーマンス統計情報のタブが追加されました。再生用のプレイヤー プラグインに応じて出力内容は変わります。
 
-	![image alt text](image_78.png)(w:313 h:365 convert:false)
+	![image alt text](image_78.png)(w:313 convert:false)
 
 ## 新規：モバイル向け VR マルチビューに対応
 
@@ -784,7 +784,7 @@ CPU が結合されいるケースでは、CPU の処理が GPU に追いつか�
 
 さらに他の機能およびデバイスとの互換性も検証中なので、本機能はまた実験版です。
 
-![image alt text](image_79.jpg)(w:929 h:84 convert:false)
+![image alt text](image_79.jpg)(w:929 convert:false)
 
 上図のように[Project Setting (プロジェクト設定)] で Mobile Multiview を有効にし、変更を反省させるためにエディタを再起動します。
 
@@ -802,7 +802,7 @@ Oculus、GearVR、SteamVR、PSVR でローディング ムービーがサポー�
 
 PSVR 上でのネイティブ 90Hz から 90Hz のリプロジェクションと 120Hz to 120Hz リプロジェクションがサポートされます！つまり、より高いフレームレートで実行すれば、レイテンシーとリプロジェクション アーティファクトを最小限にすることができます。エンジンはフレームレートを選択されたオプションに合わせて制限しますが、そのフレームレートが確実に保たれるように注意しなければなりません。
 
-![image alt text](image_80.jpg)(w:929 h:158 convert:false)
+![image alt text](image_80.jpg)(w:929 convert:false)
 
 ## 新規：Windows でのマルチタッチ対応
 
@@ -816,7 +816,7 @@ Event Driven Loader には、アセットをロードするために統一され
 
 EDL は現在実験的な機能なので、デフォルトでは無効にされていますが、[Project Settings (プロジェクト設定)] ですぐにオンにすることができます。
 
-![image alt text](image_81.jpg)(w:929 h:318 convert:false)
+![image alt text](image_81.jpg)(w:929 convert:false)
 
 ## 新規：Game Mode クラスと Game State クラスの簡略化
 
@@ -1832,7 +1832,7 @@ EDL は現在実験的な機能なので、デフォルトでは無効にされ�
 
 * New:You can now disable VR Editor Tutorial in **Editor Preferences > Experimental > VR**.
 
-	![image alt text](image_82.png)(w:544 h:116 convert:false)
+	![image alt text](image_82.png)(w:544 convert:false)
 
 * Bugfix:Fixed an issue with blurry toolbar icon when "Use Small Toolbar Icons" was enabled in the Editor Preferences. 
 

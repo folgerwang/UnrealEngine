@@ -41,7 +41,7 @@ void FOnlineSessionInfoNull::Init(const FOnlineSubsystemNull& Subsystem)
 
 	FGuid OwnerGuid;
 	FPlatformMisc::CreateGuid(OwnerGuid);
-	SessionId = FUniqueNetIdString(OwnerGuid.ToString());
+	SessionId = FUniqueNetIdNull(OwnerGuid.ToString());
 }
 
 /**
@@ -205,7 +205,7 @@ bool FOnlineSessionNull::CreateSession(int32 HostingPlayerNum, FName SessionName
 		// if did not get a valid one, use just something
 		if (!Session->OwningUserId.IsValid())
 		{
-			Session->OwningUserId = MakeShareable(new FUniqueNetIdString(FString::Printf(TEXT("%d"), HostingPlayerNum)));
+			Session->OwningUserId = MakeShareable(new FUniqueNetIdNull(FString::Printf(TEXT("%d"), HostingPlayerNum)));
 			Session->OwningUserName = FString(TEXT("NullUser"));
 		}
 		
@@ -858,7 +858,7 @@ void FOnlineSessionNull::UnregisterVoice(const FUniqueNetId& PlayerId)
 bool FOnlineSessionNull::RegisterPlayer(FName SessionName, const FUniqueNetId& PlayerId, bool bWasInvited)
 {
 	TArray< TSharedRef<const FUniqueNetId> > Players;
-	Players.Add(MakeShareable(new FUniqueNetIdString(PlayerId)));
+	Players.Add(MakeShareable(new FUniqueNetIdNull(PlayerId)));
 	return RegisterPlayers(SessionName, Players, bWasInvited);
 }
 
@@ -909,7 +909,7 @@ bool FOnlineSessionNull::RegisterPlayers(FName SessionName, const TArray< TShare
 bool FOnlineSessionNull::UnregisterPlayer(FName SessionName, const FUniqueNetId& PlayerId)
 {
 	TArray< TSharedRef<const FUniqueNetId> > Players;
-	Players.Add(MakeShareable(new FUniqueNetIdString(PlayerId)));
+	Players.Add(MakeShareable(new FUniqueNetIdNull(PlayerId)));
 	return UnregisterPlayers(SessionName, Players);
 }
 
@@ -971,7 +971,7 @@ void FOnlineSessionNull::TickLanTasks(float DeltaTime)
 void FOnlineSessionNull::AppendSessionToPacket(FNboSerializeToBufferNull& Packet, FOnlineSession* Session)
 {
 	/** Owner of the session */
-	Packet << *StaticCastSharedPtr<const FUniqueNetIdString>(Session->OwningUserId)
+	Packet << *StaticCastSharedPtr<const FUniqueNetIdNull>(Session->OwningUserId)
 		<< Session->OwningUserName
 		<< Session->NumOpenPrivateConnections
 		<< Session->NumOpenPublicConnections;
@@ -1072,7 +1072,7 @@ void FOnlineSessionNull::ReadSessionFromPacket(FNboSerializeFromBufferNull& Pack
 #endif
 
 	/** Owner of the session */
-	FUniqueNetIdString* UniqueId = new FUniqueNetIdString;
+	FUniqueNetIdNull* UniqueId = new FUniqueNetIdNull;
 	Packet >> *UniqueId
 		>> Session->OwningUserName
 		>> Session->NumOpenPrivateConnections
@@ -1266,4 +1266,14 @@ bool FOnlineSessionNull::IsHost(const FNamedOnlineSession& Session) const
 
 	TSharedPtr<const FUniqueNetId> UserId = IdentityInt->GetUniquePlayerId(Session.HostingPlayerNum);
 	return (UserId.IsValid() && (*UserId == *Session.OwningUserId));
+}
+
+TSharedPtr<const FUniqueNetId> FOnlineSessionNull::CreateSessionIdFromString(const FString& SessionIdStr)
+{
+	TSharedPtr<const FUniqueNetId> SessionId;
+	if (!SessionIdStr.IsEmpty())
+	{
+		SessionId = MakeShared<FUniqueNetIdNull>(SessionIdStr);
+	}
+	return SessionId;
 }

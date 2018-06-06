@@ -98,6 +98,16 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Check whether the given platform supports the parallel executor in UAT
+		/// </summary>
+		/// <param name="Platform">Platform to check</param>
+		/// <returns>True if the platform supports the parallel executor in UAT</returns>
+		public static bool CanUseParallelExecutor(UnrealTargetPlatform Platform)
+		{
+			return UEBuildPlatform.IsPlatformAvailable(Platform) && UEBuildPlatform.GetBuildPlatform(Platform).CanUseParallelExecutor();
+		}
+
+		/// <summary>
 		///
 		/// </summary>
 		public static void PreventAutoSDKSwitching()

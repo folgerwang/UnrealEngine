@@ -28,6 +28,9 @@ tls_t *tls_new(xmpp_ctx_t *ctx, sock_t sock);
 void tls_free(tls_t *tls);
 
 int tls_set_credentials(tls_t *tls, const char *cafilename);
+#if defined(USE_UNREAL_SSL)
+int tls_set_hostname(tls_t *tls, const char *hostname);
+#endif
 
 int tls_start(tls_t *tls);
 int tls_stop(tls_t *tls);

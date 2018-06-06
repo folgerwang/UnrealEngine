@@ -177,7 +177,7 @@ public abstract class BaseWinPlatform : Platform
 		return "Windows";
 	}
 
-    public override string GetPlatformPakCommandLine()
+    public override string GetPlatformPakCommandLine(ProjectParams Params, DeploymentContext SC)
     {
         return " -patchpaddingalign=2048";
     }
@@ -268,11 +268,8 @@ public abstract class BaseWinPlatform : Platform
 			// Stage files in subdirs
 			foreach (DirectoryReference DependencyDirectory in DirectoryReference.EnumerateDirectories(BaseAppLocalDependenciesPath))
 			{	
-				SC.StageFiles(StagedFileType.NonUFS, DependencyDirectory, StageFilesSearch.TopDirectoryOnly, StagedBinariesDir);
+				SC.StageFiles(StagedFileType.NonUFS, DependencyDirectory, StageFilesSearch.AllDirectories, StagedBinariesDir);
 			}
-				
-			// stage loose files here
-			SC.StageFiles(StagedFileType.NonUFS, BaseAppLocalDependenciesPath, StageFilesSearch.AllDirectories, StagedBinariesDir);
 		}
 	}
 
@@ -398,21 +395,31 @@ public abstract class BaseWinPlatform : Platform
             return false;
         }
 
-        bool bSuccess = true;
-        foreach (var File in Files.Where(x => x.HasExtension(".pdb") || x.HasExtension(".exe") || x.HasExtension(".dll")))
-        {
-            ProcessStartInfo StartInfo = new ProcessStartInfo();
-            StartInfo.FileName = SymStoreExe.FullName;
-            StartInfo.Arguments = string.Format("add /f \"{0}\" /s \"{1}\" /t \"{2}\" /compress", File.FullName, SymbolStoreDirectory.FullName, Product);
-            StartInfo.UseShellExecute = false;
-            StartInfo.CreateNoWindow = true;
-            if (Utils.RunLocalProcessAndLogOutput(StartInfo) != 0)
-            {
-                bSuccess = false;
-            }
+		List<FileReference> FilesToAdd = Files.Where(x => x.HasExtension(".pdb") || x.HasExtension(".exe") || x.HasExtension(".dll")).ToList();
+		if(FilesToAdd.Count > 0)
+		{
+			string TempFileName = Path.GetTempFileName();
+			try
+			{
+				File.WriteAllLines(TempFileName, FilesToAdd.Select(x => x.FullName), Encoding.ASCII);
+
+				ProcessStartInfo StartInfo = new ProcessStartInfo();
+				StartInfo.FileName = SymStoreExe.FullName;
+				StartInfo.Arguments = string.Format("add /f \"@{0}\" /s \"{1}\" /t \"{2}\" /compress", TempFileName, SymbolStoreDirectory.FullName, Product);
+				StartInfo.UseShellExecute = false;
+				StartInfo.CreateNoWindow = true;
+				if (Utils.RunLocalProcessAndLogOutput(StartInfo) != 0)
+				{
+					return false;
+				}
+			}
+			finally
+			{
+				File.Delete(TempFileName);
+			}
         }
 
-        return bSuccess;
+		return true;
     }
 
     public override string[] SymbolServerDirectoryStructure

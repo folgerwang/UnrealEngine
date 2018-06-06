@@ -114,6 +114,7 @@ struct FFbxTestPlanExpectedResult
 	TArray< FString > ExpectedPresetsDataString;
 
 	FFbxTestPlanExpectedResult()
+		: ExpectedPresetsType(EFBXExpectedResultPreset::Error_Number)
 	{
 	}
 };

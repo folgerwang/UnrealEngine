@@ -559,7 +559,9 @@ void IStreamingManager::AddViewInformation( const FVector& ViewOrigin, float Scr
 	// Is this a reasonable location?
 	if ( FMath::Abs(ViewOrigin.X) < (1.0e+20f) && FMath::Abs(ViewOrigin.Y) < (1.0e+20f) && FMath::Abs(ViewOrigin.Z) < (1.0e+20f) )
 	{
-		BoostFactor *= CVarStreamingBoost.GetValueOnGameThread();
+		const float MinBoost = CVarStreamingMinBoost.GetValueOnGameThread();
+		const float BoostScale = FMath::Max(CVarStreamingBoost.GetValueOnGameThread(),MinBoost);
+		BoostFactor *= BoostScale;
 
 		if ( bPendingRemoveViews )
 		{
@@ -602,7 +604,9 @@ void IStreamingManager::AddViewInformation( const FVector& ViewOrigin, float Scr
  */
 void IStreamingManager::AddViewSlaveLocation( const FVector& SlaveLocation, float BoostFactor/*=1.0f*/, bool bOverrideLocation/*=false*/, float Duration/*=0.0f*/ )
 {
-	BoostFactor *= CVarStreamingBoost.GetValueOnGameThread();
+	const float MinBoost = CVarStreamingMinBoost.GetValueOnGameThread();
+	const float BoostScale = FMath::Max(CVarStreamingBoost.GetValueOnGameThread(),MinBoost);
+	BoostFactor *= BoostScale;
 
 	if ( bPendingRemoveViews )
 	{

@@ -51,7 +51,7 @@ bool FUserOnlineAccountTwitch::Parse(const FString& InAuthTicket, FTwitchTokenVa
 	{
 		if (ValidationResponse.bTokenIsValid)
 		{
-			UserId = MakeShared<FUniqueNetIdString>(ValidationResponse.UserId);
+			UserId = MakeShared<FUniqueNetIdTwitch>(ValidationResponse.UserId);
 			if (!ValidationResponse.UserName.IsEmpty())
 			{
 				SetAccountData(USER_ATTR_DISPLAYNAME, ValidationResponse.UserName);

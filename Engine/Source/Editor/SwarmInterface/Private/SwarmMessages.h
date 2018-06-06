@@ -27,7 +27,9 @@ struct FSwarmPongMessage
 	UPROPERTY(EditAnywhere, Category="Message")
 	FString ComputerName;
 
-	FSwarmPongMessage() { }
+	FSwarmPongMessage()
+		: bIsEditor(false)
+	{ }
 
 	FSwarmPongMessage(bool bInIsEditor, const TCHAR* InComputerName)
 		: bIsEditor(bInIsEditor)
@@ -77,7 +79,10 @@ struct FSwarmAlertMessage
 	UPROPERTY(EditAnywhere, Category="Message")
 	FString TextMessage;
 
-	FSwarmAlertMessage() { }
+	FSwarmAlertMessage() 
+		: AlertLevel(0)
+		, TypeId(0)
+	{ }
 
 	FSwarmAlertMessage(const FGuid& InJobGuid, NSwarm::TAlertLevel InAlertLevel, const FGuid& InObjectGuid, int32 InTypeId, const FString& InTextMessage)
 		: JobGuid(InJobGuid)
@@ -102,7 +107,10 @@ struct FSwarmTimingMessage
 	UPROPERTY(EditAnywhere, Category="Message")
 	int32 ThreadNum;
 
-	FSwarmTimingMessage() { }
+	FSwarmTimingMessage()
+		: State(0)
+		, ThreadNum(0)
+	{ }
 
 	FSwarmTimingMessage(NSwarm::TProgressionState InState, int32 InThreadNum)
 		: State(InState)
@@ -163,7 +171,10 @@ struct FSwarmTaskRequestSpecificationMessage
 	UPROPERTY(EditAnywhere, Category="Message")
 	TArray<FString> Dependencies;
 
-	FSwarmTaskRequestSpecificationMessage() { }
+	FSwarmTaskRequestSpecificationMessage()
+		: Flags(0)
+		, Cost(0)
+	{ }
 
 	FSwarmTaskRequestSpecificationMessage(FGuid InTaskGuid, const FString& InParameters, NSwarm::TJobTaskFlags InFlags, const TArray<FString>& InDependencies)
 		: TaskGuid(InTaskGuid)
@@ -197,7 +208,11 @@ struct FSwarmJobStateMessage
 	UPROPERTY(EditAnywhere, Category="Message")
 	double RunningTime;
 
-	FSwarmJobStateMessage() { }
+	FSwarmJobStateMessage()
+		: State(0)
+		, ExitCode(0)
+		, RunningTime(0.0)
+	{ }
 
 	FSwarmJobStateMessage(FGuid InGuid, NSwarm::TJobTaskState InState, const FString& InMessage, int32 InExitCode, double InRunningTime)
 		: Guid(InGuid)
@@ -232,7 +247,11 @@ struct FSwarmTaskStateMessage
 	UPROPERTY(EditAnywhere, Category="Message")
 	double RunningTime;
 
-	FSwarmTaskStateMessage() { }
+	FSwarmTaskStateMessage()
+		: State(0)
+		, ExitCode()
+		, RunningTime(0.0)
+	{ }
 
 	FSwarmTaskStateMessage(FGuid InGuid, NSwarm::TJobTaskState InState, const FString& InMessage, int32 InExitCode, double InRunningTime)
 		: Guid(InGuid)

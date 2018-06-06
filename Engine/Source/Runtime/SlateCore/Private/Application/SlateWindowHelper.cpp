@@ -97,76 +97,88 @@ bool FSlateWindowHelper::FindPathToWidget( const TArray<TSharedRef<SWindow>>& Wi
 {
 	SCOPE_CYCLE_COUNTER(STAT_FindPathToWidget);
 
-#if SLATE_FAST_WIDGET_PATH
-	// We have to internally cast this anyway - because the constructed widget path will be of non-const widgets, so if you'll end up with
-	// a mutable copy anyway.
-	TSharedPtr<SWidget> CurWidget = ConstCastSharedRef<SWidget>(InWidget);
-	OutWidgetPath.Widgets.SetFilter(VisibilityFilter);
-	while (true)
+	if (SLATE_PARENT_POINTERS && GSlateFastWidgetPath)
 	{
-		EVisibility CurWidgetVisibility = CurWidget->GetVisibility();
-		if (OutWidgetPath.Widgets.Accepts(CurWidgetVisibility))
+		// We have to internally cast this anyway - because the constructed widget path will be of non-const widgets, so if you'll end up with
+		// a mutable copy anyway.
+		TSharedPtr<SWidget> CurWidget = ConstCastSharedRef<SWidget>(InWidget);
+		OutWidgetPath.Widgets.SetFilter(VisibilityFilter);
+		while (true)
 		{
-			FArrangedWidget ArrangedWidget(CurWidget.ToSharedRef(), CurWidget->GetCachedGeometry());
-			OutWidgetPath.Widgets.AddWidget(CurWidgetVisibility, ArrangedWidget);
-
-			TSharedPtr<SWidget> CurWidgetParent = CurWidget->GetParentWidget();
-			if (!CurWidgetParent.IsValid())
+			EVisibility CurWidgetVisibility = CurWidget->GetVisibility();
+			if (OutWidgetPath.Widgets.Accepts(CurWidgetVisibility))
 			{
-				if (CurWidget->Advanced_IsWindow())
+				FArrangedWidget ArrangedWidget(CurWidget.ToSharedRef(), CurWidget->GetCachedGeometry());
+				OutWidgetPath.Widgets.AddWidget(CurWidgetVisibility, ArrangedWidget);
+
+				TSharedPtr<SWidget> CurWidgetParent = CurWidget->GetParentWidget();
+				if (!CurWidgetParent.IsValid())
 				{
-					OutWidgetPath.TopLevelWindow = StaticCastSharedPtr<SWindow>(CurWidget);
-					OutWidgetPath.Widgets.Reverse();
-					// The path is complete, we found the top window.
-					return true;
+					if (CurWidget->Advanced_IsWindow())
+					{
+						OutWidgetPath.TopLevelWindow = StaticCastSharedPtr<SWindow>(CurWidget);
+						OutWidgetPath.Widgets.Reverse();
+						// The path is complete, we found the top window.
+						return true;
+					}
+
+					// This widget doesn't have a parent, abandon the tree.
+					OutWidgetPath.Widgets.Empty();
+					return false;
 				}
 
-				// This widget doesn't have a parent, abandon the tree.
+				// Even if the parent pointer is valid, and even if the visibility is visible,
+				// it's possible a widget shows and hides children without ever removing them
+				// this is the case with widgets like SWidgetSwitcher.
+				if (!CurWidgetParent->ValidatePathToChild(CurWidget.Get()))
+				{
+					OutWidgetPath.Widgets.Empty();
+					return false;
+				}
+
+				CurWidget = CurWidgetParent;
+			}
+			else
+			{
+				// We ran into a widget that isn't accepted.
 				OutWidgetPath.Widgets.Empty();
 				return false;
 			}
-
-			CurWidget = CurWidgetParent;
-		}
-		else
-		{
-			// We ran into a widget that isn't accepted.
-			OutWidgetPath.Widgets.Empty();
-			return false;
 		}
 	}
-#else
-	// Iterate over our top level windows
-	bool bFoundWidget = false;
-
-	for (int32 WindowIndex = 0; !bFoundWidget && WindowIndex < WindowsToSearch.Num(); ++WindowIndex)
+	else
 	{
-		// Make a widget path that contains just the top-level window
-		TSharedRef<SWindow> CurWindow = WindowsToSearch[WindowIndex];
-		
-		FArrangedChildren JustWindow(VisibilityFilter);
+		// Iterate over our top level windows
+		bool bFoundWidget = false;
+
+		for (int32 WindowIndex = 0; !bFoundWidget && WindowIndex < WindowsToSearch.Num(); ++WindowIndex)
 		{
-			JustWindow.AddWidget(FArrangedWidget(CurWindow, CurWindow->GetWindowGeometryInScreen()));
-		}
-		
-		FWidgetPath PathToWidget(CurWindow, JustWindow);
-		
-		// Attempt to extend it to the desired child widget; essentially a full-window search for 'InWidget
-		if ((CurWindow == InWidget) || PathToWidget.ExtendPathTo(FWidgetMatcher(InWidget), VisibilityFilter))
-		{
-			OutWidgetPath = PathToWidget;
-			bFoundWidget = true;
+			// Make a widget path that contains just the top-level window
+			TSharedRef<SWindow> CurWindow = WindowsToSearch[WindowIndex];
+
+			FArrangedChildren JustWindow(VisibilityFilter);
+			{
+				JustWindow.AddWidget(FArrangedWidget(CurWindow, CurWindow->GetWindowGeometryInScreen()));
+			}
+
+			FWidgetPath PathToWidget(CurWindow, JustWindow);
+
+			// Attempt to extend it to the desired child widget; essentially a full-window search for 'InWidget
+			if ((CurWindow == InWidget) || PathToWidget.ExtendPathTo(FWidgetMatcher(InWidget), VisibilityFilter))
+			{
+				OutWidgetPath = PathToWidget;
+				bFoundWidget = true;
+			}
+
+			if (!bFoundWidget)
+			{
+				// Search this window's children
+				bFoundWidget = FindPathToWidget(CurWindow->GetChildWindows(), InWidget, OutWidgetPath, VisibilityFilter);
+			}
 		}
 
-		if (!bFoundWidget)
-		{
-			// Search this window's children
-			bFoundWidget = FindPathToWidget(CurWindow->GetChildWindows(), InWidget, OutWidgetPath, VisibilityFilter);
-		}
+		return bFoundWidget;
 	}
-
-	return bFoundWidget;
-#endif
 }
 
 

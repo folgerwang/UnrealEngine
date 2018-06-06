@@ -16,6 +16,8 @@
 #include "CrashDescription.h"
 #include "Misc/EngineBuildSettings.h"
 
+#include "Stats/Stats.h"
+
 // Switched off CRR upload - Jun 2016
 #define PRIMARY_UPLOAD_RECEIVER 0
 #define PRIMARY_UPLOAD_DATAROUTER 1
@@ -364,6 +366,8 @@ FCrashUploadToReceiver::~FCrashUploadToReceiver()
 
 bool FCrashUploadToReceiver::PingTimeout(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FCrashUploadToReceiver_PingTimeout);
+
 	if (EUploadState::PingingServer == State)
 	{
 		SetCurrentState(EUploadState::ServerNotAvailable);

@@ -45,6 +45,7 @@ public:
 		, LastFrameRealTime(-1.0f)
 		, ParticleFactoryType(Type)
 		, bInUse(false)
+		, bIsDirty(false)
 	{
 	}
 
@@ -92,6 +93,9 @@ public:
 		return true;
 	}
 
+	bool IsDirty() { return bIsDirty; }
+	void SetDirty() { bIsDirty = true; }
+
 private:
 
 	/** Last state where we set this. We only need to setup these once per frame, so detemine same frame by number, time, and view family. */
@@ -105,6 +109,7 @@ private:
 
 	/** Whether the vertex factory is in use. */
 	bool bInUse;
+	bool bIsDirty;	// needs to be recreated before use next frame
 
 };
 

@@ -401,7 +401,7 @@ void SSequencerTrackArea::OnMouseLeave(const FPointerEvent& MouseEvent)
 }
 
 
-void SSequencerTrackArea::OnMouseCaptureLost()
+void SSequencerTrackArea::OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)
 {
 	if ( Sequencer.IsValid() )
 	{

@@ -274,7 +274,7 @@ static TAutoConsoleVariable<int32> CVarAllowTranslucencyAfterDOF(
 	TEXT("after DOF, if not specified otherwise in the material).\n")
 	TEXT(" 0: off (translucency is affected by depth of field)\n")
 	TEXT(" 1: on costs GPU performance and memory but keeps translucency unaffected by Depth of Field. (default)"),
-	ECVF_RenderThreadSafe);
+	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarEnableTemporalUpsample(
 	TEXT("r.TemporalAA.Upsampling"),
@@ -685,6 +685,9 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	}
 
 	bUseFieldOfViewForLOD = InitOptions.bUseFieldOfViewForLOD;
+	FOV = InitOptions.FOV;
+	DesiredFOV = InitOptions.DesiredFOV;
+
 	DrawDynamicFlags = EDrawDynamicFlags::None;
 	bAllowTemporalJitter = true;
 
@@ -812,20 +815,6 @@ float FSceneView::GetLODDistanceFactor() const
 	return Fac;
 }
 
-float FSceneView::GetTemporalLODDistanceFactor(int32 Index, bool bUseLaggedLODTransition) const
-{
-	if (bUseLaggedLODTransition && State)
-	{
-		const FTemporalLODState& LODState = State->GetTemporalLODState();
-		if (LODState.TemporalLODLag != 0.0f)
-		{
-			return LODState.TemporalDistanceFactor[Index];
-		}
-	}
-	return GetLODDistanceFactor();
-}
-
-
 FVector FSceneView::GetTemporalLODOrigin(int32 Index, bool bUseLaggedLODTransition) const
 {
 	if (bUseLaggedLODTransition && State)
@@ -889,28 +878,30 @@ void FViewMatrices::UpdateViewMatrix(const FVector& ViewLocation, const FRotator
 		FPlane(0, 1, 0, 0),
 		FPlane(0, 0, 0, 1));
 
-	ViewMatrix = FTranslationMatrix(-ViewLocation);
-	ViewMatrix = ViewMatrix * FInverseRotationMatrix(ViewRotation);
-	ViewMatrix = ViewMatrix * ViewPlanesMatrix;
+	const FMatrix ViewRotationMatrix = FInverseRotationMatrix(ViewRotation) * ViewPlanesMatrix;
 
-	InvViewMatrix = FTranslationMatrix(-ViewMatrix.GetOrigin()) * ViewMatrix.RemoveTranslation().GetTransposed();
+	ViewMatrix = FTranslationMatrix(-ViewLocation) * ViewRotationMatrix;
 
 	// Duplicate HMD rotation matrix with roll removed
 	FRotator HMDViewRotation = ViewRotation;
 	HMDViewRotation.Roll = 0.f;
 	HMDViewMatrixNoRoll = FInverseRotationMatrix(HMDViewRotation) * ViewPlanesMatrix;
 
+	ViewProjectionMatrix = GetViewMatrix() * GetProjectionMatrix();
+
+	InvViewMatrix = ViewRotationMatrix.GetTransposed() * FTranslationMatrix(ViewLocation);
+	InvViewProjectionMatrix = GetInvProjectionMatrix() * GetInvViewMatrix();
+
 	PreViewTranslation = -ViewOrigin;
-	//using mathematical equality rule for matrix inverse: (A*B)^-1 == B^-1 * A^-1
-	OverriddenTranslatedViewMatrix = TranslatedViewMatrix = FTranslationMatrix(-PreViewTranslation) * ViewMatrix;
-	OverriddenInvTranslatedViewMatrix = InvTranslatedViewMatrix = InvViewMatrix * FTranslationMatrix(PreViewTranslation);
+
+	TranslatedViewMatrix = ViewRotationMatrix;
+	InvTranslatedViewMatrix = TranslatedViewMatrix.GetTransposed();
+	OverriddenTranslatedViewMatrix = FTranslationMatrix(-PreViewTranslation) * ViewMatrix;
+	OverriddenInvTranslatedViewMatrix = InvViewMatrix * FTranslationMatrix(PreViewTranslation);
 
 	// Compute a transform from view origin centered world-space to clip space.
 	TranslatedViewProjectionMatrix = GetTranslatedViewMatrix() * GetProjectionMatrix();
 	InvTranslatedViewProjectionMatrix = GetInvProjectionMatrix() * GetInvTranslatedViewMatrix();
-
-	ViewProjectionMatrix = GetViewMatrix() * GetProjectionMatrix();
-	InvViewProjectionMatrix = GetInvProjectionMatrix() * GetInvViewMatrix();
 }
 
 void FSceneView::UpdateViewMatrix()

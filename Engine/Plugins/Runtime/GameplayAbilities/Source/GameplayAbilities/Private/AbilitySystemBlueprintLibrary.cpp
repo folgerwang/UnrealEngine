@@ -22,11 +22,13 @@ void UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(AActor* Actor, FGa
 	if (Actor && !Actor->IsPendingKill())
 	{
 		IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(Actor);
-		if (AbilitySystemInterface != NULL)
+		if (AbilitySystemInterface != nullptr)
 		{
 			UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface->GetAbilitySystemComponent();
-			if (AbilitySystemComponent != NULL)
+			if (AbilitySystemComponent != nullptr)
 			{
+				TWeakObjectPtr<UAbilitySystemComponent> ASC = AbilitySystemComponent;
+				ensureMsgf(ASC.IsValid(), TEXT("UAbilitySystemBlueprintLibrary::SendGameplayEventToActor: Invalid ability system component retrieved from Actor %s. EventTag was %s"), *Actor->GetName(), *EventTag.ToString());
 				FScopedPredictionWindow NewScopedWindow(AbilitySystemComponent, true);
 				AbilitySystemComponent->HandleGameplayEvent(EventTag, &Payload);
 			}
@@ -202,9 +204,10 @@ FGameplayAbilityTargetDataHandle UAbilitySystemBlueprintLibrary::FilterTargetDat
 	{
 		const FGameplayAbilityTargetData* UnfilteredData = TargetDataHandle.Get(i);
 		check(UnfilteredData);
-		if (UnfilteredData->GetActors().Num() > 0)
+		const TArray<TWeakObjectPtr<AActor>> UnfilteredActors = UnfilteredData->GetActors();
+		if (UnfilteredActors.Num() > 0)
 		{
-			TArray<TWeakObjectPtr<AActor>> FilteredActors = UnfilteredData->GetActors().FilterByPredicate(FilterHandle);
+			TArray<TWeakObjectPtr<AActor>> FilteredActors = UnfilteredActors.FilterByPredicate(FilterHandle);
 			if (FilteredActors.Num() > 0)
 			{
 				//Copy the data first, since we don't understand the internals of it
@@ -213,7 +216,7 @@ FGameplayAbilityTargetDataHandle UAbilitySystemBlueprintLibrary::FilterTargetDat
 				ScriptStruct->InitializeStruct(NewData);
 				ScriptStruct->CopyScriptStruct(NewData, UnfilteredData);
 				ReturnDataHandle.Data.Add(TSharedPtr<FGameplayAbilityTargetData>(NewData));
-				if (FilteredActors.Num() < UnfilteredData->GetActors().Num())
+				if (FilteredActors.Num() < UnfilteredActors.Num())
 				{
 					//We have lost some, but not all, of our actors, so replace the array. This should only be possible with targeting types that permit actor-array setting.
 					if (!NewData->SetActors(FilteredActors))
@@ -279,8 +282,8 @@ TArray<AActor*> UAbilitySystemBlueprintLibrary::GetActorsFromTargetData(const FG
 		TArray<AActor*>	ResolvedArray;
 		if (Data)
 		{
-			TArray<TWeakObjectPtr<AActor> > WeakArray = Data->GetActors();
-			for (TWeakObjectPtr<AActor> WeakPtr : WeakArray)
+			TArray<TWeakObjectPtr<AActor>> WeakArray = Data->GetActors();
+			for (TWeakObjectPtr<AActor>& WeakPtr : WeakArray)
 			{
 				ResolvedArray.Add(WeakPtr.Get());
 			}
@@ -297,9 +300,10 @@ bool UAbilitySystemBlueprintLibrary::DoesTargetDataContainActor(const FGameplayA
 		FGameplayAbilityTargetData* Data = TargetData.Data[Index].Get();
 		if (Data)
 		{
-			for (auto DataActorIter : Data->GetActors())
+			TArray<TWeakObjectPtr<AActor>> WeakArray = Data->GetActors();
+			for (TWeakObjectPtr<AActor>& WeakPtr : WeakArray)
 			{
-				if (DataActorIter == Actor)
+				if (WeakPtr == Actor)
 				{
 					return true;
 				}
@@ -529,9 +533,10 @@ int32 UAbilitySystemBlueprintLibrary::GetActorCount(FGameplayCueParameters Param
 
 AActor* UAbilitySystemBlueprintLibrary::GetActorByIndex(FGameplayCueParameters Parameters, int32 Index)
 {
-	if (Parameters.EffectContext.GetActors().IsValidIndex(Index))
+	const TArray<TWeakObjectPtr<AActor>> WeakActors = Parameters.EffectContext.GetActors();
+	if (WeakActors.IsValidIndex(Index))
 	{
-		return Parameters.EffectContext.GetActors()[Index].Get();
+		return WeakActors[Index].Get();
 	}
 	return NULL;
 }

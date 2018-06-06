@@ -60,6 +60,8 @@ URendererSettings::URendererSettings(const FObjectInitializer& ObjectInitializer
 	bSupportAtmosphericFog = true;
 	bSupportSkinCacheShaders = false;
 	bSupportMaterialLayers = false;
+	GPUSimulationTextureSizeX = 1024;
+	GPUSimulationTextureSizeY = 1024;
 }
 
 void URendererSettings::PostInitProperties()
@@ -85,6 +87,16 @@ void URendererSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
 
 	if (PropertyChangedEvent.Property)
 	{
+		// round up GPU sim texture sizes to nearest power of two, and constrain to sensible values
+		if ( PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(URendererSettings, GPUSimulationTextureSizeX) 
+			|| PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(URendererSettings, GPUSimulationTextureSizeY) ) 
+		{
+			static const int32 MinGPUSimTextureSize = 32;
+			static const int32 MaxGPUSimTextureSize = 8192;
+			GPUSimulationTextureSizeX = FMath::RoundUpToPowerOfTwo( FMath::Clamp(GPUSimulationTextureSizeX, MinGPUSimTextureSize, MaxGPUSimTextureSize) );
+			GPUSimulationTextureSizeY = FMath::RoundUpToPowerOfTwo( FMath::Clamp(GPUSimulationTextureSizeY, MinGPUSimTextureSize, MaxGPUSimTextureSize) );
+		}
+
 		ExportValuesToConsoleVariables(PropertyChangedEvent.Property);
 
 		if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(URendererSettings, ReflectionCaptureResolution) && 

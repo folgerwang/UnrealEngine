@@ -2,8 +2,12 @@
 
 #include "Rendering/ShaderResourceManager.h"
 
+DECLARE_CYCLE_STAT(TEXT("GetResourceHandle Time"), STAT_SlateGetResourceHandle, STATGROUP_Slate);
+
 FSlateResourceHandle FSlateShaderResourceManager::GetResourceHandle( const FSlateBrush& InBrush )
 {
+	SCOPE_CYCLE_COUNTER(STAT_SlateGetResourceHandle);
+
 	FSlateShaderResourceProxy* Proxy = GetShaderResource( InBrush );
 
 	FSlateResourceHandle NewHandle;

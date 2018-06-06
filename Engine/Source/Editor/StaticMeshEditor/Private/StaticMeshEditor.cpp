@@ -43,6 +43,8 @@
 #include "AdvancedPreviewSceneModule.h"
 
 #include "ConvexDecompositionNotification.h"
+#include "FbxMeshUtils.h"
+#include "RawMesh.h"
 
 #define LOCTEXT_NAMESPACE "StaticMeshEditor"
 
@@ -514,9 +516,39 @@ void FStaticMeshEditor::ExtendToolBar()
 	{
 		static void FillToolbar(FToolBarBuilder& ToolbarBuilder, FStaticMeshEditor* ThisEditor) 
 		{
+			auto ConstructReimportContextMenu = [ThisEditor]()
+			{
+				FMenuBuilder MenuBuilder(true, nullptr);
+				MenuBuilder.AddMenuEntry(FStaticMeshEditorCommands::Get().ReimportMesh->GetLabel(),
+					FStaticMeshEditorCommands::Get().ReimportMesh->GetDescription(),
+					FSlateIcon(),
+					FUIAction(FExecuteAction::CreateSP(ThisEditor, &FStaticMeshEditor::HandleReimportMesh)));
+				MenuBuilder.AddMenuEntry(FStaticMeshEditorCommands::Get().ReimportAllMesh->GetLabel(),
+					FStaticMeshEditorCommands::Get().ReimportAllMesh->GetDescription(),
+					FSlateIcon(),
+					FUIAction(FExecuteAction::CreateSP(ThisEditor, &FStaticMeshEditor::HandleReimportAllMesh)));
+				return MenuBuilder.MakeWidget();
+			};
+
 			ToolbarBuilder.BeginSection("Realtime");
 			{
 				ToolbarBuilder.AddToolBarButton(FEditorViewportCommands::Get().ToggleRealTime);
+			}
+			ToolbarBuilder.EndSection();
+			
+			ToolbarBuilder.BeginSection("Mesh");
+			{
+				ToolbarBuilder.AddToolBarButton(FUIAction(FExecuteAction::CreateSP(ThisEditor, &FStaticMeshEditor::HandleReimportMesh)),
+					NAME_None,
+					FStaticMeshEditorCommands::Get().ReimportMesh->GetLabel(),
+					FStaticMeshEditorCommands::Get().ReimportMesh->GetDescription(),
+					FStaticMeshEditorCommands::Get().ReimportMesh->GetIcon());
+				ToolbarBuilder.AddComboButton(
+					FUIAction(),
+					FOnGetContent::CreateLambda(ConstructReimportContextMenu),
+					TAttribute<FText>(),
+					TAttribute<FText>()
+				);
 			}
 			ToolbarBuilder.EndSection();
 	
@@ -1179,6 +1211,42 @@ void FStaticMeshEditor::ComboBoxSelectionChanged( TSharedPtr<FString> NewSelecti
 	Viewport->RefreshViewport();
 }
 
+void FStaticMeshEditor::HandleReimportMesh()
+{
+	// Reimport the asset
+	if (StaticMesh)
+	{
+		FReimportManager::Instance()->Reimport(StaticMesh, true);
+	}
+}
+
+void FStaticMeshEditor::HandleReimportAllMesh()
+{
+	// Reimport the asset
+	if (StaticMesh)
+	{
+		//Reimport base LOD, generated mesh will be rebuild here, the static mesh is always using the base mesh to reduce LOD
+		if (FReimportManager::Instance()->Reimport(StaticMesh, true))
+		{
+			TArray<FStaticMeshSourceModel>& SourceModels = StaticMesh->SourceModels;
+			//Reimport all custom LODs
+			for (int32 LodIndex = 1; LodIndex < StaticMesh->GetNumLODs(); ++LodIndex)
+			{
+				//Skip LOD import in the same file as the base mesh, they are already re-import
+				if (SourceModels[LodIndex].bImportWithBaseMesh)
+				{
+					continue;
+				}
+				bool bHasBeenSimplified = SourceModels[LodIndex].RawMeshBulkData->IsEmpty() || SourceModels[LodIndex].ReductionSettings.PercentTriangles < 1.0f || SourceModels[LodIndex].ReductionSettings.MaxDeviation > 0.0f;
+				if (!bHasBeenSimplified)
+				{
+					FbxMeshUtils::ImportMeshLODDialog(StaticMesh, LodIndex);
+				}
+			}
+		}
+	}
+}
+
 int32 FStaticMeshEditor::GetCurrentUVChannel()
 {
 	return FMath::Min(CurrentViewedUVChannel, GetNumUVChannels());
@@ -1198,6 +1266,20 @@ int32 FStaticMeshEditor::GetCurrentLODIndex()
 	int32 Index = GetCurrentLODLevel();
 
 	return Index == 0? 0 : Index - 1;
+}
+
+int32 FStaticMeshEditor::GetCustomData(const int32 Key) const
+{
+	if (!CustomEditorData.Contains(Key))
+	{
+		return INDEX_NONE;
+	}
+	return CustomEditorData[Key];
+}
+
+void FStaticMeshEditor::SetCustomData(const int32 Key, const int32 CustomData)
+{
+	CustomEditorData.FindOrAdd(Key) = CustomData;
 }
 
 void FStaticMeshEditor::GenerateKDop(const FVector* Directions, uint32 NumDirections)

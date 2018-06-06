@@ -23,7 +23,7 @@ namespace LogHelpers
 	template <typename ElementType, typename TEnableIf<TIsArithmetic<ElementType>::Value, int>::Type = 0>
 	inline FString ElementToString( const ElementType& Element )
 	{
-		return Lex::ToString( Element );
+		return LexToString( Element );
 	}
 
 	template <typename ArrayType>
@@ -383,9 +383,9 @@ struct FMeshElementAttributeValue
 			case EMeshElementAttributeType::FVector4: return Value_FVector4.ToString();
 			case EMeshElementAttributeType::FVector: return Value_FVector.ToString();
 			case EMeshElementAttributeType::FVector2D: return Value_FVector2D.ToString();
-			case EMeshElementAttributeType::Float: return Lex::ToString( Value_Float );
-			case EMeshElementAttributeType::Int: return Lex::ToString( Value_Int );
-			case EMeshElementAttributeType::Bool: return Lex::ToString( Value_Bool );
+			case EMeshElementAttributeType::Float: return LexToString( Value_Float );
+			case EMeshElementAttributeType::Int: return LexToString( Value_Int );
+			case EMeshElementAttributeType::Bool: return LexToString( Value_Bool );
 			case EMeshElementAttributeType::FName: return Value_FName.ToString();
 		}
 

@@ -2,6 +2,7 @@
 
 #include "SlateMaterialResource.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Styling/SlateBrush.h"
 
 
 FSlateMaterialResource::FSlateMaterialResource(const UMaterialInterface& InMaterial, const FVector2D& InImageSize, FSlateShaderResource* InTextureMask )
@@ -77,24 +78,28 @@ void FSlateMaterialResource::UpdateMaterialName()
 	if(MID && MID->Parent)
 	{
 		// MID's don't have nice names. Get the name of the parent instead for tracking
-		MaterialName = MID->Parent->GetFName();
+		DebugName = MID->Parent->GetFName();
 	}
 	else if(MaterialObject)
 	{
-		MaterialName = MaterialObject->GetFName();
+		DebugName = MaterialObject->GetFName();
 	}
 	else
 	{
-		MaterialName = NAME_None;
+		DebugName = NAME_None;
 	}
 }
 
-void FSlateMaterialResource::CheckIfValid() const
+void FSlateMaterialResource::CheckForStaleResources() const
 {
-	// pending kill objects may still be rendered for a frame so it is valid for the check to pass
-	const bool bEvenIfPendingKill = true;
-	// This test needs to be thread safe.  It doesnt give us as many chances to trap bugs here but it is still useful
-	const bool bThreadSafe = true;
-	checkf(MaterialObjectWeakPtr.IsValid(bEvenIfPendingKill, bThreadSafe), TEXT("Material %s has become invalid.  This means the resource was garbage collected while slate was using it"), *MaterialName.ToString());
+	if (DebugName != NAME_None)
+	{
+		// pending kill objects may still be rendered for a frame so it is valid for the check to pass
+		const bool bEvenIfPendingKill = true;
+		// This test needs to be thread safe.  It doesn't give us as many chances to trap bugs here but it is still useful
+		const bool bThreadSafe = true;
+		checkf(MaterialObjectWeakPtr.IsValid(bEvenIfPendingKill, bThreadSafe), TEXT("Material %s has become invalid.  This means the resource was garbage collected while slate was using it"), *DebugName.ToString());
+	}
 }
+
 #endif

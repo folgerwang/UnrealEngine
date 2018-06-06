@@ -66,7 +66,8 @@ public:
 	FArchiveFileWriterDummy()
 		:	Pos( 0 )
 	{
-		ArIsSaving = ArIsPersistent = true;
+		this->SetIsSaving(true);
+		this->SetIsPersistent(true);
 	}
 	virtual ~FArchiveFileWriterDummy()
 	{
@@ -613,7 +614,8 @@ FArchiveFileReaderGeneric::FArchiveFileReaderGeneric( IFileHandle* InHandle, con
 	, BufferCount( 0 )
 	, Handle( InHandle )
 {
-	ArIsLoading = ArIsPersistent = true;
+	this->SetIsLoading(true);
+	this->SetIsPersistent(true);
 }
 
 
@@ -759,7 +761,8 @@ FArchiveFileWriterGeneric::FArchiveFileWriterGeneric( IFileHandle* InHandle, con
 	, Handle( InHandle )
 	, bLoggingError( false )
 {
-	ArIsSaving = ArIsPersistent = true;
+	this->SetIsSaving(true);
+	this->SetIsPersistent(true);
 }
 
 FArchiveFileWriterGeneric::~FArchiveFileWriterGeneric()

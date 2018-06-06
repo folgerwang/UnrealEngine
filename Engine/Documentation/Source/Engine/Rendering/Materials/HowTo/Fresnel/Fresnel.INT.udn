@@ -98,7 +98,7 @@ Creating a Material that uses Fresnel can be accomplished in the following steps
 
 	![](FN_Creat_New_Material.png)
 
-1. Open up the new Material by **Double-Clicking** on it with the **Left Mouse Button** in the **Content Browser. ** 
+1. Open up the new Material by **Double-Clicking** on it with the **Left Mouse Button** in the **Content Browser.** 
 	Once the Material is opened, locate the needed Material Expression nodes by searching for them in the **Palette** search menu.
 	To place Material Expression nodes into the Material Graph, first select the node you want to place with the **Left Mouse Button** and with the **Left Mouse Button** still held down, drag the node into the Material Graph. 
 	For this Material, the following type and amount of nodes are needed. 

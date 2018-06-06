@@ -105,7 +105,7 @@ bool FOnlineLeaderboardsIOS::ReadLeaderboardCompletionDelegate(NSArray* players,
                         UE_LOG(LogOnline, Display, TEXT("Value: %d"), score.value);
                         UE_LOG(LogOnline, Display, TEXT("----------------------------------------------------------------"));
                             
-                        TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(PlayerIDString));
+                        TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdIOS(PlayerIDString));
                             
                         FOnlineStatsRow* UserRow = ReadObject.Get().FindPlayerRecord(UserId.Get());
                         if (UserRow == NULL)

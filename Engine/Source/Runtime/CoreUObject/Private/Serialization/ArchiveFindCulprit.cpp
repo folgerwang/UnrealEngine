@@ -25,8 +25,8 @@ FArchiveFindCulprit::FArchiveFindCulprit( UObject* InFind, UObject* Src, bool In
 
 	if( PretendSaving )
 	{
-		ArIsSaving		= true;
-		ArIsPersistent	= true;
+		this->SetIsSaving(true);
+		this->SetIsPersistent(true);
 	}
 
 	Src->Serialize( *this );

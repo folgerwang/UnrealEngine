@@ -26,7 +26,12 @@ public:
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 //	virtual FString GetNodeNativeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FText GetTooltipText() const override;
-	// End of UEdGraphNode interface
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+	//~ End UEdGraphNode Interface.
+
+	//~ Begin UAnimGraphNode_Base Interface
+	virtual void CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex) const override;
+	//~ End UAnimGraphNode_Base Interface
 
 protected:
 	// UAnimGraphNode_SkeletalControlBase interface

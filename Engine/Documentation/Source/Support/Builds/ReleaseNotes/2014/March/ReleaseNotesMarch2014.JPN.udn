@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3367470
+﻿INTSourceChangelist:3782314
 Title:2014 年 3 月リリースノート
 Crumbs:%ROOT%, Support/Builds
 Description:
@@ -592,8 +592,8 @@ QA_APPROVED_UE4_BUILD_MINIMUM
 	* Forced symbol stripping to always be on for Shipping iOS builds.
 	* Various improvements to the PC iOS deployment workflow (to code sign from the editor, set environment variable uebp_CodeSignWhenStaging=1, but you will have to have a valid certificate for your provision installed on the PC).
 	* Merged various iPhonePackager changes from UE3 (fat binary support, fix for code signing extending beyond the preallocated size in the stub, etc...).
-	#### Networking
 
+#### Networking
 * A new bool has been added, bReplicates.This should be set in blueprints and C++ constructors to make an actor replicate.Setting RemoteRole=ROLE_SimulatedProxy manually is no longer necessary. 
 
 

@@ -4,6 +4,7 @@
 #include "OnlineIdentityFacebook.h"
 #include "OnlineSubsystemFacebookPrivate.h"
 #include "Interfaces/OnlineSharingInterface.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 
 #import <FBSDKCoreKit/FBSDKCoreKit.h>
 #import <FBSDKLoginKit/FBSDKLoginKit.h>
@@ -25,7 +26,7 @@ void FUserOnlineAccountFacebook::Parse(const FBSDKAccessToken* AccessToken)
 	if (UserIdPtr->ToString().IsEmpty() ||
 		UserIdPtr->ToString() != UserIdStr)
 	{
-		UserIdPtr = MakeShared<const FUniqueNetIdString>(UserIdStr);
+		UserIdPtr = MakeShared<const FUniqueNetIdFacebook>(UserIdStr);
 	}
 
 	const FString Token(AccessToken.tokenString);
@@ -40,7 +41,7 @@ void FUserOnlineAccountFacebook::Parse(const FBSDKProfile* NewProfile)
 	if (UserIdPtr->ToString().IsEmpty() ||
 		UserIdPtr->ToString() == NewProfileUserId)
 	{
-		UserIdPtr = MakeShared<const FUniqueNetIdString>(NewProfileUserId);
+		UserIdPtr = MakeShared<const FUniqueNetIdFacebook>(NewProfileUserId);
 
 		RealName = FString(NewProfile.name);
 
@@ -166,7 +167,7 @@ bool FOnlineIdentityFacebook::Login(int32 LocalUserNum, const FOnlineAccountCred
 						}
 						else if(result.isCancelled)
 						{
-							ErrorStr = FB_AUTH_CANCELED;
+							ErrorStr = LOGIN_CANCELLED;
 							UE_LOG(LogOnline, Display, TEXT("[FBSDKLoginManager logInWithReadPermissions = cancelled"));
 						}						
 						else

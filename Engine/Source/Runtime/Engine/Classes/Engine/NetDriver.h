@@ -377,6 +377,10 @@ public:
 	/** todo document */
 	uint32						OutBunches;
 	/** todo document */
+	uint32						InTotalBunches;
+	/** todo document */
+	uint32						OutTotalBunches;
+	/** todo document */
 	uint32						InPacketsLost;
 	/** todo document */
 	uint32						OutPacketsLost;
@@ -715,7 +719,7 @@ public:
 	//	Game code API for updating server Actor Replication State
 	// ---------------------------------------------------------------
 
-	ENGINE_API void ForceNetUpdate(AActor* Actor);
+	ENGINE_API virtual void ForceNetUpdate(AActor* Actor);
 
 	/** Flushes actor from NetDriver's dormancy list, but does not change any state on the Actor itself */
 	ENGINE_API void FlushActorDormancy(AActor *Actor, bool bWasDormInitial=false);

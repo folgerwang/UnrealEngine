@@ -30,9 +30,7 @@ As the AO is part of the GBuffer, it also can be output by the material. The SSA
 | **Radius in WorldSpace** | If enabled, the value of the **AO Radius** property is assumed to be in world-space. Otherwise, it is assumed to be in view-space.  |
 | **Distance** | A tweak parameter that is needed to avoid dark halos around objects. As the SSAO technique only has the zbuffer, it cannot know about the thickness of objects. [INCLUDE:Engine/Rendering/LightingAndShadows/AmbientOcclusion#Distance] |
 | **Power** | Controls the strength of the darkening effect that is computed. [INCLUDE:Engine/Rendering/LightingAndShadows/AmbientOcclusion#Power] |
-| **Bias** | Allows to tweak AO details. Some bias is needed to avoid precision artifacts in the distance. >0, in unreal units, default (3.0) works well for flat surfaces but can reduce details. [COMMENT:none]
-TODO: images
-[/COMMENT] |
+| **Bias** | Allows to tweak AO details. Some bias is needed to avoid precision artifacts in the distance. >0, in unreal units, default (3.0) works well for flat surfaces but can reduce details. |
 
 [COMMENT:none]
 

@@ -118,7 +118,6 @@ public:
 
 	/** Does the user want to keep the files checked out */
 	bool WantToKeepCheckedOut();
-
 private:
 	/**
 	 * @return the desired toggle state for the ToggleSelectedCheckBox.

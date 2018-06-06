@@ -106,7 +106,7 @@ namespace UnrealBuildTool
 		/// Enable PIX debugging (automatically disabled in Shipping and Test configs)
 		/// </summary>
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/WindowsTargetPlatform.WindowsTargetSettings", "bEnablePIXProfiling")]
-		public bool bPixProfilingEnabled = true;
+		public bool bPixProfilingEnabled = false;
 
 		/// <summary>
 		/// The name of the company (author, provider) that created the project.
@@ -662,16 +662,17 @@ namespace UnrealBuildTool
 					    List<DirectoryReference> InstallDirs = FindVSInstallDirs(Compiler);
 					    foreach(DirectoryReference InstallDir in InstallDirs)
 					    {
-						    ToolChainVersionToDir[new VersionNumber(14, 0)] = DirectoryReference.Combine(InstallDir, "VC");
+							DirectoryReference ToolChainBaseDir = DirectoryReference.Combine(InstallDir, "VC");
+							if(IsValidToolChainDir2015(ToolChainBaseDir))
+							{
+								ToolChainVersionToDir[new VersionNumber(14, 0)] = ToolChainBaseDir;
+							}
 					    }
 				    }
 				    else if(Compiler == WindowsCompiler.VisualStudio2017)
 				    {
-					    // Path of a file to look for to validate a directory contains any toolchain
-					    const string FileCheckPath = "bin\\Hostx64\\x64\\cl.exe";
-    
-					    // Enumerate all the manually installed toolchains
-					    List<DirectoryReference> InstallDirs = FindVSInstallDirs(Compiler);
+						// Enumerate all the manually installed toolchains
+						List<DirectoryReference> InstallDirs = FindVSInstallDirs(Compiler);
 					    foreach(DirectoryReference InstallDir in InstallDirs)
 					    {
 						    DirectoryReference ToolChainBaseDir = DirectoryReference.Combine(InstallDir, "VC", "Tools", "MSVC");
@@ -680,7 +681,7 @@ namespace UnrealBuildTool
 							    foreach(DirectoryReference ToolChainDir in DirectoryReference.EnumerateDirectories(ToolChainBaseDir))
 							    {
 								    VersionNumber Version;
-								    if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && FileReference.Exists(FileReference.Combine(ToolChainDir, FileCheckPath)))
+								    if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017(ToolChainDir))
 								    {
 									    ToolChainVersionToDir[Version] = ToolChainDir;
 								    }
@@ -698,7 +699,7 @@ namespace UnrealBuildTool
 							    foreach(DirectoryReference ToolChainDir in DirectoryReference.EnumerateDirectories(ToolChainBaseDir))
 							    {
 								    VersionNumber Version;
-								    if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && FileReference.Exists(FileReference.Combine(ToolChainDir, FileCheckPath)))
+								    if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017(ToolChainDir))
 								    {
 									    ToolChainVersionToDir[Version] = ToolChainDir;
 								    }
@@ -714,6 +715,26 @@ namespace UnrealBuildTool
 				CachedVCToolChainDirs.Add(Compiler, ToolChainVersionToDir);
 			}
 			return ToolChainVersionToDir;
+		}
+
+		/// <summary>
+		/// Checks if the given directory contains a valid Visual Studio 2015 toolchain
+		/// </summary>
+		/// <param name="ToolChainDir">Directory to check</param>
+		/// <returns>True if the given directory is valid</returns>
+		static bool IsValidToolChainDir2015(DirectoryReference ToolChainDir)
+		{
+			return FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "amd64", "cl.exe")) || FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "x86_amd64", "cl.exe"));
+		}
+
+		/// <summary>
+		/// Checks if the given directory contains a valid Visual Studio 2017 toolchain
+		/// </summary>
+		/// <param name="ToolChainDir">Directory to check</param>
+		/// <returns>True if the given directory is valid</returns>
+		static bool IsValidToolChainDir2017(DirectoryReference ToolChainDir)
+		{
+			return FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "Hostx86", "x64", "cl.exe")) || FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "Hostx64", "x64", "cl.exe"));
 		}
 
 		/// <summary>

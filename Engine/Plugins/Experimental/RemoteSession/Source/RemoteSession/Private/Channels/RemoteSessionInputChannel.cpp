@@ -32,10 +32,10 @@ FRemoteSessionInputChannel::FRemoteSessionInputChannel(ERemoteSessionChannelMode
 		TSharedRef<FGenericApplicationMessageHandler> DestinationHandler = FSlateApplication::Get().GetPlatformApplication()->GetMessageHandler();
 
 		PlaybackHandler = MakeShareable(new FRecordingMessageHandler(DestinationHandler));
-
-		MessageCallbackHandle = Connection->GetDispatchMap().GetAddressHandler(TEXT("/MessageHandler/")).AddRaw(this, &FRemoteSessionInputChannel::OnRemoteMessage);
+		
+		auto Delegate = FBackChannelDispatchDelegate::FDelegate::CreateRaw(this, &FRemoteSessionInputChannel::OnRemoteMessage);
+		MessageCallbackHandle = Connection->AddMessageHandler(TEXT("/MessageHandler/"), Delegate);
 	}
-	
 }
 
 FRemoteSessionInputChannel::~FRemoteSessionInputChannel()
@@ -43,7 +43,7 @@ FRemoteSessionInputChannel::~FRemoteSessionInputChannel()
 	if (Role == ERemoteSessionChannelMode::Receive)
 	{
 		// Remove the callback so it doesn't call back on an invalid this
-		Connection->GetDispatchMap().GetAddressHandler(TEXT("/MessageHandler/")).Remove(MessageCallbackHandle);
+		Connection->RemoveMessageHandler(TEXT("/MessageHandler/"), MessageCallbackHandle);
 		MessageCallbackHandle.Reset();
 	}
 
@@ -60,15 +60,18 @@ FRemoteSessionInputChannel::~FRemoteSessionInputChannel()
 	}
 }
 
-FString FRemoteSessionInputChannel::StaticType()
-{
-	return TEXT("rs.input");
-}
-
 
 void FRemoteSessionInputChannel::SetPlaybackWindow(TWeakPtr<SWindow> InWindow, TWeakPtr<FSceneViewport> InViewport)
 {
 	PlaybackHandler->SetPlaybackWindow(InWindow, InViewport);
+}
+
+void FRemoteSessionInputChannel::SetInputRect(const FVector2D& TopLeft, const FVector2D& Extents)
+{
+	if (RecordingHandler.IsValid())
+	{
+		RecordingHandler->SetInputRect(TopLeft, Extents);
+	}
 }
 
 void FRemoteSessionInputChannel::Tick(const float InDeltaTime)

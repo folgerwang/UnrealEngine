@@ -22,7 +22,7 @@ public:
 		: ObjectArray(InObjectArray)
 	{
 		ArIsObjectReferenceCollector = true;
-		ArIsPersistent = false;
+		this->SetIsPersistent(false);
 		ArIgnoreArchetypeRef = false;
 	}
 protected:

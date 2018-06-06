@@ -112,6 +112,10 @@ void UTexture::UpdateResource()
 	}
 }
 
+bool UTexture::IsPostLoadThreadSafe() const
+{
+	return false;
+}
 
 int32 UTexture::GetCachedLODBias() const
 {

@@ -12,6 +12,7 @@
 // FNavGraphNode
 //----------------------------------------------------------------------//
 FNavGraphNode::FNavGraphNode() 
+	: Owner(nullptr)
 {
 	Edges.Reserve(InitialEdgesCount);
 }

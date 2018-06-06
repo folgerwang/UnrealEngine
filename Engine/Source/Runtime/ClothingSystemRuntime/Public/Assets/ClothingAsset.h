@@ -135,6 +135,7 @@ struct FClothVertBoneData
 	GENERATED_BODY()
 
 	FClothVertBoneData()
+		: NumInfluences(0)
 	{
 		FMemory::Memset(BoneIndices, (uint8)INDEX_NONE, sizeof(BoneIndices));
 		FMemory::Memset(BoneWeights, 0, sizeof(BoneWeights));

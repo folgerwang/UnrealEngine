@@ -227,7 +227,7 @@ protected:
 	/**
 	 * Override of InputTouch, used to handle touch and hold events.
 	 */
-	virtual bool InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex);
+	virtual bool InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, float Force, FDateTime DeviceTimestamp, uint32 TouchpadIndex) override;
 
 	/**
 	 * Determine how to handle touch input based on current context.

@@ -13,6 +13,9 @@
 // VTune header for ITT event tracing
 #include "ittnotify.h"
 
+#if UE_EXTERNAL_PROFILING_ENABLED
+
+
 /** Per thread TMap for all ITT String Handles */
 struct FVTunePerThreadHandleMap : public TThreadSingleton<FVTunePerThreadHandleMap>
 {
@@ -197,3 +200,4 @@ namespace VTuneProfiler
 }
 
 
+#endif	// UE_EXTERNAL_PROFILING_ENABLED

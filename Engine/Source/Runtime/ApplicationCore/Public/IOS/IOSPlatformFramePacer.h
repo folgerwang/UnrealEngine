@@ -25,12 +25,17 @@ struct FIOSPlatformRHIFramePacer : public FGenericPlatformRHIFramePacer
 	static void AddHandler(FIOSFramePacerHandler Handler);
 	static void RemoveHandler(FIOSFramePacerHandler Handler);
     static void Destroy();
+	static uint32 GetFramePace() { return Pace; };
+
     
     /** Access to the IOS Frame Pacer: CADisplayLink */
     static FIOSFramePacer* FramePacer;
     
     /** Number of frames before the CADisplayLink triggers it's readied callback */
     static uint32 FrameInterval;
+	
+	/** Frame rate we are pacing to */
+	static uint32 Pace;
     
     /** Suspend the frame pacer so we can enter the background state */
     static void Suspend();

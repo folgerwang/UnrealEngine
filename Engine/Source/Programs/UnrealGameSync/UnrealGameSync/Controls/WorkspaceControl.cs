@@ -126,7 +126,7 @@ namespace UnrealGameSync
 		IWorkspaceControlOwner Owner;
 		string ApiUrl;
 		string DataFolder;
-		BoundedLogWriter Log;
+		LineBasedTextWriter Log;
 
 		UserSettings Settings;
 		UserWorkspaceSettings WorkspaceSettings;
@@ -216,7 +216,7 @@ namespace UnrealGameSync
 		bool bUpdateBuildMetadataPosted;
 		bool bUpdateReviewsPosted;
 
-		public WorkspaceControl(IWorkspaceControlOwner InOwner, string InApiUrl, string InOriginalExecutableFileName, DetectProjectSettingsTask DetectSettings, BoundedLogWriter InLog, UserSettings InSettings)
+		public WorkspaceControl(IWorkspaceControlOwner InOwner, string InApiUrl, string InOriginalExecutableFileName, DetectProjectSettingsTask DetectSettings, LineBasedTextWriter InLog, UserSettings InSettings)
 		{
 			InitializeComponent();
 
@@ -648,7 +648,6 @@ namespace UnrealGameSync
 			Context.StartTime = DateTime.UtcNow;
 			Context.PerforceSyncOptions = (PerforceSyncOptions)Settings.SyncOptions.Clone();
 
-			Log.WriteLine();
 			Log.WriteLine("Updating workspace at {0}...", Context.StartTime.ToLocalTime().ToString());
 			Log.WriteLine("  ChangeNumber={0}", Context.ChangeNumber);
 			Log.WriteLine("  Options={0}", Context.Options.ToString());
@@ -4104,6 +4103,14 @@ namespace UnrealGameSync
 		private void BuildListContextMenu_Bisect_Include_Click(object sender, EventArgs e)
 		{
 			SetBisectStateForSelection(BisectState.Include);
+		}
+
+		private void WorkspaceControl_VisibleChanged(object sender, EventArgs e)
+		{
+			if(PerforceMonitor != null && PerforceMonitor.IsActive != Visible)
+			{
+				PerforceMonitor.IsActive = Visible;
+			}
 		}
 	}
 }

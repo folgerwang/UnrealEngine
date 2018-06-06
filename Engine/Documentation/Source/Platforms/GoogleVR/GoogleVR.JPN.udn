@@ -1,19 +1,21 @@
-﻿INTSourceChangelist:3602897
-Title:Google VR の開発	
-Crumbs:%ROOT%, Platforms
-Description:
+﻿INTSourceChangelist:3782314
 Availability:Public
-Navigation:platform
-Platform:GoogleVR
+Crumbs: %ROOT%
+Title:Google VR 向けの開発	
+Description:UE4 を使って Google VR 向けプロジェクトを開発するための情報
 Version:4.17
+Crumbs:%ROOT%, Platforms
 type:landing
-parent:Platforms/VR
-tags:VR
+Parent:Platforms/VR
+Order:1
 tags:Google VR
 tags:Platform
-prereq:Platforms/Android/GettingStarted/
+tags:VR
+Tags:Mobile VR
+prereq:Platforms/Android/GettingStarted
 social-image:googlevr_social.png
 topic-image:GoogleVR_Topic_Image.png
+
 
 ![](googlevr_social.png)
 
@@ -21,22 +23,18 @@ topic-image:GoogleVR_Topic_Image.png
 Google のマニュアルに Daydream の使用方法に関する詳細な説明があります。[Google Daydream Unreal 公式サイト](https://developers.google.com/vr/unreal/) のヘルプをご覧ください。
 [/region]
 
-## はじめよう
+## はじめよう 
 
-GoogleVR クイックスタートでは、PC および Android ベースのスマートフォンでの UE4 および Google VR の使用方法を説明します。
+[DIR(end:"1" output:"topic" type:"quick start" parent:"Platforms/GoogleVR")]
 
-[DIR(output:"topic" type:"quick start" parent:"Platforms/GoogleVR")]
+## Samsung Gear VR の開発
 
-## Google VR Daydream
+[DIR(end:"1" output:"topic" type:"reference,overview" parent:"Platforms/GoogleVR")]
 
-Google Daydream は、Google VR SDK により Daydream デバイスをターゲットにすると、レンダリングの最適化とモーション コントローラーの使用を可能にします。
+## ガイド
 
-[DIR(output:"topic" type:"overview" parent:"Platforms/GoogleVR")]
-
-
-## 操作ガイド
-
- Google VR の操作ガイドは、Google VR で多種多様なタスクのビルド方法を説明します。
-
-[DIR(output:"topic" type:"how-to" parent:"Platforms/GoogleVR")]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Beginner" parent:"Platforms/GoogleVR" org:"flat")]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Intermediate" parent:"Platforms/GoogleVR" org:"flat")]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Advanced" parent:"Platforms/GoogleVR" org:"flat")]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Expert" parent:"Platforms/GoogleVR" org:"flat")]
 

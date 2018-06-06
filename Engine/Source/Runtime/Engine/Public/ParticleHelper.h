@@ -218,6 +218,8 @@ struct FBaseParticle
 enum EParticleStates
 {
 	/** Ignore updates to the particle						*/
+	STATE_Particle_JustSpawned			= 0x02000000,
+	/** Ignore updates to the particle						*/
 	STATE_Particle_Freeze				= 0x04000000,
 	/** Ignore collision updates to the particle			*/
 	STATE_Particle_IgnoreCollisions		= 0x08000000,
@@ -232,7 +234,7 @@ enum EParticleStates
 	/** Flag indicating the particle has had at least one collision	*/
 	STATE_Particle_CollisionHasOccurred	= 0x80000000,
 	/** State mask. */
-	STATE_Mask = 0xFC000000,
+	STATE_Mask = 0xFE000000,
 	/** Counter mask. */
 	STATE_CounterMask = (~STATE_Mask)
 };
@@ -929,6 +931,8 @@ struct FModuleLocationVertSurfaceInstancePayload
 {
 	/** The skeletal mesh component used as the source of the sockets */
 	TWeakObjectPtr<USkeletalMeshComponent> SourceComponent;
+	/** Actor that owns the skel mesh component we're using. */
+	TWeakObjectPtr<AActor> CachedActor;
 	/** The index of the vertice this particle system spawns from */
 	int32 VertIndex;
 	/** The number of valid bone indices that which can be used for . */
@@ -2615,11 +2619,26 @@ public:
 		bVertexFactoriesDirty = true;
 	}
 
+	void MarkEmitterVertexFactoryDirty(uint32 EmitterIndex) const
+	{
+		check(EmitterVertexFactoryArray[EmitterIndex]);
+		EmitterVertexFactoryArray[EmitterIndex]->SetDirty();
+	}
+
 	void ClearVertexFactoriesIfDirty() const
 	{
+		// clear all VFs?
 		if (bVertexFactoriesDirty)
 		{
 			ClearVertexFactories();
+		}
+		else
+		{
+			// selectively clear
+			for (int32 Index = 0; Index < EmitterVertexFactoryArray.Num(); Index++)
+			{
+				ClearEmitterVertexFactoryIfDirty(Index);
+			}
 		}
 	}
 
@@ -2636,6 +2655,17 @@ public:
 			}
 		}
 		bVertexFactoriesDirty = false;
+	}
+
+	void ClearEmitterVertexFactoryIfDirty(uint32 EmitterIndex) const
+	{
+		FParticleVertexFactoryBase *VertexFactory = EmitterVertexFactoryArray[EmitterIndex];
+		if (VertexFactory && VertexFactory->IsDirty())
+		{
+			VertexFactory->ReleaseResource();
+			delete VertexFactory;
+			EmitterVertexFactoryArray[EmitterIndex] = nullptr;
+		}
 	}
 
 	void AddEmitterVertexFactory(FDynamicEmitterDataBase *InDynamicData) const
@@ -2668,7 +2698,7 @@ public:
 	// persistent proxy storage for mesh emitter LODs; need to store these here, because GDME needs to calc the index,
 	// but VF needs to be init'ed with the correct LOD, and DynamicData goes away every frame
 	mutable TArray<int32> MeshEmitterLODIndices;
-
+	ERHIFeatureLevel::Type GetFeatureLevel() const { return FeatureLevel;  }
 protected:
 
 	/**
@@ -2872,4 +2902,25 @@ public:
 	void AddTemplate(class UParticleModule* Module);
 	void AddTemplate(class UParticleEmitter* Emitter);
 	~FParticleResetContext();
+};
+
+
+struct FParticleSystemCustomVersion
+{
+	enum Type
+	{
+		// Before any version changes were made
+		BeforeCustomVersionWasAdded = 0,
+		SkipCookingEmittersBasedOnDetailMode,	// skip emitter cooking if their detail mode doesn't match predefined
+		FixLegacySpawningBugs,					// fixing some spawning bugs but must keep old behavior around for existing systems.
+
+		// -----<new versions can be added above this line>-------------------------------------------------
+		VersionPlusOne,
+		LatestVersion = VersionPlusOne - 1
+	};
+	// The GUID for this custom version number
+	const static FGuid GUID;
+
+private:
+	FParticleSystemCustomVersion() {}
 };

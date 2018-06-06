@@ -164,15 +164,14 @@ zoh_set_converter (SRC_PRIVATE *psrc, int src_enum)
 	if (psrc->private_data == NULL)
 	{	
 		priv = (ZOH_DATA*) FMemory::Malloc(sizeof(ZOH_DATA) + psrc->channels * sizeof (float));
-
 		// Initialize ZOH_DATA at the beginning:
 		*priv = ZOH_DATA();
 
-		// Initialize samples to 0:
+		// zero out buffer:
 		void* BufferSize = ((uint8*)priv) + sizeof(ZOH_DATA);
 		FMemory::Memset(BufferSize, 0, psrc->channels * sizeof(float));
 		psrc->private_data = priv ;
-	}
+	} ;
 
 	if (priv == NULL)
 		return SRC_ERR_MALLOC_FAILED ;
@@ -202,7 +201,7 @@ zoh_reset (SRC_PRIVATE *psrc)
 
 	priv->channels = psrc->channels ;
 	priv->reset = 1 ;
-	FMemory::Memset(priv->last_value, 0, sizeof(priv->last_value[0]) * priv->channels) ;
+	FMemory::Memset(priv->last_value, 0, sizeof (priv->last_value [0]) * priv->channels) ;
 
 	return ;
 } /* zoh_reset */

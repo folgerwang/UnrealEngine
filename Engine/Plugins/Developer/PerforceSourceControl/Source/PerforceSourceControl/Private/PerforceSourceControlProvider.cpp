@@ -558,6 +558,60 @@ ECommandResult::Type FPerforceSourceControlProvider::IssueCommand(FPerforceSourc
 	}
 }
 
+bool FPerforceSourceControlProvider::QueryStateBranchConfig(const FString& ConfigSrc, const FString& ConfigDest)
+{
+
+	if (ConfigSrc.Len() == 0 || ConfigDest.Len() == 0)
+	{
+		return false;
+	}
+
+	// Request branch configuration from depot
+	FPerforceSourceControlModule& PerforceSourceControl = FModuleManager::LoadModuleChecked<FPerforceSourceControlModule>("PerforceSourceControl");
+	FScopedPerforceConnection ScopedConnection(EConcurrency::Synchronous, PerforceSourceControl.AccessSettings().GetConnectionInfo());
+	if (ScopedConnection.IsValid())
+	{
+		FPerforceConnection& Connection = ScopedConnection.GetConnection();
+		FP4RecordSet Records;
+		TArray<FString> Parameters;
+		TArray<FText> ErrorMessages;
+		Parameters.Add(TEXT("-o"));
+		Parameters.Add(*ConfigDest);
+		Parameters.Add(*ConfigSrc);
+
+		FText GeneralErrorMessage = LOCTEXT("StatusBranchConfigGeneralFailure", "Unable to retrieve status branch configuration from depot");
+
+		bool bConnectionDropped = false;
+		if (Connection.RunCommand(TEXT("print"), Parameters, Records, ErrorMessages, FOnIsCancelled(), bConnectionDropped))
+		{
+			if (Records.Num() < 1 || Records[0][TEXT("depotFile")] != ConfigSrc)
+			{
+				FMessageLog("SourceControl").Error(GeneralErrorMessage);
+				return false;
+			}
+		}
+		else
+		{
+			FMessageLog("SourceControl").Error(GeneralErrorMessage);
+
+			// output specific errors if any
+			for (int32 ErrorIndex = 0; ErrorIndex < ErrorMessages.Num(); ++ErrorIndex)
+			{
+				FMessageLog("SourceControl").Error(ErrorMessages[ErrorIndex]);
+			}
+
+			return false;
+		}
+	}
+	else
+	{
+		FMessageLog("SourceControl").Error(LOCTEXT("StatusBranchConfigNoConnection", "Unable to retrieve status branch configuration from depot, no connection"));
+		return false;
+	}
+
+	return true;
+}
+
 void FPerforceSourceControlProvider::RegisterStateBranches(const TArray<FString>& BranchNames, const FString& ContentRootIn)
 {
 	StatusBranchNames = BranchNames;

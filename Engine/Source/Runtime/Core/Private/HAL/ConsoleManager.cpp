@@ -2274,16 +2274,58 @@ static TAutoConsoleVariable<float> CVarViewDistanceScale(
 	1.0f,
 	TEXT("Controls the view distance scale. A primitive's MaxDrawDistance is scaled by this value.\n")
 	TEXT("Higher values will increase view distance but at a performance cost.\n")
-	TEXT("Default = 1. Value should be in the range [0.0f, 1.0f]."),
+	TEXT("Default = 1."),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
-static TAutoConsoleVariable<float> CVarViewDistanceScale_NoScalability(
-	TEXT("r.ViewDistanceScaleNoScalability"),
-	1.0f,
-	TEXT("An additional multiplier to r.ViewDistanceScale, but not affected by scalability settings.\n")
-	TEXT("Higher values will increase view distance but at a performance cost.\n")
-	TEXT("Default = 1. Value should be in the range [0.0f, 1.0f]."),
+static TAutoConsoleVariable<int32> CVarViewDistanceScaleApplySecondaryScale(
+	TEXT("r.ViewDistanceScale.ApplySecondaryScale"),
+	0,
+	TEXT("If true applies the secondary view distance scale to primitive draw distances.\n")
+	TEXT("Default = 0."),
 	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<float> CVarViewDistanceScaleSecondaryScale(
+	TEXT("r.ViewDistanceScale.SecondaryScale"),
+	1.0f,
+	TEXT("Controls the secondary view distance scale, Default = 1.0.\n")
+	TEXT("This is an optional scale intended to allow some features or gamemodes to opt-in.\n"),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<float> CVarViewDistanceScale_FieldOfViewMinAngle(
+	TEXT("r.ViewDistanceScale.FieldOfViewMinAngle"),
+	45.0f,
+	TEXT("Scales the scene view distance scale with camera field of view.\n")
+	TEXT("Minimum angle of the blend range.\n")
+	TEXT("Applies the minimum scale when the camera is at or below this angle."),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<float> CVarViewDistanceScale_FieldOfViewMinAngleScale(
+	TEXT("r.ViewDistanceScale.FieldOfViewMinAngleScale"),
+	1.0f,
+	TEXT("Scales the scene view distance scale with camera field of view.\n")
+	TEXT("This value is applied when the camera is at or below the minimum angle."),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<float> CVarViewDistanceScale_FieldOfViewMaxAngle(
+	TEXT("r.ViewDistanceScale.FieldOfViewMaxAngle"),
+	90.0f,
+	TEXT("Scales the scene view distance scale with camera field of view.\n")
+	TEXT("Maximum angle of the blend range.\n")
+	TEXT("Applies the maximum scale when the camera is at or above this angle."),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<float> CVarViewDistanceScale_FieldOfViewMaxAngleScale(
+	TEXT("r.ViewDistanceScale.FieldOfViewMaxAngleScale"),
+	1.0f,
+	TEXT("Scales the scene view distance scale with camera field of view.\n")
+	TEXT("This value is applied when the camera is at or above the maximum angle."),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarViewDistanceScale_FieldOfViewAffectsHLOD(
+	TEXT("r.ViewDistanceScale.FieldOfViewAffectsHLOD"),
+	0,
+	TEXT("If enabled, applies the field of view scaling to HLOD draw distances as well as non-HLODs."),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarLightFunctionQuality(
 	TEXT("r.LightFunctionQuality"),
@@ -2439,6 +2481,14 @@ static TAutoConsoleVariable<int32> CVarDisableOpenGLES31Support(
 	TEXT("  1 = OpenGLES 3.1 will be disabled, OpenGL ES2 fall back will be used."),
 	ECVF_ReadOnly);
 
+static TAutoConsoleVariable<int32> CVarDisableAndroidGLASTCSupport(
+	TEXT("r.Android.DisableASTCSupport"),
+	0,
+	TEXT("Disable support for ASTC Texture compression if OpenGL driver supports it. (Android Only)\n")
+	TEXT("  0 = ASTC texture compression will be used if driver supports it [default]\n")
+	TEXT("  1 = ASTC texture compression will not be used."),
+	ECVF_ReadOnly);
+
 static TAutoConsoleVariable<int32> CVarDisableOpenGLTextureStreamingSupport(
 	TEXT("r.OpenGL.DisableTextureStreamingSupport"),
 	0,
@@ -2474,6 +2524,14 @@ static TAutoConsoleVariable<int32> GLSLCvar(
 	0,
 	TEXT("2 to use ES GLSL\n1 to use GLSL\n0 to use SPIRV")
 );
+
+static TAutoConsoleVariable<FString> CVarCustomUnsafeZones(
+	TEXT("r.CustomUnsafeZones"),
+	TEXT(""),
+	TEXT("Allows you to set custom unsafe zones. Define them based on Portrait (P) or Landscape (L) for a device oriented 'upright'.")
+	TEXT("Unsafe zones may be either fixed or free, depending on if they move along with the rotation of the device.")
+	TEXT("Format is (P:fixed[x1, y1][width, height]), semicolon-separated for each custom unsafe zone. +Values add from 0, -Values subtract from Height or Width"),
+	ECVF_Default);
 
 static TAutoConsoleVariable<int32> CVarSkyLightingQuality(
 	TEXT("r.SkyLightingQuality"),

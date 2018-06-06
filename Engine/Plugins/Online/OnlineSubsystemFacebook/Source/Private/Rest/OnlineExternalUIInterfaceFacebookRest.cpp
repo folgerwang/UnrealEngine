@@ -13,12 +13,10 @@
 #define FB_ERRORCODE_TOKEN TEXT("error_code")
 #define FB_ERRORDESC_TOKEN TEXT("error_description")
 
-#define LOGIN_ERROR_UNKNOWN TEXT("com.epicgames.login.unknown")
-#define LOGIN_ERROR_AUTH_FAILURE TEXT("com.epicgames.login.auth_failure")
-
 bool FOnlineExternalUIFacebook::ShowLoginUI(const int ControllerIndex, bool bShowOnlineOnly, bool bShowSkipButton, const FOnLoginUIClosedDelegate& Delegate)
 {
 	bool bStarted = false;
+	FString ErrorStr;
 	if (ControllerIndex >= 0 && ControllerIndex < MAX_LOCAL_PLAYERS)
 	{
 		FOnlineIdentityFacebookPtr IdentityInt = StaticCastSharedPtr<FOnlineIdentityFacebook>(FacebookSubsystem->GetIdentityInterface());
@@ -34,14 +32,30 @@ bool FOnlineExternalUIFacebook::ShowLoginUI(const int ControllerIndex, bool bSho
 				TriggerOnLoginFlowUIRequiredDelegates(RequestedURL, OnRedirectURLDelegate, OnExternalLoginFlowCompleteDelegate, bShouldContinueLoginFlow);
 				bStarted = bShouldContinueLoginFlow;
 			}
+			else
+			{
+				ErrorStr = TEXT("ShowLoginUI: Url Details not properly configured");
+			}
 		}
+		else
+		{
+			ErrorStr = TEXT("ShowLoginUI: Missing identity interface");
+		}
+	}
+	else
+	{
+		ErrorStr = FString::Printf(TEXT("ShowLoginUI: Invalid controller index (%d)"), ControllerIndex);
 	}
 
 	if (!bStarted)
 	{
-		FacebookSubsystem->ExecuteNextTick([ControllerIndex, Delegate]()
+		UE_LOG_ONLINE(Warning, TEXT("%s"), *ErrorStr);
+
+		FOnlineError Error;
+		Error.SetFromErrorCode(MoveTemp(ErrorStr));
+		FacebookSubsystem->ExecuteNextTick([ControllerIndex, Delegate, Error = MoveTemp(Error)]()
 		{
-			Delegate.ExecuteIfBound(nullptr, ControllerIndex);
+			Delegate.ExecuteIfBound(nullptr, ControllerIndex, Error);
 		});
 	}
 
@@ -113,7 +127,7 @@ FLoginFlowResult FOnlineExternalUIFacebook::ParseRedirectResult(const FFacebookL
 					// Set some default in case parsing fails
 					Result.Error.ErrorRaw = LOGIN_ERROR_UNKNOWN;
 					Result.Error.ErrorMessage = FText::FromString(LOGIN_ERROR_UNKNOWN);
-					Result.Error.ErrorCode = TEXT("-1");
+					Result.Error.ErrorCode = LOGIN_ERROR_UNKNOWN;
 					Result.Error.NumericErrorCode = -1;
 				}
 			}
@@ -147,7 +161,7 @@ FLoginFlowResult FOnlineExternalUIFacebook::OnLoginRedirectURL(const FString& Re
 					{
 						Result.Error.ErrorRaw = LOGIN_ERROR_AUTH_FAILURE;
 						Result.Error.ErrorMessage = FText::FromString(LOGIN_ERROR_AUTH_FAILURE);
-						Result.Error.ErrorCode = TEXT("-2");
+						Result.Error.ErrorCode = LOGIN_ERROR_AUTH_FAILURE;
 						Result.Error.NumericErrorCode = -2;
 					}
 				}
@@ -178,9 +192,10 @@ void FOnlineExternalUIFacebook::OnExternalLoginFlowComplete(const FLoginFlowResu
 
 	if (!bStarted)
 	{
-		FacebookSubsystem->ExecuteNextTick([ControllerIndex, Delegate]()
+		FOnlineError LoginFlowError = Result.Error;
+		FacebookSubsystem->ExecuteNextTick([ControllerIndex, LoginFlowError, Delegate]()
 		{
-			Delegate.ExecuteIfBound(nullptr, ControllerIndex);
+			Delegate.ExecuteIfBound(nullptr, ControllerIndex, LoginFlowError);
 		});
 	}
 }
@@ -188,9 +203,9 @@ void FOnlineExternalUIFacebook::OnExternalLoginFlowComplete(const FLoginFlowResu
 void FOnlineExternalUIFacebook::OnAccessTokenLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error, FOnLoginUIClosedDelegate Delegate)
 {
 	TSharedPtr<const FUniqueNetId> StrongUserId = UserId.AsShared();
-	FacebookSubsystem->ExecuteNextTick([StrongUserId, LocalUserNum, Delegate]()
+	FacebookSubsystem->ExecuteNextTick([StrongUserId, LocalUserNum, bWasSuccessful, Delegate]()
 	{
-		Delegate.ExecuteIfBound(StrongUserId, LocalUserNum);
+		Delegate.ExecuteIfBound(StrongUserId, LocalUserNum, FOnlineError(bWasSuccessful));
 	});
 }
 

@@ -1,4 +1,5 @@
-﻿Title:Google Play のアチーブメントの使用方法
+﻿INTSourceChangelist:3782314
+Title:Google Play のアチーブメントの使用方法
 Description:プレイヤーのエンゲージメントを高めるために Google Play のアチーブメントを使用する 
 Crumbs:
 Availability:Public
@@ -7,42 +8,9 @@ Parent:Platforms/Android
 tags:Mobile
 tags:Android
 type:how-to
+topic-image:topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Platforms/Android/Achievements:title%](Platforms/Mobile/Achievements/topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Android/Achievements:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Android/Achievements:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Android/Achievements]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Platforms/Android/Achievements:title%](Platforms/Mobile/Achievements/topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Android/Achievements:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Android/Achievements:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Android/Achievements]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-![](Platforms\Mobile\Achievements\androidAchievements.png)(w:320 convert:false)
+![](Platforms/Mobile/Achievements/androidAchievements.png)(w:320 convert:false)
 
 
 ## コンフィギュレーション
@@ -65,7 +33,7 @@ type:how-to
 
 1. **Achievement Map** では、アンリアル プロジェクト内でのみ使用する **名前** と Google Play Services で使用する **Achievement ID** を入力する必要があります。
 
-	![](Platforms\Mobile\Achievements\androidSetup.png)
+	![](Platforms/Mobile/Achievements/androidSetup.png)
 
 	これらの値はすべてお持ちのアプリケーションとゲーム サービス用の Google Play Developer Console で利用できます。
 

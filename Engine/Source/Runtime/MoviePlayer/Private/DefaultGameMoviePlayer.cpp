@@ -353,6 +353,12 @@ bool FDefaultGameMoviePlayer::PlayMovie()
 
 			bBeganPlaying = true;
 		}
+
+		//Allow anything that set up this LoadingScreenAttribute to know the loading screen is now displaying
+		if (bBeganPlaying)
+		{
+			OnMoviePlaybackStarted().Broadcast();
+		}
 	}
 
 	return bBeganPlaying;
@@ -373,10 +379,6 @@ void FDefaultGameMoviePlayer::StopMovie()
 {
 	LastPlayTime = 0;
 	bUserCalledFinish = true;
-	if (UserWidgetHolder.IsValid())
-	{
-		UserWidgetHolder->SetContent( SNullWidget::NullWidget );
-	}
 }
 
 void FDefaultGameMoviePlayer::WaitForMovieToFinish(bool bAllowEngineTick)
@@ -477,8 +479,6 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish(bool bAllowEngineTick)
 				FlushRenderingCommands();
 			}
 		}
-
-		UserWidgetHolder->SetContent( SNullWidget::NullWidget );
 
 		LoadingIsDone.Set(1);
 		IsMoviePlaying = false;

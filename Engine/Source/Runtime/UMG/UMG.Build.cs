@@ -57,6 +57,15 @@ public class UMG : ModuleRules
 				    "SlateRHIRenderer",
 			    }
             );
-		};
+		}
+
+		if (Target.Type == TargetType.Editor)
+		{
+			PublicDependencyModuleNames.AddRange(
+				new string[] {
+					"UnrealEd",
+				}
+			);
+		}
 	}
 }

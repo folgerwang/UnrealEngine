@@ -97,6 +97,8 @@ private:
 
 	bool ExecuteStep(float Delta, int32 StepIndex)
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_FStepExecutor_ExecuteStep);
+
 		check(IsInGameThread());
 
 		FStepResult Result = FStepResult(FStepResult::EState::FAILED, 0);

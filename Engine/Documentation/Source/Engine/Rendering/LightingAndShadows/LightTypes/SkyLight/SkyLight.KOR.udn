@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability: Public
 Crumbs: %ROOT%
 Title: 스카이 라이트
@@ -14,12 +14,6 @@ Order:
 Tags:lighting
 Topic-Image:SkyLight_Topic.png
 Social-Image:SkyLight_1.png
-
-
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
-
-
 
 [REGION:fullwidth raw]
 ![](Skylight_Header.png)
@@ -105,7 +99,7 @@ Sky Light (스카이 라이트)는 레벨의 먼 부분을 캡처하여 그 부�
 디스턴스 필드 앰비언트 오클루전은 동적인 씬 변화를 지원하며, 스태틱 메시를 숨기거나 이동했을 때 오클루전에 영향을 줍니다.
 
 [REGION:lightbox]
-[![](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion/DFAOView.png)(w:550 h:250)](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion/DFAOView.png)
+[![](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion/DFAOView.png)(w:550)](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion/DFAOView.png)
 [/REGION]
 [REGION:caption] 이미지를 클릭하면 원본을 확인합니다. [/REGION]
 
@@ -231,17 +225,17 @@ Sky Light 컴포넌트의 프로퍼티는 Light 와 Sky Light 두 가지 카테�
 모든 [라이트 유형](Engine/Rendering/LightingAndShadows/LightTypes) 에 공통인 세팅입니다.
 
 [REGION:raw]
-| 프로퍼티 | %spacer% | 설명 |
-| --- | --- | --- |
-| **Intensity** || 세기 - 라이트가 내뿜는 에너지 총량입니다. |
-| **Light Color** || 빛 색 - 라이트가 내뿜는 빛의 색을 지정합니다. |
-| **Affects World** || 월드에 영향 - 라이트가 월드에 영향을 줄지 비활성화시킬지 여부입니다. |
-| **Cast Shadows** || 그림자 드리우기 - 라이트가 그림자를 드리울지 여부입니다. |
-| **Casts Static Shadows** || 스태틱 섀도우 드리우기 - 라이트가 스태틱 오브젝트에서 그림자를 드리울지 여부입니다. Cast Shadows 옵션도 True 설정되어 있어야 합니다. |
-| **Casts Dynamic Shadows** || 다이내믹 섀도우 드리우기 - 라이트가 다이내믹 오브젝트에서 그림자를 드리울지 여부입니다. Cast Shadows 옵션도 True 설정되어 있어야 합니다. |
-| **Indirect Lighting Intensity** || 간접광 세기 - 이 라이트가 갖는 간접광 기여도 스케일입니다. 값이 0 이면 이 라이트에서의 글로벌 일루미네이션(GI)을 끕니다. |
-| **Volumetric Scattering Intensity** || 볼류매트릭 스캐터 세기 - 이 라이트에서의 볼류메트릭 스캐터 세기입니다. Intensity 와 Light Color 의 스케일을 조절합니다. |
-| **Cast Volumetric Shadow** || 볼류메트릭 섀도우 드리우기 - 라이트가 볼류메트릭 포그에 그림자를 드리울지 여부입니다. |
+| 프로퍼티 | 설명 |
+| --- | --- |
+| **Intensity** | 세기 - 라이트가 내뿜는 에너지 총량입니다. |
+| **Light Color** | 빛 색 - 라이트가 내뿜는 빛의 색을 지정합니다. |
+| **Affects World** | 월드에 영향 - 라이트가 월드에 영향을 줄지 비활성화시킬지 여부입니다. |
+| **Cast Shadows** | 그림자 드리우기 - 라이트가 그림자를 드리울지 여부입니다. |
+| **Casts Static Shadows** | 스태틱 섀도우 드리우기 - 라이트가 스태틱 오브젝트에서 그림자를 드리울지 여부입니다. Cast Shadows 옵션도 True 설정되어 있어야 합니다. |
+| **Casts Dynamic Shadows** | 다이내믹 섀도우 드리우기 - 라이트가 다이내믹 오브젝트에서 그림자를 드리울지 여부입니다. Cast Shadows 옵션도 True 설정되어 있어야 합니다. |
+| **Indirect Lighting Intensity** | 간접광 세기 - 이 라이트가 갖는 간접광 기여도 스케일입니다. 값이 0 이면 이 라이트에서의 글로벌 일루미네이션(GI)을 끕니다. |
+| **Volumetric Scattering Intensity** | 볼류매트릭 스캐터 세기 - 이 라이트에서의 볼류메트릭 스캐터 세기입니다. Intensity 와 Light Color 의 스케일을 조절합니다. |
+| **Cast Volumetric Shadow** | 볼류메트릭 섀도우 드리우기 - 라이트가 볼류메트릭 포그에 그림자를 드리울지 여부입니다. |
 [/REGION]
 
 ### Sky Light
@@ -249,16 +243,16 @@ Sky Light 컴포넌트의 프로퍼티는 Light 와 Sky Light 두 가지 카테�
 스카이 라이트 전용 세팅입니다.
 
 [REGION:raw]
-| 프로퍼티 | %spacer% | 설명 |
-| --- | --- | --- |
-| **Source Type** || 소스 유형 - 원거리 씬을 캡처하여 광원으로 사용할 것인지 아니면 지정한 큐브맵을 사용할 것인지 여부입니다. 씬을 캡처할 때, 스카이 라이트 위치에서 SkyDistanceThreshold 거리보다 먼 것이 포함됩니다. [INCLUDE:#sourcetype] |
-| **Cubemap** || 큐브맵 - Source Type 가 SLS_SpecifiedCubemap 으로 설정된 경우 스카이 라이팅에 사용할 큐브맵을 지정합니다. |
-| **Source Cubemap Angle** || 소스 큐브맵 각도 - Source Type 이 SLS Specified Cubemap 으로 설정되었을 때 소스 큐브맵을 회전시킬 각도입니다. |
-| **Cubemap Resolution** || 큐브맵 해상도 - 최상단 처리 큐브맵 MIP 의 최대 해상도입니다. 2 제곱수 텍스처여야 합니다. |
-| **Sky Distance Threshold** || 스카이 거리 한계치 - 스카이 라이트에서 이 거리 안에 있는 지오메트리는 스카이 라이트의 일부분으로 취급합니다 (리플렉션 캡처에도 사용됩니다). |
-| **Capture Emissive Only** || 이미시브만 캡처 - 이미시브 머티리얼만 캡처합니다. 모든 라이팅을 생략하고 캡처 비용을 절약합니다. Capture Every Frame (매 프레임 캡처)를 사용할 때 추천합니다. |
-| **Lower Hemisphere is Solid Color** || 하반구는 단색 - 하반구에서의 모든 라이팅을 0 으로 설정할지 여부입니다. 하반구의 빛샘 현상 방지에 좋습니다. |
-| **Recapture Scene** || 씬 리캡처 - 스카이 라이트 액터가 SLS_CapturedScene 로 설정되면, 씬 라이팅에 스카이 라이트가 사용하는 이미지를 다시 캡처합니다. |
+| 프로퍼티 | 설명 |
+| --- | --- |
+| **Source Type** | 소스 유형 - 원거리 씬을 캡처하여 광원으로 사용할 것인지 아니면 지정한 큐브맵을 사용할 것인지 여부입니다. 씬을 캡처할 때, 스카이 라이트 위치에서 SkyDistanceThreshold 거리보다 먼 것이 포함됩니다. [INCLUDE:#sourcetype] |
+| **Cubemap** | 큐브맵 - Source Type 가 SLS_SpecifiedCubemap 으로 설정된 경우 스카이 라이팅에 사용할 큐브맵을 지정합니다. |
+| **Source Cubemap Angle** | 소스 큐브맵 각도 - Source Type 이 SLS Specified Cubemap 으로 설정되었을 때 소스 큐브맵을 회전시킬 각도입니다. |
+| **Cubemap Resolution** | 큐브맵 해상도 - 최상단 처리 큐브맵 MIP 의 최대 해상도입니다. 2 제곱수 텍스처여야 합니다. |
+| **Sky Distance Threshold** | 스카이 거리 한계치 - 스카이 라이트에서 이 거리 안에 있는 지오메트리는 스카이 라이트의 일부분으로 취급합니다 (리플렉션 캡처에도 사용됩니다). |
+| **Capture Emissive Only** | 이미시브만 캡처 - 이미시브 머티리얼만 캡처합니다. 모든 라이팅을 생략하고 캡처 비용을 절약합니다. Capture Every Frame (매 프레임 캡처)를 사용할 때 추천합니다. |
+| **Lower Hemisphere is Solid Color** | 하반구는 단색 - 하반구에서의 모든 라이팅을 0 으로 설정할지 여부입니다. 하반구의 빛샘 현상 방지에 좋습니다. |
+| **Recapture Scene** | 씬 리캡처 - 스카이 라이트 액터가 SLS_CapturedScene 로 설정되면, 씬 라이팅에 스카이 라이트가 사용하는 이미지를 다시 캡처합니다. |
 [/REGION]
 
 

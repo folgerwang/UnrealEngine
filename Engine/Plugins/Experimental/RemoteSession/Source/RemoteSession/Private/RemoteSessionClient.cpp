@@ -2,6 +2,7 @@
 
 #include "RemoteSessionClient.h"
 #include "BackChannel/Transport/IBackChannelTransport.h"
+#include "BackChannel/Protocol/OSC/BackChannelOSCMessage.h"
 #include "Framework/Application/SlateApplication.h"	
 #include "Channels/RemoteSessionInputChannel.h"
 #include "Channels/RemoteSessionXRTrackingChannel.h"
@@ -11,9 +12,11 @@
 #include "IImageWrapperModule.h"
 #include "Sockets.h"
 #include "RemoteSession.h"
-
+#include "Async/Async.h"
 
 DECLARE_CYCLE_STAT(TEXT("RSClientTick"), STAT_RDClientTick, STATGROUP_Game);
+
+#define RS_TIMEOUT_IS_ERROR 0
 
 FRemoteSessionClient::FRemoteSessionClient(const TCHAR* InHostAddress)
 {
@@ -50,7 +53,7 @@ void FRemoteSessionClient::Tick(float DeltaTime)
 
 	if (IsConnected() == false)
 	{
-		if (IsConnecting == false)
+		if (IsConnecting == false && HasError()  == false)
 		{
 			const double TimeSinceLastAttempt = FPlatformTime::Seconds() - TimeConnectionAttemptStarted;
 
@@ -105,20 +108,12 @@ void FRemoteSessionClient::CheckConnection()
 
 		Connection->GetSocket()->SetReceiveBufferSize(WantedSize, ActualSize);
 
-		OSCConnection = MakeShareable(new FBackChannelOSCConnection(Connection.ToSharedRef()));
-
-		Channels.Add(MakeShareable(new FRemoteSessionInputChannel(ERemoteSessionChannelMode::Send, OSCConnection)));
-		Channels.Add(MakeShareable(new FRemoteSessionXRTrackingChannel(ERemoteSessionChannelMode::Send, OSCConnection)));
-#if PLATFORM_IOS // Client side sending only works on iOS with Android coming in the future
-		Channels.Add(MakeShareable(new FRemoteSessionARCameraChannel(ERemoteSessionChannelMode::Send, OSCConnection)));
-#endif
-		Channels.Add(MakeShareable(new FRemoteSessionFrameBufferChannel(ERemoteSessionChannelMode::Receive, OSCConnection)));
-
+		CreateOSCConnection(Connection.ToSharedRef());
+		
 		UE_LOG(LogRemoteSession, Log, TEXT("Connected to host at %s (ReceiveSize=%dkb)"), *HostAddress, ActualSize / 1024);
 
 		IsConnecting = false;
 
-		OSCConnection->StartReceiveThread();
 		//SetReceiveInBackground(true);
 
 		return true;
@@ -131,17 +126,65 @@ void FRemoteSessionClient::CheckConnection()
 		if (Success == false || TimeSpentConnecting >= ConnectionTimeout)
 		{
 			IsConnecting = false;
+			
+			FString Msg;
+			
 			if (TimeSpentConnecting >= ConnectionTimeout)
 			{
-				UE_LOG(LogRemoteSession, Log, TEXT("Timing out connection attempt after %.02f seconds"), TimeSpentConnecting);	
+				Msg = FString::Printf(TEXT("Timing out connection attempt after %.02f seconds"), TimeSpentConnecting);
 			}
 			else
 			{
-				UE_LOG(LogRemoteSession, Log, TEXT("Failed to check for connection. Aborting."));
+				Msg = TEXT("Failed to check for connection. Aborting.");
 			}
-
+			
+			UE_LOG(LogRemoteSession, Log, TEXT("%s"), *Msg);
+			
+#if RS_TIMEOUT_IS_ERROR
+			CloseWithError(*Msg);
+#else
 			Close();
+#endif
 			TimeConnectionAttemptStarted = FPlatformTime::Seconds();
 		}
 	}
+}
+
+void FRemoteSessionClient::OnBindEndpoints()
+{
+	auto Delegate = FBackChannelDispatchDelegate::FDelegate::CreateRaw(this, &FRemoteSessionClient::OnChannelSelection);
+	OSCConnection->AddMessageHandler(*GetChannelSelectionEndPoint(),Delegate);
+	
+	FRemoteSessionRole::OnBindEndpoints();
+}
+
+void FRemoteSessionClient::OnChannelSelection(FBackChannelOSCMessage& Message, FBackChannelOSCDispatch& Dispatch)
+{
+	TMap<FString, ERemoteSessionChannelMode> DesiredChannels;
+	
+	const int NumChannels = Message.GetArgumentCount() / 2;
+	
+	for (int i = 0; i < NumChannels; i++)
+	{
+		FString ChannelName;
+		int32 ChannelMode;
+		
+		Message.Read(ChannelName);
+		Message.Read(ChannelMode);
+		
+		if (ChannelName.Len())
+		{
+			DesiredChannels.Add(ChannelName, (ERemoteSessionChannelMode)ChannelMode);
+		}
+		else
+		{
+			UE_LOG(LogRemoteSession, Error, TEXT("Failed to read channel from ChannelSelection message!"));
+		}
+	}
+	
+	// Need to create channels on the main thread
+	AsyncTask(ENamedThreads::GameThread, [this, DesiredChannels]
+	{
+		CreateChannels(DesiredChannels);
+	});
 }

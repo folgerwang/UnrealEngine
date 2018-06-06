@@ -58,9 +58,11 @@ struct FParticleEvent_GenerateInfo
 	FParticleEvent_GenerateInfo()
 	: Type(0)
 	, Frequency(0)
+	, ParticleFrequency(0)
 	, FirstTimeOnly(false)
 	, LastTimeOnly(false)
 	, UseReflectedImpactVector(false)
+	, bUseOrbitOffset(false)
 	{
 	}
 };

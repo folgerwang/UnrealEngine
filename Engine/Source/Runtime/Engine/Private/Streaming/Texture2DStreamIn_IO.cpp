@@ -79,7 +79,7 @@ void FTexture2DStreamIn_IO::SetIOFilename(const FContext& Context)
 		}
 		else if (IOFilename != MipMap.BulkData.GetFilename())
 		{
-			UE_LOG(LogTexture, Error, TEXT("All of the streaming mips must be stored in the same file."), *IOFilename);
+			UE_LOG(LogTexture, Error, TEXT("All of the streaming mips must be stored in the same file %s %s."), *IOFilename, *MipMap.BulkData.GetFilename());
 			IOFilename.Reset();
 			break;
 		}

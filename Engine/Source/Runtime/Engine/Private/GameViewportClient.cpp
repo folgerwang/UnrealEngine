@@ -59,6 +59,11 @@
 #include "DynamicResolutionState.h"
 #include "ProfilingDebugging/CsvProfiler.h"
 
+#if WITH_EDITOR
+#include "Settings/LevelEditorPlaySettings.h"
+#endif
+#include "Math/UnrealMathUtility.h"
+
 #define LOCTEXT_NAMESPACE "GameViewport"
 
 /** This variable allows forcing full screen of the first player controller viewport, even if there are multiple controllers plugged in and no cinematic playing. */
@@ -113,7 +118,6 @@ static TAutoConsoleVariable<float> CVarSecondaryScreenPercentage( // TODO: make 
 	TEXT(" 1: override secondary screen percentage."),
 	ECVF_Default);
 
-
 /**
  * Draw debug info on a game scene view.
  */
@@ -150,12 +154,10 @@ UGameViewportClient::UGameViewportClient(const FObjectInitializer& ObjectInitial
 	, AudioDeviceHandle(INDEX_NONE)
 	, bHasAudioFocus(false)
 	, bIsMouseOverClient(false)
+#if WITH_EDITOR
+	, bUseMouseForTouchInEditor(false)
+#endif
 {
-
-	TitleSafeZone.MaxPercentX = 0.9f;
-	TitleSafeZone.MaxPercentY = 0.9f;
-	TitleSafeZone.RecommendedPercentX = 0.8f;
-	TitleSafeZone.RecommendedPercentY = 0.8f;
 
 	bIsPlayInEditorViewport = false;
 	ViewModeIndex = VMI_Lit;
@@ -428,18 +430,28 @@ UGameInstance* UGameViewportClient::GetGameInstance() const
 	return GameInstance;
 }
 
-bool UGameViewportClient::InputKey(FViewport* InViewport, int32 ControllerId, FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
+bool UGameViewportClient::TryToggleFullscreenOnInputKey(FKey Key, EInputEvent EventType)
 {
-	if (IgnoreInput())
-	{
-		return ViewportConsole ? ViewportConsole->InputKey(ControllerId, Key, EventType, AmountDepressed, bGamepad) : false;
-	}
-
 	if ((Key == EKeys::Enter && EventType == EInputEvent::IE_Pressed && FSlateApplication::Get().GetModifierKeys().IsAltDown() && GetDefault<UInputSettings>()->bAltEnterTogglesFullscreen)
 		|| (IsRunningGame() && Key == EKeys::F11 && EventType == EInputEvent::IE_Pressed && GetDefault<UInputSettings>()->bF11TogglesFullscreen))
 	{
 		HandleToggleFullscreenCommand();
 		return true;
+	}
+
+	return false;
+}
+
+bool UGameViewportClient::InputKey(FViewport* InViewport, int32 ControllerId, FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
+{
+	if (TryToggleFullscreenOnInputKey(Key, EventType))
+	{
+		return true;
+	}
+
+	if (IgnoreInput())
+	{
+		return ViewportConsole ? ViewportConsole->InputKey(ControllerId, Key, EventType, AmountDepressed, bGamepad) : false;
 	}
 
 	const int32 NumLocalPlayers = World ? World->GetGameInstance()->GetNumLocalPlayers() : 0;
@@ -582,7 +594,7 @@ bool UGameViewportClient::InputChar(FViewport* InViewport, int32 ControllerId, T
 	return bResult;
 }
 
-bool UGameViewportClient::InputTouch(FViewport* InViewport, int32 ControllerId, uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex)
+bool UGameViewportClient::InputTouch(FViewport* InViewport, int32 ControllerId, uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, float Force, FDateTime DeviceTimestamp, uint32 TouchpadIndex)
 {
 	if (IgnoreInput())
 	{
@@ -590,13 +602,13 @@ bool UGameViewportClient::InputTouch(FViewport* InViewport, int32 ControllerId, 
 	}
 
 	// route to subsystems that care
-	bool bResult = (ViewportConsole ? ViewportConsole->InputTouch(ControllerId, Handle, Type, TouchLocation, DeviceTimestamp, TouchpadIndex) : false);
+	bool bResult = (ViewportConsole ? ViewportConsole->InputTouch(ControllerId, Handle, Type, TouchLocation, Force, DeviceTimestamp, TouchpadIndex) : false);
 	if (!bResult)
 	{
 		ULocalPlayer* const TargetPlayer = GEngine->GetLocalPlayerFromControllerId(this, ControllerId);
 		if (TargetPlayer && TargetPlayer->PlayerController)
 		{
-			bResult = TargetPlayer->PlayerController->InputTouch(Handle, Type, TouchLocation, DeviceTimestamp, TouchpadIndex);
+			bResult = TargetPlayer->PlayerController->InputTouch(Handle, Type, TouchLocation, Force, DeviceTimestamp, TouchpadIndex);
 		}
 	}
 
@@ -625,7 +637,7 @@ bool UGameViewportClient::InputMotion(FViewport* InViewport, int32 ControllerId,
 void UGameViewportClient::SetIsSimulateInEditorViewport(bool bInIsSimulateInEditorViewport)
 {
 #if PLATFORM_DESKTOP || PLATFORM_HTML5
-	if (GetDefault<UInputSettings>()->bUseMouseForTouch)
+	if (GetUseMouseForTouch())
 	{
 		FSlateApplication::Get().SetGameIsFakingTouchEvents(!bInIsSimulateInEditorViewport);
 	}
@@ -666,7 +678,7 @@ void UGameViewportClient::MouseEnter(FViewport* InViewport, int32 x, int32 y)
 	Super::MouseEnter(InViewport, x, y);
 
 #if PLATFORM_DESKTOP || PLATFORM_HTML5
-	if (InViewport && GetDefault<UInputSettings>()->bUseMouseForTouch && !GetGameViewport()->GetPlayInEditorIsSimulate())
+	if (InViewport && GetUseMouseForTouch() && !GetGameViewport()->GetPlayInEditorIsSimulate())
 	{
 		FSlateApplication::Get().SetGameIsFakingTouchEvents(true);
 	}
@@ -689,7 +701,7 @@ void UGameViewportClient::MouseLeave(FViewport* InViewport)
 {
 	Super::MouseLeave(InViewport);
 
-	if (InViewport && GetDefault<UInputSettings>()->bUseMouseForTouch)
+	if (InViewport && GetUseMouseForTouch())
 	{
 		// Only send the touch end event if we're not drag/dropping, as that will end the drag/drop operation.
 		if ( !FSlateApplication::Get().IsDragDropping() )
@@ -806,7 +818,7 @@ void UGameViewportClient::AddSoftwareCursor(EMouseCursor::Type Cursor, const FSo
 		UClass* Class = CursorClass.TryLoadClass<UUserWidget>();
 		if (Class)
 		{
-			UUserWidget* UserWidget = CreateWidget<UUserWidget>(GetGameInstance(), Class);
+			UUserWidget* UserWidget = CreateWidget(GetGameInstance(), Class);
 			AddCursorWidget(Cursor, UserWidget);
 		}
 		else
@@ -1312,29 +1324,38 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	checkf(ViewFamily.GetScreenPercentageInterface() == nullptr,
 		TEXT("Some code has tried to set up an alien screen percentage driver, that could be wrong if not supported very well by the RHI."));
 
-	float DynamicResolutionPercentage = 100.0f;
-
-	// Setup main view family with screen percentage interface by dynamic resolution if screen percentage is supported.
-	//
-	// Do not allow dynamic resolution to touch the view family if not supported to ensure there is no possibility to ruin
-	// game play experience on platforms that does not support it, but have it enabled by mistake.
-	if (ViewFamily.EngineShowFlags.ScreenPercentage && GEngine->GetDynamicResolutionState() && GEngine->GetDynamicResolutionState()->IsSupported())
+	// Setup main view family with screen percentage interface by dynamic resolution if screen percentage is enabled.
+	#if WITH_DYNAMIC_RESOLUTION
+	if (ViewFamily.EngineShowFlags.ScreenPercentage)
 	{
-		GEngine->EmitDynamicResolutionEvent(EDynamicResolutionStateEvent::BeginDynamicResolutionRendering);
-		GEngine->GetDynamicResolutionState()->SetupMainViewFamily(ViewFamily);
+		FDynamicResolutionStateInfos DynamicResolutionStateInfos;
+		GEngine->GetDynamicResolutionCurrentStateInfos(/* out */ DynamicResolutionStateInfos);
 
-		if (GEngine->GetDynamicResolutionStatus() == EDynamicResolutionStatus::Enabled)
+		// Do not allow dynamic resolution to touch the view family if not supported to ensure there is no possibility to ruin
+		// game play experience on platforms that does not support it, but have it enabled by mistake.
+		if (DynamicResolutionStateInfos.Status == EDynamicResolutionStatus::Enabled)
 		{
-			DynamicResolutionPercentage = GEngine->GetDynamicResolutionState()->GetResolutionFractionApproximation() * 100.0f;
+			GEngine->EmitDynamicResolutionEvent(EDynamicResolutionStateEvent::BeginDynamicResolutionRendering);
+			GEngine->GetDynamicResolutionState()->SetupMainViewFamily(ViewFamily);
 		}
-	}
+		else if (DynamicResolutionStateInfos.Status == EDynamicResolutionStatus::DebugForceEnabled)
+		{
+			GEngine->EmitDynamicResolutionEvent(EDynamicResolutionStateEvent::BeginDynamicResolutionRendering);
+			ViewFamily.SetScreenPercentageInterface(new FLegacyScreenPercentageDriver(
+				ViewFamily,
+				DynamicResolutionStateInfos.ResolutionFractionApproximation,
+				/* AllowPostProcessSettingsScreenPercentage = */ false,
+				DynamicResolutionStateInfos.ResolutionFractionUpperBound));
+		}
 
-#if CSV_PROFILER
-	if (DynamicResolutionPercentage >= 0.0f)
-	{
-		CSV_CUSTOM_STAT_GLOBAL(DynamicResolutionPercentage, DynamicResolutionPercentage, ECsvCustomStatOp::Set);
+		#if CSV_PROFILER
+		if (DynamicResolutionStateInfos.ResolutionFractionApproximation >= 0.0f)
+		{
+			CSV_CUSTOM_STAT_GLOBAL(DynamicResolutionPercentage, DynamicResolutionStateInfos.ResolutionFractionApproximation * 100.0f, ECsvCustomStatOp::Set);
+		}
+		#endif
 	}
-#endif
+	#endif
 
 	// If a screen percentage interface was not set by dynamic resolution, then create one matching legacy behavior.
 	if (ViewFamily.GetScreenPercentageInterface() == nullptr)
@@ -1645,7 +1666,7 @@ void UGameViewportClient::ProcessScreenShots(FViewport* InViewport)
 		}
 
 		FScreenshotRequest::Reset();
-		FScreenshotRequest::OnScreenshotRequestProcessed().ExecuteIfBound();
+		FScreenshotRequest::OnScreenshotRequestProcessed().Broadcast();
 
 		// Reeanble screen messages - if we are NOT capturing a movie
 		GAreScreenMessagesEnabled = GScreenMessagesRestoreState;
@@ -1718,7 +1739,7 @@ void UGameViewportClient::LostFocus(FViewport* InViewport)
 void UGameViewportClient::ReceivedFocus(FViewport* InViewport)
 {
 #if PLATFORM_DESKTOP || PLATFORM_HTML5
-	if (GetDefault<UInputSettings>()->bUseMouseForTouch && GetGameViewport() && !GetGameViewport()->GetPlayInEditorIsSimulate())
+	if (GetUseMouseForTouch() && GetGameViewport() && !GetGameViewport()->GetPlayInEditorIsSimulate())
 	{
 		FSlateApplication::Get().SetGameIsFakingTouchEvents(true);
 	}
@@ -1779,7 +1800,9 @@ bool UGameViewportClient::IsOrtho() const
 
 void UGameViewportClient::PostRender(UCanvas* Canvas)
 {
-	if( bShowTitleSafeZone )
+#if !WITH_EDITOR
+	if( bShowTitleSafeZone)
+#endif
 	{
 		DrawTitleSafeArea(Canvas);
 	}
@@ -2107,23 +2130,20 @@ void UGameViewportClient::GetPixelSizeOfScreen( float& Width, float& Height, UCa
 	}
 }
 
-void UGameViewportClient::CalculateSafeZoneValues( float& Horizontal, float& Vertical, UCanvas* Canvas, int32 LocalPlayerIndex, bool bUseMaxPercent )
+void UGameViewportClient::CalculateSafeZoneValues( FMargin& InSafeZone, UCanvas* Canvas, int32 LocalPlayerIndex, bool bUseMaxPercent )
 {
-
-	float XSafeZoneToUse = bUseMaxPercent ? TitleSafeZone.MaxPercentX : TitleSafeZone.RecommendedPercentX;
-	float YSafeZoneToUse = bUseMaxPercent ? TitleSafeZone.MaxPercentY : TitleSafeZone.RecommendedPercentY;
-
 	float ScreenWidth, ScreenHeight;
-	GetPixelSizeOfScreen( ScreenWidth, ScreenHeight, Canvas, LocalPlayerIndex );
-	Horizontal = (ScreenWidth * (1 - XSafeZoneToUse) / 2.0f);
-	Vertical = (ScreenHeight * (1 - YSafeZoneToUse) / 2.0f);
+	GetPixelSizeOfScreen(ScreenWidth, ScreenHeight, Canvas, LocalPlayerIndex);
+
+	FVector2D ScreenSize(ScreenWidth, ScreenHeight);
+	FSlateApplication::Get().GetSafeZoneSize(InSafeZone, ScreenSize);
 }
 
 
 bool UGameViewportClient::CalculateDeadZoneForAllSides( ULocalPlayer* LPlayer, UCanvas* Canvas, float& fTopSafeZone, float& fBottomSafeZone, float& fLeftSafeZone, float& fRightSafeZone, bool bUseMaxPercent )
 {
 	// save separate - if the split screen is in bottom right, then
-
+	FMargin SafeZone;
 	if ( LPlayer != NULL )
 	{
 		int32 LocalPlayerIndex = ConvertLocalPlayerToGamePlayerIndex( LPlayer );
@@ -2140,12 +2160,11 @@ bool UGameViewportClient::CalculateDeadZoneForAllSides( ULocalPlayer* LPlayer, U
 			if ( bHasTopSafeZone || bHasBottomSafeZone || bHasLeftSafeZone || bHasRightSafeZone)
 			{
 				// calculate the safezones
-				float HorizSafeZoneValue, VertSafeZoneValue;
-				CalculateSafeZoneValues( HorizSafeZoneValue, VertSafeZoneValue, Canvas, LocalPlayerIndex, bUseMaxPercent );
+				CalculateSafeZoneValues(SafeZone, Canvas, LocalPlayerIndex, bUseMaxPercent );
 
 				if (bHasTopSafeZone)
 				{
-					fTopSafeZone = VertSafeZoneValue;
+					fTopSafeZone = SafeZone.Top;
 				}
 				else
 				{
@@ -2154,7 +2173,7 @@ bool UGameViewportClient::CalculateDeadZoneForAllSides( ULocalPlayer* LPlayer, U
 
 				if (bHasBottomSafeZone)
 				{
-					fBottomSafeZone = VertSafeZoneValue;
+					fBottomSafeZone = SafeZone.Bottom;
 				}
 				else
 				{
@@ -2163,7 +2182,7 @@ bool UGameViewportClient::CalculateDeadZoneForAllSides( ULocalPlayer* LPlayer, U
 
 				if (bHasLeftSafeZone)
 				{
-					fLeftSafeZone = HorizSafeZoneValue;
+					fLeftSafeZone = SafeZone.Left;
 				}
 				else
 				{
@@ -2172,7 +2191,7 @@ bool UGameViewportClient::CalculateDeadZoneForAllSides( ULocalPlayer* LPlayer, U
 
 				if (bHasRightSafeZone)
 				{
-					fRightSafeZone = HorizSafeZoneValue;
+					fRightSafeZone = SafeZone.Right;
 				}
 				else
 				{
@@ -2188,20 +2207,52 @@ bool UGameViewportClient::CalculateDeadZoneForAllSides( ULocalPlayer* LPlayer, U
 
 void UGameViewportClient::DrawTitleSafeArea( UCanvas* Canvas )
 {	
-	// red colored max safe area box
-	Canvas->SetDrawColor(255,0,0,255);
-	float X = Canvas->ClipX * (1 - TitleSafeZone.MaxPercentX) / 2.0f;
-	float Y = Canvas->ClipY * (1 - TitleSafeZone.MaxPercentY) / 2.0f;
-	FCanvasBoxItem BoxItem( FVector2D( X, Y ), FVector2D( Canvas->ClipX * TitleSafeZone.MaxPercentX, Canvas->ClipY * TitleSafeZone.MaxPercentY ) );
-	BoxItem.SetColor( FLinearColor::Red );
-	Canvas->DrawItem( BoxItem );
-		
-	// yellow colored recommended safe area box
-	X = Canvas->ClipX * (1 - TitleSafeZone.RecommendedPercentX) / 2.0f;
-	Y = Canvas->ClipY * (1 - TitleSafeZone.RecommendedPercentY) / 2.0f;
-	BoxItem.SetColor( FLinearColor::Yellow );
-	BoxItem.Size = FVector2D( Canvas->ClipX * TitleSafeZone.RecommendedPercentX, Canvas->ClipY * TitleSafeZone.RecommendedPercentY );
-	Canvas->DrawItem( BoxItem, X, Y );
+#if WITH_EDITOR
+	FMargin SafeZone;
+	const ULevelEditorPlaySettings* PlayInSettings = GetDefault<ULevelEditorPlaySettings>();
+	
+	const float Width = Canvas->UnsafeSizeX;
+	const float Height = Canvas->UnsafeSizeY;
+	const FLinearColor UnsafeZoneColor(1.0f, 0.0f, 0.0f, 0.25f);
+	FCanvasTileItem TileItem(FVector2D::ZeroVector, GWhiteTexture, UnsafeZoneColor);
+	TileItem.BlendMode = SE_BLEND_Translucent;
+	if (PlayInSettings->DeviceToEmulate.IsEmpty())
+	{
+		CalculateSafeZoneValues(SafeZone, Canvas, 0, false);
+		const float HeightOfSides = Height - SafeZone.GetTotalSpaceAlong<Orient_Vertical>();
+		// Top bar
+		TileItem.Position = FVector2D::ZeroVector;
+		TileItem.Size = FVector2D(Width, SafeZone.Top);
+		Canvas->DrawItem(TileItem);
+
+		// Bottom bar
+		TileItem.Position = FVector2D(0.0f, Height - SafeZone.Bottom);
+		TileItem.Size = FVector2D(Width, SafeZone.Bottom);
+		Canvas->DrawItem(TileItem);
+
+		// Left bar
+		TileItem.Position = FVector2D(0.0f, SafeZone.Top);
+		TileItem.Size = FVector2D(SafeZone.Left, HeightOfSides);
+		Canvas->DrawItem(TileItem);
+
+		// Right bar
+		TileItem.Position = FVector2D(Width - SafeZone.Right, SafeZone.Top);
+		TileItem.Size = FVector2D(SafeZone.Right, HeightOfSides);
+		Canvas->DrawItem(TileItem);
+	}
+	else
+	{
+		ULevelEditorPlaySettings* PlaySettings = GetMutableDefault<ULevelEditorPlaySettings>();
+		PlaySettings->CalculateCustomUnsafeZones(PlaySettings->CustomUnsafeZoneStarts, PlaySettings->CustomUnsafeZoneDimensions, PlaySettings->DeviceToEmulate, FVector2D(Width, Height));
+
+		for (int ZoneIndex = 0; ZoneIndex < PlaySettings->CustomUnsafeZoneStarts.Num(); ZoneIndex++)
+		{
+			TileItem.Position = PlaySettings->CustomUnsafeZoneStarts[ZoneIndex];
+			TileItem.Size = PlaySettings->CustomUnsafeZoneDimensions[ZoneIndex];
+			Canvas->DrawItem(TileItem);
+		}
+	}
+#endif
 }
 
 void UGameViewportClient::DrawTransition(UCanvas* Canvas)
@@ -2980,6 +3031,7 @@ bool UGameViewportClient::HandleToggleFullscreenCommand()
 
 	int32 ResolutionX = GSystemResolution.ResX;
 	int32 ResolutionY = GSystemResolution.ResY;
+	bool bNewModeApplied = false;
 
 	// Make sure the user's settings are updated after pressing Alt+Enter to toggle fullscreen.  Note
 	// that we don't need to "apply" the setting change, as we already did that above directly.
@@ -2992,14 +3044,20 @@ bool UGameViewportClient::HandleToggleFullscreenCommand()
 			// Ensure that our desired screen size will fit on the display
 			ResolutionX = UserSettings->GetScreenResolution().X;
 			ResolutionY = UserSettings->GetScreenResolution().Y;
-			UGameEngine::DetermineGameWindowResolution(ResolutionX, ResolutionY, FullScreenMode);
+			UGameEngine::DetermineGameWindowResolution(ResolutionX, ResolutionY, FullScreenMode, true);
 
+			UserSettings->SetScreenResolution(FIntPoint(ResolutionX, ResolutionY));
 			UserSettings->SetFullscreenMode(FullScreenMode);
 			UserSettings->ConfirmVideoMode();
+			UserSettings->ApplySettings(false);
+			bNewModeApplied = true;
 		}
 	}
 
-	FSystemResolution::RequestResolutionChange(ResolutionX, ResolutionY, FullScreenMode);
+	if (!bNewModeApplied)
+	{
+		FSystemResolution::RequestResolutionChange(ResolutionX, ResolutionY, FullScreenMode);
+	}
 
 	ToggleFullscreenDelegate.Broadcast(FullScreenMode != EWindowMode::Windowed);
 
@@ -3473,6 +3531,22 @@ bool UGameViewportClient::IsSimulateInEditorViewport() const
 	const FSceneViewport* GameViewport = GetGameViewport();
 
 	return GameViewport ? GameViewport->GetPlayInEditorIsSimulate() : false;
+}
+
+#if WITH_EDITOR
+void UGameViewportClient::SetPlayInEditorUseMouseForTouch(bool bInUseMouseForTouch)
+{
+	bUseMouseForTouchInEditor = bInUseMouseForTouch;
+}
+#endif
+
+bool UGameViewportClient::GetUseMouseForTouch() const
+{
+#if WITH_EDITOR
+	return bUseMouseForTouchInEditor || GetDefault<UInputSettings>()->bUseMouseForTouch;
+#else
+	return GetDefault<UInputSettings>()->bUseMouseForTouch;
+#endif
 }
 
 #undef LOCTEXT_NAMESPACE

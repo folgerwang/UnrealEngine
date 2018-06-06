@@ -1153,11 +1153,6 @@ void FD3D11DynamicRHI::RHISetRenderTargets(
 	}
 }
 
-void FD3D11DynamicRHI::RHIDiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask)
-{
-	// Could support in DX11.1 via ID3D11DeviceContext1::Discard*() functions.
-}
-
 void FD3D11DynamicRHI::RHISetRenderTargetsAndClear(const FRHISetRenderTargetsInfo& RenderTargetsInfo)
 {
 	// Here convert to FUnorderedAccessViewRHIParamRef* in order to call RHISetRenderTargets

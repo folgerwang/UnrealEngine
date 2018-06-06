@@ -81,8 +81,11 @@ int RunSlateViewer( const TCHAR* CommandLine )
 		FSlateApplication::Get().Tick();		
 		FPlatformProcess::Sleep(0);
 	}
-	FModuleManager::Get().UnloadModulesAtShutdown();
+
+	FCoreDelegates::OnExit.Broadcast();
 	FSlateApplication::Shutdown();
+	FModuleManager::Get().UnloadModulesAtShutdown();
+
 
 	return 0;
 }

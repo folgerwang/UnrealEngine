@@ -281,6 +281,9 @@ protected:
 	UPROPERTY()
 	uint8 bAllowReceiveTickEventOnDedicatedServer:1;
 
+	/** Flag indicating we have checked initial simulating physics state to sync networked proxies to the server. */
+	uint8 bNetCheckedInitialPhysicsState : 1;
+
 private:
 	/** Whether FinishSpawning has been called for this Actor.  If it has not, the Actor is in a malformed state */
 	uint8 bHasFinishedSpawning:1;
@@ -335,10 +338,6 @@ private:
 
 public:
 
-	// ORION TODO - was moved to private. Add accessor?
-	/** Flag indicating we have checked initial simulating physics state to sync networked proxies to the server. */
-	uint8 bNetCheckedInitialPhysicsState : 1;
-
 	/**
 	 * Set whether this actor replicates to network clients. When this actor is spawned on the server it will be sent to clients as well.
 	 * Properties flagged for replication will update on clients if they change on the server.
@@ -361,6 +360,10 @@ public:
 	
 	/** Copies RemoteRole from another Actor and adds this actor to the list of network actors if necessary. */
 	void CopyRemoteRoleFrom(const AActor* CopyFromActor);
+
+	/** Returns how much control the local machine has over this actor. */
+	UFUNCTION(BlueprintCallable, Category=Replication)
+	ENetRole GetLocalRole() const;
 
 	/** Returns how much control the remote machine has over this actor. */
 	UFUNCTION(BlueprintCallable, Category=Replication)
@@ -1655,6 +1658,9 @@ public:
 	 */
 	virtual bool IsLevelBoundsRelevant() const { return true; }
 
+	/** Set LOD Parent Primitive*/
+	void SetLODParent(class UPrimitiveComponent* InLODParent, float InParentDrawDistance);
+
 #if WITH_EDITOR
 	// Editor specific
 
@@ -1680,10 +1686,7 @@ public:
 	virtual void EditorApplyScale(const FVector& DeltaScale, const FVector* PivotLocation, bool bAltDown, bool bShiftDown, bool bCtrlDown);
 
 	/** Called by MirrorActors to perform a mirroring operation on the actor */
-	virtual void EditorApplyMirror(const FVector& MirrorScale, const FVector& PivotLocation);
-
-	/** Set LOD Parent Primitive*/
-	void SetLODParent(class UPrimitiveComponent* InLODParent, float InParentDrawDistance);
+	virtual void EditorApplyMirror(const FVector& MirrorScale, const FVector& PivotLocation);	
 
 	/**
 	 * Simple accessor to check if the actor is hidden upon editor startup
@@ -3171,6 +3174,11 @@ FORCEINLINE_DEBUGGABLE const AActor* AActor::GetNetOwner() const
 	// NetOwner is the Actor Owner unless otherwise overridden (see PlayerController/Pawn/Beacon)
 	// Used in ServerReplicateActors
 	return Owner;
+}
+
+FORCEINLINE_DEBUGGABLE ENetRole AActor::GetLocalRole() const
+{
+	return Role;
 }
 
 FORCEINLINE_DEBUGGABLE ENetRole AActor::GetRemoteRole() const

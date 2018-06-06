@@ -342,7 +342,7 @@ void FVerifierSpec::MakeFileData()
 	AllFiles = TSet<FString>(MockManifest->BuildFileList);
 	MockManifest->TaggedFileList = AllFiles;
 	FRandomStream RandomData(0);
-	FSHAHashData SHAHashData;
+	FSHAHash SHAHashData;
 	for (const FString& Filename : MockManifest->BuildFileList)
 	{
 		FString FullFilename = VerifyDirectory / Filename;

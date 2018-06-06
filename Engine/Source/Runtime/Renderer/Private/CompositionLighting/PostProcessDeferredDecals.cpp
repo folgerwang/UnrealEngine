@@ -136,13 +136,6 @@ struct FDecalDepthState
 	}
 };
 
-enum EDecalRasterizerState
-{
-	DRS_Undefined,
-	DRS_CCW,
-	DRS_CW,
-};
-
 // @param RenderState 0:before BasePass, 1:before lighting, (later we could add "after lighting" and multiply)
 FBlendStateRHIParamRef GetDecalBlendState(const ERHIFeatureLevel::Type SMFeatureLevel, EDecalRenderStage InDecalRenderStage, EDecalBlendMode DecalBlendMode, bool bHasNormal)
 {
@@ -314,6 +307,25 @@ FBlendStateRHIParamRef GetDecalBlendState(const ERHIFeatureLevel::Type SMFeature
 		case DBM_Emissive:
 			return TStaticBlendState< CW_RGB, BO_Add, BF_SourceAlpha, BF_One >::GetRHI();
 
+		case DBM_AlphaComposite:
+			if (GSupportsSeparateRenderTargetBlendState)
+			{
+				return TStaticBlendState<
+					CW_RGB, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_One,	// Emissive
+					CW_RGB, BO_Add, BF_Zero, BF_One, BO_Add, BF_Zero, BF_One,				// Normal
+					CW_RGB, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_One,	// Metallic, Specular, Roughness
+					CW_RGB, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_One	// BaseColor
+				>::GetRHI();
+			}
+			else if (SMFeatureLevel == ERHIFeatureLevel::SM4)
+			{
+				return TStaticBlendState<
+					CW_RGB, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_One,	// Emissive
+					CW_RGB, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_One,	// Normal
+					CW_RGB, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_One,	// Metallic, Specular, Roughness
+					CW_RGB, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_One	// BaseColor
+				>::GetRHI();
+			}
 		default:
 			// the decal type should not be rendered in this pass - internal error
 			check(0);
@@ -842,7 +854,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 							const auto& Scale3d = DecalProxy.ComponentTrans.GetScale3D();
 							bReverseHanded = Scale3d[0] * Scale3d[1] * Scale3d[2] < 0.f;
 						}
-						EDecalRasterizerState DecalRasterizerState = ComputeDecalRasterizerState(bInsideDecal, bReverseHanded, View);
+						EDecalRasterizerState DecalRasterizerState = FDecalRenderingCommon::ComputeDecalRasterizerState(bInsideDecal, bReverseHanded, View.bReverseCulling);
 
 						if (LastDecalRasterizerState != DecalRasterizerState)
 						{

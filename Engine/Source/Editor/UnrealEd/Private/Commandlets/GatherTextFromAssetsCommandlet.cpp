@@ -13,6 +13,7 @@
 #include "Modules/ModuleManager.h"
 #include "Serialization/PropertyLocalizationDataGathering.h"
 #include "Misc/PackageName.h"
+#include "Misc/FileHelper.h"
 #include "UObject/PackageFileSummary.h"
 #include "Framework/Commands/Commands.h"
 #include "Commandlets/GatherTextFromSourceCommandlet.h"
@@ -134,13 +135,6 @@ private:
 class FAssetGatherCacheMetrics
 {
 public:
-	enum class EUncachedAssetReason : uint8
-	{
-		TooOld = 0,
-		NoCache,
-		Num,
-	};
-
 	FAssetGatherCacheMetrics()
 		: CachedAssetCount(0)
 		, UncachedAssetCount(0)
@@ -153,11 +147,11 @@ public:
 		++CachedAssetCount;
 	}
 
-	void CountUncachedAsset(const EUncachedAssetReason InReason)
+	void CountUncachedAsset(const UGatherTextFromAssetsCommandlet::EPackageLocCacheState InState)
 	{
-		check(InReason != EUncachedAssetReason::Num);
+		check(InState != UGatherTextFromAssetsCommandlet::EPackageLocCacheState::Cached);
 		++UncachedAssetCount;
-		++UncachedAssetBreakdown[(int32)InReason];
+		++UncachedAssetBreakdown[(int32)InState];
 	}
 
 	void LogMetrics() const
@@ -171,15 +165,15 @@ public:
 			TEXT("Asset gather cache metrics: %d cached, %d uncached (%d too old, %d no cache or contained bytecode)"), 
 			CachedAssetCount, 
 			UncachedAssetCount, 
-			UncachedAssetBreakdown[(int32)EUncachedAssetReason::TooOld], 
-			UncachedAssetBreakdown[(int32)EUncachedAssetReason::NoCache]
+			UncachedAssetBreakdown[(int32)UGatherTextFromAssetsCommandlet::EPackageLocCacheState::Uncached_TooOld], 
+			UncachedAssetBreakdown[(int32)UGatherTextFromAssetsCommandlet::EPackageLocCacheState::Uncached_NoCache]
 			);
 	}
 
 private:
 	int32 CachedAssetCount;
 	int32 UncachedAssetCount;
-	int32 UncachedAssetBreakdown[(int32)EUncachedAssetReason::Num];
+	int32 UncachedAssetBreakdown[(int32)UGatherTextFromAssetsCommandlet::EPackageLocCacheState::Cached];
 };
 
 #define LOC_DEFINE_REGION
@@ -357,6 +351,63 @@ void UGatherTextFromAssetsCommandlet::AddReferencedObjects(UObject* InThis, FRef
 	Collector.AddReferencedObjects(This->ObjectsToKeepAlive);
 }
 
+bool IsGatherableTextDataIdentical(const TArray<FGatherableTextData>& GatherableTextDataArrayOne, const TArray<FGatherableTextData>& GatherableTextDataArrayTwo)
+{
+	struct FSignificantGatherableTextData
+	{
+		FLocKey Identity;
+		FString SourceString;
+	};
+
+	auto ExtractSignificantGatherableTextData = [](const TArray<FGatherableTextData>& InGatherableTextDataArray)
+	{
+		TArray<FSignificantGatherableTextData> SignificantGatherableTextDataArray;
+
+		for (const FGatherableTextData& GatherableTextData : InGatherableTextDataArray)
+		{
+			for (const FTextSourceSiteContext& TextSourceSiteContext : GatherableTextData.SourceSiteContexts)
+			{
+				SignificantGatherableTextDataArray.Add({ FString::Printf(TEXT("%s:%s"), *GatherableTextData.NamespaceName, *TextSourceSiteContext.KeyName), GatherableTextData.SourceData.SourceString });
+			}
+		}
+
+		SignificantGatherableTextDataArray.Sort([](const FSignificantGatherableTextData& SignificantGatherableTextDataOne, const FSignificantGatherableTextData& SignificantGatherableTextDataTwo)
+		{
+			return SignificantGatherableTextDataOne.Identity < SignificantGatherableTextDataTwo.Identity;
+		});
+
+		return SignificantGatherableTextDataArray;
+	};
+
+	TArray<FSignificantGatherableTextData> SignificantGatherableTextDataArrayOne = ExtractSignificantGatherableTextData(GatherableTextDataArrayOne);
+	TArray<FSignificantGatherableTextData> SignificantGatherableTextDataArrayTwo = ExtractSignificantGatherableTextData(GatherableTextDataArrayTwo);
+
+	if (SignificantGatherableTextDataArrayOne.Num() != SignificantGatherableTextDataArrayTwo.Num())
+	{
+		return false;
+	}
+
+	// These arrays are sorted by identity, so everything should match as we iterate through the array
+	// If it doesn't, then these caches aren't identical
+	for (int32 Idx = 0; Idx < SignificantGatherableTextDataArrayOne.Num(); ++Idx)
+	{
+		const FSignificantGatherableTextData& SignificantGatherableTextDataOne = SignificantGatherableTextDataArrayOne[Idx];
+		const FSignificantGatherableTextData& SignificantGatherableTextDataTwo = SignificantGatherableTextDataArrayTwo[Idx];
+
+		if (SignificantGatherableTextDataOne.Identity != SignificantGatherableTextDataTwo.Identity)
+		{
+			return false;
+		}
+
+		if (!SignificantGatherableTextDataOne.SourceString.Equals(SignificantGatherableTextDataTwo.SourceString, ESearchCase::CaseSensitive))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
 int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 {
 	// Parse command line.
@@ -374,6 +425,14 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 
 	if (!ConfigureFromScript(GatherTextConfigPath, SectionName))
 	{
+		return -1;
+	}
+
+	// Get destination path
+	FString DestinationPath;
+	if (!GetPathFromConfig(*SectionName, TEXT("DestinationPath"), DestinationPath, GatherTextConfigPath))
+	{
+		UE_LOG(LogGatherTextFromAssetsCommandlet, Error, TEXT("No destination path specified."));
 		return -1;
 	}
 
@@ -560,6 +619,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 			FPackagePendingGather& PackagePendingGather = PackagesPendingGather[PackagesPendingGather.AddDefaulted()];
 			PackagePendingGather.PackageName = PackageNameToGather;
 			PackagePendingGather.PackageFilename = MoveTemp(PackageFilename);
+			PackagePendingGather.PackageLocCacheState = EPackageLocCacheState::Cached;
 		}
 	}
 
@@ -567,7 +627,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 	TMap<FString, FName> AssignedPackageLocalizationIds;
 
 	// Process all packages that do not need to be loaded. Remove processed packages from the list.
-	PackagesPendingGather.RemoveAll([&](const FPackagePendingGather& PackagePendingGather) -> bool
+	PackagesPendingGather.RemoveAll([&](FPackagePendingGather& PackagePendingGather) -> bool
 	{
 		TUniquePtr<FArchive> FileReader(IFileManager::Get().CreateFileReader(*PackagePendingGather.PackageFilename));
 		if (!FileReader)
@@ -592,7 +652,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 			}
 		}
 
-		FAssetGatherCacheMetrics::EUncachedAssetReason UncachedAssetReason = FAssetGatherCacheMetrics::EUncachedAssetReason::Num;
+		PackagePendingGather.PackageLocCacheState = EPackageLocCacheState::Cached;
 
 		// Have we been asked to skip the cache of text that exists in the header of newer packages?
 		if (bSkipGatherCache && PackageFileSummary.GetFileVersionUE4() >= VER_UE4_SERIALIZE_TEXT_IN_PACKAGES)
@@ -600,7 +660,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 			// Fallback on the old package flag check.
 			if (PackageFileSummary.PackageFlags & PKG_RequiresLocalizationGather)
 			{
-				UncachedAssetReason = FAssetGatherCacheMetrics::EUncachedAssetReason::NoCache;
+				PackagePendingGather.PackageLocCacheState = EPackageLocCacheState::Uncached_NoCache;
 			}
 		}
 
@@ -609,7 +669,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 		// Packages not resaved since localization gathering flagging was added to packages must be loaded.
 		if (PackageFileSummary.GetFileVersionUE4() < VER_UE4_PACKAGE_REQUIRES_LOCALIZATION_GATHER_FLAGGING)
 		{
-			UncachedAssetReason = FAssetGatherCacheMetrics::EUncachedAssetReason::TooOld;
+			PackagePendingGather.PackageLocCacheState = EPackageLocCacheState::Uncached_TooOld;
 		}
 		// Package not resaved since gatherable text data was added to package headers must be loaded, since their package header won't contain pregathered text data.
 		else if (PackageFileSummary.GetFileVersionUE4() < VER_UE4_SERIALIZE_TEXT_IN_PACKAGES || (!EditorVersion || EditorVersion->Version < FEditorObjectVersion::GatheredTextEditorOnlyPackageLocId))
@@ -617,7 +677,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 			// Fallback on the old package flag check.
 			if (PackageFileSummary.PackageFlags & PKG_RequiresLocalizationGather)
 			{
-				UncachedAssetReason = FAssetGatherCacheMetrics::EUncachedAssetReason::TooOld;
+				PackagePendingGather.PackageLocCacheState = EPackageLocCacheState::Uncached_TooOld;
 			}
 		}
 		else if (PackageFileSummary.GetFileVersionUE4() < VER_UE4_DIALOGUE_WAVE_NAMESPACE_AND_CONTEXT_CHANGES)
@@ -628,7 +688,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 			{
 				if (AssetData.AssetClass == UDialogueWave::StaticClass()->GetFName())
 				{
-					UncachedAssetReason = FAssetGatherCacheMetrics::EUncachedAssetReason::TooOld;
+					PackagePendingGather.PackageLocCacheState = EPackageLocCacheState::Uncached_TooOld;
 				}
 			}
 		}
@@ -636,12 +696,12 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 		// If this package doesn't have any cached data, then we have to load it for gather
 		if (PackageFileSummary.GetFileVersionUE4() >= VER_UE4_SERIALIZE_TEXT_IN_PACKAGES && PackageFileSummary.GatherableTextDataOffset == 0 && (PackageFileSummary.PackageFlags & PKG_RequiresLocalizationGather))
 		{
-			UncachedAssetReason = FAssetGatherCacheMetrics::EUncachedAssetReason::NoCache;
+			PackagePendingGather.PackageLocCacheState = EPackageLocCacheState::Uncached_NoCache;
 		}
 
-		if (UncachedAssetReason != FAssetGatherCacheMetrics::EUncachedAssetReason::Num)
+		if (PackagePendingGather.PackageLocCacheState != EPackageLocCacheState::Cached)
 		{
-			AssetGatherCacheMetrics.CountUncachedAsset(UncachedAssetReason);
+			AssetGatherCacheMetrics.CountUncachedAsset(PackagePendingGather.PackageLocCacheState);
 			return false;
 		}
 
@@ -652,15 +712,21 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 
 			FileReader->Seek(PackageFileSummary.GatherableTextDataOffset);
 
-			TArray<FGatherableTextData> GatherableTextDataArray;
-			GatherableTextDataArray.SetNum(PackageFileSummary.GatherableTextDataCount);
-
+			PackagePendingGather.GatherableTextDataArray.SetNum(PackageFileSummary.GatherableTextDataCount);
 			for (int32 GatherableTextDataIndex = 0; GatherableTextDataIndex < PackageFileSummary.GatherableTextDataCount; ++GatherableTextDataIndex)
 			{
-				(*FileReader) << GatherableTextDataArray[GatherableTextDataIndex];
+				(*FileReader) << PackagePendingGather.GatherableTextDataArray[GatherableTextDataIndex];
 			}
 
-			ProcessGatherableTextDataArray(GatherableTextDataArray);
+			ProcessGatherableTextDataArray(PackagePendingGather.GatherableTextDataArray);
+		}
+
+		// If we're reporting or fixing assets with a stale gather cache then we still need to load this 
+		// package in order to do that, but the PackageLocCacheState prevents it being gathered again
+		if (bReportStaleGatherCache || bFixStaleGatherCache)
+		{
+			check(PackagePendingGather.PackageLocCacheState == EPackageLocCacheState::Cached);
+			return false;
 		}
 
 		return true;
@@ -677,6 +743,8 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 	FLoadPackageLogOutputRedirector LogOutputRedirector;
 
 	CalculateDependenciesForPackagesPendingGather();
+
+	TArray<FName> PackagesWithStaleGatherCache;
 
 	// Process the packages in batches
 	TArray<FGatherableTextData> GatherableTextDataArray;
@@ -720,7 +788,54 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 				EPropertyLocalizationGathererResultFlags GatherableTextResultFlags = EPropertyLocalizationGathererResultFlags::Empty;
 				FPropertyLocalizationDataGatherer(GatherableTextDataArray, Package, GatherableTextResultFlags);
 
-				ProcessGatherableTextDataArray(GatherableTextDataArray);
+				bool bSavePackage = false;
+
+				// Optionally check to see whether the clean gather we did is in-sync with the gather cache and deal with it accordingly
+				if ((bReportStaleGatherCache || bFixStaleGatherCache) && PackagePendingGather.PackageLocCacheState == EPackageLocCacheState::Cached)
+				{
+					// Look for any structurally significant changes (missing, added, or changed texts) in the cache
+					// Ignore insignificant things (like source changes caused by assets moving or being renamed)
+					if (!IsGatherableTextDataIdentical(GatherableTextDataArray, PackagePendingGather.GatherableTextDataArray))
+					{
+						PackagesWithStaleGatherCache.Add(PackagePendingGather.PackageName);
+						
+						if (bFixStaleGatherCache)
+						{
+							bSavePackage = true;
+						}
+					}
+				}
+
+				// Optionally save the package if it is missing a gather cache
+				if (bFixMissingGatherCache && PackagePendingGather.PackageLocCacheState == EPackageLocCacheState::Uncached_TooOld)
+				{
+					bSavePackage = true;
+				}
+
+				// Re-save the package to attempt to fix it?
+				if (bSavePackage)
+				{
+					UE_LOG(LogGatherTextFromAssetsCommandlet, Display, TEXT("Resaving package: '%s'."), *PackageNameStr);
+
+					bool bSavedPackage = false;
+					{
+						FLoadPackageLogOutputRedirector::FScopedCapture ScopedCapture(&LogOutputRedirector, PackageNameStr);
+						bSavedPackage = FLocalizedAssetSCCUtil::SavePackageWithSCC(SourceControlInfo, Package, PackagePendingGather.PackageFilename);
+					}
+
+					if (!bSavedPackage)
+					{
+						UE_LOG(LogGatherTextFromAssetsCommandlet, Error, TEXT("Failed to resave package: '%s'."), *PackageNameStr);
+					}
+				}
+
+				// This package may have already been cached in cases where we're reporting or fixing assets with a stale gather cache
+				// This check prevents it being gathered a second time
+				if (PackagePendingGather.PackageLocCacheState != EPackageLocCacheState::Cached)
+				{
+					ProcessGatherableTextDataArray(GatherableTextDataArray);
+				}
+
 				GatherableTextDataArray.Reset();
 			}
 
@@ -737,6 +852,29 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 		PackagesPendingGather.RemoveAt(0, PackagesToProcessThisBatch, /*bAllowShrinking*/false);
 	}
 	check(PackagesPendingGather.Num() == 0);
+
+	PackagesWithStaleGatherCache.Sort();
+
+	if (bReportStaleGatherCache)
+	{
+		FString StaleGatherCacheReport;
+		for (const FName& PackageWithStaleGatherCache : PackagesWithStaleGatherCache)
+		{
+			StaleGatherCacheReport += PackageWithStaleGatherCache.ToString();
+			StaleGatherCacheReport += TEXT("\n");
+		}
+
+		const FString StaleGatherCacheReportFilename = DestinationPath / TEXT("StaleGatherCacheReport.txt");
+		const bool bStaleGatherCacheReportSaved = FLocalizedAssetSCCUtil::SaveFileWithSCC(SourceControlInfo, StaleGatherCacheReportFilename, [&StaleGatherCacheReport](const FString& InSaveFileName) -> bool
+		{
+			return FFileHelper::SaveStringToFile(StaleGatherCacheReport, *InSaveFileName, FFileHelper::EEncodingOptions::ForceUTF8);
+		});
+
+		if (!bStaleGatherCacheReportSaved)
+		{
+			UE_LOG(LogGatherTextFromAssetsCommandlet, Error, TEXT("Failed to save report: '%s'."), *StaleGatherCacheReportFilename);
+		}
+	}
 
 	return 0;
 }
@@ -863,12 +1001,20 @@ bool UGatherTextFromAssetsCommandlet::ConfigureFromScript(const FString& GatherT
 		ShouldGatherFromEditorOnlyData = false;
 	}
 
-	bSkipGatherCache = FParse::Param(FCommandLine::Get(), TEXT("SkipGatherCache"));
-	if (!bSkipGatherCache)
+	auto ReadBoolFlagWithFallback = [this, &SectionName, &GatherTextConfigPath](const TCHAR* FlagName, bool& OutValue)
 	{
-		GetBoolFromConfig(*SectionName, TEXT("SkipGatherCache"), bSkipGatherCache, GatherTextConfigPath);
-	}
-	UE_LOG(LogGatherTextFromAssetsCommandlet, Display, TEXT("SkipGatherCache: %s"), bSkipGatherCache ? TEXT("true") : TEXT("false"));
+		OutValue = FParse::Param(FCommandLine::Get(), FlagName);
+		if (!OutValue)
+		{
+			GetBoolFromConfig(*SectionName, FlagName, OutValue, GatherTextConfigPath);
+		}
+		UE_LOG(LogGatherTextFromAssetsCommandlet, Display, TEXT("%s: %s"), FlagName, OutValue ? TEXT("true") : TEXT("false"));
+	};
+
+	ReadBoolFlagWithFallback(TEXT("SkipGatherCache"), bSkipGatherCache);
+	ReadBoolFlagWithFallback(TEXT("ReportStaleGatherCache"), bReportStaleGatherCache);
+	ReadBoolFlagWithFallback(TEXT("FixStaleGatherCache"), bFixStaleGatherCache);
+	ReadBoolFlagWithFallback(TEXT("FixMissingGatherCache"), bFixMissingGatherCache);
 
 	// Read some settings from the editor config
 	{

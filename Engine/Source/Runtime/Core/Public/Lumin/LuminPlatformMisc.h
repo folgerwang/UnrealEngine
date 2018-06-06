@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Android/AndroidMisc.h"
@@ -76,12 +76,6 @@ struct CORE_API FLuminPlatformMisc : public FAndroidMisc
 	static const FString& GetApplicationPackageDirectoryPath();
 	static const FString& GetApplicationApplicationPackageName();
 	static const FString& GetApplicationComponentName();
-
-	// Disable anonymous usage data network traffic on Lumin
-	static bool AllowSendAnonymousGameUsageDataToEpic()
-	{
-		return false;
-	}
 
 private:
 	static void InitApplicationPaths();

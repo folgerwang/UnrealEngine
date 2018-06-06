@@ -229,7 +229,8 @@ void FAssetEditorToolkit::InitAssetEditor( const EToolkitMode::Type Mode, const 
 
 	ToolkitCommands->MapAction(
 		FAssetEditorCommonCommands::Get().ReimportAsset,
-		FExecuteAction::CreateSP( this, &FAssetEditorToolkit::Reimport_Execute ) );
+		FExecuteAction::CreateSP( this, &FAssetEditorToolkit::Reimport_Execute ),
+		FCanExecuteAction::CreateSP(this, &FAssetEditorToolkit::CanReimport));
 
 	FGlobalEditorCommonCommands::MapActions(ToolkitCommands);
 

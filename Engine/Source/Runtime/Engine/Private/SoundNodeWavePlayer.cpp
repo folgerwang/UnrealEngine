@@ -135,7 +135,7 @@ void USoundNodeWavePlayer::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT 
 	}
 }
 
-float USoundNodeWavePlayer::GetDuration() const
+float USoundNodeWavePlayer::GetDuration()
 {
 	float Duration = 0.f;
 	if (SoundWave)

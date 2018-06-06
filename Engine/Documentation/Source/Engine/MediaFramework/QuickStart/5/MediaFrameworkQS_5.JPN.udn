@@ -1,12 +1,12 @@
-﻿INTSourceChangelist:3725599
-Availability:Public
+﻿Availability:Public
 Crumbs: %ROOT%
 Title:5 - TV ブループリントの機能とテスト
 Description:TV ブループリントの機能設定を完了し、レベルですべてをテストします。 
 SkillLevel:Beginner
 Version:4.18
 checkpoint: mediaframeworkqs
-parent:Engine\MediaFramework\QuickStart
+parent:Engine/MediaFramework/QuickStart
+type:quick start
 type:multi-step
 order:5
 tags:Media Framework

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2721906
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:反射のコンテンツ サンプル
 Crumbs: %ROOT%, Resources, Resources/ContentExamples
@@ -10,43 +10,12 @@ Related:Engine/Rendering/Materials/PhysicallyBased
 Related:Resources/Showcases/RealisticRendering
 Related:Engine/Rendering/PostProcessEffects
 Version:4.9
+topic-image:Reflections_Compact.png
 
 
 [REGION:banner]
 ![](Reflections_Header.png)(convert:false)
 [/REGION]
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/Reflections:title%](Reflections_Compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Reflections:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Reflections:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/Reflections]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/Reflections:title%](Reflections_Compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Reflections:title%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/Reflections]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
 
 **反射** コンテンツ サンプル マップでは、 **Reflection Capture** アクタを用いてレベル内で反射の見え方を調整する方法を示したサンプルが提供されています (アクタの エフェクト ボリュームあるいは半径内での反射の投影) 。 
 サンプルでは、マテリアル の Roughness 、Metallic、Specular の各プロパティを使って、様々な反射の投影方法も説明しています。 
@@ -61,7 +30,7 @@ Version:4.9
 
 反射マップで提供されているサンプルは以下の通りです。
 
-| サンプル | 実演内容 |
+| サンプル | 内容 |
 | ------- | ------------ |
 | **[1.1 メタリック マテリアルの反射](Resources\ContentExamples\Reflections\1_1)** | Metallic と Roughness プロパティに合わせてオブジェクトを反射するメタリックなマテリアルです (Metallic プロパティを増加するとクロムに近い外見になります) 。|
 | **[1.2 メタル以外のマテリアルの反射](Resources\ContentExamples\Reflections\1_2)** | マテリアル の Roughness 値および Specular 値に合わせてオブジェクトを反射させるメタル以外のマテリアルです (Metallic プロパティは 0.0 ) 。 |

@@ -706,6 +706,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 						.CanShowCollections(true)
 						.CanShowFavorites(true)
 						.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("ContentBrowserAssets")))
+						.OnSearchOptionsChanged(this, &SContentBrowser::HandleAssetViewSearchOptionsChanged)
 					]
 				]
 			]
@@ -889,6 +890,12 @@ void SContentBrowser::ToggleFolderFavorite(const TArray<FString>& FolderPaths)
 	}
 }
 
+void SContentBrowser::HandleAssetViewSearchOptionsChanged()
+{
+	TextFilter->SetIncludeClassName(AssetViewPtr->IsIncludingClassNames());
+	TextFilter->SetIncludeAssetPath(AssetViewPtr->IsIncludingAssetPaths());
+	TextFilter->SetIncludeCollectionNames(AssetViewPtr->IsIncludingCollectionNames());
+}
 
 FText SContentBrowser::GetHighlightedText() const
 {

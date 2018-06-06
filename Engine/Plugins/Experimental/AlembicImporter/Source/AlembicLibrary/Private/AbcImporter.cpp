@@ -653,6 +653,7 @@ TArray<UObject*> FAbcImporter::ImportAsSkeletalMesh(UObject* InParent, EObjectFl
 		// Forced to 1
 		LODModel.NumTexCoords = MergedMeshSample->NumUVSets;
 		SkeletalMesh->bHasVertexColors = true;
+		SkeletalMesh->VertexColorGuid = FGuid::NewGuid();
 
 		/* Bounding box according to animation */
 		SkeletalMesh->SetImportedBounds(AbcFile->GetArchiveBounds().GetBox());

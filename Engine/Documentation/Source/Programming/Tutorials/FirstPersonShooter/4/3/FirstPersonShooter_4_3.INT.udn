@@ -29,7 +29,7 @@ During this step, we're going to put together a state machine that will take adv
 
 	![](AnimGraph.png)
 
-1.	Right-click the graph and select **State Machines > Add New State Machine... ** in the **Context Menu**.
+1.	Right-click the graph and select **State Machines > Add New State Machine...** in the **Context Menu**.
 
 	![](AddNewSM.png)
 

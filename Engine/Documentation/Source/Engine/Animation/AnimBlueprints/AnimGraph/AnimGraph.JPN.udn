@@ -63,7 +63,7 @@ AnimGraph 内でどのように機能するかの情報については以下の�
 * [ブレンドスペース](Engine/Animation/Blendspaces/UserGuide) - AnimGraph 内で変数に基づきポーズをブレンドするために使用することができます。 
 * [スケルタル制御](Engine/Animation/NodeReference/SkeletalControls) - スケルトン内のボーンを直接操作するために使用できるノードです。 
 * [空間の変換](Engine/Animation/NodeReference/SpaceConversion) - ポーズがローカル空間に存在するか、コンポーネント空間に存在するかを変更できるノードです。 
- [ステートマシン](Engine/Animation/StateMachines) - キャラクターのアニメーション ステートを決める一連のグラフ、ルール、変数です。 
+* [ステートマシン](Engine/Animation/StateMachines) - キャラクターのアニメーション ステートを決める一連のグラフ、ルール、変数です。 
 * [Sync Groups](Engine\Animation\SyncGroups) は、異なる長さを持つ関連アニメーションを同期し続けます。 
 
 

@@ -31,8 +31,8 @@ FDuplicateDataWriter::FDuplicateDataWriter( FUObjectAnnotationSparse<FDuplicated
 , ApplyInternalFlags(InApplyInternalFlags)
 , InstanceGraph(InInstanceGraph)
 {
-	ArIsSaving			= true;
-	ArIsPersistent		= true;
+	this->SetIsSaving(true);
+	this->SetIsPersistent(true);
 	ArAllowLazyLoading	= false;
 	ArPortFlags |= PPF_Duplicate | InPortFlags;
 

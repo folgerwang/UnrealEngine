@@ -1,7 +1,6 @@
-﻿INTSourceChangelist:3244370
-Availability:Public
-Title:6. キャラクターを起動する
-Crumbs: %ROOT%, Engine, Engine/Blueprints
+﻿Availability:Public
+Title:6.キャラクターを起動する
+Crumbs:%ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/QuickStart
 Description:Launch Character ノードで実際に起動するビヘイビアを設定する
 version:4.9
 parent:Engine/Blueprints/QuickStart
@@ -17,7 +16,7 @@ tags:Blueprints
 	[PARAM:current]
 	[/PARAM]
 	[PARAM:home]
-		Engine/Blueprints/QuickStart
+		[クイックスタートホーム](Engine/Blueprints/QuickStart)
 	[/PARAM]
 	[PARAM:next]
 		[次の手順](Engine/Blueprints/QuickStart/7 "%Engine/Blueprints/QuickStart/7:title%")

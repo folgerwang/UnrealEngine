@@ -5934,18 +5934,73 @@ void FMeshUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const stru
 	Module.CreateProxyMesh(InActors, InMeshProxySettings, InOuter, InProxyBasePackageName, InGuid, InProxyCreatedDelegate, bAllowAsync, ScreenAreaSize);
 }
 
-bool FMeshUtilities::GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int32 TextureResolution, TArray<FVector2D>& OutTexCoords) const
+bool FMeshUtilities::GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int32 TextureResolution, bool bMergeIdenticalMaterials, TArray<FVector2D>& OutTexCoords) const
 {
 	// Create a copy of original mesh (only copy necessary data)
 	FRawMesh TempMesh;
-	TempMesh.WedgeTexCoords[0] = RawMesh.WedgeTexCoords[0];
-	TempMesh.WedgeIndices = RawMesh.WedgeIndices;
 	TempMesh.VertexPositions = RawMesh.VertexPositions;
+
+	// Remove all duplicate faces if we are merging identical materials
+	const int32 NumFaces = RawMesh.FaceMaterialIndices.Num();
+	TArray<int32> DuplicateFaceRecords;
+	
+	if(bMergeIdenticalMaterials)
+	{
+		TArray<int32> UniqueFaceIndices;
+		UniqueFaceIndices.Reserve(NumFaces);
+		DuplicateFaceRecords.SetNum(NumFaces);
+
+		TempMesh.WedgeTexCoords[0].Reserve(RawMesh.WedgeTexCoords[0].Num());
+		TempMesh.WedgeIndices.Reserve(RawMesh.WedgeIndices.Num());
+
+		// insert only non-duplicate faces
+		for(int32 FaceIndex = 0; FaceIndex < NumFaces; ++FaceIndex)
+		{
+			bool bFound = false;
+			int32 UniqueFaceIndex = 0;
+			for( ; UniqueFaceIndex < UniqueFaceIndices.Num(); ++UniqueFaceIndex)
+			{
+				int32 TestIndex = UniqueFaceIndices[UniqueFaceIndex];
+
+				if (TestIndex != FaceIndex &&
+					RawMesh.FaceMaterialIndices[FaceIndex] == RawMesh.FaceMaterialIndices[TestIndex] &&
+					RawMesh.WedgeTexCoords[0][(FaceIndex * 3) + 0] == RawMesh.WedgeTexCoords[0][(TestIndex * 3) + 0] &&
+					RawMesh.WedgeTexCoords[0][(FaceIndex * 3) + 1] == RawMesh.WedgeTexCoords[0][(TestIndex * 3) + 1] &&
+					RawMesh.WedgeTexCoords[0][(FaceIndex * 3) + 2] == RawMesh.WedgeTexCoords[0][(TestIndex * 3) + 2])
+				{
+					bFound = true;
+					break;
+				}
+			}
+
+			if(!bFound)
+			{
+				UniqueFaceIndices.Add(FaceIndex);
+				TempMesh.WedgeTexCoords[0].Add(RawMesh.WedgeTexCoords[0][(FaceIndex * 3) + 0]);
+				TempMesh.WedgeTexCoords[0].Add(RawMesh.WedgeTexCoords[0][(FaceIndex * 3) + 1]);
+				TempMesh.WedgeTexCoords[0].Add(RawMesh.WedgeTexCoords[0][(FaceIndex * 3) + 2]);
+				TempMesh.WedgeIndices.Add(RawMesh.WedgeIndices[(FaceIndex * 3) + 0]);
+				TempMesh.WedgeIndices.Add(RawMesh.WedgeIndices[(FaceIndex * 3) + 1]);
+				TempMesh.WedgeIndices.Add(RawMesh.WedgeIndices[(FaceIndex * 3) + 2]);
+
+				DuplicateFaceRecords[FaceIndex] = UniqueFaceIndices.Num() - 1;
+			}
+			else
+			{
+				DuplicateFaceRecords[FaceIndex] = UniqueFaceIndex;
+			}
+		}
+	}
+	else
+	{
+		TempMesh.WedgeTexCoords[0] = RawMesh.WedgeTexCoords[0];
+		TempMesh.WedgeIndices = RawMesh.WedgeIndices;	
+	}
 
 	// Find overlapping corners for UV generator. Allow some threshold - this should not produce any error in a case if resulting
 	// mesh will not merge these vertices.
 	FOverlappingCorners OverlappingCorners;
-	FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities").FindOverlappingCorners(OverlappingCorners, RawMesh.VertexPositions, RawMesh.WedgeIndices, THRESH_POINTS_ARE_SAME);
+	FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities").FindOverlappingCorners(OverlappingCorners, TempMesh.VertexPositions, TempMesh.WedgeIndices, THRESH_POINTS_ARE_SAME);
 
 	// Generate new UVs
 	FLayoutUV Packer(&TempMesh, 0, 1, FMath::Clamp(TextureResolution / 4, 32, 512));
@@ -5955,11 +6010,34 @@ bool FMeshUtilities::GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int
 	if (bPackSuccess)
 	{
 		Packer.CommitPackedUVs();
-		// Save generated UVs
-		OutTexCoords = TempMesh.WedgeTexCoords[1];
-	}
+
+		if(bMergeIdenticalMaterials)
+		{
+			// re-duplicate faces
+			OutTexCoords.SetNum(RawMesh.WedgeTexCoords[0].Num());
+
+			for(int32 FaceIndex = 0; FaceIndex < DuplicateFaceRecords.Num(); ++FaceIndex)
+			{
+				int32 SourceFaceIndex = DuplicateFaceRecords[FaceIndex];
+
+				OutTexCoords[(FaceIndex * 3) + 0] = TempMesh.WedgeTexCoords[1][(SourceFaceIndex * 3) + 0];
+				OutTexCoords[(FaceIndex * 3) + 1] = TempMesh.WedgeTexCoords[1][(SourceFaceIndex * 3) + 1];
+				OutTexCoords[(FaceIndex * 3) + 2] = TempMesh.WedgeTexCoords[1][(SourceFaceIndex * 3) + 2];
+			}
+		}
+		else
+		{
+			// Save generated UVs
+			OutTexCoords = TempMesh.WedgeTexCoords[1];	
+		}
+ 	}
 
 	return bPackSuccess;
+}
+
+bool FMeshUtilities::GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int32 TextureResolution, TArray<FVector2D>& OutTexCoords) const
+{
+	return GenerateUniqueUVsForStaticMesh(RawMesh, TextureResolution, false, OutTexCoords);
 }
 
 void FMeshUtilities::FlattenMaterialsWithMeshData(TArray<UMaterialInterface*>& InMaterials, TArray<FRawMeshExt>& InSourceMeshes, TMap<FMeshIdAndLOD, TArray<int32>>& InMaterialIndexMap, TArray<bool>& InMeshShouldBakeVertexData, const FMaterialProxySettings &InMaterialProxySettings, TArray<FFlattenMaterial> &OutFlattenedMaterials) const

@@ -15,10 +15,13 @@
 #include "DetailLayoutBuilder.h"
 #include "SPerPlatformPropertiesWidget.h"
 #include "ScopedTransaction.h"
+#include "IPropertyUtilities.h"
 
 template<typename PerPlatformType>
 void FPerPlatformPropertyCustomization<PerPlatformType>::CustomizeHeader(TSharedRef<IPropertyHandle> StructPropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& StructCustomizationUtils)
 {
+	PropertyUtilities = StructCustomizationUtils.GetPropertyUtilities();
+
 	HeaderRow.NameContent()
 	[
 		StructPropertyHandle->CreatePropertyNameWidget()
@@ -133,6 +136,12 @@ bool FPerPlatformPropertyCustomization<PerPlatformType>::AddPlatformOverride(FNa
 							typename PerPlatformType::ValueType DefaultValue;
 							DefaultProperty->GetValue(DefaultValue);
 							ChildProperty->SetValue(DefaultValue);
+
+							if(PropertyUtilities.IsValid())
+							{
+								PropertyUtilities.Pin()->ForceRefresh();
+							}
+
 							return true;
 						}
 					}
@@ -167,6 +176,12 @@ bool FPerPlatformPropertyCustomization<PerPlatformType>::RemovePlatformOverride(
 						if (KeyProperty->GetValue(KeyName) == FPropertyAccess::Success && KeyName == PlatformGroupName)
 						{
 							MapProperty->DeleteItem(ChildIdx);
+
+							if(PropertyUtilities.IsValid())
+							{
+								PropertyUtilities.Pin()->ForceRefresh();
+							}
+
 							return true;
 						}
 					}

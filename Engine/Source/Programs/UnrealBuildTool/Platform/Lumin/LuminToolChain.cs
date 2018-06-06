@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -118,6 +118,9 @@ namespace UnrealBuildTool
 			ArPathArm64 = ToolsDict["AR"];
 			StripPath = ToolsDict["STRIP"];
 			ObjCopyPath = ToolsDict["OBJCOPY"];
+
+			// force the compiler to be executed through a command prompt instance
+			bExecuteCompilerThroughShell = true;
 
 			// toolchain params
 			ToolchainParamsArm64 = " --sysroot=\"" + Path.Combine(MLSDKPath, "lumin") + "\"";

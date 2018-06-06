@@ -73,8 +73,6 @@ protected:
 	// allow BSD sockets to use this when creating new sockets from accept() etc
 	friend FSocketBSDIPv6;
 
-private:
-
 	// Used to prevent multiple threads accessing the shared data.
 	FCriticalSection HostByNameSynch;
 };

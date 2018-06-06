@@ -8,7 +8,7 @@ public class MixedRealityCaptureFramework : ModuleRules
 	{
 		PublicIncludePaths.AddRange(
 			new string[] {
-           }
+			}
 		);
 
 		PrivateIncludePaths.AddRange(

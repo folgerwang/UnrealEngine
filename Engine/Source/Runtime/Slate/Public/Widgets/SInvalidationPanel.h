@@ -17,7 +17,7 @@ class FSlateRenderDataHandle;
 class FSlateWindowElementList;
 class SWindow;
 
-class SLATE_API SInvalidationPanel : public SCompoundWidget, public ILayoutCache
+class SLATE_API SInvalidationPanel : public SCompoundWidget, public FGCObject, public ILayoutCache
 {
 public:
 	SLATE_BEGIN_ARGS( SInvalidationPanel )
@@ -41,6 +41,8 @@ public:
 #else
 	FORCEINLINE bool GetCanCache() const { return bCanCache; }
 #endif
+
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
 	void SetCanCache(bool InCanCache);
 
@@ -95,6 +97,7 @@ private:
 	FVector2D CachedDesiredSize;
 
 #if SLATE_VERBOSE_NAMED_EVENTS
+	FString DebugName;
 	FString DebugTickName;
 	FString DebugPaintName;
 #endif
@@ -107,7 +110,7 @@ private:
 	mutable TSharedPtr< FSlateWindowElementList > CachedWindowElements;
 	mutable TSharedPtr<FSlateRenderDataHandle, ESPMode::ThreadSafe> CachedRenderData;
 
-	mutable TSet<UObject*> CachedResources;
+	mutable TArray<UObject*> CachedResources;
 	
 	mutable FVector2D CachedAbsolutePosition;
 
@@ -119,10 +122,11 @@ private:
 	mutable int32 LastClippingIndex;
 	mutable int32 LastClippingStateOffset;
 	mutable TOptional<FSlateClippingState> LastClippingState;
-	mutable int32 LastLayerId;
+	mutable int32 MaximumLayerIdCachedAt;
 
 	mutable int32 CachedMaxChildLayer;
 	mutable bool bNeedsCaching;
+	mutable bool bNeedsCachePrepass;
 	mutable bool bIsInvalidating;
 	bool bCanCache;
 

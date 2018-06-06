@@ -968,4 +968,67 @@ void FPhysXErrorCallback::reportError(PxErrorCode::Enum e, const char* message, 
 		UE_LOG(LogPhysics, Log, TEXT("%s"), *ErrorString);
 	}
 }
+
+void* FPhysXProfilerCallback::zoneStart(const char* eventName, bool detached, uint64_t contextId)
+{
+	if(GCycleStatsShouldEmitNamedEvents > 0)
+	{
+		FPlatformMisc::BeginNamedEvent(FColor::Red, *FString::Printf(TEXT("PHYSX: %s"), StringCast<TCHAR>(eventName).Get()));
+	}
+
+	return nullptr;
+}
+
+void FPhysXProfilerCallback::zoneEnd(void* profilerData, const char* eventName, bool detached, uint64_t contextId)
+{
+	if(GCycleStatsShouldEmitNamedEvents > 0)
+	{
+		FPlatformMisc::EndNamedEvent();
+	}
+}
+
+void FPhysXMbpBroadphaseCallback::onObjectOutOfBounds(PxShape& InShape, PxActor& InActor)
+{
+	FBodyInstance* ActorBodyInstance = FPhysxUserData::Get<FBodyInstance>(InActor.userData);
+	if(ActorBodyInstance)
+	{
+		UPrimitiveComponent* OwnerComponent = ActorBodyInstance->OwnerComponent.Get();
+
+		if(OwnerComponent)
+		{
+			UE_LOG(LogPhysics, Warning, TEXT("Component %s at location %s has physics bodies outside of MBP bounds. Check MBP bounds are correct for this world, collisions are disabled for bodies outside of MBP bounds when MBP is enabled."), *OwnerComponent->GetName(), *OwnerComponent->GetComponentLocation().ToString());
+			return;
+		}
+	}
+
+	UE_LOG(LogPhysics, Warning, TEXT("Unknown component has physics bodies outside of MBP bounds. Check MBP bounds are correct for this world, collisions are disabled for bodies outside of MBP bounds when MBP is enabled."));
+}
+
+void FPhysXMbpBroadphaseCallback::onObjectOutOfBounds(PxAggregate& InAggregate)
+{
+	const PxU32 NumActors = InAggregate.getNbActors();
+	if(NumActors > 0)
+	{
+		// The following code assumes that an aggregate does not span multiple components, this code will need to be updated if this changes
+		PxActor* FirstActor;
+
+		if(InAggregate.getActors(&FirstActor, 1) > 0)
+		{
+			FBodyInstance* ActorBodyInstance = FPhysxUserData::Get<FBodyInstance>(FirstActor->userData);
+			if(ActorBodyInstance)
+			{
+				UPrimitiveComponent* OwnerComponent = ActorBodyInstance->OwnerComponent.Get();
+
+				if(OwnerComponent)
+				{
+					UE_LOG(LogPhysics, Warning, TEXT("Component %s at location %s has physics bodies outside of MBP bounds. Check MBP bounds are correct for this world, collisions are disabled for bodies outside of MBP bounds when MBP is enabled."), *OwnerComponent->GetName(), *OwnerComponent->GetComponentLocation().ToString());
+					return;
+				}
+			}
+		}
+	}
+
+	UE_LOG(LogPhysics, Warning, TEXT("Unknown component has physics bodies outside of MBP bounds. Check MBP bounds are correct for this world, collisions are disabled for bodies outside of MBP bounds when MBP is enabled."));
+}
+
 #endif // WITH_PHYSX

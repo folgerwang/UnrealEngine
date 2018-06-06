@@ -1,51 +1,21 @@
-﻿INTSourceChangelist:2722015
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:スタティックメッシュのコンテンツ サンプル
 Crumbs: %ROOT%, Resources, Resources/ContentExamples
 Description:スタティックメッシュのコンテンツ サンプルの概要
-Related: Engine/Content/Types/StaticMeshes
-Related: Engine/Physics/Collision/Reference
-Related: Engine/Content/Types/StaticMeshes/Editor
-Related: Engine/Actors/StaticMeshActor
-Related: Engine/Content/FBX/BestPractices
+Related:Engine/Content/Types/StaticMeshes
+Related:Engine/Physics/Collision/Reference
+Related:Engine/Content/Types/StaticMeshes/Editor
+Related:Engine/Actors/StaticMeshActor
+Related:Engine/Content/FBX/BestPractices
 Version:4.9
-
+topic-image:StaticMeshes_Compact.png
 
 
 [REGION:banner]
 ![](StaticMeshes_Header.png)(convert:false)
 [/REGION]
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/StaticMeshes:title%](StaticMeshes_Compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/StaticMeshes:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/StaticMeshes:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/StaticMeshes]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/StaticMeshes:title%](StaticMeshes_Compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/StaticMeshes:title%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/StaticMeshes]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 **スタティックメッシュ** のコンテンツ サンプルのマップには、可動性の設定、UV の割り当て、コリジョン設定の追加や調整の方法を始めとするスタティックメッシュを使用した重要なサンプルがあります。他には、マテリアル エレメントを用いてスタティックメッシュをカスタマイズする方法 (これにより、スタティックメッシュの一部に適用されるマテリアルを指定可能)、メッシュペイント ツールを使用してスタティックメッシュに手動でペイントする方法があります。 
 最後に、プレイヤーの距離に応じてメッシュのクオリティを低くすることで、LOD (Level of Detail) によってパフォーマンスが向上することがわかるでしょう。
@@ -55,10 +25,8 @@ Version:4.9
 
 ![](StaticMeshes_Map.png)(w:640)
 
-以下は、**スタティックメッシュ** マップ内にあるサンプルです。
-
 | サンプル | 内容 |
-| ------- | ------------|
+| ------- | ------------ |
 | **1.1 Staticmesh** | サードパーティ ツールでモデリングされた基本的なスタティックメッシュであり、FBX ファイルとしてインポートされたもの。 |
 | **1.2 Mobility** | スタティックメッシュの Static (ベイクしたライティング/シャドウは、プレイ時に非可動) と Moveable (動的ライティング/シャドウは、プレイ時に可動) の可動性の違い。 |
 | **1.3 UV Mapping** | マテリアルのテクスチャのアライメントを定義する UV マッピングの正しい例と誤った例、およびスタティックメッシュへの適用方法。 |

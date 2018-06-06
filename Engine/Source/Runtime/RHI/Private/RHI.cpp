@@ -7,11 +7,13 @@
 #include "RHI.h"
 #include "Modules/ModuleManager.h"
 #include "Misc/ConfigCacheIni.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, RHI);
 
 /** RHI Logging. */
 DEFINE_LOG_CATEGORY(LogRHI);
+CSV_DEFINE_CATEGORY(RHI, true);
 
 // Define counter stats.
 DEFINE_STAT(STAT_RHIDrawPrimitiveCalls);
@@ -107,6 +109,153 @@ TLockFreePointerListUnordered<FRHIResource, PLATFORM_CACHE_LINE_SIZE> FRHIResour
 FRHIResource* FRHIResource::CurrentlyDeleting = nullptr;
 TArray<FRHIResource::ResourcesToDelete> FRHIResource::DeferredDeletionQueue;
 uint32 FRHIResource::CurrentFrame = 0;
+
+FString FVertexElement::ToString() const
+{
+	return FString::Printf(TEXT("<%u %u %u %u %u %u>")
+		, uint32(StreamIndex)
+		, uint32(Offset)
+		, uint32(Type)
+		, uint32(AttributeIndex)
+		, uint32(Stride)
+		, uint32(bUseInstanceIndex)
+	);
+}
+
+void FVertexElement::FromString(const FString& InSrc)
+{
+	FString Src = InSrc;
+	Src.ReplaceInline(TEXT("\r"), TEXT(" "));
+	Src.ReplaceInline(TEXT("\n"), TEXT(" "));
+	Src.ReplaceInline(TEXT("\t"), TEXT(" "));
+	Src.ReplaceInline(TEXT("<"), TEXT(" "));
+	Src.ReplaceInline(TEXT(">"), TEXT(" "));
+	TArray<FString> Parts;
+	Src.TrimStartAndEnd().ParseIntoArray(Parts, TEXT(" "));
+
+	check(Parts.Num() == 6 && sizeof(Type) == 1); //not a very robust parser
+	LexFromString(StreamIndex, *Parts[0]);
+	LexFromString(Offset, *Parts[1]);
+	LexFromString((uint8&)Type, *Parts[2]);
+	LexFromString(AttributeIndex, *Parts[3]);
+	LexFromString(Stride, *Parts[4]);
+	LexFromString(bUseInstanceIndex, *Parts[5]);
+}
+
+FString FDepthStencilStateInitializerRHI::ToString() const
+{
+	return
+		FString::Printf(TEXT("<%u %u ")
+			, uint32(!!bEnableDepthWrite)
+			, uint32(DepthTest)
+		)
+		+ FString::Printf(TEXT("%u %u %u %u %u ")
+			, uint32(!!bEnableFrontFaceStencil)
+			, uint32(FrontFaceStencilTest)
+			, uint32(FrontFaceStencilFailStencilOp)
+			, uint32(FrontFaceDepthFailStencilOp)
+			, uint32(FrontFacePassStencilOp)
+		)
+		+ FString::Printf(TEXT("%u %u %u %u %u ")
+			, uint32(!!bEnableBackFaceStencil)
+			, uint32(BackFaceStencilTest)
+			, uint32(BackFaceStencilFailStencilOp)
+			, uint32(BackFaceDepthFailStencilOp)
+			, uint32(BackFacePassStencilOp)
+		)
+		+ FString::Printf(TEXT("%u %u>")
+			, uint32(StencilReadMask)
+			, uint32(StencilWriteMask)
+		);
+}
+void FDepthStencilStateInitializerRHI::FromString(const FString& InSrc)
+{
+	FString Src = InSrc;
+	Src.ReplaceInline(TEXT("\r"), TEXT(" "));
+	Src.ReplaceInline(TEXT("\n"), TEXT(" "));
+	Src.ReplaceInline(TEXT("\t"), TEXT(" "));
+	Src.ReplaceInline(TEXT("<"), TEXT(" "));
+	Src.ReplaceInline(TEXT(">"), TEXT(" "));
+	TArray<FString> Parts;
+	Src.TrimStartAndEnd().ParseIntoArray(Parts, TEXT(" "));
+
+	check(Parts.Num() == 14 && sizeof(bool) == 1 && sizeof(FrontFaceStencilFailStencilOp) == 1 && sizeof(BackFaceStencilTest) == 1 && sizeof(BackFaceDepthFailStencilOp) == 1); //not a very robust parser
+
+	LexFromString((uint8&)bEnableDepthWrite, *Parts[0]);
+	LexFromString((uint8&)DepthTest, *Parts[1]);
+
+	LexFromString((uint8&)bEnableFrontFaceStencil, *Parts[2]);
+	LexFromString((uint8&)FrontFaceStencilTest, *Parts[3]);
+	LexFromString((uint8&)FrontFaceStencilFailStencilOp, *Parts[4]);
+	LexFromString((uint8&)FrontFaceDepthFailStencilOp, *Parts[5]);
+	LexFromString((uint8&)FrontFacePassStencilOp, *Parts[6]);
+
+	LexFromString((uint8&)bEnableBackFaceStencil, *Parts[7]);
+	LexFromString((uint8&)BackFaceStencilTest, *Parts[8]);
+	LexFromString((uint8&)BackFaceStencilFailStencilOp, *Parts[9]);
+	LexFromString((uint8&)BackFaceDepthFailStencilOp, *Parts[10]);
+	LexFromString((uint8&)BackFacePassStencilOp, *Parts[11]);
+
+	LexFromString(StencilReadMask, *Parts[12]);
+	LexFromString(StencilWriteMask, *Parts[13]);
+}
+
+FString FBlendStateInitializerRHI::ToString() const
+{
+	FString Result = TEXT("<");
+	for (int32 Index = 0; Index < MaxSimultaneousRenderTargets; Index++)
+	{
+		Result += RenderTargets[Index].ToString();
+	}
+	Result += FString::Printf(TEXT("%d>"), uint32(!!bUseIndependentRenderTargetBlendStates));
+	return Result;
+}
+
+void FBlendStateInitializerRHI::FromString(const FString& InSrc)
+{
+	FString Src = InSrc;
+	Src.ReplaceInline(TEXT("\r"), TEXT(" "));
+	Src.ReplaceInline(TEXT("\n"), TEXT(" "));
+	Src.ReplaceInline(TEXT("\t"), TEXT(" "));
+	Src.ReplaceInline(TEXT("<"), TEXT(" "));
+	Src.ReplaceInline(TEXT(">"), TEXT(" "));
+	TArray<FString> Parts;
+	Src.TrimStartAndEnd().ParseIntoArray(Parts, TEXT(" "));
+
+
+	check(Parts.Num() == MaxSimultaneousRenderTargets * FRenderTarget::NUM_STRING_FIELDS + 1 && sizeof(bool) == 1); //not a very robust parser
+	for (int32 Index = 0; Index < MaxSimultaneousRenderTargets; Index++)
+	{
+		RenderTargets[Index].FromString(Parts, FRenderTarget::NUM_STRING_FIELDS * Index);
+	}
+	LexFromString((int8&)bUseIndependentRenderTargetBlendStates, *Parts[MaxSimultaneousRenderTargets * FRenderTarget::NUM_STRING_FIELDS]);
+}
+
+
+FString FBlendStateInitializerRHI::FRenderTarget::ToString() const
+{
+	return FString::Printf(TEXT("%u %u %u %u %u %u %u ")
+		, uint32(ColorBlendOp)
+		, uint32(ColorSrcBlend)
+		, uint32(ColorDestBlend)
+		, uint32(AlphaBlendOp)
+		, uint32(AlphaSrcBlend)
+		, uint32(AlphaDestBlend)
+		, uint32(ColorWriteMask)
+	);
+}
+
+void FBlendStateInitializerRHI::FRenderTarget::FromString(const TArray<FString>& Parts, int32 Index)
+{
+	check(Index + NUM_STRING_FIELDS <= Parts.Num());
+	LexFromString((uint8&)ColorBlendOp, *Parts[Index++]);
+	LexFromString((uint8&)ColorSrcBlend, *Parts[Index++]);
+	LexFromString((uint8&)ColorDestBlend, *Parts[Index++]);
+	LexFromString((uint8&)AlphaBlendOp, *Parts[Index++]);
+	LexFromString((uint8&)AlphaSrcBlend, *Parts[Index++]);
+	LexFromString((uint8&)AlphaDestBlend, *Parts[Index++]);
+	LexFromString((uint8&)ColorWriteMask, *Parts[Index++]);
+}
 
 bool FRHIResource::Bypass()
 {
@@ -306,6 +455,8 @@ bool GRHISupportsQuadTopology = false;
 bool GRHISupportsRectTopology = false;
 bool GSupportsParallelRenderingTasksWithSeparateRHIThread = true;
 bool GRHIThreadNeedsKicking = false;
+int32 GRHIMaximumReccommendedOustandingOcclusionQueries = MAX_int32;
+bool GRHISupportsExactOcclusionQueries = true;
 bool GSupportsVolumeTextureRendering = true;
 bool GSupportsSeparateRenderTargetBlendState = false;
 bool GSupportsDepthRenderTargetWithoutColorRenderTarget = true;
@@ -378,6 +529,8 @@ void RHIPrivateBeginFrame()
 {
 	GNumDrawCallsRHI = GCurrentNumDrawCallsRHI;
 	GNumPrimitivesDrawnRHI = GCurrentNumPrimitivesDrawnRHI;
+	CSV_CUSTOM_STAT(RHI, DrawCalls, GNumDrawCallsRHI, ECsvCustomStatOp::Set);
+	CSV_CUSTOM_STAT(RHI, PrimitivesDrawn, GNumPrimitivesDrawnRHI, ECsvCustomStatOp::Set);
 	GCurrentNumDrawCallsRHI = GCurrentNumPrimitivesDrawnRHI = 0;
 }
 
@@ -468,12 +621,14 @@ static FName NAME_GLSL_ES3_1_ANDROID(TEXT("GLSL_ES3_1_ANDROID"));
 static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
 static FName NAME_VULKAN_ES3_1_ANDROID(TEXT("SF_VULKAN_ES31_ANDROID"));
 static FName NAME_VULKAN_ES3_1_ANDROID_NOUB(TEXT("SF_VULKAN_ES31_ANDROID_NOUB"));
+static FName NAME_VULKAN_ES3_1_LUMIN(TEXT("SF_VULKAN_ES31_LUMIN"));
 static FName NAME_VULKAN_ES3_1(TEXT("SF_VULKAN_ES31"));
 static FName NAME_VULKAN_ES3_1_NOUB(TEXT("SF_VULKAN_ES31_NOUB"));
 static FName NAME_VULKAN_SM4_NOUB(TEXT("SF_VULKAN_SM4_NOUB"));
 static FName NAME_VULKAN_SM4(TEXT("SF_VULKAN_SM4"));
 static FName NAME_VULKAN_SM5_NOUB(TEXT("SF_VULKAN_SM5_NOUB"));
 static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
+static FName NAME_VULKAN_SM5_LUMIN(TEXT("SF_VULKAN_SM5_LUMIN"));
 static FName NAME_SF_METAL_SM5_NOTESS(TEXT("SF_METAL_SM5_NOTESS"));
 static FName NAME_SF_METAL_MACES3_1(TEXT("SF_METAL_MACES3_1"));
 static FName NAME_SF_METAL_MACES2(TEXT("SF_METAL_MACES2"));
@@ -535,6 +690,10 @@ FName LegacyShaderPlatformToShaderFormat(EShaderPlatform Platform)
 		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_SM4 : NAME_VULKAN_SM4_NOUB;
 	case SP_VULKAN_SM5:
 		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_SM5 : NAME_VULKAN_SM5_NOUB;
+	case SP_VULKAN_SM5_LUMIN:
+		return NAME_VULKAN_SM5_LUMIN;
+	case SP_VULKAN_ES3_1_LUMIN:
+		return NAME_VULKAN_ES3_1_LUMIN;
 	case SP_VULKAN_PCES3_1:
 		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_ES3_1 : NAME_VULKAN_ES3_1_NOUB;
 	case SP_VULKAN_ES3_1_ANDROID:
@@ -573,8 +732,10 @@ EShaderPlatform ShaderFormatToLegacyShaderPlatform(FName ShaderFormat)
 	if (ShaderFormat == NAME_SF_METAL_SM5)				return SP_METAL_SM5;
 	if (ShaderFormat == NAME_VULKAN_SM4)				return SP_VULKAN_SM4;
 	if (ShaderFormat == NAME_VULKAN_SM5)				return SP_VULKAN_SM5;
+	if (ShaderFormat == NAME_VULKAN_SM5_LUMIN)			return SP_VULKAN_SM5_LUMIN;
 	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID)		return SP_VULKAN_ES3_1_ANDROID;
 	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID_NOUB)	return SP_VULKAN_ES3_1_ANDROID;
+	if (ShaderFormat == NAME_VULKAN_ES3_1_LUMIN)		return SP_VULKAN_ES3_1_LUMIN;
 	if (ShaderFormat == NAME_VULKAN_ES3_1)				return SP_VULKAN_PCES3_1;
 	if (ShaderFormat == NAME_VULKAN_ES3_1_NOUB)			return SP_VULKAN_PCES3_1;
 	if (ShaderFormat == NAME_VULKAN_SM4_NOUB)			return SP_VULKAN_SM4;
@@ -664,7 +825,7 @@ RHI_API bool RHISupportsTessellation(const EShaderPlatform Platform)
 {
 	if (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsMetalPlatform(Platform))
 	{
-		return (Platform == SP_PCD3D_SM5) || (Platform == SP_XBOXONE_D3D12) || (Platform == SP_OPENGL_SM5) || (Platform == SP_OPENGL_ES31_EXT)/* || (Platform == SP_VULKAN_SM5)*/;
+		return (Platform == SP_PCD3D_SM5) || (Platform == SP_XBOXONE_D3D12) || (Platform == SP_OPENGL_SM5) || (Platform == SP_OPENGL_ES31_EXT)/* || (IsVulkanSM5Platform(Platform)*/;
 	}
 	// For Metal we can only support tessellation if we are willing to sacrifice backward compatibility with OS versions.
 	// As such it becomes an opt-in project setting.

@@ -81,7 +81,7 @@ UProperties が追加または取り除かれると、事前に存在してい�
 		{
 			TArray<AEnemy> EnemyList = GetEnemyListFromSomewhere();
 
-			// The legendary weapon is only effective against the MegaBoss (伝説の武器は、 MegaBoss に対してのみ効果があります)。
+			// The legendary weapon is only effective against the MegaBoss
 			for (AEnemy Enemy :EnemyList)
 			{
 				AMegaBoss* MegaBoss = Cast<AMegaBoss>(Enemy);

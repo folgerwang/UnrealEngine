@@ -24,6 +24,7 @@ public:
 public:	
 	FAnimNode_BlendListByEnum()
 		: FAnimNode_BlendListBase()
+		, ActiveEnumValue(0)
 	{
 	}
 

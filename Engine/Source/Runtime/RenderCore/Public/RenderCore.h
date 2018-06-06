@@ -276,6 +276,8 @@ extern RENDERCORE_API uint32 GRenderThreadNumIdle[ERenderThreadIdleTypes::Num];
 extern RENDERCORE_API FInputLatencyTimer GInputLatencyTimer;
 /** How many cycles the renderthread used (excluding idle time). It's set once per frame in FViewport::Draw. */
 extern RENDERCORE_API uint32 GRenderThreadTime;
+/** How many cycles the rhithread used (excluding idle time). */
+extern RENDERCORE_API uint32 GRHIThreadTime;
 /** How many cycles the gamethread used (excluding idle time). It's set once per frame in FViewport::Draw. */
 extern RENDERCORE_API uint32 GGameThreadTime;
 /** How many cycles it took to swap buffers to present the frame. */

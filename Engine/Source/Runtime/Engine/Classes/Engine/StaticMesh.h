@@ -200,6 +200,16 @@ struct FStaticMeshSourceModel
 	UPROPERTY(EditAnywhere, Category=ReductionSettings)
 	FPerPlatformFloat ScreenSize;
 
+	/** The file path that was used to import this LOD. */
+	UPROPERTY(VisibleAnywhere, Category = StaticMeshSourceModel, AdvancedDisplay)
+	FString SourceImportFilename;
+
+#if WITH_EDITORONLY_DATA
+	/** Weather this LOD was imported in the same file as the base mesh. */
+	UPROPERTY()
+	bool bImportWithBaseMesh;
+#endif
+
 	/** Default constructor. */
 	ENGINE_API FStaticMeshSourceModel();
 
@@ -678,6 +688,9 @@ protected:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Instanced, Category = StaticMesh)
 	TArray<UAssetUserData*> AssetUserData;
 
+	/** Tracks whether InitResources has been called, and rendering resources are initialized. */
+	bool bRenderingResourcesInitialized;
+
 public:
 	/** The editable mesh representation of this static mesh */
 	// @todo: Maybe we don't want this visible in the details panel in the end; for now, this might aid debugging.
@@ -732,6 +745,7 @@ public:
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;
 	ENGINE_API virtual void PostInitProperties() override;
 	ENGINE_API virtual void PostLoad() override;
+	virtual bool IsPostLoadThreadSafe() const override;
 	ENGINE_API virtual void BeginDestroy() override;
 	ENGINE_API virtual bool IsReadyForFinishDestroy() override;
 	ENGINE_API virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
@@ -796,7 +810,7 @@ public:
 	/**
 	 * Returns true if the mesh has data that can be rendered.
 	 */
-	ENGINE_API bool HasValidRenderData() const;
+	ENGINE_API bool HasValidRenderData(bool bCheckLODForVerts = true, int32 LODIndex = INDEX_NONE) const;
 
 	/**
 	 * Returns the number of bounds of the mesh.
@@ -932,6 +946,8 @@ public:
 
 	/** Calculates the extended bounds */
 	ENGINE_API void CalculateExtendedBounds();
+
+	inline bool AreRenderingResourcesInitialized() const { return bRenderingResourcesInitialized; }
 
 #if WITH_EDITOR
 

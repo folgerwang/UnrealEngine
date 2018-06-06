@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810467
 Availability:Public
 Crumbs: %ROOT%, Platforms
 Title:Oculus Rift 用座式カメラの設定方法
@@ -24,7 +24,7 @@ Oculus Rift 向けにアンリアル エンジン 4 (UE4) で VR 体験の開発
     [REGION:simpletable]
 	|コンポーネント名| 値 |
     |--------|------------|
-    |** Scene**|VRCameraRoot|
+    |**Scene**|VRCameraRoot|
     |**Camera**|VRCamera|
 	[/region]
 

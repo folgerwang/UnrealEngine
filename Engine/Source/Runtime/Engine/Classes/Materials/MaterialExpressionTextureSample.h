@@ -46,7 +46,7 @@ class ENGINE_API UMaterialExpressionTextureSample : public UMaterialExpressionTe
 	FExpressionInput TextureObject;
 
 	/** Meaning depends on MipValueMode, a single unit is one mip level  */
-	UPROPERTY(meta = (RequiredInput = "false", ToolTip = "Defaults to 'ConstMipValue' if not specified"))
+	UPROPERTY(meta = (RequiredInput = "false", ToolTip = "Defaults to 'AutomaticViewMipBias' if not specified"))
 	FExpressionInput MipValue;
 	
 	/** Enabled only if MipValueMode == TMVM_Derivative */
@@ -56,6 +56,9 @@ class ENGINE_API UMaterialExpressionTextureSample : public UMaterialExpressionTe
 	/** Enabled only if MipValueMode == TMVM_Derivative */
 	UPROPERTY(meta = (RequiredInput = "true", ToolTip = "Coordinates derivative over the Y axis"))
 	FExpressionInput CoordinatesDY;
+
+	UPROPERTY(meta = (RequiredInput = "false", ToolTip = "Ignored if not specified"))
+	FExpressionInput AutomaticViewMipBiasValue;
 
 	/** Defines how the MipValue property is applied to the texture lookup */
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionTextureSample, meta=(DisplayName = "MipValueMode"))
@@ -101,6 +104,7 @@ class ENGINE_API UMaterialExpressionTextureSample : public UMaterialExpressionTe
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
 	virtual uint32 GetInputType(int32 InputIndex) override;
+	virtual bool CanIgnoreOutputIndex() { return true; }
 #endif // WITH_EDITOR
 	//~ End UMaterialExpression Interface
 

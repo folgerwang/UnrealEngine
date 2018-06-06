@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750753
+﻿INTSourceChangelist:3243860
 Availability:Public
 Title:Rotation モジュール
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:Rotation モジュールは、ライフ期間のさまざまな時点でパーティクルの回転方法を制御します。
 Version:4.9
+tags:Particles
 
 [TOC(start:2 end:3)]
 

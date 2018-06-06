@@ -90,6 +90,7 @@ enum class ECookTickFlags : uint8
 {
 	None =									0x00000000, /* no flags */
 	MarkupInUsePackages =					0x00000001, /** Markup packages for partial gc */
+	HideProgressDisplay =					0x00000002, /** Hides the progress report */
 };
 ENUM_CLASS_FLAGS(ECookTickFlags);
 
@@ -378,6 +379,11 @@ private:
 		void Unlock()
 		{
 			SynchronizationObject.Unlock();
+		}
+
+		int32 Num() 
+		{ 
+			return FilesProcessed.Num();
 		}
 
 		void Add(const FFilePlatformCookedPackage& Request)
@@ -736,45 +742,47 @@ private:
 	};
 
 	/** Simple thread safe proxy for TSet<FName> */
-	class FThreadSafeNameSet
+	template <typename T>
+	class FThreadSafeSet
 	{
-		TSet<FName> Names;
-		FCriticalSection NamesCritical;
+		TSet<T> InnerSet;
+		FCriticalSection SetCritical;
 	public:
-		void Add(FName InName)
+		void Add(T InValue)
 		{
-			FScopeLock NamesLock(&NamesCritical);
-			Names.Add(InName);
+			FScopeLock SetLock(&SetCritical);
+			InnerSet.Add(InValue);
 		}
-		bool AddUnique(FName InName)
+		bool AddUnique(T InValue)
 		{
-			FScopeLock NamesLock(&NamesCritical);
-			if (!Names.Contains(InName))
+			FScopeLock SetLock(&SetCritical);
+			if (!InnerSet.Contains(InValue))
 			{
-				Names.Add(InName);
+				InnerSet.Add(InValue);
 				return true;
 			}
 			return false;
 		}
-		bool Contains(FName InName)
+		bool Contains(T InValue)
 		{
-			FScopeLock NamesLock(&NamesCritical);
-			return Names.Contains(InName);
+			FScopeLock SetLock(&SetCritical);
+			return InnerSet.Contains(InValue);
 		}
-		void Remove(FName InName)
+		void Remove(T InValue)
 		{
-			FScopeLock NamesLock(&NamesCritical);
-			Names.Remove(InName);
+			FScopeLock SetLock(&SetCritical);
+			InnerSet.Remove(InValue);
 		}
 		void Empty()
 		{
-			FScopeLock NamesLock(&NamesCritical);
-			Names.Empty();
+			FScopeLock SetLock(&SetCritical);
+			InnerSet.Empty();
 		}
-		void GetNames(TSet<FName>& OutNames)
+
+		void GetValues(TSet<T>& OutSet)
 		{
-			FScopeLock NamesLock(&NamesCritical);
-			OutNames.Append(Names);
+			FScopeLock SetLock(&SetCritical);
+			OutSet.Append(InnerSet);
 		}
 	};
 private:
@@ -941,8 +949,8 @@ private:
 	FFilenameQueue CookRequests; // list of requested files
 	FThreadSafeUnsolicitedPackagesList UnsolicitedCookedPackages;
 	FThreadSafeFilenameSet CookedPackages; // set of files which have been cooked when needing to recook a file the entry will need to be removed from here
-	FThreadSafeNameSet NeverCookPackageList;
-	FThreadSafeNameSet UncookedEditorOnlyPackages; // set of packages that have been rejected due to being referenced by editor-only properties
+	FThreadSafeSet<FName> NeverCookPackageList;
+	FThreadSafeSet<FName> UncookedEditorOnlyPackages; // set of packages that have been rejected due to being referenced by editor-only properties
 
 
 	FString GetCachedPackageFilename( const FName& PackageName ) const;
@@ -974,6 +982,9 @@ private:
 
 	/** Map of platform name to asset registry generators, which hold the state of asset registry data for a platform */
 	TMap<FName, FAssetRegistryGenerator*> RegistryGenerators;
+
+	/** Map of platform name to scl.csv files we saved out. */
+	TMap<FName, TArray<FString>> OutSCLCSVPaths;
 
 	/** List of filenames that may be out of date in the asset registry */
 	TSet<FName> ModifiedAssetFilenames;
@@ -1323,6 +1334,31 @@ private:
 	*/
 	void AddFileToCook( TArray<FName>& InOutFilesToCook, const FString &InFilename ) const;
 
+    /**
+     * Invokes the necessary FShaderCodeLibrary functions to start cooking the shader code library.
+     */
+    void InitShaderCodeLibrary(void);
+    
+	/**
+	* Invokes the necessary FShaderCodeLibrary functions to open a named code library.
+	*/
+	void OpenShaderCodeLibrary(FString const& Name);
+    
+	/**
+	* Invokes the necessary FShaderCodeLibrary functions to save and close a named code library.
+	*/
+	void SaveShaderCodeLibrary(FString const& Name);
+
+	/**
+	* Calls the ShaderPipelineCacheToolsCommandlet to build a upipelinecache file from the .stablepc.csv file, if any
+	*/
+	void ProcessShaderCodeLibraries(const FString& LibraryName);
+
+    /**
+     * Invokes the necessary FShaderCodeLibrary functions to clean out all the temporary files.
+     */
+    void CleanShaderCodeLibraries();
+
 	/**
 	* Call back from the TickCookOnTheSide when a cook by the book finishes (when started form StartCookByTheBook)
 	*/
@@ -1621,6 +1657,8 @@ private:
 	* @return return the path to the DLC
 	*/
 	FString GetBaseDirectoryForDLC() const;
+
+	FString GetContentDirecctoryForDLC() const;
 
 	inline bool IsCreatingReleaseVersion()
 	{

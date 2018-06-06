@@ -20,12 +20,15 @@
 #include "DetailCategoryBuilder.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Widgets/Text/STextBlock.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SComboButton.h"
 #include "IDetailPropertyRow.h"
 #include "DetailWidgetRow.h"
 #include "Widgets/Input/SComboBox.h"
 #include "Runtime/Engine/Classes/Sound/AudioSettings.h"
-
+#include "DeviceProfiles/DeviceProfileManager.h"
+#include "DeviceProfiles/DeviceProfile.h"
 
 #define LOCTEXT_NAMESPACE "FLevelEditorPlaySettingsCustomization"
 
@@ -55,29 +58,28 @@ public:
 
 		ChildSlot
 		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			[
 			SNew(SHorizontalBox)
-
 			+ SHorizontalBox::Slot()
-				.AutoWidth()
+			[
+				SNew(SVerticalBox)
+				.IsEnabled(this, &SScreenPositionCustomization::HandleNewWindowPositionPropertyIsEnabled)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
 				[
-					SNew(SVerticalBox)
-						.IsEnabled(this, &SScreenPositionCustomization::HandleNewWindowPositionPropertyIsEnabled)
-
-					+ SVerticalBox::Slot()
-						.AutoHeight()
-						[
-							InWindowPositionProperty->CreatePropertyNameWidget(LOCTEXT("WindowPosXLabel", "Left Position"))
-						]
-
-					+ SVerticalBox::Slot()
-						.AutoHeight()
-						[
-							InWindowPositionProperty->GetChildHandle(0)->CreatePropertyValueWidget()
-						]
+					InWindowPositionProperty->CreatePropertyNameWidget(LOCTEXT("WindowPosXLabel", "Left Position"))
 				]
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					InWindowPositionProperty->GetChildHandle(0)->CreatePropertyValueWidget()
+				]
+			]
 
 			+ SHorizontalBox::Slot()
-				.AutoWidth()
 				.Padding(8.0f, 0.0f, 0.0f, 0.0f)
 				[
 					SNew(SVerticalBox)
@@ -91,24 +93,29 @@ public:
 
 					+ SVerticalBox::Slot()
 						.AutoHeight()
-						[
-							InWindowPositionProperty->GetChildHandle(1)->CreatePropertyValueWidget()
-						]
+					[
+						InWindowPositionProperty->GetChildHandle(1)->CreatePropertyValueWidget()
+					]
 				]
-
-			+ SHorizontalBox::Slot()
+			]
+			+SVerticalBox::Slot()
+			.Padding(0.0f, 2.0f)
+			.AutoHeight()
+				[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
 				.AutoWidth()
-				.Padding(8.0f, 0.0f, 0.0f, 0.0f)
-				.VAlign(VAlign_Bottom)
 				[
 					InCenterWindowProperty->CreatePropertyValueWidget()
 				]
-
-			+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.VAlign(VAlign_Bottom)
-				[
-					InWindowPositionProperty->CreatePropertyNameWidget(LOCTEXT("CenterWindowLabel", "Always center window to screen"))
+				+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(4.0f, 0.0f, 0.0f, 0.0f)
+					.VAlign(VAlign_Bottom)
+					[
+						InWindowPositionProperty->CreatePropertyNameWidget(LOCTEXT("CenterWindowLabel", "Always center window to screen"))
+					]
 				]
 		];
 	}
@@ -159,66 +166,84 @@ public:
 
 		WindowHeightProperty = InWindowHeightProperty;
 		WindowWidthProperty = InWindowWidthProperty;
-
+		
+		FSimpleDelegate SizeChangeDelegate = FSimpleDelegate::CreateSP(this, &SScreenResolutionCustomization::OnSizeChanged);
+		WindowHeightProperty->SetOnPropertyValueChanged(SizeChangeDelegate);
+		WindowWidthProperty->SetOnPropertyValueChanged(SizeChangeDelegate);
 		ChildSlot
 		[
-			SNew(SHorizontalBox)
-
-			+ SHorizontalBox::Slot()
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.VAlign(VAlign_Bottom)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
 				.AutoWidth()
-				[
-					SNew(SVerticalBox)
-
-					+ SVerticalBox::Slot()
-						.AutoHeight()
-						[
-							WindowWidthProperty->CreatePropertyNameWidget(LOCTEXT("WindowWidthLabel", "Window Width"))
-						]
-
-					+ SVerticalBox::Slot()
-						.AutoHeight()
-						[
-							WindowWidthProperty->CreatePropertyValueWidget()
-						]
-				]
-
-			+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(8.0f, 0.0f)
-				[
-					SNew(SVerticalBox)
-
-					+ SVerticalBox::Slot()
-						.AutoHeight()
-						[
-							WindowHeightProperty->CreatePropertyNameWidget(LOCTEXT("WindowHeightLabel", "Window Height"))
-						]
-
-					+ SVerticalBox::Slot()
-						.AutoHeight()
-						[
-							WindowHeightProperty->CreatePropertyValueWidget()
-						]
-				]
-
-			+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.VAlign(VAlign_Bottom)
+				.VAlign(VAlign_Center)
 				[
 					SNew(SComboButton)
-						.ButtonContent()
-						[
-							SNew(STextBlock)
-								.Font(LayoutBuilder->GetDetailFont())
-								.Text(LOCTEXT("CommonResolutionsButtonText", "Common Window Sizes"))
-						]
-						.ContentPadding(FMargin(6.0f, 1.0f))
-						.MenuContent()
-						[
-							MakeCommonResolutionsMenu()
-						]
-						.ToolTipText(LOCTEXT("CommonResolutionsButtonTooltip", "Pick from a list of common screen resolutions"))
-				]		
+					.VAlign(VAlign_Center)
+					.ButtonContent()
+					[
+						SNew(STextBlock)
+						.Font(LayoutBuilder->GetDetailFont())
+						.Text(LOCTEXT("CommonResolutionsButtonText", "Common Window Sizes"))
+					]
+					.ContentPadding(FMargin(6.0f, 2.0f))
+					.MenuContent()
+					[
+						MakeCommonResolutionsMenu()
+					]
+					.ToolTipText(LOCTEXT("CommonResolutionsButtonTooltip", "Pick from a list of common screen resolutions"))
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SNew(SButton)
+					.OnClicked(this, &SScreenResolutionCustomization::HandleSwapAspectRatioClicked)
+					.ContentPadding(FMargin(3.0f, 0.0f, 3.0f, 1.0f))
+					.Content()
+					[
+						SNew(SImage)
+						.Image(this, &SScreenResolutionCustomization::GetAspectRatioSwitchImage)
+					]
+					.ToolTipText(LOCTEXT("SwapAspectRatioTooltip", "Swap between portrait and landscape orientation."))
+				]
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				[
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						WindowWidthProperty->CreatePropertyNameWidget(LOCTEXT("WindowWidthLabel", "Window Width"))
+					]
+					+ SVerticalBox::Slot()
+					[
+						WindowWidthProperty->CreatePropertyValueWidget()
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.Padding(8.0f, 0.0f, 0.0f, 0.0f)
+				[
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						WindowHeightProperty->CreatePropertyNameWidget(LOCTEXT("WindowHeightLabel", "Window Height"))
+					]
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						WindowHeightProperty->CreatePropertyValueWidget()
+					]
+				]
+			]
 		];
 	}
 
@@ -238,13 +263,13 @@ protected:
 	 * @param Resolutions The collection of screen resolutions to add.
 	 * @param SectionName The name of the section to add.
 	 */
-	void AddScreenResolutionSection( FMenuBuilder& MenuBuilder, const TArray<FPlayScreenResolution>& Resolutions, const FText& SectionName )
+	void AddScreenResolutionSection( FMenuBuilder& MenuBuilder, const TArray<FPlayScreenResolution> Resolutions, const FText SectionName )
 	{
 		MenuBuilder.BeginSection(NAME_None, SectionName);
 		{
 			for (auto Iter = Resolutions.CreateConstIterator(); Iter; ++Iter)
 			{
-				FUIAction Action(FExecuteAction::CreateRaw(this, &SScreenResolutionCustomization::HandleCommonResolutionSelected, Iter->Width, Iter->Height));
+				FUIAction Action(FExecuteAction::CreateRaw(this, &SScreenResolutionCustomization::HandleCommonResolutionSelected, *Iter));
 
 				FInternationalization& I18N = FInternationalization::Get();
 
@@ -269,22 +294,153 @@ protected:
 		const ULevelEditorPlaySettings* PlaySettings = GetDefault<ULevelEditorPlaySettings>();
 		FMenuBuilder MenuBuilder(true, NULL);
 
-		AddScreenResolutionSection(MenuBuilder, PlaySettings->PhoneScreenResolutions, LOCTEXT("CommonPhonesSectionHeader", "Phones"));
-		AddScreenResolutionSection(MenuBuilder, PlaySettings->TabletScreenResolutions, LOCTEXT("CommonTabletsSectionHeader", "Tablets"));
-		AddScreenResolutionSection(MenuBuilder, PlaySettings->LaptopScreenResolutions, LOCTEXT("CommonLaptopsSectionHeader", "Laptops"));
-		AddScreenResolutionSection(MenuBuilder, PlaySettings->MonitorScreenResolutions, LOCTEXT("CommoMonitorsSectionHeader", "Monitors"));
-		AddScreenResolutionSection(MenuBuilder, PlaySettings->TelevisionScreenResolutions, LOCTEXT("CommonTelevesionsSectionHeader", "Televisions"));
+
+		FText PhoneTitle = LOCTEXT("CommonPhonesSectionHeader", "Phones");
+		FText TabletTitle = LOCTEXT("CommonTabletsSectionHeader", "Tablets");
+		FText LaptopTitle = LOCTEXT("CommonLaptopsSectionHeader", "Laptops");
+		FText MonitorTitle = LOCTEXT("CommonMonitorsSectionHeader", "Monitors");
+		FText TelevisionTitle = LOCTEXT("CommonTelevesionsSectionHeader", "Televisions");
+		MenuBuilder.AddSubMenu(
+			PhoneTitle,
+			FText(),
+			FNewMenuDelegate::CreateRaw(this, &SScreenResolutionCustomization::AddScreenResolutionSection, (PlaySettings->PhoneScreenResolutions), PhoneTitle),
+			false,
+			FSlateIcon());
+		MenuBuilder.AddSubMenu(
+			TabletTitle,
+			FText(),
+			FNewMenuDelegate::CreateRaw(this, &SScreenResolutionCustomization::AddScreenResolutionSection, (PlaySettings->TabletScreenResolutions), TabletTitle),
+			false,
+			FSlateIcon());
+		MenuBuilder.AddSubMenu(
+			LaptopTitle,
+			FText(),
+			FNewMenuDelegate::CreateRaw(this, &SScreenResolutionCustomization::AddScreenResolutionSection, (PlaySettings->LaptopScreenResolutions), LaptopTitle),
+			false,
+			FSlateIcon());
+		MenuBuilder.AddSubMenu(
+			MonitorTitle,
+			FText(),
+			FNewMenuDelegate::CreateRaw(this, &SScreenResolutionCustomization::AddScreenResolutionSection, (PlaySettings->MonitorScreenResolutions), MonitorTitle),
+			false,
+			FSlateIcon());
+		MenuBuilder.AddSubMenu(
+			TelevisionTitle,
+			FText(),
+			FNewMenuDelegate::CreateRaw(this, &SScreenResolutionCustomization::AddScreenResolutionSection, (PlaySettings->TelevisionScreenResolutions), TelevisionTitle),
+			false,
+			FSlateIcon());
 
 		return MenuBuilder.MakeWidget();
 	}
 
+	FReply HandleSwapAspectRatioClicked()
+	{
+		FString HeightString;
+		WindowHeightProperty->GetValueAsDisplayString(HeightString);
+		FString WidthString;
+		WindowWidthProperty->GetValueAsDisplayString(WidthString);
+		int32 NewHeight = FCString::Atoi(*WidthString);
+		int32 NewWidth = FCString::Atoi(*HeightString);
+
+		ULevelEditorPlaySettings* PlayInSettings = GetMutableDefault<ULevelEditorPlaySettings>();
+
+		if (!PlayInSettings->DeviceToEmulate.IsEmpty())
+		{
+			PlayInSettings->PIESafeZoneOverride = PlayInSettings->CalculateCustomUnsafeZones(PlayInSettings->CustomUnsafeZoneStarts, PlayInSettings->CustomUnsafeZoneDimensions, PlayInSettings->DeviceToEmulate, FVector2D(NewWidth, NewHeight));
+		}
+		else
+		{
+			FSlateApplication::Get().ResetCustomSafeZone();
+			FSlateApplication::Get().GetSafeZoneSize(PlayInSettings->PIESafeZoneOverride, FVector2D(NewWidth, NewHeight));
+		}
+		FMargin SafeZoneRatio = PlayInSettings->PIESafeZoneOverride;
+		SafeZoneRatio.Left /= (NewWidth / 2.0f);
+		SafeZoneRatio.Right /= (NewWidth / 2.0f);
+		SafeZoneRatio.Bottom /= (NewHeight / 2.0f);
+		SafeZoneRatio.Top /= (NewHeight / 2.0f);
+		FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+
+
+		bSetFromMenu = true;
+		WindowHeightProperty->SetValue(NewHeight);
+		bSetFromMenu = true;
+		WindowWidthProperty->SetValue(NewWidth);
+
+		return FReply::Handled();
+	}
 private:
 
 	// Handles selecting a common screen resolution.
-	void HandleCommonResolutionSelected( int32 Width, int32 Height )
+	void HandleCommonResolutionSelected(FPlayScreenResolution Resolution)
 	{
+		int32 Width = Resolution.Width;
+		int32 Height = Resolution.Height;
+		float ScaleFactor;
+		ULevelEditorPlaySettings* PlayInSettings = GetMutableDefault<ULevelEditorPlaySettings>();
+
+		UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(Resolution.ProfileName, false);
+		if (DeviceProfile)
+		{
+			PlayInSettings->DeviceToEmulate = Resolution.ProfileName;
+			PlayInSettings->RescaleForMobilePreview(DeviceProfile, Width, Height, ScaleFactor);
+			PlayInSettings->PIESafeZoneOverride = PlayInSettings->CalculateCustomUnsafeZones(PlayInSettings->CustomUnsafeZoneStarts, PlayInSettings->CustomUnsafeZoneDimensions, PlayInSettings->DeviceToEmulate, FVector2D(Width, Height));
+		}
+		else
+		{
+			PlayInSettings->DeviceToEmulate = FString();
+			FSlateApplication::Get().ResetCustomSafeZone();
+			FSlateApplication::Get().GetSafeZoneSize(PlayInSettings->PIESafeZoneOverride, FVector2D(Width, Height));
+		}
+		FMargin SafeZoneRatio = PlayInSettings->PIESafeZoneOverride;
+		SafeZoneRatio.Left /= (Width / 2.0f);
+		SafeZoneRatio.Right /= (Width / 2.0f);
+		SafeZoneRatio.Bottom /= (Height / 2.0f);
+		SafeZoneRatio.Top /= (Height / 2.0f);
+		bSetFromMenu = true;
 		WindowHeightProperty->SetValue(Height);
+		bSetFromMenu = true;
 		WindowWidthProperty->SetValue(Width);
+		FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+	}
+
+	const FSlateBrush* GetAspectRatioSwitchImage() const
+	{
+		FString HeightString;
+		WindowHeightProperty->GetValueAsDisplayString(HeightString);
+		int32 Height = FCString::Atoi(*HeightString);
+		FString WidthString;
+		WindowWidthProperty->GetValueAsDisplayString(WidthString);
+		int32 Width = FCString::Atoi(*WidthString);
+		if(Height > Width)
+		{
+			return FEditorStyle::Get().GetBrush("UMGEditor.OrientPortrait");
+		}
+		return FEditorStyle::Get().GetBrush("UMGEditor.OrientLandscape");
+	}
+
+	void OnSizeChanged()
+	{
+		if (!bSetFromMenu)
+		{
+			FString HeightString;
+			WindowHeightProperty->GetValueAsDisplayString(HeightString);
+			int32 Height = FCString::Atoi(*HeightString);
+			FString WidthString;
+			WindowWidthProperty->GetValueAsDisplayString(WidthString);
+			int32 Width = FCString::Atoi(*WidthString);
+			ULevelEditorPlaySettings* PlayInSettings = GetMutableDefault<ULevelEditorPlaySettings>();
+			PlayInSettings->DeviceToEmulate = FString();
+			FSlateApplication::Get().ResetCustomSafeZone();
+			FSlateApplication::Get().GetSafeZoneSize(PlayInSettings->PIESafeZoneOverride, FVector2D(Width, Height));
+			FMargin SafeZoneRatio = PlayInSettings->PIESafeZoneOverride;
+			SafeZoneRatio.Left /= (Width / 2.0f);
+			SafeZoneRatio.Right /= (Width / 2.0f);
+			SafeZoneRatio.Bottom /= (Height / 2.0f);
+			SafeZoneRatio.Top /= (Height / 2.0f);
+			FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+		}
+		bSetFromMenu = false;
 	}
 
 private:
@@ -294,6 +450,9 @@ private:
 
 	// Holds the handle to the window width property.
 	TSharedPtr<IPropertyHandle> WindowWidthProperty;
+
+	// True if a property was set from the resolution menu
+	bool bSetFromMenu;
 };
 
 
@@ -358,11 +517,68 @@ public:
 
 
 		}
+		IDetailCategoryBuilder& GameViewportSettings = LayoutBuilder.EditCategory("GameViewportSettings");
+		{
+		// new window size
+		TSharedRef<IPropertyHandle> WindowHeightHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, NewWindowHeight));
+		TSharedRef<IPropertyHandle> WindowWidthHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, NewWindowWidth));
+		TSharedRef<IPropertyHandle> WindowPositionHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, NewWindowPosition));
+		TSharedRef<IPropertyHandle> CenterNewWindowHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, CenterNewWindow));
+		TSharedRef<IPropertyHandle> EmulatedDeviceHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, DeviceToEmulate));
+
+		WindowHeightHandle->MarkHiddenByCustomization();
+		WindowWidthHandle->MarkHiddenByCustomization();
+		WindowPositionHandle->MarkHiddenByCustomization();
+		CenterNewWindowHandle->MarkHiddenByCustomization();
+		EmulatedDeviceHandle->MarkHiddenByCustomization();
+
+		GameViewportSettings.AddCustomRow(LOCTEXT("NewWindowSizeRow", "New Window Size"), false)
+			.NameContent()
+			[
+				SNew(STextBlock)
+				.Font(LayoutBuilder.GetDetailFont())
+				.Text(LOCTEXT("NewWindowSizeName", "New Window Size"))
+				.ToolTipText(LOCTEXT("NewWindowSizeTooltip", "Sets the width and height of floating PIE windows (in pixels)"))
+			]
+			.ValueContent()
+			.MaxDesiredWidth(MaxPropertyWidth)
+			[
+				SNew(SScreenResolutionCustomization, &LayoutBuilder, WindowHeightHandle, WindowWidthHandle)
+			];
+
+			GameViewportSettings.AddCustomRow(LOCTEXT("NewWindowPositionRow", "New Window Position"), false)
+			.NameContent()
+			[
+				SNew(STextBlock)
+				.Font(LayoutBuilder.GetDetailFont())
+				.Text(LOCTEXT("NewWindowPositionName", "New Window Position"))
+				.ToolTipText(LOCTEXT("NewWindowPositionTooltip", "Sets the screen coordinates for the top-left corner of floating PIE windows (in pixels)"))
+			]
+			.ValueContent()
+			.MaxDesiredWidth(MaxPropertyWidth)
+			[
+				SNew(SScreenPositionCustomization, &LayoutBuilder, WindowPositionHandle, CenterNewWindowHandle)
+			];
+
+			GameViewportSettings.AddCustomRow(LOCTEXT("SafeZonePreviewName", "Safe Zone Preview"), false)
+				.NameContent()
+				[
+					SNew(STextBlock)
+					.Font(LayoutBuilder.GetDetailFont())
+					.Text(LOCTEXT("SafeZonePreviewName", "Safe Zone Preview"))
+				]
+				.ValueContent()
+				[
+					SNew(STextBlock)
+					.Font(LayoutBuilder.GetDetailFont())
+					.Text(this, &FLevelEditorPlaySettingsCustomization::GetPreviewText)
+				];
+		}
 
 		// play in new window settings
 		IDetailCategoryBuilder& PlayInNewWindowCategory = LayoutBuilder.EditCategory("PlayInNewWindow");
 		{
-		// Mac does not support parenting, do not show
+			// Mac does not support parenting, do not show
 #if PLATFORM_MAC
 			PlayInNewWindowCategory.AddProperty("PIEAlwaysOnTop")
 				.DisplayName(LOCTEXT("PIEAlwaysOnTop", "Always On Top"))
@@ -371,96 +587,18 @@ public:
 			PlayInNewWindowCategory.AddProperty("PIEAlwaysOnTop")
 				.DisplayName(LOCTEXT("PIEAlwaysOnTop", "Always On Top"));
 #endif
-
-			// new window size
-			TSharedRef<IPropertyHandle> WindowHeightHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, NewWindowHeight));
-			TSharedRef<IPropertyHandle> WindowWidthHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, NewWindowWidth));
-			TSharedRef<IPropertyHandle> WindowPositionHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, NewWindowPosition));
-			TSharedRef<IPropertyHandle> CenterNewWindowHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, CenterNewWindow));
-
-			WindowHeightHandle->MarkHiddenByCustomization();
-			WindowWidthHandle->MarkHiddenByCustomization();
-			WindowPositionHandle->MarkHiddenByCustomization();
-			CenterNewWindowHandle->MarkHiddenByCustomization();
-
-			PlayInNewWindowCategory.AddCustomRow(LOCTEXT("NewWindowSizeRow", "New Window Size"), false)
-				.NameContent()
-				[
-					SNew(STextBlock)
-						.Font(LayoutBuilder.GetDetailFont())
-						.Text(LOCTEXT("NewWindowSizeName", "New Window Size"))
-						.ToolTipText(LOCTEXT("NewWindowSizeTooltip", "Sets the width and height of floating PIE windows (in pixels)"))
-				]
-				.ValueContent()
-				.MaxDesiredWidth(MaxPropertyWidth)
-				[
-					SNew(SScreenResolutionCustomization, &LayoutBuilder, WindowHeightHandle, WindowWidthHandle)
-				];
-
-			PlayInNewWindowCategory.AddCustomRow(LOCTEXT("NewWindowPositionRow", "New Window Position"), false)
-				.NameContent()
-				[
-					SNew(STextBlock)
-						.Font(LayoutBuilder.GetDetailFont())
-						.Text(LOCTEXT("NewWindowPositionName", "New Window Position"))
-						.ToolTipText(LOCTEXT("NewWindowPositionTooltip", "Sets the screen coordinates for the top-left corner of floating PIE windows (in pixels)"))
-				]
-				.ValueContent()
-				.MaxDesiredWidth(MaxPropertyWidth)
-				[
-					SNew(SScreenPositionCustomization, &LayoutBuilder, WindowPositionHandle, CenterNewWindowHandle)
-				];
 		}
+			
 
 		// play in standalone game settings
 		IDetailCategoryBuilder& PlayInStandaloneCategory = LayoutBuilder.EditCategory("PlayInStandaloneGame");
 		{
-			// standalone window size
-			TSharedRef<IPropertyHandle> WindowHeightHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, StandaloneWindowHeight));
-			TSharedRef<IPropertyHandle> WindowWidthHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, StandaloneWindowWidth));
-			TSharedRef<IPropertyHandle> WindowPositionHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, StandaloneWindowPosition));
-			TSharedRef<IPropertyHandle> CenterNewWindowHandle = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, CenterStandaloneWindow));
-
-			WindowHeightHandle->MarkHiddenByCustomization();
-			WindowWidthHandle->MarkHiddenByCustomization();
-			WindowPositionHandle->MarkHiddenByCustomization();
-			CenterNewWindowHandle->MarkHiddenByCustomization();
-
-			PlayInStandaloneCategory.AddCustomRow(LOCTEXT("StandaloneWindowSizeName", "Standalone Window Size"), false)
-				.NameContent()
-				[
-					SNew(STextBlock)
-						.Font(LayoutBuilder.GetDetailFont())
-						.Text(LOCTEXT("StandaloneWindowSizeName", "Standalone Window Size"))
-						.ToolTipText(LOCTEXT("StandaloneWindowSizeTooltip", "Sets the width and height of standalone game windows (in pixels)"))
-				]
-				.ValueContent()
-				.MaxDesiredWidth(MaxPropertyWidth)
-				[
-					SNew(SScreenResolutionCustomization, &LayoutBuilder, WindowHeightHandle, WindowWidthHandle)
-				];
-
-			PlayInStandaloneCategory.AddCustomRow(LOCTEXT("StandaloneWindowPosName", "Standalone Window Position"), false)
-				.NameContent()
-				[
-					SNew(STextBlock)
-						.Font(LayoutBuilder.GetDetailFont())
-						.Text(LOCTEXT("StandaloneWindowPosName", "Standalone Window Position"))
-						.ToolTipText(LOCTEXT("StandaloneWindowSizeTooltip", "Sets the width and height of standalone game windows (in pixels)"))
-				]
-				.ValueContent()
-				.MaxDesiredWidth(MaxPropertyWidth)
-				[
-					SNew(SScreenPositionCustomization, &LayoutBuilder, WindowPositionHandle, CenterNewWindowHandle)
-				];
-
-
 			// command line options
 			TSharedPtr<IPropertyHandle> DisableStandaloneSoundProperty = LayoutBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, DisableStandaloneSound));
 
 			DisableStandaloneSoundProperty->MarkHiddenByCustomization();
 
-			PlayInStandaloneCategory.AddCustomRow(LOCTEXT("AdditionalStandaloneDetails", "Additional Options"), true)
+			PlayInStandaloneCategory.AddCustomRow(LOCTEXT("AdditionalStandaloneDetails", "Additional Options"), false)
 				.NameContent()
 				[
 					SNew(STextBlock)
@@ -795,6 +933,19 @@ private:
 		return (QualityLevel >= 0 && QualityLevel < AudioSettings->QualityLevels.Num() ? AudioSettings->QualityLevels[QualityLevel].DisplayName : FText::GetEmpty());
 	}
 
+	FText GetPreviewText() const 
+	{
+		if (GetDefault<ULevelEditorPlaySettings>()->DeviceToEmulate.IsEmpty())
+		{
+			float SafeZone = FDisplayMetrics::GetDebugTitleSafeZoneRatio();
+			if (FMath::IsNearlyEqual(SafeZone, 1.0f))
+			{
+				return LOCTEXT("NoSafeZoneSet", "No Device Safe Zone Set");
+			}
+			return FText::Format(LOCTEXT("UniformSafeZone", "Uniform Safe Zone: {0}"), FText::AsNumber(SafeZone));
+		}
+		return FText::FromString(GetDefault<ULevelEditorPlaySettings>()->DeviceToEmulate);
+	}
 private:
 
 	/** Collection of possible quality levels we can use as a parent for this profile */

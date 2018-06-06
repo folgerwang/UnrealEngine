@@ -31,8 +31,6 @@
 #include "TickableAttributeSetInterface.h"
 #include "GameplayTagResponseTable.h"
 #include "Engine/DemoNetDriver.h"
-#include "GameFramework/CharacterMovementComponent.h"
-#include "GameFramework/Character.h"
 
 #define LOCTEXT_NAMESPACE "AbilitySystemComponent"
 
@@ -118,6 +116,7 @@ void UAbilitySystemComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 void UAbilitySystemComponent::InitAbilityActorInfo(AActor* InOwnerActor, AActor* InAvatarActor)
 {
 	check(AbilityActorInfo.IsValid());
+	bool WasAbilityActorNull = (AbilityActorInfo->AvatarActor == nullptr);
 	bool AvatarChanged = (InAvatarActor != AbilityActorInfo->AvatarActor);
 
 	AbilityActorInfo->InitFromActor(InOwnerActor, InAvatarActor, this);
@@ -129,7 +128,8 @@ void UAbilitySystemComponent::InitAbilityActorInfo(AActor* InOwnerActor, AActor*
 	AvatarActor = InAvatarActor;
 
 	// if the avatar actor was null but won't be after this, we want to run the deferred gameplaycues that may not have run in NetDeltaSerialize
-	if (PrevAvatarActor == nullptr && InAvatarActor != nullptr)
+	// Conversely, if the ability actor was previously null, then the effects would not run in the NetDeltaSerialize. As such we want to run them now.
+	if ((WasAbilityActorNull || PrevAvatarActor == nullptr) && InAvatarActor != nullptr)
 	{
 		HandleDeferredGameplayCues(&ActiveGameplayEffects);
 	}
@@ -150,6 +150,8 @@ void UAbilitySystemComponent::InitAbilityActorInfo(AActor* InOwnerActor, AActor*
 	{
 		TagTable->RegisterResponseForEvents(this);
 	}
+	
+	LocalAnimMontageInfo = FGameplayAbilityLocalAnimMontage();
 
 	if (bPendingMontageRep)
 	{
@@ -307,6 +309,7 @@ void UAbilitySystemComponent::ClearAllAbilities()
 	check(AbilityScopeLockCount == 0);	// We should never be calling this from a scoped lock situation.
 
 	// Note we aren't marking any old abilities pending kill. This shouldn't matter since they will be garbage collected.
+	ABILITYLIST_SCOPE_LOCK();
 	for (FGameplayAbilitySpec& Spec : ActivatableAbilities.Items)
 	{
 		OnRemoveAbility(Spec);
@@ -423,6 +426,8 @@ void UAbilitySystemComponent::OnRemoveAbility(FGameplayAbilitySpec& Spec)
 		{
 			if (Instance->IsActive())
 			{
+				Instance->SetMarkPendingKillOnAbilityEnd(Instance->GetInstancingPolicy() == EGameplayAbilityInstancingPolicy::InstancedPerActor);
+
 				// End the ability but don't replicate it, OnRemoveAbility gets replicated
 				bool bReplicateEndAbility = false;
 				bool bWasCancelled = false;
@@ -682,8 +687,9 @@ void UAbilitySystemComponent::NotifyAbilityEnded(FGameplayAbilitySpecHandle Hand
 	AbilityEndedCallbacks.Broadcast(Ability);
 	OnAbilityEnded.Broadcast(FAbilityEndedData(Ability, Handle, false, bWasCancelled));
 	
-	/** If this is instanced per execution, mark pending kill and remove it from our instanced lists if we are the authority */
-	if (Ability->GetInstancingPolicy() == EGameplayAbilityInstancingPolicy::InstancedPerExecution)
+	/** If this is instanced per execution or flagged for cleanup, mark pending kill and remove it from our instanced lists if we are the authority */
+	if ((Ability->GetInstancingPolicy() == EGameplayAbilityInstancingPolicy::InstancedPerExecution) ||
+		Ability->IsMarkPendingKillOnAbilityEnd())
 	{
 		check(Ability->HasAnyFlags(RF_ClassDefaultObject) == false);	// Should never be calling this on a CDO for an instanced ability!
 
@@ -1034,29 +1040,6 @@ bool UAbilitySystemComponent::TryActivateAbility(FGameplayAbilitySpecHandle Abil
 
 		ABILITY_LOG(Log, TEXT("Can't activate LocalOnly or LocalPredicted ability %s when not local."), *Ability->GetName());
 		return false;
-	}
-
-	//Flush any remaining server moves before activating the ability.
-	//	Flushing the server moves prevents situations where previously pending move's DeltaTimes are figured into montages that are about to play and update.
-	//	When this happened, clients would have a smaller delta time than the server which meant the server would get ahead and receive their notifies before the client, etc.
-	//	The system depends on the server not getting ahead, so it's important to send along any previously pending server moves here.
-	if (ActorInfo && ActorInfo->AvatarActor.Get() && !ActorInfo->IsNetAuthority())
-	{
-		AActor* MyActor = ActorInfo->AvatarActor.Get();
-
-		if (MyActor)
-		{
-			ACharacter* MyCharacter = Cast<ACharacter>(MyActor);
-			if (MyCharacter)
-			{
-				UCharacterMovementComponent* CharMoveComp = Cast<UCharacterMovementComponent>(MyCharacter->GetMovementComponent());
-
-				if (CharMoveComp)
-				{
-					CharMoveComp->FlushServerMoves();
-				}
-			}
-		}
 	}
 
 	if (NetMode != ROLE_Authority && (Ability->GetNetExecutionPolicy() == EGameplayAbilityNetExecutionPolicy::ServerOnly || Ability->GetNetExecutionPolicy() == EGameplayAbilityNetExecutionPolicy::ServerInitiated))
@@ -2329,6 +2312,7 @@ float UAbilitySystemComponent::PlayMontage(UGameplayAbility* InAnimatingAbility,
 
 			LocalAnimMontageInfo.AnimMontage = NewAnimMontage;
 			LocalAnimMontageInfo.AnimatingAbility = InAnimatingAbility;
+			LocalAnimMontageInfo.PlayBit = !LocalAnimMontageInfo.PlayBit;
 			
 			if (InAnimatingAbility)
 			{
@@ -2386,25 +2370,30 @@ void UAbilitySystemComponent::AnimMontage_UpdateReplicatedData()
 {
 	check(IsOwnerActorAuthoritative());
 
+	AnimMontage_UpdateReplicatedData(RepAnimMontageInfo);
+}
+
+void UAbilitySystemComponent::AnimMontage_UpdateReplicatedData(FGameplayAbilityRepAnimMontage& OutRepAnimMontageInfo)
+{
 	UAnimInstance* AnimInstance = AbilityActorInfo.IsValid() ? AbilityActorInfo->GetAnimInstance() : nullptr;
 	if (AnimInstance && LocalAnimMontageInfo.AnimMontage)
 	{
-		RepAnimMontageInfo.AnimMontage = LocalAnimMontageInfo.AnimMontage;
+		OutRepAnimMontageInfo.AnimMontage = LocalAnimMontageInfo.AnimMontage;
 
 		// Compressed Flags
 		bool bIsStopped = AnimInstance->Montage_GetIsStopped(LocalAnimMontageInfo.AnimMontage);
 
 		if (!bIsStopped)
 		{
-			RepAnimMontageInfo.PlayRate = AnimInstance->Montage_GetPlayRate(LocalAnimMontageInfo.AnimMontage);
-			RepAnimMontageInfo.Position = AnimInstance->Montage_GetPosition(LocalAnimMontageInfo.AnimMontage);
-			RepAnimMontageInfo.BlendTime = AnimInstance->Montage_GetBlendTime(LocalAnimMontageInfo.AnimMontage);
+			OutRepAnimMontageInfo.PlayRate = AnimInstance->Montage_GetPlayRate(LocalAnimMontageInfo.AnimMontage);
+			OutRepAnimMontageInfo.Position = AnimInstance->Montage_GetPosition(LocalAnimMontageInfo.AnimMontage);
+			OutRepAnimMontageInfo.BlendTime = AnimInstance->Montage_GetBlendTime(LocalAnimMontageInfo.AnimMontage);
 		}
 
-		if (RepAnimMontageInfo.IsStopped != bIsStopped)
+		if (OutRepAnimMontageInfo.IsStopped != bIsStopped)
 		{
 			// Set this prior to calling UpdateShouldTick, so we start ticking if we are playing a Montage
-			RepAnimMontageInfo.IsStopped = bIsStopped;
+			OutRepAnimMontageInfo.IsStopped = bIsStopped;
 
 			// When we start or stop an animation, update the clients right away for the Avatar Actor
 			if (AbilityActorInfo->AvatarActor != nullptr)
@@ -2418,23 +2407,28 @@ void UAbilitySystemComponent::AnimMontage_UpdateReplicatedData()
 
 		// Replicate NextSectionID to keep it in sync.
 		// We actually replicate NextSectionID+1 on a BYTE to put INDEX_NONE in there.
-		int32 CurrentSectionID = LocalAnimMontageInfo.AnimMontage->GetSectionIndexFromPosition(RepAnimMontageInfo.Position);
+		int32 CurrentSectionID = LocalAnimMontageInfo.AnimMontage->GetSectionIndexFromPosition(OutRepAnimMontageInfo.Position);
 		if (CurrentSectionID != INDEX_NONE)
 		{
 			int32 NextSectionID = AnimInstance->Montage_GetNextSectionID(LocalAnimMontageInfo.AnimMontage, CurrentSectionID);
 			if (NextSectionID >= (256 - 1))
 			{
 				ABILITY_LOG( Error, TEXT("AnimMontage_UpdateReplicatedData. NextSectionID = %d.  RepAnimMontageInfo.Position: %.2f, CurrentSectionID: %d. LocalAnimMontageInfo.AnimMontage %s"), 
-					NextSectionID, RepAnimMontageInfo.Position, CurrentSectionID, *GetNameSafe(LocalAnimMontageInfo.AnimMontage) );
+					NextSectionID, OutRepAnimMontageInfo.Position, CurrentSectionID, *GetNameSafe(LocalAnimMontageInfo.AnimMontage) );
 				ensure(NextSectionID < (256 - 1));
 			}
-			RepAnimMontageInfo.NextSectionID = uint8(NextSectionID + 1);
+			OutRepAnimMontageInfo.NextSectionID = uint8(NextSectionID + 1);
 		}
 		else
 		{
-			RepAnimMontageInfo.NextSectionID = 0;
+			OutRepAnimMontageInfo.NextSectionID = 0;
 		}
 	}
+}
+
+void UAbilitySystemComponent::AnimMontage_UpdateForcedPlayFlags(FGameplayAbilityRepAnimMontage& OutRepAnimMontageInfo)
+{
+	OutRepAnimMontageInfo.ForcePlayBit = LocalAnimMontageInfo.PlayBit;
 }
 
 void UAbilitySystemComponent::OnPredictiveMontageRejected(UAnimMontage* PredictiveMontage)

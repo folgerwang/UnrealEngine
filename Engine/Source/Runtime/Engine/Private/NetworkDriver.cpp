@@ -218,6 +218,8 @@ UNetDriver::UNetDriver(const FObjectInitializer& ObjectInitializer)
 ,	OutPackets(0)
 ,	InBunches(0)
 ,	OutBunches(0)
+,	InTotalBunches(0)
+,	OutTotalBunches(0)
 ,	InPacketsLost(0)
 ,	OutPacketsLost(0)
 ,	InOutOfOrderPackets(0)
@@ -1224,7 +1226,7 @@ bool UNetDriver::InitBase(bool bInitAsClient, FNetworkNotify* InNotify, const FU
 	if (const TCHAR* InitialConnectTimeoutOverride = URL.GetOption(TEXT("InitialConnectTimeout="), nullptr))
 	{
 		float ParsedValue;
-		Lex::FromString(ParsedValue, InitialConnectTimeoutOverride);
+		LexFromString(ParsedValue, InitialConnectTimeoutOverride);
 		if (ParsedValue != 0.0f)
 		{
 			InitialConnectTimeout = ParsedValue;
@@ -1233,7 +1235,7 @@ bool UNetDriver::InitBase(bool bInitAsClient, FNetworkNotify* InNotify, const FU
 	if (const TCHAR* ConnectionTimeoutOverride = URL.GetOption(TEXT("ConnectionTimeout="), nullptr))
 	{
 		float ParsedValue;
-		Lex::FromString(ParsedValue, ConnectionTimeoutOverride);
+		LexFromString(ParsedValue, ConnectionTimeoutOverride);
 		if (ParsedValue != 0.0f)
 		{
 			ConnectionTimeout = ParsedValue;
@@ -1251,7 +1253,6 @@ bool UNetDriver::InitBase(bool bInitAsClient, FNetworkNotify* InNotify, const FU
 	{
 		ConnectionlessHandler.Reset(nullptr);
 		InitDestroyedStartupActors();
-
 		InitReplicationDriverClass();
 		SetReplicationDriver(UReplicationDriver::CreateReplicationDriver(this, URL, GetWorld()));
 	}
@@ -2099,7 +2100,7 @@ bool UNetDriver::HandleNetDumpServerRPCCommand( const TCHAR* Cmd, FOutputDevice&
 	{
 		bool bHasNetFields = false;
 
-		ensureMsgf(!ClassIt->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad), TEXT("UNetDriver::HandleNetDumpServerRPCCommand: %s has flag RF_NeedPostLoad. NetFields and ClassReps will be incorrect!"), *GetFullNameSafe(*ClassIt));
+		ClassIt->SetUpRuntimeReplicationData();
 
 		for ( int32 i = 0; i < ClassIt->NetFields.Num(); i++ )
 		{
@@ -2295,6 +2296,11 @@ FActorDestructionInfo* UNetDriver::CreateDestructionInfo( UNetDriver* NetDriver,
 	}
 
 	FNetworkGUID NetGUID = NetDriver->GuidCache->GetOrAssignNetGUID( ThisActor );
+	if (NetGUID.IsDefault())
+	{
+		UE_LOG(LogNet, Error, TEXT("CreateDestructionInfo got an invalid NetGUID for %s"), *ThisActor->GetName());
+		return nullptr;
+	}
 
 	TUniquePtr<FActorDestructionInfo>& NewInfoPtr = NetDriver->DestroyedStartupOrDormantActors.FindOrAdd( NetGUID );
 	if (NewInfoPtr.IsValid() == false)
@@ -2333,8 +2339,8 @@ void UNetDriver::NotifyActorDestroyed( AActor* ThisActor, bool IsSeamlessTravel 
 	// Remove the actor from the property tracker map
 	RepChangedPropertyTrackerMap.Remove(ThisActor);
 
-	FActorDestructionInfo* DestructionInfo = NULL;
-	const bool bIsServer = ServerConnection == NULL;
+	FActorDestructionInfo* DestructionInfo = nullptr;
+	const bool bIsServer = IsServer();
 	
 	if (bIsServer)
 	{
@@ -2371,7 +2377,10 @@ void UNetDriver::NotifyActorDestroyed( AActor* ThisActor, bool IsSeamlessTravel 
 					// Make a new destruction info if necessary. It is necessary if the actor is dormant or recently dormant because
 					// even though the client knew about the actor at some point, it doesn't have a channel to handle destruction.
 					DestructionInfo = CreateDestructionInfo(this, ThisActor, DestructionInfo);
-					Connection->AddDestructionInfo(DestructionInfo);
+					if (DestructionInfo)
+					{
+						Connection->AddDestructionInfo(DestructionInfo);
+					}
 				}
 			}
 						
@@ -2401,7 +2410,7 @@ void UNetDriver::RemoveNetworkActor(AActor* Actor)
 
 void UNetDriver::NotifyActorRenamed(AActor* ThisActor, FName PreviousName)
 {
-	const bool bIsServer = ServerConnection == nullptr;
+	const bool bIsServer = IsServer();
 	const bool bIsActorStatic = !GuidCache->IsDynamicObject(ThisActor);
 	const bool bActorHasRole = ThisActor->GetRemoteRole() != ROLE_None;
 
@@ -2426,11 +2435,11 @@ void UNetDriver::NotifyActorRenamed(AActor* ThisActor, FName PreviousName)
 	}
 }
 
-void UNetDriver::NotifyStreamingLevelUnload( ULevel* Level)
+void UNetDriver::NotifyStreamingLevelUnload(ULevel* Level)
 {
 	if (ServerConnection && ServerConnection->PackageMap)
 	{
-		UE_LOG(LogNet, Log, TEXT("NotifyStreamingLevelUnload: %s"), *Level->GetName() );
+		UE_LOG(LogNet, Log, TEXT("NotifyStreamingLevelUnload: %s"), *Level->GetFullName() );
 
 		if (Level->LevelScriptActor)
 		{
@@ -2522,7 +2531,6 @@ void UNetDriver::FlushActorDormancy(AActor* Actor, bool bWasDormInitial)
 	// Going out of dormancy can be event based like this since it only affects clients already joined. Its more efficient in this
 	// way too, since we dont have to check every dormant actor in ::ServerReplicateActor to see if it needs to go out of dormancy
 
-#if WITH_SERVER_CODE
 	if (CVarSetNetDormancyEnabled.GetValueOnAnyThread() == 0)
 		return;
 
@@ -2535,8 +2543,6 @@ void UNetDriver::FlushActorDormancy(AActor* Actor, bool bWasDormInitial)
 	}
 
 	FlushActorDormancyInternal(Actor);
-	
-#endif // WITH_SERVER_CODE
 }
 
 void UNetDriver::NotifyActorDormancyChange(AActor* Actor, ENetDormancy OldDormancyState)
@@ -2551,7 +2557,6 @@ void UNetDriver::NotifyActorDormancyChange(AActor* Actor, ENetDormancy OldDorman
 
 void UNetDriver::FlushActorDormancyInternal(AActor *Actor)
 {
-#if WITH_SERVER_CODE
 	// Go through each connection and remove the actor from the dormancy list
 	for (int32 i=0; i < ClientConnections.Num(); ++i)
 	{
@@ -2561,7 +2566,6 @@ void UNetDriver::FlushActorDormancyInternal(AActor *Actor)
 			NetConnection->FlushDormancy(Actor);
 		}
 	}
-#endif
 }
 
 void UNetDriver::ForcePropertyCompare( AActor* Actor )
@@ -2645,6 +2649,7 @@ void UNetDriver::AddReferencedObjects(UObject* InThis, FReferenceCollector& Coll
 	for (FObjectReplicator* Replicator : This->AllOwnedReplicators)
 	{
 		Collector.AddReferencedObject(Replicator->ObjectPtr, This);
+		Collector.AddReferencedObject(Replicator->ObjectClass, This);
 	}
 }
 
@@ -4148,8 +4153,13 @@ void UNetDriver::CreateReplicatedStaticActorDestructionInfo(UNetDriver* NetDrive
 	check(NetDriver && Level);
 
 	FNetworkGUID NetGUID = NetDriver->GuidCache->AssignNewNetGUIDFromPath_Server( Info.PathName.ToString(), Info.ObjOuter.Get(), Info.ObjClass );
+	if (NetGUID.IsDefault())
+	{
+		UE_LOG(LogNet, Error, TEXT("CreateReplicatedStaticActorDestructionInfo got an invalid NetGUID for %s"), *Info.PathName.ToString());
+		return;
+	}
 
-	UE_LOG(LogNet, Log, TEXT("CreateReplicatedStaticActorDestructionInfo %s %s %s %s"), *NetDriver->GetName(), *Level->GetName(), *Info.PathName.ToString(), *NetGUID.ToString());
+	UE_LOG(LogNet, Verbose, TEXT("CreateReplicatedStaticActorDestructionInfo %s %s %s %s"), *NetDriver->GetName(), *Level->GetName(), *Info.PathName.ToString(), *NetGUID.ToString());
 	
 	TUniquePtr<FActorDestructionInfo>& NewInfoPtr = NetDriver->DestroyedStartupOrDormantActors.FindOrAdd( NetGUID );
 	if (NewInfoPtr.IsValid() == false)

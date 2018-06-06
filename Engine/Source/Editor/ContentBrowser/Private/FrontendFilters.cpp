@@ -258,6 +258,8 @@ public:
 		: ReferencedDynamicCollections(InReferencedDynamicCollections)
 		, AssetPtr(nullptr)
 		, bIncludeClassName(true)
+		, bIncludeAssetPath(false)
+		, bIncludeCollectionNames(true)
 		, NameKeyName("Name")
 		, PathKeyName("Path")
 		, ClassKeyName("Class")
@@ -271,41 +273,12 @@ public:
 	{
 		AssetPtr = InAsset;
 		
+		// Get the full asset path, and also split it so we can compare each part in the filter
 		AssetPtr->PackageName.AppendString(AssetFullPath);
+		AssetFullPath.ParseIntoArray(AssetSplitPath, TEXT("/"));
+
+		// Get the full export text path as people sometimes search by copying this (requires class and asset path search to be enabled in order to match)
 		AssetPtr->GetExportTextName(AssetExportTextName);
-
-		// Test each piece of the path name, apart from the first
-		{
-			const TCHAR* Ptr = AssetFullPath.GetCharArray().GetData();
-			if (Ptr)
-			{
-				// Test each piece of the path name, apart from the first
-				bool bIsFirst = true;
-				while (const TCHAR* Delimiter = FCString::Strchr(Ptr, '/'))
-				{
-					const int32 Length = Delimiter - Ptr;
-
-					if (Length > 0)
-					{
-						if (bIsFirst)
-						{
-							bIsFirst = false;
-						}
-						else
-						{
-							AssetSplitPath.Emplace(Length, Ptr);
-						}
-					}
-
-					Ptr += (Length + 1);
-				}
-
-				if (*Ptr != 0)
-				{
-					AssetSplitPath.Emplace(Ptr);
-				}
-			}
-		}
 
 		if (FCollectionManagerModule::IsModuleAvailable())
 		{
@@ -345,13 +318,46 @@ public:
 		return bIncludeClassName;
 	}
 
+	void SetIncludeAssetPath(const bool InIncludeAssetPath)
+	{
+		bIncludeAssetPath = InIncludeAssetPath;
+	}
+
+	bool GetIncludeAssetPath() const
+	{
+		return bIncludeAssetPath;
+	}
+
+	void SetIncludeCollectionNames(const bool InIncludeCollectionNames)
+	{
+		bIncludeCollectionNames = InIncludeCollectionNames;
+	}
+
+	bool GetIncludeCollectionNames() const
+	{
+		return bIncludeCollectionNames;
+	}
+
 	virtual bool TestBasicStringExpression(const FTextFilterString& InValue, const ETextFilterTextComparisonMode InTextComparisonMode) const override
 	{
-		for (const FString& AssetPathPart : AssetSplitPath)
+		if (TextFilterUtils::TestBasicStringExpression(AssetPtr->AssetName, InValue, InTextComparisonMode))
 		{
-			if (TextFilterUtils::TestBasicStringExpression(AssetPathPart, InValue, InTextComparisonMode))
+			return true;
+		}
+
+		if (bIncludeAssetPath)
+		{
+			if (TextFilterUtils::TestBasicStringExpression(AssetFullPath, InValue, InTextComparisonMode))
 			{
 				return true;
+			}
+
+			for (const FString& AssetPathPart : AssetSplitPath)
+			{
+				if (TextFilterUtils::TestBasicStringExpression(AssetPathPart, InValue, InTextComparisonMode))
+				{
+					return true;
+				}
 			}
 		}
 
@@ -361,19 +367,25 @@ public:
 			{
 				return true;
 			}
+		}
 
-			// Only test this if we're searching the class name too, as the exported text contains the type in the string
+		if (bIncludeClassName && bIncludeAssetPath)
+		{
+			// Only test this if we're searching the class name and asset path too, as the exported text contains the type and path in the string
 			if (TextFilterUtils::TestBasicStringExpression(AssetExportTextName, InValue, InTextComparisonMode))
 			{
 				return true;
 			}
 		}
 
-		for (const FName& AssetCollectionName : AssetCollectionNames)
+		if (bIncludeCollectionNames)
 		{
-			if (TextFilterUtils::TestBasicStringExpression(AssetCollectionName, InValue, InTextComparisonMode))
+			for (const FName& AssetCollectionName : AssetCollectionNames)
 			{
-				return true;
+				if (TextFilterUtils::TestBasicStringExpression(AssetCollectionName, InValue, InTextComparisonMode))
+				{
+					return true;
+				}
 			}
 		}
 
@@ -506,6 +518,12 @@ private:
 	/** Are we supposed to include the class name in our basic string tests? */
 	bool bIncludeClassName;
 
+	/** Search inside the entire asset path? */
+	bool bIncludeAssetPath;
+
+	/** Search collection names? */
+	bool bIncludeCollectionNames;
+
 	/** Keys used by TestComplexExpression */
 	const FName NameKeyName;
 	const FName PathKeyName;
@@ -582,6 +600,38 @@ void FFrontendFilter_Text::SetIncludeClassName(const bool InIncludeClassName)
 		// Will trigger a re-filter with the new setting
 		BroadcastChangedEvent();
 	}
+}
+
+void FFrontendFilter_Text::SetIncludeAssetPath(const bool InIncludeAssetPath)
+{
+	if (TextFilterExpressionContext->GetIncludeAssetPath() != InIncludeAssetPath)
+	{
+		TextFilterExpressionContext->SetIncludeAssetPath(InIncludeAssetPath);
+
+		// Will trigger a re-filter with the new setting
+		BroadcastChangedEvent();
+	}
+}
+
+bool FFrontendFilter_Text::GetIncludeAssetPath() const
+{
+	return TextFilterExpressionContext->GetIncludeAssetPath();
+}
+
+void FFrontendFilter_Text::SetIncludeCollectionNames(const bool InIncludeCollectionNames)
+{
+	if (TextFilterExpressionContext->GetIncludeCollectionNames() != InIncludeCollectionNames)
+	{
+		TextFilterExpressionContext->SetIncludeCollectionNames(InIncludeCollectionNames);
+
+		// Will trigger a re-filter with the new collections
+		BroadcastChangedEvent();
+	}
+}
+
+bool FFrontendFilter_Text::GetIncludeCollectionNames() const
+{
+	return TextFilterExpressionContext->GetIncludeCollectionNames();
 }
 
 void FFrontendFilter_Text::HandleCollectionCreated(const FCollectionNameType& Collection)

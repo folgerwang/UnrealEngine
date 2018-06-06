@@ -59,7 +59,7 @@ struct FBTDecoratorLogic
 	UPROPERTY()
 	uint16 Number;
 
-	FBTDecoratorLogic() : Operation(EBTDecoratorLogic::Invalid) {}
+	FBTDecoratorLogic() : Operation(EBTDecoratorLogic::Invalid), Number(0) {}
 	FBTDecoratorLogic(uint8 InOperation, uint16 InNumber) : Operation(InOperation), Number(InNumber) {}
 };
 

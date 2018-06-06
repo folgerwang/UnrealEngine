@@ -29,12 +29,13 @@ FCurlHttpRequest::FCurlHttpRequest()
 	:	EasyHandle(NULL)
 	,	HeaderList(NULL)
 	,	bCanceled(false)
-	,	bCompleted(false)
+	,	bCurlRequestCompleted(false)
 	,	CurlAddToMultiResult(CURLM_OK)
 	,	CurlCompletionResult(CURLE_OK)
 	,	CompletionStatus(EHttpRequestStatus::NotStarted)
 	,	ElapsedTime(0.0f)
 	,	TimeSinceLastResponse(0.0f)
+	,	bAnyHttpActivity(false)
 	,   BytesSent(0)
 	,	LastReportedBytesRead(0)
 	,	LastReportedBytesSent(0)
@@ -96,13 +97,16 @@ FCurlHttpRequest::FCurlHttpRequest()
 #endif // #if WITH_SSL
 	}
 
-		InfoMessageCache.AddDefaulted(NumberOfInfoMessagesToCache);
+	InfoMessageCache.AddDefaulted(NumberOfInfoMessagesToCache);
 }
 
 FCurlHttpRequest::~FCurlHttpRequest()
 {
 	if (EasyHandle)
 	{
+		// clear to prevent crashing in debug callback when this handle is part of an asynchronous curl_multi_perform()
+		curl_easy_setopt(EasyHandle, CURLOPT_DEBUGDATA, nullptr);
+
 		// cleanup the handle first (that order is used in howtos)
 		curl_easy_cleanup(EasyHandle);
 
@@ -482,6 +486,7 @@ size_t FCurlHttpRequest::DebugCallback(CURL * Handle, curl_infotype DebugInfoTyp
 		case CURLINFO_SSL_DATA_IN:
 		case CURLINFO_SSL_DATA_OUT:
 			TimeSinceLastResponse = 0.0f;
+			bAnyHttpActivity = true;
 			break;
 		default:
 			break;
@@ -522,7 +527,7 @@ bool FCurlHttpRequest::SetupRequest()
 {
 	check(EasyHandle);
 
-	bCompleted = false;
+	bCurlRequestCompleted = false;
 	bCanceled = false;
 	CurlAddToMultiResult = CURLM_OK;
 
@@ -561,6 +566,12 @@ bool FCurlHttpRequest::SetupRequest()
 	}	
 
 	curl_easy_setopt(EasyHandle, CURLOPT_URL, TCHAR_TO_ANSI(*URL));
+
+	if (!FCurlHttpManager::CurlRequestOptions.LocalHostAddr.IsEmpty())
+	{
+		// Set the local address to use for making these requests
+		CURLcode ErrCode = curl_easy_setopt(EasyHandle, CURLOPT_INTERFACE, TCHAR_TO_ANSI(*FCurlHttpManager::CurlRequestOptions.LocalHostAddr));
+	}
 
 	// set up verb (note that Verb is expected to be uppercase only)
 	if (Verb == TEXT("POST"))
@@ -620,6 +631,13 @@ bool FCurlHttpRequest::SetupRequest()
 	curl_easy_setopt(EasyHandle, CURLOPT_WRITEFUNCTION, StaticReceiveResponseBodyCallback);
 
 	// set up headers
+
+	// Empty string here tells Curl to list all supported encodings, allowing servers to send compressed content.
+	if (FCurlHttpManager::CurlRequestOptions.bAcceptCompressedContent)
+	{
+		curl_easy_setopt(EasyHandle, CURLOPT_ACCEPT_ENCODING, "");
+	}
+
 	if (GetHeader("User-Agent").IsEmpty())
 	{
 		SetHeader(TEXT("User-Agent"), FPlatformHttp::GetDefaultUserAgent());
@@ -690,6 +708,7 @@ bool FCurlHttpRequest::StartThreadedRequest()
 	// reset timeout
 	ElapsedTime = 0.0f;
 	TimeSinceLastResponse = 0.0f;
+	bAnyHttpActivity = false;
 	
 	UE_LOG(LogHttp, Verbose, TEXT("%p: request (easy handle:%p) has started threaded processing"), this, EasyHandle);
 
@@ -708,7 +727,7 @@ bool FCurlHttpRequest::IsThreadedRequestComplete()
 		return true;
 	}
 	
-	if (bCompleted && ElapsedTime >= FHttpModule::Get().GetHttpDelayTime())
+	if (bCurlRequestCompleted && ElapsedTime >= FHttpModule::Get().GetHttpDelayTime())
 	{
 		return true;
 	}
@@ -830,7 +849,7 @@ void FCurlHttpRequest::FinishedRequest()
 	
 	CheckProgressDelegate();
 	// if completed, get more info
-	if (bCompleted)
+	if (bCurlRequestCompleted)
 	{
 		if (Response.IsValid())
 		{
@@ -923,16 +942,30 @@ void FCurlHttpRequest::FinishedRequest()
 		}
 
 		// Mark last request attempt as completed but failed
-		switch (CurlCompletionResult)
+		if (bCurlRequestCompleted)
 		{
-		case CURLE_COULDNT_CONNECT:
-		case CURLE_COULDNT_RESOLVE_PROXY:
-		case CURLE_COULDNT_RESOLVE_HOST:
-			// report these as connection errors (safe to retry)
-			CompletionStatus = EHttpRequestStatus::Failed_ConnectionError;
-			break;
-		default:
-			CompletionStatus = EHttpRequestStatus::Failed;
+			switch (CurlCompletionResult)
+			{
+			case CURLE_COULDNT_CONNECT:
+			case CURLE_COULDNT_RESOLVE_PROXY:
+			case CURLE_COULDNT_RESOLVE_HOST:
+				// report these as connection errors (safe to retry)
+				CompletionStatus = EHttpRequestStatus::Failed_ConnectionError;
+				break;
+			default:
+				CompletionStatus = EHttpRequestStatus::Failed;
+			}
+		}
+		else
+		{
+			if (bAnyHttpActivity)
+			{
+				CompletionStatus = EHttpRequestStatus::Failed;
+			}
+			else
+			{
+				CompletionStatus = EHttpRequestStatus::Failed_ConnectionError;
+			}
 		}
 		// No response since connection failed
 		Response = NULL;

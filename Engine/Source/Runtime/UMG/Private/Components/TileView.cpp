@@ -2,8 +2,6 @@
 
 #include "Components/TileView.h"
 
-#define LOCTEXT_NAMESPACE "UMG"
-
 /////////////////////////////////////////////////////
 // UTileView
 
@@ -11,69 +9,45 @@ UTileView::UTileView(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	bIsVariable = true;
-
-	ItemWidth = 128.0f;
-	ItemHeight = 128.0f;
-	SelectionMode = ESelectionMode::Single;
+	EntryHeight = 128.f;
 }
 
-TSharedRef<SWidget> UTileView::RebuildWidget()
+TSharedRef<STableViewBase> UTileView::RebuildListWidget()
 {
-	MyTileView = SNew(STileView< UObject* >)
-		.SelectionMode(SelectionMode)
-		.ListItemsSource(&Items)
-		.ItemWidth(ItemWidth)
-		.ItemHeight(ItemHeight)
-		.OnGenerateTile(BIND_UOBJECT_DELEGATE(STileView< UObject* >::FOnGenerateRow, HandleOnGenerateTile))
-		//.OnSelectionChanged(this, &SSocketManager::SocketSelectionChanged_Execute)
-		//.OnContextMenuOpening(this, &SSocketManager::OnContextMenuOpening)
-		//.OnItemScrolledIntoView(this, &SSocketManager::OnItemScrolledIntoView)
-		//	.HeaderRow
-		//	(
-		//		SNew(SHeaderRow)
-		//		.Visibility(EVisibility::Collapsed)
-		//		+ SHeaderRow::Column(TEXT("Socket"))
-		//	);
-		;
-
-	return MyTileView.ToSharedRef();
+	return ConstructTileView<STileView>();
 }
 
-TSharedRef<ITableRow> UTileView::HandleOnGenerateTile(UObject* Item, const TSharedRef< STableViewBase >& OwnerTable) const
+FMargin UTileView::GetDesiredEntryPadding(UObject* Item) const
 {
-	// Call the user's delegate to see if they want to generate a custom widget bound to the data source.
-	if ( OnGenerateTileEvent.IsBound() )
+	return FMargin(EntrySpacing * 0.5f);
+}
+
+float UTileView::GetTotalEntryHeight() const
+{
+	return EntryHeight + (EntrySpacing * 0.5f);
+}
+
+float UTileView::GetTotalEntryWidth() const
+{
+	return EntryWidth + (EntrySpacing * 0.5f);
+}
+
+void UTileView::SetEntryHeight(float NewHeight)
+{
+	EntryHeight = NewHeight;
+	if (MyTileView.IsValid())
 	{
-		UWidget* Widget = OnGenerateTileEvent.Execute(Item);
-		if ( Widget != NULL )
-		{
-			return SNew(STableRow< UObject* >, OwnerTable)
-			[
-				Widget->TakeWidget()
-			];
-		}
+		MyTileView->SetItemHeight(GetTotalEntryHeight());
 	}
-
-	// If a row wasn't generated just create the default one, a simple text block of the item's name.
-	return SNew(STableRow< UObject* >, OwnerTable)
-		[
-			SNew(STextBlock).Text(Item ? FText::FromString(Item->GetName()) : LOCTEXT("null", "null"))
-		];
 }
 
-void UTileView::SetItemWidth(float Width)
+void UTileView::SetEntryWidth(float NewWidth)
 {
-	MyTileView->SetItemWidth(Width);
-}
-
-void UTileView::SetItemHeight(float Height)
-{
-	MyTileView->SetItemHeight(Height);
-}
-
-void UTileView::RequestListRefresh()
-{
-	MyTileView->RequestListRefresh();
+	EntryWidth = NewWidth;
+	if (MyTileView.IsValid())
+	{
+		MyTileView->SetItemWidth(GetTotalEntryWidth());
+	}
 }
 
 void UTileView::ReleaseSlateResources(bool bReleaseChildren)
@@ -83,15 +57,5 @@ void UTileView::ReleaseSlateResources(bool bReleaseChildren)
 	MyTileView.Reset();
 }
 
-#if WITH_EDITOR
-
-const FText UTileView::GetPaletteCategory()
-{
-	return LOCTEXT("Misc", "Misc");
-}
-
-#endif
 
 /////////////////////////////////////////////////////
-
-#undef LOCTEXT_NAMESPACE

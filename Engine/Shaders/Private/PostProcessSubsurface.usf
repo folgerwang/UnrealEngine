@@ -36,7 +36,7 @@ float GetSubsurfaceStrength(float2 UV)
 {
 	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV);
 
-	float Mask = ScreenSpaceData.GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE;
+	float Mask = UseSubsurfaceProfile(ScreenSpaceData.GBuffer.ShadingModelID) ? 1.0f : 0.0f;
 	return Mask * ScreenSpaceData.GBuffer.CustomData.a;
 }
 
@@ -195,7 +195,7 @@ void VisualizePS(in noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPo
 
 		OutColor = float4(0.5f, 0.5f, 0.5f, 0);
 
-		BRANCH if (ScreenSpaceData.GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE)
+		BRANCH if (UseSubsurfaceProfile(ScreenSpaceData.GBuffer.ShadingModelID))
 		{
 			if (SubsurfaceProfileInt == 0)
 			{
@@ -355,7 +355,7 @@ float4 SetupSubsurfaceForOnePixel(float2 UVSceneColor)
 
 	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UVSceneColor);
 
-	BRANCH if (ScreenSpaceData.GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE)
+	BRANCH if (UseSubsurfaceProfile(ScreenSpaceData.GBuffer.ShadingModelID))
 	{
 		// '1' is lower quality but that is acceptable here
 		SDiffuseAndSpecular DiffuseAndSpecular = ReconstructLighting(UVSceneColor, 1);
@@ -396,8 +396,10 @@ void SetupPS(in noperspective float4 UVAndScreenPos : TEXCOORD0, out float4 OutC
 
 	OutColor.a = SingleDepth;
 #else // HALF_RES
-	OutColor.rgb = SetupSubsurfaceForOnePixel(BufferUV).rgb;
-	OutColor.a = CalcSceneDepth(BufferUV);
+	OutColor = SetupSubsurfaceForOnePixel(BufferUV);
+	if( OutColor.a > 0){
+		OutColor.a = CalcSceneDepth(BufferUV);
+	}
 #endif // HALF_RES
 
 #if 0
@@ -462,7 +464,7 @@ void SubsurfaceRecombinePS(noperspective float4 UVAndScreenPos : TEXCOORD0, floa
 
 	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(BufferUV);
 	
-	if (ScreenSpaceData.GBuffer.ShadingModelID != SHADINGMODELID_SUBSURFACE_PROFILE)
+	if (!UseSubsurfaceProfile(ScreenSpaceData.GBuffer.ShadingModelID))
 	{
 		OutColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, BufferUV);
 		return;

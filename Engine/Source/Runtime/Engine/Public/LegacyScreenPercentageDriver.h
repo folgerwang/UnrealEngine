@@ -15,7 +15,18 @@
 class ENGINE_API FLegacyScreenPercentageDriver : public ISceneViewFamilyScreenPercentage
 {
 public:
-	FLegacyScreenPercentageDriver(const FSceneViewFamily& ViewFamily, float GlobalResolutionFraction, bool AllowPostProcessSettingsScreenPercentage);
+	FORCEINLINE FLegacyScreenPercentageDriver(
+		const FSceneViewFamily& InViewFamily,
+		float InGlobalResolutionFraction,
+		bool InAllowPostProcessSettingsScreenPercentage)
+		: FLegacyScreenPercentageDriver(InViewFamily, InGlobalResolutionFraction, InAllowPostProcessSettingsScreenPercentage, InGlobalResolutionFraction)
+	{ }
+
+	FLegacyScreenPercentageDriver(
+		const FSceneViewFamily& InViewFamily,
+		float InGlobalResolutionFraction,
+		bool InAllowPostProcessSettingsScreenPercentage,
+		float InGlobalResolutionFractionUpperBound);
 
 	/** Gets the view rect fraction from the r.ScreenPercentage cvar. */
 	static float GetCVarResolutionFraction();
@@ -27,6 +38,9 @@ private:
 
 	// ViewRect fraction to apply to all view of the view family.
 	const float GlobalResolutionFraction;
+
+	// ViewRect fraction to apply to all view of the view family.
+	const float GlobalResolutionFractionUpperBound;
 
 	// Whether FPostProcessSettings::ScreenPercentage should be applied or not.
 	const bool AllowPostProcessSettingsScreenPercentage;

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability: Public
 Title:피지컬 머티리얼 참고서
 Crumbs: %ROOT%, Engine, Engine/Physics, Engine/Physics/PhysicalMaterials
@@ -20,7 +20,7 @@ topic-image:Engine/Physics/physics_topic.png
 
 [REGION:raw]
 | 프로퍼티 | 설명 |
-| -------- | --- | :---------- |
+| -------- | :---------- |
 | **Friction** | 표면의 마찰 값으로, 사물이 표면을 얼마나 쉽게 미끄러지는지를 제어합니다. |
 | **Friction Combine Mode** | [INCLUDE:#FcombineMode]  |
 | **Override Friction Combine Mode** | 기본적으로 Friction Combine Mode 는 **Average** 로 설정되며, 이 프로퍼티를 켜는 것으로 인접한 피지컬 머티리얼 사이의 마찰 결합 방식을 변경할 수 있습니다. |
@@ -38,7 +38,7 @@ topic-image:Engine/Physics/physics_topic.png
 
 [REGION:raw]
 | 프로퍼티 | 설명 |
-| -------- | --- | :---------- |
+| -------- | :---------- |
 | **Raise Mass To Power** | 질량을 제곱으로 늘리기 - 오브젝트가 커지면서 질량을 늘이는 방식을 조절하는 데 사용됩니다. "입체" 오브젝트에 따라 계산되는 질량에 적용됩니다. 실제적으로, 오브젝트가 커질수록 입체라기 보다는 "껍데기"에 가까워집니다 (예로 차량은 철로 가득찬 입체는 아닙니다). 값은 1 이하로 클램핑됩니다. |
 [/REGION]
 

@@ -2104,13 +2104,14 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes() const
 
 void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType, const PyGenUtil::FGeneratedWrappedType* GeneratedTypeData, FPyFileWriter& OutPythonScript, FPyOnlineDocsSection* OutOnlineDocsSection)
 {
-	OutPythonScript.WriteLine(FString::Printf(TEXT("class %s(%s):"), UTF8_TO_TCHAR(PyType->tp_name), UTF8_TO_TCHAR(PyType->tp_base->tp_name)));
+	const FString PyTypeName = UTF8_TO_TCHAR(PyType->tp_name);
+	OutPythonScript.WriteLine(FString::Printf(TEXT("class %s(%s):"), *PyTypeName, UTF8_TO_TCHAR(PyType->tp_base->tp_name)));
 	OutPythonScript.IncreaseIndent();
 	OutPythonScript.WriteDocString(UTF8_TO_TCHAR(PyType->tp_doc));
 
 	if (OutOnlineDocsSection)
 	{
-		OutOnlineDocsSection->AccumulateClass(UTF8_TO_TCHAR(PyType->tp_name));
+		OutOnlineDocsSection->AccumulateClass(*PyTypeName);
 	}
 
 	auto GetFunctionReturnValue = [](const void* InBaseParamsAddr, const TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& InOutputParams) -> FString
@@ -2332,13 +2333,8 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 
 			if (MetaGuid == FPyWrapperObjectMetaData::StaticTypeId())
 			{
+				// Skip the __init__ function on derived object types as the base one is already correct
 				bWriteDefaultInit = false;
-				bHasExportedClassData = true;
-
-				OutPythonScript.WriteLine(TEXT("def __init__(self, outer=None, name=\"None\"):"));
-				OutPythonScript.IncreaseIndent();
-				OutPythonScript.WriteLine(TEXT("pass"));
-				OutPythonScript.DecreaseIndent();
 			}
 			else if (MetaGuid == FPyWrapperStructMetaData::StaticTypeId())
 			{
@@ -2394,10 +2390,54 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 			}
 			else if (MetaGuid == FPyWrapperEnumMetaData::StaticTypeId())
 			{
-				// Enums cannot be instanced, they don't have an __init__ function exposed
+				// Skip the __init__ function on derived enums
 				bWriteDefaultInit = false;
 			}
 			// todo: have correct __init__ signatures for the other intrinsic types?
+		}
+		else if (PyType == &PyWrapperObjectType)
+		{
+			bWriteDefaultInit = false;
+			bHasExportedClassData = true;
+
+			OutPythonScript.WriteLine(TEXT("def __init__(self, outer=None, name=\"None\"):"));
+			OutPythonScript.IncreaseIndent();
+			OutPythonScript.WriteLine(TEXT("pass"));
+			OutPythonScript.DecreaseIndent();
+		}
+		else if (PyType == &PyWrapperEnumType)
+		{
+			// Enums don't really have an __init__ function at runtime, so just give them a default one (with no arguments)
+			bWriteDefaultInit = false;
+
+			OutPythonScript.WriteLine(TEXT("def __init__(self):"));
+			OutPythonScript.IncreaseIndent();
+			OutPythonScript.WriteLine(TEXT("pass"));
+			OutPythonScript.DecreaseIndent();
+		}
+		else if (PyType == &PyWrapperEnumValueDescrType)
+		{
+			bWriteDefaultInit = false;
+			bHasExportedClassData = true;
+
+			// This is a special internal decorator type used to define enum entries, which is why it has __get__ as well as __init__
+			OutPythonScript.WriteLine(TEXT("def __init__(self, enum, name, value):"));
+			OutPythonScript.IncreaseIndent();
+			OutPythonScript.WriteLine(TEXT("self.enum = enum"));
+			OutPythonScript.WriteLine(TEXT("self.name = name"));
+			OutPythonScript.WriteLine(TEXT("self.value = value"));
+			OutPythonScript.DecreaseIndent();
+
+			OutPythonScript.WriteLine(TEXT("def __get__(self, obj, type=None):"));
+			OutPythonScript.IncreaseIndent();
+			OutPythonScript.WriteLine(TEXT("return self"));
+			OutPythonScript.DecreaseIndent();
+
+			// It also needs a __repr__ function for Sphinx to generate docs correctly
+			OutPythonScript.WriteLine(TEXT("def __repr__(self):"));
+			OutPythonScript.IncreaseIndent();
+			OutPythonScript.WriteLine(TEXT("return \"{0}.{1}\".format(self.enum, self.name)"));
+			OutPythonScript.DecreaseIndent();
 		}
 
 		if (bWriteDefaultInit)
@@ -2544,25 +2584,31 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 		}
 		else if (MetaGuid == FPyWrapperEnumMetaData::StaticTypeId())
 		{
-			// Export enum values
-			// Also see https://www.python.org/dev/peps/pep-0435/
-
+			// Export enum entries
 			const PyGenUtil::FGeneratedWrappedEnumType* EnumType = static_cast<const PyGenUtil::FGeneratedWrappedEnumType*>(GeneratedTypeData);
 
-			bool bFirstEnumMember = true;
-
-			for (const PyGenUtil::FGeneratedWrappedEnumEntry& EnumMember : EnumType->EnumEntries)
+			if (EnumType->EnumEntries.Num() > 0)
 			{
-				bHasExportedClassData = true;
+				// Add extra line break for first enum member
+				OutPythonScript.WriteNewLine();
 
-				if (bFirstEnumMember)
+				for (const PyGenUtil::FGeneratedWrappedEnumEntry& EnumMember : EnumType->EnumEntries)
 				{
-					// Add extra line break for first enum member
-					OutPythonScript.WriteNewLine();
-					bFirstEnumMember = false;
-				}
+					const FString EntryName = UTF8_TO_TCHAR(EnumMember.EntryName.GetData());
+					const FString EntryValue = LexToString(EnumMember.EntryValue);
 
-				ExportConstantValue(UTF8_TO_TCHAR(EnumMember.EntryName.GetData()), UTF8_TO_TCHAR(EnumMember.EntryDoc.GetData()), *Lex::ToString(EnumMember.EntryValue));
+					FString EntryDoc = UTF8_TO_TCHAR(EnumMember.EntryDoc.GetData());
+					if (EntryDoc.IsEmpty())
+					{
+						EntryDoc = EntryValue;
+					}
+					else
+					{
+						EntryDoc.InsertAt(0, *FString::Printf(TEXT("%s: "), *EntryValue));
+					}
+
+					ExportConstantValue(*EntryName, *EntryDoc, *FString::Printf(TEXT("_EnumEntry(\"%s\", \"%s\", %s)"), *PyTypeName, *EntryName, *EntryValue));
+				}
 			}
 		}
 	}

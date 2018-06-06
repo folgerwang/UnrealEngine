@@ -43,8 +43,8 @@ Windows 版 SVN をダウンロードするには [ここ](https://www.visualsvn
 	![](SC_SVN_Repository_Name.png)
 
 1. 次にリポジトリに追加する初期フォルダが必要であるかを選択します。
-	![](SC_SVN_Initial_Repo_Structure.png)
 
+	![](SC_SVN_Initial_Repo_Structure.png)
 
 **Trunk**、**Branches**、および **Tags** のディレクトリを追加すると、他の人々との C++ コードの同時開発の計画がある場合に役立ちます。
 初期セキュリティ設定もこの時点でセットアップできます。ここで何を設定するかがはっきりわからない場合は、そのままデフォルトにすると Subversion のユーザー全員が読み出し/書き込みすることができます。

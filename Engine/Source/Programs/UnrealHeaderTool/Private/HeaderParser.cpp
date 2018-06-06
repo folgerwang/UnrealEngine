@@ -8699,7 +8699,7 @@ bool FHeaderParser::DefaultValueStringCppFormatToInnerFormat(const UProperty* Pr
 			int64 Value;
 			if (FDefaultValueHelper::ParseInt64(CppForm, Value))
 			{
-				OutForm = Lex::ToString(Value);
+				OutForm = LexToString(Value);
 				return EnumProp->GetUnderlyingProperty()->CanHoldValue(Value);
 			}
 		}

@@ -29,7 +29,7 @@ void FWebSocketsModule::StartupModule()
 	Singleton = this;
 
 #if WITH_WEBSOCKETS
-	const FString Protocols[] = {TEXT("ws"), TEXT("wss"), TEXT("v10.stomp"), TEXT("v11.stomp"), TEXT("v12.stomp")};
+	const FString Protocols[] = {TEXT("ws"), TEXT("wss"), TEXT("v10.stomp"), TEXT("v11.stomp"), TEXT("v12.stomp"), TEXT("xmpp")};
 
 	WebSocketsManager = new FPlatformWebSocketsManager;
 	WebSocketsManager->InitWebSockets(Protocols);

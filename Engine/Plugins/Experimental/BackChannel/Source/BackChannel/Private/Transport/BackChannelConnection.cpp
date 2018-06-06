@@ -279,7 +279,7 @@ bool FBackChannelConnection::WaitForConnection(double InTimeout, TFunction<bool(
 		else
 		{
 			CheckSucceeded = true;
-			HasConnection = State == ESocketConnectionState::SCS_Connected;
+			HasConnection = Socket->Wait(ESocketWaitConditions::WaitForWrite, SleepTime);
 		}
 	}
 	

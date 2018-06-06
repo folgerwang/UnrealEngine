@@ -93,13 +93,17 @@ namespace UE4Function_Private
 
 	#if !defined(_WIN32) || defined(_WIN64)
 		// Let TFunction store up to 32 bytes which are 16-byte aligned before we heap allocate
-		typedef TAlignedBytes<16, 16> AlignedInlineFunctionType;
-		typedef TInlineAllocator<2> FunctionAllocatorType;
+		typedef TAlignedBytes<16, 16> FAlignedInlineFunctionType;
+		#if USE_SMALL_TFUNCTIONS
+			typedef FHeapAllocator FFunctionAllocatorType;
+		#else
+			typedef TInlineAllocator<2> FFunctionAllocatorType;
+		#endif
 	#else
 		// ... except on Win32, because we can't pass 16-byte aligned types by value, as some TFunctions are.
 		// So we'll just keep it heap-allocated, which is always sufficiently aligned.
-		typedef TAlignedBytes<16, 8> AlignedInlineFunctionType;
-		typedef FHeapAllocator FunctionAllocatorType;
+		typedef TAlignedBytes<16, 8> FAlignedInlineFunctionType;
+		typedef FHeapAllocator FFunctionAllocatorType;
 	#endif
 
 	struct FFunctionStorage
@@ -119,11 +123,11 @@ namespace UE4Function_Private
 
 		void Empty()
 		{
-			Allocator.ResizeAllocation(0, 0, sizeof(UE4Function_Private::AlignedInlineFunctionType));
+			Allocator.ResizeAllocation(0, 0, sizeof(UE4Function_Private::FAlignedInlineFunctionType));
 			AllocatedSize = 0;
 		}
 
-		typedef FunctionAllocatorType::ForElementType<AlignedInlineFunctionType> AllocatorType;
+		typedef FFunctionAllocatorType::ForElementType<FAlignedInlineFunctionType> AllocatorType;
 
 		IFunction_OwnedObject* GetBoundObject() const
 		{
@@ -142,10 +146,10 @@ inline void* operator new(size_t Size, UE4Function_Private::FFunctionStorage& St
 		Obj->~IFunction_OwnedObject();
 	}
 
-	int32 NewSize = FMath::DivideAndRoundUp(Size, sizeof(UE4Function_Private::AlignedInlineFunctionType));
+	int32 NewSize = FMath::DivideAndRoundUp(Size, sizeof(UE4Function_Private::FAlignedInlineFunctionType));
 	if (Storage.AllocatedSize != NewSize)
 	{
-		Storage.Allocator.ResizeAllocation(0, NewSize, sizeof(UE4Function_Private::AlignedInlineFunctionType));
+		Storage.Allocator.ResizeAllocation(0, NewSize, sizeof(UE4Function_Private::FAlignedInlineFunctionType));
 		Storage.AllocatedSize = NewSize;
 	}
 

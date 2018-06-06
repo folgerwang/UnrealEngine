@@ -4,6 +4,7 @@
 #include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
 #include "HlslccDefinitions.h"
+#include "HAL/FileManager.h"
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, ShaderCompilerCommon);
 
@@ -561,6 +562,186 @@ FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& 
 	return Text;
 }
 
+static int Mali_ExtractNumberInstructions(const FString &MaliOutput)
+{
+	int ReturnedNum = 0;
+
+	// Parse the instruction count
+	const int32 InstructionStringLength = FPlatformString::Strlen(TEXT("Instructions Emitted:"));
+	const int32 InstructionsIndex = MaliOutput.Find(TEXT("Instructions Emitted:"));
+
+	if (InstructionsIndex != INDEX_NONE && InstructionsIndex + InstructionStringLength < MaliOutput.Len())
+	{
+		const int32 EndIndex = MaliOutput.Find(TEXT("\n"), ESearchCase::IgnoreCase, ESearchDir::FromStart, InstructionsIndex + InstructionStringLength);
+
+		if (EndIndex != INDEX_NONE)
+		{
+			int32 StartIndex = InstructionsIndex + InstructionStringLength;
+
+			bool bFoundNrStart = false;
+			int32 NumberIndex = 0;
+
+			while (StartIndex < EndIndex)
+			{
+				if (FChar::IsDigit(MaliOutput[StartIndex]) && !bFoundNrStart)
+				{
+					// found number's beginning
+					bFoundNrStart = true;
+					NumberIndex = StartIndex;
+				}
+				else if (FChar::IsWhitespace(MaliOutput[StartIndex]) && bFoundNrStart)
+				{
+					// found number's end
+					bFoundNrStart = false;
+					const FString NumberString = MaliOutput.Mid(NumberIndex, StartIndex - NumberIndex);
+					const float fNrInstructions = FCString::Atof(*NumberString);
+					ReturnedNum += ceil(fNrInstructions);
+				}
+
+				++StartIndex;
+			}
+		}
+	}
+
+	return ReturnedNum;
+}
+
+static FString Mali_ExtractErrors(const FString &MaliOutput)
+{
+	FString ReturnedErrors;
+
+	const int32 GlobalErrorIndex = MaliOutput.Find(TEXT("Compilation failed."));
+
+	// find each 'line' that begins with token "ERROR:" and copy it to the returned string
+	if (GlobalErrorIndex != INDEX_NONE)
+	{
+		int32 CompilationErrorIndex = MaliOutput.Find(TEXT("ERROR:"));
+		while (CompilationErrorIndex != INDEX_NONE)
+		{
+			int32 EndLineIndex = MaliOutput.Find(TEXT("\n"), ESearchCase::CaseSensitive, ESearchDir::FromStart, CompilationErrorIndex + 1);
+			EndLineIndex = EndLineIndex == INDEX_NONE ? MaliOutput.Len() - 1 : EndLineIndex;
+
+			ReturnedErrors += MaliOutput.Mid(CompilationErrorIndex, EndLineIndex - CompilationErrorIndex + 1);
+
+			CompilationErrorIndex = MaliOutput.Find(TEXT("ERROR:"), ESearchCase::CaseSensitive, ESearchDir::FromStart, EndLineIndex);
+		}
+	}
+
+	return ReturnedErrors;
+}
+
+void CompileOfflineMali(const FShaderCompilerInput& Input, FShaderCompilerOutput& ShaderOutput, const ANSICHAR* ShaderSource, const int32 SourceSize, bool bVulkanSpirV)
+{
+	const bool bCompilerExecutableExists = FPaths::FileExists(Input.ExtraSettings.OfflineCompilerPath);
+
+	if (bCompilerExecutableExists)
+	{
+		const auto Frequency = (EShaderFrequency)Input.Target.Frequency;
+		const FString WorkingDir(FPlatformProcess::ShaderDir());
+
+		FString CompilerPath = Input.ExtraSettings.OfflineCompilerPath;
+
+		// add process and thread ids to the file name to avoid collision between workers
+		auto ProcID = FPlatformProcess::GetCurrentProcessId();
+		auto ThreadID = FPlatformTLS::GetCurrentThreadId();
+		FString GLSLSourceFile = WorkingDir / TEXT("GLSLSource#") + FString::FromInt(ProcID) + TEXT("#") + FString::FromInt(ThreadID);
+
+		// setup compilation arguments
+		TCHAR *FileExt = nullptr;
+		switch (Frequency)
+		{
+			case SF_Vertex:
+				GLSLSourceFile += TEXT(".vert");
+				CompilerPath += TEXT(" -v");
+			break;
+			case SF_Pixel:
+				GLSLSourceFile += TEXT(".frag");
+				CompilerPath += TEXT(" -f");
+			break;
+			case SF_Geometry:
+				GLSLSourceFile += TEXT(".geom");
+				CompilerPath += TEXT(" -g");
+			break;
+			case SF_Hull:
+				GLSLSourceFile += TEXT(".tesc");
+				CompilerPath += TEXT(" -t");
+			break;
+			case SF_Domain:
+				GLSLSourceFile += TEXT(".tese");
+				CompilerPath += TEXT(" -e");
+			break;
+			case SF_Compute:
+				GLSLSourceFile += TEXT(".comp");
+				CompilerPath += TEXT(" -C");
+			break;
+
+			default:
+				GLSLSourceFile += TEXT(".shd");
+			break;
+		}
+
+		if (bVulkanSpirV)
+		{
+			CompilerPath += TEXT(" -p");
+		}
+		else
+		{
+			CompilerPath += TEXT(" -s");
+		}
+
+		FArchive* Ar = IFileManager::Get().CreateFileWriter(*GLSLSourceFile, FILEWRITE_EvenIfReadOnly);
+
+		if (Ar == nullptr)
+		{
+			return;
+		}
+
+		// write out the shader source to a file and use it below as input for the compiler
+		Ar->Serialize((void*)ShaderSource, SourceSize);
+		delete Ar;
+
+		FString StdOut;
+		FString StdErr;
+		int32 ReturnCode = 0;
+
+		// Run Mali shader compiler and wait for completion
+		FPlatformProcess::ExecProcess(*CompilerPath, *GLSLSourceFile, &ReturnCode, &StdOut, &StdErr);
+
+		// parse Mali's output and extract instruction count or eventual errors
+		ShaderOutput.bSucceeded = (ReturnCode >= 0);
+		if (ShaderOutput.bSucceeded)
+		{
+			// check for errors
+			if (StdErr.Len())
+			{
+				ShaderOutput.bSucceeded = false;
+
+				FShaderCompilerError* NewError = new(ShaderOutput.Errors) FShaderCompilerError();
+				NewError->StrippedErrorMessage = TEXT("[Mali Offline Complier]\n") + StdErr;
+			}
+			else
+			{
+				FString Errors = Mali_ExtractErrors(StdOut);
+
+				if (Errors.Len())
+				{
+					FShaderCompilerError* NewError = new(ShaderOutput.Errors) FShaderCompilerError();
+					NewError->StrippedErrorMessage = TEXT("[Mali Offline Complier]\n") + Errors;
+					ShaderOutput.bSucceeded = false;
+				}
+			}
+
+			// extract instruction count
+			if (ShaderOutput.bSucceeded)
+			{
+				ShaderOutput.NumInstructions = Mali_ExtractNumberInstructions(StdOut);
+			}
+		}
+
+		// we're done so delete the shader file
+		IFileManager::Get().Delete(*GLSLSourceFile, true, true);
+	}
+}
 
 namespace CrossCompiler
 {

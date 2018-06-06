@@ -311,7 +311,11 @@ void FLinuxCursor::Lock( const RECT* const Bounds )
 		CursorClipRect.w = FMath::TruncToInt(Bounds->right) - FMath::TruncToInt(Bounds->left) - 1 - ExceedingWindowPrevention;
 		CursorClipRect.h = FMath::TruncToInt(Bounds->bottom) - FMath::TruncToInt(Bounds->top) - 1 - ExceedingWindowPrevention;
 
-		SDL_ConfineCursor(CurrentFocusWindow->GetHWnd(), &CursorClipRect);
+		// We dont want to set a negative bounding region. If Top, Left, Bottom, Right are all 0
+		if (CursorClipRect.x >= 0 && CursorClipRect.y >= 0 && CursorClipRect.w > 0 && CursorClipRect.h > 0)
+		{
+			SDL_ConfineCursor(CurrentFocusWindow->GetHWnd(), &CursorClipRect);
+		}
 	}
 }
 

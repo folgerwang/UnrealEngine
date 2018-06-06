@@ -413,8 +413,28 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 			CVarTranslucentLightingVolume->Set(0);
 		}
 	}
-	
+
+#if PLATFORM_MAC
+	if (IsRHIDeviceIntel())
+	{
+		static auto CVarVolumetricFog = IConsoleManager::Get().FindConsoleVariable(TEXT("r.VolumetricFog"));
+		if(CVarVolumetricFog && CVarVolumetricFog->GetInt() != 0)
+		{
+			CVarVolumetricFog->Set(0);
+		}
+
+		static auto CVarSGShadowQuality = IConsoleManager::Get().FindConsoleVariable((TEXT("sg.ShadowQuality")));
+		if(CVarSGShadowQuality && CVarSGShadowQuality->GetInt() != 0)
+		{
+			CVarSGShadowQuality->Set(0);
+		}
+	}
+#endif
+
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+	// we don't want to auto-enable draw events in Test
 	SetEmitDrawEvents(GetEmitDrawEvents() | ENABLE_METAL_GPUEVENTS);
+#endif
 
 	GSupportsShaderFramebufferFetch = !PLATFORM_MAC;
 	GHardwareHiddenSurfaceRemoval = true;

@@ -14,6 +14,51 @@
 class FClusterBuilder;
 class FStaticLightingTextureMapping_InstancedStaticMesh;
 
+// Due to BulkSerialize we can't edit the struct, so we must deprecated this one and create a new one
+USTRUCT()
+struct FClusterNode_DEPRECATED
+{
+	GENERATED_USTRUCT_BODY()
+
+		UPROPERTY()
+		FVector BoundMin;
+	UPROPERTY()
+		int32 FirstChild;
+	UPROPERTY()
+		FVector BoundMax;
+	UPROPERTY()
+		int32 LastChild;
+	UPROPERTY()
+		int32 FirstInstance;
+	UPROPERTY()
+		int32 LastInstance;
+
+	FClusterNode_DEPRECATED()
+		: BoundMin(MAX_flt, MAX_flt, MAX_flt)
+		, FirstChild(-1)
+		, BoundMax(MIN_flt, MIN_flt, MIN_flt)
+		, LastChild(-1)
+		, FirstInstance(-1)
+		, LastInstance(-1)
+	{
+	}
+
+	friend FArchive& operator<<(FArchive& Ar, FClusterNode_DEPRECATED& NodeData)
+	{
+		// @warning BulkSerialize: FClusterNode is serialized as memory dump
+		// See TArray::BulkSerialize for detailed description of implied limitations.
+		Ar << NodeData.BoundMin;
+		Ar << NodeData.FirstChild;
+		Ar << NodeData.BoundMax;
+		Ar << NodeData.LastChild;
+		Ar << NodeData.FirstInstance;
+		Ar << NodeData.LastInstance;
+
+		return Ar;
+	}
+};
+
+
 USTRUCT()
 struct FClusterNode
 {
@@ -32,6 +77,11 @@ struct FClusterNode
 	UPROPERTY()
 	int32 LastInstance;
 
+	UPROPERTY()
+	FVector MinInstanceScale;
+	UPROPERTY()
+	FVector MaxInstanceScale;
+
 	FClusterNode()
 		: BoundMin(MAX_flt, MAX_flt, MAX_flt)
 		, FirstChild(-1)
@@ -39,6 +89,20 @@ struct FClusterNode
 		, LastChild(-1)
 		, FirstInstance(-1)
 		, LastInstance(-1)
+		, MinInstanceScale(MAX_flt)
+		, MaxInstanceScale(-MAX_flt)
+	{
+	}
+
+	FClusterNode(const FClusterNode_DEPRECATED& OldNode)
+		: BoundMin(OldNode.BoundMin)
+		, FirstChild(OldNode.FirstChild)
+		, BoundMax(OldNode.BoundMax)
+		, LastChild(OldNode.LastChild)
+		, FirstInstance(OldNode.FirstChild)
+		, LastInstance(OldNode.LastInstance)
+		, MinInstanceScale(MAX_flt)
+		, MaxInstanceScale(-MAX_flt)
 	{
 	}
 
@@ -52,6 +116,9 @@ struct FClusterNode
 		Ar << NodeData.LastChild;
 		Ar << NodeData.FirstInstance;
 		Ar << NodeData.LastInstance;
+		Ar << NodeData.MinInstanceScale;
+		Ar << NodeData.MaxInstanceScale;
+		
 		return Ar;
 	}
 };
@@ -88,10 +155,6 @@ class ENGINE_API UHierarchicalInstancedStaticMeshComponent : public UInstancedSt
 	UPROPERTY()
 	TArray<FBox> UnbuiltInstanceBoundsList;
 
-	// Instance Index of each individual unbuilt instance, used in unbuilt rendering during a wait for the build
-	UPROPERTY()
-	TArray<int32> UnbuiltInstanceIndexList;
-
 	// Enable for detail meshes that don't really affect the game. Disable for anything important.
 	// Typically, this will be enabled for small meshes without collision (e.g. grass) and disabled for large meshes with collision (e.g. trees)
 	UPROPERTY()
@@ -115,11 +178,15 @@ class ENGINE_API UHierarchicalInstancedStaticMeshComponent : public UInstancedSt
 
 	bool bIsAsyncBuilding;
 	bool bDiscardAsyncBuildResults;
-	bool bConcurrentRemoval;
+	bool bConcurrentChanges;
 	bool bAutoRebuildTreeOnInstanceChanges;
 
 	UPROPERTY()
 	bool bDisableCollision;
+
+	// Instances to render (including removed one until the build is complete)
+	UPROPERTY()
+	int32 InstanceCountToRender;
 
 	// Apply the results of the async build
 	void ApplyBuildTreeAsync(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent, TSharedRef<FClusterBuilder, ESPMode::ThreadSafe> Builder, double StartTime);
@@ -144,6 +211,7 @@ public:
 	virtual void ClearInstances() override;
 	virtual TArray<int32> GetInstancesOverlappingSphere(const FVector& Center, float Radius, bool bSphereInWorldSpace = true) const override;
 	virtual TArray<int32> GetInstancesOverlappingBox(const FBox& Box, bool bBoxInWorldSpace = true) const override;
+	virtual void PreAllocateInstancesMemory(int32 AddedInstanceCount) override;
 
 	/** Removes all the instances with indices specified in the InstancesToRemove array. Returns true on success. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")

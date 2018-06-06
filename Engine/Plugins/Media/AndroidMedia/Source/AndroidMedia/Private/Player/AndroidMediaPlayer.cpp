@@ -611,7 +611,8 @@ void FAndroidMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 				if (IsRunningRHIInSeparateThread())
 				{
 					new (RHICmdList.AllocCommand<FRHICommandUpdateExternalMediaSample>()) FRHICommandUpdateExternalMediaSample(Params.JavaMediaPlayerPtr, Params.PlayerGuid);
-					// WAIT
+					// wait for DoUpdateExternalMediaSampleExecute to complete.
+					RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread); 
 				}
 				else
 				{

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3717037
+﻿INTSourceChangelist:3807090
 Availability: Public
 Title:애니메이션 블렌딩과 프로퍼티
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
@@ -20,7 +20,7 @@ type:how-to
 
 여기서 만들어 보는 애니메이션 샘플 시퀀스에서는, 걷기에서 점프로, 다시 걷기로 블렌딩되는 캐릭터를 볼 수 있습니다.
 
-![](AnimationBlending.png)(w:720 h:480)
+![](AnimationBlending.png)(w:720)
 
 ## 단계
 

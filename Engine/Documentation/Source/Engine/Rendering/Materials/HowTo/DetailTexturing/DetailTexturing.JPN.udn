@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2691723
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:マテリアル エディタ - ディテール テクスチャの操作ガイド
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials
@@ -10,6 +10,7 @@ Related:Platforms/Oculus
 Related:Engine/Rendering/Materials/ExpressionReference/Textures
 Version:4.9
 SkillLevel:Intermediate
+tags:Materials
 
 [TOC(start:2 end:3)]
 

@@ -215,6 +215,7 @@ protected:
 	//~ UObject interface
 	MOVIESCENE_API virtual void PostInitProperties() override;
 	MOVIESCENE_API virtual void PostLoad() override;
+	MOVIESCENE_API virtual bool IsPostLoadThreadSafe() const override;
 
 	/** Intentionally not a UPROPERTY so this isn't serialized */
 	FMovieSceneBlendTypeField SupportedBlendTypes;

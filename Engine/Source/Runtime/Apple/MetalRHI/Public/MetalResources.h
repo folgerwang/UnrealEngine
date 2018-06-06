@@ -55,6 +55,12 @@ public:
 	
 	/** Hash without considering strides which may be overriden */
 	uint32 BaseHash;
+	
+	virtual bool GetInitializer(FVertexDeclarationElementList& Init)
+	{
+		Init = Elements;
+		return true;
+	}
 
 protected:
 	void GenerateLayout(const FVertexDeclarationElementList& Elements);
@@ -327,15 +333,17 @@ private:
 };
 
 class FMetalSubBufferHeap;
+class FMetalSubBufferLinear;
 class FMetalSubBufferMagazine;
 
 class FMetalBuffer : public mtlpp::Buffer
 {
 public:
-	FMetalBuffer(ns::Ownership retain = ns::Ownership::Retain) : mtlpp::Buffer(retain), Heap(nullptr), Magazine(nullptr), bPooled(false) { }
+	FMetalBuffer(ns::Ownership retain = ns::Ownership::Retain) : mtlpp::Buffer(retain), Heap(nullptr), Linear(nullptr), Magazine(nullptr), bPooled(false) { }
 	FMetalBuffer(ns::Protocol<id<MTLBuffer>>::type handle, ns::Ownership retain = ns::Ownership::Retain);
 	
 	FMetalBuffer(mtlpp::Buffer&& rhs, FMetalSubBufferHeap* heap);
+	FMetalBuffer(mtlpp::Buffer&& rhs, FMetalSubBufferLinear* heap);
 	FMetalBuffer(mtlpp::Buffer&& rhs, FMetalSubBufferMagazine* magazine);
 	FMetalBuffer(mtlpp::Buffer&& rhs, bool bInPooled);
 	
@@ -363,6 +371,7 @@ public:
 	
 private:
 	FMetalSubBufferHeap* Heap;
+	FMetalSubBufferLinear* Linear;
 	FMetalSubBufferMagazine* Magazine;
 	bool bPooled;
 	bool bSingleUse;
@@ -961,7 +970,7 @@ private:
 class FMetalShaderLibrary final : public FRHIShaderLibrary
 {	
 public:
-	FMetalShaderLibrary(EShaderPlatform Platform, mtlpp::Library Library, FMetalShaderMap const& Map);
+	FMetalShaderLibrary(EShaderPlatform Platform, FString const& Name, mtlpp::Library Library, FMetalShaderMap const& Map);
 	virtual ~FMetalShaderLibrary();
 	
 	virtual bool IsNativeLibrary() const override final {return true;}
@@ -991,6 +1000,9 @@ public:
 	{
 		return new FMetalShaderLibraryIterator(this);
 	}
+	
+	virtual bool ContainsEntry(const FSHAHash& Hash) final override;
+	virtual bool RequestEntry(const FSHAHash& Hash, FArchive* Ar) final override;
 	
 	virtual uint32 GetShaderCount(void) const final override { return Map.HashMap.Num(); }
 	

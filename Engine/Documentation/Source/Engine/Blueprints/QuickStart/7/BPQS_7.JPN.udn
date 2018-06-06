@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:2735872
-Availability:Public
+﻿Availability:Public
 Title:7.応用編
 Crumbs:%ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/QuickStart
 Description:ジャンプ台への追加、およびブループリントの詳細情報
@@ -7,6 +6,7 @@ version:4.9
 parent:Engine/Blueprints/QuickStart
 order:7
 type:multi-step
+tags:Blueprints
 
 [VAR:Steps]
 [OBJECT:Navigation]
@@ -16,7 +16,7 @@ type:multi-step
 	[PARAM:current]
 	[/PARAM]
 	[PARAM:home]
-		[クイックスタートのホーム画面](Engine/Blueprints/QuickStart)
+		[クイックスタートホーム](Engine/Blueprints/QuickStart)
 	[/PARAM]
 	[PARAM:next]
 	[/PARAM]
@@ -37,15 +37,15 @@ type:multi-step
 
 ブループリント ビジュアル スクリプティングに関する詳細は、 [](Engine/Blueprints) ページを参照してください。
 
-このクイックスタートガイドで取り上げている詳細は以下の通りです。
+以下は、このクイックスタートガイドで扱った詳細です。
 
-* 種類の異なる Blueprint クラスを作成するための簡単な概要は [](Engine\Blueprints\GettingStarted) を参照してください。
+* 各種 Blueprint クラスの概要は以下の文書を参照してください。[](Engine\Blueprints\GettingStarted)
 
-* Blueprint クラスに関する詳細は [](Engine\Blueprints\UserGuide\Types\ClassBlueprint) を参照してください。
+* ブループリントに関する詳細は [](Engine\Blueprints\UserGuide\Types\ClassBlueprint) をご覧ください。
 
-* Blueprint クラスの作成と作業に関する簡単なチュートリアルは [](Engine\Blueprints\BP_HowTo) を参照してください。
+* Blueprint クラスの作成と作業に関する簡単なチュートリアルは [](Engine\Blueprints\BP_HowTo)
 
-* ブループリント エディタに関する詳細は [](Engine\Blueprints\Editor) を参照してください。
+* ブループリント エディタに関する詳細は [](Engine\Blueprints\Editor) をご覧ください。
 
 
 ---

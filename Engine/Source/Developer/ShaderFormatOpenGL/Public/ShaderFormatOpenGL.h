@@ -91,4 +91,16 @@ protected:
 	void BuildShaderOutput(FShaderCompilerOutput& ShaderOutput, const FShaderCompilerInput& ShaderInput, const ANSICHAR* InShaderSource, int32 SourceLen, GLSLVersion Version);
 	void PrecompileShader(FShaderCompilerOutput& ShaderOutput, const FShaderCompilerInput& ShaderInput, const ANSICHAR* ShaderSource, GLSLVersion Version, EHlslShaderFrequency Frequency);
 	void PrecompileGLSLES2(FShaderCompilerOutput& ShaderOutput, const FShaderCompilerInput& ShaderInput, const ANSICHAR* ShaderSource, EHlslShaderFrequency Frequency);
+
+	bool PlatformSupportsOfflineCompilation(const GLSLVersion ShaderVersion) const;
+
+	// fills device capabilities in 'offline', mostly hardcoded values
+	void FillDeviceCapsOfflineCompilation(struct FDeviceCapabilities &Caps, const GLSLVersion ShaderVersion) const;
+	// final source code processing, based on device capabilities, before actual (offline) compilation; it mostly mirrors the behaviour of OpenGLShaders.cpp/GLSLToDeviceCompatibleGLSL()
+	TSharedPtr<ANSICHAR> PrepareCodeForOfflineCompilation(GLSLVersion ShaderVersion, EShaderFrequency Frequency, const ANSICHAR* InShaderSource) const;
+
+	void CompileOffline(const FShaderCompilerInput& ShaderInput, FShaderCompilerOutput &Output, const GLSLVersion ShaderVersion, const ANSICHAR *InShaderSource);
+
+	// based on ShaderVersion decides what platform specific compiler to use
+	void PlatformCompileOffline(const FShaderCompilerInput &Input, FShaderCompilerOutput& ShaderOutput, const ANSICHAR* ShaderSource, const GLSLVersion ShaderVersion);
 };

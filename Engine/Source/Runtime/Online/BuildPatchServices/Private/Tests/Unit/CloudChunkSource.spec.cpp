@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Misc/AutomationTest.h"
+#include "Misc/OutputDeviceRedirector.h"
 #include "Tests/TestHelpers.h"
 #include "Tests/Mock/PlatformProcess.mock.h"
 #include "Tests/Mock/PlatformMisc.mock.h"
@@ -41,7 +42,7 @@ TUniquePtr<BuildPatchServices::FCloudSourceConfig> CloudSourceConfig;
 TSet<FGuid> InitialDownloadSet;
 TSet<FGuid> EmptyInitialDownloadSet;
 TSet<FGuid> LargeInitialDownloadSet;
-FSHAHashData SomeShaData;
+FSHAHash SomeShaData;
 FGuid SomeChunk;
 FGuid FirstChunk;
 BuildPatchServices::FChunkHeader FirstHeader;

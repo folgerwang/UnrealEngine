@@ -3,7 +3,7 @@
 /*=============================================================================
 	WindowsD3D11Device.cpp: Windows D3D device RHI implementation.
 =============================================================================*/
-
+#include "Misc/EngineVersion.h"
 #include "D3D11RHIPrivate.h"
 #include "Misc/CommandLine.h"
 #include "Misc/EngineVersion.h"
@@ -46,6 +46,16 @@ int D3D11RHI_PreferAdaperVendor()
 	}
 
 	return -1;
+}
+
+bool D3D11RHI_AllowSoftwareFallback()
+{
+	if (FParse::Param(FCommandLine::Get(), TEXT("AllowSoftwareRendering")))
+	{
+		return true;
+	}
+
+	return false;
 }
 
 // Filled in during InitD3DDevice if IsRHIDeviceAMD
@@ -713,6 +723,8 @@ void FD3D11DynamicRHIModule::FindAdapter()
 	UE_LOG(LogD3D11RHI, Log, TEXT("D3D11 adapters:"));
 
 	int PreferredVendor = D3D11RHI_PreferAdaperVendor();
+	bool bAllowSoftwareFallback = D3D11RHI_AllowSoftwareFallback();
+
 	// Enumerate the DXGIFactory's adapters.
 	for(uint32 AdapterIndex = 0; DXGIFactory1->EnumAdapters(AdapterIndex,TempAdapter.GetInitReference()) != DXGI_ERROR_NOT_FOUND; ++AdapterIndex)
 	{
@@ -764,7 +776,7 @@ void FD3D11DynamicRHIModule::FindAdapter()
 				// To reject the software emulation, unless the cvar wants it.
 				// https://msdn.microsoft.com/en-us/library/windows/desktop/bb205075(v=vs.85).aspx#WARP_new_for_Win8
 				// Before we tested for no output devices but that failed where a laptop had a Intel (with output) and NVidia (with no output)
-				const bool bSkipSoftwareAdapter = bIsMicrosoft && CVarExplicitAdapterValue < 0 && HmdGraphicsAdapterLuid == 0;
+				const bool bSkipSoftwareAdapter = bIsMicrosoft && !bAllowSoftwareFallback && CVarExplicitAdapterValue < 0 && HmdGraphicsAdapterLuid == 0;
 				
 				// we don't allow the PerfHUD adapter
 				const bool bSkipPerfHUDAdapter = bIsPerfHUD && !bAllowPerfHUD;
@@ -1155,7 +1167,8 @@ void FD3D11DynamicRHI::InitD3DDevice()
 			check(!"Internal error, EnumAdapters() failed but before it worked")
 		}
 
-		if (IsRHIDeviceAMD())
+		const bool bAllowVendorDevice = !FParse::Param(FCommandLine::Get(), TEXT("novendordevice"));
+		if (IsRHIDeviceAMD() && bAllowVendorDevice)
 		{
 			check(AmdAgsContext == NULL);
 
@@ -1199,6 +1212,7 @@ void FD3D11DynamicRHI::InitD3DDevice()
 		}
 
 		uint32 AmdSupportedExtensionFlags = 0;
+		bool bDeviceCreated = false;
 		if (IsRHIDeviceAMD() && AmdAgsContext)
 		{
 			AGSDX11DeviceCreationParams DeviceCreationParams = 
@@ -1237,18 +1251,32 @@ void FD3D11DynamicRHI::InitD3DDevice()
 			AmdExtensionParams.appVersion = AGS_UNSPECIFIED_VERSION;
 
 			AGSDX11ReturnedParams DeviceCreationReturnedParams;
-			VERIFYD3D11RESULT(agsDriverExtensionsDX11_CreateDevice(
-				AmdAgsContext,
-				&DeviceCreationParams,
-				&AmdExtensionParams,
-				&DeviceCreationReturnedParams) == AGS_SUCCESS ? S_OK : E_FAIL
-			);
-			Direct3DDevice = DeviceCreationReturnedParams.pDevice;
-			ActualFeatureLevel = DeviceCreationReturnedParams.FeatureLevel;
-			Direct3DDeviceIMContext = DeviceCreationReturnedParams.pImmediateContext;
-			AmdSupportedExtensionFlags = DeviceCreationReturnedParams.extensionsSupported;
+			AGSReturnCode DeviceCreation =
+				agsDriverExtensionsDX11_CreateDevice(
+					AmdAgsContext,
+					&DeviceCreationParams,
+					&AmdExtensionParams,
+					&DeviceCreationReturnedParams);
+
+			if (DeviceCreation == AGS_SUCCESS)
+			{
+				Direct3DDevice = DeviceCreationReturnedParams.pDevice;
+				ActualFeatureLevel = DeviceCreationReturnedParams.FeatureLevel;
+				Direct3DDeviceIMContext = DeviceCreationReturnedParams.pImmediateContext;
+				AmdSupportedExtensionFlags = DeviceCreationReturnedParams.extensionsSupported;
+				bDeviceCreated = true;
+			}
+			else
+			{
+				agsDeInit(AmdAgsContext);
+				AmdAgsContext = NULL;
+				AmdSupportedExtensionFlags = 0;
+				FMemory::Memzero(&AmdInfo, sizeof(AmdInfo));
+				GRHIDeviceIsAMDPreGCNArchitecture = false;				
+			}
 		}
-		else
+		
+		if (!bDeviceCreated)
 		{
 			// Creating the Direct3D device.
 			VERIFYD3D11RESULT(D3D11CreateDevice(

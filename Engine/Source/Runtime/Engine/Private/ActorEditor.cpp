@@ -841,24 +841,6 @@ bool AActor::GetReferencedContentObjects( TArray<UObject*>& Objects ) const
 	return true;
 }
 
-void AActor::SetLODParent(UPrimitiveComponent* InLODParent, float InParentDrawDistance)
-{
-	if(InLODParent)
-	{
-		InLODParent->MinDrawDistance = InParentDrawDistance;
-		InLODParent->MarkRenderStateDirty();
-	}
-
-	TArray<UPrimitiveComponent*> ComponentsToBeReplaced;
-	GetComponents(ComponentsToBeReplaced);
-
-	for(UPrimitiveComponent* Component : ComponentsToBeReplaced)
-	{
-		// parent primitive will be null if no LOD parent is selected
-		Component->SetLODParentPrimitive(InLODParent);
-	}
-}
-
 EDataValidationResult AActor::IsDataValid(TArray<FText>& ValidationErrors)
 {
 	bool bSuccess = CheckDefaultSubobjectsInternal();

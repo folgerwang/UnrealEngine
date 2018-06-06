@@ -447,6 +447,7 @@ void PvdConnect(FString Host, bool bVisualization)
 	PxPvdInstrumentationFlags ConnectionFlags = bVisualization  ? PxPvdInstrumentationFlag::eALL : (PxPvdInstrumentationFlag::ePROFILE | PxPvdInstrumentationFlag::eMEMORY);
 
 	PxPvdTransport* transport = PxDefaultPvdSocketTransportCreate(TCHAR_TO_ANSI(*Host), Port, Timeout);
+	GPhysXVisualDebugger->disconnect();	//make sure we're disconnected first
 	GPhysXVisualDebugger->connect(*transport, ConnectionFlags);
 
 	// per scene properties (e.g. PxPvdSceneFlag::eTRANSMIT_CONSTRAINTS) are 

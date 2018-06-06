@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2716169
+﻿INTSourceChangelist:3397556
 Availability:Public
 Title:ゲームをブループリントで保存する
 Crumbs:%ROOT%,  Gameplay, Gameplay/SaveGame
@@ -33,9 +33,7 @@ SaveGame オブジェクトを作成するには、 [Blueprint クラスを作�
 _保存設定全体のスナップショットです。クリックすると拡大表示されます。_
 
 [REGION:fullwidth]
-まず最初に、**Create Save Game Object** ノードを使って、インスタンスを作成するか、 新規 SaveGame オブジェクト ブループリントの名前に 「Save Game Class」 が設定されているか確認してください。 
-このサンプルでは「 **MySaveGame** 」です。Create Save Game Object ノードは一般的な SaveGame オブジェクトのコピーを作成するので、 **Return Value** ピンをドラッグし **Cast to MySaveGame** と接続しなければなりません。SaveGame オブジェクトを後で簡単に再利用できるように、
-変数へキャストした結果を **Promote to Variable** を使って保存します。
+まず最初に、**Create Save Game Object** ノードを使って、インスタンスを作成するか、Save Game Class ドロップダウンを新規ブループリントの名前 (ここでは **「MySaveGame」**) に設定されていることを確認してください。Create Save Game Object ノードは、Save Game Class 入力で指定したタイプに合うように自動的に出力ピンの種類を変更して、Cast To ノードを使わず直接それを使えるようになります。結果として生じたオブジェクトを **Promote to Variable** を使って変数へ保存して、作成したばかりの MySaveGame オブジェクトを後で再利用できるようにします。
 
 ![](SaveGameBP_1.png)
 
@@ -64,8 +62,7 @@ _保存設定全体のスナップショットです。クリックすると拡�
 
 ![](LoadGameBP_1.png)
 
-**Load Game From Slot** ノードを使って SaveGame object Blueprint のインスタンスを作成することができます。保存する情報に対して SaveGame オブジェクトを作成した時のように、 
-特定の SaveGame object ブループリントにキャストする必要があります。
+**Load Game From Slot** ノードを使って SaveGame object Blueprint のインスタンスを作成することができます。Cast To ノードは結果のオブジェクトを MySaveGame として処理します。こうしておくと、それが変数に格納されて後で簡単にアクセスできます。
 
 ![](LoadGameBP_2.png)
 

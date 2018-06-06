@@ -61,7 +61,7 @@ struct FProfilerServiceData2
 	FString HexData;
 
 	/** Default constructor. */
-	FProfilerServiceData2() { }
+	FProfilerServiceData2() : Frame(0), CompressedSize(0), UncompressedSize(0) { }
 
 	/** Creates and initializes a new instance. */
 	FProfilerServiceData2(const FGuid& InInstance, int64 InFrame, const FString& InHexData, int32 InCompressedSize, int32 InUncompressedSize)
@@ -235,7 +235,7 @@ struct FProfilerServiceCapture
 	bool bRequestedCaptureState;
 
 	/** Default constructor. */
-	FProfilerServiceCapture() { }
+	FProfilerServiceCapture() : bRequestedCaptureState(false) { }
 
 	/** Creates and initializes a new instance. */
 	FProfilerServiceCapture(const bool bInRequestedCaptureState)
@@ -258,7 +258,7 @@ struct FProfilerServicePreview
 	bool bRequestedPreviewState;
 
 	/** Default constructor. */
-	FProfilerServicePreview() { }
+	FProfilerServicePreview() : bRequestedPreviewState(false) { }
 
 	/** Creates and initializes a new instance. */
 	FProfilerServicePreview(const bool bInRequestedPreviewState)
@@ -279,7 +279,7 @@ struct FProfilerServiceRequest
 	uint32 Request;
 
 	/** Default constructor. */
-	FProfilerServiceRequest() { }
+	FProfilerServiceRequest() : Request(0) { }
 
 	/** Creates and initializes a new instance. */
 	FProfilerServiceRequest(uint32 InRequest)

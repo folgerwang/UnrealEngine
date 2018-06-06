@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810467
 Availability: Public
 Crumbs: %ROOT%
 Title:가상 현실 실전 사례
@@ -180,7 +180,7 @@ VR 콘텐츠 제작시 기억할 것은, 사용자가 콘텐츠를 여러 각도
 다이내믹 라이팅을 사용해야 하는 경우, 가급적 그 수를 줄이도록 하고, 절대로 서로 겹치도록 하지 않습니다.
 야외 씬이 있는 경우 디렉셔널 라이트를 스테이셔너리가 아닌 다이내믹으로 설정한 뒤 캐스케이드 섀도 맵(CSM)을 켜고서 세팅은 가급적 단순하게 하여 최소한의 비용으로 그림자를 그리도록 합니다.
 
- * ** VR & VFX** - 일부 VFX 트릭 중 [SubUV 텍스처](Engine/Rendering/ParticleSystems/Reference/Modules/SubUV) 를 사용하여 불이나 연기 시뮬레이션을 내는 경우, VR 에서 볼 때는 별로 좋지 않습니다.
+ * **VR & VFX** - 일부 VFX 트릭 중 [SubUV 텍스처](Engine/Rendering/ParticleSystems/Reference/Modules/SubUV) 를 사용하여 불이나 연기 시뮬레이션을 내는 경우, VR 에서 볼 때는 별로 좋지 않습니다.
 여러 경우에 폭발이나 연기 자취같은 VFX 시뮬레이션에는 2D 파티클 대신 스태틱 메시를 사용해야 합니다.  
 근처 또는 카메라에 매우 가까이서 발생하는 이펙트는, 스태틱 메시 파티클로 만들어진 이펙트의 경우에만 꽤나 잘 돌아갑니다.
 

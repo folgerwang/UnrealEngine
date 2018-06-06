@@ -324,8 +324,8 @@ FVector2D FSceneViewport::VirtualDesktopPixelToViewport(FIntPoint VirtualDesktop
 	// Virtual Desktop Pixel to local slate unit
 	const FVector2D TransformedPoint = CachedGeometry.AbsoluteToLocal(FVector2D(VirtualDesktopPointPx.X, VirtualDesktopPointPx.Y));
 
-	// Pixels to normalized coordinates
-	return FVector2D( TransformedPoint.X / SizeX, TransformedPoint.Y / SizeY );
+	// Pixels to normalized coordinates and correct for DPI scale
+	return FVector2D( TransformedPoint.X / SizeX * CachedGeometry.Scale, TransformedPoint.Y / SizeY * CachedGeometry.Scale );
 }
 
 FIntPoint FSceneViewport::ViewportToVirtualDesktopPixel(FVector2D ViewportCoordinate) const
@@ -335,7 +335,8 @@ FIntPoint FSceneViewport::ViewportToVirtualDesktopPixel(FVector2D ViewportCoordi
 	// Local slate unit to virtual desktop pixel.
 	const FVector2D TransformedPoint = FVector2D( CachedGeometry.LocalToAbsolute( LocalCoordinateInSu ) );
 
-	return FIntPoint( FMath::TruncToInt(TransformedPoint.X), FMath::TruncToInt(TransformedPoint.Y) );
+	//Correct for DPI
+	return FIntPoint( FMath::TruncToInt(TransformedPoint.X / CachedGeometry.Scale), FMath::TruncToInt(TransformedPoint.Y / CachedGeometry.Scale) );
 }
 
 void FSceneViewport::OnDrawViewport( const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled )
@@ -754,9 +755,17 @@ FReply FSceneViewport::OnTouchStarted( const FGeometry& MyGeometry, const FPoint
 		// Switch to the viewport clients world before processing input
 		FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
 
-		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition());
+		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition()) * MyGeometry.Scale;
 
-		if( !ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Began, TouchPosition, FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
+		if(ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Began, TouchPosition, TouchEvent.GetTouchForce(), FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
+		{
+			const bool bTemporaryCapture = ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CaptureDuringMouseDown;
+			if (bTemporaryCapture)
+			{
+				CurrentReplyState = AcquireFocusAndCapture(TouchPosition.IntPoint());
+			}
+		}
+		else
 		{
 			CurrentReplyState = FReply::Unhandled(); 
 		}
@@ -778,9 +787,9 @@ FReply FSceneViewport::OnTouchMoved( const FGeometry& MyGeometry, const FPointer
 		// Switch to the viewport clients world before processing input
 		FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
 
-		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition());
+		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition()) * MyGeometry.Scale;
 
-		if( !ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Moved, TouchPosition, FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
+		if( !ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Moved, TouchPosition, TouchEvent.GetTouchForce(), FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
 		{
 			CurrentReplyState = FReply::Unhandled(); 
 		}
@@ -809,11 +818,16 @@ FReply FSceneViewport::OnTouchEnded( const FGeometry& MyGeometry, const FPointer
 		// Switch to the viewport clients world before processing input
 		FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
 
-		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition());
+		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition()) * MyGeometry.Scale;
 
-		if( !ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Ended, TouchPosition, FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
+		if( !ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Ended, TouchPosition, 0.0f, FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
 		{
 			CurrentReplyState = FReply::Unhandled(); 
+		}
+
+		if (ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CaptureDuringMouseDown)
+		{
+			CurrentReplyState.ReleaseMouseCapture();
 		}
 	}
 
@@ -1174,12 +1188,13 @@ void FSceneViewport::ResizeFrame(uint32 NewWindowSizeX, uint32 NewWindowSizeY, E
 
 			const FVector2D OldWindowPos = WindowToResize->GetPositionInScreen();
 			const FVector2D OldWindowSize = WindowToResize->GetClientSizeInScreen();
-			const EWindowMode::Type OldWindowMode = WindowMode;
+			const EWindowMode::Type OldWindowMode = WindowToResize->GetWindowMode();
 
 			// Set the new window mode first to ensure that the work area size is correct (fullscreen windows can affect this)
 			if (NewWindowMode != OldWindowMode)
 			{
 				WindowToResize->SetWindowMode(NewWindowMode);
+				WindowMode = NewWindowMode;
 			}
 
 			TOptional<FVector2D> NewWindowPos;
@@ -1271,16 +1286,27 @@ void FSceneViewport::ResizeFrame(uint32 NewWindowSizeX, uint32 NewWindowSizeY, E
 			}
 #endif
 			// Resize window
-			if (NewWindowSize != OldWindowSize || (NewWindowPos.IsSet() && NewWindowPos != OldWindowPos) || NewWindowMode != OldWindowMode)
+			const bool bSizeChanged = NewWindowSize != OldWindowSize;
+			const bool bPositionChanged = NewWindowPos.IsSet() && NewWindowPos != OldWindowPos;
+			const bool bModeChanged = NewWindowMode != OldWindowMode;
+			if (bSizeChanged || bPositionChanged || bModeChanged)
 			{
-				LockMouseToViewport(!CurrentReplyState.ShouldReleaseMouseLock());
-				if (NewWindowPos.IsSet())
+				if (CurrentReplyState.ShouldReleaseMouseLock())
+				{
+					LockMouseToViewport(false);
+				}
+
+				if (bModeChanged || (bSizeChanged && bPositionChanged))
 				{
 					WindowToResize->ReshapeWindow(NewWindowPos.GetValue(), NewWindowSize);
 				}
-				else
+				else if (bSizeChanged)
 				{
 					WindowToResize->Resize(NewWindowSize);
+				}
+				else
+				{
+					WindowToResize->MoveWindowTo(NewWindowPos.GetValue());
 				}
 			}
 

@@ -104,10 +104,10 @@ public:
 		return Reply;
 	}
 	
-	virtual void OnMouseCaptureLost() override
+	virtual void OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent) override
 	{
 		SetVisibility(EVisibility::SelfHitTestInvisible);
-		SOverlay::OnMouseCaptureLost();
+		SOverlay::OnMouseCaptureLost(CaptureLostEvent);
 	}
 
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override

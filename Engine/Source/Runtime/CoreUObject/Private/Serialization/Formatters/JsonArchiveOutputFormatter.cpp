@@ -11,7 +11,7 @@ FJsonArchiveOutputFormatter::FJsonArchiveOutputFormatter(FArchive& InInner)
 	: Inner(InInner)
 	, Newline(LINE_TERMINATOR_ANSI, ARRAY_COUNT(LINE_TERMINATOR_ANSI) - 1)
 {
-	Inner.ArIsTextFormat = true;
+	Inner.SetIsTextFormat(true);
 
 	bNeedsComma = false;
 	bNeedsNewline = false;
@@ -138,53 +138,53 @@ void FJsonArchiveOutputFormatter::LeaveMapElement()
 
 void FJsonArchiveOutputFormatter::Serialize(uint8& Value)
 {
-	WriteValue(Lex::ToString(Value));
+	WriteValue(LexToString(Value));
 }
 
 void FJsonArchiveOutputFormatter::Serialize(uint16& Value)
 {
-	WriteValue(Lex::ToString(Value));
+	WriteValue(LexToString(Value));
 }
 
 void FJsonArchiveOutputFormatter::Serialize(uint32& Value)
 {
-	WriteValue(Lex::ToString(Value));
+	WriteValue(LexToString(Value));
 }
 
 void FJsonArchiveOutputFormatter::Serialize(uint64& Value)
 {
-	WriteValue(Lex::ToString(Value));
+	WriteValue(LexToString(Value));
 }
 
 void FJsonArchiveOutputFormatter::Serialize(int8& Value)
 {
-	WriteValue(Lex::ToString(Value));
+	WriteValue(LexToString(Value));
 }
 
 void FJsonArchiveOutputFormatter::Serialize(int16& Value)
 {
-	WriteValue(Lex::ToString(Value));
+	WriteValue(LexToString(Value));
 }
 
 void FJsonArchiveOutputFormatter::Serialize(int32& Value)
 {
-	WriteValue(Lex::ToString(Value));
+	WriteValue(LexToString(Value));
 }
 
 void FJsonArchiveOutputFormatter::Serialize(int64& Value)
 {
-	WriteValue(Lex::ToString(Value));
+	WriteValue(LexToString(Value));
 }
 
 void FJsonArchiveOutputFormatter::Serialize(float& Value)
 {
 	if((float)(int)Value == Value)
 	{
-		WriteValue(Lex::ToString((int)Value));
+		WriteValue(LexToString((int)Value));
 	}
 	else
 	{
-		WriteValue(Lex::ToString(Value));
+		WriteValue(LexToString(Value));
 	}
 }
 
@@ -192,17 +192,17 @@ void FJsonArchiveOutputFormatter::Serialize(double& Value)
 {
 	if((double)(int)Value == Value)
 	{
-		WriteValue(Lex::ToString((int)Value));
+		WriteValue(LexToString((int)Value));
 	}
 	else
 	{
-		WriteValue(Lex::ToString(Value));
+		WriteValue(LexToString(Value));
 	}
 }
 
 void FJsonArchiveOutputFormatter::Serialize(bool& Value)
 {
-	WriteValue(Lex::ToString(Value));
+	WriteValue(LexToString(Value));
 }
 
 void FJsonArchiveOutputFormatter::Serialize(FString& Value)

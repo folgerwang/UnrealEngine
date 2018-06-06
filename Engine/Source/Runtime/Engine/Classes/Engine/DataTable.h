@@ -109,15 +109,15 @@ public:
 
 	/** Get all of the rows in the table, regardless of name */
 	template <class T>
-	void GetAllRows(const FString& ContextString, OUT TArray<T*>& OutRowArray) const
+	void GetAllRows(const TCHAR* ContextString, OUT TArray<T*>& OutRowArray) const
 	{
 		if (RowStruct == nullptr)
 		{
-			UE_LOG(LogDataTable, Error, TEXT("UDataTable::FindRow : DataTable '%s' has no RowStruct specified (%s)."), *GetPathName(), *ContextString);
+			UE_LOG(LogDataTable, Error, TEXT("UDataTable::FindRow : DataTable '%s' has no RowStruct specified (%s)."), *GetPathName(), ContextString);
 		}
 		else if (!RowStruct->IsChildOf(T::StaticStruct()))
 		{
-			UE_LOG(LogDataTable, Error, TEXT("UDataTable::FindRow : Incorrect type specified for DataTable '%s' (%s)."), *GetPathName(), *ContextString);
+			UE_LOG(LogDataTable, Error, TEXT("UDataTable::FindRow : Incorrect type specified for DataTable '%s' (%s)."), *GetPathName(), ContextString);
 		}
 		else
 		{
@@ -128,25 +128,31 @@ public:
 		}	
 	}
 
+	template <class T>
+	void GetAllRows(const FString& ContextString, OUT TArray<T*>& OutRowArray) const
+	{
+		GetAllRows<T>(*ContextString, OutRowArray);
+	}
+
 	/** Function to find the row of a table given its name. */
 	template <class T>
-	T* FindRow(FName RowName, const FString& ContextString, bool bWarnIfRowMissing = true) const
+	T* FindRow(FName RowName, const TCHAR* ContextString, bool bWarnIfRowMissing = true) const
 	{
 		if(RowStruct == nullptr)
 		{
-			UE_LOG(LogDataTable, Error, TEXT("UDataTable::FindRow : '%s' specified no row for DataTable '%s'."), *ContextString, *GetPathName());
+			UE_LOG(LogDataTable, Error, TEXT("UDataTable::FindRow : '%s' specified no row for DataTable '%s'."), ContextString, *GetPathName());
 			return nullptr;
 		}
 
 		if(!RowStruct->IsChildOf(T::StaticStruct()))
 		{
-			UE_CLOG(bWarnIfRowMissing, LogDataTable, Error, TEXT("UDataTable::FindRow : '%s' specified incorrect type for DataTable '%s'."), *ContextString, *GetPathName());
+			UE_CLOG(bWarnIfRowMissing, LogDataTable, Error, TEXT("UDataTable::FindRow : '%s' specified incorrect type for DataTable '%s'."), ContextString, *GetPathName());
 			return nullptr;
 		}
 
 		if(RowName == NAME_None)
 		{
-			UE_CLOG(bWarnIfRowMissing, LogDataTable, Warning, TEXT("UDataTable::FindRow : '%s' requested invalid row 'None' from DataTable '%s'."), *ContextString, *GetPathName());
+			UE_CLOG(bWarnIfRowMissing, LogDataTable, Warning, TEXT("UDataTable::FindRow : '%s' requested invalid row 'None' from DataTable '%s'."), ContextString, *GetPathName());
 			return nullptr;
 		}
 
@@ -155,7 +161,7 @@ public:
 		{
 			if (bWarnIfRowMissing)
 			{
-				UE_LOG(LogDataTable, Warning, TEXT("UDataTable::FindRow : '%s' requested row '%s' not in DataTable '%s'."), *ContextString, *RowName.ToString(), *GetPathName());
+				UE_LOG(LogDataTable, Warning, TEXT("UDataTable::FindRow : '%s' requested row '%s' not in DataTable '%s'."), ContextString, *RowName.ToString(), *GetPathName());
 			}
 			return nullptr;
 		}
@@ -166,17 +172,23 @@ public:
 		return reinterpret_cast<T*>(RowData);
 	}
 
+	template <class T>
+	T* FindRow(FName RowName, const FString& ContextString, bool bWarnIfRowMissing = true) const
+	{
+		return FindRow<T>(RowName, *ContextString, bWarnIfRowMissing);
+	}
+
 	/** Perform some operation for every row. */
 	template <class T>
-	void ForeachRow(const FString& ContextString, TFunctionRef<void (const FName& Key, const T& Value)> Predicate) const
+	void ForeachRow(const TCHAR* ContextString, TFunctionRef<void (const FName& Key, const T& Value)> Predicate) const
 	{
 		if (RowStruct == nullptr)
 		{
-			UE_LOG(LogDataTable, Error, TEXT("UDataTable::FindRow : DataTable '%s' has no RowStruct specified (%s)."), *GetPathName(), *ContextString);
+			UE_LOG(LogDataTable, Error, TEXT("UDataTable::FindRow : DataTable '%s' has no RowStruct specified (%s)."), *GetPathName(), ContextString);
 		}
 		else if (!RowStruct->IsChildOf(T::StaticStruct()))
 		{
-			UE_LOG(LogDataTable, Error, TEXT("UDataTable::FindRow : Incorrect type specified for DataTable '%s' (%s)."), *GetPathName(), *ContextString);
+			UE_LOG(LogDataTable, Error, TEXT("UDataTable::FindRow : Incorrect type specified for DataTable '%s' (%s)."), *GetPathName(), ContextString);
 		}
 		else
 		{
@@ -186,6 +198,12 @@ public:
 				Predicate(RowMapIter.Key(), *Entry);
 			}
 		}
+	}
+
+	template <class T>
+	void ForeachRow(const FString& ContextString, TFunctionRef<void (const FName& Key, const T& Value)> Predicate) const
+	{
+		ForeachRow<T>(*ContextString, Predicate);
 	}
 
 	/** Returns the column property where PropertyName matches the name of the column property. Returns nullptr if no match is found or the match is not a supported table property */
@@ -332,18 +350,24 @@ struct ENGINE_API FDataTableRowHandle
 
 	/** Get the row straight from the row handle */
 	template <class T>
-	T* GetRow(const FString& ContextString) const
+	T* GetRow(const TCHAR* ContextString) const
 	{
 		if(DataTable == nullptr)
 		{
 			if (RowName != NAME_None)
 			{
-				UE_LOG(LogDataTable, Warning, TEXT("FDataTableRowHandle::FindRow : No DataTable for row %s (%s)."), *RowName.ToString(), *ContextString);
+				UE_LOG(LogDataTable, Warning, TEXT("FDataTableRowHandle::FindRow : No DataTable for row %s (%s)."), *RowName.ToString(), ContextString);
 			}
 			return nullptr;
 		}
 
 		return DataTable->FindRow<T>(RowName, ContextString);
+	}
+
+	template <class T>
+	T* GetRow(const FString& ContextString) const
+	{
+		return GetRow<T>(*ContextString);
 	}
 
 	FString ToDebugString(bool bUseFullPath = false) const

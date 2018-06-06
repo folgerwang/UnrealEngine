@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2718301
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Math Hall のコンテンツ サンプル
 Crumbs:%ROOT%, Resources, Resources/ContentExamples
@@ -7,41 +7,12 @@ Related:Engine/Blueprints/UserGuide/MathNode
 Related:Engine/Rendering/Materials/Functions
 Related:Engine/Rendering/Materials/ExpressionReference
 Version:4.9
+topic-image:mathHall_compact.png
 
 [REGION:banner]
 ![](MathHall_Header.png)(convert:false)
 [/REGION]
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/MathHall:title%](mathHall_compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/MathHall:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/MathHall:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/MathHall]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/MathHall:title%](mathHall_compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/MathHall:title%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/MathHall]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [TOC(start:2 end:3)]
 
@@ -59,7 +30,7 @@ Version:4.9
 
 **関数** セクションで提供されているサンプルは以下の通りです。右側がサンプルの使用例です。 
 
-| 例 | 実演内容 |
+| サンプル | 内容 |
 | ------- | ------------ |
 | **1.1 入門** | 各種数学関数に対して X 値を配置した表の読み取り方を説明するセクションです。 |
 | **1.2 ABS** | 負の値を正の値として読み取る場合、 Absolute (ABS) 値の X を取得するサンプルです (例えば、 Time の Sine を受け取り ABS 値を取得することで、ボールに対して跳ね返る動きを作成します)。 |
@@ -86,7 +57,7 @@ Version:4.9
 
 **基本的なベクター演算** セクションで提供されているサンプルは以下の通りです。  
 
-| 例 | 実演内容 |
+| サンプル | 内容 |
 | ------- | ------------ |
 | **2.1 入門** | マテリアルおよびブループリントにおける ベクター演算 の重要性の説明です。 |
 | **2.2 ベクターについて** | ベクター とは何か、またベクターのタイプの説明です。 |

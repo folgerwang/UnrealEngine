@@ -42,7 +42,7 @@ bool FHttpServiceTracker::Tick(float DeltaTime)
 				// one attribute per response code.
 				for (const auto& ResponseCodeMapPair : MetricsMapPair.Value.ResponseCodes)
 				{
-					Attrs.Emplace(FString(TEXT("Code-")) + Lex::ToString(ResponseCodeMapPair.Key), ResponseCodeMapPair.Value);
+					Attrs.Emplace(FString(TEXT("Code-")) + LexToString(ResponseCodeMapPair.Key), ResponseCodeMapPair.Value);
 				}
 				AnalyticsProvider->RecordEvent(MetricsMapPair.Key.ToString(), Attrs);
 			}

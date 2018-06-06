@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 /*=============================================================================================
@@ -580,13 +580,6 @@ struct FAndroidPlatformString : public FGenericPlatformString
 
 		return Result;
 	}
-
-	static const ANSICHAR* GetEncodingName()
-	{
-		return "UTF-32LE";
-	}
-
-	static const bool IsUnicodeEncoded = true;
 };
 
 

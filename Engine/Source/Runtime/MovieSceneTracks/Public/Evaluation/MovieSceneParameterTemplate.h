@@ -180,7 +180,7 @@ struct FMovieSceneComponentMaterialSectionTemplate : public FMovieSceneParameter
 {
 	GENERATED_BODY()
 
-	FMovieSceneComponentMaterialSectionTemplate() {}
+	FMovieSceneComponentMaterialSectionTemplate() : MaterialIndex(0) {}
 	FMovieSceneComponentMaterialSectionTemplate(const UMovieSceneParameterSection& Section, const UMovieSceneComponentMaterialTrack& Track);
 
 private:

@@ -195,10 +195,9 @@ struct FAndroidOpenGL : public FOpenGLES2
 	static FORCEINLINE bool HasHardwareHiddenSurfaceRemoval() { return bHasHardwareHiddenSurfaceRemoval; };
 
 	// Optional:
-	static FORCEINLINE void QueryTimestampCounter(GLuint QueryID)
-	{
-		glQueryCounterEXT(QueryID, GL_TIMESTAMP_EXT);
-	}
+	static void QueryTimestampCounter(GLuint QueryID);
+
+	static GLuint MakeVirtualQueryReal(GLuint QueryID);
 
 	static FORCEINLINE void GenQueries(GLsizei NumQueries, GLuint* QueryIDs)
 	{
@@ -248,6 +247,7 @@ struct FAndroidOpenGL : public FOpenGLES2
 	{
 		if (GUseThreadedRendering)
 		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_eglClientWaitSyncKHR_p);
 			// check( Flags == GL_SYNC_FLUSH_COMMANDS_BIT );
 			GLenum Result = eglClientWaitSyncKHR_p( AndroidEGL::GetInstance()->GetDisplay(), Sync, EGL_SYNC_FLUSH_COMMANDS_BIT_KHR, Timeout );
 			switch (Result)
@@ -535,6 +535,11 @@ struct FAndroidOpenGL : public FOpenGLES2
 		return bUseES30ShadingLanguage;
 	}
 
+	// Disable all queries except occlusion
+	// Query is a limited resource on Android and we better spent them all on occlusion
+	static FORCEINLINE bool SupportsTimestampQueries()					{ return false; }
+	static FORCEINLINE bool SupportsDisjointTimeQueries()				{ return false; }
+	
 	static FORCEINLINE bool SupportsBlitFramebuffer() { return FOpenGLES2::SupportsBlitFramebuffer() || IsES31Usable(); }
 
 	enum class EImageExternalType : uint8

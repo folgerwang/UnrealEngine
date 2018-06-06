@@ -1422,7 +1422,7 @@ void SCurveEditor::AddNewKey(FGeometry InMyGeometry, FVector2D ScreenPosition, T
 	}
 }
 
-void SCurveEditor::OnMouseCaptureLost()
+void SCurveEditor::OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)
 {
 	// if we began a drag transaction we need to finish it to make sure undo doesn't get out of sync
 	if (DragState == EDragState::DragKey || DragState == EDragState::FreeDrag || DragState == EDragState::DragTangent)

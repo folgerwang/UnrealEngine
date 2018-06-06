@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2720029
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1.5 - 物理コンストレイント
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Physics
@@ -10,64 +10,7 @@ Related:Engine/Physics/Constraints/ConstraintsUserGuide
 Related:Engine/Physics/Collision
 Related:Engine/Physics/PhysicalMaterials/Reference
 Version:4.9
-
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[前のサンプル](Resources/ContentExamples/Physics/1_4 "%Resources/ContentExamples/Physics/1_4:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[物理のホーム](Resources/ContentExamples/Physics)
-	[/PARAM]
-	[PARAM:next]
-		[次のサンプル](Resources/ContentExamples/Physics/1_6 "%Resources/ContentExamples/Physics/1_6:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources\ContentExamples\Physics\1_5:title%](physics_1_5_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\Physics\1_5:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\Physics\1_5:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\Physics\1_5]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources\ContentExamples\Physics\1_5:title%](physics_1_5_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\Physics\1_5:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\Physics\1_5:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\Physics\1_5]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:physics_1_5_topic.png
 
 
 [REGION:fullwidth]
@@ -75,12 +18,12 @@ Version:4.9
 [/REGION]
 
 
-**物理コンストレイント** は基本的にジョイントの一種です。2 つのアクタを接続し (おそらく 1 つは物理的にシミュレーションします)、制限や力を適用することもできます。アンリアル エンジン 4 は、 
-非常に柔軟なデータ ドリブンのコンストレイント システムです。オプションを変更するだけで、デザイナーは様々なジョイントを作成することができます。エンジンにはデフォルトでいくつかの 
-ジョイント タイプ (ボールとソケット、ヒンジ、プリズマティック (直動) ) があります。こららの違いは設定だけです。どのタイプのジョイントから初めても、ご自由に独自のコンフィギュレーションをつくる 
+**物理コンストレイント** は基本的にジョイントの一種です。2 つのアクタを接続し (おそらく 1 つは物理的にシミュレーションします)、制限や力を適用することもできます。UE4 には、 
+非常に柔軟なデータ ドリブンのコンストレイント システムがあります。オプションを変更するだけで、様々なジョイントを作成することができます。エンジンにはデフォルトでいくつかの 
+ジョイント タイプ (ボールとソケット、ヒンジ、プリズマティック (直動) ) があります。これらの違いは設定だけです。どのタイプのジョイントから初めても、ご自由に独自のものをつくる 
 ことができます。
 
-コンテンツ サンプルでは、左から右へ動きます。
+コンテンツ サンプルの左から右に：
 
 1. 最初の軸上ではフリーに揺れ、2 番目の軸では 45 度に制限され、ひねり軸でロックされます。
 
