@@ -207,13 +207,14 @@ void UNiagaraStackFunctionInput::FinalizeInternal()
 	{
 		OwningFunctionCallNode->GetGraph()->RemoveOnGraphChangedHandler(GraphChangedHandle);
 		OwningFunctionCallNode->GetNiagaraGraph()->RemoveOnGraphNeedsRecompileHandler(OnRecompileHandle);
-
-		if (SourceScript.IsValid())
-		{
-			SourceScript->RapidIterationParameters.RemoveOnChangedHandler(RapidIterationParametersChangedHandle);
-			SourceScript->GetSource()->OnChanged().RemoveAll(this);
-		}
 	}
+
+	if (SourceScript.IsValid())
+	{
+		SourceScript->RapidIterationParameters.RemoveOnChangedHandler(RapidIterationParametersChangedHandle);
+		SourceScript->GetSource()->OnChanged().RemoveAll(this);
+	}
+
 	Super::FinalizeInternal();
 }
 
