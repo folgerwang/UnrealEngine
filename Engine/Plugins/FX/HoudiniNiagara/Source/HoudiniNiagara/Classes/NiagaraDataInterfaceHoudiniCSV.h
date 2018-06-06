@@ -177,6 +177,7 @@ public:
 	static const FString MaxNumberOfIndexesPerPointBaseName;
 	static const FString PointValueIndexesBufferBaseName;
 	static const FString LastSpawnedPointIdBaseName;
+	static const FString LastSpawnTimeBaseName;
 
 	// Member variables accessors
 	FORCEINLINE int32 GetNumberOfRows()const { return HoudiniCSVAsset ? HoudiniCSVAsset->GetNumberOfRows() : 0; }
@@ -221,4 +222,7 @@ protected:
 	// Last Spawned PointID
 	UPROPERTY()
 	int32 LastSpawnedPointID;
+	// Last Spawn time
+	UPROPERTY()
+	float LastSpawnTime;
 };
