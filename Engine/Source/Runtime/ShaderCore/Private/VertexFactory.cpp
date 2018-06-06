@@ -117,10 +117,7 @@ FVertexFactoryType::FVertexFactoryType(
 		TEXT("Incorrect virtual shader path extension for vertex factory shader header '%s': Only .ush files should be included."),
 		InShaderFilename);
 
-	for (int32 Platform = 0; Platform < SP_NumPlatforms; Platform++)
-	{
-		bCachedUniformBufferStructDeclarations[Platform] = false;
-	}
+	bCachedUniformBufferStructDeclarations = false;
 
 	// This will trigger if an IMPLEMENT_VERTEX_FACTORY_TYPE was in a module not loaded before InitializeShaderTypes
 	// Vertex factory types need to be implemented in modules that are loaded before that
