@@ -125,4 +125,5 @@ private:
 	FDelegateHandle OnEditedScriptGraphChangedHandle;
 
 	bool bEditedScriptHasPendingChanges;
+	bool bChangesDiscarded;
 };

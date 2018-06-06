@@ -347,6 +347,8 @@ void FNiagaraSystemToolkit::InitializeInternal(const EToolkitMode::Type Mode, co
 	SetupCommands();
 	ExtendToolbar();
 	RegenerateMenusAndToolbars();
+
+	bChangesDiscarded = false;
 }
 
 FName FNiagaraSystemToolkit::GetToolkitFName() const
@@ -1080,7 +1082,7 @@ bool FNiagaraSystemToolkit::OnRequestClose()
 	if (SystemToolkitMode == ESystemToolkitMode::Emitter)
 	{
 		TSharedPtr<FNiagaraEmitterViewModel> EmitterViewModel = SystemViewModel->GetEmitterHandleViewModels()[0]->GetEmitterViewModel();
-		if (EmitterViewModel->GetEmitter()->GetChangeId() != LastSyncedEmitterChangeId)
+		if (bChangesDiscarded == false && EmitterViewModel->GetEmitter()->GetChangeId() != LastSyncedEmitterChangeId)
 		{
 			// find out the user wants to do with this dirty NiagaraScript
 			EAppReturnType::Type YesNoCancelReply = FMessageDialog::Open(EAppMsgType::YesNoCancel,
@@ -1095,12 +1097,10 @@ bool FNiagaraSystemToolkit::OnRequestClose()
 				// update NiagaraScript and exit
 				UpdateOriginalEmitter();
 				break;
-
 			case EAppReturnType::No:
-				// exit
-				// do nothing.. bNiagaraScriptDirty = false;
+				// Set the changes discarded to avoid showing the dialog multiple times when request close is called multiple times on shut down.
+				bChangesDiscarded = true;
 				break;
-
 			case EAppReturnType::Cancel:
 				// don't exit
 				return false;
