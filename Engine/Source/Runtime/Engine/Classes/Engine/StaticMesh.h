@@ -688,6 +688,9 @@ protected:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Instanced, Category = StaticMesh)
 	TArray<UAssetUserData*> AssetUserData;
 
+	/** Tracks whether InitResources has been called, and rendering resources are initialized. */
+	bool bRenderingResourcesInitialized;
+
 public:
 	/** The editable mesh representation of this static mesh */
 	// @todo: Maybe we don't want this visible in the details panel in the end; for now, this might aid debugging.
@@ -943,6 +946,8 @@ public:
 
 	/** Calculates the extended bounds */
 	ENGINE_API void CalculateExtendedBounds();
+
+	inline bool AreRenderingResourcesInitialized() const { return bRenderingResourcesInitialized; }
 
 #if WITH_EDITOR
 

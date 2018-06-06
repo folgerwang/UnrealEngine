@@ -48,6 +48,15 @@ struct FSubsurfaceProfileStruct
 	UPROPERTY(Category = "Transmission", EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "1.0", UIMax = "3.0", ClampMax = "3.0"))
 	float IOR;
 
+	UPROPERTY(Category = "Dual Specular", EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.5", UIMax = "2.0", ClampMax = "2.0"))
+	float Roughness0;
+
+	UPROPERTY(Category = "Dual Specular", EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.5", UIMax = "2.0", ClampMax = "2.0"))
+	float Roughness1;
+
+	UPROPERTY(Category = "Dual Specular", EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.1", UIMax = "0.9", ClampMax = "0.9"))
+	float LobeMix;
+
 	// constructor
 	FSubsurfaceProfileStruct()
 	{
@@ -59,7 +68,10 @@ struct FSubsurfaceProfileStruct
 		ExtinctionScale = 1.0f;
 		ScatteringDistribution = 0.93f;
 		NormalScale = 0.08f;
-		IOR = 1.55;
+		IOR = 1.55f;
+		Roughness0 = 0.75f;
+		Roughness1 = 1.30f;
+		LobeMix = 0.85f;
 	}
 
 	void Invalidate()
@@ -72,7 +84,10 @@ struct FSubsurfaceProfileStruct
 		ExtinctionScale = 1.0f;
 		ScatteringDistribution = 0.93f;
 		NormalScale = 0.08f;
-		IOR = 1.55;
+		IOR = 1.55f;
+		Roughness0 = 0.75f;
+		Roughness1 = 1.30f;
+		LobeMix = 0.85f;
 	}
 };
 

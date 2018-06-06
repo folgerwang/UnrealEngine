@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 // These are normally defined by UBT, so we have to define them manually
 
 #define UE_BUILD_DEVELOPMENT 1

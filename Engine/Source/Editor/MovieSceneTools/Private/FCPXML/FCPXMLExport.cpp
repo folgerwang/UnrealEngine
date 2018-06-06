@@ -10,6 +10,7 @@
 #include "AssetRegistryModule.h"
 #include "UObject/MetaData.h"
 #include "Logging/TokenizedMessage.h"
+#include "Sound/SoundWave.h"
 
 #define LOCTEXT_NAMESPACE "FCPXMLExporter"
 
@@ -28,6 +29,9 @@ FFCPXMLExportVisitor::FFCPXMLExportVisitor(FString InSaveFilename, TSharedRef<FM
 	}
 
 	SequenceId = 0;
+	MasterClipId = 0;
+	ClipItemId = 0;
+	FileId = 0;
 }
 
 FFCPXMLExportVisitor::~FFCPXMLExportVisitor() {}
@@ -53,7 +57,7 @@ bool FFCPXMLExportVisitor::VisitNode(TSharedRef<FFCPXMLXmemlNode> InXmemlNode)
 	/** @todo - MERGE METADATA
 
 	   Merging the newly exported XML structure with pre-existing
-	   XML metadata will be implemented here. The traversal would proceed
+	   XML metadata may be implemented here. The traversal would proceed
 	   through the new XML structure, referring back to the metadata 
 	   XML structure to incorporate any missing or desired attributes or
 	   elements. Alternatively, the traversal might be invoked directly on
@@ -131,8 +135,6 @@ bool FFCPXMLExportVisitor::ConstructMasterClipNodes(TSharedRef<FFCPXMLNode> InPa
 		return false;
 	}
 
-	int32 MasterClipId = 0;
-
 	TSharedPtr<FMovieSceneExportCinematicMasterTrackData> CinematicMasterTrackData = ExportData->MovieSceneData->CinematicMasterTrack;
 	if (!CinematicMasterTrackData.IsValid())
 	{
@@ -153,28 +155,43 @@ bool FFCPXMLExportVisitor::ConstructMasterClipNodes(TSharedRef<FFCPXMLNode> InPa
 			continue;
 		}
 
-		// skip sections if media file does not exist
-		FString FilePathName = GetFilePathName(CinematicSection->ShotFilename);
-		if (!FPaths::FileExists(FilePathName))
-		{
-			// add warning message and skip this section
-			ExportContext->AddMessage(
-				EMessageSeverity::Warning,
-				FText::Format(LOCTEXT("SkippingSection", "Warning: Skipping section {0}, media file does not exist: {1}."), FText::FromString(CinematicSection->ShotDisplayName), FText::FromString(FilePathName)));
-			CinematicSection->bEnabled = false;
-			continue;
-		}
-
-
-		if (!ConstructMasterClipNode(InParentNode, CinematicSection, ++MasterClipId))
+		if (!ConstructMasterClipNode(InParentNode, CinematicSection, CinematicMasterTrackData))
 		{
 			return false;
+		}
+	}
+
+	for (TSharedPtr<FMovieSceneExportAudioMasterTrackData> AudioMasterTrack : ExportData->MovieSceneData->AudioMasterTracks)
+	{
+		if (!AudioMasterTrack.IsValid())
+		{
+			return false;
+		}
+
+		for (TSharedPtr<FMovieSceneExportAudioTrackData> AudioTrack : AudioMasterTrack->AudioTracks)
+		{
+			if (!AudioTrack.IsValid())
+			{
+				return false;
+			}
+
+			for (TSharedPtr<FMovieSceneExportAudioSectionData> AudioSection : AudioTrack->AudioSections)
+			{
+				bool bMasterClipExists = false;
+				FString MasterClipName;
+				HasMasterClipIdName(AudioSection, MasterClipName, bMasterClipExists);
+
+				if (!bMasterClipExists)
+				{
+					ConstructMasterClipNode(InParentNode, AudioSection, AudioMasterTrack);
+				}
+			}
 		}
 	}
 	return true;
 }
 
-bool FFCPXMLExportVisitor::ConstructMasterClipNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, int32 InMasterClipId)
+bool FFCPXMLExportVisitor::ConstructMasterClipNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, const TSharedPtr<FMovieSceneExportCinematicMasterTrackData> InCinematicMasterTrackData)
 {
 	if (!InCinematicSectionData.IsValid())
 	{
@@ -186,16 +203,12 @@ bool FFCPXMLExportVisitor::ConstructMasterClipNode(TSharedRef<FFCPXMLNode> InPar
 	int32 EndFrame{ 0 };
 	int32 InFrame{ 0 };
 	int32 OutFrame{ 0 };
-	FString SectionName(TEXT(""));
-	GetSectionFrames(InCinematicSectionData, Duration, StartFrame, EndFrame, InFrame, OutFrame);
-	GetSectionName(InCinematicSectionData, SectionName);
+	FString SectionName = InCinematicSectionData->DisplayName;
+	GetCinematicSectionFrames(InCinematicSectionData, Duration, StartFrame, EndFrame, InFrame, OutFrame);
 
 	/** Construct a master clip id name based on the cinematic section and id */
-	FString MasterClipName(TEXT(""));
-	if (!CreateMasterClipIdName(InCinematicSectionData, InMasterClipId, MasterClipName))
-	{
-		return false;
-	}
+	FString MasterClipName{ TEXT("") };
+	GetMasterClipIdName(InCinematicSectionData, MasterClipName);
 
 	TSharedRef<FFCPXMLNode> ClipNode = InParentNode->CreateChildNode(TEXT("clip"));
 	ClipNode->AddAttribute(TEXT("id"), MasterClipName);
@@ -218,12 +231,12 @@ bool FFCPXMLExportVisitor::ConstructMasterClipNode(TSharedRef<FFCPXMLNode> InPar
 	TSharedRef<FFCPXMLNode> VideoNode = MediaNode->CreateChildNode(TEXT("video"));
 	TSharedRef<FFCPXMLNode> TrackNode = VideoNode->CreateChildNode(TEXT("track"));
 
-	if (!ConstructVideoClipItemNode(TrackNode, InCinematicSectionData, true))
+	if (!ConstructVideoClipItemNode(TrackNode, InCinematicSectionData, InCinematicMasterTrackData, true))
 	{
 		return false;
 	}
 
-	if (!ConstructSectionLoggingInfoNode(ClipNode, InCinematicSectionData, SectionName))
+	if (!ConstructLoggingInfoNode(ClipNode, InCinematicSectionData))
 	{
 		return false;
 	}
@@ -236,23 +249,174 @@ bool FFCPXMLExportVisitor::ConstructMasterClipNode(TSharedRef<FFCPXMLNode> InPar
 	return true;
 }
 
-/** Creates logginginfo node. */
-bool FFCPXMLExportVisitor::ConstructSectionLoggingInfoNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, const FString& InSectionName)
+bool FFCPXMLExportVisitor::ConstructMasterClipNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportAudioSectionData> InAudioSectionData, const TSharedPtr<FMovieSceneExportAudioMasterTrackData> InAudioMasterTrackData)
 {
-	if (InCinematicSectionData->CinematicShotSection == nullptr)
+	if (!InAudioSectionData.IsValid())
+	{
+		return false;
+	}
+
+	bool bIsStereo = (InAudioSectionData->NumChannels == 2);
+
+	int32 Duration{ 0 };
+	int32 StartFrame{ 0 };
+	int32 EndFrame{ 0 };
+	int32 InFrame{ 0 };
+	int32 OutFrame{ 0 };
+	FString SectionName = InAudioSectionData->DisplayName;
+	GetAudioSectionFrames(InAudioSectionData, Duration, StartFrame, EndFrame, InFrame, OutFrame);
+
+	/** Construct a master clip id name based on the audio section and id */
+	FString MasterClipName{ TEXT("") };
+	GetMasterClipIdName(InAudioSectionData, MasterClipName);
+
+	TSharedRef<FFCPXMLNode> ClipNode = InParentNode->CreateChildNode(TEXT("clip"));
+	ClipNode->AddAttribute(TEXT("id"), MasterClipName);
+	ClipNode->AddAttribute(TEXT("explodedTracks"), TEXT("true"));
+
+	// @todo add to file's masterclip and refidmap HERE
+
+	ClipNode->CreateChildNode(TEXT("masterclipid"))->SetContent(MasterClipName);
+	ClipNode->CreateChildNode(TEXT("ismasterclip"))->SetContent(true);
+	ClipNode->CreateChildNode(TEXT("duration"))->SetContent(Duration);
+
+	if (!ConstructRateNode(ClipNode))
+	{
+		return false;
+	}
+
+	ClipNode->CreateChildNode(TEXT("in"))->SetContent(InFrame);
+	ClipNode->CreateChildNode(TEXT("out"))->SetContent(OutFrame);
+	ClipNode->CreateChildNode(TEXT("name"))->SetContent(SectionName);
+	TSharedRef<FFCPXMLNode> MediaNode = ClipNode->CreateChildNode(TEXT("media"));
+	TSharedRef<FFCPXMLNode> AudioNode = MediaNode->CreateChildNode(TEXT("audio"));
+	TSharedRef<FFCPXMLNode> TrackNode = AudioNode->CreateChildNode(TEXT("track"));
+
+	FString ClipItemIdName1{ TEXT("") };
+	FString ClipItemIdName2{ TEXT("") };
+	GetNextClipItemIdName(ClipItemIdName1);
+	if (bIsStereo)
+	{
+		GetNextClipItemIdName(ClipItemIdName2);
+	}
+	if (!ConstructAudioClipItemNode(TrackNode, InAudioSectionData, InAudioMasterTrackData, 1, true, ClipItemIdName1, ClipItemIdName2, 1, 1, 1, 2))
+	{
+		return false;
+	}
+
+	// handle stereo master clip
+	if (bIsStereo)
+	{
+		TrackNode = AudioNode->CreateChildNode(TEXT("track"));
+
+		if (!ConstructAudioClipItemNode(TrackNode, InAudioSectionData, InAudioMasterTrackData, 2, true, ClipItemIdName1, ClipItemIdName2, 1, 1, 1, 2))
+		{
+			return false;
+		}
+	}
+
+	if (!ConstructLoggingInfoNode(ClipNode, InAudioSectionData))
+	{
+		return false;
+	}
+
+
+	return true;
+}
+
+
+/** Creates logginginfo node. */
+bool FFCPXMLExportVisitor::ConstructLoggingInfoNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InSectionData)
+{
+	if (!InSectionData.IsValid() || InSectionData->MovieSceneSection == nullptr)
 	{
 		return false;
 	}
 
 	TSharedRef<FFCPXMLNode> LoggingInfoNode = InParentNode->CreateChildNode(TEXT("logginginfo"));
-	ConstructLoggingInfoElements(LoggingInfoNode, InCinematicSectionData->CinematicShotSection);
+	ConstructLoggingInfoElements(LoggingInfoNode, InSectionData->MovieSceneSection);
 
 	TSharedPtr<FFCPXMLNode> LogNoteNode = LoggingInfoNode->GetChildNode(TEXT("lognote"), ENodeInherit::NoInherit, ENodeReference::NoReferences);
 	if (!LogNoteNode.IsValid())
 	{
 		LogNoteNode = LoggingInfoNode->CreateChildNode(TEXT("lognote"));
 	}
-	LogNoteNode->SetContent(FFCPXMLClipNode::GetMetadataSectionName(InSectionName));
+
+	FString Metadata{ TEXT("") };
+	const UMovieSceneCinematicShotSection* ShotSection = Cast<UMovieSceneCinematicShotSection>(InSectionData->MovieSceneSection);
+	if (ShotSection == nullptr)
+	{
+		return false;
+	}
+
+	if (!CreateCinematicSectionMetadata(ShotSection, Metadata))
+	{
+		return false;
+	}
+	LogNoteNode->SetContent(Metadata);
+
+	return true;
+}
+
+/** Creates logginginfo node. */
+bool FFCPXMLExportVisitor::ConstructLoggingInfoNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportAudioSectionData> InSectionData)
+{
+	if (!ExportData->MovieSceneData.IsValid() || !InSectionData.IsValid() || InSectionData->MovieSceneSection == nullptr)
+	{
+		return false;
+	}
+	const UMovieSceneAudioSection* AudioSection = Cast<UMovieSceneAudioSection>(InSectionData->MovieSceneSection);
+	if (AudioSection == nullptr)
+	{
+		return false;
+	}
+	USoundBase *Sound = AudioSection->GetSound();
+	if (Sound == nullptr)
+	{
+		// skip logging 
+		return true;
+	}
+	USoundWave* SoundWave = Cast<USoundWave>(Sound);
+	if (SoundWave == nullptr)
+	{
+		// skip logging 
+		return true;
+	}
+
+	TSharedRef<FFCPXMLNode> LoggingInfoNode = InParentNode->CreateChildNode(TEXT("logginginfo"));
+	ConstructLoggingInfoElements(LoggingInfoNode, InSectionData->MovieSceneSection);
+
+	TSharedPtr<FFCPXMLNode> LogNoteNode = LoggingInfoNode->GetChildNode(TEXT("lognote"), ENodeInherit::NoInherit, ENodeReference::NoReferences);
+	if (!LogNoteNode.IsValid())
+	{
+		LogNoteNode = LoggingInfoNode->CreateChildNode(TEXT("lognote"));
+	}
+
+	TArray <TSharedPtr<FMovieSceneExportAudioSectionData> > AudioSectionsData;
+	ExportData->FindAudioSections(SoundWave->GetPathName(), AudioSectionsData);
+
+	TArray< const UMovieSceneAudioSection*> AudioSections;
+	for (TSharedPtr<FMovieSceneExportAudioSectionData> AudioSectionData : AudioSectionsData)
+	{
+		if (AudioSectionData.IsValid() && AudioSectionData->MovieSceneSection != nullptr)
+		{
+			const UMovieSceneAudioSection* Section = Cast<UMovieSceneAudioSection>(AudioSectionData->MovieSceneSection);
+			if (Section != nullptr && Section->GetSound() != nullptr)
+			{
+				if (Section->GetSound()->GetPathName() == SoundWave->GetPathName())
+				{
+					AudioSections.Add(Section);
+				}
+			}
+		}
+	}
+
+	FString Metadata{ TEXT("") };
+	if (!CreateSoundWaveMetadata(SoundWave, AudioSections, Metadata))
+	{
+		return false;
+	}
+	LogNoteNode->SetContent(Metadata);
 
 	return true;
 }
@@ -298,7 +462,7 @@ void FFCPXMLExportVisitor::SetLoggingInfoElementValue(TSharedPtr<FFCPXMLNode> In
 }
 
 /** Creates colorinfo node. */
-bool FFCPXMLExportVisitor::ConstructColorInfoNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData)
+bool FFCPXMLExportVisitor::ConstructColorInfoNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportSectionData> InSectionData)
 {
 	TSharedPtr<FFCPXMLNode> ColorInfoNode = InParentNode->CreateChildNode(TEXT("colorinfo"));
 	ColorInfoNode->CreateChildNode(TEXT("lut"));
@@ -320,7 +484,7 @@ bool FFCPXMLExportVisitor::ConstructSequenceNode(TSharedRef<FFCPXMLNode> InParen
 	TSharedRef<FFCPXMLNode> SequenceNode = InParentNode->CreateChildNode("sequence");
 
 	// attributes
-	SequenceNode->AddAttribute(TEXT("id"), FString::Printf(TEXT("sequence%d"), ++SequenceId));
+	SequenceNode->AddAttribute(TEXT("id"), FString::Printf(TEXT("sequence-%d"), ++SequenceId));
 
 	// required elements
 	TSharedRef<FFCPXMLNode> DurationNode = SequenceNode->CreateChildNode(TEXT("duration"));
@@ -370,17 +534,15 @@ bool FFCPXMLExportVisitor::ConstructVideoNode(TSharedRef<FFCPXMLNode> InParentNo
 	TSharedRef<FFCPXMLNode> VideoNode = InParentNode->CreateChildNode(TEXT("video"));
 
 	TSharedRef<FFCPXMLNode> FormatNode = VideoNode->CreateChildNode(TEXT("format"));
-	int32 Width{ 0 };
-	int32 Height{ 0 };
-	GetDefaultImageResolution(Width, Height);
-	if (!ConstructSampleCharacteristicsNode(FormatNode, Width, Height))
+
+	if (!ConstructVideoSampleCharacteristicsNode(FormatNode, ExportData->GetResX(), ExportData->GetResY()))
 	{
 		return false;
 	}
  
 	for (TSharedPtr<FMovieSceneExportCinematicTrackData> CinematicTrack : CinematicMasterTrackData->CinematicTracks)
 	{
-		if (!ConstructVideoTrackNode(VideoNode, CinematicTrack)) 
+		if (!ConstructVideoTrackNode(VideoNode, CinematicTrack, CinematicMasterTrackData)) 
 		{ 
 			return false;
 		}
@@ -398,20 +560,68 @@ bool FFCPXMLExportVisitor::ConstructAudioNode(TSharedRef<FFCPXMLNode> InParentNo
 
 	TSharedRef<FFCPXMLNode> AudioNode = InParentNode->CreateChildNode(TEXT("audio"));
 
-	//TSharedRef<FFCPXMLNode> FormatNode = InVideoNode->CreateChildNode(TEXT("format"));
-
-	for (TSharedPtr<FMovieSceneExportAudioTrackData> AudioTrack : ExportData->MovieSceneData->AudioTracks)
+	int32 NumChannels = 1;
+	for (TSharedPtr<FMovieSceneExportAudioMasterTrackData> AudioMasterTrack : ExportData->MovieSceneData->AudioMasterTracks)
 	{
-		if (!ConstructAudioTrackNode(AudioNode, AudioTrack))
+		if (HasStereoAudioSections(AudioMasterTrack->AudioSections))
+		{
+			NumChannels = 2;
+			break;
+		}
+	}
+	AudioNode->CreateChildNode(TEXT("numOutputChannels"))->SetContent(NumChannels);
+
+	TSharedRef<FFCPXMLNode> FormatNode = AudioNode->CreateChildNode(TEXT("format"));
+
+	if (!ConstructAudioSampleCharacteristicsNode(FormatNode, ExportData->GetDefaultAudioDepth(), ExportData->GetDefaultAudioSampleRate()))
+	{
+		return false;
+	}
+
+	int32 Downmix = 0;
+	TSharedRef<FFCPXMLNode> OutputsNode = AudioNode->CreateChildNode(TEXT("outputs"));
+
+	TSharedRef<FFCPXMLNode> GroupNode = OutputsNode->CreateChildNode(TEXT("group"));
+	GroupNode->CreateChildNode(TEXT("index"))->SetContent(1);
+	GroupNode->CreateChildNode(TEXT("numchannels"))->SetContent(1);
+	GroupNode->CreateChildNode(TEXT("downmix"))->SetContent(Downmix);
+	TSharedRef<FFCPXMLNode> ChannelNode = GroupNode->CreateChildNode(TEXT("channel"));
+	ChannelNode->CreateChildNode(TEXT("index"))->SetContent(1);
+
+	if (NumChannels == 2)
+	{
+		GroupNode = OutputsNode->CreateChildNode(TEXT("group"));
+		GroupNode->CreateChildNode(TEXT("index"))->SetContent(2);
+		GroupNode->CreateChildNode(TEXT("numchannels"))->SetContent(1);
+		GroupNode->CreateChildNode(TEXT("downmix"))->SetContent(Downmix);
+		ChannelNode = GroupNode->CreateChildNode(TEXT("channel"));
+		ChannelNode->CreateChildNode(TEXT("index"))->SetContent(2);
+	}
+
+	uint32 TrackIndex = 1;
+
+	for (TSharedPtr<FMovieSceneExportAudioMasterTrackData> AudioMasterTrack : ExportData->MovieSceneData->AudioMasterTracks)
+	{
+		if (!AudioMasterTrack.IsValid())
 		{
 			return false;
+		}
+
+		for (TSharedPtr<FMovieSceneExportAudioTrackData> AudioTrack : AudioMasterTrack->AudioTracks)
+		{
+			uint32 OutNumTracks{ 0 };
+			if (!ConstructAudioTrackNode(AudioNode, AudioTrack, AudioMasterTrack, TrackIndex, OutNumTracks))
+			{
+				return false;
+			}
+			TrackIndex += OutNumTracks;
 		}
 	}
 
 	return true;
 }
 
-bool FFCPXMLExportVisitor::ConstructVideoTrackNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicTrackData> InCinematicTrackData)
+bool FFCPXMLExportVisitor::ConstructVideoTrackNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicTrackData> InCinematicTrackData, const TSharedPtr<FMovieSceneExportCinematicMasterTrackData> InCinematicMasterTrackData)
 {
 	if (!ExportData->IsExportDataValid() || !InCinematicTrackData.IsValid())
 	{
@@ -428,7 +638,7 @@ bool FFCPXMLExportVisitor::ConstructVideoTrackNode(TSharedRef<FFCPXMLNode> InPar
 			continue;
 		}
 		
-		if (!ConstructVideoClipItemNode(TrackNode, CinematicSection, false))
+		if (!ConstructVideoClipItemNode(TrackNode, CinematicSection, InCinematicMasterTrackData, false))
 		{
 			return false;
 		}
@@ -443,22 +653,113 @@ bool FFCPXMLExportVisitor::ConstructVideoTrackNode(TSharedRef<FFCPXMLNode> InPar
 	return true;
 }
 
-bool FFCPXMLExportVisitor::ConstructAudioTrackNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportAudioTrackData> InAudioTrackData)
+bool FFCPXMLExportVisitor::HasStereoAudioSections(const TArray<TSharedPtr<FMovieSceneExportAudioSectionData>>& InAudioSections) const
+{
+	for (TSharedPtr<FMovieSceneExportAudioSectionData> AudioSection : InAudioSections)
+	{
+		if (AudioSection.IsValid() && AudioSection->NumChannels == 2)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool FFCPXMLExportVisitor::ConstructAudioTrackNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportAudioTrackData> InAudioTrackData, const TSharedPtr<FMovieSceneExportAudioMasterTrackData> InAudioMasterTrackData, uint32 InTrackIndex, uint32 OutNumTracks)
 {
 	if (!ExportData->IsExportDataValid() || !InAudioTrackData.IsValid())
 	{
 		return false;
 	}
 
-	TSharedRef<FFCPXMLNode> TrackNode = InParentNode->CreateChildNode(TEXT("track"));
+	bool bTrackHasStereoClips = HasStereoAudioSections(InAudioTrackData->AudioSections);
+	int32 TrackIndex1{ 0 };
+	int32 TrackIndex2{ 0 };
 
+	if (bTrackHasStereoClips) 
+	{
+		OutNumTracks = 2;
+		TrackIndex1 = InTrackIndex;
+		TrackIndex2 = InTrackIndex + 1;
+	}
+	else
+	{
+		OutNumTracks = 1;
+		TrackIndex1 = InTrackIndex;
+		TrackIndex2 = InTrackIndex;
+	}
+
+	// Generate all clipitem names for this track so that linked clipitems can be associated
+	FString ClipItemIdName{ TEXT("") };
+	TArray<FString> ClipItem1;
+	TArray<FString> ClipItem2;
+	TArray<int32> ClipIndex1;
+	TArray<int32> ClipIndex2;
+
+	int32 Index = 0;
 	for (TSharedPtr<FMovieSceneExportAudioSectionData> AudioSection : InAudioTrackData->AudioSections)
 	{
-		if (!ConstructAudioClipItemNode(TrackNode, AudioSection))
+		if (AudioSection->NumChannels < 1)
+		{
+			ExportContext->AddMessage(EMessageSeverity::Warning,
+				FText::Format(LOCTEXT("FCPXMLAudioChannelsInvalidWarning", "FCP XML export only supports mono or stereo audio. Skipping audio section '{0}' which an invalid number of channels: '{1}'."),
+					FText::FromString(AudioSection->DisplayName),
+					FText::FromString(FString::FromInt(AudioSection->NumChannels))));
+
+			continue;
+		}
+		else if (AudioSection->NumChannels > 2)
+		{
+			ExportContext->AddMessage(EMessageSeverity::Warning,
+				FText::Format(LOCTEXT("FCPXMLAudioChannelsUnsupportedWarning", "FCP XML export only supports mono or stereo audio. Skipping audio section '{0}' which has '{1}' channels."),
+					FText::FromString(AudioSection->DisplayName),
+					FText::FromString(FString::FromInt(AudioSection->NumChannels))));
+
+			continue;
+		}
+
+		GetNextClipItemIdName(ClipItemIdName);
+		ClipItem1.Add(ClipItemIdName);
+		ClipIndex1.Add(++Index);
+	}
+
+	Index = 0;
+	for (TSharedPtr<FMovieSceneExportAudioSectionData> AudioSection : InAudioTrackData->AudioSections)
+	{
+		if (AudioSection->NumChannels == 1)
+		{
+			ClipItem2.Add(FString(TEXT("")));
+			ClipIndex2.Add(-1);
+		}
+		else if (AudioSection->NumChannels == 2)
+		{
+			GetNextClipItemIdName(ClipItemIdName);
+			ClipItem2.Add(ClipItemIdName);
+			ClipIndex2.Add(++Index);
+		}
+	}
+
+	// construct track 1
+	TSharedRef<FFCPXMLNode> TrackNode = InParentNode->CreateChildNode(TEXT("track"));
+	TrackNode->AddAttribute(TEXT("currentExplodedTrackIndex"), TEXT("0"));
+	TrackNode->AddAttribute(TEXT("totalExplodedTrackCount"), bTrackHasStereoClips ? TEXT("2") : TEXT("1"));
+	TrackNode->AddAttribute(TEXT("premiereTrackType"), bTrackHasStereoClips ? TEXT("Stereo") : TEXT("Mono"));
+
+	Index = 0;
+	for (TSharedPtr<FMovieSceneExportAudioSectionData> AudioSection : InAudioTrackData->AudioSections)
+	{
+		if (AudioSection->NumChannels < 1 || AudioSection->NumChannels > 2)
+		{
+			continue;
+		}
+
+		if (!ConstructAudioClipItemNode(TrackNode, AudioSection, InAudioMasterTrackData, 1, false, ClipItem1[Index], ClipItem2[Index], ClipIndex1[Index], ClipIndex2[Index], TrackIndex1, TrackIndex2))
 		{
 			return false;
 		}
+		Index++;
 	}
+
 
 	TSharedRef<FFCPXMLNode> EnabledNode = TrackNode->CreateChildNode(TEXT("enabled"));
 	EnabledNode->SetContent(true);
@@ -466,10 +767,44 @@ bool FFCPXMLExportVisitor::ConstructAudioTrackNode(TSharedRef<FFCPXMLNode> InPar
 	TSharedRef<FFCPXMLNode> LockedNode = TrackNode->CreateChildNode(TEXT("locked"));
 	LockedNode->SetContent(false);
 
+	// construct track 2, if stereo clipitems exist
+	if (bTrackHasStereoClips)
+	{
+		TrackNode = InParentNode->CreateChildNode(TEXT("track"));
+		TrackNode->AddAttribute(TEXT("currentExplodedTrackIndex"), TEXT("1"));
+		TrackNode->AddAttribute(TEXT("totalExplodedTrackCount"), TEXT("2"));
+		TrackNode->AddAttribute(TEXT("premiereTrackType"), TEXT("Stereo"));
+
+		Index = 0;
+		for (TSharedPtr<FMovieSceneExportAudioSectionData> AudioSection : InAudioTrackData->AudioSections)
+		{
+			if (AudioSection->NumChannels < 1 || AudioSection->NumChannels > 2)
+			{
+				continue;
+			}
+
+			if (AudioSection->NumChannels == 2)
+			{
+				if (!ConstructAudioClipItemNode(TrackNode, AudioSection, InAudioMasterTrackData, 2, false, ClipItem1[Index], ClipItem2[Index], ClipIndex1[Index], ClipIndex2[Index], TrackIndex1, TrackIndex2))
+				{
+					return false;
+				}
+			}
+			Index++;
+
+		}
+
+		EnabledNode = TrackNode->CreateChildNode(TEXT("enabled"));
+		EnabledNode->SetContent(true);
+
+		LockedNode = TrackNode->CreateChildNode(TEXT("locked"));
+		LockedNode->SetContent(false);
+	}
+
 	return true;
 }
 
-bool FFCPXMLExportVisitor::ConstructVideoClipItemNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, bool bInMasterClip)
+bool FFCPXMLExportVisitor::ConstructVideoClipItemNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, const TSharedPtr<FMovieSceneExportCinematicMasterTrackData> InCinematicMasterTrackData, bool bInMasterClip)
 {
 	if (!ExportData->IsExportDataValid() || !InCinematicSectionData.IsValid())
 	{
@@ -483,22 +818,13 @@ bool FFCPXMLExportVisitor::ConstructVideoClipItemNode(TSharedRef<FFCPXMLNode> In
 	int32 Out{ 0 };
 	int32 Start{ 0 };
 	int32 End{ 0 };
-	FString SectionName(TEXT(""));
-
-	GetSectionFrames(InCinematicSectionData, Duration, Start, End, In, Out);
-	GetSectionName(InCinematicSectionData, SectionName);
-
-	FString ClipItemIdName = TEXT("");
-	if (!GetMasterClipItemIdName(InCinematicSectionData, ClipItemIdName))
-	{
-		return false;
-	}
+	GetCinematicSectionFrames(InCinematicSectionData, Duration, Start, End, In, Out);
 
 	FString MasterClipIdName = TEXT("");
-	if (!GetMasterClipIdName(InCinematicSectionData, MasterClipIdName))
-	{
-		return false;
-	}
+	GetMasterClipIdName(InCinematicSectionData, MasterClipIdName);
+
+	FString ClipItemIdName{ TEXT("") };
+	GetNextClipItemIdName(ClipItemIdName);
 
 	// attributes
 	ClipItemNode->AddAttribute(TEXT("id"), ClipItemIdName);
@@ -506,7 +832,7 @@ bool FFCPXMLExportVisitor::ConstructVideoClipItemNode(TSharedRef<FFCPXMLNode> In
 	// elements
 	ClipItemNode->CreateChildNode(TEXT("masterclipid"))->SetContent(MasterClipIdName);
 	ClipItemNode->CreateChildNode(TEXT("ismasterclip"))->SetContent(bInMasterClip);
-	ClipItemNode->CreateChildNode(TEXT("name"))->SetContent(SectionName);
+	ClipItemNode->CreateChildNode(TEXT("name"))->SetContent(InCinematicSectionData->DisplayName);
 	ClipItemNode->CreateChildNode(TEXT("enabled"))->SetContent(true);
 	ClipItemNode->CreateChildNode(TEXT("duration"))->SetContent(Duration);
 
@@ -527,8 +853,8 @@ bool FFCPXMLExportVisitor::ConstructVideoClipItemNode(TSharedRef<FFCPXMLNode> In
 	if (bInMasterClip)
 	{
 		ClipItemNode->CreateChildNode(TEXT("anamorphic"))->SetContent(false);
-		ClipItemNode->CreateChildNode(TEXT("pixelaspectratio"))->SetContent(TEXT("square"));
-		ClipItemNode->CreateChildNode(TEXT("fielddominance"))->SetContent(TEXT("lower"));
+		ClipItemNode->CreateChildNode(TEXT("pixelaspectratio"))->SetContent(FString(TEXT("square")));
+		ClipItemNode->CreateChildNode(TEXT("fielddominance"))->SetContent(FString(TEXT("lower")));
 	}
 
 	if (!ConstructVideoFileNode(ClipItemNode, InCinematicSectionData, Duration, bInMasterClip))
@@ -539,43 +865,113 @@ bool FFCPXMLExportVisitor::ConstructVideoClipItemNode(TSharedRef<FFCPXMLNode> In
 	return true;
 }
 
-bool FFCPXMLExportVisitor::ConstructAudioClipItemNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportAudioSectionData> InAudioSectionData)
+bool FFCPXMLExportVisitor::ConstructAudioClipItemNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportAudioSectionData> InAudioSectionData, 
+	const TSharedPtr<FMovieSceneExportAudioMasterTrackData> InAudioMasterTrackData, int32 InChannel, bool bInMasterClip, 
+	const FString& InClipItemIdName1, const FString& InClipItemIdName2, int32 InClipIndex1, int32 InClipIndex2, int32 InTrackIndex1, int32 InTrackIndex2)
 {
 	if (!ExportData->IsExportDataValid() || !InAudioSectionData.IsValid())
 	{
 		return false;
 	}
 
-	// @todo - audio
+	bool bIsStereo = (InAudioSectionData->NumChannels == 2);
+
+	int32 Duration{ 0 };
+	int32 In{ 0 };
+	int32 Out{ 0 };
+	int32 Start{ 0 };
+	int32 End{ 0 };
+	GetAudioSectionFrames(InAudioSectionData, Duration, Start, End, In, Out);
+
+	FString MasterClipIdName;
+	GetMasterClipIdName(InAudioSectionData, MasterClipIdName);
+
+	FString ClipItemIdName = (InChannel == 1 ? InClipItemIdName1 : InClipItemIdName2);
+
+	TSharedRef<FFCPXMLNode> ClipItemNode = InParentNode->CreateChildNode(TEXT("clipitem"));
+	ClipItemNode->AddAttribute(TEXT("id"), ClipItemIdName);
+	if (!bInMasterClip)
+	{
+		ClipItemNode->AddAttribute(TEXT("premiereChannelType"), InAudioSectionData->NumChannels == 2 ? TEXT("stereo") : TEXT("mono"));
+	}
+
+	// elements
+	ClipItemNode->CreateChildNode(TEXT("masterclipid"))->SetContent(MasterClipIdName);
+	ClipItemNode->CreateChildNode(TEXT("name"))->SetContent(InAudioSectionData->DisplayName);
+
+	if (!bInMasterClip)
+	{
+		ClipItemNode->CreateChildNode(TEXT("enabled"))->SetContent(true);
+		ClipItemNode->CreateChildNode(TEXT("duration"))->SetContent(Duration);
+	}
+
+	if (!ConstructRateNode(ClipItemNode))
+	{
+		return false;
+	}
+
+	if (!bInMasterClip)
+	{
+		ClipItemNode->CreateChildNode(TEXT("start"))->SetContent(Start);
+		ClipItemNode->CreateChildNode(TEXT("end"))->SetContent(End);
+		ClipItemNode->CreateChildNode(TEXT("in"))->SetContent(In);
+		ClipItemNode->CreateChildNode(TEXT("out"))->SetContent(Out);
+	}
+
+	if (!ConstructAudioFileNode(ClipItemNode, InAudioSectionData, InChannel))
+	{
+		return false;
+	}
+
+	TSharedRef<FFCPXMLNode> SourceTrackNode = ClipItemNode->CreateChildNode(TEXT("sourcetrack"));
+	SourceTrackNode->CreateChildNode(TEXT("mediatype"))->SetContent(FString(TEXT("audio")));
+	SourceTrackNode->CreateChildNode(TEXT("trackindex"))->SetContent(InChannel);
+
+	// stereo track clipitems must be linked using the linkclipref element
+	if (bIsStereo)
+	{
+		TSharedRef<FFCPXMLNode> LinkNode = ClipItemNode->CreateChildNode(TEXT("link"));
+		LinkNode->CreateChildNode(TEXT("linkclipref"))->SetContent(InClipItemIdName1);
+		LinkNode->CreateChildNode(TEXT("mediatype"))->SetContent(FString(TEXT("audio")));
+		LinkNode->CreateChildNode(TEXT("trackindex"))->SetContent(InTrackIndex1);
+		LinkNode->CreateChildNode(TEXT("clipindex"))->SetContent(InClipIndex1);
+		LinkNode->CreateChildNode(TEXT("groupindex"))->SetContent(1);
+
+		LinkNode = ClipItemNode->CreateChildNode(TEXT("link"));
+		LinkNode->CreateChildNode(TEXT("linkclipref"))->SetContent(InClipItemIdName2);
+		LinkNode->CreateChildNode(TEXT("mediatype"))->SetContent(FString(TEXT("audio")));
+		LinkNode->CreateChildNode(TEXT("trackindex"))->SetContent(InTrackIndex2);
+		LinkNode->CreateChildNode(TEXT("clipindex"))->SetContent(InClipIndex1);
+		LinkNode->CreateChildNode(TEXT("groupindex"))->SetContent(1);
+	}
 
 	return true;
 }
 
-bool FFCPXMLExportVisitor::ConstructVideoFileNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, uint32 Duration, bool bInMasterClip)
+bool FFCPXMLExportVisitor::ConstructVideoFileNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, int32 Duration, bool bInMasterClip)
 {
-	if (!InCinematicSectionData.IsValid())
+	if (!ExportData->IsExportDataValid() || !InCinematicSectionData.IsValid())
 	{
 		return false;
 	}
 
-	FString FileIdName = TEXT("");
-	if (!GetMasterClipFileIdName(InCinematicSectionData, FileIdName))
-	{
-		return false;
-	}
+	FString FileIdName{ TEXT("") };
+	bool bFileExists = false;
+	GetFileIdName(InCinematicSectionData, FileIdName, bFileExists);
 
 	// attributes
 	TSharedRef<FFCPXMLNode> FileNode = InParentNode->CreateChildNode(TEXT("file"));
 	FileNode->AddAttribute(TEXT("id"), FileIdName);
 
-	if (bInMasterClip)
+	if (!bFileExists)
 	{
-		FString FilePathName = SaveFilePath + TEXT("/") + InCinematicSectionData->ShotFilename;
+		FString FilePath = InCinematicSectionData->SourceFilePath.IsEmpty() ? SaveFilePath : InCinematicSectionData->SourceFilePath;
+		FString FilePathName = SaveFilePath + TEXT("/") + InCinematicSectionData->SourceFilename;
 		FString FilePathUrl = FString(TEXT("file://localhost/")) + FilePathName.Replace(TEXT(" "), TEXT("%20")).Replace(TEXT(":"), TEXT("%3a"));
 
 		// required elements
 		TSharedRef<FFCPXMLNode> NameNode = FileNode->CreateChildNode(TEXT("name"));
-		NameNode->SetContent(InCinematicSectionData->ShotFilename);
+		NameNode->SetContent(InCinematicSectionData->SourceFilename);
 
 		TSharedRef<FFCPXMLNode> PathUrlNode = FileNode->CreateChildNode(TEXT("pathurl"));
 		PathUrlNode->SetContent(FilePathUrl);
@@ -596,10 +992,7 @@ bool FFCPXMLExportVisitor::ConstructVideoFileNode(TSharedRef<FFCPXMLNode> InPare
 		TSharedRef<FFCPXMLNode> MediaNode = FileNode->CreateChildNode(TEXT("media"));
 		TSharedRef<FFCPXMLNode> VideoNode = MediaNode->CreateChildNode(TEXT("video"));
 
-		int32 Width{ 0 };
-		int32 Height{ 0 };
-		GetDefaultImageResolution(Width, Height);
-		if (!ConstructSampleCharacteristicsNode(VideoNode, Width, Height))
+		if (!ConstructVideoSampleCharacteristicsNode(VideoNode, ExportData->GetResX(), ExportData->GetResY()))
 		{
 			return false;
 		}
@@ -608,14 +1001,84 @@ bool FFCPXMLExportVisitor::ConstructVideoFileNode(TSharedRef<FFCPXMLNode> InPare
 	return true;
 }
 
-bool FFCPXMLExportVisitor::ConstructAudioFileNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportAudioSectionData> InAudioSectionData)
+bool FFCPXMLExportVisitor::ConstructAudioFileNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportAudioSectionData> InAudioSectionData, int32 InChannel)
 {
-	// @todo - audio
+	FString FileIdName{ TEXT("") };
+	bool bFileExists = false;
+	GetFileIdName(InAudioSectionData, FileIdName, bFileExists);
+
+	int32 Duration{ 0 };
+	int32 In{ 0 };
+	int32 Out{ 0 };
+	int32 Start{ 0 };
+	int32 End{ 0 };
+	GetAudioSectionFrames(InAudioSectionData, Duration, Start, End, In, Out);
+
+	// attributes
+	TSharedRef<FFCPXMLNode> FileNode = InParentNode->CreateChildNode(TEXT("file"));
+	FileNode->AddAttribute(TEXT("id"), FileIdName);
+
+	// only add details if file id did not already exist
+	if (!bFileExists)
+	{
+		// FPaths
+		FString FilePathName = InAudioSectionData->SourceFilePath + TEXT("/") + InAudioSectionData->SourceFilename;
+		FString FilePathUrl = FString(TEXT("file://localhost/")) + FilePathName.Replace(TEXT(" "), TEXT("%20")).Replace(TEXT(":"), TEXT("%3a"));
+
+		// required elements
+		TSharedRef<FFCPXMLNode> NameNode = FileNode->CreateChildNode(TEXT("name"));
+		NameNode->SetContent(InAudioSectionData->SourceFilename);
+
+		TSharedRef<FFCPXMLNode> PathUrlNode = FileNode->CreateChildNode(TEXT("pathurl"));
+		PathUrlNode->SetContent(FilePathUrl);
+
+		if (!ConstructRateNode(FileNode))
+		{
+			return false;
+		}
+
+		if (!ConstructTimecodeNode(FileNode))
+		{
+			return false;
+		}
+
+		FileNode->CreateChildNode(TEXT("duration"))->SetContent(static_cast<int32>(Duration));
+
+		TSharedRef<FFCPXMLNode> MediaNode = FileNode->CreateChildNode(TEXT("media"));
+		TSharedRef<FFCPXMLNode> AudioNode = MediaNode->CreateChildNode(TEXT("audio"));
+
+		if (!ConstructAudioSampleCharacteristicsNode(AudioNode, InAudioSectionData->Depth, InAudioSectionData->SampleRate))
+		{
+			return false;
+		}
+		AudioNode->CreateChildNode(TEXT("channelcount"))->SetContent(1);
+		
+		if (InAudioSectionData->NumChannels == 2)
+		{
+			AudioNode->CreateChildNode(TEXT("layout"))->SetContent(TEXT("stereo"));
+			TSharedRef<FFCPXMLNode> AudioChannelNode = AudioNode->CreateChildNode(TEXT("audiochannel"));
+			AudioChannelNode->CreateChildNode(TEXT("sourcechannel"))->SetContent(1);
+			AudioChannelNode->CreateChildNode(TEXT("channellabel"))->SetContent(FString(TEXT("left")));
+
+			// second audio channel
+			AudioNode = MediaNode->CreateChildNode(TEXT("audio"));
+			if (!ConstructAudioSampleCharacteristicsNode(AudioNode, InAudioSectionData->Depth, InAudioSectionData->SampleRate))
+			{
+				return false;
+			}
+			AudioNode->CreateChildNode(TEXT("channelcount"))->SetContent(1);
+			AudioNode->CreateChildNode(TEXT("layout"))->SetContent(TEXT("stereo"));
+
+			AudioChannelNode = AudioNode->CreateChildNode(TEXT("audiochannel"));
+			AudioChannelNode->CreateChildNode(TEXT("sourcechannel"))->SetContent(2);
+			AudioChannelNode->CreateChildNode(TEXT("channellabel"))->SetContent(FString(TEXT("right")));
+		}
+	}
 
 	return true;
 }
 
-bool FFCPXMLExportVisitor::ConstructSampleCharacteristicsNode(TSharedRef<FFCPXMLNode> InParentNode, int InWidth, int InHeight)
+bool FFCPXMLExportVisitor::ConstructVideoSampleCharacteristicsNode(TSharedRef<FFCPXMLNode> InParentNode, int InWidth, int InHeight)
 {
 	TSharedRef<FFCPXMLNode> SampleCharacteristicsNode = InParentNode->CreateChildNode(TEXT("samplecharacteristics"));
 
@@ -627,8 +1090,17 @@ bool FFCPXMLExportVisitor::ConstructSampleCharacteristicsNode(TSharedRef<FFCPXML
 	SampleCharacteristicsNode->CreateChildNode(TEXT("width"))->SetContent(InWidth);
 	SampleCharacteristicsNode->CreateChildNode(TEXT("height"))->SetContent(InHeight);
 	SampleCharacteristicsNode->CreateChildNode(TEXT("anamorphic"))->SetContent(false);
-	SampleCharacteristicsNode->CreateChildNode(TEXT("pixelaspectratio"))->SetContent(TEXT("square"));
-	SampleCharacteristicsNode->CreateChildNode(TEXT("fielddominance"))->SetContent(TEXT("lower"));
+	SampleCharacteristicsNode->CreateChildNode(TEXT("pixelaspectratio"))->SetContent(FString(TEXT("square")));
+	SampleCharacteristicsNode->CreateChildNode(TEXT("fielddominance"))->SetContent(FString(TEXT("lower")));
+
+	return true;
+}
+
+bool FFCPXMLExportVisitor::ConstructAudioSampleCharacteristicsNode(TSharedRef<FFCPXMLNode> InParentNode, int InDepth, int InSampleRate)
+{
+	TSharedRef<FFCPXMLNode> SampleCharacteristicsNode = InParentNode->CreateChildNode(TEXT("samplecharacteristics"));
+	SampleCharacteristicsNode->CreateChildNode(TEXT("depth"))->SetContent(InDepth);
+	SampleCharacteristicsNode->CreateChildNode(TEXT("samplerate"))->SetContent(InSampleRate);
 
 	return true;
 }
@@ -655,18 +1127,15 @@ bool FFCPXMLExportVisitor::ConstructTimecodeNode(TSharedRef<FFCPXMLNode> InParen
 		return false;
 	}
 
-	TimecodeNode->CreateChildNode(TEXT("string"))->SetContent(TEXT("00:00:00:00"));
+	TimecodeNode->CreateChildNode(TEXT("string"))->SetContent(FString(TEXT("00:00:00:00")));
 	TimecodeNode->CreateChildNode(TEXT("frame"))->SetContent(0);
-	TimecodeNode->CreateChildNode(TEXT("displayformat"))->SetContent(TEXT("NDF"));
-
-	TSharedRef<FFCPXMLNode> ReelNode = TimecodeNode->CreateChildNode(TEXT("reel"));
-	ReelNode->CreateChildNode(TEXT("name"))->SetContent(TEXT(""));
 
 	return true;
 }
 
-/** Get duration, in and out frames for a given shot section */
-bool FFCPXMLExportVisitor::GetSectionFrames(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, int32& OutDuration, int32& OutStartFrame, int32&OutEndFrame, int32& OutInFrame, int32& OutOutFrame)
+
+/** Get duration, in and out frames for a given video shot section */
+bool FFCPXMLExportVisitor::GetCinematicSectionFrames(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, int32& OutDuration, int32& OutStartFrame, int32&OutEndFrame, int32& OutInFrame, int32& OutOutFrame)
 {
 	if (!InCinematicSectionData.IsValid() || !ExportData->MovieSceneData.IsValid())
 	{
@@ -683,71 +1152,178 @@ bool FFCPXMLExportVisitor::GetSectionFrames(const TSharedPtr<FMovieSceneExportCi
 	return true;
 }
 
-/** Get name of a given shot section */
-bool FFCPXMLExportVisitor::GetSectionName(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, FString& OutSectionName)
+/** Get duration, in and out frames for a given audio shot section */
+bool FFCPXMLExportVisitor::GetAudioSectionFrames(const TSharedPtr<FMovieSceneExportAudioSectionData> InAudioSectionData, int32& OutDuration, int32& OutStartFrame, int32&OutEndFrame, int32& OutInFrame, int32& OutOutFrame)
 {
-	if (!InCinematicSectionData.IsValid())
+	if (!InAudioSectionData.IsValid() || !ExportData->MovieSceneData.IsValid())
 	{
 		return false;
 	}
-	OutSectionName = InCinematicSectionData->ShotDisplayName;
+
+	OutStartFrame = InAudioSectionData->StartFrame.Value;
+	OutEndFrame = InAudioSectionData->EndFrame.Value;
+	OutDuration = OutEndFrame - OutStartFrame;
+	OutInFrame = 0;
+	OutOutFrame = OutDuration;
+
 	return true;
 }
 
-bool FFCPXMLExportVisitor::CreateMasterClipIdName(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, uint32 InId, FString& OutName)
+bool FFCPXMLExportVisitor::HasMasterClipIdName(const TSharedPtr<FMovieSceneExportSectionData> InSection, FString& OutName, bool& bOutMasterClipExists)
 {
-	if (!InCinematicSectionData.IsValid())
+	if (!InSection.IsValid())
 	{
 		return false;
 	}
-	FString Name(TEXT(""));
-	GetSectionName(InCinematicSectionData, Name);
-	MasterClipIdMap.Add(Name, InId);
-	OutName = FString::Printf(TEXT("masterclip%d_"), InId) + Name;
+
+	FString Key;
+	if (!ComposeFileKey(InSection, Key))
+	{
+		return false;
+	}
+
+	if (MasterClipIdMap.Num() > 0)
+	{
+		uint32 *FoundId = MasterClipIdMap.Find(Key);
+		if (FoundId != nullptr)
+		{
+			OutName = FString::Printf(TEXT("masterclip-%d"), *FoundId);
+			bOutMasterClipExists = true;
+			return true;
+		}
+	}
+
+	bOutMasterClipExists = false;
 	return true;
 }
 
-bool FFCPXMLExportVisitor::GetIdName(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, FString InPrefix, FString &OutName)
+bool FFCPXMLExportVisitor::GetMasterClipIdName(const TSharedPtr<FMovieSceneExportSectionData> InSection, FString& OutName)
 {
-	if (!InCinematicSectionData.IsValid())
+	if (!InSection.IsValid())
 	{
 		return false;
 	}
-	FString Name(TEXT(""));
-	GetSectionName(InCinematicSectionData, Name);
-	uint32* Id = MasterClipIdMap.Find(Name);
-	if (Id == nullptr)
+
+	bool bMasterClipExists = false;
+	if (!HasMasterClipIdName(InSection, OutName, bMasterClipExists))
 	{
 		return false;
 	}
-	OutName = InPrefix + FString::Printf(TEXT("%d_"), *Id) + Name;
+
+	FString Key;
+	if (!ComposeFileKey(InSection, Key))
+	{
+		return false;
+	}
+
+	if (!bMasterClipExists)
+	{
+		++MasterClipId;
+		MasterClipIdMap.Add(Key, MasterClipId);
+		OutName = FString::Printf(TEXT("masterclip-%d"), MasterClipId);
+	}
 	return true;
 }
 
-bool FFCPXMLExportVisitor::GetMasterClipIdName(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, FString& OutName)
+bool FFCPXMLExportVisitor::GetFileIdName(const TSharedPtr<FMovieSceneExportSectionData> InSection, FString& OutFileIdName, bool& OutFileExists)
 {
-	return GetIdName(InCinematicSectionData, FString(TEXT("masterclip")), OutName);
+	if (!InSection.IsValid())
+	{
+		return false;
+	}
+
+	FString Key;
+	if (!ComposeFileKey(InSection, Key))
+	{
+		return false;
+	}
+
+	if (FileIdMap.Num() > 0)
+	{
+		uint32 *FoundFileId = FileIdMap.Find(Key);
+		if (FoundFileId != nullptr)
+		{
+			OutFileIdName = FString::Printf(TEXT("file-%d"), *FoundFileId);
+			OutFileExists = true;
+			return true;
+		}
+	}
+
+	++FileId;
+	FileIdMap.Add(Key, FileId);
+	OutFileIdName = FString::Printf(TEXT("file-%d"), FileId);
+	OutFileExists = false;
+	return true;
 }
 
-bool FFCPXMLExportVisitor::GetMasterClipItemIdName(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, FString& OutName)
+void FFCPXMLExportVisitor::GetNextClipItemIdName(FString& OutName)
 {
-	return GetIdName(InCinematicSectionData, FString(TEXT("clipitem")), OutName);
+	++ClipItemId;
+	OutName = FString::Printf(TEXT("clipitem-%d"), ClipItemId);
 }
 
-bool FFCPXMLExportVisitor::GetMasterClipFileIdName(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, FString& OutName)
+/** Compose a unique key string for audio sections based on channel */
+bool FFCPXMLExportVisitor::ComposeFileKey(const TSharedPtr<FMovieSceneExportSectionData> InSection, FString& OutName)
 {
-	return GetIdName(InCinematicSectionData, FString(TEXT("file")), OutName);
+	if (!InSection.IsValid())
+	{
+		return false;
+	}
+
+	OutName = InSection->SourceFilePath + InSection->SourceFilename;
+
+	return true;
 }
 
-void FFCPXMLExportVisitor::GetDefaultImageResolution(int32& OutWidth, int32& OutHeight)
+bool FFCPXMLExportVisitor::CreateCinematicSectionMetadata(const UMovieSceneCinematicShotSection* InSection, FString& OutMetadata) const
 {
-	OutWidth = 1280;
-	OutHeight = 720;
+	if (InSection == nullptr)
+	{
+		return false;
+	}
+	OutMetadata = TEXT("[UE4ShotSection=") + InSection->GetPathName() + TEXT("]");
+	return true;
 }
 
-FString FFCPXMLExportVisitor::GetFilePathName(const FString& InSectionName) const
+/** Get metadata section name from sequencer shot name - format is "[UE4SoundWave=soundwaveobjectname][UE4SoundSectionTopLevel=toplevelobjectname][UE4SoundSection=sectionobjectname]", whitespace ok. */
+bool FFCPXMLExportVisitor::CreateSoundWaveMetadata(const USoundWave* InSoundWave, const TArray<const UMovieSceneAudioSection*> InAudioSections, FString& OutMetadata) const
 {
-	return (SaveFilePath + TEXT("/") + InSectionName);
+	if (InSoundWave == nullptr)
+	{
+		return false;
+	}
+
+	TArray<FString> SectionsAdded;
+	bool bTopLevelAdded = false;
+	OutMetadata = TEXT("[UE4SoundWave=") + InSoundWave->GetPathName() + TEXT("]");
+	for (const UMovieSceneAudioSection* AudioSection : InAudioSections)
+	{
+		if (!bTopLevelAdded)
+		{
+			OutMetadata += TEXT("[UE4AudioSectionTopLevel=") + FFCPXMLExportVisitor::GetAudioSectionTopLevelName(AudioSection) + TEXT("]");
+			bTopLevelAdded = true;
+		}
+
+		// skip duplicate section names
+		FString SectionName = FFCPXMLExportVisitor::GetAudioSectionName(AudioSection);
+		if (SectionsAdded.Num() == 0 || !SectionsAdded.Contains(SectionName))
+		{
+			OutMetadata += TEXT("[UE4AudioSection=") + SectionName + TEXT("]");
+			SectionsAdded.Add(SectionName);
+		}
+	}
+	return true;
 }
+
+FString FFCPXMLExportVisitor::GetAudioSectionTopLevelName(const UMovieSceneAudioSection* InAudioSection)
+{
+	return InAudioSection->GetOutermost()->GetName();
+}
+
+FString FFCPXMLExportVisitor::GetAudioSectionName(const UMovieSceneSection* InAudioSection)
+{
+	return InAudioSection->GetFullGroupName(false);
+}
+
 
 #undef LOCTEXT_NAMESPACE

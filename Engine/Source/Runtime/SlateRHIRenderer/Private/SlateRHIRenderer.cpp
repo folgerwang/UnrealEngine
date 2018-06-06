@@ -1227,6 +1227,32 @@ void FSlateRHIRenderer::Sync() const
 	FrameEndSync.Sync(CVarAllowOneFrameThreadLag->GetValueOnAnyThread() != 0);
 }
 
+/**
+ * Inline issues a BeginFrame to the RHI.
+ * This is to handle cases like Modal dialogs in the UI. The game loop stops while
+ * the dialog is open but continues to issue draws. The RHI thinks there are all part of one super long
+ * frame until the Modal window is closed.
+ */
+void FSlateRHIRenderer::BeginFrame() const
+{
+	ENQUEUE_RENDER_COMMAND(SlateRHIBeginFrame)(
+	   [](FRHICommandListImmediate& RHICmdList)
+	   {
+		   RHICmdList.BeginFrame();
+	   }
+	);
+}
+
+void FSlateRHIRenderer::EndFrame() const
+{
+	ENQUEUE_RENDER_COMMAND(SlateRHIEndFrame)(
+	   [](FRHICommandListImmediate& RHICmdList)
+	   {
+		   RHICmdList.EndFrame();
+	   }
+	);
+}
+
 void FSlateRHIRenderer::ReloadTextureResources()
 {
 	ResourceManager->ReloadTextures();

@@ -23,6 +23,15 @@ void FBackendHelperUMG::WidgetFunctionsInHeader(FEmitterLocalContext& Context)
 	}
 }
 
+void FBackendHelperUMG::AdditionalHeaderIncludeForWidget(FEmitterLocalContext& Context)
+{
+	if (!Context.NativizationOptions.bExcludeMonolithicHeaders
+		&& Cast<UWidgetBlueprintGeneratedClass>(Context.GetCurrentlyGeneratedClass()))
+	{
+		Context.Header.AddLine(TEXT("#include \"Runtime/UMG/Public/UMG.h\""));
+	}
+}
+
 void FBackendHelperUMG::CreateClassSubobjects(FEmitterLocalContext& Context, bool bCreate, bool bInitialize)
 {
 	if (auto WidgetClass = Cast<UWidgetBlueprintGeneratedClass>(Context.GetCurrentlyGeneratedClass()))

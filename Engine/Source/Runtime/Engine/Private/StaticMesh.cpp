@@ -1738,6 +1738,7 @@ UStaticMesh::UStaticMesh(const FObjectInitializer& ObjectInitializer)
 	MinLOD.Default = 0;
 
 	bSupportUniformlyDistributedSampling = false;
+	bRenderingResourcesInitialized = false;
 #if WITH_EDITOR
 	BuildCacheAutomationTestGuid.Invalidate();
 #endif
@@ -1759,6 +1760,8 @@ void UStaticMesh::PostInitProperties()
  */
 void UStaticMesh::InitResources()
 {
+	bRenderingResourcesInitialized = true;
+
 	UpdateUVChannelData(false);
 
 	if (RenderData)
@@ -2074,6 +2077,8 @@ void UStaticMesh::ReleaseResources()
 	
 	// insert a fence to signal when these commands completed
 	ReleaseResourcesFence.BeginFence();
+
+	bRenderingResourcesInitialized = false;
 }
 
 #if WITH_EDITOR

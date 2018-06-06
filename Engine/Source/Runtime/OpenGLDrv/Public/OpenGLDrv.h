@@ -144,8 +144,7 @@ public:
 #if UE_BUILD_SHIPPING
 		return false;
 #else
-		return false;
-		//return FOpenGL::SupportsDisjointTimeQueries();
+		return FOpenGL::SupportsDisjointTimeQueries();
 #endif
 	}
 

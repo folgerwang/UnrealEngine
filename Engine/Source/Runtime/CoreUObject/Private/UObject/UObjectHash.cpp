@@ -884,6 +884,35 @@ void GetDerivedClasses(UClass* ClassToLookFor, TArray<UClass *>& Results, bool b
 	}
 }
 
+bool ClassHasInstancesAsyncLoading(UClass* ClassToLookFor)
+{
+	auto& ThreadHash = FUObjectHashTables::Get();
+	FHashTableLock HashLock(ThreadHash);
+	TSet<UClass*> ClassesToSearch;
+	ClassesToSearch.Add(ClassToLookFor);
+	{
+		RecursivelyPopulateDerivedClasses(ThreadHash, ClassToLookFor, ClassesToSearch);
+	}
+
+	for (auto ClassIt = ClassesToSearch.CreateConstIterator(); ClassIt; ++ClassIt)
+	{
+		TSet<UObjectBase*> const* List = ThreadHash.ClassToObjectListMap.Find(*ClassIt);
+		if (List)
+		{
+			for (auto ObjectIt = List->CreateConstIterator(); ObjectIt; ++ObjectIt)
+			{
+				UObject *Object = static_cast<UObject*>(*ObjectIt);
+				if (Object->HasAnyInternalFlags(EInternalObjectFlags::AsyncLoading))
+				{
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
 void AllocateUObjectIndexForCurrentThread(UObjectBase* Object)
 {
 	GUObjectArray.AllocateUObjectIndex(Object);

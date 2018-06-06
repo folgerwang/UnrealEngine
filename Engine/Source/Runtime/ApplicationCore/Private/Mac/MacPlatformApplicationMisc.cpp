@@ -527,10 +527,7 @@ void FMacPlatformApplicationMisc::ClipboardPaste(class FString& Result)
 	NSString *CocoaString = [Pasteboard stringForType: NSPasteboardTypeString];
 	if (CocoaString)
 	{
-		TArray<TCHAR> Ch;
-		Ch.AddUninitialized([CocoaString length] + 1);
-		FPlatformString::CFStringToTCHAR((CFStringRef)CocoaString, Ch.GetData());
-		Result = Ch.GetData();
+		Result = FString(CocoaString);
 	}
 	else
 	{

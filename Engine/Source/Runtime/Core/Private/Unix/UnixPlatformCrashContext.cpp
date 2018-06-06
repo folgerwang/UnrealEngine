@@ -25,6 +25,7 @@
 #include "HAL/PlatformMallocCrash.h"
 #include "Unix/UnixPlatformRunnableThread.h"
 #include "HAL/ExceptionHandling.h"
+#include "Stats/Stats.h"
 
 #include "HAL/ThreadHeartBeat.h"
 
@@ -309,7 +310,7 @@ namespace UnixCrashReporterTracker
 
 	bool Tick(float DeltaTime)
 	{
-        QUICK_SCOPE_CYCLE_COUNTER(STAT_UnixCrashReporterTracker_Tick);
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_UnixCrashReporterTracker_Tick);
 
 		if (!FPlatformProcess::IsProcRunning(CurrentlyRunningCrashReporter))
 		{

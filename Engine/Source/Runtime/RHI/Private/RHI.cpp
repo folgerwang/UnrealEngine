@@ -621,12 +621,14 @@ static FName NAME_GLSL_ES3_1_ANDROID(TEXT("GLSL_ES3_1_ANDROID"));
 static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
 static FName NAME_VULKAN_ES3_1_ANDROID(TEXT("SF_VULKAN_ES31_ANDROID"));
 static FName NAME_VULKAN_ES3_1_ANDROID_NOUB(TEXT("SF_VULKAN_ES31_ANDROID_NOUB"));
+static FName NAME_VULKAN_ES3_1_LUMIN(TEXT("SF_VULKAN_ES31_LUMIN"));
 static FName NAME_VULKAN_ES3_1(TEXT("SF_VULKAN_ES31"));
 static FName NAME_VULKAN_ES3_1_NOUB(TEXT("SF_VULKAN_ES31_NOUB"));
 static FName NAME_VULKAN_SM4_NOUB(TEXT("SF_VULKAN_SM4_NOUB"));
 static FName NAME_VULKAN_SM4(TEXT("SF_VULKAN_SM4"));
 static FName NAME_VULKAN_SM5_NOUB(TEXT("SF_VULKAN_SM5_NOUB"));
 static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
+static FName NAME_VULKAN_SM5_LUMIN(TEXT("SF_VULKAN_SM5_LUMIN"));
 static FName NAME_SF_METAL_SM5_NOTESS(TEXT("SF_METAL_SM5_NOTESS"));
 static FName NAME_SF_METAL_MACES3_1(TEXT("SF_METAL_MACES3_1"));
 static FName NAME_SF_METAL_MACES2(TEXT("SF_METAL_MACES2"));
@@ -688,6 +690,10 @@ FName LegacyShaderPlatformToShaderFormat(EShaderPlatform Platform)
 		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_SM4 : NAME_VULKAN_SM4_NOUB;
 	case SP_VULKAN_SM5:
 		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_SM5 : NAME_VULKAN_SM5_NOUB;
+	case SP_VULKAN_SM5_LUMIN:
+		return NAME_VULKAN_SM5_LUMIN;
+	case SP_VULKAN_ES3_1_LUMIN:
+		return NAME_VULKAN_ES3_1_LUMIN;
 	case SP_VULKAN_PCES3_1:
 		return (CVarUseVulkanRealUBs->GetInt() != 0) ? NAME_VULKAN_ES3_1 : NAME_VULKAN_ES3_1_NOUB;
 	case SP_VULKAN_ES3_1_ANDROID:
@@ -726,8 +732,10 @@ EShaderPlatform ShaderFormatToLegacyShaderPlatform(FName ShaderFormat)
 	if (ShaderFormat == NAME_SF_METAL_SM5)				return SP_METAL_SM5;
 	if (ShaderFormat == NAME_VULKAN_SM4)				return SP_VULKAN_SM4;
 	if (ShaderFormat == NAME_VULKAN_SM5)				return SP_VULKAN_SM5;
+	if (ShaderFormat == NAME_VULKAN_SM5_LUMIN)			return SP_VULKAN_SM5_LUMIN;
 	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID)		return SP_VULKAN_ES3_1_ANDROID;
 	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID_NOUB)	return SP_VULKAN_ES3_1_ANDROID;
+	if (ShaderFormat == NAME_VULKAN_ES3_1_LUMIN)		return SP_VULKAN_ES3_1_LUMIN;
 	if (ShaderFormat == NAME_VULKAN_ES3_1)				return SP_VULKAN_PCES3_1;
 	if (ShaderFormat == NAME_VULKAN_ES3_1_NOUB)			return SP_VULKAN_PCES3_1;
 	if (ShaderFormat == NAME_VULKAN_SM4_NOUB)			return SP_VULKAN_SM4;
@@ -817,7 +825,7 @@ RHI_API bool RHISupportsTessellation(const EShaderPlatform Platform)
 {
 	if (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && !IsMetalPlatform(Platform))
 	{
-		return (Platform == SP_PCD3D_SM5) || (Platform == SP_XBOXONE_D3D12) || (Platform == SP_OPENGL_SM5) || (Platform == SP_OPENGL_ES31_EXT)/* || (Platform == SP_VULKAN_SM5)*/;
+		return (Platform == SP_PCD3D_SM5) || (Platform == SP_XBOXONE_D3D12) || (Platform == SP_OPENGL_SM5) || (Platform == SP_OPENGL_ES31_EXT)/* || (IsVulkanSM5Platform(Platform)*/;
 	}
 	// For Metal we can only support tessellation if we are willing to sacrifice backward compatibility with OS versions.
 	// As such it becomes an opt-in project setting.

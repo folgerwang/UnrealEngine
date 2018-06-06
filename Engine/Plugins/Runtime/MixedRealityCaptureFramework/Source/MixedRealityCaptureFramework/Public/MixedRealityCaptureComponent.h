@@ -58,7 +58,7 @@ public:
 	UTextureRenderTarget2D* GarbageMatteCaptureTextureTarget;
 
 	/** Millisecond delay to apply to motion controller components when rendering to the capture view (to better align with latent camera feeds) */
-	UPROPERTY(BlueprintReadWrite, Config, BlueprintSetter=SetTrackingDelay, Category=Composition, meta=(ClampMin="0", UIMin="0"))
+	UPROPERTY(BlueprintReadWrite, Config, BlueprintGetter=GetTrackingDelay, BlueprintSetter=SetTrackingDelay, Category=Composition, meta=(ClampMin="0", UIMin="0"))
 	int32 TrackingLatency;
 
 	/** Determines if this component should attempt to load the default MR calibration file on initialization */
@@ -155,6 +155,9 @@ public:
 
 	UFUNCTION(BlueprintSetter)
 	void SetLensDistortionParameters(const FMrcLensDistortion& ModelRef);
+
+	UFUNCTION(BlueprintGetter)
+	int32 GetTrackingDelay() const;
 
 	UFUNCTION(BlueprintSetter)
 	void SetTrackingDelay(int32 DelayMS);

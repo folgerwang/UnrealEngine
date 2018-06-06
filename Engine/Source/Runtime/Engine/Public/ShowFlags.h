@@ -333,7 +333,8 @@ private:
 		SetHLODColoration(false);
 		SetVisualizeLPV(false);
 		SetStreamingBounds(false);
-		SetFoliageOcclusionBounds(false);
+		SetHISMCOcclusionBounds(false);
+		SetHISMCClusterTree(false);
 		SetConstraints(false);
 		SetMassProperties(false);
 		SetCameraFrustums(false);

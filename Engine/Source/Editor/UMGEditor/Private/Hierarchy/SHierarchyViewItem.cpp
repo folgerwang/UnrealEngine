@@ -32,6 +32,7 @@
 #include "Blueprint/WidgetTree.h"
 #include "WidgetBlueprintEditorUtils.h"
 #include "ScopedTransaction.h"
+#include "Styling/SlateIconFinder.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -926,13 +927,13 @@ FText FHierarchyWidget::GetLabelToolTipText() const
 	return FText::GetEmpty();
 }
 
-const FSlateBrush* GetEditorIcon_Deprecated(UWidget* Widget);
-
 const FSlateBrush* FHierarchyWidget::GetImage() const
 {
-	// @todo UMG: remove after 4.12
-	return GetEditorIcon_Deprecated(Item.GetTemplate());
-	// return FClassIconFinder::FindIconForClass(Item.GetTemplate()->GetClass());
+	if (Item.GetTemplate())
+	{
+		return FSlateIconFinder::FindIconBrushForClass(Item.GetTemplate()->GetClass());
+	}
+	return nullptr;
 }
 
 FSlateFontInfo FHierarchyWidget::GetFont() const

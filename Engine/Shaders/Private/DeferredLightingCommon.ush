@@ -296,7 +296,7 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferDat
 		BRANCH
 		if( Shadow.SurfaceShadow + Shadow.TransmissionShadow > 0 )
 		{
-			const bool bNeedsSeparateSubsurfaceLightAccumulation = GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE;
+			const bool bNeedsSeparateSubsurfaceLightAccumulation = UseSubsurfaceProfile(GBuffer.ShadingModelID);
 			float3 LightColor = LightData.LightColorAndFalloffExponent.rgb;
 
 		#if NON_DIRECTIONAL_DIRECT_LIGHTING

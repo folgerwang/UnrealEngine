@@ -83,6 +83,7 @@ struct FFoliageInstance : public FFoliageInstancePlacementInfo
 
 	FFoliageInstance()
 		: BaseId(0)
+		, BaseComponent(nullptr)
 	{}
 
 	friend FArchive& operator<<(FArchive& Ar, FFoliageInstance& Instance);
@@ -207,7 +208,7 @@ struct FFoliageMeshInfo
 	FOLIAGE_API void CheckComponentClass(AInstancedFoliageActor* InIFA, const UFoliageType* InSettings);
 	FOLIAGE_API void PreMoveInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesToMove);
 	FOLIAGE_API void PostMoveInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesMoved);
-	FOLIAGE_API void PostUpdateInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesUpdated, bool bReAddToHash = false);
+	FOLIAGE_API void PostUpdateInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesUpdated, bool bReAddToHash = false, bool InUpdateSelection = false);
 	FOLIAGE_API void DuplicateInstances(AInstancedFoliageActor* InIFA, UFoliageType* InSettings, const TArray<int32>& InInstancesToDuplicate);
 	FOLIAGE_API void GetInstancesInsideSphere(const FSphere& Sphere, TArray<int32>& OutInstances);
 	FOLIAGE_API void GetInstanceAtLocation(const FVector& Location, int32& OutInstance, bool& bOutSucess);
@@ -224,13 +225,13 @@ struct FFoliageMeshInfo
 	FOLIAGE_API void SelectInstances(AInstancedFoliageActor* InIFA, bool bSelect);
 
 	// Get the number of placed instances
-	FOLIAGE_API int32 GetInstanceCount() const;
+	FOLIAGE_API int32 GetPlacedInstanceCount() const;
 
 	FOLIAGE_API void AddToBaseHash(int32 InstanceIdx);
 	FOLIAGE_API void RemoveFromBaseHash(int32 InstanceIdx);
 
 	// Create and register a new component
-	void CreateNewComponent(AInstancedFoliageActor* InIFA, const UFoliageType* InSettings);
+	FOLIAGE_API void CreateNewComponent(AInstancedFoliageActor* InIFA, const UFoliageType* InSettings);
 
 	// For debugging. Validate state after editing.
 	void CheckValid();

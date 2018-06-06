@@ -36,26 +36,29 @@ public:
 
 		// Run thru the assets to determine if any meet our criteria
 		TArray<UGlobalEditorUtilityBase*> SupportedUtils;
-		for (auto AssetIt = SelectedAssets.CreateConstIterator(); AssetIt; ++AssetIt)
+		if (SelectedAssets.Num() > 0)
 		{
-			const FAssetData& Asset = *AssetIt;
-			
 			// Check blueprint utils (we need to load them to query their validity against these assets)
 			TArray<FAssetData> UtilAssets;
 			FBlutilityMenuExtensions::GetBlutilityClasses(UtilAssets, UAssetActionUtility::StaticClass()->GetFName());
-
-			for(FAssetData& UtilAsset : UtilAssets)
+			if (UtilAssets.Num() > 0)
 			{
-				if(UEditorUtilityBlueprint* Blueprint = Cast<UEditorUtilityBlueprint>(UtilAsset.GetAsset()))
+				for (const FAssetData& Asset : SelectedAssets)
 				{
-					if(UClass* BPClass = Blueprint->GeneratedClass.Get())
+					for (const FAssetData& UtilAsset : UtilAssets)
 					{
-						if(UAssetActionUtility* DefaultObject = Cast<UAssetActionUtility>(BPClass->GetDefaultObject()))
+						if(UEditorUtilityBlueprint* Blueprint = Cast<UEditorUtilityBlueprint>(UtilAsset.GetAsset()))
 						{
-							UClass* SupportedClass = DefaultObject->GetSupportedClass();
-							if(SupportedClass == nullptr || (SupportedClass && Asset.GetClass()->IsChildOf(SupportedClass)))
+							if(UClass* BPClass = Blueprint->GeneratedClass.Get())
 							{
-								SupportedUtils.AddUnique(DefaultObject);
+								if(UAssetActionUtility* DefaultObject = Cast<UAssetActionUtility>(BPClass->GetDefaultObject()))
+								{
+									UClass* SupportedClass = DefaultObject->GetSupportedClass();
+									if(SupportedClass == nullptr || (SupportedClass && Asset.GetClass()->IsChildOf(SupportedClass)))
+									{
+										SupportedUtils.AddUnique(DefaultObject);
+									}
+								}
 							}
 						}
 					}

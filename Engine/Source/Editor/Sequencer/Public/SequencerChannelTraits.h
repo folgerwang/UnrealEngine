@@ -74,7 +74,7 @@ namespace Sequencer
 	 * @return A shared struct object, or nullptr
 	 */
 	template<typename ChannelType>
-	TSharedPtr<FStructOnScope> GetKeyStruct(TMovieSceneChannelHandle<ChannelType> ChannelHandle, FKeyHandle KeyHandle)
+	TSharedPtr<FStructOnScope> GetKeyStruct(const TMovieSceneChannelHandle<ChannelType>& ChannelHandle, FKeyHandle KeyHandle)
 	{
 		ChannelType* Channel = ChannelHandle.Get();
 		if (Channel)
@@ -121,9 +121,8 @@ namespace Sequencer
 	 * @param InSequencer        The sequencer currently active
 	 * @return The key editor widget
 	 */
-	template<typename ChannelType>
-	TSharedRef<SWidget> CreateKeyEditor(
-		TMovieSceneChannelHandle<ChannelType>    InChannel,
+	inline TSharedRef<SWidget> CreateKeyEditor(
+		const FMovieSceneChannelHandle&          InChannel,
 		UMovieSceneSection*                      InOwningSection,
 		const FGuid&                             InObjectBindingID,
 		TWeakPtr<FTrackInstancePropertyBindings> InPropertyBindings,
@@ -360,11 +359,7 @@ namespace Sequencer
 	 *
 	 * @return (Optional) A new model to be added to a curve editor
 	 */
-	template<typename ChannelType>
-	TUniquePtr<FCurveModel> CreateCurveEditorModel(TMovieSceneChannelHandle<ChannelType> ChannelHandle, UMovieSceneSection* OwningSection, TSharedRef<ISequencer> InSequencer)
-	{
-		return nullptr;
-	}
+	SEQUENCER_API TUniquePtr<FCurveModel> CreateCurveEditorModel(const FMovieSceneChannelHandle& ChannelHandle, UMovieSceneSection* OwningSection, TSharedRef<ISequencer> InSequencer);
 
 }	// namespace Sequencer
 

@@ -16,6 +16,9 @@ namespace WatchViewer
 	// called when we are adding or changing watches from BlueprintObj
 	void KISMET_API UpdateWatchListFromBlueprint(class UBlueprint* BlueprintObj);
 
+	// called when a BlueprintObj should no longer be watched
+	void KISMET_API ClearWatchListFromBlueprint(class UBlueprint* BlueprintObj);
+
 	FName GetTabName();
 	void RegisterTabSpawner(FTabManager& TabManager);
 }

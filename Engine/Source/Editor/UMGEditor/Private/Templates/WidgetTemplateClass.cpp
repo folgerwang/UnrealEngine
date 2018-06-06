@@ -9,6 +9,7 @@
 #include "IDocumentation.h"
 
 #include "Blueprint/WidgetTree.h"
+#include "Styling/SlateIconFinder.h"
 
 #define LOCTEXT_NAMESPACE "UMGEditor"
 
@@ -44,14 +45,13 @@ UWidget* FWidgetTemplateClass::Create(UWidgetTree* Tree)
 	return CreateNamed(Tree, NAME_None);
 }
 
-const FSlateBrush* GetEditorIcon_Deprecated(UWidget* Widget);
-
 const FSlateBrush* FWidgetTemplateClass::GetIcon() const
 {
-	// @todo UMG: remove after 4.12
-	UWidget* DefaultWidget = WidgetClass->GetDefaultObject<UWidget>();
-	return GetEditorIcon_Deprecated(DefaultWidget);
-	// return FClassIconFinder::FindIconForClass(WidgetClass);
+	if (WidgetClass.IsValid())
+	{
+		return FSlateIconFinder::FindIconBrushForClass(WidgetClass.Get());
+	}
+	return nullptr;
 }
 
 TSharedRef<IToolTip> FWidgetTemplateClass::GetToolTip() const

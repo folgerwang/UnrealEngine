@@ -528,6 +528,12 @@ public:
 	UPROPERTY()
 	uint32 bHasVertexColors:1;
 
+#if WITH_EDITORONLY_DATA
+	/** The guid to compute the ddc key, it must be dirty when we change the vertex color. */
+	UPROPERTY()
+	FGuid VertexColorGuid;
+#endif
+
 	//caching optimization to avoid recalculating in non-editor builds
 	uint32 bHasActiveClothingAssets:1;
 

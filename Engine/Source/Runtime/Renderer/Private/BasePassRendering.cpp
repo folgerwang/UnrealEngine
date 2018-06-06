@@ -780,6 +780,7 @@ FTextureRHIRef& GetEyeAdaptation(const FViewInfo& View)
 }
 
 void SetupSharedBasePassParameters(
+	FRHICommandListImmediate& RHICmdList,
 	const FViewInfo& View,
 	FSceneRenderTargets& SceneRenderTargets,
 	FSharedBasePassUniformParameters& SharedParameters)
@@ -798,6 +799,17 @@ void SetupSharedBasePassParameters(
 
 	SetupReflectionUniformParameters(View, SharedParameters.Reflection);
 	SetupFogUniformParameters(View, SharedParameters.Fog);
+
+	const IPooledRenderTarget* PooledRT = GetSubsufaceProfileTexture_RT(RHICmdList);
+
+	if (!PooledRT)
+	{
+		// no subsurface profile was used yet
+		PooledRT = GSystemTextures.BlackDummy;
+	}
+
+	const FSceneRenderTargetItem& Item = PooledRT->GetRenderTargetItem();
+	SharedParameters.SSProfilesTexture = Item.ShaderResourceTexture;
 }
 
 void CreateOpaqueBasePassUniformBuffer(
@@ -809,7 +821,7 @@ void CreateOpaqueBasePassUniformBuffer(
 	FSceneRenderTargets& SceneRenderTargets = FSceneRenderTargets::Get(RHICmdList);
 
 	FOpaqueBasePassUniformParameters BasePassParameters;
-	SetupSharedBasePassParameters(View, SceneRenderTargets, BasePassParameters.Shared);
+	SetupSharedBasePassParameters(RHICmdList, View, SceneRenderTargets, BasePassParameters.Shared);
 
 	// Forward shading
 	{
