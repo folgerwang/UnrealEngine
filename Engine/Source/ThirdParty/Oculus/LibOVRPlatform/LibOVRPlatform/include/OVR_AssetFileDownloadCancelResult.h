@@ -9,8 +9,14 @@
 
 typedef struct ovrAssetFileDownloadCancelResult *ovrAssetFileDownloadCancelResultHandle;
 
-/// ID of the asset file.
+/// DEPRECATED. Alias to asset id.
 OVRP_PUBLIC_FUNCTION(ovrID) ovr_AssetFileDownloadCancelResult_GetAssetFileId(const ovrAssetFileDownloadCancelResultHandle obj);
+
+/// ID of the asset file
+OVRP_PUBLIC_FUNCTION(ovrID) ovr_AssetFileDownloadCancelResult_GetAssetId(const ovrAssetFileDownloadCancelResultHandle obj);
+
+/// File path of the asset file.
+OVRP_PUBLIC_FUNCTION(const char *) ovr_AssetFileDownloadCancelResult_GetFilepath(const ovrAssetFileDownloadCancelResultHandle obj);
 
 /// Whether the cancel request is succeeded.
 OVRP_PUBLIC_FUNCTION(bool) ovr_AssetFileDownloadCancelResult_GetSuccess(const ovrAssetFileDownloadCancelResultHandle obj);
