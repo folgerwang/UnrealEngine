@@ -47,6 +47,9 @@ protected:
 	/** current subtree */
 	UPROPERTY()
 	UBehaviorTree* BehaviorAsset;
+
+	/** called when subtree is removed from active stack */
+	virtual void OnSubtreeDeactivated(UBehaviorTreeComponent& OwnerComp, EBTNodeResult::Type NodeResult);
 };
 
 //////////////////////////////////////////////////////////////////////////

@@ -55,6 +55,7 @@ BEGIN_UNIFORM_BUFFER_STRUCT(FSharedBasePassUniformParameters,)
 	UNIFORM_MEMBER_STRUCT(FForwardLightData, ForwardISR)
 	UNIFORM_MEMBER_STRUCT(FReflectionUniformParameters, Reflection)
 	UNIFORM_MEMBER_STRUCT(FFogUniformParameters, Fog)
+	UNIFORM_MEMBER_TEXTURE(Texture2D, SSProfilesTexture)
 END_UNIFORM_BUFFER_STRUCT(FSharedBasePassUniformParameters)
 
 BEGIN_UNIFORM_BUFFER_STRUCT(FOpaqueBasePassUniformParameters,)
@@ -102,6 +103,7 @@ END_UNIFORM_BUFFER_STRUCT(FTranslucentBasePassUniformParameters)
 extern FTextureRHIRef& GetEyeAdaptation(const FViewInfo& View);
 
 extern void SetupSharedBasePassParameters(
+	FRHICommandListImmediate& RHICmdList,
 	const FViewInfo& View,
 	FSceneRenderTargets& SceneRenderTargets,
 	FSharedBasePassUniformParameters& BasePassParameters);

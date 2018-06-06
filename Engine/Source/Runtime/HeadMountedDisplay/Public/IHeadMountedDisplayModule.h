@@ -8,8 +8,8 @@
 #include "Features/IModularFeatures.h"
 #include "Features/IModularFeature.h"
 
-#include "IHeadMountedDisplayVulkanExtensions.h"
-
+//#include "IHeadMountedDisplayVulkanExtensions.h"
+class IHeadMountedDisplayVulkanExtensions;
 class IXRTrackingSystem;
 
 /**

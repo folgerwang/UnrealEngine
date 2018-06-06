@@ -535,6 +535,11 @@ struct FAndroidOpenGL : public FOpenGLES2
 		return bUseES30ShadingLanguage;
 	}
 
+	// Disable all queries except occlusion
+	// Query is a limited resource on Android and we better spent them all on occlusion
+	static FORCEINLINE bool SupportsTimestampQueries()					{ return false; }
+	static FORCEINLINE bool SupportsDisjointTimeQueries()				{ return false; }
+	
 	static FORCEINLINE bool SupportsBlitFramebuffer() { return FOpenGLES2::SupportsBlitFramebuffer() || IsES31Usable(); }
 
 	enum class EImageExternalType : uint8

@@ -96,7 +96,7 @@ bool CanCreateKeyEditor(const FMovieSceneStringChannel*  Channel)
 	return true;
 }
 
-TSharedRef<SWidget> CreateKeyEditor(TMovieSceneChannelHandle<FMovieSceneBoolChannel>    Channel, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer)
+TSharedRef<SWidget> CreateKeyEditor(const TMovieSceneChannelHandle<FMovieSceneBoolChannel>&    Channel, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer)
 {
 	const TMovieSceneExternalValue<bool>* ExternalValue = Channel.GetExtendedEditorData();
 	if (!ExternalValue)
@@ -113,7 +113,7 @@ TSharedRef<SWidget> CreateKeyEditor(TMovieSceneChannelHandle<FMovieSceneBoolChan
 }
 
 
-TSharedRef<SWidget> CreateKeyEditor(TMovieSceneChannelHandle<FMovieSceneIntegerChannel> Channel, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer)
+TSharedRef<SWidget> CreateKeyEditor(const TMovieSceneChannelHandle<FMovieSceneIntegerChannel>& Channel, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer)
 {
 	const TMovieSceneExternalValue<int32>* ExternalValue = Channel.GetExtendedEditorData();
 	if (!ExternalValue)
@@ -131,7 +131,7 @@ TSharedRef<SWidget> CreateKeyEditor(TMovieSceneChannelHandle<FMovieSceneIntegerC
 }
 
 
-TSharedRef<SWidget> CreateKeyEditor(TMovieSceneChannelHandle<FMovieSceneFloatChannel>   Channel, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer)
+TSharedRef<SWidget> CreateKeyEditor(const TMovieSceneChannelHandle<FMovieSceneFloatChannel>&   Channel, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer)
 {
 	const TMovieSceneExternalValue<float>* ExternalValue = Channel.GetExtendedEditorData();
 	if (!ExternalValue)
@@ -149,7 +149,7 @@ TSharedRef<SWidget> CreateKeyEditor(TMovieSceneChannelHandle<FMovieSceneFloatCha
 }
 
 
-TSharedRef<SWidget> CreateKeyEditor(TMovieSceneChannelHandle<FMovieSceneStringChannel>  Channel, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer)
+TSharedRef<SWidget> CreateKeyEditor(const TMovieSceneChannelHandle<FMovieSceneStringChannel>&  Channel, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer)
 {
 	const TMovieSceneExternalValue<FString>* ExternalValue = Channel.GetExtendedEditorData();
 	if (!ExternalValue)
@@ -166,7 +166,7 @@ TSharedRef<SWidget> CreateKeyEditor(TMovieSceneChannelHandle<FMovieSceneStringCh
 }
 
 
-TSharedRef<SWidget> CreateKeyEditor(TMovieSceneChannelHandle<FMovieSceneByteChannel>    Channel, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer)
+TSharedRef<SWidget> CreateKeyEditor(const TMovieSceneChannelHandle<FMovieSceneByteChannel>&    Channel, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> InSequencer)
 {
 	const TMovieSceneExternalValue<uint8>* ExternalValue = Channel.GetExtendedEditorData();
 	const FMovieSceneByteChannel* RawChannel = Channel.Get();
@@ -191,23 +191,23 @@ TSharedRef<SWidget> CreateKeyEditor(TMovieSceneChannelHandle<FMovieSceneByteChan
 	}
 }
 
-TSharedPtr<FStructOnScope> GetKeyStruct(TMovieSceneChannelHandle<FMovieSceneBoolChannel>     ChannelHandle, FKeyHandle InHandle)
+TSharedPtr<FStructOnScope> GetKeyStruct(const TMovieSceneChannelHandle<FMovieSceneBoolChannel>&     ChannelHandle, FKeyHandle InHandle)
 {
 	return CreateKeyStruct<FMovieSceneBoolKeyStruct>(ChannelHandle, InHandle);
 }
-TSharedPtr<FStructOnScope> GetKeyStruct(TMovieSceneChannelHandle<FMovieSceneByteChannel>     ChannelHandle, FKeyHandle InHandle)
+TSharedPtr<FStructOnScope> GetKeyStruct(const TMovieSceneChannelHandle<FMovieSceneByteChannel>&     ChannelHandle, FKeyHandle InHandle)
 {
 	return CreateKeyStruct<FMovieSceneByteKeyStruct>(ChannelHandle, InHandle);
 }
-TSharedPtr<FStructOnScope> GetKeyStruct(TMovieSceneChannelHandle<FMovieSceneIntegerChannel>  ChannelHandle, FKeyHandle InHandle)
+TSharedPtr<FStructOnScope> GetKeyStruct(const TMovieSceneChannelHandle<FMovieSceneIntegerChannel>&  ChannelHandle, FKeyHandle InHandle)
 {
 	return CreateKeyStruct<FMovieSceneIntegerKeyStruct>(ChannelHandle, InHandle);
 }
-TSharedPtr<FStructOnScope> GetKeyStruct(TMovieSceneChannelHandle<FMovieSceneStringChannel>   ChannelHandle, FKeyHandle InHandle)
+TSharedPtr<FStructOnScope> GetKeyStruct(const TMovieSceneChannelHandle<FMovieSceneStringChannel>&   ChannelHandle, FKeyHandle InHandle)
 {
 	return CreateKeyStruct<FMovieSceneStringKeyStruct>(ChannelHandle, InHandle);
 }
-TSharedPtr<FStructOnScope> GetKeyStruct(TMovieSceneChannelHandle<FMovieSceneParticleChannel> ChannelHandle, FKeyHandle InHandle)
+TSharedPtr<FStructOnScope> GetKeyStruct(const TMovieSceneChannelHandle<FMovieSceneParticleChannel>& ChannelHandle, FKeyHandle InHandle)
 {
 	FMovieSceneParticleChannel* Channel = ChannelHandle.Get();
 	if (!Channel)
@@ -688,7 +688,7 @@ void ExtendKeyMenu(FMenuBuilder& OuterMenuBuilder, TArray<TExtendKeyMenuParams<F
 	OuterMenuBuilder.PushExtender(Extension);
 }
 
-TUniquePtr<FCurveModel> CreateCurveEditorModel(TMovieSceneChannelHandle<FMovieSceneFloatChannel> FloatChannel, UMovieSceneSection* OwningSection, TSharedRef<ISequencer> InSequencer)
+TUniquePtr<FCurveModel> CreateCurveEditorModel(const TMovieSceneChannelHandle<FMovieSceneFloatChannel>& FloatChannel, UMovieSceneSection* OwningSection, TSharedRef<ISequencer> InSequencer)
 {
 	return MakeUnique<FFloatChannelCurveModel>(FloatChannel, OwningSection, InSequencer);
 }

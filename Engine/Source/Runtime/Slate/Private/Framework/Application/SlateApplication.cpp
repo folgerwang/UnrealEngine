@@ -974,7 +974,7 @@ void FSlateApplication::Shutdown(bool bShutdownPlatform)
 
 		if (bShutdownPlatform)
 		{
-		PlatformApplication->DestroyApplication();
+			PlatformApplication->DestroyApplication();
 		}
 
 		PlatformApplication.Reset();
@@ -2159,6 +2159,10 @@ void FSlateApplication::AddModalWindow( TSharedRef<SWindow> InSlateWindow, const
 		{
 			PlatformApplication->Cursor->Show( true );
 		}
+		
+		// Since the engine tick is paused here we have to end any outstanding frames.
+		// That will put us in a clean state for the Slate Tick loop below.
+		Renderer->EndFrame();
 
 		//Throttle loop data
 		float LastLoopTime = (float)FPlatformTime::Seconds();
@@ -2195,9 +2199,14 @@ void FSlateApplication::AddModalWindow( TSharedRef<SWindow> InSlateWindow, const
 				{
 					break;
 				}
+				
+				// Slate's Tick does not issue Begin/EndFrame so we'll do it ourselves.
+				Renderer->BeginFrame();
 
 				// Tick and render Slate
 				TickApplication(ESlateTickType::All, DeltaTime);
+				
+				Renderer->EndFrame();
 			}
 
 			// Update Slate Stats
@@ -2206,6 +2215,10 @@ void FSlateApplication::AddModalWindow( TSharedRef<SWindow> InSlateWindow, const
 			// Synchronize the game thread and the render thread so that the render thread doesn't get too far behind.
 			Renderer->Sync();
 		}
+		
+		// When we let the engine Tick as normal we need to restore the state as before.
+		// So we'll start a frame.
+		Renderer->BeginFrame();
 	}
 }
 
@@ -2970,6 +2983,8 @@ void FSlateApplication::OnShutdown()
 
 void FSlateApplication::CloseAllWindowsImmediately()
 {
+	DragDropContent.Reset();
+
 	// Clean up our tooltip window
 	TSharedPtr< SWindow > PinnedToolTipWindow(ToolTipWindow.Pin());
 	if (PinnedToolTipWindow.IsValid())

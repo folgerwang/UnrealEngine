@@ -32,7 +32,4 @@ public:
 
 	UPROPERTY(Config)
 	FSoftObjectPath DefaulGarbageMatteTarget;
-
-	UPROPERTY(Config, meta=(UIMin = "5.0", UIMax = "170", ClampMin = "0.001", ClampMax = "360.0"))
-	float CalibratedFOVOverride;
 };

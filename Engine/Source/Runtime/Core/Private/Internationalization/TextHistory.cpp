@@ -1204,9 +1204,7 @@ const FString* FTextHistory_StringTableEntry::GetSourceString() const
 	{
 		return &StringTableEntryPin->GetSourceString();
 	}
-
-	static const FString MissingSourceString = TEXT("<MISSING STRING TABLE ENTRY>");
-	return &MissingSourceString;
+	return &FStringTableEntry::GetPlaceholderSourceString();
 }
 
 FTextDisplayStringRef FTextHistory_StringTableEntry::GetDisplayString() const
@@ -1220,9 +1218,7 @@ FTextDisplayStringRef FTextHistory_StringTableEntry::GetDisplayString() const
 			return DisplayString.ToSharedRef();
 		}
 	}
-
-	static const FTextDisplayStringRef MissingDisplayString = MakeShared<FString, ESPMode::ThreadSafe>(TEXT("<MISSING STRING TABLE ENTRY>"));
-	return MissingDisplayString;
+	return FStringTableEntry::GetPlaceholderDisplayString();
 }
 
 void FTextHistory_StringTableEntry::GetTableIdAndKey(FName& OutTableId, FString& OutKey) const

@@ -710,6 +710,11 @@ protected:
 	void OnAddExecutionPin();
 	bool CanAddExecutionPin() const;
 
+	void OnInsertExecutionPinBefore();
+	void OnInsertExecutionPinAfter();
+	void OnInsertExecutionPin(EPinInsertPosition Position);
+	bool CanInsertExecutionPin() const;
+
 	void OnRemoveExecutionPin();
 	bool CanRemoveExecutionPin() const;
 

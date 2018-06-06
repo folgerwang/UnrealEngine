@@ -124,11 +124,10 @@ namespace mtlpp
 #endif
 	}
 	
-	ns::Array<Device> Device::CopyAllDevicesWithObserver(ns::Object<id <NSObject>> observer, DeviceHandler handler)
+	ns::Array<Device> Device::CopyAllDevicesWithObserver(ns::Object<id <NSObject>>& observer, DeviceHandler handler)
 	{
 #if MTLPP_IS_AVAILABLE_MAC(10_13)
-		id<NSObject> obj = (id<NSObject>)observer.GetPtr();
-		return ns::Array<Device>(MTLCopyAllDevicesWithObserver((id<NSObject>*)(obj ? &obj : nil), ^(id<MTLDevice>  _Nonnull device, MTLDeviceNotificationName  _Nonnull notifyName)
+		return ns::Array<Device>(MTLCopyAllDevicesWithObserver(observer.GetInnerPtr(), ^(id<MTLDevice>  _Nonnull device, MTLDeviceNotificationName  _Nonnull notifyName)
 			{
 			handler(Device(device), ns::String(notifyName));
 		}), ns::Ownership::Assign);

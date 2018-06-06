@@ -207,7 +207,7 @@ void FSequencerObjectBindingNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 			LOCTEXT("ImportFBXTooltip", "Import FBX animation to this object"),
 			FSlateIcon(),
 			FUIAction(
-				FExecuteAction::CreateLambda([=]{ GetSequencer().ImportFBX(); })
+				FExecuteAction::CreateLambda([=]{ GetSequencer().ImportFBXOntoSelectedNodes(); })
 			));
 
 		MenuBuilder.AddMenuEntry(

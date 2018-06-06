@@ -192,6 +192,7 @@ TSharedRef<SWidget> SGraphPinObject::GenerateAssetPicker()
 	AssetPickerConfig.bAllowNullSelection = true;
 	AssetPickerConfig.Filter.bRecursiveClasses = true;
 	AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateSP(this, &SGraphPinObject::OnAssetSelectedFromPicker);
+	AssetPickerConfig.OnAssetEnterPressed = FOnAssetEnterPressed::CreateSP(this, &SGraphPinObject::OnAssetEnterPressedInPicker);
 	AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 	AssetPickerConfig.bAllowDragging = false;
 
@@ -240,6 +241,13 @@ void SGraphPinObject::OnAssetSelectedFromPicker(const struct FAssetData& AssetDa
 	}
 }
 
+void SGraphPinObject::OnAssetEnterPressedInPicker(const TArray<FAssetData>& InSelectedAssets)
+{
+	if(InSelectedAssets.Num() > 0)
+	{
+		OnAssetSelectedFromPicker(InSelectedAssets[0]);
+	}
+}
 
 FText SGraphPinObject::GetValue() const
 {

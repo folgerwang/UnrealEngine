@@ -8,6 +8,7 @@
 #include "PyConversion.h"
 #include "PyWrapperTypeRegistry.h"
 
+#include "UObject/Package.h"
 #include "Framework/Application/SlateApplication.h"
 
 #if PLATFORM_WINDOWS
@@ -139,8 +140,9 @@ PyObject* ParentExternalWindowToSlate(PyObject* InSelf, PyObject* InArgs)
 		return nullptr;
 	}
 
+	static const UEnum* ParentWindowSearchMethodEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ESlateParentWindowSearchMethod"));
 	ESlateParentWindowSearchMethod ParentWindowSearchMethod = ESlateParentWindowSearchMethod::ActiveWindow;
-	if (PyParentWindowSearchMethod && !PyConversion::NativizeEnum(PyParentWindowSearchMethod, ParentWindowSearchMethod))
+	if (PyParentWindowSearchMethod && !PyConversion::NativizeEnumEntry(PyParentWindowSearchMethod, ParentWindowSearchMethodEnum, ParentWindowSearchMethod))
 	{
 		PyUtil::SetPythonError(PyExc_TypeError, TEXT("parent_external_window_to_slate"), *FString::Printf(TEXT("Failed to convert argument '%s' to 'SlateParentWindowSearchMethod'"), *PyUtil::GetFriendlyTypename(PyParentWindowSearchMethod)));
 		return nullptr;

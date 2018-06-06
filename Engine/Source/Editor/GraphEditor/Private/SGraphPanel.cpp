@@ -1336,6 +1336,15 @@ void SGraphPanel::StraightenConnections(UEdGraphPin* SourcePin, UEdGraphPin* Pin
 	Aligner.Process();
 }
 
+void SGraphPanel::RefreshNode(UEdGraphNode& Node)
+{
+	TSharedPtr<SGraphNode> GraphNode = GetNodeWidgetFromGuid(Node.NodeGuid);
+	if (GraphNode.IsValid())
+	{
+		GraphNode->UpdateGraphNode();
+	}
+}
+
 const TSharedRef<SGraphNode> SGraphPanel::GetChild(int32 ChildIndex)
 {
 	return StaticCastSharedRef<SGraphNode>(Children[ChildIndex]);

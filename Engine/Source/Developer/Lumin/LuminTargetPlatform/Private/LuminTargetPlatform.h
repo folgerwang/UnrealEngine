@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LuminTargetPlatform.h: Declares the FLuminTargetPlatform class.
@@ -86,6 +86,8 @@ public:
 	virtual bool SupportsDesktopRendering() const;// override;
 	virtual bool SupportsMobileRendering() const;// override;
 	virtual void InitializeDeviceDetection() override;
+
+	virtual bool SupportsFeature(ETargetPlatformFeatures Feature) const override;
 
 protected:
 	// Holds the Engine INI settings, for quick use.

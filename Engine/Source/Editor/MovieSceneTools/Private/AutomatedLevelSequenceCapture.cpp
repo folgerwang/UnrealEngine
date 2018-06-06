@@ -10,6 +10,7 @@
 #include "JsonObjectConverter.h"
 #include "Tracks/MovieSceneCinematicShotTrack.h"
 #include "MovieSceneTranslatorEDL.h"
+#include "FCPXML/FCPXMLMovieSceneTranslator.h"
 #include "EngineUtils.h"
 #include "Sections/MovieSceneCinematicShotSection.h"
 #include "TimerManager.h"
@@ -17,6 +18,7 @@
 #include "Camera/CameraComponent.h"
 #include "MovieSceneCaptureModule.h"
 #include "MovieSceneTimeHelpers.h"
+#include "MovieSceneToolHelpers.h"
 
 const FName UAutomatedLevelSequenceCapture::AutomatedLevelSequenceCaptureUIName = FName(TEXT("AutomatedLevelSequenceCaptureUIInstance"));
 
@@ -86,6 +88,7 @@ UAutomatedLevelSequenceCapture::UAutomatedLevelSequenceCapture(const FObjectInit
 	DelayBeforeWarmUp = 0.0f;
 	DelayBeforeShotWarmUp = 0.0f;
 	bWriteEditDecisionList = true;
+	bWriteFinalCutProXML = true;
 
 	RemainingWarmUpFrames = 0;
 
@@ -241,6 +244,7 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 	}
 
 	ExportEDL();
+	ExportFCPXML();
 
 	CaptureState = ELevelSequenceCaptureState::Setup;
 	CaptureStrategy = MakeShareable(new FFixedTimeStepCaptureStrategy(Settings.FrameRate));
@@ -798,6 +802,45 @@ void UAutomatedLevelSequenceCapture::ExportEDL()
 	int32 HandleFrames = Settings.HandleFrames;
 
 	MovieSceneTranslatorEDL::ExportEDL(MovieScene, Settings.FrameRate, SaveFilename, HandleFrames);
+}
+
+void UAutomatedLevelSequenceCapture::ExportFCPXML()
+{
+	if (!bWriteFinalCutProXML)
+	{
+		return;
+	}
+
+	UMovieScene* MovieScene = GetMovieScene(LevelSequenceActor);
+	if (!MovieScene)
+	{
+		return;
+	}
+
+	UMovieSceneCinematicShotTrack* ShotTrack = MovieScene->FindMasterTrack<UMovieSceneCinematicShotTrack>();
+	if (!ShotTrack)
+	{
+		return;
+	}
+
+	FString SaveFilename = Settings.OutputDirectory.Path / MovieScene->GetOuter()->GetName() + TEXT(".xml");
+	FString FilenameFormat = Settings.OutputFormat;
+	int32 HandleFrames = Settings.HandleFrames;
+	FFrameRate FrameRate = Settings.FrameRate;
+	uint32 ResX = Settings.Resolution.ResX;
+	uint32 ResY = Settings.Resolution.ResY;
+
+	FFCPXMLExporter *Exporter = new FFCPXMLExporter;
+
+	TSharedRef<FMovieSceneTranslatorContext> ExportContext(new FMovieSceneTranslatorContext);
+	ExportContext->Init();
+
+	bool bSuccess = Exporter->Export(MovieScene, FilenameFormat, FrameRate, ResX, ResY, HandleFrames, SaveFilename, ExportContext);
+
+	// Log any messages in context
+	MovieSceneToolHelpers::MovieSceneTranslatorLogMessages(Exporter, ExportContext, false);
+
+	delete Exporter;
 }
 
 
