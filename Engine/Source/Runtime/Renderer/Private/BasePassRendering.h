@@ -1004,7 +1004,6 @@ public:
 	const bool bAllowFog;
 	ERHIFeatureLevel::Type FeatureLevel;
 	const bool bIsInstancedStereo;
-	const bool bUseMobileMultiViewMask;
 
 	/** Initialization constructor. */
 	FProcessBasePassMeshParameters(
@@ -1013,8 +1012,7 @@ public:
 		const FPrimitiveSceneProxy* InPrimitiveSceneProxy,
 		bool InbAllowFog,
 		ERHIFeatureLevel::Type InFeatureLevel,
-		const bool InbIsInstancedStereo = false,
-		const bool InbUseMobileMultiViewMask = false
+		const bool InbIsInstancedStereo = false
 		):
 		Mesh(InMesh),
 		BatchElementMask(Mesh.Elements.Num()==1 ? 1 : (1<<Mesh.Elements.Num())-1), // 1 bit set for each mesh element
@@ -1024,8 +1022,7 @@ public:
 		ShadingModel(InMaterial->GetShadingModel()),
 		bAllowFog(InbAllowFog),
 		FeatureLevel(InFeatureLevel), 
-		bIsInstancedStereo(InbIsInstancedStereo), 
-		bUseMobileMultiViewMask(InbUseMobileMultiViewMask)
+		bIsInstancedStereo(InbIsInstancedStereo)
 	{
 	}
 
@@ -1037,8 +1034,7 @@ public:
 		const FPrimitiveSceneProxy* InPrimitiveSceneProxy,
 		bool InbAllowFog,
 		ERHIFeatureLevel::Type InFeatureLevel, 
-		bool InbIsInstancedStereo = false, 
-		bool InbUseMobileMultiViewMask = false
+		bool InbIsInstancedStereo = false
 		) :
 		Mesh(InMesh),
 		BatchElementMask(InBatchElementMask),
@@ -1048,8 +1044,7 @@ public:
 		ShadingModel(InMaterial->GetShadingModel()),
 		bAllowFog(InbAllowFog),
 		FeatureLevel(InFeatureLevel),
-		bIsInstancedStereo(InbIsInstancedStereo), 
-		bUseMobileMultiViewMask(InbUseMobileMultiViewMask)
+		bIsInstancedStereo(InbIsInstancedStereo)
 	{
 	}
 };
