@@ -411,7 +411,7 @@ void FMetalDynamicRHI::RHICalibrateTimers()
 		
 		id<IMetalStatisticsSamples> Samples = Context.GetCommandQueue().GetStatistics()->RegisterEncoderStatistics(Buffer.GetPtr(), EMetalSampleComputeEncoderStart);
 		mtlpp::ComputeCommandEncoder Encoder = Buffer.ComputeCommandEncoder();
-#if METAL_DEBUG_OPTIONS
+#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
 		FMetalComputeCommandEncoderDebugging Debugging;
 		if (SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
 		{
