@@ -35,6 +35,8 @@ public:
 	GENERATED_BODY()
 
 #if WITH_EDITOR
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
+
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 
