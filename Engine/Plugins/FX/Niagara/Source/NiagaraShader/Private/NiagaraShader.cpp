@@ -277,8 +277,8 @@ void FNiagaraShaderType::CacheUniformBufferIncludes(TMap<const TCHAR*, FCachedUn
 		{
 			if (It.Key() == StructIt->GetShaderVariableName())
 			{
-				BufferDeclaration.Declaration[Platform] = MakeShared<FString>();
-				CreateUniformBufferShaderDeclaration(StructIt->GetShaderVariableName(), **StructIt, Platform, *BufferDeclaration.Declaration[Platform].Get());
+				BufferDeclaration.Declaration = MakeShared<FString>();
+				CreateUniformBufferShaderDeclaration(StructIt->GetShaderVariableName(), **StructIt, *BufferDeclaration.Declaration.Get());
 				break;
 			}
 		}
@@ -300,9 +300,9 @@ void FNiagaraShaderType::AddReferencedUniformBufferIncludes(FShaderCompilerEnvir
 
 	for (TMap<const TCHAR*, FCachedUniformBufferDeclaration>::TConstIterator It(ReferencedUniformBufferStructsCache); It; ++It)
 	{
-		check(It.Value().Declaration[Platform].IsValid());
+		check(It.Value().Declaration.IsValid());
 		UniformBufferIncludes += FString::Printf(TEXT("#include \"/Engine/Generated/UniformBuffers/%s.ush\"") LINE_TERMINATOR, It.Key());
-		FString* Declaration = It.Value().Declaration[Platform].Get();
+		FString* Declaration = It.Value().Declaration.Get();
 		check(Declaration);
 		OutEnvironment.IncludeVirtualPathToContentsMap.Add(
 			*FString::Printf(TEXT("/Engine/Generated/UniformBuffers/%s.ush"), It.Key()), *Declaration
