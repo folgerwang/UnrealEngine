@@ -1475,7 +1475,6 @@ class SMovieSceneImportFBXSettings : public SCompoundWidget, public FGCObject
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override
 	{
 		Collector.AddReferencedObject(MovieScene);
-		Collector.AddReferencedObject(Sequencer);
 	}
 
 	void SetObjectBindingMap(const TMap<FGuid, FString>& InObjectBindingMap)
