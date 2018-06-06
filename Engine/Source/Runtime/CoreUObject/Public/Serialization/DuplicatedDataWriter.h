@@ -6,6 +6,7 @@
 #include "Serialization/ArchiveUObject.h"
 #include "UObject/UObjectAnnotation.h"
 #include "Serialization/DuplicatedObject.h"
+#include "Serialization/LargeMemoryData.h"
 
 struct FObjectInstancingGraph;
 
@@ -20,8 +21,8 @@ class FDuplicateDataWriter : public FArchiveUObject
 private:
 
 	class FUObjectAnnotationSparse<FDuplicatedObject,false>&	DuplicatedObjectAnnotation;
-	TArray<uint8>&							ObjectData;
-	int64										Offset;
+	FLargeMemoryData&						ObjectData;
+	int64									Offset;
 	EObjectFlags							FlagMask;
 	EObjectFlags							ApplyFlags;
 	EInternalObjectFlags InternalFlagMask;
@@ -41,15 +42,8 @@ private:
 
 	virtual void Serialize(void* Data,int64 Num)
 	{
-		// Don't try to add/memcpy zero sized items
-		if (Data != NULL && Num > 0)
+		if (ObjectData.Write(Data, Offset, Num))
 		{
-			if (Num + Offset > ObjectData.Num())
-			{
-				ObjectData.AddUninitialized(Num + Offset - ObjectData.Num());
-			}
-
-			FMemory::Memcpy(&ObjectData[Offset],Data,Num);
 			Offset += Num;
 		}
 	}
@@ -83,8 +77,9 @@ public:
 
 	virtual int64 TotalSize()
 	{
-		return ObjectData.Num();
+		return ObjectData.GetSize();
 	}
+
 	TArray<UObject*>	UnserializedObjects;
 
 	/**
@@ -110,7 +105,7 @@ public:
 	 */
 	FDuplicateDataWriter(
 		FUObjectAnnotationSparse<FDuplicatedObject, false>& InDuplicatedObjects,
-		TArray<uint8>& InObjectData,
+		FLargeMemoryData& InObjectData,
 		UObject* SourceObject,
 		UObject* DestObject,
 		EObjectFlags InFlagMask,
