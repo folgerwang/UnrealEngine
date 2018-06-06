@@ -429,7 +429,7 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 							
 							mtlpp::BlitCommandEncoder Encoder = CurrentCommandBuffer.BlitCommandEncoder();
 							check(Encoder.GetPtr());
-#if METAL_DEBUG_OPTIONS
+#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
 							FMetalBlitCommandEncoderDebugging Debugging;
 							if (SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
 							{
