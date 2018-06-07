@@ -105,13 +105,13 @@ public:
 	/**
 	* Remove the Particles namespace if it exists.
 	*/
-	static FNiagaraVariable ResolveAsBasicAttribute(const FNiagaraVariable& InVar);
+	static FNiagaraVariable ResolveAsBasicAttribute(const FNiagaraVariable& InVar, bool bSanitizeInput = true);
 
 
 	/**
 	* Reverses ResolveAsBasicAttribute.
 	*/
-	static FNiagaraVariable BasicAttributeToNamespacedAttribute(const FNiagaraVariable& InVar);
+	static FNiagaraVariable BasicAttributeToNamespacedAttribute(const FNiagaraVariable& InVar, bool bSanitizeInput = true);
 
 	
 	/** Prepends the namespace string to the variable name.*/

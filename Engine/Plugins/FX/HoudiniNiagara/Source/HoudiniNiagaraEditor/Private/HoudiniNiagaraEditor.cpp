@@ -24,6 +24,8 @@
 #include "HoudiniNiagaraEditor.h"
 #include "HoudiniCSVAssetActions.h"
 #include "AssetRegistryModule.h"
+#include "Styling/SlateStyleRegistry.h"
+#include "Styling/SlateStyle.h"
 
 #define LOCTEXT_NAMESPACE "FHoudiniNiagaraModule"
 
@@ -35,6 +37,34 @@ void FHoudiniNiagaraEditorModule::StartupModule()
     TSharedRef< IAssetTypeActions > HCSVAction = MakeShareable( new FHoudiniCSVAssetActions() );
     AssetTools.RegisterAssetTypeActions( HCSVAction );
     AssetTypeActions.Add( HCSVAction );
+
+	// Create Slate style set.
+	if (!StyleSet.IsValid())
+	{
+		// Create Slate style set.	
+		StyleSet = MakeShareable(new FSlateStyleSet(TEXT("HoudiniNiagaraStyle")));
+		StyleSet->SetContentRoot(FPaths::EngineContentDir() / TEXT("Editor/Slate"));
+		StyleSet->SetCoreContentRoot(FPaths::EngineContentDir() / TEXT("Slate"));
+
+		// Note, these sizes are in Slate Units. Slate Units do NOT have to map to pixels.
+		const FVector2D Icon16x16(16.0f, 16.0f);
+		const FVector2D Icon64x64(64.0f, 64.0f);
+		const FVector2D Icon128x128(128.0f, 128.0f);
+		
+		static FString IconsDir = FPaths::EnginePluginsDir() / TEXT("FX/HoudiniNiagara/Resources/");
+
+		// Register the Asset icon
+		StyleSet->Set(
+			"ClassIcon.HoudiniCSV",
+			new FSlateImageBrush(IconsDir + TEXT("HCSVIcon128.png"), Icon16x16));
+
+		StyleSet->Set(
+			"ClassThumbnail.HoudiniCSV",
+			new FSlateImageBrush(IconsDir + TEXT("HCSVIcon128.png"), Icon64x64));
+
+		// Register Slate style.
+		FSlateStyleRegistry::RegisterSlateStyle(*StyleSet.Get());
+	}
 }
 
 void FHoudiniNiagaraEditorModule::ShutdownModule()
@@ -49,6 +79,16 @@ void FHoudiniNiagaraEditorModule::ShutdownModule()
 
 		AssetTypeActions.Empty();
     }
+
+	// Unregister Slate style set.
+	if (StyleSet.IsValid())
+	{
+		// Unregister Slate style.
+		FSlateStyleRegistry::UnRegisterSlateStyle(*StyleSet.Get());
+
+		ensure(StyleSet.IsUnique());
+		StyleSet.Reset();
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

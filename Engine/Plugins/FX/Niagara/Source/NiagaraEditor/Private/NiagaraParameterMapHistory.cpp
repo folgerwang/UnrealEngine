@@ -250,15 +250,17 @@ FString FNiagaraParameterMapHistory::MakeSafeNamespaceString(const FString& InSt
 }
 
 
-FNiagaraVariable FNiagaraParameterMapHistory::ResolveAsBasicAttribute(const FNiagaraVariable& InVar)
+FNiagaraVariable FNiagaraParameterMapHistory::ResolveAsBasicAttribute(const FNiagaraVariable& InVar, bool bSanitizeString)
 {
 	if (IsAttribute(InVar))
 	{
 		FString ParamName = InVar.GetName().ToString();
 		ParamName.RemoveAt(0, FString(PARAM_MAP_ATTRIBUTE_STR).Len());
 
-		ParamName = MakeSafeNamespaceString(ParamName);
-
+		if (bSanitizeString)
+		{
+			ParamName = MakeSafeNamespaceString(ParamName);
+		}
 		FNiagaraVariable RetVar = InVar;
 		RetVar.SetName(*ParamName);
 		return RetVar;
@@ -269,12 +271,15 @@ FNiagaraVariable FNiagaraParameterMapHistory::ResolveAsBasicAttribute(const FNia
 	}
 }
 
-FNiagaraVariable FNiagaraParameterMapHistory::BasicAttributeToNamespacedAttribute(const FNiagaraVariable& InVar)
+FNiagaraVariable FNiagaraParameterMapHistory::BasicAttributeToNamespacedAttribute(const FNiagaraVariable& InVar, bool bSanitizeString)
 {
 	FString ParamName = InVar.GetName().ToString();
 	ParamName.InsertAt(0, FString(PARAM_MAP_ATTRIBUTE_STR));
 
-	ParamName = MakeSafeNamespaceString(ParamName);
+	if (bSanitizeString)
+	{
+		ParamName = MakeSafeNamespaceString(ParamName);
+	}
 
 	FNiagaraVariable RetVar = InVar;
 	RetVar.SetName(*ParamName);
@@ -1188,11 +1193,11 @@ int32 FNiagaraParameterMapHistoryBuilder::HandleVariableRead(int32 ParamMapIdx, 
 			{
 				FoundIdx = Histories[ParamMapIdx].Variables.Add(Var);
 				Histories[ParamMapIdx].VariablesWithOriginalAliasesIntact.Add(AliasedVar);
+				Histories[ParamMapIdx].PerVariableWarnings.AddDefaulted(1);
+				Histories[ParamMapIdx].PerVariableWriteHistory.AddDefaulted(1);
+				Histories[ParamMapIdx].PerVariableReadHistory.AddDefaulted(1);
 
 			}
-			Histories[ParamMapIdx].PerVariableWarnings.AddDefaulted(1);
-			Histories[ParamMapIdx].PerVariableWriteHistory.AddDefaulted(1);
-			Histories[ParamMapIdx].PerVariableReadHistory.AddDefaulted(1);
 			Histories[ParamMapIdx].PerVariableReadHistory[FoundIdx].Add(TTuple<const UEdGraphPin*, const UEdGraphPin*>(InPin, nullptr));
 
 			if (InDefaultPin && OutUsedDefault)
