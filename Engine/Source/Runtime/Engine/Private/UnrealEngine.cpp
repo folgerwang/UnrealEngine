@@ -2094,6 +2094,46 @@ void LoadEngineClass(FSoftClassPath& ClassName, TSubclassOf<ClassType>& EngineCl
 	}
 }
 
+void InitializeTimecodeProvider(UEngine* InEngine, FSoftClassPath InTimecodeFrameRateClassName)
+{
+	if (InEngine->GetTimecodeProvider() == nullptr && InTimecodeFrameRateClassName.IsValid())
+	{
+		UClass* TimecodeProviderClass = LoadClass<UObject>(nullptr, *InTimecodeFrameRateClassName.ToString());
+		if (TimecodeProviderClass)
+		{
+			UTimecodeProvider* NewTimecodeProvider = NewObject<UTimecodeProvider>(InEngine, TimecodeProviderClass);
+			if (!InEngine->SetTimecodeProvider(NewTimecodeProvider))
+			{
+				UE_LOG(LogEngine, Error, TEXT("Engine config TimecodeFrameRateClassName '%s' could not be initialized."), *InTimecodeFrameRateClassName.ToString());
+			}
+		}
+		else
+		{
+			UE_LOG(LogEngine, Error, TEXT("Engine config value TimecodeFrameRateClassName '%s' is not a valid class name."), *InTimecodeFrameRateClassName.ToString());
+		}
+	}
+}
+
+void InitializeCustomTimeStep(UEngine* InEngine, FSoftClassPath InCustomTimeStepClassName)
+{
+	if (InEngine->GetCustomTimeStep() == nullptr && InCustomTimeStepClassName.IsValid())
+	{
+		UClass* CustomTimeStepClass = LoadClass<UObject>(nullptr, *InCustomTimeStepClassName.ToString());
+		if (CustomTimeStepClass)
+		{
+			UEngineCustomTimeStep* NewCustomTimeStep = NewObject<UEngineCustomTimeStep>(InEngine, CustomTimeStepClass);
+			if (!InEngine->SetCustomTimeStep(NewCustomTimeStep))
+			{
+				UE_LOG(LogEngine, Error, TEXT("Engine config CustomTimeStepClassName '%s' could not be initialized."), *InCustomTimeStepClassName.ToString());
+			}
+		}
+		else
+		{
+			UE_LOG(LogEngine, Error, TEXT("Engine config value CustomTimeStepClassName '%s' is not a valid class name."), *InCustomTimeStepClassName.ToString());
+		}
+	}
+}
+
 /**
 * Loads all Engine object references from their corresponding config entries.
 */
@@ -2278,6 +2318,9 @@ void UEngine::InitializeObjectReferences()
 		}
 	}
 
+	InitializeCustomTimeStep(this, CustomTimeStepClassName);
+	InitializeTimecodeProvider(this, TimecodeFrameRateClassName);
+
 	if (GameSingleton == nullptr && GameSingletonClassName.ToString().Len() > 0)
 	{
 		UClass *SingletonClass = LoadClass<UObject>(nullptr, *GameSingletonClassName.ToString());
@@ -2431,6 +2474,23 @@ void UEngine::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collect
 
 	Super::AddReferencedObjects(This, Collector);
 }
+
+#if WITH_EDITOR
+bool UEngine::CanEditChange(const UProperty* InProperty) const
+{
+	if (!Super::CanEditChange(InProperty))
+	{
+		return false;
+	}
+
+	if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(UEngine, DefaultTimecodeFrameRate))
+	{
+		return !TimecodeFrameRateClassName.IsValid();
+	}
+
+	return true;
+}
+#endif // #if WITH_EDITOR
 
 void UEngine::CleanupGameViewport()
 {

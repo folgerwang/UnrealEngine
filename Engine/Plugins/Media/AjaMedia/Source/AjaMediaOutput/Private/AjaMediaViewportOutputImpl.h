@@ -70,9 +70,6 @@ private:
 	void OnEndFrame_GameThread();
 	void OnEndFrame_RenderThread(const FTimecode& FrameTimecode, FColor* ColorBuffer, int32 Width, int32 Height);
 	bool WaitForSync() const;
-	void EncodeTimecode(const AJA::FTimecode& Timecode, FColor* ColorBuffer, uint32 ColorBufferWidth, uint32 ColorBufferHeight) const;
-	void EncodeTimecode_Pattern(FColor* ColorBuffer, uint32 ColorBufferWidth, int32 HeightIndex, int32 Amount) const;
-	void EncodeTimecode_Time(FColor* ColorBuffer, uint32 ColorBufferWidth, int32 HeightIndex, int32 Time) const;
 	void SendToAja(const FTimecode& FrameTimecode, FColor* ColorBuffer, uint32 ColorBufferWidth, uint32 ColorBufferHeight);
 
 protected:

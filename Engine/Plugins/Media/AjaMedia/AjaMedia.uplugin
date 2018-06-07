@@ -11,7 +11,7 @@
 	"Category" : "Media Players",
 	"CanContainContent" : false,
 	"EnabledByDefault" : false,
-	"IsBetaVersion": false,
+	"IsBetaVersion": true,
 
 	"Modules" :
 	[

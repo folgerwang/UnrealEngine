@@ -7,7 +7,7 @@
 #include "MagicLeapIdentityTypes.generated.h"
 
 /** Identifies an attribute in a user profile. */
-UENUM(BlueprintType)
+UENUM(BlueprintType, meta=(ScriptName="MagicLeapIdentityAttributeType"))
 enum class EMagicLeapIdentityAttribute : uint8
 {
 	UserID,

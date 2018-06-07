@@ -38,9 +38,6 @@ public:
 	UPROPERTY(EditAnywhere, Category = Player)
 	UMediaTexture* MediaTexture;
 
-private:
-	FFrameRate PlayerFrameRate;
-
 public:
 
 	//~ Begin UObject Interface

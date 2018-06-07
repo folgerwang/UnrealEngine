@@ -1940,6 +1940,8 @@ void UHierarchicalInstancedStaticMeshComponent::Serialize(FArchive& Ar)
 		// Skip the serialized tree, we will regenerate it correctly to contains the new data
 		TArray<FClusterNode_DEPRECATED> ClusterTree_DEPRECATED;
 		ClusterTree_DEPRECATED.BulkSerialize(Ar);
+
+		BuildTreeIfOutdated(false, true);
 	}
 	else
 	{
@@ -3094,3 +3096,6 @@ static FAutoConsoleCommand RebuildFoliageTreesCmd(
 	TEXT("Rebuild the trees for non-grass foliage."),
 	FConsoleCommandWithArgsDelegate::CreateStatic(&RebuildFoliageTrees)
 	);
+
+
+PRAGMA_ENABLE_OPTIMIZATION
