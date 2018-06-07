@@ -257,6 +257,15 @@ void UMovieSceneNiagaraEmitterSection::UpdateSectionFromTimeRangeModule(const FF
 	{
 		float ModuleStartTime = StartTimeBinder.GetValue<float>();
 		float ModuleLength = LengthBinder.GetValue<float>();
+
+		if (ModuleLength < 0)
+		{
+			// TODO: Add ui support for this issue rather than a log error.
+			UE_LOG(LogNiagaraEditor, Error, TEXT("Invalid length in niagara editor timeline.  Bound Module: %s Bound Input: %s"),
+				LengthBinder.GetFunctionCallNode() != nullptr ? *LengthBinder.GetFunctionCallNode()->GetFunctionName() : TEXT("Unknown"),
+				*LengthBinder.GetInputName().ToString());
+			ModuleLength = 0;
+		}
 		
 		SetRange(TRange<FFrameNumber>(
 			(ModuleStartTime * InTickResolution).RoundToFrame(),
