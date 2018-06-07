@@ -803,9 +803,13 @@ namespace ObjectTools
 						ReferencingPropertiesMapValues[DependentIndex] = Value;
 
 						FindDependentArchive.ResetPotentialReferencer(ReferencingPropertiesMapKeys[CurrentIndex]);
+						
+						if(CheckForCircles == 0)
+						{
+							CheckForCircles = DependentIndex;
+						}
+						
 						DependentIndex = CurrentIndex;
-
-						CheckForCircles = (CheckForCircles == 0) ? DependentIndex : CheckForCircles;
 					}
 				}
 			}
