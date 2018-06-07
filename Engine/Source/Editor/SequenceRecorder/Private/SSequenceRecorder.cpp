@@ -428,6 +428,7 @@ void SSequenceRecorder::Construct(const FArguments& Args)
 		ActiveTimerHandle = RegisterActiveTimer(0.1f, FWidgetActiveTimerDelegate::CreateSP(this, &SSequenceRecorder::HandleRefreshItems));
 	}
 
+	FSequenceRecorder::Get().OnRecordingGroupAddedDelegate.AddRaw(this, &SSequenceRecorder::HandleRecordingGroupAddedToSequenceRecorder);
 #if WITH_EDITOR
 	FEditorSupportDelegates::PrepareToCleanseEditorObject.AddRaw(this, &SSequenceRecorder::HandleMapUnload);
 #endif
@@ -438,6 +439,8 @@ SSequenceRecorder::~SSequenceRecorder()
 #if WITH_EDITOR
 	FEditorSupportDelegates::PrepareToCleanseEditorObject.RemoveAll(this);
 #endif
+	FSequenceRecorder::Get().OnRecordingGroupAddedDelegate.RemoveAll(this);
+
 }
 
 void SSequenceRecorder::HandleMapUnload(UObject* Object)
@@ -598,9 +601,9 @@ void SSequenceRecorder::HandleRemoveRecording()
 		// Remove the recording from the current group here. We can't use the
 		// FSequenceRecorder function as they are called when switching groups,
 		// and not just when the user removes items.
-		if (FSequenceRecorder::Get().GetRecordingGroup().IsValid())
+		if (FSequenceRecorder::Get().GetCurrentRecordingGroup().IsValid())
 		{
-			FSequenceRecorder::Get().GetRecordingGroup()->RecordedActors.Remove(SelectedRecording);
+			FSequenceRecorder::Get().GetCurrentRecordingGroup()->RecordedActors.Remove(SelectedRecording);
 		}
 
 		TArray<TWeakObjectPtr<UObject>> SelectedObjects = ActorRecordingDetailsView->GetSelectedObjects();
@@ -619,9 +622,9 @@ bool SSequenceRecorder::CanRemoveRecording() const
 void SSequenceRecorder::HandleRemoveAllRecordings()
 {
 	FSequenceRecorder::Get().ClearQueuedRecordings();
-	if (FSequenceRecorder::Get().GetRecordingGroup().IsValid())
+	if (FSequenceRecorder::Get().GetCurrentRecordingGroup().IsValid())
 	{
-		FSequenceRecorder::Get().GetRecordingGroup()->RecordedActors.Empty();
+		FSequenceRecorder::Get().GetCurrentRecordingGroup()->RecordedActors.Empty();
 	}
 	ActorRecordingDetailsView->SetObject(nullptr);
 }
@@ -644,9 +647,21 @@ EActiveTimerReturnType SSequenceRecorder::HandleRefreshItems(double InCurrentTim
 
 void SSequenceRecorder::HandleAddRecordingGroup()
 {
-	FSequenceRecorder::Get().AddRecordingGroup();
-	check(FSequenceRecorder::Get().GetRecordingGroup().IsValid());
-	RecordingGroupDetailsView->SetObject(FSequenceRecorder::Get().GetRecordingGroup().Get());
+	TWeakObjectPtr<USequenceRecorderActorGroup> ActorGroup = FSequenceRecorder::Get().AddRecordingGroup();
+	check(ActorGroup.IsValid());
+}
+
+void SSequenceRecorder::HandleRecordingGroupAddedToSequenceRecorder(TWeakObjectPtr<USequenceRecorderActorGroup> ActorGroup)
+{
+	if (ActorGroup.IsValid())
+	{
+		RecordingGroupDetailsView->SetObject(ActorGroup.Get());
+	}
+	else
+	{
+		// Fall back to the CDO in the event of an unexpected failure so the UI doesn't disappear.
+		RecordingGroupDetailsView->SetObject(GetMutableDefault<USequenceRecorderActorGroup>());
+	}
 }
 
 bool SSequenceRecorder::CanAddRecordingGroup() const
@@ -659,9 +674,9 @@ void SSequenceRecorder::HandleLoadRecordingActorGroup(FName Name)
 	FSequenceRecorder::Get().LoadRecordingGroup(Name);
 
 	// Bind our details view to the newly loaded group.
-	if (FSequenceRecorder::Get().GetRecordingGroup().IsValid())
+	if (FSequenceRecorder::Get().GetCurrentRecordingGroup().IsValid())
 	{
-		RecordingGroupDetailsView->SetObject(FSequenceRecorder::Get().GetRecordingGroup().Get());
+		RecordingGroupDetailsView->SetObject(FSequenceRecorder::Get().GetCurrentRecordingGroup().Get());
 	}
 	else
 	{
@@ -680,9 +695,9 @@ void SSequenceRecorder::HandleRemoveRecordingGroup()
 	if (RecordingProfiles.Num() > 0)
 	{
 		FSequenceRecorder::Get().LoadRecordingGroup(RecordingProfiles[RecordingProfiles.Num() - 1]);
-		check(FSequenceRecorder::Get().GetRecordingGroup().Get());
+		check(FSequenceRecorder::Get().GetCurrentRecordingGroup().Get());
 
-		RecordingGroupDetailsView->SetObject(FSequenceRecorder::Get().GetRecordingGroup().Get());
+		RecordingGroupDetailsView->SetObject(FSequenceRecorder::Get().GetCurrentRecordingGroup().Get());
 	}
 	else
 	{
@@ -692,7 +707,7 @@ void SSequenceRecorder::HandleRemoveRecordingGroup()
 
 bool SSequenceRecorder::CanRemoveRecordingGroup() const
 {
-	TWeakObjectPtr<USequenceRecorderActorGroup> RecordingGroup = FSequenceRecorder::Get().GetRecordingGroup();
+	TWeakObjectPtr<USequenceRecorderActorGroup> RecordingGroup = FSequenceRecorder::Get().GetCurrentRecordingGroup();
 	if (RecordingGroup.IsValid())
 	{
 		return RecordingGroup->GroupName != NAME_None;
@@ -708,7 +723,7 @@ void SSequenceRecorder::HandleDuplicateRecordingGroup()
 
 bool SSequenceRecorder::CanDuplicateRecordingGroup() const
 {
-	TWeakObjectPtr<USequenceRecorderActorGroup> RecordingGroup = FSequenceRecorder::Get().GetRecordingGroup();
+	TWeakObjectPtr<USequenceRecorderActorGroup> RecordingGroup = FSequenceRecorder::Get().GetCurrentRecordingGroup();
 	if (RecordingGroup.IsValid())
 	{
 		return RecordingGroup->GroupName != NAME_None;

@@ -1,0 +1,39 @@
+{
+	"FileVersion": 3,
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"FriendlyName": "nDisplay",
+	"CreatedBy" : "Epic Games Inc",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.20.0",
+	"Description": "Mono/Stereo standalone/cluster virtual reality",
+	"Category": "Misc",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EnabledByDefault": false,
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "DisplayCluster",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms" :
+			[
+				"Win64"
+			]
+		},
+		{
+			"Name": "DisplayClusterEditor",
+			"Type": "Editor",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms" :
+			[
+				"Win64"
+			]
+		}
+
+	]
+}

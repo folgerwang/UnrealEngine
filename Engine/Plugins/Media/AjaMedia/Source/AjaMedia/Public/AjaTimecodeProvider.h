@@ -17,7 +17,7 @@ namespace AJA
 /**
  * Class to fetch a timecode via an AJA card
  */
-UCLASS(editinlinenew, meta=(DisplayName="AJA SDI Input"))
+UCLASS(Blueprintable, editinlinenew, meta=(DisplayName="AJA SDI Input"))
 class AJAMEDIA_API UAjaTimecodeProvider : public UTimecodeProvider
 {
 	GENERATED_UCLASS_BODY()
@@ -25,7 +25,7 @@ class AJAMEDIA_API UAjaTimecodeProvider : public UTimecodeProvider
 public:
 	//~ UTimecodeProvider interface
 	virtual FTimecode GetTimecode() const override;
-	virtual FFrameRate GetFrameRate() const override { return FrameRate; }
+	virtual FFrameRate GetFrameRate() const override { return MediaMode.FrameRate; }
 	virtual ETimecodeProviderSynchronizationState GetSynchronizationState() const override { return State; }
 	virtual bool Initialize(class UEngine* InEngine) override;
 	virtual void Shutdown(class UEngine* InEngine) override;
@@ -44,13 +44,13 @@ public:
 	UPROPERTY(EditAnywhere, Category="Timecode options", AssetRegistrySearchable, meta=(DisplayName="Source"))
 	FAjaMediaPort MediaPort;
 
+	/** The expected signal input from the MediaPort. */
+	UPROPERTY(EditAnywhere, Category="Timecode options", meta=(MediaPort="MediaPort"))
+	FAjaMediaMode MediaMode;
+
 	/** The type of Timecode to read from SDI stream. */
 	UPROPERTY(EditAnywhere, Category="Timecode options")
 	EAjaMediaTimecodeFormat TimecodeFormat;
-
-	/** Frame rate expected from the SDI stream.  */
-	UPROPERTY(EditAnywhere, Category="Timecode options")
-	FFrameRate FrameRate;
 
 
 private:

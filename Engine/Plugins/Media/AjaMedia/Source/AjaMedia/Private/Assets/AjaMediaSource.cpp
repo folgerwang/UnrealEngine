@@ -4,8 +4,7 @@
 #include "AjaMediaPrivate.h"
 
 UAjaMediaSource::UAjaMediaSource()
-	: FrameRate(30, 1)
-	, TimecodeFormat(EAjaMediaTimecodeFormat::None)
+	: TimecodeFormat(EAjaMediaTimecodeFormat::None)
 	, bCaptureWithAutoCirculating(true)
 	, bCaptureAncillary1(false)
 	, bCaptureAncillary2(false)
@@ -14,9 +13,9 @@ UAjaMediaSource::UAjaMediaSource()
 	, MaxNumAncillaryFrameBuffer(8)
 	, AudioChannel(EAjaMediaAudioChannel::Channel8)
 	, MaxNumAudioFrameBuffer(8)
-	, bIsProgressivePicture(true)
 	, ColorFormat(EAjaMediaColorFormat::BGRA)
 	, MaxNumVideoFrameBuffer(8)
+	, bLogDropFrame(true)
 	, bEncodeTimecodeInTexel(false)
 { }
 
@@ -46,9 +45,9 @@ bool UAjaMediaSource::GetMediaOption(const FName& Key, bool DefaultValue) const
 	{
 		return bCaptureVideo;
 	}
-	if (Key == AjaMediaOption::IsProgressivePicture)
+	if (Key == AjaMediaOption::LogDropFrame)
 	{
-		return bIsProgressivePicture;
+		return bLogDropFrame;
 	}
 	if (Key == AjaMediaOption::EncodeTimecodeInTexel)
 	{
@@ -62,11 +61,11 @@ int64 UAjaMediaSource::GetMediaOption(const FName& Key, int64 DefaultValue) cons
 {
 	if (Key == AjaMediaOption::FrameRateNumerator)
 	{
-		return FrameRate.Numerator;
+		return MediaMode.FrameRate.Numerator;
 	}
 	if (Key == AjaMediaOption::FrameRateDenominator)
 	{
-		return FrameRate.Denominator;
+		return MediaMode.FrameRate.Denominator;
 	}
 	if (Key == AjaMediaOption::TimecodeFormat)
 	{
@@ -83,6 +82,10 @@ int64 UAjaMediaSource::GetMediaOption(const FName& Key, int64 DefaultValue) cons
 	if (Key == AjaMediaOption::MaxAudioFrameBuffer)
 	{
 		return MaxNumAudioFrameBuffer;
+	}
+	if (Key == AjaMediaOption::AjaVideoFormat)
+	{
+		return MediaMode.VideoFormatIndex;
 	}
 	if (Key == AjaMediaOption::ColorFormat)
 	{
@@ -109,9 +112,10 @@ bool UAjaMediaSource::HasMediaOption(const FName& Key) const
 		(Key == AjaMediaOption::MaxAncillaryFrameBuffer) ||
 		(Key == AjaMediaOption::AudioChannel) ||
 		(Key == AjaMediaOption::MaxAudioFrameBuffer) ||
-		(Key == AjaMediaOption::IsProgressivePicture) ||
+		(Key == AjaMediaOption::AjaVideoFormat) ||
 		(Key == AjaMediaOption::ColorFormat) ||
 		(Key == AjaMediaOption::MaxVideoFrameBuffer) ||
+		(Key == AjaMediaOption::LogDropFrame) ||
 		(Key == AjaMediaOption::EncodeTimecodeInTexel)
 		)
 	{
@@ -132,7 +136,14 @@ FString UAjaMediaSource::GetUrl() const
 
 bool UAjaMediaSource::Validate() const
 {
-	return MediaPort.IsValid();
+	FString FailureReason;
+	if (!FAjaMediaFinder::IsValid(MediaPort, MediaMode, FailureReason))
+	{
+		UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' is invalid. %s"), *GetName(), *FailureReason);
+		return false;
+	}
+
+	return true;
 }
 
 #if WITH_EDITOR
