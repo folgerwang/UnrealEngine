@@ -942,7 +942,7 @@ public:
 	 * @param NewMasterBoneComponent New MasterPoseComponent
 	 */
 	UFUNCTION(BlueprintCallable, Category="Components|SkinnedMesh")
-	void SetMasterPoseComponent(USkinnedMeshComponent* NewMasterBoneComponent);
+	void SetMasterPoseComponent(USkinnedMeshComponent* NewMasterBoneComponent, bool bForceUpdate = false);
 
 protected:
 	/** Add a slave component to the SlavePoseComponents array */

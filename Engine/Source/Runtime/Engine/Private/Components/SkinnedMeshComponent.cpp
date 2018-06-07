@@ -455,8 +455,8 @@ void USkinnedMeshComponent::OnRegister()
 
 	if (MasterPoseComponent.IsValid())
 	{
-		// this has to be called again during register so that it can do related initialization
-		SetMasterPoseComponent(MasterPoseComponent.Get());
+		// we have to make sure it updates the mastesr pose
+		SetMasterPoseComponent(MasterPoseComponent.Get(), true);
 	}
 	else
 	{
@@ -1329,10 +1329,10 @@ void USkinnedMeshComponent::SetPhysicsAsset(class UPhysicsAsset* InPhysicsAsset,
 	PhysicsAssetOverride = InPhysicsAsset;
 }
 
-void USkinnedMeshComponent::SetMasterPoseComponent(class USkinnedMeshComponent* NewMasterBoneComponent)
+void USkinnedMeshComponent::SetMasterPoseComponent(class USkinnedMeshComponent* NewMasterBoneComponent, bool bForceUpdate)
 {
 	// Early out if we're already setup.
-	if (NewMasterBoneComponent == MasterPoseComponent)
+	if (!bForceUpdate && NewMasterBoneComponent == MasterPoseComponent)
 	{
 		return;
 	}
