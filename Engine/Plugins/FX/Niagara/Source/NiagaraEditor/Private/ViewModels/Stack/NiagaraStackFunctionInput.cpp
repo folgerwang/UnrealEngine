@@ -926,11 +926,8 @@ void UNiagaraStackFunctionInput::SetLocalValue(TSharedRef<FStructOnScope> InLoca
 
 		for (TWeakObjectPtr<UNiagaraScript> Script : AffectedScripts)
 		{
-			if(Script->RapidIterationParameters.AddParameter(RapidIterationParameter))
-			{
-				UE_LOG(LogNiagaraEditor, Log, TEXT("Adding Parameter %s to Script %s"), *RapidIterationParameter.GetName().ToString(), *Script->GetFullName());
-			}
-			Script->RapidIterationParameters.SetParameterData(InLocalValue->GetStructMemory(), RapidIterationParameter);
+			bool bAddParameterIfMissing = true;
+			Script->RapidIterationParameters.SetParameterData(InLocalValue->GetStructMemory(), RapidIterationParameter, bAddParameterIfMissing);
 		}
 	}
 	else 
@@ -1039,11 +1036,8 @@ bool UNiagaraStackFunctionInput::UpdateRapidIterationParametersForAffectedScript
 
 	for (TWeakObjectPtr<UNiagaraScript> Script : AffectedScripts)
 	{
-		if (Script->RapidIterationParameters.AddParameter(RapidIterationParameter))
-		{
-			UE_LOG(LogNiagaraEditor, Log, TEXT("Adding Parameter %s to Script %s"), *RapidIterationParameter.GetName().ToString(), *Script->GetFullName());
-		}
-		Script->RapidIterationParameters.SetParameterData(Data, RapidIterationParameter);
+		bool bAddParameterIfMissing = true;
+		Script->RapidIterationParameters.SetParameterData(Data, RapidIterationParameter, bAddParameterIfMissing);
 	}
 	GetSystemViewModel()->ResetSystem();
 	return true;
@@ -1245,9 +1239,9 @@ void UNiagaraStackFunctionInput::ResetToBase()
 						AffectedScript->Modify();
 						for (FNiagaraVariable& OwningScriptRapidIterationParameter : OwningScriptRapidIterationParameters)
 						{
-							AffectedScript->RapidIterationParameters.AddParameter(OwningScriptRapidIterationParameter);
+							bool bAddParameterIfMissing = true;
 							AffectedScript->RapidIterationParameters.SetParameterData(
-								OwningScript->RapidIterationParameters.GetParameterData(OwningScriptRapidIterationParameter), OwningScriptRapidIterationParameter);
+								OwningScript->RapidIterationParameters.GetParameterData(OwningScriptRapidIterationParameter), OwningScriptRapidIterationParameter, bAddParameterIfMissing);
 						}
 					}
 				}
