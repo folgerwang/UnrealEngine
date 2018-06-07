@@ -1064,6 +1064,60 @@ bool UHoudiniCSV::GetRowIndexesForPointAtTime(const int32& PointID, const float&
 	return true;
 }
 
+bool UHoudiniCSV::GetPointIDsToSpawnAtTime(
+	const float& desiredTime,
+	int32& MinID, int32& MaxID, int32& Count,
+	int32& LastSpawnedPointID, float& LastSpawnTime ) const
+{
+	int32 lastID = 0;
+	if ( !GetLastPointIDToSpawnAtTime( desiredTime, lastID ) )
+	{
+		// The CSV file doesn't have time informations, so always return all points in the file
+		MinID = 0;
+		MaxID = lastID;
+		Count = MaxID - MinID + 1;
+	}
+	else
+	{
+		// The CSV file has time informations
+		// First, detect if we need to reset LastSpawnedPointID (after a loop of the emitter)
+		if ( lastID < LastSpawnedPointID || desiredTime <= LastSpawnTime )
+			LastSpawnedPointID = -1;
+
+		if ( lastID < 0 )
+		{
+			// Nothing to spawn, t is lower than the point's time
+			LastSpawnedPointID = -1;					
+		}
+		else
+		{
+			// The last time value in the CSV is lower than t, spawn everything if we didnt already!
+			if ( lastID >= GetNumberOfPoints() )
+				lastID = lastID - 1;
+
+			if ( lastID == LastSpawnedPointID )
+			{
+				// We dont have any new point to spawn
+				MinID = lastID;
+				MaxID = lastID;
+				Count = 0;
+			}
+			else
+			{
+				// We have points to spawn at time t
+				MinID = LastSpawnedPointID + 1;
+				MaxID = lastID;
+				Count = MaxID - MinID + 1;
+
+				LastSpawnedPointID = MaxID;
+				LastSpawnTime = desiredTime;
+			}
+		}
+	}
+
+	return true;
+}
+
 int32 UHoudiniCSV::GetAttributeColumnIndex(const EHoudiniAttributes& Attr) const
 {
 	if ( !IsValidAttributeColumnIndex( Attr ) )

@@ -146,6 +146,11 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	// NumberOfRows will be returned if all points in the CSV have been spawned ( t is higher than the last point time )
 	UFUNCTION(BlueprintCallable, Category = "Houdini Attributes Data")
 	bool GetLastPointIDToSpawnAtTime( const float& time, int32& lastIndex ) const;
+	UFUNCTION(BlueprintCallable, Category = "Houdini Attributes Data")
+	bool GetPointIDsToSpawnAtTime(
+		const float& desiredTime,
+		int32& MinID, int32& MaxID, int32& Count,
+		int32& LastSpawnedPointID, float& LastSpawnTime ) const;
 
 	// Returns the previous and next indexes for reading the values of a specified point at a given time
 	UFUNCTION(BlueprintCallable, Category = "Houdini Attributes Data")
