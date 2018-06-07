@@ -122,6 +122,10 @@ FAITest_SimpleBT::FAITest_SimpleBT()
 	bUseSystemTicking = false;
 	
 	BTAsset = &FBTBuilder::CreateBehaviorTree();
+	if (BTAsset)
+	{
+		AddAutoDestroyObject(*BTAsset);
+	}
 }
 
 void FAITest_SimpleBT::SetUp()

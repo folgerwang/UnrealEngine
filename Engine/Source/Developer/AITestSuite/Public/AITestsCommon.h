@@ -42,7 +42,7 @@ struct AITESTSUITE_API FAITestBase
 {
 private:
 	// internals
-	TArray<UObject*> SpawnedObjects;	
+	TArray<UObject*> SpawnedObjects;
 	uint32 bTearedDown : 1;
 protected:
 	FAutomationTestBase* TestRunner;
@@ -57,6 +57,12 @@ protected:
 		ObjectInstance->AddToRoot();
 		SpawnedObjects.Add(ObjectInstance);
 		return ObjectInstance;
+	}
+
+	void AddAutoDestroyObject(UObject& ObjectRef)
+	{
+		ObjectRef.AddToRoot();
+		SpawnedObjects.Add(&ObjectRef);
 	}
 
 	UWorld& GetWorld() const

@@ -771,7 +771,9 @@ struct FAITest_BTSubtreeSimple : public FAITest_SimpleBT
 	FAITest_BTSubtreeSimple()
 	{
 		UBehaviorTree* ChildAsset1 = &FBTBuilder::CreateBehaviorTree(*BTAsset);
+		if (ChildAsset1)
 		{
+			AddAutoDestroyObject(*ChildAsset1);
 			UBTCompositeNode& CompNode = FBTBuilder::AddSequence(*ChildAsset1);
 			{
 				FBTBuilder::AddTask(CompNode, 10, EBTNodeResult::Succeeded);
@@ -780,7 +782,9 @@ struct FAITest_BTSubtreeSimple : public FAITest_SimpleBT
 		}
 
 		UBehaviorTree* ChildAsset2 = &FBTBuilder::CreateBehaviorTree(*BTAsset);
+		if (ChildAsset2)
 		{
+			AddAutoDestroyObject(*ChildAsset2);
 			UBTCompositeNode& CompNode = FBTBuilder::AddSequence(*ChildAsset2);
 			{
 				FBTBuilder::AddTask(CompNode, 20, EBTNodeResult::Failed);
@@ -821,7 +825,9 @@ struct FAITest_BTSubtreeAbortOut : public FAITest_SimpleBT
 	FAITest_BTSubtreeAbortOut()
 	{
 		UBehaviorTree* ChildAsset = &FBTBuilder::CreateBehaviorTree(*BTAsset);
+		if (ChildAsset)
 		{
+			AddAutoDestroyObject(*ChildAsset);
 			UBTCompositeNode& CompNode = FBTBuilder::AddSequence(*ChildAsset);
 			{
 				FBTBuilder::AddTask(CompNode, 10, EBTNodeResult::Succeeded);
