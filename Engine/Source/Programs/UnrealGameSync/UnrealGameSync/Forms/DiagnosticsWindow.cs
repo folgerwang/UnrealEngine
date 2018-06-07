@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -56,7 +56,13 @@ namespace UnrealGameSync
 				try
 				{
 					ZipFile Zip = new ZipFile();
-					Zip.AddDirectory(DataFolder);
+					foreach(string FileName in Directory.EnumerateFiles(DataFolder))
+					{
+						if(!FileName.EndsWith(".exe", StringComparison.InvariantCultureIgnoreCase) && !FileName.EndsWith(".dll", StringComparison.InvariantCultureIgnoreCase))
+						{
+							Zip.AddFile(FileName, "");
+						}
+					}
 					Zip.Save(ZipFileName);
 				}
 				catch(Exception Ex)
