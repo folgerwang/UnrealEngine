@@ -231,25 +231,20 @@ enum class EComputeNTBsOptions : uint32
 };
 ENUM_CLASS_FLAGS(EComputeNTBsOptions);
 
-#define MESHDESCRIPTION_VER TEXT("616CDBD71BEA4A538F74E6CAE2EACCE2")
+#define MESHDESCRIPTION_VER TEXT("42190ADE250046AC958045C7DA930FEC")
 
 
-UCLASS()
-class MESHDESCRIPTION_API UMeshDescription : public UObject
+class MESHDESCRIPTION_API FMeshDescription
 {
 public:
-	GENERATED_BODY()
+
+	FMeshDescription() = default;
+	~FMeshDescription() = default;
+
+	friend MESHDESCRIPTION_API FArchive& operator<<( FArchive& Ar, FMeshDescription& MeshDescription );
 
 	//Get the current meshdescription version
 	static FString GetMeshDescriptionVersion() { return MESHDESCRIPTION_VER; }
-
-	UMeshDescription();
-
-	// UObject interface
-	virtual void Serialize( FArchive& Ar ) override;
-#if WITH_EDITOR
-	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
-#endif
 
 	//Empty the meshdescription
 	void Empty();
@@ -794,11 +789,6 @@ public:
 	/** Remaps the element IDs in the mesh description according to the passed in object */
 	void Remap( const FElementIDRemappings& Remappings );
 
-#if 0
-#if WITH_EDITORONLY_DATA
-	FString GetIdString();
-#endif
-#endif
 
 	void ComputePolygonTriangulation(const FPolygonID PolygonID, TArray<FMeshTriangle>& OutTriangles);
 	void TriangulateMesh();
@@ -879,4 +869,15 @@ private:
 	TAttributesSet<FEdgeID> EdgeAttributesSet;
 	TAttributesSet<FPolygonID> PolygonAttributesSet;
 	TAttributesSet<FPolygonGroupID> PolygonGroupAttributesSet;
+};
+
+
+UCLASS(deprecated)
+class MESHDESCRIPTION_API UDEPRECATED_MeshDescription : public UObject
+{
+public:
+	GENERATED_BODY()
+
+	// UObject interface
+	virtual void Serialize( FArchive& Ar ) override;
 };

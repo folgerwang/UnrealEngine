@@ -1345,7 +1345,7 @@ void FMeshEditorMode::UpdateDebugNormals()
 
 		const UPrimitiveComponent* Component = ComponentAndEditableMesh.Component.Get();
 		const UEditableMesh* EditableMesh = ComponentAndEditableMesh.EditableMesh;
-		const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+		const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 
 		const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 		const TVertexInstanceAttributeArray<FVector>& VertexNormals = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>( MeshAttribute::VertexInstance::Normal );
@@ -1931,7 +1931,7 @@ void FMeshEditorMode::FrameSelectedElements( FEditorViewportClient* ViewportClie
 				UEditableMesh* EditableMesh = SelectedMeshAndVertices.Key;
 				const TArray<FMeshElement>& VertexElements = SelectedMeshAndVertices.Value;
 
-				const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+				const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 				const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 				for( const auto& VertexElement : VertexElements )
@@ -1958,7 +1958,7 @@ void FMeshEditorMode::FrameSelectedElements( FEditorViewportClient* ViewportClie
 				UEditableMesh* EditableMesh = SelectedMeshAndEdges.Key;
 				const TArray<FMeshElement>& EdgeElements = SelectedMeshAndEdges.Value;
 
-				const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+				const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 				const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 				for( const auto& EdgeElement : EdgeElements )
@@ -1990,7 +1990,7 @@ void FMeshEditorMode::FrameSelectedElements( FEditorViewportClient* ViewportClie
 				UEditableMesh* EditableMesh = SelectedMeshAndPolygons.Key;
 				const TArray<FMeshElement>& PolygonElements = SelectedMeshAndPolygons.Value;
 
-				const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+				const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 				const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 				for( const auto& PolygonElement : PolygonElements )
@@ -2330,7 +2330,7 @@ bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* Sele
 
 			EditableMesh->StartModification( EMeshModificationType::Final, EMeshTopologyChange::TopologyChange );
 			{
-				const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+				const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 
 				UPrimitiveComponent* Component = nullptr;
 				for( const FMeshElement& PolygonElement : MeshAndPolygons.Value )
@@ -2492,7 +2492,7 @@ void FMeshEditorMode::AddMeshElementToOverlay( UOverlayComponent* OverlayCompone
 		{
 			if( IsElementIDValid( MeshElement, EditableMesh ) )
 			{
-				const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+				const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 				const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 				UPrimitiveComponent* Component = MeshElement.Component.Get();
@@ -3370,7 +3370,7 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 			VertexIDsAlreadyMoved.Reset();
 
 			UEditableMesh* EditableMesh = MeshAndTransformables.Key;
-			const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+			const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 			const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 			const TArray< const FMeshElementViewportTransformable* >& TransformablesForMesh = MeshAndTransformables.Value;
@@ -3523,7 +3523,7 @@ bool FMeshEditorMode::FindEdgeSplitUnderInteractor(	UViewportInteractor* Viewpor
 	OutClosestEdgeID = FEdgeID::Invalid;
 	bool bFoundSplit = false;
 
-	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 	// Figure out where to split based on where the interactor is aiming.  We'll look at all of the
@@ -3659,7 +3659,7 @@ FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& 
 	float ClosestDistanceToRay = TNumericLimits<float>::Max();
 	FVector CurrentRayEnd = RayEnd;
 
-	const UMeshDescription* MeshDescription = EditableMesh.GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh.GetMeshDescription();
 	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 	// Check polygons first; this is so we always impose a closest hit location at the poly before checking other elements, so anything behind is occluded
@@ -4463,7 +4463,7 @@ bool FMeshEditorMode::FrustumSelect( const FConvexVolume& InFrustum, FEditorView
 		UEditableMesh* EditableMesh = CandidateMesh.Get<1>();
 		FTransform ComponentTransform = Component->GetComponentTransform();
 
-		const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+		const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 		const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 		static TArray<FEdgeID> SelectedEdgeIDs;
@@ -4693,7 +4693,7 @@ void FMeshEditorMode::RefreshTransformables( const bool bNewObjectsSelected )
 					const FTransform ComponentToWorld = Component->GetComponentToWorld();
 					const FMatrix ComponentToWorldMatrix = Component->GetRenderMatrix();
 
-					const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+					const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 					const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 					FTransform ElementTransform = FTransform::Identity;
