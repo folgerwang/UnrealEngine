@@ -739,6 +739,17 @@ void FNiagaraEmitterInstance::PreTick()
 		return;
 	}
 
+	if (TickCount == 0)
+	{
+		//On our very first frame we prime any previous params (for interpolation).
+		SpawnExecContext.PostTick();
+		UpdateExecContext.PostTick();
+		for (FNiagaraScriptExecutionContext& EventContext : EventExecContexts)
+		{
+			EventContext.PostTick();
+		}
+	}
+
 	checkSlow(Data.GetNumVariables() > 0);
 	checkSlow(CachedEmitter->SpawnScriptProps.Script);
 	checkSlow(CachedEmitter->UpdateScriptProps.Script);

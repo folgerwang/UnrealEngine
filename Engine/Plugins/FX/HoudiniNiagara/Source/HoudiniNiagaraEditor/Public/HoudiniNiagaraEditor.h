@@ -27,6 +27,7 @@
 #include "Modules/ModuleInterface.h"
 
 class IAssetTypeActions;
+class FSlateStyleSet;
 
 class FHoudiniNiagaraEditorModule : public IModuleInterface
 {
@@ -40,4 +41,7 @@ class FHoudiniNiagaraEditorModule : public IModuleInterface
 
 	/** AssetType actions associated with Houdini CSV assets. **/
 	TArray< TSharedPtr< IAssetTypeActions > > AssetTypeActions;
+
+	/** Slate styleset used by this module. **/
+	TSharedPtr< FSlateStyleSet > StyleSet;
 };

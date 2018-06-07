@@ -381,7 +381,7 @@ protected:
 	FString GeneratedConstantString(FVector4 Constant);
 
 	/* Add a chunk that is not written to the source, only used as a source chunk for others. */
-	int32 AddSourceChunk(FString SymbolName, const FNiagaraTypeDefinition& Type);
+	int32 AddSourceChunk(FString SymbolName, const FNiagaraTypeDefinition& Type, bool bSanitize = true);
 
 	/** Add a chunk defining a uniform value. */
 	int32 AddUniformChunk(FString SymbolName, const FNiagaraTypeDefinition& Type);
@@ -401,6 +401,8 @@ public:
 
 	FHlslNiagaraTranslator();
 	virtual ~FHlslNiagaraTranslator() {}
+
+	static void Init();
 	
 	virtual const FNiagaraTranslateResults &Translate(const FNiagaraCompileRequestData* InCompileData, const FNiagaraCompileOptions& InCompileOptions, FHlslNiagaraTranslatorOptions Options);
 	FNiagaraTranslatorOutput &GetTranslateOutput() { return CompilationOutput; }
@@ -614,4 +616,7 @@ private:
 	TArray<FNiagaraVariable> InitialNamespaceVariablesMissingDefault;
 	// Variables that need to be initialized in the body or at the end of spawn.
 	TArray<FNiagaraVariable> DeferredVariablesMissingDefault;
+
+	static TMap<FString, FString> ReplacementsForInvalid;
+
 };

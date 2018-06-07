@@ -227,7 +227,11 @@ void FNiagaraEmitterHandleViewModel::OpenSourceEmitter()
 {
 	if (EmitterHandle)
 	{
-		FAssetEditorManager::Get().OpenEditorForAsset(const_cast<UNiagaraEmitter*>(EmitterHandle->GetSource()));
+		UNiagaraEmitter* EmitterSource = const_cast<UNiagaraEmitter*>(EmitterHandle->GetSource());
+		if (EmitterSource)
+		{
+			FAssetEditorManager::Get().OpenEditorForAsset(EmitterSource);
+		}
 	}
 }
 

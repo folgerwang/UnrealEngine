@@ -37,23 +37,27 @@ UCLASS(EditInlineNew, Category = "Houdini Niagara", meta = (DisplayName = "Houdi
 class HOUDININIAGARA_API UNiagaraDataInterfaceHoudiniCSV : public UNiagaraDataInterface
 {
 	GENERATED_UCLASS_BODY()
+
 public:
 
+	// Houdini CSV Asset to sample
 	UPROPERTY( EditAnywhere, Category = "Houdini Niagara", meta = (DisplayName = "Houdini CSV Asset" ) )
 	UHoudiniCSV* HoudiniCSVAsset;
 
 	//----------------------------------------------------------------------------
-	//UObject Interface
+	// UObject Interface
 	virtual void PostInitProperties() override;
 	virtual void PostLoad() override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 	//----------------------------------------------------------------------------
+	// UNiagaraDataInterface Interface
 
+	// Returns the DI's functions signatures 
 	virtual void GetFunctions(TArray<FNiagaraFunctionSignature>& OutFunctions)override;
 	
-	/** Returns the delegate for the passed function signature. */
+	// Returns the delegate for the passed function signature.
 	virtual void GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc) override;
 
 	virtual bool Equals(const UNiagaraDataInterface* Other) const override;
@@ -155,9 +159,47 @@ public:
 	// GPU / HLSL Functions
 	virtual bool GetFunctionHLSL(const FName& DefinitionFunctionName, FString InstanceFunctionName, FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL) override;
 	virtual void GetParameterDefinitionHLSL(FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL) override;
+	virtual FNiagaraDataInterfaceParametersCS* ConstructComputeParameters() const override;
 
-	// Disabling GPU sim for now.
-	virtual bool CanExecuteOnTarget(ENiagaraSimTarget Target)const override { return Target == ENiagaraSimTarget::CPUSim; }
+	virtual bool CanExecuteOnTarget(ENiagaraSimTarget Target)const override { return true; }
+
+	// Members for GPU compatibility
+
+	// Buffer and member variables base name
+	static const FString NumberOfRowsBaseName;
+	static const FString NumberOfColumnsBaseName;
+	static const FString NumberOfPointsBaseName;
+	static const FString FloatValuesBufferBaseName;
+	static const FString SpecialAttributesColumnIndexesBufferBaseName;
+	static const FString SpawnTimesBufferBaseName;
+	static const FString LifeValuesBufferBaseName;
+	static const FString PointTypesBufferBaseName;
+	static const FString MaxNumberOfIndexesPerPointBaseName;
+	static const FString PointValueIndexesBufferBaseName;
+	static const FString LastSpawnedPointIdBaseName;
+	static const FString LastSpawnTimeBaseName;
+
+	// Member variables accessors
+	FORCEINLINE int32 GetNumberOfRows()const { return HoudiniCSVAsset ? HoudiniCSVAsset->GetNumberOfRows() : 0; }
+	FORCEINLINE int32 GetNumberOfColumns()const { return HoudiniCSVAsset ? HoudiniCSVAsset->GetNumberOfColumns() : 0; }
+	FORCEINLINE int32 GetNumberOfPoints()const { return HoudiniCSVAsset ? HoudiniCSVAsset->GetNumberOfPoints() : 0; }
+	FORCEINLINE int32 GetMaxNumberOfIndexesPerPoints()const { return HoudiniCSVAsset ? HoudiniCSVAsset->GetMaxNumberOfPointValueIndexes() + 1 : 0; }
+
+	// GPU Buffers accessors
+	FRWBuffer& GetFloatValuesGPUBuffer();
+	FRWBuffer& GetSpecialAttributesColumnIndexesGPUBuffer();
+	FRWBuffer& GetSpawnTimesGPUBuffer();
+	FRWBuffer& GetLifeValuesGPUBuffer();
+	FRWBuffer& GetPointTypesGPUBuffer();
+	FRWBuffer& GetPointValueIndexesGPUBuffer();
+
+	// GPU Buffers
+	FRWBuffer FloatValuesGPUBuffer;
+	FRWBuffer SpecialAttributesColumnIndexesGPUBuffer;
+	FRWBuffer SpawnTimesGPUBuffer;
+	FRWBuffer LifeValuesGPUBuffer;
+	FRWBuffer PointTypesGPUBuffer;
+	FRWBuffer PointValueIndexesGPUBuffer;
 
 protected:
 
@@ -165,9 +207,22 @@ protected:
 
 	// Indicates the GPU buffers need to be updated
 	UPROPERTY()
-	bool GPUBufferDirty;
+	bool FloatValuesGPUBufferDirty;
+	UPROPERTY()
+	bool SpecialAttributesColumnIndexesGPUBufferDirty;
+	UPROPERTY()
+	bool SpawnTimesGPUBufferDirty;
+	UPROPERTY()
+	bool LifeValuesGPUBufferDirty;
+	UPROPERTY()
+	bool PointTypesGPUBufferDirty;
+	UPROPERTY()
+	bool PointValueIndexesGPUBufferDirty;
 
 	// Last Spawned PointID
 	UPROPERTY()
 	int32 LastSpawnedPointID;
+	// Last Spawn time
+	UPROPERTY()
+	float LastSpawnTime;
 };
