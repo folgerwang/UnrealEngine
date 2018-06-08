@@ -48,7 +48,9 @@ void FLinuxConsoleOutputDevice::Serialize(const TCHAR* Data, ELogVerbosity::Type
 		else
 		{
 			bool bNeedToResetColor = false;
-			if (!bOverrideColorSet)
+			bool bOutputtingToTerminal = isatty(STDOUT_FILENO);
+
+			if (bOutputtingToTerminal && !bOverrideColorSet)
 			{
 				if (Verbosity == ELogVerbosity::Error)
 				{
