@@ -16,6 +16,9 @@ private:
 	/** true if the color is currently set by the caller */
 	bool bOverrideColorSet;
 
+	/** true if we are outputting to a terminal */
+	bool bOutputtingToTerminal;
+
 public:
 
 	/**
