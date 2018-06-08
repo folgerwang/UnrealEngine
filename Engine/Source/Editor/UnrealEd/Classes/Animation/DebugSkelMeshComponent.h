@@ -302,6 +302,7 @@ class UNREALED_API UDebugSkelMeshComponent : public USkeletalMeshComponent
 	//~ Begin SkeletalMeshComponent Interface
 	virtual void InitAnim(bool bForceReinit) override;
 	virtual bool IsWindEnabled() const override { return true; }
+	virtual void K2_SetAnimInstanceClass(class UClass* NewClass) override;
 	//~ End SkeletalMeshComponent Interface
 	// Preview.
 	// @todo document
