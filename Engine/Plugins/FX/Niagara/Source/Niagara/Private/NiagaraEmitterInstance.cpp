@@ -819,7 +819,10 @@ void FNiagaraEmitterInstance::Tick(float DeltaSeconds)
 	if (OrigNumParticles == 0 && ExecutionState != ENiagaraExecutionState::Active)
 	{
 		//Clear out curr buffer in case it had some data in previously.
-		Data.Allocate(0);
+		if (CachedEmitter->SimTarget == ENiagaraSimTarget::CPUSim)
+		{
+			Data.Allocate(0);
+		}
 		CPUTimeMS = TickTime.GetElapsedMilliseconds();
 		return;
 	}
