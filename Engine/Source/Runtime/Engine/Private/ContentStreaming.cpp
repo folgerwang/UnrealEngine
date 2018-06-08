@@ -1050,6 +1050,9 @@ void FStreamingManagerCollection::AddOrRemoveTextureStreamingManagerIfNeeded(boo
 	if( !GRHISupportsTextureStreaming || IsRunningDedicatedServer() )
 	{
 		bUseTextureStreaming = false;
+
+		// some code relies on r.TextureStreaming so we're going to disable it here to reflect the hardware capabilities and system needs
+		CVarSetTextureStreaming.AsVariable()->Set(0, ECVF_SetByCode);
 	}
 #endif
 
