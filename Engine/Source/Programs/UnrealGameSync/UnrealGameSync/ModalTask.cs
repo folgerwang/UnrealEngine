@@ -25,7 +25,7 @@ namespace UnrealGameSync
 	{
 		public static ModalTaskResult Execute(IWin32Window Owner, IModalTask Task, string InTitle, string InMessage, out string ErrorMessage)
 		{
-			ModalTaskWindow Window = new ModalTaskWindow(Task, InTitle, InMessage, FormStartPosition.CenterParent);
+			ModalTaskWindow Window = new ModalTaskWindow(Task, InTitle, InMessage, (Owner == null)? FormStartPosition.CenterScreen : FormStartPosition.CenterParent);
 			Window.Complete += () => Window.Close();
 			Window.ShowDialog(Owner);
 			ErrorMessage = Window.ErrorMessage;

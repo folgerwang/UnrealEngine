@@ -117,6 +117,7 @@ namespace UnrealGameSync
 				LoginResult = Perforce.Login(Password, out PasswordErrorMessage, Log);
 				if(LoginResult != LoginResult.Succeded)
 				{
+					Log.WriteLine(PasswordErrorMessage);
 					ErrorMessage = String.Format("Unable to login: {0}", PasswordErrorMessage);
 					return false;
 				}
@@ -127,6 +128,7 @@ namespace UnrealGameSync
 			{
 				LoginResult = LoginResult.MissingPassword;
 				ErrorMessage = "User is not logged in to Perforce.";
+				Log.WriteLine(ErrorMessage);
 				return false;
 			}
 

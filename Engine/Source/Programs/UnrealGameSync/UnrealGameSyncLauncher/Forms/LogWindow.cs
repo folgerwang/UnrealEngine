@@ -12,14 +12,14 @@ using System.Windows.Forms;
 
 namespace UnrealGameSyncLauncher
 {
-	public partial class UpdateLogWindow : Form
+	public partial class LogWindow : Form
 	{
-		public UpdateLogWindow(string Text)
+		public LogWindow(string Text)
 		{
 			InitializeComponent();
 
-			UpdateLog.Text = Text;
-			UpdateLog.Select(Text.Length, 0);
+			LogTextBox.Text = Text;
+			LogTextBox.Select(Text.Length, 0);
 		}
 	}
 }

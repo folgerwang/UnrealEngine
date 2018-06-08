@@ -58,6 +58,12 @@ namespace UnrealGameSync
 			string UpdateSpawn;
 			ParseArgument(RemainingArgs, "-updatespawn=", out UpdateSpawn);
 
+			string ServerAndPort;
+			ParseArgument(RemainingArgs, "-p4port=", out ServerAndPort);
+
+			string UserName;
+			ParseArgument(RemainingArgs, "-p4user=", out UserName);
+
 			bool bRestoreState;
 			ParseOption(RemainingArgs, "-restorestate", out bRestoreState);
 
@@ -90,7 +96,7 @@ namespace UnrealGameSync
 			{
 				try
 				{
-					using(UpdateMonitor UpdateMonitor = new UpdateMonitor(new PerforceConnection(null, null, null), UpdatePath))
+					using(UpdateMonitor UpdateMonitor = new UpdateMonitor(new PerforceConnection(UserName, null, ServerAndPort), UpdatePath))
 					{
 						ProgramApplicationContext Context = new ProgramApplicationContext(UpdateMonitor, ApiUrl, DataFolder, ActivateEvent, bRestoreState, UpdateSpawn, ProjectFileName, bUnstable);
 						Application.Run(Context);

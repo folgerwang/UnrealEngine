@@ -292,7 +292,7 @@ namespace UnrealGameSync
 		public string DepotPath;
 	}
 
-	class PerforceSyncOptions
+	public class PerforceSyncOptions
 	{
 		public int NumRetries;
 		public int NumThreads;
