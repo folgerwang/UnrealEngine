@@ -645,19 +645,19 @@ public:
 	 * @param bLowerHeights - Allow the landscape to be lowered down to the level of the spline. If both bRaiseHeights and bLowerHeights are false, no height modification of the landscape will be performed
 	 * @param PaintLayer - LayerInfo to paint, or none to skip painting. The landscape must be configured with the same layer info in one of its layers or this will do nothing!
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Landscape Editor")
+	UFUNCTION(BlueprintCallable, Category = "Landscape|Editor")
 	void EditorApplySpline(USplineComponent* InSplineComponent, float StartWidth = 200, float EndWidth = 200, float StartSideFalloff = 200, float EndSideFalloff = 200, float StartRoll = 0, float EndRoll = 0, int32 NumSubdivisions = 20, bool bRaiseHeights = true, bool bLowerHeights = true, ULandscapeLayerInfoObject* PaintLayer = nullptr);
 
 	/** Set an MID texture parameter value for all landscape components. */
-	UFUNCTION(BlueprintCallable, Category = "Landscape Runtime|Material")
+	UFUNCTION(BlueprintCallable, Category = "Landscape|Runtime|Material")
 	void SetLandscapeMaterialTextureParameterValue(FName ParameterName, class UTexture* Value);
 
 	/** Set an MID vector parameter value for all landscape components. */
-	UFUNCTION(BlueprintCallable, meta = (Keywords = "SetColorParameterValue"), Category = "Landscape Runtime|Material")
+	UFUNCTION(BlueprintCallable, meta = (Keywords = "SetColorParameterValue"), Category = "Landscape|Runtime|Material")
 	void SetLandscapeMaterialVectorParameterValue(FName ParameterName, FLinearColor Value);
 
 	/** Set a MID scalar (float) parameter value for all landscape components. */
-	UFUNCTION(BlueprintCallable, meta = (Keywords = "SetFloatParameterValue"), Category = "Landscape Runtime|Material")
+	UFUNCTION(BlueprintCallable, meta = (Keywords = "SetFloatParameterValue"), Category = "Landscape|Runtime|Material")
 	void SetLandscapeMaterialScalarParameterValue(FName ParameterName, float Value);
 
 	// End blueprint functions

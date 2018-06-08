@@ -940,7 +940,7 @@ public:
 	 * @param InSectionIndex Index to check
 	 * @param bCheckCorrespondingSections Whether to check corresponding sections for disabled sections
 	 */
-	UFUNCTION(BlueprintCallable, Category="Cloth")
+	UFUNCTION(BlueprintCallable, Category="Clothing Simulation")
 	bool IsSectionUsingCloth(int32 InSectionIndex, bool bCheckCorrespondingSections = true) const;
 
 	void CreateBodySetup();
