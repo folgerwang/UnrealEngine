@@ -10,6 +10,7 @@
 #include "LevelSequenceBindingReference.h"
 #include "SequenceRecorderSettings.h"
 #include "SequenceRecorderUtils.h"
+#include "Sections/MovieSceneAnimationSectionRecorder.h"
 #include "Sections/MovieScene3DTransformSectionRecorderSettings.h"
 #include "Sections/MovieSceneSubSection.h"
 #include "Tracks/MovieSceneSubTrack.h"
