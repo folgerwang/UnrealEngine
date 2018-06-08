@@ -1192,6 +1192,7 @@ namespace UnrealGameSync
 				}
 				else
 				{
+					Directory.CreateDirectory(Path.GetDirectoryName(WhereRecord.LocalPath));
 					Utility.ForceDeleteFile(WhereRecord.LocalPath);
 					if(WhereRecord.DepotPath != null)
 					{
