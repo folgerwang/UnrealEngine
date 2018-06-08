@@ -2550,6 +2550,11 @@ void USkeletalMeshComponent::SetDisablePostProcessBlueprint(bool bInDisablePostP
 	bDisablePostProcessBlueprint = bInDisablePostProcess;
 }
 
+void USkeletalMeshComponent::K2_SetAnimInstanceClass(class UClass* NewClass)
+{
+	SetAnimInstanceClass(NewClass);
+}
+
 void USkeletalMeshComponent::SetAnimInstanceClass(class UClass* NewClass)
 {
 	if (NewClass != nullptr)
