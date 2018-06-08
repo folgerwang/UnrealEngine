@@ -88,9 +88,15 @@ extern FMetalBufferFormat GMetalBufferFormats[PF_MAX];
 #define METAL_DEBUG_OPTIONS !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 #if METAL_DEBUG_OPTIONS
 #define METAL_DEBUG_OPTION(Code) Code
-#define METAL_DEBUG_LAYER(Level, Code) if (SafeGetRuntimeDebuggingLevel() >= Level) Code
 #else
 #define METAL_DEBUG_OPTION(Code)
+#endif
+
+#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
+#define METAL_DEBUG_ONLY(Code) Code
+#define METAL_DEBUG_LAYER(Level, Code) if (SafeGetRuntimeDebuggingLevel() >= Level) Code
+#else
+#define METAL_DEBUG_ONLY(Code)
 #define METAL_DEBUG_LAYER(Level, Code)
 #endif
 
