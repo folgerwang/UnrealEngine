@@ -210,11 +210,11 @@ bool FMetalShaderBytecodeCooker::Build(TArray<uint8>& OutData)
 		if (bUseSharedPCH)
         {
             CopyLocalFileToRemote(Job.InputPCHFile, RemoteInputPCHFile);
-			MetalParams = FString::Printf(TEXT("-include-pch %s %s %s %s -Wno-null-character -fbracket-depth=1024 %s %s %s %s -o %s"), *RemoteInputPCHFile, *Job.MinOSVersion, *Job.DebugInfo, *Job.MathMode, *Job.Standard, *Job.Defines, *IncludeArgs, *RemoteInputFile, *RemoteObjFile);
+			MetalParams = FString::Printf(TEXT("-include-pch %s %s %s %s -c -Wno-null-character -fbracket-depth=1024 %s %s %s %s -o %s"), *RemoteInputPCHFile, *Job.MinOSVersion, *Job.DebugInfo, *Job.MathMode, *Job.Standard, *Job.Defines, *IncludeArgs, *RemoteInputFile, *RemoteObjFile);
         }
         else
         {
-            MetalParams = FString::Printf(TEXT("%s %s %s -Wno-null-character -fbracket-depth=1024 %s %s %s %s -o %s"), *Job.MinOSVersion, *Job.DebugInfo, *Job.MathMode, *Job.Standard, *Job.Defines, *IncludeArgs, *RemoteInputFile, *RemoteObjFile);
+            MetalParams = FString::Printf(TEXT("%s %s %s -c -Wno-null-character -fbracket-depth=1024 %s %s %s %s -o %s"), *Job.MinOSVersion, *Job.DebugInfo, *Job.MathMode, *Job.Standard, *Job.Defines, *IncludeArgs, *RemoteInputFile, *RemoteObjFile);
         }
 	}
 
@@ -267,11 +267,11 @@ bool FMetalShaderBytecodeCooker::Build(TArray<uint8>& OutData)
 	{
 		if (Job.bCompileAsPCH)
 		{
-			Job.Message = FString::Printf(TEXT("Metal Shared PCH generation failed %s: %s."), CompileType, *Job.Errors);
+			Job.Message = FString::Printf(TEXT("Metal Shared PCH generation failed %s to generate %s: %s."), CompileType, *RemoteOutputFilename, *Job.Errors);
 		}
 		else
 		{
-			Job.Message = FString::Printf(TEXT("Failed to compile to bytecode %s, code: %d, output: %s %s"), CompileType, Job.ReturnCode, *Job.Results, *Job.Errors);
+			Job.Message = FString::Printf(TEXT("Failed to compile %s to bytecode %s, code: %d, output: %s %s"), CompileType, *RemoteOutputFilename, Job.ReturnCode, *Job.Results, *Job.Errors);
 		}
 	}
 
