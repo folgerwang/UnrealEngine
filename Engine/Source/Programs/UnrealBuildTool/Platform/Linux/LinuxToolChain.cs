@@ -1060,11 +1060,6 @@ namespace UnrealBuildTool
 					// Compile the file as C code.
 					FileArguments += GetCompileArguments_C();
 				}
-				else if (Extension == ".CC")
-				{
-					// Compile the file as C++ code.
-					FileArguments += GetCompileArguments_CPP();
-				}
 				else if (Extension == ".MM")
 				{
 					// Compile the file as Objective-C++ code.
