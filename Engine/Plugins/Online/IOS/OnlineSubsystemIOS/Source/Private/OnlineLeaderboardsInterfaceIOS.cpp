@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 // Module includes
 #include "OnlineSubsystemIOSPrivatePCH.h"
@@ -105,7 +105,7 @@ bool FOnlineLeaderboardsIOS::ReadLeaderboardCompletionDelegate(NSArray* players,
                         UE_LOG(LogOnline, Display, TEXT("Value: %d"), score.value);
                         UE_LOG(LogOnline, Display, TEXT("----------------------------------------------------------------"));
                             
-                        TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(PlayerIDString));
+                        TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdIOS(PlayerIDString));
                             
                         FOnlineStatsRow* UserRow = ReadObject.Get().FindPlayerRecord(UserId.Get());
                         if (UserRow == NULL)

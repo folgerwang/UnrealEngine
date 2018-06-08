@@ -24,8 +24,8 @@ namespace BuildPatchServices
 
 	private:
 		FString SelectFullFilePath(const FString& BuildFile);
-		bool HasSameAttributes(const FFileManifestData* NewFileManifest, const FFileManifestData* OldFileManifest);
-		void SetupFileAttributes(const FString& FilePath, const FFileManifestData& FileManifest, bool bForce);
+		bool HasSameAttributes(const FFileManifest* NewFileManifest, const FFileManifest* OldFileManifest);
+		void SetupFileAttributes(const FString& FilePath, const FFileManifest& FileManifest, bool bForce);
 
 	private:
 		IFileSystem* FileSystem;
@@ -73,8 +73,8 @@ namespace BuildPatchServices
 		for (int32 BuildFileIdx = 0; BuildFileIdx < BuildFileList.Num() && !bShouldAbort; ++BuildFileIdx)
 		{
 			const FString& BuildFile = BuildFileList[BuildFileIdx];
-			const FFileManifestData* NewFileManifest = NewManifest->GetFileManifest(BuildFile);
-			const FFileManifestData* OldFileManifest = OldManifest.IsValid() ? OldManifest->GetFileManifest(BuildFile) : nullptr;
+			const FFileManifest* NewFileManifest = NewManifest->GetFileManifest(BuildFile);
+			const FFileManifest* OldFileManifest = OldManifest.IsValid() ? OldManifest->GetFileManifest(BuildFile) : nullptr;
 			bool bHasChanged = bForce || (TouchedFiles.Contains(BuildFile) && !HasSameAttributes(NewFileManifest, OldFileManifest));
 			if (NewFileManifest != nullptr && bHasChanged)
 			{
@@ -109,7 +109,7 @@ namespace BuildPatchServices
 		return InstallFilename;
 	}
 
-	bool FFileAttribution::HasSameAttributes(const FFileManifestData* NewFileManifest, const FFileManifestData* OldFileManifest)
+	bool FFileAttribution::HasSameAttributes(const FFileManifest* NewFileManifest, const FFileManifest* OldFileManifest)
 	{
 		// Currently it is not supported to rely on this, as the update process always makes new files when a file changes.
 		// This can be reconsidered when the patching process changes.
@@ -121,7 +121,7 @@ namespace BuildPatchServices
 		//     && (NewFileManifest->bIsCompressed == OldFileManifest->bIsCompressed);
 	}
 
-	void FFileAttribution::SetupFileAttributes(const FString& FilePath, const FFileManifestData& FileManifest, bool bForce)
+	void FFileAttribution::SetupFileAttributes(const FString& FilePath, const FFileManifest& FileManifest, bool bForce)
 	{
 		EFileAttributes FileAttributes = EFileAttributes::None;
 

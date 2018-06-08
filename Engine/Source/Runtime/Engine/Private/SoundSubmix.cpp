@@ -67,6 +67,12 @@ void USoundSubmix::StopRecordingOutput(FAudioDevice* InDevice, EAudioRecordingEx
 
 		Audio::AlignedFloatBuffer& RecordedBuffer = InDevice->StopRecording(this, ChannelCount, SampleRate);
 
+		// This occurs when Stop Recording Output is called when Start Recording Output was not called.
+		if (RecordedBuffer.Num() == 0)
+		{
+			return;
+		}
+
 		// Pack output data into DSPSampleBuffer and record it out!
 		RecordingData.Reset(new Audio::FAudioRecordingData());
 

@@ -1166,7 +1166,7 @@ void UBlueprintGeneratedClass::CheckAndApplyComponentTemplateOverrides(AActor* A
 										{
 											ArCustomPropertyList = InPropertyList;
 											ArUseCustomPropertyList = true;
-											ArWantBinaryPropertySerialization = true;
+											this->SetWantBinaryPropertySerialization(true);
 
 											// Set this flag to emulate things that would happen in the SDO case when this flag is set (e.g. - not setting 'bHasBeenCreated').
 											ArPortFlags |= PPF_Duplicate;
@@ -1620,7 +1620,7 @@ void FBlueprintCookedComponentInstancingData::LoadCachedPropertyDataForSerializa
 		{
 			ArCustomPropertyList = InPropertyList;
 			ArUseCustomPropertyList = true;
-			ArWantBinaryPropertySerialization = true;
+			this->SetWantBinaryPropertySerialization(true);
 
 			// Set this flag to emulate things that would normally happen in the SDO case when this flag is set. This is needed to ensure consistency with serialization during instancing.
 			ArPortFlags |= PPF_Duplicate;

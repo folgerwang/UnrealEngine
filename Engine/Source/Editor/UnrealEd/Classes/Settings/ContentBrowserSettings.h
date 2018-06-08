@@ -42,6 +42,10 @@ public:
 	UPROPERTY(config)
 	bool DisplayEmptyFolders;
 
+	/** The number of objects to keep in the Content Browser Recently Opened filter */
+	UPROPERTY(EditAnywhere, config, Category = ContentBrowser, meta = (DisplayName = "Number of Assets to Keep in the Recently Opened Filter", ClampMin = "1", ClampMax = "30"))
+	int32 NumObjectsInRecentList;
+
 public:
 
 	/** Sets whether we are allowed to display the engine folder or not, optional flag for setting override instead */
@@ -128,6 +132,42 @@ public:
 		return DisplayCppFolders;
 	}
 
+	/** Sets whether text searches should also search in asset class names */
+	void SetIncludeClassNames(bool bInclude)
+	{
+		IncludeClassNames = bInclude;
+	}
+
+	/** Gets whether text searches should also search in asset class names */
+	bool GetIncludeClassNames() const
+	{
+		return IncludeClassNames;
+	}
+
+	/** Sets whether text searches should also search asset paths (instead of asset name only) */
+	void SetIncludeAssetPaths(bool bInclude)
+	{
+		IncludeAssetPaths = bInclude;
+	}
+
+	/** Gets whether text searches should also search asset paths (instead of asset name only) */
+	bool GetIncludeAssetPaths() const
+	{
+		return IncludeAssetPaths;
+	}
+
+	/** Sets whether text searches should also search for collection names */
+	void SetIncludeCollectionNames(bool bInclude)
+	{
+		IncludeCollectionNames = bInclude;
+	}
+
+	/** Gets whether text searches should also search for collection names */
+	bool GetIncludeCollectionNames() const
+	{
+		return IncludeCollectionNames;
+	}
+
 	/**
 	 * Returns an event delegate that is executed when a setting has changed.
 	 *
@@ -176,6 +216,15 @@ private:
 
 	UPROPERTY(config)
 	bool DisplayCppFolders;
+
+	UPROPERTY(config)
+	bool IncludeClassNames;
+
+	UPROPERTY(config)
+	bool IncludeAssetPaths;
+
+	UPROPERTY(config)
+	bool IncludeCollectionNames;
 
 	// Holds an event delegate that is executed when a setting has changed.
 	static FSettingChangedEvent SettingChangedEvent;

@@ -7,7 +7,7 @@
 #include "UObject/Interface.h"
 #include "TickableAttributeSetInterface.generated.h"
 
-/** Interface for actors which can be "spotted" by a player */
+/** Interface for attribute sets that need to tick to update state. These can be expensive */
 UINTERFACE(MinimalAPI, meta = (CannotImplementInterfaceInBlueprint))
 class UTickableAttributeSetInterface : public UInterface
 {

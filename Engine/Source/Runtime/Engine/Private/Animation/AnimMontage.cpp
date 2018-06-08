@@ -426,7 +426,8 @@ void UAnimMontage::PostLoad()
 	}
 #endif // WITH_EDITORONLY_DATA
 
-	// Register Slots w/ Skeleton
+	// Register Slots w/ Skeleton - to aid deterministic cooking do not do this during cook! 
+	if(!GIsCookerLoadingPackage)
 	{
 		USkeleton* MySkeleton = GetSkeleton();
 		if (MySkeleton)
@@ -2743,7 +2744,7 @@ UAnimMontage* UAnimMontage::CreateSlotAnimationAsDynamicMontage(UAnimSequenceBas
 	}
 
 	USkeleton* AssetSkeleton = Asset->GetSkeleton();
-	if (!Asset->CanBeUsedInMontage())
+	if (!Asset->CanBeUsedInComposition())
 	{
 		UE_LOG(LogAnimMontage, Warning, TEXT("This animation isn't supported to play as montage"));
 		return nullptr;

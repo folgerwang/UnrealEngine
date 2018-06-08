@@ -34,10 +34,10 @@ ENDIF(${CMAKE_LIBRARY_ARCHITECTURE} STREQUAL "x86_64-unknown-linux-gnu" OR ${CMA
 
 
 # Build debug info for all configurations
-SET(CMAKE_CXX_FLAGS_DEBUG "-O0 -g3 -gdwarf-2")
-SET(CMAKE_CXX_FLAGS_CHECKED "-g3 -gdwarf-2 -O3")
-SET(CMAKE_CXX_FLAGS_PROFILE "-O3")
-SET(CMAKE_CXX_FLAGS_RELEASE "-O3")
+SET(CMAKE_CXX_FLAGS_DEBUG "-O0 -g3 -gdwarf-3")
+SET(CMAKE_CXX_FLAGS_CHECKED "-O3 -g3 -gdwarf-3")
+SET(CMAKE_CXX_FLAGS_PROFILE "-O3 -g3 -gdwarf-3")
+SET(CMAKE_CXX_FLAGS_RELEASE "-O3 -g3 -gdwarf-3")
 
 # Controls PX_NVTX for all projects on linux
 SET(PHYSX_LINUX_ENABLE_NVTX 0)

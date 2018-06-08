@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:2716626
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:4 - ポリッシュ評価
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/LevelDesign
 Description:レベル デザインの概要、サンプル 4：ポリッシュ評価
-Related: Engine/Rendering/LightingAndShadows/Lightmass
-Related: Engine/Rendering/LightingAndShadows/ReflectionEnvironment
-Related: Engine/Rendering/LightingAndShadows/LitTranslucency
+Related:Engine/Rendering/LightingAndShadows/Lightmass
+Related:Engine/Rendering/LightingAndShadows/ReflectionEnvironment
+Related:Engine/Rendering/LightingAndShadows/LitTranslucency
 Version:4.9
 
 [VAR:Steps]

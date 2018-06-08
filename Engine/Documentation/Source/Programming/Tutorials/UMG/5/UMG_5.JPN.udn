@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3238697
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:5.セカンド メニューを構築する
 Crumbs:%ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/UMG
@@ -73,140 +73,135 @@ version:4.14
 
 	[![](FinalScreen2.png)](FinalScreen2.png)
 
-----
+## 完成コード
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    code
-    [/PARAMLITERAL]
-    [PARAM:heading]
-    完成コード
-    [/PARAM]
-    [PARAM:content]
-		**HowTo_UMG.Build.cs**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+**HowTo_UMG.Build.cs**
 
-			using UnrealBuildTool;
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-			public class HowTo_UMG :ModuleRules
+	using UnrealBuildTool;
+
+	public class HowTo_UMG :ModuleRules
+	{
+		public HowTo_UMG(TargetInfo Target)
+		{
+			PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "UMG" });
+
+			//PrivateDependencyModuleNames.AddRange(new string[] {  });
+
+			// Uncomment if you are using Slate UI (スレート UI を使用している場合はコメント行を外します)
+			PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+
+			// Uncomment if you are using online features (オンライン機能を使用している場合はコメント行を外します)
+			// PrivateDependencyModuleNames.Add("OnlineSubsystem");
+			// if ((Target.Platform == UnrealTargetPlatform.Win32) || (Target.Platform == UnrealTargetPlatform.Win64))
+			// {
+			//		if (UEBuildConfiguration.bCompileSteamOSS == true)
+			//		{
+			//			DynamicallyLoadedModuleNames.Add("OnlineSubsystemSteam");
+			//		}
+			// }
+		}
+	}
+
+**HowTo_UMGGameMode.h**
+
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+
+	#pragma once
+
+	#include "Blueprint/UserWidget.h"
+	#include "GameFramework/GameModeBase.h"
+	#include "HowTo_UMGGameMode.generated.h"
+
+	/**
+		* 
+		*/
+	UCLASS()
+	class HOWTO_UMG_API AHowTo_UMGGameMode : public AGameModeBase
+	{
+		GENERATED_BODY()
+
+	public:
+		/** 現在のメニューウィジェットを取り除き、指定されたクラスがあればそこから新しいものを作成します */
+		UFUNCTION(BlueprintCallable, Category = "UMG Game")
+		void ChangeMenuWidget(TSubclassOf<UUserWidget> NewWidgetClass);
+
+	protected:
+		/** Called when the game starts. (ゲーム開始時に呼び出されます) */
+		virtual void BeginPlay() override;
+
+		/** ゲーム開始時にメニューとして使用するウィジェット クラスです */
+		UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UMG Game")
+		TSubclassOf<UUserWidget> StartingWidgetClass;
+
+		/** メニューとして使用するウィジェット インスタンスです */
+		UPROPERTY()
+		UUserWidget* CurrentWidget;
+	};
+
+**HowTo_UMGGameMode.cpp**
+
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+
+	#include "HowTo_UMG.h"
+	#include "HowTo_UMGGameMode.h"
+
+	void AHowTo_UMGGameMode::BeginPlay()
+	{
+		Super::BeginPlay();
+		ChangeMenuWidget(StartingWidgetClass);
+	}
+
+	void AHowTo_UMGGameMode::ChangeMenuWidget(TSubclassOf<UUserWidget> NewWidgetClass)
+	{
+		if (CurrentWidget != nullptr)
+		{
+			CurrentWidget->RemoveFromViewport();
+			CurrentWidget = nullptr;
+		}
+		if (NewWidgetClass != nullptr)
+		{
+			CurrentWidget = CreateWidget<UUserWidget>(GetWorld(), NewWidgetClass);
+			if (CurrentWidget != nullptr)
 			{
-				public HowTo_UMG(TargetInfo Target)
-				{
-					PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "UMG" });
-
-					//PrivateDependencyModuleNames.AddRange(new string[] {  });
-
-					// Uncomment if you are using Slate UI (スレート UI を使用している場合はコメント行を外します)
-					PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
-
-					// Uncomment if you are using online features (オンライン機能を使用している場合はコメント行を外します)
-					// PrivateDependencyModuleNames.Add("OnlineSubsystem");
-					// if ((Target.Platform == UnrealTargetPlatform.Win32) || (Target.Platform == UnrealTargetPlatform.Win64))
-					// {
-					//		if (UEBuildConfiguration.bCompileSteamOSS == true)
-					//		{
-					//			DynamicallyLoadedModuleNames.Add("OnlineSubsystemSteam");
-					//		}
-					// }
-				}
+				CurrentWidget->AddToViewport();
 			}
+		}
+	}
 
-		**HowTo_UMGGameMode.h**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+**HowTo_UMGPlayerController.h**
 
-			#pragma once
+	// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-			#include "Blueprint/UserWidget.h"
-			#include "GameFramework/GameModeBase.h"
-			#include "HowTo_UMGGameMode.generated.h"
+	#pragma once
 
-			/**
-			 * 
-			 */
-			UCLASS()
-			class HOWTO_UMG_API AHowTo_UMGGameMode : public AGameModeBase
-			{
-				GENERATED_BODY()
+	#include "GameFramework/PlayerController.h"
+	#include "HowTo_UMGPlayerController.generated.h"
 
-			public:
-				/** 現在のメニューウィジェットを取り除き、指定されたクラスがあればそこから新しいものを作成します */
-				UFUNCTION(BlueprintCallable, Category = "UMG Game")
-				void ChangeMenuWidget(TSubclassOf<UUserWidget> NewWidgetClass);
+	/**
+		* 
+		*/
+	UCLASS()
+	class HOWTO_UMG_API AHowTo_UMGPlayerController : public APlayerController
+	{
+		GENERATED_BODY()
 
-			protected:
-				/** Called when the game starts. (ゲーム開始時に呼び出されます) */
-				virtual void BeginPlay() override;
+	public:
+		virtual void BeginPlay() override;
+	};
 
-				/** ゲーム開始時にメニューとして使用するウィジェット クラスです */
-				UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UMG Game")
-				TSubclassOf<UUserWidget> StartingWidgetClass;
+**HowTo_UMGPlayerController.cpp**
 
-				/** メニューとして使用するウィジェット インスタンスです */
-				UPROPERTY()
-				UUserWidget* CurrentWidget;
-			};
+	// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-		**HowTo_UMGGameMode.cpp**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+	#include "HowTo_UMG.h"
+	#include "HowTo_UMGPlayerController.h"
 
-			#include "HowTo_UMG.h"
-			#include "HowTo_UMGGameMode.h"
-
-			void AHowTo_UMGGameMode::BeginPlay()
-			{
-				Super::BeginPlay();
-				ChangeMenuWidget(StartingWidgetClass);
-			}
-
-			void AHowTo_UMGGameMode::ChangeMenuWidget(TSubclassOf<UUserWidget> NewWidgetClass)
-			{
-				if (CurrentWidget != nullptr)
-				{
-					CurrentWidget->RemoveFromViewport();
-					CurrentWidget = nullptr;
-				}
-				if (NewWidgetClass != nullptr)
-				{
-					CurrentWidget = CreateWidget<UUserWidget>(GetWorld(), NewWidgetClass);
-					if (CurrentWidget != nullptr)
-					{
-						CurrentWidget->AddToViewport();
-					}
-				}
-			}
-			**HowTo_UMGPlayerController.h**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-
-			#pragma once
-
-			#include "GameFramework/PlayerController.h"
-			#include "HowTo_UMGPlayerController.generated.h"
-
-			/**
-			 * 
-			 */
-			UCLASS()
-			class HOWTO_UMG_API AHowTo_UMGPlayerController : public APlayerController
-			{
-				GENERATED_BODY()
-
-				public:
-				virtual void BeginPlay() override;
-			};
-
-		**HowTo_UMGPlayerController.cpp**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-
-			#include "HowTo_UMG.h"
-			#include "HowTo_UMGPlayerController.h"
-
-			void AHowTo_UMGPlayerController::BeginPlay()
-			{
-				Super::BeginPlay();
-				SetInputMode(FInputModeGameAndUI());
-			}
-
-    [/PARAM]
-[/OBJECT]
+	void AHowTo_UMGPlayerController::BeginPlay()
+	{
+		Super::BeginPlay();
+		SetInputMode(FInputModeGameAndUI());
+	}
 
 

@@ -142,10 +142,10 @@ class ENGINE_API UParticleModuleLocationSkelVertSurface : public UParticleModule
 	 *	Retrieve the skeletal mesh component source to use for the current emitter instance.
 	 *
 	 *	@param	Owner						The particle emitter instance that is being setup
+	 *	@param	Owner						The payload data that is being setup.
 	 *
-	 *	@return	USkeletalMeshComponent*		The skeletal mesh component to use as the source
 	 */
-	USkeletalMeshComponent* GetSkeletalMeshComponentSource(FParticleEmitterInstance* Owner);
+	void GetSkeletalMeshComponentSource(FParticleEmitterInstance* Owner, FModuleLocationVertSurfaceInstancePayload* InstancePayload);
 
 	/**
 	 *	Retrieve the position for the given socket index.

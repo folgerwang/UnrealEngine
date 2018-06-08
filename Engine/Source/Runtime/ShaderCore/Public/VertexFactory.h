@@ -324,7 +324,7 @@ public:
 
 	friend FArchive& operator<<(FArchive& Ar,class FVertexFactoryTypeDependency& Ref)
 	{
-		Ar << Ref.VertexFactoryType << Ref.VFSourceHash;
+		Ar << Ref.VertexFactoryType << FShaderResource::FilterShaderSourceHashForSerialization(Ar, Ref.VFSourceHash);
 		return Ar;
 	}
 

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Misc/Guid.h"
+#include "Misc/Timecode.h"
 #include "Templates/SubclassOf.h"
 #include "Templates/Casts.h"
 #include "MovieSceneFwd.h"
@@ -34,6 +35,31 @@ struct FMovieSceneExpansionState
 	bool bExpanded;
 };
 
+USTRUCT()
+struct FMovieSceneTimecodeSource
+{
+	GENERATED_BODY()
+
+	FMovieSceneTimecodeSource(FTimecode InTimecode)
+		: Timecode(InTimecode)
+		, DeltaFrame(FFrameNumber())
+	{}
+
+	FMovieSceneTimecodeSource()
+		: Timecode(FTimecode())
+		, DeltaFrame(FFrameNumber())
+	{}
+
+public:
+
+	/** The global timecode at which this target is based (ie. the timecode at the beginning of the movie scene section when it was recorded) */
+	UPROPERTY()
+	FTimecode Timecode;
+
+	/** The delta from the original placement of this target */
+	UPROPERTY()
+	FFrameNumber DeltaFrame;
+};
 
 /**
  * Editor only data that needs to be saved between sessions for editing but has no runtime purpose
@@ -119,6 +145,7 @@ public:
 
 	/**~ UObject implementation */
 	virtual void Serialize( FArchive& Ar ) override;
+	virtual bool IsPostLoadThreadSafe() const override;
 
 public:
 
@@ -646,6 +673,10 @@ public:
 	{
 		EditorData = InEditorData;
 	}
+
+	/** The timecode at which this movie scene section is based (ie. when it was recorded) */
+	UPROPERTY()
+	FMovieSceneTimecodeSource TimecodeSource;
 
 #endif	// WITH_EDITORONLY_DATA
 

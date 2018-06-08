@@ -3,7 +3,7 @@ Availability:Public
 Title:5.Animation ブループリント - Idle ステートと Walk ステート
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\CharacterMovement, Gameplay\HowTo\CharacterMovement\Blueprints
 Description:このステップでは、Animation ブループリントでキャラクターの Idle ステートおよび Walking ステートのロジックを作成します。 
-Version:4.9
+Version: 4.9
 Parent:Gameplay/HowTo/CharacterMovement/Blueprints
 SkillLevel:Advanced
 type:how-to
@@ -51,6 +51,7 @@ Animation ブループリントは以下の方法で設定します。
 1.	State Machine を **ダブルクリック** して開きます。 
 
 1.	**Asset Browser** ウィンドウで、 **Idle** を探して **Idle_Rifle_Hip** アセットをグラフにドラッグします。 
+
 	![](AnimBP_AnimGraph4.png)
 
 1.	**Entry** ノードを **Idle_Rifle_Hip** ノードに接続して、 **[Compile]** をクリックします。 

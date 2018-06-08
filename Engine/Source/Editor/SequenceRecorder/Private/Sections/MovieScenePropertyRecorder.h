@@ -17,7 +17,7 @@ public:
 
 	virtual void Record(UObject* InObjectToRecord, float InCurrentTime) = 0;
 
-	virtual void Finalize(UObject* InObjectToRecord) = 0;
+	virtual void Finalize(UObject* InObjectToRecord, float InCurrentTime) = 0;
 };
 
 /** Helper struct for recording properties */
@@ -72,7 +72,7 @@ public:
 		}
 	}
 
-	virtual void Finalize(UObject* InObjectToRecord) override
+	virtual void Finalize(UObject* InObjectToRecord, float InCurrentTime) override
 	{
 		for (const FPropertyKey<PropertyType>& Key : Keys)
 		{
@@ -159,7 +159,7 @@ public:
 		}
 	}
 
-	virtual void Finalize(UObject* InObjectToRecord) override
+	virtual void Finalize(UObject* InObjectToRecord, float InCurrentTime) override
 	{
 		for (const FPropertyKey<int64>& Key : Keys)
 		{

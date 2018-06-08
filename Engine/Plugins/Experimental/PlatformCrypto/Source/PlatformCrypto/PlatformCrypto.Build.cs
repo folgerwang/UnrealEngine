@@ -34,6 +34,22 @@ namespace UnrealBuildTool.Rules
 					}
 					);
 			}
+			else if (Target.Platform == UnrealTargetPlatform.Switch)
+			{
+				PublicDependencyModuleNames.AddRange(
+					new string[]
+					{
+						"PlatformCryptoSwitch",
+					}
+					);
+
+				PublicIncludePathModuleNames.AddRange(
+					new string[]
+					{
+						"PlatformCryptoSwitch"
+					}
+					);
+			}
 			else
 			{
 				PublicDependencyModuleNames.AddRange(

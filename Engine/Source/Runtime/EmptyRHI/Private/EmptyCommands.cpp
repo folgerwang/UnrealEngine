@@ -257,10 +257,6 @@ void FEmptyDynamicRHI::RHISetRenderTargets(uint32 NumSimultaneousRenderTargets, 
 
 }
 
-void FEmptyDynamicRHI::RHIDiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask)
-{
-}
-
 void FEmptyDynamicRHI::RHISetRenderTargetsAndClear(const FRHISetRenderTargetsInfo& RenderTargetsInfo)
 {
 }

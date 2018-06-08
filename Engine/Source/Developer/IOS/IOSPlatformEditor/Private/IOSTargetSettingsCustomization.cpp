@@ -1428,6 +1428,8 @@ const FSlateBrush* FIOSTargetSettingsCustomization::GetCertificateStatus() const
 
 bool FIOSTargetSettingsCustomization::UpdateStatusDelegate(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FIOSTargetSettingsCustomization_UpdateStatusDelegate);
+
 	if (IPPProcess.IsValid())
 	{
 		if (IPPProcess->Update())

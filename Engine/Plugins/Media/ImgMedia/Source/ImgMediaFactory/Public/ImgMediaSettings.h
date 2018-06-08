@@ -4,7 +4,7 @@
 
 #include "CoreTypes.h"
 #include "Containers/UnrealString.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "UObject/Object.h"
 #include "UObject/ObjectMacros.h"
 

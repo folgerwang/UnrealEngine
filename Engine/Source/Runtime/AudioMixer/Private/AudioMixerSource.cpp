@@ -16,6 +16,14 @@ FAutoConsoleVariableRef CVarDisableHRTF(
 	TEXT("0: Not Disabled, 1: Disabled"),
 	ECVF_Default);
 
+static int32 DisableStoppingVoicesCvar = 0;
+FAutoConsoleVariableRef CVarDisableStoppingVoices(
+	TEXT("au.DisableStoppingVoices"),
+	DisableStoppingVoicesCvar,
+	TEXT("Forces all sounds to not fade out and instead stop immediately.\n")
+	TEXT("0: Not Disabled, 1: Disabled"),
+	ECVF_Default);
+
 namespace Audio
 {
 	FMixerSource::FMixerSource(FAudioDevice* InAudioDevice)
@@ -347,8 +355,16 @@ namespace Audio
 			// Not all wave data types have a non-zero duration
 			if (InWaveInstance->WaveData->Duration > 0)
 			{
-				NumTotalFrames = InWaveInstance->WaveData->Duration * MixerBuffer->GetSampleRate();
-				check(NumTotalFrames > 0);
+				if (!InWaveInstance->WaveData->bIsBus)
+				{
+					NumTotalFrames = InWaveInstance->WaveData->Duration * InWaveInstance->WaveData->GetSampleRateForCurrentPlatform();
+					check(NumTotalFrames > 0);
+				}
+				else if (!InWaveInstance->WaveData->IsLooping())
+				{
+					NumTotalFrames = InWaveInstance->WaveData->Duration * AudioDevice->GetSampleRate();
+					check(NumTotalFrames > 0);
+				}
 			}
 
 			// Set up buffer areas to decompress audio into
@@ -429,31 +445,98 @@ namespace Audio
 			MixerSourceVoice->Play();
 		}
 
+		bIsStopping = false;
 		Paused = false;
 		Playing = true;
 		bBuffersToFlush = false;
 		bLoopCallback = false;
+		bIsFinished = false;
 	}
 
-	void FMixerSource::Stop()
+	void FMixerSource::StopInternal(bool bStopNow)
 	{
-		bInitialized = false;
 		IStreamingManager::Get().GetAudioStreamingManager().RemoveStreamingSoundSource(this);
 
 		if (WaveInstance)
 		{
-			FScopeLock Lock(&RenderThreadCritSect);
+			// We stop procedural sources immediately, since we do not know whether implementations of USoundWaveProcedural will correctly handle delayed stops.
+			const bool bIsProcedural = WaveInstance->WaveData && WaveInstance->WaveData->DecompressionType == DTYPE_Procedural;
 
-			if (MixerSourceVoice && Playing)
+			// If we've finished naturally or we're paused or we're told to immediately stop
+			if (bIsFinished || bIsProcedural || bStopNow || DisableStoppingVoicesCvar|| (MixerSourceVoice && MixerSourceVoice->IsPaused()))
 			{
-				MixerSourceVoice->Stop();
+				FScopeLock Lock(&RenderThreadCritSect);
+
+				// Stop immediately stops a sound with no fade
+				if (MixerSourceVoice && Playing)
+				{
+					MixerSourceVoice->Stop();
+				}
+
+				Paused = false;
+				Playing = false;
+				bIsStopping = false;
+
+				FreeResources();
 			}
+			// Otherwise, we need to do a quick fade-out of the sound and put the state
+			// of the sound into "stopping" mode. This prevents this source from
+			// being put into the "free" pool and prevents the source from freeing its resources
+			// until the sound has finished naturally (i.e. faded all the way out)
+			else if (!bIsStopping)
+			{
+				FScopeLock Lock(&RenderThreadCritSect);
 
-			Paused = false;
-			Playing = false;
+				bIsStopping = true;
 
-			FreeResources();
+				// StopFade will stop a sound with a very small fade to avoid discontinuities
+				if (MixerSourceVoice && Playing)
+				{
+					MixerSourceVoice->StopFade();
+				}
+
+				Paused = false;
+			}
 		}
+
+		if (!bIsStopping)
+		{
+			bInitialized = false;
+			FSoundSource::Stop();
+		}
+	}
+
+
+	void FMixerSource::Stop()
+	{
+		StopInternal(false);
+	}
+
+	void FMixerSource::StopNow()
+	{
+		StopInternal(true);
+	}
+
+	void FMixerSource::EnsureStopped()
+	{
+		// Make sure the source finishes its fadeout
+		if (MixerSourceVoice)
+		{
+			MixerSourceVoice->EnsureStopped();
+			bIsStopping = false;
+			check(MixerSourceVoice->IsDone());
+		}
+	}
+
+	void FMixerSource::ReleaseStoppedSound()
+	{
+		// Do state reset and free resources
+		bInitialized = false;
+		Paused = false;
+		Playing = false;
+		bIsStopping = false;
+
+		FreeResources();
 
 		FSoundSource::Stop();
 	}
@@ -488,8 +571,9 @@ namespace Audio
 				WaveInstance->NotifyFinished();
 				return true;
 			}
-			// Buses don't do buffer end callbacks, so we need to directly query buses doneness
-			else if (WaveInstance->WaveData->bIsBus)
+			// Buses don't do buffer end callbacks, so we need to directly query doneness. 
+			// Also need to query if we're currently stopping
+			else if (WaveInstance->WaveData->bIsBus || bIsStopping)
 			{
 				if (MixerSourceVoice->IsSourceEffectTailsDone() && MixerSourceVoice->IsDone())
 				{

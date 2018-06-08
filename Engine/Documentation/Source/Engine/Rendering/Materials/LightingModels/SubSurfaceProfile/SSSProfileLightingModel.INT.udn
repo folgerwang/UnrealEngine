@@ -37,7 +37,7 @@ There are many different ways of using Sub Surface profiles in UE4. In the follo
 
 ### Creating A Subsurface Profile
 
-To create a Subsurface Profile, first Right-click inside of the **Content Browser**. Then select the ** Materials & Textures** option and then select the **Subsurface Profile** option. 
+To create a Subsurface Profile, first Right-click inside of the **Content Browser**. Then select the **Materials & Textures** option and then select the **Subsurface Profile** option. 
 ![Create SubsurfaceProfile](2.png)
 
 [region:note]

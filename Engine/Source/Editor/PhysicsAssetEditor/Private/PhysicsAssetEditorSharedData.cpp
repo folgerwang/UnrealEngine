@@ -1636,7 +1636,9 @@ void FPhysicsAssetEditorSharedData::EnableSimulation(bool bEnableSimulation)
 {
 	if (bEnableSimulation)
 	{
+
 		// We should not already have an instance (destroyed when stopping sim).
+		EditorSkelComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		EditorSkelComp->SetSimulatePhysics(true);
 		EditorSkelComp->ResetAllBodiesSimulatePhysics();
 		EditorSkelComp->SetPhysicsBlendWeight(EditorOptions->PhysicsBlend);

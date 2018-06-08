@@ -9,17 +9,16 @@
 class UNiagaraEmitter;
 class UNiagaraRendererProperties;
 class UNiagaraStackObject;
-class UNiagaraStackItemExpander;
 
 UCLASS()
 class NIAGARAEDITOR_API UNiagaraStackRendererItem : public UNiagaraStackItem
 {
 	GENERATED_BODY()
-
+		
 public:
 	UNiagaraStackRendererItem();
 
-	void Initialize(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, UNiagaraStackEditorData& InStackEditorData, UNiagaraRendererProperties* InRendererProperties);
+	void Initialize(FRequiredEntryData InRequiredEntryData, UNiagaraRendererProperties* InRendererProperties);
 
 	UNiagaraRendererProperties* GetRendererProperties();
 
@@ -35,24 +34,19 @@ public:
 
 	void ResetToBase();
 
-	virtual FName GetItemBackgroundName() const override;
-	virtual int32 GetErrorCount() const override;
-	virtual bool GetErrorFixable(int32 ErrorIdx) const override;
-	virtual bool TryFixError(int32 ErrorIdx) override;
-	virtual FText GetErrorText(int32 ErrorIdx) const override;
+	bool GetIsEnabled() const;
+	void SetIsEnabled(bool bInIsEnabled);
 
 	static TArray<FNiagaraVariable> GetMissingVariables(UNiagaraRendererProperties* RendererProperties, UNiagaraEmitter* Emitter);
 	static bool AddMissingVariable(UNiagaraEmitter* Emitter, const FNiagaraVariable& Variable);
 
 protected:
 	virtual void BeginDestroy() override;
-
-	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren) override;
+	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
 private:
-	void RendererExpandedChanged();
-
 	void RendererChanged();
+	void RefreshIssues(TArray<FStackIssue>& NewIssues);
 
 private:
 	TWeakObjectPtr<UNiagaraRendererProperties> RendererProperties;
@@ -65,7 +59,4 @@ private:
 
 	UPROPERTY()
 	UNiagaraStackObject* RendererObject;
-
-	UPROPERTY()
-	UNiagaraStackItemExpander* RendererExpander;
 };

@@ -460,6 +460,309 @@ private:
 	TSharedPtr<FSlateDynamicImageBrush> DynamicBrush;
 	FText FilenameText;
 };
+
+
+//extern float SlateSplineNormalThreshold;
+class SSplineWithHandles : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SSplineWithHandles)
+	: _P0(FVector2D(0,32))
+	, _P1(FVector2D(100, 32))
+	, _P2(FVector2D(0,132))
+	, _P3(FVector2D(100,132))
+	, _SplineThickness(1.0f)
+	{}
+		SLATE_ARGUMENT(FVector2D, P0)
+		SLATE_ARGUMENT(FVector2D, P1)
+		SLATE_ARGUMENT(FVector2D, P2)
+		SLATE_ARGUMENT(FVector2D, P3)
+		SLATE_ATTRIBUTE(float, SplineThickness)
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs)
+	{
+		SetPoints(InArgs._P0, InArgs._P1, InArgs._P2, InArgs._P3);
+		SplineThickness = InArgs._SplineThickness;
+	}
+
+	void SetPoints(FVector2D P0, FVector2D P1, FVector2D P2, FVector2D P3)
+	{
+		BezierPoints[0] = P0;
+		BezierPoints[1] = P1;
+		BezierPoints[2] = P2;
+		BezierPoints[3] = P3;
+	}
+
+	void SetGradient(const TArray<FSlateGradientStop>& InGradient)
+	{
+		GradientStops = InGradient;
+	}
+
+private:
+	const FVector2D BezierPointRadius = FVector2D(8,8);
+
+	TSharedPtr<SSpinBox<float>> ThicknessSpinBox;
+	
+	//~ SWidget
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override
+	{
+		const bool bEnabled = ShouldBeEnabled(bParentEnabled);
+		
+		// Draw control points.
+		for (int i = 0; i < 4; ++i)
+		{
+			const FVector2D RadiusToUse = (i == 0 || i == 3) ? BezierPointRadius : 0.5f*BezierPointRadius;
+			const FLinearColor ColorToUse = (i == 0 || i == 1) ? FLinearColor::Green : FLinearColor::Blue;
+
+			FSlateDrawElement::MakeBox(
+				OutDrawElements,
+				LayerId,
+				AllottedGeometry.ToPaintGeometry(2* RadiusToUse, FSlateLayoutTransform(BezierPoints[i]- RadiusToUse)),
+				&WhiteBox,				
+				bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect,
+				ColorToUse * FLinearColor(1, 1, 1, 0.25f)
+			);
+
+		}
+
+		++LayerId;
+
+
+		// Draw the spline
+#ifdef ENABLE_SPLINE_WITH_GRADIENT_TESTING
+		if (GradientStops.Num() > 0)
+		{
+			// The legacy gradient function only supported draw-space inputs and only in hermite coordinates.
+			// Accommodate its inputs for testing purposes.
+			const FSlateRenderTransform ThisRenderTransform = AllottedGeometry.GetAccumulatedRenderTransform();
+			const FVector2D Hermite_P0 = ThisRenderTransform.TransformPoint(BezierPoints[0]);
+			const FVector2D Hermite_M0 = 3.0f*(ThisRenderTransform.TransformPoint(BezierPoints[1]) - Hermite_P0);
+			const FVector2D Hermite_P1 = ThisRenderTransform.TransformPoint(BezierPoints[3]);
+			const FVector2D Hermite_M1 = 3.0f*(Hermite_P1 - ThisRenderTransform.TransformPoint(BezierPoints[2]));
+
+			FSlateDrawElement::MakeDrawSpaceGradientSpline(
+				OutDrawElements,
+				LayerId,
+				Hermite_P0, Hermite_M0,
+				Hermite_P1, Hermite_M1,
+				GradientStops,
+				SplineThickness.Get() * AllottedGeometry.Scale,
+				bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect
+			);
+
+			TArray<FSlateGradientStop> GradientStopsForReference= GradientStops;
+			for (FSlateGradientStop& SomeStop : GradientStopsForReference)
+			{
+				SomeStop.Position.X *= AllottedGeometry.Size.X;
+			}
+			FSlateDrawElement::MakeGradient(
+				OutDrawElements,
+				LayerId,
+				AllottedGeometry.ToPaintGeometry(FVector2D(AllottedGeometry.Size.X, 16), FSlateLayoutTransform()),
+				GradientStopsForReference,
+				Orient_Vertical
+			);
+		}
+		else
+#endif//ENABLE_SPLINE_WITH_GRADIENT_TESTING
+		{
+			FSlateDrawElement::MakeCubicBezierSpline(
+				OutDrawElements,
+				LayerId,
+				AllottedGeometry.ToPaintGeometry(),
+				BezierPoints[0], BezierPoints[1], BezierPoints[2], BezierPoints[3],
+				SplineThickness.Get() * AllottedGeometry.Scale,
+				bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect,
+				FColor::White
+			);
+		}
+
+		return SCompoundWidget::OnPaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
+	}
+
+	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+	{
+		if (MouseEvent.GetEffectingButton()==EKeys::LeftMouseButton)
+		{
+			const FVector2D LocalCursorPos = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition());
+			PointBeingDragged = PointIndexFromCursorPos(BezierPoints, LocalCursorPos, 2*BezierPointRadius.X*2*BezierPointRadius.X);
+
+			if (PointBeingDragged != INDEX_NONE)
+			{
+				return FReply::Handled().CaptureMouse(SharedThis(this));
+			}
+		}
+
+		return FReply::Unhandled();
+	}
+
+	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+	{
+		if (PointBeingDragged != INDEX_NONE && MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+		{
+			PointBeingDragged = INDEX_NONE;
+			return FReply::Handled().ReleaseMouseCapture();
+		}
+		else
+		{
+			return FReply::Unhandled();
+		}
+	}
+
+	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+	{
+		if (PointBeingDragged != INDEX_NONE)
+		{
+			const FVector2D LocalCursorPos = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition());
+			BezierPoints[PointBeingDragged] = LocalCursorPos;
+			return FReply::Handled();
+		}
+
+		return FReply::Unhandled();
+	}
+	//~ SWidget
+
+
+	static int32 PointIndexFromCursorPos(const FVector2D* Points, const FVector2D LocalCursorPos, const float RadiusSquared)
+	{
+		for (int i = 0; i < 4; ++i)
+		{			
+			const float SizeSquared = (Points[i] - LocalCursorPos).SizeSquared();
+			if (SizeSquared < RadiusSquared)
+			{
+				return i;
+			}
+		}
+		return INDEX_NONE;
+	}
+
+	FSlateColorBrush WhiteBox = FSlateColorBrush(FColor::White);
+	FVector2D BezierPoints[4];
+	int32 PointBeingDragged = INDEX_NONE;
+	TAttribute<float> SplineThickness;
+	TArray<FSlateGradientStop> GradientStops;
+};
+
+class SSplineTest : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SSplineTest)
+		: _P0(FVector2D(0, 32))
+		, _P1(FVector2D(100, 32))
+		, _P2(FVector2D(0, 132))
+		, _P3(FVector2D(100, 132))
+	{}
+		SLATE_ARGUMENT(FVector2D, P0)
+		SLATE_ARGUMENT(FVector2D, P1)
+		SLATE_ARGUMENT(FVector2D, P2)
+		SLATE_ARGUMENT(FVector2D, P3)
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs)
+	{
+		this->ChildSlot
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.FillWidth(1)
+				[
+					SNew(SSpinBox<float>)
+					.MinValue(0.1f)
+					.MaxValue(20.0f)
+					.Value(this, &SSplineTest::GetSplineThickness)
+					.OnValueChanged(this, &SSplineTest::OnSplineThicknessChanged)
+				]
+				+ SHorizontalBox::Slot()
+				.FillWidth(1)
+				[
+					SNew(SSpinBox<int>)
+					.MinValue(0)
+					.MaxValue(16)
+					.OnValueChanged(this, &SSplineTest::OnNumGradientStopsChanged)
+				]
+				+ SHorizontalBox::Slot()
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("HorizontalHermite", "Horizontal"))
+					.OnClicked_Lambda([this]()
+					{
+						SplineWidget->SetPoints(FVector2D(0, 64), FVector2D(66, 64), FVector2D(133, 64), FVector2D(200, 64));
+						return FReply::Handled();
+					})
+				]
+				+ SHorizontalBox::Slot()
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("VerticalHermite", "Vertical"))
+					.OnClicked_Lambda([this]()
+					{
+						SplineWidget->SetPoints(FVector2D(64,0), FVector2D(64, 66), FVector2D(64, 133), FVector2D(64, 200));
+						return FReply::Handled();
+					})
+				]
+				+ SHorizontalBox::Slot()
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("HorizontalBendy", "Bendy"))
+					.OnClicked_Lambda([this]()
+					{
+						SplineWidget->SetPoints(FVector2D(64, 64), FVector2D(128, 64), FVector2D(64, 128), FVector2D(128, 128));
+						return FReply::Handled();
+					})
+				]
+				+ SHorizontalBox::Slot()
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("HorizontalDoubleBendy", "DoubleBendy"))
+					.OnClicked_Lambda([this]()
+					{
+						SplineWidget->SetPoints(FVector2D(128, 128), FVector2D(128-96, 128), FVector2D(192+96, 192), FVector2D(192, 192));
+						return FReply::Handled();
+					})
+				]
+				
+			]			
+			+ SVerticalBox::Slot()
+			.FillHeight(1)
+			[
+				SAssignNew(SplineWidget, SSplineWithHandles)
+				.P0(InArgs._P0)
+				.P1(InArgs._P1)
+				.P2(InArgs._P2)
+				.P3(InArgs._P3)
+				.SplineThickness(this, &SSplineTest::GetSplineThickness)
+			]
+		];
+	}
+
+private:
+	float GetSplineThickness() const { return SplineThickness; }
+	void OnSplineThicknessChanged(float InNewThickness) { SplineThickness = InNewThickness; }
+	void OnNumGradientStopsChanged(int NewNumGradientStops)
+	{
+		const auto ColorOne = FLinearColor::MakeRandomColor();
+		const auto ColorTwo = FLinearColor::MakeRandomColor();
+
+		TArray<FSlateGradientStop> GradientStops;
+		GradientStops.Reserve(NewNumGradientStops);
+		for (int i = 0; i < NewNumGradientStops; ++i)
+		{
+			// Note that the position is ignored by the spline
+			GradientStops.Add( FSlateGradientStop(FVector2D(static_cast<float>(i)/FMath::Max(1,NewNumGradientStops-1), 0.0f), i%2==0 ? ColorOne : ColorTwo) );
+		}
+		SplineWidget->SetGradient(GradientStops);
+	}
+	float SplineThickness = 5.0f;
+	TSharedPtr<SSplineWithHandles> SplineWidget;
+
+};
+
+
 /** Test the draw elements . */
 class SElementTesting : public SCompoundWidget
 {
@@ -574,6 +877,7 @@ public:
 		CenterRotation = 0;
 		OuterRotation = 0;
 	}
+
 private:
 	TSharedPtr<SVerticalBox> VerticalBox;
 	float FontScale;
@@ -667,7 +971,7 @@ private:
 			InParams.Geometry.ToPaintGeometry(),
 			Start, StartDir,
 			End, EndDir,
-			4.0f,
+			InParams.Geometry.Scale,
 			InParams.bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect,
 			FColor::White
 		);
@@ -675,38 +979,111 @@ private:
 		FVector2D LineStart =  FVector2D( InParams.Geometry.GetLocalSize().X/4, 10.0f );
 
 		TArray<FVector2D> LinePoints;
-		LinePoints.Add( LineStart );
+		TArray<FLinearColor> LineColors;
+		LinePoints.Add(LineStart); LineColors.Add(FLinearColor::Red);
 		LinePoints.Add( LineStart + FVector2D( 100.0f, 50.0f ) );
 		LinePoints.Add( LineStart + FVector2D( 200.0f, 10.0f ) );
 		LinePoints.Add( LineStart + FVector2D( 300.0f, 50.0f ) );
 		LinePoints.Add( LineStart + FVector2D( 400.0f, 10.0f ) );
-	
+
+
 		FSlateDrawElement::MakeLines( 
 			InParams.OutDrawElements,
 			InParams.Layer,
 			InParams.Geometry.ToPaintGeometry(),
 			LinePoints,
 			InParams.bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect,
-			FColor::Magenta
-			);
+			FColor::White,
+			true,	
+			InParams.Geometry.Scale
+		);
+
+		FSlateDrawElement::MakeLines(
+			InParams.OutDrawElements,
+			InParams.Layer,
+			InParams.Geometry.ToOffsetPaintGeometry(FVector2D(0, 10)),
+			LinePoints,
+			InParams.bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect,
+			FColor::White,
+			true,
+			2*InParams.Geometry.Scale
+		);
+
+		FSlateDrawElement::MakeLines(
+			InParams.OutDrawElements,
+			InParams.Layer,
+			InParams.Geometry.ToOffsetPaintGeometry(FVector2D(0, 20)),
+			LinePoints,
+			InParams.bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect,
+			FColor::White,
+			true,
+			3*InParams.Geometry.Scale
+		);
+
+		FSlateDrawElement::MakeLines(
+			InParams.OutDrawElements,
+			InParams.Layer,
+			InParams.Geometry.ToOffsetPaintGeometry(FVector2D(0, 34)),
+			LinePoints,
+			InParams.bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect,
+			FColor::White,
+			true,
+			4 * InParams.Geometry.Scale
+		);
 			
 
 		LineStart =  LinePoints[ LinePoints.Num() - 1 ] + FVector2D(50,10);
 		LinePoints.Empty();
 
+		static float CurTime = 0; 
+		CurTime += FSlateApplication::Get().GetDeltaTime();
+		CurTime = FMath::Fmod(CurTime, 2*PI);
+
 		for( float I = 0; I < 10*PI; I+=.1f)
 		{
-			LinePoints.Add( LineStart + FVector2D( I*15 , 15*FMath::Sin( I ) ) );
+			LinePoints.Add( LineStart + FVector2D( I*15 , 15*FMath::Sin( I + CurTime) ) );
 		}
 
 		static FColor Color = FColor::MakeRandomColor();
 		FSlateDrawElement::MakeLines( 
 			InParams.OutDrawElements,
-			InParams.Layer,
+			InParams.Layer+1,
 			InParams.Geometry.ToPaintGeometry(),
 			LinePoints,
-			InParams.bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect,
-			Color );
+			InParams.bEnabled ? ESlateDrawEffect::NoPixelSnapping : ESlateDrawEffect::NoPixelSnapping|ESlateDrawEffect::DisabledEffect,
+			Color,
+			true,
+			InParams.Geometry.Scale);
+
+		FSlateDrawElement::MakeLines(
+			InParams.OutDrawElements,
+			InParams.Layer,
+			InParams.Geometry.ToOffsetPaintGeometry(FVector2D(0, 10)),
+			LinePoints,
+			InParams.bEnabled ? ESlateDrawEffect::NoPixelSnapping : ESlateDrawEffect::NoPixelSnapping | ESlateDrawEffect::DisabledEffect,
+			Color,
+			true,
+			2*InParams.Geometry.Scale);
+
+		FSlateDrawElement::MakeLines(
+			InParams.OutDrawElements,
+			InParams.Layer,
+			InParams.Geometry.ToOffsetPaintGeometry(FVector2D(0, 20)),
+			LinePoints,
+			InParams.bEnabled ? ESlateDrawEffect::NoPixelSnapping : ESlateDrawEffect::NoPixelSnapping | ESlateDrawEffect::DisabledEffect,
+			Color,
+			true,
+			3 * InParams.Geometry.Scale);
+
+		FSlateDrawElement::MakeLines(
+			InParams.OutDrawElements,
+			InParams.Layer,
+			InParams.Geometry.ToOffsetPaintGeometry(FVector2D(0, 34)),
+			LinePoints,
+			InParams.bEnabled ? ESlateDrawEffect::NoPixelSnapping : ESlateDrawEffect::NoPixelSnapping | ESlateDrawEffect::DisabledEffect,
+			Color,
+			true,
+			4 * InParams.Geometry.Scale);
 
 		return InParams.Layer;
 
@@ -5457,6 +5834,66 @@ TSharedRef<SDockTab> SpawnTab(const FSpawnTabArgs& Args, FName TabIdentifier)
 			.RenderTransformPivot_Static(&::GetTestRenderTransformPivot)
 		];
 	}
+	else if (TabIdentifier == FName(TEXT("SplineTestTab")))
+	{
+		return SNew(SDockTab)
+			.Clipping(EWidgetClipping::ClipToBounds)
+			[
+				SNew(SUniformGridPanel)
+				.RenderTransform_Static(&::GetTestRenderTransform)
+				.RenderTransformPivot_Static(&::GetTestRenderTransformPivot)
+				.SlotPadding(FMargin(10.0f))
+				+SUniformGridPanel::Slot(0,0)
+				[
+					SNew(SBorder)
+					.Clipping(EWidgetClipping::ClipToBounds)
+					[
+						SNew(SSplineTest)
+						.P0(FVector2D(64, 64))
+						.P1(FVector2D(256, 64))
+						.P2(FVector2D(64, 256))
+						.P3(FVector2D(256, 256))
+					]
+				]
+				+ SUniformGridPanel::Slot(1, 0)
+				[
+					SNew(SBorder)
+					.Clipping(EWidgetClipping::ClipToBounds)
+					[
+						SNew(SSplineTest)
+						.P0(FVector2D(128 - 32, 32))
+						.P1(FVector2D(128 + 32, 128))
+						.P2(FVector2D(128 - 32, 128))
+						.P3(FVector2D(128 + 32, 32))
+					]
+				]
+				+ SUniformGridPanel::Slot(0, 1)
+				[
+					SNew(SBorder)
+					.Clipping(EWidgetClipping::ClipToBounds)
+					[
+						SNew(SSplineTest)
+						.P0(FVector2D(64, 64))
+						.P1(FVector2D(256, 64))
+						.P2(FVector2D(256, 256))
+						.P3(FVector2D(64, 256))
+					]
+				]
+				+ SUniformGridPanel::Slot(1, 1)
+				[
+					SNew(SBorder)
+					.Clipping(EWidgetClipping::ClipToBounds)
+					[
+						SNew(SSplineTest)
+						.P0(FVector2D(64, 64))
+						.P1(FVector2D(128, 128))
+						.P2(FVector2D(196, 196))
+						.P3(FVector2D(256, 256))
+					]
+				]
+				
+			];
+	}
 	else if (TabIdentifier == FName(TEXT("ElementTestsTab")))
 	{
 		return SNew(SDockTab)
@@ -5753,6 +6190,7 @@ TSharedRef<SDockTab> SpawnTestSuite2( const FSpawnTabArgs& Args )
 			->AddTab("DPIScalingTest", ETabState::OpenedTab)
 			->AddTab("InvalidationTest", ETabState::OpenedTab)
 			->AddTab("GammaTest", ETabState::OpenedTab)
+			->AddTab("SplineTestTab", ETabState::OpenedTab)
 		)
 	);
 
@@ -5765,35 +6203,39 @@ TSharedRef<SDockTab> SpawnTestSuite2( const FSpawnTabArgs& Args )
 	TestSuite2TabManager = FGlobalTabmanager::Get()->NewTabManager( TestSuite2Tab );
 	{
 		TestSuite2TabManager->RegisterTabSpawner( "AnimationTestTab", FOnSpawnTab::CreateStatic( &SpawnTab, FName("AnimationTestTab") )  )
-			.SetDisplayName( NSLOCTEXT("TestSuite1", "AnimationTestTab", "Animation Test") )
+			.SetDisplayName( NSLOCTEXT("TestSuite2", "AnimationTestTab", "Animation Test") )
+			.SetGroup(TestSuiteMenu::SuiteTabs);
+
+		TestSuite2TabManager->RegisterTabSpawner("SplineTestTab", FOnSpawnTab::CreateStatic(&SpawnTab, FName("SplineTestTab")))
+			.SetDisplayName(NSLOCTEXT("TestSuite2", "SplineTestTab", "Spline Test"))
 			.SetGroup(TestSuiteMenu::SuiteTabs);
 
 		TestSuite2TabManager->RegisterTabSpawner( "ElementTestsTab", FOnSpawnTab::CreateStatic( &SpawnTab, FName("ElementTestsTab") )  )
-			.SetDisplayName( NSLOCTEXT("TestSuite1", "ElementTestsTab", "Elements Test") )
+			.SetDisplayName( NSLOCTEXT("TestSuite2", "ElementTestsTab", "Elements Test") )
 			.SetGroup(TestSuiteMenu::SuiteTabs);
 
 		TestSuite2TabManager->RegisterTabSpawner( "ColorPickerTestTab", FOnSpawnTab::CreateStatic( &SpawnTab, FName("ColorPickerTestTab") )  )
-			.SetDisplayName( NSLOCTEXT("TestSuite1", "ColorPickerTestTab", "Color Picker Test") )
+			.SetDisplayName( NSLOCTEXT("TestSuite2", "ColorPickerTestTab", "Color Picker Test") )
 			.SetGroup(TestSuiteMenu::SuiteTabs);
 
 		TestSuite2TabManager->RegisterTabSpawner( "NotificationListTestTab", FOnSpawnTab::CreateStatic( &SpawnTab, FName("NotificationListTestTab") )  )
-			.SetDisplayName( NSLOCTEXT("TestSuite1", "NotificationListTestTab", "Notifications Test") )
+			.SetDisplayName( NSLOCTEXT("TestSuite2", "NotificationListTestTab", "Notifications Test") )
 			.SetGroup(TestSuiteMenu::SuiteTabs);
 
 		TestSuite2TabManager->RegisterTabSpawner( "GridPanelTest", FOnSpawnTab::CreateStatic( &SpawnTab, FName("GridPanelTest") )  )
-			.SetDisplayName( NSLOCTEXT("TestSuite1", "GridPanelTest", "Grid Panel") )
+			.SetDisplayName( NSLOCTEXT("TestSuite2", "GridPanelTest", "Grid Panel") )
 			.SetGroup(TestSuiteMenu::SuiteTabs);
 
 		TestSuite2TabManager->RegisterTabSpawner( "DPIScalingTest", FOnSpawnTab::CreateStatic( &SpawnTab, FName("DPIScalingTest") )  )
-			.SetDisplayName( NSLOCTEXT("TestSuite1", "DPIScalingTest", "DPI Scaling") )
+			.SetDisplayName( NSLOCTEXT("TestSuite2", "DPIScalingTest", "DPI Scaling") )
 			.SetGroup(TestSuiteMenu::SuiteTabs);
 
 		TestSuite2TabManager->RegisterTabSpawner("InvalidationTest", FOnSpawnTab::CreateStatic(&SpawnTab, FName("InvalidationTest")))
-			.SetDisplayName(NSLOCTEXT("TestSuite1", "InvalidationTest", "Invalidation"))
+			.SetDisplayName(NSLOCTEXT("TestSuite2", "InvalidationTest", "Invalidation"))
 			.SetGroup(TestSuiteMenu::SuiteTabs);
 		
 		TestSuite2TabManager->RegisterTabSpawner("GammaTest", FOnSpawnTab::CreateStatic(&SpawnTab, FName("GammaTest")))
-			.SetDisplayName(NSLOCTEXT("TestSuite1", "GammaTest", "Gamma"))
+			.SetDisplayName(NSLOCTEXT("TestSuite2", "GammaTest", "Gamma"))
 			.SetGroup(TestSuiteMenu::SuiteTabs);
 	}
 

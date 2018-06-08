@@ -428,6 +428,29 @@ bool FPluginManager::ConfigureEnabledPlugins()
 		// Keep a set of all the plugin names that have been configured. We read configuration data from different places, but only configure a plugin from the first place that it's referenced.
 		TSet<FString> ConfiguredPluginNames;
 
+		// Check if we want to enable all plugins
+		if (FParse::Param(FCommandLine::Get(), TEXT("EnableAllPlugins")))
+		{
+			TArray<FString> ExceptPlugins;
+			{
+				FString ExceptPluginsStr;
+				FParse::Value(FCommandLine::Get(), TEXT("ExceptPlugins="), ExceptPluginsStr, false);
+				ExceptPluginsStr.ParseIntoArray(ExceptPlugins, TEXT(","));
+			}
+
+			for (const TPair<FString, TSharedRef<FPlugin>>& PluginPair : AllPlugins)
+			{
+				if (!ConfiguredPluginNames.Contains(PluginPair.Key) && !ExceptPlugins.Contains(PluginPair.Key))
+				{
+					if (!ConfigureEnabledPlugin(FPluginReferenceDescriptor(PluginPair.Key, true), EnabledPluginNames))
+					{
+						return false;
+					}
+					ConfiguredPluginNames.Add(PluginPair.Key);
+				}
+			}
+		}
+
 #if !IS_PROGRAM || HACK_HEADER_GENERATOR
 		if (!FParse::Param(FCommandLine::Get(), TEXT("NoEnginePlugins")))
 		{
@@ -596,6 +619,11 @@ bool FPluginManager::ConfigureEnabledPlugins()
 		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 		for (TSharedRef<IPlugin> Plugin: GetEnabledPluginsWithContent())
 		{
+			if (NewPluginMountedEvent.IsBound())
+			{
+				NewPluginMountedEvent.Broadcast(*Plugin);
+			}
+
 			if (ensure(RegisterMountPointDelegate.IsBound()))
 			{
 				FString ContentDir = Plugin->GetContentDir();
@@ -1133,6 +1161,11 @@ TArray<TSharedRef<IPlugin>> FPluginManager::GetPluginsWithPakFile() const
 	return PluginsWithPakFile;
 }
 
+IPluginManager::FNewPluginMountedEvent& FPluginManager::OnNewPluginCreated()
+{
+	return NewPluginCreatedEvent;
+}
+
 IPluginManager::FNewPluginMountedEvent& FPluginManager::OnNewPluginMounted()
 {
 	return NewPluginMountedEvent;
@@ -1182,9 +1215,9 @@ void FPluginManager::MountNewlyCreatedPlugin(const FString& PluginName)
 			}
 
 			// Notify any listeners that a new plugin has been mounted
-			if (NewPluginMountedEvent.IsBound())
+			if (NewPluginCreatedEvent.IsBound())
 			{
-				NewPluginMountedEvent.Broadcast(*Plugin);
+				NewPluginCreatedEvent.Broadcast(*Plugin);
 			}
 			break;
 		}

@@ -236,6 +236,17 @@ typedef struct ArPointCloud_ ArPointCloud;
 /// Release with ArImageMetadata_release()
 typedef struct ArImageMetadata_ ArImageMetadata;
 
+/// Accessing CPU image from the tracking camera (@ref ownership "reference
+/// type, large data").
+///
+/// Acquire with ArFrame_acquireCameraImage()<br>
+/// Convert to NDK AImage with ArImage_getNdkImage()<br>
+/// Release with ArImage_releaseImage()
+typedef struct ArImage_ ArImage;
+
+/// Forward declaring the AImage struct from Android NDK, which is used
+/// in ArImage_getNdkImage().
+typedef struct AImage AImage;
 /// @}
 
 // Trackables.
@@ -609,53 +620,112 @@ extern "C" {
 /// @addtogroup arcoreapk
 /// @{
 
-/// Determines if ARCore is available on this device. This may initiate a query
-/// with a remote service to determine if the device is supported by ARCore, in
-/// which case it will immediately return and set out_availability to
+/// Determines if ARCore is supported on this device. This may initiate a query
+/// with a remote service to determine if the device is compatible, in which
+/// case it will return immediately with @c out_availability set to
 /// #AR_AVAILABILITY_UNKNOWN_CHECKING.
 ///
-/// Note: #AR_AVAILABILITY_SUPPORTED_INSTALLED} only indicates presence of a
-/// suitably versioned ARCore APK. Session creation may still fail if the ARCore
-/// APK has been sideloaded onto an incompatible device.
+/// Note: A result #AR_AVAILABILITY_SUPPORTED_INSTALLED only indicates presence
+/// of a suitably versioned ARCore APK. Session creation may still fail if the
+/// ARCore APK has been sideloaded onto an incompatible device.
 ///
 /// May be called prior to ArSession_create().
+///
+/// @param[in] env The application's @c JNIEnv object
+/// @param[in] application_context A @c jobject referencing the application's
+///     Android @c Context.
+/// @param[out] out_availability A pointer to an ArAvailability to receive
+///     the result.
 void ArCoreApk_checkAvailability(void *env,
                                  void *application_context,
                                  ArAvailability *out_availability);
 
-/// Initiates installation of ARCore if required, optionally preceded by user
-/// education dialog. Either ArCoreApk_checkAvailability() should previously
-/// have returned one of the \c AR_AVAILABILITY_SUPPORTED... values, or your
-/// application should be marked as AR-Required.
+/// Initiates installation of ARCore if needed. When your apllication launches
+/// or enters an AR mode, it should call this method with @c
+/// user_requested_install = 1.
 ///
-/// This call will return immediately, after which your activity will be paused.
-/// Upon resume, your application should call this method again. If ARCore was
-/// determined to be unavialable, an errior ocurred, or the user declined the
-/// installation, an expcetion will be thrown.
+/// If ARCore is installed and compatible, this function will set @c
+/// out_install_status to #AR_INSTALL_STATUS_INSTALLED.
 ///
-/// If user interaction lead directly to this call (including application
-/// launch) then \c user_requested_install should be true. Otherwise (if, for
-/// example, you are re-calling after resume) it should be false.
+/// If ARCore is not currently installed or the installed version not
+/// compatible, the function will set @c out_install_status to
+/// #AR_INSTALL_STATUS_INSTALL_REQUESTED and return immediately. Your current
+/// activity will then pause while the user is informed about the requierment of
+/// ARCore and offered the opportunity to install it.
+///
+/// When your activity resumes, you should call this method again, this time
+/// with @c user_requested_install = 0. This will either set
+/// @c out_install_status to #AR_INSTALL_STATUS_INSTALLED or return an error
+/// code indicating the reason that installation could not be completed.
+///
+/// ARCore-optional applications must ensure that ArCoreApk_checkAvailability()
+/// returns one of the <tt>AR_AVAILABILITY_SUPPORTED_...</tt> values before
+/// calling this method.
+///
+/// See <A
+/// href="https://github.com/google-ar/arcore-android-sdk/tree/master/samples">
+/// our sample code</A> for an example of how an ARCore-required application
+/// should use this function.
 ///
 /// May be called prior to ArSession_create().
 ///
-/// @return #AR_SUCCESS or any of:
+/// For more control over the message displayed and ease of exiting the process,
+/// see ArCoreApk_requestInstallCustom().
+///
+/// <b>Caution:</b> The value of <tt>*out_install_status</tt> should only be
+/// considered when #AR_SUCCESS is returned.  Otherwise this value must be
+/// ignored.
+///
+/// @param[in] env The application's @c JNIEnv object
+/// @param[in] application_activity A @c jobject referencing the application's
+///     current Android @c Activity.
+/// @param[in] user_requested_install if set, override the previous installation
+///     failure message and always show the installation interface.
+/// @param[out] out_install_status A pointer to an ArInstallStatus to receive
+///     the resulting install status, if successful.  Note: this value is only
+///     valid with the return value is #AR_SUCCESS.
+/// @return #AR_SUCCESS, or any of:
 /// - #AR_ERROR_FATAL if an error occurs while checking for or requesting
 ///     installation
 /// - #AR_UNAVAILABLE_DEVICE_NOT_COMPATIBLE if ARCore is not supported
 ///     on this device.
-/// - #AR_UNAVAILABLE_ANDROID_VERSION_NOT_SUPPORTED if the current
-///     version of android is too old to support ARCore.
-/// - AR_UNAVAILABLE_ARCORE_NOT_INSTALLED if ARCore could not be
-///     installed.
+/// - #AR_UNAVAILABLE_USER_DECLINED_INSTALLATION if the user previously declined
+///     installation.
 ArStatus ArCoreApk_requestInstall(void *env,
                                   void *application_activity,
                                   bool user_requested_install,
                                   ArInstallStatus *out_install_status);
 
-/// Like ArCoreApk_requestInstall(), but allows explicit selection of the
-/// behavior and message type.  These values are normally selected based on
-/// the ARCore required/optional meta-data in the application manifest.
+/// Initiates installation of ARCore if required, with configurable behavior.
+///
+/// This is a more flexible version of ArCoreApk_requestInstall() allowing the
+/// application control over the initial informational dialog and ease of
+/// exiting or cancelling the installation.
+///
+/// See ArCoreApk_requestInstall() for details of use and behavior.
+///
+/// May be called prior to ArSession_create().
+///
+/// @param[in] env The application's @c JNIEnv object
+/// @param[in] application_activity A @c jobject referencing the application's
+///     current Android @c Activity.
+/// @param[in] user_requested_install if set, override the previous installation
+///     failure message and always show the installation interface.
+/// @param[in] install_behavior controls the presence of the cancel button at
+///     the user education screen and if tapping outside the education screen or
+///     install-in-progress screen causes them to dismiss.
+/// @param[in] message_type controls the text of the of message displayed
+///     before showing the install prompt, or disables display of this message.
+/// @param[out] out_install_status A pointer to an ArInstallStatus to receive
+///     the resulting install status, if successful.  Note: this value is only
+///     valid with the return value is #AR_SUCCESS.
+/// @return #AR_SUCCESS, or any of:
+/// - #AR_ERROR_FATAL if an error occurs while checking for or requesting
+///     installation
+/// - #AR_UNAVAILABLE_DEVICE_NOT_COMPATIBLE if ARCore is not supported
+///     on this device.
+/// - #AR_UNAVAILABLE_USER_DECLINED_INSTALLATION if the user previously declined
+///     installation.
 ArStatus ArCoreApk_requestInstallCustom(void *env,
                                         void *application_activity,
                                         int32_t user_requested_install,
@@ -763,11 +833,12 @@ ArStatus ArSession_checkSupported(const ArSession *session,
                                   const ArConfig *config);
 
 /// Configures the session with the given config.
+/// Note: a seession is always initially configured with the default config.
+/// This should be called if a configuration different than default is needed.
 ///
 /// @return #AR_SUCCESS or any of:
 /// - #AR_ERROR_FATAL
 /// - #AR_ERROR_UNSUPPORTED_CONFIGURATION
-/// - #AR_ERROR_SESSION_NOT_PAUSED
 ArStatus ArSession_configure(ArSession *session, const ArConfig *config);
 
 /// Starts or resumes the ARCore Session.
@@ -1136,7 +1207,10 @@ void ArFrame_acquireCamera(const ArSession *session,
 /// - #AR_ERROR_DEADLINE_EXCEEDED if @c frame is not the latest frame from
 ///   by ArSession_update().
 /// - #AR_ERROR_RESOURCE_EXHAUSTED if too many metadata objects are currently
-///     held.
+///   held.
+/// - #AR_ERROR_NOT_YET_AVAILABLE if the camera failed to produce metadata for
+///   the given frame. Note: this will commonly happen for few frames right
+///   after @c ArSession_resume() due to the camera stack bringup.
 ArStatus ArFrame_acquireImageMetadata(const ArSession *session,
                                       const ArFrame *frame,
                                       ArImageMetadata **out_metadata);
@@ -1167,7 +1241,6 @@ void ArFrame_getUpdatedTrackables(const ArSession *session,
                                   const ArFrame *frame,
                                   ArTrackableType filter_type,
                                   ArTrackableList *out_trackable_list);
-
 /// @}
 
 // === ArPointCloud methods ===
@@ -1235,6 +1308,27 @@ void ArImageMetadata_getNdkCameraMetadata(
 /// This method may safely be called with @c nullptr - it will do nothing.
 void ArImageMetadata_release(ArImageMetadata *metadata);
 
+// === CPU Image Access types and methods ===
+/// Gets the image of the tracking camera relative to the input session and
+/// frame.
+/// Return values:
+/// @returns #AR_SUCCESS or any of:
+/// - #AR_ERROR_INVALID_ARGUMENT - one more input arguments are invalid.
+/// - #AR_ERROR_DEADLINE_EXCEEDED - the input frame is not the current frame.
+/// - #AR_ERROR_RESOURCE_EXHAUSTED - the caller app has exceeded maximum number
+///   of images that it can hold without releasing.
+/// - #AR_ERROR_NOT_YET_AVAILABLE - image with the timestamp of the input frame
+///   was not found within a bounded amount of time, or the camera failed to
+///   produce the image
+ArStatus ArFrame_acquireCameraImage(ArSession *session,
+                                    ArFrame *frame,
+                                    ArImage **out_image);
+
+/// Converts an ArImage object to an Android NDK AImage object.
+void ArImage_getNdkImage(const ArImage *image, const AImage **out_ndk_image);
+
+/// Releases an instance of ArImage returned by ArFrame_acquireCameraImage().
+void ArImage_release(ArImage *image);
 /// @}
 
 // === ArLightEstimate methods ===
@@ -1256,11 +1350,46 @@ void ArLightEstimate_getState(const ArSession *session,
                               const ArLightEstimate *light_estimate,
                               ArLightEstimateState *out_light_estimate_state);
 
-/// Retrieves the pixel intensity of the current camera view. Values are in the
-/// range (0.0, 1.0), with zero being black and one being white.
+/// Retrieves the pixel intensity, in gamma space, of the current camera view.
+/// Values are in the range (0.0, 1.0), with zero being black and one being
+/// white.
+/// If rendering in gamma space, divide this value by 0.466, which is middle
+/// gray in gamma space, and multiply against the final calculated color after
+/// rendering.
+/// If rendering in linear space, first convert this value to linear space by
+/// rising to the power 2.2. Normalize the result by dividing it by 0.18 which
+/// is middle gray in linear space. Then multiply by the final calculated color
+/// after rendering.
 void ArLightEstimate_getPixelIntensity(const ArSession *session,
                                        const ArLightEstimate *light_estimate,
                                        float *out_pixel_intensity);
+
+// Gets the color correction values that are uploaded to the fragment shader.
+// Use the RGB scale factors (components 0-2) to match the color of the light in
+// the scene. Use the pixel intensity (component 3) to match the intensity of
+// the light in the scene.
+// out_color_correction_4 components are:
+//   [0] Red channel scale factor.
+//   [1] Green channel scale factor.
+//   [2] Blue channel scale factor.
+//   [3] Pixel intensity. This is the same value as the one return from
+//       ArLightEstimate_getPixelIntensity().
+//  The RGB scale factors can be used independently from the pixel intensity
+//  value. They are put together for the convenience of only having to upload
+//  one float4 to the fragment shader.
+//  The RGB scale factors are not intended to brighten nor dim the scene.  They
+//  are only to shift the color of the virtual object towards the color of the
+//  light; not intensity of the light. The pixel intensity is used to match the
+//  intensity of the light in the scene.
+//  Color correction values are reported in gamma space.
+//  If rendering in gamma space, component-wise multiply them against the final
+//  calculated color after rendering.
+//  If rendering in linear space, first convert the values to linear space by
+//  rising to the power 2.2. Then component-wise multiply against the final
+//  calculated color after rendering.
+void ArLightEstimate_getColorCorrection(const ArSession *session,
+                                        const ArLightEstimate *light_estimate,
+                                        float *out_color_correction_4);
 
 /// @}
 
@@ -1368,7 +1497,7 @@ void ArTrackable_getTrackingState(const ArSession *session,
                                   const ArTrackable *trackable,
                                   ArTrackingState *out_tracking_state);
 
-/// Creates aa Anchor at the given pose in the world coordinate space, attached
+/// Creates an Anchor at the given pose in the world coordinate space, attached
 /// to this Trackable, and acquires a reference to it. The type of Trackable
 /// will determine the semantics of attachment and how the Anchor's pose will be
 /// updated to maintain this relationship. Note that the relative offset between

@@ -33,15 +33,6 @@ static TAutoConsoleVariable<int32> CVarUnbuiltNumWholeSceneDynamicShadowCascades
 	ECVF_RenderThreadSafe);
 
 /**
- * The directional light policy for TMeshLightingDrawingPolicy.
- */
-class FDirectionalLightPolicy
-{
-public:
-	typedef FLightSceneInfo SceneInfoType;
-};
-
-/**
  * The scene info for a directional light.
  */
 class FDirectionalLightSceneProxy : public FLightSceneProxy
@@ -181,6 +172,7 @@ public:
 		LightParameters.LightSourceLength = 0.0f;
 		// Prevent 0 Roughness which causes NaNs in Vis_SmithJointApprox
 		LightParameters.LightMinRoughness = FMath::Max(MinRoughness, .02f);
+		LightParameters.SourceTexture = GWhiteTexture;
 	}
 
 	virtual float GetLightSourceAngle() const override

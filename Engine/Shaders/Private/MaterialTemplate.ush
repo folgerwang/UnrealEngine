@@ -88,8 +88,22 @@ struct FMaterialParticleParameters
 	float4 TranslatedWorldPositionAndSize;
 	/** Macro UV scale and bias. */
 	half4 MacroUV;
-	/** Dynamic parameter used by particle systems. */
+
+	/** Dynamic parameters used by particle systems. */
 	half4 DynamicParameter;
+
+#if NUM_DYNAMIC_PARAMETERS > 1
+	half4 DynamicParameter1;
+#endif
+
+#if NUM_DYNAMIC_PARAMETERS > 2
+	half4 DynamicParameter2;
+#endif
+
+#if NUM_DYNAMIC_PARAMETERS > 3
+	half4 DynamicParameter3;
+#endif
+
 	/** mesh particle orientation */
 	float4x4 LocalToWorld;
 
@@ -104,13 +118,40 @@ struct FMaterialParticleParameters
 	float2 Size;
 };
 
-float4 GetDynamicParameter(FMaterialParticleParameters Parameters, float4 Default)
+float4 GetDynamicParameter(FMaterialParticleParameters Parameters, float4 Default, int ParameterIndex=0)
 {
-	#if (PARTICLE_FACTORY || NIAGARA_PARTICLE_FACTORY)
+#if (NIAGARA_PARTICLE_FACTORY)
+	if(ParameterIndex == 0)
+	{
+		return Parameters.DynamicParameter;
+	}
+#if NUM_DYNAMIC_PARAMETERS > 1
+	else if(ParameterIndex == 1)
+	{
+		return Parameters.DynamicParameter1;
+	}
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 2
+	else if(ParameterIndex == 2)
+	{
+		return Parameters.DynamicParameter2;
+	}
+#endif	
+#if NUM_DYNAMIC_PARAMETERS > 3
+	else if(ParameterIndex == 3)
+	{
+		return Parameters.DynamicParameter3;
+	}
+#endif
+	else
+	{
+		return Default;
+	}
+#elif (PARTICLE_FACTORY)
 	return Parameters.DynamicParameter;
-	#else
+#else
 	return Default;
-	#endif
+#endif
 }
 
 /** 
@@ -427,7 +468,7 @@ float4 GetSceneTextureViewSize(const uint SceneTextureId)
 		return ViewportSize;
 	}
 	#endif
-	return View.ViewSizeAndInvSize;
+	return ResolvedView.ViewSizeAndInvSize;
 }
 
 
@@ -776,7 +817,7 @@ float GetPerInstanceFadeAmount(FMaterialVertexParameters Parameters)
  
 MaterialFloat GetDistanceCullFade()
 {
-	return saturate( View.RealTime * PrimitiveFade.FadeTimeScaleBias.x + PrimitiveFade.FadeTimeScaleBias.y );
+	return saturate( ResolvedView.RealTime * PrimitiveFade.FadeTimeScaleBias.x + PrimitiveFade.FadeTimeScaleBias.y );
 }
 
 /** Rotates Position about the given axis by the given angle, in radians, and returns the offset to Position. */
@@ -862,7 +903,7 @@ float4 MaterialExpressionAtmosphericFog(FMaterialPixelParameters Parameters, flo
 float3 MaterialExpressionAtmosphericLightVector(FMaterialPixelParameters Parameters)
 {
 #if MATERIAL_ATMOSPHERIC_FOG
-	return View.AtmosphericFogSunDirection;
+	return ResolvedView.AtmosphericFogSunDirection;
 #else
 	return float3(0.f, 0.f, 0.f);
 #endif
@@ -871,7 +912,7 @@ float3 MaterialExpressionAtmosphericLightVector(FMaterialPixelParameters Paramet
 float3 MaterialExpressionAtmosphericLightColor(FMaterialPixelParameters Parameters)
 {
 #if MATERIAL_ATMOSPHERIC_FOG
-	return View.AtmosphericFogSunColor;
+	return ResolvedView.AtmosphericFogSunColor;
 #else
 	return float3(0.f, 0.f, 0.f);
 #endif
@@ -926,7 +967,7 @@ MaterialFloat4 ProcessMaterialColorTextureLookup(MaterialFloat4 TextureValue)
 {
 #if (FEATURE_LEVEL == FEATURE_LEVEL_ES2) // ES2 does not support sRGB sampling
 	#if MOBILE_EMULATION
-	if( View.MobilePreviewMode > 0.5f)
+	if( ResolvedView.MobilePreviewMode > 0.5f)
 	{
 		// undo HW srgb->lin
 		TextureValue.rgb = pow(TextureValue.rgb, 1.0f / 2.2f); // TODO: replace with a more accurate lin -> sRGB conversion.
@@ -949,7 +990,7 @@ MaterialFloat ProcessMaterialGreyscaleTextureLookup(MaterialFloat TextureValue)
 {
 #if (FEATURE_LEVEL == FEATURE_LEVEL_ES2) || COMPILER_GLSL_ES3_1 || VULKAN_PROFILE // ES2, OpenGLES3.1, Vulkan3.1 do not support sRGB sampling from R8
 	#if MOBILE_EMULATION
-	if( View.MobilePreviewMode > 0.5f )
+	if( ResolvedView.MobilePreviewMode > 0.5f )
 	{
 		// undo HW srgb->lin
 		TextureValue = pow(TextureValue, 1.0f/2.2f); // TODO: replace with a more accurate lin -> sRGB conversion.
@@ -1051,7 +1092,7 @@ float GetSphericalParticleOpacity(FMaterialPixelParameters Parameters, float Den
 
 #if !SPHERICAL_OPACITY_FOR_SHADOW_DEPTHS
 		// Fade out as the particle approaches the near plane
-		Opacity = lerp(0, Opacity, saturate((Parameters.ScreenPosition.w - ParticleRadius - View.NearPlane) / ParticleRadius));
+		Opacity = lerp(0, Opacity, saturate((Parameters.ScreenPosition.w - ParticleRadius - ResolvedView.NearPlane) / ParticleRadius));
 #endif
 	}
 
@@ -1467,13 +1508,13 @@ half3 GetMaterialNormal(FMaterialPixelParameters Parameters, FPixelMaterialInput
 	#if (USE_EDITOR_SHADERS && !(ES2_PROFILE || ES3_1_PROFILE || ESDEFERRED_PROFILE)) || MOBILE_EMULATION
 	{
 		// this feature is only needed for development/editor - we can compile it out for a shipping build (see r.CompileShadersForDevelopment cvar help)
-		half3 OverrideNormal = View.NormalOverrideParameter.xyz;
+		half3 OverrideNormal = ResolvedView.NormalOverrideParameter.xyz;
 
 		#if !MATERIAL_TANGENTSPACENORMAL
-			OverrideNormal = Parameters.TangentToWorld[2] * (1 - View.NormalOverrideParameter.w);
+			OverrideNormal = Parameters.TangentToWorld[2] * (1 - ResolvedView.NormalOverrideParameter.w);
 		#endif
 
-		RetNormal = RetNormal * View.NormalOverrideParameter.w + OverrideNormal;
+		RetNormal = RetNormal * ResolvedView.NormalOverrideParameter.w + OverrideNormal;
 	}
 	#endif
 
@@ -1553,7 +1594,7 @@ half GetMaterialRoughness(FPixelMaterialInputs PixelMaterialInputs)
 	#if MOBILE_EMULATION
 	{
 		// this is only needed for mobile preview on PC
-		Roughness = Roughness * View.RoughnessOverrideParameter.y + View.RoughnessOverrideParameter.x;
+		Roughness = Roughness * ResolvedView.RoughnessOverrideParameter.y + ResolvedView.RoughnessOverrideParameter.x;
 	}
 	#endif
 
@@ -1565,7 +1606,7 @@ half GetMaterialRoughness(FPixelMaterialInputs PixelMaterialInputs)
 	#if (USE_EDITOR_SHADERS && !ESDEFERRED_PROFILE)
 	{
 		// this feature is only needed for development/editor - we can compile it out for a shipping build (see r.CompileShadersForDevelopment cvar help)
-		Roughness = Roughness * View.RoughnessOverrideParameter.y + View.RoughnessOverrideParameter.x;
+		Roughness = Roughness * ResolvedView.RoughnessOverrideParameter.y + ResolvedView.RoughnessOverrideParameter.x;
 	}
 	#endif
 	
@@ -1920,7 +1961,7 @@ void GetMaterialCoverageAndClipping(FMaterialPixelParameters Parameters, FPixelM
 		};
 		//Pos = floor( Pos + DepthGrad * float2( 4093, 3571 ) );
 
-		float Dither5 = frac( ( Pos.x + Pos.y * 2 - 1.5 + View.TemporalAAParams.x ) / 5 );
+		float Dither5 = frac( ( Pos.x + Pos.y * 2 - 1.5 + ResolvedView.TemporalAAParams.x ) / 5 );
 		float Noise = frac( dot( float2( 171.0, 231.0 ) / 71, Pos.xy ) );
 		float Dither = ( Dither5 * 5 + Noise ) * (1.0 / 6.0);
 
@@ -1951,7 +1992,7 @@ uint DiscardMaterialWithPixelCoverage(FMaterialPixelParameters MaterialParameter
 	float OriginalMask = GetMaterialMaskInputRaw(PixelMaterialInputs);
 	float MaskClip = GetMaterialOpacityMaskClipValue();
 
-	if (View.NumSceneColorMSAASamples > 1)
+	if (ResolvedView.NumSceneColorMSAASamples > 1)
 	{
 		float Mask = (OriginalMask - MaskClip) / (1.0 - MaskClip);
 		uint CurrentPixelCoverage = GetDerivativeCoverageFromMask(Mask);
@@ -2018,7 +2059,7 @@ void CalcMaterialParametersEx(
 	Parameters.TwoSidedSign = 1.0f;
 
 #if MATERIAL_TWOSIDED && HAS_PRIMITIVE_UNIFORM_BUFFER
-	Parameters.TwoSidedSign *= View.CullingSign * Primitive.LocalToWorldDeterminantSign;
+	Parameters.TwoSidedSign *= ResolvedView.CullingSign * Primitive.LocalToWorldDeterminantSign;
 
 	#if !MATERIAL_TWOSIDED_SEPARATE_PASS
 		Parameters.TwoSidedSign *= GetFloatFacingSign(bIsFrontFace);

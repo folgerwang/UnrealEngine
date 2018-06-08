@@ -11,6 +11,7 @@
 #include "Tools/SequencerEditTool_Selection.h"
 #include "SequencerTrackNode.h"
 #include "Widgets/Layout/SBox.h"
+#include "Channels/MovieSceneChannel.h"
 #include "Channels/MovieSceneChannelProxy.h"
 #include "MovieSceneTimeHelpers.h"
 
@@ -78,10 +79,13 @@ void FSectionHotspot::UpdateOnHover(SSequencerTrackArea& InTrackArea, ISequencer
 		// Activate selection mode if the section has keys
 		for (const FMovieSceneChannelEntry& Entry : ThisSection->GetChannelProxy().GetAllEntries())
 		{
-			if (Entry.GetBatchChannelInterface().GetNumKeys_Batch(Entry.GetChannels()) != 0)
+			for (const FMovieSceneChannel* Channel : Entry.GetChannels())
 			{
-				InTrackArea.AttemptToActivateTool(FSequencerEditTool_Selection::Identifier);
-				return;
+				if (Channel->GetNumKeys() != 0)
+				{
+					InTrackArea.AttemptToActivateTool(FSequencerEditTool_Selection::Identifier);
+					return;
+				}
 			}
 		}
 

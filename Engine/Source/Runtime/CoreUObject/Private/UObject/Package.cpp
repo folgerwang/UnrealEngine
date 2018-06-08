@@ -230,6 +230,11 @@ void UPackage::BeginDestroy()
 	Super::BeginDestroy();
 }
 
+bool UPackage::IsPostLoadThreadSafe() const
+{
+	return true;
+}
+
 // UE-21181 - Tracking where the loaded editor level's package gets flagged as a PIE object
 #if WITH_EDITOR
 UPackage* UPackage::EditorPackage = nullptr;

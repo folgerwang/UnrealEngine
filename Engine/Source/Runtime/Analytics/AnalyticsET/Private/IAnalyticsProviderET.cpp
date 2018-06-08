@@ -38,7 +38,7 @@ struct FAnalyticsPerfTracker : FTickerObjectBase
 			LogFile.Serialize(TEXT("Date,CL,RunID,Time,WindowSeconds,ProfiledSeconds,Frames,Flushes,Events,Bytes,FrameCounter"), ELogVerbosity::Log, FName());
 			LastSubmitTime = StartTime;
 			StartDate = FDateTime::UtcNow().ToIso8601();
-			CL = Lex::ToString(FEngineVersion::Current().GetChangelist());
+			CL = LexToString(FEngineVersion::Current().GetChangelist());
 		}
 	}
 
@@ -75,6 +75,8 @@ private:
 	/** Check to see if we need to log another window of time. */
 	virtual bool Tick(float DeltaTime) override
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_IAnalyticsProviderET_Tick);
+
 		if (bEnabled)
 		{
 			++FramesThisWindow;
@@ -402,9 +404,9 @@ bool FAnalyticsProviderET::Tick(float DeltaSeconds)
 				FTimespan TimeSinceLastFailure = FDateTime::UtcNow() - LastFailedFlush;
 				if (TimeSinceLastFailure.GetTotalSeconds() >= RetryDelaySecs)
 				{
-			FlushEvents();
-		}
-	}
+					FlushEvents();
+				}
+			}
 		}
 	}
 	return true;
@@ -443,8 +445,6 @@ bool FAnalyticsProviderET::StartSession(TArray<FAnalyticsEventAttribute>&& Attri
 
 	// always ensure we send a few specific attributes on session start.
 	TArray<FAnalyticsEventAttribute> AppendedAttributes(MoveTemp(Attributes));
-	// this allows mapping to ad networks attribution data
-	AppendedAttributes.Emplace(TEXT("AttributionId"), FPlatformMisc::GetUniqueAdvertisingId());
 	// we should always know what platform is hosting this session.
 	AppendedAttributes.Emplace(TEXT("Platform"), FString(FPlatformProperties::IniPlatformName()));
 

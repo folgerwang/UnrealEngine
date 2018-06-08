@@ -22,7 +22,7 @@ public:
 	TMap<FName, FString> MetaData;
 
 #if WITH_EDITORONLY_DATA
-	UPROPERTY(VisibleAnywhere, Category = "Datasmith User Data")
+	UPROPERTY()
 	TMap< TSubclassOf< class UDatasmithObjectTemplate >, UDatasmithObjectTemplate* > ObjectTemplates;
 #endif
 };

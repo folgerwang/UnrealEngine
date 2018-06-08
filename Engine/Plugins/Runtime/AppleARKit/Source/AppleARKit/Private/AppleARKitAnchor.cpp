@@ -15,7 +15,7 @@ FTransform UAppleARKitAnchor::GetTransform() const
 	return Transform;
 }
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 void UAppleARKitAnchor::Update_DelegateThread( ARAnchor* Anchor )
 {
@@ -25,4 +25,4 @@ void UAppleARKitAnchor::Update_DelegateThread( ARAnchor* Anchor )
 	Transform = FAppleARKitTransform::ToFTransform( Anchor.transform );
 }
 
-#endif // ARKIT_SUPPORT
+#endif

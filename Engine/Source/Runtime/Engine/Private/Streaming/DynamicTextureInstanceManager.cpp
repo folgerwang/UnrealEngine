@@ -147,6 +147,8 @@ void FDynamicTextureInstanceManager::OnPreGarbageCollect(FRemovedTextureArray& R
 		}
 	}
 }
+
+
 /*-----------------------------------
 ------ ITextureInstanceManager ------
 -----------------------------------*/

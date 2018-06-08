@@ -1,28 +1,32 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerSelectedKey.h"
-#include "ISequencerModule.h"
 #include "Modules/ModuleManager.h"
 #include "IKeyArea.h"
+#include "Channels/MovieSceneChannel.h"
 #include "ISequencerChannelInterface.h"
 
-FSelectedKeysByChannelType::FSelectedKeysByChannelType(TArrayView<const FSequencerSelectedKey> InSelectedKeys)
+FSelectedKeysByChannel::FSelectedKeysByChannel(TArrayView<const FSequencerSelectedKey> InSelectedKeys)
 {
+	TMap<const IKeyArea*, int32> KeyAreaToChannelIndex;
+
 	for (int32 Index = 0; Index < InSelectedKeys.Num(); ++Index)
 	{
 		FSequencerSelectedKey Key = InSelectedKeys[Index];
-		void* RawChannelPtr = Key.KeyArea->GetChannelPtr();
+		const IKeyArea* KeyArea = Key.KeyArea.Get();
 
-		if (Key.KeyHandle.IsSet() && RawChannelPtr)
+		if (KeyArea && Key.KeyHandle.IsSet())
 		{
-			FSelectedChannelInfo* ChannelInfo = ChannelToKeyHandleMap.Find(RawChannelPtr);
-			if (!ChannelInfo)
+			const int32* ChannelArrayIndex = KeyAreaToChannelIndex.Find(KeyArea);
+			if (!ChannelArrayIndex)
 			{
-				ChannelInfo = &ChannelToKeyHandleMap.Add(RawChannelPtr, FSelectedChannelInfo(Key.KeyArea->GetChannelTypeID(), Key.KeyArea->GetOwningSection()));
+				int32 NewIndex = SelectedChannels.Add(FSelectedChannelInfo(Key.KeyArea->GetChannel(), Key.KeyArea->GetOwningSection()));
+				ChannelArrayIndex = &KeyAreaToChannelIndex.Add(KeyArea, NewIndex);
 			}
 
-			ChannelInfo->KeyHandles.Add(Key.KeyHandle.GetValue());
-			ChannelInfo->OriginalIndices.Add(Index);
+			FSelectedChannelInfo& ThisChannelInfo = SelectedChannels[*ChannelArrayIndex];
+			ThisChannelInfo.KeyHandles.Add(Key.KeyHandle.GetValue());
+			ThisChannelInfo.OriginalIndices.Add(Index);
 		}
 	}
 }
@@ -31,19 +35,14 @@ void GetKeyTimes(TArrayView<const FSequencerSelectedKey> InSelectedKeys, TArrayV
 {
 	check(InSelectedKeys.Num() == OutTimes.Num());
 
-	ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
-
-	FSelectedKeysByChannelType KeysByChannel(InSelectedKeys);
+	FSelectedKeysByChannel KeysByChannel(InSelectedKeys);
 
 	TArray<FFrameNumber> KeyTimesScratch;
 
-	for (TTuple<void*, FSelectedChannelInfo>& Pair : KeysByChannel.ChannelToKeyHandleMap)
+	for (const FSelectedChannelInfo& ChannelInfo : KeysByChannel.SelectedChannels)
 	{
-		void* Channel = Pair.Key;
-		const FSelectedChannelInfo& ChannelInfo = Pair.Value;
-
-		ISequencerChannelInterface* ChannelInterface = SequencerModule.FindChannelInterface(Pair.Value.ChannelTypeID);
-		if (ChannelInterface)
+		FMovieSceneChannel* Channel = ChannelInfo.Channel.Get();
+		if (Channel)
 		{
 			// Resize the scratch buffer to the correct size
 			const int32 NumKeys = ChannelInfo.KeyHandles.Num();
@@ -51,7 +50,7 @@ void GetKeyTimes(TArrayView<const FSequencerSelectedKey> InSelectedKeys, TArrayV
 			KeyTimesScratch.SetNum(NumKeys);
 
 			// Populating the key times scratch buffer with the times for these handles
-			ChannelInterface->GetKeyTimes_Raw(Channel, ChannelInfo.KeyHandles, KeyTimesScratch);
+			Channel->GetKeyTimes(ChannelInfo.KeyHandles, KeyTimesScratch);
 
 			for(int32 Index = 0; Index < KeyTimesScratch.Num(); ++Index)
 			{
@@ -66,19 +65,14 @@ void SetKeyTimes(TArrayView<const FSequencerSelectedKey> InSelectedKeys, TArrayV
 {
 	check(InSelectedKeys.Num() == InTimes.Num());
 
-	ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
-
-	FSelectedKeysByChannelType KeysByChannel(InSelectedKeys);
+	FSelectedKeysByChannel KeysByChannel(InSelectedKeys);
 
 	TArray<FFrameNumber> KeyTimesScratch;
 
-	for (TTuple<void*, FSelectedChannelInfo>& Pair : KeysByChannel.ChannelToKeyHandleMap)
+	for (const FSelectedChannelInfo& ChannelInfo : KeysByChannel.SelectedChannels)
 	{
-		void* Channel = Pair.Key;
-		const FSelectedChannelInfo& ChannelInfo = Pair.Value;
-
-		ISequencerChannelInterface* ChannelInterface = SequencerModule.FindChannelInterface(Pair.Value.ChannelTypeID);
-		if (ChannelInterface)
+		FMovieSceneChannel* Channel = ChannelInfo.Channel.Get();
+		if (Channel)
 		{
 			KeyTimesScratch.Reset(ChannelInfo.OriginalIndices.Num());
 			for (int32 Index : ChannelInfo.OriginalIndices)
@@ -86,7 +80,7 @@ void SetKeyTimes(TArrayView<const FSequencerSelectedKey> InSelectedKeys, TArrayV
 				KeyTimesScratch.Add(InTimes[Index]);
 			}
 
-			ChannelInterface->SetKeyTimes_Raw(Channel, ChannelInfo.KeyHandles, KeyTimesScratch);
+			Channel->SetKeyTimes(ChannelInfo.KeyHandles, KeyTimesScratch);
 		}
 	}
 }
@@ -95,18 +89,13 @@ void DuplicateKeys(TArrayView<const FSequencerSelectedKey> InSelectedKeys, TArra
 {
 	check(InSelectedKeys.Num() == OutNewHandles.Num());
 
-	ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
-
-	FSelectedKeysByChannelType KeysByChannel(InSelectedKeys);
+	FSelectedKeysByChannel KeysByChannel(InSelectedKeys);
 
 	TArray<FKeyHandle> KeyHandlesScratch;
-	for (TTuple<void*, FSelectedChannelInfo>& Pair : KeysByChannel.ChannelToKeyHandleMap)
+	for (const FSelectedChannelInfo& ChannelInfo : KeysByChannel.SelectedChannels)
 	{
-		void* Channel = Pair.Key;
-		const FSelectedChannelInfo& ChannelInfo = Pair.Value;
-
-		ISequencerChannelInterface* ChannelInterface = SequencerModule.FindChannelInterface(Pair.Value.ChannelTypeID);
-		if (ChannelInterface)
+		FMovieSceneChannel* Channel = ChannelInfo.Channel.Get();
+		if (Channel)
 		{
 			// Resize the scratch buffer to the correct size
 			const int32 NumKeys = ChannelInfo.KeyHandles.Num();
@@ -114,7 +103,7 @@ void DuplicateKeys(TArrayView<const FSequencerSelectedKey> InSelectedKeys, TArra
 			KeyHandlesScratch.SetNum(NumKeys);
 
 			// Duplicate the keys, populating the handles scratch buffer
-			ChannelInterface->DuplicateKeys_Raw(Channel, ChannelInfo.KeyHandles, KeyHandlesScratch);
+			Channel->DuplicateKeys(ChannelInfo.KeyHandles, KeyHandlesScratch);
 
 			// Copy the duplicated key handles to the output array view
 			for(int32 Index = 0; Index < KeyHandlesScratch.Num(); ++Index)

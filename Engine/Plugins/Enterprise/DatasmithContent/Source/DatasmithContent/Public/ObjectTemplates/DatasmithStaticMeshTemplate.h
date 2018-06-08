@@ -55,6 +55,7 @@ public:
 
 	void Apply( FMeshBuildSettings* Destination, FDatasmithMeshBuildSettingsTemplate* PreviousTemplate );
 	void Load( const FMeshBuildSettings& Source );
+	bool Equals( const FDatasmithMeshBuildSettingsTemplate& Other ) const;
 };
 
 USTRUCT()
@@ -73,6 +74,7 @@ public:
 
 	void Apply( FStaticMaterial* Destination, FDatasmithStaticMaterialTemplate* PreviousTemplate );
 	void Load( const FStaticMaterial& Source );
+	bool Equals( const FDatasmithStaticMaterialTemplate& Other ) const;
 };
 
 USTRUCT()
@@ -88,6 +90,7 @@ public:
 
 	void Apply( FMeshSectionInfo* Destination, FDatasmithMeshSectionInfoTemplate* PreviousTemplate );
 	void Load( const FMeshSectionInfo& Source );
+	bool Equals( const FDatasmithMeshSectionInfoTemplate& Other ) const;
 };
 
 USTRUCT()
@@ -100,6 +103,7 @@ struct DATASMITHCONTENT_API FDatasmithMeshSectionInfoMapTemplate
 
 	void Apply( FMeshSectionInfoMap* Destination, FDatasmithMeshSectionInfoMapTemplate* PreviousTemplate );
 	void Load( const FMeshSectionInfoMap& Source );
+	bool Equals( const FDatasmithMeshSectionInfoMapTemplate& Other ) const;
 };
 
 UCLASS()
@@ -110,7 +114,8 @@ class DATASMITHCONTENT_API UDatasmithStaticMeshTemplate : public UDatasmithObjec
 public:
 	virtual void Apply( UObject* Destination, bool bForce = false ) override;
 	virtual void Load( const UObject* Source ) override;
-	
+	virtual bool Equals( const UDatasmithObjectTemplate* Other ) const override;
+
 	UPROPERTY( VisibleAnywhere, Category = StaticMesh )
 	FDatasmithMeshSectionInfoMapTemplate SectionInfoMap;
 

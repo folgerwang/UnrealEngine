@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -36,7 +36,7 @@ public:
 	virtual FMatrix GetMatrix(const int32 FrameIndex) const { return FMatrix::Identity; };
 	virtual void SetFrameAndTime(const float InTime, const int32 FrameIndex, const EFrameReadFlags InFlags, const int32 TargetIndex = INDEX_NONE) = 0;
 	virtual bool HasConstantTransform() const = 0;
-	virtual void ReadFirstFrame(const float InTime, const int32 FrameIndex) = 0;
+	virtual bool ReadFirstFrame(const float InTime, const int32 FrameIndex) = 0;
 	virtual void PurgeFrameData(const int32 FrameIndex) = 0;
 protected:
 	/** Name of this object */

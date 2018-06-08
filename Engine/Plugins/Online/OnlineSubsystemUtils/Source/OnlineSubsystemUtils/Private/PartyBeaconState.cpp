@@ -28,6 +28,12 @@ bool FPartyReservation::IsValid() const
 				break;
 			}
 
+			if (PlayerRes.Platform.IsEmpty())
+			{
+				bIsValid = false;
+				break;
+			}
+
 			if (PartyLeader == PlayerRes.UniqueId &&
 				PlayerRes.ValidationStr.IsEmpty())
 			{
@@ -53,6 +59,7 @@ void FPartyReservation::Dump() const
 		UE_LOG(LogPartyBeacon, Display, TEXT("    Member %d"), PartyMemberIdx);
 		++PartyMemberIdx;
 		UE_LOG(LogPartyBeacon, Display, TEXT("      UniqueId: %s"), *PartyMember.UniqueId.ToString());
+		UE_LOG(LogPartyBeacon, Display, TEXT("		Crossplay: %s"), *LexToString(PartyMember.bAllowCrossplay));
 #if UE_BUILD_SHIPPING
 		UE_LOG(LogPartyBeacon, Display, TEXT("      ValidationStr: %d bytes"), PartyMember.ValidationStr.Len());
 #else
@@ -87,7 +94,8 @@ UPartyBeaconState::UPartyBeaconState(const FObjectInitializer& ObjectInitializer
 	NumPlayersPerTeam(0),
 	TeamAssignmentMethod(ETeamAssignmentMethod::Smallest),
 	ReservedHostTeamNum(0),
-	ForceTeamNum(0)
+	ForceTeamNum(0),
+	bRestrictCrossConsole(true)
 {
 }
 
@@ -418,6 +426,140 @@ bool UPartyBeaconState::AreTeamsAvailable(const FPartyReservation& ReservationRe
 		}
 	}
 	return false;
+}
+
+bool UPartyBeaconState::HasCrossplayOptOutReservation() const
+{
+	for (const FPartyReservation& ExistingReservation : Reservations)
+	{
+		for (const FPlayerReservation& ExistingPlayer : ExistingReservation.PartyMembers)
+		{
+			if (!ExistingPlayer.bAllowCrossplay)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+int32 UPartyBeaconState::GetReservationPlatformCount(const FString& InPlatform) const
+{
+	int32 PlayerCount = 0;
+	for (const FPartyReservation& ExistingReservation : Reservations)
+	{
+		for (const FPlayerReservation& ExistingPlayer : ExistingReservation.PartyMembers)
+		{
+			if (ExistingPlayer.Platform == InPlatform)
+			{
+				PlayerCount++;
+			}
+		}
+	}
+
+	return PlayerCount;
+}
+
+bool UPartyBeaconState::CrossPlayAllowed(const FPartyReservation& ReservationRequest) const
+{
+	bool bCrossplayAllowed = true;
+
+	bool bEveryoneAllowsCrossplay = true;
+	TSet<FString> ExistingPlatforms;
+	for (const FPartyReservation& ExistingReservation : Reservations)
+	{
+		for (const FPlayerReservation& ExistingPlayer : ExistingReservation.PartyMembers)
+		{
+			bEveryoneAllowsCrossplay &= ExistingPlayer.bAllowCrossplay;
+			if (ExistingPlayer.Platform == OSS_PLATFORM_NAME_PS4)
+			{
+				ExistingPlatforms.Add(OSS_PLATFORM_NAME_PS4);
+			}
+			else if (ExistingPlayer.Platform == OSS_PLATFORM_NAME_XBOX)
+			{
+				ExistingPlatforms.Add(OSS_PLATFORM_NAME_XBOX);
+			}
+			else if (ExistingPlayer.Platform == OSS_PLATFORM_NAME_EREBUS)
+			{
+				ExistingPlatforms.Add(OSS_PLATFORM_NAME_EREBUS);
+			}
+			else
+			{
+				ExistingPlatforms.Add(OSS_PLATFORM_NAME_OTHER);
+			}
+		}
+	}
+
+	if (ExistingPlatforms.Num() > 0)
+	{
+		bool bPartyAllowsCrossplay = true;
+		TSet<FString> PartyPlatforms;
+		for (const FPlayerReservation& Player : ReservationRequest.PartyMembers)
+		{
+			bPartyAllowsCrossplay &= Player.bAllowCrossplay;
+			if (Player.Platform == OSS_PLATFORM_NAME_XBOX)
+			{
+				PartyPlatforms.Add(OSS_PLATFORM_NAME_XBOX);
+			}
+			else if (Player.Platform == OSS_PLATFORM_NAME_PS4)
+			{
+				PartyPlatforms.Add(OSS_PLATFORM_NAME_PS4);
+			}
+			else if (Player.Platform == OSS_PLATFORM_NAME_EREBUS)
+			{
+				PartyPlatforms.Add(OSS_PLATFORM_NAME_EREBUS);
+			}
+			else
+			{
+				PartyPlatforms.Add(OSS_PLATFORM_NAME_OTHER);
+			}
+		}
+
+		const bool bPS4SeenOtherConsole = (
+			((PartyPlatforms.Contains(OSS_PLATFORM_NAME_XBOX) || PartyPlatforms.Contains(OSS_PLATFORM_NAME_EREBUS)) && ExistingPlatforms.Contains(OSS_PLATFORM_NAME_PS4)) ||
+			(PartyPlatforms.Contains(OSS_PLATFORM_NAME_PS4) && (ExistingPlatforms.Contains(OSS_PLATFORM_NAME_XBOX) || ExistingPlatforms.Contains(OSS_PLATFORM_NAME_EREBUS)))
+		);
+
+
+		TSet<FString> Delta = PartyPlatforms.Intersect(ExistingPlatforms);
+
+		// The intersection of party/existing will be less if something new is added
+		const bool bPartyAddsNewPlatform = (Delta.Num() != PartyPlatforms.Num());
+		// There is something foreign if our party makeup doesn't exactly match the existing parties
+		const bool bExistingMatchesParty = (Delta.Num() == ExistingPlatforms.Num());
+
+		// Don't cross mingle consoles
+		const bool bCrossConsoleAllowed = (!bPS4SeenOtherConsole) || (bPS4SeenOtherConsole && !bRestrictCrossConsole);
+		const bool bExistingPlayersOk = (!bPartyAddsNewPlatform || (bPartyAddsNewPlatform && bEveryoneAllowsCrossplay));
+		const bool bIncomingPlayersOk = (bPartyAllowsCrossplay || bExistingMatchesParty);
+
+		bCrossplayAllowed = bCrossConsoleAllowed && bExistingPlayersOk && bIncomingPlayersOk;
+
+		FString ExistingStr;
+		for (const FString& Existing : ExistingPlatforms)
+		{
+			ExistingStr += Existing + TEXT("|");
+		}
+		UE_LOG(LogPartyBeacon, Verbose, TEXT("Existing: %s"), *ExistingStr);
+
+		FString PartyPlatformStr;
+		for (const FString& PartyPlatform : PartyPlatforms)
+		{
+			PartyPlatformStr += PartyPlatform + TEXT("|");
+		}
+		UE_LOG(LogPartyBeacon, Verbose, TEXT("NewParty: %s"), *PartyPlatformStr);
+
+		UE_LOG(LogPartyBeacon, Log, TEXT("UPartyBeaconState::CrossPlayAllowed bEveryoneAllowsCrossplay:%s bPartyAllowsCrossplay:%s bCrossConsoleAllowed:%s bExistingPlayersOk:%s bIncomingPlayersOk:%s bCrossPlayAllowed:%s"),
+			*LexToString(bEveryoneAllowsCrossplay),
+			*LexToString(bPartyAllowsCrossplay),
+			*LexToString(bCrossConsoleAllowed),
+			*LexToString(bExistingPlayersOk),
+			*LexToString(bIncomingPlayersOk),
+			*LexToString(bCrossplayAllowed));
+	}
+
+	return bCrossplayAllowed;
 }
 
 bool UPartyBeaconState::DoesReservationFit(const FPartyReservation& ReservationRequest) const
@@ -897,7 +1039,7 @@ void UPartyBeaconState::DumpReservations() const
 		for (int32 MemberIndex = 0; MemberIndex < Reservations[PartyIndex].PartyMembers.Num(); MemberIndex++)
 		{
 			PlayerRes = Reservations[PartyIndex].PartyMembers[MemberIndex];
-			UE_LOG(LogPartyBeacon, Display, TEXT("\t  Party member: %s"), *PlayerRes.UniqueId->ToString());
+			UE_LOG(LogPartyBeacon, Display, TEXT("\t  Party member: %s [%s] Cross: %s"), *PlayerRes.UniqueId->ToString(), *PlayerRes.Platform, *LexToString(PlayerRes.bAllowCrossplay));
 		}
 	}
 	UE_LOG(LogPartyBeacon, Display, TEXT(""));

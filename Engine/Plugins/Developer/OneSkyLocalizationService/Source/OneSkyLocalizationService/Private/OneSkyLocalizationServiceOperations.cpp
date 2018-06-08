@@ -83,7 +83,7 @@ static bool DeserializeResponseToStruct(void* OutStruct, UStruct& TypeInfo, FHtt
 			// Write string to FMemoryWriter to force unicode
 			TArray<uint8> InBytes;
 			FMemoryWriter Writer(InBytes);
-			Writer.ArForceUnicode = true;
+			Writer.SetForceUnicode(true);
 			Writer << ResponseStr;
 
 			FMemoryReader Reader(InBytes);
@@ -281,7 +281,7 @@ bool FOneSkyCreateProjectGroupWorker::Execute(class FOneSkyLocalizationServiceCo
 	// Write string to FMemoryWriter to force unicode
 	//TArray<uint8> InBytes;
 	//FMemoryWriter Writer(InBytes);
-	//Writer.ArForceUnicode = true;
+	//Writer.SetForceUnicode(true);
 	//Writer << Parameters;
 	//FMemoryReader Reader(InBytes);
 	//// FMemoryWriter writes size of string at beginning, need to ignore this or parsing errors occur

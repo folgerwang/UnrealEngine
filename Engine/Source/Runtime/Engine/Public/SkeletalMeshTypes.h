@@ -55,6 +55,8 @@ struct FSkeletalMeshCustomVersion
 		RemoveDuplicatedClothingSections = 14,
 		// Remove 'Disabled' flag from SkelMesh asset sections
 		DeprecateSectionDisabledFlag = 15,
+		// Add Section ignore by reduce
+		SectionIgnoreByReduceAdded = 16,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
@@ -117,7 +119,8 @@ struct ESkeletalMeshVertexFlags
 	{
 		None = 0x0,
 		UseFullPrecisionUVs = 0x1,
-		HasVertexColors = 0x2
+		HasVertexColors = 0x2,
+		UseHighPrecisionTangentBasis = 0x4
 	};
 };
 
@@ -269,6 +272,8 @@ public:
 #endif
 
 	friend class FSkeletalMeshSectionIter;
+
+	virtual void OnTransformChanged() override;
 
 protected:
 	AActor* Owner;

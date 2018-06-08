@@ -236,8 +236,13 @@ public class UnrealEd : ModuleRules
 		{
 			DynamicallyLoadedModuleNames.Add("AndroidPlatformEditor");
 		}
-        
-        CircularlyReferencedDependentModules.AddRange(
+
+		if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Mac)
+		{
+			DynamicallyLoadedModuleNames.Add("LuminPlatformEditor");
+		}
+
+		CircularlyReferencedDependentModules.AddRange(
 			new string[]
 			{
 				"GraphEditor",

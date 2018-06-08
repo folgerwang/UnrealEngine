@@ -12,6 +12,7 @@
 
 #include "CoreMinimal.h"
 #include "ShaderParameters.h"
+#include "ShaderParameterUtils.h"
 #include "Shader.h"
 #include "StaticBoundShaderState.h"
 #include "SceneUtils.h"
@@ -207,23 +208,34 @@ void FLightPropagationVolume::Visualise(FRHICommandList& RHICmdList, const FView
 	GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGB, BO_Add, BF_One, BF_One>::GetRHI();
 
 	TShaderMapRef<FLpvVisualiseVS> VertexShader(View.ShaderMap);
-	TShaderMapRef<FLpvVisualiseGS> GeometryShader(View.ShaderMap);
+	TOptionalShaderMapRef<FLpvVisualiseGS> GeometryShader(View.ShaderMap);
 	TShaderMapRef<FLpvVisualisePS> PixelShader(View.ShaderMap);
 
+	EPrimitiveType PrimType = PT_PointList;
+	uint32 NumPrims = 1;
+	if (!RHISupportsGeometryShaders(View.GetShaderPlatform()))
+	{
+		PrimType = PT_TriangleList;
+		NumPrims = 2;
+	}
+	
 	GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GSimpleElementVertexDeclaration.VertexDeclarationRHI;
 	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 	GraphicsPSOInit.BoundShaderState.GeometryShaderRHI = GETSAFERHISHADER_GEOMETRY(*GeometryShader);
 	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-	GraphicsPSOInit.PrimitiveType = PT_PointList;
+	GraphicsPSOInit.PrimitiveType = PrimType;
 
 	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
 	VertexShader->SetParameters(RHICmdList, View);
-	GeometryShader->SetParameters(RHICmdList, View);
+	if (GeometryShader.IsValid())
+	{
+		GeometryShader->SetParameters(RHICmdList, View);
+	}
 	PixelShader->SetParameters(RHICmdList, this, View);
 
 	RHICmdList.SetStreamSource(0, NULL, 0);
-	RHICmdList.DrawPrimitive(PT_PointList, 0, 1, 32 * 3);
+	RHICmdList.DrawPrimitive(PrimType, 0, NumPrims, 32 * 3);
 
 	PixelShader->UnbindBuffers(RHICmdList);
 }

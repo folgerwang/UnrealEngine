@@ -25,8 +25,8 @@
 class FNiagaraParameterCollectionCustomNodeBuilder : public IDetailCustomNodeBuilder
 {
 public:
-	FNiagaraParameterCollectionCustomNodeBuilder(TSharedRef<INiagaraParameterCollectionViewModel> InViewModel, bool bAllowMetaData = true)
-		: ViewModel(InViewModel)
+	FNiagaraParameterCollectionCustomNodeBuilder(TSharedRef<INiagaraParameterCollectionViewModel> InViewModel, bool bInAllowMetaData = true)
+		: ViewModel(InViewModel), bAllowMetaData(bInAllowMetaData)
 	{
 		ViewModel->OnCollectionChanged().AddRaw(this, &FNiagaraParameterCollectionCustomNodeBuilder::OnCollectionViewModelChanged);
 	}

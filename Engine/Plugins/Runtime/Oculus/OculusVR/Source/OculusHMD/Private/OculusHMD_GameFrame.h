@@ -27,6 +27,8 @@ public:
 	FVector PlayerLocation;			// (CalculateStereoViewOffset)
 	float NearClippingPlane;		// (GetStereoProjectionMatrix)
 
+	FTransform TrackingToWorld;		// (OnEndGameFrame)
+
 	ETiledMultiResLevel MultiResLevel; // OnStartGameFrame
 
 	FIntRect FinalViewRect[3]; // SetFinalViewRect
@@ -41,6 +43,8 @@ public:
 			uint64			bSpectatorScreenActive : 1;
 			/** True if the frame uses dynamic resolution */
 			uint64			bPixelDensityAdaptive : 1;
+			/** True if the frame's positions have been updated on the render thread */
+			uint64			bRTLateUpdateDone : 1;
 		};
 		uint64 Raw;
 	} Flags;

@@ -1,5 +1,4 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-// .
 
 #include "CoreMinimal.h"
 #include "MetalShaderFormat.h"
@@ -625,7 +624,7 @@ bool ModificationTimeRemoteFile(FString const& RemotePath, uint64& Time)
 	bool bOK = ExecRemoteProcess(TEXT("/usr/bin/stat"), *Args, &ReturnCode, &Output, nullptr);
 	if (bOK)
 	{
-		Lex::FromString(Time, *Output);
+		LexFromString(Time, *Output);
 	}
 	return bOK;
 }
@@ -948,6 +947,7 @@ void BuildMetalShaderOutput(
 	uint32 TypedBuffers,
 	uint32 InvariantBuffers,
 	uint32 TypedUAVs,
+	uint32 ConstantBuffers,
 	TArray<uint8> const& TypedBufferFormats,
 	bool bAllowFastIntriniscs
 	)
@@ -982,7 +982,7 @@ void BuildMetalShaderOutput(
 	const bool bIsMobile = (ShaderInput.Target.Platform == SP_METAL || ShaderInput.Target.Platform == SP_METAL_MRT);
 	bool bNoFastMath = ShaderInput.Environment.CompilerFlags.Contains(CFLAG_NoFastMath);
 	FString const* UsingWPO = ShaderInput.Environment.GetDefinitions().Find(TEXT("USES_WORLD_POSITION_OFFSET"));
-	if (UsingWPO && FString("1") == *UsingWPO && bIsMobile && Frequency == SF_Vertex)
+	if (UsingWPO && FString("1") == *UsingWPO && (ShaderInput.Target.Platform == SP_METAL_MRT) && Frequency == SF_Vertex)
 	{
 		// WPO requires that we make all multiply/sincos instructions invariant :(
 		bNoFastMath = true;
@@ -1002,6 +1002,7 @@ void BuildMetalShaderOutput(
 	Header.SourceLen = SourceCRCLen;
 	Header.SourceCRC = SourceCRC;
     Header.Bindings.bDiscards = false;
+	Header.Bindings.ConstantBuffers = ConstantBuffers;
 	if (Version >= 2)
 	{
 		Header.Bindings.TypedBufferFormats.SetNumZeroed(METAL_MAX_BUFFERS);
@@ -1368,6 +1369,11 @@ void BuildMetalShaderOutput(
 		
 		// store data we can pickup later with ShaderCode.FindOptionalData('n'), could be removed for shipping
 		ShaderOutput.ShaderCode.AddOptionalData('n', TCHAR_TO_UTF8(*ShaderInput.GenerateShaderName()));
+
+		if (ShaderInput.ExtraSettings.bExtractShaderSource)
+		{
+			ShaderOutput.OptionalFinalShaderSource = MetalCode;
+		}
 
 		ShaderOutput.NumInstructions = NumLines;
 		ShaderOutput.NumTextureSamplers = Header.Bindings.NumSamplers;
@@ -1781,6 +1787,11 @@ void BuildMetalShaderOutput(
 			
 			ShaderOutput.NumTextureSamplers = Header.Bindings.NumSamplers;
 		}
+
+		if (ShaderInput.ExtraSettings.bExtractShaderSource)
+		{
+			ShaderOutput.OptionalFinalShaderSource = MetalCode;
+		}
 		
 		ShaderOutput.NumInstructions = NumLines;
 		ShaderOutput.bSucceeded = bSucceeded;
@@ -1907,7 +1918,7 @@ void CompileShader_Metal(const FShaderCompilerInput& _Input,FShaderCompilerOutpu
     {
         if(MaxVersion->IsNumeric())
         {
-            LexicalConversion::FromString(VersionEnum, *(*MaxVersion));
+            LexFromString(VersionEnum, *(*MaxVersion));
         }
     }
     

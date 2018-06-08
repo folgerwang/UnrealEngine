@@ -209,7 +209,6 @@ OVRP_EXPORT ovrpResult ovrp_GetHmdToEyeOffset2(int eyeIndex, ovrpVector3f* hmdTo
 
 /// Ensures VR rendering is configured and updates tracking to reflect the latest reported poses.
 /// You must call ovrp_Update before calling ovrp_GetNode* for a new frame.
-/// Call with ovrpStep_Game from start of frame on Game thread
 /// Call with ovrpStep_Render from end of frame on Game thread, to hand off state to Render thread
 /// Call with ovrpStep_Physics from any thread, using predictionSeconds specify offset from start of
 /// frame.
@@ -281,7 +280,7 @@ OVRP_EXPORT ovrpResult ovrp_GetNodePositionTracked2(ovrpNode nodeId, ovrpBool* n
 OVRP_EXPORT ovrpResult ovrp_SetNodePositionTracked2(ovrpNode nodeId, ovrpBool nodePositionTracked);
 
 /// Gets the current pose, acceleration, and velocity of the given node on the given update cadence.
-OVRP_EXPORT ovrpResult ovrp_GetNodePoseState2(ovrpStep step, ovrpNode nodeId, ovrpPoseStatef* nodePoseState);
+OVRP_EXPORT ovrpResult ovrp_GetNodePoseState3(ovrpStep step, int frameIndex, ovrpNode nodeId, ovrpPoseStatef* nodePoseState);
 
 /// Gets the current frustum for the given node, if available.
 OVRP_EXPORT ovrpResult ovrp_GetNodeFrustum2(ovrpNode nodeId, ovrpFrustum2f* nodeFrustum);

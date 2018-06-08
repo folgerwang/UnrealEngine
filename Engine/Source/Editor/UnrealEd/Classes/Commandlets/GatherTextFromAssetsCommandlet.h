@@ -31,6 +31,14 @@ public:
 
 	//~ End UCommandlet Interface
 
+	/** Localization cache states of a package */
+	enum class EPackageLocCacheState : uint8
+	{
+		Uncached_TooOld = 0,
+		Uncached_NoCache,
+		Cached, // Cached must come last as it acts as a count for an array
+	};
+
 private:
 	/** Struct containing the data needed by a pending package that we will gather text from */
 	struct FPackagePendingGather
@@ -43,6 +51,12 @@ private:
 
 		/** The complete set of dependencies for the package */
 		TSet<FName> Dependencies;
+
+		/** Localization cache state of this package */
+		EPackageLocCacheState PackageLocCacheState;
+
+		/** Contains the localization cache data for this package (if cached) */
+		TArray<FGatherableTextData> GatherableTextDataArray;
 	};
 
 	static const FString UsageText;
@@ -67,6 +81,9 @@ private:
 	TSet<UObject*> ObjectsToKeepAlive;
 
 	bool bSkipGatherCache;
+	bool bReportStaleGatherCache;
+	bool bFixStaleGatherCache;
+	bool bFixMissingGatherCache;
 	bool ShouldGatherFromEditorOnlyData;
 	bool ShouldExcludeDerivedClasses;
 };

@@ -4,15 +4,15 @@
 	[
 		{
 			"Language": "en",
-			"Text": "HandheldAugmentedReality"
+			"Text": "Handheld AR"
 		}
 	],
 	"Description":
 	[
-		{
-			"Language": "en",
-			"Text": "This template project is set up for mobile deployment and contains logic for toggling AR mode, handling light estimation, displaying information on found planes and handling hit detection."
-		}
+    {
+      "Language": "en",
+      "Text": "A starting point for building Augmented Reality applications for Android and iOS devices. Includes runtime logic for toggling AR mode on and off, debug information regarding plane detection, example code for hit detection and handling light estimation."
+    }
 	],
 	"AssetTypes":
 	[
@@ -28,7 +28,7 @@
 			"Text": "AR, Mobile, Augmented Reality"
 		}
 	],
-	"ClassTypes": "GameMode, InputComponent",
+	"ClassTypes": "Pawn, GameMode, Widget, Actor",
 	"Category": "BlueprintFeature",
 	"FocusAsset": "/Game/Blueprints/GameFramework/BP_ARPawn.BP_ARPawn",
 	"Thumbnail": "TP_HandheldARBP.png",

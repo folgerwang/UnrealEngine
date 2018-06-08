@@ -19,6 +19,9 @@ class ISequencerEditorObjectBinding;
 class IToolkitHost;
 class UMovieSceneSequence;
 
+/** Forward declaration for the default templated channel interface. Include SequencerChannelInterface.h for full definition. */
+template<typename> struct TSequencerChannelInterface;
+
 namespace SequencerMenuExtensionPoints
 {
 	static const FName AddTrackMenu_PropertiesSection("AddTrackMenu_PropertiesSection");
@@ -218,20 +221,21 @@ public:
 	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager() const = 0;
 
 	/**
-	 * Register a sequencer channel type. Include SequencerChannelInterface.h for definition.
+	 * Register a sequencer channel type using a default channel interface.
 	 */
 	template<typename ChannelType>
 	void RegisterChannelInterface();
 
 	/**
-	 * Find a sequencer channel for the specified channel type ID
+	 * Register a sequencer channel type using the specified interface.
 	 */
-	ISequencerChannelInterface* FindChannelInterface(uint32 ChannelID) const
-	{
-		const TUniquePtr<ISequencerChannelInterface>* Found = ChannelToEditorInterfaceMap.Find(ChannelID);
-		ensureMsgf(Found, TEXT("No channel interface found for type ID. Did you call RegisterChannelInterface<> for that type?"));
-		return Found ? Found->Get() : nullptr;
-	}
+	template<typename ChannelType>
+	void RegisterChannelInterface(TUniquePtr<ISequencerChannelInterface>&& InInterface);
+
+	/**
+	 * Find a sequencer channel for the specified channel type name
+	 */
+	ISequencerChannelInterface* FindChannelEditorInterface(FName ChannelTypeName) const;
 
 public:
 
@@ -264,6 +268,37 @@ public:
 
 private:
 
-	/** */
-	TMap<uint32, TUniquePtr<ISequencerChannelInterface>> ChannelToEditorInterfaceMap;
+	/** Map of sequencer interfaces for movie scene channel types, keyed on channel UStruct name */
+	TMap<FName, TUniquePtr<ISequencerChannelInterface>> ChannelToEditorInterfaceMap;
 };
+
+
+/**
+ * Register a sequencer channel type using a default channel interface.
+ */
+template<typename ChannelType>
+void ISequencerModule::RegisterChannelInterface()
+{
+	RegisterChannelInterface<ChannelType>(TUniquePtr<ISequencerChannelInterface>(new TSequencerChannelInterface<ChannelType>()));
+}
+
+/**
+ * Register a sequencer channel type using the specified interface.
+ */
+template<typename ChannelType>
+void ISequencerModule::RegisterChannelInterface(TUniquePtr<ISequencerChannelInterface>&& InInterface)
+{
+	const FName ChannelTypeName = ChannelType::StaticStruct()->GetFName();
+	check(!ChannelToEditorInterfaceMap.Contains(ChannelTypeName));
+	ChannelToEditorInterfaceMap.Add(ChannelTypeName, MoveTemp(InInterface));
+}
+
+/**
+ * Find a sequencer channel for the specified channel type name
+ */
+inline ISequencerChannelInterface* ISequencerModule::FindChannelEditorInterface(FName ChannelTypeName) const
+{
+	const TUniquePtr<ISequencerChannelInterface>* Found = ChannelToEditorInterfaceMap.Find(ChannelTypeName);
+	ensureMsgf(Found, TEXT("No channel interface found for type ID. Did you call RegisterChannelInterface<> for that type?"));
+	return Found ? Found->Get() : nullptr;
+}

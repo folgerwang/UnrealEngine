@@ -8,7 +8,7 @@
 #include "Styling/SlateWidgetStyleAsset.h"
 #include "Styling/ISlateStyle.h"
 #include "Styling/CoreStyle.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "Internationalization/Text.h"
 
 class IErrorReportingWidget;

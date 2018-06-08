@@ -41,7 +41,6 @@ class FTransitionAndLayoutManager : public FTransitionAndLayoutManagerData
 public:
 	FTransitionAndLayoutManager()
 		: CurrentRenderPass(nullptr)
-		, PreviousRenderPass(nullptr)
 		, CurrentFramebuffer(nullptr)
 	{
 	}
@@ -106,7 +105,6 @@ public:
 	bool bInsideRealRenderPass = false;
 
 	FVulkanRenderPass* CurrentRenderPass;
-	FVulkanRenderPass* PreviousRenderPass;
 	FVulkanFramebuffer* CurrentFramebuffer;
 
 	FCriticalSection RenderPassesCS;
@@ -294,11 +292,6 @@ public:
 	inline FVulkanRenderPass* GetCurrentRenderPass()
 	{
 		return TransitionAndLayoutManager.CurrentRenderPass;
-	}
-
-	inline FVulkanRenderPass* GetPreviousRenderPass()
-	{
-		return TransitionAndLayoutManager.PreviousRenderPass;
 	}
 
 	inline uint64 GetFrameCounter() const
@@ -541,9 +534,9 @@ struct FVulkanCommandContextContainer : public IRHICommandContextContainer, publ
 
 	FVulkanCommandContextContainer(FVulkanDevice* InDevice);
 
-	virtual IRHICommandContext* GetContext(const FRHIGPUMask& NodeMask) override final;
+	virtual IRHICommandContext* GetContext() override final;
 	virtual void FinishContext() override final;
-	virtual void SubmitAndFreeContextContainer(const FRHIGPUMask& NodeMask, int32 Index, int32 Num) override final;
+	virtual void SubmitAndFreeContextContainer(int32 Index, int32 Num) override final;
 
 	/** Custom new/delete with recycling */
 	void* operator new(size_t Size);

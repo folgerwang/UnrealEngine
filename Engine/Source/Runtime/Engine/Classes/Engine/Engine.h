@@ -13,7 +13,10 @@
 #include "UObject/SoftObjectPath.h"
 #include "Engine/World.h"
 #include "Misc/BufferedOutputDevice.h"
+#include "Misc/FrameRate.h"
 #include "Engine.generated.h"
+
+#define WITH_DYNAMIC_RESOLUTION (!UE_SERVER)
 
 class AMatineeActor;
 class APlayerController;
@@ -40,6 +43,7 @@ class UGameUserSettings;
 class UGameViewportClient;
 class ULocalPlayer;
 class UNetDriver;
+class UTimecodeProvider;
 
 #if ALLOW_DEBUG_FILES
 class FFineGrainedPerformanceTracker;
@@ -106,6 +110,9 @@ enum EConsoleType
 /** Status of dynamic resolution that depends on project setting cvar, game user settings, and pause */
 enum class EDynamicResolutionStatus
 {
+	// Dynamic resolution is not supported by this platform.
+	Unsupported,
+
 	// Dynamic resolution is disabled by project setting cvar r.DynamicRes.OperationMode=0 or disabled by game user
 	// settings with r.DynamicRes.OperationMode=1.
 	Disabled,
@@ -114,7 +121,24 @@ enum class EDynamicResolutionStatus
 	Paused,
 
 	// Dynamic resolution is currently enabled.
-	Enabled
+	Enabled,
+
+	// Forced enabled at static resolution fraction for profiling purpose with r.DynamicRes.TestScreenPercentage.
+	DebugForceEnabled,
+};
+
+/** Information about the state of dynamic resolution. */
+struct FDynamicResolutionStateInfos
+{
+	// Status of dynamic resolution.
+	EDynamicResolutionStatus Status;
+
+	// Approximation of the resolution fraction being applied. This is only an approximation because
+	// of non (and unecessary) thread safety of this value between game thread, and render thread.
+	float ResolutionFractionApproximation;
+
+	// Maximum resolution fraction set, always MaxResolutionFraction >= ResolutionFractionApproximation.
+	float ResolutionFractionUpperBound;
 };
 
 
@@ -596,6 +620,8 @@ enum class EFrameHitchType: uint8;
 DECLARE_MULTICAST_DELEGATE_TwoParams(FEngineHitchDetectedDelegate, EFrameHitchType /*HitchType*/, float /*HitchDurationInSeconds*/);
 
 
+DECLARE_MULTICAST_DELEGATE(FPreRenderDelegate);
+
 /**
  * Abstract base class of all Engine classes, responsible for management of systems critical to editor or game systems.
  * Also defines default classes for certain engine systems.
@@ -1066,6 +1092,9 @@ public:
 	UPROPERTY(globalconfig)
 	float MaxES2PixelShaderAdditiveComplexityCount;
 
+	UPROPERTY(globalconfig)
+	float MaxES3PixelShaderAdditiveComplexityCount;
+
 	/** Range for the lightmap density view mode. */
 	/** Minimum lightmap density value for coloring. */
 	UPROPERTY(globalconfig)
@@ -1253,6 +1282,18 @@ private:
 	/** Control how the Engine process the Framerate/Timestep */
 	UPROPERTY(transient)
 	UEngineCustomTimeStep* CustomTimeStep;
+
+	/** Provide a timecode to the Engine */
+	UPROPERTY(transient)
+	UTimecodeProvider* TimecodeProvider;
+
+public:
+	/**
+	 * Frame rate used to generated the engine Timecode's frame number when no TimecodeProvider are specified.
+	 * It doesn't control the Engine frame rate. The Engine can run faster or slower that the specified TimecodeFrameRate.
+	 */
+	UPROPERTY(config, EditAnywhere, Category=Timecode)
+	FFrameRate DefaultTimecodeFrameRate;
 
 public:
 	/** 
@@ -1505,6 +1546,11 @@ public:
 	void RegisterEndStreamingPauseRenderingDelegate( FEndStreamingPauseDelegate* InDelegate );
 	FEndStreamingPauseDelegate* EndStreamingPauseDelegate;
 
+
+	/** Delegate called just prior to rendering. */
+	FPreRenderDelegate PreRenderDelegate;
+	FPreRenderDelegate& GetPreRenderDelegate() { return PreRenderDelegate; }
+
 	/** 
 	 * Error message event relating to server travel failures 
 	 * 
@@ -1592,8 +1638,8 @@ public:
 	 */
 	void RestoreSelectedMaterialColor();
 
-	/** Returns the current status of dynamic resolution. */
-	EDynamicResolutionStatus GetDynamicResolutionStatus() const;
+	/** Queries informations about the current state dynamic resolution. */
+	void GetDynamicResolutionCurrentStateInfos(FDynamicResolutionStateInfos& OutInfos) const;
 
 	/** Pause dynamic resolution for this frame. */
 	void PauseDynamicResolution();
@@ -1601,7 +1647,7 @@ public:
 	/** Resume dynamic resolution for this frame. */
 	FORCEINLINE void ResumeDynamicResolution()
 	{
-		#if !UE_SERVER
+		#if WITH_DYNAMIC_RESOLUTION
 			bIsDynamicResolutionPaused = false;
 			UpdateDynamicResolutionStatus();
 		#endif // !UE_SERVER
@@ -1613,7 +1659,7 @@ public:
 	/** Get's global dynamic resolution state */
 	FORCEINLINE class IDynamicResolutionState* GetDynamicResolutionState()
 	{
-		#if UE_SERVER
+		#if !WITH_DYNAMIC_RESOLUTION
 			return nullptr;
 		#else
 			// Returns next's frame dynamic resolution state to keep game thread consistency after a ChangeDynamicResolutionStateAtNextFrame().
@@ -1630,7 +1676,7 @@ public:
 	/** Get the user setting for dynamic resolution. */
 	FORCEINLINE bool GetDynamicResolutionUserSetting() const
 	{
-		#if UE_SERVER
+		#if !WITH_DYNAMIC_RESOLUTION
 			return false;
 		#else
 			return bDynamicResolutionEnableUserSetting;
@@ -1640,7 +1686,7 @@ public:
 	/** Set the user setting for dynamic resolution. */
 	FORCEINLINE void SetDynamicResolutionUserSetting(bool Enable)
 	{
-		#if !UE_SERVER
+		#if WITH_DYNAMIC_RESOLUTION
 			bDynamicResolutionEnableUserSetting = Enable;
 			UpdateDynamicResolutionStatus();
 		#endif
@@ -1648,7 +1694,7 @@ public:
 
 
 private:
-	#if !UE_SERVER
+	#if WITH_DYNAMIC_RESOLUTION
 		/** Last dynamic resolution event. */
 		EDynamicResolutionStateEvent LastDynamicResolutionEvent;
 
@@ -1693,6 +1739,9 @@ public:
 	/** Extensions that can modify view parameters on the render thread. */
 	TSharedPtr<FSceneViewExtensions> ViewExtensions;
 
+	/** Reference to the HMD device that is attached, if any */
+	TSharedPtr< class IEyeTracker, ESPMode::ThreadSafe > EyeTrackingDevice;
+	
 	/** Triggered when a world is added. */	
 	DECLARE_EVENT_OneParam( UEngine, FWorldAddedEvent , UWorld* );
 	
@@ -1918,6 +1967,7 @@ public:
 	bool HandleListTexturesCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleListStaticMeshesCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleListSkeletalMeshesCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleListAnimsCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleRemoteTextureStatsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleListParticleSystemsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleListSpawnedActorsCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
@@ -1963,7 +2013,10 @@ public:
 	 */
 	bool SetCustomTimeStep(UEngineCustomTimeStep* InCustomTimeStep);
 
-	/** Executes the deferred commands **/
+	/** Get the CustomTimeStep that control the Engine Framerate/Timestep */
+	UEngineCustomTimeStep* GetCustomTimeStep() const { return CustomTimeStep; };
+
+	/** Executes the deferred commands */
 	void TickDeferredCommands();
 
 	/** Get tick rate limiter. */
@@ -1981,29 +2034,25 @@ public:
 	/** Whether we're allowed to do frame rate smoothing */
 	virtual bool IsAllowedFramerateSmoothing() const;
 
+	/** Update FApp::Timecode. */
+	void UpdateTimecode();
+
+	/**
+	 * Get the TimecodeProvider that control the FApp::Timecode
+	 *
+	 * @return	true if the TimecodeProvider was properly initialized
+	 */
+	bool SetTimecodeProvider(UTimecodeProvider* InTimecodeProvider);
+
+	/** Get the TimecodeProvider that control the Engine's Timecode */
+	UTimecodeProvider* GetTimecodeProvider() const { return TimecodeProvider; };
+
 	/**
 	 * Pauses / un-pauses the game-play when focus of the game's window gets lost / gained.
 	 * @param EnablePause true to pause; false to unpause the game
 	 */
 	virtual void OnLostFocusPause( bool EnablePause );
 
-	/** Function to start the hardware survey. */
-	void StartHardwareSurvey();
-		
-	/** [Deprecated] Functions to start and finish the hardware survey. */
-	DEPRECATED(4.11, "InitHardwareSurvey() is deprecated and is not used by engine code. Use StartHardwareSurvey() instead.")
-	void InitHardwareSurvey();
-	DEPRECATED(4.11, "TickHardwareSurvey() is deprecated and is not used by engine code. Use StartHardwareSurvey() which will tick automatically.")
-	void TickHardwareSurvey();
-
-	DEPRECATED(4.11, "HardwareSurveyBucketResolution() is deprecated and is not used by engine code.")
-	static FString HardwareSurveyBucketResolution(uint32 DisplayWidth, uint32 DisplayHeight);
-	DEPRECATED(4.11, "HardwareSurveyBucketVRAM() is deprecated and is not used by engine code.")
-	static FString HardwareSurveyBucketVRAM(uint32 VidMemoryMB);
-	DEPRECATED(4.11, "HardwareSurveyBucketRAM() is deprecated and is not used by engine code.")
-	static FString HardwareSurveyBucketRAM(uint32 MemoryMB);
-	DEPRECATED(4.11, "HardwareSurveyGetResolutionClass() is deprecated and is not used by engine code.")
-	static FString HardwareSurveyGetResolutionClass(uint32 LargestDisplayHeight);
 	/** 
 	 * Returns the average game/render/gpu/total time since this function was last called
 	 */
@@ -2012,7 +2061,7 @@ public:
 	/**
 	 * Updates the values used to calculate the average game/render/gpu/total time
 	 */
-	void SetAverageUnitTimes(float FrameTime, float RenderThreadTime, float GameThreadTime, float GPUFrameTime);
+	void SetAverageUnitTimes(float FrameTime, float RenderThreadTime, float GameThreadTime, float GPUFrameTime, float RHITFrameTime);
 
 	/**
 	 * Returns the display color for a given frame time (based on t.TargetFrameTimeThreshold and t.UnacceptableFrameTimeThreshold)
@@ -2023,27 +2072,7 @@ public:
 	 * @return true to throttle CPU usage based on current state (usually editor minimized or not in foreground)
 	 */
 	virtual bool ShouldThrottleCPUUsage() const;
-protected:
-	/** 
-	 * Determines whether a hardware survey should be run now.
-	 * Default implementation checks in config for when the survey was last performed
-	 * The default interval is determined by EngineDefs::HardwareSurveyInterval
-	 *
-	 * @return	true if the engine should run the hardware survey now
-	 */
-	DEPRECATED(4.11, "IsHardwareSurveyRequired() is deprecated and is not used by engine code.")
-	virtual bool IsHardwareSurveyRequired();
 
-	/** 
-	 * Runs when a hardware survey has been completed successfully.
-	 * Default implementation sets some config values to remember when the survey happened then
-	 * takes raw hardware survey results and records events using the engine's analytics provider.
-	 *
-	 * @param SurveyResults		The raw survey results generated by the platform hardware survey code
-	 */
-	DEPRECATED(4.11, "OnHardwareSurveyComplete() is deprecated and is not used by engine code.")
-	virtual void OnHardwareSurveyComplete(const struct FHardwareSurveyResults& SurveyResults);
-	
 public:
 	/** 
 	 * Return a reference to the GamePlayers array. 
@@ -2559,6 +2588,13 @@ protected:
 	 */
 	virtual bool InitializeHMDDevice();
 
+	/**
+	 *	Detects and initializes any attached eye-tracking devices
+	 *
+	 *	@return true if there is an initialized device, false otherwise
+	 */
+	virtual bool InitializeEyeTrackingDevice();
+
 	/**	Record EngineAnalytics information for attached HMD devices. */
 	virtual void RecordHMDAnalytics();
 
@@ -2823,7 +2859,7 @@ public:
 	 */
 	virtual void LoadMapRedrawViewports(void)
 	{
-		RedrawViewports();
+		RedrawViewports(false);
 	}
 
 	void ClearDebugDisplayProperties();
@@ -2909,12 +2945,6 @@ public:
 
 	/** @return true if editor analytics are enabled */
 	virtual bool AreEditorAnalyticsEnabled() const { return false; }
-	/** @return true if in-game analytics are enabled */
-	bool AreGameAnalyticsEnabled() const;
-	/** @return true if in-game analytics are sent with an anonymous GUID rather than real account and machine ids */
-	bool AreGameAnalyticsAnonymous() const;
-	/** @return true if in-game MTBF analytics are enabled */
-	bool AreGameMTBFEventsEnabled() const;
 	virtual void CreateStartupAnalyticsAttributes( TArray<struct FAnalyticsEventAttribute>& StartSessionAttributes ) const {}
 	
 	/** @return true if the engine is autosaving a package */
@@ -3259,6 +3289,7 @@ private:
 	int32 RenderStatSounds(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 #endif // !UE_BUILD_SHIPPING
 	int32 RenderStatAI(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
+	int32 RenderStatTimecode(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 #if STATS
 	int32 RenderStatSlateBatches(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);
 #endif

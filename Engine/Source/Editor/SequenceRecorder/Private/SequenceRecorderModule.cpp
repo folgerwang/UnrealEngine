@@ -573,7 +573,7 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 				FSequenceRecorder::Get().AddNewQueuedRecording(Actor);
 			}
 		}
-		else
+		else if (!FSequenceRecorder::Get().HasQueuedRecordings())
 		{
 			if(FSlateApplication::IsInitialized())
 			{
@@ -636,6 +636,30 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 	virtual TUniquePtr<ISequenceAudioRecorder> CreateAudioRecorder() const
 	{
 		return AudioFactory ? AudioFactory() : TUniquePtr<ISequenceAudioRecorder>();
+	}
+
+	virtual void QueueActorToRecord(AActor* ActorToRecord) override 
+	{
+		if (ActorToRecord && !FSequenceRecorder::Get().FindRecording(ActorToRecord))
+		{
+			FSequenceRecorder::Get().AddNewQueuedRecording(ActorToRecord);
+		}
+	}
+
+	virtual uint32 GetTakeNumberForActor(AActor* InActor) const override
+	{
+		// If not using a group, take numbers aren't in use, return 0
+		if (!FSequenceRecorder::Get().GetRecordingGroup().IsValid())
+		{
+			return 0;
+		}
+
+		if (UActorRecording* Recording = FSequenceRecorder::Get().FindRecording(InActor))
+		{
+			return Recording->TakeNumber;
+		}
+
+		return 0;
 	}
 
 	virtual FOnRecordingStarted& OnRecordingStarted() override { return FSequenceRecorder::Get().OnRecordingStartedDelegate; }

@@ -5,18 +5,23 @@
 #include "EdGraphSchema_Niagara.h"
 #include "NiagaraHlslTranslator.h"
 #include "GraphEditAction.h"
+#include "SNiagaraGraphNode.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraNode"
 
 UNiagaraNode::UNiagaraNode(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, VisitID(INDEX_NONE)
 {
 }
 
 void UNiagaraNode::PostLoad()
 {
 	Super::PostLoad();
+
+	if (ChangeId.IsValid() == false)
+	{
+		ChangeId = FGuid::NewGuid();
+	}
 
 	if (GIsEditor && HasAllFlags(RF_Transactional) == false)
 	{
@@ -103,10 +108,14 @@ bool UNiagaraNode::ReallocatePins()
 		OldPin->MarkPendingKill();
 	}
 
-	GetGraph()->NotifyGraphChanged();
+	//GetGraph()->NotifyGraphChanged();
 	if (!bAllSame)
 	{
-		CastChecked<UNiagaraGraph>(GetGraph())->NotifyGraphNeedsRecompile();
+		MarkNodeRequiresSynchronization(__FUNCTION__, true);
+	}
+	else
+	{
+		VisualsChangedDelegate.Broadcast(this);
 	}
 	return bAllSame;
 }
@@ -143,6 +152,14 @@ bool UNiagaraNode::CompileInputPins(FHlslNiagaraTranslator *Translator, TArray<i
 		OutCompiledInputs.Add(Result);
 	}
 	return bError;
+}
+
+void UNiagaraNode::PostPlacedNewNode()
+{
+	if (ChangeId.IsValid() == false)
+	{
+		MarkNodeRequiresSynchronization(__FUNCTION__, false); // The add will have notified us anyway
+	}
 }
 
 void UNiagaraNode::AutowireNewNode(UEdGraphPin* FromPin)
@@ -200,40 +217,73 @@ bool UNiagaraNode::ConvertNumericPinToType(UEdGraphPin* InGraphPin, FNiagaraType
 	return true;
 }
 
+TSharedPtr<SGraphNode> UNiagaraNode::CreateVisualWidget() 
+{
+	return SNew(SNiagaraGraphNode, this);
+}
+
+
+void UNiagaraNode::MarkNodeRequiresSynchronization(FString Reason, bool bRaiseGraphNeedsRecompile)
+{
+	Modify();
+	ChangeId = FGuid::NewGuid();
+	//UE_LOG(LogNiagaraEditor, Verbose, TEXT("Node %s was marked requires synchronization.  Reason: %s"), *GetPathName(), *Reason);
+
+	UNiagaraGraph* Graph = GetNiagaraGraph();
+	if (bRaiseGraphNeedsRecompile)
+	{
+		Graph->NotifyGraphNeedsRecompile();
+	}
+
+	VisualsChangedDelegate.Broadcast(this);
+}
+
+void UNiagaraNode::ForceChangeId(const FGuid& InId, bool bRaiseGraphNeedsRecompile)
+{
+	Modify();
+	ChangeId = InId;
+
+	if (bRaiseGraphNeedsRecompile)
+	{
+		UNiagaraGraph* Graph = GetNiagaraGraph();
+		Graph->NotifyGraphNeedsRecompile();
+	}
+}
+
 void UNiagaraNode::PinDefaultValueChanged(UEdGraphPin* Pin) 
 {
-	UNiagaraGraph* Graph = GetNiagaraGraph();
-	Graph->NotifyGraphNeedsRecompile();
+	MarkNodeRequiresSynchronization(__FUNCTION__, true);
+	Super::PinDefaultValueChanged(Pin);
 }
+
+void UNiagaraNode::OnRenameNode(const FString& NewName)
+{
+	MarkNodeRequiresSynchronization(__FUNCTION__, true);
+	Super::OnRenameNode(NewName);
+}
+
+void UNiagaraNode::OnPinRemoved(UEdGraphPin* InRemovedPin)
+{
+	MarkNodeRequiresSynchronization(__FUNCTION__, true);
+	Super::OnPinRemoved(InRemovedPin);
+}
+
+void UNiagaraNode::NodeConnectionListChanged()
+{
+	MarkNodeRequiresSynchronization(__FUNCTION__, true);
+	Super::NodeConnectionListChanged();
+}
+
 
 void UNiagaraNode::PinConnectionListChanged(UEdGraphPin* Pin) 
 {
-	UNiagaraGraph* Graph = GetNiagaraGraph();
-	Graph->NotifyGraphNeedsRecompile();
-
-	const UEdGraphSchema_Niagara* Schema = CastChecked<UEdGraphSchema_Niagara>(GetSchema());
-	check(Schema);
-	FNiagaraTypeDefinition TypeDef = Schema->PinToTypeDefinition(Pin);
-	if (TypeDef == FNiagaraTypeDefinition::GetGenericNumericDef())
-	{
-		for (UEdGraphPin* LinkedPin : Pin->LinkedTo)
-		{
-			if (LinkedPin != nullptr)
-			{
-				FNiagaraTypeDefinition LinkedPinTypeDef = Schema->PinToTypeDefinition(LinkedPin);
-				if (LinkedPinTypeDef != FNiagaraTypeDefinition::GetGenericNumericDef())
-				{
-
-				}
-			}
-		}
-	}
+	MarkNodeRequiresSynchronization(__FUNCTION__, true);
+	Super::PinConnectionListChanged(Pin);
 }
 
 void UNiagaraNode::PinTypeChanged(UEdGraphPin* Pin) 
 {
-	UNiagaraGraph* Graph = GetNiagaraGraph();
-	Graph->NotifyGraphNeedsRecompile();
+	MarkNodeRequiresSynchronization(__FUNCTION__, true);
 }
 
 const UNiagaraGraph* UNiagaraNode::GetNiagaraGraph()const
@@ -341,9 +391,34 @@ void UNiagaraNode::GetOutputPins(TArray<class UEdGraphPin*>& OutOutputPins) cons
 	}
 }
 
+UEdGraphPin* UNiagaraNode::GetPinByPersistentGuid(const FGuid& InPersistentGuid) const
+{
+	for (UEdGraphPin* Pin : Pins)
+	{
+		if (InPersistentGuid == Pin->PersistentGuid)
+		{
+			return Pin;
+		}
+	}
+
+	return nullptr;
+}
+
 ENiagaraNumericOutputTypeSelectionMode UNiagaraNode::GetNumericOutputTypeSelectionMode() const
 {
 	return ENiagaraNumericOutputTypeSelectionMode::None;
+}
+
+
+UEdGraphPin* UNiagaraNode::TraceOutputPin(UEdGraphPin* LocallyOwnedOutputPin)
+{
+	if (LocallyOwnedOutputPin == nullptr)
+	{
+		return nullptr;
+	}
+
+	UNiagaraNode* LinkedNode = CastChecked<UNiagaraNode>(LocallyOwnedOutputPin->GetOwningNode());
+	return LinkedNode->GetTracedOutputPin(LocallyOwnedOutputPin);
 }
 
 void UNiagaraNode::RouteParameterMapAroundMe(FNiagaraParameterMapHistoryBuilder& OutHistory, bool bRecursive)
@@ -382,5 +457,10 @@ void UNiagaraNode::RouteParameterMapAroundMe(FNiagaraParameterMapHistoryBuilder&
 		OutHistory.RegisterParameterMapPin(PMIdx, OutputPin);
 	}
 }
+UNiagaraNode::FOnNodeVisualsChanged& UNiagaraNode::OnVisualsChanged()
+{
+	return VisualsChangedDelegate;
+}
+
 
 #undef LOCTEXT_NAMESPACE

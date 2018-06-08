@@ -1,13 +1,24 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Widgets/SCompoundWidget.h"
 #include "WorkflowOrientedApp/WorkflowTabFactory.h"
 
-
 namespace WatchViewer
 {
-	void KISMET_API UpdateDisplayedWatches(class UBlueprint* BlueprintObj);
-	void RegisterTabSpawner();
+	// called when we pause execution to update the displayed watch values
+	void KISMET_API UpdateDisplayedWatches(const TArray<const FFrame*>& ScriptStack);
+
+	// called when we unpause execution and set watch values back to the blueprint versions
+	void KISMET_API ContinueExecution();
+
+	// called when we are adding or changing watches from BlueprintObj
+	void KISMET_API UpdateWatchListFromBlueprint(class UBlueprint* BlueprintObj);
+
+	// called when a BlueprintObj should no longer be watched
+	void KISMET_API ClearWatchListFromBlueprint(class UBlueprint* BlueprintObj);
+
+	FName GetTabName();
+	void RegisterTabSpawner(FTabManager& TabManager);
 }

@@ -9,10 +9,12 @@
 #include "Misc/Optional.h"
 #include "Channels/MovieSceneChannelEditorData.h"
 
+template<typename> struct TMovieSceneChannelTraits;
+
 #if WITH_EDITOR
 
 /**
- * Base entry type for use in FMovieSceneChannelProxy that stores a piece of editor data for each channel or a given type (one entry per type).
+ * Base entry type for use in FMovieSceneChannelProxy that stores editor meta-data and extended editor data for each channel of a given type (one entry per type).
  */
 struct FMovieSceneChannelEditorDataEntry
 {
@@ -23,25 +25,25 @@ struct FMovieSceneChannelEditorDataEntry
 	template<typename ChannelType>
 	explicit FMovieSceneChannelEditorDataEntry(const ChannelType& Channel)
 	{
-		ConstructSpecializedEditorDataArray<ChannelType>((typename TMovieSceneChannelTraits<ChannelType>::EditorDataType*)nullptr);
+		ConstructExtendedEditorDataArray<ChannelType>((typename TMovieSceneChannelTraits<ChannelType>::ExtendedEditorDataType*)nullptr);
 	}
 
 	/**
 	 * Get the common editor data for all channels
 	 */
-	TArrayView<const FMovieSceneChannelEditorData> GetCommonEditorData() const
+	TArrayView<const FMovieSceneChannelMetaData> GetMetaData() const
 	{
-		return CommonEditorDataArray;
+		return MetaDataArray;
 	}
 
 	/**
-	 * Access the specialized editor data for a specific channel
+	 * Access the extended editor data for a specific channel
 	 */
-	const void* GetSpecializedEditorData(int32 ChannelIndex) const
+	const void* GetExtendedEditorData(int32 ChannelIndex) const
 	{
-		if (SpecializedEditorDataArray.IsValid())
+		if (ExtendedEditorDataArray.IsValid())
 		{
-			return SpecializedEditorDataArray->GetChannel(ChannelIndex);
+			return ExtendedEditorDataArray->GetChannel(ChannelIndex);
 		}
 		return nullptr;
 	}
@@ -52,82 +54,83 @@ protected:
 	 * Add new editor data for the specified channel type at the last index in the array
 	 */
 	template<typename ChannelType>
-	void AddEditorData(const FMovieSceneChannelEditorData& CommonData)
+	void AddMetaData(const FMovieSceneChannelMetaData& MetaData)
 	{
-		static_assert(TIsSame<typename TMovieSceneChannelTraits<ChannelType>::EditorDataType, void>::Value, "Must supply typed editor data according to the channel's traits.");
+		static_assert(TIsSame<typename TMovieSceneChannelTraits<ChannelType>::ExtendedEditorDataType, void>::Value, "Must supply extended editor data according to the channel's traits.");
 
-		// Add the common editor data
-		CommonEditorDataArray.Add(CommonData);
+		// Add the editor meta-data
+		MetaDataArray.Add(MetaData);
 	}
 
 	/**
 	 * Add new editor data for the specified channel type at the last index in the arrays
 	 */
-	template<typename ChannelType, typename SpecializedEditorData>
-	void AddEditorData(const FMovieSceneChannelEditorData& CommonData, SpecializedEditorData&& InTypeSpecificEditorData)
+	template<typename ChannelType, typename ExtendedEditorDataType>
+	void AddMetaData(const FMovieSceneChannelMetaData& MetaData, ExtendedEditorDataType&& InExtendedEditorData)
 	{
-		// Add the common editor data
-		CommonEditorDataArray.Add(CommonData);
+		// Add the editor meta-data
+		MetaDataArray.Add(MetaData);
 
-		auto& TypedImpl = static_cast<TMovieSceneEditorDataArray<ChannelType>&>(SpecializedEditorDataArray.GetValue());
-		TypedImpl.Data.Add(Forward<SpecializedEditorData>(InTypeSpecificEditorData));
+		// Add the extended channel-type specific editor data
+		auto& TypedImpl = static_cast<TMovieSceneExtendedEditorDataArray<ChannelType>&>(ExtendedEditorDataArray.GetValue());
+		TypedImpl.Data.Add(Forward<ExtendedEditorDataType>(InExtendedEditorData));
 	}
 
 	/**
-	 * Access the specialized editor data for channels stored in this entry
+	 * Access the extended editor data for channels stored in this entry
 	 */
 	template<typename ChannelType>
-	TArrayView<const typename TMovieSceneChannelTraits<ChannelType>::EditorDataType> GetAllSpecializedEditorData() const
+	TArrayView<const typename TMovieSceneChannelTraits<ChannelType>::ExtendedEditorDataType> GetAllExtendedEditorData() const
 	{
-		static_assert(!TIsSame<typename TMovieSceneChannelTraits<ChannelType>::EditorDataType, void>::Value, "This channel type does not define any additional editor data.");
+		static_assert(!TIsSame<typename TMovieSceneChannelTraits<ChannelType>::ExtendedEditorDataType, void>::Value, "This channel type does not define any extended editor data.");
 
-		const auto& TypedImpl = static_cast<const TMovieSceneEditorDataArray<ChannelType>&>(SpecializedEditorDataArray.GetValue());
+		const auto& TypedImpl = static_cast<const TMovieSceneExtendedEditorDataArray<ChannelType>&>(ExtendedEditorDataArray.GetValue());
 		return TypedImpl.Data;
 	}
 
 private:
 
-	/** Construct the specialized editor data container for channel types that require it */
-	template<typename ChannelType, typename EditorDataType>
-	void ConstructSpecializedEditorDataArray(EditorDataType*)
+	/** Construct the extended editor data container for channel types that require it */
+	template<typename ChannelType, typename ExtendedEditorDataType>
+	void ConstructExtendedEditorDataArray(ExtendedEditorDataType*)
 	{
-		SpecializedEditorDataArray = TMovieSceneEditorDataArray<ChannelType>();
+		ExtendedEditorDataArray = TMovieSceneExtendedEditorDataArray<ChannelType>();
 	}
 
 	template<typename ChannelType>
-	void ConstructSpecializedEditorDataArray(void*)
+	void ConstructExtendedEditorDataArray(void*)
 	{
 	}
 
 private:
 
 	/** Base editor data, one per channel */
-	TArray<FMovieSceneChannelEditorData, TInlineAllocator<1>> CommonEditorDataArray;
+	TArray<FMovieSceneChannelMetaData, TInlineAllocator<1>> MetaDataArray;
 
 	/**
 	 * We store the array behind an interface whose access is via void*
 	 * Typed access is only permitted using the original ChannelType templated methods
 	 * to ensure safe casting of the array
 	 */
-	struct IMovieSceneEditorDataArray
+	struct IMovieSceneExtendedEditorDataArray
 	{
-		virtual ~IMovieSceneEditorDataArray() {}
+		virtual ~IMovieSceneExtendedEditorDataArray() {}
 		virtual const void* GetChannel(int32 Index) const = 0;
 	};
 
 	template<typename ChannelType>
-	struct TMovieSceneEditorDataArray : IMovieSceneEditorDataArray
+	struct TMovieSceneExtendedEditorDataArray : IMovieSceneExtendedEditorDataArray
 	{
-		typedef typename TMovieSceneChannelTraits<ChannelType>::EditorDataType EditorDataType;
+		typedef typename TMovieSceneChannelTraits<ChannelType>::ExtendedEditorDataType ExtendedEditorDataType;
 
 		virtual const void* GetChannel(int32 Index) const { return &Data[Index]; }
 
 		/** The actual editor data */
-		TArray<EditorDataType> Data;
+		TArray<ExtendedEditorDataType> Data;
 	};
 
-	/** Typed editor data, one per channel, defined by TMovieSceneChannelTraits::EditorDataType */
-	TInlineValue<IMovieSceneEditorDataArray, 8> SpecializedEditorDataArray;
+	/** Extended editor data, one per channel, defined by TMovieSceneChannelTraits::ExtendedEditorDataType. Unused if ExtendedEditorDataType is void.  */
+	TInlineValue<IMovieSceneExtendedEditorDataArray, 8> ExtendedEditorDataArray;
 };
 
 #else // WITH_EDITOR

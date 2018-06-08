@@ -117,6 +117,9 @@ public:
 	DECLARE_EVENT(IMaterialEditorModule, FMaterialEditorClosedEvent);
 	virtual FMaterialEditorClosedEvent& OnMaterialEditorClosed() { return MaterialEditorClosedEvent; };
 
+	/** call this to notify the editor that the edited material changed from outside */
+	virtual void NotifyExternalMaterialChange() {}
+
 private:
 	FMaterialEditorClosedEvent MaterialEditorClosedEvent;
 	FRegisterTabSpawnersEvent RegisterTabSpawnersEvent;

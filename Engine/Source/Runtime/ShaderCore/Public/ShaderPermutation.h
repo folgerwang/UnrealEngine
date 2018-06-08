@@ -215,7 +215,7 @@ struct TShaderPermutationDomain
 
 	/** Set dimension's value, but in this case emit compile time error if could not find the dimension to set. */
 	template<class DimensionToSet>
-	void Set(const typename DimensionToSet::Type& Value)
+	void Set(typename DimensionToSet::Type)
 	{
 		// On clang, we can't do static_assert(false), because is evaluated even when method is not used. So
 		// we test sizeof(DimensionToSet::Type) == 0 to make the static assert depend on the DimensionToSet
@@ -355,7 +355,7 @@ struct TShaderPermutationDomain<TDimension, Ts...>
 
 	/** Set dimension's value. */
 	template<class DimensionToSet>
-	void Set(const typename DimensionToSet::Type& Value)
+	void Set(typename DimensionToSet::Type Value)
 	{
 		return TShaderPermutationDomainSpetialization<TIsSame<TDimension, DimensionToSet>::Value>::template SetDimension<Type, DimensionToSet>(*this, Value);
 	}

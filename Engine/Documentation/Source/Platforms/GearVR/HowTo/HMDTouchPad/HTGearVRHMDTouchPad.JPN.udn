@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3661537
+﻿INTSourceChangelist:3810467
 Availability:Public
 Crumbs: %ROOT%
 Title:Gear VR HMD タッチパッドの使用方法 
@@ -6,13 +6,15 @@ Description:Gear VR HMD タッチパッドを設定する
 Type: how-to
 SkillLevel:Intermediate
 Version:4.17
-Parent:Platforms/GearVR/HowTo
+Parent:Platforms/GearVR
 Order:3
 Tags:GearVR
 prereq:Platforms\GearVR\Prerequisites
 prereq:Platforms\GearVR\QuickStart
 prereq:Platforms\GearVR\HowTo\CameraSetup
 topic-image:Platforms\GearVR\HowTo\GearVR_How_To_Header.png
+
+![](HTTouchPad.png)
 
 Gear VR HMD の横に付いているタッチパッドを使って、ユーザーは今見えている VR プロジェクトとインタラクトすることができます。VR プロジェクトとインタラクトするには、タッチパッド上で指をタップまたはスワイプします。この操作ガイドでは、Gear VR HMD タッチパッドを設定し、タッチパッドの入力に応じて様々なテキストを表示していきます。
 
@@ -78,7 +80,7 @@ Gear VR タッチパッド上での操作の種類が表示されるようにプ
     |**Touch**  | N/A |
     |**Set Touch Start**  | N/A |
     |**Set Touch End**  | N/A |
-    |**Get Player Controller ** | N/A |
+    |**Get Player Controller** | N/A |
     |**Get Input Touch State ** | N/A |
     |**Make Vector 2D** | N/A |
 

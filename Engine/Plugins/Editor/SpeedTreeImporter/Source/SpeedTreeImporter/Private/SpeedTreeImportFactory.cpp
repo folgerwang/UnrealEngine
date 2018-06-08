@@ -1382,7 +1382,7 @@ void ProcessTriangleCorner( SpeedTree::CCore& SpeedTree, const int32 TriangleInd
 	int32 BaseTexcoordIndex = RawMesh.WedgeTexCoords[ 0 ].Num();
 	for( int32 PadIndex = 0; PadIndex < NumUVs; ++PadIndex )
 	{
-		RawMesh.WedgeTexCoords[ PadIndex ].AddUninitialized( 1 );
+		RawMesh.WedgeTexCoords[ PadIndex ].AddZeroed( 1 );
 	}
 
 	// All texcoords are packed into 4 float4 vertex attributes
@@ -1555,7 +1555,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 				// Copy the speed tree import asset from the option windows
 				if (StaticMesh->AssetImportData == nullptr || !StaticMesh->AssetImportData->IsA(USpeedTreeImportData::StaticClass()))
 				{
-					StaticMesh->AssetImportData = NewObject<USpeedTreeImportData>(Package, NAME_None);
+					StaticMesh->AssetImportData = NewObject<USpeedTreeImportData>(StaticMesh, NAME_None);
 				}
 				StaticMesh->AssetImportData->Update(UFactory::GetCurrentFilename());
 				Cast<USpeedTreeImportData>(StaticMesh->AssetImportData)->CopyFrom(Options->SpeedTreeImportData);
@@ -2035,7 +2035,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 		// Copy the speed tree import asset from the option windows
 		if (StaticMesh->AssetImportData == nullptr || !StaticMesh->AssetImportData->IsA(USpeedTreeImportData::StaticClass()))
 		{
-			StaticMesh->AssetImportData = NewObject<USpeedTreeImportData>(Package, NAME_None);
+			StaticMesh->AssetImportData = NewObject<USpeedTreeImportData>(StaticMesh, NAME_None);
 		}
 		StaticMesh->AssetImportData->Update(UFactory::GetCurrentFilename());
 		Cast<USpeedTreeImportData>(StaticMesh->AssetImportData)->CopyFrom(Options->SpeedTreeImportData);

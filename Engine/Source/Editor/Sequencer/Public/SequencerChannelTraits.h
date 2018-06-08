@@ -5,7 +5,7 @@
 #include "Templates/SharedPointer.h"
 #include "ISequencerChannelInterface.h"
 #include "KeyDrawParams.h"
-#include "Channels/MovieSceneChannel.h"
+#include "Channels/MovieSceneChannelData.h"
 #include "MovieSceneClipboard.h"
 #include "SequencerClipboardReconciler.h"
 #include "SequencerGenericKeyStruct.h"
@@ -14,14 +14,28 @@
 
 struct FSequencerGenericKeyStruct;
 
+/** Utility struct representing a number of selected keys on a single channel */
+template<typename ChannelType>
+struct TExtendKeyMenuParams
+{
+	/** The section on which the channel resides */
+	TWeakObjectPtr<UMovieSceneSection> Section;
+
+	/** The channel on which the keys reside */
+	TMovieSceneChannelHandle<ChannelType> Channel;
+
+	/** An array of key handles to operante on */
+	TArray<FKeyHandle> Handles;
+};
+
 /**
  * Stub/default implementations for ISequencerChannelInterface functions.
  * Custom behaviour should be implemented by overloading the relevant function with the necessary channel/data types.
- * For example, to overload HasAnyKeys for FMyCustomChannelType, implement the following function in the same namespace as FMyCustomChannelType:
+ * For example, to overload how to draw keys for FMyCustomChannelType, implement the following function in the same namespace as FMyCustomChannelType:
  *
- * bool HasAnyKeys(const FMyCustomChannelType* InChannel)
+ * void DrawKeys(FMyCustomChannelType* Channel, TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyDrawParams> OutKeyDrawParams)
  * {
- *    return InChannel.GetKeys().Num() != 0; }
+ * ...
  * }
  */
 namespace Sequencer
@@ -48,21 +62,8 @@ namespace Sequencer
 	 * @param InSequencer    The sequencer that is currently active
 	 */
 	template<typename ChannelType>
-	void ExtendKeyMenu(FMenuBuilder& MenuBuilder, TArray<TChannelAndHandles<ChannelType>>&& InChannels, TWeakPtr<ISequencer> InSequencer)
+	void ExtendKeyMenu(FMenuBuilder& MenuBuilder, TArray<TExtendKeyMenuParams<ChannelType>>&& InChannels, TWeakPtr<ISequencer> InSequencer)
 	{}
-
-
-	/**
-	 * Determine if the specified channel has any keys
-	 *
-	 * @param InChannel      The channel to check
-	 * @return true if the channel has any keys, false otherwise
-	 */
-	template<typename ChannelType>
-	bool HasAnyKeys(const ChannelType* InChannel)
-	{
-		return InChannel->GetInterface().GetTimes().Num() != 0;
-	}
 
 
 	/**
@@ -73,20 +74,20 @@ namespace Sequencer
 	 * @return A shared struct object, or nullptr
 	 */
 	template<typename ChannelType>
-	TSharedPtr<FStructOnScope> GetKeyStruct(TMovieSceneChannelHandle<ChannelType> ChannelHandle, FKeyHandle KeyHandle)
+	TSharedPtr<FStructOnScope> GetKeyStruct(const TMovieSceneChannelHandle<ChannelType>& ChannelHandle, FKeyHandle KeyHandle)
 	{
 		ChannelType* Channel = ChannelHandle.Get();
 		if (Channel)
 		{
-			auto ChannelInterface = Channel->GetInterface();
-			const int32 KeyIndex = ChannelInterface.GetIndex(KeyHandle);
+			auto ChannelData = Channel->GetData();
+			const int32 KeyIndex = ChannelData.GetIndex(KeyHandle);
 
 			if (KeyIndex != INDEX_NONE)
 			{
 				TSharedRef<FStructOnScope> NewStruct = MakeShared<FStructOnScope>(FSequencerGenericKeyStruct::StaticStruct());
 				FSequencerGenericKeyStruct* StructPtr = (FSequencerGenericKeyStruct*)NewStruct->GetStructMemory();
 
-				StructPtr->Time = ChannelInterface.GetTimes()[KeyIndex];
+				StructPtr->Time = ChannelData.GetTimes()[KeyIndex];
 				StructPtr->CustomizationImpl = MakeShared<TMovieSceneKeyStructCustomization<ChannelType>>(ChannelHandle, KeyHandle);
 
 				return NewStruct;
@@ -103,49 +104,25 @@ namespace Sequencer
 	 * @param InChannel      The channel to check
 	 * @return true if a key editor can be created, false otherwise
 	 */
-	inline bool CanCreateKeyEditor(void* InChannel)
+	inline bool CanCreateKeyEditor(const FMovieSceneChannel* InChannel)
 	{
 		return false;
 	}
 
-
-	/**
-	 * Create a key editor widget for the specified channel. Such widgets are placed on the sequencer node tree for a given key area node.
-	 *
-	 * @param InChannel          The channel to create a key editor for
-	 * @param InOwningSection    The section that owns the channel
-	 * @param InObjectBindingID  The object binding ID that this section's track is bound to
-	 * @param InPropertyBindings Optionally supplied helper for accessing an object's property pertaining to this channel
-	 * @param InSequencer        The sequencer currently active
-	 * @return true if a key editor can be created, false otherwise
-	 */
-	inline TSharedRef<SWidget> CreateKeyEditor(
-		void*                                    InChannel,
-		UMovieSceneSection*                      InOwningSection,
-		const FGuid&                             InObjectBindingID,
-		TWeakPtr<FTrackInstancePropertyBindings> InPropertyBindings,
-		TWeakPtr<ISequencer>                     InSequencer
-		)
-	{
-		return SNullWidget::NullWidget;
-	}
 
 
 	/**
 	 * Create a key editor widget for the specified channel with the channel's specialized editor data. Such widgets are placed on the sequencer node tree for a given key area node.
 	 *
 	 * @param InChannel          The channel to create a key editor for
-	 * @param InEditorData       The channel's specialized editor data
 	 * @param InOwningSection    The section that owns the channel
 	 * @param InObjectBindingID  The object binding ID that this section's track is bound to
 	 * @param InPropertyBindings Optionally supplied helper for accessing an object's property pertaining to this channel
 	 * @param InSequencer        The sequencer currently active
 	 * @return The key editor widget
 	 */
-	template<typename SpecializedEditorDataType>
 	inline TSharedRef<SWidget> CreateKeyEditor(
-		void*                                    InChannel,
-		const SpecializedEditorDataType&         InEditorData,
+		const FMovieSceneChannelHandle&          InChannel,
 		UMovieSceneSection*                      InOwningSection,
 		const FGuid&                             InObjectBindingID,
 		TWeakPtr<FTrackInstancePropertyBindings> InPropertyBindings,
@@ -156,18 +133,19 @@ namespace Sequencer
 	}
 
 
+
 	/**
 	 * Add a key at the specified time (or update an existing key) with the channel's current value at that time
 	 *
 	 * @param InChannel          The channel to create a key for
-	 * @param InChannelInterface The channel's interface
+	 * @param InChannelData      The channel's data
 	 * @param InTime             The time at which to add a key
 	 * @param InSequencer        The currently active sequencer
 	 * @param InDefaultValue     The default value to use if evaluation of the channel failed
 	 * @return A handle to the added (or updated) key
 	 */
 	template<typename ChannelType, typename ValueType>
-	FKeyHandle EvaluateAndAddKey(ChannelType* InChannel, const TMovieSceneChannel<ValueType>& InChanneInterface, FFrameNumber InTime, ISequencer& InSequencer, ValueType InDefaultValue = ValueType{})
+	FKeyHandle EvaluateAndAddKey(ChannelType* InChannel, const TMovieSceneChannelData<ValueType>& InChannelData, FFrameNumber InTime, ISequencer& InSequencer, ValueType InDefaultValue = ValueType{})
 	{
 		using namespace MovieScene;
 
@@ -176,6 +154,7 @@ namespace Sequencer
 
 		return AddKeyToChannel(InChannel, InTime, ValueAtTime, InSequencer.GetKeyInterpolation());
 	}
+	
 
 
 	/**
@@ -240,7 +219,7 @@ namespace Sequencer
 		FTrackInstancePropertyBindings* InPropertyBindings
 		)
 	{
-		return EvaluateAndAddKey(InChannel, InChannel->GetInterface(), InTime, InSequencer);
+		return EvaluateAndAddKey(InChannel, InChannel->GetData(), InTime, InSequencer);
 	}
 
 
@@ -280,156 +259,13 @@ namespace Sequencer
 
 
 	/**
-	 * Get all the keys in the given range. Resulting arrays must be the same size where indices correspond to both arrays.
-	 *
-	 * @param InChannel          The channel to get keys from
-	 * @param WithinRange        The bounds to get keys for
-	 * @param OutKeyTimes        Array to receive all key times within the given range
-	 * @param OutKeyHandles      Array to receive all key handles within the given range
-	 */
-	template<typename ChannelType>
-	void GetKeys(ChannelType* InChannel, const TRange<FFrameNumber>& WithinRange, TArray<FFrameNumber>* OutKeyTimes, TArray<FKeyHandle>* OutKeyHandles)
-	{
-		auto ChannelInterface = InChannel->GetInterface();
-		TArrayView<const FFrameNumber> Times = ChannelInterface.GetTimes();
-		if (!Times.Num())
-		{
-			return;
-		}
-
-		const int32 FirstIndex = WithinRange.GetLowerBound().IsClosed() ? Algo::LowerBound(Times, WithinRange.GetLowerBoundValue()) : 0;
-		const int32 LastIndex  = WithinRange.GetUpperBound().IsClosed() ? Algo::UpperBound(Times, WithinRange.GetUpperBoundValue()) : Times.Num();
-
-		const int32 NumInRange = LastIndex - FirstIndex;
-		if (NumInRange > 0)
-		{
-			if (OutKeyTimes)
-			{
-				OutKeyTimes->Reserve(OutKeyTimes->Num() + NumInRange);
-				OutKeyTimes->Append(&Times[FirstIndex], NumInRange);
-			}
-
-			if (OutKeyHandles)
-			{
-				OutKeyHandles->Reserve(OutKeyHandles->Num() + NumInRange);
-
-				for (int32 Index = FirstIndex; Index < LastIndex; ++Index)
-				{
-					OutKeyHandles->Add(ChannelInterface.GetHandle(Index));
-				}
-			}
-		}
-	}
-
-
-	/**
-	 * Get key times for a number of keys in the specified channel
-	 *
-	 * @param InChannel          The channel to set key times on
-	 * @param InHandles          Array of key handles that should have their times set
-	 * @param OutKeyTimes        Array of times that should be set for each key handle. Must be exactly the size of InHandles
-	 */
-	template<typename ChannelType>
-	void GetKeyTimes(ChannelType* InChannel, TArrayView<const FKeyHandle> InHandles, TArrayView<FFrameNumber> OutKeyTimes)
-	{
-		check(InHandles.Num() == OutKeyTimes.Num());
-
-		auto ChannelInterface = InChannel->GetInterface();
-		auto Times = ChannelInterface.GetTimes();
-		for (int32 Index = 0; Index < InHandles.Num(); ++Index)
-		{
-			const int32 KeyIndex = ChannelInterface.GetIndex(InHandles[Index]);
-			if (KeyIndex != INDEX_NONE)
-			{
-				OutKeyTimes[Index] = Times[KeyIndex];
-			}
-		}
-	}
-
-
-	/**
-	 * Set key times for a number of keys in the specified channel
-	 *
-	 * @param InChannel          The channel to set key times on
-	 * @param InHandles          Array of key handles that should have their times set
-	 * @param InKeyTimes         Array of new times for each handle of the above array
-	 */
-	template<typename ChannelType>
-	void SetKeyTimes(ChannelType* InChannel, TArrayView<const FKeyHandle> InHandles, TArrayView<const FFrameNumber> InKeyTimes)
-	{
-		check(InHandles.Num() == InKeyTimes.Num());
-
-		auto ChannelInterface = InChannel->GetInterface();
-		for (int32 Index = 0; Index < InHandles.Num(); ++Index)
-		{
-			const int32 KeyIndex = ChannelInterface.GetIndex(InHandles[Index]);
-			if (KeyIndex != INDEX_NONE)
-			{
-				ChannelInterface.MoveKey(KeyIndex, InKeyTimes[Index]);
-			}
-		}
-	}
-
-
-	/**
-	 * Duplicate a number of keys within the specified channel
-	 *
-	 * @param InChannel          The channel to duplicate keys in
-	 * @param InHandles          Array of key handles that should be duplicated
-	 * @param OutNewHandles      Array view to receive key handles for each duplicated key. Must exactly mathc the size of InHandles.
-	 */
-	template<typename ChannelType>
-	void DuplicateKeys(ChannelType* InChannel, TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyHandle> OutNewHandles)
-	{
-		auto ChannelInterface = InChannel->GetInterface();
-		for (int32 Index = 0; Index < InHandles.Num(); ++Index)
-		{
-			const int32 KeyIndex = ChannelInterface.GetIndex(InHandles[Index]);
-			if (KeyIndex == INDEX_NONE)
-			{
-				// we must add a handle even if the supplied handle does not relate to a key in this channel
-				OutNewHandles[Index] = FKeyHandle::Invalid();
-			}
-			else
-			{
-				// Do not cache value and time arrays since they can be reallocated during this loop
-				auto KeyCopy = ChannelInterface.GetValues()[KeyIndex];
-				int32 NewKeyIndex = ChannelInterface.AddKey(ChannelInterface.GetTimes()[KeyIndex], MoveTemp(KeyCopy));
-				OutNewHandles[Index] = ChannelInterface.GetHandle(NewKeyIndex);
-			}
-		}
-	}
-
-
-	/**
-	 * Delete a number of keys from the specified channel
-	 *
-	 * @param InChannel          The channel to delete keys in
-	 * @param InHandles          Array of key handles that should be deleted
-	 */
-	template<typename ChannelType>
-	void DeleteKeys(ChannelType* InChannel, TArrayView<const FKeyHandle> InHandles)
-	{
-		auto ChannelInterface = InChannel->GetInterface();
-		for (int32 Index = 0; Index < InHandles.Num(); ++Index)
-		{
-			const int32 KeyIndex = ChannelInterface.GetIndex(InHandles[Index]);
-			if (KeyIndex != INDEX_NONE)
-			{
-				ChannelInterface.RemoveKey(KeyIndex);
-			}
-		}
-	}
-
-
-	/**
 	 * Gather key draw information from a channel for a specific set of keys
 	 *
 	 * @param InChannel          The channel to duplicate keys in
 	 * @param InHandles          Array of key handles that should be deleted
 	 * @param OutKeyDrawParams   Array to receive key draw information. Must be exactly the size of InHandles.
 	 */
-	SEQUENCER_API void DrawKeys(void* Channel, TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyDrawParams> OutKeyDrawParams);
+	SEQUENCER_API void DrawKeys(FMovieSceneChannel* Channel, TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyDrawParams> OutKeyDrawParams);
 
 
 	/**
@@ -452,13 +288,13 @@ namespace Sequencer
 
 		FMovieSceneClipboardKeyTrack* KeyTrack = nullptr;
 
-		auto ChannelInterface = InChannel->GetInterface();
-		TArrayView<const FFrameNumber> Times = ChannelInterface.GetTimes();
-		auto Values = ChannelInterface.GetValues();
+		auto ChannelData = InChannel->GetData();
+		TArrayView<const FFrameNumber> Times = ChannelData.GetTimes();
+		auto Values = ChannelData.GetValues();
 
 		for (FKeyHandle Handle : InHandles)
 		{
-			const int32 KeyIndex = ChannelInterface.GetIndex(Handle);
+			const int32 KeyIndex = ChannelData.GetIndex(Handle);
 			if (KeyIndex != INDEX_NONE)
 			{
 				FFrameNumber KeyTime  = Times[KeyIndex];
@@ -494,20 +330,20 @@ namespace Sequencer
 
 		FFrameTime PasteAt = DstEnvironment.CardinalTime;
 
-		auto ChannelInterface = InChannel->GetInterface();
+		auto ChannelData = InChannel->GetData();
 
 		TRange<FFrameNumber> NewRange = Section->GetRange();
 
-		auto ForEachKey = [Section, PasteAt, &NewRange, &ChannelInterface, &OutPastedKeys, &SrcEnvironment, &DstEnvironment](const FMovieSceneClipboardKey& Key)
+		auto ForEachKey = [Section, PasteAt, &NewRange, &ChannelData, &OutPastedKeys, &SrcEnvironment, &DstEnvironment](const FMovieSceneClipboardKey& Key)
 		{
 			FFrameNumber Time = (PasteAt + FFrameRate::TransformTime(Key.GetTime(), SrcEnvironment.TickResolution, DstEnvironment.TickResolution)).FloorToFrame();
 
 			NewRange = TRange<FFrameNumber>::Hull(NewRange, TRange<FFrameNumber>(Time));
 
-			typedef typename TDecay<decltype(ChannelInterface.GetValues()[0])>::Type KeyType;
+			typedef typename TDecay<decltype(ChannelData.GetValues()[0])>::Type KeyType;
 			KeyType NewKey = Key.GetValue<KeyType>();
 
-			FKeyHandle KeyHandle = ChannelInterface.UpdateOrAddKey(Time, NewKey);
+			FKeyHandle KeyHandle = ChannelData.UpdateOrAddKey(Time, NewKey);
 			OutPastedKeys.Add(KeyHandle);
 			return true;
 		};
@@ -523,11 +359,7 @@ namespace Sequencer
 	 *
 	 * @return (Optional) A new model to be added to a curve editor
 	 */
-	template<typename ChannelType>
-	TUniquePtr<FCurveModel> CreateCurveEditorModel(TMovieSceneChannelHandle<ChannelType> ChannelHandle, UMovieSceneSection* OwningSection, TSharedRef<ISequencer> InSequencer)
-	{
-		return nullptr;
-	}
+	SEQUENCER_API TUniquePtr<FCurveModel> CreateCurveEditorModel(const FMovieSceneChannelHandle& ChannelHandle, UMovieSceneSection* OwningSection, TSharedRef<ISequencer> InSequencer);
 
 }	// namespace Sequencer
 

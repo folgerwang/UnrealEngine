@@ -33,6 +33,9 @@ public:
 		: _ClassDomain(EClassDomain::Native), _Class(NULL)
 	{}
 
+	/** A reference to the parent window */
+	SLATE_ARGUMENT(TSharedPtr<SWindow>, ParentWindow)
+
 	/** The domain of the class we are to create (native or blueprint) */
 	SLATE_ARGUMENT(EClassDomain, ClassDomain)
 
@@ -57,10 +60,14 @@ public:
 
 	/** Event called when code is successfully added to the project */
 	SLATE_EVENT( FOnAddedToProject, OnAddedToProject )
+
 	SLATE_END_ARGS()
 
 	/** Constructs this widget with InArgs */
 	void Construct( const FArguments& InArgs );
+
+	/** Interpret Escape and Enter key press as Cancel or double-click/Next */
+	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override;
 
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
@@ -131,6 +138,9 @@ private:
 
 	/** Handler for when the text in the class name edit box has changed */
 	void OnClassNameTextChanged(const FText& NewText);
+
+	/** Handler for when the text in the class name edit box is committed */
+	void OnClassNameTextCommitted(const FText& NewText, ETextCommit::Type CommitType);
 
 	/** Returns the text in the class path edit box */
 	FText OnGetClassPathText() const;

@@ -19,10 +19,10 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_ApplyAdditive : public FAnimNode_Base
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Links)
 	FPoseLink Additive;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings, meta=(PinShownByDefault))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Alpha, meta=(PinShownByDefault))
 	mutable float Alpha;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Alpha)
 	FInputScaleBias AlphaScaleBias;
 
 	/* 
@@ -34,8 +34,25 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_ApplyAdditive : public FAnimNode_Base
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Performance, meta=(DisplayName="LOD Threshold"))
 	int32 LODThreshold;
 
+	virtual int32 GetLODThreshold() const override { return LODThreshold; }
+
 	UPROPERTY(Transient)
 	float ActualAlpha;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
+	EAnimAlphaInputType AlphaInputType;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault, DisplayName = "bEnabled"))
+	mutable bool bAlphaBoolEnabled;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (DisplayName = "Blend Settings"))
+	FInputAlphaBoolBlend AlphaBoolBlend;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha, meta = (PinShownByDefault))
+	mutable FName AlphaCurveName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Alpha)
+	FInputScaleBiasClamp AlphaScaleBiasClamp;
 
 public:	
 	FAnimNode_ApplyAdditive();

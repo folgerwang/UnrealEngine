@@ -74,23 +74,26 @@ public:
 	
 	mtlpp::Function FindRef(FMetalCompiledShaderKey const& Key)
 	{
-		FRWScopeLock(Lock, SLT_ReadOnly);
+		FRWScopeLock ScopedLock(Lock, SLT_ReadOnly);
 		mtlpp::Function Func = Cache.FindRef(Key);
 		return Func;
 	}
 	
 	mtlpp::Library FindLibrary(mtlpp::Function const& Function)
 	{
-		FRWScopeLock(Lock, SLT_ReadOnly);
+		FRWScopeLock ScopedLock(Lock, SLT_ReadOnly);
 		mtlpp::Library Lib = LibCache.FindRef(Function.GetPtr());
 		return Lib;
 	}
 	
 	void Add(FMetalCompiledShaderKey Key, mtlpp::Library const& Lib, mtlpp::Function const& Function)
 	{
-		FRWScopeLock(Lock, SLT_Write);
-		Cache.Add(Key, Function);
-		LibCache.Add(Function.GetPtr(), Lib);
+		FRWScopeLock ScopedLock(Lock, SLT_Write);
+		if (Cache.FindRef(Key) == nil)
+		{
+			Cache.Add(Key, Function);
+			LibCache.Add(Function.GetPtr(), Lib);
+		}
 	}
 	
 private:
@@ -341,6 +344,8 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 			}
 			else
 			{
+				METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewLibraryBinary: %d_%d"), SourceLen, SourceCRC)));
+				
 				// Archived shaders should never get in here.
 				check(!(Header.CompileFlags & (1 << CFLAG_Archive)) || BufferSize > 0);
 				
@@ -363,6 +368,7 @@ void TMetalBaseShader<BaseResourceType, ShaderType>::Init(const TArray<uint8>& I
 		}
 		else
 		{
+			METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewLibrarySource: %d_%d"), SourceLen, SourceCRC)));
 			NSString* ShaderString = ((OfflineCompiledFlag == 0) ? [NSString stringWithUTF8String:SourceCode] : GlslCodeNSString);
 			
 			if(Header.ShaderName.Len())
@@ -539,6 +545,7 @@ mtlpp::Function TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunct
             
             if (!bHasFunctionConstants || !bAsync)
             {
+				METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewFunction: %s"), *FString(Name))));
                 if (!bHasFunctionConstants)
                 {
                     Function[IndexType][BT] = Library.NewFunction(Name);
@@ -559,11 +566,25 @@ mtlpp::Function TMetalBaseShader<BaseResourceType, ShaderType>::GetCompiledFunct
             }
             else
             {
+				METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewFunctionAsync: %s"), *FString(Name))));
+				METAL_GPUPROFILE(uint64 CPUStart = CPUStat.Stats ? CPUStat.Stats->CPUStartTime : 0);
+#if ENABLE_METAL_GPUPROFILE
+                ns::String nsName(Name);
+				Library.NewFunction(Name, ConstantValues, [Key, this, CPUStart, nsName](mtlpp::Function const& NewFunction, ns::Error const& Error){
+#else
 				Library.NewFunction(Name, ConstantValues, [Key, this](mtlpp::Function const& NewFunction, ns::Error const& Error){
+#endif
+					METAL_GPUPROFILE(FScopedMetalCPUStats CompletionStat(FString::Printf(TEXT("NewFunctionCompletion: %s"), *FString(nsName.GetPtr()))));
 					UE_CLOG(NewFunction == nil, LogMetal, Error, TEXT("Failed to create function: %s"), *FString(Error.GetPtr().description));
 					UE_CLOG(NewFunction == nil, LogMetal, Fatal, TEXT("*********** Error\n%s"), *FString(GetSourceCode()));
 					
 					GetMetalCompiledShaderCache().Add(Key, Library, NewFunction);
+#if ENABLE_METAL_GPUPROFILE
+					if (CompletionStat.Stats)
+					{
+						CompletionStat.Stats->CPUStartTime = CPUStart;
+					}
+#endif
 				});
 
                 return nil;
@@ -619,14 +640,16 @@ FMetalShaderPipeline* FMetalComputeShader::GetPipeline(EPixelFormat const* const
 		ns::Error Error;
 		mtlpp::ComputePipelineState Kernel;
         mtlpp::ComputePipelineReflection Reflection;
-        
+		
+		METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewComputePipeline: %d_%d"), SourceLen, SourceCRC)));
     #if METAL_DEBUG_OPTIONS
-        if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
+        if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation METAL_STATISTIC(|| GetMetalDeviceContext().GetCommandQueue().GetStatistics()))
         {
 			ns::AutoReleasedError ComputeError;
             mtlpp::AutoReleasedComputePipelineReflection ComputeReflection;
 			
-			Kernel = GetMetalDeviceContext().GetDevice().NewComputePipelineState(Func, mtlpp::PipelineOption::ArgumentInfo, ComputeReflection, &ComputeError);
+			NSUInteger ComputeOption = mtlpp::PipelineOption::ArgumentInfo|mtlpp::PipelineOption::BufferTypeInfo METAL_STATISTIC(|NSUInteger(EMTLPipelineStats));
+			Kernel = GetMetalDeviceContext().GetDevice().NewComputePipelineState(Func, mtlpp::PipelineOption(ComputeOption), ComputeReflection, &ComputeError);
 			Error = ComputeError;
 			Reflection = ComputeReflection;
         }
@@ -649,6 +672,12 @@ FMetalShaderPipeline* FMetalComputeShader::GetPipeline(EPixelFormat const* const
 #if METAL_DEBUG_OPTIONS
         Pipeline[BT]->ComputePipelineReflection = Reflection;
         Pipeline[BT]->ComputeSource = GetSourceCode();
+		if (Reflection)
+		{
+			Pipeline[BT]->ComputeDesc = mtlpp::ComputePipelineDescriptor();
+			Pipeline[BT]->ComputeDesc.SetLabel(Func.GetName());
+			Pipeline[BT]->ComputeDesc.SetComputeFunction(Func);
+		}
 #endif
         METAL_DEBUG_OPTION(FMemory::Memzero(Pipeline[BT]->ResourceMask, sizeof(Pipeline[BT]->ResourceMask)));
 	}
@@ -1045,8 +1074,8 @@ FDomainShaderRHIRef FMetalDynamicRHI::CreateDomainShader_RenderThread(class FRHI
 	return RHICreateDomainShader(Library, Hash);
 }
 
-FMetalShaderLibrary::FMetalShaderLibrary(EShaderPlatform InPlatform, mtlpp::Library InLibrary, FMetalShaderMap const& InMap)
-: FRHIShaderLibrary(InPlatform)
+FMetalShaderLibrary::FMetalShaderLibrary(EShaderPlatform InPlatform, FString const& Name, mtlpp::Library InLibrary, FMetalShaderMap const& InMap)
+: FRHIShaderLibrary(InPlatform, Name)
 , Library(InLibrary)
 , Map(InMap)
 {
@@ -1056,6 +1085,18 @@ FMetalShaderLibrary::FMetalShaderLibrary(EShaderPlatform InPlatform, mtlpp::Libr
 FMetalShaderLibrary::~FMetalShaderLibrary()
 {
 	
+}
+
+bool FMetalShaderLibrary::ContainsEntry(const FSHAHash& Hash)
+{
+	TPair<uint8, TArray<uint8>>* Code = Map.HashMap.Find(Hash);
+	return (Code != nullptr);
+}
+
+bool FMetalShaderLibrary::RequestEntry(const FSHAHash& Hash, FArchive* Ar)
+{
+	TPair<uint8, TArray<uint8>>* Code = Map.HashMap.Find(Hash);
+	return (Code != nullptr);
 }
 
 FPixelShaderRHIRef FMetalShaderLibrary::CreatePixelShader(const FSHAHash& Hash)
@@ -1180,21 +1221,34 @@ FRHIShaderLibrary::FShaderLibraryEntry FMetalShaderLibrary::FMetalShaderLibraryI
 	return Entry;
 }
 
-FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary_RenderThread(class FRHICommandListImmediate& RHICmdList, EShaderPlatform Platform, FString FilePath)
+FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary_RenderThread(class FRHICommandListImmediate& RHICmdList, EShaderPlatform Platform, FString FilePath, FString Name)
 {
-	return RHICreateShaderLibrary(Platform, FilePath);
+	return RHICreateShaderLibrary(Platform, FilePath, Name);
 }
 
-FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary(EShaderPlatform Platform, FString FolderPath)
+FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary(EShaderPlatform Platform, FString const& FilePath, FString const& Name)
 {
 	@autoreleasepool {
 	FRHIShaderLibraryRef Result = nullptr;
 	
 	FName PlatformName = LegacyShaderPlatformToShaderFormat(Platform);
+	FString LibName = FString::Printf(TEXT("%s_%s"), *Name, *PlatformName.GetPlainNameString());
+	LibName.ToLowerInline();
 	
 	FMetalShaderMap Map;
-	FString BinaryShaderFile = FolderPath / PlatformName.GetPlainNameString() + METAL_MAP_EXTENSION;
+	FString BinaryShaderFile = FilePath / LibName + METAL_MAP_EXTENSION;
+
+	if ( IFileManager::Get().FileExists(*BinaryShaderFile) == false )
+	{
+		// the metal map files are stored in UFS file system
+		// for pak files this means they might be stored in a different location as the pak files will mount them to the project content directory
+		// the metal libraries are stores non UFS and could be anywhere on the file system.
+		// if we don't find the metalmap file straight away try the pak file path
+		BinaryShaderFile = FPaths::ProjectContentDir() / LibName + METAL_MAP_EXTENSION;
+	}
+
 	FArchive* BinaryShaderAr = IFileManager::Get().CreateFileReader(*BinaryShaderFile);
+
 	if( BinaryShaderAr != NULL )
 	{
 		*BinaryShaderAr << Map;
@@ -1204,17 +1258,18 @@ FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary(EShaderPlatform Pl
 		// Would be good to check the language version of the library with the archive format here.
 		if (Map.Format == PlatformName.GetPlainNameString())
 		{
-			FString MetalLibraryFilePath = FolderPath / PlatformName.GetPlainNameString() + METAL_LIB_EXTENSION;
+			FString MetalLibraryFilePath = FilePath / LibName + METAL_LIB_EXTENSION;
 			MetalLibraryFilePath = FPaths::ConvertRelativePathToFull(MetalLibraryFilePath);
 #if !PLATFORM_MAC
 			MetalLibraryFilePath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*MetalLibraryFilePath);
 #endif
 			
+			METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewLibraryFile: %s"), *MetalLibraryFilePath)));
 			NSError* Error;
 			mtlpp::Library Library = [GetMetalDeviceContext().GetDevice() newLibraryWithFile:MetalLibraryFilePath.GetNSString() error:&Error];
 			if (Library != nil)
 			{
-				Result = new FMetalShaderLibrary(Platform, Library, Map);
+				Result = new FMetalShaderLibrary(Platform, Name, Library, Map);
 			}
 			else
 			{
@@ -1223,12 +1278,12 @@ FRHIShaderLibraryRef FMetalDynamicRHI::RHICreateShaderLibrary(EShaderPlatform Pl
 		}
 		else
 		{
-			UE_LOG(LogMetal, Display, TEXT("Wrong shader platform wanted: %s, got: %s"), *PlatformName.GetPlainNameString(), *Map.Format);
+			UE_LOG(LogMetal, Display, TEXT("Wrong shader platform wanted: %s, got: %s"), *LibName, *Map.Format);
 		}
 	}
 	else
 	{
-		UE_LOG(LogMetal, Display, TEXT("No .metalmap file found for %s!"), *PlatformName.GetPlainNameString());
+		UE_LOG(LogMetal, Display, TEXT("No .metalmap file found for %s!"), *LibName);
 	}
 	
 	return Result;

@@ -1,37 +1,37 @@
-﻿INTSourceChangelist:0
-Availability: Docs
+﻿INTSourceChangelist:3782314
+Availability:Docs
 Crumbs: %ROOT%
-Title: Core Redirects
-Description: Core Redirects enable remapping classes, enums, functions, packages, properties, and structs at load time.
-Type: Overview
-SkillLevel: Intermediate
-Version: 4.18
-Parent: Programming
-Order: 0
-Tags: CoreRedirects
-Tags: Assets
+Title:Core Redirect
+Description:クラス、列挙型変数、関数、パッケージ、プロパティ、構造体をロード時に再マップを可能にする Core Redirect の概要
+Type:Overview
+SkillLevel:Intermediate
+Version:4.18
+Parent:Programming
+Order:0
+Tags:CoreRedirects
+Tags:Assets
 
 [TOC(start:2)]
 
 
-During development, there are occasions when an existing class, property, function name, or similar code member needs to be renamed. If there are a high number of Assets affected by these changes, though, simply renaming the code member and recompiling your project will cause considerable data loss as the existing Assets will no longer be recognized by the Unreal Engine. To address this issue, the Engine uses **Core Redirects**. Core Redirects should be configured in your project's `DefaultEngine.ini` file, or, in the case of a Plugin, the self-named `.ini` file for that Plugin (for example, `Paper2D.ini` for the Paper2D Plugin). These Core Redirects will automatically remap obsolete data while loading Assets, thus preventing data loss resulting from the renaming process.
+開発中、既存クラス、プロパティ、関数名、似ているコードメンバの名前を変更が必要な場合があります。これらの変更による影響を多数のアセットが受ける場合、アンリアル エンジンは既存しているアセットを認識しなくなるため、コードメンバ名を変更してプロジェクトを再コンパイルするだけでは膨大なデータロスを引き起こします。エンジンは **Core Redirects** を使ってこの問題に対処しています。Core Redirect はプロジェクトの `DefaultEngine.ini` ファイル、あるいはプラグインの場合はそのプラグイン名 `.ini` ファイル (たとえば Paper2D Plugin であれば `Paper2D.ini`) で設定してください。これらの Core Redirect はアセットをロードしながら古いデータを自動的に再マップして、名前変更によるデータロスを防ぎます。
 
 
-### Supported Core Redirect Types
+### サポートしている Core Redirect の種類
 
-[REGION:note]When specifying a name of a class or struct in an Core Redirect, the name should be written as it appears to the Unreal Engine's reflection system, meaning the prefix letter is dropped. For example, `AMyActor` would be written as `MyActor`, and `FMyStruct` would be written as `MyStruct`. Since Unreal Engine's reflection system does not use a prefix for enumerated types, enumerated type names appear in Core Redirects exactly as they do in code, e.g. `ESampleEnum` would remain `ESampleEnum` when referenced by a Core Redirect.[/REGION]
+[REGION:note]Core Redirect でクラスまたは構造体の名前を指定すると、アンリアル エンジンのリフレクション システムに表示される通りにその名前は書きだされます。つまり、プレフィックスは付きません。たとえば、`AMyActor` は `MyActor`、`FMyStruct` は `MyStruct` となります。アンリアル エンジンのリフレクション システムは列挙型にプレフィックスを使わないので、コードで使うそのままの列挙型が Core Redirect に表示されます。たとえば、`ESampleEnum` は Core Redirect が参照すると `ESampleEnum` のままです。[/REGION]
 
-The following Core Redirect formats are currently supported:
+現在サポートされている Core Redirect の形式は以下の通りです。
 
-* `ClassRedirects` - Changes objects and properties using an obsolete (or removed) UCLASS to refer to a new UCLASS.
-	| Field | Type | Purpose |
+* `ClassRedirects` - 新しい UCLASS 参照するために、古い (または削除された) UCLASS を使っているオブジェクトとプロパティを変更します。
+	| フィールド | 型 | 目的 |
 	| --- | --- | --- |
-	| `OldName` | String | Specifies the name of the obsolete (or removed) UCLASS. |
-	| `NewName` | String | Specifies the name of the new UCLASS. |
-	| `MatchSubstring` | Bool | (Optional) If present and set to `true`, this Core Redirect	will apply to any class containing the value of `OldName`, rather than requiring an exact match. |
-	| `OverrideClassName` | String | (Optional) Specifies a change to the underlying class of the UCLASS. This is generally used to change a Blueprint class to a native class (`/Script/CoreUObject.Class`). |
-	| `InstanceOnly` | Bool | (Optional) If present and set to `true`, indicates that the original class still exists and can be referenced, but any existing instances of the old class (such as Actors or Components placed in Levels) should be remapped to the new class. This is especially useful when your project has a specialized version of a class that exists in the engine, but your Levels are full of instances of the original class, and you want to change them all to the project-specific version. |
-	| `ValueChanges` | List of String pairs | (Optional) Renames instances of the old class that match the first String of a pair. The new name will be the second String of that pair. |
+	| `OldName` | String | 古い (または削除された) UCLASS の名前を指定します。 |
+	| `NewName` | String | 新しい UCLASS の名前を指定します。 |
+	| `MatchSubstring` | Bool | (オプション) これが存在して `true` にセットされている場合、この Core Redirect	は、完全一致を要求するというよりは、`OldName` の値が含まれているすべてのクラスに適用します。 |
+	| `OverrideClassName` | String | (オプション) 変更を UCLASS の基底クラスに指定します。一般的に、Blueprint クラスをネイティブクラスに変更するために使用します (`/Script/CoreUObject.Class`)。 |
+	| `InstanceOnly` | Bool | (オプション) `true` がセットされていると、もとのクラスがまだ存在し参照可能ですが、存在する古いクラスのインスタンス (レベルに配置されたアクタやコンポーネント) は新しいクラスに再マップされることを示します。プロジェクトにエンジンに存在するクラスを特定のバージョンにする場合、レベルはもとのクラスのインスタンスがたくさんあって、それらすべてをプロジェクト固有のバージョンに変更したい場合に特に便利です。 |
+	| `ValueChanges` | String ペアのリスト | (オプション) ぺアの最初の文字列と一致する古いクラスのインスタンス名を変更します。新しい名前がペアの 2 番目の文字列になります。 |
 		[CoreRedirects]
 		ClassRedirects=(OldName="Pawn",NewName="MyPawn",InstanceOnly=true)
 		ClassRedirects=(OldName="/Script/MyModule.MyOldClass",NewName="/Script/MyModule.MyNewClass")
@@ -40,69 +40,69 @@ The following Core Redirect formats are currently supported:
 [COMMENT:none]
 - Are CollisionChannelRedirects still considered current/supported/endorsed? -
 [/COMMENT]
-* `EnumRedirects` - Remaps obsolete UENUM types and/or obsolete values within an enumerated type.
-	| Field | Type | Purpose |
+* `EnumRedirects` - 古い UENUM 型、または列挙型内の古い値を再マップします。
+	| フィールド | 型 | 目的 |
 	| --- | --- | --- |
-	| `OldName` | String | Specifies the name of the obsolete UENUM (if `NewName` is specified), or the name of the existing UENUM (if only remapping values). |
-	| `NewName` | String | (Optional) Specifies the name of the new UENUM, if remapping from an obsolete UENUM to a new one. |
-	| `MatchSubstring` | Bool | (Optional) If present and set to `true`, this Core Redirect	will apply to any enumerated type containing the value of `OldName`, rather than requiring an exact match. |
-	| `ValueChanges` | List of String pairs | The first string in the pair is the old enumerated value, and the second string is the new value. If both values are in the same class, the old value must no longer exist in code. |	
+	| `OldName` | String | 古い UENUM 名 (`NewName` が指定されている場合) または既存の UENM 名 (値のみを再マッピングする場合) を指定します。 |
+	| `NewName` | String | (オプション) 古い UENUM から新しい UENUM へ再マッピングする場合、新しい UENUM を指定します。 |
+	| `MatchSubstring` | Bool | (オプション) これが `true` にセットされていると、この Core Redirect	は、完全一致を要求するというよりは、`OldName` の値が含まれているすべての列挙型に適用します。 |
+	| `ValueChanges` | String ペアのリスト | ペアの最初の文字列は古い列挙型の値、2 番目の文字列は新しい値です。両方の値が同じクラスにある場合、古い値がコードに存在してはいけません。 |	
 		[CoreRedirects]
 		EnumRedirects=(OldName="ENumbers",NewName="ELetters",ValueChanges=(("ENumberTwo","ELetterB")))
 * `FunctionRedirects` - Remaps an obsolete UFUNCTION to a new one.
-	| Field | Type | Purpose |
+	| フィールド | 型 | 目的 |
 	| --- | --- | --- |
-	| `OldName` | String | Specifies the name of the obsolete (or removed) UFUNCTION. The function name is period-delimited so that the class name is included. |
-	| `NewName` | String | Specifies the name of the new UFUNCTION. The function name can be period-delimited, which makes it possible to remap a function from one class to another class. |
-	| `MatchSubstring` | Bool | (Optional) If present and set to `true`, this Core Redirect	will apply to any function containing the value of `OldName`, rather than requiring an exact match. |
+	| `OldName` | String | 古い (または削除された) UFUNCTION の名前を指定します。関数名をピリオドで区切って、クラス名が含まれるようにします。 |
+	| `NewName` | String | 新しい UFUNCTION の名前を指定します。 関数名をピリオドで区切ると、あるクラスから別のクラスへ関数を再マップすることができます。 |
+	| `MatchSubstring` | Bool |(オプション) これが存在して `true` にセットされていると、この Core Redirect	は、完全一致を要求するというよりは、`OldName` の値が含まれているすべての関数に適用します。 |
 		[CoreRedirects]
 		FunctionRedirects=(OldName="MyOldActor.OldFunction",NewName="MyNewActor.NewFunction")
 		FunctionRedirects=(OldName="MyActor.OldFunction",NewName="NewFunction")
-* `PackageRedirects` - Remapping from one package to another, or suppressing warnings about references to a deleted package (references will be cleared or set to null).
-	| Field | Type | Purpose |
+* `PackageRedirects` - ひとつのパケットから別のパケットへ再マップ、または削除されたパッケージへの参照に関する警告を抑えます (参照はクリアまたはヌルに設定されます)。
+	| フィールド | 型 | 目的 |
 	| --- | --- | --- |
-	| `OldName` | String | Specifies the name of the obsolete or deleted package. |
-	| `NewName` | String | (Optional) Specifies the name of the package that replaces the obsolete or deleted package, if remapping is desired. If this is not present, `Removed` should be present and set to `true`. |
-	| `MatchSubstring` | Bool | (Optional) If present and set to `true`, this Core Redirect	will apply to any package containing the value of `OldName`, rather than requiring an exact match. |
-	| `Removed` | Bool | (Optional) If present and set to `true`, the named package has been removed. References to any of the removed content will be set to null without generating warnings or errors. The `NewName` argument should not be present if this is the case. |
+	| `OldName` | String | 古い、または削除されたパッケージ名を指定します。 |
+	| `NewName` | String | (オプション) 再マッピングするために、古いまたは削除されたパッケージ名を指定します。これがない場合、`Removed` を `true` に設定します。 |
+	| `MatchSubstring` | Bool | (オプション) これが存在して `true` にセットされていると、この Core Redirect	は、完全一致を要求するというよりは、`OldName` の値が含まれているすべての関数に適用します。 |
+	| `Removed` | Bool | (オプション) これが存在して `true` にセットされていると、名前を指定されたパッケージが削除されます。削除されたコンテンツへのリファレンスは、警告またはエラーを出さずに null に設定されます。この場合、`NewName` 引数は存在しません。 |
 		[CoreRedirects]
 		PackageRedirects=(OldName="/OldPlugin/", NewName="/NewPlugin/", MatchSubstring=true)
 		PackageRedirects=(OldName="/Game/DeletedContentPackage", Removed=true)
 * `PropertyRedirects` - Remaps removed properties to new properties.
-	| Field | Type | Purpose |
+	| フィールド | 型 | 目的 |
 	| --- | --- | --- |
-	| `OldName` | String | The name of the removed property. This name is period-delimited so that the class name and any sub-variable names are included, e.g. `MyActor.MyStruct.MyProperty`. |
-	| `NewName` | String | The name of the new property. This name can be fully period-delimited like `OldName`, or it can be just the variable name if it exists in the same namespace as `OldName`. |
-	| `MatchSubstring` | Bool | (Optional) If present and set to `true`, this Core Redirect	will apply to any property containing the value of `OldName`, rather than requiring an exact match. |
+	| `OldName` | String | 削除されたプロパティの名前です。この名前はピリオドで区切って、クラス名とサブ変数名を含むようにします。 (たとえば、`MyActor.MyStruct.MyProperty` です)。 |
+	| `NewName` | String | 新しいプロパティの名前です。この名前は `OldName` のようにピリオドで区切ります。そうしないと、同じ名前空間に `OldName` として存在する単なる変数名になります。 |
+	| `MatchSubstring` | Bool | (オプション) これが存在して `true` にセットされていると、この Core Redirect	は、完全一致を要求するというよりは、`OldName` の値が含まれているすべてのプロパティに適用します。 |
 		[CoreRedirects]
 		PropertyRedirects=(OldName="MyOldActor.OldIntProperty",NewName="MyNewActor.NewIntProperty")
 		PropertyRedirects=(OldName="MyActor.OldFloatProperty",NewName="NewFloatProperty")
 * `StructRedirects` - Changes properties using an obsolete (or removed) USTRUCT to refer to a new USTRUCT.
-	| Field | Type | Purpose |
+	| フィールド | 型 | 目的 |
 	| --- | --- | --- |
-	| `OldName` | String | Specifies the name of the obsolete (or removed) USTRUCT. |
-	| `NewName` | String | Specifies the name of the new USTRUCT. |
-	| `MatchSubstring` | Bool | (Optional) If present and set to `true`, this Core Redirect	will apply to any struct containing the value of `OldName`, rather than requiring an exact match. |
+	| `OldName` | String | 古い (または削除された) USTRUCT の名前を指定します。
+	| `NewName` | String | 新しい USTRUCT の名前を指定します。 
+	| `MatchSubstring` | Bool | (オプション) これが存在して `true` にセットされていると、この  Core Redirect	は、完全一致を要求するというよりは、`OldName` の値が含まれているすべての構造体に適用します。 |
 		[CoreRedirects]
 		StructRedirects=(OldName="MyStruct",NewName="MyNewStruct")
 
 
-### Name Flexibility and Specificity
+### 名前の柔軟性と特異性
 
-Names used when describing classes, structs, properties, or functions can be written with varying degrees of specificity, and the Core Redirects system will use as much or as little information as you provide. The following table provides some examples of these levels of specificity.
+名前は、クラス、構造体、プロパティ、関数を説明する時に使用し、特異性のレベルを変えて書くことができます。Core Redirect システムは提供する最大もしく最小の情報を使用します。以下の表は、その特異性のレベルの例です。
 
-| Example Format | Scope of application |
+| 形式例 | 適用範囲 |
 | --- | --- |
-| `/Script/MyModule.MyActor.MyFunctionOrProperty` | Will apply only to the function or property called `MyFunctionOrProperty` within the `MyActor` class in the `MyModule` module. |
-| `MyActor.MyFunctionOrProperty` | Will apply to any function or property called `MyFunctionOrProperty` within the `MyActor` class, regardless of what module that class and function exist in. |
-| `MyFunctionOrProperty` | Will apply to any function or property called `MyFunctionOrProperty` in any class, within any module. |
-		
-[REGION:warning]Some obsolete Core Redirects can be found in certain `.ini` files in games and samples older than version 4.16. While the formats they use are still supported for backward-compatibility purposes, it is not recommended that they be used as templates for writing your own Core Redirects going forward. Instead, use only the formats specified on this page.[/REGION]
+| `/Script/MyModule.MyActor.MyFunctionOrProperty` | `MyModule` モジュールの `MyActor` クラス内の `MyFunctionOrProperty` という関数またはプロパティのみに適用されます。 |
+| `MyActor.MyFunctionOrProperty` | クラスおよび関数が存在するモジュールに関係なく、`MyActor` クラス内の `MyFunctionOrProperty` という関数またはプロパティに適用されます。 |
+| `MyFunctionOrProperty` | すべてのモジュールのすべてのクラスの `MyFunctionOrProperty` という関数またはプロパティに適用されます。 |
+
+[REGION:warning] 4.16 より前のバージョンのゲームおよびサンプルの `.ini` ファイルの中には、古い Core Redirect が含まれている場合があります。その中で使われている形式は後方互換性をサポートしていますが、独自の Core Redirect を書くためのテンプレートとしての使用は推奨しません。このページで指定されている形式のみを使用してください。[/REGION]
 
 
 ### Substring Matching
 
-The `MatchSubstring` argument can be used in any Core Redirect type. If present and set to `true`, the `OldName` and `NewName` fields will be treated as substrings rather than requiring exact matches. This enables multiple matches with a single Core Redirect. In the following example, we will start with a struct and a class.
+`MatchSubstring` 引数は、すべての Core Redirect のタイプに使用することができます。`true` にセットすると、`OldName` および `NewName` のフィールドは完全一致ではなくサブストリングとして処理されます。これにより、単一の Core Redirect との複数一致が可能になります。以下の例では、構造体とクラスで開始しています。
 
 Original code and values:
 
@@ -122,8 +122,9 @@ Original code and values:
 		class REDIRECTORSTEST_API AMyActor : public AActor
 		{
 			GENERATED_BODY()
-			
+
 		public:
+
 			UPROPERTY(EditAnywhere, Category = "Documentation")
 			int32 TestInt;
 
@@ -136,9 +137,9 @@ Original code and values:
 
 ![Original Values](OriginalValues.png)
 
-[REGION:caption]This is the original code and the original set of values we're saving into our `AMyActor` Asset.[/REGION]
+[REGION:caption]これは `AMyActor` Asset に保存している元のコードと元の値です。[/REGION]
 
-After creating and saving an `AMyActor` Asset with the values shown above, we can close the Editor and alter the the code in the `.h` file and the Core Redirects in the game's `.ini` file. We will change the code to read as follows, changing the names of our `int32` properties:
+上記に示した値で `AMyActor` Asset を作成および保存したら、エディタを終了し、`.h` ファイルでコード、ゲームの `.ini` ファイルで Core Redirect を変更します。`int32` プロパティの名前を変更して、コードを以下のようにします。
 
 		USTRUCT()
 		struct FMyStruct
@@ -156,7 +157,7 @@ After creating and saving an `AMyActor` Asset with the values shown above, we ca
 		class REDIRECTORSTEST_API AMyActor : public AActor
 		{
 			GENERATED_BODY()
-			
+
 		public:
 			UPROPERTY(EditAnywhere, Category = "Documentation")
 			int32 TestInteger;
@@ -168,15 +169,16 @@ After creating and saving an `AMyActor` Asset with the values shown above, we ca
 			FMyStruct TestStruct;
 		};
 
-With this change, we can examine the effects of a Core Redirect, and in particular the impact of `MatchSubstring`. Results follow:
+この変更により、Core Redirct の効果、特に `MatchSubstring` の影響を調べることができます。結果：
 
 ![](NoCoreRedirect.png)
-[REGION:caption]The properties were renamed in code, but no Core Redirect was created. As a result, no data values have migrated to the new properties.[/REGION]
+[REGION:caption]プロパティ名をコードで変更しましたが、Core Redirect はひとつも作成されませんでした。結果として、新しいプロパティにデータ値は何も移行されていません。[/REGION]
 
 ![](CoreRedirectWithoutMatchSubstring.png)
 [REGION:caption]`PropertyRedirects=(OldName="TestInt",NewName="TestInteger")` causes only the two preoperties with exact name matches to migrate their data.[/REGION]
 
 ![](CoreRedirectWithMatchSubstring.png)
-[REGION:caption]`PropertyRedirects=(OldName="TestInt",NewName="TestInteger",MatchSubstring=true)` causes all four of our properties to migrate, due to substring matching.[/REGION]
-		
-[REGION:tip]Because `MatchSubtring` requires checking incoming Assets much more thoroughly, it can impact startup times. `MatchSubstring` is intended to be used temporarily as a fixup when making sweeping changes.  It is recommended that Assets involved in these changes be resaved immediately and checked into your project's source control database with any related code changes, and that the Core Redirect be deleted without entering source control.[/REGION]
+[REGION:caption]`PropertyRedirects=(OldName="TestInt",NewName="TestInteger",MatchSubstring=true)`サブストリングが一致するため、4 つすべてのプロパティが移行します。[/REGION]
+
+[REGION:tip]`MatchSubtring` は受け取る Asset をより完全に確認する必要があるので、スタートアップ時間に影響します。 `MatchSubstring` は大きな変更を行う場合に一時的に使用するためのものです。これらの変更に関係する Asset をすぐに再保存し、プロジェクトのソース コントロール データベースの関係するコードが変更されていること、および Core Redirect がソース コントロールを追加しなくても削除されていることの確認を推奨します。[/REGION]
+

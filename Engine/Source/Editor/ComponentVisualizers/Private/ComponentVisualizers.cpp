@@ -8,6 +8,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SpotLightComponent.h"
+#include "Components/RectLightComponent.h"
 #include "Components/DecalComponent.h"
 #include "PhysicsEngine/RadialForceComponent.h"
 #include "UnrealEdGlobals.h"
@@ -17,6 +18,7 @@
 
 #include "PointLightComponentVisualizer.h"
 #include "SpotLightComponentVisualizer.h"
+#include "RectLightComponentVisualizer.h"
 #include "AudioComponentVisualizer.h"
 #include "RadialForceComponentVisualizer.h"
 #include "ConstraintComponentVisualizer.h"
@@ -41,6 +43,7 @@ void FComponentVisualizersModule::StartupModule()
 {
 	RegisterComponentVisualizer(UPointLightComponent::StaticClass()->GetFName(), MakeShareable(new FPointLightComponentVisualizer));
 	RegisterComponentVisualizer(USpotLightComponent::StaticClass()->GetFName(), MakeShareable(new FSpotLightComponentVisualizer));
+	RegisterComponentVisualizer(URectLightComponent::StaticClass()->GetFName(), MakeShareable(new FRectLightComponentVisualizer));
 	RegisterComponentVisualizer(UAudioComponent::StaticClass()->GetFName(), MakeShareable(new FAudioComponentVisualizer));
 	RegisterComponentVisualizer(UForceFeedbackComponent::StaticClass()->GetFName(), MakeShareable(new FForceFeedbackComponentVisualizer));
 	RegisterComponentVisualizer(URadialForceComponent::StaticClass()->GetFName(), MakeShareable(new FRadialForceComponentVisualizer));

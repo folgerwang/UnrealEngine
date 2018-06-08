@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:2968923
-Availability:Public
+﻿Availability:Public
 Title:Level ブループリント
 Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/UserGuide/Types
 Description:マップ内のレベル特有のイベントをスクリプティングするために使用するブループリント
@@ -7,45 +6,9 @@ Related:Engine/Blueprints/UserGuide/Types
 Related:Engine/Blueprints
 version:4.9
 Parent:Engine/Blueprints
-Type:guide
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints\UserGuide\Types\LevelBlueprint:title%](Engine/Blueprints/UserGuide/Types/level_blueprint_test_image.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints\UserGuide\Types\LevelBlueprint:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints\UserGuide\Types\LevelBlueprint:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints\UserGuide\Types\LevelBlueprint]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints\UserGuide\Types\LevelBlueprint:title%](Engine/Blueprints/UserGuide/Types/level_blueprint_test_image.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints\UserGuide\Types\LevelBlueprint:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints\UserGuide\Types\LevelBlueprint:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints\UserGuide\Types\LevelBlueprint]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+type:overview
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/Types/level_blueprint_test_image.png
 
 [TOC (start:2 end:3)]
 
@@ -63,7 +26,7 @@ Level ブループリント は、[マチネ](Engine/Matinee) に対する制御
 およびレベル内に配置されるアクタにイベントをバインドするための制御メカニズムを提供します。 
 [/EXCERPT:Intro]
 
-Level ブループリント_ に関する詳細は、 [] (Engine/Blueprints\Editor\UIBreakdowns\LevelBPUI) を参照してください。
+Level ブループリント_ に関する詳細は、 [] (Engine/Blueprints/Editor/UIBreakdowns/LevelBPUI) を参照してください。
 
 
 ## デフォルトの Level ブループリント
@@ -71,7 +34,7 @@ Level ブループリント_ に関する詳細は、 [] (Engine/Blueprints\Edit
 各ゲームでは、DefaultGame.ini config ファイルでデフォルトの Level Blueprint クラスを指定できます。すべての新規マップの Level ブループリントは、 
 このクラスを使用して作成され、ゲーム固有の追加や機能を実現します。
 
-## Level ブループリントを開く
+##Level ブループリントを開く
 
 編集のために Level ブループリントを開くには、**レベル エディタ ツールバー** で **[Open Level Blueprint (Level ブループリントを開く)]** ボタンをクリックします。
 
@@ -93,7 +56,7 @@ Level ブループリントのノード上でアクタへの参照を **ター�
 
 	![](selected_actor.png)
 
-1. Level ブループリントを開きます。
+1. Level ブループリント を開きます。
 
 	![Level Blueprint Button](toolbar_level_editor.png)
 
@@ -102,7 +65,7 @@ Level ブループリントのノード上でアクタへの参照を **ター�
 
 	![](add_reference_to.png)
 
-以下は別の方法です。
+あるいは次の操作でも可能です。
 
 1. ** [ワールド アウトライナー]** タブからアクタをドラッグし、Level ブループリントのグラフにドロップします。
 
@@ -130,7 +93,7 @@ Level ブループリントのノード上でアクタへの参照を **ター�
 
 または、アクタを選択後に以下を行います。
 
-1. Level ブループリントを開きます。
+1. Level ブループリント を開きます。
 
 	![Level Blueprint Button](toolbar_level_editor.png)
 

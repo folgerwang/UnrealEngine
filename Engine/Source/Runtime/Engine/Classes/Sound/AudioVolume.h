@@ -68,13 +68,14 @@ struct FReverbSettings
 	/** The reverb asset to employ. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ReverbSettings)
 	class UReverbEffect* ReverbEffect;
+	
 
 	/** This is used to apply plugin-specific settings when a Reverb Plugin is being used. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ReverbSettings)
 	class USoundEffectSubmixPreset* ReverbPluginEffect;
 
 	/** Volume level of the reverb affect. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ReverbSettings)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ReverbSettings)
 	float Volume;
 
 	/** Time to fade from the current reverb settings into this setting, in seconds. */
@@ -85,6 +86,7 @@ struct FReverbSettings
 		: bApplyReverb(true)
 		, ReverbType_DEPRECATED(REVERB_Default)
 		, ReverbEffect(nullptr)
+		, ReverbPluginEffect(nullptr)
 		, Volume(0.5f)
 		, FadeTime(2.0f)
 	{

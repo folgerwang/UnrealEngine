@@ -89,9 +89,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Options", meta = (ShowOnlyInnerProperties))
 	FDatasmithImportBaseOptions BaseOptions;
 
-	UPROPERTY()
-	FString SceneName;
-#endif		// WITH_EDITORONLY_DATA
+#endif // WITH_EDITORONLY_DATA
 };
 
 /**

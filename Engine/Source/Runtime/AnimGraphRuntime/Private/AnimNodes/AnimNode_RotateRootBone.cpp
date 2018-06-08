@@ -10,6 +10,9 @@ void FAnimNode_RotateRootBone::Initialize_AnyThread(const FAnimationInitializeCo
 	FAnimNode_Base::Initialize_AnyThread(Context);
 
 	BasePose.Initialize(Context);
+
+	PitchScaleBiasClamp.Reinitialize();
+	YawScaleBiasClamp.Reinitialize();
 }
 
 void FAnimNode_RotateRootBone::CacheBones_AnyThread(const FAnimationCacheBonesContext& Context) 
@@ -21,15 +24,15 @@ void FAnimNode_RotateRootBone::Update_AnyThread(const FAnimationUpdateContext& C
 {
 	EvaluateGraphExposedInputs.Execute(Context);
 	BasePose.Update(Context);
+
+	ActualPitch = PitchScaleBiasClamp.ApplyTo(Pitch, Context.GetDeltaTime());
+	ActualYaw = YawScaleBiasClamp.ApplyTo(Yaw, Context.GetDeltaTime());
 }
 
 void FAnimNode_RotateRootBone::Evaluate_AnyThread(FPoseContext& Output)
 {
 	// Evaluate the input
 	BasePose.Evaluate(Output);
-
-	const float ActualPitch = PitchScaleBiasClamp.ApplyTo(Pitch);
-	const float ActualYaw = YawScaleBiasClamp.ApplyTo(Yaw);
 
 	checkSlow(!FMath::IsNaN(ActualYaw) && FMath::IsFinite(ActualYaw));
 	checkSlow(!FMath::IsNaN(ActualPitch) && FMath::IsFinite(ActualPitch));
@@ -55,9 +58,6 @@ void FAnimNode_RotateRootBone::Evaluate_AnyThread(FPoseContext& Output)
 void FAnimNode_RotateRootBone::GatherDebugData(FNodeDebugData& DebugData)
 {
 	FString DebugLine = DebugData.GetNodeName(this);
-	
-	const float ActualPitch = PitchScaleBiasClamp.ApplyTo(Pitch);
-	const float ActualYaw = YawScaleBiasClamp.ApplyTo(Yaw);
 
 	DebugLine += FString::Printf(TEXT("Pitch(%.2f) Yaw(%.2f)"), ActualPitch, ActualYaw);
 	DebugData.AddDebugItem(DebugLine);
@@ -69,5 +69,7 @@ FAnimNode_RotateRootBone::FAnimNode_RotateRootBone()
 	: Pitch(0.0f)
 	, Yaw(0.0f)
 	, MeshToComponent(FRotator::ZeroRotator)
+	, ActualPitch(0.f)
+	, ActualYaw(0.f)
 {
 }

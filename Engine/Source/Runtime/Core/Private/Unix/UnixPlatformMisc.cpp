@@ -134,6 +134,7 @@ void FUnixPlatformMisc::PlatformInit()
 	UE_LOG(LogInit, Log, TEXT(" -ansimalloc - use malloc()/free() from libc (useful for tools like valgrind and electric fence)"));
 	UE_LOG(LogInit, Log, TEXT(" -jemalloc - use jemalloc for all memory allocation"));
 	UE_LOG(LogInit, Log, TEXT(" -binnedmalloc - use binned malloc  for all memory allocation"));
+	UE_LOG(LogInit, Log, TEXT(" -filemapcachesize=NUMBER - set the size for case-sensitive file mapping cache"));
 
 	// [RCL] FIXME: this should be printed in specific modules, if at all
 	UE_LOG(LogInit, Log, TEXT(" -httpproxy=ADDRESS:PORT - redirects HTTP requests to a proxy (only supported if compiled with libcurl)"));
@@ -147,8 +148,24 @@ void FUnixPlatformMisc::PlatformInit()
 	}
 }
 
+volatile sig_atomic_t GDeferedExitLogging = 0;
+
 void FUnixPlatformMisc::PlatformTearDown()
 {
+	// We requested to close from a signal so we couldnt print.
+	if (GDeferedExitLogging)
+	{
+		uint8 OverriddenErrorLevel = 0;
+		if (FPlatformMisc::HasOverriddenReturnCode(&OverriddenErrorLevel))
+		{
+			UE_LOG(LogCore, Log, TEXT("FUnixPlatformMisc::RequestExit(bForce=false, ReturnCode=%d)"), OverriddenErrorLevel);
+		}
+		else
+		{
+			UE_LOG(LogCore, Log, TEXT("FUnixPlatformMisc::RequestExit(false)"));
+		}
+	}
+
 	FPlatformProcess::CeaseBeingFirstInstance();
 }
 
@@ -187,13 +204,25 @@ void FUnixPlatformMisc::LowLevelOutputDebugString(const TCHAR *Message)
 	fprintf(stderr, "%ls", Message);	// there's no good way to implement that really
 }
 
+extern volatile sig_atomic_t GEnteredSignalHandler;
 uint8 GOverriddenReturnCode = 0;
 bool GHasOverriddenReturnCode = false;
 
 void FUnixPlatformMisc::RequestExit(bool Force)
 {
-	UE_LOG(LogCore, Log,  TEXT("FUnixPlatformMisc::RequestExit(%i)"), Force );
-	if( Force )
+	if (GEnteredSignalHandler)
+	{
+		// Still log something but use a signal-safe function
+		const ANSICHAR ExitMsg[] = "FUnixPlatformMisc::RequestExit\n";
+		write(STDOUT_FILENO, ExitMsg, sizeof(ExitMsg));
+		GDeferedExitLogging = 1;
+	}
+	else
+	{
+		UE_LOG(LogCore, Log,  TEXT("FUnixPlatformMisc::RequestExit(%i)"), Force );
+	}
+
+	if(Force)
 	{
 		// Force immediate exit. Cannot call abort() here, because abort() raises SIGABRT which we treat as crash
 		// (to prevent other, particularly third party libs, from quitting without us noticing)
@@ -208,13 +237,31 @@ void FUnixPlatformMisc::RequestExit(bool Force)
 		}
 	}
 
-	// Tell the platform specific code we want to exit cleanly from the main loop.
-	FGenericPlatformMisc::RequestExit(Force);
+	if (GEnteredSignalHandler)
+	{
+		// Lets set our selfs to request exit as the generic platform request exit could log
+		GIsRequestingExit = 1;
+	}
+	else
+	{
+		// Tell the platform specific code we want to exit cleanly from the main loop.
+		FGenericPlatformMisc::RequestExit(Force);
+	}
 }
 
 void FUnixPlatformMisc::RequestExitWithStatus(bool Force, uint8 ReturnCode)
 {
-	UE_LOG(LogCore, Log, TEXT("FUnixPlatformMisc::RequestExit(bForce=%s, ReturnCode=%d)"), Force ? TEXT("true") : TEXT("false"), ReturnCode);
+	if (GEnteredSignalHandler)
+	{
+		// Still log something but use a signal-safe function
+		const ANSICHAR ExitMsg[] = "FUnixPlatformMisc::RequestExitWithStatus\n";
+		write(STDOUT_FILENO, ExitMsg, sizeof(ExitMsg));
+		GDeferedExitLogging = 1;
+	}
+	else
+	{
+		UE_LOG(LogCore, Log, TEXT("FUnixPlatformMisc::RequestExit(bForce=%s, ReturnCode=%d)"), Force ? TEXT("true") : TEXT("false"), ReturnCode);
+	}
 
 	GOverriddenReturnCode = ReturnCode;
 	GHasOverriddenReturnCode = true;

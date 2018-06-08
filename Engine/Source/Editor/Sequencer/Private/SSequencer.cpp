@@ -1272,6 +1272,7 @@ TSharedRef<SWidget> SSequencer::MakeSelectEditMenu()
 	if (SequencerPtr.Pin()->IsLevelEditorSequencer())
 	{
 		MenuBuilder.AddMenuEntry(FSequencerCommands::Get().BakeTransform);
+		MenuBuilder.AddMenuEntry(FSequencerCommands::Get().SyncToSourceTimecode);
 	}
 
 	// selection range options

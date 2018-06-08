@@ -450,6 +450,13 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 	}
 #endif	// WITH_EDITOR
 
+	// to reduce UE4CommandLine.txt churn (timestamp causing extra work), for LaunchOn (ie iterative deploy) we use a single session guid
+	if (InProfile->GetDeploymentMode() == ELauncherProfileDeploymentModes::CopyToDevice && Profile->IsDeployingIncrementally())
+	{
+		static FGuid StaticGuid(FGuid::NewGuid());
+		SessionId = StaticGuid;
+	}
+
 	// additional commands to be sent to the commandline
 	FString SessionName = InProfile->GetName().Replace(TEXT("\'"), TEXT("_")).Replace(TEXT("\'"), TEXT("_"));
 	FString SessionOwner = FString(FPlatformProcess::UserName(false)).Replace(TEXT("\'"), TEXT("_")).Replace(TEXT("\'"), TEXT("_"));;
@@ -671,7 +678,7 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 
 	if ( InProfile->IsIterateSharedCookedBuild() )
 	{
-		UATCommand += TEXT(" -iteratesharedcookedbuild");
+		UATCommand += TEXT(" -iteratesharedcookedbuild=usesyncedbuild");
 	}
 
 	if (InProfile->GetSkipCookingEditorContent())
@@ -715,6 +722,17 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 				if (Profile->IsDeployingIncrementally())
 				{
 					UATCommand += " -iterativedeploy";
+					// @todo Lumin hack maybe? Can we always skip the automation script compiling here when going for fast-as-possible?
+					// we will always compile the automation scripts once, then we stop due to time waste
+					static bool bHasCompiledOnce = false;
+					if (bHasCompiledOnce)
+					{
+						UATCommand += " -nocompile";
+					}
+					else
+					{
+						bHasCompiledOnce = true;
+					}
 				}
 			}
 		case ELauncherProfileDeploymentModes::FileServer:

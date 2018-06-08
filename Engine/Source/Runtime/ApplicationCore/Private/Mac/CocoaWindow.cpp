@@ -36,6 +36,8 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 		bIsOnActiveSpace = [super isOnActiveSpace];
 		self.TargetWindowMode = EWindowMode::Windowed;
 		[super setAlphaValue:Opacity];
+		[super setRestorable:NO];
+		[super disableSnapshotRestoration];
 	}
 	return NewSelf;
 }
@@ -195,6 +197,12 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 - (void)keyUp:(NSEvent*)Event
 {
 	// @note Deliberately empty - we don't want OS X to handle keyboard input as it will recursively re-add events we aren't handling
+}
+
+- (NSSize)window:(NSWindow *)window willUseFullScreenContentSize:(NSSize)proposedSize
+{
+	// Without this delegate method we seem to get different behavour in rare edge cases when changing to windowed fullscreen mode
+	return proposedSize;
 }
 
 - (void)windowWillEnterFullScreen:(NSNotification*)Notification

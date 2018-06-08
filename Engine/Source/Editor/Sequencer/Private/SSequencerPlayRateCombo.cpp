@@ -14,7 +14,7 @@
 #include "ScopedTransaction.h"
 #include "Widgets/SFrameRateEntryBox.h"
 #include "EditorFontGlyphs.h"
-#include <Timecode.h>
+#include "Misc/Timecode.h"
 
 #define LOCTEXT_NAMESPACE "SSequencerPlayRateCombo"
 

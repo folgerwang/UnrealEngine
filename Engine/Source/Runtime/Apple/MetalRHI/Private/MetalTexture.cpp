@@ -9,6 +9,7 @@
 #include "MetalCommandBuffer.h"
 #include "RenderUtils.h"
 #include "Containers/ResourceArray.h"
+#include "Misc/ScopeRWLock.h"
 
 volatile int64 FMetalSurface::ActiveUploads = 0;
 
@@ -104,6 +105,12 @@ static mtlpp::TextureUsage ConvertFlagsToUsage(uint32 Flags)
 		Usage |= mtlpp::TextureUsage::PixelFormatView;
 	}
 	
+	// offline textures are normal shader read textures
+	if (Flags & TexCreate_OfflineProcessed)
+	{
+		Usage |= mtlpp::TextureUsage::ShaderRead;
+	}
+
 	//if the high level is doing manual resolves then the textures specifically markes as resolve targets
 	//are likely to be used in a manual shader resolve by the high level and must be bindable as rendertargets.
 	const bool bSeparateResolveTargets = FMetalCommandQueue::SupportsSeparateMSAAAndResolveTarget();
@@ -683,13 +690,20 @@ static TMap<uint64, uint8>& GetMetalPixelFormatKeyMap()
 
 uint8 GetMetalPixelFormatKey(mtlpp::PixelFormat Format)
 {
+	static FRWLock Mutex;
 	static uint8 NextKey = 1; // 0 is reserved for mtlpp::PixelFormat::Invalid
+	FRWScopeLock Lock(Mutex, SLT_ReadOnly);
 	uint8* Key = GetMetalPixelFormatKeyMap().Find((uint64)Format);
 	if (Key == NULL)
 	{
-		Key = &GetMetalPixelFormatKeyMap().Add((uint64)Format, NextKey++);
-		// only giving 5 bits to the key
-		checkf(NextKey < 32, TEXT("Too many unique pixel formats to fit into the PipelineStateHash"));
+		Lock.ReleaseReadOnlyLockAndAcquireWriteLock_USE_WITH_CAUTION();
+		Key = GetMetalPixelFormatKeyMap().Find((uint64)Format);
+		if (Key == NULL)
+		{
+			Key = &GetMetalPixelFormatKeyMap().Add((uint64)Format, NextKey++);
+			// only giving 5 bits to the key
+			checkf(NextKey < 32, TEXT("Too many unique pixel formats to fit into the PipelineStateHash"));
+		}
 	}
 	return *Key;
 }
@@ -1792,8 +1806,8 @@ struct FMetalRHICommandAsyncReallocateTexture2D final : public FRHICommand<FMeta
 		{
 			const uint32 UnalignedMipSizeX = FMath::Max<uint32>(1, NewSizeX >> (MipIndex + DestMipOffset));
 			const uint32 UnalignedMipSizeY = FMath::Max<uint32>(1, NewSizeY >> (MipIndex + DestMipOffset));
-			const uint32 MipSizeX = (bPixelFormatASTC) ? AlignArbitrary(UnalignedMipSizeX, BlockSizeX) : UnalignedMipSizeX;
-			const uint32 MipSizeY = (bPixelFormatASTC) ? AlignArbitrary(UnalignedMipSizeY, BlockSizeY) : UnalignedMipSizeY;
+			const uint32 MipSizeX = FMath::Max<uint32>(1, NewSizeX >> (MipIndex + DestMipOffset));
+			const uint32 MipSizeY = FMath::Max<uint32>(1, NewSizeY >> (MipIndex + DestMipOffset));
 			
 			bAsync &= Context.AsyncCopyFromTextureToTexture(OldTexture->Surface.Texture, SliceIndex, MipIndex + SourceMipOffset, Origin, mtlpp::Size(MipSizeX, MipSizeY, 1), NewTexture->Surface.Texture, SliceIndex, MipIndex + DestMipOffset, Origin);
 		}

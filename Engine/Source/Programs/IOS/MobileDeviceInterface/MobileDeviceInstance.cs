@@ -567,11 +567,38 @@ namespace Manzana
             }
         }
 
-		/// <summary>
-		/// Tries to copy all of the files in a particular directory on the PC to the phone directory
-		/// (requires the bundle identifier to be able to mount that directory)
-		/// </summary>
-		public bool TryCopy(string BundleIdentifier, string SourceFolderOnPC, string TargetFolderOnDevice)
+        /// <summary>
+        /// Tries to copy the specified file from the PC to a specified file path on the target device.
+        /// (requires the bundle identifier to be able to mount that directory)
+        /// </summary>
+        public bool TryCopyFile(string BundleIdentifier, string SourceFileOnPC, string TargetFileOnDevice)
+        {
+            if (ConnectToBundle(BundleIdentifier))
+            {
+                WriteProgressLine("Connected to bundle '{0}'", 0, BundleIdentifier);
+                try
+                {
+                    CopyFileToPhone(SourceFileOnPC, TargetFileOnDevice, 1024 * 1024);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    WriteProgressLine("Failed to transfer a file, extended error is '{0}'", 100, ex.Message);
+                    return false;
+                }
+            }
+			else
+			{
+				WriteProgressLine("Error: Failed to connect to bundle '{0}'", 100, BundleIdentifier);
+				return false;
+			}
+        }
+
+        /// <summary>
+        /// Tries to copy all of the files in a particular directory on the PC to the phone directory
+        /// (requires the bundle identifier to be able to mount that directory)
+        /// </summary>
+        public bool TryCopy(string BundleIdentifier, string SourceFolderOnPC, string TargetFolderOnDevice)
 		{
 			if (ConnectToBundle(BundleIdentifier))
 			{

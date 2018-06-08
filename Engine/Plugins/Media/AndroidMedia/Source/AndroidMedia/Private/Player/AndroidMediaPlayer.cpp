@@ -611,7 +611,8 @@ void FAndroidMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 				if (IsRunningRHIInSeparateThread())
 				{
 					new (RHICmdList.AllocCommand<FRHICommandUpdateExternalMediaSample>()) FRHICommandUpdateExternalMediaSample(Params.JavaMediaPlayerPtr, Params.PlayerGuid);
-					// WAIT
+					// wait for DoUpdateExternalMediaSampleExecute to complete.
+					RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread); 
 				}
 				else
 				{
@@ -1359,6 +1360,18 @@ bool FAndroidMediaPlayer::SetRate(float Rate)
 	}
 
 	return true;
+}
+
+
+bool FAndroidMediaPlayer::SetNativeVolume(float Volume)
+{
+	if (JavaMediaPlayer.IsValid())
+	{
+		Volume = Volume < 0.0f ? 0.0f : (Volume < 1.0f ? Volume : 1.0f);
+		JavaMediaPlayer->SetAudioVolume(Volume);
+		return true;
+	}
+	return false;
 }
 
 

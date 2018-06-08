@@ -134,6 +134,9 @@ bool FSkeletalMeshMerge::FinalizeMesh()
 			if (SrcMesh->bHasVertexColors)
 			{
 				MergeMesh->bHasVertexColors = true;
+#if WITH_EDITORONLY_DATA
+				MergeMesh->VertexColorGuid = FGuid::NewGuid();
+#endif
 			}
 
 			FMergeMeshInfo& MeshInfo = SrcMeshInfo[MeshIdx];
@@ -388,8 +391,8 @@ template<typename VertexDataType>
 void FSkeletalMeshMerge::CopyVertexFromSource(VertexDataType& DestVert, const FSkeletalMeshLODRenderData& SrcLODData, int32 SourceVertIdx, const FMergeSectionInfo& MergeSectionInfo)
 {
 	DestVert.Position = SrcLODData.StaticVertexBuffers.PositionVertexBuffer.VertexPosition(SourceVertIdx);
-	DestVert.TangentX = SrcLODData.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentX_Typed<EStaticMeshVertexTangentBasisType::Default>(SourceVertIdx);
-	DestVert.TangentZ = SrcLODData.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentZ_Typed<EStaticMeshVertexTangentBasisType::Default>(SourceVertIdx);
+	DestVert.TangentX = SrcLODData.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentX(SourceVertIdx);
+	DestVert.TangentZ = SrcLODData.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(SourceVertIdx);
 
 	// Copy all UVs that are available
 	uint32 LODNumTexCoords = SrcLODData.StaticVertexBuffers.StaticMeshVertexBuffer.GetNumTexCoords();
@@ -537,8 +540,22 @@ void FSkeletalMeshMerge::GenerateLODModel( int32 LODIdx )
 			// get the source skel LOD info from this merge entry
 			const FSkeletalMeshLODInfo& SrcLODInfo = *(MergeSectionInfo.SkelMesh->GetLODInfo(SourceLODIdx));
 
-			// keep track of the lowest LOD displayfactor and hysterisis
-			MergeLODInfo.ScreenSize = FMath::Min<float>(MergeLODInfo.ScreenSize, SrcLODInfo.ScreenSize);
+			// keep track of the lowest LOD displayfactor and hysteresis
+			MergeLODInfo.ScreenSize.Default = FMath::Min<float>(MergeLODInfo.ScreenSize.Default, SrcLODInfo.ScreenSize.Default);
+#if WITH_EDITORONLY_DATA
+			for(const TTuple<FName, float>& PerPlatform : SrcLODInfo.ScreenSize.PerPlatform)
+			{
+				float* Value = MergeLODInfo.ScreenSize.PerPlatform.Find(PerPlatform.Key);
+				if(Value)
+				{
+					*Value = FMath::Min<float>(PerPlatform.Value, *Value);	
+				}
+				else
+				{
+					MergeLODInfo.ScreenSize.PerPlatform.Add(PerPlatform.Key, PerPlatform.Value);
+				}
+			}
+#endif
 			MergeLODInfo.LODHysteresis = FMath::Min<float>(MergeLODInfo.LODHysteresis,SrcLODInfo.LODHysteresis);
 
 			// get the source skel LOD model from this merge entry

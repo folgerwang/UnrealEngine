@@ -83,13 +83,17 @@ struct FOptionalPinFromProperty
 	uint8 bIsOverridePinVisible:1;
 
 	FOptionalPinFromProperty()
-		: bIsMarkedForAdvancedDisplay(false)
+		: bShowPin(false)
+		, bCanToggleVisibility(false)
+		, bPropertyIsCustomized(false)
+		, bHasOverridePin(false)
+		, bIsMarkedForAdvancedDisplay(false)
 		, bIsOverrideEnabled(true)
 		, bIsSetValuePinVisible(true)
 		, bIsOverridePinVisible(true)
 	{
 	}
-	
+
 	FOptionalPinFromProperty(FName InPropertyName, bool bInShowPin, bool bInCanToggleVisibility, const FString& InFriendlyName, const FText& InTooltip, bool bInPropertyIsCustomized, FName InCategoryName, bool bInHasOverridePin)
 		: PropertyName(InPropertyName)
 		, PropertyFriendlyName(InFriendlyName)
@@ -243,6 +247,9 @@ class UK2Node : public UEdGraphNode
 
 	/** Return whether the node's properties display in the blueprint details panel */
 	virtual bool ShouldShowNodeProperties() const { return false; }
+
+	/** Return whether the node's execution pins should support the remove execution pin action */
+	virtual bool CanEverInsertExecutionPin() const { return false; }
 
 	/** Return whether the node's execution pins should support the remove execution pin action */
 	virtual bool CanEverRemoveExecutionPin() const { return false; }

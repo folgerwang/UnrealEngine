@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3429238
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:ブループリント ビジュアル スクリプティング
 Crumbs: %ROOT%, Engine
@@ -9,69 +9,8 @@ order:5
 social-image:bp_social_image.png
 type:landing
 tags:Blueprints
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints:title%](Engine/Blueprints/kismet_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/blueprint_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints:title%](Engine/Blueprints/kismet_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/blueprint_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:Role]
-[OBJECT:Role]
-	[PARAM:image]
-		![%Engine/Blueprints:title%](Engine/Blueprints/kismet_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/blueprint_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints]
-	[/PARAM]
-	[PARAMLITERAL:id]
-	ブループリント
-	[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/Blueprints/kismet_topic.png
+topic-icon:%ROOT%/blueprint_icon.png
 
 [REGION:banner]
 ![](k2_banner.gif)
@@ -80,13 +19,13 @@ tags:Blueprints
 [EXCERPT:Intro]
 アンリアル エンジンの **ブループリント ビジュアル スクリプティング システム** は、アンリアル エディタを使用したゲームプレイ エレメントの作成に、 
 ノードをベースとするインターフェースの概念を基礎としたゲームプレイ スクリプティング システム一式です。一般的な多くのスクリプト処理言語と同様に、エンジンでオブジェクト指向 (OO) クラスまたはオブジェクトを定義します。 
-UE4 を使う場合、ブループリントを使って定義したオブジェクトは通常口語的に「ブループリント」と呼ばれます。 
+UE4 を使う場合、ブループリントを使って定義したオブジェクトは通常「ブループリント」と呼ばれます。 
 
 非常に柔軟かつパワフルなシステムで、一般的にプログラマーだけが使用できるとされてきたコンセプトとツールをデザイナーが事実上すべて使うことができます。さらに、
-アンリアル エンジンの C++ インプリメンテーションで利用できるブループリント固有のマークアップにより、プログラマーはデザイナーが拡張する基本システムを作成することができます。
+アンリアル エンジンに導入されている C++ でブループリント特有のマークアップを使用すれば、プログラマーはデザイナーが展開する基本システムを作成することができます。
 [/EXCERPT:Intro]
 
-## はじめよう
+## 作業を開始する
 
 [REGION:topics third]
 %Engine/Blueprints/QuickStart:TopicCompact%
@@ -196,25 +135,3 @@ UE4 を使う場合、ブループリントを使って定義したオブジェ�
 
 [DIR(output:"topic" parent:"Engine/Blueprints" type:"overview" org:"hierarchy")]
 
-
-[COMMENT:none]
-
-## はじめよう
-
-[DIR(end:"1" output:"topic" type:"quickstart" parent:"Engine/Blueprints")]
-
-## リファレンス
-
-[DIR(end:"1" output:"topic" type:"reference" parent:"Engine/Blueprints")]
-
-## ガイド
-
-[DIR(end:"1" output:"topic" type:"howto" parent:"Engine/Blueprints")]
-
-## ビデオ チュートリアル
-
-[REGION:simplegallery]
-[VideoLink(videoid:"EFXMW_UEDco" playlistid:"PLZlv_N0_O1gY35ezlSQn1sWOGfh4C7ewO" width:"275")]
-[/REGION]
-
-[/COMMENT]

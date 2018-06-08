@@ -13,11 +13,6 @@
 #include "MetalProfiler.h"
 #include "MetalCommandBuffer.h"
 
-#if METAL_STATISTICS
-#include "MetalStatistics.h"
-#include "Modules/ModuleManager.h"
-#endif
-
 #include "ShaderCache.h"
 
 int32 GMetalSupportsIntermediateBackBuffer = PLATFORM_MAC ? 1 : 0;
@@ -110,17 +105,37 @@ static FAutoConsoleVariableRef CVarMetalPresentFramePacing(
 #endif
 
 #if PLATFORM_MAC
+static ns::AutoReleased<ns::Object<id <NSObject>>> GMetalDeviceObserver;
 static mtlpp::Device GetMTLDevice(uint32& DeviceIndex)
 {
 	SCOPED_AUTORELEASE_POOL;
 	
 	DeviceIndex = 0;
 	
-#if METAL_STATISTICS
-	IMetalStatisticsModule* StatsModule = FModuleManager::Get().LoadModulePtr<IMetalStatisticsModule>(TEXT("MetalStatistics"));
-#endif
+	ns::Array<mtlpp::Device> DeviceList;
 	
-	ns::Array<mtlpp::Device> DeviceList = mtlpp::Device::CopyAllDevices();
+	if (FPlatformMisc::MacOSXVersionCompare(10, 13, 4) >= 0)
+	{
+			DeviceList = mtlpp::Device::CopyAllDevicesWithObserver(GMetalDeviceObserver, ^(const mtlpp::Device & Device, const ns::String & Notification)
+			{
+				if ([Notification.GetPtr() isEqualToString:MTLDeviceWasAddedNotification])
+				{
+					FPlatformMisc::GPUChangeNotification(Device.GetRegistryID(), FPlatformMisc::EMacGPUNotification::Added);
+				}
+				else if ([Notification.GetPtr() isEqualToString:MTLDeviceRemovalRequestedNotification])
+				{
+					FPlatformMisc::GPUChangeNotification(Device.GetRegistryID(), FPlatformMisc::EMacGPUNotification::RemovalRequested);
+				}
+				else if ([Notification.GetPtr() isEqualToString:MTLDeviceWasRemovedNotification])
+				{
+					FPlatformMisc::GPUChangeNotification(Device.GetRegistryID(), FPlatformMisc::EMacGPUNotification::Removed);
+				}
+			});
+	}
+	else
+	{
+		DeviceList = mtlpp::Device::CopyAllDevices();
+	}
 	
 	const int32 NumDevices = DeviceList.GetSize();
 	
@@ -359,6 +374,8 @@ FMetalDeviceContext::FMetalDeviceContext(mtlpp::Device MetalDevice, uint32 InDev
 		GMetalSupportsIntermediateBackBuffer = 1;
 	}
 	
+	METAL_GPUPROFILE(FMetalProfiler::CreateProfiler(this));
+	
 	InitFrame(true);
 }
 
@@ -366,6 +383,13 @@ FMetalDeviceContext::~FMetalDeviceContext()
 {
 	SubmitCommandsHint(EMetalSubmitFlagsWaitOnCommandBuffer);
 	delete &(GetCommandQueue());
+	
+#if PLATFORM_MAC
+	if (FPlatformMisc::MacOSXVersionCompare(10, 13, 4) >= 0)
+	{
+		mtlpp::Device::RemoveDeviceObserver(GMetalDeviceObserver);
+	}
+#endif
 }
 
 void FMetalDeviceContext::Init(void)
@@ -459,6 +483,21 @@ void FMetalDeviceContext::EndFrame()
 	
 	ClearFreeList();
 	
+	// A 'frame' in this context is from the beginning of encoding on the CPU
+	// to the end of all rendering operations on the GPU. So the semaphore is
+	// signalled when the last command buffer finishes GPU execution.
+	{
+		dispatch_semaphore_t CmdBufferSemaphore = CommandBufferSemaphore;
+		dispatch_retain(CmdBufferSemaphore);
+		
+		RenderPass.AddCompletionHandler(
+		[CmdBufferSemaphore](mtlpp::CommandBuffer const& cmd_buf)
+		{
+			dispatch_semaphore_signal(CmdBufferSemaphore);
+			dispatch_release(CmdBufferSemaphore);
+		});
+	}
+	
 	if (bPresented)
 	{
 		FMetalGPUProfiler::IncrementFrameIndex();
@@ -543,14 +582,6 @@ void FMetalDeviceContext::FlushFreeList()
 	ObjectFreeList.Empty(ObjectFreeList.Num());
 	FreeListMutex.Unlock();
 	
-	dispatch_semaphore_t CmdBufferSemaphore = CommandBufferSemaphore;
-	dispatch_retain(CmdBufferSemaphore);
-	
-	RenderPass.AddCompletionHandler([CmdBufferSemaphore](mtlpp::CommandBuffer const&)
-									{
-										dispatch_semaphore_signal(CmdBufferSemaphore);
-										dispatch_release(CmdBufferSemaphore);
-									});
 	DelayedFreeLists.Add(NewList);
 }
 
@@ -594,12 +625,6 @@ void FMetalDeviceContext::EndDrawingViewport(FMetalViewport* Viewport, bool bPre
 	if( FrameReadyEvent != nullptr && !GMetalSeparatePresentThread )
 	{
 		FrameReadyEvent->Wait();
-	}
-	
-	// The editor doesn't always call EndFrame appropriately so do so here
-	if (GIsEditor)
-	{
-		EndFrame();
 	}
 	
 	Viewport->ReleaseDrawable();
@@ -676,7 +701,7 @@ FMetalTexture FMetalDeviceContext::CreateTexture(FMetalSurface* Surface, mtlpp::
 FMetalBuffer FMetalDeviceContext::CreatePooledBuffer(FMetalPooledBufferArgs const& Args)
 {
 	FMetalBuffer Buffer = Heap.CreateBuffer(Args.Size, BufferOffsetAlignment, GetCommandQueue().GetCompatibleResourceOptions((mtlpp::ResourceOptions)(BUFFER_CACHE_MODE | mtlpp::ResourceOptions::HazardTrackingModeUntracked | ((NSUInteger)Args.Storage << mtlpp::ResourceStorageModeShift))));
-						 
+	check(Buffer && Buffer.GetPtr());
 #if METAL_DEBUG_OPTIONS
 	static bool bSupportsHeaps = SupportsFeature(EMetalFeaturesHeaps);
 	if (GMetalResourcePurgeOnDelete && !Buffer.GetHeap())
@@ -1255,7 +1280,11 @@ void FMetalContext::SetRenderTargetsInfo(const FRHISetRenderTargetsInfo& RenderT
 			CGSize FBSize = CGSizeMake(StateCache.GetViewport(0).width, StateCache.GetViewport(0).height);
 			FTexture2DRHIRef FallbackDepthStencilSurface = StateCache.CreateFallbackDepthStencilSurface(FBSize.width, FBSize.height);
 			check(IsValidRef(FallbackDepthStencilSurface));
-			Info.DepthStencilRenderTarget = FRHIDepthRenderTargetView(FallbackDepthStencilSurface, ERenderTargetLoadAction::ELoad, ERenderTargetStoreAction::ENoAction, FExclusiveDepthStencil::DepthRead_StencilRead);
+#if PLATFORM_MAC
+			Info.DepthStencilRenderTarget = FRHIDepthRenderTargetView(FallbackDepthStencilSurface, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::ENoAction, FExclusiveDepthStencil::DepthRead_StencilRead);
+#else
+			Info.DepthStencilRenderTarget = FRHIDepthRenderTargetView(FallbackDepthStencilSurface, ERenderTargetLoadAction::EClear, ERenderTargetStoreAction::ENoAction, FExclusiveDepthStencil::DepthRead_StencilRead);
+#endif
 
 			if (QueryBuffer->GetCurrentQueryBuffer() != StateCache.GetVisibilityResultsBuffer())
 			{
@@ -1518,7 +1547,7 @@ public:
 		check(!CmdContext);
 	}
 	
-	virtual IRHICommandContext* GetContext(const FRHIGPUMask& NodeMask) override
+	virtual IRHICommandContext* GetContext() override
 	{
 		check(CmdContext);
 		CmdContext->GetInternalContext().InitFrame(false);
@@ -1531,7 +1560,7 @@ public:
 			CmdContext->GetInternalContext().FinishFrame();
 		}
 	}
-	virtual void SubmitAndFreeContextContainer(const FRHIGPUMask& NodeMask, int32 NewIndex, int32 NewNum) override
+	virtual void SubmitAndFreeContextContainer(int32 NewIndex, int32 NewNum) override
 	{
 		if (CmdContext)
 		{

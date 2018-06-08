@@ -1,139 +1,174 @@
-﻿INTSourceChangelist:3336096
+﻿INTSourceChangelist:3733519
 Availability:Public
-Title:Media Playlists の使用方法
+Title:Media Playlist の使用方法
 Crumbs:%ROOT%, Engine
-Description:複数の Media Source アセットを再生するための Media Playlist の使い方の例 
-Version:4.15
+Description:Media Framework ツールを用いた Media Playlist の作成および使用方法の説明 
+Type: how-to
 SkillLevel:Intermediate
-parent:Engine/MediaFramework
-order:3
-checkpoint: editorqs
+Version:4.18
+Parent:Engine/MediaFramework/HowTo
+Order:3
+Tags:Media Framework
+Tags:Video Playback
 Related:Engine\MediaFramework
 
-アンリアル エンジンでメディア アセットで作業している時に、一連のビデオを特定の順番で再生したい、または特定のビデオシリーズのビデオにプレイヤーのアクセスを許可するには、 
-予め定義した順序が割り当てられた **Media Source** アセットを示す **Media Playlist** アセットを使って行います。 
+アンリアル エンジン (UE4) でメディア アセットで作業している時に、一連のビデオを特定の順番でプレイしたい、または特定のビデオシリーズのビデオにプレイヤーのアクセスを許可するには、 
+予め定義した順序が割り当てられた **Media Source** アセットを示す **Media Playlist** アセットを使って行います。
 
-この操作ガイドでは、以下の動画のように Media Playlist の作成およびプレイヤーに各アセットを再生、もしくはキーを押してプレイリスト内の特定のアセットにプレイヤーがアクセスできるようにします。
+この操作ガイドでは、Media Playlist の作成およびプレイヤーに各アセットを順番にプレイ、もしくはプレイヤーがキーを押してプレイリスト内の特定のビデオにアクセス可能にします。 
 
-[OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-kjbgHVnQxBI
-[/PARAMLITERAL]
-[/OBJECT]
-
+![](PlaylistHero.png)
 
 ## ステップ
 
 [REGION:note]
 ここでは **Starter Content Enabled (スターター コンテンツを有効にした状態)** で **Blueprint Third Person Template** プロジェクトを使います。
-再生するプレイリストを追加するコンピュータ上に [サポートされているビデオ ファイル](Engine\MediaFramework\TechReference) がいくつか必要です。 
-お持ちのビデオを使用するか、あるいは **右クリック** して [ビデオ サンプル 1](Infiltrator Demo.mp4) および [ビデオ サンプル 2](SampleVideo.mp4) をダウンロードします。
+また、プレイリストではサンプル動画も 3 種類使用します。こちらの [サンプル ビデオ](Videos.rar) リンクをクリックして、コンテンツを端末上に展開してください。 
 [/REGION]
 
-1.	**[コンテンツ ブラウザ]** の **[Sources Panel]** を展開したら、**[Content]** に **「Movies」** という名前のフォルダを新規作成します。 
-
-	![](Playlist_00.png)
-
-1.	**「Movies」** フォルダを **右クリック** して **[Show in Explorer (エクスプローラーで表示)]** を選択して、そのフォルダｎビデオを置きます。 
+1.	**[コンテンツ ブラウザ]** の **Sources Panel** を展開し **「Movies」** という名前で新規フォルダを追加したら右クリックして **[Show in Explorer]** を選択します。 
 
 	![](Playlist_01.png)
 
-	[REGION:note]
-	プロジェクトの **「Content/Movies」** フォルダにビデオファイルを置くと、ビデオが確実に正しくパックされます。 
+	[REGION:warning]
+	ビデオ ファイルをプロジェクトでパッケージ化およびデプロイするために、ビデオは常にプロジェクトの **「Content/Movies」** フォルダに置かれている状態にしておく必要があります。 
 	[/REGION]
 
-1.	**File Media Source** アセットを 2 つ作成し (名前は **Video_01** と **Video_02**) **ファイル パス** をそれぞれのビデオに指定します。 
+1.	サンプル ビデオまたは使用したいメディア ファイルをプロジェクトの **「Content/Moviｄes」** フォルダにドラッグします。 
 
 	![](Playlist_02.png)
 
-1.	**MyPlaylist** という名前の **Media Playlist** アセットをコンテンツ ブラウザ内に作成します。 
+1.	プロジェクトで **「Content/Movies」** フォルダを右クリックして **[Media]** から **[File Media Source]** を選択します。 
 
 	![](Playlist_03.png)
 
-1.	**MyPlaylist** でそれぞれの **File Media Source** を **ダブルクリック** してプレイリストに追加します。 
+1.	**File Media Source** アセットを 3 つ作成します (それぞれに **Video_01**、**Video_02**、**Video_03** と名前を付けます。 
 
 	![](Playlist_04.png)
 
-	あるいは、**+** ボタンでも空のエレメントを追加して、ソース メディアの割り当てが可能です。この例では **File Media Source** アセットを使っていますが、**Stream Media Source** アセットもプレイリストに入れることができます。 
-
-1.	**VideoPlayer** という名前の **Media Player** アセットを作成します。 
+1.	**Video_01** 内で **File Path** は **Gideon_720x480** ファイル (または使用したいビデオ ファイル) を参照して **[Open]** ボタンをクリックします。
 
 	![](Playlist_05.png)
 
-1.	**[Create Media Player(Media Player を作成)]** ウィンドウの **[Audio output SoundWave asset]** と **[Video output Media Texture asset]** にチェックを入れます。 
+1.	前のステップを繰り返して **Video_02** アセットと **Video_03** アセットにもビデオを割り当てます。 
 
-	![](Playlist_06.png)
+1.	**Media Texture** と紐づけて **MediaPlayer** という **MediaPlayer** を作成し、**MediaPlayer** アセットを開きます。 
 
-	再生する必要のあるこの Media Player アセットにリンクしている Media Sound Wave と Media Texture アセットを自動的に作成します。 
+	![](Playlist_08.png)
 
-	![](Playlist_07.png)
-
-1.	**[コンテンツ ブラウザ]** の **[StarterContent/Shapes]** で、**Shape_Plane** をレベルにドラッグします。  
+	**Media Library** ウィンドウ内のビデオをダブルクリックして、選択ファイルをプレイします。 
 
 	![](Playlist_09.png)
 
-1.	**Translate (W)**、**Rotation (E)**、**Scale (R)** ツールを使って、スタティックメッシュのサイズと位置を自由に調節します。 
+	さらに、**[Details]** パネルのオプションを有効にすることで、プレイリストのビデオの再生順序を **Shuffle** するようにプレイヤーを設定することも可能です。 
+	**[Loop]** オプションはプレイリスト全体の再生 (Media Playlist にソースが 1 つしかない場合はひとつのソースだけ) をループします。 
+	また、Media Player は **[Play on Open]** する設定になっています。つまり、この Media Player に紐づいているこの Media Source を開くと、自動的にプレイが開始します。 
 
-1.	**[Ctrl]** を押しながら、**Sound Wave** アセットと **Media Texture** アセットを両方選択して、レベル内の **スタティックメッシュ** 上にリリースします。 
+	[REGION:note]
+	**[Playlist]** ウィンドウで新規のプレイリスト アセットを保存することも可能ですが、4.18 の段階ではメディア エディタ内でプレイリストにアイテムを追加する方法はありません。 
+	[/REGION]
+
+1.	**[コンテンツ ブラウザ]** の **「Content/Movies」** フォルダを右クリックして、**[Media]** で **[Media Playlist]** を選択し **[MyPlaylist]** と名前を付けます。 
 
 	![](Playlist_10.png)
 
-	すると **マテリアル** が自動作成され、スタティックメッシュに適用されます。 
-
-1.	メイン ツールバー で **[Blueprint]** ボタンをクリックして、**[Open Level Blueprint]** を選択します。 
+1.	**MyPlaylist** アセットを開き、**[Media Library]** ウィンドウでビデオをダブルクリックし、それぞれをプレイリストに追加します。
 
 	![](Playlist_11.png)
 
-1.	**「Media Player」** という名前の **Media Player Reference** タイプの **変数** を追加し、**VideoPlayer** Media Player アセットに設定します。
+	**[+]** ボタンで新規アイテムをプレイリストおよびドロップダウンに追加し、ドロップダウン メニューで追加する Media Source の種類を選択することができます。 
+	**[Playlist]** ウィンドウで、プレイリストへのアイテムの挿入、複製、削除を行うことができます。また、左クリックしながら行をドラッグすると再生順序の変更が可能になります。 
+	[Media Playlist] ウィンドウの上部には、プレイリスト全体をループするための **[Loop]** オプションがあります。 
+
+1.	メイン エディタ ウィンドウの **[Modes]** パネルの **[Basic]** から **[Plane]** をレベルにドラッグし、**Transform ツール** でサイズを変更します。 
 
 	![](Playlist_12.png)
 
-	[REGION:note]
-	**Default Value** を代入する前に **コンパイル** する必要があります。 
-	[/REGION]
+	[Transform ツール](GettingStarted/HowTo/ManipulatingActors/) を使って、このスタティックメッシュ上でビデオがプレイされるように、プレーンを自由に移動 (**W key**)、回転 (**E key**)、スケール (**R key**) することができます。 
 
-1.	**イベントグラフ** 内を **ダブルクリック** して **1 Keyboard Event**、**2 Keyboard Event**、**3 Keyboard Event** を追加します。  
+1.	**コンテンツ ブラウザ** から、**MediaPlayer_Video** Media Texture アセットをレベルの中の Plane 上にドラッグして新規マテリアルを作成および適用します。 
 
 	![](Playlist_13.png)
 
-1.	**Ctrl** を押したまま **Media Player** 変数にドラッグしたら引き出して、**Open Playlist Index** を使い、**InPlaylist** を **[MyPlaylist]** に設定します。 
+	**Media Texture** アセットをレベルのスタティックメッシュ上にドラッグすると、**マテリアル** が自動的に作成およびメッシュに適用されて、ビデオのプレイが可能になります。  
+
+1.	レベルでその **Plane** を選択した状態で **[Details]** パネルの **[Add Component]** ボタンをクリックして **Media Sound** コンポーネントを探して追加します。 
 
 	![](Playlist_14.png)
 
-1.	**Index** が **1** に設定された **2 Keyboard Event** に **Open Playlist** を使い、**3 Keyboard Event** には **Open Playlist** を使います。 
+	**Media Sound** コンポーネントを使って、オーディオを Media Player と紐づけることができます。ビデオでオーディオも一緒にをプレイする方法を提供します。 
+
+1.	**Media Sound** コンポーネントを選択し、**[Media]** セクションで **Media Player** アセットを割り当てます。 
 
 	![](Playlist_15.png)
 
-1.	**Level ブループリント**を閉じて、**[Play]** ボタンをクリックしてレベルで再生します。 
+1.	メイン ツールバー で **[ブループリント]** ボタンをクリックして、 **Open Level ブループリント** を選択します。 
+
+	![](Playlist_16.png)
+
+	メディア エディタでビデオをプレイしながら、ゲームプレイ中にプレイするために、プレイリストを開いてプレイを開始できるようにする必要があります。 
+
+1.	**MyBlueprint** ウィンドウで、**Media Player Reference** 型の **MediaPlayer** という Variable を作成し、**[Default Value]** を **Media Player** アセットに設定します。  
+
+	![](Playlist_17.png)
+
+	[REGION:note]
+	**Default Value** を設定するために、ブループリントを **コンパイル** する必要があります。 
+	[/REGION]
+
+1.	グラフの中で **1** キーボード イベントを追加して **Ctrl** を押しながら **MediaPlayer** 変数をグラフへドラッグします。 
+
+	![](Playlist_18.png)
+
+1.	 **MediaPlayer** 変数を引き出して **Open Playlist Index** (**In Playlist** を **MyPlaylist** に設定) を使って **1** keyboard event の **Pressed** に接続します。
+
+	![](Playlist_19.png)
+
+	プレイヤーが **1** キーボード イベントを押すと、プレイリストの最初のビデオでプレイリストが開いてプレイが始まります。 
+	インデックスは、Media Playlist アセット (下図) 内で指定したプレイリストのインデックス順序を参照し、プレイリストの最初のビデオが 0 となるゼロベースとなります。 
+	**Open Playlist Index** ノードを使って、インデックス値を入力すれば、プレイリストを使って開くファイルを指定することができます。 
+
+	![](Playlist_19b.png)
+
+1.	右クリックして **2** および **3** キーボード イベントを右クリックして **Index 1** と **Index 2** の **Open Playlist Index** にそれぞれを追加します。 
+
+	![](Playlist_20.png)
+
+	この設定により、1 を押すとプレイリストの最初のファイルが開き、2 を押すと 2 番目、3 は 3 番目のファイルが開きます。 
+
+1.	右クリックして追加して **Previous** および **Next** ノードを呼び出すために **Left** および **Right** キーボード イベント、**0** を **Open Playlist** に追加します。 
+
+	![](Playlist_21.png)
+
+	**Previous** および **Next** ノードはそれぞれプレイリストの中で前のビデオおよび次のビデオへジャンプします。一方 **Open Playlist** ノードはプレイリストがインデックス 0 で開いた時 (あるいはプレイリストの開始時) に同じ機能を実行します。 
+	これらのノードを使うと、**Left** および **Right** 矢印キーボード キーでプレイリストを循環し、**0** キーでプレイリストを最初から開くことができます。 
+
+1.	**Level ブループリント** を終了して、**[Play]** ボタンをクリックしてエディタで再生します。 	
 
 
 ## 最終結果
 
+エディタで再生する場合、**1**、**2**、**3**、**0** キーを押すと、指定したインデックスで再生を開始します (適用する場合)。 
+
 [OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-kjbgHVnQxBI
-[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	3Y3fuqXPfpU
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	100
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
 [/OBJECT]
 
+ビデオが終了すると、プレイリストの次のビデオへ自動的にジャンプします。**Loop** を有効にすると、プレイリストの最後のビデオのプレイが終った時にプレイリストの最初に戻ります。 
+ビデオのプレイ中、**Left** あるいは **Right** 矢印キーを押してプレイリストの前または次のビデオにジャンプします。または **1**、**2**、**3** キーを押すとプレイリストのビデオへ直接ジャンプします。 
 
-エディタでプレイする場合、ビデオ再生はレベルがロードされてもすぐには始まりません。プレイヤーが **1** キーを押すと、プレイリストで最初のビデオのプレイが始まります。 
-**2** キーを押すと、プレイリストで 2 つ目のビデオの再生に飛びます。**3** を押すと、プレイリストの最初からビデオを開いてプレイします。それは index 0 のプレイリストを開くことと同じです。 
-
-**Media Player** アセットは **Play on Open** に設定されているので、open playlist 関数が呼び出されると各ビデオのプレイが始まる仕組みになっています。 
-再生が急に始まらないように Media Source を開くには、Media Player アセット内の [Play on Open] オプションのチェックを外して、**Play** 関数を使って open Media Source アセットをプレイします。 
-
-**Next** 関数 (プレイリストの次のアイテムを選択) および **Previous** 関数 (プレイリストの前のアイテムを選択) を使って、開いているプレイリストを移動することができます。 
-Media Player には有効にすると、次のソースが開かれる際にプレイリストからランダムにアイテムを選択する **Shuffle** というプロパティもあります。(Previous と Next のアイテムにも影響します)。 
 

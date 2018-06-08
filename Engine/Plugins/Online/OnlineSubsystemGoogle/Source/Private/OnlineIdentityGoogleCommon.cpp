@@ -58,40 +58,47 @@ bool FJsonWebTokenGoogle::Parse(const FString& InJWTStr)
 							{
 								// Verify that the value of aud in the ID token is equal to your app's client ID.
 								FOnlineSubsystemGoogle* GoogleSubsystem = static_cast<FOnlineSubsystemGoogle*>(IOnlineSubsystem::Get(GOOGLE_SUBSYSTEM));
-								if (Payload.Aud == GoogleSubsystem->GetAppId() ||
-									Payload.Aud == GoogleSubsystem->GetServerClientId())
+								if (ensure(GoogleSubsystem))
 								{
-									//https://www.codescience.com/blog/2016/oauth2-server-to-server-authentication-from-salesforce-to-google-apis
-									// exp	Required	The expiration time of the assertion, specified as seconds since 00:00:00 UTC, January 1, 1970. This value has a maximum of 1 hour after the issued time.
-									// iat	Required	The time the assertion was issued, specified as seconds since 00:00:00 UTC, January 1, 1970.
-
-									//Verify that the expiry time(exp) of the ID token has not passed.
-									FDateTime ExpiryTime = FDateTime::FromUnixTimestamp(Payload.EXP);
-									FDateTime IssueTime = FDateTime::FromUnixTimestamp(Payload.IAT);
-									if ((ExpiryTime - IssueTime) <= FTimespan(ETimespan::TicksPerHour) && ExpiryTime > FDateTime::UtcNow())
+									if (Payload.Aud == GoogleSubsystem->GetAppId() ||
+										Payload.Aud == GoogleSubsystem->GetServerClientId())
 									{
-										bSuccess = true;
-#if 0
-										TArray<uint8> Signature;
-										if (FBase64::Decode(Tokens[2], Signature))
+										//https://www.codescience.com/blog/2016/oauth2-server-to-server-authentication-from-salesforce-to-google-apis
+										// exp	Required	The expiration time of the assertion, specified as seconds since 00:00:00 UTC, January 1, 1970. This value has a maximum of 1 hour after the issued time.
+										// iat	Required	The time the assertion was issued, specified as seconds since 00:00:00 UTC, January 1, 1970.
+
+										//Verify that the expiry time(exp) of the ID token has not passed.
+										FDateTime ExpiryTime = FDateTime::FromUnixTimestamp(Payload.EXP);
+										FDateTime IssueTime = FDateTime::FromUnixTimestamp(Payload.IAT);
+										if ((ExpiryTime - IssueTime) <= FTimespan(ETimespan::TicksPerHour) && ExpiryTime > FDateTime::UtcNow())
 										{
 											bSuccess = true;
-										}
+#if 0
+											TArray<uint8> Signature;
+											if (FBase64::Decode(Tokens[2], Signature))
+											{
+												bSuccess = true;
+											}
 #endif
+										}
+										else
+										{
+											UE_LOG(LogOnline, Warning, TEXT("Google auth: Expiry Time inconsistency"));
+											UE_LOG(LogOnline, Warning, TEXT("	Expiry: %s"), *ExpiryTime.ToString());
+											UE_LOG(LogOnline, Warning, TEXT("	Issue: %s"), *IssueTime.ToString());
+										}
 									}
 									else
 									{
-										UE_LOG(LogOnline, Warning, TEXT("Google auth: Expiry Time inconsistency"));
-										UE_LOG(LogOnline, Warning, TEXT("	Expiry: %s"), *ExpiryTime.ToString());
-										UE_LOG(LogOnline, Warning, TEXT("	Issue: %s"), *IssueTime.ToString());
+										UE_LOG(LogOnline, Warning, TEXT("Google auth: Audience inconsistency"));
+										UE_LOG(LogOnline, Warning, TEXT("	Payload: %s"), *Payload.Aud);
+										UE_LOG(LogOnline, Warning, TEXT("	ClientId: %s"), *GoogleSubsystem->GetAppId());
+										UE_LOG(LogOnline, Warning, TEXT("	ServerClientId: %s"), *GoogleSubsystem->GetServerClientId());
 									}
 								}
 								else
 								{
-									UE_LOG(LogOnline, Warning, TEXT("Google auth: Audience inconsistency"));
-									UE_LOG(LogOnline, Warning, TEXT("	Payload: %s"), *Payload.Aud); 
-									UE_LOG(LogOnline, Warning, TEXT("	ClientId: %s"), *GoogleSubsystem->GetAppId());
-									UE_LOG(LogOnline, Warning, TEXT("	ServerClientId: %s"), *GoogleSubsystem->GetServerClientId());
+									UE_LOG(LogOnline, Warning, TEXT("Google auth: missing OSS"));
 								}
 							}
 							else
@@ -226,7 +233,7 @@ FOnlineIdentityGoogleCommon::FOnlineIdentityGoogleCommon(FOnlineSubsystemGoogle*
 
 const FUniqueNetId& FOnlineIdentityGoogleCommon::GetEmptyUniqueId()
 {
-	static TSharedRef<const FUniqueNetIdString> EmptyUniqueId = MakeShared<const FUniqueNetIdString>(FString());
+	static TSharedRef<const FUniqueNetIdGoogle> EmptyUniqueId = MakeShared<const FUniqueNetIdGoogle>(FString());
 	return *EmptyUniqueId;
 }
 
@@ -420,14 +427,14 @@ TSharedPtr<const FUniqueNetId> FOnlineIdentityGoogleCommon::CreateUniquePlayerId
 	if (Bytes != nullptr && Size > 0)
 	{
 		FString StrId(Size, (TCHAR*)Bytes);
-		return MakeShareable(new FUniqueNetIdString(StrId));
+		return MakeShareable(new FUniqueNetIdGoogle(StrId));
 	}
 	return nullptr;
 }
 
 TSharedPtr<const FUniqueNetId> FOnlineIdentityGoogleCommon::CreateUniquePlayerId(const FString& Str)
 {
-	return MakeShareable(new FUniqueNetIdString(Str));
+	return MakeShareable(new FUniqueNetIdGoogle(Str));
 }
 
 bool FOnlineIdentityGoogleCommon::AutoLogin(int32 LocalUserNum)

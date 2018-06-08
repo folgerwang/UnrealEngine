@@ -20,6 +20,47 @@ struct EditorExposedVectorCurveConstant
 	class UCurveVector *Value;
 };
 
+/** External reference to the compile request data generated.*/
+class FNiagaraCompileRequestDataBase
+{
+public:
+	virtual ~FNiagaraCompileRequestDataBase() {}
+	virtual bool GatherPreCompiledVariables(const FString& InNamespaceFilter, TArray<FNiagaraVariable>& OutVars) = 0;
+	virtual void GetReferencedObjects(TArray<UObject*>& Objects) = 0;
+	virtual const TMap<FName, UNiagaraDataInterface*>& GetObjectNameMap() = 0;
+	virtual int32 GetDependentRequestCount() const = 0;
+	virtual TSharedPtr<FNiagaraCompileRequestDataBase, ESPMode::ThreadSafe> GetDependentRequest(int32 Index) = 0;
+	virtual FName ResolveEmitterAlias(FName VariableName) const = 0;
+};
+
+class FNiagaraCompileOptions
+{
+public:
+	FNiagaraCompileOptions() : TargetUsage(ENiagaraScriptUsage::Function), TargetUsageBitmask(0)
+	{
+	}
+
+	FNiagaraCompileOptions(ENiagaraScriptUsage InTargetUsage, FGuid InTargetUsageId, int32 InTargetUsageBitmask,  const FString& InPathName, const FString& InFullName, const FString& InName)
+		: TargetUsage(InTargetUsage), TargetUsageId(InTargetUsageId), PathName(InPathName), FullName(InFullName), Name(InName), TargetUsageBitmask(InTargetUsageBitmask)
+	{
+	}
+
+	const FString& GetFullName() const { return FullName; }
+	const FString& GetName() const { return Name; }
+	const FString& GetPathName() const { return PathName; }
+	int32 GetTargetUsageBitmask() const { return TargetUsageBitmask; }
+
+	ENiagaraScriptUsage TargetUsage;
+	FGuid TargetUsageId;
+	FString PathName;
+	FString FullName;
+	FString Name;
+	int32 TargetUsageBitmask;
+	TArray<FString> AdditionalDefines;
+};
+
+struct FNiagaraParameterStore;
+
 /** Runtime data for a Niagara system */
 UCLASS(MinimalAPI)
 class UNiagaraScriptSourceBase : public UObject
@@ -42,36 +83,30 @@ class UNiagaraScriptSourceBase : public UObject
 	virtual void SubsumeExternalDependencies(TMap<const UObject*, UObject*>& ExistingConversions) {}
 
 	/** Enforce that the source graph is now out of sync with the script.*/
-	virtual void MarkNotSynchronized() {}
+	virtual void MarkNotSynchronized(FString Reason) {}
 
 	virtual FGuid GetChangeID() { return FGuid(); };
 
-	/** Have we called PreCompile on this source previously?*/
-	virtual bool IsPreCompiled() const { return false; }
+	virtual void ComputeVMCompilationId(struct FNiagaraVMExecutableDataId& Id, ENiagaraScriptUsage InUsage, const FGuid& InUsageId) const {};
 	
 	/** Cause the source to build up any internal variables that will be useful in the compilation process.*/
-	virtual void PreCompile(UNiagaraEmitter* Emitter, bool bClearErrors = true) {}
+	virtual TSharedPtr<FNiagaraCompileRequestDataBase, ESPMode::ThreadSafe> PreCompile(UNiagaraEmitter* Emitter, const TArray<FNiagaraVariable>& EncounterableVariables, TArray<TSharedPtr<FNiagaraCompileRequestDataBase, ESPMode::ThreadSafe>>& ReferencedCompileRequests, bool bClearErrors = true) { return nullptr; }
 	
-	/** If the user previously pre-compiled the source, dig through the data to find any variables defined. */
-	virtual bool GatherPreCompiledVariables(const FString& InNamespaceFilter, TArray<FNiagaraVariable>& OutVars) { return false; }
-
-	/** Implements compilation of a Niagara script.*/
-	virtual ENiagaraScriptCompileStatus Compile(UNiagaraScript* ScriptOwner, FString& OutGraphLevelErrorMessages) { return ENiagaraScriptCompileStatus::NCS_Unknown; }
-
-	/** Do any cleanup to return this data source to its original state before precompilation. Note that this must be called after the "compile" operation.*/
-	virtual void PostCompile() {}
-
 	/** 
 	 * Allows the derived editor only script source to handle a post load requested by an owning emitter. 
 	 * @param OwningEmitter The emitter requesting the post load.
-	 * @returns True if the emitter will need to be recompiled, otherwise false.
 	 */
-	virtual bool PostLoadFromEmitter(UNiagaraEmitter& OwningEmitter) { return false; }
+	virtual void PostLoadFromEmitter(UNiagaraEmitter& OwningEmitter) { }
 
 	/** Adds a module if it isn't already in the graph. If the module isn't found bOutFoundModule will be false. If it is found and it did need to be added, the function returns true. If it already exists, it returns false. */
 	NIAGARA_API virtual bool AddModuleIfMissing(FString ModulePath, ENiagaraScriptUsage Usage, bool& bOutFoundModule) { bOutFoundModule = false; return false; }
+
 #if WITH_EDITOR
+	virtual void CleanUpOldAndInitializeNewRapidIterationParameters(FString UniqueEmitterName, ENiagaraScriptUsage ScriptUsage, FGuid ScriptUsageId, FNiagaraParameterStore& RapidIterationParameters) const { checkf(false, TEXT("Not implemented")); }
+
 	FOnChanged& OnChanged() { return OnChangedDelegate; }
+
+	virtual void InvalidateCachedCompileIds() {}
 
 protected:
 	FOnChanged OnChangedDelegate;

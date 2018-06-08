@@ -43,7 +43,7 @@ public:
 	bool bEnableFavoriteSystem;
 
 
-	/** Device output log window (currently implemented for Android only)*/
+	/** Device output log window (currently implemented for Android & Switch only)*/
 	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Device Output Log"))
 	bool bDeviceOutputLog;
 
@@ -62,10 +62,6 @@ public:
 	/** Enables "Find and Replace All" tool in the MyBlueprint window for variables */
 	UPROPERTY(EditAnywhere, config, Category = Blueprints, meta = (DisplayName = "Find and Replace All References Tool"))
 	bool bEnableFindAndReplaceReferences;
-
-	/** Bookmarks facilitate quick-jump navigation to saved locations in any Blueprint Graph context in the Blueprint Editor. */
-	UPROPERTY(EditAnywhere, config, Category = Blueprints)
-	bool bEnableBlueprintGraphBookmarks;
 
 	/** Should arrows indicating data/execution flow be drawn halfway along wires? */
 	UPROPERTY(/*EditAnywhere - deprecated (moved into UBlueprintEditorSettings), */config/*, Category=Blueprints, meta=(DisplayName="Draw midpoint arrows in Blueprints")*/)
@@ -128,13 +124,6 @@ public:
 	/** Enables in-editor support for text asset formats */
 	UPROPERTY(EditAnywhere, config, Category = Core)
 	bool bTextAssetFormatSupport;
-
-	/** Enable material layering assets and workflow - Requires project setting 'Support new material layering' to be enabled */
-	UPROPERTY(EditAnywhere, config, Category = Materials, meta = (DisplayName = "Enable material layering assets and workflow"))
-	bool bMaterialLayeringEnabled;
-
-	UPROPERTY(EditAnywhere, config, Category = HLOD, meta = (DisplayName = "Use new HLOD packages naming convention"))
-	bool bUseNewHLODPackageNamingConvention;
 
 	/** When creating new Material Layers and Material Layer Blends, set up example graphs. */
 	UPROPERTY(EditAnywhere, config, Category = Materials)

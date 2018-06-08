@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AppleARKitLiveLinkSource.h"
 #include "UObject/Package.h"
@@ -108,6 +108,9 @@ static FName ParseEnumName(FName EnumName)
 	return FName(*EnumString.Right(EnumString.Len() - BlendShapeEnumNameLength));
 }
 
+// Temporary for 4.20
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+
 void FAppleARKitLiveLinkSource::PublishBlendShapes(FName SubjectName, double Timestamp, uint32 FrameNumber, const FARBlendShapeMap& FaceBlendShapes)
 {
 	check(Client != nullptr);
@@ -153,10 +156,48 @@ void FAppleARKitLiveLinkSource::PublishBlendShapes(FName SubjectName, double Tim
 	}
 }
 
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
+bool FAppleARKitLiveLinkSource::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+{
+	if (FParse::Command(&Cmd, TEXT("LiveLinkFaceAR")))
+	{
+		FString RemoteIp;
+		if (FParse::Value(Cmd, TEXT("SendTo="), RemoteIp))
+		{
+			// We need to recreate the LiveLink remote publisher
+			RemoteLiveLinkPublisher = nullptr;
+#if PLATFORM_IOS
+			// Only send from iOS to desktop
+			// This will perform the sending of the data to the remote
+			FAppleARKitLiveLinkRemotePublisher* Publisher = new FAppleARKitLiveLinkRemotePublisher(RemoteIp);
+			if (Publisher->InitSendSocket())
+			{
+				RemoteLiveLinkPublisher = MakeShareable(Publisher);
+			}
+			else
+			{
+				UE_LOG(LogAppleARKit, Warning, TEXT("Failed to create LiveLink remote publisher, so no data will be sent out"));
+				delete Publisher;
+			}
+#endif
+			return true;
+		}
+	}
+	return false;
+}
+
 const uint8 BLEND_SHAPE_PACKET_VER = 1;
 
 const uint32 MAX_BLEND_SHAPE_PACKET_SIZE = sizeof(BLEND_SHAPE_PACKET_VER) + sizeof(double) + sizeof(uint32) + sizeof(uint8) + (sizeof(float) * (uint64)EARFaceBlendShape::MAX) + (sizeof(TCHAR) * 256);
 const uint32 MIN_BLEND_SHAPE_PACKET_SIZE = sizeof(BLEND_SHAPE_PACKET_VER) + sizeof(double) + sizeof(uint32) + sizeof(uint8) + (sizeof(float) * (uint64)EARFaceBlendShape::MAX) + sizeof(TCHAR);
+
+FAppleARKitLiveLinkRemotePublisher::FAppleARKitLiveLinkRemotePublisher(const FString& InRemoteIp) :
+	RemoteIp(InRemoteIp),
+	SendSocket(nullptr),
+	SendBuffer(MAX_BLEND_SHAPE_PACKET_SIZE)
+{
+}
 
 FAppleARKitLiveLinkRemotePublisher::FAppleARKitLiveLinkRemotePublisher() :
 	SendSocket(nullptr),
@@ -191,18 +232,20 @@ bool FAppleARKitLiveLinkRemotePublisher::InitSendSocket()
 TSharedRef<FInternetAddr> FAppleARKitLiveLinkRemotePublisher::GetSendAddress()
 {
 	ISocketSubsystem* SocketSub = ISocketSubsystem::Get();
-	static TSharedRef<FInternetAddr> SendAddr = SocketSub->CreateInternetAddr();
-	if (!SendAddr->IsValid())
+	TSharedRef<FInternetAddr> SendAddr = SocketSub->CreateInternetAddr();
+	// If we didn't get one passed into the constructor then check the commandline for the IP
+	if (!RemoteIp.Len())
 	{
-		FString RemoteIp;
-		if (FParse::Value(FCommandLine::Get(), TEXT("LiveLinkRemoteIp="), RemoteIp))
-		{
-			int32 LiveLinkPort = GetDefault<UAppleARKitSettings>()->LiveLinkPublishingPort;
-			SendAddr->SetPort(LiveLinkPort);
-			bool bIsValid = false;
-			SendAddr->SetIp(*RemoteIp, bIsValid);
-			UE_LOG(LogAppleARKit, Log, TEXT("Sending LiveLink face AR data to address (%s)"), *SendAddr->ToString(true));
-		}
+		FParse::Value(FCommandLine::Get(), TEXT("LiveLinkRemoteIp="), RemoteIp);
+	}
+	// Don't bother trying to parse the IP if it isn't set
+	if (RemoteIp.Len())
+	{
+		int32 LiveLinkPort = GetDefault<UAppleARKitSettings>()->LiveLinkPublishingPort;
+		SendAddr->SetPort(LiveLinkPort);
+		bool bIsValid = false;
+		SendAddr->SetIp(*RemoteIp, bIsValid);
+		UE_LOG(LogAppleARKit, Log, TEXT("Sending LiveLink face AR data to address (%s)"), *SendAddr->ToString(true));
 	}
 	return SendAddr;
 }

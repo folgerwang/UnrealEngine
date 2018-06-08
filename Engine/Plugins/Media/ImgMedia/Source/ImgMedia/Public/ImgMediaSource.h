@@ -5,7 +5,7 @@
 #include "CoreTypes.h"
 #include "Engine/EngineTypes.h"
 #include "Containers/UnrealString.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/ScriptMacros.h"
 #include "BaseMediaSource.h"

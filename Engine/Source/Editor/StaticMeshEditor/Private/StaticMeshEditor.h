@@ -113,6 +113,9 @@ public:
 	virtual int32 GetCurrentLODLevel() override;
 	virtual int32 GetCurrentLODIndex() override;
 
+	virtual int32 GetCustomData(const int32 Key) const override;
+	virtual void SetCustomData(const int32 Key, const int32 CustomData) override;
+
 	virtual void RefreshTool() override;
 	virtual void RefreshViewport() override;
 	virtual void DoDecomp(uint32 InHullCount, int32 InMaxHullVerts, uint32 InHullPrecision) override;
@@ -210,6 +213,12 @@ private:
 
 	/** A general callback for the combo boxes in the Static Mesh Editor to force a viewport refresh when a selection changes. */
 	void ComboBoxSelectionChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
+	/* Callback to reimport the base mesh*/
+	void HandleReimportMesh();
+	
+	/* Callback to reimport the base mesh and also all custom LODs*/
+	void HandleReimportAllMesh();
 
 	/**
 	 *	Sets the editor's current mesh and refreshes various settings to correspond with the new data.
@@ -389,4 +398,7 @@ private:
 	static const FName SocketManagerTabId;
 	static const FName CollisionTabId;
 	static const FName PreviewSceneSettingsTabId;
+
+	/** Allow custom data for this editor */
+	TMap<int32, int32> CustomEditorData;
 };

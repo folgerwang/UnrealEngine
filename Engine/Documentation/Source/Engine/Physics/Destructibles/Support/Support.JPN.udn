@@ -1,28 +1,8 @@
-﻿INTSourceChangelist:2277820
+﻿INTSourceChangelist:3782314
 Availability:Docs
 Title:サポート
 Crumbs: %ROOT%, Engine
-Description: World Support、Support Layer、Forming Extended Structures
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/Destructibles/Support:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/Destructibles/Support:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/Destructibles/Support:description%
-	[/PARAM]
-	[PARAMLITERAL:path]
-		Engine/Physics/Destructibles/Support
-	[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
+Description:World Support、Support Layer、Forming Extended Structures
 
 [REGION:banner]
 ![Physics](Engine/Physics/physics_landing_banner.png)
@@ -32,7 +12,7 @@ Description: World Support、Support Layer、Forming Extended Structures
 
 ## 概要
 
-リアル エンジン 4 の **Destructible (被破壊) アクタ** は、何らかのサポートが定義されていない限り、最小の破壊量で完全に砕け散ります。サポートにより **Destructibles アクタ** はより本物のオブジェクトらしく振る舞います。
+アンリアル エンジン 4 の **Destructible (被破壊) アクタ** は、何らかのサポートが定義されていない限り、最小の破壊量で完全に砕け散ります。サポートにより **Destructibles アクタ** はより本物のオブジェクトらしく振る舞います。
 
 ![](DS_supportSettings.png)
 
@@ -46,17 +26,17 @@ _これらはサポートを検討するためのプライマリ設定です。_
 
 ![](DS_shatter.png)(w:500)
 
-ところがサポートレイヤーを 0 以外のレイヤに設定すると、こうなります。
+ところがサポートレイヤーを 0 以外のレイヤーに設定すると、こうなります。
 
 ![](DS_support.png)(w:500)
 
-APEX PhysX Lab でインポートされたオブジェクトの場合、3 つ以上の深度レイヤを持つことが可能なので、それよりも「上」のものは全てまとまってつながり、「下」のものはバラバラになるようなサポートとしてミッド レイヤを設定することができます。
+APEX PhysX Lab でインポートされたオブジェクトの場合、3 つ以上の深度レイヤーを持つことが可能なので、それよりも「上」のものは全てまとまってつながり、「下」のものはバラバラになるようなサポートとしてミッド レイヤーを設定することができます。
 
 [COMMENT:none]
 
 ## サポート チャンク (支持材)
 
-理論的には、**サポート レイヤー** 機能と基本的に同じ動きですが、レベル全体のサポートではなくてレイヤーサポート上で個別にチャンクを作ることができます。サポートを何ビットと定義するか決める _必要_ ありません。むしろ、定義などしない方が興味深い結果となります。別の見方をすれば、サポート チャンクはつながっていて、それらをバラバラにするには更にダメージを追加する必要があるということです。
+理論的には、**サポート レイヤー** 機能と基本的に同じ動きですが、レベル全体のサポートではなくてレイヤーサポート上で個別にチャンクを作ることができます。サポートを何ビットと定義するか決める _必要_ はありません。むしろ、定義などしない方が興味深い結果となります。別の見方をすれば、サポート チャンクはつながっていて、それらをバラバラにするには更にダメージを追加する必要があるということです。
 
 [/COMMENT]
 
@@ -74,7 +54,7 @@ APEX PhysX Lab でインポートされたオブジェクトの場合、3 つ以
 
 APEX PhysX Lab からインポートされたオブジェクトには大量のチェーンをアタッチできますが、結合は配置された順番で行われます。
 
-この画像では、全てのパネルにダメージとフォースを適用しながら、ラジアルフォース (真ん中の小さなアイコン) が 2 秒ごとにチックします。
+この画像では、全てのパネルにダメージと力を適用しながら、radial force (真ん中の小さなアイコン) が 2 秒ごとにティックします。
 
 ![](DS_ApexOrderSetup.png)(convert:false)
 

@@ -39,5 +39,7 @@ struct CORE_API FAndroidPlatformProcess : public FGenericPlatformProcess
 	static FString GetGameBundleId();
 };
 
+#if !PLATFORM_LUMIN
 typedef FAndroidPlatformProcess FPlatformProcess;
+#endif
 

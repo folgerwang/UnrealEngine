@@ -48,7 +48,7 @@ struct FClothAssetSubmeshIndex
 struct FClothingComboInfo
 {
 	/* Per-material clothing combo boxes, array size must be same to # of sections */
-	TArray<TSharedPtr< STextComboBox >>		ClothingComboBoxes;
+	TArray<TSharedPtr< class STextComboBox >>		ClothingComboBoxes;
 	/* Clothing combo box strings */
 	TArray<TSharedPtr<FString> >			ClothingComboStrings;
 	/* Mapping from a combo box string to the asset and submesh it was generated from */
@@ -151,6 +151,13 @@ private:
 	EVisibility ShowEnabledSectionDetail(int32 LodIndex, int32 SectionIndex) const;
 	EVisibility ShowDisabledSectionDetail(int32 LodIndex, int32 SectionIndex) const;
 	void OnSectionEnabledChanged(int32 LodIndex, int32 SectionIndex, bool bEnable);
+
+	TOptional<int8> GetSectionGenerateUpToValue(int32 LodIndex, int32 SectionIndex) const;
+	void SetSectionGenerateUpToValue(int8 Value, int32 LodIndex, int32 SectionIndex);
+	void SetSectionGenerateUpToValueCommitted(int8 Value, ETextCommit::Type CommitInfo, int32 LodIndex, int32 SectionIndex);
+	EVisibility ShowSectionGenerateUpToSlider(int32 LodIndex, int32 SectionIndex) const;
+	ECheckBoxState IsGenerateUpToSectionEnabled(int32 LodIndex, int32 SectionIndex) const;
+	void OnSectionGenerateUpToChanged(ECheckBoxState NewState, int32 LodIndex, int32 SectionIndex);
 
 	TSharedRef<SWidget> OnGenerateLodComboBoxForLodPicker();
 	EVisibility LodComboBoxVisibilityForLodPicker() const;
@@ -449,6 +456,12 @@ private:
 
 	bool CustomLODEditMode;
 	TArray<bool> DetailDisplayLODs;
+
+	/*
+	 * Helper to keep the old GenerateUpTo slider value to register transaction correctly.
+	 * The key is the union of LOD index and section index.
+	 */
+	TMap<int64, int8> OldGenerateUpToSliderValues;
 
 private:
 

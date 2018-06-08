@@ -14,18 +14,20 @@
 class SLATE_API FSlateMacMenu
 {
 public:
-
+	static void PostInitStartup();
 	static void CleanupOnShutdown();
 	static void UpdateWithMultiBox(const TSharedPtr<FMultiBox> MultiBox);
 	static void UpdateMenu(FMacMenu* Menu);
 	static void UpdateCachedState();
 	static void ExecuteMenuItemAction(const TSharedRef<const FMenuEntryBlock>& Block);
+	static void UpdateApplicationMenu(bool bMacApplicationModalMode);
+	static void UpdateWindowMenu(bool bMacApplicationModalMode);
+	static void LanguageChanged();
 
 private:
 
 	static NSString* GetMenuItemTitle(const TSharedRef< const FMenuEntryBlock >& Block);
 	static NSImage* GetMenuItemIcon(const TSharedRef<const FMenuEntryBlock>& Block);
-	static NSString* GetMenuItemKeyEquivalent(const TSharedRef<const FMenuEntryBlock>& Block, uint32* OutModifiers);
 	static bool IsMenuItemEnabled(const TSharedRef<const FMenuEntryBlock>& Block);
 	static int32 GetMenuItemState(const TSharedRef<const FMenuEntryBlock>& Block);
 };

@@ -108,9 +108,8 @@ USoundWave::USoundWave(const FObjectInitializer& ObjectInitializer)
 	CompressionQuality = 40;
 	SubtitlePriority = DEFAULT_SUBTITLE_PRIORITY;
 	ResourceState = ESoundWaveResourceState::NeedsFree;
+	SetPrecacheState(ESoundWavePrecacheState::NotStarted);
 
-	// Default this to true since most sound wave types don't need precaching
-	bIsPrecacheDone = true;
 #if !WITH_EDITOR
 	bCachedSampleRateFromPlatformSettings = false;
 	bSampleRateManuallyReset = false;
@@ -546,7 +545,7 @@ void USoundWave::PostLoad()
 	if (!GIsEditor && !IsTemplate( RF_ClassDefaultObject ) && GEngine)
 	{
 		FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
-		if (AudioDevice && AudioDevice->AreStartupSoundsPreCached())
+		if (AudioDevice)
 		{
 			// Upload the data to the hardware, but only if we've precached startup sounds already
 			AudioDevice->Precache(this);
@@ -725,6 +724,36 @@ void USoundWave::FreeResources()
 	}, TStatId());
 }
 
+bool USoundWave::CleanupDecompressor(bool bForceWait)
+{
+	check(IsInAudioThread());
+
+	if (!AudioDecompressor)
+	{
+		check(GetPrecacheState() == ESoundWavePrecacheState::Done);
+		return true;
+	}
+
+	if (AudioDecompressor->IsDone())
+	{
+		delete AudioDecompressor;
+		AudioDecompressor = nullptr;
+		SetPrecacheState(ESoundWavePrecacheState::Done);
+		return true;
+	}
+
+	if (bForceWait)
+	{
+		AudioDecompressor->EnsureCompletion();
+		delete AudioDecompressor;
+		AudioDecompressor = nullptr;
+		SetPrecacheState(ESoundWavePrecacheState::Done);
+		return true;
+	}
+
+	return false;
+}
+
 FWaveInstance* USoundWave::HandleStart( FActiveSound& ActiveSound, const UPTRINT WaveInstanceHash ) const
 {
 	// Create a new wave instance and associate with the ActiveSound
@@ -757,23 +786,22 @@ bool USoundWave::IsReadyForFinishDestroy()
 {
 	const bool bIsStreamingInProgress = IStreamingManager::Get().GetAudioStreamingManager().IsStreamingInProgress(this);
 
-	// Wait till streaming and decompression finishes before deleting resource.
-	if ( !bIsStreamingInProgress && (( AudioDecompressor == nullptr ) || AudioDecompressor->IsDone()) )
-	{
-		if (ResourceState == ESoundWaveResourceState::NeedsFree)
-		{
-			DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.FreeResources"), STAT_AudioFreeResources, STATGROUP_AudioThreadCommands);
+	check(GetPrecacheState() != ESoundWavePrecacheState::InProgress);
 
-			USoundWave* SoundWave = this;
-			ResourceState = ESoundWaveResourceState::Freeing;
-			FAudioThread::RunCommandOnAudioThread([SoundWave]()
-			{
-				SoundWave->FreeResources();
-			}, GET_STATID(STAT_AudioFreeResources));
-		}
+	// Wait till streaming and decompression finishes before deleting resource.
+	if (!bIsStreamingInProgress && ResourceState == ESoundWaveResourceState::NeedsFree)
+	{
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.FreeResources"), STAT_AudioFreeResources, STATGROUP_AudioThreadCommands);
+
+		USoundWave* SoundWave = this;
+		ResourceState = ESoundWaveResourceState::Freeing;
+		FAudioThread::RunCommandOnAudioThread([SoundWave]()
+		{
+			SoundWave->FreeResources();
+		}, GET_STATID(STAT_AudioFreeResources));
 	}
 	
-	return ResourceState == ESoundWaveResourceState::Freed && bIsPrecacheDone;
+	return ResourceState == ESoundWaveResourceState::Freed;
 }
 
 
@@ -781,12 +809,8 @@ void USoundWave::FinishDestroy()
 {
 	Super::FinishDestroy();
 
-	if (AudioDecompressor)
-	{
-		check(AudioDecompressor->IsDone());
-		delete AudioDecompressor;
-		AudioDecompressor = nullptr;
-	}
+	check(GetPrecacheState() != ESoundWavePrecacheState::InProgress);
+	check(AudioDecompressor == nullptr);
 
 	CleanupCachedRunningPlatformData();
 #if WITH_EDITOR
@@ -1057,7 +1081,7 @@ bool USoundWave::IsPlayable() const
 	return true;
 }
 
-float USoundWave::GetDuration() const
+float USoundWave::GetDuration()
 {
 	return (bLooping ? INDEFINITELY_LOOPING_DURATION : Duration);
 }

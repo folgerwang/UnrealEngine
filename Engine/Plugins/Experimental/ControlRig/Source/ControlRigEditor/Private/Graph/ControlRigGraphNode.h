@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -173,9 +173,6 @@ public:
 
 	/** Handle a variable being renamed */
 	virtual void HandleVariableRenamed(UBlueprint* InBlueprint, UClass* InVariableClass, UEdGraph* InGraph, const FName& InOldVarName, const FName& InNewVarName);
-
-	/** Handle the node-specific actions we can create with this node type */
-	static void HandleGetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar);
 
 	/** Set the cached dimensions of this node */
 	void SetDimensions(const FVector2D& InDimensions) { Dimensions = InDimensions; }

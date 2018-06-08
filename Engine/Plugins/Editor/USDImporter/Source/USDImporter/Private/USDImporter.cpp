@@ -365,6 +365,7 @@ void FUsdImportContext::Init(UObject* InParent, const FString& InName, IUsdStage
 void FUsdImportContext::AddErrorMessage(EMessageSeverity::Type MessageSeverity, FText ErrorMessage)
 {
 	TokenizedErrorMessages.Add(FTokenizedMessage::Create(MessageSeverity, ErrorMessage));
+	UE_LOG(LogUSDImport, Error, TEXT("%s"), *ErrorMessage.ToString());
 }
 
 void FUsdImportContext::DisplayErrorMessages(bool bAutomated)

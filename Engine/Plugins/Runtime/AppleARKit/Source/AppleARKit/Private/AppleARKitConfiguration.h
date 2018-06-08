@@ -4,10 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Misc/EnumClassFlags.h"
+#include "AppleARKitAvailability.h"
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-#import <ARKit/ARKit.h>
-#endif // ARKIT_SUPPORT
+#if SUPPORTS_ARKIT_1_0
+	#import <ARKit/ARKit.h>
+#endif
 
 #include "ARSystem.h"
 
@@ -45,10 +46,9 @@ enum class EAppleARKitPlaneDetection : uint8
 };
 ENUM_CLASS_FLAGS(EAppleARKitPlaneDetection)
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-//@todo - JoeG & NickA figure out something more clean than this
-ARConfiguration* ToARConfiguration( UARSessionConfig* SessionConfig, class FAppleARKitConfiguration& InConfiguration );
-#endif //ARKIT_SUPPORT
+#if SUPPORTS_ARKIT_1_0
+ARConfiguration* ToARConfiguration( UARSessionConfig* SessionConfig, class FAppleARKitConfiguration& InConfiguration, TMap< FString, UARCandidateImage* >& CandidateImages, TMap< FString, CGImageRef >& ConvertedCandidateImages );
+#endif
 
 /**
  * An object to describe and configure the Augmented Reality techniques to be used in a

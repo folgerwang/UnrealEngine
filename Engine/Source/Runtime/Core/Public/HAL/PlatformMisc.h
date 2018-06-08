@@ -14,6 +14,8 @@
 #include "Mac/MacPlatformMisc.h"
 #elif PLATFORM_IOS
 #include "IOS/IOSPlatformMisc.h"
+#elif PLATFORM_LUMIN
+#include "Lumin/LuminPlatformMisc.h"
 #elif PLATFORM_ANDROID
 #include "Android/AndroidMisc.h"
 #elif PLATFORM_HTML5
@@ -74,6 +76,20 @@ public:
 #define SCOPED_NAMED_EVENT_F(Format, Color, ...) FScopedNamedEvent ANONYMOUS_VARIABLE(NamedEvent_)         (Color, *FString::Printf(Format, __VA_ARGS__));
 
 #else
+
+class CORE_API FScopedNamedEvent
+{
+public:
+	DEPRECATED(4.19, "FScopedNamedEvent is compiled out in shipping builds, use SCOPED_NAMED_EVENT or variant instead to compile correctly for all targets.")
+	FScopedNamedEvent(const struct FColor& Color, const TCHAR* Text)
+	{
+	}
+
+	DEPRECATED(4.19, "FScopedNamedEvent is compiled out in shipping builds, use SCOPED_NAMED_EVENT or variant instead to compile correctly for all targets.")
+	FScopedNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
+	{
+	}
+};
 
 #define SCOPED_NAMED_EVENT(...)
 #define SCOPED_NAMED_EVENT_FSTRING(...)

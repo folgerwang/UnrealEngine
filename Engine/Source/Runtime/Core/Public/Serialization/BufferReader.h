@@ -21,7 +21,7 @@ public:
 	* @param Data Buffer to use as the source data to read from
 	* @param Size Size of Data
 	* @param bInFreeOnClose If true, Data will be FMemory::Free'd when this archive is closed
-	* @param bIsPersistent Uses this value for ArIsPersistent
+	* @param bIsPersistent Uses this value for SetIsPersistent()
 	* @param bInSHAVerifyOnClose It true, an async SHA verification will be done on the Data buffer (bInFreeOnClose will be passed on to the async task)
 	*/
 	FBufferReaderBase(void* Data, int64 Size, bool bInFreeOnClose, bool bIsPersistent = false)
@@ -30,8 +30,8 @@ public:
 		, ReaderSize(Size)
 		, bFreeOnClose(bInFreeOnClose)
 	{
-		ArIsLoading = true;
-		ArIsPersistent = bIsPersistent;
+		this->SetIsLoading(true);
+		this->SetIsPersistent(bIsPersistent);
 	}
 
 	~FBufferReaderBase()
@@ -99,7 +99,7 @@ public:
 	 * @param Data Buffer to use as the source data to read from
 	 * @param Size Size of Data
 	 * @param bInFreeOnClose If true, Data will be FMemory::Free'd when this archive is closed
-	 * @param bIsPersistent Uses this value for ArIsPersistent
+	 * @param bIsPersistent Uses this value for SetIsPersistent()
 	 * @param bInSHAVerifyOnClose It true, an async SHA verification will be done on the Data buffer (bInFreeOnClose will be passed on to the async task)
 	 */
 	FBufferReader( void* Data, int64 Size, bool bInFreeOnClose, bool bIsPersistent = false )

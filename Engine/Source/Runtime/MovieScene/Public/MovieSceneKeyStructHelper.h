@@ -13,7 +13,7 @@
 struct FMovieSceneChannelValueHelper;
 
 /**
- * Helper class that mashals user-facing data from an edit UI into particluar keys on various underlying channels
+ * Helper class that marshals user-facing data from an edit UI into particluar keys on various underlying channels
  */
 struct MOVIESCENE_API FMovieSceneKeyStructHelper
 {
@@ -157,14 +157,8 @@ struct TChannelValueHelper : FMovieSceneChannelValueHelper::IChannelValueHelper
 		{
 			FKeyHandle Handle = KeyHandleAndTime->Get<0>();
 
-			auto Interface = Channel->GetInterface();
-			int32 CurrentIndex = Interface.GetIndex(Handle);
-			if (CurrentIndex != INDEX_NONE)
-			{
-				int32 ValueIndex = Interface.SetKeyTime(CurrentIndex, InUnifiedTime);
-
-				AssignValue(Channel, ValueIndex, *UserValue);
-			}
+			AssignValue(Channel, Handle, *UserValue);
+			Channel->SetKeyTime(Handle, InUnifiedTime);
 		}
 	}
 
@@ -200,13 +194,13 @@ TOptional<TTuple<FKeyHandle, FFrameNumber>> FMovieSceneChannelValueHelper::FindF
 {
 	if (InChannel)
 	{
-		auto ChannelInterface = InChannel->GetInterface();
+		auto ChannelData = InChannel->GetData();
 		for (FKeyHandle Handle : AllKeyHandles)
 		{
-			const int32 KeyIndex = ChannelInterface.GetIndex(Handle);
+			const int32 KeyIndex = ChannelData.GetIndex(Handle);
 			if (KeyIndex != INDEX_NONE)
 			{
-				return MakeTuple(Handle, ChannelInterface.GetTimes()[KeyIndex]);
+				return MakeTuple(Handle, ChannelData.GetTimes()[KeyIndex]);
 			}
 		}
 	}

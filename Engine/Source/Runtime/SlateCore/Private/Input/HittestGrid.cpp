@@ -217,7 +217,7 @@ TArray<FWidgetAndPointer> FHittestGrid::GetBubblePath(FVector2D DesktopSpaceCoor
 void FHittestGrid::ClearGridForNewFrame(const FSlateRect& HittestArea)
 {
 #if SLATE_VERBOSE_NAMED_EVENTS
-	FScopedNamedEvent ClearHTGEvent(FColor::Magenta, "FHittestGrid::ClearGridForNewFrame");
+	SCOPED_NAMED_EVENT_TEXT("FHittestGrid::ClearGridForNewFrame", FColor::Magenta);
 #endif
 	//LogGrid();
 

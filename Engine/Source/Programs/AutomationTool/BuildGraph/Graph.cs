@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -473,6 +473,7 @@ namespace AutomationTool
 							JsonWriter.WriteObjectStart();
 							JsonWriter.WriteValue("Name", Node.Name);
 							JsonWriter.WriteValue("DependsOn", String.Join(";", Node.GetDirectOrderDependencies().Where(x => NodesToExecute.Contains(x) && x.ControllingTrigger == Trigger)));
+							JsonWriter.WriteValue("RunEarly", Node.bRunEarly);
 							JsonWriter.WriteObjectStart("Notify");
 							JsonWriter.WriteValue("Default", String.Join(";", Node.NotifyUsers));
 							JsonWriter.WriteValue("Submitters", String.Join(";", Node.NotifySubmitters));
@@ -659,7 +660,7 @@ namespace AutomationTool
 						CommandUtils.Log("        Agent: {0} ({1})", Agent.Name, String.Join(";", Agent.PossibleTypes));
 						foreach(Node Node in Nodes)
 						{
-							CommandUtils.Log("            Node: {0}{1}", Node.Name, CompletedNodes.Contains(Node)? " (completed)" : "");
+							CommandUtils.Log("            Node: {0}{1}", Node.Name, CompletedNodes.Contains(Node)? " (completed)" : Node.bRunEarly? " (early)" : "");
 							if(PrintOptions.HasFlag(GraphPrintOptions.ShowDependencies))
 							{
 								HashSet<Node> InputDependencies = new HashSet<Node>(Node.GetDirectInputDependencies());

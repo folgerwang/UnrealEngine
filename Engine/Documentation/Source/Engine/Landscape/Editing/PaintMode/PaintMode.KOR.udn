@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability: Public
 Title:페인트 모드
 Crumbs: %ROOT%, Engine, Engine/Landscape, Engine/Landscape/Editing
@@ -27,7 +27,7 @@ Version: 4.9
 
 [TOC(start:2 end:3)]
 
-Paint (페인트) 모드의 툴로는 랜드스케이프 부분에 머티리얼 레이어를 선택 적용하여 랜드스케이프의 겉모습을 바꿀 수 있습니다.
+**Paint** (페인트) 모드의 툴로는 랜드스케이프 부분에 머티리얼 레이어를 선택 적용하여 랜드스케이프의 겉모습을 바꿀 수 있습니다.
 
 랜드스케이프 머티리얼 관련 상세 정보는 [](Engine/Landscape\Materials) 문서를 참고하세요.
 
@@ -79,10 +79,10 @@ Smooth (스무드) 툴은 레이어 웨이트를 부드럽게 합니다. 세기�
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Landscape Smooth Layer Before](Landscape_Smooth_Layer_Before.jpg)(w:900 h:500)
+	![랜드스케이프 스무드 레이어 전](Landscape_Smooth_Layer_Before.jpg)(w:900)
 	[/PARAM]
 	[PARAM:after]
-	![Landscape Smooth Layer After](Landscape_Smooth_Layer_After.jpg)(w:900 h:500)
+	![랜드스케이프 스무드 레이어 후](Landscape_Smooth_Layer_After.jpg)(w:900)
 	[/PARAM]
 [/OBJECT]
 
@@ -136,7 +136,7 @@ Flatten (평탄화) 툴은 선택된 레이어의 웨이트 값을 **Tool Streng
 
 선택된 레이어가 무엇이든 페인트 툴로 랜드스케이프에 적용할 수 있으며, 툴의 옵션과 세팅 및 사용중인 브러시도 함께 적용됩니다.
 
-![Landscape_Layers.jpg](Landscape_Layers.jpg)(w:900 h:389)
+![Landscape_Layers.jpg](Landscape_Layers.jpg)(w:900)
 
 [REGION:note]
 다수의 페인트 툴은 조각 툴과 유사하며 사용법도 비슷하지만, 조작 대상이 하이트맵이 아닌 레이어라는 점이 다릅니다.

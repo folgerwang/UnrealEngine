@@ -9,7 +9,17 @@
 #include "Serialization/Archive.h"
 #include "Containers/UnrealString.h"
 #include "Logging/LogMacros.h"
+#include "Misc/EnumClassFlags.h"
 #include "CoreGlobals.h"
+
+enum class EBufferWriterFlags : uint8
+{
+	None =				0x0,	// No Flags
+	TakeOwnership =		0x1,	// Archive will take ownership of the passed-in memory and free it on destruction
+	AllowResize =		0x2,	// Allow overflow by resizing buffer
+};
+
+ENUM_CLASS_FLAGS(EBufferWriterFlags);
 
 /**
 * Similar to FMemoryWriter, but able to internally
@@ -23,17 +33,16 @@ public:
 	*
 	* @param Data Buffer to use as the source data to read from
 	* @param Size Size of Data
-	* @param bInFreeOnClose If true, Data will be FMemory::Free'd when this archive is closed
-	* @param bIsPersistent Uses this value for ArIsPersistent
+	* @param InFlags Additional settings
 	*/
-	FBufferWriter(void* Data, int64 Size, bool bInFreeOnClose, bool bIsPersistent = false)
+	FBufferWriter(void* Data, int64 Size, EBufferWriterFlags InFlags = EBufferWriterFlags::None)
 		: WriterData(Data)
 		, WriterPos(0)
 		, WriterSize(Size)
-		, bFreeOnClose(bInFreeOnClose)
+		, bFreeOnClose((InFlags & EBufferWriterFlags::TakeOwnership) != EBufferWriterFlags::None)
+		, bAllowResize((InFlags & EBufferWriterFlags::AllowResize) != EBufferWriterFlags::None)
 	{
-		ArIsSaving = true;
-		ArIsPersistent = bIsPersistent;
+		this->SetIsSaving(true);
 	}
 
 	~FBufferWriter()
@@ -54,14 +63,21 @@ public:
 		const int64 NumBytesToAdd = WriterPos + Num - WriterSize;
 		if (NumBytesToAdd > 0)
 		{
-			const int64 NewArrayCount = WriterSize + NumBytesToAdd;
-			if (NewArrayCount >= MAX_int32)
+			if (bAllowResize)
 			{
-				UE_LOG(LogSerialization, Fatal, TEXT("FBufferWriter does not support data larger than 2GB. Archive name: %s."), *GetArchiveName());
-			}
+				const int64 NewArrayCount = WriterSize + NumBytesToAdd;
+				if (NewArrayCount >= MAX_int32)
+				{
+					UE_LOG(LogSerialization, Fatal, TEXT("FBufferWriter does not support data larger than 2GB. Archive name: %s."), *GetArchiveName());
+				}
 
-			FMemory::Realloc(WriterData, NewArrayCount);
-			WriterSize = NewArrayCount;
+				WriterData = FMemory::Realloc(WriterData, NewArrayCount);
+				WriterSize = NewArrayCount;
+			}
+			else
+			{
+				UE_LOG(LogSerialization, Fatal, TEXT("FBufferWriter overflowed. Archive name: %s."), *GetArchiveName());
+			}
 		}
 
 		check(WriterPos >= 0);
@@ -104,4 +120,5 @@ protected:
 	int64 WriterPos;
 	int64 WriterSize;
 	bool bFreeOnClose;
+	bool bAllowResize;
 };

@@ -10,6 +10,7 @@
 #include "Logging/LogMacros.h"
 #include "MaterialShader.h"
 #include "DebugViewModeRendering.h"
+#include "SceneCore.h"
 
 int32 GEmitMeshDrawEvent = 0;
 static FAutoConsoleVariableRef CVarEmitMeshDrawEvent(

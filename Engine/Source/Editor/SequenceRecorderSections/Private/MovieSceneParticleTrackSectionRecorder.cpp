@@ -4,6 +4,7 @@
 #include "Tracks/MovieSceneParticleTrack.h"
 #include "MovieScene.h"
 #include "Channels/MovieSceneChannelProxy.h"
+#include "SequenceRecorderUtils.h"
 
 TSharedPtr<IMovieSceneSectionRecorder> FMovieSceneParticleTrackSectionRecorderFactory::CreateSectionRecorder(const struct FActorRecordingSettings& InActorRecordingSettings) const
 {
@@ -29,7 +30,16 @@ void FMovieSceneParticleTrackSectionRecorder::CreateSection(UObject* InObjectToR
 {
 	SystemToRecord = CastChecked<UParticleSystemComponent>(InObjectToRecord);
 
-	UMovieSceneParticleTrack* ParticleTrack = MovieScene->AddTrack<UMovieSceneParticleTrack>(Guid);
+	UMovieSceneParticleTrack* ParticleTrack = MovieScene->FindTrack<UMovieSceneParticleTrack>(Guid);
+	if (!ParticleTrack)
+	{
+		ParticleTrack = MovieScene->AddTrack<UMovieSceneParticleTrack>(Guid);
+	}
+	else
+	{
+		ParticleTrack->RemoveAllAnimationData();
+	}
+
 	if(ParticleTrack)
 	{
 		MovieSceneSection = Cast<UMovieSceneParticleSection>(ParticleTrack->CreateNewSection());
@@ -39,6 +49,8 @@ void FMovieSceneParticleTrackSectionRecorder::CreateSection(UObject* InObjectToR
 		FFrameRate TickResolution = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
 		FFrameNumber CurrentFrame = (Time * TickResolution).FloorToFrame();
 		MovieSceneSection->SetRange(TRange<FFrameNumber>::Inclusive(CurrentFrame, CurrentFrame));
+
+		MovieSceneSection->TimecodeSource = SequenceRecorderUtils::GetTimecodeSource();
 
 		bWasTriggered = false;
 
@@ -51,7 +63,7 @@ void FMovieSceneParticleTrackSectionRecorder::CreateSection(UObject* InObjectToR
 	PreviousState = EParticleKey::Deactivate;
 }
 
-void FMovieSceneParticleTrackSectionRecorder::FinalizeSection()
+void FMovieSceneParticleTrackSectionRecorder::FinalizeSection(float CurrentTime)
 {
 }
 
@@ -87,7 +99,7 @@ void FMovieSceneParticleTrackSectionRecorder::Record(float CurrentTime)
 			FMovieSceneParticleChannel* Channel = MovieSceneSection->GetChannelProxy().GetChannel<FMovieSceneParticleChannel>(0);
 			if (ensure(Channel))
 			{
-				Channel->GetInterface().AddKey(KeyTime, (uint8)NewState);
+				Channel->GetData().AddKey(KeyTime, (uint8)NewState);
 			}
 		}
 

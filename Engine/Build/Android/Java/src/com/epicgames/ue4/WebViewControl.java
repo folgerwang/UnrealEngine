@@ -79,13 +79,13 @@ class WebViewControl
 
 	public class FrameUpdateInfo 
 	{
-		java.nio.Buffer Buffer;
-		boolean FrameReady;
-		boolean RegionChanged;
-		float UScale;
-		float UOffset;
-		float VScale;
-		float VOffset;
+		public java.nio.Buffer Buffer;
+		public boolean FrameReady;
+		public boolean RegionChanged;
+		public float UScale;
+		public float UOffset;
+		public float VScale;
+		public float VOffset;
 	}
 
 	public WebViewControl(long inNativePtr, int width, int height, boolean swizzlePixels, boolean vulkanRenderer, final boolean bEnableRemoteDebugging, final boolean bUseTransparency)
@@ -142,7 +142,9 @@ class WebViewControl
 
 				// Wrap the webview in a layout that will do absolute positioning for us
 				positionLayout = new WebViewPositionLayout(GameActivity._activity, w);
-				positionLayout.addView(webView);
+				ViewGroup.LayoutParams params = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.FILL_PARENT);
+
+				positionLayout.addView(webView, params);
 
 				bShown = false;
 				NextURL = null;
@@ -307,7 +309,7 @@ class WebViewControl
 					GameActivity._activity.addContentView(positionLayout, params);
 					if(!webView.IsAndroid3DBrowser)
 					{
-						GameActivity.Log.warn("request focus create");
+						//GameActivity.Log.warn("request focus create");
 						webView.requestFocus();
 					}
 				}
@@ -336,7 +338,7 @@ class WebViewControl
 						else
 						if(!webView.IsAndroid3DBrowser)
 						{
-							GameActivity.Log.warn("request focus");
+							//GameActivity.Log.warn("request focus");
 							webView.requestFocus();
 						}
 

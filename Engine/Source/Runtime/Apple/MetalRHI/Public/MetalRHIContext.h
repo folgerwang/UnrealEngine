@@ -14,14 +14,14 @@ class FMetalContext;
 class FMetalRHICommandContext : public IRHICommandContext
 {
 public:
-	FMetalRHICommandContext(struct FMetalGPUProfiler* InProfiler, FMetalContext* WrapContext);
+	FMetalRHICommandContext(class FMetalProfiler* InProfiler, FMetalContext* WrapContext);
 	virtual ~FMetalRHICommandContext();
 
 	/** Get the internal context */
 	FORCEINLINE FMetalContext& GetInternalContext() const { return *Context; }
 	
 	/** Get the profiler pointer */
-	FORCEINLINE struct FMetalGPUProfiler* GetProfiler() const { return Profiler; }
+	FORCEINLINE class FMetalProfiler* GetProfiler() const { return Profiler; }
 	
 	/**
 	 *Sets the current compute shader.  Mostly for compliance with platforms
@@ -64,6 +64,8 @@ public:
 	void RHIEndOcclusionQueryBatch();
 	
 	virtual void RHISubmitCommandsHint() override;
+
+	virtual void RHIDiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask) final override;
 	
 	// This method is queued with an RHIThread, otherwise it will flush after it is queued; without an RHI thread there is no benefit to queuing this frame advance commands
 	virtual void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) override;
@@ -339,7 +341,7 @@ protected:
 	TSharedPtr<FMetalCommandBufferFence, ESPMode::ThreadSafe> CommandBufferFence;
 	
 	/** Profiling implementation details. */
-	struct FMetalGPUProfiler* Profiler;
+	class FMetalProfiler* Profiler;
 	
 	/** Some local variables to track the pending primitive information used in RHIEnd*UP functions */
 	FMetalBuffer PendingVertexBuffer;
@@ -358,7 +360,7 @@ private:
 class FMetalRHIComputeContext : public FMetalRHICommandContext
 {
 public:
-	FMetalRHIComputeContext(struct FMetalGPUProfiler* InProfiler, FMetalContext* WrapContext);
+	FMetalRHIComputeContext(class FMetalProfiler* InProfiler, FMetalContext* WrapContext);
 	virtual ~FMetalRHIComputeContext();
 	
 	virtual void RHISetAsyncComputeBudget(EAsyncComputeBudget Budget) final override;
@@ -370,7 +372,7 @@ public:
 class FMetalRHIImmediateCommandContext : public FMetalRHICommandContext
 {
 public:
-	FMetalRHIImmediateCommandContext(struct FMetalGPUProfiler* InProfiler, FMetalContext* WrapContext);
+	FMetalRHIImmediateCommandContext(class FMetalProfiler* InProfiler, FMetalContext* WrapContext);
 
 	// FRHICommandContext API accessible only on the immediate device context
 	virtual void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) final override;

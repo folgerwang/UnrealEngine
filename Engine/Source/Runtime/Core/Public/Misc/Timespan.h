@@ -773,12 +773,7 @@ protected:
 	void CORE_API Assign(int32 Days, int32 Hours, int32 Minutes, int32 Seconds, int32 FractionNano);
 
 private:
-
-#ifdef COREUOBJECT_API
-	friend COREUOBJECT_API class UScriptStruct* Z_Construct_UScriptStruct_FTimespan();
-#else
-	friend class UScriptStruct* Z_Construct_UScriptStruct_FTimespan();
-#endif
+	friend struct Z_Construct_UScriptStruct_FTimespan_Statics;
 
 private:
 

@@ -13,7 +13,11 @@ public:
 	static bool LoadVulkanInstanceFunctions(VkInstance inInstance) { return true; }
 	static void FreeVulkanLibrary() {}
 
-	// Array of extensions for the platform - required to implement!
+	// Called after querying all the available extensions and layers
+	static void NotifyFoundInstanceLayersAndExtensions(const TArray<FString>& Layers, const TArray<FString>& Extensions) {}
+	static void NotifyFoundDeviceLayersAndExtensions(VkPhysicalDevice PhysicalDevice, const TArray<FString>& Layers, const TArray<FString>& Extensions) {}
+
+	// Array of required extensions for the platform (Required!)
 	static void GetInstanceExtensions(TArray<const ANSICHAR*>& OutExtensions);
 	static void GetDeviceExtensions(TArray<const ANSICHAR*>& OutExtensions);
 
@@ -43,7 +47,7 @@ public:
 	// Some platforms have issues with the access flags for the Present layout
 	static bool RequiresPresentLayoutFix() { return false; }
 
-	static bool SupportsMarkersWithoutExtension() { return false; }
+	static bool ForceEnableDebugMarkers() { return false; }
 
 	static bool SupportsDeviceLocalHostVisibleWithNoPenalty() { return false; }
 

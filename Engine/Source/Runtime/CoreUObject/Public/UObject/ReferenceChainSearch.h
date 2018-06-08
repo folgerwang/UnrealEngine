@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/UObjectGlobals.h"
 #include "UObject/Class.h"
+#include "UObject/GarbageCollection.h"
 
 /** Search mode flags */
 enum class EReferenceChainSearchMode

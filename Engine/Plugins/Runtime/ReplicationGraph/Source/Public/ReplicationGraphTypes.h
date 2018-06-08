@@ -48,68 +48,6 @@ DECLARE_LOG_CATEGORY_EXTERN( LogReplicationGraph, Log, All );
 #endif
 
 
-
-// --------------------------------------------------------------------------------------------------------------------------------------------
-// --------------------------------------------------------------------------------------------------------------------------------------------
-// Replication List Category
-// --------------------------------------------------------------------------------------------------------------------------------------------
-// --------------------------------------------------------------------------------------------------------------------------------------------
-// 
-// ReplicationListCategory is just a bit in a uin32. All FReplicationListCategory must be power of 2 values so that they can be unioned in an FReplicationListCategoryMask.
-// This implementation was chosen to allow projects to be able to fully extend/customize categories while providing some type safety/clarity in code.
-//
-// The important high level concepts around categories are:
-//	1) They provide a way to broadly cull replication lists. Each list stored in the Replication Graph has a category associated with it. When gathering lists,
-//		the system will filter out categories that are not requested by the packet budget.
-//	2) Once we have the culled lists, categories are what the FPacketBudgets are specified in terms of.  That is, as we are filling up the packet, we using
-//		categories to determine how much space a list can occupy.
-
-
-// Enables run time ensure that FReplicationListCategory are initialized with power of 2 values
-#define REP_CAT_ENSURE_POW2 !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-
-struct REPLICATIONGRAPH_API FReplicationListCategory
-{
-	FReplicationListCategory() : Value(InvalidListCategory)	{ }
-	FReplicationListCategory(uint32 In): Value(In)
-	{ 
-#if REP_CAT_ENSURE_POW2
-		ensure(FMath::IsPowerOfTwo(Value));
-#endif
-	}
-	enum { InvalidListCategory = 0 };
-	operator uint32 () const { return Value; }
-	friend uint32 GetTypeHash(const FReplicationListCategory& ListCategory) { return GetTypeHash(ListCategory.Value); };
-	FORCEINLINE void Reset() { Value = InvalidListCategory; }
-	
-	FString GetDebugStringSlow() const;
-	
-	// Static methods for setting the string mapping function
-	typedef TFunction<FString (FReplicationListCategory)> FGetDebugStringFunc;
-	static void SetDebugStringFunc(FGetDebugStringFunc Func);
-	static void SetDebugStringFunc_StandardEnum(TCHAR* EnumString);
-
-protected:
-
-	uint32 Value;
-	static FGetDebugStringFunc CustomDebugStringFunc;
-
-	friend struct FReplicationListCategoryMask;
-};
-
-// Represents a mask or union of FReplicationListCategories. The purpose of this is to make clear what places are dealing with unions of categories vs which are expecting a single category
-struct REPLICATIONGRAPH_API FReplicationListCategoryMask : public FReplicationListCategory
-{
-	FReplicationListCategoryMask() : FReplicationListCategory() { }
-	FReplicationListCategoryMask(uint32 In) { Value = In; }
-
-	FReplicationListCategoryMask operator|(FReplicationListCategory const& Rhs) const { FReplicationListCategoryMask Result(*this); Result |= Rhs; return Result; }
-	FReplicationListCategoryMask operator&(FReplicationListCategory const& Rhs) const { FReplicationListCategoryMask Result(*this); Result &= Rhs; return Result; }
-
-	FReplicationListCategoryMask const& operator|=(FReplicationListCategory const& Rhs) { Value |= Rhs.Value; return *this; }
-	FReplicationListCategoryMask const& operator&=(FReplicationListCategory const& Rhs) { Value &= Rhs.Value; return *this; }
-};
-
 // --------------------------------------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------------------------------------
 // Actor Replication List Types
@@ -362,17 +300,8 @@ private:
 struct REPLICATIONGRAPH_API FActorRepListRawView : public TActorRepListViewBase<FActorRepList*>
 {
 	/** Standard ctor: make raw view from ref view */
-	FActorRepListRawView(const FActorRepListRefView& Source, FReplicationListCategory InCategory) : Category(InCategory) { RepList = Source.RepList.GetReference(); }
-	
-	/** Sublist cstor: make raw view from portion of a ref view */
-	FActorRepListRawView(const FActorRepListRefView& Source, FReplicationListCategory InCategory, int32 StartIdx, int32 Num) : Category(InCategory)
-	{
-
-	}
-	
+	FActorRepListRawView(const FActorRepListRefView& Source) { RepList = Source.RepList.GetReference(); }
 	FActorRepListRefView ToRefView() const { return FActorRepListRefView(*RepList); }
-
-	FReplicationListCategory Category;
 };
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -393,23 +322,17 @@ struct REPLICATIONGRAPH_API FGatheredReplicationActorLists
 	void AddReplicationActorList(const FActorRepListRefView& List)
 	{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		if (!ensureMsgf(CurrentListCategory, TEXT("FGatheredReplicationActorLists Attemping to add a ReplicationActorList with invalid ListCategory")))
-			return;
-
 		if (CVar_RepGraph_Verify)
 			List.VerifyContents_Slow();
 #endif
 		repCheck(List.IsValid());
 		if (List.Num() > 0)
 		{
-			OutReplicationLists.Emplace(FActorRepListRawView(List, CurrentListCategory)); 
+			OutReplicationLists.Emplace(FActorRepListRawView(List)); 
 		}
 	}
 
-	void Reset() { OutReplicationLists.Reset(); ListCategoryStack.Reset(); }
-	
-	void PushListCategory(FReplicationListCategory ListCategory) { ListCategoryStack.Push(CurrentListCategory); CurrentListCategory = ListCategory; }
-	void PopListCategory() { CurrentListCategory = ListCategoryStack.Last(); ListCategoryStack.Pop(); }	
+	void Reset() { OutReplicationLists.Reset(); }	
 
 	FORCEINLINE int32 Num() const { return OutReplicationLists.Num(); }
 	FORCEINLINE const FActorRepListRawView& operator[](int32 idx) const  { return OutReplicationLists[idx]; }
@@ -420,159 +343,6 @@ struct REPLICATIONGRAPH_API FGatheredReplicationActorLists
 private:	
 
 	TArray< FActorRepListRawView > OutReplicationLists;
-	FReplicationListCategory CurrentListCategory;
-	TArray< FReplicationListCategory, TInlineAllocator<1> > ListCategoryStack;
-};
-
-// --------------------------------------------------------------------------------------------------------------------------------------------
-// --------------------------------------------------------------------------------------------------------------------------------------------
-// Packet Budget
-// --------------------------------------------------------------------------------------------------------------------------------------------
-// --------------------------------------------------------------------------------------------------------------------------------------------
-
-// Packet Budget represents the desired makeup of a replication packet. It maps ListCategories to the desired amount of data, It is the const data that we look at while building packets.
-struct FPacketBudget
-{
-	/** What happens when a budget item ends while being under/over the target budget */
-	enum EBalancePolicy
-	{
-		/** The balance is absorbed by this item. */
-		Absorb,
-		/** The balance rolls over to the next item (e.g, if > 0, the next item gets more bits, if < 0, the next item gets less bits). Note that a budget item cannot be completely pushed out - it will replicate at least once! */
-		RollOver
-	};
-
-	struct FItem
-	{
-		FItem(FReplicationListCategoryMask InListCategory, int64 InMaxBits, EBalancePolicy InUnderBudgetPolicy, EBalancePolicy InOverBudgetPolicy) 
-			: ListCategory(InListCategory), MaxBits(InMaxBits), UnderBudgetPolicy(InUnderBudgetPolicy), OverBudgetPolicy(InOverBudgetPolicy)  { }
-
-		FReplicationListCategoryMask ListCategory;
-		int64 MaxBits = 0;
-		EBalancePolicy UnderBudgetPolicy;
-		EBalancePolicy OverBudgetPolicy;
-	};
-
-	/** The actual list of items that make up this packet budget */
-	TArray<FItem> BudgetItems;
-
-	/** Combined mask for all categories this packet budget cares about: used for broad filtering during gather phase */
-	FReplicationListCategoryMask ListCategoryMask;
-
-	/** Identifying string for debug/logging only */
-	const TCHAR* DebugName = nullptr;
-
-	/** Adds a budget item for a given category. */
-	void AddBudgetForCategory(FReplicationListCategoryMask Category, int64 MaxBits, EBalancePolicy UnderBudgetPolicy = EBalancePolicy::Absorb, EBalancePolicy OverBudgetPolicy = EBalancePolicy::Absorb)
-	{
-		BudgetItems.Emplace(FItem(Category, MaxBits, UnderBudgetPolicy, OverBudgetPolicy));
-	}
-
-	/** Finalizes the budget: call this (once) after finished calling AddBudgetForCategory (as many times as you need) */
-	void Finalize()
-	{
-		ListCategoryMask = FReplicationListCategoryMask();
-		for (auto& Item : BudgetItems)
-		{
-			ListCategoryMask |= Item.ListCategory;
-		}
-
-		BudgetItems.Sort([](const FItem& ItemA, const FItem& ItemB) { return ItemA.ListCategory < ItemB.ListCategory; } );
-	}
-};
-
-// Represents a filled budget item during an actual frame. These are produced by FPacketBudgetTracker and mainly used for logging/profiling etc.
-struct FPacketBudgetRecord
-{
-	struct FItem
-	{
-		int64 BitsWritten = 0;
-	};
-
-	void SetBudget(const FPacketBudget* InBudget) { Budget = InBudget; Items.Reset(); Items.SetNum(InBudget->BudgetItems.Num()); }
-	void TrackSentBits(int64 NumBits, int32 BudgetIdx) {	Items[BudgetIdx].BitsWritten += NumBits; }
-	void TrackActorChannelCloseBits(int64 NumBits) { ActorChannelCloseBits += NumBits; }
-	void TrackDestructionInfoBits(int64 NumBits) { DestructionInfoBits += NumBits; }
-	
-	const FPacketBudget* Budget = nullptr;
-	TArray<FItem, TInlineAllocator<8> >	Items;
-	int64 ActorChannelCloseBits = 0;
-	int64 DestructionInfoBits = 0;
-};
-
-// The tracker is what actually does the book keeping between a given FPacketBudget and the data that is pushed into packets. Essentially, the runtime/dynamic data as we are replicating actors.
-struct FPacketBudgetTracker
-{
-	FPacketBudgetTracker(const FPacketBudget& InBudget) : Budget(InBudget), CurrentIdx(0), RemainingBits(0) { }
-	
-	/** Sets the current index of the FPacketBudget::FItem that we are filling (this is an index into this->Budget.BudgetItems) */
-	void SetBudgetItemIndex(int32 Index)
-	{
-		if ((RemainingBits < 0 && Budget.BudgetItems[CurrentIdx].OverBudgetPolicy == FPacketBudget::RollOver) || (Budget.BudgetItems[CurrentIdx].UnderBudgetPolicy == FPacketBudget::RollOver))
-		{
-			// Rollover the balance (note, don't check RemainingBits > 0 because that is an extra banch and effectively the exact same)
-			RemainingBits += Budget.BudgetItems[Index].MaxBits;
-		}
-		else
-		{
-			// Absorb the balance
-			RemainingBits = Budget.BudgetItems[Index].MaxBits;
-		}
-
-		CurrentIdx = Index;
-	}
-	
-	/** Called as bits are written to the send buffer. Returns true if the current budget item is not exceeded. (note: technically they are not "sent" yet, not until the net driver's send buffer is flushed) */
-	bool TrackSentBits(int64 NumBits)
-	{
-		if (OutRecord)
-		{
-			OutRecord->TrackSentBits(NumBits, CurrentIdx);
-		}
-
-		RemainingBits -= NumBits;
-		return (RemainingBits > 0);
-	}
-
-	void TrackActorChannelCloseBits(int64 NumBits) { if (OutRecord) OutRecord->TrackActorChannelCloseBits(NumBits); }
-	void TrackDestructionInfoBits(int64 NumBits) { if (OutRecord) OutRecord->TrackDestructionInfoBits(NumBits); }
-
-	/** Optional output: useful for logging/debugging etc */
-	void SetOutputRecord(struct FPacketBudgetRecord* NewOutRecord) { OutRecord = NewOutRecord; }
-	
-private:
-
-	const FPacketBudget& Budget;
-	FReplicationListCategory CurrentListCategory;
-	int32 CurrentIdx;
-	int64 RemainingBits;
-
-	FPacketBudgetRecord* OutRecord = nullptr;
-};
-
-
-struct FPacketBudgetRecordBuffer
-{
-	const int32 BufferSize = 64;
-	TArray<FPacketBudgetRecord, TInlineAllocator<64> > Records;
-	uint32 NextWriteIdx = 0;
-
-	FPacketBudgetRecordBuffer()
-	{
-		Records.SetNum(BufferSize);
-	}
-
-	FPacketBudgetRecord* GetNextWriteRecord(const FPacketBudget& ForBudget)
-	{
-		FPacketBudgetRecord* Record = &Records[NextWriteIdx % BufferSize];
-		Record->SetBudget(&ForBudget);
-		NextWriteIdx++;
-		return Record;
-	}
-
-	int32 Num() const { return FMath::Min<uint32>(BufferSize, NextWriteIdx); }
-	FPacketBudgetRecord& GetAtIndex(int32 idx) { return Records[(NextWriteIdx - Num() + idx) % Records.Num()]; }
-	void Reset() { Records.Reset(); Records.SetNum(BufferSize); NextWriteIdx = 0; }
 };
 
 // --------------------------------------------------------------------------------------------------------------------------------------------
@@ -584,45 +354,21 @@ struct FPacketBudgetRecordBuffer
 // Parameter structure for what we actually pass down during the Gather phase.
 struct FConnectionGatherActorListParameters
 {
-	FConnectionGatherActorListParameters(FNetViewer& InViewer, UNetReplicationGraphConnection& InConnectionManager, TSet<FName>& InClientVisibleLevelNamesRef, FPacketBudget& InPacketBudget, uint32 InReplicationFrameNum, FGatheredReplicationActorLists& InOutGatheredReplicationLists)
-		: Viewer(InViewer), ConnectionManager(InConnectionManager), PacketBudget(InPacketBudget), ReplicationFrameNum(InReplicationFrameNum), OutGatheredReplicationLists(InOutGatheredReplicationLists), ClientVisibleLevelNamesRef(InClientVisibleLevelNamesRef)
+	FConnectionGatherActorListParameters(FNetViewer& InViewer, UNetReplicationGraphConnection& InConnectionManager, TSet<FName>& InClientVisibleLevelNamesRef, uint32 InReplicationFrameNum, FGatheredReplicationActorLists& InOutGatheredReplicationLists)
+		: Viewer(InViewer), ConnectionManager(InConnectionManager), ReplicationFrameNum(InReplicationFrameNum), OutGatheredReplicationLists(InOutGatheredReplicationLists), ClientVisibleLevelNamesRef(InClientVisibleLevelNamesRef)
 	{
 	}
 
 	/** In: The Data the nodes have to work with */
 	FNetViewer& Viewer;
 	UNetReplicationGraphConnection& ConnectionManager;
-	FPacketBudget& PacketBudget;
 	uint32 ReplicationFrameNum;
 
 	/** Out: The data nodes are going to add to */
 	FGatheredReplicationActorLists& OutGatheredReplicationLists;
 
-	/** Attempts to push the ListCategory, returns true if the list category is currently allowed. If this returns true, you are expected to call PopListCategory when you are done! */
-	bool AttemptPushListCategory(FReplicationListCategory ListCategory) const
-	{
-		if ((PacketBudget.ListCategoryMask & ListCategory))
-		{
-			OutGatheredReplicationLists.PushListCategory(ListCategory);
-			return true;
-		}
-		return false;
-	}
-
-	/** Pop the list category that was pushed */
-	void PopListCategory() const
-	{
-		OutGatheredReplicationLists.PopListCategory();
-	}
-
 	bool CheckClientVisibilityForLevel(const FName& StreamingLevelName) const
 	{
-		// We track the last checked StreamingLevelName that was visible. This is a simple optimization under the premise that in an ideal replication graph,
-		// a connection is only pulling from nodes with 1 conditional streaming level. (E.g, even if you map has 300 streaming levels, spatially the client should
-		// only be "over" one of those levels, and should only attempt to pull from nodes that have that one level in its conditional actor lists.
-		// 
-		// Really this is still left over from legacy implementation. I would rather completely skip nodes in the spatialization graph based on level streaming status,
-		// but the way that level streaming works, there is no mechanism or guarantees about what space a streaming level takes up. This is ok for now.
 		if (StreamingLevelName == LastCheckedVisibleLevelName)
 		{
 			return true;
@@ -736,7 +482,7 @@ struct FGlobalActorReplicationInfo
 	FClassReplicationInfo Settings;
 
 	// -----------------------------------------------------------
-	//	Events
+	//	Events: Keep this last/at the bottom of the structure. The event data is the largest chunk but accessed the least
 	// -----------------------------------------------------------
 	FGlobalActorReplicationEvents Events;
 
@@ -847,34 +593,49 @@ struct FGlobalActorReplicationInfoMap
 	FGlobalActorReplicationInfo& Get(const FActorRepListType& Actor)
 	{
 		// Quick lookup - this is the most common case
-		if (FGlobalActorReplicationInfo* Ptr = ActorMap.Find(Actor))
+		if (TUniquePtr<FGlobalActorReplicationInfo>* Ptr = ActorMap.Find(Actor))
 		{
-			return *Ptr;
+			return *Ptr->Get();
 		}
 
 		// We need to add data for this actor
 		FClassReplicationInfo& ClassInfo = GetClassInfo( GetActorRepListTypeClass(Actor) );
-		return ActorMap.Emplace(Actor, ClassInfo);
+
+
+		FGlobalActorReplicationInfo* NewGlobalActorRepInfo = new FGlobalActorReplicationInfo(ClassInfo);
+		ActorMap.Emplace(Actor, TUniquePtr<FGlobalActorReplicationInfo>(NewGlobalActorRepInfo));
+		return *NewGlobalActorRepInfo;
 	}
 
 	// Same as above but outputs bool if it was created. This is uncommonly called. Don't want to slow down the frequently called version
 	FGlobalActorReplicationInfo& Get(const FActorRepListType& Actor, bool& bWasCreated)
 	{
 		// Quick lookup - this is the most common case
-		if (FGlobalActorReplicationInfo* Ptr = ActorMap.Find(Actor))
+		if (TUniquePtr<FGlobalActorReplicationInfo>* Ptr = ActorMap.Find(Actor))
 		{
-			return *Ptr;
+			return *Ptr->Get();
 		}
 
 		bWasCreated = true;
 
 		// We need to add data for this actor
 		FClassReplicationInfo& ClassInfo = GetClassInfo( GetActorRepListTypeClass(Actor) );
-		return ActorMap.Emplace(Actor, ClassInfo);
+
+		FGlobalActorReplicationInfo* NewGlobalActorRepInfo = new FGlobalActorReplicationInfo(ClassInfo);
+		ActorMap.Emplace(Actor, TUniquePtr<FGlobalActorReplicationInfo>(NewGlobalActorRepInfo));
+		return *NewGlobalActorRepInfo;
 	}
 
 	/** Finds data associated with the actor but does not create if its not there yet. */
-	FORCEINLINE FGlobalActorReplicationInfo* Find(const FActorRepListType& Actor) { return ActorMap.Find(Actor); }
+	FORCEINLINE FGlobalActorReplicationInfo* Find(const FActorRepListType& Actor)
+	{
+		if (TUniquePtr<FGlobalActorReplicationInfo>* Ptr = ActorMap.Find(Actor))
+		{
+			return Ptr->Get();
+		}
+
+		return nullptr;
+	}
 
 	/** Removes actor data from map */
 	FORCEINLINE int32 Remove(const FActorRepListType& Actor) { return ActorMap.Remove(Actor); }
@@ -885,12 +646,14 @@ struct FGlobalActorReplicationInfoMap
 	/** Sets class info for a given class and its derived classes if desired. Call this in your Replication Graphs setup */
 	FORCEINLINE void SetClassInfo(UClass* InClass, const FClassReplicationInfo& Info) {	ClassMap.Set(InClass, Info); }
 	
-	FORCEINLINE TMap<FActorRepListType, FGlobalActorReplicationInfo>::TIterator CreateActorMapIterator() { return ActorMap.CreateIterator(); }
+	FORCEINLINE TMap<FActorRepListType, TUniquePtr<FGlobalActorReplicationInfo>>::TIterator CreateActorMapIterator() { return ActorMap.CreateIterator(); }
 	FORCEINLINE TMap<FObjectKey, FClassReplicationInfo>::TIterator CreateClassMapIterator() { return ClassMap.CreateIterator(); }
+
+	int32 Num() const { return ActorMap.Num(); }
 
 private:
 
-	TMap<FActorRepListType, FGlobalActorReplicationInfo> ActorMap;
+	TMap<FActorRepListType, TUniquePtr<FGlobalActorReplicationInfo>> ActorMap;
 	TClassMap<FClassReplicationInfo> ClassMap;
 };
 
@@ -938,28 +701,34 @@ struct FPerConnectionActorInfoMap
 {
 	FORCEINLINE_DEBUGGABLE FConnectionReplicationActorInfo& FindOrAdd(const FActorRepListType& Actor)
 	{
-		if (FConnectionReplicationActorInfo* Value = Map.Find(Actor))
+		if (TUniquePtr<FConnectionReplicationActorInfo>* ValuePtr = Map.Find(Actor))
 		{
-			return *Value;
+			return *ValuePtr->Get();
 		}
-		FConnectionReplicationActorInfo NewInfo(GlobalMap->Get(Actor));
-
-		return Map.Emplace(Actor, GlobalMap->Get(Actor) );
+		FConnectionReplicationActorInfo* NewInfo = new FConnectionReplicationActorInfo(GlobalMap->Get(Actor));
+		Map.Emplace(Actor, TUniquePtr<FConnectionReplicationActorInfo>(NewInfo) );
+		return *NewInfo;
 	}
 
 	FORCEINLINE FConnectionReplicationActorInfo* Find(const FActorRepListType& Actor)
 	{
-		return Map.Find(Actor);
+		if (TUniquePtr<FConnectionReplicationActorInfo>* ValuePtr = Map.Find(Actor))
+		{
+			return ValuePtr->Get();
+		}
+
+		return nullptr;
 	}
 
-	FORCEINLINE TMap<FActorRepListType, FConnectionReplicationActorInfo>::TIterator CreateIterator()
+	FORCEINLINE TMap<FActorRepListType, TUniquePtr<FConnectionReplicationActorInfo>>::TIterator CreateIterator()
 	{
 		return Map.CreateIterator();
 	}
 
 	FORCEINLINE FConnectionReplicationActorInfo& FindChecked(const FActorRepListType& Actor)
 	{
-		return Map.FindChecked(Actor);
+		TUniquePtr<FConnectionReplicationActorInfo>& ValuePtr = Map.FindChecked(Actor);
+		return *ValuePtr.Get();
 	}
 
 	FORCEINLINE void SetGlobalMap(FGlobalActorReplicationInfoMap* InGlobalMap)
@@ -967,8 +736,10 @@ struct FPerConnectionActorInfoMap
 		GlobalMap = InGlobalMap;
 	}
 
+	int32 Num() const { return Map.Num(); }
+
 private:
-	TMap<FActorRepListType, FConnectionReplicationActorInfo> Map;
+	TMap<FActorRepListType, TUniquePtr<FConnectionReplicationActorInfo>> Map;
 	FGlobalActorReplicationInfoMap* GlobalMap;
 };
 
@@ -1032,26 +803,30 @@ struct FSkippedActorFullDebugDetails
 /** Prioritized List of actors to replicate. This is what we actually use to replicate actors. */
 struct FPrioritizedRepList
 {
-	FPrioritizedRepList(FReplicationListCategory InCategory) : ListCategory(InCategory) { }
+	FPrioritizedRepList() { }
 	struct FItem
 	{
-		// FIXME: We cannot store pointers to backing actor data yet because of how they are stored in (unstable) TMaps
-
-		FItem(float InPriority, FActorRepListType InActor /*, FGlobalActorReplicationInfo* InGlobal, FReplicationConnectionActorInfo* InConn*/) 
-			: Priority(InPriority), Actor(InActor) /*, GlobalData(InGlobal), ConnectionData(InConn)*/ { }
+		FItem(float InPriority, FActorRepListType InActor, FGlobalActorReplicationInfo* InGlobal, FConnectionReplicationActorInfo* InConn) 
+			: Priority(InPriority), Actor(InActor) , GlobalData(InGlobal), ConnectionData(InConn) { }
 		bool operator<(const FItem& Other) const { return Priority < Other.Priority; }
 
 		float Priority;
 		FActorRepListType Actor;
-
-		/*
+		
 		FGlobalActorReplicationInfo* GlobalData;
-		FReplicationConnectionActorInfo* ConnectionData;
-		*/
+		FConnectionReplicationActorInfo* ConnectionData;
 	};
 
 	TArray<FItem> Items;
-	FReplicationListCategory ListCategory;
+
+	void Reset()
+	{ 
+		Items.Reset(); 
+#if REPGRAPH_DETAILS
+		FullDebugDetails.Reset();
+		SkippedDebugDetails.Reset();
+#endif
+	}
 	
 #if REPGRAPH_DETAILS
 	FPrioritizedActorFullDebugDetails* GetNextFullDebugDetails(FActorRepListType Actor)

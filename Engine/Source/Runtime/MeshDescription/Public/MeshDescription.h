@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #if defined(_MSC_VER) && _MSC_FULL_VER <= 190023918
@@ -502,7 +502,6 @@ private:
 		}
 
 		Polygon.PolygonGroupID = PolygonGroupID;
-		checkSlow( !PolygonGroupArray[ PolygonGroupID ].Polygons.Contains( PolygonID ) );
 		PolygonGroupArray[ PolygonGroupID ].Polygons.Add( PolygonID );
 
 		PolygonAttributesSet.Insert( PolygonID );

@@ -318,14 +318,6 @@ TSharedRef<SWidget> FMainMenu::MakeMainMenu(const TSharedPtr<FTabManager>& TabMa
 {
 #define LOCTEXT_NAMESPACE "MainMenu"
 
-	
-	// Put the toolbox into our menus
-	{
-		const IWorkspaceMenuStructure& MenuStructure = WorkspaceMenu::GetMenuStructure();
-		IToolboxModule& ToolboxModule = FModuleManager::LoadModuleChecked<IToolboxModule>("Toolbox");
-		ToolboxModule.RegisterSpawners(MenuStructure.GetDeveloperToolsDebugCategory(), MenuStructure.GetDeveloperToolsMiscCategory());
-	}
-
 	// Cache all project names once
 	FMainFrameActionCallbacks::CacheProjectNames();
 

@@ -39,16 +39,7 @@ static int64 GetNativeHeapAllocatedSize()
 
 void FAndroidPlatformMemory::Init()
 {
-#if ENABLE_LOW_LEVEL_MEM_TRACKER
-	FPlatformMemoryStats Stats = FAndroidPlatformMemory::GetStats();
-	uint64 ProgramSize = Stats.UsedPhysical;
-#endif
-
 	FGenericPlatformMemory::Init();
-
-#if ENABLE_LOW_LEVEL_MEM_TRACKER
-	FLowLevelMemTracker::Get().SetProgramSize(ProgramSize);
-#endif
 
 	const FPlatformMemoryConstants& MemoryConstants = FPlatformMemory::GetConstants();
 	FPlatformMemoryStats MemoryStats = GetStats();
@@ -202,13 +193,41 @@ FPlatformMemoryStats FAndroidPlatformMemory::GetStats()
 	MemoryStats.PeakUsedPhysical = FMath::Max(MemoryStats.PeakUsedPhysical, MemoryStats.UsedPhysical);
 
 	// get this value from Java instead (DO NOT INTEGRATE at this time) - skip this if JavaVM not set up yet!
+#if USE_ANDROID_JNI
 	if (GJavaVM)
 	{
 //		MemoryStats.UsedPhysical = static_cast<uint64>(AndroidThunkCpp_GetMetaDataInt(TEXT("ue4.getUsedMemory"))) * 1024ULL;
 	}
+#endif
 
 	return MemoryStats;
 }
+
+uint64 FAndroidPlatformMemory::GetMemoryUsedFast()
+{
+	// minimal code to get Used memory
+	if (FILE* ProcMemStats = fopen("/proc/self/status", "r"))
+	{
+		while (1)
+		{
+			char LineBuffer[256] = { 0 };
+			char *Line = fgets(LineBuffer, ARRAY_COUNT(LineBuffer), ProcMemStats);
+			if (Line == nullptr)
+			{
+				break;	// eof or an error
+			}
+			else if (strstr(Line, "VmRSS:") == Line)
+			{
+				fclose(ProcMemStats);
+				return AndroidPlatformMemory::GetBytesFromStatusLine(Line);
+			}
+		} 
+		fclose(ProcMemStats);
+	}
+
+	return 0;
+}
+
 
 const FPlatformMemoryConstants& FAndroidPlatformMemory::GetConstants()
 {
@@ -255,6 +274,12 @@ EPlatformMemorySizeBucket FAndroidPlatformMemory::GetMemorySizeBucket()
 
 FMalloc* FAndroidPlatformMemory::BaseAllocator()
 {
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+	// make sure LLM is using UsedPhysical for program size, instead of Availble-Free
+	FPlatformMemoryStats Stats = FAndroidPlatformMemory::GetStats();
+	FLowLevelMemTracker::Get().SetProgramSize(Stats.UsedPhysical);
+#endif
+
 #if USE_MALLOC_BINNED2
 	return new FMallocBinned2();
 #else

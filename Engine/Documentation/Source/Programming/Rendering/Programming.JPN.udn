@@ -1,10 +1,12 @@
-﻿INTSourceChangelist:2872097
+﻿INTSourceChangelist:3151855
 Availability:Public
 Title:グラフィック プログラミング
 Crumbs:%ROOT%, Programming
-Description:レンダリング システムとシェーダ ライティング
+Description:グラフィックス プログラミングにおけるレンダリング システムとシェーダ ライティングの使用方法
 Version:4.9
 Related:Engine/Basics/CoordinateSpace
+parent:Programming
+tags:Rendering
 
 エンジンのレンダラ モジュールは、それぞれのワールドと関連するレンダリング可能な情報が含まれるシーンの管理とレンダリングを行います。すべての描画ポリシーとシェーダーの定義が含まれます。
 レンダリング API 用インターフェースである RHI モジュールは、グラフィックス プログラミングのもう一つの主要なモジュールです。[](Programming/Rendering/Overview) で、様々な主要なクラス、設定、変数を調べることができます。 

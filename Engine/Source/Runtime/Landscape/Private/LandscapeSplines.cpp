@@ -46,6 +46,13 @@ IMPLEMENT_HIT_PROXY(HLandscapeSplineProxy_Tangent, HLandscapeSplineProxy);
 
 #define LOCTEXT_NAMESPACE "Landscape.Splines"
 
+int32 SplinesAlwaysUseBlockAll = 0;
+static FAutoConsoleVariableRef CVarSplinesAlwaysUseBlockAll(
+	TEXT("splines.blockall"),
+	SplinesAlwaysUseBlockAll,
+	TEXT("Force splines to always use the BlockAll collision profile instead of whatever is stored in the CollisionProfileName property")
+);
+
 //////////////////////////////////////////////////////////////////////////
 // LANDSCAPE SPLINES SCENE PROXY
 
@@ -1218,13 +1225,15 @@ ULandscapeSplineControlPoint::ULandscapeSplineControlPoint(const FObjectInitiali
 	LDMaxDrawDistance = 0;
 	TranslucencySortPriority = 0;
 
+	bEnableCollision_DEPRECATED = true;
+	BodyInstance.SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
+
 	LayerName = NAME_None;
 	bRaiseTerrain = true;
 	bLowerTerrain = true;
 
 	LocalMeshComponent = nullptr;
 	bPlaceSplineMeshesInStreamingLevels = true;
-	bEnableCollision = true;
 	bCastShadow = true;
 
 	// transients
@@ -1236,10 +1245,19 @@ void ULandscapeSplineControlPoint::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
+	Ar.UsingCustomVersion(FLandscapeCustomVersion::GUID);
+
 #if WITH_EDITOR
 	if (Ar.UE4Ver() < VER_UE4_LANDSCAPE_SPLINE_CROSS_LEVEL_MESHES)
 	{
 		bPlaceSplineMeshesInStreamingLevels = false;
+	}
+#endif
+
+#if WITH_EDITORONLY_DATA
+	if (Ar.IsLoading() && Ar.CustomVer(FLandscapeCustomVersion::GUID) < FLandscapeCustomVersion::AddingBodyInstanceToSplinesElements)
+	{
+		BodyInstance.SetCollisionProfileName(bEnableCollision_DEPRECATED ? UCollisionProfile::BlockAll_ProfileName : UCollisionProfile::NoCollision_ProfileName);
 	}
 #endif
 }
@@ -1263,13 +1281,51 @@ void ULandscapeSplineControlPoint::PostLoad()
 		// Fix collision profile
 		if (LocalMeshComponent != nullptr) // ForeignMeshComponents didn't exist yet
 		{
-			const FName CollisionProfile = bEnableCollision ? UCollisionProfile::BlockAll_ProfileName : UCollisionProfile::NoCollision_ProfileName;
+#if WITH_EDITORONLY_DATA
+			const FName DesiredCollisionProfileName = SplinesAlwaysUseBlockAll ? UCollisionProfile::BlockAll_ProfileName : CollisionProfileName;
+			const FName CollisionProfile = bEnableCollision_DEPRECATED ? DesiredCollisionProfileName : UCollisionProfile::NoCollision_ProfileName;
+#else
+			const FName CollisionProfile = UCollisionProfile::BlockAll_ProfileName;
+#endif
 			if (LocalMeshComponent->GetCollisionProfileName() != CollisionProfile)
 			{
 				LocalMeshComponent->SetCollisionProfileName(CollisionProfile);
 			}
 
 			LocalMeshComponent->SetFlags(RF_TextExportTransient);
+		}
+	}
+
+	if (GIsEditor && GetLinkerCustomVersion(FLandscapeCustomVersion::GUID) < FLandscapeCustomVersion::AddingBodyInstanceToSplinesElements)
+	{
+		auto ForeignMeshComponentsMap = GetForeignMeshComponents();
+
+		for (auto& ForeignMeshComponentsPair : ForeignMeshComponentsMap)
+		{
+			const bool bUsingEditorMesh = ForeignMeshComponentsPair.Value->bHiddenInGame;
+
+			if (!bUsingEditorMesh)
+			{
+				ForeignMeshComponentsPair.Value->BodyInstance = BodyInstance;
+			}
+			else
+			{
+				ForeignMeshComponentsPair.Value->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+			}
+		}
+
+		if (LocalMeshComponent != nullptr)
+		{
+			const bool bUsingEditorMesh = LocalMeshComponent->bHiddenInGame;
+
+			if (!bUsingEditorMesh)
+			{
+				LocalMeshComponent->BodyInstance = BodyInstance;
+			}
+			else
+			{
+				LocalMeshComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+			}
 		}
 	}
 #endif
@@ -1577,17 +1633,19 @@ void ULandscapeSplineControlPoint::UpdateSplinePoints(bool bUpdateCollision, boo
 			MeshComponent->MarkRenderStateDirty();
 		}
 
+#if WITH_EDITORONLY_DATA
+		if (MeshComponent->BodyInstance.GetCollisionProfileName() != BodyInstance.GetCollisionProfileName())
+		{
+			MeshComponent->Modify();
+			MeshComponent->BodyInstance = BodyInstance;
+			MeshComponent->MarkRenderStateDirty();
+		}
+#endif
+
 		if (MeshComponent->CastShadow != bCastShadow)
 		{
 			MeshComponent->Modify();
 			MeshComponent->SetCastShadow(bCastShadow);
-		}
-
-		const FName CollisionProfile = bEnableCollision ? UCollisionProfile::BlockAll_ProfileName : UCollisionProfile::NoCollision_ProfileName;
-		if (MeshComponent->BodyInstance.GetCollisionProfileName() != CollisionProfile)
-		{
-			MeshComponent->Modify();
-			MeshComponent->BodyInstance.SetCollisionProfileName(CollisionProfile);
 		}
 
 		if (bComponentNeedsRegistering)
@@ -1808,8 +1866,10 @@ ULandscapeSplineSegment::ULandscapeSplineSegment(const FObjectInitializer& Objec
 	LDMaxDrawDistance = 0;
 	TranslucencySortPriority = 0;
 	bPlaceSplineMeshesInStreamingLevels = true;
-	bEnableCollision = true;
 	bCastShadow = true;
+
+	bEnableCollision_DEPRECATED = true;
+	BodyInstance.SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 
 	// transients
 	bSelected = false;
@@ -1834,6 +1894,8 @@ void ULandscapeSplineSegment::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
+	Ar.UsingCustomVersion(FLandscapeCustomVersion::GUID);
+
 #if WITH_EDITOR
 	if (Ar.UE4Ver() < VER_UE4_SPLINE_MESH_ORIENTATION)
 	{
@@ -1856,6 +1918,13 @@ void ULandscapeSplineSegment::Serialize(FArchive& Ar)
 	if (Ar.UE4Ver() < VER_UE4_LANDSCAPE_SPLINE_CROSS_LEVEL_MESHES)
 	{
 		bPlaceSplineMeshesInStreamingLevels = false;
+	}
+#endif
+
+#if WITH_EDITORONLY_DATA
+	if (Ar.IsLoading() && Ar.CustomVer(FLandscapeCustomVersion::GUID) < FLandscapeCustomVersion::AddingBodyInstanceToSplinesElements)
+	{
+		BodyInstance.SetCollisionProfileName(bEnableCollision_DEPRECATED ? UCollisionProfile::BlockAll_ProfileName : UCollisionProfile::NoCollision_ProfileName);
 	}
 #endif
 }
@@ -1902,17 +1971,77 @@ void ULandscapeSplineSegment::PostLoad()
 		// Fix collision profile
 		for (auto* LocalMeshComponent : LocalMeshComponents) // ForeignMeshComponents didn't exist yet
 		{
-			const bool bUsingEditorMesh = LocalMeshComponent->bHiddenInGame;
-			const FName CollisionProfile = (bEnableCollision && !bUsingEditorMesh) ? UCollisionProfile::BlockAll_ProfileName : UCollisionProfile::NoCollision_ProfileName;
-			if (LocalMeshComponent->GetCollisionProfileName() != CollisionProfile)
-			{
-				LocalMeshComponent->SetCollisionProfileName(CollisionProfile);
-			}
-
+			UpdateMeshCollisionProfile(LocalMeshComponent);
 			LocalMeshComponent->SetFlags(RF_TextExportTransient);
 		}
 	}
+
+	if (GIsEditor && GetLinkerCustomVersion(FLandscapeCustomVersion::GUID) < FLandscapeCustomVersion::AddingBodyInstanceToSplinesElements)
+	{
+		auto ForeignMeshComponentsMap = GetForeignMeshComponents();
+
+		for (auto& ForeignMeshComponentsPair : ForeignMeshComponentsMap)
+		{
+			for (auto* ForeignMeshComponent : ForeignMeshComponentsPair.Value)
+			{
+				const bool bUsingEditorMesh = ForeignMeshComponent->bHiddenInGame;
+
+				if (!bUsingEditorMesh)
+				{
+					ForeignMeshComponent->BodyInstance = BodyInstance;
+				}
+				else
+				{
+					ForeignMeshComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+				}
+			}
+		}
+
+		for (auto* LocalMeshComponent : LocalMeshComponents)
+		{
+			if (LocalMeshComponent != nullptr)
+			{
+				const bool bUsingEditorMesh = LocalMeshComponent->bHiddenInGame;
+
+				if (!bUsingEditorMesh)
+				{
+					LocalMeshComponent->BodyInstance = BodyInstance;
+				}
+				else
+				{
+					LocalMeshComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+				}
+			}
+		}
+	}
 #endif
+
+	// If the "spline.blockall" cvar is on we might need to rebuild collision
+	// for our spline meshes.
+	if (SplinesAlwaysUseBlockAll)
+	{
+		for (auto* LocalMeshComponent : LocalMeshComponents)
+		{
+			UpdateMeshCollisionProfile(LocalMeshComponent);
+			LocalMeshComponent->Modify();
+		}
+	}
+}
+
+void ULandscapeSplineSegment::UpdateMeshCollisionProfile(USplineMeshComponent* MeshComponent)
+{
+	const bool bUsingEditorMesh = MeshComponent->bHiddenInGame;
+#if WITH_EDITORONLY_DATA
+	const FName DesiredCollisionProfileName = SplinesAlwaysUseBlockAll ? UCollisionProfile::BlockAll_ProfileName : CollisionProfileName;
+	const FName CollisionProfile = (bEnableCollision_DEPRECATED && !bUsingEditorMesh) ? DesiredCollisionProfileName : UCollisionProfile::NoCollision_ProfileName;
+#else
+	const FName CollisionProfile = UCollisionProfile::BlockAll_ProfileName;
+#endif
+	if (MeshComponent->GetCollisionProfileName() != CollisionProfile)
+	{
+		MeshComponent->SetCollisionProfileName(CollisionProfile);
+		MeshComponent->Modify();
+	}
 }
 
 /**  */
@@ -2428,9 +2557,16 @@ void ULandscapeSplineSegment::UpdateSplinePoints(bool bUpdateCollision)
 			MeshComponent->SetCastShadow(bCastShadow);
 			MeshComponent->InvalidateLightingCache();
 
-			MeshComponent->BodyInstance.SetCollisionProfileName((bEnableCollision && !bUsingEditorMesh) ? UCollisionProfile::BlockAll_ProfileName : UCollisionProfile::NoCollision_ProfileName);
-
 #if WITH_EDITOR
+			if (!bUsingEditorMesh)
+			{
+				MeshComponent->BodyInstance = BodyInstance;
+			}
+			else
+			{
+				MeshComponent->BodyInstance.SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+			}
+
 			if (bUpdateCollision)
 			{
 				MeshComponent->RecreateCollision();

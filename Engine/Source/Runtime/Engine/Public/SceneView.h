@@ -181,6 +181,9 @@ struct FSceneViewInitOptions : public FSceneViewProjectionData
 	/** For stereoscopic rendering, whether or not this is a full pass, or a left / right eye pass */
 	EStereoscopicPass StereoPass;
 
+	/** For stereoscopic scene capture rendering. Half of the view's stereo IPD (- for lhs, + for rhs) */
+	float StereoIPD;
+
 	/** Conversion from world units (uu) to meters, so we can scale motion to the world appropriately */
 	float WorldToMetersScale;
 
@@ -206,6 +209,10 @@ struct FSceneViewInitOptions : public FSceneViewProjectionData
 	/** Whether to use FOV when computing mesh LOD. */
 	bool bUseFieldOfViewForLOD;
 
+	/** Actual field of view and that desired by the camera originally */
+	float FOV;
+	float DesiredFOV;
+
 #if WITH_EDITOR
 	/** default to 0'th view index, which is a bitfield of 1 */
 	uint64 EditorViewBitflag;
@@ -230,6 +237,7 @@ struct FSceneViewInitOptions : public FSceneViewProjectionData
 		, OverlayColor(FLinearColor::Transparent)
 		, ColorScale(FLinearColor::White)
 		, StereoPass(eSSP_FULL)
+		, StereoIPD(0.0f)
 		, WorldToMetersScale(100.f)
 		, CursorPos(-1, -1)
 		, LODDistanceFactor(1.0f)
@@ -237,6 +245,8 @@ struct FSceneViewInitOptions : public FSceneViewProjectionData
 		, OriginOffsetThisFrame(ForceInitToZero)
 		, bInCameraCut(false)
 		, bUseFieldOfViewForLOD(true)
+		, FOV(90.f)
+		, DesiredFOV(90.f)
 #if WITH_EDITOR
 		, EditorViewBitflag(1)
 		, OverrideLODViewOrigin(ForceInitToZero)
@@ -734,7 +744,8 @@ enum ETranslucencyVolumeCascade
 	VIEW_UNIFORM_BUFFER_MEMBER(FVector, VolumetricLightmapWorldToUVAdd) \
 	VIEW_UNIFORM_BUFFER_MEMBER(FVector, VolumetricLightmapIndirectionTextureSize) \
 	VIEW_UNIFORM_BUFFER_MEMBER(float, VolumetricLightmapBrickSize) \
-	VIEW_UNIFORM_BUFFER_MEMBER(FVector, VolumetricLightmapBrickTexelSize)
+	VIEW_UNIFORM_BUFFER_MEMBER(FVector, VolumetricLightmapBrickTexelSize) \
+	VIEW_UNIFORM_BUFFER_MEMBER(float, StereoIPD)
 
 #define VIEW_UNIFORM_BUFFER_MEMBER(type, identifier) \
 	UNIFORM_MEMBER(type, identifier)
@@ -851,6 +862,8 @@ private:
 	FVector		PreShadowTranslation;
 
 public:
+	FSceneViewInitOptions SceneViewInitOptions;
+
 	/** The actor which is being viewed from. */
 	const AActor* ViewActor;
 	 
@@ -892,11 +905,18 @@ public:
 	/** For stereoscopic rendering, whether or not this is a full pass, or a left / right eye pass */
 	EStereoscopicPass StereoPass;
 
+	/** Half of the view's stereo IPD (- for lhs, + for rhs) */
+	float StereoIPD;
+
 	/** Whether this view should render the first instance only of any meshes using instancing. */
 	bool bRenderFirstInstanceOnly;
 
 	// Whether to use FOV when computing mesh LOD.
 	bool bUseFieldOfViewForLOD;
+
+	/** Actual field of view and that desired by the camera originally */
+	float FOV;
+	float DesiredFOV;
 
 	EDrawDynamicFlags::Type DrawDynamicFlags;
 
@@ -996,7 +1016,7 @@ public:
 
 	/** True if we need to bind the instanced view uniform buffer parameters. */
 	bool bShouldBindInstancedViewUB;
-	
+
 	/** Global clipping plane being applied to the scene, or all 0's if disabled.  This is used when rendering the planar reflection pass. */
 	FPlane GlobalClippingPlane;
 
@@ -1159,12 +1179,6 @@ public:
 	 */
 	float GetLODDistanceFactor() const;
 
-	/** Get LOD distance factor for temporal LOD: Sqrt(GetTemporalLODDistanceFactor(?)*SphereRadius*SphereRadius / ScreenPercentage) = distance to this LOD transition
-	 * @param Index, 0 or 1, which temporal sample to return
-	 * @return distance factor
-	 */
-	float GetTemporalLODDistanceFactor(int32 Index, bool bUseLaggedLODTransition = true) const;
-
 	/** 
 	 * Returns the blend factor between the last two LOD samples
 	 */
@@ -1179,6 +1193,8 @@ public:
 	 * returns a the occlusion frame counter or MAX_uint32 if there is no view state
 	 */
 	uint32 GetOcclusionFrameCounter() const;
+
+  void UpdateProjectionMatrix(const FMatrix& NewProjectionMatrix);
 
 	/** Allow things like HMD displays to update the view matrix at the last minute, to minimize perceived latency */
 	void UpdateViewMatrix();

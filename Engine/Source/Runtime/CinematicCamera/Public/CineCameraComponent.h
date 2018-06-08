@@ -80,13 +80,18 @@ struct FCameraLensSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lens", meta = (ForceUnits = mm))
 	float MinimumFocusDistance;
 
+	/** Number of blades of diaphragm. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lens", meta = (ClampMin = "4", ClampMax = "16"))
+	int32 DiaphragmBladeCount;
+
 	bool operator==(const FCameraLensSettings& Other) const
 	{
 		return (MinFocalLength == Other.MinFocalLength)
 			&& (MaxFocalLength == Other.MaxFocalLength)
 			&& (MinFStop == Other.MinFStop)
 			&& (MaxFStop == Other.MaxFStop)
-			&& (MinimumFocusDistance == Other.MinimumFocusDistance);
+			&& (MinimumFocusDistance == Other.MinimumFocusDistance)
+			&& (DiaphragmBladeCount == Other.DiaphragmBladeCount);
 	}
 };
 

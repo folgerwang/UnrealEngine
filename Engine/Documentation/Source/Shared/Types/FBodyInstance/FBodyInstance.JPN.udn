@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2573127
+﻿INTSourceChangelist:3372845
 Availability:NoPublish
 Title:FBodyInstance RTTs
 Crumbs:
@@ -62,6 +62,9 @@ Engine/Physics/PhysicsBodies#physics
 ![](PhAT_COM.png)
 
 現時点では、実際に重心のある位置を表示する方法はありませんが、調節しているボディの Linear Damping を増やすことで、ボディはゆっくり落下しながら重心からスイングします。レベル内にスケルタルメッシュを置いて、その上にある物理が実際にそれを感じることができるようにする必要があるかもしれません。
+
+![](COM_Geom.png)
+
 [VAR:ToolTipFullLink]
 Engine/Physics/PhysicsBodies#physics
 [/VAR]
@@ -147,9 +150,9 @@ Engine/Physics/PhysicsBodies#physics
 [EXCERPT:bNotifyRigidBodyCollision]
 
 選択した物理ボディが、コリジョンがあったことをブループリントやコード エレメントに報告ができるようにします。これをオフにすると、物理ボディは物と衝突をしますが、衝突したことを実際には報告しません。
-Engine/Physics/PhysicsBodies/#collision
+Engine/Physics/PhysicsBodies/#コリジョン
 [/EXCERPT:bNotifyRigidBodyCollision]
- 
+
 
 
 
@@ -159,7 +162,7 @@ CCD (Cyclic Coordinate Descent：循環座標降下) は物理ボディが必要
 
 相互貫通による放出エラーを防ぐためにオブジェクトが高速で移動している場合、またはより正確なコリジョン探知を行いたい場合に使用します。物理ボディが 1 つのオブジェクト タイプ (例えばポーン) からオーバーラップやコリジョンを報告するように設定されている場合、 CCD を有効にすると、次のフレーム上で放出される前に、単一のフレームに対して物理ボディがオーバーラップする二重イベントを防ぐことができます。
 [VAR:ToolTipFullLink]
-Engine/Physics/PhysicsBodies#collision
+Engine/Physics/PhysicsBodies#コリジョン
 [/VAR]
 [/EXCERPT:bUseCCD]
 

@@ -67,6 +67,8 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalShaderPipeline)
 	{
 		RenderPipelineReflection = mtlpp::RenderPipelineReflection(nil);
 		ComputePipelineReflection = mtlpp::ComputePipelineReflection(nil);
+		RenderDesc = mtlpp::RenderPipelineDescriptor(nil);
+		ComputeDesc = mtlpp::ComputePipelineDescriptor(nil);
 	}
 	return Self;
 }
@@ -305,11 +307,16 @@ struct FMetalGraphicsPipelineKey
 		else
 		{
 			Key.SetHashValue(Offset_IndexType, NumBits_IndexType, EMetalIndexType_None);
+			Key.DomainBufferHash = 0;
 		}
 		if (PixelShader)
 		{
 			Key.PixelFunction = PixelShader->GetHash();
 			Key.PixelBufferHash = PixelShader->GetBindingHash(PixelBufferTypes);
+		}
+		else
+		{
+			Key.PixelBufferHash = 0;
 		}
 	}
 };
@@ -489,6 +496,11 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
             RenderPipelineDesc.SetVertexDescriptor(GetMaskedVertexDescriptor(VertexDecl->Layout.VertexDesc, VertexShader->Bindings.InOutMask));
             RenderPipelineDesc.SetVertexFunction(vertexFunction);
             RenderPipelineDesc.SetFragmentFunction(fragmentFunction);
+#if ENABLE_METAL_GPUPROFILE
+			ns::String VertexName = vertexFunction.GetName();
+			ns::String FragmentName = fragmentFunction ? fragmentFunction.GetName() : @"";
+			RenderPipelineDesc.SetLabel([NSString stringWithFormat:@"%@+%@", VertexName.GetPtr(), FragmentName.GetPtr()]);
+#endif
         }
         else
         {
@@ -505,6 +517,13 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
             
             RenderPipelineDesc.SetVertexFunction(domainFunction);
             RenderPipelineDesc.SetFragmentFunction(fragmentFunction);
+#if ENABLE_METAL_GPUPROFILE
+			{
+				ns::String VertexName = domainFunction.GetName();
+				ns::String FragmentName = fragmentFunction ? fragmentFunction.GetName() : @"";
+				RenderPipelineDesc.SetLabel([NSString stringWithFormat:@"%@+%@", VertexName.GetPtr(), FragmentName.GetPtr()]);
+			}
+#endif
             
 			ComputePipelineDesc = mtlpp::ComputePipelineDescriptor();
             check(ComputePipelineDesc);
@@ -643,15 +662,22 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
                 ComputeStageInOut.SetIndexType(GetMetalIndexType(IndexType));
             }
 			ComputePipelineDesc.SetStageInputDescriptor(ComputeStageInOut);
-            
+			
             {
+				METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewComputePipelineState: %s"), TEXT("")/**FString([ComputePipelineDesc.GetPtr() description])*/)));
 				ns::AutoReleasedError AutoError;
 				NSUInteger ComputeOption = mtlpp::PipelineOption::NoPipelineOption;
+#if ENABLE_METAL_GPUPROFILE
+				{
+					ns::String VertexName = vertexFunction.GetName();
+					RenderPipelineDesc.SetLabel([NSString stringWithFormat:@"%@", VertexName.GetPtr()]);
+				}
+#endif
 #if METAL_DEBUG_OPTIONS
-				if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
+				if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation METAL_STATISTIC(|| GetMetalDeviceContext().GetCommandQueue().GetStatistics()))
 				{
 					mtlpp::AutoReleasedComputePipelineReflection Reflection;
-					ComputeOption = mtlpp::PipelineOption::ArgumentInfo|mtlpp::PipelineOption::BufferTypeInfo;
+					ComputeOption = mtlpp::PipelineOption::ArgumentInfo|mtlpp::PipelineOption::BufferTypeInfo METAL_STATISTIC(|NSUInteger(EMTLPipelineStats));
 					Pipeline->ComputePipelineState = Device.NewComputePipelineState(ComputePipelineDesc, (mtlpp::PipelineOption)ComputeOption, &Reflection, &AutoError);
 					Pipeline->ComputePipelineReflection = Reflection;
 				}
@@ -673,6 +699,8 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
 #if METAL_DEBUG_OPTIONS
 				if (Pipeline->ComputePipelineReflection)
 				{
+					Pipeline->ComputeDesc = ComputePipelineDesc;
+					
 					bool found__HSTFOut = false;
 					for(mtlpp::Argument arg : Pipeline->ComputePipelineReflection.GetArguments())
 					{
@@ -772,21 +800,25 @@ static FMetalShaderPipeline* CreateMTLRenderPipeline(bool const bSync, FMetalGra
 #if METAL_DEBUG_OPTIONS
 		mtlpp::AutoReleasedRenderPipelineReflection OutReflection;
 		Reflection = &OutReflection;
-        if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
+        if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation METAL_STATISTIC(|| GetMetalDeviceContext().GetCommandQueue().GetStatistics()))
         {
-        	RenderOption = mtlpp::PipelineOption::ArgumentInfo|mtlpp::PipelineOption::BufferTypeInfo;
+        	RenderOption = mtlpp::PipelineOption::ArgumentInfo|mtlpp::PipelineOption::BufferTypeInfo METAL_STATISTIC(|NSUInteger(EMTLPipelineStats));
         }
 #endif
 
-		ns::AutoReleasedError RenderError;
-		Pipeline->RenderPipelineState = Device.NewRenderPipelineState(RenderPipelineDesc, (mtlpp::PipelineOption)RenderOption, Reflection, &RenderError);
-#if METAL_DEBUG_OPTIONS
-		if (Reflection)
 		{
-			Pipeline->RenderPipelineReflection = *Reflection;
-		}
+			ns::AutoReleasedError RenderError;
+			METAL_GPUPROFILE(FScopedMetalCPUStats CPUStat(FString::Printf(TEXT("NewRenderPipeline: %s"), TEXT("")/**FString([RenderPipelineDesc.GetPtr() description])*/)));
+			Pipeline->RenderPipelineState = Device.NewRenderPipelineState(RenderPipelineDesc, (mtlpp::PipelineOption)RenderOption, Reflection, &RenderError);
+#if METAL_DEBUG_OPTIONS
+			if (Reflection)
+			{
+				Pipeline->RenderPipelineReflection = *Reflection;
+				Pipeline->RenderDesc = RenderPipelineDesc;
+			}
 #endif
-		Error = RenderError;
+			Error = RenderError;
+		}
 		
 		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Failed to generate a pipeline state object: %s"), *FString(Error.GetPtr().description));
 		UE_CLOG((Pipeline->RenderPipelineState == nil), LogMetal, Error, TEXT("Vertex shader: %s"), *FString(VertexShader->GetSourceCode()));
@@ -842,7 +874,7 @@ static FMetalShaderPipeline* GetMTLRenderPipeline(bool const bSync, FMetalGraphi
 	static TMap<FMetalGraphicsPipelineKey, FMetalShaderPipeline*> Pipelines;
 	
 	SCOPE_CYCLE_COUNTER(STAT_MetalPipelineStateTime);
-
+	
 	FMetalGraphicsPipelineKey Key;
 	InitMetalGraphicsPipelineKey(Key, Init, IndexType, VertexBufferTypes, PixelBufferTypes, DomainBufferTypes);
 
@@ -853,14 +885,14 @@ static FMetalShaderPipeline* GetMTLRenderPipeline(bool const bSync, FMetalGraphi
 	FMetalShaderPipeline* Desc = Pipelines.FindRef(Key);
 	if (Desc == nil)
 	{
+		Desc = CreateMTLRenderPipeline(bSync, Key, Init, IndexType, VertexBufferTypes, PixelBufferTypes, DomainBufferTypes);
+
 		// Now we are a writer as we want to create & add the new pipeline
 		Lock.ReleaseReadOnlyLockAndAcquireWriteLock_USE_WITH_CAUTION();
 		
 		// Retest to ensure no-one beat us here!
-		Desc = Pipelines.FindRef(Key);
-		if (Desc == nil)
+		if (Pipelines.FindRef(Key) == nil)
 		{
-			Desc = CreateMTLRenderPipeline(bSync, Key, Init, IndexType, VertexBufferTypes, PixelBufferTypes, DomainBufferTypes);
 			Pipelines.Add(Key, Desc);
 		}
 	}

@@ -95,6 +95,7 @@
 #include "Widgets/SWindow.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Interfaces/IMainFrameModule.h"
+#include "UObject/MetaData.h"
 
 namespace UnFbx
 {
@@ -1597,14 +1598,16 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, bool bExportComponents, INodeN
 
 		// For cameras and lights: always add a rotation to get the correct coordinate system.
         FTransform RotationDirectionConvert = FTransform::Identity;
-		if (Actor->IsA(ACameraActor::StaticClass()) || Actor->IsA(ALight::StaticClass()))
+		const bool bIsCameraActor = Actor->IsA(ACameraActor::StaticClass());
+		const bool bIsLightActor = Actor->IsA(ALight::StaticClass());
+		if (bIsCameraActor || bIsLightActor)
 		{
-			if (Actor->IsA(ACameraActor::StaticClass()))
+			if (bIsCameraActor)
 			{
                 FRotator Rotator = FFbxDataConverter::GetCameraRotation().GetInverse();
 				RotationDirectionConvert = FTransform(Rotator);
 			}
-			else if (Actor->IsA(ALight::StaticClass()))
+			else if (bIsLightActor)
 			{
 				FRotator Rotator = FFbxDataConverter::GetLightRotation().GetInverse();
 				RotationDirectionConvert = FTransform(Rotator);
@@ -1699,15 +1702,16 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, bool bExportComponents, INodeN
 				USceneComponent* Component = ComponentsToExport[CompIndex];
 
                 RotationDirectionConvert = FTransform::Identity;
-                // For cameras and lights: always add a rotation to get the correct coordinate system.
+                // For cameras and lights: always add a rotation to get the correct coordinate system
+				// Unless we are parented to an Actor of the same type, since the rotation direction was already added
 				if (Component->IsA(UCameraComponent::StaticClass()) || Component->IsA(ULightComponent::StaticClass()))
 				{
-					if (Component->IsA(UCameraComponent::StaticClass()))
+					if (!bIsCameraActor && Component->IsA(UCameraComponent::StaticClass()))
 					{
                     	FRotator Rotator = FFbxDataConverter::GetCameraRotation().GetInverse();
 						RotationDirectionConvert = FTransform(Rotator);
 					}
-					else if (Component->IsA(ULightComponent::StaticClass()))
+					else if (!bIsLightActor && Component->IsA(ULightComponent::StaticClass()))
 					{
 						FRotator Rotator = FFbxDataConverter::GetLightRotation().GetInverse();
 						RotationDirectionConvert = FTransform(Rotator);
@@ -3366,6 +3370,33 @@ FbxNode* FFbxExporter::ExportCollisionMesh(const UStaticMesh* StaticMesh, const 
 }
 #endif
 
+void ExportObjectMetadata(const UObject* ObjectToExport, FbxNode* Node)
+{
+	if (ObjectToExport && Node)
+	{
+		// Retrieve the metadata map without creating it
+		const TMap<FName, FString>* MetadataMap = UMetaData::GetMapForObject(ObjectToExport);
+		if (MetadataMap)
+		{
+			static const FString MetadataPrefix(FBX_METADATA_PREFIX);
+			for (const auto& MetadataIt : *MetadataMap)
+			{
+				// Export object metadata tags that are prefixed as FBX custom user-defined properties
+				// Remove the prefix since it's for Unreal use only (and '.' is considered an invalid character for user property names in DCC like Maya)
+				FString TagAsString = MetadataIt.Key.ToString();
+				if (TagAsString.RemoveFromStart(MetadataPrefix))
+				{
+					FbxProperty Property = FbxProperty::Create(Node, FbxStringDT, TCHAR_TO_UTF8(*TagAsString));
+					FbxString ValueString(TCHAR_TO_UTF8(*MetadataIt.Value));
+
+					Property.Set(ValueString);
+					Property.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+				}
+			}
+		}
+	}
+}
+
 /**
  * Exports a static mesh
  * @param StaticMesh	The static mesh to export
@@ -3405,21 +3436,8 @@ FbxNode* FFbxExporter::ExportStaticMeshToFbx(const UStaticMesh* StaticMesh, int3
 		TArray<int32> VertRemap;
 		TArray<int32> UniqueVerts;
 
-		if (GetExportOptions()->WeldedVertices)
-		{
-			// Weld verts
-			DetermineVertsToWeld(VertRemap, UniqueVerts, RenderMesh);
-		}
-		else
-		{
-			// Do not weld verts
-			VertRemap.AddUninitialized(RenderMesh.VertexBuffers.StaticMeshVertexBuffer.GetNumVertices());
-			for (int32 i = 0; i < VertRemap.Num(); i++)
-			{
-				VertRemap[i] = i;
-			}
-			UniqueVerts = VertRemap;
-		}
+		// Weld verts
+		DetermineVertsToWeld(VertRemap, UniqueVerts, RenderMesh);
 
 		// Create and fill in the vertex position data source.
 		// The position vertices are duplicated, for some reason, retrieve only the first half vertices.
@@ -3549,17 +3567,8 @@ FbxNode* FFbxExporter::ExportStaticMeshToFbx(const UStaticMesh* StaticMesh, int3
 
 			TArray<int32> UvsRemap;
 			TArray<int32> UniqueUVs;
-			if (GetExportOptions()->WeldedVertices)
-			{
-				// Weld UVs
-				DetermineUVsToWeld(UvsRemap, UniqueUVs, RenderMesh.VertexBuffers.StaticMeshVertexBuffer, TexCoordSourceIndex);
-			}
-			else
-			{
-				// Do not weld UVs
-				UvsRemap = VertRemap;
-				UniqueUVs = UvsRemap;
-			}
+			// Weld UVs
+			DetermineUVsToWeld(UvsRemap, UniqueUVs, RenderMesh.VertexBuffers.StaticMeshVertexBuffer, TexCoordSourceIndex);
 
 			// Create the texture coordinate data source.
 			for (int32 FbxVertIndex = 0; FbxVertIndex < UniqueUVs.Num(); FbxVertIndex++)
@@ -3727,6 +3736,8 @@ FbxNode* FFbxExporter::ExportStaticMeshToFbx(const UStaticMesh* StaticMesh, int3
 	//Set the original meshes in case it was already existing
 	FbxActor->SetNodeAttribute(Mesh);
 
+	ExportObjectMetadata(StaticMesh, FbxActor);
+
 	return FbxActor;
 }
 
@@ -3753,21 +3764,8 @@ void FFbxExporter::ExportSplineMeshToFbx(const USplineMeshComponent* SplineMeshC
 	TArray<int32> VertRemap;
 	TArray<int32> UniqueVerts;
 
-	if (GetExportOptions()->WeldedVertices)
-	{
-		// Weld verts
-		DetermineVertsToWeld(VertRemap, UniqueVerts, RenderMesh);
-	}
-	else
-	{
-		// Do not weld verts
-		VertRemap.AddUninitialized(RenderMesh.VertexBuffers.StaticMeshVertexBuffer.GetNumVertices());
-		for (int32 i = 0; i < VertRemap.Num(); i++)
-		{
-			VertRemap[i] = i;
-		}
-		UniqueVerts = VertRemap;
-	}
+	// Weld verts
+	DetermineVertsToWeld(VertRemap, UniqueVerts, RenderMesh);
 
 	FbxMesh* Mesh = FbxMesh::Create(Scene, TCHAR_TO_UTF8(MeshName));
 
@@ -3873,17 +3871,8 @@ void FFbxExporter::ExportSplineMeshToFbx(const USplineMeshComponent* SplineMeshC
 
 		TArray<int32> UvsRemap;
 		TArray<int32> UniqueUVs;
-		if (GetExportOptions()->WeldedVertices)
-		{
-			// Weld UVs
-			DetermineUVsToWeld(UvsRemap, UniqueUVs, RenderMesh.VertexBuffers.StaticMeshVertexBuffer, TexCoordSourceIndex);
-		}
-		else
-		{
-			// Do not weld UVs
-			UvsRemap = VertRemap;
-			UniqueUVs = UvsRemap;
-		}
+		// Weld UVs
+		DetermineUVsToWeld(UvsRemap, UniqueUVs, RenderMesh.VertexBuffers.StaticMeshVertexBuffer, TexCoordSourceIndex);
 
 		// Create the texture coordinate data source.
 		for (int32 UnrealVertIndex : UniqueUVs)

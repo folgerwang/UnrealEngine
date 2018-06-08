@@ -13,7 +13,7 @@
 void SScaleBox::Construct( const SScaleBox::FArguments& InArgs )
 {
 	Stretch = InArgs._Stretch;
-	RefreshSafeZoneScale();
+
 
 	StretchDirection = InArgs._StretchDirection;
 	UserSpecifiedScale = InArgs._UserSpecifiedScale;
@@ -31,6 +31,13 @@ void SScaleBox::Construct( const SScaleBox::FArguments& InArgs )
 		InArgs._Content.Widget
 	];
 
+#if WITH_EDITOR
+	OverrideScreenSize = InArgs._OverrideScreenSize;
+	FSlateApplication::Get().OnDebugSafeZoneChanged.AddSP(this, &SScaleBox::DebugSafeAreaUpdated);
+#endif
+
+
+	RefreshSafeZoneScale();
 	OnSafeFrameChangedHandle = FCoreDelegates::OnSafeFrameChangedEvent.AddSP(this, &SScaleBox::RefreshSafeZoneScale);
 }
 
@@ -161,6 +168,12 @@ void SScaleBox::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedC
 				}
 			}
 
+			if (GSlateLayoutCaching && LastAreaSize != AreaSize)
+			{
+				const_cast<SScaleBox*>(this)->InvalidatePrepass();
+				bRequiresAnotherPrepass = true;
+			}
+
 			LastAreaSize = AreaSize;
 			LastIncomingScale = AllottedGeometry.Scale;
 			LastSlotWidgetDesiredSize = SlotWidgetDesiredSize;
@@ -239,43 +252,82 @@ void SScaleBox::SetContent(TSharedRef<SWidget> InContent)
 
 void SScaleBox::SetHAlign(EHorizontalAlignment HAlign)
 {
-	ChildSlot.HAlignment = HAlign;
+	if(ChildSlot.HAlignment != HAlign)
+	{
+		ChildSlot.HAlignment = HAlign;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 void SScaleBox::SetVAlign(EVerticalAlignment VAlign)
 {
-	ChildSlot.VAlignment = VAlign;
+	if(ChildSlot.VAlignment != VAlign)
+	{
+		ChildSlot.VAlignment = VAlign;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 void SScaleBox::SetStretchDirection(EStretchDirection::Type InStretchDirection)
 {
-	StretchDirection = InStretchDirection;
+	if(!StretchDirection.IdenticalTo(InStretchDirection))
+	{
+		StretchDirection = InStretchDirection;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 void SScaleBox::SetStretch(EStretch::Type InStretch)
 {
-	Stretch = InStretch;
-	RefreshSafeZoneScale();
+	if(!Stretch.IdenticalTo(InStretch))
+	{
+		Stretch = InStretch;
+		RefreshSafeZoneScale();
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 void SScaleBox::SetUserSpecifiedScale(float InUserSpecifiedScale)
 {
-	UserSpecifiedScale = InUserSpecifiedScale;
+	if(!UserSpecifiedScale.IdenticalTo(InUserSpecifiedScale))
+	{
+		UserSpecifiedScale = InUserSpecifiedScale;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 void SScaleBox::SetIgnoreInheritedScale(bool InIgnoreInheritedScale)
 {
-	IgnoreInheritedScale = InIgnoreInheritedScale;
+	if(!IgnoreInheritedScale.IdenticalTo(InIgnoreInheritedScale))
+	{
+		IgnoreInheritedScale = InIgnoreInheritedScale;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 FVector2D SScaleBox::ComputeDesiredSize(float InScale) const
 {
-	float LayoutScale = GetLayoutScale();
+	float ExpectedLayoutScale = GetLayoutScale();
 	if (IgnoreInheritedScale.Get(false))
 	{
-		return LayoutScale * SCompoundWidget::ComputeDesiredSize(InScale) / InScale;
+		return ExpectedLayoutScale * SCompoundWidget::ComputeDesiredSize(InScale) / InScale;
 	}
-	return LayoutScale * SCompoundWidget::ComputeDesiredSize(InScale);
+
+	FVector2D ComputedDesiredSize = SCompoundWidget::ComputeDesiredSize(InScale);
+
+	const EStretch::Type CurrentStretch = Stretch.Get();
+
+	switch (CurrentStretch)
+	{
+	case EStretch::ScaleToFitX:
+		ExpectedLayoutScale = ComputedDesiredSize.X == 0.0f ? 1.0f : FMath::Max(1.0f, GetCachedGeometry().GetLocalSize().X / ComputedDesiredSize.X);
+		break;
+	case EStretch::ScaleToFitY:
+		ExpectedLayoutScale = ComputedDesiredSize.Y == 0.0f ? 1.0f : FMath::Max(1.0f, GetCachedGeometry().GetLocalSize().Y / ComputedDesiredSize.Y);
+		break;
+	}
+
+	return ExpectedLayoutScale * ComputedDesiredSize;
 }
 
 float SScaleBox::GetRelativeLayoutScale(const FSlotBase& Child, float LayoutScaleMultiplier) const
@@ -317,33 +369,52 @@ float SScaleBox::GetLayoutScale() const
 void SScaleBox::RefreshSafeZoneScale()
 {
 	float ScaleDownBy = 0.f;
-
-	if (Stretch.Get() == EStretch::ScaleBySafeZone)
+	FMargin SafeMargin;
+	FVector2D ScaleBy;
+#if WITH_EDITOR
+	if (OverrideScreenSize.IsSet() && !OverrideScreenSize.GetValue().IsZero())
 	{
-		TSharedPtr<SViewport> GameViewport = FSlateApplication::Get().GetGameViewport();
-		if (GameViewport.IsValid())
-		{
-			TSharedPtr<ISlateViewport> ViewportInterface = GameViewport->GetViewportInterface().Pin();
-			if (ViewportInterface.IsValid())
-			{
-				const FIntPoint ViewportSize = ViewportInterface->GetSize();
-
-				FDisplayMetrics Metrics;
-				FSlateApplication::Get().GetDisplayMetrics(Metrics);
-
-				// Safe zones are uniform, so the axis we check is irrelevant
-#if PLATFORM_IOS
-				// FVector4(X,Y,Z,W) being used like FMargin(left, top, right, bottom)
-				// Consequence: Left and Right safe zones are represented by X and Z.
-				const float LeftSafeZone = Metrics.TitleSafePaddingSize.X;
-				const float RightSafeZone = Metrics.TitleSafePaddingSize.Z;
-				ScaleDownBy = (LeftSafeZone + RightSafeZone) / (float)ViewportSize.X;
-#else
-				ScaleDownBy = (Metrics.TitleSafePaddingSize.X * 2.f) / (float)ViewportSize.X;
+		FSlateApplication::Get().GetSafeZoneSize(SafeMargin, OverrideScreenSize.GetValue());
+		ScaleBy = OverrideScreenSize.GetValue();
+	}
+	else
 #endif
+	{
+		if (Stretch.Get() == EStretch::ScaleBySafeZone)
+		{
+			TSharedPtr<SViewport> GameViewport = FSlateApplication::Get().GetGameViewport();
+			if (GameViewport.IsValid())
+			{
+				TSharedPtr<ISlateViewport> ViewportInterface = GameViewport->GetViewportInterface().Pin();
+				if (ViewportInterface.IsValid())
+				{
+					const FIntPoint ViewportSize = ViewportInterface->GetSize();
+
+					FSlateApplication::Get().GetSafeZoneSize(SafeMargin, ViewportSize);
+					ScaleBy = ViewportSize;
+				}
 			}
 		}
 	}
+	const float SafeZoneScaleX = FMath::Max(SafeMargin.Left, SafeMargin.Right)/ (float)ScaleBy.X;
+	const float SafeZoneScaleY = FMath::Max(SafeMargin.Top, SafeMargin.Bottom) / (float)ScaleBy.Y;
+
+	// In order to deal with non-uniform safe-zones we take the largest scale as the amount to scale down by.
+	ScaleDownBy = FMath::Max(SafeZoneScaleX, SafeZoneScaleY);
 
 	SafeZoneScale = 1.f - ScaleDownBy;
 }
+
+#if WITH_EDITOR
+void SScaleBox::DebugSafeAreaUpdated(const FMargin& NewSafeZone)
+{
+	RefreshSafeZoneScale();
+}
+
+void SScaleBox::SetOverrideScreenInformation(TOptional<FVector2D> InScreenSize)
+{
+	OverrideScreenSize = InScreenSize;
+	RefreshSafeZoneScale();
+}
+
+#endif

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3471588
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:ポストプロセス エフェクト
 Crumbs: %ROOT%, Engine
@@ -9,56 +9,14 @@ parent:Engine/Rendering
 order:5
 type:landing
 tags:Rendering
+Topic-image:ppe_topic.png
 
-
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/PostProcessEffects:title%](Engine/Rendering/PostProcessEffects/ppe_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/tech_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/PostProcessEffects:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/PostProcessEffects:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/PostProcessEffects]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/PostProcessEffects:title%](Engine/Rendering/PostProcessEffects/ppe_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/tech_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/PostProcessEffects:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/PostProcessEffects:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/PostProcessEffects]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 [REGION:banner]
 ![Post Process Effects](ppe_landing_banner1.png)
 [/REGION]
 
 [EXCERPT:Intro]
-アンリアル・エンジンは、アーティストやデザイナーは、全体的な見た目やシーンの雰囲気の細かいチューニングを可能にするポストプロセス エフェクトが提供されています。ブルーム (明るいオブジェクトに対する HDR ブルーム エフェクト)、アンビエントオクルージョン、トーンマッピングなどが、エレメントやエフェクトの例です。
+アンリアル・エンジンは、アーティストやデザイナーは、全体的な見た目やシーンの雰囲気の細かいチューニングを可能にするポストプロセス エフェクトが提供されています。ブルーム (明るいオブジェクトに対する HDR ブルーム エフェクト) 、アンビエントオクルージョン、トーンマッピングなどが、エレメントやエフェクトの例です。
 [/EXCERPT:Intro]
 
 ## 物理ベース ポストプロセス
@@ -106,6 +64,12 @@ tags:Rendering
 有効設定のそれぞれの説明は、以下のエフェクトの対応ページを参照してください。
 
 ## エフェクト
+
+[DIR(output:"topiccompact" parent:"Engine/Rendering/PostProcessEffects" org:"hierarchy" tags:"Post Process" end:"1")]
+
+
+[COMMENT:none]
+-
 
 [REGION:topics fourth]
 [OBJECT:TopicCompact]
@@ -243,5 +207,6 @@ tags:Rendering
 [/REGION]
 
 
-
+-
+[/COMMENT]
 

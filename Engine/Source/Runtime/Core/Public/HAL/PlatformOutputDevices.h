@@ -13,6 +13,8 @@
 #include "Mac/MacPlatformOutputDevices.h"
 #elif PLATFORM_IOS
 #include "IOS/IOSPlatformOutputDevices.h"
+#elif PLATFORM_LUMIN
+#include "Lumin/LuminOutputDevices.h"
 #elif PLATFORM_ANDROID
 #include "Android/AndroidOutputDevices.h"
 #elif PLATFORM_HTML5

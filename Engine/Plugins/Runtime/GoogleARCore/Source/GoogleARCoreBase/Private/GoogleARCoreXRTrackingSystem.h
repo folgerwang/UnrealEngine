@@ -38,6 +38,9 @@ public:
 	// @todo move this to some interface
 	virtual float GetWorldToMetersScale() const override;
 
+	void* GetARSessionRawPointer() override;
+	void* GetGameThreadARFrameRawPointer() override;
+
 protected:
 	// IARSystemSupport
 	virtual void OnARSystemInitialized() override;
@@ -55,6 +58,9 @@ protected:
 
 	virtual UARPin* OnPinComponent(USceneComponent* ComponentToPin, const FTransform& PinToWorldTransform, UARTrackedGeometry* TrackedGeometry = nullptr, const FName DebugName = NAME_None) override;
 	virtual void OnRemovePin(UARPin* PinToRemove) override;
+	virtual UARTextureCameraImage* OnGetCameraImage() override { return nullptr; }
+	virtual UARTextureCameraDepth* OnGetCameraDepth() override { return nullptr; }
+	//~IARSystemSupport
 
 private:
 	//~ FGCObject

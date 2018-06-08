@@ -2,6 +2,8 @@
 
 #include "Android/AndroidJavaMessageBox.h"
 
+#if USE_ANDROID_JNI
+
 FJavaAndroidMessageBox::FJavaAndroidMessageBox()
 	: FJavaClassObject(GetClassName(), "()V")
 	, SetCaptionMethod(GetClassMethod("setCaption", "(Ljava/lang/String;)V"))
@@ -49,3 +51,4 @@ FName FJavaAndroidMessageBox::GetClassName()
 	}
 }
 
+#endif

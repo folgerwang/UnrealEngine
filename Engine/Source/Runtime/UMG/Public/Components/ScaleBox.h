@@ -73,6 +73,7 @@ public:
 #if WITH_EDITOR
 	virtual const FText GetPaletteCategory() override;
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
+	virtual void OnDesignerChanged(const FDesignerChangedEventArgs& EventArgs) override;
 #endif
 
 	virtual void Serialize(FArchive& Ar) override;
@@ -87,6 +88,10 @@ protected:
 
 protected:
 	TSharedPtr<SScaleBox> MyScaleBox;
+
+#if WITH_EDITOR
+	TOptional<FVector2D> DesignerSize;
+#endif
 
 protected:
 	// UWidget interface

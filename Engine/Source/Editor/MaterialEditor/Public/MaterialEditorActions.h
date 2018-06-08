@@ -96,8 +96,8 @@ public:
 	/** Toggles the material stats on the canvas pane */
 	TSharedPtr< FUICommandInfo > ToggleMaterialStats;
 
-	/** Shows material stats and errors when compiled for mobile. */
-	TSharedPtr< FUICommandInfo > ToggleMobileStats;
+	/** Shows material stats and errors for multiple shader platforms. */
+	TSharedPtr< FUICommandInfo > TogglePlatformStats;
 	
 	/** Creates a new comment node */
 	TSharedPtr< FUICommandInfo > NewComment;

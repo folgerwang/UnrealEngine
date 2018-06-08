@@ -10,30 +10,30 @@ public class Launch : ModuleRules
 		PrivateIncludePaths.Add("Runtime/Launch/Private");
 
 		PrivateIncludePathModuleNames.AddRange(new string[] {
-			"AutomationController",
-			"TaskGraph",
+				"AutomationController",
+				"TaskGraph",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {
-			"Core",
-			"CoreUObject",
-			"Engine",
-			"InputCore",
-			"MoviePlayer",
-			"Networking",
-			"PakFile",
-			"Projects",
-			"RenderCore",
-			"RHI",
-			"SandboxFile",
-			"Serialization",
-			"ShaderCore",
-			"ApplicationCore",
-			"Slate",
-			"SlateCore",
-			"Sockets",
-            "Overlay",
-			"UtilityShaders",
+				"Core",
+				"CoreUObject",
+				"Engine",
+				"InputCore",
+				"MoviePlayer",
+				"Networking",
+				"PakFile",
+				"Projects",
+				"RenderCore",
+				"RHI",
+				"SandboxFile",
+				"Serialization",
+				"ShaderCore",
+				"ApplicationCore",
+				"Slate",
+				"SlateCore",
+				"Sockets",
+                "Overlay",
+				"UtilityShaders",
 		});
 
 		// Enable the LauncherCheck module to be used for platforms that support the Launcher.
@@ -54,9 +54,9 @@ public class Launch : ModuleRules
 		if (Target.Type != TargetType.Server)
 		{
 			PrivateDependencyModuleNames.AddRange(new string[] {
-				"HeadMountedDisplay",
+					"HeadMountedDisplay",
 				"MediaUtils",
-				"MRMesh",
+					"MRMesh",
 			});
 
 			if ((Target.Platform == UnrealTargetPlatform.Win32) ||
@@ -84,13 +84,13 @@ public class Launch : ModuleRules
 
 			PrivateIncludePathModuleNames.AddRange(new string[] {
 				"Media",
-				"SlateNullRenderer",
+					"SlateNullRenderer",
 				"SlateRHIRenderer",
 			});
 
 			DynamicallyLoadedModuleNames.AddRange(new string[] {
 				"Media",
-				"SlateNullRenderer",
+					"SlateNullRenderer",
 				"SlateRHIRenderer",
 			});
 		}
@@ -99,21 +99,21 @@ public class Launch : ModuleRules
 		if (Target.Configuration != UnrealTargetConfiguration.Shipping)
 		{
 			PrivateDependencyModuleNames.AddRange(new string[] {
-				"NetworkFile",
-				"StreamingFile",
-				"CookedIterativeFile",
-				"AutomationWorker",
+					"NetworkFile",
+					"StreamingFile",
+					"CookedIterativeFile",
+					"AutomationWorker",
 			});
 		}
 
 		DynamicallyLoadedModuleNames.AddRange(new string[] {
-			"Renderer",
+				"Renderer",
 		});
 
 		if (Target.bCompileAgainstEngine)
 		{
 			PrivateIncludePathModuleNames.AddRange(new string[] {
-				"MessagingCommon",
+					"MessagingCommon",
 			});
 
 			PublicDependencyModuleNames.Add("SessionServices");
@@ -156,24 +156,24 @@ public class Launch : ModuleRules
 			PublicIncludePathModuleNames.Add("ProfilerClient");
 
 			PrivateDependencyModuleNames.AddRange(new string[] {
-				"SourceControl",
-				"UnrealEd",
-				"DesktopPlatform",
-				"PIEPreviewDeviceProfileSelector",
+					"SourceControl",
+					"UnrealEd",
+					"DesktopPlatform",
+					"PIEPreviewDeviceProfileSelector",
 			});
 
 
 			// ExtraModules that are loaded when WITH_EDITOR=1 is true
 			DynamicallyLoadedModuleNames.AddRange(new string[] {
-				"AutomationWindow",
-				"ProfilerClient",
-				"Toolbox",
-				"GammaUI",
-				"ModuleUI",
-				"OutputLog",
-				"TextureCompressor",
-				"MeshUtilities",
-				"SourceCodeAccess"
+					"AutomationWindow",
+					"ProfilerClient",
+					"Toolbox",
+					"GammaUI",
+					"ModuleUI",
+					"OutputLog",
+					"TextureCompressor",
+					"MeshUtilities",
+					"SourceCodeAccess"
 			});
 
 			if (Target.Platform == UnrealTargetPlatform.Mac)
@@ -209,18 +209,24 @@ public class Launch : ModuleRules
 			PublicWeakFrameworks.Add("QuartzCore");
 		}
 
-		if (Target.Platform == UnrealTargetPlatform.Android)
+		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
-			PrivateDependencyModuleNames.AddRange(new string[] {
-				"AndroidAudio",
-				"AudioMixerAndroid",
-				"OpenGLDrv",
-			});
-
-			DynamicallyLoadedModuleNames.AddRange(new string[] {
-				"AndroidLocalNotification",
-				"AndroidRuntimeSettings",
-			});
+			PrivateDependencyModuleNames.Add("OpenGLDrv");
+			if (Target.Platform != UnrealTargetPlatform.Lumin)
+			{
+				PrivateDependencyModuleNames.Add("AndroidAudio");
+				PrivateDependencyModuleNames.Add("AudioMixerAndroid");
+			}
+			// these are, for now, only for basic android
+			if (Target.Platform == UnrealTargetPlatform.Android)
+			{
+				DynamicallyLoadedModuleNames.Add("AndroidRuntimeSettings");
+				DynamicallyLoadedModuleNames.Add("AndroidLocalNotification");
+			}
+			else if (Target.Platform == UnrealTargetPlatform.Lumin)
+			{
+				DynamicallyLoadedModuleNames.Add("LuminRuntimeSettings");
+			}
 		}
 
 		if ((Target.Platform == UnrealTargetPlatform.Win32) ||
@@ -255,10 +261,11 @@ public class Launch : ModuleRules
 			PrivateDependencyModuleNames.Add("UnixCommonStartup");
 		}
 
-		if (Target.LinkType == TargetLinkType.Monolithic && !Target.bFormalBuild)
+		if(Target.LinkType == TargetLinkType.Monolithic && !Target.bFormalBuild)
 		{
 			PrivateDefinitions.Add(string.Format("COMPILED_IN_CL={0}", Target.Version.Changelist));
 			PrivateDefinitions.Add(string.Format("COMPILED_IN_COMPATIBLE_CL={0}", Target.Version.EffectiveCompatibleChangelist));
+			PrivateDefinitions.Add(string.Format("COMPILED_IN_BRANCH_NAME={0}", (Target.Version.BranchName == null || Target.Version.BranchName.Length == 0)? "UE4" : Target.Version.BranchName));
 		}
 	}
 }

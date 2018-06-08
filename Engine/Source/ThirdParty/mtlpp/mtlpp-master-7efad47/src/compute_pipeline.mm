@@ -137,6 +137,16 @@ namespace mtlpp
 		[(MTLComputePipelineDescriptor*)m_ptr reset];
 #endif
 	}
+	
+	ns::AutoReleased<ns::String> ComputePipelineState::GetLabel() const
+	{
+		Validate();
+#if MTLPP_CONFIG_IMP_CACHE
+		return ns::AutoReleased<ns::String>(m_table->Label(m_ptr));
+#else
+		return ns::AutoReleased<ns::String>([(id<MTLComputePipelineState>)m_ptr label]);
+#endif
+	}
 
     ns::AutoReleased<Device> ComputePipelineState::GetDevice() const
     {

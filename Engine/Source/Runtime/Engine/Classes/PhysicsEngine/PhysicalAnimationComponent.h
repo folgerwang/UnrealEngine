@@ -68,7 +68,7 @@ struct ENGINE_API FPhysicalAnimationData
 	float MaxAngularForce;
 };
 
-UCLASS(meta = (BlueprintSpawnableComponent), Experimental)
+UCLASS(meta = (BlueprintSpawnableComponent), ClassGroup = Physics, Experimental)
 class ENGINE_API UPhysicalAnimationComponent : public UActorComponent
 {
 	GENERATED_UCLASS_BODY()

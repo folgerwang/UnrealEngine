@@ -2,10 +2,12 @@
 
 #include "ViewModels/Stack/NiagaraStackSpacer.h"
 
-void UNiagaraStackSpacer::Initialize(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, FName InSpacerKey)
+void UNiagaraStackSpacer::Initialize(FRequiredEntryData InRequiredEntryData, FName InSpacerKey, float InSpacerScale, EStackRowStyle InRowStyle)
 {
-	Super::Initialize(InSystemViewModel, InEmitterViewModel);
+	Super::Initialize(InRequiredEntryData, FString());
 	SpacerKey = InSpacerKey;
+	SpacerScale = InSpacerScale;
+	RowStyle = InRowStyle;
 }
 
 FText UNiagaraStackSpacer::GetDisplayName() const
@@ -13,12 +15,22 @@ FText UNiagaraStackSpacer::GetDisplayName() const
 	return FText();
 }
 
-FName UNiagaraStackSpacer::GetItemBackgroundName() const
+bool UNiagaraStackSpacer::GetCanExpand() const
 {
-	return "NiagaraEditor.Stack.Group.BackgroundColor";
+	return false;
+}
+
+UNiagaraStackEntry::EStackRowStyle UNiagaraStackSpacer::GetStackRowStyle() const
+{
+	return RowStyle;
 }
 
 FName UNiagaraStackSpacer::GetSpacerKey() const
 {
 	return SpacerKey;
+}
+
+float UNiagaraStackSpacer::GetSpacerScale() const
+{
+	return SpacerScale;
 }

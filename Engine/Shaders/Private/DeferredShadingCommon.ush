@@ -195,16 +195,25 @@ float3 EncodeSubsurfaceProfile(float SubsurfaceProfile)
 float EncodeIndirectIrradiance(float IndirectIrradiance)
 {
 	float L = IndirectIrradiance;
+#if USE_PREEXPOSURE
+	L *= View.PreExposure; // Apply pre-exposure as a mean to prevent compression overflow.
+#endif
 	const float LogBlackPoint = 0.00390625;	// exp2(-8);
 	return log2( L + LogBlackPoint ) / 16 + 0.5;
 }
 
 float DecodeIndirectIrradiance(float IndirectIrradiance)
 {
+#if USE_PREEXPOSURE
+	const float OneOverPreExposure = View.OneOverPreExposure;
+#else
+	const float OneOverPreExposure = 1.f;
+#endif
+
 	// LogL -> L
 	float LogL = IndirectIrradiance;
 	const float LogBlackPoint = 0.00390625;	// exp2(-8);
-	return exp2( LogL * 16 - 8 ) - LogBlackPoint;		// 1 exp2, 1 smad, 1 ssub
+	return OneOverPreExposure * (exp2( LogL * 16 - 8 ) - LogBlackPoint);	// 1 exp2, 1 smad, 1 ssub
 }
 
 float ComputeAngleFromRoughness( float Roughness, const float Threshold = 0.04f )
@@ -303,6 +312,11 @@ bool IsSubsurfaceModel(int ShadingModel)
 		|| ShadingModel == SHADINGMODELID_EYE;
 }
 
+bool UseSubsurfaceProfile(int ShadingModel)
+{
+	return ShadingModel == SHADINGMODELID_SUBSURFACE_PROFILE || ShadingModel == SHADINGMODELID_EYE;
+}
+
 // all values that are output by the forward rendering pass
 struct FGBufferData
 {
@@ -312,7 +326,7 @@ struct FGBufferData
 	float3 DiffuseColor;
 	// 0..1 (derived from BaseColor, Metalness, Specular)
 	float3 SpecularColor;
-	// 0..1, white for SHADINGMODELID_SUBSURFACE_PROFILE (apply BaseColor after scattering is more correct and less blurry)
+	// 0..1, white for SHADINGMODELID_SUBSURFACE_PROFILE and SHADINGMODELID_EYE (apply BaseColor after scattering is more correct and less blurry)
 	float3 BaseColor;
 	// 0..1
 	float Metallic;
@@ -345,10 +359,12 @@ struct FGBufferData
 	// Velocity for motion blur (only used when WRITES_VELOCITY_TO_GBUFFER is enabled)
 	float4 Velocity;
 
-	// 0..1, only needed by SHADINGMODELID_SUBSURFACE_PROFILE which applies BaseColor later
+	// 0..1, only needed by SHADINGMODELID_SUBSURFACE_PROFILE and SHADINGMODELID_EYE which apply BaseColor later
 	float3 StoredBaseColor;
-	// 0..1, only needed by SHADINGMODELID_SUBSURFACE_PROFILE which applies Specular later
+	// 0..1, only needed by SHADINGMODELID_SUBSURFACE_PROFILE and SHADINGMODELID_EYE which apply Specular later
 	float StoredSpecular;
+	// 0..1, only needed by SHADINGMODELID_EYE which encodes Iris Distance inside Metallic
+	float StoredMetallic;
 };
 
 bool HasDistanceFieldRepresentation(FGBufferData GBufferData)
@@ -542,12 +558,16 @@ FGBufferData DecodeGBufferData(
 
 	GBuffer.StoredBaseColor = GBuffer.BaseColor;
 	GBuffer.StoredSpecular = GBuffer.Specular;
+	GBuffer.StoredMetallic = GBuffer.Metallic;
+
+	// SHADINGMODELID_EYE stores Iris Distance inside Metallic.
+	GBuffer.Metallic = GBuffer.ShadingModelID == SHADINGMODELID_EYE ? 0.0f : GBuffer.Metallic;
 
 	// derived from BaseColor, Metalness, Specular
 	{
 		GBuffer.SpecularColor = lerp( 0.08 * GBuffer.Specular.xxx, GBuffer.BaseColor, GBuffer.Metallic );
 
-		if (GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE)
+		if (UseSubsurfaceProfile(GBuffer.ShadingModelID))
 		{
 			AdjustBaseColorAndSpecularColorForSubsurfaceProfileLighting(GBuffer.BaseColor, GBuffer.SpecularColor, GBuffer.Specular, bChecker);
 		}

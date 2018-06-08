@@ -88,6 +88,11 @@ namespace UnrealBuildTool
 		/// NDA'd platform Quail
 		/// </summary>
 		Quail,
+
+		/// <summary>
+		/// Confidential platform
+		/// </summary>
+		Lumin,
 	}
 
 	/// <summary>
@@ -276,6 +281,7 @@ namespace UnrealBuildTool
 	{
 		public FlatModuleCsDataType(SerializationInfo Info, StreamingContext Context)
 		{
+			ModuleName = Info.GetString("mn");
 			BuildCsFilename = Info.GetString("bf");
 			ModuleSourceFolder = (DirectoryReference)Info.GetValue("mf", typeof(DirectoryReference));
 			ExternalDependencies = (List<string>)Info.GetValue("ed", typeof(List<string>));
@@ -284,18 +290,21 @@ namespace UnrealBuildTool
 
 		public void GetObjectData(SerializationInfo Info, StreamingContext Context)
 		{
+			Info.AddValue("mn", ModuleName);
 			Info.AddValue("bf", BuildCsFilename);
 			Info.AddValue("mf", ModuleSourceFolder);
 			Info.AddValue("ed", ExternalDependencies);
 			Info.AddValue("hn", UHTHeaderNames);
 		}
 
-		public FlatModuleCsDataType(string InBuildCsFilename, IEnumerable<string> InExternalDependencies)
+		public FlatModuleCsDataType(string InModuleName, string InBuildCsFilename, IEnumerable<string> InExternalDependencies)
 		{
+			ModuleName = InModuleName;
 			BuildCsFilename = InBuildCsFilename;
 			ExternalDependencies = new List<string>(InExternalDependencies);
 		}
 
+		public string ModuleName;
 		public string BuildCsFilename;
 		public DirectoryReference ModuleSourceFolder;
 		public List<string> ExternalDependencies;
@@ -417,7 +426,7 @@ namespace UnrealBuildTool
 			}
 			if (Desc.ForeignPlugin != null)
 			{
-				RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(Desc.ForeignPlugin, RulesAssembly);
+				RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(Desc.ForeignPlugin, RulesAssembly, true);
 			}
 
 			FileReference TargetFileName;
@@ -594,7 +603,7 @@ namespace UnrealBuildTool
 				FileReference PluginFile = FileReference.Combine(RulesObject.ProjectFile.Directory, "Intermediate", "Plugins", "NativizedAssets", PlatformName, ProjectTargetType, "NativizedAssets.uplugin");
 				if (FileReference.Exists(PluginFile))
 				{
-					RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(PluginFile, RulesAssembly);
+					RulesAssembly = RulesCompiler.CreatePluginRulesAssembly(PluginFile, RulesAssembly, false);
 				}
 				else
 				{
@@ -865,7 +874,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Used to map names of modules to their .Build.cs filename
 		/// </summary>
-		public Dictionary<string, FlatModuleCsDataType> FlatModuleCsData = new Dictionary<string, FlatModuleCsDataType>(StringComparer.InvariantCultureIgnoreCase);
+		public List<FlatModuleCsDataType> FlatModuleCsData = new List<FlatModuleCsDataType>();
 
 		/// <summary>
 		/// The receipt for this target, which contains a record of this build.
@@ -922,7 +931,7 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		public IEnumerable<string> GetAllModuleBuildCsFilenames()
 		{
-			return FlatModuleCsData.Values.Select(Data => Data.BuildCsFilename);
+			return FlatModuleCsData.Select(Data => Data.BuildCsFilename);
 		}
 
 		/// <summary>
@@ -931,7 +940,7 @@ namespace UnrealBuildTool
 		/// <returns></returns>
 		public IEnumerable<string> GetAllModuleFolders()
 		{
-			return FlatModuleCsData.Values.SelectMany(Data => Data.UHTHeaderNames);
+			return FlatModuleCsData.SelectMany(Data => Data.UHTHeaderNames);
 		}
 
 		/// <summary>
@@ -963,7 +972,7 @@ namespace UnrealBuildTool
 			bUsePrecompiled = Info.GetBoolean("up");
 			OnlyModules = (List<OnlyModule>)Info.GetValue("om", typeof(List<OnlyModule>));
 			bCompileMonolithic = Info.GetBoolean("cm");
-			FlatModuleCsData = (Dictionary<string, FlatModuleCsDataType>)Info.GetValue("fm", typeof(Dictionary<string, FlatModuleCsDataType>));
+			FlatModuleCsData = (List<FlatModuleCsDataType>)Info.GetValue("fm", typeof(List<FlatModuleCsDataType>));
 			Receipt = (TargetReceipt)Info.GetValue("re", typeof(TargetReceipt));
 			ReceiptFileName = (FileReference)Info.GetValue("rf", typeof(FileReference));
 			FileReferenceToModuleManifestPairs = (KeyValuePair<FileReference, ModuleManifest>[])Info.GetValue("vm", typeof(KeyValuePair<FileReference, ModuleManifest>[]));
@@ -1249,6 +1258,13 @@ namespace UnrealBuildTool
 					UEBuildPlatform.GetBuildPlatform(Platform).FindBuildProductsToClean(BinariesDir, NamePrefixesArray, NameSuffixesArray, FilesToDelete, DirectoriesToDelete);
 				}
 			}
+
+			// Get all the additional intermediate folders created by this platform
+			List<FileReference> AdditionalFilesToDelete = new List<FileReference>();
+			List<DirectoryReference> AdditionalDirectoriesToDelete = new List<DirectoryReference>();
+			UEBuildPlatform.GetBuildPlatform(Platform).FindAdditionalBuildProductsToClean(Rules, AdditionalFilesToDelete, AdditionalDirectoriesToDelete);
+			FilesToDelete.AddRange(AdditionalFilesToDelete);
+			DirectoriesToDelete.AddRange(AdditionalDirectoriesToDelete);
 
 			// Delete all the directories, then all the files. By sorting the list of directories before we delete them, we avoid spamming the log if a parent directory is deleted first.
 			foreach (DirectoryReference DirectoryToDelete in DirectoriesToDelete.OrderBy(x => x.FullName))
@@ -1582,17 +1598,12 @@ namespace UnrealBuildTool
 			if (Rules.bUsesSlate)
 			{
 				AddRuntimeDependenciesFromDir(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Content", "Slate"), StagedFileType.UFS);
-				if (Configuration != UnrealTargetConfiguration.Shipping)
-				{
-					AddRuntimeDependenciesFromDir(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Content", "SlateDebug"), StagedFileType.UFS);
-				}
+				AddRuntimeDependenciesFromDir(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Content", "SlateDebug"), StagedFileType.UFS);
+
 				if (ProjectFile != null)
 				{
 					AddRuntimeDependenciesFromDir(DirectoryReference.Combine(ProjectDirectory, "Content", "Slate"), StagedFileType.UFS);
-					if (Configuration != UnrealTargetConfiguration.Shipping)
-					{
-						AddRuntimeDependenciesFromDir(DirectoryReference.Combine(ProjectDirectory, "Content", "SlateDebug"), StagedFileType.UFS);
-					}
+					AddRuntimeDependenciesFromDir(DirectoryReference.Combine(ProjectDirectory, "Content", "SlateDebug"), StagedFileType.UFS);
 				}
 			}
 
@@ -2173,7 +2184,7 @@ namespace UnrealBuildTool
 				bool IsCurrentPlatform;
 				if (Utils.IsRunningOnMono)
 				{
-					IsCurrentPlatform = Platform == UnrealTargetPlatform.Mac;
+					IsCurrentPlatform = Platform == UnrealTargetPlatform.Mac || (UEBuildPlatform.IsPlatformInGroup(Platform, UnrealPlatformGroup.Unix) && Platform == BuildHostPlatform.Current.Platform);
 				}
 				else
 				{
@@ -2223,7 +2234,13 @@ namespace UnrealBuildTool
 					ModulesToGenerateHeadersFor = CorrectlyOrderedModules;
 				}
 
-				ExternalExecution.SetupUObjectModules(ModulesToGenerateHeadersFor, Rules, GlobalCompileEnvironment, UObjectModules, FlatModuleCsData, Rules.GeneratedCodeVersion, bIsAssemblingBuild);
+				Dictionary<string, FlatModuleCsDataType> NameToFlatModuleData = new Dictionary<string, FlatModuleCsDataType>(StringComparer.InvariantCultureIgnoreCase);
+				foreach(FlatModuleCsDataType FlatModuleData in FlatModuleCsData)
+				{
+					NameToFlatModuleData[FlatModuleData.ModuleName] = FlatModuleData;
+				}
+
+				ExternalExecution.SetupUObjectModules(ModulesToGenerateHeadersFor, Rules, GlobalCompileEnvironment, UObjectModules, NameToFlatModuleData, Rules.GeneratedCodeVersion, bIsAssemblingBuild);
 
 				// NOTE: Even in Gather mode, we need to run UHT to make sure the files exist for the static action graph to be setup correctly.  This is because UHT generates .cpp
 				// files that are injected as top level prerequisites.  If UHT only emitted included header files, we wouldn't need to run it during the Gather phase at all.
@@ -2271,6 +2288,10 @@ namespace UnrealBuildTool
 			if(ProjectFileGenerator.bGenerateProjectFiles)
 			{
 				foreach(UEBuildBinary Binary in Binaries)
+				{
+					Binary.GatherDataForProjectFiles(Rules, GlobalCompileEnvironment);
+				}
+				foreach (UEBuildBinary Binary in PrecompileOnlyBinaries)
 				{
 					Binary.GatherDataForProjectFiles(Rules, GlobalCompileEnvironment);
 				}
@@ -3421,6 +3442,19 @@ namespace UnrealBuildTool
 				return null;
 			}
 
+			// If this plugin is listed to be excluded, do so here. The reference must be optional in this case.
+			if(Rules.ExcludePlugins.Contains(Reference.Name, StringComparer.InvariantCultureIgnoreCase))
+			{
+				if(!Reference.bOptional)
+				{
+					throw new BuildException("The '{0}' plugin is listed in the target's ExcludePlugins list, but is not referenced (via {1}) without the bOptional flag set. This will cause load failures at runtime.", Reference.Name, ReferenceChain);
+				}
+				else
+				{
+					return null;
+				}
+			}
+
 			// Try to get an existing reference to this plugin
 			UEBuildPlugin Instance;
 			if(NameToInstance.TryGetValue(Reference.Name, out Instance))
@@ -4086,7 +4120,7 @@ namespace UnrealBuildTool
 								ModuleDescriptor ProjectModule = (ProjectDescriptor.Modules == null)? null : ProjectDescriptor.Modules.FirstOrDefault(x => x.Name == ModuleName);
 								if (ProjectModule != null)
 								{
-									ModuleType = UHTModuleTypeExtensions.GameModuleTypeFromHostType(ProjectModule.Type);
+									ModuleType = UHTModuleTypeExtensions.GameModuleTypeFromHostType(ProjectModule.Type) ?? UHTModuleType.GameRuntime;
 								}
 								else
 								{
@@ -4157,7 +4191,10 @@ namespace UnrealBuildTool
 					// If it's a game module (plugin or otherwise), add the root source directory to the include paths.
 					if (ModuleFileName.IsUnderDirectory(TargetRulesFile.Directory) || (Plugin != null && Plugin.LoadedFrom == PluginLoadedFrom.Project))
 					{
-						RulesObject.PublicIncludePaths.Add(NormalizeIncludePath(BaseSourceDirectory));
+						if(DirectoryReference.Exists(BaseSourceDirectory))
+						{
+							RulesObject.PublicIncludePaths.Add(NormalizeIncludePath(BaseSourceDirectory));
+						}
 					}
 
 					// Resolve private include paths against the project source root
@@ -4250,7 +4287,7 @@ namespace UnrealBuildTool
 				// Now, go ahead and create the module builder instance
 				Module = InstantiateModule(RulesObject, ModuleName, ModuleType.Value, ModuleDirectory, GeneratedCodeDirectory, FoundSourceFiles, bBuildFiles, ModuleFileName, RuntimeDependencies, Plugin);
 				Modules.Add(Module.Name, Module);
-				FlatModuleCsData.Add(Module.Name, new FlatModuleCsDataType((Module.RulesFile == null) ? null : Module.RulesFile.FullName, RulesObject.ExternalDependencies));
+				FlatModuleCsData.Add(new FlatModuleCsDataType(Module.Name, (Module.RulesFile == null) ? null : Module.RulesFile.FullName, RulesObject.ExternalDependencies));
 			}
 			return Module;
 		}

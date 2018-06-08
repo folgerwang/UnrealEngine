@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:2618300
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:6.応用編
 Crumbs:%ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/Components
-Description:応用的な考え方を検討します。
+Description:実践してみましょう。
 version:4.9
 
 [VAR:Steps]
@@ -22,7 +22,7 @@ version:4.9
 
 
 
-ここまでで学んだ知識を活かして、以下の操作をしてみましょう。
+ここまでで学んだ知識を活かして、以下を行ってみましょう。
 
 * 親の周りを自動的に回る **コンポーネント** を作成します。
 * 最大 3 個までの子をスポーンするコンポーネントをビルドします。各コンポーネントは設定された時間後に独自にスポーンします。

@@ -8,6 +8,7 @@
 #include "PyPtr.h"
 #include "Misc/CoreMisc.h"
 #include "HAL/IConsoleManager.h"
+#include "Framework/Commands/InputChord.h"
 
 class FPythonScriptPlugin;
 
@@ -31,7 +32,10 @@ public:
 	virtual bool Exec(const TCHAR* Input) override;
 	virtual bool AllowHotKeyClose() const override;
 	virtual bool AllowMultiLine() const override;
-
+	virtual FInputChord GetHotKey() const override
+	{
+		return FInputChord();
+	}
 private:
 	FPythonScriptPlugin* PythonScriptPlugin;
 };
@@ -64,6 +68,8 @@ public:
 	//~ IPythonScriptPlugin interface
 	virtual bool IsPythonAvailable() const override;
 	virtual bool ExecPythonCommand(const TCHAR* InPythonCommand) override;
+	virtual FSimpleMulticastDelegate& OnPythonInitialized() override;
+	virtual FSimpleMulticastDelegate& OnPythonShutdown() override;
 
 	//~ IModuleInterface interface
 	virtual void StartupModule() override;
@@ -95,6 +101,10 @@ private:
 
 	void ShutdownPython();
 
+	void RequestStubCodeGeneration();
+
+	void GenerateStubCode();
+
 	void Tick(const float InDeltaTime);
 
 	void OnModuleDirtied(FName InModuleName);
@@ -112,15 +122,19 @@ private:
 	FPythonCommandExecutor CmdExec;
 	IPythonCommandMenu* CmdMenu;
 	FDelegateHandle TickHandle;
+	FDelegateHandle ModuleDelayedHandle;
 
 	PyUtil::FPyApiBuffer PyProgramName;
 	PyUtil::FPyApiBuffer PyHomePath;
-	FPyObjectPtr PyGlobalDict;
-	FPyObjectPtr PyLocalDict;
+	FPyObjectPtr PyDefaultGlobalDict;
+	FPyObjectPtr PyDefaultLocalDict;
+	FPyObjectPtr PyConsoleGlobalDict;
+	FPyObjectPtr PyConsoleLocalDict;
 	FPyObjectPtr PyUnrealModule;
 	bool bInitialized;
 	bool bHasTicked;
 #endif	// WITH_PYTHON
 
-
+	FSimpleMulticastDelegate OnPythonInitializedDelegate;
+	FSimpleMulticastDelegate OnPythonShutdownDelegate;
 };

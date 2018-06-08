@@ -122,6 +122,7 @@ void FWidgetMaterialHandle::SetMaterial(UMaterialInterface* InMaterial, UWidget*
 	if (RawWidget.IsValid())
 	{
 		RawWidget->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		OwnerWidget->SynchronizeProperties();
 	}
 }
 

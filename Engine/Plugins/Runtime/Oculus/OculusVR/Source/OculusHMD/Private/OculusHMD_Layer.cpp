@@ -9,6 +9,7 @@
 //#include "PostProcess/SceneFilterRendering.h"
 #include "PostProcess/SceneRenderTargets.h"
 #include "HeadMountedDisplayTypes.h" // for LogHMD
+#include "XRThreadUtils.h"
 
 
 namespace OculusHMD
@@ -464,8 +465,8 @@ const ovrpLayerSubmit* FLayer::UpdateLayer_RHIThread(const FSettings* Settings, 
 		switch (Desc.PositionType)
 		{
 		case IStereoLayers::WorldLocked:
-			BaseOrientation = Frame->PlayerOrientation;
-			BaseLocation = Frame->PlayerLocation;
+			BaseOrientation = Frame->TrackingToWorld.GetRotation();
+			BaseLocation = Frame->TrackingToWorld.GetTranslation();
 			break;
 
 		case IStereoLayers::TrackerLocked:
@@ -479,13 +480,13 @@ const ovrpLayerSubmit* FLayer::UpdateLayer_RHIThread(const FSettings* Settings, 
 			break;
 		}
 
-		FTransform playerTransform(BaseOrientation, BaseLocation);
+		FTransform PlayerTransform(BaseOrientation, BaseLocation);
 
 		FQuat Orientation = Desc.Transform.Rotator().Quaternion();
 		FVector Location = Desc.Transform.GetLocation();
 
 		OvrpLayerSubmit.Pose.Orientation = ToOvrpQuatf(BaseOrientation.Inverse() * Orientation);
-		OvrpLayerSubmit.Pose.Position = ToOvrpVector3f((playerTransform.InverseTransformPosition(Location)) * LocationScale);
+		OvrpLayerSubmit.Pose.Position = ToOvrpVector3f((PlayerTransform.InverseTransformPosition(Location)) * LocationScale);
 		OvrpLayerSubmit.LayerSubmitFlags = 0;
 
 		if (Desc.PositionType == IStereoLayers::FaceLocked)

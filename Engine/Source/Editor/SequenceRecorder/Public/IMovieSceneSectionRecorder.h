@@ -14,14 +14,14 @@ public:
 	 * @param	InMovieScene		The movie scene we are recording to
 	 * @param	InGuid				The Guid of the object in the movie scene
 	 * @param	InTime				The current recording time in the movie scene
-	 * @param	bInRecord			Whether to actually record the section. Some sections can be used as proxies for others to recording is not always necessary.
 	 */
 	virtual void CreateSection(UObject* InObjectToRecord, class UMovieScene* InMovieScene, const FGuid& InGuid, float InTime) = 0;
 
 	/**
 	 * Called when recording finishes and the section will no longer be recorded into.
+	 * @param	InCurrentTime	The current recording time in the movie scene
 	 */
-	virtual void FinalizeSection() = 0;
+	virtual void FinalizeSection(float InCurrentTime) = 0;
 
 	/**
 	 * Called each frame to record into the section.

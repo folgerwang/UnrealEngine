@@ -9,7 +9,6 @@
 
 #define TIMEMANAGEMENT_MODULE_NAME TEXT("TimeManagement")
 
-class ITimeSynchronizationManager;
 
 class TIMEMANAGEMENT_API ITimeManagementModule : public IModuleInterface
 {
@@ -32,11 +31,4 @@ public:
 	{
 		return FModuleManager::Get().IsModuleLoaded(TIMEMANAGEMENT_MODULE_NAME);
 	}
-
-	/** Return the current TimeSynchronizationManager that is responsible to own the current timecode for the Engine */
-	virtual ITimeSynchronizationManager* GetTimeSynchronizationManager() = 0;
-	virtual ITimeSynchronizationManager* GetTimeSynchronizationManager() const = 0;
-	
-	/** Set the current TimeSynchronizationManager that is responsible to own the current timecode for the Engine */
-	virtual void SetTimeSynchronizationManager(ITimeSynchronizationManager* Manager) = 0;
 };

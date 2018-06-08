@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #include "Online.h"
 #include "OnlineSubsystem.h"
@@ -158,6 +158,12 @@ public:
 
 	void UnblockFriendOnTestAccount(IOnlineIdentityPtr OI, IOnlineFriendsPtr OF, FName ST, const FDoneDelegate& TestDone);
 
+	void SendMessageToTestAccount(IOnlineIdentityPtr OI, IOnlineFriendsPtr OF, IOnlineMessagePtr OM, FName ST, const FDoneDelegate& TestDone);
+
+	void AddAchievementToTestAccount(IOnlineIdentityPtr OI, IOnlineAchievementsPtr OA, const FDoneDelegate& TestDone);
+
+	void ResetTestAccountAchievements(IOnlineIdentityPtr OI, IOnlineAchievementsPtr OA, const FDoneDelegate& TestDone);
+
 public:
 
 	FName SubsystemType;
@@ -166,6 +172,8 @@ public:
 
 	IOnlineIdentityPtr OnlineIdentity;
 	IOnlineFriendsPtr OnlineFriends;
+	IOnlineMessagePtr OnlineMessage;
+	IOnlineAchievementsPtr OnlineAchievements;
 
 	FDelegateHandle OnLogoutCompleteDelegateHandle;
 	FDelegateHandle	OnLoginCompleteDelegateHandle;
@@ -174,4 +182,5 @@ public:
 	FDelegateHandle OnRejectInviteCompleteDelegateHandle;
 	FDelegateHandle OnBlockedPlayerCompleteDelegateHandle;
 	FDelegateHandle OnUnblockedPlayerCompleteDelegateHandle;
+	FDelegateHandle OnSendMessageCompleteDelegateHandle;
 };

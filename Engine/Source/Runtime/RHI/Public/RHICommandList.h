@@ -73,6 +73,10 @@ extern RHI_API bool GIsRunningRHIInSeparateThread_InternalUseOnly;
 extern RHI_API bool GIsRunningRHIInDedicatedThread_InternalUseOnly;
 extern RHI_API bool GIsRunningRHIInTaskThread_InternalUseOnly;
 
+/** private accumulator for the RHI thread. */
+extern RHI_API uint32 GWorkingRHIThreadTime;
+extern RHI_API uint32 GWorkingRHIThreadStallTime;
+
 /**
 * Whether the RHI commands are being run in a thread other than the render thread
 */
@@ -177,26 +181,18 @@ public:
 	virtual ~IRHICommandContextContainer()
 	{
 	}
-	virtual IRHICommandContext* GetContext(const FRHIGPUMask& NodeMask)
-	{
-		// Multi-GPU support : fallback on the single GPU by default to be compatible;
-		return GetContext();
-	}
-	virtual void FinishContext()
-	{
-		check(0);
-	}
-	virtual void SubmitAndFreeContextContainer(const FRHIGPUMask& NodeMask, int32 Index, int32 Num)
-	{
-		SubmitAndFreeContextContainer(Index, Num);
-	}
-protected:
+
 	virtual IRHICommandContext* GetContext()
 	{
 		return nullptr;
 	}
 
 	virtual void SubmitAndFreeContextContainer(int32 Index, int32 Num)
+	{
+		check(0);
+	}
+
+	virtual void FinishContext()
 	{
 		check(0);
 	}
@@ -362,7 +358,7 @@ extern RHI_API FRHICommandListFenceAllocator GRHIFenceAllocator;
 class RHI_API FRHICommandListBase : public FNoncopyable
 {
 public:
-	FRHICommandListBase();
+	FRHICommandListBase(FRHIGPUMask InGPUMask);
 	~FRHICommandListBase();
 
 	/** Custom new/delete with recycling */
@@ -374,11 +370,11 @@ public:
 	inline bool IsImmediateAsyncCompute();
 
 	const int32 GetUsedMemory() const;
-	void QueueAsyncCommandListSubmit(FGraphEventRef& AnyThreadCompletionEvent, const FRHIGPUMask& NodeMask, class FRHICommandList* CmdList);
-	void QueueParallelAsyncCommandListSubmit(FGraphEventRef* AnyThreadCompletionEvents, const FRHIGPUMask& NodeMask, bool bIsPrepass, class FRHICommandList** CmdLists, int32* NumDrawsIfKnown, int32 Num, int32 MinDrawsPerTranslate, bool bSpewMerge);
-	void QueueRenderThreadCommandListSubmit(FGraphEventRef& RenderThreadCompletionEvent, const FRHIGPUMask& NodeMask, class FRHICommandList* CmdList);
+	void QueueAsyncCommandListSubmit(FGraphEventRef& AnyThreadCompletionEvent, class FRHICommandList* CmdList);
+	void QueueParallelAsyncCommandListSubmit(FGraphEventRef* AnyThreadCompletionEvents, bool bIsPrepass, class FRHICommandList** CmdLists, int32* NumDrawsIfKnown, int32 Num, int32 MinDrawsPerTranslate, bool bSpewMerge);
+	void QueueRenderThreadCommandListSubmit(FGraphEventRef& RenderThreadCompletionEvent, class FRHICommandList* CmdList);
 	void QueueAsyncPipelineStateCompile(FGraphEventRef& AsyncCompileCompletionEvent);
-	void QueueCommandListSubmit(class FRHICommandList* CmdList, const FRHIGPUMask& NodeMask);
+	void QueueCommandListSubmit(class FRHICommandList* CmdList);
 	void WaitForTasks(bool bKnownToBeComplete = false);
 	void WaitForDispatch();
 	void WaitForRHIThreadTasks();
@@ -467,11 +463,12 @@ public:
 		return *ComputeContext;
 	}
 
-	void CopyContext(FRHICommandListBase& ParentCommandList, const FRHIGPUMask& NodeMask)
+	void CopyContext(FRHICommandListBase& ParentCommandList)
 	{
 		check(Context);
-		Context = ParentCommandList.Context->GetContextForNodeMask(NodeMask);
-		ComputeContext = ParentCommandList.ComputeContext->GetContextForNodeMask(NodeMask);
+		ensure(GPUMask == ParentCommandList.GPUMask);
+		Context = ParentCommandList.Context;
+		ComputeContext = ParentCommandList.ComputeContext;
 	}
 
 	void MaybeDispatchToRHIThread()
@@ -504,6 +501,8 @@ public:
 		}
 	};
 
+	FORCEINLINE const FRHIGPUMask& GetGPUMask() const { return GPUMask; }
+
 private:
 	FRHICommandBase* Root;
 	FRHICommandBase** CommandLink;
@@ -512,14 +511,15 @@ private:
 	uint32 UID;
 	IRHICommandContext* Context;
 	IRHIComputeContext* ComputeContext;
-
 	FMemStackBase MemManager; 
 	FGraphEventArray RTTasks;
 
-	void Reset();
-
 	friend class FRHICommandListExecutor;
 	friend class FRHICommandListIterator;
+
+protected:
+	FRHIGPUMask GPUMask;
+	void Reset();
 
 public:
 	TStatId	ExecuteStat;
@@ -1023,6 +1023,72 @@ struct FRHICommandBeginRenderPass final : public FRHICommand<FRHICommandBeginRen
 struct FRHICommandEndRenderPass final : public FRHICommand<FRHICommandEndRenderPass>
 {
 	FRHICommandEndRenderPass()
+	{
+	}
+
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+struct FLocalCmdListParallelRenderPass
+{
+	TRefCountPtr<struct FRHIParallelRenderPass> RenderPass;
+};
+
+struct FRHICommandBeginParallelRenderPass final : public FRHICommand<FRHICommandBeginParallelRenderPass>
+{
+	FRHIRenderPassInfo Info;
+	FLocalCmdListParallelRenderPass* LocalRenderPass;
+	const TCHAR* Name;
+
+	FRHICommandBeginParallelRenderPass(const FRHIRenderPassInfo& InInfo, FLocalCmdListParallelRenderPass* InLocalRenderPass, const TCHAR* InName)
+		: Info(InInfo)
+		, LocalRenderPass(InLocalRenderPass)
+		, Name(InName)
+	{
+	}
+
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+struct FRHICommandEndParallelRenderPass final : public FRHICommand<FRHICommandEndParallelRenderPass>
+{
+	FLocalCmdListParallelRenderPass* LocalRenderPass;
+
+	FRHICommandEndParallelRenderPass(FLocalCmdListParallelRenderPass* InLocalRenderPass)
+		: LocalRenderPass(InLocalRenderPass)
+	{
+	}
+
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+struct FLocalCmdListRenderSubPass
+{
+	TRefCountPtr<struct FRHIRenderSubPass> RenderSubPass;
+};
+
+struct FRHICommandBeginRenderSubPass final : public FRHICommand<FRHICommandBeginRenderSubPass>
+{
+	FLocalCmdListParallelRenderPass* LocalRenderPass;
+	FLocalCmdListRenderSubPass* LocalRenderSubPass;
+
+	FRHICommandBeginRenderSubPass(FLocalCmdListParallelRenderPass* InLocalRenderPass, FLocalCmdListRenderSubPass* InLocalRenderSubPass)
+		: LocalRenderPass(InLocalRenderPass)
+		, LocalRenderSubPass(InLocalRenderSubPass)
+	{
+	}
+
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+struct FRHICommandEndRenderSubPass final : public FRHICommand<FRHICommandEndRenderSubPass>
+{
+	FLocalCmdListParallelRenderPass* LocalRenderPass;
+	FLocalCmdListRenderSubPass* LocalRenderSubPass;
+
+	FRHICommandEndRenderSubPass(FLocalCmdListParallelRenderPass* InLocalRenderPass, FLocalCmdListRenderSubPass* InLocalRenderSubPass)
+		: LocalRenderPass(InLocalRenderPass)
+		, LocalRenderSubPass(InLocalRenderSubPass)
 	{
 	}
 
@@ -1743,6 +1809,22 @@ struct FRHICommandInvalidateCachedState final : public FRHICommand<FRHICommandIn
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
 
+struct FRHICommandDiscardRenderTargets final : public FRHICommand<FRHICommandDiscardRenderTargets>
+{
+	uint32 ColorBitMask;
+	bool Depth;
+	bool Stencil;
+
+	FORCEINLINE_DEBUGGABLE FRHICommandDiscardRenderTargets(bool InDepth, bool InStencil, uint32 InColorBitMask)
+		: ColorBitMask(InColorBitMask)
+		, Depth(InDepth)
+		, Stencil(InStencil)
+	{
+	}
+	
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
 struct FRHICommandDebugBreak final : public FRHICommand<FRHICommandDebugBreak>
 {
 	void Execute(FRHICommandListBase& CmdList)
@@ -1781,8 +1863,7 @@ class RHI_API FRHICommandList : public FRHICommandListBase
 {
 public:
 
-	FORCEINLINE FRHICommandList() {}
-	FRHICommandList(const FRHIGPUMask& NodeMask);
+	FORCEINLINE FRHICommandList(FRHIGPUMask GPUMask) : FRHICommandListBase(GPUMask) {}
 
 	/** Custom new/delete with recycling */
 	void* operator new(size_t Size);
@@ -2301,6 +2382,7 @@ public:
 
 	FORCEINLINE_DEBUGGABLE void SetComputeShader(FComputeShaderRHIParamRef ComputeShader)
 	{
+		ComputeShader->UpdateStats();
 		if (Bypass())
 		{
 			CMD_CONTEXT(RHISetComputeShader)(ComputeShader);
@@ -2598,6 +2680,7 @@ public:
 			TCHAR* NameCopy  = AllocString(Name);
 			new (AllocCommand<FRHICommandBeginRenderPass>()) FRHICommandBeginRenderPass(InInfo, NameCopy);
 		}
+		Data.bInsideRenderPass = true;
 
 		CacheActiveRenderTargets(InInfo);
 		Data.bInsideRenderPass = true;
@@ -2632,6 +2715,7 @@ public:
 			TCHAR* NameCopy  = AllocString(Name);
 			new (AllocCommand<FRHICommandBeginComputePass>()) FRHICommandBeginComputePass(NameCopy);
 		}
+		Data.bInsideComputePass = true;
 
 		Data.bInsideComputePass = true;
 	}
@@ -2689,6 +2773,16 @@ public:
 		}
 		new (AllocCommand<FRHICommandInvalidateCachedState>()) FRHICommandInvalidateCachedState();
 	}
+
+	FORCEINLINE void DiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask)
+	{
+		if (Bypass())
+		{
+			CMD_CONTEXT(RHIDiscardRenderTargets)(Depth, Stencil, ColorBitMask);
+			return;
+		}
+		new (AllocCommand<FRHICommandDiscardRenderTargets>()) FRHICommandDiscardRenderTargets(Depth, Stencil, ColorBitMask);
+	}
 	
 	FORCEINLINE_DEBUGGABLE void BreakPoint()
 	{
@@ -2709,6 +2803,8 @@ public:
 class RHI_API FRHIAsyncComputeCommandList : public FRHICommandListBase
 {
 public:
+
+	FRHIAsyncComputeCommandList() : FRHICommandListBase(FRHIGPUMask::All()) {}
 
 	/** Custom new/delete with recycling */
 	void* operator new(size_t Size);
@@ -2798,6 +2894,7 @@ public:
 	
 	FORCEINLINE_DEBUGGABLE void SetComputeShader(FComputeShaderRHIParamRef ComputeShader)
 	{
+		ComputeShader->UpdateStats();
 		if (Bypass())
 		{
 			COMPUTE_CONTEXT(RHISetComputeShader)(ComputeShader);
@@ -2980,7 +3077,7 @@ class RHI_API FRHICommandListImmediate : public FRHICommandList
 			: Lambda(Forward<LAMBDA>(InLambda))
 		{}
 
-		void ExecuteAndDestruct(FRHICommandListBase& CmdList, FRHICommandListDebugContext& Context) override final
+		void ExecuteAndDestruct(FRHICommandListBase& CmdList, FRHICommandListDebugContext&) override final
 		{
 			Lambda(*static_cast<FRHICommandListImmediate*>(&CmdList));
 			Lambda.~LAMBDA();
@@ -2989,6 +3086,7 @@ class RHI_API FRHICommandListImmediate : public FRHICommandList
 
 	friend class FRHICommandListExecutor;
 	FRHICommandListImmediate()
+		: FRHICommandList(FRHIGPUMask::All())
 	{
 		Data.Type = FRHICommandListBase::FCommonData::ECmdListType::Immediate;
 	}
@@ -3004,6 +3102,9 @@ public:
 	static bool IsStalled();
 
 	void SetCurrentStat(TStatId Stat);
+
+	/** Dispatch current work and change the GPUMask. */
+	void SetGPUMask(FRHIGPUMask InGPUMask);
 
 	static FGraphEventRef RenderThreadTaskFence();
 	static FGraphEventArray& GetRenderThreadTaskArray();
@@ -3153,7 +3254,17 @@ public:
 	{		
 		return GDynamicRHI->RHICreateComputeFence(Name);
 	}	
-	
+
+	FORCEINLINE FGPUFenceRHIRef CreateGPUFence(const FName& Name)
+	{
+		return GDynamicRHI->RHICreateGPUFence(Name);
+	}
+
+	FORCEINLINE FStagingBufferRHIRef CreateStagingBuffer()
+	{
+		return GDynamicRHI->RHICreateStagingBuffer();
+	}
+
 	FORCEINLINE FBoundShaderStateRHIRef CreateBoundShaderState(FVertexDeclarationRHIParamRef VertexDeclaration, FVertexShaderRHIParamRef VertexShader, FHullShaderRHIParamRef HullShader, FDomainShaderRHIParamRef DomainShader, FPixelShaderRHIParamRef PixelShader, FGeometryShaderRHIParamRef GeometryShader)
 	{
 		LLM_SCOPE(ELLMTag::Shaders);
@@ -3724,11 +3835,6 @@ public:
 		GDynamicRHI->RHISetStreamOutTargets(NumTargets,VertexBuffers,Offsets);
 	}
 	
-	FORCEINLINE void DiscardRenderTargets(bool Depth,bool Stencil,uint32 ColorBitMask)
-	{
-		GDynamicRHI->RHIDiscardRenderTargets(Depth,Stencil,ColorBitMask);
-	}
-	
 	FORCEINLINE void BlockUntilGPUIdle()
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_BlockUntilGPUIdle_Flush);
@@ -3821,17 +3927,30 @@ public:
 	
 	FORCEINLINE class IRHICommandContextContainer* GetCommandContextContainer(int32 Index, int32 Num)
 	{
-		return RHIGetCommandContextContainer(Index, Num);
+		return RHIGetCommandContextContainer(Index, Num, GetGPUMask());
 	}
 	void UpdateTextureReference(FTextureReferenceRHIParamRef TextureRef, FTextureRHIParamRef NewTexture);
-	
-	FORCEINLINE FRHIShaderLibraryRef CreateShaderLibrary(EShaderPlatform Platform, FString FilePath)
-	{
-		LLM_SCOPE(ELLMTag::Shaders);
-		return GDynamicRHI->RHICreateShaderLibrary_RenderThread(*this, Platform, FilePath);
-	}
 
 };
+
+ struct FScopedGPUMask
+{
+	FRHICommandListImmediate& RHICmdList;
+	FRHIGPUMask PrevGPUMask;
+	FORCEINLINE FScopedGPUMask(FRHICommandListImmediate& InRHICmdList, FRHIGPUMask InGPUMask)
+		: RHICmdList(InRHICmdList)
+		, PrevGPUMask(InRHICmdList.GetGPUMask())
+	{
+		InRHICmdList.SetGPUMask(InGPUMask);
+	}
+	FORCEINLINE ~FScopedGPUMask() { RHICmdList.SetGPUMask(PrevGPUMask); }
+};
+
+#if WITH_MGPU
+	#define SCOPED_GPU_MASK(RHICmdList, GPUMask) FScopedGPUMask ScopedGPUMask(RHICmdList, GPUMask);
+#else
+	#define SCOPED_GPU_MASK(RHICmdList, GPUMask)
+#endif // WITH_MGPU
 
 // Single commandlist for async compute generation.  In the future we may expand this to allow async compute command generation
 // on multiple threads at once.
@@ -3844,6 +3963,8 @@ public:
 	//This also queues a GPU Submission command as the final command in the dispatch.
 	static void ImmediateDispatch(FRHIAsyncComputeCommandListImmediate& RHIComputeCmdList);
 
+	/** Dispatch current work and change the GPUMask. */
+	void SetGPUMask(FRHIGPUMask InGPUMask);
 private:
 };
 
@@ -3852,11 +3973,13 @@ private:
 class RHI_API FRHICommandList_RecursiveHazardous : public FRHICommandList
 {
 	FRHICommandList_RecursiveHazardous()
+		: FRHICommandList(FRHIGPUMask::All())
 	{
 
 	}
 public:
 	FRHICommandList_RecursiveHazardous(IRHICommandContext *Context)
+		: FRHICommandList(FRHIGPUMask::All())
 	{
 		SetContext(Context);
 	}
@@ -3864,7 +3987,7 @@ public:
 
 
 // This controls if the cmd list bypass can be toggled at runtime. It is quite expensive to have these branches in there.
-#define CAN_TOGGLE_COMMAND_LIST_BYPASS (!UE_BUILD_SHIPPING && !UE_BUILD_TEST) || (UE_BUILD_TEST && PLATFORM_ANDROID)
+#define CAN_TOGGLE_COMMAND_LIST_BYPASS (!UE_BUILD_SHIPPING && !UE_BUILD_TEST)
 
 class RHI_API FRHICommandListExecutor
 {
@@ -3900,7 +4023,7 @@ public:
 #if CAN_TOGGLE_COMMAND_LIST_BYPASS
 		return bLatchedUseParallelAlgorithms;
 #else
-		return  FApp::ShouldUseThreadingForPerformance() && !Bypass();
+		return  FApp::ShouldUseThreadingForPerformance() && !Bypass() && (GSupportsParallelRenderingTasksWithSeparateRHIThread || !IsRunningRHIInSeparateThread());
 #endif
 	}
 	static void CheckNoOutstandingCmdLists();
@@ -4039,6 +4162,19 @@ FORCEINLINE FComputeFenceRHIRef RHICreateComputeFence(const FName& Name)
 {
 	return FRHICommandListExecutor::GetImmediateCommandList().CreateComputeFence(Name);
 }
+
+FORCEINLINE FGPUFenceRHIRef RHICreateGPUFence(const FName& Name)
+{
+	return FRHICommandListExecutor::GetImmediateCommandList().CreateGPUFence(Name);
+}
+
+
+FORCEINLINE FStagingBufferRHIRef RHICreateStagingBuffer()
+{
+	return FRHICommandListExecutor::GetImmediateCommandList().CreateStagingBuffer();
+}
+
+
 
 FORCEINLINE FIndexBufferRHIRef RHICreateAndLockIndexBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo, void*& OutDataBuffer)
 {
@@ -4346,9 +4482,9 @@ FORCEINLINE void RHIRecreateRecursiveBoundShaderStates()
 	GDynamicRHI->RHIRecreateRecursiveBoundShaderStates();
 }
 
-FORCEINLINE FRHIShaderLibraryRef RHICreateShaderLibrary(EShaderPlatform Platform, FString FilePath)
+FORCEINLINE FRHIShaderLibraryRef RHICreateShaderLibrary(EShaderPlatform Platform, FString const& FilePath, FString const& Name)
 {
-	return FRHICommandListExecutor::GetImmediateCommandList().CreateShaderLibrary(Platform, FilePath);
+    return GDynamicRHI->RHICreateShaderLibrary(Platform, FilePath, Name);
 }
 
 

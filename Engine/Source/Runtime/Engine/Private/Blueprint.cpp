@@ -26,6 +26,7 @@
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Kismet2/CompilerResultsLog.h"
 #include "Kismet2/StructureEditorUtils.h"
+#include "WatchPointViewer.h"
 #include "FindInBlueprintManager.h"
 #include "CookerSettings.h"
 #include "Editor.h"
@@ -331,7 +332,7 @@ void UBlueprintCore::Serialize(FArchive& Ar)
 		}
 	}
 
-	if( Ar.ArIsLoading && !BlueprintGuid.IsValid() )
+	if( Ar.IsLoading() && !BlueprintGuid.IsValid() )
 	{
 		GenerateDeterministicGuid();
 	}
@@ -1377,6 +1378,14 @@ void UBlueprint::ClearAllCachedCookedPlatformData()
 		// Clear cooked data for UCS/AddComponent node templates.
 		BPGClass->CookedComponentInstancingData.Empty();
 	}
+}
+
+void UBlueprint::BeginDestroy()
+{
+	Super::BeginDestroy();
+
+	FBlueprintEditorUtils::RemoveAllLocalBookmarks(this);
+	WatchViewer::ClearWatchListFromBlueprint(this);
 }
 
 #endif // WITH_EDITOR

@@ -7,6 +7,14 @@
 #include "EdGraphSchema_K2.h"
 #include "Kismet2/KismetDebugUtilities.h"
 
+// Ensure that the UserDefinedPin's "desired direction" matches the direction of 
+// the EdGraphPin that it corresponds to. Somehow it is possible for these to get 
+// out of sync, and we're not entirely sure how/why.
+//
+// @TODO: Determine how these get out of sync and fix that up so we can guard it 
+//        with a version check and not have to do this anymore for updated assets
+#define ALWAYS_VALIDATE_DESIRED_PIN_DIRECTION_ON_LOAD 1
+
 FArchive& operator<<(FArchive& Ar, FUserPinInfo& Info)
 {
 	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
@@ -166,29 +174,85 @@ void UK2Node_EditablePinBase::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
+	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
+
 	TArray<FUserPinInfo> SerializedItems;
 	if (Ar.IsLoading())
 	{
 		Ar << SerializedItems;
+
+		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 
 		UserDefinedPins.Empty(SerializedItems.Num());
 		for (int32 Index = 0; Index < SerializedItems.Num(); ++Index)
 		{
 			TSharedPtr<FUserPinInfo> PinInfo = MakeShareable(new FUserPinInfo(SerializedItems[Index]));
 
-			// Ensure that the UserDefinedPin's "desired direction" matches the direction of 
-			// the EdGraphPin that it corresponds to. Somehow it is possible for these to get 
-			// out of sync, and we're not entirely sure how/why.
+#if !ALWAYS_VALIDATE_DESIRED_PIN_DIRECTION_ON_LOAD
+			// @TODO - Replace with a version check here if/when we are able to avoid this validation step on updated assets.
+			const bool bValidateDesiredPinDirection = true;
+#endif
+			// Ensure that array type inputs and non-array type pass-by-reference inputs are also marked 'const' for both custom
+			// event signatures and interface functions that have no return value. Since arrays are implicitly passed by reference,
+			// and since events do not have return values/outputs, this equates to marking the parameter as 'const Type&' in native.
+			// code. Also note that since UHT already blocks non-const reference types from being compiled into a MC delegate signature,
+			// any existing custom event param pins that were implicitly created via "Assign" in the Blueprint editor's context menu
+			// will previously have had 'const' set for its pin type.
 			//
-			// @TODO: Determine how these get out of sync and fix that up so we can guard this 
-			//        with a version check, and not have to do this for updated assets
-			if (UEdGraphPin* NodePin = FindPin(PinInfo->PinName))
+			// This ensures that (a) we don't emit the "no reference will be returned" note on custom event and implemented interface
+			// event nodes with array inputs added by the user via the Details panel, and (b) we don't emit the "no reference will be
+			// returned" warning on custom event and implemented interface event nodes with struct/object inputs added by the user in
+			// the Details tab that are also explicitly set to pass-by-reference. That message is intended to convey one should not
+			// expect the input to also be treated like an output - if the value is modified inside the event, it won't be reflected
+			// back out to the caller through the reference. The message should only be seen for implemented event signatures with I/O
+			// parameters that are explicitly passed by reference and declared in native C++ code using 'UPARAM(ref)' markup instead
+			// of 'const Type&' - i.e. the 'const' form should be used to declare input ref args in native events with no return value.
+			//
+			// However, on the Blueprint side for new custom event and new interface event signature input arguments, we do not currently
+			// expose a 'const' qualifier for pass-by-reference parameters, so we're implicitly adding one here to older input ref pin
+			// types to be consistent with the native side. The Blueprint compiler currently ignores 'const' in terms of whether or not
+			// the referenced value or object is actually treated as read-only in the event's implementation, but this may change later.
+			//
+			// Note that Blueprint details customization will set 'const' for all new custom event and implemented interface event node
+			// placements with an array type or pass-by-reference input param. See FBlueprintGraphArgumentLayout::PinInfoChanged().
+			//
+			const bool bValidateConstRefPinTypes = Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::EditableEventsUseConstRefParameters
+				&& ShouldUseConstRefParams();
+
+			// Avoid the FindPin() call if we don't need to do it.
+#if !ALWAYS_VALIDATE_DESIRED_PIN_DIRECTION_ON_LOAD
+			if (bValidateDesiredPinDirection || bValidateConstRefPinTypes)
+#endif
 			{
-				// NOTE: the second FindPin call here to keep us from altering a pin with the same 
-				//       name but different direction (in case there is two)
-				if (PinInfo->DesiredPinDirection != NodePin->Direction && FindPin(PinInfo->PinName, PinInfo->DesiredPinDirection) == nullptr)
+				if (UEdGraphPin* NodePin = FindPin(PinInfo->PinName))
 				{
-					PinInfo->DesiredPinDirection = NodePin->Direction;
+#if !ALWAYS_VALIDATE_DESIRED_PIN_DIRECTION_ON_LOAD
+					if (bValidateDesiredPinDirection)
+#endif
+					{
+						// NOTE: the second FindPin call here to keep us from altering a pin with the same 
+						//       name but different direction (in case there is two)
+						if (PinInfo->DesiredPinDirection != NodePin->Direction && FindPin(PinInfo->PinName, PinInfo->DesiredPinDirection) == nullptr)
+						{
+							PinInfo->DesiredPinDirection = NodePin->Direction;
+						}
+					}
+
+					if (bValidateConstRefPinTypes)
+					{
+						// Note that we should only get here if ShouldUseConstRefParams() indicated this node represents an event function with no outputs (above).
+						if (!NodePin->PinType.bIsConst
+							&& NodePin->Direction == EGPD_Output
+							&& !K2Schema->IsExecPin(*NodePin)
+							&& !K2Schema->IsDelegateCategory(NodePin->PinType.PinCategory))
+						{
+							// Add 'const' to either an array pin type (always passed by reference) or a pin type that's explicitly flagged to be passed by reference.
+							NodePin->PinType.bIsConst = NodePin->PinType.IsArray() || NodePin->PinType.bIsReference;
+
+							// Also mirror the flag into the UserDefinedPins array.
+							PinInfo->PinType.bIsConst = NodePin->PinType.bIsConst;
+						}
+					}
 				}
 			}
 

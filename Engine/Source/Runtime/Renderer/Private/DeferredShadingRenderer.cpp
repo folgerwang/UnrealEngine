@@ -640,18 +640,22 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		&& bUseGBuffer;
 
 	bool bComputeLightGrid = false;
-	if (bUseGBuffer)
+	// Simple forward shading doesn't support local lights. No need to compute light grid
+	if (!IsSimpleForwardShadingEnabled(GetFeatureLevelShaderPlatform(FeatureLevel)))
 	{
-		bComputeLightGrid = bRenderDeferredLighting;
-	}
-	else
-	{
-		bComputeLightGrid = ViewFamily.EngineShowFlags.Lighting;
-	}
+		if (bUseGBuffer)
+		{
+			bComputeLightGrid = bRenderDeferredLighting;
+		}
+		else
+		{
+			bComputeLightGrid = ViewFamily.EngineShowFlags.Lighting;
+		}
 
-	bComputeLightGrid |= (
-		ShouldRenderVolumetricFog() ||
-		ViewFamily.ViewMode != VMI_Lit);
+		bComputeLightGrid |= (
+			ShouldRenderVolumetricFog() ||
+			ViewFamily.ViewMode != VMI_Lit);
+	}
 
 	if (ClearMethodCVar)
 	{
@@ -710,6 +714,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	// Dynamic vertex and index buffers need to be committed before rendering.
 	if (!bDoInitViewAftersPrepass)
 	{
+		GEngine->GetPreRenderDelegate().Broadcast();
 		{
 			SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_FGlobalDynamicVertexBuffer_Commit);
 			FGlobalDynamicVertexBuffer::Get().Commit();
@@ -744,6 +749,8 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 			{
 				InitViewsPossiblyAfterPrepass(RHICmdList, ILCTaskData, SortEvents, UpdateViewCustomDataEvents);
 				PostInitViewCustomData(UpdateViewCustomDataEvents);
+
+				GEngine->GetPreRenderDelegate().Broadcast();
 
 				{
 					SCOPE_CYCLE_COUNTER(STAT_FDeferredShadingSceneRenderer_FGlobalDynamicVertexBuffer_Commit);
@@ -1073,6 +1080,22 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		ServiceLocalQueue();
 	}
 
+
+	IRendererModule& RendererModule = GetRendererModule();
+	if (RendererModule.HasPostOpaqueExtentions())
+	{
+		SceneContext.BeginRenderingSceneColor(RHICmdList);
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
+		{
+			const FViewInfo& View = Views[ViewIndex];
+			RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
+			RendererModule.RenderPostOpaqueExtensions(View, RHICmdList, SceneContext);
+		}
+	}
+	SetRenderTarget(RHICmdList, nullptr, 0, 0, nullptr);
+	RendererModule.DispatchPostOpaqueCompute(RHICmdList, Views[0].ViewUniformBuffer);
+
+
 	TRefCountPtr<IPooledRenderTarget> VelocityRT;
 
 	if (bUseVelocityGBuffer)
@@ -1124,6 +1147,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		// Shadow passes and other users of stencil assume it is cleared to 0 going in
 		FRHIRenderPassInfo RPInfo(SceneContext.GetSceneDepthSurface(),
 			EDepthStencilTargetActions::ClearStencilDontLoadDepth_StoreStencilNotDepth);
+		RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthNop_StencilWrite;
 		RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearStencilFromBasePass"));
 		RHICmdList.EndRenderPass();
 
@@ -1182,17 +1206,15 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 			}
 		}
 
-		RenderDynamicSkyLighting(RHICmdList, VelocityRT, DynamicBentNormalAO);
-		ServiceLocalQueue();
+		// Render diffuse sky lighting and reflections that only operate on opaque pixels
+		RenderDeferredReflectionsAndSkyLighting(RHICmdList, DynamicBentNormalAO, VelocityRT);
+
+		DynamicBentNormalAO = NULL;
 
 		// SSS need the SceneColor finalized as an SRV.
 		ResolveSceneColor(RHICmdList);
 
-		// Render reflections that only operate on opaque pixels
-		RenderDeferredReflections(RHICmdList, DynamicBentNormalAO, VelocityRT);
 		ServiceLocalQueue();
-
-		DynamicBentNormalAO = NULL;
 
 		// Post-lighting composition lighting stage
 		// e.g. ScreenSpaceSubsurfaceScattering
@@ -1251,19 +1273,6 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 		ServiceLocalQueue();
 	}
 
-	FRendererModule* RendererModule = FRendererModule::GetRendererModule();
-	if (RendererModule->HasPostOpaqueExtentions())
-	{
-		SceneContext.BeginRenderingSceneColor(RHICmdList);
-		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)
-		{
-			const FViewInfo& View = Views[ViewIndex];
-			RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
-			RendererModule->RenderPostOpaqueExtensions(View, RHICmdList, SceneContext);
-		}
-	}
-
-	RendererModule->DispatchPostOpaqueCompute(RHICmdList);
 
 	// No longer needed, release
 	LightShaftOutput.LightShaftOcclusion = NULL;
@@ -1321,16 +1330,16 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	{
 		const FViewInfo& View = Views[ViewIndex];
 		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
-		RendererModule->RenderOverlayExtensions(View, RHICmdList, SceneContext);
+		RendererModule.RenderOverlayExtensions(View, RHICmdList, SceneContext);
 	}
 
-	if (ViewFamily.EngineShowFlags.VisualizeDistanceFieldAO || ViewFamily.EngineShowFlags.VisualizeDistanceFieldGI)
+	if (ViewFamily.EngineShowFlags.VisualizeDistanceFieldAO)
 	{
 		// Use the skylight's max distance if there is one, to be consistent with DFAO shadowing on the skylight
 		const float OcclusionMaxDistance = Scene->SkyLight && !Scene->SkyLight->bWantsStaticShadowing ? Scene->SkyLight->OcclusionMaxDistance : Scene->DefaultMaxDistanceFieldOcclusionDistance;
 		TRefCountPtr<IPooledRenderTarget> DummyOutput;
 		RHICmdList.SetCurrentStat(GET_STATID(STAT_CLM_RenderDistanceFieldLighting));
-		RenderDistanceFieldLighting(RHICmdList, FDistanceFieldAOParameters(OcclusionMaxDistance), VelocityRT, DummyOutput, DummyOutput, false, ViewFamily.EngineShowFlags.VisualizeDistanceFieldAO, ViewFamily.EngineShowFlags.VisualizeDistanceFieldGI); 
+		RenderDistanceFieldLighting(RHICmdList, FDistanceFieldAOParameters(OcclusionMaxDistance), VelocityRT, DummyOutput, false, ViewFamily.EngineShowFlags.VisualizeDistanceFieldAO); 
 		ServiceLocalQueue();
 	}
 
@@ -1360,7 +1369,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	if (ViewFamily.bResolveScene)
 	{
 		SCOPED_DRAW_EVENT(RHICmdList, PostProcessing);
-   		SCOPED_GPU_STAT(RHICmdList, Postprocessing);
+		SCOPED_GPU_STAT(RHICmdList, Postprocessing);
 
 		SCOPE_CYCLE_COUNTER(STAT_FinishRenderViewTargetTime);
 

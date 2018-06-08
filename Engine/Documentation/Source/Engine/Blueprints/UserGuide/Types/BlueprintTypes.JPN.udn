@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3244370
+﻿INTSourceChangelist:3736175
 Availability:Public
 Title:ブループリントの種類
 Crumbs: %ROOT%, Engine/Blueprints
@@ -65,25 +65,6 @@ Blueprint Macro Library に入れるのが理想的です。
 [INCLUDE:Engine/Blueprints/UserGuide/Types/MacroLibrary#Intro]
 
 詳細は [](Engine/Blueprints/UserGuide/Types/MacroLibrary) を参照してください。
-
-
-[COMMENT:none]
-
-[OBJECT:IconSection]
-	[PARAM:icon]
-		![Blueprints](%ROOT%/blueprint_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		ブループリント ユーティリティ
-	[/PARAM]
-	[PARAM:description]
-		**ブループリント ユーティリティ** は **Blutility** とも呼ばれる _ブループリント_ で、 
-		エディタの実行や機能の拡張に使用します。これらは UI のボタンとしてパラメータなしで [](Engine/Blueprints/UserGuide/Events) をエクスポーズすることができます。 
-		_ブループリント_ にエクスポーズされた全ての機能を実行する能力があり、現ビューポートで選択されたアクタ一式を実行します。
-	[/PARAM]
-[/OBJECT]
-
-[/COMMENT]
 
 [/EXCERPT:Types]
 

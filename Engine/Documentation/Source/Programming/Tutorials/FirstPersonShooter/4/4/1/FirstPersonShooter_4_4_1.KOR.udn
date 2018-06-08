@@ -1,6 +1,6 @@
 ﻿INTSourceChangelist:3782314
 Availability: Public
-Title: 4.4.1 - Idle <-> Run 양방향 트랜지션 추가
+Title: 4.4.1 - Idle 과 Run 사이 양방향 트랜지션 추가
 Crumbs: %ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/4, Programming/Tutorials/FirstPersonShooter/4/4
 Description: 일인칭 슈팅 캐릭터의 애니메이션 스테이트 머신에 빈둥 상태에서 달리기 상태로의 양방향 전환을 추가하는 법을 배워봅니다.
 SkillLevel: Beginner
@@ -30,9 +30,9 @@ Version: 4.15
 
 	![](WireIdletoRun.png)
 
-1.	트랜지션을 **더블클릭** 하여 편집합니다.
+1.	트랜지션을 더블클릭하여 편집합니다.
 
-1.	**내 블루프린트** 탭의 **IsRunning** 에 **Ctrl + 클릭** 한 뒤 그래프에 끌어 놓아 **Get Is Running** 노드를 만듭니다.
+1.	**내 블루프린트** 탭의 **IsRunning** 에 Ctrl + 클릭한 뒤 그래프에 끌어 놓아 **Get Is Running** 노드를 만듭니다.
 
 1.	**Get Is Running** 노드의 출력 핀을 **Result** 노드의 **Can Enter Transition** 핀의 입력 핀에 연결합니다.
 
@@ -46,9 +46,9 @@ Version: 4.15
 
 	![](WireRuntoIdle.png)
 
-1.	그 트랜지션을 **더블클릭** 하여 편집합니다.
+1.	그 트랜지션을 더블클릭하여 편집합니다.
 
-1.	**내 블루프린트** 탭에서 **IsRunning** 에 **Ctrl + 클릭** 하고 그래프에 끌어 놓아 **Get Is Running** 노드를 만듭니다.
+1.	**내 블루프린트** 탭에서 **IsRunning** 에 Ctrl + 클릭하고 그래프에 끌어 놓아 **Get Is Running** 노드를 만듭니다.
 
 1.	**Get Is Running** 노드의 출력 불리언 핀을 끌어놓아 **Not Boolean** 노드를 만듭니다.
 

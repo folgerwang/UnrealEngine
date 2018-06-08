@@ -45,13 +45,13 @@ public:
 	/** Setup a screen percentage driver for a given view family. */
 	virtual void SetupMainViewFamily(class FSceneViewFamily& ViewFamily) = 0;
 
+protected:
+
 	/** Returns a non thread safe aproximation of the current resolution fraction applied on render thread, mostly used for stats and analytic. */
 	virtual float GetResolutionFractionApproximation() const = 0;
 
 	/** Returns the max resolution resolution fraction. */
 	virtual float GetResolutionFractionUpperBound() const = 0;
-
-protected:
 
 	/** Enables/Disables dynamic resolution. This is only called by GEngine automatically. */
 	virtual void SetEnabled(bool bEnable) = 0;

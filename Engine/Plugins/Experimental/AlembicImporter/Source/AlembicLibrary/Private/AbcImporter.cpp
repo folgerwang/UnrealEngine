@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AbcImporter.h"
 
@@ -87,6 +87,8 @@ void FAbcImporter::UpdateAssetImportData(UAbcAssetImportData* AssetImportData)
 			AssetImportData->TrackNames.Add(PolyMesh->GetName());
 		}
 	}
+
+	AssetImportData->SamplingSettings = ImportSettings->SamplingSettings;
 }
 
 void FAbcImporter::RetrieveAssetImportData(UAbcAssetImportData* AssetImportData)
@@ -100,6 +102,10 @@ void FAbcImporter::RetrieveAssetImportData(UAbcAssetImportData* AssetImportData)
 			PolyMesh->bShouldImport = true;
 			bAnySetForImport = true;
 		}		
+		else
+		{
+			PolyMesh->bShouldImport = false;
+		}
 	}
 
 	// If none were set to import, set all of them to import (probably different scene/setup)
@@ -559,7 +565,9 @@ UGeometryCache* FAbcImporter::ImportAsGeometryCache(UObject* InParent, EObjectFl
 		{
 			Track->SetDuration(MaxDuration);
 		}
-
+		// Also store the number of frames in the cache
+		GeometryCache->SetFrameStartEnd(ImportSettings->SamplingSettings.FrameStart, ImportSettings->SamplingSettings.FrameEnd);
+		
 		// Update all geometry cache components, TODO move render-data from component to GeometryCache and allow for DDC population
 		for (TObjectIterator<UGeometryCacheComponent> CacheIt; CacheIt; ++CacheIt)
 		{
@@ -645,6 +653,7 @@ TArray<UObject*> FAbcImporter::ImportAsSkeletalMesh(UObject* InParent, EObjectFl
 		// Forced to 1
 		LODModel.NumTexCoords = MergedMeshSample->NumUVSets;
 		SkeletalMesh->bHasVertexColors = true;
+		SkeletalMesh->VertexColorGuid = FGuid::NewGuid();
 
 		/* Bounding box according to animation */
 		SkeletalMesh->SetImportedBounds(AbcFile->GetArchiveBounds().GetBox());

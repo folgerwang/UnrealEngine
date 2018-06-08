@@ -102,11 +102,11 @@ static bool IsValidIPv4Address(const FString& InString)
 		if (IsUnsignedInteger(AStr) && IsUnsignedInteger(BStr) && IsUnsignedInteger(CStr) && IsUnsignedInteger(DStr) && IsUnsignedInteger(PortStr))
 		{
 			uint32 A, B, C, D, Port;
-			Lex::FromString(A, *AStr);
-			Lex::FromString(B, *BStr);
-			Lex::FromString(C, *CStr);
-			Lex::FromString(D, *DStr);
-			Lex::FromString(Port, *PortStr);
+			LexFromString(A, *AStr);
+			LexFromString(B, *BStr);
+			LexFromString(C, *CStr);
+			LexFromString(D, *DStr);
+			LexFromString(Port, *PortStr);
 
 			if (A < 256 && B < 256 && C < 256 && D < 256 && Port < 65536)
 			{

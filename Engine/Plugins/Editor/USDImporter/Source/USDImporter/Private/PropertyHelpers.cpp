@@ -27,7 +27,7 @@ namespace PropertyHelpers
 					{
 						TCHAR NumberBuffer[11];
 						FMemory::Memcpy(NumberBuffer, &PropertyName[OpenIndex + 1], sizeof(TCHAR) * NumberLength);
-						LexicalConversion::FromString(PropertyAndIndex.ArrayIndex, NumberBuffer);
+						LexFromString(PropertyAndIndex.ArrayIndex, NumberBuffer);
 					}
 				}
 

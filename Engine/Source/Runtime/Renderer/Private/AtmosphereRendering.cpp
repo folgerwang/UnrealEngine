@@ -1755,10 +1755,12 @@ FAtmosphericFogSceneInfo::~FAtmosphericFogSceneInfo()
 bool ShouldRenderAtmosphere(const FSceneViewFamily& Family)
 {
 	const FEngineShowFlags EngineShowFlags = Family.EngineShowFlags;
-
+	// When r.SupportAtmosphericFog is 0, we should not render atmosphere.
+	static const auto SupportAtmosphericFog = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SupportAtmosphericFog"));
 	return GSupportsVolumeTextureRendering
 		&& EngineShowFlags.AtmosphericFog
-		&& EngineShowFlags.Fog;
+		&& EngineShowFlags.Fog
+		&& SupportAtmosphericFog->GetValueOnAnyThread();
 }
 
 void FScene::AddAtmosphericFog(UAtmosphericFogComponent* FogComponent)

@@ -31,8 +31,11 @@ void UScaleBox::ReleaseSlateResources(bool bReleaseChildren)
 TSharedRef<SWidget> UScaleBox::RebuildWidget()
 {
 	MyScaleBox = SNew(SScaleBox)
-		.SingleLayoutPass(bSingleLayoutPass);
-	
+#if WITH_EDITOR
+		.OverrideScreenSize(DesignerSize)
+#endif
+	.SingleLayoutPass(bSingleLayoutPass);
+
 	if ( GetChildrenCount() > 0 )
 	{
 		CastChecked<UScaleBoxSlot>(GetContentSlot())->BuildSlot(MyScaleBox.ToSharedRef());
@@ -143,6 +146,24 @@ bool UScaleBox::CanEditChange(const UProperty* InProperty) const
 	}
 
 	return bIsEditable;
+}
+
+
+void UScaleBox::OnDesignerChanged(const FDesignerChangedEventArgs& EventArgs)
+{
+	if (EventArgs.bScreenPreview)
+	{
+		DesignerSize = EventArgs.Size;
+	}
+	else
+	{
+		DesignerSize = FVector2D(0, 0);
+	}
+
+	if (MyScaleBox.IsValid())
+	{
+		MyScaleBox->SetOverrideScreenInformation(DesignerSize);
+	}
 }
 
 #endif

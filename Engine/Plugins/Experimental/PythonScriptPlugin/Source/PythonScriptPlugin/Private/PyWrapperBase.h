@@ -4,6 +4,7 @@
 
 #include "IncludePython.h"
 #include "PyPtr.h"
+#include "PyGenUtil.h"
 #include "PyConversionMethod.h"
 #include "PyConversionResult.h"
 #include "Misc/Guid.h"
@@ -15,7 +16,7 @@
 extern PyTypeObject PyWrapperBaseType;
 
 /** Initialize the PyWrapperBase types and add them to the given Python module */
-void InitializePyWrapperBase(PyObject* PyModule);
+void InitializePyWrapperBase(PyGenUtil::FNativePythonModule& ModuleInfo);
 
 /** Base type for all UE4 exposed instances */
 struct FPyWrapperBase

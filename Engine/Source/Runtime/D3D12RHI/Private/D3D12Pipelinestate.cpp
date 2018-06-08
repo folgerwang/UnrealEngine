@@ -7,20 +7,44 @@
 //-----------------------------------------------------------------------------
 #include "D3D12RHIPrivate.h"
 
+
+static TAutoConsoleVariable<float> CVarPSOStallWarningThresholdInMs(
+	TEXT("D3D12.PSO.StallWarningThresholdInMs"),
+	.5f,
+	TEXT("Sets a threshold of when to logs messages about stalls due to PSO creation.\n")
+	TEXT("Value is in milliseconds. (.5 is the default)\n"),
+	ECVF_ReadOnly);
+
+static TAutoConsoleVariable<float> CVarPSOStallTimeoutInMs(
+	TEXT("D3D12.PSO.StallTimeoutInMs"),
+	2000.0f,
+	TEXT("The timeout interval. If a nonzero value is specified, the function waits until the PSO is created or the interval elapses.\n")
+	TEXT("Value is in milliseconds. (2000.0 is the default)\n"),
+	ECVF_ReadOnly);
+
 /// @cond DOXYGEN_WARNINGS
 
-void FD3D12HighLevelGraphicsPipelineStateDesc::GetLowLevelDesc(FD3D12LowLevelGraphicsPipelineStateDesc& Desc)
+FD3D12LowLevelGraphicsPipelineStateDesc GetLowLevelGraphicsPipelineStateDesc(const FGraphicsPipelineStateInitializer& Initializer, FD3D12BoundShaderState* BoundShaderState)
 {
+	// Memzero because we hash using the entire struct and we need to clear any padding.
+	FD3D12LowLevelGraphicsPipelineStateDesc Desc;
 	FMemory::Memzero(&Desc, sizeof(Desc));
 
 	Desc.pRootSignature = BoundShaderState->pRootSignature;
 	Desc.Desc.pRootSignature = Desc.pRootSignature->GetRootSignature();
-	Desc.Desc.SampleMask = SampleMask;
-	Desc.Desc.PrimitiveTopologyType = PrimitiveTopologyType;
-	Desc.Desc.NumRenderTargets = NumRenderTargets;
-	FMemory::Memcpy(Desc.Desc.RTVFormats, &RTVFormats[0], sizeof(RTVFormats[0]) * NumRenderTargets);
-	Desc.Desc.DSVFormat = DSVFormat;
-	Desc.Desc.SampleDesc = SampleDesc;
+
+#if !PLATFORM_XBOXONE	// On XboxOne, the pipeline state doesn't depend on those properties.
+	Desc.Desc.BlendState = Initializer.BlendState ? FD3D12DynamicRHI::ResourceCast(Initializer.BlendState)->Desc : CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	Desc.Desc.SampleMask = 0xFFFFFFFF;
+	Desc.Desc.RasterizerState = Initializer.RasterizerState ? FD3D12DynamicRHI::ResourceCast(Initializer.RasterizerState)->Desc : CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	Desc.Desc.DepthStencilState = Initializer.DepthStencilState ? FD3D12DynamicRHI::ResourceCast(Initializer.DepthStencilState)->Desc : CD3DX12_DEPTH_STENCIL_DESC1(D3D12_DEFAULT);
+#endif
+	Desc.Desc.PrimitiveTopologyType = D3D12PrimitiveTypeToTopologyType(TranslatePrimitiveType(Initializer.PrimitiveType));
+
+	TranslateRenderTargetFormats(Initializer, Desc.Desc.RTFormatArray, Desc.Desc.DSVFormat);
+
+	Desc.Desc.SampleDesc.Count = Initializer.NumSamples;
+	Desc.Desc.SampleDesc.Quality = GetMaxMSAAQuality(Initializer.NumSamples);
 
 	Desc.Desc.InputLayout = BoundShaderState->InputLayout;
 
@@ -42,14 +66,46 @@ void FD3D12HighLevelGraphicsPipelineStateDesc::GetLowLevelDesc(FD3D12LowLevelGra
 	COPY_SHADER(G, Geometry);
 #undef COPY_SHADER
 
-	Desc.Desc.BlendState = BlendState ? *BlendState : CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	Desc.Desc.RasterizerState = RasterizerState ? *RasterizerState : CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	Desc.Desc.DepthStencilState = DepthStencilState ? *DepthStencilState : CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+#if PLATFORM_WINDOWS
+	// TODO: [PSO API] For now, keep DBT enabled, if available, until it is added as part of a member to the Initializer's DepthStencilState
+	Desc.Desc.DepthStencilState.DepthBoundsTestEnable = GSupportsDepthBoundsTest && Initializer.bDepthBounds;
+#endif
+
+	return Desc;
 }
+
+FD3D12ComputePipelineStateDesc GetComputePipelineStateDesc(const FD3D12ComputeShader* ComputeShader)
+{
+	// Memzero because we hash using the entire struct and we need to clear any padding.
+	FD3D12ComputePipelineStateDesc Desc;
+	FMemory::Memzero(&Desc, sizeof(Desc));
+
+	Desc.pRootSignature = ComputeShader->pRootSignature;
+	Desc.Desc.pRootSignature = Desc.pRootSignature->GetRootSignature();
+	Desc.Desc.CS = ComputeShader->ShaderBytecode.GetShaderBytecode();
+	Desc.CSHash = ComputeShader->ShaderBytecode.GetHash();
+
+	return Desc;
+}
+
+FD3D12PipelineStateWorker::FD3D12PipelineStateWorker(FD3D12Adapter* Adapter, const ComputePipelineCreationArgs& InArgs)
+	: bIsGraphics(false)
+	, FD3D12AdapterChild(Adapter)
+{
+	CreationArgs.ComputeArgs.Init(InArgs.Args);
+};
+
+FD3D12PipelineStateWorker::FD3D12PipelineStateWorker(FD3D12Adapter* Adapter, const GraphicsPipelineCreationArgs& InArgs)
+	: bIsGraphics(true)
+	, FD3D12AdapterChild(Adapter)
+{
+	CreationArgs.GraphicsArgs.Init(InArgs.Args);
+};
+
 
 /// @endcond
 
-FORCEINLINE uint32 SSE4_CRC32(void* Data, SIZE_T NumBytes)
+FORCEINLINE uint32 SSE4_CRC32(const void* Data, SIZE_T NumBytes)
 {
 	check(GCPUSupportsSSE4);
 	uint32 Hash = 0;
@@ -86,19 +142,18 @@ FORCEINLINE uint32 SSE4_CRC32(void* Data, SIZE_T NumBytes)
 	return Hash;
 }
 
-SIZE_T FD3D12PipelineStateCacheBase::HashData(void* Data, SIZE_T NumBytes)
+uint32 FD3D12PipelineStateCacheBase::HashData(const void* Data, SIZE_T NumBytes)
 {
 	if (GCPUSupportsSSE4)
 	{
-		return SIZE_T(SSE4_CRC32(Data, NumBytes));
+		return SSE4_CRC32(Data, NumBytes);
 	}
 	else
 	{
-		return SIZE_T(FCrc::MemCrc32(Data, NumBytes));
+		return FCrc::MemCrc32(Data, NumBytes);
 	}
 }
 
-//TODO: optimize by pre-hashing these things at set time
 SIZE_T FD3D12PipelineStateCacheBase::HashPSODesc(const FD3D12LowLevelGraphicsPipelineStateDesc& Desc)
 {
 	__declspec(align(32)) FD3D12LowLevelGraphicsPipelineStateDesc Hash;
@@ -118,17 +173,7 @@ SIZE_T FD3D12PipelineStateCacheBase::HashPSODesc(const FD3D12LowLevelGraphicsPip
 	Hash.Desc.pRootSignature = nullptr;
 	Hash.pRootSignature = nullptr;
 
-	return HashData(&Hash, sizeof(Hash));
-}
-
-SIZE_T FD3D12PipelineStateCacheBase::HashPSODesc(const FD3D12HighLevelGraphicsPipelineStateDesc& Desc)
-{
-	__declspec(align(32)) FD3D12HighLevelGraphicsPipelineStateDesc Hash;
-	FMemory::Memcpy(&Hash, &Desc, sizeof(Hash)); // Memcpy to avoid introducing garbage due to alignment
-
-	Hash.CombinedHash = 0;
-
-	return HashData(&Hash, sizeof(Hash));
+	return SIZE_T(HashData(&Hash, sizeof(Hash)));
 }
 
 SIZE_T FD3D12PipelineStateCacheBase::HashPSODesc(const FD3D12ComputePipelineStateDesc& Desc)
@@ -143,7 +188,7 @@ SIZE_T FD3D12PipelineStateCacheBase::HashPSODesc(const FD3D12ComputePipelineStat
 	Hash.Desc.pRootSignature = nullptr;
 	Hash.pRootSignature = nullptr;
 
-	return HashData(&Hash, sizeof(Hash));
+	return SIZE_T(HashData(&Hash, sizeof(Hash)));
 }
 
 #define SSE4_2     0x100000 
@@ -152,13 +197,6 @@ SIZE_T FD3D12PipelineStateCacheBase::HashPSODesc(const FD3D12ComputePipelineStat
 FD3D12PipelineStateCacheBase::FD3D12PipelineStateCacheBase(FD3D12Adapter* InParent) :
 	FD3D12AdapterChild(InParent)
 {
-#if UE_BUILD_DEBUG
-	GraphicsCacheRequestCount = 0;
-	HighLevelCacheFulfillCount = 0;
-	HighLevelCacheStaleCount = 0;
-	HighLevelCacheMissCount = 0;
-#endif
-
 	// Check for SSE4 support see: https://msdn.microsoft.com/en-us/library/vstudio/hskdteyh(v=vs.100).aspx
 	{
 		int32 cpui[4];
@@ -178,6 +216,7 @@ FD3D12PipelineState::FD3D12PipelineState(FD3D12Adapter* Parent)
 	, FD3D12AdapterChild(Parent)
 	, FD3D12MultiNodeGPUObject(FRHIGPUMask::All(), FRHIGPUMask::All()) //Create on all, visible on all
 	, PendingWaitOnWorkerCalls(0)
+	, bAddToDiskCache(false)
 {
 	INC_DWORD_STAT(STAT_D3D12NumPSOs);
 }
@@ -246,4 +285,303 @@ ID3D12PipelineState* FD3D12PipelineState::GetPipelineState()
 		}
 	}
 	return PipelineState.GetReference();
+}
+
+FD3D12GraphicsPipelineState::~FD3D12GraphicsPipelineState()
+{
+	// At this point the object is not safe to use in the PSO cache.
+	// Currently, the PSO cache manages the lifetime but we could potentially
+	// stop doing an AddRef() and remove the PipelineState from any caches at this point.
+
+#if PLATFORM_XBOXONE
+	// On XboxOne the pipeline state is the derived object.
+	delete PipelineState;
+	PipelineState = nullptr;
+#endif
+}
+
+FD3D12ComputePipelineState::~FD3D12ComputePipelineState()
+{
+	// At this point the object is not safe to use in the PSO cache.
+	// Currently, the PSO cache manages the lifetime but we could potentially
+	// stop doing an AddRef() and remove the PipelineState from any caches at this point.
+}
+
+void FD3D12PipelineStateCacheBase::CleanupPipelineStateCaches()
+{
+	// The runtime caches manage the lifetime of their FD3D12GraphicsPipelineState and FD3D12ComputePipelineState.
+	// We need to release them.
+	for (auto Pair : InitializerToGraphicsPipelineMap)
+	{
+		FD3D12GraphicsPipelineState* GraphicsPipelineState = Pair.Value;
+		ensure(GIsRHIInitialized || (!GIsRHIInitialized && GraphicsPipelineState->GetRefCount() == 1));
+		GraphicsPipelineState->Release();
+	}
+	InitializerToGraphicsPipelineMap.Reset();
+
+	for (auto Pair : ComputeShaderToComputePipelineMap)
+	{
+		FD3D12ComputePipelineState* ComputePipelineState = Pair.Value;
+		ensure(GIsRHIInitialized || (!GIsRHIInitialized && ComputePipelineState->GetRefCount() == 1));
+		ComputePipelineState->Release();
+	}
+	ComputeShaderToComputePipelineMap.Reset();
+
+	// The low level graphics and compute maps manage the lifetime of their PSOs.
+	// We need to delete each element before we empty it.
+	for (auto Iter = LowLevelGraphicsPipelineStateCache.CreateConstIterator(); Iter; ++Iter)
+	{
+		const FD3D12PipelineState* const PipelineState = Iter.Value();
+		delete PipelineState;
+	}
+	LowLevelGraphicsPipelineStateCache.Empty();
+
+	for (auto Iter = ComputePipelineStateCache.CreateConstIterator(); Iter; ++Iter)
+	{
+		const FD3D12PipelineState* const PipelineState = Iter.Value();
+		delete PipelineState;
+	}
+	ComputePipelineStateCache.Empty();
+}
+
+FD3D12GraphicsPipelineState* FD3D12PipelineStateCacheBase::AddToRuntimeCache(const FGraphicsPipelineStateInitializer& Initializer, uint32 InitializerHash, FD3D12BoundShaderState* BoundShaderState, FD3D12PipelineState* PipelineState)
+{
+	// Lifetime managed by the runtime cache. AddRef() so the upper level doesn't delete the FD3D12GraphicsPipelineState objects while they're still in the runtime cache.
+	// One alternative is to remove the object from the runtime cache in the FD3D12GraphicsPipelineState destructor.
+	FD3D12GraphicsPipelineState* const GraphicsPipelineState = new FD3D12GraphicsPipelineState(Initializer, BoundShaderState, PipelineState);
+	GraphicsPipelineState->AddRef();
+
+	check(GraphicsPipelineState && InitializerHash != 0);
+	check(GraphicsPipelineState->PipelineState != nullptr);
+
+	{
+		FRWScopeLock Lock(InitializerToGraphicsPipelineMapMutex, FRWScopeLockType::SLT_Write);
+		InitializerToGraphicsPipelineMap.Add(InitializerHash, GraphicsPipelineState);
+	}
+
+	INC_DWORD_STAT(STAT_PSOGraphicsNumHighlevelCacheEntries);
+	return GraphicsPipelineState;
+}
+
+FD3D12PipelineState* FD3D12PipelineStateCacheBase::FindInLowLevelCache(const FD3D12LowLevelGraphicsPipelineStateDesc& Desc)
+{
+	check(Desc.CombinedHash != 0);
+
+	{
+		FRWScopeLock Lock(LowLevelDescToGraphicsPipelineMapMutex, FRWScopeLockType::SLT_ReadOnly);
+		FD3D12PipelineState** Found = LowLevelGraphicsPipelineStateCache.Find(Desc);
+		if (Found)
+		{
+			INC_DWORD_STAT(STAT_PSOGraphicsLowlevelCacheHit);
+			return *Found;
+		}
+	}
+
+	INC_DWORD_STAT(STAT_PSOGraphicsLowlevelCacheMiss);
+	return nullptr;
+}
+
+FD3D12PipelineState* FD3D12PipelineStateCacheBase::CreateAndAddToLowLevelCache(const FD3D12LowLevelGraphicsPipelineStateDesc& Desc)
+{
+	// Add PSO to low level cache.
+	FD3D12PipelineState* PipelineState = nullptr;
+	AddToLowLevelCache(Desc, &PipelineState, [&](FD3D12PipelineState* PipelineState, const FD3D12LowLevelGraphicsPipelineStateDesc& Desc)
+	{ 
+		OnPSOCreated(PipelineState, Desc); 
+	});
+
+	return PipelineState;
+}
+
+void FD3D12PipelineStateCacheBase::AddToLowLevelCache(const FD3D12LowLevelGraphicsPipelineStateDesc& Desc, FD3D12PipelineState** OutPipelineState, const FPostCreateGraphicCallback& PostCreateCallback)
+{
+	check(Desc.CombinedHash != 0);
+
+	// Double check the desc doesn't already exist while the lock is taken.
+	// This avoids having multiple threads try to create the same PSO.
+	FRWScopeLock Lock(LowLevelDescToGraphicsPipelineMapMutex, FRWScopeLockType::SLT_Write);
+	FD3D12PipelineState** const PipelineState = LowLevelGraphicsPipelineStateCache.Find(Desc);
+	if (PipelineState)
+	{
+		// This desc already exists.
+		*OutPipelineState = *PipelineState;
+	}
+	else
+	{
+		FD3D12PipelineState* NewPipelineState = new FD3D12PipelineState(GetParentAdapter());
+		LowLevelGraphicsPipelineStateCache.Add(Desc, NewPipelineState);
+
+		INC_DWORD_STAT(STAT_PSOGraphicsNumLowlevelCacheEntries);
+		*OutPipelineState = NewPipelineState;
+
+		// Do the callback now with the lock still on.
+		PostCreateCallback(NewPipelineState, Desc);
+	}
+}
+
+FD3D12ComputePipelineState* FD3D12PipelineStateCacheBase::AddToRuntimeCache(FD3D12ComputeShader* ComputeShader, FD3D12PipelineState* PipelineState)
+{
+	// Lifetime managed by the runtime cache. AddRef() so the upper level doesn't delete the FD3D12ComputePipelineState objects while they're still in the runtime cache.
+	// One alternative is to remove the object from the runtime cache in the FD3D12ComputePipelineState destructor.
+	FD3D12ComputePipelineState* const ComputePipelineState = new FD3D12ComputePipelineState(ComputeShader, PipelineState);
+	ComputePipelineState->AddRef();
+
+	check(ComputePipelineState && ComputeShader != nullptr);
+	check(ComputePipelineState->PipelineState != nullptr);
+
+	{
+		FRWScopeLock Lock(ComputeShaderToComputePipelineMapMutex, FRWScopeLockType::SLT_Write);
+		ComputeShaderToComputePipelineMap.Add(ComputeShader, ComputePipelineState);
+	}
+
+	INC_DWORD_STAT(STAT_PSOComputeNumHighlevelCacheEntries);
+	return ComputePipelineState;
+}
+
+FD3D12PipelineState* FD3D12PipelineStateCacheBase::FindInLowLevelCache(const FD3D12ComputePipelineStateDesc& Desc)
+{
+	check(Desc.CombinedHash != 0);
+
+	{
+		FRWScopeLock Lock(LowLevelDescToComputePipelineMapMutex, FRWScopeLockType::SLT_ReadOnly);
+		FD3D12PipelineState** Found = ComputePipelineStateCache.Find(Desc);
+		if (Found)
+		{
+			INC_DWORD_STAT(STAT_PSOComputeLowlevelCacheHit);
+			return *Found;
+		}
+	}
+
+	INC_DWORD_STAT(STAT_PSOComputeLowlevelCacheMiss);
+	return nullptr;
+}
+
+FD3D12PipelineState* FD3D12PipelineStateCacheBase::CreateAndAddToLowLevelCache(const FD3D12ComputePipelineStateDesc& Desc)
+{
+	// Add PSO to low level cache.
+	FD3D12PipelineState* PipelineState = nullptr;
+
+	AddToLowLevelCache(Desc, &PipelineState, [&](FD3D12PipelineState* PipelineState, const FD3D12ComputePipelineStateDesc& Desc)
+	{ 
+		OnPSOCreated(PipelineState, Desc); 
+	});
+
+	return PipelineState;
+}
+
+void FD3D12PipelineStateCacheBase::AddToLowLevelCache(const FD3D12ComputePipelineStateDesc& Desc, FD3D12PipelineState** OutPipelineState, const FPostCreateComputeCallback& PostCreateCallback)
+{
+	check(Desc.CombinedHash != 0);
+
+	// Double check the desc doesn't already exist while the lock is taken.
+	// This avoids having multiple threads try to create the same PSO.
+	FRWScopeLock Lock(LowLevelDescToComputePipelineMapMutex, FRWScopeLockType::SLT_Write);
+	FD3D12PipelineState** const PipelineState = ComputePipelineStateCache.Find(Desc);
+	if (PipelineState)
+	{
+		// This desc already exists.
+		*OutPipelineState = *PipelineState;
+	}
+	else
+	{
+		FD3D12PipelineState* NewPipelineState = new FD3D12PipelineState(GetParentAdapter());
+		ComputePipelineStateCache.Add(Desc, NewPipelineState);
+
+		INC_DWORD_STAT(STAT_PSOComputeNumLowlevelCacheEntries);
+		*OutPipelineState = NewPipelineState;
+
+		// Do the callback now with the lock still on.
+		PostCreateCallback(NewPipelineState, Desc);
+	}
+}
+
+FD3D12GraphicsPipelineState* FD3D12PipelineStateCacheBase::FindInRuntimeCache(const FGraphicsPipelineStateInitializer& Initializer, uint32& OutHash)
+{
+	OutHash = HashData(&Initializer, sizeof(Initializer));
+
+	{
+		FRWScopeLock Lock(InitializerToGraphicsPipelineMapMutex, FRWScopeLockType::SLT_ReadOnly);
+		FD3D12GraphicsPipelineState** GraphicsPipelineState = InitializerToGraphicsPipelineMap.Find(OutHash);
+		if (GraphicsPipelineState)
+		{
+			INC_DWORD_STAT(STAT_PSOGraphicsHighlevelCacheHit);
+			return *GraphicsPipelineState;
+		}
+	}
+
+	INC_DWORD_STAT(STAT_PSOGraphicsHighlevelCacheMiss);
+	return nullptr;
+}
+
+FD3D12GraphicsPipelineState* FD3D12PipelineStateCacheBase::FindInLoadedCache(const FGraphicsPipelineStateInitializer& Initializer, uint32 InitializerHash, FD3D12BoundShaderState* BoundShaderState, FD3D12LowLevelGraphicsPipelineStateDesc& OutLowLevelDesc)
+{
+	// TODO: For now PSOs will be created on every node of the LDA chain.
+	OutLowLevelDesc = GetLowLevelGraphicsPipelineStateDesc(Initializer, BoundShaderState);
+	OutLowLevelDesc.Desc.NodeMask = (uint32)FRHIGPUMask::All();
+
+	OutLowLevelDesc.CombinedHash = FD3D12PipelineStateCacheBase::HashPSODesc(OutLowLevelDesc);
+
+	// First try to find the PSO in the low level cache that can be populated from disk.
+	FD3D12PipelineState* PipelineState = FindInLowLevelCache(OutLowLevelDesc);
+	if (PipelineState)
+	{
+		// Add the PSO to the runtime cache for better performance next time.
+		return AddToRuntimeCache(Initializer, InitializerHash, BoundShaderState, PipelineState);
+	}
+
+	// TODO: Try to load from a PipelineLibrary now instead of at Create time.
+
+	return nullptr;
+}
+
+FD3D12GraphicsPipelineState* FD3D12PipelineStateCacheBase::CreateAndAdd(const FGraphicsPipelineStateInitializer& Initializer, uint32 InitializerHash, FD3D12BoundShaderState* BoundShaderState, const FD3D12LowLevelGraphicsPipelineStateDesc& LowLevelDesc)
+{
+	FD3D12PipelineState* const PipelineState = CreateAndAddToLowLevelCache(LowLevelDesc);
+
+	// Add the PSO to the runtime cache for better performance next time.
+	return AddToRuntimeCache(Initializer, InitializerHash, BoundShaderState, PipelineState);
+}
+
+FD3D12ComputePipelineState* FD3D12PipelineStateCacheBase::FindInRuntimeCache(const FD3D12ComputeShader* ComputeShader)
+{
+	{
+		FRWScopeLock Lock(ComputeShaderToComputePipelineMapMutex, FRWScopeLockType::SLT_ReadOnly);
+		FD3D12ComputePipelineState** ComputePipelineState = ComputeShaderToComputePipelineMap.Find(ComputeShader);
+		if (ComputePipelineState)
+		{
+			INC_DWORD_STAT(STAT_PSOComputeHighlevelCacheHit);
+			return *ComputePipelineState;
+		}
+	}
+
+	INC_DWORD_STAT(STAT_PSOComputeHighlevelCacheMiss);
+	return nullptr;
+}
+
+FD3D12ComputePipelineState* FD3D12PipelineStateCacheBase::FindInLoadedCache(FD3D12ComputeShader* ComputeShader, FD3D12ComputePipelineStateDesc& OutLowLevelDesc)
+{
+	// TODO: For now PSOs will be created on every node of the LDA chain.
+	OutLowLevelDesc = GetComputePipelineStateDesc(ComputeShader);
+	OutLowLevelDesc.Desc.NodeMask = (uint32)FRHIGPUMask::All();
+	OutLowLevelDesc.CombinedHash = FD3D12PipelineStateCacheBase::HashPSODesc(OutLowLevelDesc);
+
+	// First try to find the PSO in the low level cache that can be populated from disk.
+	FD3D12PipelineState* PipelineState = FindInLowLevelCache(OutLowLevelDesc);
+	if (PipelineState)
+	{
+		// Add the PSO to the runtime cache for better performance next time.
+		return AddToRuntimeCache(ComputeShader, PipelineState);
+	}
+
+	// TODO: Try to load from a PipelineLibrary now instead of at Create time.
+
+	return nullptr;
+}
+
+FD3D12ComputePipelineState* FD3D12PipelineStateCacheBase::CreateAndAdd(FD3D12ComputeShader* ComputeShader, const FD3D12ComputePipelineStateDesc& LowLevelDesc)
+{
+	FD3D12PipelineState* const PipelineState = CreateAndAddToLowLevelCache(LowLevelDesc);
+
+	// Add the PSO to the runtime cache for better performance next time.
+	return AddToRuntimeCache(ComputeShader, PipelineState);
 }

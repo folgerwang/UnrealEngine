@@ -17,7 +17,6 @@
 #endif
 
 
-
 namespace GitSourceControlConstants
 {
 	/** The maximum number of files we submit in a single Git command */
@@ -76,11 +75,9 @@ static bool RunCommandInternalRaw(const FString& InCommand, const FString& InPat
 		}
 
 		// Specify the working copy (the root) of the git repository (before the command itself)
-		FullCommand  = TEXT("--work-tree=\"");
+		FullCommand  = TEXT("-C \"");
 		FullCommand += RepositoryRoot;
-		// and the ".git" subdirectory in it (before the command itself)
-		FullCommand += TEXT("\" --git-dir=\"");
-		FullCommand += FPaths::Combine(*RepositoryRoot, TEXT(".git\" "));
+		FullCommand += TEXT("\" ");
 	}
 	// then the git command itself ("status", "log", "commit"...)
 	LogableCommand += InCommand;
@@ -420,6 +417,22 @@ bool GetBranchName(const FString& InPathToGitBinary, const FString& InRepository
 	return bResults;
 }
 
+bool GetRemoteUrl(const FString& InPathToGitBinary, const FString& InRepositoryRoot, FString& OutRemoteUrl)
+{
+	TArray<FString> InfoMessages;
+	TArray<FString> ErrorMessages;
+	TArray<FString> Parameters;
+	Parameters.Add(TEXT("get-url"));
+	Parameters.Add(TEXT("origin"));
+	const bool bResults = RunCommandInternal(TEXT("remote"), InPathToGitBinary, InRepositoryRoot, Parameters, TArray<FString>(), InfoMessages, ErrorMessages);
+	if (bResults && InfoMessages.Num() > 0)
+	{
+		OutRemoteUrl = InfoMessages[0];
+	}
+
+	return bResults;
+}
+
 bool RunCommand(const FString& InCommand, const FString& InPathToGitBinary, const FString& InRepositoryRoot, const TArray<FString>& InParameters, const TArray<FString>& InFiles, TArray<FString>& OutResults, TArray<FString>& OutErrorMessages)
 {
 	bool bResult = true;
@@ -494,7 +507,7 @@ bool RunCommit(const FString& InPathToGitBinary, const FString& InRepositoryRoot
 	}
 	else
 	{
-		RunCommandInternal(TEXT("commit"), InPathToGitBinary, InRepositoryRoot, InParameters, InFiles, OutResults, OutErrorMessages);
+		bResult = RunCommandInternal(TEXT("commit"), InPathToGitBinary, InRepositoryRoot, InParameters, InFiles, OutResults, OutErrorMessages);
 	}
 
 	return bResult;
@@ -863,11 +876,9 @@ bool RunDumpToFile(const FString& InPathToGitBinary, const FString& InRepository
 	if(!InRepositoryRoot.IsEmpty())
 	{
 		// Specify the working copy (the root) of the git repository (before the command itself)
-		FullCommand  = TEXT("--work-tree=\"");
+		FullCommand  = TEXT("-C \"");
 		FullCommand += InRepositoryRoot;
-		// and the ".git" subdirectory in it (before the command itself)
-		FullCommand += TEXT("\" --git-dir=\"");
-		FullCommand += FPaths::Combine(*InRepositoryRoot, TEXT(".git\" "));
+		FullCommand += TEXT("\" ");
 	}
 
 	// then the git command itself
@@ -946,7 +957,6 @@ bool RunDumpToFile(const FString& InPathToGitBinary, const FString& InRepository
 
 	return (ReturnCode == 0);
 }
-
 
 /**
  * Translate file actions from the given Git log --name-status command to keywords used by the Editor UI.

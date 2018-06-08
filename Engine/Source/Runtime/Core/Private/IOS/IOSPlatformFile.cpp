@@ -482,6 +482,10 @@ bool FIOSPlatformFile::MoveFile(const TCHAR* To, const TCHAR* From)
 	// move to the write path
 	FString ToIOSFilename = ConvertToIOSPath(NormalizeFilename(To), true);
 	FString FromIOSFilename = ConvertToIOSPath(NormalizeFilename(From), false);
+	if (!FileExists(*FromIOSFilename))
+	{
+		FromIOSFilename = ConvertToIOSPath(NormalizeFilename(From), true);
+	}
 	return rename(TCHAR_TO_UTF8(*FromIOSFilename), TCHAR_TO_UTF8(*ToIOSFilename)) != -1;
 }
 

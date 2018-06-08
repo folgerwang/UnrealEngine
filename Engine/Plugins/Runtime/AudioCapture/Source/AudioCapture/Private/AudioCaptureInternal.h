@@ -5,13 +5,17 @@
 #include "AudioCapture.h"
 
 
-#if PLATFORM_WINDOWS
+#if PLATFORM_WINDOWS || PLATFORM_LUMIN
 
+#if PLATFORM_WINDOWS
 #include "Windows/WindowsHWrapper.h"
 
 THIRD_PARTY_INCLUDES_START
 #include "RtAudio.h"
 THIRD_PARTY_INCLUDES_END
+#elif PLATFORM_LUMIN // #if PLATFORM_WINDOWS
+#include "ml_audio.h"
+#endif
 
 namespace Audio
 {
@@ -27,21 +31,28 @@ namespace Audio
 		bool StopStream();
 		bool AbortStream();
 		bool GetStreamTime(double& OutStreamTime);
-		bool IsStreamOpen();
-		bool IsCapturing();
-
+		int32 GetSampleRate() const { return SampleRate; }
+		bool IsStreamOpen() const;
+		bool IsCapturing() const;
 		void OnAudioCapture(void* InBuffer, uint32 InBufferFrames, double StreamTime, bool bOverflow);
+
+#if PLATFORM_LUMIN
+		TArray<float> FloatBuffer;
+		MLHandle InputDeviceHandle;
+		bool bStreamStarted;
+#endif
 
 	private:
 		IAudioCaptureCallback* Callback;
 		int32 NumChannels;
 		int32 SampleRate;
+#if PLATFORM_WINDOWS
 		RtAudio CaptureDevice;
-		TArray<float> FloatBuffer;
+#endif
 	};
 }
 
-#else // #if PLATFORM_WINDOWS
+#else // #if PLATFORM_WINDOWS || PLATFORM_LUMIN
 
 namespace Audio
 {
@@ -58,8 +69,9 @@ namespace Audio
 		bool StopStream() { return false; }
 		bool AbortStream() { return false; }
 		bool GetStreamTime(double& OutStreamTime)  { return false; }
-		bool IsStreamOpen() { return false; }
-		bool IsCapturing() { return false; }
+		int32 GetSampleRate() const { return 0; }
+		bool IsStreamOpen() const { return false; }
+		bool IsCapturing() const { return false; }
 	};
 
 	// Return nullptr when creating impl

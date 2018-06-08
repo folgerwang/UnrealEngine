@@ -130,6 +130,9 @@ public:
 	/** Get the field named FieldName as a number, and makes sure it's within uint32 range. Returns false if it doesn't exist or cannot be converted.  */
 	bool TryGetNumberField(const FString& FieldName, uint32& OutNumber) const;
 
+	/** Get the field named FieldName as a number. Returns false if it doesn't exist or cannot be converted. */
+	bool TryGetNumberField(const FString& FieldName, int64& OutNumber) const;
+
 	/** Add a field named FieldName with Number as value */
 	void SetNumberField( const FString& FieldName, double Number );
 

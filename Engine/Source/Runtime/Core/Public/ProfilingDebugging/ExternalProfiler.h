@@ -6,6 +6,11 @@
 #include "UObject/NameTypes.h"
 #include "Features/IModularFeature.h"
 
+#ifndef UE_EXTERNAL_PROFILING_ENABLED
+#define UE_EXTERNAL_PROFILING_ENABLED (!UE_BUILD_SHIPPING)
+#endif
+
+#if UE_EXTERNAL_PROFILING_ENABLED
 
 /**
  * FExternalProfiler
@@ -159,3 +164,10 @@ public:
 
 #define SCOPE_PROFILER_INCLUDER(X) FExternalProfilerIncluder ExternalProfilerIncluder_##X;
 #define SCOPE_PROFILER_EXCLUDER(X) FExternalProfilerExcluder ExternalProfilerExcluder_##X;
+
+#else	// UE_EXTERNAL_PROFILING_ENABLED
+
+#define SCOPE_PROFILER_INCLUDER(X)
+#define SCOPE_PROFILER_EXCLUDER(X)
+
+#endif	// !UE_EXTERNAL_PROFILING_ENABLED

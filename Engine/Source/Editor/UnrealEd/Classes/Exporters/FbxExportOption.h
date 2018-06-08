@@ -51,10 +51,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, category = StaticMesh)
 	uint32 Collision : 1;
 
-	/** If enable, export welded vertices*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, config, category = StaticMesh)
-	uint32 WeldedVertices : 1;
-
 	/** If enable, Map skeletal actor motion to the root bone of the skeleton. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, category = Animation)
 	uint32 MapSkeletalMotionToRoot : 1;

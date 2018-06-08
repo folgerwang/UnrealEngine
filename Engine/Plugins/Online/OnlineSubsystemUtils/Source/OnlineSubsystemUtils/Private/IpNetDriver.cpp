@@ -260,6 +260,9 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 			bOk = Socket->RecvFrom(Data, sizeof(Data), BytesRead, *FromAddr);
 		}
 
+		UIpConnection* Connection = nullptr;
+		UIpConnection* const MyServerConnection = GetServerConnection();
+
 		if (bOk)
 		{
 			// Immediately stop processing (continuing to next receive), for empty packets (usually a DDoS)
@@ -282,16 +285,25 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 			}
 			else if (Error != SE_ECONNRESET && Error != SE_UDP_ERR_PORT_UNREACH)
 			{
-				// MalformedPacket: Client tried sending a packet that exceeded the maximum packet limit
+				// MalformedPacket: Client tried receiving a packet that exceeded the maximum packet limit
 				// enforced by the server
 				if (Error == SE_EMSGSIZE)
 				{
-					DDoS.IncBadPacketCounter();
-
-					UIpConnection* Connection = nullptr;
-					if (GetServerConnection() && (*GetServerConnection()->RemoteAddr == *FromAddr))
+					if (MyServerConnection)
 					{
-						Connection = GetServerConnection();
+						DDoS.IncBadPacketCounter();
+
+						if (*MyServerConnection->RemoteAddr == *FromAddr)
+						{
+							Connection = MyServerConnection;
+						}
+						else
+						{
+							UE_LOG(LogNet, Log, TEXT("Received packet with bytes > max MTU from an incoming IP address that doesn't match expected server address: Actual: %s Expected: %s"),
+								*FromAddr->ToString(true),
+								MyServerConnection->RemoteAddr.IsValid() ? *MyServerConnection->RemoteAddr->ToString(true) : TEXT("Invalid"));
+							continue;
+						}
 					}
 
 					if (Connection != nullptr)
@@ -304,8 +316,24 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 					DDoS.IncErrorPacketCounter();
 				}
 
-				UE_CLOG(!DDoS.CheckLogRestrictions(), LogNet, Warning, TEXT("UDP recvfrom error: %i (%s) from %s"),
-						(int32)Error, SocketSubsystem->GetSocketError(Error), *FromAddr->ToString(true));
+				FString ErrorString = FString::Printf(TEXT("UIpNetDriver::TickDispatch: Socket->RecvFrom: %i (%s) from %s"),
+					static_cast<int32>(Error),
+					SocketSubsystem->GetSocketError(Error),
+					*FromAddr->ToString(true));
+
+
+				// This should only occur on clients - on servers it leaves the NetDriver in an invalid/vulnerable state
+				if (MyServerConnection != nullptr)
+				{
+					GEngine->BroadcastNetworkFailure(GetWorld(), this, ENetworkFailure::ConnectionLost, ErrorString);
+					Shutdown();
+
+					break;
+				}
+				else
+				{
+					UE_CLOG(!DDoS.CheckLogRestrictions(), LogNet, Warning, TEXT("%s"), *ErrorString);
+				}
 
 				// Unexpected packet errors should continue to the next iteration, rather than block all further receives this tick
 				continue;
@@ -324,8 +352,6 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 		}
 
 		// Figure out which socket the received data came from.
-		UIpConnection* Connection = nullptr;
-		UIpConnection* MyServerConnection = GetServerConnection();
 		if (MyServerConnection)
 		{
 			if ((*MyServerConnection->RemoteAddr == *FromAddr))

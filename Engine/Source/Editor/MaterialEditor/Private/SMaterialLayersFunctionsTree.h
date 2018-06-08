@@ -17,6 +17,78 @@
 
 class IPropertyHandle;
 class UMaterialEditorInstanceConstant;
+class SMaterialLayersFunctionsInstanceTree;
+
+class SMaterialLayersFunctionsInstanceTreeItem : public STableRow< TSharedPtr<FStackSortedData> >
+{
+public:
+
+	SLATE_BEGIN_ARGS(SMaterialLayersFunctionsInstanceTreeItem)
+		: _StackParameterData(nullptr),
+		_MaterialEditorInstance(nullptr)
+	{}
+
+	/** The item content. */
+	SLATE_ARGUMENT(TSharedPtr<FStackSortedData>, StackParameterData)
+	SLATE_ARGUMENT(UMaterialEditorInstanceConstant*, MaterialEditorInstance)
+	SLATE_ARGUMENT(SMaterialLayersFunctionsInstanceTree*, InTree)
+	SLATE_END_ARGS()
+
+	FMaterialTreeColumnSizeData ColumnSizeData;
+	bool bIsBeingDragged;
+
+private:
+	bool bIsHoveredDragTarget;
+
+
+	FString GetCurvePath(UDEditorScalarParameterValue* Parameter) const;
+	const FSlateBrush* GetBorderImage() const;
+
+public:
+
+	void RefreshOnRowChange(const FAssetData& AssetData, SMaterialLayersFunctionsInstanceTree* InTree);
+	bool GetFilterState(SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData) const;
+	void FilterClicked(const ECheckBoxState NewCheckedState, SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData);
+	ECheckBoxState GetFilterChecked(SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData) const;
+	FText GetLayerName(SMaterialLayersFunctionsInstanceTree* InTree, int32 Counter) const;
+	void OnNameChanged(const FText& InText, ETextCommit::Type CommitInfo, SMaterialLayersFunctionsInstanceTree* InTree, int32 Counter);
+
+
+	void OnLayerDragEnter(const FDragDropEvent& DragDropEvent)
+	{
+		if (StackParameterData->ParameterInfo.Index != 0)
+		{
+			bIsHoveredDragTarget = true;
+		}
+	}
+
+	void OnLayerDragLeave(const FDragDropEvent& DragDropEvent)
+	{
+		bIsHoveredDragTarget = false;
+	}
+
+	void OnLayerDragDetected()
+	{
+		bIsBeingDragged = true;
+	}
+
+	FReply OnLayerDrop(const FDragDropEvent& DragDropEvent);
+	/**
+	* Construct the widget
+	*
+	* @param InArgs   A declaration from which to construct the widget
+	*/
+	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView);
+
+	/** The node info to build the tree view row from. */
+	TSharedPtr<FStackSortedData> StackParameterData;
+
+	SMaterialLayersFunctionsInstanceTree* Tree;
+
+	UMaterialEditorInstanceConstant* MaterialEditorInstance;
+
+	FString GetInstancePath(SMaterialLayersFunctionsInstanceTree* InTree) const;
+};
 
 class SMaterialLayersFunctionsInstanceWrapper : public SCompoundWidget
 {
@@ -87,6 +159,7 @@ public:
 
 	TSharedRef<SWidget> CreateThumbnailWidget(EMaterialParameterAssociation InAssociation, int32 InIndex, float InThumbnailSize);
 	void UpdateThumbnailMaterial(TEnumAsByte<EMaterialParameterAssociation> InAssociation, int32 InIndex, bool bAlterBlendIndex = false);
+	FReply OnThumbnailDoubleClick(const FGeometry& Geometry, const FPointerEvent& MouseEvent, EMaterialParameterAssociation InAssociation, int32 InIndex);
 protected:
 
 	void ShowSubParameters(TSharedPtr<FStackSortedData> ParentParameter);
@@ -102,6 +175,8 @@ private:
 	SMaterialLayersFunctionsInstanceWrapper* Wrapper;
 
 	TSharedPtr<class IPropertyRowGenerator> Generator;
+
+	bool bLayerIsolated;
 
 };
 

@@ -10,7 +10,7 @@
 #include "ITimeSlider.h"
 #include "Widgets/Input/NumericTypeInterface.h"
 #include "Modules/ModuleInterface.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 
 /** Enum denoting which time ranges to display on a time range */
 enum class EShowRange

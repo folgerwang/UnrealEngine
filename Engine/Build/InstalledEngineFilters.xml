@@ -30,6 +30,7 @@
 	<Property Name="IOSStripFilter" Value="*.a;"/>
 	<Property Name="TVOSStripFilter" Value="*.a;"/>
 	<Property Name="LinuxStripFilter" Value="Engine\Binaries\Linux\*."/>
+	<Property Name="LuminStripFilter" Value="*.a;*.so"/>
 
 	<Property Name="WindowsSignFilter" Value="*.exe;*.dll"/>
 	<Property Name="MacSignFilter" Value="*.dylib;*.app"/>
@@ -249,19 +250,29 @@
 		<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter)">
 			<!-- Build batch files -->
 			Engine/Build/BatchFiles/Linux/Build.sh
-			Engine/Build/BatchFiles/Linux/BuildThirdParty.sh
+			Engine/Build/BatchFiles/Linux/GenerateGDBInit.sh
+			Engine/Build/BatchFiles/Linux/FixDependencyFiles.sh
 			Engine/Build/BatchFiles/Linux/GenerateProjectFiles.sh
-			Engine/Build/BatchFiles/Linux/GitDependencies.sh
 			Engine/Build/BatchFiles/Linux/QASmokeManual.sh
+			Engine/Build/BatchFiles/Linux/Setup.sh
+			Engine/Build/BatchFiles/Linux/SetupMono.sh
+			Engine/Build/BatchFiles/Linux/FixMonoFiles.sh
 			Engine/Build/BatchFiles/Linux/RunMono.sh
 			Engine/Build/BatchFiles/Linux/RunXBuild.sh
-			Engine/Build/BatchFiles/Linux/Setup.sh
-			Engine/Build/BatchFiles/Linux/UpdateDeps.sh
 			Engine/Build/BatchFiles/RunUAT.sh
+
+			<!-- Debug tools -->
+			Engine/Binaries/Linux/dump_syms
+			Engine/Binaries/Linux/BreakpadSymbolEncoder
+
+			<!-- Mono -->
+			Engine/Binaries/ThirdParty/Mono/...
+
+			<!-- Extra tools -->
+			Engine/Extras/GDBPrinters/UE4Printers.py
 
 			<!-- Bundled libcxx -->
 			Engine/Source/ThirdParty/Linux/LibCxx/...
-
 		</Property>
 	</Do>
 
@@ -440,5 +451,15 @@
 
 	<!-- Additional Binaries(.nspd directories) -->
 	<Property Name="CopySwitchFilter" Value="$(CopySwitchFilter);Engine/Binaries/Switch/*.nspd/..."/>
+	
+	<!-- Lumin -->
+	<Property Name="CopyLuminFilter">
+		<!-- Build Files -->
+		Engine/Build/Lumin/...
+		Engine/Source/ThirdParty/ResonanceAudioApi/Lumin/ResonanceAudio_LPL.xml
+	</Property>
+	
+	<Property Name="CopyLuminExceptions">
+	</Property>
 
 </BuildGraph>

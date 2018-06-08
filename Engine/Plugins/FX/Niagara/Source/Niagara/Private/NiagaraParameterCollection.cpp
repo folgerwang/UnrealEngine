@@ -48,13 +48,13 @@ bool UNiagaraParameterCollectionInstance::AddParameter(const FNiagaraVariable& P
 bool UNiagaraParameterCollectionInstance::RemoveParameter(const FNiagaraVariable& Parameter)
 {
 	Modify();
-	return ParameterStorage.RemoveParameter(Parameter);
+	return ParameterStorage.RemoveParameter(Parameter); 
 }
 
 void UNiagaraParameterCollectionInstance::RenameParameter(const FNiagaraVariable& Parameter, FName NewName)
 {
 	Modify();
-	ParameterStorage.RenameParameter(Parameter, NewName);
+	ParameterStorage.RenameParameter(Parameter, NewName); 
 }
 
 void UNiagaraParameterCollectionInstance::Empty()
@@ -84,7 +84,7 @@ void UNiagaraParameterCollectionInstance::SyncWithCollection()
 		int32 Offset = OldStore.IndexOf(Param);
 		if (Offset != INDEX_NONE && OverridesParameter(Param))
 		{
-			//If this paramter is in the old store and we're overriding it, use the existing value in the store.
+			//If this parameter is in the old store and we're overriding it, use the existing value in the store.
 			ParameterStorage.AddParameter(Param, false);
 			if (Param.IsDataInterface())
 			{
@@ -165,6 +165,12 @@ FVector4 UNiagaraParameterCollectionInstance::GetVector4Parameter(const FString&
 	return ParameterStorage.GetParameterValue<FVector4>(FNiagaraVariable(FNiagaraTypeDefinition::GetVec4Def(), *Collection->ParameterNameFromFriendlyName(InVariableName)));
 }
 
+
+FQuat UNiagaraParameterCollectionInstance::GetQuatParameter(const FString& InVariableName)
+{
+	return ParameterStorage.GetParameterValue<FQuat>(FNiagaraVariable(FNiagaraTypeDefinition::GetQuatDef(), *Collection->ParameterNameFromFriendlyName(InVariableName)));
+}
+
 FLinearColor UNiagaraParameterCollectionInstance::GetColorParameter(const FString& InVariableName)
 {
 	return ParameterStorage.GetParameterValue<FLinearColor>(FNiagaraVariable(FNiagaraTypeDefinition::GetColorDef(), *Collection->ParameterNameFromFriendlyName(InVariableName)));
@@ -205,6 +211,11 @@ void UNiagaraParameterCollectionInstance::SetColorParameter(const FString& InVar
 	ParameterStorage.SetParameterValue(InValue, FNiagaraVariable(FNiagaraTypeDefinition::GetColorDef(), *Collection->ParameterNameFromFriendlyName(InVariableName)));
 }
 
+void UNiagaraParameterCollectionInstance::SetQuatParameter(const FString& InVariableName, const FQuat& InValue)
+{
+	ParameterStorage.SetParameterValue(InValue, FNiagaraVariable(FNiagaraTypeDefinition::GetQuatDef(), *Collection->ParameterNameFromFriendlyName(InVariableName)));
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 UNiagaraParameterCollection::UNiagaraParameterCollection(const FObjectInitializer& ObjectInitializer)
@@ -238,6 +249,8 @@ int32 UNiagaraParameterCollection::AddParameter(FName Name, FNiagaraTypeDefiniti
 
 	int32 Idx = Parameters.AddDefaulted(1);
 
+	// We don't need to adjust the change id here as no one will be referencing the new parameter yet.
+
 	Parameters[Idx].SetName(Name);
 	Parameters[Idx].SetType(Type);
 
@@ -250,6 +263,7 @@ int32 UNiagaraParameterCollection::AddParameter(FName Name, FNiagaraTypeDefiniti
 void UNiagaraParameterCollection::RemoveParameter(const FNiagaraVariable& Parameter)
 {
 	Modify();
+	CompileId = FGuid::NewGuid();  // Any scripts depending on this parameter name will likely need to be changed.
 	DefaultInstance->RemoveParameter(Parameter);
 	Parameters.Remove(Parameter);
 }
@@ -257,7 +271,7 @@ void UNiagaraParameterCollection::RemoveParameter(const FNiagaraVariable& Parame
 void UNiagaraParameterCollection::RenameParameter(FNiagaraVariable& Parameter, FName NewName)
 {
 	Modify();
-
+	CompileId = FGuid::NewGuid(); // Any scripts depending on this parameter name will likely need to be changed.
 	int32 ParamIdx = Parameters.IndexOfByKey(Parameter);
 	check(ParamIdx != INDEX_NONE);
 
@@ -269,6 +283,12 @@ FString UNiagaraParameterCollection::GetFullNamespace()const
 {
 	return TEXT("NPC.") + Namespace.ToString() + TEXT(".");
 }
+
+void UNiagaraParameterCollection::RefreshCompileId()
+{
+	CompileId = FGuid::NewGuid();
+}
+
 FNiagaraVariable UNiagaraParameterCollection::CollectionParameterFromFriendlyParameter(const FNiagaraVariable& FriendlyParameter)const
 {
 	return FNiagaraVariable(FriendlyParameter.GetType(), *ParameterNameFromFriendlyName(FriendlyParameter.GetName().ToString()));
@@ -287,7 +307,7 @@ FString UNiagaraParameterCollection::FriendlyNameFromParameterName(FString Param
 
 FString UNiagaraParameterCollection::ParameterNameFromFriendlyName(const FString& FriendlyName)const
 {
-	return FString::Printf(TEXT("%s_%s"), *GetFullNamespace(), *FriendlyName);
+	return FString::Printf(TEXT("%s%s"), *GetFullNamespace(), *FriendlyName);
 }
 
 void UNiagaraParameterCollection::MakeNamespaceNameUnique()
@@ -323,5 +343,15 @@ void UNiagaraParameterCollection::MakeNamespaceNameUnique()
 
 		UE_LOG(LogNiagara, Warning, TEXT("Parameter collection namespace conflict found. \"%s\" is already in use!"), *Namespace.ToString());
 		Namespace = UniqueName;
+	}
+}
+
+
+void UNiagaraParameterCollection::PostLoad()
+{
+	Super::PostLoad();
+	if (CompileId.IsValid() == false)
+	{
+		CompileId = FGuid::NewGuid();
 	}
 }

@@ -10,6 +10,13 @@ LandscapeEdit.h: Classes for the editor to access to Landscape data
 #include "RHI.h"
 #include "LandscapeProxy.h"
 #include "Engine/Texture2D.h"
+#include "AI/NavigationSystemBase.h"
+#include "Components/ActorComponent.h"
+#include "LandscapeInfo.h"
+#include "LandscapeComponent.h"
+#include "LandscapeHeightfieldCollisionComponent.h"
+#include "InstancedFoliageActor.h"
+#include "LandscapeLayerInfoObject.h"
 
 #if WITH_EDITOR
 	#include "Containers/ArrayView.h"
@@ -253,6 +260,210 @@ void FLandscapeEditDataInterface::ShrinkData(TArray<T>& Data, int32 OldMinX, int
 		Data.RemoveAt(NewSize, Data.Num() - NewSize);
 	}
 }
+
+//
+// FHeightmapAccessor
+//
+template<bool bInUseInterp>
+struct FHeightmapAccessor
+{
+	enum { bUseInterp = bInUseInterp };
+	FHeightmapAccessor(ULandscapeInfo* InLandscapeInfo)
+	{
+		LandscapeInfo = InLandscapeInfo;
+		LandscapeEdit = new FLandscapeEditDataInterface(InLandscapeInfo);
+	}
+
+	// accessors
+	void GetData(int32& X1, int32& Y1, int32& X2, int32& Y2, TMap<FIntPoint, uint16>& Data)
+	{
+		LandscapeEdit->GetHeightData(X1, Y1, X2, Y2, Data);
+	}
+
+	void GetDataFast(int32 X1, int32 Y1, int32 X2, int32 Y2, TMap<FIntPoint, uint16>& Data)
+	{
+		LandscapeEdit->GetHeightDataFast(X1, Y1, X2, Y2, Data);
+	}
+
+	void SetData(int32 X1, int32 Y1, int32 X2, int32 Y2, const uint16* Data, ELandscapeLayerPaintingRestriction PaintingRestriction = ELandscapeLayerPaintingRestriction::None)
+	{
+		TSet<ULandscapeComponent*> Components;
+		if (LandscapeInfo && LandscapeEdit->GetComponentsInRegion(X1, Y1, X2, Y2, &Components))
+		{
+			// Update data
+			ChangedComponents.Append(Components);
+
+			for (ULandscapeComponent* Component : Components)
+			{
+				Component->InvalidateLightingCache();
+			}
+
+			// Flush dynamic foliage (grass)
+			ALandscapeProxy::InvalidateGeneratedComponentData(Components);
+
+			// Notify foliage to move any attached instances
+			bool bUpdateFoliage = false;
+			for (ULandscapeComponent* Component : Components)
+			{
+				ULandscapeHeightfieldCollisionComponent* CollisionComponent = Component->CollisionComponent.Get();
+				if (CollisionComponent && AInstancedFoliageActor::HasFoliageAttached(CollisionComponent))
+				{
+					bUpdateFoliage = true;
+					break;
+				}
+			}
+
+			if (bUpdateFoliage)
+			{
+				// Calculate landscape local-space bounding box of old data, to look for foliage instances.
+				TArray<ULandscapeHeightfieldCollisionComponent*> CollisionComponents;
+				CollisionComponents.Empty(Components.Num());
+				TArray<FBox> PreUpdateLocalBoxes;
+				PreUpdateLocalBoxes.Empty(Components.Num());
+
+				for (ULandscapeComponent* Component : Components)
+				{
+					ULandscapeHeightfieldCollisionComponent* CollisionComponent = Component->CollisionComponent.Get();
+					if (CollisionComponent)
+					{
+						CollisionComponents.Add(CollisionComponent);
+						PreUpdateLocalBoxes.Add(FBox(FVector((float)X1, (float)Y1, Component->CachedLocalBox.Min.Z), FVector((float)X2, (float)Y2, Component->CachedLocalBox.Max.Z)));
+					}
+				}
+
+				// Update landscape.
+				LandscapeEdit->SetHeightData(X1, Y1, X2, Y2, Data, 0, true);
+
+				// Snap foliage for each component.
+				for (int32 Index = 0; Index < CollisionComponents.Num(); ++Index)
+				{
+					ULandscapeHeightfieldCollisionComponent* CollisionComponent = CollisionComponents[Index];
+					CollisionComponent->SnapFoliageInstances(PreUpdateLocalBoxes[Index].TransformBy(LandscapeInfo->GetLandscapeProxy()->LandscapeActorToWorld().ToMatrixWithScale()).ExpandBy(1.0f));
+				}
+			}
+			else
+			{
+				// No foliage, just update landscape.
+				LandscapeEdit->SetHeightData(X1, Y1, X2, Y2, Data, 0, true);
+			}
+		}
+	}
+
+	void Flush()
+	{
+		LandscapeEdit->Flush();
+	}
+
+	virtual ~FHeightmapAccessor()
+	{
+		delete LandscapeEdit;
+		LandscapeEdit = NULL;
+
+		// Update the bounds and navmesh for the components we edited
+		for (TSet<ULandscapeComponent*>::TConstIterator It(ChangedComponents); It; ++It)
+		{
+			(*It)->UpdateCachedBounds();
+			(*It)->UpdateComponentToWorld();
+
+			// Recreate collision for modified components to update the physical materials
+			ULandscapeHeightfieldCollisionComponent* CollisionComponent = (*It)->CollisionComponent.Get();
+			if (CollisionComponent)
+			{
+				CollisionComponent->RecreateCollision();
+				FNavigationSystem::UpdateComponentData(*CollisionComponent);
+			}
+		}
+	}
+
+private:
+	ULandscapeInfo* LandscapeInfo;
+	FLandscapeEditDataInterface* LandscapeEdit;
+	TSet<ULandscapeComponent*> ChangedComponents;
+};
+
+//
+// FAlphamapAccessor
+//
+template<bool bInUseInterp, bool bInUseTotalNormalize>
+struct FAlphamapAccessor
+{
+	enum { bUseInterp = bInUseInterp };
+	enum { bUseTotalNormalize = bInUseTotalNormalize };
+	FAlphamapAccessor(ULandscapeInfo* InLandscapeInfo, ULandscapeLayerInfoObject* InLayerInfo)
+		: LandscapeInfo(InLandscapeInfo)
+		, LandscapeEdit(InLandscapeInfo)
+		, LayerInfo(InLayerInfo)
+		, bBlendWeight(true)
+	{
+		// should be no Layer change during FAlphamapAccessor lifetime...
+		if (InLandscapeInfo && InLayerInfo)
+		{
+			if (LayerInfo == ALandscapeProxy::VisibilityLayer)
+			{
+				bBlendWeight = false;
+			}
+			else
+			{
+				bBlendWeight = !LayerInfo->bNoWeightBlend;
+			}
+		}
+	}
+
+	~FAlphamapAccessor()
+	{
+		// Recreate collision for modified components to update the physical materials
+		for (ULandscapeComponent* Component : ModifiedComponents)
+		{
+			ULandscapeHeightfieldCollisionComponent* CollisionComponent = Component->CollisionComponent.Get();
+			if (CollisionComponent)
+			{
+				CollisionComponent->RecreateCollision();
+
+				// We need to trigger navigation mesh build, in case user have painted holes on a landscape
+				if (LayerInfo == ALandscapeProxy::VisibilityLayer)
+				{
+					FNavigationSystem::UpdateComponentData(*CollisionComponent);
+				}
+			}
+		}
+	}
+
+	void GetData(int32& X1, int32& Y1, int32& X2, int32& Y2, TMap<FIntPoint, uint8>& Data)
+	{
+		LandscapeEdit.GetWeightData(LayerInfo, X1, Y1, X2, Y2, Data);
+	}
+
+	void GetDataFast(int32 X1, int32 Y1, int32 X2, int32 Y2, TMap<FIntPoint, uint8>& Data)
+	{
+		LandscapeEdit.GetWeightDataFast(LayerInfo, X1, Y1, X2, Y2, Data);
+	}
+
+	void SetData(int32 X1, int32 Y1, int32 X2, int32 Y2, const uint8* Data, ELandscapeLayerPaintingRestriction PaintingRestriction)
+	{
+		TSet<ULandscapeComponent*> Components;
+		if (LandscapeEdit.GetComponentsInRegion(X1, Y1, X2, Y2, &Components))
+		{
+			// Flush dynamic foliage (grass)
+			ALandscapeProxy::InvalidateGeneratedComponentData(Components);
+
+			LandscapeEdit.SetAlphaData(LayerInfo, X1, Y1, X2, Y2, Data, 0, PaintingRestriction, bBlendWeight, bUseTotalNormalize);
+			//LayerInfo->IsReferencedFromLoadedData = true;
+			ModifiedComponents.Append(Components);
+		}
+	}
+
+	void Flush()
+	{
+		LandscapeEdit.Flush();
+	}
+
+private:
+	ULandscapeInfo* LandscapeInfo;
+	FLandscapeEditDataInterface LandscapeEdit;
+	TSet<ULandscapeComponent*> ModifiedComponents;
+	ULandscapeLayerInfoObject* LayerInfo;
+	bool bBlendWeight;
+};
 
 #endif
 

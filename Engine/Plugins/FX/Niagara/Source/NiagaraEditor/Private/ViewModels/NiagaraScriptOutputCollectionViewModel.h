@@ -75,6 +75,7 @@ private:
 
 	/** The handle to the graph changed delegate needed for removing. */
 	FDelegateHandle OnGraphChangedHandle;
+	FDelegateHandle OnRecompileHandle;
 
 	/** A multicast delegate which is called whenever the output parameter collection is changed, or when
 	a paramter in the collection is changed. */

@@ -8,6 +8,9 @@
 #include "Layout/Visibility.h"
 #include "Layout/SlateRect.h"
 #include "Rendering/SlateRenderer.h"
+#include "Misc/CoreDelegates.h"
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnDebugSafeZoneChanged, const FMargin&);
 
 class FActiveTimerHandle;
 class FSlateApplicationBase;
@@ -196,6 +199,8 @@ public:
 	 */
 	void GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics) const;
 
+	void GetSafeZoneSize(FMargin& SafeZone, const FVector2D& OverrideSize);
+
 	/**
 	 * Get the highest level of window transparency support currently enabled by this application
 	 *
@@ -222,6 +227,8 @@ protected:
 	 * @return Widget with the mouse capture
 	 */
 	virtual TSharedPtr< SWidget > GetMouseCaptorImpl() const = 0;
+
+	void GetSafeZoneRatio(FMargin& SafeZoneRatio);
 
 public:
 	/**
@@ -486,6 +493,13 @@ protected:
 	/** Given a window, locate a widget under the cursor in it; returns an invalid path if cursor is not over this window. */
 	virtual FWidgetPath LocateWidgetInWindow(FVector2D ScreenspaceMouseCoordinate, const TSharedRef<SWindow>& Window, bool bIgnoreEnabledStatus) const = 0;
 
+#if WITH_EDITOR
+	void UpdateCustomSafeZone(const FMargin& NewSafeZoneRatio) 
+	{
+		CustomSafeZoneRatio = NewSafeZoneRatio; 
+	}
+#endif
+
 protected:
 
 	// Holds the Slate renderer used to render this application.
@@ -520,6 +534,13 @@ public:
 	{
 		return PlatformApplication;
 	}
+#if WITH_EDITOR
+	void ResetCustomSafeZone() { CustomSafeZoneRatio = FMargin(); }
+#endif
+
+#if WITH_EDITORONLY_DATA
+	FOnDebugSafeZoneChanged OnDebugSafeZoneChanged;
+#endif
 
 protected:
 	/** multicast delegate to broadcast when a global invalidate is requested */
@@ -530,5 +551,9 @@ protected:
 
 	// Gets set when Slate goes to sleep and cleared when active.
 	bool bIsSlateAsleep;
+
+#if WITH_EDITORONLY_DATA
+	FMargin CustomSafeZoneRatio;
+#endif
 };
 

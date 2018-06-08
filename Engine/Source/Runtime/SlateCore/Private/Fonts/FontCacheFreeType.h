@@ -145,8 +145,8 @@ private:
 class FFreeTypeFace
 {
 public:
-	FFreeTypeFace(const FFreeTypeLibrary* InFTLibrary, FFontFaceDataConstRef InMemory, const EFontLayoutMethod InLayoutMethod);
-	FFreeTypeFace(const FFreeTypeLibrary* InFTLibrary, const FString& InFilename, const EFontLayoutMethod InLayoutMethod);
+	FFreeTypeFace(const FFreeTypeLibrary* InFTLibrary, FFontFaceDataConstRef InMemory, const int32 InFaceIndex, const EFontLayoutMethod InLayoutMethod);
+	FFreeTypeFace(const FFreeTypeLibrary* InFTLibrary, const FString& InFilename, const int32 InFaceIndex, const EFontLayoutMethod InLayoutMethod);
 	~FFreeTypeFace();
 
 	FORCEINLINE bool IsValid() const
@@ -194,6 +194,14 @@ public:
 	{
 		return LayoutMethod;
 	}
+
+	/**
+	 * Get the available sub-face data from the given font.
+	 * Typically there will only be one face unless this is a TTC/OTC font.
+	 * The index of the returned entry can be passed as InFaceIndex to the FFreeTypeFace constructor.
+	 */
+	static TArray<FString> GetAvailableSubFaces(const FFreeTypeLibrary* InFTLibrary, FFontFaceDataConstRef InMemory);
+	static TArray<FString> GetAvailableSubFaces(const FFreeTypeLibrary* InFTLibrary, const FString& InFilename);
 
 private:
 #if WITH_FREETYPE

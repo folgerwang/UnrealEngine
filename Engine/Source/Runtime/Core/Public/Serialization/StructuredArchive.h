@@ -335,6 +335,11 @@ private:
 	FArchiveFormatterType& Formatter;
 
 #if WITH_TEXT_ARCHIVE_SUPPORT
+	/**
+	 * Whether the formatter requires structural metadata. This allows optimizing the path for binary archives in editor builds.
+	 */
+	const bool bRequiresStructuralMetadata;
+
 	enum class EElementType : unsigned char
 	{
 		Root,
@@ -379,7 +384,7 @@ private:
 	 * Tracks the current stack of objects being written. Used by SetScope() to ensure that scopes are always closed correctly in the underlying formatter,
 	 * and to make sure that the archive is always written in a forwards-only way (ie. writing to an element id that is not in scope will assert)
 	 */
-	TArray<FElement> CurrentScope;
+	TArray<FElement, TNonRelocatableInlineAllocator<32>> CurrentScope;
 
 #if DO_GUARD_SLOW
 	/**

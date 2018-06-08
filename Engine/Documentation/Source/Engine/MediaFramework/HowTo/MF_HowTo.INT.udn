@@ -15,31 +15,15 @@ If you are looking to quickly get a video asset up and running inside your level
 Refer to the table below for more information and click each link to view its contents. 
 
 ## Beginner
-[REGION:wrapper transparent]
-[](FANCY:Engine\MediaFramework\HowTo\FileMediaSource "%Engine\MediaFramework\HowTo\FileMediaSource:description%")
-[](FANCY:Engine\MediaFramework\HowTo\StreamMediaSource "%Engine\MediaFramework\HowTo\StreamMediaSource:description%")
-[](FANCY:Engine\MediaFramework\HowTo\ImgMediaSource "%Engine\MediaFramework\HowTo\ImgMediaSource:description%")
-[/REGION]
+
+[DIR(output:"fancy" type:"how-to" skill:"Beginner" parent:"Engine/MediaFramework/HowTo" org:"hierarchy")]
 
 
 ## Intermediate
-[REGION:wrapper transparent]
-[](FANCY:Engine\MediaFramework\HowTo\MediaPlaylists "%Engine\MediaFramework\HowTo\MediaPlaylists:description%")
-[](FANCY:Engine\MediaFramework\HowTo\PlatformMedia "%Engine\MediaFramework\HowTo\PlatformMedia:description%")
-[](FANCY:Engine\MediaFramework\HowTo\ControllingPlayback "%Engine\MediaFramework\HowTo\ControllingPlayback:description%")
-[/REGION]
+
+[DIR(output:"fancy" type:"how-to" skill:"Intermediate" parent:"Engine/MediaFramework/HowTo" org:"hierarchy")]
 
 ## Advanced
-[REGION:wrapper transparent]
-[](FANCY:Engine\MediaFramework\HowTo\UsingWebCams "%Engine\MediaFramework\HowTo\UsingWebCams:description%")
-[/REGION]
 
-
-[COMMENT:none]
- To Do
-## Advanced
-[REGION:wrapper transparent]
-[/REGION]
-
-[/COMMENT]
+[DIR(output:"fancy" type:"how-to" skill:"Advanced" parent:"Engine/MediaFramework/HowTo" org:"hierarchy")]
 

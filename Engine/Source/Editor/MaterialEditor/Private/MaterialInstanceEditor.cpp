@@ -40,6 +40,7 @@
 #include "Misc/MessageDialog.h"
 #include "Framework/Commands/UICommandInfo.h"
 #include "EditorStyleSet.h"
+#include "MaterialStats.h"
 
 #define LOCTEXT_NAMESPACE "MaterialInstanceEditor"
 
@@ -240,6 +241,8 @@ void FMaterialInstanceEditor::RegisterTabSpawners(const TSharedRef<class FTabMan
 		.SetGroup(WorkspaceMenuCategoryRef)
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Details"));
 
+	MaterialStatsManager->RegisterTabs();
+
 	OnRegisterTabSpawners().Broadcast(InTabManager);
 }
 
@@ -255,6 +258,8 @@ void FMaterialInstanceEditor::UnregisterTabSpawners(const TSharedRef<class FTabM
 		InTabManager->UnregisterTabSpawner(LayerPropertiesTabId);
 	}
 	InTabManager->UnregisterTabSpawner( PreviewSettingsTabId );
+
+	MaterialStatsManager->UnregisterTabs();
 
 	OnUnregisterTabSpawners().Broadcast(InTabManager);
 }
@@ -351,7 +356,6 @@ void FMaterialInstanceEditor::InitMaterialInstanceEditor( const EToolkitMode::Ty
 	UMaterialInstanceConstant* InstanceConstant = bIsFunctionPreviewMaterial ? FunctionInstanceProxy : Cast<UMaterialInstanceConstant>(ObjectToEdit);
 
 	bShowAllMaterialParameters = false;
-	bShowMobileStats = false;
 
 	// Construct a temp holder for our instance parameters.
 	MaterialEditorInstance = NewObject<UMaterialEditorInstanceConstant>(GetTransientPackage(), NAME_None, RF_Transactional);
@@ -361,6 +365,9 @@ void FMaterialInstanceEditor::InitMaterialInstanceEditor( const EToolkitMode::Ty
 	MaterialEditorInstance->bUseOldStyleMICEditorGroups = bTempUseOldStyleMICEditorGroups;
 	MaterialEditorInstance->SetSourceInstance(InstanceConstant);
 	MaterialEditorInstance->SetSourceFunction(MaterialFunctionOriginal);
+
+	MaterialStatsManager = FMaterialStatsUtils::CreateMaterialStats(this);
+	MaterialStatsManager->SetMaterialDisplayName(MaterialEditorInstance->SourceInstance->GetName());
 
 	// Register our commands. This will only register them if not previously registered
 	FMaterialEditorCommands::Register();
@@ -638,7 +645,9 @@ void FMaterialInstanceEditor::BindCommands()
 	ToolkitCommands->MapAction(
 		Commands.Apply,
 		FExecuteAction::CreateSP( this, &FMaterialInstanceEditor::OnApply ),
-		FCanExecuteAction::CreateSP( this, &FMaterialInstanceEditor::OnApplyEnabled ) );
+		FCanExecuteAction::CreateSP( this, &FMaterialInstanceEditor::OnApplyEnabled ),
+		FIsActionChecked(),
+		FIsActionButtonVisible::CreateSP(this, &FMaterialInstanceEditor::OnApplyVisible));
 
 	ToolkitCommands->MapAction(
 		Commands.ShowAllMaterialParameters,
@@ -651,12 +660,6 @@ void FMaterialInstanceEditor::BindCommands()
 		FExecuteAction::CreateSP( PreviewVC.ToSharedRef(), &SMaterialEditor3DPreviewViewport::OnToggleRealtime ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( PreviewVC.ToSharedRef(), &SMaterialEditor3DPreviewViewport::IsRealtime ) );
-
-	ToolkitCommands->MapAction(
-		Commands.ToggleMobileStats,
-		FExecuteAction::CreateSP(this, &FMaterialInstanceEditor::ToggleMobileStats),
-		FCanExecuteAction(),
-		FIsActionChecked::CreateSP(this, &FMaterialInstanceEditor::IsToggleMobileStatsChecked));
 }
 
 void FMaterialInstanceEditor::OnApply()
@@ -672,6 +675,11 @@ void FMaterialInstanceEditor::OnApply()
 bool FMaterialInstanceEditor::OnApplyEnabled() const
 {
 	return MaterialEditorInstance && MaterialEditorInstance->bIsFunctionInstanceDirty == true;
+}
+
+bool FMaterialInstanceEditor::OnApplyVisible() const
+{
+	return MaterialEditorInstance && MaterialEditorInstance->bIsFunctionPreviewMaterial == true;
 }
 
 bool FMaterialInstanceEditor::OnRequestClose()
@@ -713,38 +721,6 @@ void FMaterialInstanceEditor::ToggleShowAllMaterialParameters()
 bool FMaterialInstanceEditor::IsShowAllMaterialParametersChecked() const
 {
 	return bShowAllMaterialParameters;
-}
-
-void FMaterialInstanceEditor::ToggleMobileStats()
-{
-	bShowMobileStats = !bShowMobileStats;
-	UMaterialInstanceConstant* MIC = Cast<UMaterialInstanceConstant>(GetMaterialInterface());
-	if (bShowMobileStats && MIC)
-	{
-		UMaterial* BaseMaterial = MIC->GetBaseMaterial();
-		if (BaseMaterial)
-		{
-			FMaterialUpdateContext UpdateContext;
-			UpdateContext.AddMaterial(BaseMaterial);
-			do 
-			{
-				MIC->SetFeatureLevelToCompile(ERHIFeatureLevel::ES3_1,bShowMobileStats);
-				if (MIC->bHasStaticPermutationResource)
-				{
-					MIC->ForceRecompileForRendering();
-				}
-				MIC = Cast<UMaterialInstanceConstant>(MIC->Parent);
-			} while (MIC);
-			BaseMaterial->SetFeatureLevelToCompile(ERHIFeatureLevel::ES3_1,bShowMobileStats);
-			BaseMaterial->ForceRecompileForRendering();
-		}
-	}
-	PreviewVC->RefreshViewport();
-}
-
-bool FMaterialInstanceEditor::IsToggleMobileStatsChecked() const
-{
-	return bShowMobileStats;
 }
 
 void FMaterialInstanceEditor::OnOpenMaterial(TWeakObjectPtr<UMaterialInterface> InMaterial)
@@ -795,7 +771,6 @@ void FMaterialInstanceEditor::CreateInternalWidgets()
 	}
 }
 
-
 void FMaterialInstanceEditor::UpdatePreviewViewportsVisibility()
 {
 	UMaterial* PreviewMaterial = GetMaterialInterface()->GetBaseMaterial();
@@ -823,7 +798,7 @@ void FMaterialInstanceEditor::FillToolbar(FToolBarBuilder& ToolbarBuilder)
 	{
 		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().ShowAllMaterialParameters);
 		// TODO: support in material instance editor.
-		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().ToggleMobileStats);
+		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().TogglePlatformStats);
 	}
 	ToolbarBuilder.EndSection();
 	ToolbarBuilder.BeginSection("Parent");
@@ -1114,6 +1089,9 @@ void FMaterialInstanceEditor::NotifyPostChange( const FPropertyChangedEvent& Pro
 		UpdatePropertyWindow();
 	}
 
+	// something was changed in the material so we need to reflect this in the stats
+	MaterialStatsManager->SignalMaterialChanged();
+
 	// Update the preview window when the user changes a property.
 	PreviewVC->RefreshViewport();
 }
@@ -1226,16 +1204,10 @@ void FMaterialInstanceEditor::DrawMessages( FViewport* Viewport, FCanvas* Canvas
 		if ( BaseMaterial && MaterialResource )
 		{
 			const bool bGeneratedNewShaders = MaterialEditorInstance->SourceInstance->bHasStaticPermutationResource;
-			FMaterialEditor::DrawMaterialInfoStrings( Canvas, BaseMaterial, MaterialResource, MaterialResource->GetCompileErrors(), DrawPositionY, true, bGeneratedNewShaders );
+			const bool bAllowOldMaterialStats = true;
+			FMaterialEditor::DrawMaterialInfoStrings( Canvas, BaseMaterial, MaterialResource, MaterialResource->GetCompileErrors(), DrawPositionY, bAllowOldMaterialStats, bGeneratedNewShaders );
 		}
-		if (bShowMobileStats)
-		{
-			const FMaterialResource* MaterialResourceES2 = MaterialEditorInstance->SourceInstance->GetMaterialResource(ERHIFeatureLevel::ES3_1);
-			if ( BaseMaterial && MaterialResourceES2 )
-			{
-				FMaterialEditor::DrawMaterialInfoStrings( Canvas, BaseMaterial, MaterialResourceES2, MaterialResourceES2->GetCompileErrors(), DrawPositionY, true );
-			}
-		}
+
 		DrawSamplerWarningStrings( Canvas, DrawPositionY );
 	}
 	Canvas->PopTransform();
@@ -1344,6 +1316,17 @@ void FMaterialInstanceEditor::GetShowHiddenParameters(bool& bShowHiddenParameter
 	bShowHiddenParameters = bShowAllMaterialParameters;
 }
 
+void FMaterialInstanceEditor::Tick(float DeltaTime)
+{
+	MaterialStatsManager->SetMaterial(MaterialEditorInstance->SourceInstance);
+	MaterialStatsManager->Update();
+}
+
+TStatId FMaterialInstanceEditor::GetStatId() const
+{
+	RETURN_QUICK_DECLARE_CYCLE_STAT(FMaterialInstanceEditor, STATGROUP_Tickables);
+}
+
 void FMaterialInstanceEditor::SaveAsset_Execute()
 {
 	if (bIsFunctionPreviewMaterial && MaterialEditorInstance)
@@ -1371,7 +1354,6 @@ void FMaterialInstanceEditor::SaveSettings()
 	GConfig->SetBool(TEXT("MaterialInstanceEditor"), TEXT("bShowGrid"), PreviewVC->IsTogglePreviewGridChecked(), GEditorPerProjectIni);
 	GConfig->SetBool(TEXT("MaterialInstanceEditor"), TEXT("bDrawGrid"), PreviewVC->IsRealtime(), GEditorPerProjectIni);
 	GConfig->SetInt(TEXT("MaterialInstanceEditor"), TEXT("PrimType"), PreviewVC->PreviewPrimType, GEditorPerProjectIni);
-	GConfig->SetBool(TEXT("MaterialInstanceEditor"), TEXT("bWantsMobileStats"), IsToggleMobileStatsChecked(), GEditorPerProjectIni);
 }
 
 void FMaterialInstanceEditor::LoadSettings()
@@ -1379,16 +1361,9 @@ void FMaterialInstanceEditor::LoadSettings()
 	bool bRealtime=false;
 	bool bShowGrid=false;
 	int32 PrimType=static_cast<EThumbnailPrimType>( TPT_Sphere );
-	bool bWantsMobileStats=false;
 	GConfig->GetBool(TEXT("MaterialInstanceEditor"), TEXT("bShowGrid"), bShowGrid, GEditorPerProjectIni);
 	GConfig->GetBool(TEXT("MaterialInstanceEditor"), TEXT("bDrawGrid"), bRealtime, GEditorPerProjectIni);
 	GConfig->GetInt(TEXT("MaterialInstanceEditor"), TEXT("PrimType"), PrimType, GEditorPerProjectIni);
-	GConfig->GetBool(TEXT("MaterialInstanceEditor"), TEXT("bWantsMobileStats"), bWantsMobileStats, GEditorPerProjectIni);
-
-	if (bWantsMobileStats)
-	{
-		ToggleMobileStats();
-	}
 
 	if(PreviewVC.IsValid())
 	{
@@ -1501,6 +1476,11 @@ void FMaterialInstanceEditor::PostRedo( bool bSuccess )
 	MaterialEditorInstance->CopyToSourceInstance();
 	RefreshPreviewAsset();
 	Refresh();
+}
+
+void FMaterialInstanceEditor::NotifyExternalMaterialChange()
+{
+	MaterialStatsManager->SignalMaterialChanged();
 }
 
 #undef LOCTEXT_NAMESPACE

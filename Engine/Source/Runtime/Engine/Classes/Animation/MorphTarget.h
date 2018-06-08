@@ -7,7 +7,7 @@
 #include "UObject/Object.h"
 #include "PackedNormal.h"
 #include "UObject/EditorObjectVersion.h"
-#include "UObject/AthenaObjectVersion.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 
 #include "MorphTarget.generated.h"
 
@@ -29,22 +29,12 @@ struct FMorphTargetDelta
 	/** pipe operator */
 	friend FArchive& operator<<(FArchive& Ar, FMorphTargetDelta& V)
 	{
-		if (Ar.UE4Ver() < VER_UE4_MORPHTARGET_CPU_TANGENTZDELTA_FORMATCHANGE)
+		if ((Ar.UE4Ver() < VER_UE4_MORPHTARGET_CPU_TANGENTZDELTA_FORMATCHANGE) && Ar.IsLoading())
 		{
 			/** old format of change in tangent basis normal */
-			FPackedNormal	TangentZDelta_DEPRECATED;
-
-			if (Ar.IsSaving())
-			{
-				TangentZDelta_DEPRECATED = FPackedNormal(V.TangentZDelta);
-			}
-
+			FDeprecatedSerializedPackedNormal TangentZDelta_DEPRECATED;
 			Ar << V.PositionDelta << TangentZDelta_DEPRECATED << V.SourceIdx;
-
-			if (Ar.IsLoading())
-			{
-				V.TangentZDelta = TangentZDelta_DEPRECATED.ToFVector();
-			}
+			V.TangentZDelta = TangentZDelta_DEPRECATED;
 		}
 		else
 		{
@@ -84,14 +74,14 @@ struct FMorphTargetLODModel
 	friend FArchive& operator<<(FArchive& Ar, FMorphTargetLODModel& M)
 	{
 		Ar.UsingCustomVersion(FEditorObjectVersion::GUID);
-		Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+		Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
 		if (Ar.IsLoading() && Ar.CustomVer(FEditorObjectVersion::GUID) < FEditorObjectVersion::AddedMorphTargetSectionIndices)
 		{
 			Ar << M.Vertices << M.NumBaseMeshVerts;
 			M.bGeneratedByEngine = false;
 		}
-		else if (Ar.IsLoading() && Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::SaveGeneratedMorphTargetByEngine)
+		else if (Ar.IsLoading() && Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::SaveGeneratedMorphTargetByEngine)
 		{
 			Ar << M.Vertices << M.NumBaseMeshVerts << M.SectionIndices; 
 			M.bGeneratedByEngine = false;

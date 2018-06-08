@@ -23,6 +23,7 @@
 #include "Widgets/Colors/SColorPicker.h"
 #include "SCurveEditor.h"
 #include "ScopedTransaction.h"
+#include "Misc/Optional.h"
 
 
 #define LOCTEXT_NAMESPACE "SColorGradientEditor"
@@ -177,6 +178,9 @@ int32 SColorGradientEditor::OnPaint( const FPaintArgs& Args, const FGeometry& Al
 
 			// Sample the curve
 			FLinearColor Color = CurveOwner->GetLinearColorValue( Time );
+			//Slate MakeGradient call expects the linear colors to be pre-converted to sRGB
+			FColor ColorNosRGB = Color.ToFColor(true);
+			Color = ColorNosRGB.ReinterpretAsLinear();
 			if( !bHasAnyAlphaKeys )
 			{
 				// Only show alpha if there is at least one key.  For some curves, alpha may not be important
@@ -214,7 +218,7 @@ int32 SColorGradientEditor::OnPaint( const FPaintArgs& Args, const FGeometry& Al
 				GradientAreaGeometry.ToPaintGeometry(),
 				Stops,
 				Orient_Vertical,
-				DrawEffects | ESlateDrawEffect::NoGamma
+				DrawEffects | ESlateDrawEffect::None
 			);	
 		}
 
@@ -304,7 +308,8 @@ FReply SColorGradientEditor::OnMouseButtonDown( const FGeometry& MyGeometry, con
 {
 	if( IsEditingEnabled.Get() == true )
 	{
-		if( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton )
+		// Don't capture shift+click as the Curve Editor already handles this
+		if( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton && !MouseEvent.IsShiftDown() )
 		{
 			// Select the stop under the mouse if any and capture the mouse to get detect dragging
 			SelectedStop = GetGradientStopAtPoint( MouseEvent.GetScreenSpacePosition(), MyGeometry );
@@ -721,6 +726,7 @@ void SColorGradientEditor::DrawGradientStopMark( const FGradientStopMark& Mark, 
 	);
 
 	// Draw a box with the gradient stop color
+	//Slate MakeGradient call expects the linear colors to be pre-converted to sRGB
 	FSlateDrawElement::MakeBox
 	( 
 		OutDrawElements,
@@ -728,7 +734,7 @@ void SColorGradientEditor::DrawGradientStopMark( const FGradientStopMark& Mark, 
 		Geometry.ToPaintGeometry( FVector2D( XPos-HandleRect.Left+3, bColor ? HandleRect.Top+3.0f : HandleRect.Top+6), FVector2D( HandleRect.Right-6, HandleRect.Bottom-9 ) ),
 		WhiteBrush,
 		DrawEffects,
-		Color.ToFColor(false)
+		Color.ToFColor(true)
 	);
 }
 FGeometry SColorGradientEditor::GetColorMarkAreaGeometry( const FGeometry& InGeometry ) const

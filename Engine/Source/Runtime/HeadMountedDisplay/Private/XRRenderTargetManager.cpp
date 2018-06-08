@@ -6,6 +6,7 @@
 #include "IHeadMountedDisplay.h"
 #include "IXRTrackingSystem.h"
 #include "Engine/Engine.h"
+#include "XRRenderBridge.h"
 
 void FXRRenderTargetManager::CalculateRenderTargetSize(const class FViewport& Viewport, uint32& InOutSizeX, uint32& InOutSizeY)
 {
@@ -42,6 +43,17 @@ bool FXRRenderTargetManager::NeedReAllocateViewportRenderTarget(const FViewport&
 	CalculateRenderTargetSize(Viewport, NewSizeX, NewSizeY);
 
 	return (NewSizeX != RenderTargetSize.X || NewSizeY != RenderTargetSize.Y);
+}
+
+void FXRRenderTargetManager::UpdateViewportRHIBridge(bool bUseSeparateRenderTarget, const class FViewport& Viewport, FRHIViewport* const ViewportRHI)
+{
+	FXRRenderBridge* Bridge = GetActiveRenderBridge_GameThread(bUseSeparateRenderTarget);
+	if (Bridge != nullptr)
+	{
+		Bridge->UpdateViewport(Viewport, ViewportRHI);	
+	}
+	
+	ViewportRHI->SetCustomPresent(Bridge);
 }
 
 void FXRRenderTargetManager::UpdateViewport(bool bUseSeparateRenderTarget, const class FViewport& Viewport, class SViewport* ViewportWidget /*= nullptr*/)

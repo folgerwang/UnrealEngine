@@ -40,6 +40,7 @@
 #include "MovieSceneSectionDetailsCustomization.h"
 #include "MovieSceneSequence.h"
 #include "MovieScene.h"
+#include "Channels/MovieSceneChannel.h"
 
 #define LOCTEXT_NAMESPACE "SequencerContextMenus"
 
@@ -105,22 +106,22 @@ void FKeyContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 	{
 		ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
 
-		FSelectedKeysByChannelType SelectedKeysByChannel(SequencerPtr->GetSelection().GetSelectedKeys().Array());
+		FSelectedKeysByChannel SelectedKeysByChannel(SequencerPtr->GetSelection().GetSelectedKeys().Array());
 
-		TMap<uint32, TArray<TChannelAndHandles<void>>> ChannelAndHandlesByType;
-		for (auto& Pair : SelectedKeysByChannel.ChannelToKeyHandleMap)
+		TMap<FName, TArray<FExtendKeyMenuParams>> ChannelAndHandlesByType;
+		for (FSelectedChannelInfo& ChannelInfo : SelectedKeysByChannel.SelectedChannels)
 		{
-			TChannelAndHandles<void> ChannelAndHandles;
-			ChannelAndHandles.Section = Pair.Value.OwningSection;
-			ChannelAndHandles.Channel = Pair.Value.OwningSection->GetChannelProxy().MakeHandle(Pair.Key);
-			ChannelAndHandles.Handles = MoveTemp(Pair.Value.KeyHandles);
+			FExtendKeyMenuParams ExtendKeyMenuParams;
+			ExtendKeyMenuParams.Section = ChannelInfo.OwningSection;
+			ExtendKeyMenuParams.Channel = ChannelInfo.Channel;
+			ExtendKeyMenuParams.Handles = MoveTemp(ChannelInfo.KeyHandles);
 
-			ChannelAndHandlesByType.FindOrAdd(Pair.Value.ChannelTypeID).Add(MoveTemp(ChannelAndHandles));
+			ChannelAndHandlesByType.FindOrAdd(ChannelInfo.Channel.GetChannelTypeName()).Add(MoveTemp(ExtendKeyMenuParams));
 		}
 
 		for (auto& Pair : ChannelAndHandlesByType)
 		{
-			ISequencerChannelInterface* ChannelInterface = SequencerModule.FindChannelInterface(Pair.Key);
+			ISequencerChannelInterface* ChannelInterface = SequencerModule.FindChannelEditorInterface(Pair.Key);
 			if (ChannelInterface)
 			{
 				ChannelInterface->ExtendKeyMenu_Raw(MenuBuilder, MoveTemp(Pair.Value), Sequencer);
@@ -220,13 +221,17 @@ FSectionContextMenu::FSectionContextMenu(FSequencer& InSeqeuncer, FFrameTime InM
 			FMovieSceneChannelProxy& ChannelProxy = Section->GetChannelProxy();
 			for (const FMovieSceneChannelEntry& Entry : ChannelProxy.GetAllEntries())
 			{
-				TArray<UMovieSceneSection*>& SectionArray = SectionsByType.FindOrAdd(Entry.GetChannelID());
+				FName ChannelTypeName = Entry.GetChannelTypeName();
+
+				TArray<UMovieSceneSection*>& SectionArray = SectionsByType.FindOrAdd(ChannelTypeName);
 				SectionArray.Add(Section);
 
-				TArray<TMovieSceneChannelHandle<void>>& ChannelArray = ChannelsByType.FindOrAdd(Entry.GetChannelID());
-				for (void* Channel : Entry.GetChannels())
+				TArray<FMovieSceneChannelHandle>& ChannelHandles = ChannelsByType.FindOrAdd(ChannelTypeName);
+
+				const int32 NumChannels = Entry.GetChannels().Num();
+				for (int32 Index = 0; Index < NumChannels; ++Index)
 				{
-					ChannelArray.Add(ChannelProxy.MakeHandle(Channel));
+					ChannelHandles.Add(ChannelProxy.MakeHandle(ChannelTypeName, Index));
 				}
 			}
 		}
@@ -251,7 +256,7 @@ void FSectionContextMenu::PopulateMenu(FMenuBuilder& MenuBuilder)
 	{
 		const TArray<UMovieSceneSection*>& Sections = SectionsByType.FindChecked(Pair.Key);
 
-		ISequencerChannelInterface* ChannelInterface = SequencerModule.FindChannelInterface(Pair.Key);
+		ISequencerChannelInterface* ChannelInterface = SequencerModule.FindChannelEditorInterface(Pair.Key);
 		if (ChannelInterface)
 		{
 			ChannelInterface->ExtendSectionMenu_Raw(MenuBuilder, Pair.Value, Sections, Sequencer);
@@ -439,6 +444,13 @@ void FSectionContextMenu::AddEditMenu(FMenuBuilder& MenuBuilder)
 		FUIAction(
 			FExecuteAction::CreateLambda([=]{ Shared->ReduceKeys(); }),
 			FCanExecuteAction::CreateLambda([=]{ return Shared->CanReduceKeys(); }))
+	);
+
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("SyncToSourceTimecode", "Sync to Source Timecode"),
+		LOCTEXT("SyncToSourceTimecodeTooltip", "Sync section start time to source timecode"),
+		FSlateIcon(),
+		FUIAction(FExecuteAction::CreateLambda([=] { return Shared->Sequencer->SyncToSourceTimecode(); }))
 	);
 }
 
@@ -659,24 +671,15 @@ bool FSectionContextMenu::CanPrimeForRecording() const
 
 bool FSectionContextMenu::CanSelectAllKeys() const
 {
-	ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
-
 	for (auto& Pair : ChannelsByType)
 	{
-		TArray<void*> RawPtrs;
-		RawPtrs.Reserve(Pair.Value.Num());
-		for (const TMovieSceneChannelHandle<void>& Handle : Pair.Value)
+		for (const FMovieSceneChannelHandle& Handle : Pair.Value)
 		{
-			if (void* ChannelPtr = Handle.Get())
+			const FMovieSceneChannel* Channel = Handle.Get();
+			if (Channel && Channel->GetNumKeys() != 0)
 			{
-				RawPtrs.Add(ChannelPtr);
+				return true;
 			}
-		}
-
-		ISequencerChannelInterface* ChannelInterface = SequencerModule.FindChannelInterface(Pair.Key);
-		if (ChannelInterface && ChannelInterface->HasAnyKeys_Raw(RawPtrs))
-		{
-			return true;
 		}
 	}
 	return false;
@@ -752,13 +755,16 @@ void FSectionContextMenu::ReduceKeys()
 		if (KeyArea.IsValid())
 		{
 			UMovieSceneSection* Section = KeyArea->GetOwningSection();
-			if (KeyArea->GetOwningSection())
+			if (Section)
 			{
 				Section->Modify();
 
 				for (const FMovieSceneChannelEntry& Entry : Section->GetChannelProxy().GetAllEntries())
 				{
-					Entry.GetBatchChannelInterface().Optimize_Batch(Entry.GetChannels(), Params);
+					for (FMovieSceneChannel* Channel : Entry.GetChannels())
+					{
+						Channel->Optimize(Params);
+					}
 				}
 			}
 		}
@@ -1506,6 +1512,7 @@ void FPasteContextMenu::PasteInto(int32 DestinationIndex, FName KeyAreaName)
 		Selection.GetOnKeySelectionChanged().Broadcast();
 
 		Sequencer->OnClipboardUsed(Args.Clipboard);
+		Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::TrackValueChanged);
 	}
 }
 

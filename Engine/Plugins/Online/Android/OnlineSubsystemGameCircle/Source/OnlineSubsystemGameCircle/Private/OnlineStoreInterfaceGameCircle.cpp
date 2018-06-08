@@ -110,7 +110,7 @@ JNI_METHOD void Java_com_epicgames_ue4_AmazonStoreHelper_nativeQueryComplete(JNI
 			jenv->ReleaseStringUTFChars(NextPrice, charsPrice);
 			jenv->DeleteLocalRef(NextPrice);
 
-			Lex::FromString(NewProductInfo.RawPrice, *NewProductInfo.DisplayPrice);
+			LexFromString(NewProductInfo.RawPrice, *NewProductInfo.DisplayPrice);
 
 			ProvidedProductInformation.Add(NewProductInfo);
 

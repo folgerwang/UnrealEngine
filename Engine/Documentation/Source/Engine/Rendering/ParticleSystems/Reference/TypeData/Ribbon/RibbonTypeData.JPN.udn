@@ -1,9 +1,13 @@
-﻿INTSourceChangelist:2750847
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Ribbon Type Data
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
-Description:流動的なトレイルのパーティクルを作成する Ribbon Type Data モジュールの参照ページ
+Description:Ribbon Type Data モジュールは、パーティクルをリボン形状に結合した、エミッタからのトレイルの出力を意味します。
 Version:4.9
+tags:Particles
+tags:TypeData
+order:4
+topic-image:RibbonSmoke.png
 
 
 
@@ -64,11 +68,11 @@ Version:4.9
 [EXCERPT:EnableTangentDiffInterpScale]
 このフラグが有効な場合、システムは隣接パーティクルのタンジェントの違いに基づいて補間された頂点の数をスケーリングします。隣接パーティクルの各ペアは、以下の CheckTangent 値を計算します:[INCLUDE:#CheckTangent]
 
-平行から直交 (0 から 90 度) は、0 から 1 へスケーリングするようにマップされます。90 度を超えると 1 のスケール値でクランプされます。
+平行から直交（0 から 90 度）は、0 から 1 へスケーリングするようにマップされます。90 度を超えると 1 のスケール値でクランプされます。
 [/EXCERPT:EnableTangentDiffInterpScale]
 
 [EXCERPT:CheckTangent]
-	CheckTangent が < 0.5 の場合、 DistanceTessellationStepSize は結果に基づいてスケーリングされます。 
+	CheckTangent が < 0.5の場合、 DistanceTessellationStepSize は結果に基づいてスケーリングされます。 
 [/EXCERPT:CheckTangent]
 
 ------------END INCLUDES------------

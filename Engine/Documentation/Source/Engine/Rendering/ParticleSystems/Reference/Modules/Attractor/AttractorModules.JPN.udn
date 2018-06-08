@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750603
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Attractor モジュール
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:空間の指定場所へパーティクルを引き寄せるモジュール。
 Version:4.9
+tags:Particles
 
 [TOC(start:2 end:3)]
 
@@ -23,7 +24,7 @@ Ntf5chUK4jM
 [/PARAMLITERAL]
 [/OBJECT]
 
-##Line Attractor
+## ライン アトラクタ
 
 **ラインアトラクタ** で、3D 空間の直線上にパーティクルを描画することが出来ます。
 
@@ -67,7 +68,7 @@ Ntf5chUK4jM
 | **SelectionMethod** | エミッタからアトラクタのターゲットパーティクルの選択に使用する手法です。以下の値のどれかになります。[INCLUDE:#SelectionMethod] |
 
 [COMMENT:none]
-----Attractor Particle Includes--------------
+----Attractorパーティクルインクルード ファイル--------------
 
 [EXCERPT:SelectionMethod]
 [REGION:simpletable]
@@ -78,7 +79,7 @@ Ntf5chUK4jM
 [/REGION]
 [/EXCERPT:SelectionMethod]
 
--------End Attractor Particle Includes--------
+--------End Attractorパーティクルインクルード ファイル--------
 [/COMMENT]
 
 
@@ -128,7 +129,7 @@ uqXArTDw9as
 **Point Gravity** モジュールは、与えられた強度値を利用して 3D 空間の単一ポイントへパーティクルを引き寄せます。Maya のパーティクルシステムの Newton フィールドに似た機能です。パーティクルをソースへ引き寄せる場合、もしくはポイント周りに軌道効果を作成する際に使用します。
 
 [REGION:warning]
-	Point Gravityは、GPU Spriteで利用可能な唯一の Attractor モジュールです。
+	Point Gravity は、GPU Spriteで利用可能な唯一の Attractor モジュールです。
 [/REGION]
 
 | プロパティ | 説明 |

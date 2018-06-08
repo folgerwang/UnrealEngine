@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineIdentityFacebook.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 #include "OnlineSubsystemFacebookPrivate.h"
 
 #if WITH_FACEBOOK
@@ -48,7 +49,7 @@ bool FOnlineIdentityFacebook::Login(int32 LocalUserNum, const FOnlineAccountCred
 					FString ErrorStr;
 					if (InResponseCode == EFacebookLoginResponse::RESPONSE_CANCELED)
 					{
-						ErrorStr = FB_AUTH_CANCELED;
+						ErrorStr = LOGIN_CANCELLED;
 					}
 					else
 					{

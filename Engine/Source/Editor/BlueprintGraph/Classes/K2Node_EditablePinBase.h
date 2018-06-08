@@ -69,6 +69,7 @@ struct FKismetUserDeclaredFunctionMetadata
 public:
 	FKismetUserDeclaredFunctionMetadata()
 		: InstanceTitleColor(FLinearColor::White)
+		, bCallInEditor(false)
 		, HasLatentFunctions(INDEX_NONE)
 	{
 	}
@@ -161,5 +162,10 @@ class UK2Node_EditablePinBase : public UK2Node
 	 * Can this node have pass-by-reference parameters?
 	 */
 	virtual bool CanUseRefParams() const { return false; }
+
+	/**
+	 * Should this node require 'const' for pass-by-reference parameters?
+	 */
+	virtual bool ShouldUseConstRefParams() const { return false;  }
 };
 

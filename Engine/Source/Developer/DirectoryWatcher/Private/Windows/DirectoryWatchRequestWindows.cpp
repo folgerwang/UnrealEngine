@@ -176,7 +176,7 @@ void FDirectoryWatchRequestWindows::ProcessChange(uint32 Error, uint32 NumBytes)
 		// The operation was aborted, likely due to EndWatchRequest canceling it.
 		// Mark the request for delete so it can be cleaned up next tick.
 		bPendingDelete = true;
-		UE_LOG(LogDirectoryWatcher, Log, TEXT("A directory notification for '%s' was aborted."), *Directory);
+		UE_CLOG(!GIsRequestingExit, LogDirectoryWatcher, Log, TEXT("A directory notification for '%s' was aborted."), *Directory);
 		return; 
 	}
 

@@ -565,6 +565,15 @@ public:
 	bool SetRate(float Rate);
 
 	/**
+	 * Changes the media's native volume.
+	 *
+	 * @param Rate The volume to set.
+	 * @return true on success, false otherwise.
+	 * @see NativeAudioOut
+	 */
+	bool SetNativeVolume(float Volume);
+
+	/**
 	 * Set the format on the specified track.
 	 *
 	 * Selecting the format will not switch to the specified track. To switch

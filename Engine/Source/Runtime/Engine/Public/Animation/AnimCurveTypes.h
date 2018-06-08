@@ -92,7 +92,7 @@ private:
 	int32		CurveTypeFlags;
 
 public:
-	FAnimCurveBase(){}
+	FAnimCurveBase() : CurveTypeFlags(0) {}
 
 	FAnimCurveBase(FSmartName InName, int32 InCurveTypeFlags)
 		: Name(InName)
@@ -266,16 +266,23 @@ struct FBaseBlendedCurve
 	TArray<FCurveElement, Allocator> Elements;
 
 	/**
-	* List of SmartName UIDs, retrieved from AnimInstanceProxy (which keeps authority)
+	* UID to array index look up table for Elements
+	* This eliminates the look up cost
 	*/
-	TArray<SmartName::UID_Type> const * UIDList;
+	TArray<uint16> const * UIDToArrayIndexLUT;
 
+	/** 
+	 * Valid Curve count 
+	 * This should match Elements.Num() 
+	 */
+	uint16 NumValidCurveCount;
 
 	/**
 	 * constructor
 	 */
 	FBaseBlendedCurve()
-		: UIDList(nullptr)
+		: UIDToArrayIndexLUT(nullptr)
+		, NumValidCurveCount(0)
 		, bInitialized(false)
 	{
 	}
@@ -283,16 +290,16 @@ struct FBaseBlendedCurve
 	/** Initialize Curve Data from following data */
 	void InitFrom(const FBoneContainer& RequiredBones)
 	{
-		InitFrom(&RequiredBones.GetAnimCurveNameUids());
+		InitFrom(&RequiredBones.GetUIDToArrayLookupTable());
 	}
 
-	void InitFrom(TArray<SmartName::UID_Type> const * InSmartNameUIDs)
+	void InitFrom(TArray<uint16> const * InUIDToArrayIndexLUT)
 	{
-		check(InSmartNameUIDs != nullptr);
-		UIDList = InSmartNameUIDs;
+		check(InUIDToArrayIndexLUT != nullptr);
+		UIDToArrayIndexLUT = InUIDToArrayIndexLUT;
+		NumValidCurveCount = GetValidElementCount(UIDToArrayIndexLUT);
 		Elements.Reset();
-		Elements.AddZeroed(UIDList->Num());
-
+		Elements.AddZeroed(NumValidCurveCount);
 		// no name, means no curve
 		bInitialized = true;
 	}
@@ -301,11 +308,12 @@ struct FBaseBlendedCurve
 	void InitFrom(const FBaseBlendedCurve<OtherAllocator>& InCurveToInitFrom)
 	{
 		// make sure this doesn't happen
-		check(InCurveToInitFrom.UIDList != nullptr);
-		UIDList = InCurveToInitFrom.UIDList;
+		check(InCurveToInitFrom.UIDToArrayIndexLUT != nullptr);
+		UIDToArrayIndexLUT = InCurveToInitFrom.UIDToArrayIndexLUT;
+		NumValidCurveCount = GetValidElementCount(UIDToArrayIndexLUT);
+
 		Elements.Reset();
-		Elements.AddZeroed(UIDList->Num());
-		
+		Elements.AddZeroed(NumValidCurveCount);
 		bInitialized = true;
 	}
 
@@ -314,11 +322,11 @@ struct FBaseBlendedCurve
 		// make sure this doesn't happen
 		if (ensure(&InCurveToInitFrom != this))
 		{
-			check(InCurveToInitFrom.UIDList != nullptr);
-			UIDList = InCurveToInitFrom.UIDList;
+			check(InCurveToInitFrom.UIDToArrayIndexLUT != nullptr);
+			UIDToArrayIndexLUT = InCurveToInitFrom.UIDToArrayIndexLUT;
+			NumValidCurveCount = GetValidElementCount(UIDToArrayIndexLUT);
 			Elements.Reset();
-			Elements.AddZeroed(UIDList->Num());
-
+			Elements.AddZeroed(NumValidCurveCount);
 			bInitialized = true;
 		}
 	}
@@ -326,11 +334,10 @@ struct FBaseBlendedCurve
 	/** Set value of InUID to InValue */
 	void Set(USkeleton::AnimCurveUID InUid, float InValue)
 	{
-		int32 ArrayIndex;
-
 		check(bInitialized);
 
-		if (UIDList->Find(InUid, ArrayIndex))
+		int32 ArrayIndex = GetArrayIndexByUID(InUid);
+		if (ArrayIndex != INDEX_NONE)
 		{
 			Elements[ArrayIndex].SetValue(InValue);
 		}
@@ -339,11 +346,10 @@ struct FBaseBlendedCurve
 	/** Get Value of InUID - @todo : add validation check here and make sure caller also knows it's not valid*/
 	float Get(USkeleton::AnimCurveUID InUid) const
 	{
-		int32 ArrayIndex;
-
 		check(bInitialized);
 
-		if (UIDList->Find(InUid, ArrayIndex))
+		int32 ArrayIndex = GetArrayIndexByUID(InUid);
+		if (ArrayIndex != INDEX_NONE)
 		{
 			return Elements[ArrayIndex].Value;
 		}
@@ -351,6 +357,42 @@ struct FBaseBlendedCurve
 		return 0.f;
 	}
 
+	/** Get Array Index by UID */
+	int32 GetArrayIndexByUID(USkeleton::AnimCurveUID InUid) const
+	{
+		int32 ArrayIndex = (*UIDToArrayIndexLUT)[InUid];
+		if (ArrayIndex != MAX_uint16)
+		{
+			return ArrayIndex;
+		}
+		return INDEX_NONE;
+	}
+
+	/** return true if enabled. return false otherwise. */
+	bool IsEnabled(USkeleton::AnimCurveUID InUid) const
+	{
+		check(bInitialized);
+
+		return ((*UIDToArrayIndexLUT)[InUid] != MAX_uint16);
+	}
+	
+	/** Get Valid Element Count from given UIDToArrayIndexLUT */
+	static int32 GetValidElementCount(TArray<uint16> const* InUIDToArrayIndexLUT) 
+	{
+		int32 Count = 0;
+		if (InUIDToArrayIndexLUT)
+		{
+			for (int32 Index = 0; Index<InUIDToArrayIndexLUT->Num(); ++Index)
+			{
+				if ((*InUIDToArrayIndexLUT)[Index] != MAX_uint16)
+				{
+					++Count;
+				}
+			}
+		}
+
+		return Count;
+	}	
 	/**
 	 * Blend (A, B) using Alpha, same as Lerp
 	 */
@@ -493,10 +535,11 @@ struct FBaseBlendedCurve
 	template <typename OtherAllocator>
 	void CopyFrom(const FBaseBlendedCurve<OtherAllocator>& CurveToCopyFrom)
 	{
-		checkf(CurveToCopyFrom.IsValid(), TEXT("Copying data from an invalid curve UIDList: 0x%x  (Sizes %i/%i)"), CurveToCopyFrom.UIDList, (CurveToCopyFrom.UIDList ? CurveToCopyFrom.UIDList->Num() : -1), CurveToCopyFrom.Elements.Num());
-		UIDList = CurveToCopyFrom.UIDList;
+		checkf(CurveToCopyFrom.IsValid(), TEXT("Copying data from an invalid curve UIDToArrayIndexLUT: 0x%x  (Sizes %i/%i)"), CurveToCopyFrom.UIDToArrayIndexLUT, (CurveToCopyFrom.UIDToArrayIndexLUT ? CurveToCopyFrom.UIDToArrayIndexLUT->Num() : -1), CurveToCopyFrom.Elements.Num());
+		UIDToArrayIndexLUT = CurveToCopyFrom.UIDToArrayIndexLUT;
 		Elements.Reset();
 		Elements.Append(CurveToCopyFrom.Elements);
+		NumValidCurveCount = GetValidElementCount(UIDToArrayIndexLUT);
 		bInitialized = true;
 	}
 
@@ -504,10 +547,11 @@ struct FBaseBlendedCurve
 	{
 		if (&CurveToCopyFrom != this)
 		{
-			checkf(CurveToCopyFrom.IsValid(), TEXT("Copying data from an invalid curve UIDList: 0x%x  (Sizes %i/%i)"), CurveToCopyFrom.UIDList, (CurveToCopyFrom.UIDList ? CurveToCopyFrom.UIDList->Num() : -1), CurveToCopyFrom.Elements.Num());
-			UIDList = CurveToCopyFrom.UIDList;
+			checkf(CurveToCopyFrom.IsValid(), TEXT("Copying data from an invalid curve UIDToArrayIndexLUT: 0x%x  (Sizes %i/%i)"), CurveToCopyFrom.UIDToArrayIndexLUT, (CurveToCopyFrom.UIDToArrayIndexLUT ? CurveToCopyFrom.UIDToArrayIndexLUT->Num() : -1), CurveToCopyFrom.Elements.Num());
+			UIDToArrayIndexLUT = CurveToCopyFrom.UIDToArrayIndexLUT;
 			Elements.Reset();
 			Elements.Append(CurveToCopyFrom.Elements);
+			NumValidCurveCount = GetValidElementCount(UIDToArrayIndexLUT);
 			bInitialized = true;
 		}
 	}
@@ -515,25 +559,20 @@ struct FBaseBlendedCurve
 	void Empty()
 	{
 		// Set to nullptr as we only received a ptr reference from USkeleton
-		UIDList = nullptr;
+		UIDToArrayIndexLUT = nullptr;
 		Elements.Reset();
+		NumValidCurveCount = 0;
 		bInitialized = false;
 	}
 
 	/**  Whether initialized or not */
 	bool bInitialized;
-	/** Empty and allocate Count number */
-	void Reset(int32 Count)
-	{
-		Elements.Reset();
-		Elements.Reserve(Count);
-	}
 
 	// Only checks bare minimal validity. (namely that we have a UID list and that it 
 	// is the same size as our element list
 	bool IsValid() const
 	{
-		return UIDList && (Elements.Num() == UIDList->Num());
+		return UIDToArrayIndexLUT != nullptr && (Elements.Num() == NumValidCurveCount);
 	}
 };
 
@@ -548,8 +587,8 @@ struct ENGINE_API FBlendedHeapCurve : public FBaseBlendedCurve<FDefaultAllocator
 	/** Once moved, source is invalid */
 	void MoveFrom(FBlendedHeapCurve& CurveToMoveFrom)
 	{
-    	UIDList = CurveToMoveFrom.UIDList;
-		CurveToMoveFrom.UIDList = nullptr;
+		UIDToArrayIndexLUT = CurveToMoveFrom.UIDToArrayIndexLUT;
+		CurveToMoveFrom.UIDToArrayIndexLUT = nullptr;
 		Elements = MoveTemp(CurveToMoveFrom.Elements);
 		bInitialized = true;
 		CurveToMoveFrom.bInitialized = false;

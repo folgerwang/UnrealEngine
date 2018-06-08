@@ -11,7 +11,7 @@
 #include "SceneManagement.h"
 
 /** The parts of the point light scene info that aren't dependent on the light policy type. */
-class FPointLightSceneProxyBase : public FLightSceneProxy
+class FLocalLightSceneProxy : public FLightSceneProxy
 {
 public:
 
@@ -21,29 +21,9 @@ public:
 	/** One over the light's radius. */
 	float InvRadius;
 
-	/** The light falloff exponent. */
-	float FalloffExponent;
-
-	/** Radius of light source shape */
-	float SourceRadius;
-
-	/** Soft radius of light source shape */
-	float SoftSourceRadius;
-
-	/** Length of light source shape */
-	float SourceLength;
-
-	/** Whether light uses inverse squared falloff. */
-	const uint32 bInverseSquared : 1;
-
 	/** Initialization constructor. */
-	FPointLightSceneProxyBase(const UPointLightComponent* Component)
+	FLocalLightSceneProxy(const ULocalLightComponent* Component)
 	:	FLightSceneProxy(Component)
-	,	FalloffExponent(Component->LightFalloffExponent)
-	,	SourceRadius(Component->SourceRadius)
-	,	SoftSourceRadius(Component->SoftSourceRadius)
-	,	SourceLength(Component->SourceLength)
-	,	bInverseSquared(Component->bUseInverseSquaredFalloff)
 	,	MaxDrawDistance(Component->MaxDrawDistance)
 	,	FadeRange(Component->MaxDistanceFadeRange)
 	{
@@ -54,7 +34,7 @@ public:
 	* Called on the light scene info after it has been passed to the rendering thread to update the rendering thread's cached info when
 	* the light's radius changes.
 	*/
-	void UpdateRadius_GameThread(UPointLightComponent* Component);
+	void UpdateRadius_GameThread(float Radius);
 
 	// FLightSceneInfo interface.
 	virtual float GetMaxDrawDistance() const final override 
@@ -71,16 +51,6 @@ public:
 	virtual float GetRadius() const override
 	{ 
 		return Radius; 
-	}
-
-	virtual float GetSourceRadius() const override
-	{ 
-		return SourceRadius; 
-	}
-
-	virtual bool IsInverseSquared() const override
-	{
-		return bInverseSquared;
 	}
 
 	virtual bool AffectsBounds(const FBoxSphereBounds& Bounds) const override
@@ -108,7 +78,7 @@ public:
 	{
 		FIntRect ScissorRect;
 
-		if (FPointLightSceneProxyBase::GetScissorRect(ScissorRect, View, ViewRect))
+		if (GetScissorRect(ScissorRect, View, ViewRect))
 		{
 			RHICmdList.SetScissorRect(true, ScissorRect.Min.X, ScissorRect.Min.Y, ScissorRect.Max.X, ScissorRect.Max.Y);
 		}
@@ -118,9 +88,24 @@ public:
 		}
 	}
 
+	virtual FSphere GetBoundingSphere() const
+	{
+		return FSphere(GetPosition(), GetRadius());
+	}
+
+	virtual float GetEffectiveScreenRadius(const FViewMatrices& ShadowViewMatrices) const override
+	{
+		// Use the distance from the view origin to the light to approximate perspective projection
+		// We do not use projected screen position since it causes problems when the light is behind the camera
+
+		const float LightDistance = (GetOrigin() - ShadowViewMatrices.GetViewOrigin()).Size();
+
+		return ShadowViewMatrices.GetScreenScale() * GetRadius() / FMath::Max(LightDistance, 1.0f);
+	}
+
 	virtual FVector GetPerObjectProjectedShadowProjectionPoint(const FBoxSphereBounds& SubjectBounds) const
 	{
-		return FMath::ClosestPointOnSegment(SubjectBounds.Origin, GetOrigin() - GetDirection() * SourceLength / 2, GetOrigin() + GetDirection() * SourceLength / 2);
+		return GetOrigin();
 	}
 
 	virtual bool GetPerObjectProjectedShadowInitializer(const FBoxSphereBounds& SubjectBounds,class FPerObjectProjectedShadowInitializer& OutInitializer) const override
@@ -158,7 +143,7 @@ public:
 		return true;
 	}
 
-private:
+protected:
 
 	/** Updates the light scene info's radius from the component. */
 	void UpdateRadius(float ComponentRadius)
@@ -173,18 +158,53 @@ private:
 	float FadeRange;
 };
 
-/**
- * The scene info for a point light.
- */
-template<typename LightPolicyType>
-class TPointLightSceneProxy : public FPointLightSceneProxyBase
+
+class FPointLightSceneProxy : public FLocalLightSceneProxy
 {
 public:
+	/** The light falloff exponent. */
+	float FalloffExponent;
+
+	/** Radius of light source shape */
+	float SourceRadius;
+
+	/** Soft radius of light source shape */
+	float SoftSourceRadius;
+
+	/** Length of light source shape */
+	float SourceLength;
+
+	/** Whether light uses inverse squared falloff. */
+	const uint32 bInverseSquared : 1;
 
 	/** Initialization constructor. */
-	TPointLightSceneProxy(const UPointLightComponent* Component)
-		:	FPointLightSceneProxyBase(Component)
+	FPointLightSceneProxy(const UPointLightComponent* Component)
+	:	FLocalLightSceneProxy(Component)
+	,	FalloffExponent(Component->LightFalloffExponent)
+	,	SourceRadius(Component->SourceRadius)
+	,	SoftSourceRadius(Component->SoftSourceRadius)
+	,	SourceLength(Component->SourceLength)
+	,	bInverseSquared(Component->bUseInverseSquaredFalloff)
 	{
+		UpdateRadius(Component->AttenuationRadius);
 	}
-};
 
+	virtual float GetSourceRadius() const override
+	{ 
+		return SourceRadius; 
+	}
+
+	virtual bool IsInverseSquared() const override
+	{
+		return bInverseSquared;
+	}
+
+	virtual void GetParameters(FLightParameters& LightParameters) const override;
+
+	virtual FVector GetPerObjectProjectedShadowProjectionPoint(const FBoxSphereBounds& SubjectBounds) const override
+	{
+		return FMath::ClosestPointOnSegment(SubjectBounds.Origin, GetOrigin() - GetDirection() * SourceLength * 0.5f, GetOrigin() + GetDirection() * SourceLength * 0.5f);
+	}
+
+	virtual bool GetWholeSceneProjectedShadowInitializer(const FSceneViewFamily& ViewFamily, TArray<FWholeSceneProjectedShadowInitializer, TInlineAllocator<6> >& OutInitializers) const;
+};

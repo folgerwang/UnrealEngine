@@ -73,6 +73,7 @@
     <Compile Include="FileSystemName.cs" />
     <Compile Include="FileSystemReference.cs" />
     <Compile Include="JsonObject.cs" />
+    <Compile Include="ManagedProcess.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ResXResource\UEResXReader.cs" />
     <Compile Include="ResXResource\UEResXWriter.cs" />

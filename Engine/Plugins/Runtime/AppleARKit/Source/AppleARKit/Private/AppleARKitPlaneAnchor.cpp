@@ -30,7 +30,7 @@ FTransform UAppleARKitPlaneAnchor::GetTransformToCenter() const
 	return FTransform( Center ) * Transform;
 }
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 void UAppleARKitPlaneAnchor::Update_DelegateThread( ARAnchor* Anchor )
 {
@@ -49,4 +49,4 @@ void UAppleARKitPlaneAnchor::Update_DelegateThread( ARAnchor* Anchor )
 	}
 }
 
-#endif // ARKIT_SUPPORT
+#endif

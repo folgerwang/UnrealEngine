@@ -1,49 +1,71 @@
-﻿INTSourceChangelist:3335866
+﻿INTSourceChangelist:3761485
 Availability:Public
 Title:Media Framework の概要
 Crumbs:%ROOT%, Engine
-Description:UE 4 の Media Framework 機能の概要 
-Navigation:topic
-parent:Engine/MediaFramework
-order:2
-Version:4.15
+Description:UE 4 の Media Framework を使った映像再生の主要機能の概要
+Type:Overview
+SkillLevel:Beginner
+Version:4.18
+Parent:Engine/MediaFramework
+Order:1
+Tags:Media
+Tags:Video Playback
 Related:Engine\MediaFramework\TechReference
 Related:Engine\MediaFramework\HowTo
 
 [TOC(start:2 end:2)]
 
-**Media Framework** はアセットをいくつか使って UE4 内で映像を再生します。映像は **Media Player** アセット内でスクラブ再生、ポーズ、巻き戻しをしたり、また[C++](Programming) または [](Engine/Blueprints) による調節も可能です。 
-映像の再生レベルにサーフェスを作る、あるいは映像再生をプレイヤーが調節できるように [](Engine/UMG) インターフェースを作成するには、まず **Media Source** を指定してエンジンがメディア アセットを探せるようにする必要があります。
+**Media Framework** はアセットをいくつか使ってアンリアル エンジン (UE4) 内で映像を再生します。映像は **Media Player** アセット内でスクラブ再生、ポーズ、巻き戻しをしたり、また[C++](Programming) または [](Engine/Blueprints) による調節も可能です。 
+映像の再生レベルにサーフェスを作る、あるいは映像再生をプレイヤーが調節できるように [UMG](Engine/UMG) インターフェースで UI エレメントを作成するには、まず **Media Source** を指定してエンジンがメディア アセットを探せるようにする必要があります。
 
 * メディア ソースの種類
 
 Media Source アセットにはメディアのソースを定義するものがあります。 
 映像をプレイする前にソースの定義が必要な場合があります。それは、プロジェクトの一部としてファイルがインクルードされている、ウェブサイトからメディアをストリーミングする、プラットフォーム固有のメディアを使用する場合です。
-**[Add New (新規追加)]** ボタンをクリックし **[Media]** セクションで使用したいソースタイプを指定すれば、**コンテンツ ブラウザ** に Media Source を追加することができます。  
+**[Add New (新規追加)]** ボタンをクリックし **[Media]** セクションで使用したいソースタイプを指定して、**コンテンツ ブラウザ** に Media Source を追加することができます。 
 
 ![](MediaSource.png)
-
-[REGION:note]
-サポート対象のファイル タイプと URL については、[](Engine\MediaFramework\TechReference\) ページをご覧ください。 
-[/REGION]
 
 ### File Media Source アセット
 
 ![](MediaSource_File.png)
 
 **File Media Source** アセットは、デバイスまたは共有ローカル ネットワーク ファイルに格納されたメディア ファイルに対して使用します。**[File Path]** セクションで、メディア ファイルの格納場所を指定します。 
-メディア ファイルはどこにでも存在できますが、通常はプロジェクトの **「Content/Movies」** フォルダに移してメディア ファイルとして指定するのがグッド プラクティスです。 
-こうしておくと、確実にメディアをプロジェクトで正しくパッケージ化することができます。ここ以外の場所にあるファイルを指定すると、警告として黄色いエクスクラメーション マーク (上図) が表示されます。 
 
-このソース アセットは、([Advanced Options (詳細オプション)] セクションの) **[Precache File]** オプションを有効にして、メディア ファイル全体をメモリにロードして、そこからプレイします。 
+[REGION:tip]
+メディア ファイルはどこにでも存在できますが、通常はプロジェクトの **「Content/Movies」** フォルダに移してメディア ファイルとして指定するのがグッド プラクティスです。 
+こうしておくと、確実にメディアをプロジェクトで正しくパッケージ化することができます。この場所以外のファイルを指定すると、黄色いエクスクラメーション マーク (上図) の警告が表示されます。 
+[/REGION]
+
+このソース アセットは、([Advanced Options (詳細オプション)] セクションの) **[Precache File]** オプションを有効にして、プレイ前にメディア ファイル全体をメモリにロードしておくことができます。 
 このオプションを使用する場合は、ファイルのサイズによってキャッシュ時間が異なります。ご注意ください。 
-File Media Source アセットはそれぞれネイティブ メディア プレイヤー プラグインのプラットフォームごとの上書きや、プレイヤー プラグインの自動選択が可能です。 
+各 File Media Source アセットは、ネイティブ メディア プレイヤー プラグイン (メディア再生用) をプラットフォームごとにオーバーライドしたり、プレイヤー プラグインの自動選択が可能です。 
+
+[REGION:note]
+プリキャッシュはすべてのプレイヤーでサポートされているわけではありません。現在は、**MfMedia**、**PS4Media**、**WmfMedia** プレイヤー プラグインのみがサポートしています。 
+[/REGION]
 
 ![](PlatformOverride.png)
 
 [REGION:note]
 File Media Source アセットの使用方法については、[](Engine\MediaFramework\HowTo\FileMediaSource) 操作ガイドを参照してください。 
 [/REGION]
+
+
+### Image (Img) Media Source アセット
+
+![](ImgMediaSource.png)
+
+**Img Media Source** アセットは、デバイス上に格納された画像シーケンスの再生、あるいは **Sequence Path** フィールドがシーケンスの最初の画像を指定するために使われている共有ローカルネットワークから使用することができます。 
+画像は対応した形式であり、またエンジンがシーケンスの残りの画像を発見および追加できるように連続した名前 (_MyImage01.exr_ や _MyImage_01.exr_ など) を付けなければなりません。 
+
+詳細オプションの中で、シーケンスの画像に対して **Frames Per Second Override** と **Proxy Overrides** を定義することができます。他のソース アセットと同様に、メディアをプレイするプラットフォームの種類に応じて、**[Player Overrides]** セクションで使用するプレイヤー プラグインを定義することができます。 
+
+[REGION:note]
+Img Media Source アセットの使用方法については、[](Engine\MediaFramework\HowTo\ImgMediaSource) 操作ガイドを参照してください。 
+[/REGION]
+
+
 
 ### Stream Media Source アセット
 
@@ -61,7 +83,13 @@ Stream Media Source アセットの使用方法については、[](Engine\Media
 ![](MediaSource_Platform.png)
 
 **Platform Media Source** アセットはプラットフォーム単位での Media Sources の上書きをサポートします。 
-例えば、特定の映像を Android デバイスまたは PS4 のみでプレイする場合、どのプラットフォームでどの映像を再生するか、**[Media Sources]** セクションで指定することができます。Media Source をブランクのままにすると **Default Source** が使用されます。 
+例えば、特定の映像を Android デバイスまたは PS4 のみでプレイする場合、 
+どのプラットフォームでどの映像を再生するか、**[Media Sources]** セクションで指定することができます。 
+Platform Media Source を使用する場合、Media Source はそれぞれのプラットフォームから選択しなければなりません。 
+
+[REGION:note]
+Stream Media Source アセットの使用方法については、[](Engine\MediaFramework\HowTo\PlatformMedia\) 操作ガイドを参照してください。 
+[/REGION]
 
 ## Media Playlist アセット
 
@@ -71,33 +99,45 @@ Media Source アセットをいくつか作成したら、それらを Media Pla
 
 ![](MediaPlaylistButton.png)
 
-[Media Playstlist] ウィンドウ (下図) の **[Playlist]** セクションで、ソース アセットをインクルードするように定義し、再生順序を指定することができます。 
-作成した Media Source アセットはすべて画面下方の **Media Library** ウィンドウで表示され、**ダブルクリック** するとプレイリストの最後に追加されます。 
+Media Playlist を作成して開くと、メディア プレイリスト エディタが開きます。 
 
 ![](CustomizedPlaylist.png)
 
-Media Playlist は、異なるタイプが混ざった Media Source を使用して、ブループリント スクリプトでの指定がない限り、順番に再生することができます。 
+[REGION:warning]
+バージョン 4.18.1 では、**[Loop]** オプションはプレイリストをループしません。**Media Player** アセットの**Loop** オプションを選択すれば、Playlist をループすることができます。 
+[/REGION]
+
+メディア プレイリスト エディタで、インクルードするソースアセットを定義し、再生順序を指定することができます。 
+作成した Media Source アセットはすべて画面下方の **Media Library** ウィンドウで表示され、ダブルクリックするとプレイリストの最後に追加 (または [Item] セクションの **+** ボタンを使って追加) することができます。
+Media Playlist は、異なるタイプが混ざった Media Source を使用して、ブループリント スクリプトでの指定がない限り、順番にプレイすることができます。 
+
 
 [REGION:note]
 Media Playlist アセットの使用方法については、[](Engine\MediaFramework\HowTo\MediaPlaylists) 操作ガイドを参照してください。 
 [/REGION]
 
-## Media Sound Wave アセット
+## Media Sound コンポーネント
 
-映像と関連しているオーディオを聴くためには、**Media Sound Wave** アセットを作成する必要があります。  
+映像と関連しているオーディオを聴くためには、**Media Sound** コンポーネントを作成して、レベル内でメディアを再生するブループリントあるいはアクタに追加する必要があります。 
 
-![](MediaPlayerSound.png)
+[REGION:warning]
+4.18 より古いバージョンではサウンドの作成に **Media Sound Wave** アセットを使用していました。現在は非推奨となっています。現在 **Media Sound Wave** アセットを使用中の場合、映像付きのオーディオを生成するためには、そららのアセットおよび関連する Media Sound コンポーネントをレベルから削除する必要があります。 
+[/REGION]
 
-**Media** の **[Add New (新規追加)]** ボタンから **Media Sound Wave** アセットを選択します。 
+下の画像では、レベル内にスタティックメッシュ アクタがあり、**[Details]** パネルに Media Sound コンポーネントが追加されています。 
 
-![](MediaPlayerSoundWindow.png)
+![](MediaSoundComponent.png)
 
-Media Sound Wave アセットには、アセットの処理方法を調節するために **Curve**、**[Debug]**、**[Concurrency (並列)]**、**[Attenuation (減衰)]** の設定があります。 
+アクタまたはブループリントに Media Sound コンポーネントを追加したら、Media Sound コンポーネントを **Media Player** アセットに追加する必要があります。 
+
+![](MediaSoundComponent_AssignedPlayer.png)
+
+Media Sound コンポーネントには **[Details]** パネルがあり、その中の **Channels**、**Attenuation**、**Concurrency**、その他 [オーディオ](Engine/Audio) 関連の設定を使ってサウンドの聞こえ方を定義することができます。 
 Media Player アセットにリンクする時に、映像に適用されているオーディオが映像と一緒に自動的に再生されます。 
-通常は、デフォルト設定のままで Media Sound Wave アセットを新規作成します。ただし、サウンドの認識方法をさらに調節したい場合は、[Concurrency and Attenuation (並列と減衰)] 設定を使います。 
+Media Sound コンポーネントは通常はデフォルト設定のままにしておきます。ただし、サウンドの聞こえ方をさらに調節したい場合は、[Concurrency (並列)]、[Attenuation (減衰)]、その他の設定を使用します。 
 
-[REGION:note]
-アンリアル エンジン 4 でのオーディオの操作方法の詳細は、[](Engine/Audio) セクションをご覧ください。 
+[REGION:warning]
+**[Surround]** チャンネル設定はまたオーディオ ミキサーではサポートされていません。今後のリリースでアップデートされる予定です。 
 [/REGION]
 
 
@@ -107,46 +147,58 @@ Media Player アセットにリンクする時に、映像に適用されてい�
 
 ![](MediaTexture.png)
 
-Media Sound Wave はメディア ソース アセットからのオーディオを提供し、Media Texture はビジュアルを提供します。 
+Media Sound コンポーネントがオーディオを提供し、Media Textures は Media Source アセットからの視覚を提供します。 
 Media Texture アセットは、[](Engine/Rendering/Materials/) にインクルードして、掲示板、テレビ、あるいはモニターなどのレベル内のメッシュに適用して、映像がゲーム ワールドにあるオブジェクト上で再生されているかのように見せることができます。 
+Media Texture アセットを作成する場合、参照している Media Player を **Media Player** の **Details** パネルで定義する必要があります。 
 
 ![](MediaTextureWindow.png)
 
-上図では、Media Texture アセットを含んだマテリアルが作成され、レベル内のスタティックメッシュに適用されています。 
-[テクスチャ エディタ](Engine/Content/Types/Textures/Properties/Interface) で、Media Texture はレベル内のマテリアルに表示されているのと同じ再生位置を表示します。 
-Media Texture は、標準の [](Engine/Content/Types/Textures/Properties) の他に、**Clamped**、**Mirror**、**World** 値の X および Y 軸 **アドレス指定** 値も受け取ります。 
+下の画像は、Media Texture アセットを含んだマテリアルを作成し、レベル内のスタティックメッシュに適用しています。 
+[Texture Editor](Engine/Content/Types/Textures/Properties/Interface) では Media Texture がレベル内のマテリアル内に表示される再生位置と同じ場所を表示します。 
+Media Texture は、使用可能な標準の [](Engine/Content/Types/Textures/Properties) の他に、**Clamped**、**Mirror**、**World** 値の X および Y 軸 **アドレス指定** 値も受け取ります。 
 
-[REGION:note]
-映像を再生するための Media Textures の設定および操作方法については、[](Engine\MediaFramework\HowTo) をご覧ください。 
+![](SampleMediaTexture.png)
+
+マテリアルは Media Texture アセットを参照する **Texture Sample** ノードを使用します。 
+Texture Sample ノード上で、**Sampler Type** プロパティを **[External]** に設定して再生ができるようにします。 
+この設定はエンジンによって行われる最適化で、メディア ファイルのデコードに使用されます。 
+
+![](SamplerType.png)
+
+[REGION:warning]
+4.18 よりも古いバージョンで作成された Media Texture を使用しているマテリアルは、 **Sampler Type** プロパティを手書きのコードで **[External]** に設定しなければならない場合があります。 
 [/REGION]
 
 ## Media Player アセット
 
 Media Source あるいは Media Playlist がある場合、**Media Player** アセットを使ってアセットを再生することができます。 
-Media Player アセットは、Media Texture を使って映像再生と Media Sournd Wave を作成し、映像と関連したオーディオを制作します。 
+Media Player アセットは、Media Texture を使って映像再生と Media Sournd コンポーネントを作成し、映像と関連したオーディオを制作します。 
 **[Media]** セクションの **[Add New]** ボタンで、**コンテンツ ブラウザ** に Media Player アセットを作成することができます。 
 
 ![](MediaPlayer.png)
 
 Media Player アセットを作成すると、そのアセットを Media Player にリンクするかどうかの **[Create Media Player]** ウィンドウ (下の画像) が表示されます。 
-これにより、作成した Media Player アセットに関連した Media Texture and Media Sound Wave の作成および割り当てが自動的に行われます。 
+これにより、作成した Media Player アセットに関連した Media Texture の作成および割り当てが自動的に行われます。 
 
 ![](CreateMediaPlayer.png)
 
-Media Player アセットを **ダブルクリック** すると、**[Media Player] ウィンドウ** が開きます。 
+Media Player アセットを ダブルクリック すると、**Media Player Editor** が開きます。 
 
 ![](MediaPlayerWindow.png)
 
-[Media Player] ウィンドウ内で、作成した Media Source アセットの再生とプレビューができます (作成したソース メディアは **[Media Library]** パネルに表示されます)。 
-上部にあるツールバーで、プレイ、ポーズ、巻き戻し、映像の最初または最後へのスキップ操作ができます。現在プレイ中の Media Playlist はすべて、右上端の **[Playlist]** ウィンドウに表示されます。 
+Media Player Editor で、プロジェクトで作成したすべての Media Source アセットのプレビュー、およびメディアによるプレイ、ポーズ、巻き戻し、早送り (対応している場合) ができます。 
+また、Media Player アセットの再生設定の定義もできます。たとえば、メディアが自動的にプレイを開始する、メディアがループ再生をするか (対応している場合)、(プレイリストを使っている場合) プレイリストからプレイするソースをランダムに選択するかどうかなどです。 
 
-右下の **[Details (詳細)]** パネルで、**[Playback]** オプションの定義や、Media Player に関連した **Sound Wave** および **Video Textures** (あるいは **Image Texture**) の割り当てができます。 
-**[Info]** パネルには、ストリーム タイプ、コード、サンプルレート、ディメンションなどの情報が表示されます。 
+[REGION:note]
+メディア エディタとオプションの詳細については、[メディア エディタのリファレンス](Engine\MediaFramework\MediaEditorReference) ページをご覧ください。 
+[/REGION]
+
 
 ## メディア アセットおよびスクリプト処理
 
-Media Player アセットのセットアップと適切なアセットのリンク付けが完了したら、ゲーム セッション中にプレイすることができます。メディアをインゲームでプレイするために、まず最初にブループリントあるいは C++ を使って Media Source アセットを開く必要があります。 
-手順は、まず Media Player アセットへの参照を含むブループリント内に [変数](Engine/Blueprints/UserGuide/Variables/) を作成します。 
+Media Player アセットのセットアップと Media Sound および (映像にオーディオがついている場合は) Media Sound コンポーネントへのリンク付けが完了したら、ゲーム セッション中にプレイすることができます。 
+メディアをインゲームでプレイするために、まず最初にブループリントあるいは C++ を使って Media Player アセットへの参照を作成する必要があります。 
+手順は、まずブループリント内に **Media Player** の変数タイプの[変数](Engine/Blueprints/UserGuide/Variables/) を作成して、その変数の **デフォルト値** を使用する Media Player を参照するように設定します。 
 
 ![](MediaPlayerDetailsSet.png)
 
@@ -156,6 +208,7 @@ Media Player への参照を定義すると、メディア ソースの種類に
 
 | オプション | 説明 |
 | -------- | ----------- |
+| **Open File** | 端末上の指定されたファイル位置にあるメディア ファイルを開きます。 |
 | **Open Playlist** | 指定したプレイ リストの最初のメディア ソースを開きます。 |
 | **Open Playlist Index** | 指定したプレイ リストの特定のメディア ソースを開きます。 |
 | **Open Source** | 指定したメディア ソース (ファイル メディア、ストリーム メディア、プラットフォーム メディア) を開きます。 |
@@ -163,26 +216,37 @@ Media Player への参照を定義すると、メディア ソースの種類に
 | **Reopen** | 現在開いているメディアまたはプレイ リストを再度開きます。 |
 
 新規に作成された Media Player アセットはデフォルトで **[Play on Open]** オプションが有効になっています。つまり、Media Source を開くと、映像のプレイが自動的に始まります。 
-必須ではありませんが、[Play on Open] オプションにチェックを入れておくと便利です。正常に開いたものの、自動プレイをしたくない場合、**OnMediaOpened** Blueprint event に結合することができます。 
-[Play on Open] オプション (下の画像) にチェックを入れなかった場合、Media Source を開いたら、**Play** 関数を呼び出す必要があります。 
+開いた時にソースがプレイしないようにし、++ で明示的に呼び出された時のみプレイされるように、Media Player アセットのこのオプションのチェックを外すことができます。ブループリントまたは C 
 
 ![](UncheckPlayOnOpen.png)
 
-下の **Event BeginPlay** では、**マウスの右ボタン** が **押される** と、Media Playlist が開いて **Media Player** がプレイされます。 
+正常に開いたものの、自動プレイをしたくない場合、**Play** Blueprint event に結合することができます。 
 
 ![](PlayWhenPressed.png)
 
-[REGION:note]
-開くと同時に Media Source を自動的にプレイしないで、Play 関数を使って再生を開始する場合は、Play 関数にチェーンせず、Open Source あるいは Open Playlist のコールの後に直接呼び出すことをお勧めします。 
-理由は、Media Source は開くのに時間がかかることがあるため、Play コマンドが false を返し、映像が期待どおりにプレイされなくなるためです。
+[REGION:caption]
+上の図の **Event BeginPlay** では、**マウスの右ボタン** が **押される** と、プレイの準備ができている場合に限り、Media Playlist が開いて **Media Player** がプレイされます。 
 [/REGION]
 
-様々な再生状況 (映像がポーズか、または映像が終了しているか) に対して、Media Player reference から [Binding Events](Engine/Blueprints/UserGuide/EventDispatcher/BindingAndUnbinding/) など他の関数を呼び出すことができます。 
-また、Media Player reference から異なる関数を呼び出して、映像がポーズなのか、プレイ中なのか、ループ設定させているかを確認したり、プレイレート情報などにアクセスしたりすることもできます。 
+[REGION:note]
+開くと同時に Media Source を自動的にプレイしないで、Play 関数を使って再生を開始する場合は、Play 関数にチェーンせず、Open Source あるいは Open Playlist のコールの後に直接呼び出すことをお勧めします。 
+理由は、Media Source は開くのに時間がかかることがあるため、Play コマンドが false を返し、映像が期待どおりにプレイされなくなるためです。これらの場合、**On Media Opened** コールにバインドする [binding event](Engine/Blueprints/UserGuide/EventDispatcher/BindingAndUnbinding/) を使うと良いかもしれません。 
+[/REGION]
+
+![](OnMediaOpened.png)
+
+[REGION:caption]
+上の画像では、Stream Media ソースを開いて、完全に開くとメディアをプレイするイベントを発行する On Media Opened に Media Player を バインドしています。 
+[/REGION]
+
+
+様々な再生状況 (映像がポーズか、または映像が終了しているか) に対して、Media Player reference やその他の関数を呼び出すことができます。 
+また、Media Player 参照から異なる関数を呼び出して、映像がポーズなのか、プレイ中なのか、ループ設定させているかを確認したり、(他のユースケースでの) プレイレート情報などにアクセスしたりすることもできます。 
+これらのオプションは、Media Player reference を引き出して、ブループリント コンテキスト メニューの **[Media Player]** セクションで確認できます。 
 
 ![](MediaPlayerNodes.png)
 
-これらのオプションは、Media Player reference を引き出して、ブループリント コンテキスト メニューの **[Media Player]** セクションで確認できます。 
+
 
 
 

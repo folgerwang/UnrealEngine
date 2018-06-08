@@ -333,8 +333,25 @@ FBox UPhysicsAsset::CalcAABB(const USkinnedMeshComponent* MeshComp, const FTrans
 				if(BoneIndex != INDEX_NONE)
 				{
 					const FTransform WorldBoneTransform = MeshComp->GetBoneTransform(BoneIndex, LocalToWorld);
-					const FBox BodySetupBounds = bs->AggGeom.CalcAABB(WorldBoneTransform);
-					
+					FBox BodySetupBounds = bs->AggGeom.CalcAABB(WorldBoneTransform);
+
+					// When the transform contains a negative scale CalcAABB could return a invalid FBox that has Min and Max reversed
+					// @TODO: Maybe CalcAABB should handle that inside and never return a reversed FBox
+					if (BodySetupBounds.Min.X > BodySetupBounds.Max.X)
+					{
+						Swap<float>(BodySetupBounds.Min.X, BodySetupBounds.Max.X);
+					}
+
+					if (BodySetupBounds.Min.Y > BodySetupBounds.Max.Y)
+					{
+						Swap<float>(BodySetupBounds.Min.Y, BodySetupBounds.Max.Y);
+					}
+
+					if (BodySetupBounds.Min.Z > BodySetupBounds.Max.Z)
+					{
+						Swap<float>(BodySetupBounds.Min.Z, BodySetupBounds.Max.Z);
+					}
+
 					Box += BodySetupBounds;
 				}
 			}

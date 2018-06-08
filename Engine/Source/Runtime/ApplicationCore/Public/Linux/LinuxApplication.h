@@ -70,8 +70,6 @@ public:
 
 	void AddPendingEvent( SDL_Event event );
 
-	void OnMouseCursorLock( bool bLockEnabled );
-
 	void RemoveEventWindow(SDL_HWindow Window);
 
 	void RemoveRevertFocusWindow(SDL_HWindow HWnd);
@@ -120,13 +118,6 @@ public:
 	 */
 	void GetWindowPositionInEventLoop(SDL_HWindow NativeWindow, int *x, int *y);
 
-	/**
-	 * Destroys native window safely, possibly postponing it to some time in the future.
-	 *
-	 * @param NativeWindow The native window handle to be destroyed
-	 */
-	void DestroyNativeWindow(SDL_HWindow NativeWindow);
-
 	virtual bool IsMouseAttached() const override;
 
 	/**
@@ -137,6 +128,16 @@ public:
 	TSharedPtr< FLinuxWindow > GetCurrentActiveWindow() 
 	{
 		return CurrentlyActiveWindow;
+	}
+
+	/**
+	 * Returns the current active foreground window.
+	 *
+	 * @return pointer to the window, if any
+	 */
+	TSharedPtr< FLinuxWindow > GetCurrentFocusWindow() 
+	{
+		return CurrentFocusWindow;
 	}
 
 private:
@@ -193,11 +194,6 @@ private:
 private:
 
 	void RefreshDisplayCache();
-
-	/**
-	 * Checks if we need to destroy any of PendingDestroy windows.
-	 */
-	void DestroyPendingWindows();
 
 	/** Gets the location from a given touch event. */
 	FVector2D GetTouchEventLocation(SDL_Event TouchEvent);
@@ -305,22 +301,11 @@ private:
 	/** Used to check if the application is active or not. */
 	bool bActivateApp;
 
-	/** Used to check with cursor type is current and set to true if left button is pressed.*/
-	bool bLockToCurrentMouseType;
-
 	/** Cached displays - to reduce costly communication with X server (may be better cached in SDL? avoids ugly 'mutable') */
 	mutable TArray<SDL_Rect>	CachedDisplays;
 
 	/** Last time we asked about work area (this is a hack. What we need is a callback when screen config changes). */
 	mutable double			LastTimeCachedDisplays;
-
-	/**
-	 * Native windows to be destroyed - maps window handles to their deadlines (set in terms of FPlatformTime::Seconds())
-	 *
-	 * Deferred destruction is needed because of race condition between render and game threads: Slate might have already queued the window to be drawn this tick (see SlateDrawWindowsCommand), so deleting it
-	 * while processing window messages (especially deferred ones) during the same tick is not safe. See UE-28322 for details.
-	 */
-	TMap<SDL_HWindow, double> PendingDestroyWindows;
 };
 
 extern FLinuxApplication* LinuxApplication;

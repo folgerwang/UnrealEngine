@@ -26,13 +26,6 @@ struct FMovieSceneParticleChannel : public FMovieSceneByteChannel
 	GENERATED_BODY()
 
 	MOVIESCENETRACKS_API FMovieSceneParticleChannel();
-
-	/**
-	 * Access an integer that uniquely identifies this channel type.
-	 *
-	 * @return A static identifier that was allocated using FMovieSceneChannelEntry::RegisterNewID
-	 */
-	MOVIESCENETRACKS_API static uint32 GetChannelID();
 };
 
 template<>
@@ -43,12 +36,14 @@ struct TStructOpsTypeTraits<FMovieSceneParticleChannel> : public TStructOpsTypeT
 
 
 template<>
-struct TMovieSceneChannelTraits<FMovieSceneParticleChannel>
+struct TMovieSceneChannelTraits<FMovieSceneParticleChannel> : TMovieSceneChannelTraitsBase<FMovieSceneParticleChannel>
 {
-#if WITH_EDITORONLY_DATA
+	enum { SupportsDefaults = false };
+
+#if WITH_EDITOR
 
 	/** Byte channels can have external values (ie, they can get their values from external objects for UI purposes) */
-	typedef TMovieSceneExternalValue<uint8> EditorDataType;
+	typedef TMovieSceneExternalValue<uint8> ExtendedEditorDataType;
 
 #endif
 };
@@ -75,9 +70,15 @@ protected:
 };
 
 
-inline void AssignValue(FMovieSceneParticleChannel* InChannel, int32 ValueIndex, EParticleKey InValue)
+inline void AssignValue(FMovieSceneParticleChannel* InChannel, FKeyHandle InKeyHandle, EParticleKey InValue)
 {
-	InChannel->GetInterface().GetValues()[ValueIndex] = (uint8)InValue;
+	TMovieSceneChannelData<uint8> ChannelData = InChannel->GetData();
+	int32 ValueIndex = ChannelData.GetIndex(InKeyHandle);
+
+	if (ValueIndex != INDEX_NONE)
+	{
+		ChannelData.GetValues()[ValueIndex] = (uint8)InValue;
+	}
 }
 
 inline bool EvaluateChannel(const FMovieSceneParticleChannel* InChannel, FFrameTime InTime, EParticleKey& OutValue)
@@ -90,10 +91,3 @@ inline bool EvaluateChannel(const FMovieSceneParticleChannel* InChannel, FFrameT
 	}
 	return false;
 }
-
-// Stubbed out functions since FMovieSceneParticleChannel doesn't have an explicit default
-inline void SetChannelDefault(FMovieSceneParticleChannel* InChannel, EParticleKey DefaultValue)
-{}
-
-inline void ClearChannelDefault(FMovieSceneParticleChannel* InChannel)
-{}

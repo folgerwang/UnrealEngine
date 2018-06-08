@@ -485,6 +485,39 @@ void FDetailLayoutBuilderImpl::AddExternalRootPropertyNode(TSharedRef<FComplexPr
 	ExternalRootPropertyNodes.Add(InExternalRootNode);
 }
 
+void FDetailLayoutBuilderImpl::RemoveExternalRootPropertyNode(TSharedRef<FComplexPropertyNode> InExternalRootNode)
+{
+	ExternalRootPropertyNodes.RemoveAll([InExternalRootNode](TSharedPtr<FComplexPropertyNode> ExternalRootPropertyNode)
+	{
+		return ExternalRootPropertyNode == InExternalRootNode;
+	});
+}
+
+FDelegateHandle FDetailLayoutBuilderImpl::AddNodeVisibilityChangedHandler(FSimpleMulticastDelegate::FDelegate InOnNodeVisibilityChanged)
+{
+	return OnNodeVisibilityChanged.Add(InOnNodeVisibilityChanged);
+}
+
+void FDetailLayoutBuilderImpl::RemoveNodeVisibilityChangedHandler(FDelegateHandle DelegateHandle)
+{
+	OnNodeVisibilityChanged.Remove(DelegateHandle);
+}
+
+void FDetailLayoutBuilderImpl::NotifyNodeVisibilityChanged()
+{
+	OnNodeVisibilityChanged.Broadcast();
+}
+
+FCustomPropertyTypeLayoutMap&  FDetailLayoutBuilderImpl::GetInstancedPropertyTypeLayoutMap()
+{
+	return InstancedPropertyTypeLayoutMap;
+}
+
+void FDetailLayoutBuilderImpl::SetInstancedPropertyTypeLayoutMap(FCustomPropertyTypeLayoutMap& InInstancedPropertyTypeLayoutMap)
+{
+	InstancedPropertyTypeLayoutMap = InInstancedPropertyTypeLayoutMap;
+}
+
 TSharedPtr<FAssetThumbnailPool> FDetailLayoutBuilderImpl::GetThumbnailPool() const
 {
 	return PropertyDetailsUtilities.Pin()->GetThumbnailPool();

@@ -37,6 +37,7 @@
 #include "MeshAttributes.h"
 #include "IMeshBuilderModule.h"
 #include "Settings/EditorExperimentalSettings.h"
+#include "UObject/MetaData.h"
 
 #define LOCTEXT_NAMESPACE "FbxStaticMeshImport"
 
@@ -47,7 +48,7 @@ using namespace UnFbx;
 struct ExistingStaticMeshData;
 extern ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, FBXImportOptions* ImportOptions, int32 LodIndex);
 extern void RestoreExistingMeshSettings(struct ExistingStaticMeshData* ExistingMesh, UStaticMesh* NewMesh, int32 LODIndex);
-extern void RestoreExistingMeshData(struct ExistingStaticMeshData* ExistingMeshDataPtr, UStaticMesh* NewMesh, int32 LodLevel, bool bResetMaterialSlots);
+extern void RestoreExistingMeshData(struct ExistingStaticMeshData* ExistingMeshDataPtr, UStaticMesh* NewMesh, int32 LodLevel, bool bCanShowDialog);
 extern void UpdateSomeLodsImportMeshData(UStaticMesh* NewMesh, TArray<int32> *ReimportLodList);
 
 static FbxString GetNodeNameWithoutNamespace( FbxNode* Node )
@@ -983,8 +984,22 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportSceneStaticMesh(uint64 FbxNodeUniqueId
 				{
 					AllNodeInLod.Empty();
 					FindAllLODGroupNode(AllNodeInLod, NodeParent, LODIndex);
-					//For LOD we don't pass the ExistMeshDataPtr
-					ImportStaticMeshAsSingle(Mesh->GetOutermost(), AllNodeInLod, *Mesh->GetName(), RF_Public | RF_Standalone, TemplateImportData, FirstBaseMesh, LODIndex, nullptr);
+					if (AllNodeInLod.Num() > 0)
+					{
+						if (AllNodeInLod[0]->GetMesh() == nullptr)
+						{
+							AddStaticMeshSourceModelGeneratedLOD(FirstBaseMesh, LODIndex);
+						}
+						else
+						{
+							//For LOD we don't pass the ExistMeshDataPtr
+							ImportStaticMeshAsSingle(Mesh->GetOutermost(), AllNodeInLod, *Mesh->GetName(), RF_Public | RF_Standalone, TemplateImportData, FirstBaseMesh, LODIndex, nullptr);
+							if (FirstBaseMesh->SourceModels.IsValidIndex(LODIndex))
+							{
+								FirstBaseMesh->SourceModels[LODIndex].bImportWithBaseMesh = true;
+							}
+						}
+					}
 				}
 			}
 			if (FirstBaseMesh != nullptr)
@@ -1025,6 +1040,29 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportSceneStaticMesh(uint64 FbxNodeUniqueId
 	return FirstBaseMesh;
 }
 
+void UnFbx::FFbxImporter::AddStaticMeshSourceModelGeneratedLOD(UStaticMesh* StaticMesh, int32 LODIndex)
+{
+	//Add a Lod generated model
+	while (StaticMesh->SourceModels.Num() <= LODIndex)
+	{
+		new(StaticMesh->SourceModels) FStaticMeshSourceModel();
+	}
+	if (LODIndex - 1 > 0 && (StaticMesh->SourceModels[LODIndex - 1].ReductionSettings.PercentTriangles < 1.0f || StaticMesh->SourceModels[LODIndex - 1].ReductionSettings.MaxDeviation > 0.0f))
+	{
+		if (StaticMesh->SourceModels[LODIndex - 1].ReductionSettings.PercentTriangles < 1.0f)
+		{
+			StaticMesh->SourceModels[LODIndex].ReductionSettings.PercentTriangles = StaticMesh->SourceModels[LODIndex - 1].ReductionSettings.PercentTriangles * 0.5f;
+		}
+		else if (StaticMesh->SourceModels[LODIndex - 1].ReductionSettings.MaxDeviation > 0.0f)
+		{
+			StaticMesh->SourceModels[LODIndex].ReductionSettings.MaxDeviation = StaticMesh->SourceModels[LODIndex - 1].ReductionSettings.MaxDeviation + 1.0f;
+		}
+	}
+	else
+	{
+		StaticMesh->SourceModels[LODIndex].ReductionSettings.PercentTriangles = FMath::Pow(0.5f, (float)LODIndex);
+	}
+}
 
 UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStaticMeshImportData* TemplateImportData)
 {
@@ -1035,16 +1073,81 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStat
 	UStaticMesh* NewMesh = NULL;
 
 	// get meshes in Fbx file
-	//the function also fill the collision models, so we can update collision models correctly
-	FillFbxMeshArray(Scene->GetRootNode(), FbxMeshArray, this);
+	bool bImportStaticMeshLODs = ImportOptions->bImportStaticMeshLODs;
+	bool bCombineMeshes = ImportOptions->bCombineToSingle;
+	bool bCombineMeshesLOD = false;
+	TArray<TArray<FbxNode*>> FbxMeshesLod;
+
+	if (bCombineMeshes && !bImportStaticMeshLODs)
+	{
+		//the function also fill the collision models, so we can update collision models correctly
+		FillFbxMeshArray(Scene->GetRootNode(), FbxMeshArray, this);
+	}
+	else
+	{
+		// count meshes in lod groups if we dont care about importing LODs
+		bool bCountLODGroupMeshes = !bImportStaticMeshLODs;
+		int32 NumLODGroups = 0;
+		GetFbxMeshCount(Scene->GetRootNode(), bCountLODGroupMeshes, NumLODGroups);
+		// if there were LODs in the file, do not combine meshes even if requested
+		if (bImportStaticMeshLODs && bCombineMeshes && NumLODGroups > 0)
+		{
+			TArray<FbxNode*> FbxLodGroups;
+			
+			FillFbxMeshAndLODGroupArray(Scene->GetRootNode(), FbxLodGroups, FbxMeshArray);
+			FbxMeshesLod.Add(FbxMeshArray);
+			for (FbxNode* LODGroup : FbxLodGroups)
+			{
+				if (LODGroup->GetNodeAttribute() && LODGroup->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eLODGroup && LODGroup->GetChildCount() > 0)
+				{
+					for (int32 GroupLodIndex = 0; GroupLodIndex < LODGroup->GetChildCount(); ++GroupLodIndex)
+					{
+						if (GroupLodIndex >= MAX_STATIC_MESH_LODS)
+						{
+							AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("ImporterLimits_MaximumStaticMeshLODReach", "Reach the maximum LOD number({0}) for a staticmesh."), FText::AsNumber(MAX_STATIC_MESH_LODS))), FFbxErrors::Generic_Mesh_TooManyLODs);
+							continue;
+						}
+						TArray<FbxNode*> AllNodeInLod;
+						FindAllLODGroupNode(AllNodeInLod, LODGroup, GroupLodIndex);
+						if (AllNodeInLod.Num() > 0)
+						{
+							if (FbxMeshesLod.Num() <= GroupLodIndex)
+							{
+								FbxMeshesLod.Add(AllNodeInLod);
+							}
+							else
+							{
+								TArray<FbxNode*> &LODGroupArray = FbxMeshesLod[GroupLodIndex];
+								for (FbxNode* NodeToAdd : AllNodeInLod)
+								{
+									LODGroupArray.Add(NodeToAdd);
+								}
+							}
+						}
+					}
+				}
+			}
+			bCombineMeshesLOD = true;
+			bCombineMeshes = false;
+			//Set the first LOD
+			FbxMeshArray = FbxMeshesLod[0];
+		}
+		else
+		{
+			FillFbxMeshArray(Scene->GetRootNode(), FbxMeshArray, this);
+		}
+	}
+	
+	
+	
 	
 	// if there is only one mesh, use it without name checking 
 	// (because the "Used As Full Name" option enables users name the Unreal mesh by themselves
-	if (FbxMeshArray.Num() == 1)
+	if (!bCombineMeshesLOD && FbxMeshArray.Num() == 1)
 	{
 		Node = FbxMeshArray[0];
 	}
-	else if(!ImportOptions->bCombineToSingle)
+	else if(!bCombineMeshes && !bCombineMeshesLOD)
 	{
 		// find the Fbx mesh node that the Unreal Mesh matches according to name
 		int32 MeshIndex;
@@ -1059,7 +1162,9 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStat
 				const char* FbxMeshPtr = FbxMeshName + FCStringAnsi::Strlen(FbxMeshName) - 1;
 				while (i < FCStringAnsi::Strlen(FbxMeshName))
 				{
-					if (*MeshPtr != *FbxMeshPtr)
+					bool bIsPointAndUnderscore = *FbxMeshPtr == '.' && *MeshPtr == '_';
+					
+					if (*MeshPtr != *FbxMeshPtr && !bIsPointAndUnderscore)
 					{
 						break;
 					}
@@ -1087,7 +1192,7 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStat
 
 	// If there is no match it may be because an LOD group was imported where
 	// the mesh name does not match the file name. This is actually the common case.
-	if (!Node && FbxMeshArray.IsValidIndex(0))
+	if (!bCombineMeshesLOD && !Node && FbxMeshArray.IsValidIndex(0))
 	{
 		FbxNode* BaseLODNode = FbxMeshArray[0];
 		
@@ -1105,7 +1210,42 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStat
 	struct ExistingStaticMeshData* ExistMeshDataPtr = SaveExistingStaticMeshData(Mesh, ImportOptions, INDEX_NONE);
 
 	TArray<int32> ReimportLodList;
-	if (Node)
+	if (bCombineMeshesLOD)
+	{
+		TArray<FbxNode*> LodZeroNodes;
+		//Import the LOD root
+		if (FbxMeshesLod.Num() > 0)
+		{
+			TArray<FbxNode*> &LODMeshesArray = FbxMeshesLod[0];
+			LodZeroNodes = FbxMeshesLod[0];
+			NewMesh = ImportStaticMeshAsSingle(Mesh->GetOuter(), LODMeshesArray, *Mesh->GetName(), RF_Public | RF_Standalone, TemplateImportData, Mesh, 0, ExistMeshDataPtr);
+			ReimportLodList.Add(0);
+		}
+		//Import all LODs
+		for (int32 LODIndex = 1; LODIndex < FbxMeshesLod.Num(); ++LODIndex)
+		{
+			TArray<FbxNode*> &LODMeshesArray = FbxMeshesLod[LODIndex];
+
+			if (LODMeshesArray[0]->GetMesh() == nullptr)
+			{
+				AddStaticMeshSourceModelGeneratedLOD(NewMesh, LODIndex);
+			}
+			else
+			{
+				ImportStaticMeshAsSingle(Mesh->GetOuter(), LODMeshesArray, *Mesh->GetName(), RF_Public | RF_Standalone, TemplateImportData, NewMesh, LODIndex, nullptr);
+				ReimportLodList.Add(LODIndex);
+				if (NewMesh && NewMesh->SourceModels.IsValidIndex(LODIndex))
+				{
+					NewMesh->SourceModels[LODIndex].bImportWithBaseMesh = true;
+				}
+			}
+		}
+		if (NewMesh != nullptr)
+		{
+			PostImportStaticMesh(NewMesh, LodZeroNodes);
+		}
+	}
+	else if (Node)
 	{
 		FbxNode* NodeParent = RecursiveFindParentLodGroup(Node->GetParent());
 
@@ -1132,9 +1272,20 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStat
 					FindAllLODGroupNode(AllNodeInLod, NodeParent, LODIndex);
 					if (AllNodeInLod.Num() > 0)
 					{
-						//For LOD we don't pass the ExistMeshDataPtr
-						ImportStaticMeshAsSingle(Mesh->GetOuter(), AllNodeInLod, *Mesh->GetName(), RF_Public | RF_Standalone, TemplateImportData, NewMesh, LODIndex, nullptr);
-						ReimportLodList.Add(LODIndex);
+						if (AllNodeInLod[0]->GetMesh() == nullptr)
+						{
+							AddStaticMeshSourceModelGeneratedLOD(NewMesh, LODIndex);
+						}
+						else
+						{
+							//For LOD we don't pass the ExistMeshDataPtr
+							ImportStaticMeshAsSingle(Mesh->GetOuter(), AllNodeInLod, *Mesh->GetName(), RF_Public | RF_Standalone, TemplateImportData, NewMesh, LODIndex, nullptr);
+							ReimportLodList.Add(LODIndex);
+							if (NewMesh->SourceModels.IsValidIndex(LODIndex))
+							{
+								NewMesh->SourceModels[LODIndex].bImportWithBaseMesh = true;
+							}
+						}
 					}
 				}
 			}
@@ -1172,7 +1323,7 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStat
 	if (NewMesh != nullptr)
 	{
 		UpdateSomeLodsImportMeshData(NewMesh, &ReimportLodList);
-		RestoreExistingMeshData(ExistMeshDataPtr, NewMesh, INDEX_NONE, ImportOptions->bResetMaterialSlots);
+		RestoreExistingMeshData(ExistMeshDataPtr, NewMesh, INDEX_NONE, ImportOptions->bCanShowDialog);
 	}
 	return NewMesh;
 }
@@ -1187,6 +1338,103 @@ void UnFbx::FFbxImporter::VerifyGeometry(UStaticMesh* StaticMesh)
 		if (Extents.GetAbsMax() < 5.f)
 		{
 			AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, LOCTEXT("Prompt_MeshVerySmall", "Warning: The imported mesh is very small. This is most likely an issue with the units used when exporting to FBX.")), FFbxErrors::Generic_Mesh_SmallGeometry);
+		}
+	}
+}
+
+FString GetFbxPropertyStringValue(const FbxProperty& Property)
+{
+	FString ValueStr(TEXT("Unsupported type"));
+
+	FbxDataType DataType = Property.GetPropertyDataType();
+	switch (DataType.GetType())
+	{
+	case eFbxBool:
+		{
+			FbxBool BoolValue = Property.Get<FbxBool>();
+			ValueStr = LexToString(BoolValue);
+		}
+		break;
+	case eFbxInt:
+		{
+			FbxInt IntValue = Property.Get<FbxInt>();
+			ValueStr = LexToString(IntValue);
+		}
+		break;
+	case eFbxEnum:
+		{
+			FbxEnum EnumValue = Property.Get<FbxEnum>();
+			ValueStr = LexToString(EnumValue);
+		}
+		break;
+	case eFbxFloat:
+		{
+			FbxFloat FloatValue = Property.Get<FbxFloat>();
+			ValueStr = LexToString(FloatValue);
+		}
+		break;
+	case eFbxDouble:
+		{
+			FbxDouble DoubleValue = Property.Get<FbxDouble>();
+			ValueStr = LexToString(DoubleValue);
+		}
+		break;
+	case eFbxDouble2:
+		{
+			FbxDouble2 Vec = Property.Get<FbxDouble2>();
+			ValueStr = FString::Printf(TEXT("(%f, %f, %f, %f)"), Vec[0], Vec[1]);
+		}
+		break;
+	case eFbxDouble3:
+		{
+			FbxDouble3 Vec = Property.Get<FbxDouble3>();
+			ValueStr = FString::Printf(TEXT("(%f, %f, %f)"), Vec[0], Vec[1], Vec[2]);
+		}
+		break;
+	case eFbxDouble4:
+		{
+			FbxDouble4 Vec = Property.Get<FbxDouble4>();
+			ValueStr = FString::Printf(TEXT("(%f, %f, %f, %f)"), Vec[0], Vec[1], Vec[2], Vec[3]);
+		}
+		break;
+	case eFbxString:
+		{
+			FbxString StringValue = Property.Get<FbxString>();
+			ValueStr = UTF8_TO_TCHAR(StringValue.Buffer());
+	}
+		break;
+	default:
+		break;
+	}
+	return ValueStr;
+}
+
+void ImportNodeCustomProperties(UObject* Object, FbxNode* Node)
+{
+	if (Object && Node)
+	{
+		// Import all custom user-defined FBX properties from the FBX node to the object metadata
+		FbxProperty CurrentProperty = Node->GetFirstProperty();
+		static const FString MetadataPrefix(FBX_METADATA_PREFIX);
+		while (CurrentProperty.IsValid())
+		{
+			if (CurrentProperty.GetFlag(FbxPropertyFlags::eUserDefined))
+			{
+				// Prefix the FBX metadata tag to make it distinguishable from other metadata
+				// so that it can be exportable through FBX export
+				FString MetadataTag = UTF8_TO_TCHAR(CurrentProperty.GetName());
+				MetadataTag = MetadataPrefix + MetadataTag;
+
+				FString MetadataValue = GetFbxPropertyStringValue(CurrentProperty);
+				Object->GetOutermost()->GetMetaData()->SetValue(Object, *MetadataTag, *MetadataValue);
+			}
+			CurrentProperty = Node->GetNextProperty(CurrentProperty);
+		}
+
+		int NumChildren = Node->GetChildCount();
+		for (int i = 0; i < NumChildren; ++i)
+		{
+			ImportNodeCustomProperties(Object, Node->GetChild(i));
 		}
 	}
 }
@@ -1464,7 +1712,15 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 				}
 				if (MaterialIndex == INDEX_NONE)
 				{
-					MaterialIndex = PolygonGroupID.GetValue();
+					if (LODIndex > 0 && ExistMeshData != nullptr)
+					{
+						//Do not add Material slot when reimporting a LOD just use the index found in the fbx if valid or use the last MaterialSlot index
+						MaterialIndex = StaticMesh->StaticMaterials.Num() - 1;
+					}
+					else
+					{
+						MaterialIndex = PolygonGroupID.GetValue();
+					}
 				}
 				FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(LODIndex, SectionIndex);
 				Info.MaterialIndex = MaterialIndex;
@@ -1531,7 +1787,11 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 			SrcModel.BuildSettings.bGenerateLightmapUVs = false;
 		}
 
-		StaticMesh->LODGroup = ImportOptions->StaticMeshLODGroup;
+		//LODGroup should never change during a re-import or when we import a LOD > 0
+		if (LODIndex == 0 && InStaticMesh == nullptr)
+		{
+			StaticMesh->LODGroup = ImportOptions->StaticMeshLODGroup;
+		}
 
 		//Set the Imported version before calling the build
 		//We set it here because the remap index is build in RestoreExistingMeshSettings call before the build
@@ -1541,8 +1801,6 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		{
 			RestoreExistingMeshSettings(ExistMeshData, InStaticMesh, StaticMesh->LODGroup != NAME_None ? INDEX_NONE : LODIndex);
 		}
-
-		
 
 		// The code to check for bad lightmap UVs doesn't scale well with number of triangles.
 		// Skip it here because Lightmass will warn about it during a light build anyway.
@@ -1575,10 +1833,12 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 
 	if (StaticMesh)
 	{
-		//warnings based on geometry
-		VerifyGeometry(StaticMesh);
-
 		ImportStaticMeshLocalSockets(StaticMesh, MeshNodeArray);
+
+		for (FbxNode* Node : MeshNodeArray)
+		{
+			ImportNodeCustomProperties(StaticMesh, Node);
+		}
 	}
 
 	return StaticMesh;
@@ -1756,10 +2016,6 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 	{
 		//Generate a random GUID to be sure it rebuild the asset
 		StaticMesh->BuildCacheAutomationTestGuid = FGuid::NewGuid();
-	}
-
-	if (GIsAutomationTesting)
-	{
 		//Avoid distance field calculation in automation test setting this to false is not suffisant since the condition OR with the CVar
 		//But fbx automation test turn off the CVAR
 		StaticMesh->bGenerateMeshDistanceField = false;
@@ -1776,6 +2032,8 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 	{
 		MeshDescription->TriangulateMesh();
 	}
+	//Make sure the light map UVChannel is valid
+	StaticMesh->EnforceLightmapRestrictions();
 
 	//Prebuild the static mesh when we use LodGroup and we want to modify the LodNumber
 	if (!ImportOptions->bImportScene)

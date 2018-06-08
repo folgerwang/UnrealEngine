@@ -18,7 +18,7 @@ struct FMovieSceneColorSectionTemplate : public FMovieScenePropertySectionTempla
 {
 	GENERATED_BODY()
 	
-	FMovieSceneColorSectionTemplate() {}
+	FMovieSceneColorSectionTemplate() : BlendType((EMovieSceneBlendType)0) {}
 	FMovieSceneColorSectionTemplate(const UMovieSceneColorSection& Section, const UMovieSceneColorTrack& Track);
 
 	/** Curve data as RGBA */

@@ -4,54 +4,51 @@
 
 #pragma once
 
-#include "Misc/ScopeRWLock.h"
-
 class FD3D12RootSignature; // forward-declare
 class FD3D12BoundShaderState; // forward-declare
+struct FD3D12ComputePipelineStateDesc;
+struct FD3D12LowLevelGraphicsPipelineStateDesc;
 
-struct FD3D12LowLevelGraphicsPipelineStateDesc
+// Graphics pipeline stream struct that represents the latest version of PSO subobjects currently used by the RHI.
+struct FD3D12_GRAPHICS_PIPELINE_STATE_STREAM
 {
-	const FD3D12RootSignature *pRootSignature;
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC Desc;
-	ShaderBytecodeHash VSHash;
-	ShaderBytecodeHash HSHash;
-	ShaderBytecodeHash DSHash;
-	ShaderBytecodeHash GSHash;
-	ShaderBytecodeHash PSHash;
+	// Note: Unused members are currently commented out to exclude them from the stream.
+	// This results in a smaller struct and thus fewer tokens to parse at runtime. Feel free to add/change as necessary.
 
-	SIZE_T CombinedHash;
-
-	FORCEINLINE FString GetName() const { return FString::Printf(TEXT("%llu"), CombinedHash); }
+	//CD3DX12_PIPELINE_STATE_STREAM_FLAGS Flags;
+	CD3DX12_PIPELINE_STATE_STREAM_NODE_MASK NodeMask;
+	CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
+	CD3DX12_PIPELINE_STATE_STREAM_INPUT_LAYOUT InputLayout;
+	CD3DX12_PIPELINE_STATE_STREAM_IB_STRIP_CUT_VALUE IBStripCutValue;
+	CD3DX12_PIPELINE_STATE_STREAM_PRIMITIVE_TOPOLOGY PrimitiveTopologyType;
+	CD3DX12_PIPELINE_STATE_STREAM_VS VS;
+	CD3DX12_PIPELINE_STATE_STREAM_GS GS;
+	CD3DX12_PIPELINE_STATE_STREAM_STREAM_OUTPUT StreamOutput;
+	CD3DX12_PIPELINE_STATE_STREAM_HS HS;
+	CD3DX12_PIPELINE_STATE_STREAM_DS DS;
+	CD3DX12_PIPELINE_STATE_STREAM_PS PS;
+	CD3DX12_PIPELINE_STATE_STREAM_BLEND_DESC BlendState;
+	CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL1 DepthStencilState;
+	CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
+	CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER RasterizerState;
+	CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
+	CD3DX12_PIPELINE_STATE_STREAM_SAMPLE_DESC SampleDesc;
+	CD3DX12_PIPELINE_STATE_STREAM_SAMPLE_MASK SampleMask;
+	CD3DX12_PIPELINE_STATE_STREAM_CACHED_PSO CachedPSO;
+	//CD3DX12_PIPELINE_STATE_STREAM_VIEW_INSTANCING ViewInstancingDesc;
 };
 
-struct FD3D12HighLevelGraphicsPipelineStateDesc
+// Compute pipeline stream struct that represents the latest version of PSO subobjects currently used by the RHI.
+struct FD3D12_COMPUTE_PIPELINE_STATE_STREAM
 {
-	FD3D12BoundShaderState* BoundShaderState;
-	D3D12_BLEND_DESC* BlendState;
-	D3D12_DEPTH_STENCIL_DESC* DepthStencilState;
-	D3D12_RASTERIZER_DESC* RasterizerState;
-	// IBStripCutValue unused
-	uint32 SampleMask;
-	D3D12_PRIMITIVE_TOPOLOGY_TYPE PrimitiveTopologyType;
-	uint32 NumRenderTargets;
-	TRenderTargetFormatsArray RTVFormats;
-	DXGI_FORMAT DSVFormat;
-	DXGI_SAMPLE_DESC SampleDesc;
+	// Note: Unused members are currently commented out to exclude them from the stream.
+	// This results in a smaller struct and thus fewer tokens to parse at runtime. Feel free to add/change as necessary.
 
-	SIZE_T CombinedHash; // Pre-computed hash
-
-	void GetLowLevelDesc(FD3D12LowLevelGraphicsPipelineStateDesc& psoDesc);
-};
-
-struct FD3D12ComputePipelineStateDesc
-{
-	const FD3D12RootSignature* pRootSignature;
-	D3D12_COMPUTE_PIPELINE_STATE_DESC Desc;
-	ShaderBytecodeHash CSHash;
-
-	SIZE_T CombinedHash;
-
-	FORCEINLINE FString GetName() const { return FString::Printf(TEXT("%llu"), CombinedHash); }
+	//CD3DX12_PIPELINE_STATE_STREAM_FLAGS Flags;
+	CD3DX12_PIPELINE_STATE_STREAM_NODE_MASK NodeMask;
+	CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
+	CD3DX12_PIPELINE_STATE_STREAM_CS CS;
+	CD3DX12_PIPELINE_STATE_STREAM_CACHED_PSO CachedPSO;
 };
 
 struct ComputePipelineCreationArgs_POD
@@ -65,6 +62,20 @@ struct ComputePipelineCreationArgs_POD
 		Library = InArgs.Library;
 	}
 };
+
+struct GraphicsPipelineCreationArgs_POD
+{
+	const FD3D12LowLevelGraphicsPipelineStateDesc* Desc;
+	ID3D12PipelineLibrary* Library;
+
+	void Init(GraphicsPipelineCreationArgs_POD InArgs)
+	{
+		Desc = InArgs.Desc;
+		Library = InArgs.Library;
+	}
+};
+
+#include "D3D12PipelineState.h"
 
 struct ComputePipelineCreationArgs
 {
@@ -96,18 +107,6 @@ struct ComputePipelineCreationArgs
 	}
 
 	ComputePipelineCreationArgs_POD Args;
-};
-
-struct GraphicsPipelineCreationArgs_POD
-{
-	const FD3D12LowLevelGraphicsPipelineStateDesc* Desc;
-	ID3D12PipelineLibrary* Library;
-
-	void Init(GraphicsPipelineCreationArgs_POD InArgs)
-	{
-		Desc = InArgs.Desc;
-		Library = InArgs.Library;
-	}
 };
 
 struct GraphicsPipelineCreationArgs
@@ -142,31 +141,17 @@ struct GraphicsPipelineCreationArgs
 	GraphicsPipelineCreationArgs_POD Args;
 };
 
-template <typename TDesc> struct TPSOFunctionMap;
-template<> struct TPSOFunctionMap < D3D12_GRAPHICS_PIPELINE_STATE_DESC >
-{
-	static decltype(&ID3D12Device::CreateGraphicsPipelineState) GetCreatePipelineState() { return &ID3D12Device::CreateGraphicsPipelineState; }
-	static decltype(&ID3D12PipelineLibrary::LoadGraphicsPipeline) GetLoadPipeline() { return &ID3D12PipelineLibrary::LoadGraphicsPipeline; }
-};
-template<> struct TPSOFunctionMap < D3D12_COMPUTE_PIPELINE_STATE_DESC >
-{
-	static decltype(&ID3D12Device::CreateComputePipelineState) GetCreatePipelineState() { return &ID3D12Device::CreateComputePipelineState; }
-	static decltype(&ID3D12PipelineLibrary::LoadComputePipeline) GetLoadPipeline() { return &ID3D12PipelineLibrary::LoadComputePipeline; }
-};
-
-
-#include "D3D12PipelineState.h"
-
 class FD3D12PipelineStateCache : public FD3D12PipelineStateCacheBase
 {
 private:
 	FDiskCacheInterface DiskBinaryCache;
 	TRefCountPtr<ID3D12PipelineLibrary> PipelineLibrary;
+	bool bUseAPILibaries;
 
-	FD3D12PipelineState* Add_NoLock(const GraphicsPipelineCreationArgs& Args);
-	FD3D12PipelineState* Add_NoLock(const ComputePipelineCreationArgs& Args);
 
-	FD3D12PipelineState* FindGraphicsLowLevel(FD3D12LowLevelGraphicsPipelineStateDesc* Desc);
+	// Add_NoLock
+	void AddToDiskCache(const FD3D12LowLevelGraphicsPipelineStateDesc& Desc, FD3D12PipelineState* PipelineState);
+	void AddToDiskCache(const FD3D12ComputePipelineStateDesc& Desc, FD3D12PipelineState* PipelineState);
 
 	void WriteOutShaderBlob(PSO_CACHE_TYPE Cache, ID3D12PipelineState* APIPso);
 
@@ -202,16 +187,19 @@ private:
 
 	bool UseCachedBlobs() const
 	{
-		return bUseAPILibaries && bUseCachedBlobs && !UsePipelineLibrary();
+		// Use Cached Blobs if Pipeline Librarys aren't supported.
+		//return bUseAPILibaries && !UsePipelineLibrary();
+		return false; // Don't try to use cached blobs (for now).
 	}
 
-	FD3D12PipelineState* FindGraphicsInternal(FD3D12HighLevelGraphicsPipelineStateDesc* Desc, FRWScopeLockType LockType);
+protected:
+
+	void OnPSOCreated(FD3D12PipelineState* PipelineState, const FD3D12LowLevelGraphicsPipelineStateDesc& Desc) final override;
+	void OnPSOCreated(FD3D12PipelineState* PipelineState, const FD3D12ComputePipelineStateDesc& Desc) final override;
 
 public:
-	void RebuildFromDiskCache(ID3D12RootSignature* GraphicsRootSignature, ID3D12RootSignature* ComputeRootSignature);
 
-	FD3D12PipelineState* FindGraphics(FD3D12HighLevelGraphicsPipelineStateDesc* Desc);
-	FD3D12PipelineState* FindCompute(FD3D12ComputePipelineStateDesc* Desc);
+	void RebuildFromDiskCache(ID3D12RootSignature* GraphicsRootSignature, ID3D12RootSignature* ComputeRootSignature);
 
 	void Close();
 
@@ -220,8 +208,45 @@ public:
 
 	FD3D12PipelineStateCache(FD3D12Adapter* InParent);
 	~FD3D12PipelineStateCache();
-
-	static const bool bUseAPILibaries = true;
-	static const bool bUseCachedBlobs = false;
-	uint32 DriverShaderBlobs;
 };
+
+template <typename TDesc> struct TPSOFunctionMap;
+template<> struct TPSOFunctionMap < D3D12_GRAPHICS_PIPELINE_STATE_DESC >
+{
+	static decltype(&ID3D12Device::CreateGraphicsPipelineState) GetCreatePipelineState() { return &ID3D12Device::CreateGraphicsPipelineState; }
+	static decltype(&ID3D12PipelineLibrary::LoadGraphicsPipeline) GetLoadPipeline() { return &ID3D12PipelineLibrary::LoadGraphicsPipeline; }
+	static FString GetString() { return TEXT("Graphics"); }
+};
+template<> struct TPSOFunctionMap < D3D12_COMPUTE_PIPELINE_STATE_DESC >
+{
+	static decltype(&ID3D12Device::CreateComputePipelineState) GetCreatePipelineState() { return &ID3D12Device::CreateComputePipelineState; }
+	static decltype(&ID3D12PipelineLibrary::LoadComputePipeline) GetLoadPipeline() { return &ID3D12PipelineLibrary::LoadComputePipeline; }
+	static FString GetString() { return TEXT("Compute"); }
+};
+
+template <typename TDesc> struct TPSOStreamFunctionMap;
+template<> struct TPSOStreamFunctionMap < GraphicsPipelineCreationArgs_POD >
+{
+	static decltype(&FD3D12_GRAPHICS_PIPELINE_STATE_DESC::GraphicsDescV0) GetPipelineStateDescV0() { return &FD3D12_GRAPHICS_PIPELINE_STATE_DESC::GraphicsDescV0; }
+	typedef D3D12_GRAPHICS_PIPELINE_STATE_DESC D3D12PipelineStateDescV0Type;
+	typedef FD3D12_GRAPHICS_PIPELINE_STATE_STREAM D3D12PipelineStateStreamType;
+	static FString GetString() { return TEXT("Graphics Stream"); }
+};
+template<> struct TPSOStreamFunctionMap < ComputePipelineCreationArgs_POD >
+{
+	static decltype(&FD3D12_COMPUTE_PIPELINE_STATE_DESC::ComputeDescV0) GetPipelineStateDescV0() { return &FD3D12_COMPUTE_PIPELINE_STATE_DESC::ComputeDescV0; }
+	typedef D3D12_COMPUTE_PIPELINE_STATE_DESC D3D12PipelineStateDescV0Type;
+	typedef FD3D12_COMPUTE_PIPELINE_STATE_STREAM D3D12PipelineStateStreamType;
+	static FString GetString() { return TEXT("Compute Stream"); }
+};
+
+// Thread-safe create graphics/compute pipeline state. Conditionally load/store the PSO using a Pipeline Library.
+template <typename TDesc>
+ID3D12PipelineState* CreatePipelineState(ID3D12Device* Device, const TDesc* Desc, ID3D12PipelineLibrary* Library, const TCHAR* Name);
+
+// Thread-safe create graphics/compute pipeline state. Conditionally load/store the PSO using a Pipeline Library.
+template <typename TDesc>
+ID3D12PipelineState* CreatePipelineStateFromStream(ID3D12Device2* Device, const D3D12_PIPELINE_STATE_STREAM_DESC* Desc, ID3D12PipelineLibrary1* Library, const TCHAR* Name);
+
+template <typename TDesc>
+ID3D12PipelineState* CreatePipelineStateWrapper(FD3D12Adapter* Adapter, const TDesc* CreationArgs);

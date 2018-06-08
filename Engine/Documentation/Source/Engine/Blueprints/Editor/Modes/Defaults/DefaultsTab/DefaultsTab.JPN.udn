@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2691671
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:ブループリント エディタのデフォルト タブ
 Crumbs:%ROOT%, Engine/Blueprints, Engine/Blueprints/Editor, Engine/Blueprints/Editor/Modes
-Description:ブループリント デフォルト タブの概要
+Description::ブループリント デフォルト タブの概要ab
 version:4.9
+tags:Blueprints
 
 
 **[Class Defaults]** タブには、ブループリントのデフォルトの設定値およびプロパティ、そしてブループリントが収容する変数に関する情報が含まれています。これらの設定値は、ユーザーがニーズに合わせて変更することができます。
@@ -31,7 +32,7 @@ version:4.9
 
 Class Defaults 内に定義されたプロパティは、**Get Class Defaults** Blueprint ノードを使ってランタイム時にアクセスすることもできます。ターゲットとなるユースケースは、データのみの Blueprint クラス、およびインスタンスを作成 / 必要としなくてもデフォルト プロパティ値にアクセスできる場合です。 
 
-**To Access the Get Class Defaults Node**
+**To Access the Get Class Defaults ノード**
 
 1. Blueprint クラスあるいは関数グラフを **右クリック** して、コンテキスト メニューから **GetClassDefaults** を入力します。 
 

@@ -32,6 +32,12 @@ public class ICU : ModuleRules
 			TargetSpecificPath = ICURootPath + "Linux/";
 		}
 
+		// make all Androids use the Android directory
+		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
+		{
+			TargetSpecificPath = ICURootPath + "Android/";
+		}
+
 		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32))
 		{
@@ -130,14 +136,15 @@ public class ICU : ModuleRules
 					foreach (string Stem in LibraryNameStems)
 					{
 						string LibraryName = "icu" + Stem + LibraryNamePostfix;
-						if (Target.Platform == UnrealTargetPlatform.Android)
+						if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 						{
-							// we will filter out in the toolchain
-							PublicAdditionalLibraries.Add(LibraryName); // Android requires only the filename.
+							// Linux needs the path, not just the filename, to avoid linking to system lib instead of a bundled one.
+							PublicAdditionalLibraries.Add(TargetSpecificPath + "lib/" + "lib" + LibraryName + "." + StaticLibraryExtension); 
 						}
 						else
 						{
-							PublicAdditionalLibraries.Add(TargetSpecificPath + "lib/" + "lib" + LibraryName + "." + StaticLibraryExtension); // Linux seems to need the path, not just the filename.
+							// other platforms will just use the library name
+							PublicAdditionalLibraries.Add(LibraryName);
 						}
 					}
 					break;

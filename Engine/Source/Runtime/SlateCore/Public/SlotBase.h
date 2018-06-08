@@ -18,8 +18,13 @@ public:
 
 	FORCEINLINE_DEBUGGABLE void AttachWidgetParent(SWidget* InParent)
 	{
-		RawParentPtr = InParent;
-		AfterContentOrOwnerChanges();
+		if (RawParentPtr != InParent)
+		{
+			ensureMsgf(RawParentPtr == nullptr, TEXT("Slots should not be reassigned to different parents."));
+
+			RawParentPtr = InParent;
+			AfterContentOrOwnerAssigned();
+		}
 	}
 
 	FORCEINLINE_DEBUGGABLE void AttachWidget( const TSharedRef<SWidget>& InWidget )
@@ -27,8 +32,9 @@ public:
 		// TODO: If we don't hold a reference here, ~SWidget() could called on the old widget before the assignment takes place
 		// The behavior of TShareRef is going to change in the near future to avoid this issue and this should then be reverted.
 		TSharedRef<SWidget> LocalWidget = Widget;
+		DetatchParentFromContent();
 		Widget = InWidget;
-		AfterContentOrOwnerChanges();
+		AfterContentOrOwnerAssigned();
 	}
 
 	/**
@@ -53,7 +59,8 @@ protected:
 	SWidget* RawParentPtr;
 
 private:
-	void AfterContentOrOwnerChanges();
+	void DetatchParentFromContent();
+	void AfterContentOrOwnerAssigned();
 
 private:
 	// non-copyable

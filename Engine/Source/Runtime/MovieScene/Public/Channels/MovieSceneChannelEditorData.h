@@ -12,14 +12,14 @@
 #if WITH_EDITOR
 
 /**
- * Common editor data for a channel of data within a movie scene section
+ * Editor meta data for a channel of data within a movie scene section
  */
-struct FMovieSceneChannelEditorData
+struct FMovieSceneChannelMetaData
 {
 	/*
 	 * Default Constructor
 	 */
-	MOVIESCENE_API FMovieSceneChannelEditorData();
+	MOVIESCENE_API FMovieSceneChannelMetaData();
 
 	/*
 	 * Construction from a name and display text. Necessary when there is more than one channel.
@@ -28,7 +28,7 @@ struct FMovieSceneChannelEditorData
 	 * @param InDisplayText    Text to display on the sequencer node tree
 	 * @param InGroup          (Optional) When not empty, specifies a name to group channels by
 	 */
-	MOVIESCENE_API FMovieSceneChannelEditorData(FName InName, FText InDisplayText, FText InGroup = FText());
+	MOVIESCENE_API FMovieSceneChannelMetaData(FName InName, FText InDisplayText, FText InGroup = FText());
 
 	/*
 	 * Set the identifiers for this editor data
@@ -57,7 +57,7 @@ struct FMovieSceneChannelEditorData
 
 
 /**
- * Typed external value that can be used to define how to access the current value on an object for any given channel of data. Typically defined as the specialized editor data for many channel types through TMovieSceneChannelTraits::EditorDataType.
+ * Typed external value that can be used to define how to access the current value on an object for any given channel of data. Typically defined as the extended editor data for many channel types through TMovieSceneChannelTraits::ExtendedEditorDataType.
  */
 template<typename T>
 struct TMovieSceneExternalValue

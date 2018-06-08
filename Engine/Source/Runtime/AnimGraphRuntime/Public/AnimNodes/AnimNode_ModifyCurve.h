@@ -17,7 +17,13 @@ enum class EModifyCurveApplyMode : uint8
 	Scale,
 
 	/** Blend input with new curve value, using Alpha setting on the node */
-	Blend
+	Blend,
+
+	/** Blend the new curve value with the last curve value using Alpha to determine the weighting (.5 is a moving average, higher values react to new values faster, lower slower) */
+	WeightedMovingAverage,
+
+	/** Remaps the new curve value between the CurveValues entry and 1.0 (.5 in CurveValues makes 0.51 map to 0.02) */
+	RemapCurve
 };
 
 /** Easy way to modify curve values on a pose */
@@ -34,6 +40,9 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_ModifyCurve : public FAnimNode_Base
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, editfixedsize, Category = ModifyCurve, meta = (PinShownByDefault))
 	TArray<float> CurveValues;
+
+	UPROPERTY(Transient)
+	TArray<float> LastCurveValues;
 
 	UPROPERTY()
 	TArray<FName> CurveNames;

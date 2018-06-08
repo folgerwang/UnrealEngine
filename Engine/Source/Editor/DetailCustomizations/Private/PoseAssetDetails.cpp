@@ -11,6 +11,8 @@
 #include "IDetailsView.h"
 #include "PropertyCustomizationHelpers.h"
 #include "ScopedTransaction.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE	"PoseAssetDetails"
 
@@ -588,11 +590,40 @@ void FPoseAssetDetails::CachePoseAssetData()
 		 if (AnimSequenceSelected && AnimSequenceSelected->GetSkeleton() == PoseAsset->GetSkeleton())
 		 {
 			 PoseAsset->UpdatePoseFromAnimation(AnimSequenceSelected);
+
+			 FFormatNamedArguments Args;
+			 Args.Add(TEXT("AssetName"), FText::FromString(PoseAsset->GetName()));
+			 Args.Add(TEXT("SourceAsset"), FText::FromString(AnimSequenceSelected->GetName()));
+			 FText ResultText = FText::Format(LOCTEXT("PoseAssetSourceHasBeenUpdated", "PoseAsset {AssetName} has been updated from {SourceAsset}"), Args);
+
+			 FNotificationInfo Info(ResultText);
+			 Info.bFireAndForget = true;
+			 Info.bUseLargeFont = false;
+
+			 TSharedPtr<SNotificationItem> Item = FSlateNotificationManager::Get().AddNotification(Info);
+			 if (Item.IsValid())
+			 {
+				 Item->SetCompletionState(SNotificationItem::CS_Success);
+			 }
 		 }
 		 else
 		 {
 			 // invalid source asset message
-			 FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("UpdatePoseWithInvalidSkeleton", "The source animation contains invalid skeleton. Make sure to select source with the skeleton that matches current pose asset."));
+			 FFormatNamedArguments Args;
+			 Args.Add(TEXT("AssetName"), FText::FromString(PoseAsset->GetName()));
+			 Args.Add(TEXT("SourceAsset"), FText::FromString(GetNameSafe(AnimSequenceSelected)));
+			 Args.Add(TEXT("SkeletonName"), FText::FromString(GetNameSafe(PoseAsset->GetSkeleton())));
+			 FText ResultText = FText::Format(LOCTEXT("UpdatePoseWithInvalidSkeleton", "Source Asset {SourceAsset} is invalid or does not have matching skeleton {SkeletonName} with {AssetName}"), Args);
+
+			 FNotificationInfo Info(ResultText);
+			 Info.bFireAndForget = true;
+			 Info.bUseLargeFont = true;
+
+			 TSharedPtr<SNotificationItem> Item = FSlateNotificationManager::Get().AddNotification(Info);
+			 if (Item.IsValid())
+			 {
+				 Item->SetCompletionState(SNotificationItem::CS_Fail);
+			 }
 		 }
 	 }
 	 return FReply::Handled();

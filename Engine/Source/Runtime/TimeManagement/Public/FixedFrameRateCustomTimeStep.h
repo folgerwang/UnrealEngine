@@ -4,7 +4,7 @@
 
 #include "Engine/EngineCustomTimeStep.h"
 
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 
 #include "FixedFrameRateCustomTimeStep.generated.h"
 
@@ -19,8 +19,11 @@ class TIMEMANAGEMENT_API UFixedFrameRateCustomTimeStep : public UEngineCustomTim
 	GENERATED_UCLASS_BODY()
 
 public:
-
 	/** The fixed FrameRate */
 	UPROPERTY(EditAnywhere, Category=Time)
 	FFrameRate FixedFrameRate;
+
+protected:
+	/** Default behaviour of the engine. Used FixedFrameRate */
+	void WaitForFixedFrameRate() const;
 };

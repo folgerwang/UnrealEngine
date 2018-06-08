@@ -31,6 +31,7 @@ enum class EPlatformMemorySizeBucket
 	Default,
 	Smaller,
 	Smallest,
+    Tiniest
 };
 
 
@@ -275,6 +276,14 @@ struct CORE_API FGenericPlatformMemory
 	static FPlatformMemoryStats GetStats();
 
 	/**
+	* @return memory used for platforms that can do it quickly (without affecting stat unit much)
+	*/
+	static uint64 GetMemoryUsedFast()
+	{
+		return 0;
+	}
+
+	/**
 	 * Writes all platform specific current memory statistics in the format usable by the malloc profiler.
 	 */
 	static void GetStatsForMallocProfiler( FGenericMemoryStats& out_Stats );
@@ -501,6 +510,13 @@ public:
 	* These functions are the platform dependant low low low level functions that LLM uses to allocate memory.
 	*/
 	static bool GetLLMAllocFunctions(void*(*&OutAllocFunction)(size_t), void(*&OutFreeFunction)(void*, size_t), int32& OutAlignment);
+
+	/**
+	* Called for all default tracker LLM allocations and frees, when LLM is enabled.
+	* Provides a single alloc/free hook that platforms can implement to support platform specific memory analysis tools.
+	*/
+	FORCEINLINE static void OnLowLevelMemory_Alloc(void const* Pointer, uint64 Size, uint64 Tag) { }
+	FORCEINLINE static void OnLowLevelMemory_Free(void const* Pointer, uint64 Size, uint64 Tag) { }
 
 protected:
 	friend struct FGenericStatsUpdater;

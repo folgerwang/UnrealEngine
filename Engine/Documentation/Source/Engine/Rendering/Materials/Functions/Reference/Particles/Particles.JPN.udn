@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2729971
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:パーティクル
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:複雑なパーティクルネットワークの設定支援のために設計された専門的な関数
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 
@@ -31,12 +32,12 @@ Version:4.9
 | **Near Camera Falloff Start Distance (Scalar)** -|オブジェクトが透明性を維持しているカメラ位置からの距離をワールド空間単位で表した数値です。|
 | **Near Camera Fade Distance (1/n) (Scalar)** | オパシティが 0 へとフェードするカメラ位置からの距離です。ターゲット距離の逆数を入力します。例えば、パーティクルを 256 単位以上でフェードアウトさせるときは 1/256 を入力すると、アンリアルがこの数値を 0.003906 へ変換します。
 | **Use Depth In Camera Falloff Calculation (StaticBool)** | 遠くのピクセルより先に近くのピクセル (深度マップに基づきます) をフェードアウトさせます。デフォルト値は *false* です。|
-|[REGION:tablesection]パーティクルアルファ グループ[/REGION] ||
-| **Use Particle Alpha (StaticBool)** | 結果をパーティクルカラーのアルファチャンネル値で乗算します。デフォルト値は *false* です。|
+|[REGION:tablesection]パーティクル アルファ グループ[/REGION] ||
+| **Use Particle Alpha (StaticBool)** | 結果をパーティクルカラーのアルファ チャンネル値で乗算します。デフォルト値は *false* です。|
 |[REGION:tablesection]WPO グループ[/REGION] ||
 | **Camera Offset (Scalar)** | この値は *Texture Depth* と同じ値でなくてはいけません。*Texture Depth* 値はこの入力値のデフォルト値として使用されます。|
 |[REGION:tablesection]出力値[/REGION] ||
-| **Opacity** | フォールオフ後に最終となるオパシティの計算値です。|
+| **Opacity** | フォールオフ後の最終的なオパシティの計算値です。|
 | **World Position Offset** | パーティクルエディタでカメラオフセットの動作をエミュレートします。|
 
 ![3dParticleOpacity](3dParticleOpacity.png)

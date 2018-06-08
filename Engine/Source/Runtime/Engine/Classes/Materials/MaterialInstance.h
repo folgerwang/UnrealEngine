@@ -33,8 +33,10 @@ struct FScalarParameterValue
 {
 	GENERATED_USTRUCT_BODY()
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	FName ParameterName_DEPRECATED;
+#endif
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ScalarParameterValue)
 	FMaterialParameterInfo ParameterInfo;
@@ -72,8 +74,10 @@ struct FVectorParameterValue
 {
 	GENERATED_USTRUCT_BODY()
 		
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	FName ParameterName_DEPRECATED;
+#endif
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=VectorParameterValue)
 	FMaterialParameterInfo ParameterInfo;
@@ -111,8 +115,10 @@ struct FTextureParameterValue
 {
 	GENERATED_USTRUCT_BODY()
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	FName ParameterName_DEPRECATED;
+#endif
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=TextureParameterValue)
 	FMaterialParameterInfo ParameterInfo;
@@ -150,8 +156,10 @@ struct FFontParameterValue
 {
 	GENERATED_USTRUCT_BODY()
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	FName ParameterName_DEPRECATED;
+#endif
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=FontParameterValue)
 	FMaterialParameterInfo ParameterInfo;
@@ -363,6 +371,7 @@ public:
 	virtual ENGINE_API const FMaterialResource* GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::Num) const override;
 	virtual ENGINE_API bool GetScalarParameterSliderMinMax(const FMaterialParameterInfo& ParameterInfo, float& OutSliderMin, float& OutSliderMax) const override;
 	virtual ENGINE_API bool GetScalarParameterValue(const FMaterialParameterInfo& ParameterInfo, float& OutValue, bool bOveriddenOnly = false) const override;
+	virtual ENGINE_API bool IsScalarParameterUsedAsAtlasPosition(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, TSoftObjectPtr<class UCurveLinearColor>& Curve, TSoftObjectPtr<class UCurveLinearColorAtlas>& Atlas) const override;
 	virtual ENGINE_API bool GetVectorParameterValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor& OutValue, bool bOveriddenOnly = false) const override;
 	virtual ENGINE_API bool IsVectorParameterUsedAsChannelMask(const FMaterialParameterInfo& ParameterInfo, bool& OutValue) const override;
 	virtual ENGINE_API bool GetTextureParameterValue(const FMaterialParameterInfo& ParameterInfo, class UTexture*& OutValue, bool bOveriddenOnly = false) const override;
@@ -392,8 +401,9 @@ public:
 	virtual ENGINE_API bool GetParameterSortPriority(const FMaterialParameterInfo& ParameterInfo, int32& OutSortPriority, const TArray<struct FStaticMaterialLayersParameter>* MaterialLayersParameters = nullptr) const override;
 	virtual ENGINE_API bool GetGroupSortPriority(const FString& InGroupName, int32& OutSortPriority) const override;
 	virtual ENGINE_API bool GetTexturesInPropertyChain(EMaterialProperty InProperty, TArray<UTexture*>& OutTextures,
-		TArray<FName>* OutTextureParamNames, struct FStaticParameterSet* InStaticParameterSet) override;
-#endif // WITH_EDITOR
+		TArray<FName>* OutTextureParamNames, struct FStaticParameterSet* InStaticParameterSet,
+		ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type InQuality) override;
+#endif
 	virtual ENGINE_API void RecacheUniformExpressions() const override;
 	virtual ENGINE_API bool GetRefractionSettings(float& OutBiasValue) const override;
 	ENGINE_API virtual void ForceRecompileForRendering() override;
@@ -544,6 +554,11 @@ public:
 	 *	@param	OutGuids			The list of all resource guids affecting the precomputed lighting system and texture streamer.
 	 */
 	ENGINE_API virtual void GetLightingGuidChain(bool bIncludeTextures, TArray<FGuid>& OutGuids) const override;
+
+	void DumpDebugInfo();
+	void SaveShaderStableKeys(const class ITargetPlatform* TP);
+	ENGINE_API virtual void SaveShaderStableKeysInner(const class ITargetPlatform* TP, const struct FStableShaderKeyAndValue& SaveKeyVal) override;
+
 
 protected:
 	/**

@@ -40,7 +40,7 @@ FSLESSoundBuffer::~FSLESSoundBuffer( void )
 
 FSLESSoundBuffer* FSLESSoundBuffer::CreateQueuedBuffer( FSLESAudioDevice* AudioDevice, USoundWave* InWave )
 {
-	check(InWave->bIsPrecacheDone);
+	check(InWave->GetPrecacheState() == ESoundWavePrecacheState::Done);
 	
 	// Always create a new buffer for real time decompressed sounds
 	FSLESSoundBuffer* Buffer = new FSLESSoundBuffer( AudioDevice);

@@ -434,6 +434,7 @@ void FSkeletalMeshLODRenderData::ReleaseResources()
 void FSkeletalMeshLODRenderData::BuildFromLODModel(const FSkeletalMeshLODModel* ImportedModel, uint32 BuildFlags)
 {
 	bool bUseFullPrecisionUVs = (BuildFlags & ESkeletalMeshVertexFlags::UseFullPrecisionUVs) != 0;
+	bool bUseHighPrecisionTangentBasis = (BuildFlags & ESkeletalMeshVertexFlags::UseHighPrecisionTangentBasis) != 0;
 	bool bHasVertexColors = (BuildFlags & ESkeletalMeshVertexFlags::HasVertexColors) != 0;
 
 	// Copy required info from source sections
@@ -463,8 +464,10 @@ void FSkeletalMeshLODRenderData::BuildFromLODModel(const FSkeletalMeshLODModel* 
 	TArray<FSoftSkinVertex> Vertices;
 	ImportedModel->GetVertices(Vertices);
 
-	// match UV precision for mesh vertex buffer to setting from parent mesh
+	// match UV and tangent precision for mesh vertex buffer to setting from parent mesh
 	StaticVertexBuffers.StaticMeshVertexBuffer.SetUseFullPrecisionUVs(bUseFullPrecisionUVs);
+	StaticVertexBuffers.StaticMeshVertexBuffer.SetUseHighPrecisionTangentBasis(bUseHighPrecisionTangentBasis);
+
 	// init vertex buffer with the vertex array
 	StaticVertexBuffers.PositionVertexBuffer.Init(Vertices.Num());
 	StaticVertexBuffers.StaticMeshVertexBuffer.Init(Vertices.Num(), ImportedModel->NumTexCoords);
@@ -602,13 +605,25 @@ void FSkeletalMeshLODRenderData::Serialize(FArchive& Ar, UObject* Owner, int32 I
 
 	// Skeletal mesh buffers are kept in CPU memory after initialization to support merging of skeletal meshes.
 	bool bKeepBuffersInCPUMemory = true;
+	bool bNeedsCPUAccess = true;
+	USkeletalMesh* SkelMeshOwner = nullptr;
+
 #if !WITH_EDITOR
 	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.FreeSkeletalMeshBuffers"));
 	if (CVar)
 	{
 		bKeepBuffersInCPUMemory = !CVar->GetValueOnAnyThread();
+		bNeedsCPUAccess = bKeepBuffersInCPUMemory;
 	}
 #endif
+	if (!StripFlags.IsDataStrippedForServer())
+	{
+		SkelMeshOwner = CastChecked<USkeletalMesh>(Owner);
+
+		// set cpu skinning flag on the vertex buffer so that the resource arrays know if they need to be CPU accessible
+		bNeedsCPUAccess = bKeepBuffersInCPUMemory || SkelMeshOwner->GetResourceForRendering()->RequiresCPUSkinning(GMaxRHIFeatureLevel) ||
+			SkelMeshOwner->NeedCPUData(Idx);
+	}
 
 	if (StripFlags.IsDataStrippedForServer() || StripFlags.IsClassDataStripped(MinLodStripFlag))
 	{
@@ -625,21 +640,15 @@ void FSkeletalMeshLODRenderData::Serialize(FArchive& Ar, UObject* Owner, int32 I
 	{
 		Ar << RenderSections;
 
-		MultiSizeIndexContainer.Serialize(Ar, bKeepBuffersInCPUMemory);
+		MultiSizeIndexContainer.Serialize(Ar, bNeedsCPUAccess);
 
 		Ar << ActiveBoneIndices;
 	}
 
 	Ar << RequiredBones;
-
-
+	
 	if (!StripFlags.IsDataStrippedForServer() && !StripFlags.IsClassDataStripped(MinLodStripFlag))
 	{
-		USkeletalMesh* SkelMeshOwner = CastChecked<USkeletalMesh>(Owner);
-
-		// set cpu skinning flag on the vertex buffer so that the resource arrays know if they need to be CPU accessible
-		bool bNeedsCPUAccess = bKeepBuffersInCPUMemory || SkelMeshOwner->GetResourceForRendering()->RequiresCPUSkinning(GMaxRHIFeatureLevel);
-
 		if (Ar.IsLoading())
 		{
 			SkinWeightVertexBuffer.SetNeedsCPUAccess(bNeedsCPUAccess);
@@ -649,7 +658,7 @@ void FSkeletalMeshLODRenderData::Serialize(FArchive& Ar, UObject* Owner, int32 I
 		StaticVertexBuffers.StaticMeshVertexBuffer.Serialize(Ar, bNeedsCPUAccess);
 		Ar << SkinWeightVertexBuffer;
 
-		if (SkelMeshOwner->bHasVertexColors)
+		if (SkelMeshOwner && SkelMeshOwner->bHasVertexColors)
 		{
 			StaticVertexBuffers.ColorVertexBuffer.Serialize(Ar, bKeepBuffersInCPUMemory);
 		}

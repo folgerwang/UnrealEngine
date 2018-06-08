@@ -35,6 +35,7 @@
 #include "Widgets/Docking/SDockTab.h"
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "DeviceProfiles/DeviceProfile.h"
+#include "Curves/CurveLinearColorAtlas.h"
 
 #define LOCTEXT_NAMESPACE "FTextureEditorToolkit"
 
@@ -851,25 +852,6 @@ void FTextureEditorToolkit::CreateInternalWidgets( )
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void FTextureEditorToolkit::ExtendToolBar( )
 {
-	struct Local
-	{
-		static void FillToolbar(FToolBarBuilder& ToolbarBuilder, const TSharedRef< FUICommandList > ToolkitCommands, TSharedRef<SWidget> LODControl)
-		{
-			ToolbarBuilder.BeginSection("TextureMisc");
-			{
-				ToolbarBuilder.AddToolBarButton(FTextureEditorCommands::Get().CompressNow);
-				ToolbarBuilder.AddToolBarButton(FTextureEditorCommands::Get().Reimport);
-			}
-			ToolbarBuilder.EndSection();
-
-			ToolbarBuilder.BeginSection("TextureMipAndExposure");
-			{
-				ToolbarBuilder.AddWidget(LODControl);
-			}
-			ToolbarBuilder.EndSection();
-		}
-	};
-
 	TSharedRef<SWidget> LODControl = SNew(SBox)
 		.WidthOverride(240.0f)
 		[
@@ -960,7 +942,7 @@ void FTextureEditorToolkit::ExtendToolBar( )
 		"Asset",
 		EExtensionHook::After,
 		GetToolkitCommands(),
-		FToolBarExtensionDelegate::CreateStatic(&Local::FillToolbar, GetToolkitCommands(), LODControl)
+		FToolBarExtensionDelegate::CreateSP(this, &FTextureEditorToolkit::FillToolbar, GetToolkitCommands(), LODControl)
 	);
 
 	AddToolbarExtender(ToolbarExtender);
@@ -968,6 +950,27 @@ void FTextureEditorToolkit::ExtendToolBar( )
 	ITextureEditorModule* TextureEditorModule = &FModuleManager::LoadModuleChecked<ITextureEditorModule>("TextureEditor");
 	AddToolbarExtender(TextureEditorModule->GetToolBarExtensibilityManager()->GetAllExtenders(GetToolkitCommands(), GetEditingObjects()));
 }
+
+void FTextureEditorToolkit::FillToolbar(FToolBarBuilder& ToolbarBuilder, const TSharedRef< FUICommandList > InToolkitCommands, TSharedRef<SWidget> LODControl)
+{
+	UCurveLinearColorAtlas* Atlas = Cast<UCurveLinearColorAtlas>(GetTexture());
+	if (!Atlas)
+	{
+		ToolbarBuilder.BeginSection("TextureMisc");
+		{
+			ToolbarBuilder.AddToolBarButton(FTextureEditorCommands::Get().CompressNow);
+			ToolbarBuilder.AddToolBarButton(FTextureEditorCommands::Get().Reimport);
+		}
+		ToolbarBuilder.EndSection();
+
+		ToolbarBuilder.BeginSection("TextureMipAndExposure");
+		{
+			ToolbarBuilder.AddWidget(LODControl);
+		}
+		ToolbarBuilder.EndSection();
+	}
+}
+
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 
@@ -1207,7 +1210,7 @@ bool FTextureEditorToolkit::HandleRedChannelActionIsChecked( ) const
 
 bool FTextureEditorToolkit::HandleReimportActionCanExecute( ) const
 {
-	if (Texture->IsA<ULightMapTexture2D>() || Texture->IsA<UShadowMapTexture2D>() || Texture->IsA<UTexture2DDynamic>() || Texture->IsA<UTextureRenderTarget>())
+	if (Texture->IsA<ULightMapTexture2D>() || Texture->IsA<UShadowMapTexture2D>() || Texture->IsA<UTexture2DDynamic>() || Texture->IsA<UTextureRenderTarget>() || Texture->IsA<UCurveLinearColorAtlas>())
 	{
 		return false;
 	}

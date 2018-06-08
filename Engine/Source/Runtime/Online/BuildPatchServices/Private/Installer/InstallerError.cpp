@@ -45,8 +45,12 @@ namespace BuildPatchServices
 
 	FText GetDiskSpaceMessage(const FString& Location, uint64 RequiredBytes, uint64 AvailableBytes, const FNumberFormattingOptions* FormatOptions)
 	{
-		static const FText OutOfDiskSpace(NSLOCTEXT("BuildPatchInstallError", "InstallDirectoryDiskSpace", "There is not enough space at {Location}\n{RequiredBytes} is required.\n{AvailableBytes} is available.\nYou need an additional {SpaceAdditional} to perform the installation."));
-		static const FNumberFormattingOptions DefaultOptions = FNumberFormattingOptions()
+#if PLATFORM_DESKTOP
+        static const FText OutOfDiskSpace(NSLOCTEXT("BuildPatchInstallError", "InstallDirectoryDiskSpace", "There is not enough space at {Location}\n{RequiredBytes} is required.\n{AvailableBytes} is available.\nYou need an additional {SpaceAdditional} to perform the installation."));
+#else
+        static const FText OutOfDiskSpace(NSLOCTEXT("BuildPatchInstallError", "InstallDirectoryDiskSpaceDevice", "There is not enough space on your device.\n{RequiredBytes} is required.\n{AvailableBytes} is available.\nYou need an additional {SpaceAdditional} to perform the installation."));
+#endif // PLATFORM_DESKTOP
+        static const FNumberFormattingOptions DefaultOptions = FNumberFormattingOptions()
 			.SetMinimumFractionalDigits(2)
 			.SetMaximumFractionalDigits(2);
 		FormatOptions = FormatOptions == nullptr ? &DefaultOptions : FormatOptions;

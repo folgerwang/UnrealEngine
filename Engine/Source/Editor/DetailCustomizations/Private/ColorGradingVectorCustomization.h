@@ -4,6 +4,8 @@
 
 #include "MathStructCustomizations.h"
 #include "IDetailCustomNodeBuilder.h"
+#include "EditorUndoClient.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 class FVector4StructCustomization;
 class SColorGradingPicker;
@@ -19,7 +21,7 @@ struct FColorGradingMinMaxSliderValue
 	TOptional<float> DefaultMinSliderValue;
 };
 
-class FColorGradingVectorCustomizationBase : public TSharedFromThis<FColorGradingVectorCustomizationBase>
+class FColorGradingVectorCustomizationBase : public TSharedFromThis<FColorGradingVectorCustomizationBase>, public FEditorUndoClient
 {
 public:
 	/** Notification when the max/min slider values are changed (only apply if SupportDynamicSliderMaxValue or SupportDynamicSliderMinValue are true) */
@@ -49,6 +51,12 @@ public:
 
 	/** Callback returning the desired gradiant color for a specified color index */
 	TArray<FLinearColor> GetGradientColor(int32 ColorIndex) const;
+
+	//~ Begin FEditorUndoClient Interface
+	virtual void PostUndo(bool bSuccess) override;
+	virtual void PostRedo(bool bSuccess) override;
+	// End of FEditorUndoClient	
+
 protected:
 	bool IsInRGBMode() const;
 	EColorGradingModes GetColorGradingMode() const;
@@ -186,6 +194,9 @@ private:
 
 	void OnBeginMainValueSliderMovement();
 	void OnEndMainValueSliderMovement();
+
+	void OnBeginMouseCapture();
+	void OnEndMouseCapture();
 
 	/** Callback when user click the Group reset button */
 	void OnDetailGroupReset();

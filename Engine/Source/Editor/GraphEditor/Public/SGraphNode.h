@@ -61,7 +61,7 @@ public:
 	FVector2D GetTitleSize() const;
 
 protected:
-	UEdGraphNode* GraphNode;
+	TWeakObjectPtr<UEdGraphNode> GraphNode;
 	FNodeTextCache NodeTitleCache;
 	FName ExtraLineStyle;
 

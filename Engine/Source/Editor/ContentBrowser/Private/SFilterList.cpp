@@ -60,7 +60,8 @@ public:
 		}
 		else
 		{
-			return SCheckBox::OnMouseButtonUp(InMyGeometry, InMouseEvent);
+			SCheckBox::OnMouseButtonUp(InMyGeometry, InMouseEvent);
+			return FReply::Handled().ReleaseMouseCapture();
 		}
 	}
 
@@ -412,6 +413,7 @@ void SFilterList::Construct( const FArguments& InArgs )
 	AllFrontendFilters.Add( MakeShareable(new FFrontendFilter_UsedInAnyLevel(DefaultCategory)) );
 	AllFrontendFilters.Add( MakeShareable(new FFrontendFilter_NotUsedInAnyLevel(DefaultCategory)) );
 	AllFrontendFilters.Add( MakeShareable(new FFrontendFilter_ArbitraryComparisonOperation(DefaultCategory)) );
+	AllFrontendFilters.Add(MakeShareable(new FFrontendFilter_Recent(DefaultCategory)));
 
 	// Add any global user-defined frontend filters
 	for (TObjectIterator<UContentBrowserFrontEndFilterExtension> ExtensionIt(RF_NoFlags); ExtensionIt; ++ExtensionIt)
@@ -491,6 +493,11 @@ FReply SFilterList::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointer
 	}
 
 	return FReply::Unhandled();
+}
+
+const TArray<UClass*>& SFilterList::GetInitialClassFilters()
+{
+	return InitialClassFilters;
 }
 
 bool SFilterList::HasAnyFilters() const

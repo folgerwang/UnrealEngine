@@ -20,18 +20,11 @@ struct FHybridScatterInputs
 	float2 NeighborhoodComparisonBufferInvSize;
 	float2 NeighborhoodComparisonMaxBufferUV;
 	
-	
-	// Minimum Coc radius absolute value to have to scater.
-	float MinScatteringCocRadius;
-	
 
 	// ------- run time pixel independent category.
-
 	float FrameExposureScale;
-	float4 ViewportRect;
 	
 	// ------- run time category.
-	float2 SvPosition;
 	float4 Color;
 	float CocRadius;
 
@@ -39,8 +32,25 @@ struct FHybridScatterInputs
 	float2 BufferUV;
 };
 
+// Faster but less accurate luma computation with a scaling by 4.
+float Luma4(float3 Color)
+{
+	return (Color.g * 2.0) + (Color.r + Color.b);
+}
+
+// Return the minimal luma for a pixel to be scattered.
+float ComputeLuminanceOnlyBasedScatterFactor(in const FHybridScatterInputs Parameters)
+{
+	const float MinimalPerceivedLuma4 = 0.4;
+
+	float PerceivedLuma4 = Parameters.FrameExposureScale * Luma4(Parameters.Color.rgb);
+
+	return saturate(PerceivedLuma4 * rcp(MinimalPerceivedLuma4) - 1.0);
+	//return saturate((PerceivedLuminance - MinimalPerceivedLuma4) * rcp(MinimalPerceivedLuma4));
+}
+
 // Determines whether a sample should be scattered.
-float ComputeScatterFactor(in const FHybridScatterInputs Parameters)
+float ComputeNeighborBasedScatterFactor(in const FHybridScatterInputs Parameters)
 {
 	// Neighborhood comparison to decide whether should scatter or not.
 	float ScatterFactor = 0;
@@ -53,20 +63,10 @@ float ComputeScatterFactor(in const FHybridScatterInputs Parameters)
 
 		float4 SaturatedColor = min(Parameters.Color, LinearColorMaximum);
 
-		#if 1
-			const uint NeightborCount = 4;
-		#else
-			const uint NeightborCount = 9;
-		#endif
-
 		UNROLL
-		for (uint i = 0; i < NeightborCount; i++)
+		for (uint i = 0; i < 4; i++)
 		{
-			#if 1
-				const float2 Offset = kOffsetsCross3x3[i];
-			#else
-				const float2 Offset = kOffsetsSquare3x3[i];
-			#endif
+			const float2 Offset = kOffsetsCross3x3[i];
 			if (all(Offset == 0))
 			{
 				continue;
@@ -109,41 +109,6 @@ float ComputeScatterFactor(in const FHybridScatterInputs Parameters)
 				ScatterFactor = max(ScatterFactor, SampleScatterFactor * ConsiderSample);
 			}
 		}
-	}
-
-	// Do not scater if the sample becomes really small.
-	ScatterFactor *= saturate(abs(Parameters.CocRadius) - Parameters.MinScatteringCocRadius);
-
-	// Do not scater if the Coc start to draw outside the viewport.
-	if (1)
-	{
-		float ClosestBorderDistance = float(min(
-			min(Parameters.SvPosition.x, Parameters.SvPosition.y),
-			min(Parameters.ViewportRect.z - Parameters.SvPosition.x, Parameters.ViewportRect.w - Parameters.SvPosition.y)));
-	
-		BRANCH
-		if (ClosestBorderDistance < abs(Parameters.CocRadius))
-		{
-			ScatterFactor *= saturate(ClosestBorderDistance - abs(Parameters.CocRadius));
-		}
-	}
-
-	// Do not scater if the post exposure intensity is too small.
-	// TODO: currently it depends on the resolution, which is weird.
-	if (1)
-	{
-		const float MinimalPerceivedLuminance = 0.1;
-
-		float PerceivedLuminance = Parameters.FrameExposureScale * Luminance(Parameters.Color.rgb);
-
-		ScatterFactor *= saturate((PerceivedLuminance - MinimalPerceivedLuminance) * rcp(MinimalPerceivedLuminance));
-	}
-
-	// Sharpen to remove sprites that are contributing not that much.
-	if (1)
-	{
-		const float Sharpen = 2;
-		ScatterFactor = max(ScatterFactor * Sharpen - (Sharpen - 1), 0);
 	}
 
 	return ScatterFactor;

@@ -2,13 +2,13 @@
 
 #include "MovieSceneSectionDetailsCustomization.h"
 #include "IDetailPropertyRow.h"
-#include "FrameNumber.h"
+#include "Misc/FrameNumber.h"
 #include "IDetailChildrenBuilder.h"
 #include "DetailLayoutBuilder.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Input/SEditableTextBox.h"
 #include "PropertyCustomizationHelpers.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "MovieSceneFrameMigration.h"
 #include "FrameNumberDetailsCustomization.h"
 #include "ScopedTransaction.h"
@@ -280,6 +280,18 @@ FText FMovieSceneSectionDetailsCustomization::GetRangeStartButtonIcon() const
 /** Called when the button is pressed to toggle the current state. */
 FReply FMovieSceneSectionDetailsCustomization::ToggleRangeStartBounded()
 {
+	FScopedTransaction Transaction(LOCTEXT("ToggleRangeStartBounded", "Toggle Range Start Bounded"));
+	TArray<UObject*> Objects;
+	MovieSceneSectionPropertyHandle->GetOuterObjects(Objects);
+
+	for (auto Outer : Objects)
+	{
+		for (UObject* Obj : Objects)
+		{
+			Obj->Modify();
+		}
+	}
+
 	if (IsRangeStartTextboxEnabled())
 	{
 		SetRangeStartBounded(false);
@@ -468,6 +480,18 @@ FText FMovieSceneSectionDetailsCustomization::GetRangeEndButtonIcon() const
 /** Called when the button is pressed to toggle the current state. */
 FReply FMovieSceneSectionDetailsCustomization::ToggleRangeEndBounded()
 {
+	FScopedTransaction Transaction(LOCTEXT("ToggleRangeEndBounded", "Toggle Range End Bounded"));
+	TArray<UObject*> Objects;
+	MovieSceneSectionPropertyHandle->GetOuterObjects(Objects);
+
+	for (auto Outer : Objects)
+	{
+		for (UObject* Obj : Objects)
+		{
+			Obj->Modify();
+		}
+	}
+
 	if (IsRangeEndTextboxEnabled())
 	{
 		SetRangeEndBounded(false);

@@ -539,6 +539,7 @@ protected:
 	 */
 	friend class UTextureRenderTarget2D;
 	virtual void UpdateDeferredResource(FRHICommandListImmediate& RHICmdList, bool bClearRenderTarget=true) override;
+	void Resize(int32 NewSizeX, int32 NewSizeY);
 
 private:
 	/** The UTextureRenderTarget2D which this resource represents. */

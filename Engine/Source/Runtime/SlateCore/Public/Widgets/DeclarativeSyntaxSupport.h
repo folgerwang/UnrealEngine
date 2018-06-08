@@ -1031,7 +1031,7 @@ struct TDecl
 		: _Widget( TWidgetAllocator<WidgetType, TIsDerivedFrom<WidgetType, SUserWidget>::IsDerived >::PrivateAllocateWidget() )
 		, _RequiredArgs(InRequiredArgs)
 	{
-		_Widget->SetDebugInfo( InType, InFile, OnLine );
+		_Widget->SetDebugInfo( InType, InFile, OnLine, sizeof(WidgetType) );
 	}
 
 	/**

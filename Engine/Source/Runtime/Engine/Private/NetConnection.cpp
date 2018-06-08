@@ -33,8 +33,9 @@
 #include "UObject/ObjectKey.h"
 #include "UObject/UObjectIterator.h"
 
-#if !UE_BUILD_SHIPPING
 static TAutoConsoleVariable<int32> CVarPingExcludeFrameTime( TEXT( "net.PingExcludeFrameTime" ), 0, TEXT( "Calculate RTT time between NIC's of server and client." ) );
+
+#if !UE_BUILD_SHIPPING
 static TAutoConsoleVariable<int32> CVarPingDisplayServerTime( TEXT( "net.PingDisplayServerTime" ), 0, TEXT( "Show server frame time" ) );
 #endif
 
@@ -98,6 +99,8 @@ UNetConnection::UNetConnection(const FObjectInitializer& ObjectInitializer)
 ,	CountedFrames		( 0 )
 ,	InBytes				( 0 )
 ,	OutBytes			( 0 )
+,	InTotalBytes		( 0 )
+,	OutTotalBytes		( 0 ) 
 ,	InPackets			( 0 )
 ,	OutPackets			( 0 )
 ,	InTotalPackets		( 0 )
@@ -413,6 +416,20 @@ void UNetConnection::EnableEncryption()
 			UE_LOG(LogNet, Warning, TEXT("UNetConnection::EnableEncryption, encryption component not found!"));
 		}
 	}
+}
+
+bool UNetConnection::IsEncryptionEnabled() const
+{
+	if (Handler.IsValid())
+	{
+		TSharedPtr<FEncryptionComponent> EncryptionComponent = Handler->GetEncryptionComponent();
+		if (EncryptionComponent.IsValid())
+		{
+			return EncryptionComponent->IsEncryptionEnabled();
+		}
+	}
+
+	return false;
 }
 
 void UNetConnection::Serialize( FArchive& Ar )
@@ -922,6 +939,7 @@ void UNetConnection::ReceivedRawPacket( void* InData, int32 Count )
 	UE_LOG(LogNetTraffic, Verbose, TEXT("%6.3f: Received %i"), FPlatformTime::Seconds() - GStartTime, Count );
 	int32 PacketBytes = Count + PacketOverhead;
 	InBytes += PacketBytes;
+	InTotalBytes += PacketBytes;
 	++InPackets;
 	++InTotalPackets;
 	Driver->InBytes += PacketBytes;
@@ -1107,6 +1125,7 @@ void UNetConnection::FlushNet(bool bIgnoreSimulation)
 		QueuedBits += (PacketBytes * 8);
 
 		OutBytes += PacketBytes;
+		OutTotalBytes += PacketBytes;
 		Driver->OutBytes += PacketBytes;
 		GNetOutBytes += PacketBytes;
 		InitSendBuffer();
@@ -1240,7 +1259,6 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 			// If this is the client, we're reading in confirmation that our request to get frame time from server is granted
 			const bool bHasServerFrameTime = !!Reader.ReadBit();
 
-#if !UE_BUILD_SHIPPING	// We never actually read it for shipping
 			if ( !Driver->IsServer() )
 			{
 				if ( bHasServerFrameTime )
@@ -1256,7 +1274,7 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 				// Server remembers so he can use during SendAck to notify to client of his frame time
 				bLastHasServerFrameTime = bHasServerFrameTime;
 			}
-#endif
+
 			uint32 RemoteInKBytesPerSecond = 0;
 			Reader.SerializeIntPacked( RemoteInKBytesPerSecond );
 
@@ -1288,13 +1306,13 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 				{
 					UE_LOG( LogNetTraffic, Warning, TEXT( "ServerFrameTime: %2.2f" ), ServerFrameTime * 1000.0f );
 				}
-
-				const float GameTime	= ServerFrameTime + FrameTime;
-				const float RTT			= ( FPlatformTime::Seconds() - OutLagTime[Index] ) - ( CVarPingExcludeFrameTime.GetValueOnAnyThread() ? GameTime : 0.0f );
-				const float NewLag		= FMath::Max( RTT, 0.0f );
-#else
-				const float NewLag		= FPlatformTime::Seconds() - OutLagTime[Index];
 #endif
+
+				// use FApp's time because it is set closer to the beginning of the frame - we don't care about the time so far of the current frame to process the packet
+				const double CurrentTime = FApp::GetCurrentTime();
+				const double GameTime	 = ServerFrameTime;
+				const double RTT		 = (CurrentTime - OutLagTime[Index] ) - ( CVarPingExcludeFrameTime.GetValueOnAnyThread() ? GameTime : 0.0 );
+				const double NewLag		 = FMath::Max( RTT, 0.0 );
 
 				if ( OutBytesPerSecondHistory[Index] > 0 )
 				{
@@ -1507,38 +1525,51 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 			{
 				// This was an open bunch for a channel that's already opened.
 				// We can ignore future bunches from this channel.
-				const bool bNewlyOpened = Bunch.bOpen && (!Bunch.bPartial || Bunch.bPartialInitial);
-				if (bNewlyOpened || IgnoringChannels.Contains(Bunch.ChIndex))
-				{
-					if (bNewlyOpened)
-					{
-						// NOTE: This could break if there are sufficient enough MustBeMapped GUIDs to have
-						//			prevented the actor GUID from being written.
-						//			Don't think that's currently handle by the normal system either, though.
-						if (Bunch.bHasMustBeMappedGUIDs)
-						{
-							// Skip passed any must be mapped guids.
-							uint16 NumMustBeMappedGUIDs = 0;
-							Bunch << NumMustBeMappedGUIDs;
-							for (int32 i = 0; i < NumMustBeMappedGUIDs; i++)
-							{
-								FNetworkGUID TempNetGUID;
-								Bunch << TempNetGUID;
-							}
-						}
+				const bool bNewlyOpenedActorChannel = Bunch.bOpen && (Bunch.ChType == CHTYPE_Actor) && (!Bunch.bPartial || Bunch.bPartialInitial);
 
-						FNetworkGUID ActorGUID;
-						Bunch << ActorGUID;
-						IgnoringChannels.Add(Bunch.ChIndex, ActorGUID);
+				if (bNewlyOpenedActorChannel)
+				{
+					// NOTE: This could break if this is a PartialBunch and the ActorGUID wasn't serialized.
+					//			Seems unlikely given the aggressive Flushing + increased MTU on InternalAck.
+
+					// Any GUIDs / Exports will have been read already for InternalAck connections,
+					// but we may have to skip over must-be-mapped GUIDs before we can read the actor GUID.
+
+					if (Bunch.bHasMustBeMappedGUIDs)
+					{
+						uint16 NumMustBeMappedGUIDs = 0;
+						Bunch << NumMustBeMappedGUIDs;
+
+						for (int32 i = 0; i < NumMustBeMappedGUIDs; i++)
+						{
+							FNetworkGUID NetGUID;
+							Bunch << NetGUID;
+						}
 					}
 
+					FNetworkGUID ActorGUID;
+					Bunch << ActorGUID;
+
+					IgnoringChannels.Add(Bunch.ChIndex, ActorGUID);
+				}
+
+				if (IgnoringChannels.Contains(Bunch.ChIndex))
+				{
 					if (Bunch.bClose && (!Bunch.bPartial || Bunch.bPartialFinal))
 					{
 						FNetworkGUID ActorGUID = IgnoringChannels.FindAndRemoveChecked(Bunch.ChIndex);
 						if (ActorGUID.IsStatic())
 						{
-							AActor* StaticActor = Cast<AActor>(Driver->GuidCache->GetObjectFromNetGUID(ActorGUID, false));
-							Driver->World->DestroyActor(StaticActor);
+							UObject* FoundObject = Driver->GuidCache->GetObjectFromNetGUID(ActorGUID, false);
+							if (AActor* StaticActor = Cast<AActor>(FoundObject))
+							{
+								DestroyIgnoredActor(StaticActor);
+							}
+							else
+							{
+								ensure(FoundObject == nullptr);
+								UE_LOG(LogNetTraffic, Log, TEXT("UNetConnection::ReceivedPacket: Unable to find static actor to cleanup for ignored bunch. (Channel %d NetGUID %lu)"), Bunch.ChIndex, ActorGUID.Value);
+							}
 						}
 					}
 					continue;
@@ -1638,6 +1669,7 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 				bSkipAck = true;
 			}
 			Driver->InBunches++;
+			Driver->InTotalBunches++;
 
 			// Disconnect if we received a corrupted packet from the client (eg server crash attempt).
 			if ( !Driver->ServerConnection && ( Bunch.IsCriticalError() || Bunch.IsError() ) )
@@ -1805,7 +1837,6 @@ void UNetConnection::SendAck(int32 AckPacketId, bool FirstTime/*=1*/)
 		AckData.WriteBit( 1 );
 		AckData.WriteIntWrapped(AckPacketId, MAX_PACKETID);
 		
-#if !UE_BUILD_SHIPPING	// We never actually write it for shipping
 		const bool bHasServerFrameTime = Driver->IsServer() ? bLastHasServerFrameTime : ( CVarPingExcludeFrameTime.GetValueOnGameThread() > 0 ? true : false );
 
 		AckData.WriteBit( bHasServerFrameTime ? 1 : 0 );
@@ -1815,10 +1846,6 @@ void UNetConnection::SendAck(int32 AckPacketId, bool FirstTime/*=1*/)
 			uint8 FrameTimeByte = FMath::Min( FMath::FloorToInt( FrameTime * 1000 ), 255 );
 			AckData << FrameTimeByte;
 		}
-#else
-		// We still write the bit in shipping to keep the format the same
-		AckData.WriteBit( 0 );
-#endif
 
 		// Notify server of our current rate per second at this time
 		uint32 InKBytesPerSecond = InBytesPerSecond / 1024;
@@ -1843,6 +1870,7 @@ int32 UNetConnection::SendRawBunch( FOutBunch& Bunch, bool InAllowMerge )
 	check(!Bunch.ReceivedAck);
 	check(!Bunch.IsError());
 	Driver->OutBunches++;
+	Driver->OutTotalBunches++;
 	TimeSensitive = 1;
 
 	// Build header.
@@ -2747,6 +2775,14 @@ void UNetConnection::SetPlayerOnlinePlatformName(const FName InPlayerOnlinePlatf
 	PlayerOnlinePlatformName = InPlayerOnlinePlatformName;
 }
 
+void UNetConnection::DestroyIgnoredActor(AActor* Actor)
+{
+	if (Driver && Driver->World)
+	{
+		Driver->World->DestroyActor(Actor, true);
+	}
+}
+
 /*-----------------------------------------------------------------------------
 	USimulatedClientNetConnection.
 -----------------------------------------------------------------------------*/
@@ -2770,7 +2806,7 @@ static void	AddSimulatedNetConnections(const TArray<FString>& Args, UWorld* Worl
 	int32 ConnectionCount = 99;
 	if (Args.Num() > 0)
 	{
-		Lex::FromString(ConnectionCount, *Args[0]);
+		LexFromString(ConnectionCount, *Args[0]);
 	}
 
 	// Search for server game net driver. Do it this way so we can cheat in PIE

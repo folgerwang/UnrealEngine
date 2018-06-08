@@ -56,14 +56,30 @@ public:
 	UPROPERTY(VisibleAnywhere, Instanced, Category = Thumbnail)
 	class UThumbnailInfo* ThumbnailInfo;
 #endif
-	UPROPERTY(VisibleAnywhere, Category = GeometryCache)
+	UPROPERTY(EditAnywhere, Category = GeometryCache)
 	TArray<UMaterialInterface*> Materials;
 	
 	/** GeometryCache track defining the samples/geometry data for this GeomCache instance */
 	UPROPERTY(VisibleAnywhere, Category=GeometryCache)
 	TArray<UGeometryCacheTrack*> Tracks;
 
+	/** Set the start and end frames for the GeometryCache */
+	void SetFrameStartEnd(int32 InStartFrame, int32 InEndFrame);
+
+	/** Get the start frame */
+	int32 GetStartFrame() const;
+
+	/** Get the end frame */
+	int32 GetEndFrame() const;
 private:
 	/** A fence which is used to keep track of the rendering thread releasing the geometry cache resources. */
 	FRenderCommandFence ReleaseResourcesFence;
+
+protected:
+	UPROPERTY(BlueprintReadOnly, Category = GeometryCache)
+	int32 StartFrame;
+
+	UPROPERTY(BlueprintReadOnly, Category = GeometryCache)
+	int32 EndFrame;
+
 };

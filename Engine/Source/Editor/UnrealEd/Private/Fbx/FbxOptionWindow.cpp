@@ -19,7 +19,6 @@ void SFbxOptionWindow::Construct(const FArguments& InArgs)
 	ImportUI = InArgs._ImportUI;
 	WidgetWindow = InArgs._WidgetWindow;
 	bIsObjFormat = InArgs._IsObjFormat;
-	OnPreviewFbxImport = InArgs._OnPreviewFbxImport;
 
 	check (ImportUI);
 	
@@ -153,27 +152,7 @@ void SFbxOptionWindow::Construct(const FArguments& InArgs)
 		]
 	);
 
-	if (ImportUI->bIsReimport && OnPreviewFbxImport.IsBound())
-	{
-		FbxHeaderButtons->AddSlot()
-		.AutoWidth()
-		.Padding(FMargin(2.0f, 0.0f))
-		[
-			//Create the fbx import preview button
-			SNew(SButton)
-			.Text(LOCTEXT("FbxOptionWindow_Preview", "Preview..."))
-			.OnClicked(this, &SFbxOptionWindow::OnPreviewClick)
-		];
-	}
-
 	DetailsView->SetObject(ImportUI);
-}
-
-FReply SFbxOptionWindow::OnPreviewClick() const
-{
-	//Pop a preview window to let the user see the content of the fbx file
-	OnPreviewFbxImport.ExecuteIfBound();
-	return FReply::Handled();
 }
 
 FReply SFbxOptionWindow::OnResetToDefaultClick() const

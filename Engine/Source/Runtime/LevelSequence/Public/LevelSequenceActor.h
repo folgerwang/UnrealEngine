@@ -21,7 +21,7 @@ class LEVELSEQUENCE_API ULevelSequenceBurnInInitSettings : public UObject
 	GENERATED_BODY()
 };
 
-UCLASS(DefaultToInstanced)
+UCLASS(config=EditorPerProjectUserSettings, PerObjectConfig, DefaultToInstanced, BlueprintType)
 class LEVELSEQUENCE_API ULevelSequenceBurnInOptions : public UObject
 {
 public:
@@ -29,18 +29,22 @@ public:
 	GENERATED_BODY()
 	ULevelSequenceBurnInOptions(const FObjectInitializer& Init);
 
+	/** Loads the specified class path and initializes an instance, then stores it in Settings. */
+	UFUNCTION(BlueprintCallable, Category = "General")
+	void SetBurnIn(FSoftClassPath InBurnInClass);
+
 	/** Ensure the settings object is up-to-date */
 	void ResetSettings();
 
 public:
 
-	UPROPERTY(EditAnywhere, Category="General")
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category="General")
 	bool bUseBurnIn;
 
-	UPROPERTY(EditAnywhere, Category="General", meta=(EditCondition=bUseBurnIn, MetaClass="LevelSequenceBurnIn"))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category="General", meta=(EditCondition=bUseBurnIn, MetaClass="LevelSequenceBurnIn"))
 	FSoftClassPath BurnInClass;
 
-	UPROPERTY(Instanced, EditAnywhere, Category="General", meta=(EditCondition=bUseBurnIn))
+	UPROPERTY(Instanced, BlueprintReadWrite, Category="General", meta=(EditCondition=bUseBurnIn))
 	ULevelSequenceBurnInInitSettings* Settings;
 
 protected:

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "StaticMeshBuilder.h"
 #include "Engine/StaticMesh.h"
@@ -58,6 +58,25 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 	}
 	StaticMeshRenderData.AllocateLODResources(StaticMesh->SourceModels.Num());
 
+	TArray<UMeshDescription*> MeshDescriptions;
+	auto GetMeshDescription = [&MeshDescriptions](int32 ArrayIndex)->UMeshDescription*
+	{
+		if (!MeshDescriptions.IsValidIndex(ArrayIndex))
+		{
+			return nullptr;
+		}
+		return MeshDescriptions[ArrayIndex];
+	};
+	auto SetMeshDescription = [&MeshDescriptions](int32 ArrayIndex, UMeshDescription* InMeshDescription)
+	{
+		if (!MeshDescriptions.IsValidIndex(ArrayIndex) && ArrayIndex >= 0)
+		{
+			//Add nullptr missing entries
+			MeshDescriptions.AddZeroed(ArrayIndex - MeshDescriptions.Num() + 1);
+		}
+		//Set the original mesh description
+		MeshDescriptions[ArrayIndex] = InMeshDescription;
+	};
 
 	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
 	{
@@ -69,7 +88,9 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 		FMeshReductionSettings ReductionSettings = LODGroup.GetSettings(SrcModel.ReductionSettings, LodIndex);
 
 		UMeshDescription* MeshDescription = nullptr;
-		bool bUseReduction = (ReductionSettings.PercentTriangles < 1.0f || ReductionSettings.MaxDeviation > 0.0f) && (StaticMesh->GetMeshDescription(0) != nullptr);
+		
+
+		bool bUseReduction = (ReductionSettings.PercentTriangles < 1.0f || ReductionSettings.MaxDeviation > 0.0f) && (GetMeshDescription(0) != nullptr);
 
 		if (OriginalMeshDescription != nullptr)
 		{
@@ -85,10 +106,10 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 				MeshDescription = NewObject<UMeshDescription>(StaticMesh, NAME_None);
 				UStaticMesh::RegisterMeshAttributes(MeshDescription);
 			}
-			else if(StaticMesh->GetMeshDescription(BaseReduceLodIndex) != nullptr)
+			else if(GetMeshDescription(BaseReduceLodIndex) != nullptr)
 			{
 				//Duplicate the lodindex 0 we have a 100% reduction which is like a duplicate
-				MeshDescription = Cast<UMeshDescription>(StaticDuplicateObject(StaticMesh->GetMeshDescription(BaseReduceLodIndex), StaticMesh, NAME_None, RF_NoFlags));
+				MeshDescription = Cast<UMeshDescription>(StaticDuplicateObject(GetMeshDescription(BaseReduceLodIndex), StaticMesh, NAME_None, RF_NoFlags));
 			}
 			if (LodIndex > 0)
 			{
@@ -105,7 +126,7 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 		}
 
 		check(MeshDescription != nullptr);
-		StaticMesh->SetMeshDescription(LodIndex, MeshDescription);
+		SetMeshDescription(LodIndex, MeshDescription);
 		
 		//Reduce LODs
 		if (bUseReduction)
@@ -113,13 +134,13 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 			int32 BaseLODIndex = 0;
 			float OverlappingThreshold = LODBuildSettings.bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
 			TMultiMap<int32, int32> OverlappingCorners;
-			FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, StaticMesh->GetMeshDescription(BaseLODIndex), OverlappingThreshold);
+			FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, GetMeshDescription(BaseLODIndex), OverlappingThreshold);
 
 			//Create a new destination mesh in case we reduce ourself
 			UMeshDescription* MeshDescriptionReduced = NewObject<UMeshDescription>(StaticMesh, NAME_None);
 			UStaticMesh::RegisterMeshAttributes(MeshDescriptionReduced);
-			MeshDescriptionHelper.ReduceLOD(StaticMesh->GetMeshDescription(BaseLODIndex), MeshDescriptionReduced, ReductionSettings, OverlappingCorners);
-			StaticMesh->SetMeshDescription(LodIndex, MeshDescriptionReduced);
+			MeshDescriptionHelper.ReduceLOD(GetMeshDescription(BaseLODIndex), MeshDescriptionReduced, ReductionSettings, OverlappingCorners);
+			SetMeshDescription(LodIndex, MeshDescriptionReduced);
 			MeshDescription = MeshDescriptionReduced;
 
 			if (MeshDescriptionReduced != nullptr)
@@ -342,6 +363,14 @@ void BuildVertexBuffer(
 		}
 	}
 
+	int32 ReserveIndicesCount = 0;
+	for (const FPolygonID& PolygonID : MeshDescription->Polygons().GetElementIDs())
+	{
+		const TArray<FMeshTriangle>& PolygonTriangles = MeshDescription->GetPolygonTriangles(PolygonID);
+		ReserveIndicesCount += PolygonTriangles.Num() * 3;
+	}
+	IndexBuffer.Reset(ReserveIndicesCount);
+
 	for (const FPolygonID& PolygonID : MeshDescription->Polygons().GetElementIDs())
 	{
 		const FPolygonGroupID PolygonGroupID = MeshDescription->GetPolygonPolygonGroup(PolygonID);
@@ -349,8 +378,6 @@ void BuildVertexBuffer(
 		TArray<uint32>& SectionIndices = OutPerSectionIndices[SectionIndex];
 
 		const TArray<FMeshTriangle>& PolygonTriangles = MeshDescription->GetPolygonTriangles(PolygonID);
-		int32 ReserveSize = IndexBuffer.Num() + PolygonTriangles.Num() * 3;
-		IndexBuffer.Reserve(ReserveSize);
 		uint32 MinIndex = TNumericLimits< uint32 >::Max();
 		uint32 MaxIndex = TNumericLimits< uint32 >::Min();
 		for (int32 TriangleIndex = 0; TriangleIndex < PolygonTriangles.Num(); ++TriangleIndex)

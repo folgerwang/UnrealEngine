@@ -17,6 +17,10 @@ float OutputCocRadiusMultiplier;
 
 RWTexture2D<float4>	Output0;
 
+#if CONFIG_DOF_ALPHA
+RWTexture2D<float>	Output1;
+#endif
+
 
 //------------------------------------------------------- ENTRY POINT
 
@@ -37,10 +41,21 @@ void DownsampleCS(uint2 DispatchThreadId : SV_DispatchThreadID)
 
 		SampleUV = min(SampleUV, MaxBufferUV);
 
-		float4 RawSample = PostprocessInput0.SampleLevel(GlobalPointClampedSampler, SampleUV, 0);
+		float4 RawSample0 = PostprocessInput0.SampleLevel(GlobalPointClampedSampler, SampleUV, 0);
 
-		SceneColors[i] = float4(RawSample.rgb, 0);
-		CocRadii[i] = RawSample.a;
+		#if CONFIG_DOF_ALPHA
+		{
+			float4 RawSample1 = PostprocessInput1.SampleLevel(GlobalPointClampedSampler, SampleUV, 0);
+
+			SceneColors[i] = RawSample0;
+			CocRadii[i] = RawSample1.r;
+		}
+		#else
+		{
+			SceneColors[i] = float4(RawSample0.rgb, 0);
+			CocRadii[i] = RawSample0.a;
+		}
+		#endif
 	}
 
 	// Downsample.
@@ -50,6 +65,15 @@ void DownsampleCS(uint2 DispatchThreadId : SV_DispatchThreadID)
 	
 	if (all(DispatchThreadId < ViewportRect.zw))
 	{
-		Output0[DispatchThreadId] = float4(OutColor.rgb, OutCocRadius * OutputCocRadiusMultiplier);
+		#if CONFIG_DOF_ALPHA
+		{
+			Output0[DispatchThreadId] = OutColor;
+			Output1[DispatchThreadId] = OutCocRadius * OutputCocRadiusMultiplier;
+		}
+		#else
+		{
+			Output0[DispatchThreadId] = float4(OutColor.rgb, OutCocRadius * OutputCocRadiusMultiplier);
+		}
+		#endif
 	}
 }

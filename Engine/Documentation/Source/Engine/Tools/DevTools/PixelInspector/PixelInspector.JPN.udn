@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3029270
-Availability:Docs
+﻿INTSourceChangelist:3108692
+Availability:Public
 Title:Pixel Inspector
 Crumbs: %ROOT%, Engine
 Description:Pixel Inspector は、任意のピクセルの GBuffer の様々な部分を調査し結果を表示します。
@@ -11,29 +11,31 @@ version:4.12
 [/REGION]
 
 **Pixel Inspector** ツールは、シーンの色を構成するピクセルを診断できる Developer Tool です。 
-違う色の原因となっているピクセル、あるいはピクセルの色を操作しているマテリアル入力がどれか知りたい場合、Pixel Inspector の **Inspect Mode** を使って、そのピクセルを表示結果の詳細を出力できます。 
+違う色の原因となっているピクセル (あるいはピクセルの色を操作しているマテリアル入力) がどれか知りたい場合、Pixel Inspector の **Inspect Mode** を使って、そのピクセルを表示結果の詳細を出力できます。 
 
 ## Pixel Inspector の使用方法
 
-Pixel Inspector を有効にして使用するためには、メイン エディタ ウィンドウの **[Window]** メニュー オプションの **[Developer Tool]s** を選択します。 
+Pixel Inspector の使用手順は以下の通りです。
 
-![](EnablePixelInspector.png)
+1. メイン エディタ ウィンドウの **[Window]** メニュー オプションの **[Developer Tool]s** で **[Pixel Inspector]** を選択します。  
 
-**[Pixel Inspector]** をクリックすると、Pixel Inspector ツールが開きます。 
+	![](EnablePixelInspector.png)
 
-![](PixelInspectorWindow.png)
+	[Pixel Inspector] ウィンドウが開きます。 
 
-![](InspectIcon.png) ボタンをクリックするとピクセル調査が始まります。 
+	![](PixelInspectorWindow.png)
 
-![](Inspecting.png)
+1. ![](InspectIcon.png) ボタンをクリックするとピクセル調査が始まります。
 
-ビューポート (Level, Material, Blueprint など) にマウスオーバーすると、[Pixel Inspector] データ フィールドがリアルタイムで表示されます。 
+1. ビューポート (Level, Material, Blueprint など) にマウスオーバーすると、[Pixel Inspector] データ フィールドがリアルタイムで表示されます。 
 
-**Escape** で調査を停止すると、Pixel Inspector データ フィールドには最後に分析されたピクセルが入力されます。 
+	![](Inspecting.png)
+
+1. **Escape** で調査を停止すると、Pixel Inspector データ フィールドには最後に分析されたピクセルが入力されます。 
 
 
 
-## ピクセル調査データ
+## Pixel Inspector Data のリファレンス
 
 調査中に入力されるピクセル データは以下の通りです。 
 

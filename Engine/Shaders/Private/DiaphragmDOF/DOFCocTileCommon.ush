@@ -145,45 +145,14 @@ void DecodeCocTileSample(in float4 Raw[COC_TILE_MAX_BUFFER_COUNT], in uint Layou
 
 //------------------------------------------------------- Higher level API.
 
-/** Abstract texture that encapsulate the actual buffers. */
-struct FCocTileTexture2D
-{
-	// Compile time known layout of the Coc tile buffers.
-	uint Layout;
-
-	// Actualy texture 2D.
-	Texture2D Buffers[COC_TILE_MAX_BUFFER_COUNT];
-};
-
-FCocTileTexture2D CreateCocTileTexture2D(const uint Layout, Texture2D Buffer0, Texture2D Buffer1)
-{
-	// Actualy number of buffers to sample from.
-	const uint NumberOfBuffers = GetBufferCountForCocTileLayour(Layout);
-
-	FCocTileTexture2D Tex;
-	Tex.Layout = Layout;
-	Tex.Buffers[0] = Buffer0;
-	Tex.Buffers[1] = Buffer1;
-
-	// Trick to make the compiler understand that Buffer1 is not used.
-	if (static_condition(NumberOfBuffers == 1))
-	{
-		Tex.Buffers[1] = Buffer0;
-	}
-	return Tex;
-}
-
 /** Sample and decode tile buffer. */
-FCocTileSample LoadCocTile(in const FCocTileTexture2D Tex, int2 TilePos)
+FCocTileSample LoadCocTile(const uint Layout, Texture2D Buffer0, Texture2D Buffer1, int2 TilePos)
 {
 	float4 PackedSample[COC_TILE_MAX_BUFFER_COUNT];
-	for (uint i = 0; i < COC_TILE_MAX_BUFFER_COUNT; i++)
-	{
-		PackedSample[i] = 0;
-		PackedSample[i] = Tex.Buffers[i][TilePos];
-	}
+	PackedSample[0] = Buffer0[TilePos];
+	PackedSample[1] = Buffer1[TilePos];
 
 	FCocTileSample UnpackedSample;
-	DecodeCocTileSample(PackedSample, Tex.Layout, UnpackedSample);
+	DecodeCocTileSample(PackedSample, Layout, UnpackedSample);
 	return UnpackedSample;
 }

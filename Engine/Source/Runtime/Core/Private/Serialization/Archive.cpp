@@ -119,7 +119,8 @@ FArchive::~FArchive()
 #endif // USE_STABLE_LOCALIZATION_KEYS
 }
 
-// Resets all of the base archive members
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 void FArchive::Reset()
 {
 #if DEVIRTUALIZE_FLinkerLoad_Serialize
@@ -184,8 +185,8 @@ void FArchive::CopyTrivialFArchiveStatusMembers(const FArchive& ArchiveToCopy)
 	ArUE4Ver                             = ArchiveToCopy.ArUE4Ver;
 	ArLicenseeUE4Ver                     = ArchiveToCopy.ArLicenseeUE4Ver;
 	ArEngineVer                          = ArchiveToCopy.ArEngineVer;
-	ArEngineNetVer						 = ArchiveToCopy.ArEngineNetVer;
-	ArGameNetVer						 = ArchiveToCopy.ArGameNetVer;
+	ArEngineNetVer                       = ArchiveToCopy.ArEngineNetVer;
+	ArGameNetVer                         = ArchiveToCopy.ArGameNetVer;
 	ArIsLoading                          = ArchiveToCopy.ArIsLoading;
 	ArIsSaving                           = ArchiveToCopy.ArIsSaving;
 	ArIsTransacting                      = ArchiveToCopy.ArIsTransacting;
@@ -197,13 +198,13 @@ void FArchive::CopyTrivialFArchiveStatusMembers(const FArchive& ArchiveToCopy)
 	ArIsCriticalError                    = ArchiveToCopy.ArIsCriticalError;
 	ArContainsCode                       = ArchiveToCopy.ArContainsCode;
 	ArContainsMap                        = ArchiveToCopy.ArContainsMap;
-	ArRequiresLocalizationGather		 = ArchiveToCopy.ArRequiresLocalizationGather;
+	ArRequiresLocalizationGather         = ArchiveToCopy.ArRequiresLocalizationGather;
 	ArForceByteSwapping                  = ArchiveToCopy.ArForceByteSwapping;
 	ArSerializingDefaults                = ArchiveToCopy.ArSerializingDefaults;
 	ArIgnoreArchetypeRef                 = ArchiveToCopy.ArIgnoreArchetypeRef;
 	ArNoDelta                            = ArchiveToCopy.ArNoDelta;
 	ArIgnoreOuterRef                     = ArchiveToCopy.ArIgnoreOuterRef;
-	ArIgnoreClassGeneratedByRef			 = ArchiveToCopy.ArIgnoreClassGeneratedByRef;
+	ArIgnoreClassGeneratedByRef          = ArchiveToCopy.ArIgnoreClassGeneratedByRef;
 	ArIgnoreClassRef                     = ArchiveToCopy.ArIgnoreClassRef;
 	ArAllowLazyLoading                   = ArchiveToCopy.ArAllowLazyLoading;
 	ArIsObjectReferenceCollector         = ArchiveToCopy.ArIsObjectReferenceCollector;
@@ -215,14 +216,15 @@ void FArchive::CopyTrivialFArchiveStatusMembers(const FArchive& ArchiveToCopy)
 	ArIsFilterEditorOnly                 = ArchiveToCopy.ArIsFilterEditorOnly;
 	ArIsSaveGame                         = ArchiveToCopy.ArIsSaveGame;
 	ArIsNetArchive                       = ArchiveToCopy.ArIsNetArchive;
-	ArCustomPropertyList				 = ArchiveToCopy.ArCustomPropertyList;
-	ArUseCustomPropertyList				 = ArchiveToCopy.ArUseCustomPropertyList;
+	ArCustomPropertyList                 = ArchiveToCopy.ArCustomPropertyList;
+	ArUseCustomPropertyList              = ArchiveToCopy.ArUseCustomPropertyList;
 	CookingTargetPlatform                = ArchiveToCopy.CookingTargetPlatform;
 	SerializedProperty					 = ArchiveToCopy.SerializedProperty;
 #if USE_STABLE_LOCALIZATION_KEYS
 	SetBaseLocalizationNamespace(ArchiveToCopy.GetBaseLocalizationNamespace());
 #endif // USE_STABLE_LOCALIZATION_KEYS
 }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 /**
  * Returns the name of the Archive.  Useful for getting the name of the package a struct or object
@@ -423,7 +425,7 @@ void FArchive::SerializeBool( bool& D )
 	}
 	if (OldUBoolValue > 1)
 	{
-		UE_LOG( LogSerialization, Error, TEXT("Invalid boolean encountered while reading archive - stream is most likely corrupted."));
+		UE_LOG(LogSerialization, Error, TEXT("Invalid boolean encountered while reading archive %s - stream is most likely corrupted."), *GetArchiveName());
 
 		this->ArIsError = true;
 	}
@@ -444,7 +446,7 @@ const FCustomVersionContainer& FArchive::GetCustomVersions() const
 
 		// If the archive is for reading then we want to use currently registered custom versions, otherwise we expect
 		// serialization code to use UsingCustomVersion to populate the container.
-		if (ArIsLoading)
+		if (this->IsLoading())
 		{
 			*CustomVersionContainer = FCustomVersionContainer::GetRegistered();
 		}
@@ -1113,3 +1115,65 @@ void FArchive::LogfImpl(const TCHAR* Fmt, ...)
 	// Free temporary buffers.
 	FMemory::SystemFree( Buffer );
 }
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+void FArchive::SetUE4Ver(int32 InVer)
+{
+	ArUE4Ver = InVer;
+}
+
+void FArchive::SetLicenseeUE4Ver(int32 InVer)
+{
+	ArLicenseeUE4Ver = InVer;
+}
+
+void FArchive::SetEngineVer(const FEngineVersionBase& InVer)
+{
+	ArEngineVer = InVer;
+}
+
+void FArchive::SetEngineNetVer(const uint32 InEngineNetVer)
+{
+	ArEngineNetVer = InEngineNetVer;
+}
+
+void FArchive::SetGameNetVer(const uint32 InGameNetVer)
+{
+	ArGameNetVer = InGameNetVer;
+}
+
+void FArchive::SetIsLoading(bool bInIsLoading)
+{
+	ArIsLoading = bInIsLoading;
+}
+
+void FArchive::SetIsSaving(bool bInIsSaving)
+{
+	ArIsSaving = bInIsSaving;
+}
+
+void FArchive::SetIsTransacting(bool bInIsTransacting)
+{
+	ArIsTransacting = bInIsTransacting;
+}
+
+void FArchive::SetIsTextFormat(bool bInIsTextFormat)
+{
+	ArIsTextFormat = bInIsTextFormat;
+}
+
+void FArchive::SetWantBinaryPropertySerialization(bool bInWantBinaryPropertySerialization)
+{
+	ArWantBinaryPropertySerialization = bInWantBinaryPropertySerialization;
+}
+
+void FArchive::SetForceUnicode(bool bInForceUnicode)
+{
+	ArForceUnicode = bInForceUnicode;
+}
+
+void FArchive::SetIsPersistent(bool bInIsPersistent)
+{
+	ArIsPersistent = bInIsPersistent;
+}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS

@@ -1,65 +1,16 @@
-﻿INTSourceChangelist:2678789
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:物理マテリアル
 Crumbs: %ROOT%, Engine, Engine/Physics
-Description:シミュレーションする物理プロパティの設定および制御に利用した、物理的なシミュレーション プリミティブに直接またはマテリアルを用いて適用したアセット
-バージョン：4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/PhysicalMaterials:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/PhysicalMaterials:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/PhysicalMaterials:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/PhysicalMaterials]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Physics/PhysicalMaterials:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/PhysicalMaterials:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/PhysicalMaterials:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/PhysicalMaterials]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+Description:物理的にシミュレーションされるプリミティブに直接またはマテリアルを介して適用されるアセットで、シミュレーションで使用する物理的プロパティを設定し、制御します。
+Version:4.9
 
 [INCLUDE:Shared/Glossary/P/#Glossary_Physical_Material]
 
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		物理マテリアル トピックス
-	[/PARAM]
-	[PARAM:links]
-		* [](Engine/Physics/PhysicalMaterials/PhysMatUserGuide "%Engine/Physics/PhysicalMaterials/PhysMatUserGuide:description%")
-		* [](Engine/Physics/PhysicalMaterials/Reference "%Engine/Physics/PhysicalMaterials/Reference:description%")
-	[/PARAM]
-[/OBJECT]
+## 物理マテリアルのトピック
 
-
-
-
+[REGION:buttonlist]
+* [](Engine/Physics/PhysicalMaterials/HowTo "%Engine/Physics/PhysicalMaterials/HowTo:description%")
+* [](Engine/Physics/PhysicalMaterials/Reference "%Engine/Physics/PhysicalMaterials/Reference:description%")
+[/REGION]
 

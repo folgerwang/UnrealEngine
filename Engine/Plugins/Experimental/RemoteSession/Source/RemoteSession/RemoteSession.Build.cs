@@ -18,6 +18,7 @@ public class RemoteSession : ModuleRules
 		
 		PrivateIncludePaths.AddRange(
 			new string[] {
+				"../../../../Source/Runtime/Renderer/Private",
 				"RemoteSession/Private",
 				"RemoteSession"
 				// ... add other private include paths required here ...
@@ -44,12 +45,18 @@ public class RemoteSession : ModuleRules
 				"InputDevice",
 				"InputCore",
 				"BackChannel",
-				"RenderCore",
 				"RHI",
+                "Renderer",
+                "RenderCore",
+                "ShaderCore",
 				"ImageWrapper",
 				"MovieSceneCapture",
 				"Sockets",
-				"HeadMountedDisplay"
+				"EngineSettings",
+				"HeadMountedDisplay",
+                "AugmentedReality",
+                // iOS uses the Apple Image Utils plugin for GPU accellerated JPEG compression
+                "AppleImageUtils"
 			}
 		);
 

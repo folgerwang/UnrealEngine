@@ -19,10 +19,13 @@ USequenceRecorderSettings::USequenceRecorderSettings(const FObjectInitializer& O
 	AnimationSubDirectory = TEXT("Animations");
 	AudioSubDirectory = TEXT("Audio");
 	AudioGain = 0.0f;
+	AudioTrackName = NSLOCTEXT("SequenceRecorder", "DefaultAudioTrackName", "Recorded Audio");
+	bReplaceRecordedAudio = true;
 	bRecordNearbySpawnedActors = true;
 	NearbyActorRecordingProximity = 5000.0f;
 	bRecordWorldSettingsActor = true;
 	bReduceKeys = true;
+	bAutoSaveAsset = false;
 
 	ClassesAndPropertiesToRecord.Add(FPropertiesToRecordForClass(USkeletalMeshComponent::StaticClass()));
 	ClassesAndPropertiesToRecord.Add(FPropertiesToRecordForClass(UStaticMeshComponent::StaticClass()));

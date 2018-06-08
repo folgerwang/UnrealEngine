@@ -18,7 +18,7 @@ UMovieSceneEnumSection::UMovieSceneEnumSection( const FObjectInitializer& Object
 	bSupportsInfiniteRange = true;
 #if WITH_EDITOR
 
-	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(EnumCurve, FMovieSceneChannelEditorData(), TMovieSceneExternalValue<uint8>::Make());
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(EnumCurve, FMovieSceneChannelMetaData(), TMovieSceneExternalValue<uint8>::Make());
 
 #else
 

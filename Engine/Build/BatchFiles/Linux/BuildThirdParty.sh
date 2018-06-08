@@ -10,12 +10,33 @@ mkdir -p Binaries/Linux/
 set -e
 
 MAKE_ARGS=-j4
-TARGET_ARCH=x86_64-unknown-linux-gnu
-#TARGET_ARCH=arm-unknown-linux-gnueabihf
+
+ARCHES=("amd64 x86_64-unknown-linux-gnu" "i386 i686-unknown-linux-gnu" "armhf arm-unknown-linux-gnueabihf" "arm64 aarch64-unknown-linux-gnueabi")
+
+ConvertArchFormat()
+{
+  if [ -z $TARGET_ARCH ]; then
+    TARGET_ARCH="amd64"
+  fi
+
+  for arch in "${ARCHES[@]}";
+  do
+    arch_split=($arch)
+    if [ "${arch_split[0]}" == "$TARGET_ARCH" ]; then
+      TARGET_ARCH=${arch_split[1]}
+      echo "Target arch set to: $TARGET_ARCH"
+      return
+    fi
+  done
+
+  echo "Target arch not found"
+  exit
+}
+ConvertArchFormat
+
 export TARGET_ARCH
 
 SDL_DIR=SDL-gui-backend
-SDL_BUILD_DIR=build-$SDL_DIR
 
 # Open files for edit using p4 command line.
 # Does nothing if the file is already writable (which is case for external
@@ -299,18 +320,16 @@ BuildSDL2()
 {
   echo "building SDL2"
   set -x
+
   cd Source/ThirdParty/SDL2/
-  rm -rf $SDL_BUILD_DIR
-  mkdir -p $SDL_BUILD_DIR
-  cd $SDL_BUILD_DIR
+ 
+  for lib in $SDL_DIR/lib/Linux/$TARGET_ARCH/*
+  do
+    P4Open $lib
+  done
 
-  cmake ../$SDL_DIR
-  make ${MAKE_ARGS}
-  P4Open ../$SDL_DIR/lib/Linux/x86_64-unknown-linux-gnu/libSDL2.a
-  P4Open ../$SDL_DIR/lib/Linux/x86_64-unknown-linux-gnu/libSDL2_fPIC.a
+  ./build.sh
 
-  cp --remove-destination libSDL2.a ../$SDL_DIR/lib/Linux/x86_64-unknown-linux-gnu/libSDL2.a
-  cp --remove-destination libSDL2_fPIC.a ../$SDL_DIR/lib/Linux/x86_64-unknown-linux-gnu/libSDL2_fPIC.a
   set +x
 }
 
@@ -328,6 +347,80 @@ Buildcoremod()
 
   P4Open $LIB_DIR/libcoremodLinux.a
   cp lib/libxmp-coremod.a $LIB_DIR/libcoremodLinux.a
+  set +x
+}
+
+BuildMono()
+{
+  echo "building mono"
+  set -x
+
+  export UE_MONO_DIR=$TOP_DIR/Binaries/ThirdParty/Mono/Linux
+  mkdir -p $UE_MONO_DIR
+ 
+  for file in $UE_MONO_DIR/$TARGET_ARCH/*
+  do
+    P4Open $file
+  done
+  P4Open $UE_MONO_DIR/lib/mono/4.5/mscorlib.dll
+
+  if [ ! -d mono ]; then
+	git clone -b mono-4.0.0-branch https://github.com/mono/mono.git
+  fi
+  cd mono
+  git reset --hard c99aa0c
+  set +e
+  # To add support for terminfo2
+  git cherry-pick 2c1f45f3791f274855e0f5fd2fb0af71c9a756f7
+  set -e
+  # This part of the change that needs resolving is not needed
+  git checkout c99aa0c -- configure.ac 
+
+  # This build is a lighter build intended to be shared with Engine/Binaries/ThirdParty/Mono/Mac
+  ./autogen.sh --prefix=$UE_MONO_DIR --enable-minimal=aot --disable-libraries --with-mcs-docs=no
+  make monolite_url=http://download.mono-project.com/monolite/monolite-117-latest.tar.gz get-monolite-latest
+  make XTERNAL_MCS=${PWD}/mcs/class/lib/monolite/basic.exe $MAKE_ARGS 
+  
+  mkdir -p $UE_MONO_DIR/$TARGET_ARCH/bin/
+  cp --remove-destination mono/mini/mono-sgen $UE_MONO_DIR/$TARGET_ARCH/bin/
+  cp --remove-destination mono/mini/mono-boehm $UE_MONO_DIR/$TARGET_ARCH/bin/
+  
+  mkdir -p $UE_MONO_DIR/$TARGET_ARCH/lib/
+  find support/.libs/ -name "*.so" -exec cp --remove-destination {} $UE_MONO_DIR/$TARGET_ARCH/lib/ \;
+  find ikvm-native/.libs/ -name "*.so" -exec cp --remove-destination {} $UE_MONO_DIR/$TARGET_ARCH/lib/ \;
+  find mcs/class/lib/net_4_5/ -name "*.so" -exec cp --remove-destination {} $UE_MONO_DIR/$TARGET_ARCH/lib/ \;
+  cp --remove-destination mcs/class/lib/net_4_5/mscorlib.dll $UE_MONO_DIR/lib/mono/4.5/
+
+  cd ..
+  rm -rf mono
+
+  set +x
+}
+
+BuildGoogleTest()
+{
+  echo "building GoogleTest"
+  set -x
+ 
+  cd Source/ThirdParty/GoogleTest/
+ 
+  for lib in lib/Linux/$TARGET_ARCH/*
+  do
+    P4Open $lib
+  done
+
+  cd build/Linux
+  sh build-linux-all.sh
+
+  set +x
+}
+
+BuildToolchain()
+{
+  echo "building Toolchain"
+  set -x
+  cd Build/BatchFiles/Linux/Toolchain
+  sh BuildCrossToolchain.sh
   set +x
 }
 
@@ -372,6 +465,7 @@ Success() {
         echo "**********  SUCCESS $1 ****************"
     fi
 }
+
 build_all() {
    Run BuildJemalloc
    Run BuildZ
@@ -414,7 +508,10 @@ print_valid_build_opts() {
   echo "    nvTextureTools"
   echo "    SDL2"
   echo "    coremod"
+  echo "    Toolchain"
   echo "    ICU"
+  echo "    Mono"
+  echo "    GoogleTest"
 }
 
 BuildList=()

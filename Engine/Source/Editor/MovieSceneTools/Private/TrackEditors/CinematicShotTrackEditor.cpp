@@ -36,6 +36,7 @@
 #include "MovieSceneTimeHelpers.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "MovieSceneCaptureSettings.h"
 
 #define LOCTEXT_NAMESPACE "FCinematicShotTrackEditor"
 
@@ -857,7 +858,7 @@ void FCinematicShotTrackEditor::ExportEDL()
 	UAutomatedLevelSequenceCapture* MovieSceneCapture = Cast<UAutomatedLevelSequenceCapture>(IMovieSceneCaptureModule::Get().GetFirstActiveMovieSceneCapture());
 	if (!MovieSceneCapture)
 	{
-		MovieSceneCapture = NewObject<UAutomatedLevelSequenceCapture>(GetTransientPackage(), UAutomatedLevelSequenceCapture::StaticClass(), NAME_None, RF_Transient);
+		MovieSceneCapture = NewObject<UAutomatedLevelSequenceCapture>(GetTransientPackage(), UAutomatedLevelSequenceCapture::StaticClass(), UAutomatedLevelSequenceCapture::AutomatedLevelSequenceCaptureUIName, RF_Transient);
 		MovieSceneCapture->LoadFromConfig();
 	}
 
@@ -941,12 +942,10 @@ void FCinematicShotTrackEditor::ExportFCPXML()
 	}
 
 	const FMovieSceneCaptureSettings& Settings = MovieSceneCapture->GetSettings();
-	FString SaveDirectory = FPaths::ConvertRelativePathToFull(Settings.OutputDirectory.Path);
-	int32 HandleFrames = Settings.HandleFrames;
 
 	FFCPXMLExporter *Exporter = new FFCPXMLExporter;
 
-	MovieSceneToolHelpers::MovieSceneTranslatorExport(Exporter, MovieScene, MovieScene->GetDisplayRate(), SaveDirectory, HandleFrames);
+	MovieSceneToolHelpers::MovieSceneTranslatorExport(Exporter, MovieScene, Settings);
 
 	delete Exporter;
 }

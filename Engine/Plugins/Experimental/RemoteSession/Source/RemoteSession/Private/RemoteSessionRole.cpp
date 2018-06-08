@@ -3,7 +3,13 @@
 
 #include "RemoteSessionRole.h"
 #include "RemoteSession.h"
-#include "Channels/RemoteSessionChannel.h"
+#include "BackChannel/Protocol/OSC/BackChannelOSCMessage.h"
+#include "Channels/RemoteSessionInputChannel.h"
+#include "Channels/RemoteSessionXRTrackingChannel.h"
+#include "Channels/RemoteSessionARCameraChannel.h"
+#include "Channels/RemoteSessionFrameBufferChannel.h"
+#include "Async/Async.h"
+#include "GeneralProjectSettings.h"
 
 DEFINE_LOG_CATEGORY(LogRemoteSession);
 
@@ -19,7 +25,13 @@ void FRemoteSessionRole::Close()
 	StopBackgroundThread();
 	OSCConnection = nullptr;
 	Connection = nullptr;
-	Channels.Empty();
+	ClearChannels();
+}
+
+void FRemoteSessionRole::CloseWithError(const FString& Message)
+{
+	ErrorMessage = Message;
+	Close();
 }
 
 void FRemoteSessionRole::Tick(float DeltaTime)
@@ -110,6 +122,139 @@ void FRemoteSessionRole::StopBackgroundThread()
 	{
 		FPlatformProcess::SleepNoStats(0);
 	}
+}
+
+void FRemoteSessionRole::CreateOSCConnection(TSharedRef<IBackChannelConnection> InConnection)
+{
+	OSCConnection = MakeShareable(new FBackChannelOSCConnection(InConnection));
+	
+	auto Delegate = FBackChannelDispatchDelegate::FDelegate::CreateRaw(this, &FRemoteSessionRole::OnVersionCheck);
+	OSCConnection->AddMessageHandler(TEXT("/Version"),Delegate);
+	
+	OSCConnection->StartReceiveThread();
+	
+	SendVersion();
+}
+
+FString FRemoteSessionRole::GetVersion() const
+{
+	return REMOTE_SESSION_VERSION_STRING;
+	//return FString::Printf(TEXT("%d"), FMath::RandHelper(1000));
+}
+
+void FRemoteSessionRole::SendVersion()
+{
+	// now ask the client to start these channels
+	FBackChannelOSCMessage Msg(TEXT("/Version"));
+	Msg.Write(GetVersion());
+	OSCConnection->SendPacket(Msg);
+}
+
+void FRemoteSessionRole::OnVersionCheck(FBackChannelOSCMessage& Message, FBackChannelOSCDispatch& Dispatch)
+{
+	FString VersionString;
+	
+	Message.Read(VersionString);
+	
+	FString VersionErrorMessage;
+	
+	if (VersionString.Len() == 0)
+	{
+		VersionErrorMessage = TEXT("FRemoteSessionRole: Failed to read version string");
+	}
+	
+	if (VersionString != GetVersion())
+	{
+		VersionErrorMessage = FString::Printf(TEXT("FRemoteSessionRole: Version mismatch. Local=%s, Remote=%s"), *GetVersion(), *VersionString);
+	}
+	
+	if (VersionErrorMessage.Len() > 0)
+	{
+		UE_LOG(LogRemoteSession, Error, TEXT("%s"), *VersionErrorMessage);
+		UE_LOG(LogRemoteSession, Log, TEXT("FRemoteSessionRole: Closing connection due to version mismatch"));
+		CloseWithError(VersionErrorMessage);
+	}
+	else
+	{
+		// Run on the main thread incase our derived states touch anything there (Create Channels does)
+		AsyncTask(ENamedThreads::GameThread, [this]
+		{
+			UE_LOG(LogRemoteSession, Log, TEXT("FRemoteSessionRole: Binding endpoints and creating channels"));
+			OnBindEndpoints();
+			OnCreateChannels();
+		});
+	}
+}
+
+void FRemoteSessionRole::OnBindEndpoints()
+{
+}
+
+void FRemoteSessionRole::OnCreateChannels()
+{
+}
+
+void FRemoteSessionRole::CreateChannel(const FString& InChannelName, ERemoteSessionChannelMode InMode)
+{
+	TSharedPtr<IRemoteSessionChannel> NewChannel;
+	
+	if (InChannelName == FRemoteSessionInputChannel::StaticType())
+	{
+		NewChannel = MakeShareable(new FRemoteSessionInputChannel(InMode, OSCConnection));
+	}
+	else if (InChannelName == FRemoteSessionFrameBufferChannel::StaticType())
+	{
+		NewChannel = MakeShareable(new FRemoteSessionFrameBufferChannel(InMode, OSCConnection));
+	}
+	else if (InChannelName == FRemoteSessionXRTrackingChannel::StaticType())
+	{
+		NewChannel = MakeShareable(new FRemoteSessionXRTrackingChannel(InMode, OSCConnection));
+	}
+	else if (InChannelName == FRemoteSessionARCameraChannel::StaticType())
+	{
+		// Client side sending only works on iOS with Android coming in the future
+		bool IsSupported = (InMode == ERemoteSessionChannelMode::Receive) || PLATFORM_IOS;
+		if (IsSupported)
+		{
+			NewChannel = MakeShareable(new FRemoteSessionARCameraChannel(InMode, OSCConnection));
+		}
+		else
+		{
+			UE_LOG(LogRemoteSession, Warning, TEXT("FRemoteSessionARCameraChannel does not support sending on this platform"));
+		}
+	}
+	
+	if (NewChannel.IsValid())
+	{
+		UE_LOG(LogRemoteSession, Log, TEXT("Created Channel %s with mode %d"), *InChannelName, (int)InMode);
+		Channels.Add(NewChannel);
+	}
+	else
+	{
+		UE_LOG(LogRemoteSession, Error, TEXT("Requested Channel %s was not recognized"), *InChannelName);
+	}
+}
+
+void FRemoteSessionRole::CreateChannels(const TMap<FString, ERemoteSessionChannelMode>& ChannelMap)
+{
+	ClearChannels();
+	
+	for (const auto& KP : ChannelMap)
+	{
+		TSharedPtr<IRemoteSessionChannel> NewChannel;
+		
+		CreateChannel(KP.Key, KP.Value);
+	}
+}
+
+void FRemoteSessionRole::AddChannel(const TSharedPtr<IRemoteSessionChannel>& InChannel)
+{
+	Channels.Add(InChannel);
+}
+
+void FRemoteSessionRole::ClearChannels()
+{
+	Channels.Empty();
 }
 
 TSharedPtr<IRemoteSessionChannel> FRemoteSessionRole::GetChannel(const FString& InType)

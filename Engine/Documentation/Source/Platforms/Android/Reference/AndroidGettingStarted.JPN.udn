@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3477690
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Android ゲームの開発のリファレンス
 Crumbs:%ROOT%, Platforms, Platforms/Android
@@ -54,7 +54,7 @@ UE4 での Android 向けゲーム開発要件は、現在以下となってい�
 
 コンポーネントを取得する方法は何通りかあります。コンポーネントのうち既に幾つかをインストール済みの場合、対応するセクションで追加用件をご確認ください。
 
-### CodeWorks for Android 1R6
+### CodeWorks for Android 1R6u1
 [OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
 	OS
@@ -88,11 +88,11 @@ UE4 での Android 向けゲーム開発要件は、現在以下となってい�
 
 [EXCERPT:TADPWindowsSetup]
 
-CodeWorks for Android 1R6 (NVIDIA 製) は、Android 開発の必要品のワンストップ ショップです。CodeWorks for Android 1R6 をインストールすれば、Android 開発要件をすべて満たすことができます。
+CodeWorks for Android 1R61 (NVIDIA 製) は、Android 開発の必要品のワンストップ ショップです。CodeWorks for Android 1R61 をインストールすれば、Android 開発要件をすべて満たすことができます。
 
-CodeWorks for Android 1R6 のインストーラは、Windows 向けアンリアル エンジン 4 に含まれています。場所はこちらです。 
+CodeWorks for Android 1R61 のインストーラは、Windows 向けアンリアル エンジン 4 に含まれています。場所はこちらです。 
 
-	[ENGINE INSTALL LOCATION]\Engine\Extras\Android\CodeWorksforAndroid-1R6-windows.exe
+	[ENGINE INSTALL LOCATION]\Engine\Extras\Android\CodeWorksforAndroid-1R6u1-windows.exe
 
 以下が重要な構成要素になります。
 
@@ -115,7 +115,7 @@ CodeWorks for Android 1R6 のインストーラは、Windows 向けアンリア�
 	デフォルトのインストール セットで、最低限のコンポーネントがインストールされます。インストールをカスタマイズすると、さらにアイテムを追加できます (プロファイラなど)。インストール中は、 
 
 サブインストーラが 1 つか 2 つ表示されたままになる場合がありますが、やがて完了します。インストールの所要時間は 30 分から 45 分ほどです。コードを書く予定がないのであれば、**[Customize (カスタマイズ)]** を選択すると良いでしょう。 
-これは、SDK、Ant、Java のみインストールされるので (NDK と Nsight デバッガを抜かして)、インストールが非常に早くなります。CodeWorks for Android 1R6 の Nsight は、デバイス上で Android ゲームをデバッグするために使用されます。 
+これは、SDK、Ant、Java のみインストールされるので (NDK と Nsight デバッガを抜かして)、インストールが非常に早くなります。CodeWorks for Android 1R61 の Nsight は、デバイス上で Android ゲームをデバッグするために使用されます。 
 C++ コードのコンパイルは必要ありません。
 
 ![](TADPSetup.png)
@@ -123,11 +123,11 @@ C++ コードのコンパイルは必要ありません。
 [/EXCERPT:TADPWindowsSetup]
 
 [EXCERPT:TADPMacOSSetup]
-CodeWorks for Android 1R6 (NVIDIA 製) は、Android 開発の必要品のワンストップ ショップです。CodeWorks for Android 1R6 をインストールすれば、Android 開発要件をすべて満たすことができます。
+CodeWorks for Android 1R6u1 (NVIDIA 製) は、Android 開発の必要品のワンストップ ショップです。CodeWorks for Android 1R6u1 をインストールすれば、Android 開発要件をすべて満たすことができます。
 
-CodeWorks for Android 1R6 のインストーラは、Mac 向けアンリアル エンジン 4 に含まれています。保存場所はこちらです。 
+CodeWorks for Android 1R6u1 のインストーラは、Mac 向けアンリアル エンジン 4 に含まれています。保存場所はこちらです。 
 
-	[ENGINE INSTALL LOCATION]/Engine/Extras/Android/AndroidWorks-1R6-osx.dmg
+	[ENGINE INSTALL LOCATION]/Engine/Extras/Android/AndroidWorks-1R6u1-osx.dmg
 
 以下が重要な構成要素になります。
 
@@ -150,7 +150,7 @@ CodeWorks for Android 1R6 のインストーラは、Mac 向けアンリアル �
 
 デフォルトのインストール セットで、最低限のコンポーネントがインストールされます。 
 インストールをカスタマイズすると、さらにアイテムを追加できます (プロファイラなど)。インストール中は、サブインストーラが 1 つか 2 つ表示されたままになる場合がありますが、やがて完了します。PC によっては、インストールに 30 分から 45 分ほどかかる場合があります。 
-コードの記述をする予定がなければ **[Customize (カスタマイズ)]** を選択する方法もあります。(NDK と Nsight デバッガを飛ばして) SDK、Ant と Java のみ をインストールするので、インストールが非常に早くなります。CodeWorks for Android 1R6 の Nsight は、デバイス上で Android ゲームをデバッグするためのものなので、C++ コードのコンパイルは必要ありません。
+コードの記述をする予定がなければ **[Customize (カスタマイズ)]** を選択する方法もあります。(NDK と Nsight デバッガを飛ばして) SDK、Ant と Java のみ をインストールするので、インストールが非常に早くなります。CodeWorks for Android 1R6u1 の Nsight は、デバイス上で Android ゲームをデバッグするためのものなので、C++ コードのコンパイルは必要ありません。
 
 ![](TADP_Mac_OS.png)
 
@@ -197,10 +197,10 @@ CodeWorks for Android 1R6 のインストーラは、Mac 向けアンリアル �
 
 [EXCERPT:ENVWindowsSetup]
 
-備え付けの UE4 インストーラから CodeWorks for Android 1R6 をインストールしていない場合は、環境変数が正しく設定されているか確認する必要があります。 
+備え付けの UE4 インストーラから CodeWorks for Android 1R6u1 をインストールしていない場合は、環境変数が正しく設定されているか確認する必要があります。 
 
 [REGION:note]
-(System Control パネルで環境変数を設定、または CodeWorks for Android 1R6 をインストールして) インストールが完了したら、 
+(System Control パネルで環境変数を設定、または CodeWorks for Android 1R6u1 をインストールして) インストールが完了したら、 
 エディタとランチャーの両方のアプリケーションを再起動が必要になります。Windows アプリケーションによる環境変数の格納方法および開始したアプリケーションに合わせて古いバージョンをパスするためです。 
 
 Android SDK が正しくインストールされていないことを示すメッセージが表示され続ける場合は、端末の再起動を推奨します。
@@ -240,10 +240,10 @@ Android SDK が正しくインストールされていないことを示すメ�
 [/EXCERPT:ENVWindowsSetup]
 
 [EXCERPT:ENVMacOSSetup]
-CodeWorks for Android 1R6 をインストールしていない場合は、環境変数が正しく設定されているか確認する必要があります。 
+CodeWorks for Android 1R6u1 をインストールしていない場合は、環境変数が正しく設定されているか確認する必要があります。 
 
 [REGION:note]
-(.bash_profile ファイルを編集、または CodeWorks for Android 1R6 をインストールして) インストールが完了したら、エディタもしくはランチャー アプリケーションを再起動する必要があります。
+(.bash_profile ファイルを編集、または CodeWorks for Android 1R6u1 をインストールして) インストールが完了したら、エディタもしくはランチャー アプリケーションを再起動する必要があります。
 [/REGION]
 
 環境変数を設定するには、ホーム ディレクトリで **.bash_profile** ファイルを編集しなければなりません。 

@@ -792,8 +792,10 @@ bool ULandscapeComponent::IsGrassMapOutdated() const
 			++TestIndex;
 		}
 
+		UMaterial* MaterialBase = Cast<UMaterial>(Material);
+
 		// last one should be a UMaterial
-		if (TestIndex != MaterialStateIds.Num() - 1 || MaterialStateIds[TestIndex] != CastChecked<UMaterial>(Material)->StateId)
+		if (TestIndex != MaterialStateIds.Num() - 1 || (MaterialBase != nullptr && MaterialStateIds[TestIndex] != MaterialBase->StateId))
 		{
 			return true;
 		}
@@ -951,6 +953,11 @@ void ALandscapeProxy::RenderGrassMaps(const TArray<ULandscapeComponent*>& InLand
 
 	FLandscapeGrassWeightExporter Exporter(this, InLandscapeComponents, GrassTypes, true, MoveTemp(HeightMips));
 	Exporter.ApplyResults();
+}
+
+void ALandscapeProxy::OnFeatureLevelChanged(ERHIFeatureLevel::Type NewFeatureLevel)
+{
+	FlushGrassComponents();
 }
 #endif //WITH_EDITOR
 
@@ -1337,12 +1344,12 @@ struct FGrassBuilderBase
 
 	int32 SqrtMaxInstances;
 
-	FGrassBuilderBase(ALandscapeProxy* Landscape, ULandscapeComponent* Component, const FGrassVariety& GrassVariety, int32 SqrtSubsections = 1, int32 SubX = 0, int32 SubY = 0, bool bEnableDensityScaling = true)
+	FGrassBuilderBase(ALandscapeProxy* Landscape, ULandscapeComponent* Component, const FGrassVariety& GrassVariety, ERHIFeatureLevel::Type FeatureLevel, int32 SqrtSubsections = 1, int32 SubX = 0, int32 SubY = 0, bool bEnableDensityScaling = true)
 	{
 		bHaveValidData = true;
 
 		const float DensityScale = bEnableDensityScaling ? CVarGrassDensityScale.GetValueOnAnyThread() : 1.0f;
-		GrassDensity = GrassVariety.GrassDensity * DensityScale;
+		GrassDensity = GrassVariety.GrassDensity.GetValueForFeatureLevel(FeatureLevel) * DensityScale;
 
 		DrawScale = Landscape->GetRootComponent()->RelativeScale3D;
 		DrawLoc = Landscape->GetActorLocation();
@@ -1463,8 +1470,8 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 	TArray<FClusterNode> ClusterTree;
 	int32 OutOcclusionLayerNum;
 
-	FAsyncGrassBuilder(ALandscapeProxy* Landscape, ULandscapeComponent* Component, const ULandscapeGrassType* GrassType, const FGrassVariety& GrassVariety, UHierarchicalInstancedStaticMeshComponent* HierarchicalInstancedStaticMeshComponent, int32 SqrtSubsections, int32 SubX, int32 SubY, uint32 InHaltonBaseIndex)
-		: FGrassBuilderBase(Landscape, Component, GrassVariety, SqrtSubsections, SubX, SubY, GrassType->bEnableDensityScaling)
+	FAsyncGrassBuilder(ALandscapeProxy* Landscape, ULandscapeComponent* Component, const ULandscapeGrassType* GrassType, const FGrassVariety& GrassVariety, ERHIFeatureLevel::Type FeatureLevel, UHierarchicalInstancedStaticMeshComponent* HierarchicalInstancedStaticMeshComponent, int32 SqrtSubsections, int32 SubX, int32 SubY, uint32 InHaltonBaseIndex)
+		: FGrassBuilderBase(Landscape, Component, GrassVariety, FeatureLevel, SqrtSubsections, SubX, SubY, GrassType->bEnableDensityScaling)
 		, GrassData(Component, GrassType)
 		, Scaling(GrassVariety.Scaling)
 		, ScaleX(GrassVariety.ScaleX)
@@ -1494,7 +1501,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 		, LightMapComponentScale(FVector2D::UnitVector)
 
 		// output
-		, InstanceBuffer(/*NeedsCPUAccess*/ false, /*bSupportsVertexHalfFloat*/ GVertexElementTypeSupport.IsSupported(VET_Half2))
+		, InstanceBuffer(/*bSupportsVertexHalfFloat*/ GVertexElementTypeSupport.IsSupported(VET_Half2))
 		, ClusterTree()
 		, OutOcclusionLayerNum(0)
 	{
@@ -1678,7 +1685,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 			if (InstanceTransforms.Num())
 			{
 				TotalInstances += InstanceTransforms.Num();
-				InstanceBuffer.AllocateInstances(InstanceTransforms.Num(), true);
+				InstanceBuffer.AllocateInstances(InstanceTransforms.Num(), EResizeBufferFlags::AllowSlackOnGrow | EResizeBufferFlags::AllowSlackOnReduce, true);
 				for (int32 InstanceIndex = 0; InstanceIndex < InstanceTransforms.Num(); InstanceIndex++)
 				{
 					const FMatrix& OutXForm = InstanceTransforms[InstanceIndex];
@@ -1731,7 +1738,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 				InstanceTransforms.AddUninitialized(NumKept);
 				TotalInstances += NumKept;
 				{
-					InstanceBuffer.AllocateInstances(NumKept, true);
+					InstanceBuffer.AllocateInstances(NumKept, EResizeBufferFlags::AllowSlackOnGrow | EResizeBufferFlags::AllowSlackOnReduce, true);
 					int32 InstanceIndex = 0;
 					int32 OutInstanceIndex = 0;
 					for (int32 xStart = 0; xStart < SqrtMaxInstances; xStart++)
@@ -1889,7 +1896,7 @@ void ALandscapeProxy::FlushGrassComponents(const TSet<ULandscapeComponent*>* Onl
 			}
 		}
 #if WITH_EDITOR
-		if (GIsEditor && bFlushGrassMaps)
+		if (GIsEditor && bFlushGrassMaps && GetWorld()->Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM4)
 		{
 			for (ULandscapeComponent* Component : *OnlyForComponents)
 			{
@@ -1932,7 +1939,7 @@ void ALandscapeProxy::FlushGrassComponents(const TSet<ULandscapeComponent*>* Onl
 		}
 
 #if WITH_EDITOR
-		if (GIsEditor && bFlushGrassMaps)
+		if (GIsEditor && bFlushGrassMaps && GetWorld()->Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM4)
 		{
 			// Clear GrassMaps
 			TInlineComponentArray<ULandscapeComponent*> LandComps;
@@ -2038,6 +2045,7 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 				}
 			}
 #endif
+			ERHIFeatureLevel::Type FeatureLevel = World->Scene->GetFeatureLevel();
 
 			int32 NumCompsCreated = 0;
 			for (int32 ComponentIndex = 0; ComponentIndex < LandscapeComponents.Num(); ComponentIndex++)
@@ -2072,10 +2080,11 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 						for (auto& GrassVariety : GrassType->GrassVarieties)
 						{
 							GrassVarietyIndex++;
-							if (GrassVariety.GrassMesh && GrassVariety.GrassDensity > 0.0f && GrassVariety.EndCullDistance > 0)
+							int32 EndCullDistance = GrassVariety.EndCullDistance.GetValueForFeatureLevel(FeatureLevel);
+							if (GrassVariety.GrassMesh && GrassVariety.GrassDensity.GetValueForFeatureLevel(FeatureLevel) > 0.0f && EndCullDistance > 0)
 							{
-								float MustHaveDistance = GuardBand * (float)GrassVariety.EndCullDistance * CullDistanceScale;
-								float DiscardDistance = DiscardGuardBand * (float)GrassVariety.EndCullDistance * CullDistanceScale;
+								float MustHaveDistance = GuardBand * (float)EndCullDistance * CullDistanceScale;
+								float DiscardDistance = DiscardGuardBand * (float)EndCullDistance * CullDistanceScale;
 
 								bool bUseHalton = !GrassVariety.bUseGrid;
 
@@ -2084,7 +2093,7 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 									continue;
 								}
 
-								FGrassBuilderBase ForSubsectionMath(this, Component, GrassVariety);
+								FGrassBuilderBase ForSubsectionMath(this, Component, GrassVariety, FeatureLevel);
 
 								int32 SqrtSubsections = 1;
 
@@ -2230,7 +2239,6 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 										HierarchicalInstancedStaticMeshComponent->SetCanEverAffectNavigation(false);
 										HierarchicalInstancedStaticMeshComponent->InstancingRandomSeed = FolSeed;
 										HierarchicalInstancedStaticMeshComponent->LightingChannels = GrassVariety.LightingChannels;
-										HierarchicalInstancedStaticMeshComponent->KeepInstanceBufferCPUAccess = true;
 										HierarchicalInstancedStaticMeshComponent->bCastStaticShadow = false;
 										HierarchicalInstancedStaticMeshComponent->CastShadow = GrassVariety.bCastDynamicShadow && !bDisableDynamicShadows;
 										HierarchicalInstancedStaticMeshComponent->bCastDynamicShadow = GrassVariety.bCastDynamicShadow && !bDisableDynamicShadows;
@@ -2263,8 +2271,8 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 										}
 										else
 										{
-											HierarchicalInstancedStaticMeshComponent->InstanceStartCullDistance = GrassVariety.StartCullDistance * CullDistanceScale;
-											HierarchicalInstancedStaticMeshComponent->InstanceEndCullDistance = GrassVariety.EndCullDistance * CullDistanceScale;
+											HierarchicalInstancedStaticMeshComponent->InstanceStartCullDistance = GrassVariety.StartCullDistance.GetValueForFeatureLevel(FeatureLevel) * CullDistanceScale;
+											HierarchicalInstancedStaticMeshComponent->InstanceEndCullDistance = GrassVariety.EndCullDistance.GetValueForFeatureLevel(FeatureLevel) * CullDistanceScale;
 										}
 
 										//@todo - take the settings from a UFoliageType object.  For now, disable distance field lighting on grass so we don't hitch.
@@ -2292,7 +2300,7 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 												check(HaltonBaseIndex > (uint32)MaxInstancesSub);
 												HaltonIndexForSub = HaltonBaseIndex - (uint32)MaxInstancesSub;
 											}
-											Builder = new FAsyncGrassBuilder(this, Component, GrassType, GrassVariety, HierarchicalInstancedStaticMeshComponent, SqrtSubsections, SubX, SubY, HaltonIndexForSub);
+											Builder = new FAsyncGrassBuilder(this, Component, GrassType, GrassVariety, FeatureLevel, HierarchicalInstancedStaticMeshComponent, SqrtSubsections, SubX, SubY, HaltonIndexForSub);
 										}
 
 										if (Builder->bHaveValidData)
@@ -2470,7 +2478,8 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 				UHierarchicalInstancedStaticMeshComponent* HierarchicalInstancedStaticMeshComponent = Inner.Foliage.Get();
 				if (HierarchicalInstancedStaticMeshComponent && StillUsed.Contains(HierarchicalInstancedStaticMeshComponent))
 				{
-					if (Inner.Builder->InstanceBuffer.GetNumInstances())
+					int32 NumBuiltRenderInstances = Inner.Builder->InstanceBuffer.GetNumInstances();
+					if (NumBuiltRenderInstances > 0)
 					{
 						QUICK_SCOPE_CYCLE_COUNTER(STAT_FoliageGrassEndComp_AcceptPrebuiltTree);
 
@@ -2480,10 +2489,10 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 						}
 						else
 						{
-							HierarchicalInstancedStaticMeshComponent->PerInstanceRenderData->UpdateFromPreallocatedData(HierarchicalInstancedStaticMeshComponent, Inner.Builder->InstanceBuffer, HierarchicalInstancedStaticMeshComponent->KeepInstanceBufferCPUAccess);
+							HierarchicalInstancedStaticMeshComponent->PerInstanceRenderData->UpdateFromPreallocatedData(Inner.Builder->InstanceBuffer);
 						}
 
-						HierarchicalInstancedStaticMeshComponent->AcceptPrebuiltTree(Inner.Builder->ClusterTree, Inner.Builder->OutOcclusionLayerNum);
+						HierarchicalInstancedStaticMeshComponent->AcceptPrebuiltTree(Inner.Builder->ClusterTree, Inner.Builder->OutOcclusionLayerNum, NumBuiltRenderInstances);
 						if (bForceSync && GetWorld())
 						{
 							QUICK_SCOPE_CYCLE_COUNTER(STAT_FoliageGrassEndComp_SyncUpdate);

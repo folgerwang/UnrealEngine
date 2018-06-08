@@ -38,6 +38,25 @@
 // Set rather to use BinnedMalloc2 for binned malloc, can be overridden below
 #define USE_MALLOC_BINNED2 (1)
 
+// Used in UnixPlatformStackwalk for now. Once the old crash symbolicator is gone remove this
+bool CORE_API GUseNewCrashSymbolicator = true;
+bool CORE_API GSuppressDwarfParsing    = false;
+
+// Used in UnixPlatformStackwalk to skip the crash handling callstack frames.
+bool CORE_API GFullCrashCallstack = false;
+
+// Used to set the maximum number of file mappings.
+#if UE_EDITOR
+int32 CORE_API GMaxNumberFileMappingCache = 10000;
+#else
+int32 CORE_API GMaxNumberFileMappingCache = 100;
+#endif
+namespace
+{
+	// The max allowed to be set for the caching
+	const int32 MaximumAllowedMaxNumFileMappingCache = 1000000;
+}
+
 void FUnixPlatformMemory::Init()
 {
 	FGenericPlatformMemory::Init();
@@ -115,6 +134,28 @@ class FMalloc* FUnixPlatformMemory::BaseAllocator()
 					AllocatorToUse = EMemoryAllocatorToUse::Binned2;
 					break;
 				}
+				if (FCStringAnsi::Stricmp(Arg, "-oldcrashsymbolicator") == 0)
+				{
+					GUseNewCrashSymbolicator = false;
+				}
+
+				if (FCStringAnsi::Stricmp(Arg, "-nodwarf") == 0)
+				{
+					GSuppressDwarfParsing = true;
+				}
+
+				if (FCStringAnsi::Stricmp(Arg, "-fullcrashcallstack") == 0)
+				{
+					GFullCrashCallstack = true;
+				}
+
+				const char FileMapCacheCmd[] = "-filemapcachesize=";
+				if (const char* Cmd = FCStringAnsi::Stristr(Arg, FileMapCacheCmd))
+				{
+					int32 Max = FCStringAnsi::Atoi(Cmd + sizeof(FileMapCacheCmd) - 1);
+					GMaxNumberFileMappingCache = FMath::Clamp(Max, 0, MaximumAllowedMaxNumFileMappingCache);
+				}
+
 #if UE_USE_MALLOC_REPLAY_PROXY
 				if (FCStringAnsi::Stricmp(Arg, "-mallocsavereplay") == 0)
 				{
@@ -316,24 +357,35 @@ namespace UnixMemoryPool
 			MaxPooledAllocs += NumBlocks;
 		}
 
-		// do not scale for a non-editor
-		if (UE_EDITOR)
+		uint64 TotalPhysicalMemory = FPlatformMemory::GetConstants().TotalPhysical;
+		uint64 DesiredPoolSize = 0;
+
+		// do not scale up for a non-editor
+		if (UE_EDITOR && PoolSize < TotalPhysicalMemory)
 		{
-			// scale it so it is roughly 25% of total physical
-			uint64 DesiredPoolSize = FPlatformMemory::GetConstants().TotalPhysical / 4;
-			uint64 Multiplier = (DesiredPoolSize / PoolSize);
-			if (Multiplier >= 2)
+			// scale up it so it is roughly 25% of total physical memory
+			DesiredPoolSize = TotalPhysicalMemory / 4;
+		}
+		else if (PoolSize >= TotalPhysicalMemory)
+		{
+			// scale down to try to fit roughly 50% of the total physical memory
+			DesiredPoolSize = TotalPhysicalMemory / 2;
+		}
+
+		double Multiplier = FMath::Max(static_cast<double>(DesiredPoolSize) / static_cast<double>(PoolSize), 0.0);
+
+		// if we need to scale to a desired pool size
+		if (DesiredPoolSize > 0)
+		{
+			PoolSize = 0;
+			MaxPooledAllocs = 0;
+			for (int32* PoolPtr = InOutPoolTable; *PoolPtr != -1; PoolPtr += 2)
 			{
-				PoolSize = 0;
-				MaxPooledAllocs = 0;
-				for (int32* PoolPtr = InOutPoolTable; *PoolPtr != -1; PoolPtr += 2)
-				{
-					uint64 BlockSize = static_cast<uint64>(PoolPtr[0]);
-					PoolPtr[1] *= Multiplier;
-					uint64 NumBlocks = static_cast<uint64>(PoolPtr[1]);
-					PoolSize += (BlockSize * NumBlocks);
-					MaxPooledAllocs += NumBlocks;
-				}
+				uint64 BlockSize = static_cast<uint64>(PoolPtr[0]);
+				PoolPtr[1] = FMath::Max(static_cast<uint32>(PoolPtr[1] * Multiplier), 1u);
+				uint64 NumBlocks = static_cast<uint64>(PoolPtr[1]);
+				PoolSize += (BlockSize * NumBlocks);
+				MaxPooledAllocs += NumBlocks;
 			}
 		}
 
@@ -369,9 +421,11 @@ void* FUnixPlatformMemory::BinnedAllocFromOS(SIZE_T Size)
 	void* RetVal = PoolArray.Allocate(Size);
 	if (LIKELY(RetVal))
 	{
+		LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Platform, RetVal, Size));
 		return RetVal;
 	}
 	// otherwise, let generic BAFO deal with it
+#endif // UE4_POOL_BAFO_ALLOCATIONS
 
 #if UE4_POOL_BAFO_ALLOCATIONS_DEBUG_OOM
 	// only store BAFO allocs
@@ -382,6 +436,7 @@ void* FUnixPlatformMemory::BinnedAllocFromOS(SIZE_T Size)
 #endif // UE4_POOL_BAFO_ALLOCATIONS_DEBUG_OOM
 
 	void* Ret = FGenericPlatformMemory::BinnedAllocFromOS(Size);
+
 #if UE4_POOL_BAFO_ALLOCATIONS_DEBUG_OOM
 	if (Ret == nullptr)
 	{
@@ -390,17 +445,16 @@ void* FUnixPlatformMemory::BinnedAllocFromOS(SIZE_T Size)
 		for (;;) {};	// hang on here so we can attach the debugger and inspect the details
 	}
 #endif // UE4_POOL_BAFO_ALLOCATIONS_DEBUG_OOM
+
+	LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Platform, Ret, Size));
+
 	return Ret;
-
-#else
-
-	return FGenericPlatformMemory::BinnedAllocFromOS(Size);
-
-#endif // UE4_POOL_BAFO_ALLOCATIONS
 }
 
 void FUnixPlatformMemory::BinnedFreeToOS(void* Ptr, SIZE_T Size)
 {
+	LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Platform, Ptr));
+
 #if UE4_POOL_BAFO_ALLOCATIONS
 	FScopeLock Lock(GetGlobalUnixMemPoolLock());
 
@@ -824,4 +878,44 @@ bool FUnixPlatformMemory::UnmapNamedSharedMemoryRegion(FSharedMemoryRegion * Mem
 	}
 
 	return bAllSucceeded;
+}
+
+
+/**
+* LLM uses these low level functions (LLMAlloc and LLMFree) to allocate memory. It grabs
+* the function pointers by calling FPlatformMemory::GetLLMAllocFunctions. If these functions
+* are not implemented GetLLMAllocFunctions should return false and LLM will be disabled.
+*/
+
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+
+void* LLMAlloc(size_t Size)
+{
+	void* Ptr = mmap(nullptr, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+
+	return Ptr;
+}
+
+void LLMFree(void* Addr, size_t Size)
+{
+	if (Addr != nullptr && munmap(Addr, Size) != 0)
+	{
+		const int ErrNo = errno;
+		UE_LOG(LogHAL, Fatal, TEXT("munmap(addr=%p, len=%llu) failed with errno = %d (%s)"), Addr, Size,
+			ErrNo, StringCast< TCHAR >(strerror(ErrNo)).Get());
+	}
+}
+
+#endif
+
+bool FUnixPlatformMemory::GetLLMAllocFunctions(void*(*&OutAllocFunction)(size_t), void(*&OutFreeFunction)(void*, size_t), int32& OutAlignment)
+{
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+	OutAllocFunction = LLMAlloc;
+	OutFreeFunction = LLMFree;
+	OutAlignment = FPlatformMemory::GetConstants().PageSize;
+	return true;
+#else
+	return false;
+#endif
 }

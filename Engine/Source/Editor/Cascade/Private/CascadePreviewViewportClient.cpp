@@ -183,6 +183,8 @@ FCascadeEdPreviewViewportClient::FCascadeEdPreviewViewportClient(TWeakPtr<FCasca
 
 void FCascadeEdPreviewViewportClient::AddReferencedObjects( FReferenceCollector& Collector )
 {
+	FEditorViewportClient::AddReferencedObjects(Collector);
+
 	CascadePreviewScene.AddReferencedObjects(Collector);
 }
 

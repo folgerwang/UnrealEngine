@@ -10,7 +10,7 @@
   <resourceCopies>
     <log text="Copying Resonance Audio files to staging : $S(BuildDir)"/>
     <isArch arch="armeabi-v7a">
-      <copyFile src="$S(EngineDir)/Source/ThirdParty/ResonanceAudioApi/lib/android/armv7/libvraudio.so"
+      <copyFile src="$S(EngineDir)/Source/ThirdParty/ResonanceAudioApi/lib/android/arm7/libvraudio.so"
           dst="$S(BuildDir)/libs/armeabi-v7a/libvraudio.so" />
     </isArch>
 

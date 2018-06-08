@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3872326
 Availability: Public
 Title: 리눅스 퀵스타트
 Crumbs:
@@ -17,7 +17,9 @@ topic-image:linuxQS_topic.png
 
 [REGION:imagetable]
 ![](CompiledEditor_Linux.png)(w:920)  
+[REGION:caption]
 이 튜토리얼을 마칠 때 쯤이면 리눅스 머신에서 언리얼 엔진 4 (UE4) 를 실행시킬 수 있을 것입니다.
+[/REGION]
 [/REGION]
 
 ## 목적

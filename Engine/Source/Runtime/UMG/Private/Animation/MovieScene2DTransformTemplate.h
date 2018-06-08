@@ -22,7 +22,7 @@ struct FMovieScene2DTransformSectionTemplate : public FMovieScenePropertySection
 {
 	GENERATED_BODY()
 	
-	FMovieScene2DTransformSectionTemplate(){}
+	FMovieScene2DTransformSectionTemplate() : BlendType((EMovieSceneBlendType)0) {}
 	FMovieScene2DTransformSectionTemplate(const UMovieScene2DTransformSection& Section, const UMovieScenePropertyTrack& Track);
 
 private:

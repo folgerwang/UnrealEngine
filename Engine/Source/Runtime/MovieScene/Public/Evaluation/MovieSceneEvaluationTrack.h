@@ -68,7 +68,7 @@ struct FMovieSceneEvaluationTrackSegments
 	/** Access the sorted index of the specified valid identifier */
 	FORCEINLINE int32 GetSortedIndex(FMovieSceneSegmentIdentifier ID) const
 	{
-		return SegmentIdentifierToIndex[ID.GetIndex()];
+		return SegmentIdentifierToIndex.IsValidIndex(ID.GetIndex()) ? SegmentIdentifierToIndex[ID.GetIndex()] : INDEX_NONE;
 	}
 
 	/** Access the sorted array of segments */

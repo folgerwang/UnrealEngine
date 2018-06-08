@@ -77,7 +77,7 @@ On Brush surfaces, lightmap resolution is set via the _Lightmap Resolution_ prop
 	![Lightmap Resolution: 16.0](LightmapRes_16.png)(w:%2XSize%)
 	[/PARAM]
 [/OBJECT]
-
+[/EXCERPT:StaticLighting02]
 
 [EXCERPT:ILC]
 Static lights can also affect dynamic objects due to the _Indirect Lighting Cache Sample Grid_. This is a 3D grid of lighting samples that get baked into the scene and are used by the rendering engine to determine what effects static lighting will have on dynamic objects. The grid can be visualized in the viewport by typing the following command into the Console Bar in the upper-right corner of the editor:

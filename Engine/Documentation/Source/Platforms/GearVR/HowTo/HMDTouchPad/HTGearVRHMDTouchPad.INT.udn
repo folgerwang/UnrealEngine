@@ -79,8 +79,8 @@ In the following section, we will go over how to setup the initial logic in our 
     |**Touch**  | N/A |
     |**Set Touch Start**  | N/A |
     |**Set Touch End**  | N/A |
-    |**Get Player Controller ** | N/A |
-    |**Get Input Touch State ** | N/A |
+    |**Get Player Controller** | N/A |
+    |**Get Input Touch State** | N/A |
     |**Make Vector 2D** | N/A |
 
 1. Next, we will need to record and then store the location of the first and last touch as we can use the distance between these two numbers to see if a tap or swipe has taken place. To accomplish this, first, connect the Get Player Controller node to the Get Input Touch Start so that we can track when the first touch input the user does. To make things easier to work with, connect the Location X and Y to the Make Vector 2D node and then connect the Make Vector 2D node output to the inputs on both the Touch Start and Touch End variables as this will help us to easily store the start and end touch. Finally, connect the Input Touch Pressed to the Touch Start variable and then connect the Input Touch Released to the Touch End variable. When completed this part of the Blueprint should look like the following image.
@@ -105,14 +105,14 @@ In the following section, we will go over how to setup the initial logic in our 
 
     |Node Name | Default Value|
     |----------|--------------|
-    |**Touch Start  **| N/A |
-    |**Touch End ** | N/A |
-    |**Vector2d - Vector2d ** | N/A |
-    |**Vector 2d  Length ** | N/A |
-    |**Break Vector 2D ** | N/A |
+    |**Touch Start **| N/A |
+    |**Touch End** | N/A |
+    |**Vector2d - Vector2d** | N/A |
+    |**Vector 2d  Length** | N/A |
+    |**Break Vector 2D** | N/A |
     |**Absolute (Float)** | N/A |
-    |**float < float **| N/A |
-    |**float > float ** | N/A |
+    |**float < float**| N/A |
+    |**float > float** | N/A |
 
 1. Before we can find out if a tap or a swipe took place, we first need to figure out the distance between the Touch Start and Touch End variables by subtracting them from one another. To get this working in our Blueprint, connect both Touch Start and Touch End variables to the inputs on the Vector2d - Vector2d node. 
 

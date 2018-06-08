@@ -13,6 +13,7 @@ FAnimNode_Trail::FAnimNode_Trail()
 	, ChainBoneAxis(EAxis::X)
 	, bInvertChainBoneAxis(false)
 	, TrailRelaxation_DEPRECATED(10.f)
+	, RelaxationSpeedScale(1.f)
 	, bLimitStretch(false)
 	, StretchLimit(0)
 	, FakeVelocity(FVector::ZeroVector)
@@ -28,7 +29,7 @@ void FAnimNode_Trail::UpdateInternal(const FAnimationUpdateContext& Context)
 {
 	FAnimNode_SkeletalControlBase::UpdateInternal(Context);
 
-	ThisTimstep = Context.GetDeltaTime();
+	ThisTimstep += Context.GetDeltaTime();
 }
 
 void FAnimNode_Trail::GatherDebugData(FNodeDebugData& DebugData)
@@ -48,6 +49,8 @@ void FAnimNode_Trail::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseConte
 	SCOPE_CYCLE_COUNTER(STAT_Trail_Eval);
 
 	check(OutBoneTransforms.Num() == 0);
+	const float TimeStep = ThisTimstep;
+	ThisTimstep = 0.f;
 
 	if( ChainBoneIndices.Num() <= 0 )
 	{
@@ -107,7 +110,7 @@ void FAnimNode_Trail::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseConte
 	// Add fake velocity if present to all but root bone
 	if(!FakeVelocity.IsZero())
 	{
-		FVector FakeMovement = -FakeVelocity * ThisTimstep;
+		FVector FakeMovement = -FakeVelocity * TimeStep;
 
 		if (bActorSpaceFakeVel)
 		{
@@ -154,7 +157,8 @@ void FAnimNode_Trail::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseConte
 		FVector Error = (ChildTarget - ChildPos);
 
 		// Calculate how much to push the child towards its target
-		float Correction = FMath::Clamp<float>(ThisTimstep * PerJointTrailData[i].TrailRelaxationSpeedPerSecond, 0.f, 1.f);
+		const float SpeedScale = RelaxationSpeedScaleInputProcessor.ApplyTo(RelaxationSpeedScale, TimeStep);
+		const float Correction = FMath::Clamp<float>(TimeStep * SpeedScale * PerJointTrailData[i].TrailRelaxationSpeedPerSecond, 0.f, 1.f);
 
 		// Scale correction vector and apply to get new world-space child position.
 		TrailBoneLocations[i] = ChildPos + (Error * Correction);
@@ -225,7 +229,7 @@ bool FAnimNode_Trail::IsValidToEvaluate(const USkeleton* Skeleton, const FBoneCo
 		}
 	}
 
-	return true;
+	return (ChainBoneIndices.Num() > 0);
 }
 
 void FAnimNode_Trail::InitializeBoneReferences(const FBoneContainer& RequiredBones) 
@@ -320,4 +324,6 @@ void FAnimNode_Trail::Initialize_AnyThread(const FAnimationInitializeContext& Co
 			PerJointTrailData[Idx].TrailRelaxationSpeedPerSecond = TrailRelaxRichCurve->Eval(Interval * Idx);
 		}
 	}
+
+	RelaxationSpeedScaleInputProcessor.Reinitialize();
 }

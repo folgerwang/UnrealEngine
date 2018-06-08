@@ -82,15 +82,13 @@ namespace Impl
 	
 	FORCEINLINE_DEBUGGABLE void AssertSegmentValues(FAutomationTestBase* Test, TArrayView<const FMovieSceneSegment> Expected, TArrayView<const FMovieSceneSegment> Actual)
 	{
-		using namespace Lex;
-
 		for (const FMovieSceneSegment& Segment : Actual)
 		{
-			Test->AddInfo(FString::Printf(TEXT("Actual   %s, Impls: %s"), *ToString(Segment.Range), *Join(Segment.Impls)));
+			Test->AddInfo(FString::Printf(TEXT("Actual   %s, Impls: %s"), *LexToString(Segment.Range), *Join(Segment.Impls)));
 		}
 		for (const FMovieSceneSegment& Segment : Expected)
 		{
-			Test->AddInfo(FString::Printf(TEXT("Expected %s, Impls: %s"), *ToString(Segment.Range), *Join(Segment.Impls)));
+			Test->AddInfo(FString::Printf(TEXT("Expected %s, Impls: %s"), *LexToString(Segment.Range), *Join(Segment.Impls)));
 		}
 
 		if (Actual.Num() != Expected.Num())
@@ -104,7 +102,7 @@ namespace Impl
 
 			if (ExpectedSegment.Range != ActualSegment.Range)
 			{
-				Test->AddError(FString::Printf(TEXT("Incorrect compiled segment range at segment index %d. Expected:\n%s\nActual:\n%s"), Index, *ToString(ExpectedSegment.Range), *ToString(ActualSegment.Range)));
+				Test->AddError(FString::Printf(TEXT("Incorrect compiled segment range at segment index %d. Expected:\n%s\nActual:\n%s"), Index, *LexToString(ExpectedSegment.Range), *LexToString(ActualSegment.Range)));
 			}
 
 			AssertSegmentImpls(Test, ExpectedSegment.Impls, ActualSegment.Impls, *FString::Printf(TEXT("index %d"), Index));
@@ -126,7 +124,6 @@ namespace Impl
 
 	FORCEINLINE_DEBUGGABLE void AssertEvaluationTree(FAutomationTestBase* Test, const TMovieSceneEvaluationTree<int32>& Tree, TArrayView<const FEvaluationTreeIteratorResult> Expected)
 	{
-		using namespace Lex;
 		int32 Index = 0;
 		for (FMovieSceneEvaluationTreeRangeIterator It(Tree); It; ++It, ++Index)
 		{
@@ -138,7 +135,7 @@ namespace Impl
 
 			if (It.Range() != Expected[Index].Get<0>())
 			{
-				Test->AddError(FString::Printf(TEXT("Incorrect range iterated at index %d. %s != %s"), Index, *ToString(It.Range()), *ToString(Expected[Index].Get<0>())));
+				Test->AddError(FString::Printf(TEXT("Incorrect range iterated at index %d. %s != %s"), Index, *LexToString(It.Range()), *LexToString(Expected[Index].Get<0>())));
 				continue;
 			}
 
@@ -542,7 +539,6 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovieSceneCompilerTreeIteratorTest, "System.En
 bool FMovieSceneCompilerTreeIteratorTest::RunTest(const FString& Parameters)
 {
 	using namespace Impl;
-	using namespace Lex;
 
 	//	Time				-inf				10							20				25					30							inf
 	//											[============= 0 ===========]
@@ -578,7 +574,6 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovieSceneCompilerTreeIteratorBoundsTest, "Sys
 bool FMovieSceneCompilerTreeIteratorBoundsTest::RunTest(const FString& Parameters)
 {
 	using namespace Impl;
-	using namespace Lex;
 
 	//	Time				-inf				10							20				25					30							inf
 	//						[======== 0 ========][========= 1 ==============][============= 2 ==================][=========== 3 =============]

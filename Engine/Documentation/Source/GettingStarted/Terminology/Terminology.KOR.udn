@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability: Public
 Title:언리얼 엔진 4 용어
 Crumbs: %ROOT%, Gameplay, GettingStarted
@@ -9,21 +9,21 @@ topic-image:terminology_topic.png
 이 문서는 **언리얼 엔진 4** 작업시 흔히 사용되는 용어에 대한 설명을 위한 문서입니다. 예를 들어 "액터(Actor)는 뭐지", "컴포넌트(Component) 는 뭐고", "폰(Pawn)은 뭘까" 하는 의문은 여기서 개괄적으로 해결하실 수 있을 것입니다. 각 용어의 뜻을 파악한 이후에는, 상세 문서 및 안내서 링크를 통해 더욱 자세히 알아보실 수 있습니다.
 
 | ------- | ------------ |
-|![](NewProject.png)(w:300 h:140)|[INCLUDE:GettingStarted/Terminology#projects]| 
-|![](objects_topic.png)(w:300 h:140)|[INCLUDE:GettingStarted/Terminology#objects]|
-|![](Gameplay/ClassCreation/Both_topic.png)(w:300 h:140)|[INCLUDE:GettingStarted/Terminology#classes]|
-|![](actors_topic.png)(w:300 h:140)|[INCLUDE:GettingStarted/Terminology#actors]| 
-|![](components_topic.png)(w:300 h:140)|[INCLUDE:GettingStarted/Terminology#components] |
-|![](pawn_topic.png)(w:300 h:140)|[INCLUDE:GettingStarted/Terminology#pawn]|
-|![](character_topic.png)(w:300 h:140)|[INCLUDE:GettingStarted/Terminology#characters]|
-|![](Engine/Animation/CharacterSetupOverview/ArtAssets.png)(w:300 h:140)|[INCLUDE:GettingStarted/Terminology#playercontroller]|
-|![](fullTree.png)(w:300 h:140)|[INCLUDE:GettingStarted/Terminology#aicontroller]|
-|![](geometry_brush.png)(w:300 h:140)|[INCLUDE:GettingStarted/Terminology#brush]|
-|![](levels_topic.png)(w:300 h:140)|[INCLUDE:GettingStarted/Terminology#level]|
-|![](Engine/LevelStreaming/WorldBrowser/LevelsWindow.png)(w:300 h:140)|[INCLUDE:GettingStarted/Terminology#world]|
-|![](Gameplay/Framework/gamemode_lander.png)(w:300 h:140)|[INCLUDE:GettingStarted/Terminology#gamemode]|
-|![](gamestate_topic.png)(w:300 h:140)|[INCLUDE:GettingStarted/Terminology#gamestate]|
-|![](playerstate_topic.png)(w:300 h:140)|[INCLUDE:GettingStarted/Terminology#playerstate]|
+|![](NewProject.png)(w:300)|[INCLUDE:GettingStarted/Terminology#projects]| 
+|![](objects_topic.png)(w:300)|[INCLUDE:GettingStarted/Terminology#objects]|
+|![](Gameplay/ClassCreation/Both_topic.png)(w:300)|[INCLUDE:GettingStarted/Terminology#classes]|
+|![](actors_topic.png)(w:300)|[INCLUDE:GettingStarted/Terminology#actors]| 
+|![](components_topic.png)(w:300)|[INCLUDE:GettingStarted/Terminology#components] |
+|![](pawn_topic.png)(w:300)|[INCLUDE:GettingStarted/Terminology#pawn]|
+|![](character_topic.png)(w:300)|[INCLUDE:GettingStarted/Terminology#characters]|
+|![](Engine/Animation/CharacterSetupOverview/ArtAssets.png)(w:300)|[INCLUDE:GettingStarted/Terminology#playercontroller]|
+|![](fullTree.png)(w:300)|[INCLUDE:GettingStarted/Terminology#aicontroller]|
+|![](geometry_brush.png)(w:300)|[INCLUDE:GettingStarted/Terminology#brush]|
+|![](levels_topic.png)(w:300)|[INCLUDE:GettingStarted/Terminology#level]|
+|![](Engine/LevelStreaming/WorldBrowser/LevelsWindow.png)(w:300)|[INCLUDE:GettingStarted/Terminology#world]|
+|![](Gameplay/Framework/gamemode_lander.png)(w:300)|[INCLUDE:GettingStarted/Terminology#gamemode]|
+|![](gamestate_topic.png)(w:300)|[INCLUDE:GettingStarted/Terminology#gamestate]|
+|![](playerstate_topic.png)(w:300)|[INCLUDE:GettingStarted/Terminology#playerstate]|
 
 
 [COMMENT:none]

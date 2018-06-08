@@ -217,6 +217,9 @@ public:
 	/** Bake transform. */
 	TSharedPtr< FUICommandInfo > BakeTransform;
 
+	/** Sync to source timecode. */
+	TSharedPtr< FUICommandInfo > SyncToSourceTimecode;
+
 	/** Turns the range slider on and off. */
 	TSharedPtr< FUICommandInfo > ToggleShowRangeSlider;
 

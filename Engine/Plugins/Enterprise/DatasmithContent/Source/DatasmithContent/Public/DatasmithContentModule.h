@@ -7,6 +7,8 @@
 
 #define DATASMITHCONTENT_MODULE_NAME TEXT("DatasmithContent")
 
+DECLARE_DELEGATE_OneParam( FOnSpawnDatasmithSceneActors, class ADatasmithSceneActor* );
+
 /**
  * The public interface of the DatasmithContent module
  */

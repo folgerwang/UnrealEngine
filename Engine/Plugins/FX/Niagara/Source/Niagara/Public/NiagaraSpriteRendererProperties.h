@@ -4,20 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
+#include "NiagaraCommon.h"
 #include "NiagaraRendererProperties.h"
 #include "NiagaraSpriteRendererProperties.generated.h"
 
-
-UENUM()
-enum class ENiagaraSortMode : uint8
-{
-	/** Perform no additional sorting prior to rendering.*/
-	SortNone,
-	/** Sort by depth to the camera's near plane.*/
-	SortViewDepth,
-	/** Sort by distance to the camera's origin.*/
-	SortViewDistance
-};
 
 /** This enum decides how a sprite particle will orient its "up" axis. Must keep these in sync with NiagaraSpriteVertexFactory.ush*/
 UENUM()
@@ -57,15 +47,24 @@ public:
 
 	UNiagaraSpriteRendererProperties();
 
+	virtual void PostInitProperties() override;
+
+	static void InitCDOPropertiesAfterModuleStartup();
+
 	//~ UNiagaraRendererProperties interface
 	virtual NiagaraRenderer* CreateEmitterRenderer(ERHIFeatureLevel::Type FeatureLevel) override;
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials) const override;
+	virtual bool IsSimTargetSupported(ENiagaraSimTarget InSimTarget) const override { return true; };
 #if WITH_EDITORONLY_DATA
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual bool IsMaterialValidForRenderer(UMaterial* Material, FText& InvalidMessage) override;
 	virtual void FixMaterial(UMaterial* Material) override;
 	virtual const TArray<FNiagaraVariable>& GetRequiredAttributes() override;
 	virtual const TArray<FNiagaraVariable>& GetOptionalAttributes() override;
 #endif // WITH_EDITORONLY_DATA
+
+	// TODO: once we support cutouts, need to change this
+	virtual uint32 GetNumIndicesPerInstance() { return 6; }
 
 	/** The material used to render the particle. Note that it must have the Use with Niagara Sprites flag checked.*/
 	UPROPERTY(EditAnywhere, Category = "Sprite Rendering")
@@ -88,20 +87,24 @@ public:
 	FVector2D PivotInUVSpace;
 
 	/** Determines how we sort the particles prior to rendering.*/
-	UPROPERTY(EditAnywhere, Category = "Sprite Rendering")
+	UPROPERTY(EditAnywhere, Category = "Sorting")
 	ENiagaraSortMode SortMode;
 	
 	/** When using SubImage lookups for particles, this variable contains the number of columns in X and the number of rows in Y.*/
-	UPROPERTY(EditAnywhere, Category = "Sprite Rendering")
+	UPROPERTY(EditAnywhere, Category = "SubUV")
 	FVector2D SubImageSize;
 
 	/** If true, blends the sub-image UV lookup with its next adjacent member using the fractional part of the SubImageIndex float value as the linear interpolation factor.*/
-	UPROPERTY(EditAnywhere, Category = "Sprite Rendering", meta = (DisplayName = "Sub UV Blending Enabled"))
+	UPROPERTY(EditAnywhere, Category = "SubUV", meta = (DisplayName = "Sub UV Blending Enabled"))
 	uint32 bSubImageBlend : 1;
 
 	/** If true, removes the HMD view roll (e.g. in VR) */
 	UPROPERTY(EditAnywhere, Category = "Sprite Rendering", meta = (DisplayName = "Remove HMD Roll"))
 	uint32 bRemoveHMDRollInVR : 1;
+
+	/** If true, the particles are only sorted when using a translucent material. */
+	UPROPERTY(EditAnywhere, Category = "Sorting")
+	uint32 bSortOnlyWhenTranslucent : 1;
 
 	/** The distance at which FacingCameraDistanceBlend	is fully FacingCamera */
 	UPROPERTY(EditAnywhere, Category = "Sprite Rendering", meta = (UIMin = "0"))
@@ -110,6 +113,75 @@ public:
 	/** The distance at which FacingCameraDistanceBlend	is fully FacingCameraPosition */
 	UPROPERTY(EditAnywhere, Category = "Sprite Rendering", meta = (UIMin = "0"))
 	float MaxFacingCameraBlendDistance;
+
+	/** Which attribute should we use for position when generating sprites?*/
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding PositionBinding;
+
+	/** Which attribute should we use for color when generating sprites?*/
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding ColorBinding;
+
+	/** Which attribute should we use for velocity when generating sprites?*/
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding VelocityBinding;
+
+	/** Which attribute should we use for sprite rotation (in degrees) when generating sprites?*/
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding SpriteRotationBinding;
+
+	/** Which attribute should we use for sprite size when generating sprites?*/
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding SpriteSizeBinding;
+
+	/** Which attribute should we use for sprite facing when generating sprites?*/
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding SpriteFacingBinding;
+
+	/** Which attribute should we use for sprite alignment when generating sprites?*/
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding SpriteAlignmentBinding;
+
+	/** Which attribute should we use for sprite sub-image indexing when generating sprites?*/
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding SubImageIndexBinding;
+
+	/** Which attribute should we use for dynamic material parameters when generating sprites?*/
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding DynamicMaterialBinding;
+
+	/** Which attribute should we use for dynamic material parameters when generating sprites?*/
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding DynamicMaterial1Binding;
+
+	/** Which attribute should we use for dynamic material parameters when generating sprites?*/
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding DynamicMaterial2Binding;
+
+	/** Which attribute should we use for dynamic material parameters when generating sprites?*/
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding DynamicMaterial3Binding;
+
+	/** Which attribute should we use for camera offset when generating sprites?*/
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding CameraOffsetBinding;
+
+	/** Which attribute should we use for UV scale when generating sprites?*/
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding UVScaleBinding;
+
+	/** Which attribute should we use for material randoms when generating sprites?*/
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding MaterialRandomBinding;
+
+	/** Which attribute should we use for custom sorting? */
+	UPROPERTY(EditAnywhere, Category = "Bindings")
+	FNiagaraVariableAttributeBinding CustomSortingBinding;
+
+	UPROPERTY(Transient)
+	int32 SyncId;
+
+	void InitBindings();
 };
 
 

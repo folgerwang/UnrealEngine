@@ -293,6 +293,12 @@ void UMaterialInstanceDynamic::K2_CopyMaterialInstanceParameters(UMaterialInterf
 void UMaterialInstanceDynamic::CopyMaterialUniformParameters(UMaterialInterface* Source)
 {
 	SCOPE_CYCLE_COUNTER(STAT_MaterialInstanceDynamic_CopyUniformParams)
+
+	if ((Source == nullptr) || (Source == this))
+	{
+		return;
+	}
+
 	ClearParameterValuesInternal();
 
 	if (!FPlatformProperties::IsServerOnly())

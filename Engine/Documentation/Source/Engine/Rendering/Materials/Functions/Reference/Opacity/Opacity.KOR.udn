@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3242329
+﻿INTSourceChangelist:3807090
 Availability: Public
 title:불투명도
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
@@ -31,4 +31,4 @@ Opacity 값을 받은 다음 다양한 계산을 하여 부드러운 느낌을 �
 | **OutputNoDepthBias** | 출력에서 깊이 편향 미사용 - 이 출력은 오브젝트가 카메라에 도달하면서 완전 사라지도록 합니다. 즉 오프셋이 없다는 뜻입니다. 이 출력은 *OutputUsesDepthBias* 보다 12 인스트럭션 절약됩니다. |
 
 
-![Soft Opacity](SoftOpacity_Demo.png)(w:940 h:360)
+![Soft Opacity](SoftOpacity_Demo.png)(w:940)

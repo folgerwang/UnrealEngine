@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:2726407
+﻿INTSourceChangelist:3782314
 Availability:Public
-Title:マチネ
+Title:Matinee
 Crumbs:%ROOT%, Resources, Resources/Showcases
 Description:マチネのサンプルと構成の概要 
 Related:Engine/Matinee
@@ -12,48 +12,7 @@ Related:Engine/Rendering/ParticleSystems
 Related:Engine/Blueprints
 Related:Engine/Basics/Projects/CreatingTemplates
 Version:4.9
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/Showcases/MatineeFightScene:title%](MatineeTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/MatineeFightScene:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/MatineeFightScene:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/MatineeFightScene]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/Showcases/MatineeFightScene:title%](MatineeTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/MatineeFightScene:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/MatineeFightScene:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/MatineeFightScene]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
+topic-image:MatineeTopic.png
 
 
 [REGION:fullwidth]
@@ -203,7 +162,7 @@ _画像をクリックして全画面表示にします。_
 | **DepthOfFieldFocalRegion** | すべてのコンテンツに焦点が当てられた人工的な領域です。アンリアル単位 (cm) で DepthOfFieldFocalDistance の後に開始します。 |
 | **DepthOfFieldScale** | BokehDOF 限定: DOF エフェクトを増幅します (カメラの開口部に類似)。値を 0 に設定すると、オフになります。 |
 | **DepthOfFieldNearBlurSize** | ガウス分布限定：近いオブジェクトに対する DOF ブラーの最大サイズ (ビュー幅の比率)。注: パフォーマンス負荷は大きさに応じて増減します。 |
-| **DepthOfFieldFarBlurSize** | ガウス分布限定：遠いオブジェクトに対する DOF ブラーの最大サイズ (ビュー幅の比率)。注: パフォーマンス負荷は大きさに応じて増減します。 |
+| **DepthOfFieldFarBlurSize** | ガウス分布限定：遠いオブジェクトに対する DOF ブラーの最大サイズ (ビュー幅の比率)。注: パフォーマンス コストは大きさに応じて増減します。 |
 | **DepthOfFieldMaxBokehSize** | BokehDOF 限定: DOF ブラーの最大サイズ (ビューの幅に対する比率)。注: パフォーマンス負荷はサイズ*サイズで増減します。 |
 
 [REGION:note]
@@ -257,7 +216,7 @@ _画像をクリックして全画面表示にします。_
 
 ![](TrooperAnimations.png)
 
-これらは生のシーケンス、つまり短くトリムされていない長いままのカットなので、アニメーションの開始および終了時間にはフレーム 0.0 からの開始ではなくオフセットを使用します。 
+これらは未処理のシーケンス、つまり短くトリムされていない長いままのカットなので、アニメーションの開始および終了時間にはフレーム 0.0 からの開始ではなくオフセットを使用します。 
 
 例えば、 **Trooper_1** を見て、 **6.30** 地点でキーフレームをクリックすると、シーケンスが **6.50** で始まり **16.24** で終了するのを確認できます。 
 
@@ -695,7 +654,7 @@ xnuP2mepDjs
 
 このセクションでは、いくつかのサンプルを使ってシーンを修正し、リミックスしたバージョンを作成する方法を紹介します。 
 
-### 作業を開始する
+### はじめよう
 
 まず最初に **MatineeFightScene** レベルを新規レベルとして保存し、オリジナルのバージョンを維持します。 
 

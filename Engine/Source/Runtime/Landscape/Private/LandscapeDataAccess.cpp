@@ -18,10 +18,12 @@ LANDSCAPE_API FLandscapeComponentDataInterface::FLandscapeComponentDataInterface
 	HeightmapComponentOffsetY = FMath::RoundToInt((float)(Component->HeightmapTexture->Source.GetSizeY() >> MipLevel) * Component->HeightmapScaleBias.W);
 	HeightmapSubsectionOffset = (Component->SubsectionSizeQuads + 1) >> MipLevel;
 
-	ComponentSizeVerts = (Component->ComponentSizeQuads + 1) >> MipLevel;
 	SubsectionSizeVerts = (Component->SubsectionSizeQuads + 1) >> MipLevel;
+	SubsectionSizeQuads = SubsectionSizeVerts - 1;
+	ComponentSizeQuads = Component->NumSubsections * SubsectionSizeQuads;
+	ComponentSizeVerts = Component->NumSubsections * (SubsectionSizeQuads + 1);
 	ComponentNumSubsections = Component->NumSubsections;
-
+	
 	if (MipLevel < Component->HeightmapTexture->Source.GetNumMips())
 	{
 		HeightMipData = (FColor*)DataInterface.LockMip(Component->HeightmapTexture, MipLevel);
@@ -134,7 +136,7 @@ LANDSCAPE_API FColor* FLandscapeComponentDataInterface::GetXYOffsetData(int32 Lo
 
 LANDSCAPE_API FVector FLandscapeComponentDataInterface::GetLocalVertex(int32 LocalX, int32 LocalY) const
 {
-	const float ScaleFactor = (float)Component->ComponentSizeQuads / (float)(ComponentSizeVerts - 1);
+	const float ScaleFactor = (float)Component->ComponentSizeQuads / (float)ComponentSizeQuads;
 	float XOffset, YOffset;
 	GetXYOffset(LocalX, LocalY, XOffset, YOffset);
 	return FVector(LocalX * ScaleFactor + XOffset, LocalY * ScaleFactor + YOffset, LandscapeDataAccess::GetLocalHeight(GetHeight(LocalX, LocalY)));
@@ -171,7 +173,7 @@ LANDSCAPE_API void FLandscapeComponentDataInterface::GetWorldPositionTangents(in
 
 	uint16 Height = (Data->R << 8) + Data->G;
 
-	const float ScaleFactor = (float)Component->ComponentSizeQuads / (float)(ComponentSizeVerts - 1);
+	const float ScaleFactor = (float)Component->ComponentSizeQuads / (float)ComponentSizeQuads;
 	float XOffset, YOffset;
 	GetXYOffset(LocalX, LocalY, XOffset, YOffset);
 	WorldPos = Component->GetComponentTransform().TransformPosition(FVector(LocalX * ScaleFactor + XOffset, LocalY * ScaleFactor + YOffset, LandscapeDataAccess::GetLocalHeight(Height)));

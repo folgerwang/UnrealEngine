@@ -1,6 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraDataInterfaceCurlNoise.h"
+#include "NiagaraShader.h"
+#include "ShaderParameterUtils.h"
+
+const FName UNiagaraDataInterfaceCurlNoise::SampleNoiseFieldName(TEXT("SampleNoiseField"));
+const FString UNiagaraDataInterfaceCurlNoise::CurlNoiseBufferName(TEXT("CurlNoiseBuffer_"));
 
 UNiagaraDataInterfaceCurlNoise::UNiagaraDataInterfaceCurlNoise(FObjectInitializer const& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -66,7 +71,7 @@ bool UNiagaraDataInterfaceCurlNoise::Equals(const UNiagaraDataInterface* Other) 
 void UNiagaraDataInterfaceCurlNoise::GetFunctions(TArray<FNiagaraFunctionSignature>& OutFunctions)
 {
 	FNiagaraFunctionSignature Sig;
-	Sig.Name = TEXT("SampleNoiseField");
+	Sig.Name = SampleNoiseFieldName;
 	Sig.bMemberFunction = true;
 	Sig.bRequiresContext = false;
 	Sig.Inputs.Add(FNiagaraVariable(FNiagaraTypeDefinition(GetClass()), TEXT("NoiseField")));
@@ -77,12 +82,12 @@ void UNiagaraDataInterfaceCurlNoise::GetFunctions(TArray<FNiagaraFunctionSignatu
 	OutFunctions.Add(Sig);
 }
 
-DEFINE_NDI_FUNC_BINDER(UNiagaraDataInterfaceCurlNoise, SampleNoiseField);
-FVMExternalFunction UNiagaraDataInterfaceCurlNoise::GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData)
+DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceCurlNoise, SampleNoiseField);
+void UNiagaraDataInterfaceCurlNoise::GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc)
 {
-	check(BindingInfo.Name == TEXT("SampleNoiseField"));
+	check(BindingInfo.Name == SampleNoiseFieldName);
 	check(BindingInfo.GetNumInputs() == 3 && BindingInfo.GetNumOutputs() == 3);
-	return TNDIParamBinder<0, float, TNDIParamBinder<1, float, TNDIParamBinder<2, float, NDI_FUNC_BINDER(UNiagaraDataInterfaceCurlNoise, SampleNoiseField)>>>::Bind(this, BindingInfo, InstanceData);
+	TNDIParamBinder<0, float, TNDIParamBinder<1, float, TNDIParamBinder<2, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceCurlNoise, SampleNoiseField)>>>::Bind(this, BindingInfo, InstanceData, OutFunc);
 }
 
 template<typename XType, typename YType, typename ZType>
@@ -94,22 +99,22 @@ void UNiagaraDataInterfaceCurlNoise::SampleNoiseField(FVectorVMContext& Context)
 	FRegisterHandler<float> OutSampleX(Context);
 	FRegisterHandler<float> OutSampleY(Context);
 	FRegisterHandler<float> OutSampleZ(Context);
-	
+
+	const VectorRegister One = MakeVectorRegister(1.0f, 1.0f, 1.0f, 1.0f);
+	const VectorRegister Zero = MakeVectorRegister(0.0f, 0.0f, 0.0f, 0.0f);
+	// We use 15,15,15 here because the value will be between 0 and 1. 1 should indicate the maximal index of the 
+	// real table and we pad that out to handle border work. So our values for the Cxyz below should not
+	// ever be 17 in any dimension as that would overflow the array.
+	const VectorRegister VecSize = MakeVectorRegister(15.0f, 15.0f, 15.0f, 15.0f);
+
+	float Di = 0.2f; // Hard-coded scale TODO remove!
+	const VectorRegister Div = MakeVectorRegister(Di, Di, Di, Di);
+
 	for (int32 InstanceIdx = 0; InstanceIdx < Context.NumInstances; ++InstanceIdx)
 	{
-		VectorRegister InCoords = MakeVectorRegister(XParam.Get(), YParam.Get(), ZParam.Get(), 0.0f);
-
-		const VectorRegister One = MakeVectorRegister(1.0f, 1.0f, 1.0f, 1.0f);
-		const VectorRegister Zero = MakeVectorRegister(0.0f, 0.0f, 0.0f, 0.0f);
-		// We use 15,15,15 here because the value will be between 0 and 1. 1 should indicate the maximal index of the 
-		// real table and we pad that out to handle border work. So our values for the Cxyz below should not
-		// ever be 17 in any dimension as that would overflow the array.
-		const VectorRegister VecSize = MakeVectorRegister(15.0f, 15.0f, 15.0f, 15.0f);
-
+		VectorRegister InCoords = MakeVectorRegister(XParam.GetAndAdvance(), YParam.GetAndAdvance(), ZParam.GetAndAdvance(), 0.0f);
 		VectorRegister Dst = MakeVectorRegister(0.0f, 0.0f, 0.0f, 0.0f);
 
-		float Di = 0.2f; // Hard-coded scale TODO remove!
-		VectorRegister Div = MakeVectorRegister(Di, Di, Di, Di);
 		VectorRegister Coords = VectorMod(VectorAbs(VectorMultiply(InCoords, Div)), VecSize);
 		Coords = VectorMin(Coords, VecSize);
 		Coords = VectorMax(Coords, Zero);
@@ -143,29 +148,15 @@ void UNiagaraDataInterfaceCurlNoise::SampleNoiseField(FVectorVMContext& Context)
 		Dst = VectorAdd(Dst, ZV);
 
 		float *RegPtr = reinterpret_cast<float*>(&Dst);
-		*OutSampleX.GetDest() = RegPtr[0];
-		*OutSampleY.GetDest() = RegPtr[1];
-		*OutSampleZ.GetDest() = RegPtr[2];
-
-		XParam.Advance();
-		YParam.Advance();
-		ZParam.Advance();
-		OutSampleX.Advance();
-		OutSampleY.Advance();
-		OutSampleZ.Advance();
+		*OutSampleX.GetDestAndAdvance() = RegPtr[0];
+		*OutSampleY.GetDestAndAdvance() = RegPtr[1];
+		*OutSampleZ.GetDestAndAdvance() = RegPtr[2];
 	}
 }
 
-
-
-// build the shader function HLSL; function name is passed in, as it's defined per-DI; that way, configuration could change
-// the HLSL in the spirit of a static switch
-// TODO: need a way to identify each specific function here
-// 
-bool UNiagaraDataInterfaceCurlNoise::GetFunctionHLSL(const FName& DefinitionFunctionName, FString InstanceFunctionName, TArray<FDIGPUBufferParamDescriptor> &Descriptors, FString &HLSLInterfaceID, FString &OutHLSL)
+bool UNiagaraDataInterfaceCurlNoise::GetFunctionHLSL(const FName& DefinitionFunctionName, FString InstanceFunctionName, FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL)
 {
-
-	FString BufferName = Descriptors[0].BufferParamName;
+	FString BufferName = CurlNoiseBufferName + ParamInfo.DataInterfaceHLSLSymbol;
 	OutHLSL += TEXT("void ") + InstanceFunctionName + TEXT("(in float3 In_XYZ, out float3 Out_Value) \n{\n");
 	OutHLSL += TEXT("\t float3 a = trunc((In_XYZ*0.2) / 15.0);\n");
 	OutHLSL += TEXT("\t float3 ModXYZ = (In_XYZ*0.2) - a*15.0;\n");
@@ -192,48 +183,19 @@ bool UNiagaraDataInterfaceCurlNoise::GetFunctionHLSL(const FName& DefinitionFunc
 	return true;
 }
 
-// build buffer definition hlsl
-// 1. Choose a buffer name, add the data interface ID (important!)
-// 2. add a DIGPUBufferParamDescriptor to the array argument; that'll be passed on to the FNiagaraShader for binding to a shader param, that can
-// then later be found by name via FindDIBufferParam for setting; 
-// 3. store buffer declaration hlsl in OutHLSL
-// multiple buffers can be defined at once here
-//
-void UNiagaraDataInterfaceCurlNoise::GetBufferDefinitionHLSL(FString DataInterfaceID, TArray<FDIGPUBufferParamDescriptor> &BufferDescriptors, FString &OutHLSL)
+void UNiagaraDataInterfaceCurlNoise::GetParameterDefinitionHLSL(FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL)
 {
-	FString BufferName = "CurlNoiseLUT" + DataInterfaceID;
+	FString BufferName = CurlNoiseBufferName + ParamInfo.DataInterfaceHLSLSymbol;
 	OutHLSL += TEXT("Buffer<float4> ") + BufferName + TEXT(";\n");
-
-	BufferDescriptors.Add(FDIGPUBufferParamDescriptor(BufferName, 0));		// add a descriptor for shader parameter binding
-
 }
 
-// called after translate, to setup buffers matching the buffer descriptors generated during hlsl translation
-// need to do this because the script used during translate is a clone, including its DIs
-//
-void UNiagaraDataInterfaceCurlNoise::SetupBuffers(FDIBufferDescriptorStore &BufferDescriptors)
-{
-	GPUBuffers.Empty();
-	for (FDIGPUBufferParamDescriptor &Desc : BufferDescriptors.Descriptors)
-	{
-		FNiagaraDataInterfaceBufferData BufferData(*Desc.BufferParamName);	// store off the data for later use
-		GPUBuffers.Add(BufferData);
-	}
-	bGPUBufferDirty = true;
-}
-
-// return the GPU buffer array (called from NiagaraInstanceBatcher to get the buffers for setting to the shader)
-// we lazily update the buffer with a new LUT here if necessary
-//
-TArray<FNiagaraDataInterfaceBufferData> &UNiagaraDataInterfaceCurlNoise::GetBufferDataArray()
+FRWBuffer& UNiagaraDataInterfaceCurlNoise::GetGPUBuffer()
 {
 	check(IsInRenderingThread());
 
 	if (bGPUBufferDirty)
 	{
-		check(GPUBuffers.Num() > 0);
-		FNiagaraDataInterfaceBufferData &GPUBuffer = GPUBuffers[0];
-		GPUBuffer.Buffer.Release();
+		GPUBuffer.Release();
 		uint32 BufferSize = 17 * 17 * 17 * sizeof(float) * 4;
 		//int32 *BufferData = static_cast<int32*>(RHILockVertexBuffer(GPUBuffer.Buffer.Buffer, 0, BufferSize, EResourceLockMode::RLM_WriteOnly));
 		TResourceArray<FVector4> TempTable;
@@ -249,14 +211,13 @@ TArray<FNiagaraDataInterfaceBufferData> &UNiagaraDataInterfaceCurlNoise::GetBuff
 				}
 			}
 		}
-		GPUBuffer.Buffer.Initialize(sizeof(float) * 4, 17 * 17 * 17, EPixelFormat::PF_A32B32G32R32F, BUF_Static, TEXT("CurlnoiseTable"), &TempTable);
+		GPUBuffer.Initialize(sizeof(float) * 4, 17 * 17 * 17, EPixelFormat::PF_A32B32G32R32F, BUF_Static, TEXT("CurlnoiseTable"), &TempTable);
 		//FPlatformMemory::Memcpy(BufferData, TempTable, BufferSize);
 		//RHIUnlockVertexBuffer(GPUBuffer.Buffer.Buffer);
 		bGPUBufferDirty = false;
 	}
 
-
-	return GPUBuffers;
+	return GPUBuffer;
 }
 
 
@@ -391,4 +352,38 @@ void UNiagaraDataInterfaceCurlNoise::InitNoiseLUT()
 	ReplicateBorder(&NoiseTable[0][0][0]);
 
 	bGPUBufferDirty = true;
+}
+
+
+struct FNiagaraDataInterfaceParametersCS_CurlNoise : public FNiagaraDataInterfaceParametersCS
+{
+	virtual void Bind(const FNiagaraDataInterfaceParamRef& ParamRef, const class FShaderParameterMap& ParameterMap) override
+	{
+		CurlNoiseBuffer.Bind(ParameterMap, *(UNiagaraDataInterfaceCurlNoise::CurlNoiseBufferName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol));
+	}
+
+	virtual void Serialize(FArchive& Ar)override
+	{
+		Ar << CurlNoiseBuffer;
+	}
+
+	virtual void Set(FRHICommandList& RHICmdList, FNiagaraShader* Shader, class UNiagaraDataInterface* DataInterface) const override
+	{
+		check(IsInRenderingThread());
+
+		const FComputeShaderRHIParamRef ComputeShaderRHI = Shader->GetComputeShader();
+		UNiagaraDataInterfaceCurlNoise* CurlNoiseDI = CastChecked<UNiagaraDataInterfaceCurlNoise>(DataInterface);
+		FRWBuffer& GPUBuffer = CurlNoiseDI->GetGPUBuffer();
+
+		RHICmdList.SetShaderResourceViewParameter(ComputeShaderRHI, CurlNoiseBuffer.GetBaseIndex(), GPUBuffer.SRV);
+	}
+
+private:
+
+	FShaderResourceParameter CurlNoiseBuffer;
+};
+
+FNiagaraDataInterfaceParametersCS* UNiagaraDataInterfaceCurlNoise::ConstructComputeParameters()const
+{
+	return new FNiagaraDataInterfaceParametersCS_CurlNoise();
 }

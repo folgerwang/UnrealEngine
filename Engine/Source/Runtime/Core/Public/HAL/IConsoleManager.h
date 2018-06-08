@@ -13,6 +13,12 @@
 
 #define TRACK_CONSOLE_FIND_COUNT !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
+#if DO_CHECK && (!UE_BUILD_SHIPPING) // Disable even if checks in shipping are enabled.
+	#define cvarCheckCode( Code )		checkCode( Code )
+#else
+	#define cvarCheckCode(...)
+#endif
+
 template <class T> class TConsoleVariableData;
 
 /**
@@ -95,10 +101,10 @@ enum EConsoleVariableFlags
 	ECVF_SetByGameSetting =			0x02000000,
 	// project settings (editor UI or from file, higher priority than game setting to allow to enforce some setting fro this project)
 	ECVF_SetByProjectSetting =		0x03000000,
-	// per device setting (e.g. specific iOS device, higher priority than per project to do device specific settings)
-	ECVF_SetByDeviceProfile =		0x04000000,
 	// per project setting (ini file e.g. Engine.ini or Game.ini)
-	ECVF_SetBySystemSettingsIni =	0x05000000,
+	ECVF_SetBySystemSettingsIni =	0x04000000,
+	// per device setting (e.g. specific iOS device, higher priority than per project to do device specific settings)
+	ECVF_SetByDeviceProfile =		0x05000000,
 	// consolevariables.ini (for multiple projects)
 	ECVF_SetByConsoleVariablesIni = 0x06000000,
 	// a minus command e.g. -VSync (very high priority to enforce the setting for the application)
@@ -298,6 +304,11 @@ public:
 		EConsoleVariableFlags CurFlags = (EConsoleVariableFlags)(GetFlags() & ECVF_SetByMask);
 		Set(InValue, CurFlags);
 	}
+	void SetWithCurrentPriority(const TCHAR* InValue)
+	{
+		EConsoleVariableFlags CurFlags = (EConsoleVariableFlags)(GetFlags() & ECVF_SetByMask);
+		Set(InValue, CurFlags);
+	}
 };
 
 /**
@@ -429,6 +440,11 @@ public:
 	 * True if we allow the console to create multi-line commands.
 	 */
 	virtual bool AllowMultiLine() const = 0;
+
+	/**
+	* Returns the hotkey for this executor
+	*/
+	virtual struct FInputChord GetHotKey() const = 0;
 };
 
 
@@ -890,7 +906,7 @@ public:
 	T GetValueOnGameThread() const
 	{
 		// compiled out in shipping for performance (we can change in development later), if this get triggered you need to call GetValueOnRenderThread() or GetValueOnAnyThread(), the last one is a bit slower
-		checkCode(ensure(GetShadowIndex() == 0));	// ensure to not block content creators, #if to optimize in shipping
+		cvarCheckCode(ensure(GetShadowIndex() == 0));	// ensure to not block content creators, #if to optimize in shipping
 		return ShadowedValue[0];
 	}
 
@@ -899,7 +915,7 @@ public:
 	{
 #if !defined(__clang__) // @todo Mac: figure out how to make this compile
 		// compiled out in shipping for performance (we can change in development later), if this get triggered you need to call GetValueOnGameThread() or GetValueOnAnyThread(), the last one is a bit slower
-		checkCode(ensure(IsInParallelRenderingThread()));	// ensure to not block content creators, #if to optimize in shipping
+		cvarCheckCode(ensure(IsInParallelRenderingThread()));	// ensure to not block content creators, #if to optimize in shipping
 #endif
 		return ShadowedValue[1];
 	}
@@ -920,7 +936,7 @@ private: // ----------------------------------------------------
 	{	
 		if (bForceGameThread)
 		{
-			checkCode(ensure(!IsInActualRenderingThread()));
+			cvarCheckCode(ensure(!IsInActualRenderingThread()));
 			return 0;
 		}
 		return IsInGameThread() ? 0 : 1;

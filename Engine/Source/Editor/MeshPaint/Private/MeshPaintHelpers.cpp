@@ -838,6 +838,7 @@ void MeshPaintHelpers::FillVertexColors(UMeshComponent* MeshComponent, const FCo
 			Mesh->SetFlags(RF_Transactional);
 			Mesh->Modify();
 			Mesh->bHasVertexColors = true;
+			Mesh->VertexColorGuid = FGuid::NewGuid();
 
 			// Release the static mesh's resources.
 			Mesh->ReleaseResources();
@@ -1679,6 +1680,7 @@ void MeshPaintHelpers::ApplyVertexColorsToAllLODs(IMeshPaintGeometryAdapter& Geo
 	if (Mesh)
 	{
 		FSkeletalMeshRenderData* Resource = Mesh->GetResourceForRendering();
+		FSkeletalMeshModel* SrcMesh = Mesh->GetImportedModel();
 		if (Resource)
 		{
 			const int32 NumLODs = Resource->LODRenderData.Num();
@@ -1712,6 +1714,8 @@ void MeshPaintHelpers::ApplyVertexColorsToAllLODs(IMeshPaintGeometryAdapter& Geo
 				{
 					// Do something
 					FSkeletalMeshLODRenderData& ApplyLOD = Resource->LODRenderData[LODIndex];
+					FSkeletalMeshLODModel& SrcLOD = SrcMesh->LODModels[LODIndex];
+
 					FBox CombinedBounds = BaseBounds;
 					Mesh->GetLODInfo(LODIndex)->bHasPerLODVertexColors = false;
 
@@ -1737,6 +1741,7 @@ void MeshPaintHelpers::ApplyVertexColorsToAllLODs(IMeshPaintGeometryAdapter& Geo
 					// Iterate over each new vertex position, attempting to find the old vertex it is closest to, applying
 					// the color of the old vertex to the new position if possible.
 					const float DistanceOverNormalThreshold = KINDA_SMALL_NUMBER;
+					check(SrcLOD.NumVertices == ApplyLOD.GetNumVertices());
 					for (uint32 VertexIndex = 0; VertexIndex < ApplyLOD.GetNumVertices(); ++VertexIndex)
 					{
 						TArray<FPaintedMeshVertex> PointsToConsider;
@@ -1818,6 +1823,11 @@ void MeshPaintHelpers::ApplyVertexColorsToAllLODs(IMeshPaintGeometryAdapter& Geo
 							}
 
 							ApplyLOD.StaticVertexBuffers.ColorVertexBuffer.VertexColor(VertexIndex) = PointsToConsider[BestVertexIndex].Color;
+							// Also apply to the skeletal mesh source mesh
+							int32 SectionIndex = INDEX_NONE;
+							int32 SectionVertexIndex = INDEX_NONE;
+							SrcLOD.GetSectionFromVertexIndex(VertexIndex, SectionIndex, SectionVertexIndex);
+							SrcLOD.Sections[SectionIndex].SoftVertices[SectionVertexIndex].Color = PointsToConsider[BestVertexIndex].Color;
 						}
 					}
 				}

@@ -1,0 +1,28 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Launcher Chunk Installer",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"Description" : "Chunk installer module that hooks into launcher",
+	"Category" : "Launcher",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EnabledByDefault" : true,
+		
+	 "Modules": 
+	 [
+        {
+            "Name": "LauncherChunkInstaller",
+            "Type": "Runtime",
+            "LoadingPhase" : "PostConfigInit",
+			"WhitelistPlatforms" :
+			[
+				"Win64",
+				"Win32",
+				"Linux",
+				"Mac"
+			]
+        }
+    ]
+}

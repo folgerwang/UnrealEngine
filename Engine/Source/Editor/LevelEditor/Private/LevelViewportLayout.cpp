@@ -7,6 +7,7 @@
 #include "Widgets/SOverlay.h"
 #include "Framework/Docking/LayoutService.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
 #include "Layout/WidgetPath.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/Layout/SBorder.h"
@@ -15,7 +16,10 @@
 #include "EditorStyleSet.h"
 #include "Editor/UnrealEdEngine.h"
 #include "UnrealEdGlobals.h"
+#include "LevelEditor.h"
 #include "Widgets/Docking/SDockTab.h"
+
+static const FName LevelEditorModName("LevelEditor");
 
 namespace ViewportLayoutDefs
 {
@@ -162,6 +166,9 @@ FLevelViewportLayout::~FLevelViewportLayout()
 			OwnerWindow->SetFullWindowOverlayContent( NULL );
 		}
 	}
+
+	FLevelEditorModule& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>(LevelEditorModName);
+	LevelEditor.OnTakeHighResScreenShots().RemoveAll(this);
 }
 
 
@@ -174,7 +181,12 @@ TSharedRef<SWidget> FLevelViewportLayout::BuildViewportLayout( TSharedPtr<SDockT
 	ParentTabContent = InParentTab;
 	ParentLevelEditor = InParentLevelEditor;
 	MaximizedViewport = NAME_None;
-	
+
+	// Important: We use raw bindings here because we are releasing our binding in our destructor (where a weak pointer would be invalid)
+	// It's imperative that our delegate is removed in the destructor for the level editor module to play nicely with reloading.
+	FLevelEditorModule& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>(LevelEditorModName);
+	LevelEditor.OnTakeHighResScreenShots().AddRaw(this, &FLevelViewportLayout::TakeHighResScreenShot);
+
 	// We use an overlay so that we can draw a maximized viewport on top of the other viewports
 	TSharedPtr<SBorder> ViewportsBorder;
 	TSharedRef<SViewportsOverlay> ViewportsOverlay =
@@ -560,6 +572,29 @@ FVector2D FLevelViewportLayout::GetMaximizedViewportSizeOnCanvas() const
 	return FVector2D::ZeroVector;
 }
 
+/** Method for taking high res screen shots of viewports */
+
+void FLevelViewportLayout::TakeHighResScreenShot()
+{
+	if (bIsImmersive || bIsMaximized)
+	{
+		TSharedPtr<IViewportLayoutEntity> MaximizedViewportEntity = Viewports.FindRef(MaximizedViewport);
+		check(MaximizedViewportEntity.IsValid());
+
+		MaximizedViewportEntity->TakeHighResScreenShot();
+	}
+	else
+	{
+		for (auto& Elem : Viewports)
+		{
+			TSharedPtr<IViewportLayoutEntity> ViewportEntity = Elem.Value; 
+			if (ViewportEntity.IsValid())
+			{
+				ViewportEntity->TakeHighResScreenShot();
+			}
+		}
+	}
+}
 
 /**
  * @return true if this layout is visible.  It is not visible if its parent tab is not active

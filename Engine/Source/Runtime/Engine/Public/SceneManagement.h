@@ -298,7 +298,7 @@ static const int32 MAX_NUM_LIGHTMAP_COEF = 2;
 
 /** Compile out low quality lightmaps to save memory */
 // @todo-mobile: Need to fix this!
-#define ALLOW_LQ_LIGHTMAPS (PLATFORM_DESKTOP || PLATFORM_IOS || PLATFORM_ANDROID || PLATFORM_HTML5 || PLATFORM_SWITCH )
+#define ALLOW_LQ_LIGHTMAPS (PLATFORM_DESKTOP || PLATFORM_IOS || PLATFORM_ANDROID || PLATFORM_HTML5 || PLATFORM_SWITCH || PLATFORM_LUMINGL4)
 
 /** Compile out high quality lightmaps to save memory */
 #define ALLOW_HQ_LIGHTMAPS 1
@@ -838,7 +838,10 @@ public:
 inline bool DoesPlatformSupportDistanceFieldShadowing(EShaderPlatform Platform)
 {
 	// Hasn't been tested elsewhere yet
-	return Platform == SP_PCD3D_SM5 || Platform == SP_PS4 || (IsMetalPlatform(Platform) && GetMaxSupportedFeatureLevel(Platform) >= ERHIFeatureLevel::SM5 && RHIGetShaderLanguageVersion(Platform) >= 2) || Platform == SP_XBOXONE_D3D12 || Platform == SP_VULKAN_SM5;
+	return Platform == SP_PCD3D_SM5 || Platform == SP_PS4
+		|| (IsMetalPlatform(Platform) && GetMaxSupportedFeatureLevel(Platform) >= ERHIFeatureLevel::SM5 && RHIGetShaderLanguageVersion(Platform) >= 2)
+		|| Platform == SP_XBOXONE_D3D12
+		|| IsVulkanSM5Platform(Platform);
 }
 
 /** Represents a USkyLightComponent to the rendering thread. */
@@ -880,15 +883,16 @@ public:
 
 struct FLightParameters
 {
-	FVector4 LightPositionAndInvRadius;
-	FVector4 LightColorAndFalloffExponent;
-	FVector NormalizedLightDirection;
-	FVector NormalizedLightTangent;
-	FVector2D SpotAngles;
-	float LightSourceRadius;
-	float LightSoftSourceRadius;
-	float LightSourceLength;
-	float LightMinRoughness;
+	FVector4	LightPositionAndInvRadius;
+	FVector4	LightColorAndFalloffExponent;
+	FVector		NormalizedLightDirection;
+	FVector		NormalizedLightTangent;
+	FVector2D	SpotAngles;
+	float		LightSourceRadius;
+	float		LightSoftSourceRadius;
+	float		LightSourceLength;
+	float		LightMinRoughness;
+	FTexture*	SourceTexture;
 };
 
 /** 
@@ -927,7 +931,8 @@ public:
 	virtual float GetRadius() const { return FLT_MAX; }
 	virtual float GetOuterConeAngle() const { return 0.0f; }
 	virtual float GetSourceRadius() const { return 0.0f; }
-	virtual bool IsInverseSquared() const { return false; }
+	virtual bool IsInverseSquared() const { return true; }
+	virtual bool IsRectLight() const { return false; }
 	virtual float GetLightSourceAngle() const { return 0.0f; }
 	virtual float GetTraceDistance() const { return 0.0f; }
 	virtual float GetEffectiveScreenRadius(const FViewMatrices& ShadowViewMatrices) const { return 0.0f; }
@@ -1071,6 +1076,7 @@ public:
 	inline bool CastsModulatedShadows() const { return bCastModulatedShadows; }
 	inline const FLinearColor& GetModulatedShadowColor() const { return ModulatedShadowColor; }
 	inline bool AffectsTranslucentLighting() const { return bAffectTranslucentLighting; }
+	inline bool Transmission() const { return bTransmission; }
 	inline bool UseRayTracedDistanceFieldShadows() const { return bUseRayTracedDistanceFieldShadows; }
 	inline float GetRayStartOffsetDepthScale() const { return RayStartOffsetDepthScale; }
 	inline uint8 GetLightType() const { return LightType; }
@@ -1199,6 +1205,9 @@ protected:
 
 	/** Whether the light is allowed to cast dynamic shadows from translucency. */
 	const uint32 bCastTranslucentShadows : 1;
+
+	/** Whether light from this light transmits through surfaces with subsurface scattering profiles. Requires light to be movable. */
+	const uint32 bTransmission : 1;
 
 	const uint32 bCastVolumetricShadow : 1;
 
@@ -1673,13 +1682,16 @@ private:
 	 * Cached usage information to speed up traversal in the most costly passes (depth-only, base pass, shadow depth), 
 	 * This is done so the Mesh does not have to be dereferenced to determine pass relevance. 
 	 */
-	uint32 bHasOpaqueOrMaskedMaterial : 1;
+	uint32 bHasOpaqueMaterial : 1;
+	uint32 bHasMaskedMaterial : 1;
 	uint32 bRenderInMainPass : 1;
 
 public:
 	FMeshBatchAndRelevance(const FMeshBatch& InMesh, const FPrimitiveSceneProxy* InPrimitiveSceneProxy, ERHIFeatureLevel::Type FeatureLevel);
 
-	bool GetHasOpaqueOrMaskedMaterial() const { return bHasOpaqueOrMaskedMaterial; }
+	bool GetHasOpaqueMaterial() const { return bHasOpaqueMaterial; }
+	bool GetHasMaskedMaterial() const { return bHasMaskedMaterial; }
+	bool GetHasOpaqueOrMaskedMaterial() const { return bHasOpaqueMaterial || bHasMaskedMaterial; }
 	bool GetRenderInMainPass() const { return bRenderInMainPass; }
 };
 

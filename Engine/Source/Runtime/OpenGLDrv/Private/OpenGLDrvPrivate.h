@@ -144,6 +144,11 @@ int32 PlatformGlGetError();
 EOpenGLCurrentContext PlatformOpenGLCurrentContext(FPlatformOpenGLDevice* Device);
 
 /**
+ * Retrieve the address of the OpenGL context currently in use.
+ */
+void* PlatformOpenGLCurrentContextHandle(FPlatformOpenGLDevice* Device);
+
+/**
  * Get new occlusion query from current context. This is provided from a cache inside the context
  * if some entries are in there, and created otherwise. All other released queries present in the
  * cache are deleted at the same time (as this is the earliest possible occasion when the context
@@ -194,6 +199,11 @@ void PlatformDestroyOpenGLDevice(FPlatformOpenGLDevice* Device);
  * transfer the rendering results to screen by rendering thread, inside RHIEndDrawingViewport().
  */
 FPlatformOpenGLContext* PlatformCreateOpenGLContext(FPlatformOpenGLDevice* Device, void* InWindowHandle);
+
+/**
+ * Get rendering OpenGL context on current thread.
+ */
+FPlatformOpenGLContext* PlatformGetOpenGLRenderingContext(FPlatformOpenGLDevice* Device);
 
 /**
  * Destroy a viewport OpenGL context.
@@ -503,6 +513,9 @@ inline bool OpenGLShaderPlatformNeedsBindLocation(const EShaderPlatform InShader
 			return false;
 
 		case SP_OPENGL_SM4:
+#if PLATFORM_LUMINGL4
+			return false;
+#endif
 		case SP_OPENGL_PCES2:
 		case SP_OPENGL_ES2_ANDROID:
 		case SP_OPENGL_ES2_WEBGL:
@@ -522,6 +535,13 @@ inline bool OpenGLShaderPlatformSeparable(const EShaderPlatform InShaderPlatform
 	{
 		case SP_OPENGL_SM5:
 		case SP_OPENGL_SM4:
+#if PLATFORM_LUMINGL4
+// Only desktop shader platforms can use separable shaders for now,
+// the generated code relies on macros supplied at runtime to determine whether
+// shaders may be separable and/or linked.
+// although Lumin gl4 supports desktop gl feature level, it is not capable of compiling shaders.
+			return false;
+#endif		
 		case SP_OPENGL_PCES2:
 		case SP_OPENGL_PCES3_1:
 			return true;

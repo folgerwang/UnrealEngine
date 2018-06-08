@@ -1,12 +1,12 @@
-﻿INTSourceChangelist:2716613
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2 - メッシュ評価
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/LevelDesign
 Description:レベルデザインの概要、サンプル 2：メッシュ評価
-Related: Engine/Content/Types/StaticMeshes
-Related: Engine/Rendering/Materials
+Related:Engine/Content/Types/StaticMeshes
+Related:Engine/Rendering/Materials
 Related:Engine/UI/LevelEditor
-Related: Engine/UI/LevelEditor/Modes
+Related:Engine/UI/LevelEditor/Modes
 Version:4.9
 
 [VAR:Steps]

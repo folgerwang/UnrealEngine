@@ -6,7 +6,11 @@
 #include "MetalBuffer.h"
 #include "MetalQuery.h"
 #include "MetalDebugCommandEncoder.h"
+#include "MetalBlitCommandEncoder.h"
+#include "MetalComputeCommandEncoder.h"
+#include "MetalRenderCommandEncoder.h"
 #include "MetalFence.h"
+#include "MetalProfiler.h"
 #include "command_buffer.hpp"
 
 class FMetalCommandList;
@@ -151,6 +155,25 @@ public:
 	
 	/* Pop the latest named string off of the stack. */
 	void PopDebugGroup(void);
+	
+#if ENABLE_METAL_GPUPROFILE
+	/* Get the command-buffer stats object. */
+	FMetalCommandBufferStats* GetCommandBufferStats(void);
+#endif
+
+#if METAL_DEBUG_OPTIONS
+	/** @returns The active render command encoder or nil if there isn't one. */
+	FMetalCommandBufferDebugging& GetCommandBufferDebugging(void) { return CommandBufferDebug; } 
+	
+	/** @returns The active render command encoder or nil if there isn't one. */
+	FMetalRenderCommandEncoderDebugging& GetRenderCommandEncoderDebugging(void) { return RenderEncoderDebug; } 
+	
+	/** @returns The active compute command encoder or nil if there isn't one. */
+	FMetalComputeCommandEncoderDebugging& GetComputeCommandEncoderDebugging(void) { return ComputeEncoderDebug; }
+	
+	/** @returns The active blit command encoder or nil if there isn't one. */
+	FMetalBlitCommandEncoderDebugging& GetBlitCommandEncoderDebugging(void) { return BlitEncoderDebug; }
+#endif
 	
 #pragma mark - Public Render State Mutators -
 
@@ -371,7 +394,16 @@ private:
 	mtlpp::RenderCommandEncoder RenderCommandEncoder;
 	mtlpp::ComputeCommandEncoder ComputeCommandEncoder;
 	mtlpp::BlitCommandEncoder BlitCommandEncoder;
+	
+	METAL_DEBUG_OPTION(FMetalCommandBufferDebugging CommandBufferDebug);
+	METAL_DEBUG_OPTION(FMetalRenderCommandEncoderDebugging RenderEncoderDebug);
+	METAL_DEBUG_OPTION(FMetalComputeCommandEncoderDebugging ComputeEncoderDebug);
+	METAL_DEBUG_OPTION(FMetalBlitCommandEncoderDebugging BlitEncoderDebug);
+	
 	FMetalFence EncoderFence;
+#if ENABLE_METAL_GPUPROFILE
+	FMetalCommandBufferStats* CommandBufferStats;
+#endif
 	
 	TArray<ns::Object<mtlpp::CommandBufferHandler>> CompletionHandlers;
 	NSMutableArray* DebugGroups;

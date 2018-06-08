@@ -6,7 +6,7 @@
 #include "Misc/Guid.h"
 #include "Modules/ModuleInterface.h"
 #include "Containers/ArrayView.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 
 class AActor;
 class ISequenceAudioRecorder;
@@ -95,6 +95,19 @@ public:
 	 * @return true if we have an audio recorder registered, false otherwise
 	 */
 	virtual bool HasAudioRecorder() const = 0;
+
+	/**
+	 * Add an actor to be recorded when the next recording pass begins
+	 * @param	ActorToRecord	The actor to queue for recording	
+	 */
+	virtual void QueueActorToRecord(AActor* ActorToRecord) = 0;
+
+	/**
+	 * Get the take number of an actor that is queued to record in the current group
+	 * @param	InActor		The actor to fetch the take number for
+	 * @return the take number for the given actor, 0 if actor isn't queued or no group is active
+	 */
+	virtual uint32 GetTakeNumberForActor(AActor* InActor) const = 0;
 
 	/**
 	 * Attempt to create an audio recorder

@@ -41,7 +41,9 @@ void FIOSPlatformProcess::LaunchURL( const TCHAR* URL, const TCHAR* Parms, FStri
 {
 	UE_LOG(LogIOS, Log,  TEXT("LaunchURL %s %s"), URL, Parms?Parms:TEXT("") );
 	NSString* CFUrl = (NSString*)FPlatformString::TCHARToCFString( URL );
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	bool Result = [[UIApplication sharedApplication] openURL: [NSURL URLWithString: CFUrl]];
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	if (Error != nullptr)
 	{
 		*Error = Result ? TEXT("") : TEXT("unable to open url");

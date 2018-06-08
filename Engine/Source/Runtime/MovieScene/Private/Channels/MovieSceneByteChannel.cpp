@@ -4,14 +4,8 @@
 #include "Channels/MovieSceneChannelProxy.h"
 #include "Curves/IntegralCurve.h"
 #include "MovieSceneFwd.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "MovieSceneFrameMigration.h"
-
-uint32 FMovieSceneByteChannel::GetChannelID()
-{
-	static uint32 ID = FMovieSceneChannelEntry::RegisterNewID();
-	return ID;
-}
 
 bool FMovieSceneByteChannel::SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar)
 {
@@ -63,4 +57,67 @@ bool FMovieSceneByteChannel::Evaluate(FFrameTime InTime, uint8& OutValue) const
 	}
 
 	return false;
+}
+
+void FMovieSceneByteChannel::GetKeys(const TRange<FFrameNumber>& WithinRange, TArray<FFrameNumber>* OutKeyTimes, TArray<FKeyHandle>* OutKeyHandles)
+{
+	GetData().GetKeys(WithinRange, OutKeyTimes, OutKeyHandles);
+}
+
+void FMovieSceneByteChannel::GetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<FFrameNumber> OutKeyTimes)
+{
+	GetData().GetKeyTimes(InHandles, OutKeyTimes);
+}
+
+void FMovieSceneByteChannel::SetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<const FFrameNumber> InKeyTimes)
+{
+	GetData().SetKeyTimes(InHandles, InKeyTimes);
+}
+
+void FMovieSceneByteChannel::DuplicateKeys(TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyHandle> OutNewHandles)
+{
+	GetData().DuplicateKeys(InHandles, OutNewHandles);
+}
+
+void FMovieSceneByteChannel::DeleteKeys(TArrayView<const FKeyHandle> InHandles)
+{
+	GetData().DeleteKeys(InHandles);
+}
+
+void FMovieSceneByteChannel::ChangeFrameResolution(FFrameRate SourceRate, FFrameRate DestinationRate)
+{
+	GetData().ChangeFrameResolution(SourceRate, DestinationRate);
+}
+
+TRange<FFrameNumber> FMovieSceneByteChannel::ComputeEffectiveRange() const
+{
+	return GetData().GetTotalRange();
+}
+
+int32 FMovieSceneByteChannel::GetNumKeys() const
+{
+	return Times.Num();
+}
+
+void FMovieSceneByteChannel::Reset()
+{
+	Times.Reset();
+	Values.Reset();
+	KeyHandles.Reset();
+	bHasDefaultValue = false;
+}
+
+void FMovieSceneByteChannel::Optimize(const FKeyDataOptimizationParams& InParameters)
+{
+	MovieScene::Optimize(this, InParameters);
+}
+
+void FMovieSceneByteChannel::Offset(FFrameNumber DeltaPosition)
+{
+	GetData().Offset(DeltaPosition);
+}
+
+void FMovieSceneByteChannel::ClearDefault()
+{
+	bHasDefaultValue = false;
 }

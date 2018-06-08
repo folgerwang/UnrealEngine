@@ -126,7 +126,7 @@ On the **Pose Driver** node itself, you have the following options:
 | **Type** | [INCLUDE:Engine\Animation\AnimPose\AnimBPPoseNodes\#typetable] | 
 | **Twist Axis** | The axis to use when **Type** is set to **SwingOnly** (X, Y or Z). | 
 
-[COMMENT]
+[COMMENT:none]
 
 [EXCERPT:typetable]
 | Option | Description |

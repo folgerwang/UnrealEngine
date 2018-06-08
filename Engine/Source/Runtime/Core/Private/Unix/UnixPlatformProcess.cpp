@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Unix/UnixPlatformProcess.h"
+#include "Unix/UnixPlatformCrashContext.h"
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "Containers/StringConv.h"
 #include "Logging/LogMacros.h"
@@ -365,7 +366,7 @@ const TCHAR* FUnixPlatformProcess::ExecutableName(bool bRemoveExtension)
 
 FString FUnixPlatformProcess::GenerateApplicationPath( const FString& AppName, EBuildConfigurations::Type BuildConfiguration)
 {
-	FString PlatformName = GetBinariesSubdirectory();
+	FString PlatformName = FPlatformProcess::GetBinariesSubdirectory();
 	FString ExecutablePath = FString::Printf(TEXT("../../../Engine/Binaries/%s/%s"), *PlatformName, *AppName);
 	
 	if (BuildConfiguration != EBuildConfigurations::Development && BuildConfiguration != EBuildConfigurations::DebugGame)
@@ -1040,7 +1041,7 @@ FProcState::~FProcState()
 
 		FChildWaiterThread * WaiterRunnable = new FChildWaiterThread(GetProcessId());
 		// [RCL] 2015-03-11 @FIXME: do not leak
-		FRunnableThread * WaiterThread = FRunnableThread::Create(WaiterRunnable, *FString::Printf(TEXT("waitpid(%d)"), GetProcessId(), 32768 /* needs just a small stack */, TPri_BelowNormal));
+		FRunnableThread * WaiterThread = FRunnableThread::Create(WaiterRunnable, *FString::Printf(TEXT("waitpid(%d)"), GetProcessId()), 32768 /* needs just a small stack */, TPri_BelowNormal);
 	}
 }
 
@@ -1329,6 +1330,9 @@ FGenericPlatformProcess::EWaitAndForkResult FUnixPlatformProcess::WaitAndFork()
 					}
 				}
 
+				// Need to remove the child process from the responsibility of keeping track of a valid sibling process.
+				UnixCrashReporterTracker::RemoveValidCrashReportTickerForChildProcess();
+
 				// If requested, now wait for a SIGRTMIN+2 signal before continuing execution.
 				if (bRequireResponseSignal && NumForksToNotRequireResponse <= 0)
 				{
@@ -1518,16 +1522,25 @@ bool FUnixPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, i
 
 		bInvoked = true;
 		bool bGotReturnCode = FPlatformProcess::GetProcReturnCode(ProcHandle, &ReturnCode);
-		check(bGotReturnCode);
-		*OutReturnCode = ReturnCode;
+		check(bGotReturnCode)
+		if (OutReturnCode != nullptr)
+		{
+			*OutReturnCode = ReturnCode;
+		}
 
 		FPlatformProcess::CloseProc(ProcHandle);
 	}
 	else
 	{
 		bInvoked = false;
-		*OutReturnCode = -1;
-		*OutStdOut = "";
+		if (OutReturnCode != nullptr)
+		{
+			*OutReturnCode = -1;
+		}
+		if (OutStdOut != nullptr)
+		{
+			*OutStdOut = "";
+		}
 		UE_LOG(LogHAL, Warning, TEXT("Failed to launch Tool. (%s)"), *ExecutableFileName);
 	}
 	FPlatformProcess::ClosePipe(PipeRead, PipeWrite);

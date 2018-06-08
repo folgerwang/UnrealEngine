@@ -520,7 +520,7 @@ namespace BuildPatchServices
 					TArray<uint8> DownloadedData = Download->GetData();
 
 					// If we know the SHA for this chunk, inject to data for verification.
-					FSHAHashData LegacyHashType;
+					FSHAHash LegacyHashType;
 					if (InstallManifest->GetChunkShaHash(DownloadId, LegacyHashType))
 					{
 						FSHAHash ChunkShaHash;

@@ -152,10 +152,10 @@ struct FSkeletalMeshLODInfo
 	 * sphere of the model. i.e. 0.5 means half the screen's maximum dimension.
 	 */
 	UPROPERTY(EditAnywhere, Category=SkeletalMeshLODInfo)
-	float ScreenSize;
+	FPerPlatformFloat ScreenSize;
 
 	/**	Used to avoid 'flickering' when on LOD boundary. Only taken into account when moving from complex->simple. */
-	UPROPERTY(EditAnywhere, Category=SkeletalMeshLODInfo)
+	UPROPERTY(EditAnywhere, Category=SkeletalMeshLODInfo, meta=(DisplayName="LOD Hysteresis"))
 	float LODHysteresis;
 
 	/** Mapping table from this LOD's materials to the USkeletalMesh materials array. */
@@ -205,6 +205,14 @@ struct FSkeletalMeshLODInfo
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = SkeletalMeshLODInfo, meta=(EditCondition="bAllowCPUAccess"))
 	uint32 bSupportUniformlyDistributedSampling : 1;
 
+#if WITH_EDITORONLY_DATA
+	/*
+	 * This boolean specify if the LOD was imported with the base mesh or not.
+	 */
+	UPROPERTY()
+	bool bImportWithBaseMesh;
+#endif
+
 	FSkeletalMeshLODInfo()
 		: ScreenSize(1.0)
 		, LODHysteresis(0.0f)
@@ -213,6 +221,9 @@ struct FSkeletalMeshLODInfo
 		, bHasPerLODVertexColors(false)
 		, bAllowCPUAccess(false)
 		, bSupportUniformlyDistributedSampling(false)
+#if WITH_EDITORONLY_DATA
+		, bImportWithBaseMesh(false)
+#endif
 	{
 	}
 
@@ -287,7 +298,7 @@ struct FClothingAssetData_Legacy
 #if WITH_APEX_CLOTHING
 	nvidia::apex::ClothingAsset* ApexClothingAsset;
 	FClothingAssetData_Legacy()
-		:ApexClothingAsset(NULL)
+		: bClothPropertiesChanged(false), ApexClothingAsset(nullptr)
 	{
 	}
 #endif// #if WITH_APEX_CLOTHING
@@ -505,6 +516,10 @@ public:
 	UPROPERTY(EditAnywhere, Category=Mesh)
 	uint32 bUseFullPrecisionUVs:1;
 
+	/** If true, tangents will be stored at 16 bit vs 8 bit precision */
+	UPROPERTY(EditAnywhere, Category = Mesh)
+	uint32 bUseHighPrecisionTangentBasis : 1;
+
 	/** true if this mesh has ever been simplified with Simplygon. */
 	UPROPERTY()
 	uint32 bHasBeenSimplified:1;
@@ -512,6 +527,12 @@ public:
 	/** Whether or not the mesh has vertex colors */
 	UPROPERTY()
 	uint32 bHasVertexColors:1;
+
+#if WITH_EDITORONLY_DATA
+	/** The guid to compute the ddc key, it must be dirty when we change the vertex color. */
+	UPROPERTY()
+	FGuid VertexColorGuid;
+#endif
 
 	//caching optimization to avoid recalculating in non-editor builds
 	uint32 bHasActiveClothingAssets:1;
@@ -776,6 +797,8 @@ public:
 
 	virtual void PostEditUndo() override;
 	virtual void GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetadata>& OutMetadata) const override;
+
+	void UpdateGenerateUpToData();
 #endif // WITH_EDITOR
 	virtual void BeginDestroy() override;
 	virtual bool IsReadyForFinishDestroy() override;

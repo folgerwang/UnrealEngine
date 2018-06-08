@@ -954,7 +954,7 @@ bool FAssetManagerEditorModule::GetStringValueForCustomColumn(const FAssetData& 
 		int64 IntegerValue = 0;
 		if (GetIntegerValueForCustomColumn(AssetData, ColumnName, IntegerValue))
 		{
-			OutValue = Lex::ToString(IntegerValue);
+			OutValue = LexToString(IntegerValue);
 			return true;
 		}
 	}
@@ -1007,7 +1007,7 @@ bool FAssetManagerEditorModule::GetStringValueForCustomColumn(const FAssetData& 
 			{
 				OutValue += TEXT("+");
 			}
-			OutValue += Lex::ToString(Chunk);
+			OutValue += LexToString(Chunk);
 		}
 		return true;
 	}

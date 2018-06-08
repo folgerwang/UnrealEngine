@@ -9,10 +9,11 @@
 #include "VulkanPendingState.h"
 #include "VulkanContext.h"
 
+//#todo-Lumin: Until we have LuminEngine.ini
 FAutoConsoleVariable GCVarDelayAcquireBackBuffer(
 	TEXT("r.Vulkan.DelayAcquireBackBuffer"),
-	1,
-	TEXT("Delay acquiring the back buffer until preset"),
+	(PLATFORM_ANDROID && !PLATFORM_LUMIN) ? 0 : 1,
+	TEXT("Delay acquiring the back buffer until present"),
 	ECVF_ReadOnly
 );
 
@@ -163,7 +164,13 @@ void FVulkanViewport::AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBac
 
 	FVulkanCommandBufferManager* CmdBufferManager = Context.GetCommandBufferManager();
 	FVulkanCmdBuffer* CmdBuffer = CmdBufferManager->GetActiveCmdBuffer();
-	check(CmdBuffer->IsOutsideRenderPass());
+	if (CmdBuffer->IsInsideRenderPass())
+	{
+		// This could happen due to a SetRT(AndClear) call lingering around (so emulated needs to be ended); however REAL render passes should already have been ended!
+		FTransitionAndLayoutManager& LayoutMgr = Context.GetTransitionAndLayoutManager();
+		checkf(!LayoutMgr.bInsideRealRenderPass, TEXT("Did not end Render Pass!"));
+		LayoutMgr.EndEmulatedRenderPass(CmdBuffer);
+	}
 
 	if (FVulkanPlatform::SupportsStandardSwapchain())
 	{
@@ -172,7 +179,10 @@ void FVulkanViewport::AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBac
 
 	// Submit here so we can add a dependency with the acquired semaphore
 	CmdBuffer->End();
-	CmdBuffer->AddWaitSemaphore(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, AcquiredSemaphore);
+	if (FVulkanPlatform::SupportsStandardSwapchain())
+	{
+		CmdBuffer->AddWaitSemaphore(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, AcquiredSemaphore);
+	}
 	Device->GetGraphicsQueue()->Submit(CmdBuffer);
 	CmdBufferManager->PrepareForNewActiveCommandBuffer();
 }
@@ -181,7 +191,7 @@ FVulkanTexture2D* FVulkanViewport::GetBackBuffer(FRHICommandList& RHICmdList)
 {
 	check(IsInRenderingThread());
 
-	if (!RenderingBackBuffer)
+	if (!RenderingBackBuffer && FVulkanPlatform::SupportsStandardSwapchain())
 	{
 		check(!DelayAcquireBackBuffer());
 
@@ -329,7 +339,7 @@ void FVulkanFramebuffer::Destroy(FVulkanDevice& Device)
 	for (int32 Index = 0; Index < AttachmentViewsToDelete.Num(); ++Index)
 	{
 		DEC_DWORD_STAT(STAT_VulkanNumImageViews);
-		Queue.EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::ImageView, AttachmentViews[Index]);
+		Queue.EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::ImageView, AttachmentViewsToDelete[Index]);
 	}
 
 	Queue.EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::Framebuffer, Framebuffer);
@@ -608,12 +618,12 @@ bool FVulkanViewport::Present(FVulkanCommandListContext* Context, FVulkanCmdBuff
 
 	CmdBuffer->End();
 
-	if (DelayAcquireBackBuffer())
-	{
-		CmdBuffer->AddWaitSemaphore(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, AcquiredSemaphore);
-	}
 	if (FVulkanPlatform::SupportsStandardSwapchain())
 	{
+		if (DelayAcquireBackBuffer())
+		{
+			CmdBuffer->AddWaitSemaphore(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, AcquiredSemaphore);
+		}
 		Queue->Submit(CmdBuffer, RenderingDoneSemaphores[AcquiredImageIndex]->GetHandle());
 	}
 	else

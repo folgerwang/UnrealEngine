@@ -13,7 +13,7 @@
  *  DNS resolver.
  */
 
-#if !defined(USE_WEBSOCKETS)
+#if !defined(USE_WEBSOCKETS) && !defined(DISABLE_SRV_LOOKUP)
 
 #ifndef _WIN32
 #include <netinet/in.h>

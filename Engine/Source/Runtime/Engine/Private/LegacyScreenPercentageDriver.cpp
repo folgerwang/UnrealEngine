@@ -11,9 +11,11 @@
 FLegacyScreenPercentageDriver::FLegacyScreenPercentageDriver(
 	const FSceneViewFamily& InViewFamily,
 	float InGlobalResolutionFraction,
-	bool InAllowPostProcessSettingsScreenPercentage)
+	bool InAllowPostProcessSettingsScreenPercentage,
+	float InGlobalResolutionFractionUpperBound)
 	: ViewFamily(InViewFamily)
 	, GlobalResolutionFraction(InGlobalResolutionFraction)
+	, GlobalResolutionFractionUpperBound(InGlobalResolutionFractionUpperBound)
 	, AllowPostProcessSettingsScreenPercentage(InAllowPostProcessSettingsScreenPercentage)
 {
 	if (AllowPostProcessSettingsScreenPercentage || GlobalResolutionFraction != 1.0f)
@@ -33,7 +35,7 @@ float FLegacyScreenPercentageDriver::GetPrimaryResolutionFractionUpperBound() co
 
 	for (int32 i = 0; i < ViewFamily.Views.Num(); i++)
 	{
-		float ResolutionFraction = GlobalResolutionFraction;
+		float ResolutionFraction = GlobalResolutionFractionUpperBound;
 		if (AllowPostProcessSettingsScreenPercentage)
 		{
 			ResolutionFraction *= ViewFamily.Views[i]->FinalPostProcessSettings.ScreenPercentage / 100.0f;
@@ -53,7 +55,7 @@ ISceneViewFamilyScreenPercentage* FLegacyScreenPercentageDriver::Fork_GameThread
 	check(IsInGameThread());
 
 	return new FLegacyScreenPercentageDriver(
-		ForkedViewFamily, GlobalResolutionFraction, AllowPostProcessSettingsScreenPercentage);
+		ForkedViewFamily, GlobalResolutionFraction, AllowPostProcessSettingsScreenPercentage, GlobalResolutionFractionUpperBound);
 }
 
 void FLegacyScreenPercentageDriver::ComputePrimaryResolutionFractions_RenderThread(

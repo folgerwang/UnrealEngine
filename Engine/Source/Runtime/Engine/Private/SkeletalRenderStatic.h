@@ -36,7 +36,7 @@ public:
 	virtual const TArray<FMatrix>& GetReferenceToLocalMatrices() const override;
 	virtual int32 GetLOD() const override
 	{
-		return 0;
+		return WorkingMinDesiredLODLevel;
 	}
 	//virtual const FTwoVectors& GetCustomLeftRightVectors(int32 SectionIndex) const override;
 	virtual void DrawVertexElements(FPrimitiveDrawInterface* PDI, const FMatrix& ToWorldSpace, bool bDrawNormals, bool bDrawTangents, bool bDrawBinormals) const override {};

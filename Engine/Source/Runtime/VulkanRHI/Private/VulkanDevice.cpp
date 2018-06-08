@@ -131,7 +131,7 @@ void FVulkanDevice::CreateDevice()
 
 		if ((CurrProps.queueFlags & VK_QUEUE_COMPUTE_BIT) == VK_QUEUE_COMPUTE_BIT)
 		{
-			if (ComputeQueueFamilyIndex == -1 && 
+			if (ComputeQueueFamilyIndex == -1 &&
 				(GRHIAllowAsyncComputeCvar.GetValueOnAnyThread() != 0 || GAllowPresentOnComputeQueue.GetValueOnAnyThread() != 0) && GfxQueueFamilyIndex != FamilyIndex)
 			{
 				ComputeQueueFamilyIndex = FamilyIndex;
@@ -235,11 +235,17 @@ void FVulkanDevice::CreateDevice()
 	TransferQueue = new FVulkanQueue(this, TransferQueueFamilyIndex);
 
 #if VULKAN_ENABLE_DRAW_MARKERS
-	if (bDebugMarkersFound || FVulkanPlatform::SupportsMarkersWithoutExtension())
+	if (bDebugMarkersFound || FVulkanPlatform::ForceEnableDebugMarkers())
 	{
 		DebugMarkers.CmdBegin = (PFN_vkCmdDebugMarkerBeginEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkCmdDebugMarkerBeginEXT");
 		DebugMarkers.CmdEnd = (PFN_vkCmdDebugMarkerEndEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkCmdDebugMarkerEndEXT");
 		DebugMarkers.CmdSetObjectName = (PFN_vkDebugMarkerSetObjectNameEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkDebugMarkerSetObjectNameEXT");
+
+		if (DebugMarkers.CmdBegin && DebugMarkers.CmdEnd && DebugMarkers.CmdSetObjectName)
+		{
+			bDebugMarkersFound = true;
+		}
+
 		if (!DebugMarkers.CmdBegin || !DebugMarkers.CmdEnd || !DebugMarkers.CmdSetObjectName)
 		{
 			UE_LOG(LogVulkanRHI, Warning, TEXT("Extension found, but entry points for vkCmdDebugMarker(Begin|End)EXT NOT found!"));
@@ -264,7 +270,7 @@ void FVulkanDevice::CreateDevice()
 		EnableDrawMarkers();
 	}
 #endif
-	
+
 #if VULKAN_ENABLE_DUMP_LAYER
 	EnableDrawMarkers();
 #endif
@@ -524,7 +530,7 @@ void FVulkanDevice::MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanForma
 	FormatInfo.PlatformFormat = VulkanFormat;
 	FormatInfo.Supported = IsFormatSupported(VulkanFormat);
 
-	if(!FormatInfo.Supported)
+	if (!FormatInfo.Supported)
 	{
 		UE_LOG(LogVulkanRHI, Warning, TEXT("EPixelFormat(%d) is not supported with Vk format %d"), (int32)UEFormat, (int32)VulkanFormat);
 	}

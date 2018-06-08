@@ -7,7 +7,7 @@
 #include "Styling/SlateColor.h"
 #include "Widgets/SWidget.h"
 #include "SequencerNodeTree.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 
 class FMenuBuilder;
 class FSequencer;

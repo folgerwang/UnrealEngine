@@ -613,7 +613,7 @@ bool FKConvexElem::HullFromPlanes(const TArray<FPlane>& InPlanes, const TArray<F
 	bFound = false;
 	for(int32 i=2; i<VertexData.Num() ; i++)
 	{
-		if(Plane.PlaneDot(VertexData[i]) > LOCAL_EPS)
+		if(FMath::Abs(Plane.PlaneDot(VertexData[i])) > LOCAL_EPS)
 		{
 			bFound = true;
 			break;

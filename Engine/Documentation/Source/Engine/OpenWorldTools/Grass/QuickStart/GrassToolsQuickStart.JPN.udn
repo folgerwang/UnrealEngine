@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2586202
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Grass ツールのクイック スタート
 Crumbs:
@@ -16,7 +16,7 @@ Version:4.8
 ![](T_Grass_Intro.png)
 
 正しく機能させて希望通りの結果をもたらすために、Grass ツールに必須のアクタやプロパティすべても公開します。
-このクイックスタートを完了すると、上図のようなレベルが出来上がります。 
+このクイックスタートを完了すると、上図のようなレベルが出来上がります。  
 
 [region:note]
 現時点では Grass ツールは Landscape Terrain アクタにだけ作用します。別タイプのアクタに草をスポーンさせるために Grass システムを使用しても機能しません。
@@ -45,13 +45,11 @@ Open World Demo Collection をダウンロードしたら、クイックスタ�
 ## 手順
 
 [REGION:buttonlist]
-
 	* [](Engine\OpenWorldTools\Grass\QuickStart\1)
 	* [](Engine\OpenWorldTools\Grass\QuickStart\2)
 	* [](Engine\OpenWorldTools\Grass\QuickStart\3)
 	* [](Engine\OpenWorldTools\Grass\QuickStart\4)
 	* [](Engine\OpenWorldTools\Grass\QuickStart\5)
-	
 [/REGION]
 
 

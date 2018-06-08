@@ -45,17 +45,27 @@ struct FItemInfo
 	{		
 	}
 
-	FItemInfo( int32 InNestingLevel, bool InHasChildren )
-	: NestingLevel( InNestingLevel )
+	FItemInfo(TBitArray<> InNeedsVerticalWire, bool InHasChildren, bool InIsLastChild )
+	: NeedsVerticalWire(InNeedsVerticalWire)
 	, bHasChildren( InHasChildren )
+	, bIsLastChild( InIsLastChild )
 	{
 	}
 
-	/** Nesting level within the tree: 0 is root-level, 1 is children of root, etc. */
-	int32 NestingLevel;
+	/**
+	 * Flags for whether we need a wire drawn for this level of the tree.
+	 *
+	 * NeedsVerticalWrite.Num() is the nesting level within the tree. e.g. 0 is root-level, 1 is children of root, etc.
+	 */
+	TBitArray<> NeedsVerticalWire;
+
+	int32 GetNestingLevel() const { return NeedsVerticalWire.Num()-1; }
 
 	/** Does this tree item have children? */
-	bool bHasChildren;
+	uint32 bHasChildren : 1;
+
+	/** Is this the last child of its parent? If so, it gets a special kind of wire/connector. */
+	uint32 bIsLastChild : 1;
 };
 
 
@@ -396,12 +406,26 @@ private:
 
 	virtual int32 Private_GetNestingDepth( int32 ItemIndexInList ) const override
 	{
-		int32 NextingLevel = 0;
+		int32 NestingLevel = 0;
 		if (DenseItemInfos.IsValidIndex(ItemIndexInList))
 		{
-			NextingLevel = DenseItemInfos[ItemIndexInList].NestingLevel;
+			NestingLevel = DenseItemInfos[ItemIndexInList].GetNestingLevel();
 		}
-		return NextingLevel;
+		return NestingLevel;
+	}
+
+	virtual const TBitArray<>& Private_GetWiresNeededByDepth(int32 ItemIndexInList) const override
+	{
+		return (DenseItemInfos.IsValidIndex(ItemIndexInList))
+			? DenseItemInfos[ItemIndexInList].NeedsVerticalWire
+			: TableViewHelpers::GetEmptyBitArray();
+	}
+
+	virtual bool Private_IsLastChild(int32 ItemIndexInList) const override
+	{
+		return (DenseItemInfos.IsValidIndex(ItemIndexInList))
+			? DenseItemInfos[ItemIndexInList].bIsLastChild
+			: false;
 	}
 
 public:
@@ -433,7 +457,7 @@ public:
 					
 					// Rebuild the linearized view of the tree data.
 					LinearizedItems.Empty();
-					PopulateLinearizedItems( *TreeItemsSource, LinearizedItems, TempDenseItemInfos, 0, TempSelectedItemsMap, TempSparseItemInfo, true );
+					PopulateLinearizedItems( *TreeItemsSource, LinearizedItems, TempDenseItemInfos, TBitArray<>(), TempSelectedItemsMap, TempSparseItemInfo, true );
 
 					if( !bAllowInvisibleItemSelection &&
 						(this->SelectedItems.Num() != TempSelectedItemsMap.Num() ||
@@ -492,11 +516,15 @@ public:
 		const TArray<ItemType>& InItemsSource,
 		TArray< ItemType >& InLinearizedItems,
 		TArray< FItemInfo >& NewDenseItemInfos,
-		int32 TreeLevel,
+		TBitArray<> NeedsParentWire,
 		TSet< ItemType >& OutNewSelectedItems,
 		TMap< ItemType, FSparseItemInfo >& NewSparseItemInfo,
 		bool bAddingItems )
 	{
+
+		NeedsParentWire.Add(false);
+		const int32 NestingDepthIndex = NeedsParentWire.Num()-1;
+
 		bool bSawExpandedItems = false;
 		for ( int32 ItemIndex = 0; ItemIndex < InItemsSource.Num(); ++ItemIndex )
 		{
@@ -508,6 +536,11 @@ public:
 
 			const bool bHasChildren = ChildItems.Num() > 0;
 
+			// Child items will need a parent wire at this depth if the item we are inserting now is
+			// not the last item in its immediate parent's list.
+			const bool bIsLastChild = (ItemIndex == InItemsSource.Num() - 1);			
+			NeedsParentWire[NestingDepthIndex] = !bIsLastChild;
+			
 			// Is this item expanded, does it have expanded children?
 			const FSparseItemInfo* CurItemInfo = SparseItemInfos.Find( CurItem );
 			const bool bIsExpanded = (CurItemInfo == nullptr) ? false : CurItemInfo->bIsExpanded;
@@ -518,21 +551,21 @@ public:
 			{
 				InLinearizedItems.Add( CurItem );
 
-				NewDenseItemInfos.Add( FItemInfo(TreeLevel, bHasChildren) );
+				NewDenseItemInfos.Add( FItemInfo(NeedsParentWire, bHasChildren, bIsLastChild) );
 
 				const bool bIsSelected = this->IsItemSelected( CurItem );
 				if (bIsSelected)
 				{
 					OutNewSelectedItems.Add( CurItem );
 				}
-			}				
-				
+			}
+
 			if ( bIsExpanded || bHasExpandedChildren )
 			{ 
 				// If this item is expanded, we should process all of its children at the next indentation level.
 				// If it is collapsed, process its children but do not add them to the linearized list.
 				const bool bAddChildItems = bAddingItems && bIsExpanded;
-				bHasExpandedChildren = PopulateLinearizedItems( ChildItems, InLinearizedItems, NewDenseItemInfos, TreeLevel+1, OutNewSelectedItems, NewSparseItemInfo, bAddChildItems );
+				bHasExpandedChildren = PopulateLinearizedItems( ChildItems, InLinearizedItems, NewDenseItemInfos, NeedsParentWire, OutNewSelectedItems, NewSparseItemInfo, bAddChildItems );
 			}
 
 			if ( bIsExpanded || bHasExpandedChildren )
@@ -578,9 +611,14 @@ public:
 	}
 		
 	/** Queue up a regeneration of the linearized items on the next tick. */
-	void RequestTreeRefresh()
+	virtual void RequestListRefresh() override
 	{
 		bTreeItemsAreDirty = true;
+		SListView<ItemType>::RequestListRefresh();
+	}
+
+	void RequestTreeRefresh()
+	{
 		RequestListRefresh();
 	}
 		
@@ -653,15 +691,6 @@ public:
 		RequestTreeRefresh();
 	}
 
-private:
-
-	/** Hide RequestListRefresh() for the tree widget's interface.  You should always call RequestTreeRefresh()
-		for trees, not RequestListRefresh() */
-	void RequestListRefresh()
-	{
-		SListView< ItemType >::RequestListRefresh();
-	}
-
 protected:
 	
 	/** The delegate that is invoked whenever we need to gather an item's children. */
@@ -691,8 +720,8 @@ protected:
 private:		
 
 	/** true when the LinearizedItems need to be regenerated. */
-	bool bTreeItemsAreDirty;
+	bool bTreeItemsAreDirty = false;
 
 	/** true if we allow invisible items to stay selected. */
-	bool bAllowInvisibleItemSelection;
+	bool bAllowInvisibleItemSelection = false;
 };

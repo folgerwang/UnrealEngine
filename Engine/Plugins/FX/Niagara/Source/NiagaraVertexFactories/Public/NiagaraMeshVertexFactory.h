@@ -15,49 +15,14 @@ ParticleVertexFactory.h: Particle vertex factory definitions.
 #include "Components.h"
 #include "SceneManagement.h"
 #include "VertexFactory.h"
+#include "NiagaraGlobalReadBuffer.h"
+
 
 
 class FMaterial;
 class FVertexBuffer;
 struct FDynamicReadBuffer;
 struct FShaderCompilerEnvironment;
-
-// Per-particle data sent to the GPU.
-struct FNiagaraMeshInstanceVertex
-{
-	/** The color of the particle. */
-	FLinearColor Color;
-
-	/** The instance to world transform of the particle. Translation vector is packed into W components. */
-	FVector4 Transform[3];
-
-	/** The velocity of the particle, XYZ: direction, W: speed. */
-	FVector4 Velocity;
-
-	/** The sub-image texture offsets for the particle. */
-	int16 SubUVParams[4];
-
-	/** The sub-image lerp value for the particle. */
-	float SubUVLerp;
-
-	/** The relative time of the particle. */
-	float RelativeTime;
-};
-
-struct FNiagaraMeshInstanceVertexDynamicParameter
-{
-	/** The dynamic parameter of the particle. */
-	float DynamicValue[4];
-};
-
-struct FNiagaraMeshInstanceVertexPrevTransform
-{
-	FVector4 PrevTransform0;
-	FVector4 PrevTransform1;
-	FVector4 PrevTransform2;
-};
-
-
 
 
 /**
@@ -78,6 +43,10 @@ BEGIN_UNIFORM_BUFFER_STRUCT(FNiagaraMeshUniformParameters, NIAGARAVERTEXFACTORIE
 	UNIFORM_MEMBER(int, ScaleDataOffset)
 	UNIFORM_MEMBER(int, SizeDataOffset)
 	UNIFORM_MEMBER(int, MaterialParamDataOffset)
+	UNIFORM_MEMBER(int, MaterialParam1DataOffset)
+	UNIFORM_MEMBER(int, MaterialParam2DataOffset)
+	UNIFORM_MEMBER(int, MaterialParam3DataOffset)
+	UNIFORM_MEMBER(FVector4, DefaultPos)
 END_UNIFORM_BUFFER_STRUCT(FNiagaraMeshUniformParameters)
 
 typedef TUniformBufferRef<FNiagaraMeshUniformParameters> FNiagaraMeshUniformBufferRef;
@@ -92,57 +61,24 @@ class NIAGARAVERTEXFACTORIES_API FNiagaraMeshVertexFactory : public FNiagaraVert
 {
 	DECLARE_VERTEX_FACTORY_TYPE(FNiagaraMeshVertexFactory);
 public:
-
-	// TODO get rid of the unnecessary components here when streams are no longer necessary
-	struct FDataType : public FStaticMeshDataType
-	{
-		/** The stream to read the vertex  color from. */
-		FVertexStreamComponent ParticleColorComponent;
-
-		/** The stream to read the mesh transform from. */
-		FVertexStreamComponent TransformComponent[3];
-
-		/** The stream to read the particle velocity from */
-		FVertexStreamComponent VelocityComponent;
-
-		/** The stream to read SubUV parameters from.. */
-		FVertexStreamComponent SubUVs;
-
-		/** The stream to read SubUV lerp and the particle relative time from */
-		FVertexStreamComponent SubUVLerpAndRelTime;
-
-		/** Flag to mark as initialized */
-		bool bInitialized;
-
-		FDataType()
-			: bInitialized(false)
-		{
-		}
-	};
-
-	class FBatchParametersCPU : public FOneFrameResource
-	{
-	public:
-		const struct FNiagaraMeshInstanceVertex* InstanceBuffer;
-		const struct FNiagaraMeshInstanceVertexDynamicParameter* DynamicParameterBuffer;
-		const struct FNiagaraMeshInstanceVertexPrevTransform* PrevTransformBuffer;
-	};
-
+	
 	/** Default constructor. */
-	FNiagaraMeshVertexFactory(ENiagaraVertexFactoryType InType, ERHIFeatureLevel::Type InFeatureLevel, int32 InDynamicVertexStride, int32 InDynamicParameterVertexStride)
+	FNiagaraMeshVertexFactory(ENiagaraVertexFactoryType InType, ERHIFeatureLevel::Type InFeatureLevel)
 		: FNiagaraVertexFactoryBase(InType, InFeatureLevel)
-		, DynamicVertexStride(InDynamicVertexStride)
-		, DynamicParameterVertexStride(InDynamicParameterVertexStride)
 		, MeshFacingMode(0)
 		, InstanceVerticesCPU(nullptr)
+		, FloatDataOffset(0)
+		, FloatDataStride(0)
+		, SortedIndicesOffset(0)
 	{}
 
 	FNiagaraMeshVertexFactory()
 		: FNiagaraVertexFactoryBase(NVFT_MAX, ERHIFeatureLevel::Num)
-		, DynamicVertexStride(-1)
-		, DynamicParameterVertexStride(-1)
 		, MeshFacingMode(0)
 		, InstanceVerticesCPU(nullptr)
+		, FloatDataOffset(0)
+		, FloatDataStride(0)
+		, SortedIndicesOffset(0)
 	{}
 
 	/**
@@ -164,41 +100,48 @@ public:
 		OutEnvironment.SetDefine(TEXT("NIAGARA_MESH_INSTANCED"), TEXT("1"));
 	}
 
-	void SetParticleData(const FNiagaraDataSet *InDataSet)
+	void SetParticleData(const FShaderResourceViewRHIRef& InParticleDataFloatSRV, uint32 InFloatDataOffset, uint32 InFloatDataStride)
 	{
-		DataSet = InDataSet;
+		ParticleDataFloatSRV = InParticleDataFloatSRV;
+		FloatDataOffset = InFloatDataOffset;
+		FloatDataStride = InFloatDataStride;
 	}
 
-	inline FShaderResourceViewRHIParamRef GetFloatDataSRV() const
+	void SetSortedIndices(const FShaderResourceViewRHIRef& InSortedIndicesSRV, uint32 InSortedIndicesOffset)
 	{
-		const FShaderResourceViewRHIRef& Ret = DataSet->GetRenderDataFloatSRV();
-		if (Ret.IsValid())
-		{
-			return Ret;
-		}
-		return DummyBuffer.SRV;
+		SortedIndicesSRV = InSortedIndicesSRV;
+		SortedIndicesOffset = InSortedIndicesOffset;
 	}
 
-	inline FShaderResourceViewRHIParamRef GetIntDataSRV() const
+	FORCEINLINE FShaderResourceViewRHIRef GetParticleDataFloatSRV()
 	{
-		const FShaderResourceViewRHIRef& Ret = DataSet->GetRenderDataInt32SRV();
-		if (Ret.IsValid())
-		{
-			return Ret;
-		}
-		return DummyBuffer.SRV;
+		return ParticleDataFloatSRV;
 	}
 
-	uint32 GetComponentBufferSize()
+	FORCEINLINE int32 GetFloatDataOffset()
 	{
-		check(!IsInGameThread());
-		return DataSet->CurrDataRender().GetFloatStride() / sizeof(float);
+		return FloatDataOffset;
+	}
+
+	FORCEINLINE int32 GetFloatDataStride()
+	{
+		return FloatDataStride;
+	}
+
+	FORCEINLINE FShaderResourceViewRHIRef GetSortedIndicesSRV()
+	{
+		return SortedIndicesSRV;
+	}
+
+	FORCEINLINE int32 GetSortedIndicesOffset()
+	{
+		return SortedIndicesOffset;
 	}
 
 	/**
 	* An implementation of the interface used by TSynchronizedResource to update the resource with new data from the game thread.
 	*/
-	void SetData(const FDataType& InData);
+	void SetData(const FStaticMeshDataType& InData);
 
 	/**
 	* Set the uniform buffer for this vertex factory.
@@ -215,26 +158,7 @@ public:
 	{
 		return MeshParticleUniformBuffer;
 	}
-
-	/**
-	* Update the data strides (MUST HAPPEN BEFORE InitRHI is called)
-	*/
-	void SetStrides(int32 InDynamicVertexStride, int32 InDynamicParameterVertexStride)
-	{
-		DynamicVertexStride = InDynamicVertexStride;
-		DynamicParameterVertexStride = InDynamicParameterVertexStride;
-	}
-
-	/**
-	* Set the source vertex buffer that contains particle instance data.
-	*/
-	void SetInstanceBuffer(const FVertexBuffer* InstanceBuffer, uint32 StreamOffset, uint32 Stride);
-
-	/**
-	* Set the source vertex buffer that contains particle dynamic parameter data.
-	*/
-	void SetDynamicParameterBuffer(const FVertexBuffer* InDynamicParameterBuffer, uint32 StreamOffset, uint32 Stride);
-
+	
 	//uint8* LockPreviousTransformBuffer(uint32 ParticleCount);
 	//void UnlockPreviousTransformBuffer();
 	//FShaderResourceViewRHIParamRef GetPreviousTransformBufferSRV() const;
@@ -251,12 +175,7 @@ public:
 	static bool SupportsTessellationShaders() { return true; }
 
 	static FVertexFactoryShaderParameters* ConstructShaderParameters(EShaderFrequency ShaderFrequency);
-
-	FNiagaraMeshInstanceVertices*& GetInstanceVerticesCPU()
-	{
-		return InstanceVerticesCPU;
-	}
-
+	
 	uint32 GetMeshFacingMode() const
 	{
 		return MeshFacingMode;
@@ -268,11 +187,7 @@ public:
 	}
 
 protected:
-	FDataType Data;
-	const FNiagaraDataSet *DataSet;
-	/** Stride information for instanced mesh particles */
-	int32 DynamicVertexStride;
-	int32 DynamicParameterVertexStride;
+	FStaticMeshDataType Data;
 	uint32 MeshFacingMode;
 
 	/** Uniform buffer with mesh particle parameters. */
@@ -280,6 +195,13 @@ protected:
 	
 	/** Used to remember this in the case that we reuse the same vertex factory for multiple renders . */
 	FNiagaraMeshInstanceVertices* InstanceVerticesCPU;
+
+	FShaderResourceViewRHIRef ParticleDataFloatSRV;
+	uint32 FloatDataOffset;
+	uint32 FloatDataStride;
+
+	FShaderResourceViewRHIRef SortedIndicesSRV;
+	uint32 SortedIndicesOffset;
 };
 
 
@@ -288,8 +210,8 @@ class NIAGARAVERTEXFACTORIES_API FNiagaraMeshVertexFactoryEmulatedInstancing : p
 	DECLARE_VERTEX_FACTORY_TYPE(FMeshParticleVertexFactoryEmulatedInstancing);
 
 public:
-	FNiagaraMeshVertexFactoryEmulatedInstancing(ENiagaraVertexFactoryType InType, ERHIFeatureLevel::Type InFeatureLevel, int32 InDynamicVertexStride, int32 InDynamicParameterVertexStride)
-		: FNiagaraMeshVertexFactory(InType, InFeatureLevel, InDynamicVertexStride, InDynamicParameterVertexStride)
+	FNiagaraMeshVertexFactoryEmulatedInstancing(ENiagaraVertexFactoryType InType, ERHIFeatureLevel::Type InFeatureLevel)
+		: FNiagaraMeshVertexFactory(InType, InFeatureLevel)
 	{}
 
 	FNiagaraMeshVertexFactoryEmulatedInstancing()
@@ -322,14 +244,14 @@ inline FNiagaraMeshVertexFactory* ConstructNiagaraMeshVertexFactory()
 	}
 }
 
-inline FNiagaraMeshVertexFactory* ConstructNiagaraMeshVertexFactory(ENiagaraVertexFactoryType InType, ERHIFeatureLevel::Type InFeatureLevel, int32 InDynamicVertexStride, int32 InDynamicParameterVertexStride)
+inline FNiagaraMeshVertexFactory* ConstructNiagaraMeshVertexFactory(ENiagaraVertexFactoryType InType, ERHIFeatureLevel::Type InFeatureLevel)
 {
 	if (GRHISupportsInstancing)
 	{
-		return new FNiagaraMeshVertexFactory(InType, InFeatureLevel, InDynamicVertexStride, InDynamicParameterVertexStride);
+		return new FNiagaraMeshVertexFactory(InType, InFeatureLevel);
 	}
 	else
 	{
-		return new FNiagaraMeshVertexFactoryEmulatedInstancing(InType, InFeatureLevel, InDynamicVertexStride, InDynamicParameterVertexStride);
+		return new FNiagaraMeshVertexFactoryEmulatedInstancing(InType, InFeatureLevel);
 	}
 }

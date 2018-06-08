@@ -132,11 +132,6 @@ void ULandscapeEditorObject::PostEditChangeProperty(FPropertyChangedEvent& Prope
 		SetAlphaTexture(AlphaTexture, AlphaTextureChannel);
 	}
 
-	if (PropertyChangedEvent.MemberProperty == nullptr ||
-		PropertyChangedEvent.MemberProperty->GetFName() == GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, GizmoHeightmapFilenameString))
-	{
-		GuessGizmoImportSize();
-	}
 
 	if (PropertyChangedEvent.MemberProperty == nullptr ||
 		PropertyChangedEvent.MemberProperty->GetFName() == GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, NewLandscape_QuadsPerSection) ||
@@ -446,42 +441,6 @@ void ULandscapeEditorObject::SetbSnapGizmo(bool InbSnapGizmo)
 			ParentMode->CurrentGizmoActor->SetActorLocation(SnappedWidgetLocation, false);
 			ParentMode->CurrentGizmoActor->SetActorRotation(SnappedWidgetRotation);
 		}
-	}
-}
-
-void ULandscapeEditorObject::GuessGizmoImportSize()
-{
-	int64 GizmoFileSize = IFileManager::Get().FileSize(*GizmoHeightmapFilenameString);
-
-	if (GizmoFileSize != INDEX_NONE && (GizmoFileSize % 2 == 0))
-	{
-		GizmoFileSize /= 2;
-
-		if (GizmoImportSize.X * GizmoImportSize.Y != GizmoFileSize)
-		{
-			GizmoImportSize = FIntPoint(0, 0);
-			//GizmoImportButton->IsEnabled = false;
-
-			// Guess dimensions from filesize
-			// Keep searching for the most squarelike size
-			for (int32 w = FMath::TruncToInt(FMath::Sqrt((float)GizmoFileSize)); w > 0; w--)
-			{
-				if (GizmoFileSize % w == 0)
-				{
-					int32 h = GizmoFileSize / w;
-					checkSlow(w * h == GizmoFileSize);
-					GizmoImportSize = FIntPoint(w, h);
-					//GizmoImportButton->IsEnabled = true;
-
-					break;
-				}
-			}
-		}
-	}
-	else
-	{
-		GizmoImportSize = FIntPoint(0, 0);
-		//GizmoImportButton->IsEnabled = false;
 	}
 }
 

@@ -14,6 +14,8 @@
 #include "Mac/MacPlatformProcess.h"
 #elif PLATFORM_IOS
 #include "IOS/IOSPlatformProcess.h"
+#elif PLATFORM_LUMIN
+#include "Lumin/LuminPlatformProcess.h"
 #elif PLATFORM_ANDROID
 #include "Android/AndroidProcess.h"
 #elif PLATFORM_QUAIL

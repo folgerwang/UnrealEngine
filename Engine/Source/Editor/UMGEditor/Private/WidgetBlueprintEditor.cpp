@@ -372,9 +372,8 @@ bool FWidgetBlueprintEditor::CanPasteWidgets()
 	TSet<FWidgetReference> Widgets = GetSelectedWidgets();
 	if ( Widgets.Num() == 1 )
 	{
-		FWidgetReference Target = *Widgets.CreateIterator();
-		const bool bIsPanel = Cast<UPanelWidget>(Target.GetTemplate()) != nullptr;
-		return bIsPanel;
+		// Always return true here now since we want to support pasting widgets as siblings
+		return true;
 	}
 	else if ( GetWidgetBlueprintObj()->WidgetTree->RootWidget == nullptr )
 	{
@@ -415,9 +414,16 @@ void FWidgetBlueprintEditor::PasteWidgets()
 		SlotName = NamedSlotSelection->SlotName;
 	}
 
-	FWidgetBlueprintEditorUtils::PasteWidgets(SharedThis(this), GetWidgetBlueprintObj(), Target, SlotName, PasteDropLocation);
+	TArray<UWidget*> PastedWidgets = FWidgetBlueprintEditorUtils::PasteWidgets(SharedThis(this), GetWidgetBlueprintObj(), Target, SlotName, PasteDropLocation);
 
-	//TODO UMG - Select the newly selected pasted widgets.
+	PasteDropLocation = PasteDropLocation + FVector2D(25, 25);
+
+	TSet<FWidgetReference> PastedWidgetRefs;
+	for (UWidget* Widget : PastedWidgets)
+	{
+		PastedWidgetRefs.Add(GetReferenceFromPreview(Widget));
+	}
+	SelectWidgets(PastedWidgetRefs, false);
 }
 
 void FWidgetBlueprintEditor::Tick(float DeltaTime)

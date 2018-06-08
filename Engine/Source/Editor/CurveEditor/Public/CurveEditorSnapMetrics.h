@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 
 /**
  * Utility struct that acts as a cache of the current snapping metrics for the curve editor

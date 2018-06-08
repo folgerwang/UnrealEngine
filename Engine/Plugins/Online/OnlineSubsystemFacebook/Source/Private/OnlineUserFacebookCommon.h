@@ -6,6 +6,7 @@
 // Module includes
 #include "Interfaces/OnlineUserInterface.h"
 #include "OnlineSubsystemFacebookPackage.h"
+#include "OnlineSubsystemFacebookTypes.h"
 
 class FOnlineSubsystemFacebookCommon;
 
@@ -30,7 +31,7 @@ public:
 	 * Init/default constructor
 	 */
 	FOnlineUserInfoFacebook(const FString& InUserId=TEXT("")) 
-		: UserId(new FUniqueNetIdString(InUserId))
+		: UserId(new FUniqueNetIdFacebook(InUserId))
 	{
 	}
 

@@ -86,9 +86,12 @@ static NSMutableSet<FIOSFramePacerHandler>* Handlers = [NSMutableSet new];
 
 	{
 		FScopeLock Lock(&HandlersMutex);
+		CADisplayLink* displayLink = (CADisplayLink*)param;
+		double OutputSeconds = displayLink.targetTimestamp;
+		double OutputDuration = displayLink.duration;
 		for (FIOSFramePacerHandler Handler in Handlers)
 		{
-			Handler(0);
+			Handler(0, OutputSeconds, OutputDuration);
 		}
 	}	
     for( auto& NextEvent : ListeningEvents )
@@ -113,6 +116,7 @@ namespace IOSDisplayConstants
 
 uint32 FIOSPlatformRHIFramePacer::FrameInterval = 1;
 FIOSFramePacer* FIOSPlatformRHIFramePacer::FramePacer = nil;
+uint32 FIOSPlatformRHIFramePacer::Pace = 0;
 
 
 bool FIOSPlatformRHIFramePacer::IsEnabled()
@@ -145,6 +149,9 @@ bool FIOSPlatformRHIFramePacer::IsEnabled()
 			FrameInterval = IOSDisplayConstants::MaxRefreshRate / FrameRateLock;
 
 			bIsRHIFramePacerEnabled = (FrameInterval > 0);
+			
+			// remember the Pace if we are enabled
+			Pace = bIsRHIFramePacerEnabled ? FrameRateLock : 0;
 		}
 		bInitialized = true;
 	}

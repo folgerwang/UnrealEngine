@@ -108,6 +108,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	float GetScrollOffset() const;
 
+	UFUNCTION(BlueprintCallable, Category="Widget")
+	float GetViewOffsetFraction() const;
+
 	/** Scrolls the ScrollBox to the top instantly */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void ScrollToStart();

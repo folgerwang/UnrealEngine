@@ -44,6 +44,7 @@
 #include "Interfaces/ITargetPlatformManagerModule.h"
 #include "ProfilingDebugging/CookStats.h"
 #include "SceneInterface.h"
+#include "ShaderCodeLibrary.h"
 
 #define LOCTEXT_NAMESPACE "ShaderCompiler"
 
@@ -656,7 +657,7 @@ void FShaderCompileUtilities::DoReadTaskResults(const TArray<FShaderCommonCompil
 							String += FString::Printf(TEXT(" VF '%s'"), SingleJob->VFType->GetName());
 						}
 						String += FString::Printf(TEXT(" Type '%s'"), SingleJob->ShaderType->GetName());
-						String += FString::Printf(TEXT(" '%s' Entry '%s' "), *SingleJob->Input.VirtualSourceFilePath, *SingleJob->Input.EntryPointName);
+						String += FString::Printf(TEXT(" '%s' Entry '%s' Permutation %i "), *SingleJob->Input.VirtualSourceFilePath, *SingleJob->Input.EntryPointName, SingleJob->PermutationId);
 						return String;
 					};
 					UE_LOG(LogShaderCompilers, Error, TEXT("SCW %d Queued Jobs:"), QueuedJobs.Num());
@@ -1477,7 +1478,7 @@ FShaderCompilingManager::FShaderCompilingManager() :
 		FGuid Guid;
 		Guid = FGuid::NewGuid();
 		FString LegacyShaderWorkingDirectory = FPaths::ProjectIntermediateDir() / TEXT("Shaders/WorkingDirectory/")  / FString::FromInt(ProcessId) + TEXT("/");
-		ShaderBaseWorkingDirectory = FPlatformProcess::ShaderWorkingDir() / *Guid.ToString(EGuidFormats::Digits) + TEXT("/");
+		ShaderBaseWorkingDirectory = FPaths::ShaderWorkingDir() / *Guid.ToString(EGuidFormats::Digits) + TEXT("/");
 		UE_LOG(LogShaderCompilers, Log, TEXT("Guid format shader working directory is %d characters bigger than the processId version (%s)."), ShaderBaseWorkingDirectory.Len() - LegacyShaderWorkingDirectory.Len(), *LegacyShaderWorkingDirectory );
 	}
 
@@ -1499,10 +1500,10 @@ FShaderCompilingManager::FShaderCompilingManager() :
 
 	const int32 NumVirtualCores = FPlatformMisc::NumberOfCoresIncludingHyperthreads();
 
-	NumShaderCompilingThreads = bAllowCompilingThroughWorkers ? (NumVirtualCores - NumUnusedShaderCompilingThreads) : 1;
+	NumShaderCompilingThreads = (bAllowCompilingThroughWorkers && NumVirtualCores > NumUnusedShaderCompilingThreads) ? (NumVirtualCores - NumUnusedShaderCompilingThreads) : 1;
 
 	// Make sure there's at least one worker allowed to be active when compiling during the game
-	NumShaderCompilingThreadsDuringGame = bAllowCompilingThroughWorkers ? (NumVirtualCores - NumUnusedShaderCompilingThreadsDuringGame) : 1;
+	NumShaderCompilingThreadsDuringGame = (bAllowCompilingThroughWorkers && NumVirtualCores > NumUnusedShaderCompilingThreadsDuringGame) ? (NumVirtualCores - NumUnusedShaderCompilingThreadsDuringGame) : 1;
 
 	// On machines with few cores, each core will have a massive impact on compile time, so we prioritize compile latency over editor performance during the build
 	if (NumVirtualCores <= 4)
@@ -1510,6 +1511,53 @@ FShaderCompilingManager::FShaderCompilingManager() :
 		NumShaderCompilingThreads = NumVirtualCores - 1;
 		NumShaderCompilingThreadsDuringGame = NumVirtualCores - 1;
 	}
+#if PLATFORM_DESKTOP
+	else if (GIsBuildMachine)
+	{
+		// Cooker ends up running OOM so use a simple heuristic based on some INI values
+		float CookerMemoryUsedInGB = 0.0f;
+		float MemoryToLeaveForTheOSInGB = 0.0f;
+		float MemoryUsedPerSCWProcessInGB = 0.0f;
+		bool bFoundEntries = true;
+		bFoundEntries = bFoundEntries && GConfig->GetFloat(TEXT("DevOptions.Shaders"), TEXT("CookerMemoryUsedInGB"), CookerMemoryUsedInGB, GEngineIni);
+		bFoundEntries = bFoundEntries && GConfig->GetFloat(TEXT("DevOptions.Shaders"), TEXT("MemoryToLeaveForTheOSInGB"), MemoryToLeaveForTheOSInGB, GEngineIni);
+		bFoundEntries = bFoundEntries && GConfig->GetFloat(TEXT("DevOptions.Shaders"), TEXT("MemoryUsedPerSCWProcessInGB"), MemoryUsedPerSCWProcessInGB, GEngineIni);
+		if (bFoundEntries)
+		{
+			uint32 PhysicalGBRam = FPlatformMemory::GetPhysicalGBRam();
+			float AvailableMemInGB = (float)PhysicalGBRam - CookerMemoryUsedInGB;
+			if (AvailableMemInGB > 0.0f)
+			{
+				if (AvailableMemInGB > MemoryToLeaveForTheOSInGB)
+				{
+					AvailableMemInGB -= MemoryToLeaveForTheOSInGB;
+				}
+				else
+				{
+					UE_LOG(LogShaderCompilers, Warning, TEXT("Machine has %d GBs of RAM, cooker might take %f GBs, but not enough memory left for the OS! (Requested %f GBs for the OS)"), PhysicalGBRam, CookerMemoryUsedInGB, MemoryToLeaveForTheOSInGB);
+				}
+			}
+			else
+			{
+				UE_LOG(LogShaderCompilers, Warning, TEXT("Machine has %d GBs of RAM, but cooker might take %f GBs!"), PhysicalGBRam, CookerMemoryUsedInGB);
+			}
+			if (MemoryUsedPerSCWProcessInGB > 0.0f)
+			{
+				float NumSCWs = AvailableMemInGB / MemoryUsedPerSCWProcessInGB;
+				NumShaderCompilingThreads = FMath::RoundToInt(NumSCWs);
+
+				bool bUseVirtualCores = true;
+				GConfig->GetBool(TEXT("DevOptions.Shaders"), TEXT("bUseVirtualCores"), bUseVirtualCores, GEngineIni);
+				uint32 MaxNumCoresToUse = bUseVirtualCores ? NumVirtualCores : FPlatformMisc::NumberOfCores();
+				NumShaderCompilingThreads = FMath::Clamp<uint32>(NumShaderCompilingThreads, 1, MaxNumCoresToUse - 1);
+				if (NumShaderCompilingThreads < 8)
+				{
+					UE_LOG(LogShaderCompilers, Warning, TEXT("Only %d SCWs will be spawned, which will result in longer shader compile times."), NumShaderCompilingThreads);
+				}
+			}
+		}
+	}
+#endif
 
 	NumShaderCompilingThreads = FMath::Max<int32>(1, NumShaderCompilingThreads);
 	NumShaderCompilingThreadsDuringGame = FMath::Max<int32>(1, NumShaderCompilingThreadsDuringGame);
@@ -1518,7 +1566,7 @@ FShaderCompilingManager::FShaderCompilingManager() :
 
 	bool bIsUsingXGEInterface = false;
 #if PLATFORM_WINDOWS
-	bool bCanUseXGE = true;
+	bool bCanUseXGE = bAllowCompilingThroughWorkers;
 	ITargetPlatformManagerModule* TPM = GetTargetPlatformManager();
 	if (TPM)
 	{
@@ -2591,7 +2639,7 @@ static void GenerateUniformBufferStructMember(FString& Result, const FUniformBuf
 }
 
 /* Generates the instanced stereo hlsl code that's dependent on view uniform declarations. */
-static void GenerateInstancedStereoCode(FString& Result)
+ENGINE_API void GenerateInstancedStereoCode(FString& Result)
 {
 	// Find the InstancedView uniform buffer struct
 	const FUniformBufferStruct* InstancedView = nullptr;
@@ -2860,11 +2908,13 @@ void GlobalBeginCompileShader(
 		static const auto CVarMultiView = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MultiView"));
 		static const auto CVarMobileMultiView = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MobileMultiView"));
 		static const auto CVarMonoscopicFarField = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MonoscopicFarField"));
+		static const auto CVarODSCapture = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.ODSCapture"));
 
 		const bool bIsInstancedStereoCVar = CVarInstancedStereo ? (CVarInstancedStereo->GetValueOnGameThread() != 0) : false;
 		const bool bIsMultiViewCVar = CVarMultiView ? (CVarMultiView->GetValueOnGameThread() != 0) : false;
 		const bool bIsMobileMultiViewCVar = CVarMobileMultiView ? (CVarMobileMultiView->GetValueOnGameThread() != 0) : false;
 		const bool bIsMonoscopicFarField = CVarMonoscopicFarField && (CVarMonoscopicFarField->GetValueOnGameThread() != 0);
+		const bool bIsODSCapture = CVarODSCapture && (CVarODSCapture->GetValueOnGameThread() != 0);
 
 		const EShaderPlatform ShaderPlatform = static_cast<EShaderPlatform>(Target.Platform);
 		
@@ -2883,6 +2933,7 @@ void GlobalBeginCompileShader(
 		}
 
 		Input.Environment.SetDefine(TEXT("MONOSCOPIC_FAR_FIELD"), bIsMonoscopicFarField);
+		Input.Environment.SetDefine(TEXT("ODS_CAPTURE"), bIsODSCapture);
 	}
 
 	ShaderType->AddReferencedUniformBufferIncludes(Input.Environment, Input.SourceFilePrefix, (EShaderPlatform)Target.Platform);
@@ -3110,6 +3161,11 @@ void GlobalBeginCompileShader(
 	{
 		static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Mobile.DisableVertexFog"));
 		Input.Environment.SetDefine(TEXT("PROJECT_MOBILE_DISABLE_VERTEX_FOG"), CVar ? (CVar->GetInt() != 0) : 0);
+	}
+
+	{
+		static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Mobile.UseLegacyShadingModel"));
+		Input.Environment.SetDefine(TEXT("PROJECT_MOBILE_USE_LEGACY_SHADING"), CVar ? (CVar->GetInt() != 0) : 0);
 	}
 
 	{
@@ -3630,6 +3686,12 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 			}
 		}
 
+		ensureMsgf(
+			PermutationCountToCompile < 200 ||
+			FCString::Strcmp(GlobalShaderType->GetName(), TEXT("FPostProcessTonemapPS_ES2")) == 0, // TODO: UE-58014
+			TEXT("Global shader %s has %i permutation: probably more that it needs."),
+			GlobalShaderType->GetName(), PermutationCountToCompile);
+
 		if (!bEmptyMap && PermutationCountToCompile > 0)
 		{
 			UE_LOG(LogShaders, Warning, TEXT("	%s (%i out of %i)"),
@@ -3801,7 +3863,20 @@ FString SaveGlobalShaderFile(EShaderPlatform Platform, FString SavePath, class I
 	{
 		UE_LOG(LogShaders, Fatal, TEXT("Could not save global shader file to '%s'"), *FullPath);
 	}
-
+#if WITH_EDITOR
+	if (FShaderCodeLibrary::NeedsShaderStableKeys())
+	{
+		for (TLinkedList<FShaderType*>::TIterator ShaderTypeIt(FShaderType::GetTypeList()); ShaderTypeIt; ShaderTypeIt.Next())
+		{
+			FGlobalShaderType* GlobalShaderType = ShaderTypeIt->GetGlobalShaderType();
+			if (!GlobalShaderType)
+			{
+				continue;
+			}
+			GlobalShaderType->SaveShaderStableKeys(Platform);
+		}
+	}
+#endif
 	return FullPath;
 }
 

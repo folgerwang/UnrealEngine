@@ -904,7 +904,10 @@ namespace ImportExportAssetHelper
 
 			if (ImportedAsset)
 			{
-				if (FAssetEditorManager::Get().OpenEditorForAsset(ImportedAsset))
+				// Do not show progress window because we need to take screenshot
+				// ActiveTopLevelWindow does not get set to editor window for asset if progress modal window was open
+				const bool bShowProgressWindow = false;
+				if (FAssetEditorManager::Get().OpenEditorForAsset(ImportedAsset, EToolkitMode::Standalone, TSharedPtr<IToolkitHost>(), bShowProgressWindow))
 				{
 					State = EState::WaitForEditor;
 				}

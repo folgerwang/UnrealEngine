@@ -30,17 +30,32 @@ FD3D12Adapter::FD3D12Adapter(FD3D12AdapterDesc& DescIn)
 	, bDeviceRemoved(false)
 	, OwningRHI(nullptr)
 	, RootSignatureManager(this)
+	, bDepthBoundsTestSupported(false)
 	, PipelineStateCache(this)
 	, FenceCorePool(this)
 	, FrameFence(nullptr)
 	, DeferredDeletionQueue(this)
-	, DefaultContextRedirector(this)
-	, DefaultAsyncComputeContextRedirector(this)
+	, DefaultContextRedirector(this, true, false)
+	, DefaultAsyncComputeContextRedirector(this, false, true)
 	, GPUProfilingData(this)
 	, DebugFlags(0)
 {
 	FMemory::Memzero(&UploadHeapAllocator, sizeof(UploadHeapAllocator));
 	FMemory::Memzero(&Devices, sizeof(Devices));
+
+	uint32 MaxGPUCount = 1; // By default, multi-gpu is disabled.
+#if WITH_MGPU
+	if (!FParse::Value(FCommandLine::Get(), TEXT("MaxGPUCount="), MaxGPUCount))
+	{
+		// If there is a mode token in the command line, enable multi-gpu.
+		FString GPUModeToken;
+		if (FParse::Value(FCommandLine::Get(), TEXT("MGPUMode="), GPUModeToken))
+		{
+			MaxGPUCount = MAX_NUM_GPUS;
+		}
+	}
+#endif
+	Desc.NumDeviceNodes = FMath::Min3<uint32>(Desc.NumDeviceNodes, MaxGPUCount, MAX_NUM_GPUS);
 }
 
 void FD3D12Adapter::Initialize(FD3D12DynamicRHI* RHI)
@@ -113,19 +128,6 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 		GetFeatureLevel(),
 		IID_PPV_ARGS(RootDevice.GetInitReference())
 		));
-
-	// See if we can get any newer device interfaces (to use newer D3D12 features).
-	if (D3D12RHI_ShouldForceCompatibility())
-	{
-		UE_LOG(LogD3D12RHI, Log, TEXT("Forcing D3D12 compatibility."));
-	}
-	else
-	{
-		if (SUCCEEDED(RootDevice->QueryInterface(IID_PPV_ARGS(RootDevice1.GetInitReference()))))
-		{
-			UE_LOG(LogD3D12RHI, Log, TEXT("The system supports ID3D12Device1."));
-		}
-	}
 
 #if UE_BUILD_DEBUG	&& PLATFORM_WINDOWS
 	//break on debug
@@ -230,12 +232,19 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 	}
 #endif
 
-#if WITH_SLI
-	int32 DisplayedGPUIndex = INDEX_NONE;
-	if (Desc.NumDeviceNodes > 1 && !GIsEditor && FParse::Param(FCommandLine::Get(), TEXT("mGPU")) || FParse::Value(FCommandLine::Get(), TEXT("mGPU="), DisplayedGPUIndex))
+#if WITH_MGPU
+	GNumExplicitGPUsForRendering = 1;
+	if (Desc.NumDeviceNodes > 1)
 	{
-		GNumActiveGPUsForRendering = Desc.NumDeviceNodes;
-		UE_LOG(LogD3D12RHI, Log, TEXT("Enabling multi-GPU with %d nodes"), Desc.NumDeviceNodes);
+		if (GIsEditor)
+		{
+			UE_LOG(LogD3D12RHI, Log, TEXT("Multi-GPU is available, but skipping due to editor mode."));
+		}
+		else
+		{
+			GNumExplicitGPUsForRendering = Desc.NumDeviceNodes;
+			UE_LOG(LogD3D12RHI, Log, TEXT("Enabling multi-GPU with %d nodes"), Desc.NumDeviceNodes);
+		}
 	}
 #endif
 }
@@ -281,12 +290,40 @@ void FD3D12Adapter::InitializeDevices()
 	{
 		CreateRootDevice(bWithD3DDebug);
 
+		// See if we can get any newer device interfaces (to use newer D3D12 features).
+		if (D3D12RHI_ShouldForceCompatibility())
+		{
+			UE_LOG(LogD3D12RHI, Log, TEXT("Forcing D3D12 compatibility."));
+		}
+		else
+		{
+			if (SUCCEEDED(RootDevice->QueryInterface(IID_PPV_ARGS(RootDevice1.GetInitReference()))))
+			{
+				UE_LOG(LogD3D12RHI, Log, TEXT("The system supports ID3D12Device1."));
+			}
+
+	#if PLATFORM_WINDOWS
+			if (SUCCEEDED(RootDevice->QueryInterface(IID_PPV_ARGS(RootDevice2.GetInitReference()))))
+			{
+				UE_LOG(LogD3D12RHI, Log, TEXT("The system supports ID3D12Device2."));
+			}
+	#endif
+		}
 		D3D12_FEATURE_DATA_D3D12_OPTIONS D3D12Caps;
 		FMemory::Memzero(&D3D12Caps, sizeof(D3D12Caps));
-
 		VERIFYD3D12RESULT(RootDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &D3D12Caps, sizeof(D3D12Caps)));
 		ResourceHeapTier = D3D12Caps.ResourceHeapTier;
 		ResourceBindingTier = D3D12Caps.ResourceBindingTier;
+
+#if PLATFORM_WINDOWS
+		D3D12_FEATURE_DATA_D3D12_OPTIONS2 D3D12Caps2 = {};
+		if (FAILED(RootDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS2, &D3D12Caps2, sizeof(D3D12Caps2))))
+		{
+			D3D12Caps2.DepthBoundsTestSupported = false;
+			D3D12Caps2.ProgrammableSamplePositionsTier = D3D12_PROGRAMMABLE_SAMPLE_POSITIONS_TIER_NOT_SUPPORTED;
+		}
+		bDepthBoundsTestSupported = !!D3D12Caps2.DepthBoundsTestSupported;
+#endif
 
 		D3D12_FEATURE_DATA_ROOT_SIGNATURE D3D12RootSignatureCaps = {};
 		D3D12RootSignatureCaps.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;	// This is the highest version we currently support. If CheckFeatureSupport succeeds, the HighestVersion returned will not be greater than this.
@@ -314,8 +351,13 @@ void FD3D12Adapter::InitializeDevices()
 				DefaultAsyncComputeContextRedirector.SetPhysicalContext(&Devices[GPUIndex]->GetDefaultAsyncComputeContext());
 			}
 		}
-		DefaultContextRedirector.SetGPUNodeMask(FRHIGPUMask::All());
-		DefaultAsyncComputeContextRedirector.SetGPUNodeMask(FRHIGPUMask::All());
+
+		DefaultContextRedirector.SetGPUMask(FRHIGPUMask::All());
+		DefaultAsyncComputeContextRedirector.SetGPUMask(FRHIGPUMask::All());
+
+		// Initialize the immediate command list GPU mask now that everything is set.
+		FRHICommandListExecutor::GetImmediateCommandList().SetGPUMask(FRHIGPUMask::All());
+		FRHICommandListExecutor::GetImmediateAsyncComputeCommandList().SetGPUMask(FRHIGPUMask::All());
 
 		GPUProfilingData.Init();
 
@@ -514,7 +556,7 @@ void FD3D12Adapter::GetLocalVideoMemoryInfo(DXGI_QUERY_VIDEO_MEMORY_INFO* LocalV
 
 	VERIFYD3D12RESULT(Adapter3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, LocalVideoMemoryInfo));
 
-	for (uint32 Index = 1; Index < GNumActiveGPUsForRendering; ++Index)
+	for (uint32 Index = 1; Index < GNumExplicitGPUsForRendering; ++Index)
 	{
 		DXGI_QUERY_VIDEO_MEMORY_INFO TempVideoMemoryInfo;
 		VERIFYD3D12RESULT(Adapter3->QueryVideoMemoryInfo(Index, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &TempVideoMemoryInfo));

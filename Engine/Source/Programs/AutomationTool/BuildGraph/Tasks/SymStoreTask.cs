@@ -70,21 +70,21 @@ namespace AutomationTool
         /// <param name="TagNameToFileSet">Mapping from tag names to the set of files they include</param>
         public override void Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
         {
-            // Find the matching files
-            List<FileReference> Files = ResolveFilespec(CommandUtils.RootDirectory, Parameters.Files, TagNameToFileSet).ToList();
+			// Find the matching files
+			List<FileReference> Files = ResolveFilespec(CommandUtils.RootDirectory, Parameters.Files, TagNameToFileSet).ToList();
             
             // Get the symbol store directory
             DirectoryReference StoreDir = ResolveDirectory(Parameters.StoreDir);
 
-            // Take the lock before accessing the symbol server
-            Platform TargetPlatform = Platform.GetPlatform(Parameters.Platform);
-            LockFile.TakeLock(StoreDir, TimeSpan.FromMinutes(30), () =>
-            {
+			// Take the lock before accessing the symbol server, if required by the platform
+			Platform TargetPlatform = Platform.GetPlatform(Parameters.Platform);
+			LockFile.OptionallyTakeLock(TargetPlatform.SymbolServerRequiresLock, StoreDir, TimeSpan.FromMinutes(60), () =>
+			{
 				if (!TargetPlatform.PublishSymbols(StoreDir, Files, Parameters.Product))
 				{
 					throw new AutomationException("Failure publishing symbol files.");
 				}
-            });
+			});
         }
 
         /// <summary>

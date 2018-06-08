@@ -20,6 +20,8 @@
 
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Views/SListView.h"
 
 #define LOCTEXT_NAMESPACE "LandscapeEditor.CopyPaste"
 
@@ -44,7 +46,7 @@ void FLandscapeEditorDetailCustomization_CopyPaste::CustomizeDetails(IDetailLayo
 		.ToolTipText(LOCTEXT("CopyToGizmo.Tooltip", "Copies the data within the gizmo bounds to the gizmo taking into account any masking from selected regions."))
 		.Text(LOCTEXT("CopyToGizmo", "Copy Data to Gizmo"))
 		.HAlign(HAlign_Center)
-		.OnClicked_Static(&FLandscapeEditorDetailCustomization_CopyPaste::OnCopyToGizmoButtonClicked)
+		.OnClicked(this, &FLandscapeEditorDetailCustomization_CopyPaste::OnCopyToGizmoButtonClicked)
 	];
 
 	ToolsCategory.AddCustomRow(LOCTEXT("FitGizmoToSelection", "Fit Gizmo to Selected Regions"))
@@ -53,7 +55,7 @@ void FLandscapeEditorDetailCustomization_CopyPaste::CustomizeDetails(IDetailLayo
 		.ToolTipText(LOCTEXT("FitGizmoToSelection.Tooltip", "Positions and resizes the gizmo so that it completely encompasses all region selections."))
 		.Text(LOCTEXT("FitGizmoToSelection", "Fit Gizmo to Selected Regions"))
 		.HAlign(HAlign_Center)
-		.OnClicked_Static(&FLandscapeEditorDetailCustomization_CopyPaste::OnFitGizmoToSelectionButtonClicked)
+		.OnClicked(this, &FLandscapeEditorDetailCustomization_CopyPaste::OnFitGizmoToSelectionButtonClicked)
 	];
 
 	ToolsCategory.AddCustomRow(LOCTEXT("FitHeightsToGizmo", "Fit Height Values to Gizmo Size"))
@@ -62,7 +64,7 @@ void FLandscapeEditorDetailCustomization_CopyPaste::CustomizeDetails(IDetailLayo
 		.ToolTipText(LOCTEXT("FitHeightsToGizmo.Tooltip", "Scales the data in the gizmo to fit the gizmo's Z size"))
 		.Text(LOCTEXT("FitHeightsToGizmo", "Fit Height Values to Gizmo Size"))
 		.HAlign(HAlign_Center)
-		.OnClicked_Static(&FLandscapeEditorDetailCustomization_CopyPaste::OnFitHeightsToGizmoButtonClicked)
+		.OnClicked(this, &FLandscapeEditorDetailCustomization_CopyPaste::OnFitHeightsToGizmoButtonClicked)
 	];
 
 	ToolsCategory.AddCustomRow(LOCTEXT("ClearGizmoData", "Clear Gizmo Data"))
@@ -71,9 +73,8 @@ void FLandscapeEditorDetailCustomization_CopyPaste::CustomizeDetails(IDetailLayo
 		.ToolTipText(LOCTEXT("ClearGizmoData.Tooltip", "Clears the gizmo of any copied data."))
 		.Text(LOCTEXT("ClearGizmoData", "Clear Gizmo Data"))
 		.HAlign(HAlign_Center)
-		.OnClicked_Static(&FLandscapeEditorDetailCustomization_CopyPaste::OnClearGizmoDataButtonClicked)
+		.OnClicked(this, &FLandscapeEditorDetailCustomization_CopyPaste::OnClearGizmoDataButtonClicked)
 	];
-
 
 	IDetailGroup& GizmoImportExportGroup = ToolsCategory.AddGroup("Gizmo Import / Export", LOCTEXT("ImportExportTitle", "Gizmo Import / Export"), true);
 
@@ -101,7 +102,7 @@ void FLandscapeEditorDetailCustomization_CopyPaste::CustomizeDetails(IDetailLayo
 			SNew(SButton)
 			.ContentPadding(FMargin(4, 0))
 			.Text(NSLOCTEXT("UnrealEd", "GenericOpenDialog", "..."))
-			.OnClicked_Static(&FLandscapeEditorDetailCustomization_CopyPaste::OnGizmoHeightmapFilenameButtonClicked, PropertyHandle_Heightmap)
+			.OnClicked(this, &FLandscapeEditorDetailCustomization_CopyPaste::OnGizmoHeightmapFilenameButtonClicked, PropertyHandle_Heightmap)
 		]
 	];
 
@@ -116,6 +117,8 @@ void FLandscapeEditorDetailCustomization_CopyPaste::CustomizeDetails(IDetailLayo
 		PropertyHandle_ImportSize->CreatePropertyNameWidget()
 	]
 	.ValueContent()
+	.MinDesiredWidth(250.0f)
+	.MaxDesiredWidth(0)
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
@@ -133,6 +136,7 @@ void FLandscapeEditorDetailCustomization_CopyPaste::CustomizeDetails(IDetailLayo
 			.Value_Static(&FLandscapeEditorDetailCustomization_Base::OnGetValue<int32>, PropertyHandle_ImportSize_X)
 			.OnValueChanged_Static(&FLandscapeEditorDetailCustomization_Base::OnValueChanged<int32>, PropertyHandle_ImportSize_X)
 			.OnValueCommitted_Static(&FLandscapeEditorDetailCustomization_Base::OnValueCommitted<int32>, PropertyHandle_ImportSize_X)
+			.IsEnabled(this, &FLandscapeEditorDetailCustomization_CopyPaste::GetGizmoGuessSizeButtonIsEnabled)
 		]
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
@@ -158,7 +162,58 @@ void FLandscapeEditorDetailCustomization_CopyPaste::CustomizeDetails(IDetailLayo
 			.Value_Static(&FLandscapeEditorDetailCustomization_Base::OnGetValue<int32>, PropertyHandle_ImportSize_Y)
 			.OnValueChanged_Static(&FLandscapeEditorDetailCustomization_Base::OnValueChanged<int32>, PropertyHandle_ImportSize_Y)
 			.OnValueCommitted_Static(&FLandscapeEditorDetailCustomization_Base::OnValueCommitted<int32>, PropertyHandle_ImportSize_Y)
+			.IsEnabled(this, &FLandscapeEditorDetailCustomization_CopyPaste::GetGizmoGuessSizeButtonIsEnabled)
 		]
+		+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(2, 0)
+			.VAlign(VAlign_Center) 
+			.HAlign(HAlign_Left)
+			[
+				SNew(SComboButton)
+				.ButtonStyle(FEditorStyle::Get(), "NoBorder")
+				.ForegroundColor(FSlateColor::UseForeground())
+				.CollapseMenuOnParentFocus(true)
+				.IsEnabled(this, &FLandscapeEditorDetailCustomization_CopyPaste::GetGizmoGuessSizeButtonIsEnabled)
+				.ToolTipText(LOCTEXT("GuessSizeGizmoData.Tooltip", "Generated possible size from the specified file to import. If your size is not include, please fill the values manually."))
+				.MenuContent()
+				[
+					SNew(SListView<TSharedPtr<FString>>)
+					.ItemHeight(24.0f)
+					.ListItemsSource(&GuessedDimensionComboList)
+					.SelectionMode(ESelectionMode::Type::Single)
+					.OnGenerateRow_Lambda([](TSharedPtr<FString> InItem, const TSharedRef<STableViewBase>& Owner)
+					{
+					return	SNew(STableRow<TSharedPtr<FString>>, Owner)
+							.Padding(FMargin(16, 4, 16, 4))
+							[
+								SNew(STextBlock).Text(FText::FromString(*InItem))
+							];
+					})
+					.OnSelectionChanged_Lambda([this](TSharedPtr<FString> InItem, ESelectInfo::Type)
+					{
+						if (InItem.IsValid())
+						{
+							CurrentGuessedDimension = *InItem.Get();
+							
+							TArray<FString> SeperatedValues;
+							CurrentGuessedDimension.ParseIntoArray(SeperatedValues, TEXT(" "));
+
+							check(SeperatedValues.Num() == 3); // it should contain Number1 x Number2
+
+							int32 FirstNumber = FCString::Atoi(*SeperatedValues[0]);
+							int32 SecondNumber = FCString::Atoi(*SeperatedValues[2]);
+
+							FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+							if (LandscapeEdMode != NULL)
+							{
+								LandscapeEdMode->UISettings->GizmoImportSize.X = FirstNumber;
+								LandscapeEdMode->UISettings->GizmoImportSize.Y = SecondNumber;
+							}
+						}
+					})
+				]
+			]
 	];
 
 	TSharedRef<IPropertyHandle> PropertyHandle_ImportLayers = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, GizmoImportLayers));
@@ -185,8 +240,6 @@ void FLandscapeEditorDetailCustomization_CopyPaste::CustomizeDetails(IDetailLayo
 			.OnClicked(this, &FLandscapeEditorDetailCustomization_CopyPaste::OnGizmoExportButtonClicked)
 		]
 	];
-
-	//GuessGizmoImportSize();
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
@@ -271,9 +324,18 @@ FReply FLandscapeEditorDetailCustomization_CopyPaste::OnGizmoHeightmapFilenameBu
 
 			if (bOpened)
 			{
-				//SetGizmoHeightmapFilenameString(FText::FromString(OpenFilenames[0]), ETextCommit::OnEnter);
-				HeightmapPropertyHandle->SetValue(OpenFilenames[0]);
-				LandscapeEdMode->UISettings->LastImportPath = FPaths::GetPath(OpenFilenames[0]);
+				FString CurrentValue;
+				HeightmapPropertyHandle->GetValue(CurrentValue);
+
+				if (!CurrentValue.Equals(OpenFilenames[0]))
+				{
+					HeightmapPropertyHandle->SetValue(OpenFilenames[0]);
+					LandscapeEdMode->UISettings->LastImportPath = FPaths::GetPath(OpenFilenames[0]);
+					LandscapeEdMode->UISettings->GizmoImportSize.X = 0;
+					LandscapeEdMode->UISettings->GizmoImportSize.Y = 0;
+
+					GenerateGuessDimensionList();
+				}
 			}
 		}
 	}
@@ -291,7 +353,108 @@ bool FLandscapeEditorDetailCustomization_CopyPaste::GetGizmoImportButtonIsEnable
 			return true;
 		}
 	}
+
 	return false;
+}
+
+bool FLandscapeEditorDetailCustomization_CopyPaste::GetGizmoGuessSizeButtonIsEnabled() const
+{
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	if (LandscapeEdMode != NULL)
+	{
+		if (!LandscapeEdMode->UISettings->GizmoHeightmapFilenameString.IsEmpty())
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void FLandscapeEditorDetailCustomization_CopyPaste::GenerateGuessDimensionList()
+{
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+
+	if (LandscapeEdMode != NULL)
+	{
+		check(!LandscapeEdMode->UISettings->GizmoHeightmapFilenameString.IsEmpty());
+
+		int64 GizmoFileSize = IFileManager::Get().FileSize(*LandscapeEdMode->UISettings->GizmoHeightmapFilenameString) / 2;
+		TMap<uint32, int32> PrimeNumberCount; // <Prime Number, Count>
+
+		if (GizmoFileSize != INDEX_NONE)
+		{
+			int64 InitialGizmoDimension = GizmoFileSize;
+			int64 MaxGizmoDimension = InitialGizmoDimension;
+
+			for (int32 i = 2; i <= MaxGizmoDimension; ++i)
+			{
+				int32 Count = 0;
+
+				while (MaxGizmoDimension % i == 0)
+				{
+					++Count;
+					MaxGizmoDimension /= i;
+				}
+
+				if (Count > 0)
+				{
+					PrimeNumberCount.Add(i, Count);
+				}
+			}
+
+			TArray<uint32> FinalValuesLeft; 
+			TArray<uint32> PreviousIterValues;
+			PreviousIterValues.Add(1); // Default set
+
+			for (TMap<uint32, int32>::TIterator It(PrimeNumberCount); It; ++It)
+			{
+				TArray<uint32> CurrentValues;
+				for (int32 i = 0; i <= It.Value(); ++i)
+				{
+					CurrentValues.Add(FMath::Pow(It.Key(), i));
+				}				
+
+				for (int32 i = 0; i < PreviousIterValues.Num(); ++i)
+				{
+					for (int32 j = 0; j < CurrentValues.Num(); ++j)
+					{
+						int32 Value = PreviousIterValues[i] * CurrentValues[j];
+
+						if (Value > 0)
+						{
+							FinalValuesLeft.AddUnique(Value);
+						}
+					}
+				}
+
+				PreviousIterValues = FinalValuesLeft;
+			}
+
+			FinalValuesLeft.Sort();
+
+			TArray<uint32> FinalValuesRight;
+
+			for (int32 i = 0; i < FinalValuesLeft.Num(); ++i)
+			{
+				FinalValuesRight.Add(InitialGizmoDimension / FinalValuesLeft[i]);
+			}
+
+			GuessedDimensionComboList.Empty(FinalValuesLeft.Num());
+
+			for (int32 i = 0; i < FinalValuesLeft.Num(); ++i)
+			{
+				float LeftValue = (float)FinalValuesLeft[i];
+				float RightValue = (float)FinalValuesRight[i];
+
+				// Remove extreme values as it's quite unlikely user use those settings
+				if ((LeftValue <= RightValue && LeftValue / RightValue > 0.001f) || (LeftValue > RightValue && RightValue / LeftValue > 0.001f))
+				{
+					GuessedDimensionComboList.Add(MakeShared<FString>(FString::Printf(TEXT("%d x %d"), FinalValuesLeft[i], FinalValuesRight[i])));
+				}
+			}
+		}
+	}
 }
 
 FReply FLandscapeEditorDetailCustomization_CopyPaste::OnGizmoImportButtonClicked()
@@ -307,7 +470,7 @@ FReply FLandscapeEditorDetailCustomization_CopyPaste::OnGizmoImportButtonClicked
 			FFileHelper::LoadFileToArray(Data, *LandscapeEdMode->UISettings->GizmoHeightmapFilenameString);
 
 			if (Data.Num() <= 0
-				|| Data.Num() != (LandscapeEdMode->UISettings->GizmoImportSize.X * LandscapeEdMode->UISettings->GizmoImportSize.Y * 2))
+				|| Data.Num() != (LandscapeEdMode->UISettings->GizmoImportSize.X * LandscapeEdMode->UISettings->GizmoImportSize.Y * sizeof(uint16)))
 			{
 				FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "LandscapeImport_BadHeightmapSize", "File size does not match"));
 				return FReply::Handled();
@@ -480,7 +643,7 @@ void FLandscapeEditorStructCustomization_FGizmoImportLayer::CustomizeChildren(TS
 			SNew(SButton)
 			.ContentPadding(FMargin(4, 0))
 			.Text(NSLOCTEXT("UnrealEd", "GenericOpenDialog", "..."))
-			.OnClicked_Static(&FLandscapeEditorStructCustomization_FGizmoImportLayer::OnGizmoImportLayerFilenameButtonClicked, PropertyHandle_LayerFilename)
+			.OnClicked(this, &FLandscapeEditorStructCustomization_FGizmoImportLayer::OnGizmoImportLayerFilenameButtonClicked, PropertyHandle_LayerFilename)
 		]
 	];
 

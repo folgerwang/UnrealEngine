@@ -36,6 +36,7 @@ namespace
 	static float HoverProximityThresholdPx = 5.f;
 	static float HoveredCurveThickness = 5.f;
 	static float UnHoveredCurveThickness = 1.f;
+	static float LabelOffsetPx = 2.f;
 	static bool  bAntiAliasCurves = true;
 
 	FReply HandledReply(const FGeometry&, const FPointerEvent&)
@@ -998,18 +999,23 @@ int32 SCurveEditorPanel::DrawGridLines(const FGeometry& AllottedGeometry, FSlate
 	const FLinearColor   MajorGridColor = GridLineTintAttribute.Get();
 	const FLinearColor   MinorGridColor = MajorGridColor.CopyWithNewOpacity(MajorGridColor.A * .25f);
 	const FPaintGeometry PaintGeometry  = AllottedGeometry.ToPaintGeometry();
+	const FLinearColor	 LabelColor = FLinearColor::White.CopyWithNewOpacity(0.65f);
+	const FSlateFontInfo FontInfo = FCoreStyle::Get().GetFontStyle("ToolTip.LargerFont");
 
 	TArray<float> MajorGridLines, MinorGridLines;
-	CurveEditor->GetGridLinesX(MajorGridLines, MinorGridLines);
+	TArray<FText> MajorGridLabels;
+	CurveEditor->GetGridLinesX(MajorGridLines, MinorGridLines, MajorGridLabels);
+	ensureMsgf(MajorGridLines.Num() == MajorGridLabels.Num(), TEXT("A grid label should be specified for every major grid line, even if it is just an empty FText."));
+
 
 	TArray<FVector2D> LinePoints;
 	LinePoints.Add(FVector2D(0.f, 0.f));
 	LinePoints.Add(FVector2D(0.f, Height));
 
 	// Draw major grid lines
-	for (float PosX : MajorGridLines)
+	for(int32 i = 0; i < MajorGridLines.Num(); i++)
 	{
-		LinePoints[0].X = LinePoints[1].X = PosX;
+		LinePoints[0].X = LinePoints[1].X = MajorGridLines[i];
 
 		FSlateDrawElement::MakeLines(
 			OutDrawElements,
@@ -1019,6 +1025,21 @@ int32 SCurveEditorPanel::DrawGridLines(const FGeometry& AllottedGeometry, FSlate
 			DrawEffects,
 			MajorGridColor,
 			false
+		);
+
+		FPaintGeometry LabelGeometry = AllottedGeometry.ToPaintGeometry( FSlateLayoutTransform(FVector2D(LinePoints[0].X + LabelOffsetPx, LabelOffsetPx)) );
+
+		// Draw the axis labels above the curves (which get drawn next) now so that we don't
+		// have to cache off our labels and draw after. Done as +2 as the curves will draw on
+		// +1 after this function returns.
+		FSlateDrawElement::MakeText(
+			OutDrawElements,
+			LayerId+2,
+			LabelGeometry,
+			MajorGridLabels[i],
+			FontInfo,
+			DrawEffects,
+			LabelColor
 		);
 	}
 
@@ -1039,13 +1060,15 @@ int32 SCurveEditorPanel::DrawGridLines(const FGeometry& AllottedGeometry, FSlate
 
 	MajorGridLines.Reset();
 	MinorGridLines.Reset();
-	CurveEditor->GetGridLinesY(MajorGridLines, MinorGridLines);
+	MajorGridLabels.Reset();
+	CurveEditor->GetGridLinesY(MajorGridLines, MinorGridLines, MajorGridLabels);
+	ensureMsgf(MajorGridLines.Num() == MajorGridLabels.Num(), TEXT("A grid label should be specified for every major grid line, even if it is just an empty FText."));
 
 	LinePoints[0].X = 0.f;
 	LinePoints[1].X = Width;
-	for (float PosY : MajorGridLines)
+	for (int32 i = 0; i < MajorGridLines.Num(); i++)
 	{
-		LinePoints[0].Y = LinePoints[1].Y = PosY;
+		LinePoints[0].Y = LinePoints[1].Y = MajorGridLines[i];
 
 		FSlateDrawElement::MakeLines(
 			OutDrawElements,
@@ -1055,6 +1078,21 @@ int32 SCurveEditorPanel::DrawGridLines(const FGeometry& AllottedGeometry, FSlate
 			DrawEffects,
 			MajorGridColor,
 			false
+		);
+
+		FPaintGeometry LabelGeometry = AllottedGeometry.ToPaintGeometry(FSlateLayoutTransform(FVector2D(LabelOffsetPx, LinePoints[0].Y+ LabelOffsetPx)));
+
+		// Draw the axis labels above the curves (which get drawn next) now so that we don't
+		// have to cache off our labels and draw after. Done as +2 as the curves will draw on
+		// +1 after this function returns.
+		FSlateDrawElement::MakeText(
+			OutDrawElements,
+			LayerId+2,
+			LabelGeometry,
+			MajorGridLabels[i],
+			FontInfo,
+			DrawEffects,
+			LabelColor
 		);
 	}
 

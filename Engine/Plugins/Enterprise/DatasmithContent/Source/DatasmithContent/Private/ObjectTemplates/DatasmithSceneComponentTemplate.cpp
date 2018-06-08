@@ -5,6 +5,14 @@
 #include "DatasmithAssetUserData.h"
 #include "Components/SceneComponent.h"
 
+namespace
+{
+	bool AreTransformsEqual( const FTransform& A, const FTransform& B )
+	{
+		return A.TranslationEquals( B, THRESH_POINTS_ARE_NEAR ) && A.RotationEquals( B, KINDA_SMALL_NUMBER) && A.Scale3DEquals( B, KINDA_SMALL_NUMBER );
+	}
+}
+
 void UDatasmithSceneComponentTemplate::Apply( UObject* Destination, bool bForce )
 {
 #if WITH_EDITORONLY_DATA
@@ -17,11 +25,6 @@ void UDatasmithSceneComponentTemplate::Apply( UObject* Destination, bool bForce 
 
 	UDatasmithSceneComponentTemplate* PreviousTemplate = !bForce ? FDatasmithObjectTemplateUtils::GetObjectTemplate< UDatasmithSceneComponentTemplate >( Destination ) : nullptr;
 
-	if ( !PreviousTemplate || PreviousTemplate->RelativeTransform.Equals( SceneComponent->GetRelativeTransform() ) )
-	{
-		SceneComponent->SetRelativeTransform( RelativeTransform );
-	}
-
 	if ( !PreviousTemplate || PreviousTemplate->Mobility == SceneComponent->Mobility )
 	{
 		SceneComponent->SetMobility( Mobility );
@@ -29,7 +32,24 @@ void UDatasmithSceneComponentTemplate::Apply( UObject* Destination, bool bForce 
 
 	if ( !PreviousTemplate || PreviousTemplate->AttachParent == SceneComponent->GetAttachParent() )
 	{
-		SceneComponent->AttachToComponent( AttachParent, FAttachmentTransformRules::KeepRelativeTransform );
+		FAttachmentTransformRules AttachmentTransformRules = FAttachmentTransformRules::KeepRelativeTransform;
+
+		// We assume that all Datasmith components were created with a parent.
+		// If we already have a component template but no parent, it means that we got detached since the last import,
+		// in which case we want to keep the world position when reattaching.
+		const bool bLostItsParent = PreviousTemplate && PreviousTemplate->AttachParent == nullptr;
+
+		if ( bLostItsParent )
+		{
+			AttachmentTransformRules = FAttachmentTransformRules::KeepWorldTransform;
+		}
+
+		SceneComponent->AttachToComponent( AttachParent, AttachmentTransformRules );
+	}
+
+	if ( !PreviousTemplate || AreTransformsEqual( PreviousTemplate->RelativeTransform, SceneComponent->GetRelativeTransform() ) )
+	{
+		SceneComponent->SetRelativeTransform( RelativeTransform );
 	}
 
 	FDatasmithObjectTemplateUtils::SetObjectTemplate( Destination, this );
@@ -50,4 +70,20 @@ void UDatasmithSceneComponentTemplate::Load( const UObject* Source )
 	Mobility = SceneComponent->Mobility;
 	AttachParent = SceneComponent->GetAttachParent();
 #endif // #if WITH_EDITORONLY_DATA
+}
+
+bool UDatasmithSceneComponentTemplate::Equals( const UDatasmithObjectTemplate* Other ) const
+{
+	const UDatasmithSceneComponentTemplate* TypedOther = Cast< UDatasmithSceneComponentTemplate >( Other );
+
+	if ( !TypedOther )
+	{
+		return false;
+	}
+
+	bool bEquals = AreTransformsEqual( RelativeTransform, TypedOther->RelativeTransform );
+	bEquals = bEquals && ( Mobility == TypedOther->Mobility );
+	bEquals = bEquals && ( AttachParent == TypedOther->AttachParent );
+
+	return bEquals;
 }

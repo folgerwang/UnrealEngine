@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3388665
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:4.4 - アニメーションの遷移ステートを追加する
 Crumbs: %ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/FirstPersonShooter, Programming/Tutorials/FirstPersonShooter/4
@@ -52,8 +52,8 @@ Version:4.15
 
 	[REGION:note]
 	以下の残りの 4 つのステートについても 1 から 6 のステップを繰り返します。
-	*Run
 
+	*	Run
 	*	JumpStart
 	*	JumpEnd
 	*	JumpLoop

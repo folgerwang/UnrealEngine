@@ -13,16 +13,43 @@ DEFINE_LOG_CATEGORY( LogNetVersion );
 FNetworkVersion::FGetLocalNetworkVersionOverride FNetworkVersion::GetLocalNetworkVersionOverride;
 FNetworkVersion::FIsNetworkCompatibleOverride FNetworkVersion::IsNetworkCompatibleOverride;
 
-FString FNetworkVersion::ProjectVersion;
+FString FNetworkVersion::ProjectVersion = TEXT("1.0.0");
 
 bool FNetworkVersion::bHasCachedNetworkChecksum			= false;
 uint32 FNetworkVersion::CachedNetworkChecksum			= 0;
 
-uint32 FNetworkVersion::EngineNetworkProtocolVersion	= HISTORY_REPCMD_CHECKSUM_REMOVE_PRINTF;
+uint32 FNetworkVersion::EngineNetworkProtocolVersion	= HISTORY_NEW_ACTOR_OVERRIDE_LEVEL;
 uint32 FNetworkVersion::GameNetworkProtocolVersion		= 0;
 
 uint32 FNetworkVersion::EngineCompatibleNetworkProtocolVersion		= HISTORY_REPLAY_BACKWARDS_COMPAT;
 uint32 FNetworkVersion::GameCompatibleNetworkProtocolVersion		= 0;
+
+void FNetworkVersion::SetProjectVersion(const TCHAR* InVersion)
+{
+	if (ensureMsgf(InVersion != nullptr && FCString::Strlen(InVersion), TEXT("ProjectVersion used for network version must be a valid string!")))
+	{
+		ProjectVersion = InVersion;
+		bHasCachedNetworkChecksum = false;
+
+		UE_LOG(LogNetVersion, Log, TEXT("Set ProjectVersion to %s. Version Checksum will be recalculated on next use."), *ProjectVersion);
+	}	
+}
+
+void FNetworkVersion::SetGameNetworkProtocolVersion(const uint32 InGameNetworkProtocolVersion)
+{
+	GameNetworkProtocolVersion = InGameNetworkProtocolVersion;
+	bHasCachedNetworkChecksum = false;
+
+	UE_LOG(LogNetVersion, Log, TEXT("Set GameNetworkProtocolVersion to %ud. Version Checksum will be recalculated on next use."), GameNetworkProtocolVersion);
+}
+
+void FNetworkVersion::SetGameCompatibleNetworkProtocolVersion(const uint32 InGameCompatibleNetworkProtocolVersion)
+{
+	GameCompatibleNetworkProtocolVersion = InGameCompatibleNetworkProtocolVersion;
+	bHasCachedNetworkChecksum = false;
+
+	UE_LOG(LogNetVersion, Log, TEXT("Set GameCompatibleNetworkProtocolVersion to %ud. Version Checksum will be recalculated on next use."), GameCompatibleNetworkProtocolVersion);
+}
 
 uint32 FNetworkVersion::GetNetworkCompatibleChangelist()
 {
@@ -52,7 +79,7 @@ uint32 FNetworkVersion::GetNetworkCompatibleChangelist()
 
 uint32 FNetworkVersion::GetReplayCompatibleChangelist()
 {
-	return BuildSettings::GetCurrentChangelist();
+	return FEngineVersion::CompatibleWith().GetChangelist();
 }
 
 uint32 FNetworkVersion::GetEngineNetworkProtocolVersion()
@@ -95,7 +122,7 @@ uint32 FNetworkVersion::GetLocalNetworkVersion( bool AllowOverrideDelegate /*=tr
 
 	FString VersionString = FString::Printf(TEXT("%s %s, NetCL: %d, EngineNetVer: %d, GameNetVer: %d"),
 		FApp::GetProjectName(),
-		*ProjectVersion,
+		*FNetworkVersion::GetProjectVersion(),
 		GetNetworkCompatibleChangelist(),
 		FNetworkVersion::GetEngineNetworkProtocolVersion(),
 		FNetworkVersion::GetGameNetworkProtocolVersion());

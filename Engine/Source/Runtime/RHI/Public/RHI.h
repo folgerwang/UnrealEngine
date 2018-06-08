@@ -257,6 +257,12 @@ extern RHI_API bool GSupportsParallelRenderingTasksWithSeparateRHIThread;
 /** If an RHI is so slow, that it is the limiting factor for the entire frame, we can kick early to try to give it as much as possible. */
 extern RHI_API bool GRHIThreadNeedsKicking;
 
+/** If an RHI cannot do an unlimited number of occlusion queries without stalling and waiting for the GPU, this can be used to tune hte occlusion culler to try not to do that. */
+extern RHI_API int32 GRHIMaximumReccommendedOustandingOcclusionQueries;
+
+/** Some RHIs can only do visible or not occlusion queries. */
+extern RHI_API bool GRHISupportsExactOcclusionQueries;
+
 /** True if and only if the GPU support rendering to volume textures (2D Array, 3D). Some OpenGL 3.3 cards support SM4, but can't render to volume textures. */
 extern RHI_API bool GSupportsVolumeTextureRendering;
 
@@ -364,14 +370,10 @@ extern RHI_API int32 GDrawUPIndexCheckCount;
 /** true for each VET that is supported. One-to-one mapping with EVertexElementType */
 extern RHI_API class FVertexElementTypeSupportInfo GVertexElementTypeSupport;
 
-/** When greater than one, indicates that SLI rendering is enabled */
-#if PLATFORM_DESKTOP
-#define WITH_SLI (1)
-extern RHI_API uint32 GNumActiveGPUsForRendering;
-#else
-#define WITH_SLI (0)
-#define GNumActiveGPUsForRendering (1)
-#endif
+#include "MultiGPU.h"
+
+RHI_API EMultiGPUMode GetMultiGPUMode();
+RHI_API FRHIGPUMask GetNodeMaskFromMultiGPUMode(EMultiGPUMode Strategy, uint32 ViewIndex, uint32 FrameIndex);
 
 /** Whether the next frame should profile the GPU. */
 extern RHI_API bool GTriggerGPUProfile;
@@ -641,6 +643,8 @@ struct FVertexElement
 		Ar << Element.bUseInstanceIndex;
 		return Ar;
 	}
+	RHI_API FString ToString() const;
+	RHI_API void FromString(const FString& Src);
 };
 
 typedef TArray<FVertexElement,TFixedAllocator<MaxVertexElementCount> > FVertexDeclarationElementList;
@@ -825,6 +829,10 @@ struct FDepthStencilStateInitializerRHI
 		Ar << DepthStencilStateInitializer.StencilWriteMask;
 		return Ar;
 	}
+	RHI_API FString ToString() const;
+	RHI_API void FromString(const FString& Src);
+
+
 };
 
 class FBlendStateInitializerRHI
@@ -833,6 +841,10 @@ public:
 
 	struct FRenderTarget
 	{
+		enum
+		{
+			NUM_STRING_FIELDS = 7
+		};
 		TEnumAsByte<EBlendOperation> ColorBlendOp;
 		TEnumAsByte<EBlendFactor> ColorSrcBlend;
 		TEnumAsByte<EBlendFactor> ColorDestBlend;
@@ -870,6 +882,10 @@ public:
 			Ar << RenderTarget.ColorWriteMask;
 			return Ar;
 		}
+		RHI_API FString ToString() const;
+		RHI_API void FromString(const TArray<FString>& Parts, int32 Index);
+
+
 	};
 
 	FBlendStateInitializerRHI() {}
@@ -901,6 +917,10 @@ public:
 		Ar << BlendStateInitializer.bUseIndependentRenderTargetBlendStates;
 		return Ar;
 	}
+	RHI_API FString ToString() const;
+	RHI_API void FromString(const FString& Src);
+
+
 };
 
 /**
@@ -1162,6 +1182,7 @@ struct FResolveParams
 	ECubeFace CubeFace;
 	/** resolve RECT bounded by [X1,Y1]..[X2,Y2]. Or -1 for fullscreen */
 	FResolveRect Rect;
+	FResolveRect DestRect;
 	/** The mip index to resolve in both source and dest. */
 	int32 MipIndex;
 	/** Array index to resolve in the source. */
@@ -1175,9 +1196,11 @@ struct FResolveParams
 		ECubeFace InCubeFace = CubeFace_PosX,
 		int32 InMipIndex = 0,
 		int32 InSourceArrayIndex = 0,
-		int32 InDestArrayIndex = 0)
+		int32 InDestArrayIndex = 0,
+		const FResolveRect& InDestRect = FResolveRect())
 		:	CubeFace(InCubeFace)
 		,	Rect(InRect)
+		,	DestRect(InDestRect)
 		,	MipIndex(InMipIndex)
 		,	SourceArrayIndex(InSourceArrayIndex)
 		,	DestArrayIndex(InDestArrayIndex)
@@ -1186,6 +1209,7 @@ struct FResolveParams
 	FORCEINLINE FResolveParams(const FResolveParams& Other)
 		: CubeFace(Other.CubeFace)
 		, Rect(Other.Rect)
+		, DestRect(Other.DestRect)
 		, MipIndex(Other.MipIndex)
 		, SourceArrayIndex(Other.SourceArrayIndex)
 		, DestArrayIndex(Other.DestArrayIndex)

@@ -49,6 +49,8 @@ void FTextureLODGroup::SetupGroup()
 	MinLODMipCount = FMath::CeilLogTwo(MinLODSize);
 	MaxLODMipCount = FMath::CeilLogTwo(MaxLODSize);
 
+	OptionalMaxLODMipCount = FMath::CeilLogTwo(OptionalMaxLODSize);
+
 	// Linear filtering
 	if (MinMagFilter == NAME_Linear)
 	{
@@ -156,6 +158,25 @@ int32 UTextureLODSettings::CalculateLODBias(int32 Width, int32 Height, int32 Max
 	UsedLODBias			= TextureMaxLOD - WantedMaxLOD;
 
 	return UsedLODBias;
+}
+
+int32 UTextureLODSettings::CalculateNumOptionalMips(int32 LODGroup, const int32 Width, const int32 Height, const int32 NumMips, const int32 MinMipToInline, TextureMipGenSettings InMipGenSetting) const
+{
+	// shouldn't need to call this client side, this is calculated at save texture time
+	check( FPlatformProperties::RequiresCookedData() == false);
+
+	const FTextureLODGroup& LODGroupInfo = TextureLODGroups[LODGroup];
+
+	const TextureMipGenSettings& FinalMipGenSetting = (InMipGenSetting == TMGS_FromTextureGroup) ? (TextureMipGenSettings)LODGroupInfo.MipGenSettings : InMipGenSetting;
+	if ( FinalMipGenSetting == TMGS_NoMipmaps)
+	{
+		return 0;
+	}
+
+	int32 OptionalLOD = FMath::Min(LODGroupInfo.OptionalMaxLODMipCount+1, NumMips);
+
+	int32 NumOptionalMips = FMath::Min(NumMips - (OptionalLOD - LODGroupInfo.OptionalLODBias), MinMipToInline);
+	return NumOptionalMips;
 }
 
 /**

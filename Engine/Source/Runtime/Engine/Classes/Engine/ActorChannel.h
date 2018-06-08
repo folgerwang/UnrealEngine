@@ -24,27 +24,27 @@ class UNetConnection;
  *
  * An ActorChannel bunch looks like this:
  *
- *		|----------------------|---------------------------------------------------------------------------|
- *		| SpawnInfo		       | (Spawn Info) Initial bunch only                                           |
- *		|  -Actor Class        |	-Created by ActorChannel	                                           |
- *		|  -Spawn Loc/Rot      |                                                                           |
- *      | NetGUID assigns      |                                                                           |
- *		|  -Actor NetGUID      |                                                                           |
- *		|  -Component NetGUIDs |                                                                           |
- *		|----------------------|---------------------------------------------------------------------------|
- *		|                      |                                                                           |
- *		|----------------------|---------------------------------------------------------------------------|
- *		| NetGUID ObjRef       | (Content chunks) x number of replicating objects (Actor + any components) |
- * 		|                      |		-Each chunk created by its own FObjectReplicator instance.         |
- * 		|----------------------|---------------------------------------------------------------------------|
- *      |                      |		                                                                   |
- *		| Properties...        |                                                                           |
- *		|                      |	                                                                       |
- *		| RPCs...              |                                                                           |
- *      |                      |                                                                           |
- *      |----------------------|---------------------------------------------------------------------------|
- *		| </End Tag>           |                                                                           |
- *		|----------------------|---------------------------------------------------------------------------|
+ * +----------------------+---------------------------------------------------------------------------+
+ * | SpawnInfo            | (Spawn Info) Initial bunch only                                           |
+ * |  -Actor Class        |   -Created by ActorChannel                                                |
+ * |  -Spawn Loc/Rot      |                                                                           |
+ * | NetGUID assigns      |                                                                           |
+ * |  -Actor NetGUID      |                                                                           |
+ * |  -Component NetGUIDs |                                                                           |
+ * +----------------------+---------------------------------------------------------------------------+
+ * |                      |                                                                           |
+ * +----------------------+---------------------------------------------------------------------------+
+ * | NetGUID ObjRef       | (Content chunks) x number of replicating objects (Actor + any components) |
+ * |                      |   -Each chunk created by its own FObjectReplicator instance.              |
+ * +----------------------+---------------------------------------------------------------------------+
+ * |                      |                                                                           |
+ * | Properties...        |                                                                           |
+ * |                      |                                                                           |
+ * | RPCs...              |                                                                           |
+ * |                      |                                                                           |
+ * +----------------------+---------------------------------------------------------------------------+
+ * | </End Tag>           |                                                                           |
+ * +----------------------+---------------------------------------------------------------------------+
  */
 UCLASS(transient, customConstructor)
 class ENGINE_API UActorChannel
@@ -183,7 +183,7 @@ public:
 	bool ReadFieldHeaderAndPayload( UObject* Object, const FClassNetCache* ClassCache, FNetFieldExportGroup* NetFieldExportGroup, FNetBitReader& Bunch, const FFieldNetCache** OutField, FNetBitReader& OutPayload ) const;
 
 	/** Finds the net field export group for a class net cache, if not found, creates one */
-	FNetFieldExportGroup* GetNetFieldExportGroupForClassNetCache( const UClass* ObjectClass );
+	FNetFieldExportGroup* GetNetFieldExportGroupForClassNetCache( UClass* ObjectClass );
 		
 	/** Finds (or creates) the net field export group for a class net cache, if not found, creates one */
 	FNetFieldExportGroup* GetOrCreateNetFieldExportGroupForClassNetCache( const UObject* Object );

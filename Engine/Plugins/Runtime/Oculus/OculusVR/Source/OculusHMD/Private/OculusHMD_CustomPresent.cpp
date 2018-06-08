@@ -23,8 +23,7 @@ namespace OculusHMD
 //-------------------------------------------------------------------------------------------------
 
 FCustomPresent::FCustomPresent(class FOculusHMD* InOculusHMD, ovrpRenderAPIType InRenderAPI, EPixelFormat InDefaultPixelFormat, bool bInSupportsSRGB, bool bInSupportsDepth)
-	: FRHICustomPresent(nullptr)
-	, OculusHMD(InOculusHMD)
+	: OculusHMD(InOculusHMD)
 	, RenderAPI(InRenderAPI)
 	, DefaultPixelFormat(InDefaultPixelFormat)
 	, bSupportsSRGB(bInSupportsSRGB)
@@ -69,20 +68,6 @@ void FCustomPresent::Shutdown()
 			OculusHMD = nullptr;
 		});
 	});
-}
-
-
-void FCustomPresent::UpdateViewport(FRHIViewport* InViewportRHI)
-{
-	CheckInGameThread();
-
-	ViewportRHI = InViewportRHI;
-	ViewportRHI->SetCustomPresent(this);
-}
-
-
-void FCustomPresent::OnBackBufferResize()
-{
 }
 
 

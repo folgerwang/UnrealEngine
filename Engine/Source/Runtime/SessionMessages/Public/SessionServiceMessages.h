@@ -121,7 +121,7 @@ struct FSessionServiceLog
 public:
 
 	/** Default constructor. */
-	FSessionServiceLog() { }
+	FSessionServiceLog() : TimeSeconds(0.0), Verbosity(0) { }
 
 	/**
 	 * Creates and initializes a new instance.

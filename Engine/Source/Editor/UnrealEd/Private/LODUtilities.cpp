@@ -22,6 +22,8 @@
 #include "ComponentReregisterContext.h"
 #include "IMeshReductionManagerModule.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogLODUtilities, Log, All);
+
 bool FLODUtilities::RegenerateLOD(USkeletalMesh* SkeletalMesh, int32 NewLODCount /*= 0*/, bool bRegenerateEvenIfImported /*= false*/)
 {
 	if (SkeletalMesh)
@@ -237,7 +239,7 @@ struct FTargetMatch
 void ProjectTargetOnBase(const TArray<FSoftSkinVertex>& BaseVertices, const TArray<TArray<uint32>>& PerSectionBaseTriangleIndices,
 						 TArray<FTargetMatch>& TargetMatchData, const TArray<FSkelMeshSection>& TargetSections, const TArray<int32>& TargetSectionMatchBaseIndex)
 {
-	bool bEnsureMsgDone = false;
+	bool bNoMatchMsgDone = false;
 	TArray<FTriangleElement> Triangles;
 	//Project section target vertices on match base section using the UVs coordinates
 	for (int32 SectionIndex = 0; SectionIndex < TargetSections.Num(); ++SectionIndex)
@@ -289,7 +291,20 @@ void ProjectTargetOnBase(const TArray<FSoftSkinVertex>& BaseVertices, const TArr
 			FVector2D TargetUV = TargetVertices[TargetVertexIndex].UVs[0];
 			//Reset the last data without flushing the memmery allocation
 			QuadTreeTriangleResults.Reset();
-			uint32 FullTargetIndex = TargetSections[SectionIndex].BaseVertexIndex + TargetVertexIndex;
+			const uint32 FullTargetIndex = TargetSections[SectionIndex].BaseVertexIndex + TargetVertexIndex;
+			//Make sure the array is allocate properly
+			if (!TargetMatchData.IsValidIndex(FullTargetIndex))
+			{
+				continue;
+			}
+			//Set default data for the target match, in case we cannot found a match
+			FTargetMatch& TargetMatch = TargetMatchData[FullTargetIndex];
+			for (int32 Corner = 0; Corner < 3; ++Corner)
+			{
+				TargetMatch.Indices[Corner] = INDEX_NONE;
+				TargetMatch.BarycentricWeight[Corner] = 0.3333f; //The weight will be use to found the proper delta
+			}
+
 			FVector2D Extent(DistanceThreshold, DistanceThreshold);
 			FBox2D CurBox(TargetUV - Extent, TargetUV + Extent);
 			QuadTree.GetElements(CurBox, QuadTreeTriangleResults);
@@ -301,10 +316,10 @@ void ProjectTargetOnBase(const TArray<FSoftSkinVertex>& BaseVertices, const TArr
 				if(!FindTriangleUVMatch(TargetUV, Triangles, QuadTreeTriangleResults, MatchTriangleIndexes))
 				{
 					//We should always have a match
-					if (!bEnsureMsgDone)
+					if (!bNoMatchMsgDone)
 					{
-						ensureMsgf(FoundIndexMatch != INDEX_NONE, TEXT("Reduce LOD vertex should always have a valid matched triangle in the BaseLOD.")); //-V547
-						bEnsureMsgDone = true;
+						UE_LOG(LogLODUtilities, Warning, TEXT("Reduce LOD, remap morph target: Cannot find a triangle from the base LOD that contain a vertex UV in the target LOD. Remap morph target quality will be lower."));
+						bNoMatchMsgDone = true;
 					}
 					continue;
 				}
@@ -331,7 +346,6 @@ void ProjectTargetOnBase(const TArray<FSoftSkinVertex>& BaseVertices, const TArr
 				//We should always have a valid match at this point
 				check(FoundIndexMatch != INDEX_NONE);
 				FTriangleElement& BestTriangle = Triangles[FoundIndexMatch];
-				FTargetMatch& TargetMatch = TargetMatchData[FullTargetIndex];
 				//Found the surface area of the 3 barycentric triangles from the UVs
 				FVector BarycentricWeight;
 				BarycentricWeight = GetBaryCentric(FVector(TargetUV, 0.0f), FVector(BestTriangle.Vertices[0].UVs[0], 0.0f), FVector(BestTriangle.Vertices[1].UVs[0], 0.0f), FVector(BestTriangle.Vertices[2].UVs[0], 0.0f));
@@ -344,10 +358,10 @@ void ProjectTargetOnBase(const TArray<FSoftSkinVertex>& BaseVertices, const TArr
 			}
 			else
 			{
-				if (!bEnsureMsgDone)
+				if (!bNoMatchMsgDone)
 				{
-					ensureMsgf(QuadTreeTriangleResults.Num() > 0, TEXT("Reduce LOD vertex should always have a valid matched triangle in the BaseLOD."));
-					bEnsureMsgDone = true;
+					UE_LOG(LogLODUtilities, Warning, TEXT("Reduce LOD, remap morph target: Cannot find a triangle from the base LOD that contain a vertex UV in the target LOD. Remap morph target quality will be lower."));
+					bNoMatchMsgDone = true;
 				}
 				continue;
 			}
@@ -586,6 +600,11 @@ void FLODUtilities::ApplyMorphTargetsToLOD(USkeletalMesh* SkeletalMesh, const FS
 			for (int32 TargetIndex = 0; TargetIndex < TargetMatchData.Num(); ++TargetIndex)
 			{
 				const FTargetMatch& TargetMatch = TargetMatchData[TargetIndex];
+				if (TargetMatch.Indices[0] == INDEX_NONE)
+				{
+					//In case this vertex did not found a triangle match
+					continue;
+				}
 				if (TargetMatch.Indices[0] == MorphDelta.SourceIdx || TargetMatch.Indices[1] == MorphDelta.SourceIdx || TargetMatch.Indices[2] == MorphDelta.SourceIdx)
 				{
 					TArray<uint32>& TargetIndexes = BaseMorphIndexToTargetIndexList.FindOrAdd(MorphDelta.SourceIdx);
@@ -662,8 +681,11 @@ void FLODUtilities::SimplifySkeletalMeshLOD(FSkeletalMeshUpdateContext& UpdateCo
 	{
 		SimplifySkeletalMeshLOD(SkeletalMesh, DesiredLOD, bReregisterComponent);
 		
-		//Notify calling system of change
-		UpdateContext.OnLODChanged.ExecuteIfBound();
+		if (UpdateContext.OnLODChanged.IsBound())
+		{
+			//Notify calling system of change
+			UpdateContext.OnLODChanged.ExecuteIfBound();
+		}
 	}
 }
 void FLODUtilities::RefreshLODChange(const USkeletalMesh* SkeletalMesh)

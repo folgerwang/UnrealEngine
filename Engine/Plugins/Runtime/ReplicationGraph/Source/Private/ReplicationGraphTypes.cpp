@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "ReplicationGraphTypes.h"
 
 #include "ReplicationGraph.h"
@@ -22,66 +24,6 @@
 
 
 DEFINE_LOG_CATEGORY( LogReplicationGraph );
-
-// --------------------------------------------------------------------------------------------------------------------------------------------
-// --------------------------------------------------------------------------------------------------------------------------------------------
-// --------------------------------------------------------------------------------------------------------------------------------------------
-
-FReplicationListCategory::FGetDebugStringFunc FReplicationListCategory::CustomDebugStringFunc;
-
-FString FReplicationListCategory::GetDebugStringSlow() const
-{
-	if (CustomDebugStringFunc)
-	{
-		return CustomDebugStringFunc(*this);
-	}
-
-	return FString::Printf(TEXT("{%d}"), Value);
-}
-
-void FReplicationListCategory::SetDebugStringFunc(FGetDebugStringFunc Func)
-{
-	CustomDebugStringFunc = Func;
-}
-
-void FReplicationListCategory::SetDebugStringFunc_StandardEnum(TCHAR* EnumString)
-{
-	UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, EnumString);
-	if (!ensureMsgf(Enum, TEXT("Could not find UEnum named %s"), EnumString))
-	{
-		return;
-	}
-
-	SetDebugStringFunc([Enum](FReplicationListCategory Category)
-	{
-		QUICK_SCOPE_CYCLE_COUNTER(REPLICATION_CATEGORY_GETDEBUGSTR);
-		bool All = false;
-		FString Str = Enum->GetNameStringByValue(Category);
-		if (Str.IsEmpty())
-		{
-			All = true;
-			Str += TEXT("(");
-			for (uint32 ForValue = 1; ForValue <= Enum->GetMaxEnumValue(); ForValue <<= 1)
-			{
-				if ((Category & ForValue) > 0)
-				{
-					if (Str.Len() > 1)
-					{
-						Str += TEXT(" | ");
-					}
-					Str += Enum->GetNameStringByValue(ForValue);
-				}
-				else
-				{
-					All = false;
-				}
-			}
-			Str += TEXT(")");
-
-		}
-		return All ? TEXT("All") : Str;
-	});
-}
 
 // --------------------------------------------------------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------------------------------------------------------
@@ -367,7 +309,7 @@ void TActorListAllocator<NumListsPerBlock, MaxNumPools>::LogStats(int32 Mode, FO
 			{
 				for (int32 i=0; i < B->UsedListsBitArray.Num(); ++i)
 				{
-					BlockBinaryStr += B->UsedListsBitArray[i] ? *Lex::ToString(B->Lists[i].RefCount) : TEXT("0");
+					BlockBinaryStr += B->UsedListsBitArray[i] ? *LexToString(B->Lists[i].RefCount) : TEXT("0");
 				}
 				BlockBinaryStr += TEXT(" ");
 			}

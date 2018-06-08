@@ -19,7 +19,7 @@
 #include "TrackEditorThumbnail/TrackEditorThumbnailPool.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Layout/SBox.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 
 #include "MediaThumbnailSection.h"
 
@@ -295,8 +295,12 @@ void FMediaTrackEditor::HandleAddMediaTrackMenuEntryExecute()
 	
 	auto NewTrack = FocusedMovieScene->AddMasterTrack<UMovieSceneMediaTrack>();
 	ensure(NewTrack);
-
 	NewTrack->SetDisplayName(LOCTEXT("MediaTrackName", "Media"));
+
+	if (GetSequencer().IsValid())
+	{
+		GetSequencer()->OnAddTrack(NewTrack);
+	}
 
 	GetSequencer()->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemAdded);
 }

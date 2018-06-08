@@ -5,6 +5,10 @@
 #include "OnlineSubsystemTypes.h"
 #include "OnlineSubsystemIOSPackage.h"
 
+
+// from OnlineSubsystemTypes.h
+TEMP_UNIQUENETIDSTRING_SUBCLASS(FUniqueNetIdIOS, IOS_SUBSYSTEM);
+
 /**
  * GameCenter specific implementation of the unique net id
  */
@@ -40,6 +44,11 @@ public:
 	explicit FUniqueNetIdGameCenter(uint64 InUniqueNetId) :
 		UniqueNetId(InUniqueNetId)
 	{
+	}
+
+	virtual FName GetType() const override
+	{
+		return IOS_SUBSYSTEM;
 	}
 
 	/**

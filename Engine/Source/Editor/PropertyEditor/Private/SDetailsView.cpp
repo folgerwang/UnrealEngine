@@ -879,9 +879,6 @@ void SDetailsView::PostSetObject()
 		FObjectPropertyNode* RootPropertyNode = ComplexRootNode->AsObjectNode();
 
 		RootPropertyNode->InitNode( InitParams );
-
-		// Restore existing expanded items
-		RestoreExpandedItems(ComplexRootNode.ToSharedRef());
 	}
 
 	UpdatePropertyMaps();

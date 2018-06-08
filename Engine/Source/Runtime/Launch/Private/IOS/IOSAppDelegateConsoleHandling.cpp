@@ -148,6 +148,7 @@ extern bool GShowSplashScreen;
 		[[NSUserDefaults standardUserDefaults] synchronize];
 	}
 }
+#endif
 
 /** 
  * Shows an alert with up to 3 buttons. A delegate callback will later set AlertResponse property
@@ -244,6 +245,7 @@ extern bool GShowSplashScreen;
 }
 #endif
 
+#if !UE_BUILD_SHIPPING && !PLATFORM_TVOS
 - (void)SwipeLeftAction:(id)Ignored
 {
 	// Populate the text field with the previous entry in the history array

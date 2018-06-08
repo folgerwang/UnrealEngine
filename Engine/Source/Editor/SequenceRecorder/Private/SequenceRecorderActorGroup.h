@@ -16,6 +16,8 @@ public:
 	{
 		SequenceName = TEXT("RecordedSequence");
 		SequenceRecordingBasePath.Path = TEXT("/Game/Cinematics/Sequences");
+		bSpecifyTargetLevelSequence = true;
+		bDuplicateTargetLevelSequence = false;
 	}
 
 	UPROPERTY(EditAnywhere, Category = "Recording Groups")
@@ -28,6 +30,18 @@ public:
 	/** Base path for this recording. Sub-assets will be created in subdirectories as specified */
 	UPROPERTY(EditAnywhere, Category = "Recording Groups", meta = (ContentDir))
 	FDirectoryPath SequenceRecordingBasePath;
+
+	/** Whether we should specify the target level sequence or auto-create it */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Recording Groups")
+	bool bSpecifyTargetLevelSequence;
+
+	/** The level sequence to record into */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Recording Groups", meta=(EditCondition = "bSpecifyTargetLevelSequence"))
+	class ULevelSequence* TargetLevelSequence;
+
+	/** Whether we should duplicate the target level sequence and record into the duplicate */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Recording Groups", meta=(EditCondition = "bSpecifyTargetLevelSequence"))
+	bool bDuplicateTargetLevelSequence;
 
 	/** A list of actor recordings in this group which contains both the actors to record as well as settings for each one. */
 	UPROPERTY(VisibleAnywhere, Category = "Recording Groups")

@@ -1,11 +1,15 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "LiveLinkRefSkeleton.h"
+#include "Misc/FrameRate.h"
+#include "Misc/QualifiedFrameTime.h"
 #include "LiveLinkTypes.generated.h"
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 
 USTRUCT()
 struct FLiveLinkSubjectName
@@ -63,31 +67,12 @@ public:
 };
 
 USTRUCT()
-struct FLiveLinkFrameRate
+struct DEPRECATED(4.20, "FLiveLinkFrameRate is no longer used, please use FFrameRate from TimeManagement instead.") FLiveLinkFrameRate : public FFrameRate
 {
 public:
 	GENERATED_USTRUCT_BODY()
-	
-	UPROPERTY()
-	uint32 Numerator;
 
-	UPROPERTY()
-	uint32 Denominator;
-
-	// Defaults to 60fps
-	FLiveLinkFrameRate()
-		: Numerator(60), Denominator(1)
-	{};
-
-	FLiveLinkFrameRate(uint32 InNumerator, uint32 InDenominator) :
-		Numerator(InNumerator), Denominator(InDenominator)
-	{};
-
-	FLiveLinkFrameRate(const FLiveLinkFrameRate& OtherFrameRate)
-	{
-		Numerator = OtherFrameRate.Numerator;
-		Denominator = OtherFrameRate.Denominator;
-	};
+	using FFrameRate::FFrameRate;
 
 	bool IsValid() const
 	{
@@ -110,12 +95,10 @@ public:
 	static LIVELINKINTERFACE_API const FLiveLinkFrameRate NTSC_60;
 };
 
-// A Qualified TimeCode associated with 
 USTRUCT()
-struct FLiveLinkTimeCode
+struct FLiveLinkTimeCode_Base_DEPRECATED
 {
-public:
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	// Integer Seconds since Epoch 
 	UPROPERTY()
@@ -129,24 +112,51 @@ public:
 	UPROPERTY()
 	FLiveLinkFrameRate FrameRate;
 
-	FLiveLinkTimeCode()
+	FLiveLinkTimeCode_Base_DEPRECATED()
 		: Seconds(0), Frames(0), FrameRate()
 	{};
 
-	FLiveLinkTimeCode(const int32 InSeconds, const int32 InFrames, const FLiveLinkFrameRate& InFrameRate)
+	FLiveLinkTimeCode_Base_DEPRECATED(const int32 InSeconds, const int32 InFrames, const FLiveLinkFrameRate& InFrameRate)
 		: Seconds(InSeconds), Frames(InFrames), FrameRate(InFrameRate)
 	{ };
 };
 
+// A Qualified TimeCode associated with 
 USTRUCT()
-struct FLiveLinkMetaData
+struct DEPRECATED(4.20, "FLiveLinkTimeCode is no longer used, please use FQualifiedFrameTime from TimeManagement instead.") FLiveLinkTimeCode : public FLiveLinkTimeCode_Base_DEPRECATED
 {
 public:
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
+
+	using FLiveLinkTimeCode_Base_DEPRECATED::FLiveLinkTimeCode_Base_DEPRECATED;
+
+	// Implicit conversion to FTimecode
+	operator FQualifiedFrameTime()
+	{
+		int32 TotalFrameNumber = (int32)FMath::RoundToZero(Seconds * (FrameRate.Numerator / (double)FrameRate.Denominator)) + Frames;
+		FFrameTime FrameTime = FFrameTime(TotalFrameNumber);
+		return FQualifiedFrameTime(FrameTime, FrameRate);
+	}
+};
+
+USTRUCT()
+struct LIVELINKINTERFACE_API FLiveLinkMetaData
+{
+public:
+
+	GENERATED_BODY()
+
+	FLiveLinkMetaData();
+	FLiveLinkMetaData(const FLiveLinkMetaData&);
+	FLiveLinkMetaData& operator=(const FLiveLinkMetaData&);
+
+	FLiveLinkMetaData(FLiveLinkMetaData&&);
+	FLiveLinkMetaData& operator=(FLiveLinkMetaData&&);
 
 	UPROPERTY()
 	TMap<FName, FString> StringMetaData;
 
+	DEPRECATED(4.20, "SceneTime will become an FQualifiedFrameTime from TimeManagement in 4.21. FLiveLinkTimeCode will implicitly allow conversion to FQualifiedFrameTime so please update your code in preparation.")
 	UPROPERTY()
 	FLiveLinkTimeCode SceneTime;
 };
@@ -168,7 +178,10 @@ public:
 
 	UPROPERTY()
 	FLiveLinkMetaData MetaData;
+
 };
+
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 struct FOptionalCurveElement
 {

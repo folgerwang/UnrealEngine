@@ -103,6 +103,7 @@ namespace Audio
 			SourceInfo.CurrentFrameAlpha = 0.0f;
 			SourceInfo.CurrentFrameIndex = 0;
 			SourceInfo.NumFramesPlayed = 0;
+			SourceInfo.StartTime = 0.0;
 			SourceInfo.SubmixSends.Reset();
 			SourceInfo.BusId = INDEX_NONE;
 			SourceInfo.BusDurationFrames = INDEX_NONE;
@@ -122,6 +123,7 @@ namespace Audio
 			SourceInfo.bIsActive = false;
 			SourceInfo.bIsPlaying = false;
 			SourceInfo.bIsPaused = false;
+			SourceInfo.bIsStopping = false;
 			SourceInfo.bIsDone = false;
 			SourceInfo.bIsLastBuffer = false;
 			SourceInfo.bIsBusy = false;
@@ -216,7 +218,7 @@ namespace Audio
 			const int32 NextIndex = !CurrentGameIndex;
 
 			// Make sure we've actually emptied the command queue from the render thread before writing to it
-			check(CommandBuffers[NextIndex].SourceCommandQueue.IsEmpty());
+			check(CommandBuffers[NextIndex].SourceCommandQueue.Num() == 0);
 			AudioThreadCommandBufferIndex.Set(NextIndex);
 			bPumpQueue = true;
 		}
@@ -252,10 +254,6 @@ namespace Audio
 			{
 				Buses.Remove(SourceInfo.BusId);
 			}
-		}
-		else
-		{
-			ActiveSourceIds.Remove(SourceId);
 		}
 
 		// Remove this source's send list from the bus data registry
@@ -341,6 +339,7 @@ namespace Audio
 		SourceInfo.CurrentFrameAlpha = 0.0f;
 		SourceInfo.CurrentFrameIndex = 0;
 		SourceInfo.NumFramesPlayed = 0;
+		SourceInfo.StartTime = 0.0;
 		SourceInfo.PostEffectBuffers = nullptr;
 		SourceInfo.bIs3D = false;
 		SourceInfo.bIsCenterChannelOnly = false;
@@ -349,6 +348,7 @@ namespace Audio
 		SourceInfo.bIsDone = true;
 		SourceInfo.bIsLastBuffer = false;
 		SourceInfo.bIsPaused = false;
+		SourceInfo.bIsStopping = false;
 		SourceInfo.bIsBusy = false;
 		SourceInfo.bUseHRTFSpatializer = false;
 		SourceInfo.bUseOcclusionPlugin = false;
@@ -479,6 +479,7 @@ namespace Audio
 
 			SourceInfo.bIsPlaying = false;
 			SourceInfo.bIsPaused = false;
+			SourceInfo.bIsStopping = false;
 			SourceInfo.bIsActive = true;
 			SourceInfo.bIsBusy = true;
 			SourceInfo.bIsDone = false;
@@ -689,15 +690,20 @@ namespace Audio
 		AUDIO_MIXER_CHECK(GameThreadInfo.bIsBusy[SourceId]);
 		AUDIO_MIXER_CHECK_GAME_THREAD(MixerDevice);
 
-		AudioMixerThreadCommand([this, SourceId]()
+		// Compute the frame within which to start the sound based on the current "thread faction" on the audio thread
+		double StartTime = MixerDevice->GetAudioThreadTime();
+
+		AudioMixerThreadCommand([this, SourceId, StartTime]()
 		{
 			AUDIO_MIXER_CHECK_AUDIO_PLAT_THREAD(MixerDevice);
 
 			FSourceInfo& SourceInfo = SourceInfos[SourceId];
-
+			
 			SourceInfo.bIsPlaying = true;
 			SourceInfo.bIsPaused = false;
 			SourceInfo.bIsActive = true;
+
+			SourceInfo.StartTime = StartTime;
 
 			AUDIO_MIXER_DEBUG_LOG(SourceId, TEXT("Is playing"));
 		});
@@ -719,9 +725,32 @@ namespace Audio
 			SourceInfo.bIsPaused = false;
 			SourceInfo.bIsActive = false;
 
-			AUDIO_MIXER_DEBUG_LOG(SourceId, TEXT("Is stopping"));
+			AUDIO_MIXER_DEBUG_LOG(SourceId, TEXT("Is immediately stopping"));
 		});
 	}
+
+	void FMixerSourceManager::StopFade(const int32 SourceId)
+	{
+		AUDIO_MIXER_CHECK(SourceId < NumTotalSources);
+		AUDIO_MIXER_CHECK(GameThreadInfo.bIsBusy[SourceId]);
+		AUDIO_MIXER_CHECK_GAME_THREAD(MixerDevice);
+
+		AudioMixerThreadCommand([this, SourceId]()
+		{
+			AUDIO_MIXER_CHECK_AUDIO_PLAT_THREAD(MixerDevice);
+
+			FSourceInfo& SourceInfo = SourceInfos[SourceId];
+
+			SourceInfo.bIsPaused = false;
+			SourceInfo.bIsStopping = true;
+
+			// Set the volume to 0.0 on the source. This will naturally interpolate to 0.0 through the output frames
+			SourceInfo.VolumeSourceParam.SetValue(0.0f, NumOutputFrames);
+
+			AUDIO_MIXER_DEBUG_LOG(SourceId, TEXT("Is stopping with fade"));
+		});
+	}
+
 
 	void FMixerSourceManager::Pause(const int32 SourceId)
 	{
@@ -765,7 +794,13 @@ namespace Audio
 			AUDIO_MIXER_CHECK_AUDIO_PLAT_THREAD(MixerDevice);
 			check(NumOutputFrames > 0);
 
-			SourceInfos[SourceId].VolumeSourceParam.SetValue(Volume, NumOutputFrames);
+			FSourceInfo& SourceInfo = SourceInfos[SourceId];
+
+			// Only set the volume if we're not stopping. Stopping sources are setting their volume to 0.0.
+			if (!SourceInfo.bIsStopping)
+			{
+				SourceInfo.VolumeSourceParam.SetValue(Volume, NumOutputFrames);
+			}
 		});
 	}
 
@@ -1100,6 +1135,9 @@ namespace Audio
 	{
 		SCOPE_CYCLE_COUNTER(STAT_AudioMixerSourceBuffers);
 
+		const double AudioRenderThreadTime = MixerDevice->GetAudioRenderThreadTime();
+		const double AudioClockDelta = MixerDevice->GetAudioClockDelta();
+
 		for (int32 SourceId = SourceIdStart; SourceId < SourceIdEnd; ++SourceId)
 		{
 			FSourceInfo& SourceInfo = SourceInfos[SourceId];
@@ -1166,70 +1204,81 @@ namespace Audio
 				// Simply copy into the pre distance attenuation buffer ptr
 				FMemory::Memcpy(PreDistanceAttenBufferPtr, BusBufferPtr, sizeof(float) * NumFramesPlayed * SourceInfo.NumInputChannels);
 			}
-			// Otherwise we need to generate source audio using buffer queues and perform SRC
 			else
 			{
-				int32 SampleIndex = 0;
-
-				for (int32 Frame = 0; Frame < NumOutputFrames; ++Frame)
+				// If we're not going to start yet, just continue
+				double StartFraction = (SourceInfo.StartTime - AudioRenderThreadTime) / AudioClockDelta;
+				if (StartFraction >= 1.0)
 				{
-					// If the source is done, then we'll just write out 0s
-					if (!SourceInfo.bIsLastBuffer)
-					{
-						// Whether or not we need to read another sample from the source buffers
-						// If we haven't yet played any frames, then we will need to read the first source samples no matter what
-						bool bReadNextSample = !SourceInfo.bHasStarted;
+					// note this is already zero'd so no need to write zeroes
+					SourceInfo.PitchSourceParam.Reset();
+					continue;
+				}
+				
+				// Init the frame index iterator to 0 (i.e. render whole buffer)
+				int32 StartFrame = 0;
 
-						// Reset that we've started generating audio
-						SourceInfo.bHasStarted = true;
+				// If the start fraction is greater than 0.0 (and is less than 1.0), we are starting on a sub-frame
+				// Otherwise, just start playing it right away
+				if (StartFraction > 0.0)
+				{
+					StartFrame = NumOutputFrames * StartFraction;
+				}
 
-						// Update the PrevFrameIndex value for the source based on alpha value
-						while (SourceInfo.CurrentFrameAlpha >= 1.0f)
-						{
-							// Our inter-frame alpha lerping value is causing us to read new source frames
-							bReadNextSample = true;
+				// Update sample index to the frame we're starting on, accounting for source channels
+				int32 SampleIndex = StartFrame * SourceInfo.NumInputChannels;
+				bool bWriteOutZeros = true;
 
-							// Bump up the current frame index
-							SourceInfo.CurrentFrameIndex++;
-
-							// Bump up the frames played -- this is tracking the total frames in source file played
-							// CurrentFrameIndex can wrap for looping sounds so won't be accurate in that case
-							SourceInfo.NumFramesPlayed++;
-
-							SourceInfo.CurrentFrameAlpha -= 1.0f;
-						}
-
-						// If our alpha parameter caused us to jump to a new source frame, we need
-						// read new samples into our prev and next frame sample data
-						if (bReadNextSample)
-						{
-							ReadSourceFrame(SourceId);
-						}
-					}
-
-					// If we've finished reading all buffer data, then just write out 0s
+				for (int32 Frame = StartFrame; Frame < NumOutputFrames; ++Frame)
+				{
+					// If we've read our last buffer, we're done
 					if (SourceInfo.bIsLastBuffer)
 					{
-						for (int32 Channel = 0; Channel < SourceInfo.NumInputChannels; ++Channel)
-						{
-							PreDistanceAttenBufferPtr[SampleIndex++] = 0.0f;
-						}
+						break;
 					}
-					else
+
+					// Whether or not we need to read another sample from the source buffers
+					// If we haven't yet played any frames, then we will need to read the first source samples no matter what
+					bool bReadNextSample = !SourceInfo.bHasStarted;
+
+					// Reset that we've started generating audio
+					SourceInfo.bHasStarted = true;
+
+					// Update the PrevFrameIndex value for the source based on alpha value
+					while (SourceInfo.CurrentFrameAlpha >= 1.0f)
 					{
-						// perform linear SRC to get the next sample value from the decoded buffer
-						for (int32 Channel = 0; Channel < SourceInfo.NumInputChannels; ++Channel)
-						{
-							const float CurrFrameValue = SourceInfo.CurrentFrameValues[Channel];
-							const float NextFrameValue = SourceInfo.NextFrameValues[Channel];
-							const float CurrentAlpha = SourceInfo.CurrentFrameAlpha;
+						// Our inter-frame alpha lerping value is causing us to read new source frames
+						bReadNextSample = true;
 
-							PreDistanceAttenBufferPtr[SampleIndex++] = FMath::Lerp(CurrFrameValue, NextFrameValue, CurrentAlpha);
-						}
-						const float CurrentPitchScale = SourceInfo.PitchSourceParam.Update();
+						// Bump up the current frame index
+						SourceInfo.CurrentFrameIndex++;
 
-						SourceInfo.CurrentFrameAlpha += CurrentPitchScale;
+						// Bump up the frames played -- this is tracking the total frames in source file played
+						// CurrentFrameIndex can wrap for looping sounds so won't be accurate in that case
+						SourceInfo.NumFramesPlayed++;
+
+						SourceInfo.CurrentFrameAlpha -= 1.0f;
 					}
+
+					// If our alpha parameter caused us to jump to a new source frame, we need
+					// read new samples into our prev and next frame sample data
+					if (bReadNextSample)
+					{
+						ReadSourceFrame(SourceId);
+					}
+
+					// perform linear SRC to get the next sample value from the decoded buffer
+					for (int32 Channel = 0; Channel < SourceInfo.NumInputChannels; ++Channel)
+					{
+						const float CurrFrameValue = SourceInfo.CurrentFrameValues[Channel];
+						const float NextFrameValue = SourceInfo.NextFrameValues[Channel];
+						const float CurrentAlpha = SourceInfo.CurrentFrameAlpha;
+
+						PreDistanceAttenBufferPtr[SampleIndex++] = FMath::Lerp(CurrFrameValue, NextFrameValue, CurrentAlpha);
+					}
+					const float CurrentPitchScale = SourceInfo.PitchSourceParam.Update();
+
+					SourceInfo.CurrentFrameAlpha += CurrentPitchScale;
 				}
 
 				// After processing the frames, reset the pitch param
@@ -1969,13 +2018,10 @@ namespace Audio
 		{		
 			FSourceInfo& SourceInfo = SourceInfos[SourceId];
 
+			// Check for the stopping condition to "turn the sound off"
 			if (SourceInfo.bIsLastBuffer)
 			{
 				SourceInfo.bIsDone = true;
-			}
-			else
-			{
-				SourceInfo.bIsDone = false;
 			}
 
 			GameThreadInfo.bIsDone[SourceId] = SourceInfo.bIsDone;
@@ -1983,11 +2029,33 @@ namespace Audio
 		}
 	}
 
+	void FMixerSourceManager::ClearStoppingSounds()
+	{
+		for (int32 SourceId = 0; SourceId < NumTotalSources; ++SourceId)
+		{
+			FSourceInfo& SourceInfo = SourceInfos[SourceId];
+
+			// Check for the stopping condition to "turn the sound off"
+			if (!SourceInfo.bIsDone && SourceInfo.bIsStopping)
+			{
+				const float CurrentVolumeValue = SourceInfo.VolumeSourceParam.GetValue();
+				if (CurrentVolumeValue == 0.0f)
+				{
+					SourceInfo.bIsDone = true;
+					GameThreadInfo.bIsDone[SourceId] = true;
+
+					// Allow any waits to clear if they were waiting on this source to stop
+					MixerSources[SourceId]->NotifyStopped();
+				}
+			}
+		}
+	}
+
 	void FMixerSourceManager::AudioMixerThreadCommand(TFunction<void()> InFunction)
 	{
 		// Add the function to the command queue
 		int32 AudioThreadCommandIndex = AudioThreadCommandBufferIndex.GetValue();
-		CommandBuffers[AudioThreadCommandIndex].SourceCommandQueue.Enqueue(MoveTemp(InFunction));
+		CommandBuffers[AudioThreadCommandIndex].SourceCommandQueue.Add(MoveTemp(InFunction));
 	}
 
 	void FMixerSourceManager::PumpCommandQueue()
@@ -1999,11 +2067,13 @@ namespace Audio
 		FCommands& Commands = CommandBuffers[CurrentRenderThreadIndex];
 
 		// Pop and execute all the commands that came since last update tick
-		TFunction<void()> CommandFunction;
-		while (Commands.SourceCommandQueue.Dequeue(CommandFunction))
+		for (int32 Id = 0; Id < Commands.SourceCommandQueue.Num(); ++Id)
 		{
+			TFunction<void()>& CommandFunction = Commands.SourceCommandQueue[Id];
 			CommandFunction();
 		}
+
+		Commands.SourceCommandQueue.Reset();
 
 		RenderThreadCommandBufferIndex.Set(!CurrentRenderThreadIndex);
 	}

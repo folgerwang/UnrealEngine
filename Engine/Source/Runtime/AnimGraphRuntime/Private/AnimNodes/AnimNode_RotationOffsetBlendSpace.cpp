@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimNodes/AnimNode_RotationOffsetBlendSpace.h"
+#include "Animation/AnimInstanceProxy.h"
 #include "AnimationRuntime.h"
 
 /////////////////////////////////////////////////////
@@ -8,7 +9,11 @@
 
 FAnimNode_RotationOffsetBlendSpace::FAnimNode_RotationOffsetBlendSpace()
 	: LODThreshold(INDEX_NONE)
+	, bIsLODEnabled(false)
+	, AlphaInputType(EAnimAlphaInputType::Float)
 	, Alpha(1.f)
+	, ActualAlpha(0.0f)
+	, bAlphaBoolEnabled(false)
 {
 }
 
@@ -26,13 +31,36 @@ void FAnimNode_RotationOffsetBlendSpace::CacheBones_AnyThread(const FAnimationCa
 
 void FAnimNode_RotationOffsetBlendSpace::UpdateAssetPlayer(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
-
-	ActualAlpha = AlphaScaleBias.ApplyTo(Alpha);
-	bIsLODEnabled = IsLODEnabled(Context.AnimInstanceProxy, LODThreshold);
-	if (bIsLODEnabled && FAnimWeight::IsRelevant(ActualAlpha))
+	ActualAlpha = 0.f;
+	bIsLODEnabled = IsLODEnabled(Context.AnimInstanceProxy);
+	if (bIsLODEnabled)
 	{
-		UpdateInternal(Context);
+		EvaluateGraphExposedInputs.Execute(Context);
+
+		// Determine Actual Alpha.
+		switch (AlphaInputType)
+		{
+		case EAnimAlphaInputType::Float:
+			ActualAlpha = AlphaScaleBias.ApplyTo(AlphaScaleBiasClamp.ApplyTo(Alpha, Context.GetDeltaTime()));
+			break;
+		case EAnimAlphaInputType::Bool:
+			ActualAlpha = AlphaBoolBlend.ApplyTo(bAlphaBoolEnabled, Context.GetDeltaTime());
+			break;
+		case EAnimAlphaInputType::Curve:
+			if (UAnimInstance* AnimInstance = Cast<UAnimInstance>(Context.AnimInstanceProxy->GetAnimInstanceObject()))
+			{
+				ActualAlpha = AlphaScaleBiasClamp.ApplyTo(AnimInstance->GetCurveValue(AlphaCurveName), Context.GetDeltaTime());
+			}
+			break;
+		};
+
+		// Make sure Alpha is clamped between 0 and 1.
+		ActualAlpha = FMath::Clamp<float>(ActualAlpha, 0.f, 1.f);
+
+		if (FAnimWeight::IsRelevant(ActualAlpha))
+		{
+			UpdateInternal(Context);
+		}
 	}
 
 	BasePose.Update(Context);

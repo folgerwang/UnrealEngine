@@ -236,6 +236,11 @@ ISlateAtlasProvider* FSlateD3DRenderer::GetTextureAtlasProvider()
 	return nullptr;
 }
 
+FCriticalSection* FSlateD3DRenderer::GetResourceCriticalSection()
+{
+	return &ResourceCriticalSection;
+}
+
 int32 FSlateD3DRenderer::RegisterCurrentScene(FSceneInterface* Scene) 
 {
 	// This is a no-op

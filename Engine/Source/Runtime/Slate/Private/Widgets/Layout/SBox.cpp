@@ -45,12 +45,20 @@ void SBox::SetContent(const TSharedRef< SWidget >& InContent)
 
 void SBox::SetHAlign(EHorizontalAlignment HAlign)
 {
-	ChildSlot.HAlignment = HAlign;
+	if (ChildSlot.HAlignment != HAlign)
+	{
+		ChildSlot.HAlignment = HAlign;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 void SBox::SetVAlign(EVerticalAlignment VAlign)
 {
-	ChildSlot.VAlignment = VAlign;
+	if (ChildSlot.VAlignment != VAlign)
+	{
+		ChildSlot.VAlignment = VAlign;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 void SBox::SetPadding(const TAttribute<FMargin>& InPadding)
@@ -125,21 +133,18 @@ void SBox::SetMaxAspectRatio(TAttribute<FOptionalSize> InMaxAspectRatio)
 	}
 }
 
-#if SLATE_LAYOUT_CHANGE
-
-void SBox::ChildLayoutChanged()
+void SBox::ChildLayoutChanged(EInvalidateWidget InvalidateReason)
 {
-	if (WidthOverride.IsSet() && HeightOverride.IsSet())
+	if (WidthOverride.IsSet() && HeightOverride.IsSet() && !EnumHasAnyFlags(InvalidateReason, EInvalidateWidget::Visibility))
 	{
 		// Done.  We don't need to notify anyone else that our desired size has changed.
 	}
 	else
 	{
-		SPanel::ChildLayoutChanged();
+		SPanel::ChildLayoutChanged(InvalidateReason);
 	}
 }
 
-#endif
 
 FVector2D SBox::ComputeDesiredSize( float ) const
 {
@@ -206,8 +211,8 @@ float SBox::ComputeDesiredHeight() const
 
 void SBox::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const
 {
-	const EVisibility& MyCurrentVisibility = this->GetVisibility();
-	if ( ArrangedChildren.Accepts( MyCurrentVisibility ) )
+	const EVisibility ChildVisibility = ChildSlot.GetWidget()->GetVisibility();
+	if ( ArrangedChildren.Accepts(ChildVisibility) )
 	{
 		const FOptionalSize CurrentMaxAspectRatio = MaxAspectRatio.Get();
 		const FMargin SlotPadding(ChildSlot.SlotPadding.Get());

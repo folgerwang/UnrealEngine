@@ -7,20 +7,14 @@ D3D12RHICommon.h: Common D3D12 RHI definitions for Windows.
 #pragma once
 
 DECLARE_STATS_GROUP(TEXT("D3D12RHI"), STATGROUP_D3D12RHI, STATCAT_Advanced);
+DECLARE_STATS_GROUP(TEXT("D3D12RHI: Pipeline State (PSO)"), STATGROUP_D3D12PipelineState, STATCAT_Advanced);
+DECLARE_STATS_GROUP(TEXT("D3D12RHI: Descriptor Heap (GPU visible)"), STATGROUP_D3D12DescriptorHeap, STATCAT_Advanced);
 
 #include "Windows/WindowsHWrapper.h"
 #include "D3D12RHI.h"
-#include "MultiGPU.h"
 
 class FD3D12Adapter;
 class FD3D12Device;
-
-// MGPU defines.
-#if WITH_SLI
-#define MAX_NUM_LDA_NODES 4
-#else
-#define MAX_NUM_LDA_NODES 1
-#endif
 
 // Defines a unique command queue type within a FD3D12Device (owner by the command list managers).
 enum class ED3D12CommandQueueType
@@ -81,18 +75,18 @@ public:
 class FD3D12GPUObject
 {
 public:
-	FD3D12GPUObject(const FRHIGPUMask& InNodeMask, const FRHIGPUMask& InVisibiltyMask)
-		: NodeMask(InNodeMask)
+	FD3D12GPUObject(FRHIGPUMask InGPUMask, FRHIGPUMask InVisibiltyMask)
+		: GPUMask(InGPUMask)
 		, VisibilityMask(InVisibiltyMask)
 	{
 		// Note that node mask can't be null.
 	}
 
-	FORCEINLINE const FRHIGPUMask& GetNodeMask() const { return NodeMask; }
+	FORCEINLINE const FRHIGPUMask& GetGPUMask() const { return GPUMask; }
 	FORCEINLINE const FRHIGPUMask& GetVisibilityMask() const { return VisibilityMask; }
 
 protected:
-	const FRHIGPUMask NodeMask;
+	const FRHIGPUMask GPUMask;
 	// Which GPUs have direct access to this object
 	const FRHIGPUMask VisibilityMask;
 };
@@ -100,9 +94,9 @@ protected:
 class FD3D12SingleNodeGPUObject : public FD3D12GPUObject
 {
 public:
-	FD3D12SingleNodeGPUObject(const FRHIGPUMask& NodeMask)
-		: GPUIndex(NodeMask.ToIndex())
-		, FD3D12GPUObject(NodeMask, NodeMask)
+	FD3D12SingleNodeGPUObject(FRHIGPUMask GPUMask)
+		: GPUIndex(GPUMask.ToIndex())
+		, FD3D12GPUObject(GPUMask, GPUMask)
 	{}
 
 	FORCEINLINE const uint32 GetGPUIndex() const

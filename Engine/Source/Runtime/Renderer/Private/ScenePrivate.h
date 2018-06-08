@@ -72,13 +72,15 @@ public:
 	FPrimitiveComponentId PrimitiveId;
 
 	/** The occlusion query which contains the primitive's pending occlusion results. */
-	TArray<FRenderQueryRHIRef, TInlineAllocator<FOcclusionQueryHelpers::MaxBufferedOcclusionFrames> > PendingOcclusionQuery;
+	FRenderQueryRHIRef PendingOcclusionQuery[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames];
+	uint32 PendingOcclusionQueryFrames[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames]; 
 
+	uint32 LastTestFrameNumber;
+	uint32 LastConsideredFrameNumber;
 	uint32 HZBTestIndex;
-	uint32 HZBTestFrameNumber;
 
 	/** The last time the primitive was visible. */
-	float LastVisibleTime;
+	float LastProvenVisibleTime;
 
 	/** The last time the primitive was in the view frustum. */
 	float LastConsideredTime;
@@ -89,70 +91,121 @@ public:
 	 */
 	float LastPixelsPercentage;
 
-	/** whether or not this primitive was grouped the last time it was queried */
-	bool bGroupedQuery;
-
-	/** 
-	 * For things that have subqueries (folaige), this is the non-zero
-	 */
+	/**
+	* For things that have subqueries (folaige), this is the non-zero
+	*/
 	int32 CustomIndex;
+
+	/** When things first become eligible for occlusion, then might be sweeping into the frustum, we are going to leave them at visible for a few frames, then start real queries.  */
+	uint8 BecameEligibleForQueryCooldown : 6;
+
+	uint8 WasOccludedLastFrame : 1;
+	uint8 OcclusionStateWasDefiniteLastFrame : 1;
+
+	/** whether or not this primitive was grouped the last time it was queried */
+	bool bGroupedQuery[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames];
 
 	/** Initialization constructor. */
 	FORCEINLINE FPrimitiveOcclusionHistory(FPrimitiveComponentId InPrimitiveId, int32 SubQuery)
 		: PrimitiveId(InPrimitiveId)
+		, LastTestFrameNumber(~0u)
+		, LastConsideredFrameNumber(~0u)
 		, HZBTestIndex(0)
-		, HZBTestFrameNumber(~0u)
-		, LastVisibleTime(0.0f)
+		, LastProvenVisibleTime(0.0f)
 		, LastConsideredTime(0.0f)
 		, LastPixelsPercentage(0.0f)
-		, bGroupedQuery(false)
 		, CustomIndex(SubQuery)
+		, BecameEligibleForQueryCooldown(0)
+		, WasOccludedLastFrame(false)
+		, OcclusionStateWasDefiniteLastFrame(false)
 	{
-		PendingOcclusionQuery.Empty(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
-		PendingOcclusionQuery.AddZeroed(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
+		for (int32 Index = 0; Index < FOcclusionQueryHelpers::MaxBufferedOcclusionFrames; Index++)
+		{
+			PendingOcclusionQueryFrames[Index] = 0;
+			bGroupedQuery[Index] = false;
+		}
 	}
 
 	FORCEINLINE FPrimitiveOcclusionHistory()
-		: HZBTestIndex(0)
-		, HZBTestFrameNumber(~0u)
-		, LastVisibleTime(0.0f)
+		: LastTestFrameNumber(~0u)
+		, LastConsideredFrameNumber(~0u)
+		, HZBTestIndex(0)
+		, LastProvenVisibleTime(0.0f)
 		, LastConsideredTime(0.0f)
 		, LastPixelsPercentage(0.0f)
-		, bGroupedQuery(false)
 		, CustomIndex(0)
+		, BecameEligibleForQueryCooldown(0)
+		, WasOccludedLastFrame(false)
+		, OcclusionStateWasDefiniteLastFrame(false)
 	{
-		PendingOcclusionQuery.Empty(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
-		PendingOcclusionQuery.AddZeroed(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
-	}
-
-
-	/** Destructor. Note that the query should have been released already. */
-	~FPrimitiveOcclusionHistory()
-	{
-		//		check( !IsValidRef(PendingOcclusionQuery) );
+		for (int32 Index = 0; Index < FOcclusionQueryHelpers::MaxBufferedOcclusionFrames; Index++)
+		{
+			PendingOcclusionQueryFrames[Index] = 0;
+			bGroupedQuery[Index] = false;
+		}
 	}
 
 	template<class TOcclusionQueryPool> // here we use a template just to allow this to be inlined without sorting out the header order
-	FORCEINLINE void ReleaseQueries(TOcclusionQueryPool& Pool, int32 NumBufferedFrames)
+	FORCEINLINE void ReleaseStaleQueries(TOcclusionQueryPool& Pool, uint32 FrameNumber, int32 NumBufferedFrames)
 	{
-		for (int32 QueryIndex = 0; QueryIndex < NumBufferedFrames; QueryIndex++)
+		for (uint32 DeltaFrame = NumBufferedFrames; DeltaFrame > 0; DeltaFrame--)
+		{
+			if (FrameNumber >= (DeltaFrame - 1))
+			{
+				uint32 TestFrame = FrameNumber - (DeltaFrame - 1);
+				const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryLookupIndex(TestFrame, NumBufferedFrames);
+				if (PendingOcclusionQuery[QueryIndex].GetReference() && PendingOcclusionQueryFrames[QueryIndex] != TestFrame)
+				{
+					Pool.ReleaseQuery(PendingOcclusionQuery[QueryIndex]);
+				}
+			}
+		}
+	}
+	template<class TOcclusionQueryPool> // here we use a template just to allow this to be inlined without sorting out the header order
+	FORCEINLINE void ReleaseQuery(TOcclusionQueryPool& Pool, uint32 FrameNumber, int32 NumBufferedFrames)
+	{
+		const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryLookupIndex(FrameNumber, NumBufferedFrames);
+		if (PendingOcclusionQuery[QueryIndex].GetReference())
 		{
 			Pool.ReleaseQuery(PendingOcclusionQuery[QueryIndex]);
 		}
 	}
 
-	FORCEINLINE FRenderQueryRHIRef& GetPastQuery(uint32 FrameNumber, int32 NumBufferedFrames)
+	FORCEINLINE FRenderQueryRHIParamRef GetPastQuery(uint32 FrameNumber, int32 NumBufferedFrames, bool& bOutGrouped)
 	{
 		// Get the oldest occlusion query
 		const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryLookupIndex(FrameNumber, NumBufferedFrames);
-		return PendingOcclusionQuery[QueryIndex];
+		bOutGrouped = false;
+		if (PendingOcclusionQuery[QueryIndex].GetReference() && PendingOcclusionQueryFrames[QueryIndex] == FrameNumber - uint32(NumBufferedFrames))
+		{
+			bOutGrouped = bGroupedQuery[QueryIndex];
+			return PendingOcclusionQuery[QueryIndex].GetReference();
+		}
+		return nullptr;
 	}
 
-	FORCEINLINE void SetCurrentQuery(uint32 FrameNumber, FRenderQueryRHIParamRef NewQuery, int32 NumBufferedFrames)
+	FORCEINLINE void SetCurrentQuery(uint32 FrameNumber, FRenderQueryRHIParamRef NewQuery, int32 NumBufferedFrames, bool bGrouped)
 	{
 		// Get the current occlusion query
 		const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryIssueIndex(FrameNumber, NumBufferedFrames);
 		PendingOcclusionQuery[QueryIndex] = NewQuery;
+		PendingOcclusionQueryFrames[QueryIndex] = FrameNumber;
+		bGroupedQuery[QueryIndex] = bGrouped;
+	}
+
+	FORCEINLINE uint32 LastQuerySubmitFrame() const
+	{
+		uint32 Result = 0;
+
+		for (int32 Index = 0; Index < FOcclusionQueryHelpers::MaxBufferedOcclusionFrames; Index++)
+		{
+			if (!bGroupedQuery[Index])
+			{
+				Result = FMath::Max(Result, PendingOcclusionQueryFrames[Index]);
+			}
+		}
+
+		return Result;
 	}
 };
 
@@ -197,31 +250,46 @@ struct FPrimitiveOcclusionHistoryKeyFuncs : BaseKeyFuncs<FPrimitiveOcclusionHist
 
 class FIndividualOcclusionHistory
 {
-	TArray<FRenderQueryRHIRef, TInlineAllocator<FOcclusionQueryHelpers::MaxBufferedOcclusionFrames> > PendingOcclusionQuery;
+	FRenderQueryRHIRef PendingOcclusionQuery[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames];
+	uint32 PendingOcclusionQueryFrames[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames]; // not intialized...this is ok
 
 public:
 
-	FORCEINLINE FIndividualOcclusionHistory()
-	{
-		PendingOcclusionQuery.Empty(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
-		PendingOcclusionQuery.AddZeroed(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
-	}
-
-
 	template<class TOcclusionQueryPool> // here we use a template just to allow this to be inlined without sorting out the header order
-	FORCEINLINE void ReleaseQueries(TOcclusionQueryPool& Pool, int32 NumBufferedFrames)
+	FORCEINLINE void ReleaseStaleQueries(TOcclusionQueryPool& Pool, uint32 FrameNumber, int32 NumBufferedFrames)
 	{
-		for (int32 QueryIndex = 0; QueryIndex < NumBufferedFrames; QueryIndex++)
+		for (uint32 DeltaFrame = NumBufferedFrames; DeltaFrame > 0; DeltaFrame--)
+		{
+			if (FrameNumber >= (DeltaFrame - 1))
+			{
+				uint32 TestFrame = FrameNumber - (DeltaFrame - 1);
+				const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryLookupIndex(TestFrame, NumBufferedFrames);
+				if (PendingOcclusionQuery[QueryIndex].GetReference() && PendingOcclusionQueryFrames[QueryIndex] != TestFrame)
+				{
+					Pool.ReleaseQuery(PendingOcclusionQuery[QueryIndex]);
+				}
+			}
+		}
+	}
+	template<class TOcclusionQueryPool> // here we use a template just to allow this to be inlined without sorting out the header order
+	FORCEINLINE void ReleaseQuery(TOcclusionQueryPool& Pool, uint32 FrameNumber, int32 NumBufferedFrames)
+	{
+		const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryLookupIndex(FrameNumber, NumBufferedFrames);
+		if (PendingOcclusionQuery[QueryIndex].GetReference())
 		{
 			Pool.ReleaseQuery(PendingOcclusionQuery[QueryIndex]);
 		}
 	}
 
-	FORCEINLINE FRenderQueryRHIRef& GetPastQuery(uint32 FrameNumber, int32 NumBufferedFrames)
+	FORCEINLINE FRenderQueryRHIParamRef GetPastQuery(uint32 FrameNumber, int32 NumBufferedFrames)
 	{
 		// Get the oldest occlusion query
 		const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryLookupIndex(FrameNumber, NumBufferedFrames);
-		return PendingOcclusionQuery[QueryIndex];
+		if (PendingOcclusionQuery[QueryIndex].GetReference() && PendingOcclusionQueryFrames[QueryIndex] == FrameNumber - uint32(NumBufferedFrames))
+		{
+			return PendingOcclusionQuery[QueryIndex].GetReference();
+		}
+		return nullptr;
 	}
 
 	FORCEINLINE void SetCurrentQuery(uint32 FrameNumber, FRenderQueryRHIParamRef NewQuery, int32 NumBufferedFrames)
@@ -229,6 +297,7 @@ public:
 		// Get the current occlusion query
 		const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryIssueIndex(FrameNumber, NumBufferedFrames);
 		PendingOcclusionQuery[QueryIndex] = NewQuery;
+		PendingOcclusionQueryFrames[QueryIndex] = FrameNumber;
 	}
 };
 
@@ -417,6 +486,7 @@ class FHLODVisibilityState
 public:
 	FHLODVisibilityState()
 		: TemporalLODSyncTime(0.0f)
+		, FOVDistanceScaleSq(1.0f)
 		, UpdateCount(0)
 	{}
 
@@ -454,6 +524,7 @@ public:
 	TBitArray<>	ForcedVisiblePrimitiveMap;
 	TBitArray<>	ForcedHiddenPrimitiveMap;
 	float		TemporalLODSyncTime;
+	float		FOVDistanceScaleSq;
 	uint16		UpdateCount;
 };
 
@@ -705,7 +776,6 @@ public:
 
 	FIntRect DistanceFieldAOHistoryViewRect;
 	TRefCountPtr<IPooledRenderTarget> DistanceFieldAOHistoryRT;
-	TRefCountPtr<IPooledRenderTarget> DistanceFieldAOConfidenceHistoryRT;
 	TRefCountPtr<IPooledRenderTarget> DistanceFieldIrradianceHistoryRT;
 	// Mobile temporal AA surfaces.
 	TRefCountPtr<IPooledRenderTarget> MobileAaBloomSunVignette0;
@@ -1057,8 +1127,6 @@ public:
 		LightShaftOcclusionHistory.SafeRelease();
 		LightShaftBloomHistoryRTs.Empty();
 		DistanceFieldAOHistoryRT.SafeRelease();
-		DistanceFieldAOConfidenceHistoryRT.SafeRelease();
-		DistanceFieldAOConfidenceHistoryRT.SafeRelease();
 		DistanceFieldIrradianceHistoryRT.SafeRelease();
 		MobileAaBloomSunVignette0.SafeRelease();
 		MobileAaBloomSunVignette1.SafeRelease();
@@ -1821,7 +1889,6 @@ class FLODSceneTree
 public:
 	FLODSceneTree(FScene* InScene)
 		: Scene(InScene)
-		, LastHLODDistanceScale(-1.0f)
 	{
 	}
 
@@ -1841,23 +1908,23 @@ public:
 
 		void AddChild(FPrimitiveSceneInfo* NewChild)
 		{
-			if(NewChild && !ChildrenSceneInfos.Contains(NewChild))
+			if (NewChild)
 			{
-				ChildrenSceneInfos.Add(NewChild);
+				ChildrenSceneInfos.AddUnique(NewChild);
 			}
 		}
 
 		void RemoveChild(FPrimitiveSceneInfo* ChildToDelete)
 		{
-			if(ChildToDelete && ChildrenSceneInfos.Contains(ChildToDelete))
+			if (ChildToDelete)
 			{
 				ChildrenSceneInfos.Remove(ChildToDelete);
 			}
 		}
 	};
 
-	void AddChildNode(FPrimitiveComponentId NodeId, FPrimitiveSceneInfo* ChildSceneInfo);
-	void RemoveChildNode(FPrimitiveComponentId NodeId, FPrimitiveSceneInfo* ChildSceneInfo);
+	void AddChildNode(FPrimitiveComponentId ParentId, FPrimitiveSceneInfo* ChildSceneInfo);
+	void RemoveChildNode(FPrimitiveComponentId ParentId, FPrimitiveSceneInfo* ChildSceneInfo);
 
 	void UpdateNodeSceneInfo(FPrimitiveComponentId NodeId, FPrimitiveSceneInfo* SceneInfo);
 	void UpdateVisibilityStates(FViewInfo& View);
@@ -1866,22 +1933,14 @@ public:
 
 private:
 
-	void ResetHLODDistanceScaleApplication()
-	{
-		LastHLODDistanceScale = -1.0f;
-	}
-
 	/** Scene this Tree belong to */
 	FScene* Scene;
 
 	/** The LOD groups in the scene.  The map key is the current primitive who has children. */
 	TMap<FPrimitiveComponentId, FLODSceneNode> SceneNodes;
 
-	/** Transition distance scaling */
-	float LastHLODDistanceScale;
-
 	/** Recursive state updates */
-	void ApplyNodeFadingToChildren(FSceneViewState* ViewState, FLODSceneNode& Node, const bool bIsFading, const bool bIsFadingOut);
+	void ApplyNodeFadingToChildren(FSceneViewState* ViewState, FLODSceneNode& Node, FHLODSceneNodeVisibilityState& NodeVisibility, const bool bIsFading, const bool bIsFadingOut);
 	void HideNodeChildren(FSceneViewState* ViewState, FLODSceneNode& Node);
 };
 
@@ -2357,10 +2416,10 @@ public:
 		{
 			// For opaque materials, stationary skylight is applied in base pass but movable skylight
 			// is applied in a separate render pass (bWantssStaticShadowing means stationary skylight)
-			bRenderSkyLight = bRenderSkyLight && ReadOnlyCVARCache.bEnableStationarySkylight
-				&& (SkyLight->bWantsStaticShadowing
+			bRenderSkyLight = bRenderSkyLight
+				&& ((ReadOnlyCVARCache.bEnableStationarySkylight && SkyLight->bWantsStaticShadowing)
 					|| (!SkyLight->bWantsStaticShadowing
-					&& (IsAnyForwardShadingEnabled(GetShaderPlatform()) || IsMobilePlatform(GetShaderPlatform()))));
+						&& (IsAnyForwardShadingEnabled(GetShaderPlatform()) || IsMobilePlatform(GetShaderPlatform()))));
 		}
 
 		return bRenderSkyLight;

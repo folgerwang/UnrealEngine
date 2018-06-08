@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	MetalRHIPrivate.h: Private Metal RHI definitions.....
+	MetalRHIPrivate.h: Private Metal RHI definitions.
 =============================================================================*/
 
 #pragma once
@@ -88,15 +88,32 @@ extern FMetalBufferFormat GMetalBufferFormats[PF_MAX];
 #define METAL_DEBUG_OPTIONS !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 #if METAL_DEBUG_OPTIONS
 #define METAL_DEBUG_OPTION(Code) Code
+#define METAL_DEBUG_LAYER(Level, Code) if (SafeGetRuntimeDebuggingLevel() >= Level) Code
 #else
 #define METAL_DEBUG_OPTION(Code)
+#define METAL_DEBUG_LAYER(Level, Code)
 #endif
 
 extern bool GMetalSupportsTileShaders;
 
 /** Set to 1 to enable GPU events in Xcode frame debugger */
-#define ENABLE_METAL_GPUEVENTS	(UE_BUILD_DEBUG | UE_BUILD_DEVELOPMENT)
-#define ENABLE_METAL_GPUPROFILE	(ENABLE_METAL_GPUEVENTS & 1)
+#ifndef ENABLE_METAL_GPUEVENTS_IN_TEST
+	#define ENABLE_METAL_GPUEVENTS_IN_TEST 0
+#endif
+#define ENABLE_METAL_GPUEVENTS	(UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT || (UE_BUILD_TEST && ENABLE_METAL_GPUEVENTS_IN_TEST) || METAL_STATISTICS)
+#define ENABLE_METAL_GPUPROFILE	(ENABLE_METAL_GPUEVENTS && 1)
+
+#if ENABLE_METAL_GPUPROFILE
+#define METAL_GPUPROFILE(Code) Code
+#else
+#define METAL_GPUPROFILE(Code) 
+#endif
+
+#if METAL_STATISTICS
+#define METAL_STATISTIC(Code) Code
+#else
+#define METAL_STATISTIC(Code)
+#endif
 
 #define UNREAL_TO_METAL_BUFFER_INDEX(Index) ((MaxMetalStreams - 1) - Index)
 #define METAL_TO_UNREAL_BUFFER_INDEX(Index) ((MaxMetalStreams - 1) - Index)

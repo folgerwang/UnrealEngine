@@ -6,7 +6,7 @@
 #include "DisplayNodes/SequencerDisplayNode.h"
 #include "Widgets/Input/SNumericDropDown.h"
 #include "Containers/ArrayView.h"
-#include "FrameNumber.h"
+#include "Misc/FrameNumber.h"
 
 #define LOCTEXT_NAMESPACE "SequencerHelpers"
 

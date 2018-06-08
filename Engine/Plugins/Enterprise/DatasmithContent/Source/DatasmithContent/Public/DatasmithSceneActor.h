@@ -14,5 +14,9 @@ class DATASMITHCONTENT_API ADatasmithSceneActor : public AActor
 public:
 
 	UPROPERTY(VisibleAnywhere, Category="Datasmith")
-	class UDatasmithSceneImportData* Scene;
+	class UDatasmithScene* Scene;
+
+	/** Map of all the actors related to this Datasmith Scene */
+	UPROPERTY(VisibleAnywhere, Category="Datasmith", AdvancedDisplay)
+	TMap< FName, TSoftObjectPtr< AActor > > RelatedActors;
 };

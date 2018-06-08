@@ -1620,14 +1620,17 @@ void FGoogleVRHMD::GetEyeRenderParams_RenderThread(const struct FRenderingCompos
 	}
 }
 
-void FGoogleVRHMD::UpdateViewportRHIBridge(bool bUseSeparateRenderTarget, const class FViewport& InViewport, FRHIViewport* const ViewportRHI)
+FXRRenderBridge* FGoogleVRHMD::GetActiveRenderBridge_GameThread(bool /* bUseSeparateRenderTarget */)
 {
+	check(IsInGameThread());
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-
 	check(CustomPresent);
-	CustomPresent->UpdateViewport(InViewport, ViewportRHI);
-
+	if (CustomPresent->IsInitialized())
+	{
+		return CustomPresent;
+	}
 #endif // GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	return nullptr;
 }
 
 void FGoogleVRHMD::CalculateRenderTargetSize(const class FViewport& Viewport, uint32& InOutSizeX, uint32& InOutSizeY)
@@ -2198,13 +2201,13 @@ bool FGoogleVRHMD::OnStartGameFrame( FWorldContext& WorldContext )
 			GEngine->GameViewport->Viewport &&
 			GEngine->GameViewport->Viewport->GetClient() )
 		{
-			GEngine->GameViewport->Viewport->GetClient()->InputTouch(GEngine->GameViewport->Viewport, 0, 0, ETouchType::Began, FVector2D(-1, -1), FDateTime::Now(), 0);
-			GEngine->GameViewport->Viewport->GetClient()->InputTouch(GEngine->GameViewport->Viewport, 0, 0, ETouchType::Ended, FVector2D(-1, -1), FDateTime::Now(), 0);
+			GEngine->GameViewport->Viewport->GetClient()->InputTouch(GEngine->GameViewport->Viewport, 0, 0, ETouchType::Began, FVector2D(-1, -1), 1.f, FDateTime::Now(), 0);
+			GEngine->GameViewport->Viewport->GetClient()->InputTouch(GEngine->GameViewport->Viewport, 0, 0, ETouchType::Ended, FVector2D(-1, -1), 1.f, FDateTime::Now(), 0);
 		}
 		bTriggerDetected = false;
 	}
 
-	//Update the head pose at the begnning of a frame. This headpose will be used for both simulation and rendering.
+	//Update the head pose at the beginning of a frame. This headpose will be used for both simulation and rendering.
 	UpdatePoses();
 
 	// Update ViewportList from GVR API
@@ -2332,6 +2335,8 @@ void FGoogleVRHMD::SetTrackingOrigin(EHMDTrackingOrigin::Type InOrigin)
 		return;
 	}
 	TrackingOrigin = InOrigin;
+
+	OnTrackingOriginChanged();
 }
 
 EHMDTrackingOrigin::Type FGoogleVRHMD::GetTrackingOrigin()

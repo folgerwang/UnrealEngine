@@ -5,9 +5,9 @@
 #include "CoreMinimal.h"
 #include "FrameNumberDisplayFormat.h"
 #include "Widgets/Input/NumericTypeInterface.h"
-#include "FrameRate.h"
+#include "Misc/FrameRate.h"
 #include "FrameNumberTimeEvaluator.h"
-#include "Timecode.h"
+#include "Misc/Timecode.h"
 
 
 DECLARE_DELEGATE_RetVal(EFrameNumberDisplayFormats, FOnGetDisplayFormat)

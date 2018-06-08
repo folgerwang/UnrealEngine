@@ -778,13 +778,13 @@ TSharedPtr<const FUniqueNetId> UGameInstance::GetPrimaryPlayerUniqueId() const
 		}
 	}
 
-	TSharedPtr<const FUniqueNetId> LocalUserId = nullptr;
+	FUniqueNetIdRepl LocalUserId;
 	if (PrimaryLP)
 	{
 		LocalUserId = PrimaryLP->GetPreferredUniqueNetId();
 	}
 
-	return LocalUserId;
+	return LocalUserId.GetUniqueNetId();
 }
 
 ULocalPlayer* UGameInstance::FindLocalPlayerFromControllerId(const int32 ControllerId) const
@@ -804,19 +804,14 @@ ULocalPlayer* UGameInstance::FindLocalPlayerFromUniqueNetId(const FUniqueNetId& 
 {
 	for (ULocalPlayer* Player : LocalPlayers)
 	{
-		if (Player == NULL)
+		if (Player == nullptr)
 		{
 			continue;
 		}
 
-		TSharedPtr<const FUniqueNetId> OtherUniqueNetId = Player->GetPreferredUniqueNetId();
-
-		if (!OtherUniqueNetId.IsValid())
-		{
-			continue;
-		}
-
-		if (*OtherUniqueNetId == UniqueNetId)
+		FUniqueNetIdRepl OtherUniqueNetId = Player->GetPreferredUniqueNetId();
+		if (OtherUniqueNetId.IsValid() &&
+			*OtherUniqueNetId == UniqueNetId)
 		{
 			// Match
 			return Player;
@@ -1018,6 +1013,7 @@ bool UGameInstance::PlayReplay(const FString& Name, UWorld* WorldOverride, const
 	{
 		UE_LOG(LogDemo, Warning, TEXT( "Demo playback failed: %s" ), *Error );
 		CurrentWorld->DestroyDemoNetDriver();
+		return false;
 	}
 	else
 	{
@@ -1235,4 +1231,14 @@ AGameModeBase* UGameInstance::CreateGameModeForURL(FURL InURL)
 TSubclassOf<AGameModeBase> UGameInstance::OverrideGameModeClass(TSubclassOf<AGameModeBase> GameModeClass, const FString& MapName, const FString& Options, const FString& Portal) const
 {
 	 return GameModeClass;
+}
+
+void UGameInstance::RegisterReferencedObject(UObject* ObjectToReference)
+{
+	ReferencedObjects.AddUnique(ObjectToReference);
+}
+
+void UGameInstance::UnregisterReferencedObject(UObject* ObjectToReference)
+{
+	ReferencedObjects.RemoveSingleSwap(ObjectToReference);
 }

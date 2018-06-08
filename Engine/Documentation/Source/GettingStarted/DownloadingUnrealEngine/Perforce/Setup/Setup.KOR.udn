@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3807090
 Availability: Licensee
 Title:퍼포스 연결 셋업하기
 Crumbs:%ROOT%, Engine, Programming, Programming/Basics, GettingStarted/DownloadingUnrealEngine/Perforce
@@ -68,7 +68,7 @@ VPN 연결 셋업 및 실행법에 대한 상세 정보는 [](GettingStarted/Dow
 P4V 클라이언트는 현재 퍼포스가 제공하는 클라이언트입니다. 그래픽 인터페이스를 통한 버전 파일에 
 접근할 수 있도록 해 주고, 코드 진화를 병합 및 시각화하기 위한 도구 역시도 포함됩니다.
 
-![](P4VUpdated.png)(w:900 h:591)
+![](P4VUpdated.png)(w:900)
 
 전체 P4V 인스톨러는 [Perforce Downloads: The Essentials](http://www.perforce.com/perforce/downloads/index.html) 페이지에서 내려받을 수 있습니다.
 
@@ -194,7 +194,7 @@ US 프록시(p4-licensee-proxy.epicgames.net:1667)도 이 연결을 통해 사�
 (last access date)이 디폴트로 꺼져 있습니다. 최근 접근일을 다시 켜려면 "fsutil behavior set disablelastaccess 0" 를 해 줘야 합니다.
 [/REGION]
 
-## 정기 점검 시간
+### 정기 점검 시간
 
 에픽의 퍼포스 서버는 **매주 일요일 오후 4시(EST 새벽 2시)부터 4 시간동안** 체크포인트 인증 및 데이터베이스 
 백업을 위한, **매달 둘째 넷째 일요일 오후 10시(일광절약시간제 적용시 9시) 부터 4 시간동안** 퍼포먼스 관리를 위한 

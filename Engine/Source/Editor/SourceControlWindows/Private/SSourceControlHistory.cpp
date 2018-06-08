@@ -656,14 +656,14 @@ public:
 
 		const bool bUsesChangelists = ISourceControlModule::Get().GetProvider().UsesChangelists();
 
-		HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Revision") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Revision", "Revision"))	.FillWidth(bUsesChangelists ? 100 : 250));
+		HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Revision") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Revision", "Revision"))	.FillWidth(bUsesChangelists ? 100 : 200));
 		if(bUsesChangelists)
 		{
-			HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Changelist") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Changelist", "ChangeList"))	.FillWidth(150));
+			HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Changelist") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Changelist", "ChangeList"))	.FillWidth(100));
 		}
 		HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Date") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Date", "Date Submitted"))			.FillWidth(250));
 		HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("UserName") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "UserName", "Submitted By"))		.FillWidth(200));
-		HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Description") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Description", "Description"))	.FillWidth(300));
+		HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Description") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Description", "Description"))	.FillWidth(650));
 
 		ChildSlot
 		[
@@ -1470,7 +1470,7 @@ void FSourceControlWindows::DisplayRevisionHistory( const TArray<FString>& InPac
 			.Title( NSLOCTEXT("SourceControl.HistoryWindow", "Title", "File History") )
 			.SizingRule(ESizingRule::UserSized)
 			.AutoCenter(EAutoCenter::PreferredWorkArea)
-			.ClientSize(FVector2D(700, 400));
+			.ClientSize(FVector2D(1000, 400));
 
 		TSharedRef<SSourceControlHistoryWidget> SourceControlWidget = 
 			SNew(SSourceControlHistoryWidget)

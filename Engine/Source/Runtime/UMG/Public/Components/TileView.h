@@ -2,74 +2,62 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
-#include "UObject/ObjectMacros.h"
-#include "Widgets/SWidget.h"
-#include "Widgets/Views/STableViewBase.h"
-#include "Widgets/Views/STableRow.h"
+#include "ListView.h"
 #include "Widgets/Views/STileView.h"
-#include "Components/TableViewBase.h"
 #include "TileView.generated.h"
 
 /**
- * A flow panel that presents the contents as a set of tiles all uniformly sized.
+ * A ListView that presents the contents as a set of tiles all uniformly sized.
  */
-UCLASS(Experimental)
-class UMG_API UTileView : public UTableViewBase
+UCLASS()
+class UMG_API UTileView : public UListView
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 
 public:
+	UTileView(const FObjectInitializer& ObjectInitializer);
 
-	/**  */
-	UPROPERTY(EditAnywhere, Category=Appearance)
-	float ItemWidth;
-
-	/**  */
-	UPROPERTY(EditAnywhere, Category=Appearance)
-	float ItemHeight;
-
-	/**  */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Content)
-	TArray<UObject*> Items;
-
-	/**  */
-	UPROPERTY(EditAnywhere, Category=Content)
-	TEnumAsByte<ESelectionMode::Type> SelectionMode;
-
-	/**  */
-	UPROPERTY(EditAnywhere, Category=Events, meta=( IsBindableEvent="True" ))
-	FOnGenerateRowUObject OnGenerateTileEvent;
-
-public:
-
-	/** Set item width */
-	UFUNCTION(BlueprintCallable, Category="Appearance")
-	void SetItemWidth(float Width);
-
-	/** Set item height */
-	UFUNCTION(BlueprintCallable, Category="Appearance")
-	void SetItemHeight(float Height);
-
-	/** Refreshes the list */
-	UFUNCTION(BlueprintCallable, Category="Behavior")
-	void RequestListRefresh();
-
-	// UVisual interface
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
-	// End of UVisual interface
 
-#if WITH_EDITOR
-	virtual const FText GetPaletteCategory() override;
-#endif
+	/** Sets the height of every tile entry */
+	UFUNCTION(BlueprintCallable, Category = TileView)
+	void SetEntryHeight(float NewHeight);
 
-protected:
-	TSharedRef<ITableRow> HandleOnGenerateTile(UObject* Item, const TSharedRef< STableViewBase >& OwnerTable) const;
-
-	// UWidget interface
-	virtual TSharedRef<SWidget> RebuildWidget() override;
-	// End of UWidget interface
+	/** Sets the width if every tile entry */
+	UFUNCTION(BlueprintCallable, Category = TileView)
+	void SetEntryWidth(float NewWidth);
 
 protected:
-	TSharedPtr< STileView< UObject* > > MyTileView;
+	virtual TSharedRef<STableViewBase> RebuildListWidget() override;
+	virtual FMargin GetDesiredEntryPadding(UObject* Item) const override;
+
+	float GetTotalEntryHeight() const;
+	float GetTotalEntryWidth() const;
+
+	/** STileView construction helper - useful if using a custom STileView subclass */
+	template <template<typename> class TileViewT = STileView>
+	TSharedRef<TileViewT<UObject*>> ConstructTileView()
+	{
+		MyListView = MyTileView = ITypedUMGListView<UObject*>::ConstructTileView<TileViewT>(this, ListItems, TileAlignment, EntryHeight, EntryWidth, SelectionMode, bClearSelectionOnClick, bWrapHorizontalNavigation, ConsumeMouseWheel);
+		return StaticCastSharedRef<TileViewT<UObject*>>(MyTileView.ToSharedRef());
+	}
+
+protected:
+	/** The height of each tile */
+	UPROPERTY(EditAnywhere, Category = ListEntries)
+	float EntryHeight = 128.f;
+
+	/** The width of each tile */
+	UPROPERTY(EditAnywhere, Category = ListEntries)
+	float EntryWidth = 128.f;
+
+	/** The method by which to align the tile entries in the available space for the tile view */
+	UPROPERTY(EditAnywhere, Category = ListEntries)
+	EListItemAlignment TileAlignment;
+
+	/** True to allow left/right navigation to wrap back to the tile on the opposite edge */
+	UPROPERTY(EditAnywhere, Category = Navigation)
+	bool bWrapHorizontalNavigation = false;
+
+	TSharedPtr<STileView<UObject*>> MyTileView;
 };

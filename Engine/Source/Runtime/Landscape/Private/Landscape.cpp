@@ -454,7 +454,7 @@ bool ULandscapeComponent::ComponentHasVisibilityPainted() const
 	return false;
 }
 
-FString ULandscapeComponent::GetLayerAllocationKey(UMaterialInterface* LandscapeMaterial, bool bMobile /*= false*/) const
+FString ULandscapeComponent::GetLayerAllocationKey(const TArray<FWeightmapLayerAllocationInfo>& Allocations, UMaterialInterface* LandscapeMaterial, bool bMobile /*= false*/)
 {
 	if (!LandscapeMaterial)
 	{
@@ -465,9 +465,9 @@ FString ULandscapeComponent::GetLayerAllocationKey(UMaterialInterface* Landscape
 
 	// Sort the allocations
 	TArray<FString> LayerStrings;
-	for (int32 LayerIdx = 0; LayerIdx < WeightmapLayerAllocations.Num(); LayerIdx++)
+	for (int32 LayerIdx = 0; LayerIdx < Allocations.Num(); LayerIdx++)
 	{
-		LayerStrings.Add(FString::Printf(TEXT("_%s_%d"), *WeightmapLayerAllocations[LayerIdx].GetLayerName().ToString(), bMobile ? 0 : WeightmapLayerAllocations[LayerIdx].WeightmapTextureIndex));
+		LayerStrings.Add(FString::Printf(TEXT("_%s_%d"), *Allocations[LayerIdx].GetLayerName().ToString(), Allocations[LayerIdx].WeightmapTextureIndex));
 	}
 	/**
 	 * Generate a key for this component's layer allocations to use with MaterialInstanceConstantMap.
@@ -478,6 +478,12 @@ FString ULandscapeComponent::GetLayerAllocationKey(UMaterialInterface* Landscape
 	{
 		Result += LayerStrings[LayerIdx];
 	}
+
+	if (bMobile)
+	{
+		Result += TEXT("M");
+	}
+
 	return Result;
 }
 
@@ -559,6 +565,7 @@ void ULandscapeComponent::UpdatedSharedPropertiesFromActor()
 	bCastFarShadow = LandscapeProxy->bCastFarShadow;
 	bAffectDistanceFieldLighting = LandscapeProxy->bAffectDistanceFieldLighting;
 	bRenderCustomDepth = LandscapeProxy->bRenderCustomDepth;
+	LDMaxDrawDistance = LandscapeProxy->LDMaxDrawDistance;
 	CustomDepthStencilValue = LandscapeProxy->CustomDepthStencilValue;
 	LightingChannels = LandscapeProxy->LightingChannels;
 }
@@ -655,7 +662,7 @@ void ULandscapeComponent::PostLoad()
 		MaterialInstance_DEPRECATED = nullptr;
 
 #if WITH_EDITOR
-		if (GIsEditor && MaterialInstances.Num() > 0)
+		if (GIsEditor && MaterialInstances.Num() > 0 && MaterialInstances[0] != nullptr)
 		{
 			MaterialInstances[0]->ConditionalPostLoad();
 			UpdateMaterialInstances();
@@ -664,8 +671,9 @@ void ULandscapeComponent::PostLoad()
 	}
 #endif
 
+#if !UE_BUILD_SHIPPING
 	// Be sure we have the appropriate material count
-	const bool bTessellationEnabled = (MaterialInstances.Num() > 0 && MaterialInstances[0]->Parent->GetMaterial()->D3D11TessellationMode != EMaterialTessellationMode::MTM_NoTessellation);
+	const bool bTessellationEnabled = (MaterialInstances.Num() > 0 && MaterialInstances[0] != nullptr && MaterialInstances[0]->Parent != nullptr && MaterialInstances[0]->Parent->GetMaterial()->D3D11TessellationMode != EMaterialTessellationMode::MTM_NoTessellation);
 
 	if (bTessellationEnabled && MaterialInstances.Num() < 2)
 	{
@@ -678,6 +686,7 @@ void ULandscapeComponent::PostLoad()
 			UE_LOG(LogLandscape, Error, TEXT("Landscape component (%d, %d) have a material with Tessellation enabled but we do not have the right amount of MaterialInstances. To correct this issue, open the map in the editor and resave the map."),	SectionBaseX, SectionBaseY);
 		}
 	}
+#endif // UE_BUILD_SHIPPING
 
 #if WITH_EDITOR
 	if (GIsEditor && !HasAnyFlags(RF_ClassDefaultObject))
@@ -703,6 +712,23 @@ void ULandscapeComponent::PostLoad()
 		}
 	}
 #endif
+
+#if !UE_BUILD_SHIPPING
+	if (MobileCombinationMaterialInstance == nullptr)
+	{
+		if (GIsEditor)
+		{
+			UpdateMaterialInstances();
+		}
+		else
+		{
+			if(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1)
+			{
+				UE_LOG(LogLandscape, Error, TEXT("Landscape component (%d, %d) Does not have a valid mobile combination material. To correct this issue, open the map in the editor and resave the map."), SectionBaseX, SectionBaseY);
+			}
+		}
+	}
+#endif // UE_BUILD_SHIPPING
 
 	GrassData->ConditionalDiscardDataOnLoad();
 }
@@ -781,6 +807,7 @@ ALandscapeProxy::ALandscapeProxy(const FObjectInitializer& ObjectInitializer)
 		// This layer should be no weight blending
 		VisibilityLayer->bNoWeightBlend = true;
 #endif
+		VisibilityLayer->LayerUsageDebugColor = FLinearColor(0, 0, 0, 0);
 		VisibilityLayer->AddToRoot();
 	}
 #endif
@@ -1076,7 +1103,7 @@ void ULandscapeComponent::OnRegister()
 
 			for (int32 i = 0; i < MaterialInstances.Num(); ++i)
 			{
-				MaterialInstancesDynamic.Add(CreateDynamicMaterialInstance(i, MaterialInstances[i]));
+				MaterialInstancesDynamic.Add(UMaterialInstanceDynamic::Create(MaterialInstances[i], this));
 			}
 		}
 
@@ -1298,7 +1325,9 @@ void ALandscapeProxy::AddReferencedObjects(UObject* InThis, FReferenceCollector&
 
 	Super::AddReferencedObjects(InThis, Collector);
 
+#if WITH_EDITORONLY_DATA
 	Collector.AddReferencedObjects(This->MaterialInstanceConstantMap, This);
+#endif
 
 	for (auto It = This->WeightmapUsageMap.CreateIterator(); It; ++It)
 	{
@@ -1632,6 +1661,11 @@ void ALandscapeProxy::PostLoad()
 
 		FixupWeightmaps();
 	}
+
+	// track feature level change to flush grass cache
+	FOnFeatureLevelChanged::FDelegate FeatureLevelChangedDelegate = FOnFeatureLevelChanged::FDelegate::CreateUObject(this, &ALandscapeProxy::OnFeatureLevelChanged);
+	FeatureLevelChangedDelegateHandle = GetWorld()->AddOnFeatureLevelChangedHandler(FeatureLevelChangedDelegate);
+
 #endif
 }
 
@@ -1640,9 +1674,11 @@ void ALandscapeProxy::Destroyed()
 {
 	Super::Destroyed();
 
-	if (GIsEditor && !GetWorld()->IsGameWorld())
+	UWorld* World = GetWorld();
+
+	if (GIsEditor && !World->IsGameWorld())
 	{
-		ULandscapeInfo::RecreateLandscapeInfo(GetWorld(), false);
+		ULandscapeInfo::RecreateLandscapeInfo(World, false);
 
 		if (SplineComponent)
 		{
@@ -1653,6 +1689,13 @@ void ALandscapeProxy::Destroyed()
 		NumComponentsNeedingGrassMapRender = 0;
 		TotalTexturesToStreamForVisibleGrassMapRender -= NumTexturesToStreamForVisibleGrassMapRender;
 		NumTexturesToStreamForVisibleGrassMapRender = 0;
+	}
+
+	// unregister feature level changed handler for grass
+	if (FeatureLevelChangedDelegateHandle.IsValid())
+	{
+		World->RemoveOnFeatureLevelChangedHandler(FeatureLevelChangedDelegateHandle);
+		FeatureLevelChangedDelegateHandle.Reset();
 	}
 }
 
@@ -1673,6 +1716,7 @@ void ALandscapeProxy::GetSharedProperties(ALandscapeProxy* Landscape)
 		bCastShadowAsTwoSided = Landscape->bCastShadowAsTwoSided;
 		LightingChannels = Landscape->LightingChannels;
 		bRenderCustomDepth = Landscape->bRenderCustomDepth;
+		LDMaxDrawDistance = Landscape->LDMaxDrawDistance;		
 		CustomDepthStencilValue = Landscape->CustomDepthStencilValue;
 		ComponentSizeQuads = Landscape->ComponentSizeQuads;
 		NumSubsections = Landscape->NumSubsections;
@@ -2418,6 +2462,7 @@ void LandscapeMaterialsParameterValuesGetter(FStaticParameterSet& OutStaticParam
 					if (TerrainLayerWeightParam.bOverride)
 					{
 						ParentParameter.WeightmapIndex = TerrainLayerWeightParam.WeightmapIndex;
+						ParentParameter.bWeightBasedBlend = TerrainLayerWeightParam.bWeightBasedBlend;
 					}
 				}
 			}
@@ -2473,6 +2518,7 @@ ALandscapeProxy::~ALandscapeProxy()
 	NumTexturesToStreamForVisibleGrassMapRender = 0;
 #endif
 }
+
 //
 // ALandscapeMeshProxyActor
 //
@@ -2535,6 +2581,10 @@ void ULandscapeComponent::SerializeStateHashes(FArchive& Ar)
 
 	int32 OccluderGeometryLOD = GetLandscapeProxy()->OccluderGeometryLOD;
 	Ar << OccluderGeometryLOD;
+
+	// Take into account the Heightmap offset per component
+	Ar << HeightmapScaleBias.Z;
+	Ar << HeightmapScaleBias.W;
 }
 
 void ALandscapeProxy::UpdateBakedTextures()

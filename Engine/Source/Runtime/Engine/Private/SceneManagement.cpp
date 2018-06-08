@@ -7,6 +7,7 @@
 #include "DeviceProfiles/DeviceProfileManager.h"
 #include "StaticMeshResources.h"
 #include "Runtime/Renderer/Private/SceneRendering.h"
+#include "Runtime/Renderer/Private/SceneCore.h"
 #include "Async/ParallelFor.h"
 #include "LightMap.h"
 #include "ShadowMap.h"
@@ -184,7 +185,9 @@ FMeshBatchAndRelevance::FMeshBatchAndRelevance(const FMeshBatch& InMesh, const F
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FMeshBatchAndRelevance);
 	const FMaterial* Material = InMesh.MaterialRenderProxy->GetMaterial(FeatureLevel);
-	bHasOpaqueOrMaskedMaterial = !IsTranslucentBlendMode(Material->GetBlendMode());
+	EBlendMode BlendMode = Material->GetBlendMode();
+	bHasOpaqueMaterial = (BlendMode == BLEND_Opaque);
+	bHasMaskedMaterial = (BlendMode == BLEND_Masked);
 	bRenderInMainPass = PrimitiveSceneProxy->ShouldRenderInMainPass();
 }
 

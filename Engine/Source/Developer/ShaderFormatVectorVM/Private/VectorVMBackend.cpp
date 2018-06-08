@@ -86,6 +86,9 @@ char* FVectorVMCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* 
 	if (state->error) return nullptr;
 
 	bool progress = false;
+
+	FlattenUniformBufferStructures(ir, state);
+
 	{
 		SCOPE_CYCLE_COUNTER(STAT_VVMInitMisc);
 		vm_debug_print("== Initial misc ==\n");

@@ -59,6 +59,7 @@ UMaterialInterface::UMaterialInterface(const FObjectInitializer& ObjectInitializ
 {
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
+		MaterialDomainString(MD_Surface); // find the enum for this now before we start saving
 #if USE_EVENT_DRIVEN_ASYNC_LOAD_AT_BOOT_TIME
 		if (!GIsInitialLoad || !GEventDrivenLoaderEnabled)
 #endif
@@ -291,6 +292,11 @@ bool UMaterialInterface::GetScalarParameterValue(const FMaterialParameterInfo& P
 	return false;
 }
 
+bool UMaterialInterface::IsScalarParameterUsedAsAtlasPosition(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, TSoftObjectPtr<class UCurveLinearColor>& Curve, TSoftObjectPtr<class UCurveLinearColorAtlas>& Atlas) const
+{
+	return false;
+}
+
 bool UMaterialInterface::GetScalarCurveParameterValue(const FMaterialParameterInfo& ParameterInfo, FInterpCurveFloat& OutValue) const
 {
 	return false;
@@ -454,7 +460,7 @@ void UMaterialInterface::UpdateMaterialRenderProxy(FMaterialRenderProxy& Proxy)
 	EMaterialShadingModel MaterialShadingModel = GetShadingModel();
 
 	// for better performance we only update SubsurfaceProfileRT if the feature is used
-	if (MaterialShadingModel == MSM_SubsurfaceProfile)
+	if (UseSubsurfaceProfile(MaterialShadingModel))
 	{
 		FSubsurfaceProfileStruct Settings;
 

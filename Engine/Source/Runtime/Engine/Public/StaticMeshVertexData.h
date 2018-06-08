@@ -28,18 +28,25 @@ public:
 	* Resizes the vertex data buffer, discarding any data which no longer fits.
 	*
 	* @param NumVertices - The number of vertices to allocate the buffer for.
+	* @param BufferFlags - Flags to define the expected behavior of the buffer
 	*/
-	void ResizeBuffer(uint32 NumVertices) override
+	void ResizeBuffer(uint32 NumVertices, EResizeBufferFlags BufferFlags = EResizeBufferFlags::None) override
 	{
-		if((uint32)Data.Num() < NumVertices)
+		if ((uint32)Data.Num() < NumVertices)
 		{
 			// Enlarge the array.
+			if (!EnumHasAnyFlags(BufferFlags, EResizeBufferFlags::AllowSlackOnGrow))
+			{
+				Data.Reserve(NumVertices);
+			}
+
 			Data.AddUninitialized(NumVertices - Data.Num());
 		}
-		else if((uint32)Data.Num() > NumVertices)
+		else if ((uint32)Data.Num() > NumVertices)
 		{
 			// Shrink the array.
-			Data.RemoveAt(NumVertices, Data.Num() - NumVertices);
+			bool AllowShinking = !EnumHasAnyFlags(BufferFlags, EResizeBufferFlags::AllowSlackOnReduce);
+			Data.RemoveAt(NumVertices, Data.Num() - NumVertices, AllowShinking);
 		}
 	}
 
@@ -65,7 +72,7 @@ public:
 	*/
 	uint8* GetDataPointer() override
 	{
-		return (uint8*)&Data[0];
+		return (uint8*)Data.GetData();
 	}
 
 	/**
@@ -115,7 +122,7 @@ public:
 	*
 	* @returns Number of elements allocated by this container.
 	*/
-	FORCEINLINE int32 Num() const
+	virtual int32 Num() const override
 	{
 		return Data.Num();
 	}

@@ -145,7 +145,7 @@ void USynthSamplePlayer::TickComponent(float DeltaTime, enum ELevelTick TickType
 	OnSamplePlaybackProgress.Broadcast(GetCurrentPlaybackProgressTime(), GetCurrentPlaybackProgressPercent());
 }
 
-void USynthSamplePlayer::OnGenerateAudio(float* OutAudio, int32 NumSamples)
+int32 USynthSamplePlayer::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 {
 	if (SampleBuffer.GetData() && !SampleBufferReader.HasBuffer())
 	{
@@ -170,4 +170,5 @@ void USynthSamplePlayer::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 			OutAudio[Sample] = 0.0f;
 		}
 	}
+	return NumSamples;
 }

@@ -241,18 +241,21 @@ void FKismetDebugUtilities::OnScriptException(const UObject* ActiveObject, const
 		case EBlueprintExceptionType::AccessViolation:
 			if ( GIsEditor && GIsPlayInEditorWorld )
 			{
-				// declared as its own variable since it's flushed (logs pushed
-				// to std output) on destruction - we want the full message 
-				// constructed before it's logged
-				FMessageLog PIEMessageLog("PIE");
-				TSharedRef<FTokenizedMessage> ErrorMessage = PIEMessageLog.Error(LOCTEXT("RuntimeErrorMessage", "Blueprint Runtime Error:"));
-				ErrorMessage->AddToken(FTextToken::Create(Info.GetDescription()));
-				ErrorMessage->AddToken(FTextToken::Create(LOCTEXT("RuntimeErrorBlueprintFunction", "from function:")));
+				// declared as its own variable since it's flushed (logs pushed to std output) on destruction
+				// we want the full message constructed before it's logged
+				TSharedRef<FTokenizedMessage> Message = FTokenizedMessage::Create(EMessageSeverity::Error);
+				Message->AddToken(FTextToken::Create(FText::Format(LOCTEXT("RuntimeErrorMessageFmt", "Blueprint Runtime Error: \"{0}\"."), Info.GetDescription())));
+
+				Message->AddToken(FTextToken::Create(LOCTEXT("RuntimeErrorBlueprintObjectLabel", "Blueprint: ")));
+				Message->AddToken(FUObjectToken::Create(BlueprintObj, FText::FromString(BlueprintObj->GetName()))
+					->OnMessageTokenActivated(FOnMessageTokenActivated::CreateStatic(&Local::OnMessageLogLinkActivated))
+				);
+
 				// NOTE: StackFrame.Node is not a blueprint node like you may think ("Node" has some legacy meaning)
-				FString GeneratedFuncName = FString::Printf(TEXT("'%s'"), *StackFrame.Node->GetName());
-				// a log token, telling us specifically where the exception is coming from (here
-				// it's not helpful to link to a generated-function, so we just provide the plain name)
-				ErrorMessage->AddToken(FTextToken::Create(FText::FromString(GeneratedFuncName)));
+				Message->AddToken(FTextToken::Create(LOCTEXT("RuntimeErrorBlueprintFunctionLabel", "Function: ")));
+				Message->AddToken(FUObjectToken::Create(StackFrame.Node, StackFrame.Node->GetDisplayNameText())
+					->OnMessageTokenActivated(FOnMessageTokenActivated::CreateStatic(&Local::OnMessageLogLinkActivated))
+				);
 
 #if WITH_EDITORONLY_DATA // to protect access to GeneratedClass->DebugData
 				UBlueprintGeneratedClass* GeneratedClass = Cast<UBlueprintGeneratedClass>(ClassContainingCode);
@@ -262,33 +265,19 @@ void FKismetDebugUtilities::OnScriptException(const UObject* ActiveObject, const
 					// if instead, there is a node we can point to...
 					if (BlueprintNode != NULL)
 					{
-						ErrorMessage->AddToken(FTextToken::Create(LOCTEXT("RuntimeErrorBlueprintNode", "from node:")));
-
-						FText NodeTitle = BlueprintNode->GetNodeTitle(ENodeTitleType::ListView); // a more user friendly name
-						// link to the last executed node (the one throwing the exception, presumably)
-						ErrorMessage->AddToken(
-							FUObjectToken::Create(
-								BlueprintNode, 
-								NodeTitle
-							)->OnMessageTokenActivated(FOnMessageTokenActivated::CreateStatic(&Local::OnMessageLogLinkActivated))
+						Message->AddToken(FTextToken::Create(LOCTEXT("RuntimeErrorBlueprintGraphLabel", "Graph: ")));
+						Message->AddToken(FUObjectToken::Create(BlueprintNode->GetGraph(), FText::FromString(GetNameSafe(BlueprintNode->GetGraph())))
+							->OnMessageTokenActivated(FOnMessageTokenActivated::CreateStatic(&Local::OnMessageLogLinkActivated))
 						);
 
-						ErrorMessage->AddToken( FTextToken::Create( LOCTEXT("RuntimeErrorBlueprintGraph", "in graph:") ) );
-						ErrorMessage->AddToken(
-							FUObjectToken::Create(
-								BlueprintNode->GetGraph(), 
-								FText::FromString(GetNameSafe(BlueprintNode->GetGraph()))
-							)->OnMessageTokenActivated(FOnMessageTokenActivated::CreateStatic(&Local::OnMessageLogLinkActivated)));
+						Message->AddToken(FTextToken::Create(LOCTEXT("RuntimeErrorBlueprintNodeLabel", "Node: ")));
+						Message->AddToken(FUObjectToken::Create(BlueprintNode, BlueprintNode->GetNodeTitle(ENodeTitleType::ListView))
+							->OnMessageTokenActivated(FOnMessageTokenActivated::CreateStatic(&Local::OnMessageLogLinkActivated))
+						);
 					}
 				}
 #endif // WITH_EDITORONLY_DATA
-
-				ErrorMessage->AddToken(FTextToken::Create(LOCTEXT("RuntimeErrorBlueprintObject", "in object:")));
-				ErrorMessage
-					->AddToken(FUObjectToken::Create(BlueprintObj, FText::FromString(BlueprintObj->GetName()))->OnMessageTokenActivated(FOnMessageTokenActivated::CreateStatic(&Local::OnMessageLogLinkActivated)));
-
-				ErrorMessage->AddToken(FTextToken::Create(LOCTEXT("RuntimeErrorBlueprintDescription", "with description:")));
-				ErrorMessage->AddToken(FTextToken::Create(Info.GetDescription()));
+				FMessageLog("PIE").AddMessage(Message);
 			}
 			bForceToCurrentObject = true;
 			bShouldBreakExecution = GetDefault<UEditorExperimentalSettings>()->bBreakOnExceptions;
@@ -342,12 +331,6 @@ void FKismetDebugUtilities::OnScriptException(const UObject* ActiveObject, const
 			}
 		}
 
-		// Can't do intraframe debugging when the editor is actively stopping
-		if (GEditor->ShouldEndPlayMap()) 
-		{
-			bShouldBreakExecution = false;
-		}
-
 		if (BlueprintObj->GetObjectBeingDebugged() == ActiveObject)
 		{
 			// Record into the trace log
@@ -365,6 +348,12 @@ void FKismetDebugUtilities::OnScriptException(const UObject* ActiveObject, const
 				CheckBreakConditions(NodeStoppedAt, Info.GetType() == EBlueprintExceptionType::Breakpoint, BreakpointOffset, bShouldBreakExecution);
 			}
 
+			// Can't do intraframe debugging when the editor is actively stopping
+			if (GEditor->ShouldEndPlayMap())
+			{
+				bShouldBreakExecution = false;
+			}
+
 			// Handle a breakpoint or single-step
 			if (bShouldBreakExecution)
 			{
@@ -378,7 +367,7 @@ void FKismetDebugUtilities::OnScriptException(const UObject* ActiveObject, const
 			BlueprintObj->SetObjectBeingDebugged(SavedObjectBeingDebugged);
 		}
 
-		const auto DisplayErrorLambda = [&](const FText ErrorTypeName, const TCHAR* Description)
+		const auto ShowScriptExceptionError = [&](const FText& InExceptionErrorMsg)
 		{
 			if (GUnrealEd->PlayWorld != NULL)
 			{
@@ -425,42 +414,37 @@ void FKismetDebugUtilities::OnScriptException(const UObject* ActiveObject, const
 
 				TSharedRef<FTokenizedMessage> Message = FTokenizedMessage::Create(EMessageSeverity::Error);
 
-				// Display a UObject link to the Blueprint that is the source of the failure
-				Message->AddToken(FTextToken::Create(ErrorTypeName));
-				Message->AddToken(FTextToken::Create(LOCTEXT("DisplayErrorLambda_Blueprint", "detected in ")));
-				FString BlueprintName;
-				BlueprintObj->GetName(BlueprintName);
-				Message->AddToken(FUObjectToken::Create(BlueprintObj, FText::FromString(BlueprintName)));
+				// Display the main error message
+				Message->AddToken(FTextToken::Create(InExceptionErrorMsg));
 
-				// Display a UObject link to the UFunction that is crashing. Will open the Blueprint if able and focus on the function's graph
-				Message->AddToken(FTextToken::Create(LOCTEXT("DisplayErrorLambda_Function", ", asserted during ")));
-				const int32 BreakpointOpCodeOffset = StackFrame.Code - StackFrame.Node->Script.GetData() - 1; //@TODO: Might want to make this a parameter of Info
-				UEdGraphNode* SourceNode = FindSourceNodeForCodeLocation(ActiveObject, StackFrame.Node, BreakpointOpCodeOffset, /*bAllowImpreciseHit=*/ true);
+				// Display a link to the UObject and the UFunction that is crashing
+				{
+					// Get the name of the Blueprint
+					FString BlueprintName;
+					BlueprintObj->GetName(BlueprintName);
 
-				// If a source node is found, that's the token we want to link, otherwise settle with the UFunction
-				if (SourceNode)
-				{
-					Message->AddToken(FUObjectToken::Create(SourceNode, SourceNode->GetNodeTitle(ENodeTitleType::ListView)));
+					Message->AddToken(FTextToken::Create(LOCTEXT("ShowScriptExceptionError_BlueprintLabel", "Blueprint: ")));
+					Message->AddToken(FUObjectToken::Create(BlueprintObj, FText::FromString(BlueprintName)));
 				}
-				else
 				{
-					Message->AddToken(FUObjectToken::Create(StackFrame.Node, StackFrame.Node->GetDisplayNameText()));
-				}
+					// If a source node is found, that's the token we want to link, otherwise settle with the UFunction
+					const int32 BreakpointOpCodeOffset = StackFrame.Code - StackFrame.Node->Script.GetData() - 1; //@TODO: Might want to make this a parameter of Info
+					UEdGraphNode* SourceNode = FindSourceNodeForCodeLocation(ActiveObject, StackFrame.Node, BreakpointOpCodeOffset, /*bAllowImpreciseHit=*/ true);
 
-				if (!Description)
-				{
-					Message->AddToken(FTextToken::Create(LOCTEXT("DisplayErrorLambda_CallStackNoDescription", " with the following ")));
-				}
-				else
-				{
-					Message->AddToken(FTextToken::Create(LOCTEXT("DisplayErrorLambda_CallStackWithDescription", " with the following message")));
-					Message->AddToken(FTextToken::Create(FText::FromString(FString::Printf(TEXT("\"%s\""), Description))));
-					Message->AddToken(FTextToken::Create(LOCTEXT("DisplayErrorLambda_CallStackWithDescriptionAnd", "and ")));
+					Message->AddToken(FTextToken::Create(LOCTEXT("ShowScriptExceptionError_FunctionLabel", "Function: ")));
+					if (SourceNode)
+					{
+						Message->AddToken(FUObjectToken::Create(SourceNode, SourceNode->GetNodeTitle(ENodeTitleType::ListView)));
+					}
+					else
+					{
+						Message->AddToken(FUObjectToken::Create(StackFrame.Node, StackFrame.Node->GetDisplayNameText()));
+					}
 				}
 
-				// Add an action token to display a pop-up that will display the complete script callstack
-				const FText CallStackAsText = FText::FromString(StackFrame.GetStackTrace());
-				Message->AddToken(FActionToken::Create(LOCTEXT("DisplayErrorLambda_CallStackLink", "Call Stack"), LOCTEXT("DisplayErrorLambda_CallStackDesc", "Displays the underlying callstack, tracing what function calls led to the assert occuring."), FOnActionTokenExecuted::CreateStatic(DisplayCallStackLambda, CallStackAsText)));
+				// Display a pop-up that will display the complete script callstack
+				Message->AddToken(FTextToken::Create(LOCTEXT("ShowScriptExceptionError_CallStackLabel", "Call Stack: ")));
+				Message->AddToken(FActionToken::Create(LOCTEXT("ShowScriptExceptionError_ShowCallStack", "Show"), LOCTEXT("ShowScriptExceptionError_ShowCallStackDesc", "Displays the underlying callstack, tracing what function calls led to the assert occuring."), FOnActionTokenExecuted::CreateStatic(DisplayCallStackLambda, FText::FromString(StackFrame.GetStackTrace()))));
 				FMessageLog("PIE").AddMessage(Message);
 			}
 		};
@@ -469,10 +453,10 @@ void FKismetDebugUtilities::OnScriptException(const UObject* ActiveObject, const
 		switch (Info.GetType())
 		{
 		case EBlueprintExceptionType::FatalError:
-			DisplayErrorLambda(LOCTEXT("FatalErrorType", "Fatal Error"), *(Info.GetDescription().ToString()));
+			ShowScriptExceptionError(FText::Format(LOCTEXT("ShowScriptExceptionError_FatalErrorFmt", "Fatal error detected: \"{0}\"."), Info.GetDescription()));
 			break;
 		case EBlueprintExceptionType::InfiniteLoop:
-			DisplayErrorLambda(LOCTEXT("InfiniteLoopErrorType", "Infinite Loop"), nullptr);
+			ShowScriptExceptionError(LOCTEXT("ShowScriptExceptionError_InfiniteLoop", "Infinite loop detected."));
 			break;
 		default:
 			// Left empty intentionally
@@ -583,6 +567,10 @@ void FKismetDebugUtilities::CheckBreakConditions(UEdGraphNode* NodeStoppedAt, bo
 					}
 				}
 			}
+		}
+		else if (NodeStoppedAt != Data.MostRecentStoppedNode)
+		{
+			Data.MostRecentStoppedNode = nullptr;
 		}
 	}
 	
@@ -704,10 +692,11 @@ void FKismetDebugUtilities::AttemptToBreakExecution(UBlueprint* BlueprintObj, co
 	// Now enter within-the-frame debugging mode
 	if (bShouldInStackDebug)
 	{
+		const TArray<const FFrame*>& ScriptStack = FBlueprintExceptionTracker::Get().ScriptStack;
 		Data.LastExceptionMessage = Info.GetDescription();
 		FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(NodeStoppedAt);
-		CallStackViewer::UpdateDisplayedCallstack(FBlueprintExceptionTracker::Get().ScriptStack);
-		WatchViewer::UpdateDisplayedWatches(BlueprintObj);
+		CallStackViewer::UpdateDisplayedCallstack(ScriptStack);
+		WatchViewer::UpdateDisplayedWatches(ScriptStack);
 		FSlateApplication::Get().EnterDebuggingMode();
 	}
 }
@@ -752,8 +741,11 @@ void FKismetDebugUtilities::NotifyDebuggerOfEndOfGameFrame(UWorld* CurrentWorld)
 }
 
 bool FKismetDebugUtilities::IsSingleStepping()
-{ 
-	return FKismetDebugUtilitiesData::Get().bIsSingleStepping; 
+{
+	const FKismetDebugUtilitiesData& Data = FKismetDebugUtilitiesData::Get();
+	return Data.bIsSingleStepping
+		|| Data.bIsSteppingOut
+		|| Data.TargetGraphStackDepth != INDEX_NONE; 
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1167,7 +1159,7 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::FindDebuggingData
 				return EWTR_NoDebugObject;
 			}
 
-			void* PropertyBase = NULL;
+			void* PropertyBase = nullptr;
 
 			// Walk up the stack frame to see if we can find a function scope that contains the property as a local
 			for (const FFrame* TestFrame = Data.StackFrameAtIntraframeDebugging; TestFrame != NULL; TestFrame = TestFrame->PreviousFrame)
@@ -1243,6 +1235,35 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::FindDebuggingData
 								OutDelta = NodePtr;
 								OutParent = ActiveObject;
 								return EWTR_Valid;
+							}
+						}
+					}
+				}
+			}
+
+			// If we still haven't found a result, try changing the active object to whatever is passed into the self pin.
+			if (!PropertyBase)
+			{
+				UEdGraphNode* WatchNode = WatchPin->GetOwningNode();
+
+				if (WatchNode)
+				{
+					UEdGraphPin* SelfPin = WatchNode->FindPin(TEXT("self"));
+					if (SelfPin && SelfPin != WatchPin)
+					{
+						UProperty* SelfPinProperty = nullptr;
+						void* SelfPinData = nullptr;
+						void* SelfPinDelta = nullptr;
+						UObject* SelfPinParent = nullptr;
+						FKismetDebugUtilities::EWatchTextResult Result = FindDebuggingData(Blueprint, ActiveObject, SelfPin, SelfPinProperty, SelfPinData, SelfPinDelta, SelfPinParent);
+						UObjectPropertyBase* SelfPinPropertyBase = Cast<UObjectPropertyBase>(SelfPinProperty);
+						if (Result == EWTR_Valid && SelfPinPropertyBase != nullptr)
+						{
+							void* PropertyValue = SelfPinProperty->ContainerPtrToValuePtr<void>(SelfPinData);
+							UObject* TempActiveObject = SelfPinPropertyBase->GetObjectPropertyValue(PropertyValue);
+							if (TempActiveObject)
+							{
+								return FindDebuggingData(Blueprint, TempActiveObject, WatchPin, OutProperty, OutData, OutDelta, OutParent);
 							}
 						}
 					}

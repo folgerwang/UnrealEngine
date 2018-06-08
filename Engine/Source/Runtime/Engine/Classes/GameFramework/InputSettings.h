@@ -33,7 +33,7 @@ class ENGINE_API UInputSettings
 	uint8 bF11TogglesFullscreen : 1;
 
 	// Allow mouse to be used for touch
-	UPROPERTY(config, EditAnywhere, Category="MouseProperties")
+	UPROPERTY(config, EditAnywhere, Category="MouseProperties", AdvancedDisplay)
 	uint8 bUseMouseForTouch:1;
 
 	// Mouse smoothing control
@@ -63,6 +63,29 @@ class ENGINE_API UInputSettings
 	/** Whether or not to use the gesture recognition system to convert touches in to gestures that can be bound and queried */
 	UPROPERTY(config, EditAnywhere, Category = "Mobile")
 	uint8 bEnableGestureRecognizer:1;
+
+	/** If enabled, virtual keyboards will have autocorrect enabled. Currently only supported on mobile devices. */
+	UPROPERTY(config, EditAnywhere, Category = "Virtual Keyboard (Mobile)")
+	bool bUseAutocorrect;
+
+	/** 
+	 * Disables autocorrect for these operating systems, even if autocorrect is enabled. Use the format "[platform] [osversion]"
+	 * (e.g., "iOS 11.2" or "Android 6"). More specific versions will disable autocorrect for fewer devices ("iOS 11" will disable
+	 * autocorrect for all devices running iOS 11, but "iOS 11.2.2" will not disable autocorrect for devices running 11.2.1).
+	 */
+	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = "Virtual Keyboard (Mobile)")
+	TArray<FString> ExcludedAutocorrectOS;
+
+	/** Disables autocorrect for these cultures, even if autocorrect is turned on. These should be ISO-compliant language and country codes, such as "en" or "en-US". */
+	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = "Virtual Keyboard (Mobile)")
+	TArray<FString> ExcludedAutocorrectCultures;
+
+	/** 
+	 * Disables autocorrect for these device models, even if autocorrect is turned in. Model IDs listed here will match against the start of the device's
+	 * model (e.g., "SM-" will match all device model IDs that start with "SM-"). This is currently only supported on Android devices.
+	 */
+	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = "Virtual Keyboard (Mobile)")
+	TArray<FString> ExcludedAutocorrectDeviceModels;
 
 	/** The default mouse capture mode for the game viewport */
 	UPROPERTY(config, EditAnywhere, Category = "ViewportProperties")

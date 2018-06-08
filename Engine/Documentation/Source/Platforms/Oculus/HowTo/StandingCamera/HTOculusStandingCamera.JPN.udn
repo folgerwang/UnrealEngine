@@ -1,4 +1,5 @@
-﻿Availability:Public
+﻿INTSourceChangelist:3810467
+Availability:Public
 Crumbs: %ROOT%, Platforms
 Title:Oculus Rift 用スタンディング式カメラの設定方法
 Description:スタンディング式 Oculus Rift 体験用に UE4 カメラを設定する方法
@@ -23,7 +24,7 @@ Oculus Rift 向けにアンリアル エンジン 4 (UE4) で VR 体験の開発
     [REGION:simpletable]
 	|コンポーネント名| 値 |
     |--------|------------|
-    |** Scene**|VRCameraRoot|
+    |**Scene**|VRCameraRoot|
     |**Camera**|VRCamera|
 	[/region]
 
