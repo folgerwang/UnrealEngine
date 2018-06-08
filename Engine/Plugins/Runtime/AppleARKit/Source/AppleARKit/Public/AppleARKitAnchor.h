@@ -38,7 +38,7 @@ public:
 	 *
 	 * @todo arkit Fix this ^
 	 */
-	UFUNCTION( BlueprintPure, Category = "AppleARKitAnchor" )
+	UFUNCTION( BlueprintPure, Category = "AppleARKit|Anchor" )
 	FTransform GetTransform() const;
 
 #if SUPPORTS_ARKIT_1_0

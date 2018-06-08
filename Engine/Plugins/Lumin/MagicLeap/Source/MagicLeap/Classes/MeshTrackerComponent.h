@@ -176,7 +176,7 @@ public:
 	*/
 
 	/** Force an update on a non-live updating mesh tracker. */
-	UFUNCTION(BlueprintCallable, Category = "Meshing|MagicLeap")
+	UFUNCTION(BlueprintCallable, Category = "MagicLeap|Meshing")
 	bool ForceMeshUpdate();
 
 	/** Polls for and handles the results of the environmental mesh queries. */

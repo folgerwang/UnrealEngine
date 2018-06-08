@@ -119,7 +119,7 @@ public:
 	  @param ResultDelegate Delegate which will be called when the found object result is ready.
 	  @returns True if the found object query was successfully placed, false otherwise.
 	*/
-	UFUNCTION(BlueprintCallable, Category = "FoundObject|MagicLeap")
+	UFUNCTION(BlueprintCallable, Category = "MagicLeap|FoundObject")
 	bool SubmitQuery(int32& QueryID, const FFoundObjectResultDelegate& ResultDelegate);
 
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;

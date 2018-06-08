@@ -36,7 +36,7 @@ public:
 		   Upon completion, a successful operation will provide the file path of the newly created jpeg
 		   to the FCameraCaptureImgToFileSuccess event handler.
   */
-  UFUNCTION(BlueprintCallable, Category = "CameraCapture|MagicLeap")
+  UFUNCTION(BlueprintCallable, Category = "MagicLeap|CameraCapture")
   bool CaptureImageToFileAsync();
 
   /** 
@@ -46,7 +46,7 @@ public:
 		   image to the FCameraCaptureImgToTextureSuccess event handler.
     @note The generated texture will be garbage collected when this class is destroyed.
   */
-  UFUNCTION(BlueprintCallable, Category = "CameraCapture|MagicLeap")
+  UFUNCTION(BlueprintCallable, Category = "MagicLeap|CameraCapture")
   bool CaptureImageToTextureAsync();
 
   /** 
@@ -57,7 +57,7 @@ public:
 		   FCameraCaptureVidToFileSuccess event handler.
 	@param VideoLength The length in seconds of the footage to be captured.
   */
-  UFUNCTION(BlueprintCallable, Category = "CameraCapture|MagicLeap")
+  UFUNCTION(BlueprintCallable, Category = "MagicLeap|CameraCapture")
   bool CaptureVideoToFileAsync(float VideoLength);
 
   /**
