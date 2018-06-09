@@ -384,7 +384,7 @@ void UMovieSceneNiagaraEmitterSection::UpdateKeyModulesFromSection(FChannelAndMo
 	{
 		ChannelAndModules.ModulesAndBinders.RemoveAll(
 			[=](FModuleAndBinders& ModuleAndBinders) { return ModuleAndBinders.Module == ModuleWithMissingKey; });
-		FNiagaraStackGraphUtilities::RemoveModuleFromStack(*ModuleWithMissingKey);
+		FNiagaraStackGraphUtilities::RemoveModuleFromStack(GetSystemViewModel().GetSystem(), GetEmitterHandleViewModel()->GetId(), *ModuleWithMissingKey);
 	}
 
 	// Create new modules for new keys.
