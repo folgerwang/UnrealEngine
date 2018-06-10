@@ -19,7 +19,7 @@ namespace UnrealBuildTool.Rules
 			{
 				PrivateIncludePaths.Add("../../../../../Source/Runtime/VulkanRHI/Private/Windows");
 			}
-			else
+			else if(Target.Platform != UnrealTargetPlatform.Mac)
 			{
 				PrivateIncludePaths.Add("../../../../../Source/Runtime/VulkanRHI/Private/" + Target.Platform);
 			}
