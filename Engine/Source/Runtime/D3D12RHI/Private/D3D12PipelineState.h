@@ -304,21 +304,21 @@ protected:
 
 struct FD3D12GraphicsPipelineState : public FRHIGraphicsPipelineState
 {
-	explicit FD3D12GraphicsPipelineState(
-		const FGraphicsPipelineStateInitializer& Initializer,
-		FD3D12BoundShaderState* InBoundShaderState,
-		FD3D12PipelineState* InPipelineState)
-		: PipelineStateInitializer(Initializer)
-		, BoundShaderState(InBoundShaderState)
-		, PipelineState(InPipelineState)
-	{
-	}
-
+	explicit FD3D12GraphicsPipelineState(const FGraphicsPipelineStateInitializer& Initializer, FD3D12BoundShaderState* InBoundShaderState, FD3D12PipelineState* InPipelineState);
 	~FD3D12GraphicsPipelineState();
 
 	const FGraphicsPipelineStateInitializer PipelineStateInitializer;
-	TRefCountPtr<FD3D12BoundShaderState> BoundShaderState;
+	const FD3D12RootSignature* RootSignature;
+	uint16 StreamStrides[MaxVertexElementCount];
+	bool bShaderNeedsGlobalConstantBuffer[SF_NumFrequencies];
+
 	FD3D12PipelineState* PipelineState;
+
+	FORCEINLINE class FD3D12VertexShader*   GetVertexShader() const { return (FD3D12VertexShader*)PipelineStateInitializer.BoundShaderState.VertexShaderRHI; }
+	FORCEINLINE class FD3D12PixelShader*    GetPixelShader() const { return (FD3D12PixelShader*)PipelineStateInitializer.BoundShaderState.PixelShaderRHI; }
+	FORCEINLINE class FD3D12HullShader*     GetHullShader() const { return (FD3D12HullShader*)PipelineStateInitializer.BoundShaderState.HullShaderRHI; }
+	FORCEINLINE class FD3D12DomainShader*   GetDomainShader() const { return (FD3D12DomainShader*)PipelineStateInitializer.BoundShaderState.DomainShaderRHI; }
+	FORCEINLINE class FD3D12GeometryShader* GetGeometryShader() const { return (FD3D12GeometryShader*)PipelineStateInitializer.BoundShaderState.GeometryShaderRHI; }
 };
 
 struct FD3D12ComputePipelineState : public FRHIComputePipelineState
@@ -379,9 +379,9 @@ protected:
 
 	// Thread access mutual exclusion
 	mutable FRWLock InitializerToGraphicsPipelineMapMutex;
-	mutable FRWLock LowLevelDescToGraphicsPipelineMapMutex;
+	mutable FRWLock LowLevelGraphicsPipelineStateCacheMutex;
 	mutable FRWLock ComputeShaderToComputePipelineMapMutex;
-	mutable FRWLock LowLevelDescToComputePipelineMapMutex;
+	mutable FRWLock ComputePipelineStateCacheMutex;
 
 	FCriticalSection DiskCachesCS;
 

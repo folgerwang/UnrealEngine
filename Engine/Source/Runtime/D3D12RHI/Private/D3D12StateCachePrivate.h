@@ -365,6 +365,7 @@ protected:
 	{ \
 		static const EShaderFrequency Frequency = SF_##Name; \
 		static FD3D12##Name##Shader* GetShader(FD3D12BoundShaderState* BSS) { return BSS ? BSS->Get##Name##Shader() : nullptr; } \
+		static FD3D12##Name##Shader* GetShader(FD3D12GraphicsPipelineState* PSO) { return PSO ? (FD3D12##Name##Shader*)PSO->PipelineStateInitializer.BoundShaderState.##Name##ShaderRHI : nullptr; } \
 	}
 	DECLARE_SHADER_TRAITS(Vertex);
 	DECLARE_SHADER_TRAITS(Pixel);
@@ -376,7 +377,8 @@ protected:
 	template <typename TShader> D3D12_STATE_CACHE_INLINE void SetShader(TShader* Shader)
 	{
 		typedef StateCacheShaderTraits<TShader> Traits;
-		TShader* OldShader = Traits::GetShader(GetBoundShaderState());
+		TShader* OldShader = Traits::GetShader(GetGraphicsPipelineState());
+
 		if (OldShader != Shader)
 		{
 			PipelineState.Common.CurrentShaderSamplerCounts[Traits::Frequency] = (Shader) ? Shader->ResourceCounts.NumSamplers : 0;
@@ -391,7 +393,7 @@ protected:
 
 	template <typename TShader> D3D12_STATE_CACHE_INLINE void GetShader(TShader** Shader)
 	{
-		*Shader = StateCacheShaderTraits<TShader>::GetShader(GetBoundShaderState());
+		*Shader = StateCacheShaderTraits<TShader>::GetShader(GetGraphicsPipelineState());
 	}
 
 	template <bool IsCompute = false>
@@ -432,21 +434,19 @@ public:
 		return &DescriptorCache;
 	}
 
-	FD3D12BoundShaderState* GetBoundShaderState() const
+	FD3D12GraphicsPipelineState* GetGraphicsPipelineState() const
 	{
-		return PipelineState.Graphics.CurrentPipelineStateObject ? PipelineState.Graphics.CurrentPipelineStateObject->BoundShaderState : nullptr;
+		return PipelineState.Graphics.CurrentPipelineStateObject;
 	}
 
 	const FD3D12RootSignature* GetGraphicsRootSignature()
 	{
-		return PipelineState.Graphics.CurrentPipelineStateObject ?
-			PipelineState.Graphics.CurrentPipelineStateObject->BoundShaderState->pRootSignature : nullptr;
+		return PipelineState.Graphics.CurrentPipelineStateObject ? PipelineState.Graphics.CurrentPipelineStateObject->RootSignature : nullptr;
 	}
 
 	const FD3D12RootSignature* GetComputeRootSignature()
 	{
-		return PipelineState.Compute.CurrentPipelineStateObject ?
-			PipelineState.Compute.CurrentPipelineStateObject->ComputeShader->pRootSignature : nullptr;
+		return PipelineState.Compute.CurrentPipelineStateObject ? PipelineState.Compute.CurrentPipelineStateObject->ComputeShader->pRootSignature : nullptr;
 	}
 
 	void ClearSRVs();
@@ -656,46 +656,24 @@ public:
 		GetShader(Shader);
 	}
 
-	D3D12_STATE_CACHE_INLINE void SetBoundShaderState(FD3D12BoundShaderState* BoundShaderState)
-	{
-		if (BoundShaderState)
-		{
-			SetStreamStrides(BoundShaderState->StreamStrides);
-			SetShader(BoundShaderState->GetVertexShader());
-			SetShader(BoundShaderState->GetPixelShader());
-			SetShader(BoundShaderState->GetDomainShader());
-			SetShader(BoundShaderState->GetHullShader());
-			SetShader(BoundShaderState->GetGeometryShader());
-		}
-		else
-		{
-			uint16 NullStrides[MaxVertexElementCount] = {0};
-			SetStreamStrides(NullStrides);
-			SetShader<FD3D12VertexShader>(nullptr);
-			SetShader<FD3D12PixelShader>(nullptr);
-			SetShader<FD3D12HullShader>(nullptr);
-			SetShader<FD3D12DomainShader>(nullptr);
-			SetShader<FD3D12GeometryShader>(nullptr);
-		}
-
-		FD3D12BoundShaderState* CurrentBoundShaderState = GetBoundShaderState();
-		if (CurrentBoundShaderState != BoundShaderState)
-		{
-			// See if we need to change the root signature
-			const FD3D12RootSignature* const pCurrentRootSignature = CurrentBoundShaderState ? CurrentBoundShaderState->pRootSignature : nullptr;
-			const FD3D12RootSignature* const pNewRootSignature = BoundShaderState ? BoundShaderState->pRootSignature : nullptr;
-			if (pCurrentRootSignature != pNewRootSignature)
-			{
-				PipelineState.Graphics.bNeedSetRootSignature = true;
-			}
-		}
-	}
-
 	D3D12_STATE_CACHE_INLINE void SetGraphicsPipelineState(FD3D12GraphicsPipelineState* GraphicsPipelineState)
 	{
 		check(GraphicsPipelineState);
 		if (PipelineState.Graphics.CurrentPipelineStateObject != GraphicsPipelineState)
 		{
+			SetStreamStrides(GraphicsPipelineState->StreamStrides);
+			SetShader(GraphicsPipelineState->GetVertexShader());
+			SetShader(GraphicsPipelineState->GetPixelShader());
+			SetShader(GraphicsPipelineState->GetDomainShader());
+			SetShader(GraphicsPipelineState->GetHullShader());
+			SetShader(GraphicsPipelineState->GetGeometryShader());
+
+			// See if we need to change the root signature
+			if (GetGraphicsRootSignature() != GraphicsPipelineState->RootSignature)
+			{
+				PipelineState.Graphics.bNeedSetRootSignature = true;
+			}
+
 			// Save the PSO
 			PipelineState.Common.bNeedSetPSO = true;
 			PipelineState.Graphics.CurrentPipelineStateObject = GraphicsPipelineState;
