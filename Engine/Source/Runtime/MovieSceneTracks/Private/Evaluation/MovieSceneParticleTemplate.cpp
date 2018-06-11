@@ -87,11 +87,10 @@ struct FParticleTrackExecutionToken
 
 				if ( ParticleKey == EParticleKey::Activate)
 				{
-					if ( ParticleSystemComponent->IsActive() )
+					if ( !ParticleSystemComponent->IsActive() )
 					{
-						ParticleSystemComponent->SetActive(false, true);
+						ParticleSystemComponent->SetActive(true, true);
 					}
-					ParticleSystemComponent->SetActive(true, true);
 				}
 				else if( ParticleKey == EParticleKey::Deactivate )
 				{
