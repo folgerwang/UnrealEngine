@@ -240,7 +240,18 @@ bool UEditorEngine::ReimportFbxAnimation( USkeleton* Skeleton, UAnimSequence* An
 					int32 ResampleRate = DEFAULT_SAMPLERATE;
 					if (FbxImporter->ImportOptions->bResample)
 					{
-						ResampleRate = FbxImporter->GetMaxSampleRate(SortedLinks, FBXMeshNodeArray);
+						if(FbxImporter->ImportOptions->ResampleRate > 0)
+						{
+							ResampleRate = FbxImporter->ImportOptions->ResampleRate;
+						}
+						else
+						{
+							int32 BestResampleRate = FbxImporter->GetMaxSampleRate(SortedLinks, FBXMeshNodeArray);
+							if(BestResampleRate > 0)
+							{
+								ResampleRate = BestResampleRate;
+							}
+						}
 					}
 					FbxTimeSpan AnimTimeSpan = FbxImporter->GetAnimationTimeSpan(SortedLinks[0], CurAnimStack, ResampleRate);
 					// for now it's not importing morph - in the future, this should be optional or saved with asset
@@ -531,22 +542,28 @@ UAnimSequence * UnFbx::FFbxImporter::ImportAnimations(USkeleton* Skeleton, UObje
 	int32 ResampleRate = DEFAULT_SAMPLERATE;
 	if ( ImportOptions->bResample )
 	{
-		// For FBX data, "Frame Rate" is just the speed at which the animation is played back.  It can change
-		// arbitrarily, and the underlying data can stay the same.  What we really want here is the Sampling Rate,
-		// ie: the number of animation keys per second.  These are the individual animation curve keys
-		// on the FBX nodes of the skeleton.  So we loop through the nodes of the skeleton and find the maximum number 
-		// of keys that any node has, then divide this by the total length (in seconds) of the animation to find the 
-		// sampling rate of this set of data 
-
-		// we want the maximum resample rate, so that we don't lose any precision of fast anims,
-		// and don't mind creating lerped frames for slow anims
-		int32 MaxStackResampleRate = GetMaxSampleRate(SortedLinks, NodeArray);
-
-		if(MaxStackResampleRate != 0)
+		if (ImportOptions->ResampleRate > 0)
 		{
-			ResampleRate = MaxStackResampleRate;
+			ResampleRate = ImportOptions->ResampleRate;
 		}
+		else
+		{
+			// For FBX data, "Frame Rate" is just the speed at which the animation is played back.  It can change
+			// arbitrarily, and the underlying data can stay the same.  What we really want here is the Sampling Rate,
+			// ie: the number of animation keys per second.  These are the individual animation curve keys
+			// on the FBX nodes of the skeleton.  So we loop through the nodes of the skeleton and find the maximum number 
+			// of keys that any node has, then divide this by the total length (in seconds) of the animation to find the 
+			// sampling rate of this set of data 
 
+			// we want the maximum resample rate, so that we don't lose any precision of fast anims,
+			// and don't mind creating lerped frames for slow anims
+			int32 BestResampleRate = GetMaxSampleRate(SortedLinks, NodeArray);
+
+			if (BestResampleRate > 0)
+			{
+				ResampleRate = BestResampleRate;
+			}
+		}
 	}
 
 	int32 AnimStackCount = Scene->GetSrcObjectCount<FbxAnimStack>();

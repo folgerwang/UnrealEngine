@@ -1274,10 +1274,17 @@ EReimportResult::Type UReimportFbxSceneFactory::ReimportSkeletalMesh(void* VoidF
 				int32 ResampleRate = DEFAULT_SAMPLERATE;
 				if (GlobalImportSettings->bResample)
 				{
-					int32 MaxStackResampleRate = FbxImporter->GetMaxSampleRate(SortedLinks, FBXMeshNodeArray);
-					if (MaxStackResampleRate != 0)
+					if(FbxImporter->ImportOptions->ResampleRate > 0)
 					{
-						ResampleRate = MaxStackResampleRate;
+						ResampleRate = FbxImporter->ImportOptions->ResampleRate;
+					}
+					else
+					{
+						int32 BestResampleRate = FbxImporter->GetMaxSampleRate(SortedLinks, FBXMeshNodeArray);
+						if (BestResampleRate > 0)
+						{
+							ResampleRate = BestResampleRate;
+						}
 					}
 				}
 				int32 ValidTakeCount = 0;
@@ -1336,7 +1343,18 @@ EReimportResult::Type UReimportFbxSceneFactory::ReimportSkeletalMesh(void* VoidF
 						ResampleRate = DEFAULT_SAMPLERATE;
 						if (FbxImporter->ImportOptions->bResample)
 						{
-							ResampleRate = FbxImporter->GetMaxSampleRate(SortedLinks, FBXMeshNodeArray);
+							if(FbxImporter->ImportOptions->ResampleRate > 0)
+							{
+								ResampleRate = FbxImporter->ImportOptions->ResampleRate;
+							}
+							else
+							{
+								int32 BestResampleRate = FbxImporter->GetMaxSampleRate(SortedLinks, FBXMeshNodeArray);
+								if (BestResampleRate > 0)
+								{
+									ResampleRate = BestResampleRate;
+								}
+							}
 						}
 						FbxTimeSpan AnimTimeSpan = FbxImporter->GetAnimationTimeSpan(SortedLinks[0], CurAnimStack, ResampleRate);
 

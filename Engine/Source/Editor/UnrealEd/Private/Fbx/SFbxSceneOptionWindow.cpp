@@ -1506,7 +1506,8 @@ void SFbxSceneOptionWindow::CopySkeletalMeshOptionsToFbxOptions(UnFbx::FBXImport
 	ImportSettings->bDeleteExistingMorphTargetCurves = SkeletalMeshOptions->bDeleteExistingMorphTargetCurves;
 	ImportSettings->bImportCustomAttribute = SkeletalMeshOptions->bImportCustomAttribute;
 	ImportSettings->bPreserveLocalTransform = SkeletalMeshOptions->bPreserveLocalTransform;
-	ImportSettings->bResample = SkeletalMeshOptions->bUseDefaultSampleRate;
+	ImportSettings->bResample = !SkeletalMeshOptions->bUseDefaultSampleRate;
+	ImportSettings->ResampleRate = SkeletalMeshOptions->CustomSampleRate;
 	ImportSettings->AnimationRange.X = SkeletalMeshOptions->FrameImportRange.Min;
 	ImportSettings->AnimationRange.Y = SkeletalMeshOptions->FrameImportRange.Max;
 }
@@ -1528,7 +1529,8 @@ void SFbxSceneOptionWindow::CopyFbxOptionsToSkeletalMeshOptions(UnFbx::FBXImport
 	SkeletalMeshOptions->bDeleteExistingMorphTargetCurves = ImportSettings->bDeleteExistingMorphTargetCurves;
 	SkeletalMeshOptions->bImportCustomAttribute = ImportSettings->bImportCustomAttribute;
 	SkeletalMeshOptions->bPreserveLocalTransform = ImportSettings->bPreserveLocalTransform;
-	SkeletalMeshOptions->bUseDefaultSampleRate = ImportSettings->bResample;
+	SkeletalMeshOptions->bUseDefaultSampleRate = !ImportSettings->bResample;
+	SkeletalMeshOptions->CustomSampleRate = ImportSettings->ResampleRate;
 	SkeletalMeshOptions->FrameImportRange.Min = ImportSettings->AnimationRange.X;
 	SkeletalMeshOptions->FrameImportRange.Max = ImportSettings->AnimationRange.Y;
 }

@@ -62,6 +62,10 @@ class UNREALED_API UFbxAnimSequenceImportData : public UFbxAssetImportData
 	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = ImportSettings, meta = (ToolTip = "If enabled, samples all animation curves to 30 FPS"))
 	bool bUseDefaultSampleRate;
 
+	/** Use this option to specify a sample rate for the imported animation, a value of 0 use the best matching samplerate. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = ImportSettings, meta = (EditCondition = "!bUseDefaultSampleRate", ToolTip = "Sample fbx animation data at the specified sample rate, 0 find automaticaly the best sample rate"))
+	int32 CustomSampleRate;
+
 	/** Name of source animation that was imported, used to reimport correct animation from the FBX file */
 	UPROPERTY()
 	FString SourceAnimationName;

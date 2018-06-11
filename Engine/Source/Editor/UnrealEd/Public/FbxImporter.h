@@ -161,6 +161,7 @@ struct FBXImportOptions
 	bool bImportAnimations;
 	bool bUpdateSkeletonReferencePose;
 	bool bResample;
+	int32 ResampleRate;
 	bool bImportRigidMesh;
 	bool bUseT0AsRefPose;
 	bool bPreserveSmoothingGroups;

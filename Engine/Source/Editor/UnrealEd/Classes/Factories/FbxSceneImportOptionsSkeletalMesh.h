@@ -73,6 +73,10 @@ class UFbxSceneImportOptionsSkeletalMesh : public UObject
 	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = Animation, meta = (ToolTip = "If enabled, samples all animation curves to 30 FPS"))
 	bool bUseDefaultSampleRate;
 
+	/** Use this option to specify a sample rate for the imported animation, a value of 0 use the best matching sample rate. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = Animation, meta = (EditCondition = "!bUseDefaultSampleRate", ToolTip = "Sample fbx animation data at the specified sample rate, 0 find automaticaly the best sample rate"))
+	int32 CustomSampleRate;
+
 	/** Import if custom attribute as a curve within the animation **/
 	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = Animation)
 	bool bImportCustomAttribute;
