@@ -269,13 +269,23 @@ namespace UnrealBuildTool
 				Arguments.Add("/Gy");
 
 				// Allow 750% of the default memory allocation limit when using the static analyzer, and 850% at other times.
-				if (Target.WindowsPlatform.StaticAnalyzer == WindowsStaticAnalyzer.VisualCpp)
+				if(Target.WindowsPlatform.PCHMemoryAllocationFactor == 0)
 				{
-					Arguments.Add("/Zm750");
+					if (Target.WindowsPlatform.StaticAnalyzer == WindowsStaticAnalyzer.VisualCpp)
+					{
+						Arguments.Add("/Zm750");
+					}
+					else
+					{
+						Arguments.Add("/Zm850");
+					}
 				}
 				else
 				{
-					Arguments.Add("/Zm850");
+					if(Target.WindowsPlatform.PCHMemoryAllocationFactor > 0)
+					{
+						Arguments.Add(String.Format("/Zm{0}", Target.WindowsPlatform.PCHMemoryAllocationFactor));
+					}
 				}
 
 				// Disable "The file contains a character that cannot be represented in the current code page" warning for non-US windows.

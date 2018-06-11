@@ -175,6 +175,12 @@ namespace UnrealBuildTool
 		public int DefaultStackSizeCommit;
 
 		/// <summary>
+		/// Determines the amount of memory that the compiler allocates to construct precompiled headers (/Zm).
+		/// </summary>
+		[XmlConfigFile(Category = "WindowsPlatform")]
+		public int PCHMemoryAllocationFactor = 0;
+
+		/// <summary>
 		/// When using a Visual Studio compiler, returns the version name as a string
 		/// </summary>
 		/// <returns>The Visual Studio compiler version name (e.g. "2015")</returns>
@@ -293,6 +299,11 @@ namespace UnrealBuildTool
 		public int DefaultStackSizeCommit
 		{
 			get { return Inner.DefaultStackSizeCommit; }
+		}
+
+		public int PCHMemoryAllocationFactor
+		{
+			get { return Inner.PCHMemoryAllocationFactor; }
 		}
 
 		public string GetVisualStudioCompilerVersionName()
