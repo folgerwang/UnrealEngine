@@ -201,6 +201,10 @@
 			<!-- Binaries which are explicitly staged by UAT rather than listing runtime dependencies -->
 			Engine/Binaries/ThirdParty/OpenSSL/...
 
+			<!-- Linux cross build Debug tools -->
+			Engine/Binaries/Linux/dump_syms.exe
+			Engine/Binaries/Linux/BreakpadSymbolEncoder.exe
+
 			<!-- Extra tools -->
 			Engine/Extras/3dsMaxScripts/...
 			Engine/Extras/VisualStudioDebugging/UE4.natvis
