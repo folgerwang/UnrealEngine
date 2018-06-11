@@ -76,10 +76,10 @@ static void NetDriverRenameStreamingLevelPackageForPIE(const UWorld* World, FNam
 	}
 }
 
-FStreamLevelAction::FStreamLevelAction(bool bIsLoading, const FName& InLevelName, bool bIsMakeVisibleAfterLoad, bool bIsShouldBlockOnLoad, const FLatentActionInfo& InLatentInfo, UWorld* World)
+FStreamLevelAction::FStreamLevelAction(bool bIsLoading, const FName& InLevelName, bool bIsMakeVisibleAfterLoad, bool bInShouldBlock, const FLatentActionInfo& InLatentInfo, UWorld* World)
 	: bLoading(bIsLoading)
 	, bMakeVisibleAfterLoad(bIsMakeVisibleAfterLoad)
-	, bShouldBlockOnLoad(bIsShouldBlockOnLoad)
+	, bShouldBlock(bInShouldBlock)
 	, LevelName(InLevelName)
 	, LatentInfo(InLatentInfo)
 {
@@ -171,12 +171,12 @@ void FStreamLevelAction::ActivateLevel( ULevelStreaming* LevelStreamingObject )
 	if (LevelStreamingObject)
 	{
 		// Loading.
-		if( bLoading )
+		if (bLoading)
 		{
 			UE_LOG(LogStreaming, Log, TEXT("Streaming in level %s (%s)..."),*LevelStreamingObject->GetName(),*LevelStreamingObject->GetWorldAssetPackageName());
 			LevelStreamingObject->SetShouldBeLoaded(true);
 			LevelStreamingObject->SetShouldBeVisible(LevelStreamingObject->GetShouldBeVisibleFlag()	|| bMakeVisibleAfterLoad);
-			LevelStreamingObject->bShouldBlockOnLoad	= bShouldBlockOnLoad;
+			LevelStreamingObject->bShouldBlockOnLoad = bShouldBlock;
 		}
 		// Unloading.
 		else 
@@ -184,13 +184,14 @@ void FStreamLevelAction::ActivateLevel( ULevelStreaming* LevelStreamingObject )
 			UE_LOG(LogStreaming, Log, TEXT("Streaming out level %s (%s)..."),*LevelStreamingObject->GetName(),*LevelStreamingObject->GetWorldAssetPackageName());
 			LevelStreamingObject->SetShouldBeLoaded(false);
 			LevelStreamingObject->SetShouldBeVisible(false);
+			LevelStreamingObject->bShouldBlockOnUnload = bShouldBlock;
 		}
 
 		// If we have a valid world
 		if (UWorld* LevelWorld = LevelStreamingObject->GetWorld())
 		{
 			// Notify players of the change
-			for( FConstPlayerControllerIterator Iterator = LevelWorld->GetPlayerControllerIterator(); Iterator; ++Iterator )
+			for (FConstPlayerControllerIterator Iterator = LevelWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
 				APlayerController* PlayerController = Iterator->Get();
 
@@ -201,17 +202,14 @@ void FStreamLevelAction::ActivateLevel( ULevelStreaming* LevelStreamingObject )
 					*LevelStreamingObject->GetWorldAssetPackageName(), 
 					bShouldBeLoaded, 
 					bShouldBeVisible, 
-					LevelStreamingObject->bShouldBlockOnLoad );
-
-
+					bShouldBlock);
 
 				PlayerController->LevelStreamingStatusChanged( 
 					LevelStreamingObject, 
 					bShouldBeLoaded, 
 					bShouldBeVisible,
-					LevelStreamingObject->bShouldBlockOnLoad, 
+					bShouldBlock, 
 					INDEX_NONE);
-
 			}
 		}
 	}
@@ -563,7 +561,7 @@ void ULevelStreaming::UpdateStreamingState(bool& bOutUpdateAgain, bool& bOutRede
 	case ECurrentState::MakingVisible:
 		if (ensure(LoadedLevel))
 		{
-			World->AddToWorld(LoadedLevel, LevelTransform);
+			World->AddToWorld(LoadedLevel, LevelTransform, !bShouldBlockOnLoad);
 
 			if (LoadedLevel->bIsVisible)
 			{
@@ -588,7 +586,7 @@ void ULevelStreaming::UpdateStreamingState(bool& bOutUpdateAgain, bool& bOutRede
 		if (ensure(LoadedLevel))
 		{
 			// Hide loaded level, incrementally if necessary
-			World->RemoveFromWorld(LoadedLevel, World->IsGameWorld());
+			World->RemoveFromWorld(LoadedLevel, !bShouldBlockOnUnload && World->IsGameWorld());
 
 			// Inform the scene once we have finished making the level invisible
 			if (!LoadedLevel->bIsVisible)

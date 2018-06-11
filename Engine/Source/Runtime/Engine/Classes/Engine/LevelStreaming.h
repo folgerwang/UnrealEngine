@@ -20,13 +20,13 @@ class FStreamLevelAction : public FPendingLatentAction
 public:
 	bool			bLoading;
 	bool			bMakeVisibleAfterLoad;
-	bool			bShouldBlockOnLoad;
+	bool			bShouldBlock;
 	ULevelStreaming* Level;
 	FName			LevelName;
 
 	FLatentActionInfo LatentInfo;
 
-	FStreamLevelAction(bool bIsLoading, const FName& InLevelName, bool bIsMakeVisibleAfterLoad, bool bIsShouldBlockOnLoad, const FLatentActionInfo& InLatentInfo, UWorld* World);
+	FStreamLevelAction(bool bIsLoading, const FName& InLevelName, bool bIsMakeVisibleAfterLoad, bool bShouldBlock, const FLatentActionInfo& InLatentInfo, UWorld* World);
 
 	/**
 	 * Given a level name, returns level name that will work with Play on Editor or Play on Console
@@ -177,6 +177,10 @@ public:
 	/** Whether we want to force a blocking load																				*/
 	UPROPERTY(Category=LevelStreaming, BlueprintReadWrite)
 	uint8 bShouldBlockOnLoad:1;
+
+	/** Whether we want to force a blocking unload																				*/
+	UPROPERTY(Category=LevelStreaming, BlueprintReadWrite)
+	uint8 bShouldBlockOnUnload:1;
 
 	/** 
 	 *  Whether this level streaming object should be ignored by world composition distance streaming, 

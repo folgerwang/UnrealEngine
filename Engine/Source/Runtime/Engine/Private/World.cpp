@@ -2045,7 +2045,7 @@ private:
 
 #endif // PERF_TRACK_DETAILED_ASYNC_STATS
 
-void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform )
+void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool bConsiderTimeLimit )
 {
 	SCOPE_CYCLE_COUNTER(STAT_AddToWorldTime);
 
@@ -2090,7 +2090,7 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform )
 	}
 
 	// Don't consider the time limit if the match hasn't started as we need to ensure that the levels are fully loaded
-	const bool bConsiderTimeLimit = bMatchStarted && IsGameWorld();
+	bConsiderTimeLimit &= bMatchStarted && IsGameWorld();
 	double TimeLimit = GLevelStreamingActorsUpdateTimeLimit;
 
 	if (bConsiderTimeLimit)

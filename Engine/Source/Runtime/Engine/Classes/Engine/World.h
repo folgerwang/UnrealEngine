@@ -2292,7 +2292,7 @@ public:
 	 * @param Level				Level object we should add
 	 * @param LevelTransform	Transformation to apply to each actor in the level
 	 */
-	void AddToWorld( ULevel* Level, const FTransform& LevelTransform = FTransform::Identity );
+	void AddToWorld( ULevel* Level, const FTransform& LevelTransform = FTransform::Identity, bool bConsiderTimeLimit = true );
 
 	/** 
 	 * Dissociates the passed in level from the world. The removal is blocking.
