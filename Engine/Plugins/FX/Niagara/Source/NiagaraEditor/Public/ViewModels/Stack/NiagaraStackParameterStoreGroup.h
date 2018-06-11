@@ -40,9 +40,9 @@ public:
 
 	virtual FText GetDisplayName() const override;
 
-	virtual void BeginDestroy() override;
-
 protected:
+	virtual void FinalizeInternal() override;
+
 	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
 private:

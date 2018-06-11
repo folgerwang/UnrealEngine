@@ -80,7 +80,7 @@ struct FMetalDebugSamplerBindings
     id<MTLSamplerState> _Nullable Samplers[ML_MaxSamplers];
 };
 
-#if METAL_DEBUG_OPTIONS
+#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
 class FMetalCommandBufferDebugging;
 @class FMetalDebugCommandBuffer;
 @class FMetalDebugFence;

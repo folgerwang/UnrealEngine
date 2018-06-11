@@ -58,11 +58,11 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Runtime", Meta = (DisplayName = "Protected Content"))
 	bool bProtectedContent;
 
-	/** Use ES2/Vulkan Mobile Rendering. */
+	/** Use Vulkan Mobile Rendering. */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Build", Meta = (DisplayName = "Use Mobile Rendering"))
 	bool bUseMobileRendering;
 
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Build", Meta = (DisplayName = "Use Vulkan (otherwise, OpenGL)"))
+	UPROPERTY(GlobalConfig, Meta = (DisplayName = "Use Vulkan (otherwise, OpenGL)"))
 	bool bUseVulkan;
 
 	/** Enable support for NVIDIA Tegra Graphics Debugger? [FOR FULL SOURCE GAMES ONLY]. */

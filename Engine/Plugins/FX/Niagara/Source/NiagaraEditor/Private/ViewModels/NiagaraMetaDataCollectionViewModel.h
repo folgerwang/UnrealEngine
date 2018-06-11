@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -31,19 +31,23 @@ public:
 	TArray<TSharedRef<FNiagaraMetaDataViewModel>>& GetVariableModels();
 	
 	/** Request refresh the data from the graph and builds the viewmodels next frame. */
-	void RequestRefresh(bool bNotifyGraph);
+	void RequestRefresh();
 
 	/** returns the delegate to be called when the collection changes*/
 	FOnCollectionChanged& OnCollectionChanged() { return OnCollectionChangedDelegate; }
 
 private:
-	void Refresh(bool bNotifyGraph);
+	void Refresh();
 	void SortViewModels();
 	/** Callback for when the graph changes and the collection viewmodel needs to react */
 	void OnGraphChanged(const struct FEdGraphEditAction& InAction);
 	void Cleanup();
-	void BroadcastChanged();
+	/** Removes metadata listeners and empties MetaDataViewModels array */
+	void CleanupMetadata();
+	/** Called when one of the metadata in the viewmodel array has changed */
+	void ChildMetadataChanged();
 	TSharedPtr<FNiagaraMetaDataViewModel> GetMetadataViewModelForVariable(FNiagaraVariable InVariable);
+
 private:
 	/** The variables */
 	TArray <TSharedRef<FNiagaraMetaDataViewModel>> MetaDataViewModels;
@@ -61,6 +65,6 @@ private:
 	/** Refresh the UI next frames. */
 	bool bNeedsRefresh;
 
-	/** Needs to notify the graph on the next refesh. */
-	bool bNeedsNotify;
+	/** Guard flag that goes up when the graph change was done internally within this object, so we need to avoid refreshing. */
+	bool bInternalGraphChange;
 };

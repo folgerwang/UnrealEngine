@@ -63,7 +63,7 @@ void UAjaMediaViewportOutput::ActivateOutput(UAjaMediaOutput* MediaOutput)
 
 	if (MediaOutput == nullptr)
 	{
-		UE_LOG(LogAjaMediaOutput, Error, TEXT("Couldn't start the capture. No Media Output was provided."));
+		UE_LOG(LogAjaMediaOutput, Error, TEXT("Couldn't start the capture. The Media Output is invalid."));
 		return;
 	}
 

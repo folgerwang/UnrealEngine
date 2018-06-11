@@ -595,7 +595,7 @@ void SColorGradientEditor::OpenGradientStopColorPicker()
 		// Open a color picker
 		FColorPickerArgs ColorPickerArgs;
 
-		ColorPickerArgs.bOnlyRefreshOnMouseUp = false;
+		ColorPickerArgs.bOnlyRefreshOnMouseUp = true;
 		ColorPickerArgs.bIsModal = false;
 		ColorPickerArgs.ParentWidget = SharedThis( this );
 		ColorPickerArgs.bUseAlpha = false;

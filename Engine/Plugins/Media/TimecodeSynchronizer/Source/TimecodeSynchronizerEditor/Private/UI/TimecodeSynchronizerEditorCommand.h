@@ -21,7 +21,6 @@ private:
 
 public:
 	TSharedPtr<FUICommandInfo>		OpenEditorCommand;
-	TSharedPtr<FUICommandInfo>		PreRollCommand;
 
 	TSharedPtr<class FUICommandList>		CommandActionList;
 };

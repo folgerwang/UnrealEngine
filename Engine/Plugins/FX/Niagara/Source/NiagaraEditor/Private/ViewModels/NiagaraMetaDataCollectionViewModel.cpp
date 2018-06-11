@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraMetaDataCollectionViewModel.h"
 #include "NiagaraTypes.h"
@@ -18,7 +18,7 @@
 FNiagaraMetaDataCollectionViewModel::FNiagaraMetaDataCollectionViewModel()
 	: ModuleGraph(nullptr)
 	, bNeedsRefresh(false)
-	, bNeedsNotify(false)
+	, bInternalGraphChange(false)
 {
 }
 
@@ -26,9 +26,8 @@ void FNiagaraMetaDataCollectionViewModel::Tick(float DeltaTime)
 {
 	if (bNeedsRefresh)
 	{
-		Refresh(bNeedsNotify);
+		Refresh();
 		bNeedsRefresh = false;
-		bNeedsNotify = false;
 	}
 }
 
@@ -56,7 +55,7 @@ void FNiagaraMetaDataCollectionViewModel::SetGraph(UNiagaraGraph* InGraph)
 	// now build variables
 	ModuleGraph = InGraph;
 	
-	Refresh(false);
+	Refresh();
 
 	OnGraphChangedHandle = ModuleGraph->AddOnGraphChangedHandler(FOnGraphChanged::FDelegate::CreateRaw(this, &FNiagaraMetaDataCollectionViewModel::OnGraphChanged));
 	OnRecompileHandle = ModuleGraph->AddOnGraphNeedsRecompileHandler(FOnGraphChanged::FDelegate::CreateRaw(this, &FNiagaraMetaDataCollectionViewModel::OnGraphChanged));
@@ -77,23 +76,27 @@ TArray<TSharedRef<FNiagaraMetaDataViewModel>>& FNiagaraMetaDataCollectionViewMod
 	return MetaDataViewModels;
 }
 
-void FNiagaraMetaDataCollectionViewModel::RequestRefresh(bool bNotifyGraph)
+void FNiagaraMetaDataCollectionViewModel::RequestRefresh()
 {
 	bNeedsRefresh = true;
-	bNeedsNotify = bNotifyGraph;
 }
 
 void FNiagaraMetaDataCollectionViewModel::OnGraphChanged(const struct FEdGraphEditAction& InAction)
 {
-	RequestRefresh(false);
+	if (!bInternalGraphChange)
+	{
+		RequestRefresh();
+	}
 } 
 
-void FNiagaraMetaDataCollectionViewModel::BroadcastChanged()
+void FNiagaraMetaDataCollectionViewModel::ChildMetadataChanged()
 {
+	TGuardValue<bool> UpdateGuard(bInternalGraphChange, true);
 	OnCollectionChangedDelegate.Broadcast();
+	ModuleGraph->NotifyGraphNeedsRecompile();
 }
 
-void FNiagaraMetaDataCollectionViewModel::Refresh(bool bNotifyGraph)
+void FNiagaraMetaDataCollectionViewModel::Refresh()
 {
 	if (!ModuleGraph)
 	{
@@ -101,13 +104,14 @@ void FNiagaraMetaDataCollectionViewModel::Refresh(bool bNotifyGraph)
 	}
 
 	// Get the variable metadata from the graph
-	MetaDataViewModels.Empty();
+	CleanupMetadata();
 	for (auto& MetadataElement : ModuleGraph->GetAllMetaData())
 	{
 		TSharedPtr<FNiagaraMetaDataViewModel> MetadataViewModel = GetMetadataViewModelForVariable(MetadataElement.Key);
 		if (!MetadataViewModel.IsValid())
 		{
 			MetadataViewModel = MakeShared<FNiagaraMetaDataViewModel>(MetadataElement.Key, *ModuleGraph);
+			MetadataViewModel->OnMetadataChanged().AddRaw(this, &FNiagaraMetaDataCollectionViewModel::ChildMetadataChanged);
 			MetaDataViewModels.Add(MetadataViewModel.ToSharedRef());
 		}
 
@@ -121,12 +125,10 @@ void FNiagaraMetaDataCollectionViewModel::Refresh(bool bNotifyGraph)
 			}
 		}
 	}
+
 	SortViewModels();
-	if (bNotifyGraph)
-	{
-		ModuleGraph->NotifyGraphNeedsRecompile();
-	}
-	BroadcastChanged();
+
+	OnCollectionChangedDelegate.Broadcast();
 }
 
 void FNiagaraMetaDataCollectionViewModel::SortViewModels()
@@ -170,9 +172,18 @@ void FNiagaraMetaDataCollectionViewModel::SortViewModels()
 
 void FNiagaraMetaDataCollectionViewModel::Cleanup()
 {
-	MetaDataViewModels.Empty();
+	CleanupMetadata();
 	ModuleGraph->RemoveOnGraphChangedHandler(OnGraphChangedHandle);
 	ModuleGraph->RemoveOnGraphNeedsRecompileHandler(OnRecompileHandle);
+}
+
+void FNiagaraMetaDataCollectionViewModel::CleanupMetadata()
+{
+	for (int32 i = 0; i < MetaDataViewModels.Num(); i++)
+	{
+		MetaDataViewModels[i]->OnMetadataChanged().RemoveAll(this);
+	}
+	MetaDataViewModels.Empty();
 }
 
 FNiagaraMetaDataCollectionViewModel::~FNiagaraMetaDataCollectionViewModel()

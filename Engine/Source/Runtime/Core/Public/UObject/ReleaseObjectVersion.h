@@ -55,6 +55,9 @@ struct CORE_API FReleaseObjectVersion
 		// HISMC Cluster Tree migration to add new data
 		HISMCClusterTreeMigration,
 
+		// Default values on pins in blueprints could be saved incoherently
+		PinDefaultValuesVerified,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

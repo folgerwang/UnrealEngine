@@ -29,6 +29,7 @@ public:
 	/** Returns the mesh element the specified viewport interactor is currently hovering over.  The returned element might be invalid if nothing valid is hovered right now */
 	virtual FMeshElement GetHoveredMeshElement( const class UViewportInteractor* ViewportInteractor ) const = 0;
 
+	virtual void GetSelectedMeshesAndElements( EEditableMeshElementType ElementType, TMap<UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndElements ) = 0;
 	virtual void GetSelectedMeshesAndVertices( TMap<class UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndVertices ) = 0;
 	virtual void GetSelectedMeshesAndEdges( TMap<class UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndEdges ) = 0;
 	virtual void GetSelectedMeshesAndPolygons( TMap<class UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndPolygons ) = 0;
@@ -58,5 +59,4 @@ public:
 
 	/** When performing an interactive action that was initiated using an interactor, this is the interactor that was used. */
 	virtual class UViewportInteractor* GetActiveActionInteractor() = 0;
-
 };

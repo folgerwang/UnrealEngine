@@ -216,11 +216,7 @@ public:
 	{
 		ReferencedUniformBufferStructsCache.Empty();
 		GenerateReferencedUniformBuffers(ShaderFilename, Name, ShaderFileToUniformBufferVariables, ReferencedUniformBufferStructsCache);
-
-		for (int32 Platform = 0; Platform < SP_NumPlatforms; Platform++)
-		{
-			bCachedUniformBufferStructDeclarations[Platform] = false;
-		}
+		bCachedUniformBufferStructDeclarations = false;
 	}
 
 	const TMap<const TCHAR*, FCachedUniformBufferDeclaration>& GetReferencedUniformBufferStructsCache() const
@@ -258,7 +254,7 @@ private:
 	TMap<const TCHAR*, FCachedUniformBufferDeclaration> ReferencedUniformBufferStructsCache;
 
 	/** Tracks what platforms ReferencedUniformBufferStructsCache has had declarations cached for. */
-	bool bCachedUniformBufferStructDeclarations[SP_NumPlatforms];
+	bool bCachedUniformBufferStructDeclarations;
 
 	/** 
 	 * Stores a history of serialization sizes for this vertex factory's shader parameter class. 

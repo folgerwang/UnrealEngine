@@ -21,7 +21,7 @@
 /**
  * Control the Engine TimeStep via the AJA card
  */
-UCLASS(editinlinenew, meta=(DisplayName="AJA SDI Input"))
+UCLASS(Blueprintable, editinlinenew, meta=(DisplayName="AJA SDI Input"))
 class AJAMEDIA_API UAjaCustomTimeStep : public UFixedFrameRateCustomTimeStep
 {
 	GENERATED_UCLASS_BODY()
@@ -49,6 +49,10 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, Category="Genlock options", AssetRegistrySearchable, meta=(DisplayName="Source"))
 	FAjaMediaPort MediaPort;
+
+	/** The expected signal input from the MediaPort. */
+	UPROPERTY(EditAnywhere, Category="Genlock options", meta=(MediaPort="MediaPort"))
+	FAjaMediaMode MediaMode;
 
 	/** Enable mechanism to detect Engine loop overrunning the source */
 	UPROPERTY(EditAnywhere, Category="Genlock options", meta=(DisplayName="Display Dropped Frames Warning"))

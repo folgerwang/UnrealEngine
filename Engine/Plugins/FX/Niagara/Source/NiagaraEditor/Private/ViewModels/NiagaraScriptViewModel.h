@@ -41,6 +41,9 @@ public:
 	/** Gets the view model for the metadata collection. */
 	TSharedRef<FNiagaraMetaDataCollectionViewModel> GetMetadataCollectionViewModel();
 
+	/** Refreshes the metadata collection */
+	void RefreshMetadataCollection();
+
 	TSharedRef<INiagaraParameterCollectionViewModel> GetInputParameterMapViewModel();
 	TSharedRef<INiagaraParameterCollectionViewModel> GetOutputParameterMapViewModel();
 

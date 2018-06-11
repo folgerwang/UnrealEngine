@@ -48,6 +48,8 @@ public:
 	void AddParameter(FNiagaraVariable InVar, FString InDefaultValue);
 	void RemoveParameter(const FNiagaraVariable& InVar);
 
+	void UpdateUsageBitmaskFromOwningScript();
+
 protected:
 
 	UPROPERTY()
@@ -69,5 +71,7 @@ private:
 	void GenerateScript();
 
 	void InitializeScript(UNiagaraScript* NewScript);
+
+	int32 CalculateScriptUsageBitmask();
 };
 

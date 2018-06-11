@@ -49,6 +49,12 @@ void UNiagaraStackFunctionInputCollection::Initialize(
 	InputFunctionCallNode->OnInputsChanged().AddUObject(this, &UNiagaraStackFunctionInputCollection::OnFunctionInputsChanged);
 }
 
+void UNiagaraStackFunctionInputCollection::FinalizeInternal()
+{
+	InputFunctionCallNode->OnInputsChanged().RemoveAll(this);
+	Super::FinalizeInternal();
+}
+
 FText UNiagaraStackFunctionInputCollection::GetDisplayName() const
 {
 	return LOCTEXT("InputCollectionDisplayName", "Inputs");
@@ -77,6 +83,9 @@ void UNiagaraStackFunctionInputCollection::RefreshChildrenInternal(const TArray<
 	const UEdGraphSchema_Niagara* NiagaraSchema = GetDefault<UEdGraphSchema_Niagara>();
 
 	TArray<FName> ProcessedInputNames;
+	TArray<FName> DuplicateInputNames;
+	TArray<FName> ValidAliasedInputNames;
+	TArray<const UEdGraphPin*> PinsWithInvalidTypes;
 
 	FText UncategorizedName = LOCTEXT("Uncategorized", "Uncategorized");
 
@@ -148,22 +157,27 @@ void UNiagaraStackFunctionInputCollection::RefreshChildrenInternal(const TArray<
 	// Populate the category children
 	for (const FInputData InputData : InputDataCollection)
 	{
+		// Try to find an existing category in the already processed children.
 		UNiagaraStackInputCategory* InputCategory = FindCurrentChildOfTypeByPredicate<UNiagaraStackInputCategory>(NewChildren,
 			[&](UNiagaraStackInputCategory* CurrentCategory) { return CurrentCategory->GetCategoryName().CompareTo(InputData.Category) == 0; });
 
 		if (InputCategory == nullptr)
 		{
+			// If we haven't added any children to this category yet see if there is one that can be reused from the current children.
 			InputCategory = FindCurrentChildOfTypeByPredicate<UNiagaraStackInputCategory>(CurrentChildren,
 				[&](UNiagaraStackInputCategory* CurrentCategory) { return CurrentCategory->GetCategoryName().CompareTo(InputData.Category) == 0; });
 			if (InputCategory == nullptr)
 			{
+				// If we don't have a current child for this category make a new one.
 				InputCategory = NewObject<UNiagaraStackInputCategory>(this);
 				InputCategory->Initialize(CreateDefaultChildRequiredData(), *ModuleNode, *InputFunctionCallNode, InputData.Category, GetOwnerStackItemEditorDataKey());
 			}
 			else
 			{
+				// We found a category to reuse, but we need to reset the inputs before we can start adding the current set of inputs.
 				InputCategory->ResetInputs();
 			}
+
 			if (InputData.Category.CompareTo(UncategorizedName) == 0)
 			{
 				InputCategory->SetShouldShowInStack(false);
@@ -172,11 +186,16 @@ void UNiagaraStackFunctionInputCollection::RefreshChildrenInternal(const TArray<
 		}
 		InputCategory->AddInput(InputData.Pin->PinName, InputData.Type);
 	}
-	RefreshIssues(NewIssues);
+	RefreshIssues(DuplicateInputNames, ValidAliasedInputNames, PinsWithInvalidTypes, NewIssues);
 }
 
-void UNiagaraStackFunctionInputCollection::RefreshIssues(TArray<FStackIssue>& NewIssues)
+void UNiagaraStackFunctionInputCollection::RefreshIssues(TArray<FName> DuplicateInputNames, TArray<FName> ValidAliasedInputNames, TArray<const UEdGraphPin*> PinsWithInvalidTypes, TArray<FStackIssue>& NewIssues)
 {
+	if (!GetIsEnabled())
+	{
+		NewIssues.Empty();
+		return;
+	}
 	// Try to find function input overrides which are no longer valid so we can generate errors for them.
 	UNiagaraNodeParameterMapSet* OverrideNode = FNiagaraStackGraphUtilities::GetStackFunctionOverrideNode(*InputFunctionCallNode);
 	if (OverrideNode != nullptr)
@@ -192,16 +211,12 @@ void UNiagaraStackFunctionInputCollection::RefreshIssues(TArray<FStackIssue>& Ne
 				FNiagaraParameterHandle(OverridePin->PinName).GetNamespace().ToString() == InputFunctionCallNode->GetFunctionName() &&
 				ValidAliasedInputNames.Contains(OverridePin->PinName) == false)
 			{
-				UNiagaraStackEntry::FStackIssue InvalidInputError;
-				InvalidInputError.ShortDescription = FText::Format(LOCTEXT("InvalidInputSummaryFormat", "Invalid Input: {0}"), FText::FromString(OverridePin->PinName.ToString()));
-				InvalidInputError.LongDescription = FText::Format(LOCTEXT("InvalidInputFormat", "The input {0} was previously overriden but is no longer exposed by the function {1}.\nPress the fix button to remove this unused override data,\nor check the function definition to see why this input is no longer exposed."),
-					FText::FromString(OverridePin->PinName.ToString()), FText::FromString(InputFunctionCallNode->GetFunctionName()));
-				InvalidInputError.UniqueIdentifier = FName(*FString::Printf(TEXT("%s-InvalidInput-%s"), *GetStackEditorDataKey(), *OverridePin->PinName.ToString()));
-				UNiagaraStackEntry::FStackIssueFix Fix;
-				Fix.Description = LOCTEXT("RemoveInvalidInputTransaction", "Remove invalid input override.");
-				Fix.FixDelegate.BindLambda([=]()
+				FText FixDescription = LOCTEXT("RemoveInvalidInputTransaction", "Remove invalid input override.");
+				FStackIssueFix RemoveInputOverrideFix(
+					FixDescription,
+					UNiagaraStackEntry::FStackIssueFixDelegate::CreateLambda([=]()
 				{
-					FScopedTransaction ScopedTransaction(Fix.Description);
+					FScopedTransaction ScopedTransaction(FixDescription);
 					TArray<TWeakObjectPtr<UNiagaraDataInterface>> RemovedDataObjects;
 					FNiagaraStackGraphUtilities::RemoveNodesForStackFunctionInputOverridePin(*OverridePin, RemovedDataObjects);
 					for (TWeakObjectPtr<UNiagaraDataInterface> RemovedDataObject : RemovedDataObjects)
@@ -212,42 +227,52 @@ void UNiagaraStackFunctionInputCollection::RefreshIssues(TArray<FStackIssue>& Ne
 						}
 					}
 					OverridePin->GetOwningNode()->RemovePin(OverridePin);
-				});
-				InvalidInputError.Fixes.Add(Fix);
-				NewIssues.Add(InvalidInputError);
+				}));
+
+				FStackIssue InvalidInputOverrideError(
+					EStackIssueSeverity::Error,
+					FText::Format(LOCTEXT("InvalidInputSummaryFormat", "Invalid Input Override: {0}"), FText::FromString(OverridePin->PinName.ToString())),
+					FText::Format(LOCTEXT("InvalidInputFormat", "The input {0} was previously overriden but is no longer exposed by the function {1}.\nPress the fix button to remove this unused override data,\nor check the function definition to see why this input is no longer exposed."),
+						FText::FromString(OverridePin->PinName.ToString()), FText::FromString(InputFunctionCallNode->GetFunctionName())),
+					GetStackEditorDataKey(),
+					false,
+					RemoveInputOverrideFix);
+
+				NewIssues.Add(InvalidInputOverrideError);
 			}
 		}
 	}
 
+	// Generate issues for duplicate input names.
 	for (const FName& DuplicateInputName : DuplicateInputNames)
 	{
-		UNiagaraStackEntry::FStackIssue DuplicateInputError;
-
-		FString DuplicateInputNameString = DuplicateInputName.ToString();
-
-		DuplicateInputError.ShortDescription = FText::Format(LOCTEXT("DuplicateInputSummaryFormat", "Duplicate Input: {0}"), FText::FromString(DuplicateInputNameString));
-		DuplicateInputError.LongDescription = FText::Format(LOCTEXT("DuplicateInputFormat", "There are multiple inputs with the same name {0}, but different types exposed by the function {1}.\nThis is not suppored and must be fixed in the script that defines this function."),
-			FText::FromString(DuplicateInputNameString), FText::FromString(InputFunctionCallNode->GetFunctionName()));
-		DuplicateInputError.UniqueIdentifier = FName(*FString::Printf(TEXT("%s-DuplicateInput-%s"), *GetStackEditorDataKey(), *DuplicateInputNameString));
+		FStackIssue DuplicateInputError(
+			EStackIssueSeverity::Error,
+			FText::Format(LOCTEXT("DuplicateInputSummaryFormat", "Duplicate Input: {0}"), FText::FromName(DuplicateInputName)),
+			FText::Format(LOCTEXT("DuplicateInputFormat", "There are multiple inputs with the same name {0}, but different types exposed by the function {1}.\nThis is not suppored and must be fixed in the script that defines this function."),
+				FText::FromName(DuplicateInputName), FText::FromString(InputFunctionCallNode->GetFunctionName())),
+			GetStackEditorDataKey(),
+			false);
 		NewIssues.Add(DuplicateInputError);
 	}
 
+	// Generate issues for invalid types.
 	for (const UEdGraphPin* PinWithInvalidType : PinsWithInvalidTypes)
 	{
-		UNiagaraStackEntry::FStackIssue InputWithInvalidTypeError;
-		InputWithInvalidTypeError.ShortDescription = FText::Format(LOCTEXT("InputWithInvalidTypeSummaryFormat", "Input has an invalid type: {0}"), FText::FromString(PinWithInvalidType->PinName.ToString()));
-		InputWithInvalidTypeError.LongDescription = FText::Format(LOCTEXT("InputWithInvalidTypeFormat", "The input {0} on function {1} has a type which is invalid.\nThe type of this input likely doesn't exist anymore.\nThis input must be fixed in the script before this module can be used."),
-			FText::FromString(PinWithInvalidType->PinName.ToString()), FText::FromString(InputFunctionCallNode->GetFunctionName()));
+		FStackIssue InputWithInvalidTypeError(
+			EStackIssueSeverity::Error,
+			FText::Format(LOCTEXT("InputWithInvalidTypeSummaryFormat", "Input has an invalid type: {0}"), FText::FromName(PinWithInvalidType->PinName)),
+			FText::Format(LOCTEXT("InputWithInvalidTypeFormat", "The input {0} on function {1} has a type which is invalid.\nThe type of this input likely doesn't exist anymore.\nThis input must be fixed in the script before this module can be used."),
+				FText::FromName(PinWithInvalidType->PinName), FText::FromString(InputFunctionCallNode->GetFunctionName())),
+			GetStackEditorDataKey(),
+			false);
 		NewIssues.Add(InputWithInvalidTypeError);
 	}
 }
 
 void UNiagaraStackFunctionInputCollection::OnFunctionInputsChanged()
 {
-	if (IsValid())
-	{
-		RefreshChildren();
-	}
+	RefreshChildren();
 }
 
 #undef LOCTEXT_NAMESPACE

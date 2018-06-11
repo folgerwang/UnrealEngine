@@ -37,10 +37,6 @@ private:
 
 	EVisibility GetRefreshVisibility() const;
 
-	FReply MoveUpClicked();
-
-	FReply MoveDownClicked();
-
 	FReply DeleteClicked();
 	
 	TSharedRef<SWidget> RaiseActionMenuClicked();

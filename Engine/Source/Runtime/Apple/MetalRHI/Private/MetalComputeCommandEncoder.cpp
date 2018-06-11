@@ -11,7 +11,7 @@
 #include "MetalFence.h"
 #include "MetalPipeline.h"
 
-#if METAL_DEBUG_OPTIONS
+#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
 NS_ASSUME_NONNULL_BEGIN
 
 #if METAL_DEBUG_OPTIONS

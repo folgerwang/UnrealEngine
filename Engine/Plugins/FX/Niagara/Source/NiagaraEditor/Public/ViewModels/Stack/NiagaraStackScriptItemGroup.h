@@ -10,6 +10,7 @@
 class FNiagaraScriptViewModel;
 class UNiagaraStackSpacer;
 class UNiagaraNodeOutput;
+class UNiagaraNodeFunctionCall;
 class FScriptItemGroupAddUtilities;
 class UNiagaraStackModuleItem;
 
@@ -38,7 +39,7 @@ protected:
 	virtual TOptional<FDropResult> ChildRequestDropInternal(const UNiagaraStackEntry& TargetChild, const TArray<UNiagaraStackEntry*>& DraggedEntries) override;
 
 private:
-	void ItemAdded();
+	void ItemAdded(UNiagaraNodeFunctionCall* AddedModule);
 
 	void ChildModifiedGroupItems();
 
