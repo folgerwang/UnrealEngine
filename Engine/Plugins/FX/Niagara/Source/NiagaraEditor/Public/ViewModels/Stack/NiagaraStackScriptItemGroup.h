@@ -34,6 +34,8 @@ public:
 protected:
 	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
+	virtual void FinalizeInternal() override;
+
 	virtual TOptional<FDropResult> ChildRequestCanDropInternal(const UNiagaraStackEntry& TargetChild, const TArray<UNiagaraStackEntry*>& DraggedEntries) override;
 
 	virtual TOptional<FDropResult> ChildRequestDropInternal(const UNiagaraStackEntry& TargetChild, const TArray<UNiagaraStackEntry*>& DraggedEntries) override;
@@ -42,6 +44,8 @@ private:
 	void ItemAdded(UNiagaraNodeFunctionCall* AddedModule);
 
 	void ChildModifiedGroupItems();
+
+	void OnScriptGraphChanged(const struct FEdGraphEditAction& InAction);
 
 protected:
 	TWeakPtr<FNiagaraScriptViewModel> ScriptViewModel;
@@ -54,6 +58,8 @@ private:
 
 	FGuid ScriptUsageId;
 	bool bIsValidForOutput;
+
+	FDelegateHandle OnGraphChangedHandle;
 
 	TMap<FObjectKey, UNiagaraStackModuleItem*> StackSpacerToModuleItemMap;
 };
