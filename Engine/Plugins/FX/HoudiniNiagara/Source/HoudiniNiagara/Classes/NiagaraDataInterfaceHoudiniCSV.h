@@ -102,6 +102,10 @@ public:
 	template<typename RowParamType>
 	void GetColor(FVectorVMContext& Context);
 
+	// Returns the impulse value for a given row in the CSV file
+	template<typename RowParamType>
+	void GetImpulse(FVectorVMContext& Context);
+
 	// Returns the position and time for a given row in the CSV file
 	template<typename RowParamType>
 	void GetPositionAndTime(FVectorVMContext& Context);
