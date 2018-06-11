@@ -90,6 +90,7 @@ void UNiagaraDataInterfaceHoudiniCSV::PostInitProperties()
     if (HasAnyFlags(RF_ClassDefaultObject))
     {
 	    FNiagaraTypeRegistry::Register(FNiagaraTypeDefinition(GetClass()), true, false, false);
+		FNiagaraTypeRegistry::Register(FHoudiniEvent::StaticStruct(), true, true, false);
     }
 
 	FloatValuesGPUBufferDirty = true;
