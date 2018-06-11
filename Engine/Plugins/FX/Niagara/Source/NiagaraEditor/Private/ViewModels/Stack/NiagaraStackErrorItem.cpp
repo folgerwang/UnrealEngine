@@ -9,15 +9,20 @@
 
 void UNiagaraStackErrorItem::Initialize(FRequiredEntryData InRequiredEntryData, FStackIssue InStackIssue, FString InStackEditorDataKey)
 {
-	FString ErrorStackEditorDataKey = FString::Printf(TEXT("%s-Error-%s"), *InStackEditorDataKey, InStackIssue.UniqueIdentifier.GetPlainANSIString());
+	FString ErrorStackEditorDataKey = FString::Printf(TEXT("%s-Error-%s"), *InStackEditorDataKey, *InStackIssue.GetUniqueIdentifier());
 	Super::Initialize(InRequiredEntryData, ErrorStackEditorDataKey);
 	StackIssue = InStackIssue;
 	EntryStackEditorDataKey = InStackEditorDataKey;
 }
 
+void UNiagaraStackErrorItem::SetStackIssue(const FStackIssue& InStackIssue)
+{
+	StackIssue = InStackIssue;
+}
+
 FText UNiagaraStackErrorItem::GetDisplayName() const
 {
-	return StackIssue.ShortDescription;
+	return StackIssue.GetShortDescription();
 }
 
 UNiagaraStackEntry::EStackRowStyle UNiagaraStackErrorItem::GetStackRowStyle() const
@@ -51,20 +56,25 @@ void UNiagaraStackErrorItem::RefreshChildrenInternal(const TArray<UNiagaraStackE
 	NewChildren.Add(ErrorEntryLongDescription);
 
 	// fixes
-	for (int i = 0; i < StackIssue.Fixes.Num(); i++)
+	for (int i = 0; i < StackIssue.GetFixes().Num(); i++)
 	{
+		UNiagaraStackEntry::FStackIssueFix CurrentFix = StackIssue.GetFixes()[i];
 		UNiagaraStackErrorItemFix* ErrorEntryFix = FindCurrentChildOfTypeByPredicate<UNiagaraStackErrorItemFix>(CurrentChildren,
-			[&](UNiagaraStackErrorItemFix* CurrentChild) { return CurrentChild->GetStackIssueFix() == StackIssue.Fixes[i]; });
+			[&](UNiagaraStackErrorItemFix* CurrentChild) { return CurrentChild->GetStackIssueFix().GetUniqueIdentifier() == CurrentFix.GetUniqueIdentifier(); });
 		if (ErrorEntryFix == nullptr)
 		{
 			ErrorEntryFix = NewObject<UNiagaraStackErrorItemFix>(this);
-			ErrorEntryFix->Initialize(CreateDefaultChildRequiredData(), StackIssue, StackIssue.Fixes[i], EntryStackEditorDataKey);
+			ErrorEntryFix->Initialize(CreateDefaultChildRequiredData(), StackIssue, CurrentFix, EntryStackEditorDataKey);
+		}
+		else
+		{
+			ErrorEntryFix->SetFixDelegate(CurrentFix.GetFixDelegate());
 		}
 		ErrorEntryFix->OnIssueFixed().AddUObject(this, &UNiagaraStackErrorItem::IssueFixed);
 		NewChildren.Add(ErrorEntryFix);
 	}
 	// dismiss button
-	if (StackIssue.bCanBeDismissed)
+	if (StackIssue.GetCanBeDismissed())
 	{
 		UNiagaraStackErrorItemDismiss* ErrorEntryDismiss = FindCurrentChildOfTypeByPredicate<UNiagaraStackErrorItemDismiss>(CurrentChildren,
 			[&](UNiagaraStackErrorItemDismiss* CurrentChild) { return true; });
@@ -93,7 +103,7 @@ void UNiagaraStackErrorItemLongDescription::Initialize(FRequiredEntryData InRequ
 
 FText UNiagaraStackErrorItemLongDescription::GetDisplayName() const
 {
-	return StackIssue.LongDescription;
+	return StackIssue.GetLongDescription();
 }
 
 UNiagaraStackEntry::EStackRowStyle UNiagaraStackErrorItemLongDescription::GetStackRowStyle() const
@@ -113,18 +123,12 @@ void UNiagaraStackErrorItemFix::Initialize(FRequiredEntryData InRequiredEntryDat
 
 FText UNiagaraStackErrorItemFix::FixDescription() const
 {
-	if (IssueFix.Description.IsEmptyOrWhitespace())
-	{
-		ensureMsgf(false, TEXT("Fix description is empty or whitespace."));
-		return LOCTEXT("FixIssue", "Fix the issue");
-	}
-	return IssueFix.Description;
+	return IssueFix.GetDescription();
 }
 
 FReply UNiagaraStackErrorItemFix::OnTryFixError()
 {
-	ensureMsgf(IssueFix.FixDelegate.IsBound(), TEXT("Fix delegate is not bound!"));
-	IssueFix.FixDelegate.ExecuteIfBound();
+	IssueFix.GetFixDelegate().ExecuteIfBound();
 	OnIssueFixed().Broadcast();
 	return FReply::Handled();
 }
@@ -144,6 +148,11 @@ UNiagaraStackErrorItem::FOnIssueNotify& UNiagaraStackErrorItemFix::OnIssueFixed(
 	return IssueFixedDelegate;
 }
 
+void UNiagaraStackErrorItemFix::SetFixDelegate(const FStackIssueFixDelegate& InFixDelegate)
+{
+	IssueFix.SetFixDelegate(InFixDelegate);
+}
+
 //UNiagaraStackErrorItemDismiss
 
 void UNiagaraStackErrorItemDismiss::Initialize(FRequiredEntryData InRequiredEntryData, UNiagaraStackEntry::FStackIssue InStackIssue, FString InStackEditorDataKey)
@@ -151,22 +160,15 @@ void UNiagaraStackErrorItemDismiss::Initialize(FRequiredEntryData InRequiredEntr
 	FString ErrorStackEditorDataKey = FString::Printf(TEXT("Dismiss-%s"), *InStackEditorDataKey);
 	UNiagaraStackEntry::Initialize(InRequiredEntryData, ErrorStackEditorDataKey);
 	StackIssue = InStackIssue;
-	IssueFix.Description = LOCTEXT("DismissError", "Dismiss the issue without fixing (I know what I'm doing).");
+	IssueFix = FStackIssueFix(
+		LOCTEXT("DismissError", "Dismiss the issue without fixing (I know what I'm doing)."),
+		FStackIssueFixDelegate::CreateUObject(this, &UNiagaraStackErrorItemDismiss::DismissIssue));
 }
 
 void UNiagaraStackErrorItemDismiss::DismissIssue()
 {
 	GetStackEditorData().Modify();
-	GetStackEditorData().DismissStackIssue(StackIssue.UniqueIdentifier);
-}
-
-FReply UNiagaraStackErrorItemDismiss::OnTryFixError()
-{
-	ensureMsgf(IssueFixedDelegate.IsBound(), TEXT("Issue fixed delegate is not bound on the dismiss entry!"));
-	FScopedTransaction ScopedTransaction(LOCTEXT("DismissIssue", "Dismiss issue"));
-	DismissIssue();
-	OnIssueFixed().Broadcast();
-	return FReply::Handled();
+	GetStackEditorData().DismissStackIssue(StackIssue.GetUniqueIdentifier());
 }
 
 UNiagaraStackEntry::EStackRowStyle UNiagaraStackErrorItemDismiss::GetStackRowStyle() const

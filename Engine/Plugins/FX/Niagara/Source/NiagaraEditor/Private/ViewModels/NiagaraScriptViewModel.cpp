@@ -391,6 +391,11 @@ TSharedRef<FNiagaraMetaDataCollectionViewModel> FNiagaraScriptViewModel::GetMeta
 	return MetaDataCollectionViewModel;
 }
 
+void FNiagaraScriptViewModel::RefreshMetadataCollection()
+{
+	MetaDataCollectionViewModel->RequestRefresh();
+}
+
 TSharedRef<FNiagaraScriptGraphViewModel> FNiagaraScriptViewModel::GetGraphViewModel()
 {
 	return GraphViewModel;

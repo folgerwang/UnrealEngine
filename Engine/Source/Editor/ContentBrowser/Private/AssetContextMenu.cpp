@@ -39,6 +39,7 @@
 #include "SAssetView.h"
 #include "ContentBrowserModule.h"
 #include "Dialogs/Dialogs.h"
+#include "SMetaDataView.h"
 
 #include "ObjectTools.h"
 #include "PackageTools.h"
@@ -513,8 +514,8 @@ void FAssetContextMenu::MakeAssetActionsSubMenu(FMenuBuilder& MenuBuilder)
 
 		// Create Metadata menu
 		MenuBuilder.AddMenuEntry(
-			LOCTEXT("ShowAssetMetaData", "Show Meta-data"),
-			LOCTEXT("ShowAssetMetaDataTooltip", "Show the asset meta-data dialog."),
+			LOCTEXT("ShowAssetMetaData", "Show Metadata"),
+			LOCTEXT("ShowAssetMetaDataTooltip", "Show the asset metadata dialog."),
 			FSlateIcon(),
 			FUIAction(
 				FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteShowAssetMetaData),
@@ -1781,47 +1782,36 @@ void FAssetContextMenu::ExecutePropertyMatrix()
 
 void FAssetContextMenu::ExecuteShowAssetMetaData()
 {
-	bool bFirstAsset = true;
-	FString OutputValue;
-
 	for (const FAssetData& AssetData : SelectedAssets)
 	{
 		UObject* Asset = AssetData.GetAsset();
 		if (Asset)
 		{
-			if (!bFirstAsset)
-			{
-				OutputValue.Append(TEXT("\n\n"));
-			}
-			bFirstAsset = false;
-
-			OutputValue.Append(*Asset->GetPathName());
-
 			TMap<FName, FString>* TagValues = UMetaData::GetMapForObject(Asset);
 			if (TagValues)
 			{
-				for (TMap<FName, FString>::TIterator It(*TagValues); It; ++It)
-				{
-					OutputValue.Append(TEXT("\n  "));
-					OutputValue.Append(It.Key().ToString());
-					OutputValue.Append(TEXT(": "));
-					OutputValue.Append(It.Value());
-				}
-			}
-			else
-			{
-				OutputValue.Append(TEXT("\n  "));
-				OutputValue.Append(NSLOCTEXT("AssetContextMenu", "ShowMetaData", "No meta-data found.").ToString());
+				// Create and display a resizable window to display the MetaDataView for each asset with metadata
+				FString Title = FString::Printf(TEXT("Metadata: %s"), *AssetData.AssetName.ToString());
+
+				TSharedPtr< SWindow > Window = SNew(SWindow)
+					.Title(FText::FromString(Title))
+					.SupportsMaximize(false)
+					.SupportsMinimize(false)
+					.MinWidth(500.0f)
+					.MinHeight(250.0f)
+					[
+						SNew(SBorder)
+						.Padding(4.f)
+						.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+						[
+							SNew(SMetaDataView, *TagValues)
+						]
+					];
+
+				FSlateApplication::Get().AddWindow(Window.ToSharedRef());
 			}
 		}
 	}
-
-	SGenericDialogWidget::OpenDialog(
-		NSLOCTEXT("AssetContextMenu", "ShowMetaData", "Show Meta-data"),
-		SNew(SMultiLineEditableTextBox)
-			.Text(FText::FromString(OutputValue))
-			.IsReadOnly(true)
-	);
 }
 
 void FAssetContextMenu::ExecuteEditAsset()

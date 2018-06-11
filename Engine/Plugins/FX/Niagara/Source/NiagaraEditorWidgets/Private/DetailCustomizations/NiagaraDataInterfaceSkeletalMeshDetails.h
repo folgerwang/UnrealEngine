@@ -24,6 +24,7 @@ public:
 	static TSharedRef<IDetailCustomization> MakeInstance();
 
 private:
+	void OnInterfaceChanged();
 	void OnDataChanged();
 	TArray<TSharedPtr<FName>> GenerateSourceArray();
 

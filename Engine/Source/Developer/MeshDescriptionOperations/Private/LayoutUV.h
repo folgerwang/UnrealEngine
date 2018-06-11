@@ -81,6 +81,7 @@ namespace MeshDescriptionOp
 		TArray< FMeshChart >	Charts;
 		float					TotalUVArea;
 		float					MaxChartSize;
+		TArray< int32 >			RemapVerts;
 
 		FAllocator2D		LayoutRaster;
 		FAllocator2D		ChartRaster;
@@ -93,8 +94,8 @@ namespace MeshDescriptionOp
 
 	inline bool FLayoutUV::PositionsMatch(uint32 a, uint32 b) const
 	{
-		const FVertexInstanceID VertexInstanceIDA(a);
-		const FVertexInstanceID VertexInstanceIDB(b);
+		const FVertexInstanceID VertexInstanceIDA(RemapVerts[a]);
+		const FVertexInstanceID VertexInstanceIDB(RemapVerts[b]);
 		const FVertexID VertexIDA = MeshDescription->GetVertexInstanceVertex(VertexInstanceIDA);
 		const FVertexID VertexIDB = MeshDescription->GetVertexInstanceVertex(VertexInstanceIDB);
 
@@ -113,8 +114,8 @@ namespace MeshDescriptionOp
 			return true;
 		}
 
-		const FVertexInstanceID VertexInstanceIDA(a);
-		const FVertexInstanceID VertexInstanceIDB(b);
+		const FVertexInstanceID VertexInstanceIDA(RemapVerts[a]);
+		const FVertexInstanceID VertexInstanceIDB(RemapVerts[b]);
 
 		const TVertexInstanceAttributeArray<FVector>& VertexNormals = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
 		return VertexNormals[VertexInstanceIDA].Equals(VertexNormals[VertexInstanceIDB], THRESH_NORMALS_ARE_SAME);
@@ -130,8 +131,8 @@ namespace MeshDescriptionOp
 			return true;
 		}
 
-		const FVertexInstanceID VertexInstanceIDA(a);
-		const FVertexInstanceID VertexInstanceIDB(b);
+		const FVertexInstanceID VertexInstanceIDA(RemapVerts[a]);
+		const FVertexInstanceID VertexInstanceIDB(RemapVerts[b]);
 
 		const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, SrcChannel);
 		return VertexUVs[VertexInstanceIDA].Equals(VertexUVs[VertexInstanceIDB], GetUVEqualityThreshold());
@@ -150,7 +151,7 @@ namespace MeshDescriptionOp
 		FVector2D UVs[3];
 		for (int k = 0; k < 3; k++)
 		{
-			UVs[k] = VertexUVs[FVertexInstanceID((3 * Tri) + k)];
+			UVs[k] = VertexUVs[FVertexInstanceID(RemapVerts[(3 * Tri) + k])];
 		}
 
 		FVector2D EdgeUV1 = UVs[1] - UVs[0];

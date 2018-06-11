@@ -64,7 +64,12 @@ void SNiagaraGraphNodeInput::Construct(const FArguments& InArgs, UEdGraphNode* I
 bool SNiagaraGraphNodeInput::IsNameReadOnly() const
 {
 	const UNiagaraNodeInput* InputNode = CastChecked<UNiagaraNodeInput>(GraphNode);
-	return InputNode->Usage != ENiagaraInputNodeUsage::Parameter;
+	if (InputNode->Usage == ENiagaraInputNodeUsage::Parameter ||
+		InputNode->Usage == ENiagaraInputNodeUsage::RapidIterationParameter)
+	{
+		return false;
+	}
+	return true;
 }
 
 void SNiagaraGraphNodeInput::RequestRenameOnSpawn()

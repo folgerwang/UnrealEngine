@@ -187,6 +187,11 @@ FNiagaraTypeDefinition FNiagaraStackFunctionInputBinder::GetInputType() const
 	return InputType;
 }
 
+UNiagaraNodeFunctionCall* FNiagaraStackFunctionInputBinder::GetFunctionCallNode() const
+{
+	return FunctionCallNode.Get();
+}
+
 TArray<uint8> FNiagaraStackFunctionInputBinder::GetData() const
 {
 	checkf(Script.IsValid(), TEXT("Bound script is not valid"));

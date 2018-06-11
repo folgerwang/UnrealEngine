@@ -34,7 +34,8 @@ public class MixedRealityCaptureFramework : ModuleRules
                 "MediaUtils",
 				"RenderCore",
                 "OpenCVHelper",
-                "OpenCV"
+                "OpenCV",
+				"OpenCVLensDistortion",
 			}
 		);
 

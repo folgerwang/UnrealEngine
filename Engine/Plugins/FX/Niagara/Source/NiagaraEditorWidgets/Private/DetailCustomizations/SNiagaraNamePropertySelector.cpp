@@ -15,8 +15,8 @@ void SNiagaraNamePropertySelector::Construct(const FArguments& InArgs, TSharedRe
 {
 	PropertyHandle = InBaseProperty;
 	OptionsSourceList = InOptionsSource;
-	
 	GenerateFilteredElementList(CurrentSearchString.ToString());
+
 	SAssignNew(ElementsListView, SListView<TSharedPtr<FName>>)
 		.ListItemsSource(&FilteredSourceList)
 		.OnSelectionChanged(this, &SNiagaraNamePropertySelector::OnSelectionChanged)
@@ -109,7 +109,8 @@ void SNiagaraNamePropertySelector::GenerateFilteredElementList(const FString& In
 {
 	if (InSearchText.IsEmpty())
 	{
-		FilteredSourceList = OptionsSourceList;
+		FilteredSourceList.Empty();
+		FilteredSourceList.Append(OptionsSourceList);
 	}
 	else
 	{

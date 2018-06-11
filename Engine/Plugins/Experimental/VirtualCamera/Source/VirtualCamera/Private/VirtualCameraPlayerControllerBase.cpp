@@ -5,6 +5,9 @@
 #include "Features/IModularFeatures.h"
 #include "IXRTrackingSystem.h"
 #include "RemoteSession/RemoteSession.h"
+#include "RemoteSession/Channels/RemoteSessionInputChannel.h"
+#include "RemoteSession/Channels/RemoteSessionFrameBufferChannel.h"
+#include "RemoteSession/Channels/RemoteSessionXRTrackingChannel.h"
 #include "SteamVRFunctionLibrary.h"
 
 AVirtualCameraPlayerControllerBase::AVirtualCameraPlayerControllerBase(const FObjectInitializer& ObjectInitializer)
@@ -42,9 +45,15 @@ void AVirtualCameraPlayerControllerBase::BeginPlay()
 		LevelSequencePlaybackController->OnStop.Add(OnStop);
 	}
 
-	if (IRemoteSessionModule* Viewer = FModuleManager::LoadModulePtr<IRemoteSessionModule>("RemoteSession"))
+	if (IRemoteSessionModule* RemoteSession = FModuleManager::LoadModulePtr<IRemoteSessionModule>("RemoteSession"))
 	{
-		Viewer->InitHost();
+        TMap<FString, ERemoteSessionChannelMode> RequiredChannels;
+        RequiredChannels.Add(FRemoteSessionFrameBufferChannel::StaticType(),ERemoteSessionChannelMode::Write);
+        RequiredChannels.Add(FRemoteSessionInputChannel::StaticType(),ERemoteSessionChannelMode::Read);
+        RequiredChannels.Add(FRemoteSessionXRTrackingChannel::StaticType(),ERemoteSessionChannelMode::Read);
+        
+        RemoteSession->SetSupportedChannels(RequiredChannels);
+		RemoteSession->InitHost();
 	}
 	
 	if (UVirtualCameraCineCameraComponent* CineCamera = GetVirtualCameraCineCameraComponent())

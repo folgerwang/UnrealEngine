@@ -44,7 +44,7 @@ protected:
 		FGuid UsageId;
 
 		TArray<FString> HlslByLines;
-		TSharedPtr<SMultiLineEditableText> Text;
+		TSharedPtr<SMultiLineEditableTextBox> Text;
 		TSharedPtr<SScrollBar> HorizontalScrollBar;
 		TSharedPtr<SScrollBar> VerticalScrollBar;
 		TSharedPtr<SVerticalBox> Container;

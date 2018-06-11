@@ -47,6 +47,11 @@ public:
 		return FText::Format(LOCTEXT("AddParameterActionDescriptionFormat", "Create a new {0} parameter."), GetDisplayName());
 	}
 
+	virtual FText GetKeywords() const override
+	{
+		return FText();
+	}
+
 private:
 	FNiagaraVariable NewParameterVariable;
 };
@@ -55,7 +60,7 @@ class FParameterStoreGroupAddUtiliites : public FNiagaraStackItemGroupAddUtiliti
 {
 public:
 	FParameterStoreGroupAddUtiliites(UObject& InParameterStoreOwner, FNiagaraParameterStore& InParameterStore, UNiagaraStackEditorData& InStackEditorData)
-		: FNiagaraStackItemGroupAddUtilities(LOCTEXT("ScriptGroupAddItemName", "Parameter"), EAddMode::AddFromAction, true, FOnItemAdded())
+		: FNiagaraStackItemGroupAddUtilities(LOCTEXT("ScriptGroupAddItemName", "Parameter"), EAddMode::AddFromAction, true)
 		, ParameterStoreOwner(InParameterStoreOwner)
 		, ParameterStore(InParameterStore)
 		, StackEditorData(InStackEditorData)
@@ -153,18 +158,18 @@ void UNiagaraStackParameterStoreItem::Initialize(
 		FNiagaraParameterStore::FOnChanged::FDelegate::CreateUObject(this, &UNiagaraStackParameterStoreItem::ParameterStoreChanged));
 }
 
-FText UNiagaraStackParameterStoreItem::GetDisplayName() const
-{
-	return LOCTEXT("ParameterItemDisplayName", "Parameters");
-}
-
-void UNiagaraStackParameterStoreItem::BeginDestroy()
+void UNiagaraStackParameterStoreItem::FinalizeInternal()
 {
 	if (Owner != nullptr)
 	{
 		ParameterStore->RemoveOnChangedHandler(ParameterStoreChangedHandle);
 	}
-	Super::BeginDestroy();
+	Super::FinalizeInternal();
+}
+
+FText UNiagaraStackParameterStoreItem::GetDisplayName() const
+{
+	return LOCTEXT("ParameterItemDisplayName", "Parameters");
 }
 
 void UNiagaraStackParameterStoreItem::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)
@@ -193,10 +198,7 @@ void UNiagaraStackParameterStoreItem::RefreshChildrenInternal(const TArray<UNiag
 
 void UNiagaraStackParameterStoreItem::ParameterStoreChanged()
 {
-	if (IsValid())
-	{
-		RefreshChildren();
-	}
+	RefreshChildren();
 }
 
 #undef LOCTEXT_NAMESPACE

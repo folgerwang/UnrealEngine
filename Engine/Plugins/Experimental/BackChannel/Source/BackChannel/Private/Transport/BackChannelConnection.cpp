@@ -297,7 +297,7 @@ bool FBackChannelConnection::WaitForConnection(double InTimeout, TFunction<bool(
 			{
 				TSharedRef<FInternetAddr> RemoteAddress = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
 
-				FSocket* ConnectionSocket = Socket->Accept(*RemoteAddress, TEXT("Incoming Connection"));
+				FSocket* ConnectionSocket = Socket->Accept(*RemoteAddress, TEXT("RemoteConnection"));
 
 				if (ConnectionSocket != nullptr)
 				{

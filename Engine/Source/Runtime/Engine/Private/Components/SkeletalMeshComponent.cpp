@@ -1527,7 +1527,9 @@ void USkeletalMeshComponent::ComputeRequiredBones(TArray<FBoneIndexType>& OutReq
 	{
 		check(BoneVisibilityStates.Num() == GetNumComponentSpaceTransforms());
         
-        if (BoneVisibilityStates.Num() >= OutRequiredBones.Num())
+		if (ensureMsgf(BoneVisibilityStates.Num() >= OutRequiredBones.Num(), 
+			TEXT("Skeletal Mesh asset '%s' has incorrect BoneVisibilityStates. # of BoneVisibilityStatese (%d), # of OutRequiredBones (%d)"), 
+			*SkeletalMesh->GetName(), BoneVisibilityStates.Num(), OutRequiredBones.Num()))
         {
             int32 VisibleBoneWriteIndex = 0;
             for (int32 i = 0; i < OutRequiredBones.Num(); ++i)
@@ -1548,11 +1550,7 @@ void USkeletalMeshComponent::ComputeRequiredBones(TArray<FBoneIndexType>& OutReq
                 OutRequiredBones.RemoveAt(VisibleBoneWriteIndex, NumBonesHidden);
             }
         }
-        else
-        {
-            UE_LOG(LogAnimation, Warning, TEXT("Skeletal Mesh asset '%s' has no BoneVisibilityStates"), *SkeletalMesh->GetName());
-        }
-	}
+ 	}
 
 	// Add in any bones that may be required when mirroring.
 	// JTODO: This is only required if there are mirroring nodes in the tree, but hard to know...
@@ -2550,6 +2548,11 @@ void USkeletalMeshComponent::SetDisablePostProcessBlueprint(bool bInDisablePostP
 	}
 
 	bDisablePostProcessBlueprint = bInDisablePostProcess;
+}
+
+void USkeletalMeshComponent::K2_SetAnimInstanceClass(class UClass* NewClass)
+{
+	SetAnimInstanceClass(NewClass);
 }
 
 void USkeletalMeshComponent::SetAnimInstanceClass(class UClass* NewClass)

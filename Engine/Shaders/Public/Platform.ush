@@ -71,6 +71,10 @@
 #define COMPILER_SUPPORTS_ATTRIBUTES 0
 #endif
 
+#ifndef PLATFORM_SUPPORTS_SRV_UB
+#define PLATFORM_SUPPORTS_SRV_UB 0
+#endif
+
 #ifndef SM5_PROFILE
 #define SM5_PROFILE 0
 #endif
@@ -138,6 +142,12 @@
 #endif
 #endif
 
+
+#if PLATFORM_SUPPORTS_SRV_UB
+#define PLATFORM_SUPPORTS_SRV_UB_MACRO(...) __VA_ARGS__
+#else
+#define PLATFORM_SUPPORTS_SRV_UB_MACRO(...)
+#endif
 
 // ---------------------------------------------------- Alternative floating point types
 
