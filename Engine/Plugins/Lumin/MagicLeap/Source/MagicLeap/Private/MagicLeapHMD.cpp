@@ -88,12 +88,6 @@ public:
 	{
 		FMagicLeapSDKDetection::DetectSDK();
 
-#if PLATFORM_LUMIN
-		// Append the command line environment enclosed within spaces as we can't set it in the
-		// environment. Note that any code accessing GCmdLine before appInit won't
-		// respect the command line environment additions.
-		FCommandLine::Append(TEXT(" \"-norhithread\""));
-#endif //PLATFORM_LUMIN
 
 		// Ideally, we should be able to query GetDefault<UMagicLeapSettings>()->bEnableZI directly.
 		// Unfortunately, the UObject system hasn't finished initialization when this module has been loaded.
