@@ -16,6 +16,16 @@
 
 #include <stdlib.h>
 #include "expat_external.h"
+//UE4 BEGIN
+#ifndef EXPAT_MANGLE
+#define EXPAT_MANGLE 0
+#endif
+
+#if EXPAT_MANGLE
+#include "expat_mangle.h"
+#endif
+//UE4 END
+ 
 
 #ifdef __cplusplus
 extern "C" {
