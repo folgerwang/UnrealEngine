@@ -947,6 +947,7 @@ void BuildMetalShaderOutput(
 	uint32 TypedBuffers,
 	uint32 InvariantBuffers,
 	uint32 TypedUAVs,
+	uint32 ConstantBuffers,
 	TArray<uint8> const& TypedBufferFormats,
 	bool bAllowFastIntriniscs
 	)
@@ -978,10 +979,10 @@ void BuildMetalShaderOutput(
 	const ANSICHAR* SideTableString = FCStringAnsi::Strstr(USFSource, "@SideTable: ");
 	
 	EShaderFrequency Frequency = (EShaderFrequency)ShaderOutput.Target.Frequency;
-	const bool bIsMobile = (ShaderInput.Target.Platform == SP_METAL_MRT);
+	const bool bIsMobile = (ShaderInput.Target.Platform == SP_METAL || ShaderInput.Target.Platform == SP_METAL_MRT);
 	bool bNoFastMath = ShaderInput.Environment.CompilerFlags.Contains(CFLAG_NoFastMath);
 	FString const* UsingWPO = ShaderInput.Environment.GetDefinitions().Find(TEXT("USES_WORLD_POSITION_OFFSET"));
-	if (UsingWPO && FString("1") == *UsingWPO && bIsMobile && Frequency == SF_Vertex)
+	if (UsingWPO && FString("1") == *UsingWPO && (ShaderInput.Target.Platform == SP_METAL_MRT) && Frequency == SF_Vertex)
 	{
 		// WPO requires that we make all multiply/sincos instructions invariant :(
 		bNoFastMath = true;
@@ -1001,6 +1002,7 @@ void BuildMetalShaderOutput(
 	Header.SourceLen = SourceCRCLen;
 	Header.SourceCRC = SourceCRC;
     Header.Bindings.bDiscards = false;
+	Header.Bindings.ConstantBuffers = ConstantBuffers;
 	if (Version >= 2)
 	{
 		Header.Bindings.TypedBufferFormats.SetNumZeroed(METAL_MAX_BUFFERS);

@@ -179,7 +179,10 @@ void FVulkanViewport::AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBac
 
 	// Submit here so we can add a dependency with the acquired semaphore
 	CmdBuffer->End();
-	CmdBuffer->AddWaitSemaphore(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, AcquiredSemaphore);
+	if (FVulkanPlatform::SupportsStandardSwapchain())
+	{
+		CmdBuffer->AddWaitSemaphore(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, AcquiredSemaphore);
+	}
 	Device->GetGraphicsQueue()->Submit(CmdBuffer);
 	CmdBufferManager->PrepareForNewActiveCommandBuffer();
 }
@@ -336,7 +339,7 @@ void FVulkanFramebuffer::Destroy(FVulkanDevice& Device)
 	for (int32 Index = 0; Index < AttachmentViewsToDelete.Num(); ++Index)
 	{
 		DEC_DWORD_STAT(STAT_VulkanNumImageViews);
-		Queue.EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::ImageView, AttachmentViews[Index]);
+		Queue.EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::ImageView, AttachmentViewsToDelete[Index]);
 	}
 
 	Queue.EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::Framebuffer, Framebuffer);
@@ -615,12 +618,12 @@ bool FVulkanViewport::Present(FVulkanCommandListContext* Context, FVulkanCmdBuff
 
 	CmdBuffer->End();
 
-	if (DelayAcquireBackBuffer())
-	{
-		CmdBuffer->AddWaitSemaphore(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, AcquiredSemaphore);
-	}
 	if (FVulkanPlatform::SupportsStandardSwapchain())
 	{
+		if (DelayAcquireBackBuffer())
+		{
+			CmdBuffer->AddWaitSemaphore(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, AcquiredSemaphore);
+		}
 		Queue->Submit(CmdBuffer, RenderingDoneSemaphores[AcquiredImageIndex]->GetHandle());
 	}
 	else

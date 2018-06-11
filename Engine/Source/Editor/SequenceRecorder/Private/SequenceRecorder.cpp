@@ -367,7 +367,7 @@ void FSequenceRecorder::Tick(float DeltaSeconds)
 			bool bAllFinished = true;
 			for(UActorRecording* Recording : QueuedRecordings)
 			{
-				if(Recording->IsRecording())
+				if(Recording->GetActorToRecord() && Recording->IsRecording())
 				{
 					bAllFinished = false;
 					break;
@@ -580,10 +580,20 @@ bool FSequenceRecorder::StartRecordingInternal(UWorld* World)
 
 	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
 
-	UWorld* ActorWorld = nullptr;
-	if(World != nullptr || (QueuedRecordings.Num() > 0 && QueuedRecordings[0]->GetActorToRecord() != nullptr))
+	UWorld* ActorWorld = World;
+	if(ActorWorld == nullptr)
 	{
-		ActorWorld = World != nullptr ? World : QueuedRecordings[0]->GetActorToRecord()->GetWorld();
+		for (auto QueuedRecording : QueuedRecordings)
+		{
+			if (QueuedRecording->GetActorToRecord() != nullptr)
+			{
+				if (QueuedRecording->GetActorToRecord()->GetWorld() != nullptr)
+				{
+					ActorWorld = QueuedRecording->GetActorToRecord()->GetWorld();
+					break;
+				}
+			}
+		}
 	}
 
 	if(Settings->bRecordWorldSettingsActor)

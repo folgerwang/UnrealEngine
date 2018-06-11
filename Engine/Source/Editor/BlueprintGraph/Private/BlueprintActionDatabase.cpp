@@ -1011,16 +1011,23 @@ static bool BlueprintActionDatabaseImpl::IsObjectValidForDatabase(UObject const*
  * FBlueprintActionDatabase
  ******************************************************************************/
 
+static FBlueprintActionDatabase* DatabaseInst = nullptr;
+
 //------------------------------------------------------------------------------
 FBlueprintActionDatabase& FBlueprintActionDatabase::Get()
 {
-	static FBlueprintActionDatabase* DatabaseInst = nullptr;
 	if (DatabaseInst == nullptr)
 	{
 		DatabaseInst = new FBlueprintActionDatabase();
 	}
 
 	return *DatabaseInst;
+}
+
+//------------------------------------------------------------------------------
+FBlueprintActionDatabase* FBlueprintActionDatabase::TryGet()
+{
+	return DatabaseInst;
 }
 
 //------------------------------------------------------------------------------
@@ -1527,14 +1534,11 @@ FBlueprintActionDatabase::FActionRegistry const& FBlueprintActionDatabase::GetAl
 void FBlueprintActionDatabase::RegisterAllNodeActions(FBlueprintActionDatabaseRegistrar& Registrar)
 {
 	// nodes may have actions they wish to add for this asset
-	for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
-	{
-		UClass* NodeClass = *ClassIt;
-		if (!NodeClass->IsChildOf<UK2Node>())
-		{
-			continue;
-		}
+	TArray<UClass*> NodeClassList;
+	GetDerivedClasses(UK2Node::StaticClass(), NodeClassList);
 
+	for (UClass* NodeClass : NodeClassList)
+	{
 		TGuardValue< TSubclassOf<UEdGraphNode> > ScopedNodeClass(Registrar.GeneratingClass, NodeClass);
 		BlueprintActionDatabaseImpl::GetNodeSpecificActions(NodeClass, Registrar);
 	}

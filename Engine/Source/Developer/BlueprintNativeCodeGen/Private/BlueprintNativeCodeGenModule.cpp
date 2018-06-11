@@ -799,7 +799,7 @@ UObject* FBlueprintNativeCodeGenModule::FindReplacedNameAndOuter(UObject* Object
 
 EReplacementResult FBlueprintNativeCodeGenModule::IsTargetedForReplacement(const UPackage* Package, const FCompilerNativizationOptions& NativizationOptions) const
 {
-	// non-native packages with enums and structs should be converted, unless they are blacklisted:
+	// non-native packages with enums and structs should be converted, unless they are exced:
 	UStruct* Struct = nullptr;
 	UEnum* Enum = nullptr;
 	GetFieldFormPackage(Package, Struct, Enum, RF_NoFlags);
@@ -1219,6 +1219,7 @@ void FBlueprintNativeCodeGenModule::FillPlatformNativizationDetails(const ITarge
 	Details.CompilerNativizationOptions.PlatformName = Details.PlatformName;
 	Details.CompilerNativizationOptions.ClientOnlyPlatform = Platform->IsClientOnly();
 	Details.CompilerNativizationOptions.ServerOnlyPlatform = Platform->IsServerOnly();
+	Details.CompilerNativizationOptions.bExcludeMonolithicHeaders = GetDefault<UProjectPackagingSettings>()->bExcludeMonolithicEngineHeadersInNativizedCode;
 
 	auto GatherExcludedStuff = [&](const TCHAR* KeyForExcludedModules, const TCHAR* KeyForExcludedPaths, const TCHAR* KeyForExcludedAssets)
 	{

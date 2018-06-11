@@ -42,6 +42,8 @@ void FSlateDynamicImageBrush::ReleaseResourceInternal()
 		bIsInitalized = false;
 		if (FSlateApplicationBase::IsInitialized())
 		{
+			ResourceHandle = FSlateResourceHandle();
+
 			UObject* Object = GetResourceObject();
 			// Brush resource is no longer referenced by this object
 			if (Object && bRemoveResourceFromRootSet)
@@ -53,7 +55,7 @@ void FSlateDynamicImageBrush::ReleaseResourceInternal()
 			{
 				Renderer->ReleaseDynamicResource(*this);
 			}
-			ResourceHandle = FSlateResourceHandle();
+
 		}
 	}
 }

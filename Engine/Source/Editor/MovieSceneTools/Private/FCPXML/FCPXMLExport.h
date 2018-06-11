@@ -53,68 +53,90 @@ public:
 	/** Creates master clip nodes. */
 	bool ConstructMasterClipNodes(TSharedRef<FFCPXMLNode> InParentNode);
 	/** Creates master clip node. */
-	bool ConstructMasterClipNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, int32 InMasterClipId);
+	bool ConstructMasterClipNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, const TSharedPtr<FMovieSceneExportCinematicMasterTrackData> InCinematicMasterTrackData);
+	/** Creates master clip node. */
+	bool ConstructMasterClipNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportAudioSectionData> InAudioSectionData, const TSharedPtr<FMovieSceneExportAudioMasterTrackData> InCinematicMasterTrackData);
 	/** Creates colorinfo node. */
-	bool ConstructColorInfoNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData);
+	bool ConstructColorInfoNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportSectionData> InSectionData);
 	/** Creates logginginfo node. */
-	bool ConstructSectionLoggingInfoNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, const FString& InSectionName);
+	bool ConstructLoggingInfoNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InSectionData);
+	/** Creates logginginfo node. */
+	bool ConstructLoggingInfoNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportAudioSectionData> InSectionData);
 	/** Creates sequence node. */
 	bool ConstructSequenceNode(TSharedRef<FFCPXMLNode> InParentNode);
 	/** Creates video node. */
 	bool ConstructVideoNode(TSharedRef<FFCPXMLNode> InParentNode);
 	/** Creates audio node. */
 	bool ConstructAudioNode(TSharedRef<FFCPXMLNode> InParentNode);
-	/** Creates cinematic track node. */
-	bool ConstructVideoTrackNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicTrackData> InCinematicTrackData);
+	/** Creates video track node. */
+	bool ConstructVideoTrackNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicTrackData> InCinematicTrackData, const TSharedPtr<FMovieSceneExportCinematicMasterTrackData> InCinematicMasterTrackData);
 	/** Creates audio track node. */
-	bool ConstructAudioTrackNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportAudioTrackData> InAudioTrackData);
+	bool ConstructAudioTrackNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportAudioTrackData> InAudioTrackData, const TSharedPtr<FMovieSceneExportAudioMasterTrackData> InAudioMasterTrackData, uint32 InTrackIndex, uint32 OutNumTracks);
 	/** Creates video clip item node. */
-	bool ConstructVideoClipItemNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, bool bInMasterClip);
+	bool ConstructVideoClipItemNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, const TSharedPtr<FMovieSceneExportCinematicMasterTrackData> InCinematicMasterTrackData, bool bInMasterClip);
 	/** Creates audio clip item node. */
-	bool ConstructAudioClipItemNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportAudioSectionData> InAudioSectionData);
+	bool ConstructAudioClipItemNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportAudioSectionData> InAudioSectionData, 
+		const TSharedPtr<FMovieSceneExportAudioMasterTrackData> InAudioMasterTrackData, int32 InChannel, bool bInMasterClip, 
+		const FString& InClipItemIdName1, const FString& InClipItemIdName2, int32 InClipIndex1, int32 InClipIndex2, int32 InTrackIndex1, int32 InTrackIndex2);
 	/** Creates video file node. */
-	bool ConstructVideoFileNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, uint32 Duration, bool bInMasterClip);
+	bool ConstructVideoFileNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, int32 InDuration, bool bInMasterClip);
 	/** Creates audio file node. */
-	bool ConstructAudioFileNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportAudioSectionData> InAudioSectionData);
-	/** Creates sample characteristics node */
-	bool ConstructSampleCharacteristicsNode(TSharedRef<FFCPXMLNode> InParentNode, int InWidth, int InHeight);
+	bool ConstructAudioFileNode(TSharedRef<FFCPXMLNode> InParentNode, const TSharedPtr<FMovieSceneExportAudioSectionData> InAudioSectionData, int32 InChannel);
+	/** Creates video sample characteristics node */
+	bool ConstructVideoSampleCharacteristicsNode(TSharedRef<FFCPXMLNode> InParentNode, int InWidth, int InHeight);
+	/** Creates audio video sample characteristics node */
+	bool ConstructAudioSampleCharacteristicsNode(TSharedRef<FFCPXMLNode> InParentNode, int InDepth, int InSampleRate);
 	/** Creates rate node. */
 	bool ConstructRateNode(TSharedRef<FFCPXMLNode> InParentNode);
 	/** Creates timecode node. */
 	bool ConstructTimecodeNode(TSharedRef<FFCPXMLNode> InParentNode);
 	/** Creates logginginfo elements. */
-	void ConstructLoggingInfoElements(TSharedRef<FFCPXMLNode> InLoggingInfoNode, const UObject* InObject) ;
+	void ConstructLoggingInfoElements(TSharedRef<FFCPXMLNode> InLoggingInfoNode, const UObject* InObject = nullptr);
 	/** Set logginginfo element value. */
-	void SetLoggingInfoElementValue(TSharedPtr<FFCPXMLNode> InNode, const UObject* InObject, const FString& InElement) ;
-	/** Get duration, start, end, in, out frames for a given shot section */
-	bool GetSectionFrames(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, int32& OutDuration, int32& OutStartFrame, int32& OutEndFrame, int32& OutInFrame, int32& OutOutFrame);
-	/** Get start and end frames for a given shot section */
-	//bool GetSectionStartEnd(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, int32& OutStartFrame, int32& OutEndFrame);
-	/** Get name of a given shot section */
-	bool GetSectionName(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, FString& OutSectionName);
+	void SetLoggingInfoElementValue(TSharedPtr<FFCPXMLNode> InNode, const UObject* InObject, const FString& InElement);
+	/** Get cinematic duration, start, end, in, out frames for a given cinematic shot section */
+	bool GetCinematicSectionFrames(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, int32& OutDuration, int32& OutStartFrame, int32& OutEndFrame, int32& OutInFrame, int32& OutOutFrame);
+	/** Get audio duration, start, end, in, out frames for a given cinematic shot section */
+	bool GetAudioSectionFrames(const TSharedPtr<FMovieSceneExportAudioSectionData> InAudioSectionData, int32& OutDuration, int32& OutStartFrame, int32& OutEndFrame, int32& OutInFrame, int32& OutOutFrame);
 
 private:
 
-	/** Construct a master clip id name based on input name and id */
-	bool CreateMasterClipIdName(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, uint32 InId, FString& OutName);
-	/** Get id name for given section and prefix */
-	bool GetIdName(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, FString InPrefix, FString &OutName);
-	/** Get master clip id name for given section */
-	bool GetMasterClipIdName(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, FString& OutName);
-	/** Get master clip's clipitem id name for given section */
-	bool GetMasterClipItemIdName(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, FString& OutName);
-	/** Get master clip's file id name based on input name and id */
-	bool GetMasterClipFileIdName(const TSharedPtr<FMovieSceneExportCinematicSectionData> InCinematicSectionData, FString& OutName);
-	/** Get the default image resolution */
-	void GetDefaultImageResolution(int32& OutWidth, int32& OutHeight);
-	/** Return filename with path */
-	FString GetFilePathName(const FString& InSectionName) const;
+	/** Has master clip id for given section */
+	bool HasMasterClipIdName(const TSharedPtr<FMovieSceneExportSectionData> InSection, FString& OutName, bool& bOutMasterClipExists);
+	/** Get master clip id name for section */
+	bool GetMasterClipIdName(const TSharedPtr<FMovieSceneExportSectionData> InSection, FString& OutName);
+	/** Get file id name for section, adds to file map if a new id name is created */
+	bool GetFileIdName(const TSharedPtr<FMovieSceneExportSectionData> InSection, FString& OutName, bool& bFileExists);
+	/** Get next clip item name */
+	void GetNextClipItemIdName(FString& OutName);
+
+	/** Compose key for section file */
+	bool ComposeFileKey(const TSharedPtr<FMovieSceneExportSectionData> InSection, FString& OutName);
+
+	/** Returns true if audio track data contains sections with 2 channels */
+	bool HasStereoAudioSections(const  TArray<TSharedPtr<FMovieSceneExportAudioSectionData>>& InAudioTrackData) const;
+
+	/** Get metadata section name from sequencer shot name - format is "[UE4Section=sectionobjectname]", whitespace ok. */
+	bool CreateCinematicSectionMetadata(const UMovieSceneCinematicShotSection* InSection, FString& OutMetadata) const;
+	/** Get metadata section name from sequencer shot name - format is "[UE4SoundWave=soundwaveobjectname]", whitespace ok. */
+	bool CreateSoundWaveMetadata(const USoundWave* InSoundWave, const TArray<const UMovieSceneAudioSection*> InAudioSections, FString& OutMetadata) const;
+	/** Get id for audio top level section */
+	static FString GetAudioSectionTopLevelName(const UMovieSceneAudioSection* InAudioSection);
+	/** Get audio section group name */
+	static FString GetAudioSectionName(const UMovieSceneSection* InAudioSection);
 
 private:
 
 	TSharedRef<FMovieSceneExportData> ExportData;
 	TSharedRef<FMovieSceneTranslatorContext> ExportContext;
 	FString SaveFilePath;
-	TMap<FString, uint32> MasterClipIdMap;
 	uint32 SequenceId;
+	uint32 MasterClipId;
+	uint32 ClipItemId;
+	uint32 FileId;
+
+	/** Map section's unique key string to the id used for masterclip element names */
+	TMap<FString, uint32> MasterClipIdMap;
+	/** Map section's source file name to its file element name */
+	TMap<FString, uint32> FileIdMap;
 };

@@ -12,5 +12,5 @@ UMrcCalibrationSaveGame::UMrcCalibrationSaveGame(const FObjectInitializer& Objec
 {
 	SaveSlotName = TEXT("MrcCalibration");
 	UserIndex = 0;
-	ConfigurationSaveVersion = 0;
+	ConfigurationSaveVersion = 1;
 }

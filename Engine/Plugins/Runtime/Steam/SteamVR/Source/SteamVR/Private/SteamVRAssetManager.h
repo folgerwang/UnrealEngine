@@ -31,6 +31,7 @@ protected:
 	struct FAsyncLoadData
 	{
 		TWeakObjectPtr<UProceduralMeshComponent> ComponentPtr;
+		FString LoadedModelName;
 	};
 	void OnMeshLoaded(int32 SubMeshIndex, const FSteamVRMeshData& MeshData, UTexture2D* DiffuseTex, FAsyncLoadData LoadData);
 	void OnComponentLoadComplete(TWeakObjectPtr<UProceduralMeshComponent> ComponentPtr, FXRComponentLoadComplete LoadCompleteCallback);

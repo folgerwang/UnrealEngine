@@ -120,18 +120,14 @@ FMetalRHIBuffer::FMetalRHIBuffer(uint32 InSize, uint32 InUsage, ERHIResourceType
 		
 		if (InUsage & EMetalBufferUsage_LinearTex)
 		{
-			if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures) && (InUsage & (BUF_UnorderedAccess|BUF_ShaderResource)))
-			{
-				AllocSize = Align(InSize, 1024);
-			}
-			
 			if ((InUsage & BUF_UnorderedAccess) && ((InSize - AllocSize) < 512))
 			{
 				// Padding for write flushing when not using linear texture bindings for buffers
 				AllocSize = Align(AllocSize + 512, 1024);
 			}
 			
-			if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures) && (InUsage & (BUF_UnorderedAccess)))
+			if ((FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures) && (InUsage & (BUF_ShaderResource)))
+			|| (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextureUAVs) && (InUsage & (BUF_UnorderedAccess))))
 			{
 				uint32 NumElements = AllocSize;
 				uint32 SizeX = NumElements;
@@ -155,6 +151,8 @@ FMetalRHIBuffer::FMetalRHIBuffer(uint32 InSize, uint32 InUsage, ERHIResourceType
 						SizeX = NumElements;
 					}
 				}
+				
+				AllocSize = Align(AllocSize, 1024);
 			}
 		}
 		

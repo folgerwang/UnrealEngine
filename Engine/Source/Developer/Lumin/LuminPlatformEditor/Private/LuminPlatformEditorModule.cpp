@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "LuminTargetSettingsDetails.h"
 #include "LuminRuntimeSettings.h"
 #include "Modules/ModuleInterface.h"

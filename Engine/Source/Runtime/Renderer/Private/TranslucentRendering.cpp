@@ -1231,7 +1231,7 @@ void CreateTranslucentBasePassUniformBuffer(
 	FSceneRenderTargets& SceneRenderTargets = FSceneRenderTargets::Get(RHICmdList);
 
 	FTranslucentBasePassUniformParameters BasePassParameters;
-	SetupSharedBasePassParameters(View, SceneRenderTargets, BasePassParameters.Shared);
+	SetupSharedBasePassParameters(RHICmdList, View, SceneRenderTargets, BasePassParameters.Shared);
 
 	{
 		SetupSceneTextureUniformParameters(SceneRenderTargets, View.FeatureLevel, SceneTextureSetupMode, BasePassParameters.SceneTextures);

@@ -1447,15 +1447,19 @@ void FSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, b
 				}
 			}
 
-			FRHIRenderPassInfo RPInfo(
-				bUseDownsampledDepth ? SceneContext.GetSmallDepthSurface() : SceneContext.GetSceneDepthSurface(),
-				NumQueriesForBatch,
-				EDepthStencilTargetActions::LoadDepthStencil_StoreStencilNotDepth,
-				nullptr,
-				FExclusiveDepthStencil::DepthRead_StencilWrite
-			);
+			// On mobile occlusion queries are done in base pass
+			if (FeatureLevel > ERHIFeatureLevel::ES3_1)
+			{
+				FRHIRenderPassInfo RPInfo(
+					bUseDownsampledDepth ? SceneContext.GetSmallDepthSurface() : SceneContext.GetSceneDepthSurface(),
+					NumQueriesForBatch,
+					EDepthStencilTargetActions::LoadDepthStencil_StoreStencilNotDepth,
+					nullptr,
+					FExclusiveDepthStencil::DepthRead_StencilWrite
+				);
 
-			RHICmdList.BeginRenderPass(RPInfo, TEXT("OcclusionQueries"));
+				RHICmdList.BeginRenderPass(RPInfo, TEXT("OcclusionQueries"));
+			}
 
 			FGraphicsPipelineStateInitializer GraphicsPSOInit;
 			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
@@ -1544,7 +1548,11 @@ void FSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, b
 				}
 			}
 			
-			RHICmdList.EndRenderPass();
+			// On mobile occlusion queries are done in base pass
+			if (FeatureLevel > ERHIFeatureLevel::ES3_1)
+			{
+				RHICmdList.EndRenderPass();
+			}
 			
 			if (bUseDownsampledDepth)
 			{

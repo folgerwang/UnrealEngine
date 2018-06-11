@@ -100,7 +100,7 @@ void FHTML5InputInterface::Tick(float DeltaTime, const SDL_Event& Event,TSharedR
 				const SDL_Keycode KeyCode = KeyEvent.keysym.scancode;
 				const bool bIsRepeated = KeyEvent.repeat != 0;
 
-				if ( KeyCode != 227 && KeyCode != 231 ) // UE-54056 -- filtering out Windows/Super key
+				if ( KeyCode != SDL_SCANCODE_F5 ) // UE-58440 -- note: this will be removed when new toolchain comes in
 				{
 					// First KeyDown, then KeyChar. This is important, as in-game console ignores first character otherwise
 					MessageHandler->OnKeyDown(KeyCode, KeyEvent.keysym.sym, bIsRepeated);
@@ -123,7 +123,10 @@ void FHTML5InputInterface::Tick(float DeltaTime, const SDL_Event& Event,TSharedR
 				const SDL_Keycode KeyCode = keyEvent.keysym.scancode;
 				const bool IsRepeat = keyEvent.repeat != 0;
 
-				MessageHandler->OnKeyUp( KeyCode, keyEvent.keysym.sym, IsRepeat );
+				if ( KeyCode != SDL_SCANCODE_F5 ) // UE-58440 -- note: this will be removed when new toolchain comes in
+				{
+					MessageHandler->OnKeyUp( KeyCode, keyEvent.keysym.sym, IsRepeat );
+				}
 				UE_LOG(LogHTML5Input, Verbose, TEXT("KeyUp Code:%d"), KeyCode);
 			}
 			break;

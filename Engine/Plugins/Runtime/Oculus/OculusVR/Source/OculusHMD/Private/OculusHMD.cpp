@@ -935,7 +935,17 @@ namespace OculusHMD
 
 		FGameFrame* const CurrentGameFrame = Frame.Get();
 
-		if (!InWorldContext.World() || (!(GEnableVREditorHacks && InWorldContext.WorldType == EWorldType::Editor) && !InWorldContext.World()->IsGameWorld()) || !CurrentGameFrame)
+		if (CurrentGameFrame)
+		{
+			// don't use the cached value, as it could be affected by the player's position, so we update it here at the latest point in the game frame
+			CurrentGameFrame->TrackingToWorld = ComputeTrackingToWorldTransform(InWorldContext);
+		}
+		else
+		{
+			return false;
+		}
+
+		if ( !InWorldContext.World() || (!(GEnableVREditorHacks && InWorldContext.WorldType == EWorldType::Editor) && !InWorldContext.World()->IsGameWorld()) )
 		{
 			// ignore all non-game worlds
 			return false;
@@ -1417,7 +1427,7 @@ namespace OculusHMD
 	}
 
 	FIntRect FOculusHMD::GetFullFlatEyeRect_RenderThread(FTexture2DRHIRef EyeTexture) const
-			{
+	{
 		check(IsInRenderingThread());
 		// Rift does this differently than other platforms, it already has an idea of what rectangle it wants to use stored.
 		FIntRect& EyeRect = Settings_RenderThread->EyeRenderViewport[0];
@@ -1488,7 +1498,8 @@ namespace OculusHMD
 	{
 		CheckInGameThread();
 
-		return Settings->IsStereoEnabled() && bNeedReAllocateViewportRenderTarget;
+		return ensureMsgf(Settings.IsValid(), TEXT("Unexpected issue with Oculus settings on the GameThread. This should be valid when this is called in EnqueueBeginRenderFrame() - has the callsite changed?")) &&
+			Settings->IsStereoEnabled() && bNeedReAllocateViewportRenderTarget;
 	}
 
 
@@ -1496,7 +1507,8 @@ namespace OculusHMD
 	{
 		CheckInRenderThread();
 
-		return Settings_RenderThread->IsStereoEnabled() && bNeedReAllocateDepthTexture_RenderThread;
+		return ensureMsgf(Settings_RenderThread.IsValid(), TEXT("Unexpected issue with Oculus settings on the RenderThread. This should be valid when this is called in AllocateCommonDepthTargets() - has the callsite changed?")) &&
+			Settings_RenderThread->IsStereoEnabled() && bNeedReAllocateDepthTexture_RenderThread;
 	}
 
 

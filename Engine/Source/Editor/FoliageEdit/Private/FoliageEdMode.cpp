@@ -1078,7 +1078,7 @@ void FEdModeFoliage::GetRandomVectorInBrush(FVector& OutStart, FVector& OutEnd)
 	FVector Point = Ru * U + Rv * V;
 
 	// find distance to surface of sphere brush from this point
-	FVector Rw = FMath::Sqrt(1.f - (FMath::Square(Ru) + FMath::Square(Rv))) * BrushNormal;
+	FVector Rw = FMath::Sqrt(FMath::Max(1.f - (FMath::Square(Ru) + FMath::Square(Rv)), 0.001f)) * BrushNormal;
 
 	OutStart = BrushLocation + UISettings.GetRadius() * (Point + Rw);
 	OutEnd = BrushLocation + UISettings.GetRadius() * (Point - Rw);
@@ -1398,7 +1398,11 @@ void FEdModeFoliage::CalculatePotentialInstances(const UWorld* InWorld, const UF
 			float HitWeight = 1.f;
 
 			UPrimitiveComponent* InstanceBase = Hit.GetComponent();
-			check(InstanceBase);
+
+			if (InstanceBase == nullptr)
+			{
+				continue;
+			}
 
 			ULevel* TargetLevel = InstanceBase->GetComponentLevel();
 			// We can paint into new level only if FoliageType is shared
@@ -1814,6 +1818,7 @@ void FEdModeFoliage::TransformSelectedInstances(UWorld* InWorld, const FVector& 
 					if (bDuplicate)
 					{
 						MeshInfo.DuplicateInstances(IFA, MeshPair.Key, SelectedIndices);
+						OnInstanceCountUpdated(MeshPair.Key);
 					}
 
 					MeshInfo.PreMoveInstances(IFA, SelectedIndices);
@@ -2976,10 +2981,12 @@ void FEdModeFoliage::PopulateFoliageMeshList()
 						ElementIdx = FoliageMeshList.Add(MakeShareable(new FFoliageMeshUIInfo(MeshPair.Key)));
 					}
 
-					FoliageMeshList[ElementIdx]->InstanceCountTotal += MeshPair.Value->GetInstanceCount();
+					int32 PlacedInstanceCount = MeshPair.Value->GetPlacedInstanceCount();
+					FoliageMeshList[ElementIdx]->InstanceCountTotal += PlacedInstanceCount;
+
 					if (Level == World->GetCurrentLevel())
 					{
-						FoliageMeshList[ElementIdx]->InstanceCountCurrentLevel += MeshPair.Value->GetInstanceCount();
+						FoliageMeshList[ElementIdx]->InstanceCountCurrentLevel += PlacedInstanceCount;
 					}
 				}
 			}

@@ -38,6 +38,7 @@ namespace AutomationTool
 
 		class BuildActionExecutor
 		{
+			public ManagedProcessGroup ProcessGroup;
 			public BuildAction Action;
 			public List<string> LogLines = new List<string>();
 			public int ExitCode = -1;
@@ -45,8 +46,9 @@ namespace AutomationTool
 			private AutoResetEvent CompletedEvent;
 			private List<BuildActionExecutor> CompletedActions;
 
-			public BuildActionExecutor(BuildAction InAction, AutoResetEvent InCompletedEvent, List<BuildActionExecutor> InCompletedActions)
+			public BuildActionExecutor(ManagedProcessGroup InProcessGroup, BuildAction InAction, AutoResetEvent InCompletedEvent, List<BuildActionExecutor> InCompletedActions)
 			{
+				ProcessGroup = InProcessGroup;
 				Action = InAction;
 				CompletedEvent = InCompletedEvent;
 				CompletedActions = InCompletedActions;
@@ -59,7 +61,7 @@ namespace AutomationTool
 					LogLines.Add(Action.OutputPrefix);
 				}
 
-				using(ManagedProcess Process = new ManagedProcess(Action.ToolPath, Action.ToolArguments, Action.WorkingDirectory, Action.Environment, null, ManagedProcessPriority.BelowNormal))
+				using(ManagedProcess Process = new ManagedProcess(ProcessGroup, Action.ToolPath, Action.ToolArguments, Action.WorkingDirectory, Action.Environment, null, ManagedProcessPriority.BelowNormal))
 				{
 					LogLines.AddRange(Process.ReadAllLines());
 					ExitCode = Process.ExitCode;
@@ -103,83 +105,86 @@ namespace AutomationTool
 				Dictionary<BuildActionExecutor, Thread> ExecutingActions = new Dictionary<BuildActionExecutor,Thread>();
 				List<BuildActionExecutor> CompletedActions = new List<BuildActionExecutor>();
 
-				using(AutoResetEvent CompletedEvent = new AutoResetEvent(false))
+				using(ManagedProcessGroup ProcessGroup = new ManagedProcessGroup())
 				{
-					while(QueuedActions.Count > 0 || ExecutingActions.Count > 0)
+					using(AutoResetEvent CompletedEvent = new AutoResetEvent(false))
 					{
-						// Sort the actions by the number of things dependent on them
-						QueuedActions.Sort((A, B) => (A.TotalDependants == B.TotalDependants)? (B.SortIndex - A.SortIndex) : (B.TotalDependants - A.TotalDependants));
-
-						// Create threads up to the maximum number of actions
-						while(ExecutingActions.Count < MaxProcesses && QueuedActions.Count > 0)
+						while(QueuedActions.Count > 0 || ExecutingActions.Count > 0)
 						{
-							BuildAction Action = QueuedActions[QueuedActions.Count - 1];
-							QueuedActions.RemoveAt(QueuedActions.Count - 1);
+							// Sort the actions by the number of things dependent on them
+							QueuedActions.Sort((A, B) => (A.TotalDependants == B.TotalDependants)? (B.SortIndex - A.SortIndex) : (B.TotalDependants - A.TotalDependants));
 
-							BuildActionExecutor ExecutingAction = new BuildActionExecutor(Action, CompletedEvent, CompletedActions);
-
-							Thread ExecutingThread = new Thread(() => { ExecutingAction.Run(); });
-							ExecutingThread.Name = String.Format("Build:{0}", Action.Caption);
-							ExecutingThread.Start();
-
-							ExecutingActions.Add(ExecutingAction, ExecutingThread);
-						}
-
-						// Wait for something to finish
-						CompletedEvent.WaitOne();
-
-						// Wait for something to finish and flush it to the log
-						lock(CompletedActions)
-						{
-							foreach(BuildActionExecutor CompletedAction in CompletedActions)
+							// Create threads up to the maximum number of actions
+							while(ExecutingActions.Count < MaxProcesses && QueuedActions.Count > 0)
 							{
-								// Join the thread
-								Thread CompletedThread = ExecutingActions[CompletedAction];
-								CompletedThread.Join();
-								ExecutingActions.Remove(CompletedAction);
+								BuildAction Action = QueuedActions[QueuedActions.Count - 1];
+								QueuedActions.RemoveAt(QueuedActions.Count - 1);
 
-								// Write it to the log
-								if(CompletedAction.LogLines.Count > 0)
-								{
-									if(CurrentPrefix != CompletedAction.Action.GroupPrefix)
-									{
-										CurrentPrefix = CompletedAction.Action.GroupPrefix;
-										CommandUtils.Log(CurrentPrefix);
-									}
-									foreach(string LogLine in CompletedAction.LogLines)
-									{
-										CommandUtils.Log(LogLine);
-									}
-								}
+								BuildActionExecutor ExecutingAction = new BuildActionExecutor(ProcessGroup, Action, CompletedEvent, CompletedActions);
 
-								// Check the exit code
-								if(CompletedAction.ExitCode == 0)
+								Thread ExecutingThread = new Thread(() => { ExecutingAction.Run(); });
+								ExecutingThread.Name = String.Format("Build:{0}", Action.Caption);
+								ExecutingThread.Start();
+
+								ExecutingActions.Add(ExecutingAction, ExecutingThread);
+							}
+
+							// Wait for something to finish
+							CompletedEvent.WaitOne();
+
+							// Wait for something to finish and flush it to the log
+							lock(CompletedActions)
+							{
+								foreach(BuildActionExecutor CompletedAction in CompletedActions)
 								{
-									// Mark all the dependents as done
-									foreach(BuildAction DependantAction in CompletedAction.Action.Dependants)
+									// Join the thread
+									Thread CompletedThread = ExecutingActions[CompletedAction];
+									CompletedThread.Join();
+									ExecutingActions.Remove(CompletedAction);
+
+									// Write it to the log
+									if(CompletedAction.LogLines.Count > 0)
 									{
-										if(--DependantAction.MissingDependencyCount == 0)
+										if(CurrentPrefix != CompletedAction.Action.GroupPrefix)
 										{
-											QueuedActions.Add(DependantAction);
+											CurrentPrefix = CompletedAction.Action.GroupPrefix;
+											CommandUtils.Log(CurrentPrefix);
+										}
+										foreach(string LogLine in CompletedAction.LogLines)
+										{
+											CommandUtils.Log(LogLine);
+										}
+									}
+
+									// Check the exit code
+									if(CompletedAction.ExitCode == 0)
+									{
+										// Mark all the dependents as done
+										foreach(BuildAction DependantAction in CompletedAction.Action.Dependants)
+										{
+											if(--DependantAction.MissingDependencyCount == 0)
+											{
+												QueuedActions.Add(DependantAction);
+											}
+										}
+									}
+									else
+									{
+										// Update the exit code if it's not already set
+										if(ExitCode == 0)
+										{
+											ExitCode = CompletedAction.ExitCode;
 										}
 									}
 								}
-								else
-								{
-									// Update the exit code if it's not already set
-									if(ExitCode == 0)
-									{
-										ExitCode = CompletedAction.ExitCode;
-									}
-								}
+								CompletedActions.Clear();
 							}
-							CompletedActions.Clear();
-						}
 
-						// If we've already got a non-zero exit code, clear out the list of queued actions so nothing else will run
-						if(ExitCode != 0 && bStopOnErrors)
-						{
-							QueuedActions.Clear();
+							// If we've already got a non-zero exit code, clear out the list of queued actions so nothing else will run
+							if(ExitCode != 0 && bStopOnErrors)
+							{
+								QueuedActions.Clear();
+							}
 						}
 					}
 				}
