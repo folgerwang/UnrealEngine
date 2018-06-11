@@ -1,5 +1,8 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "SequenceRecorderActorGroup.h"
 #include "SequenceRecorder.h"
+#include "ActorRecording.h"
 
 void USequenceRecorderActorGroup::PostEditChangeChainProperty(struct FPropertyChangedChainEvent& PropertyChangedEvent)
 {

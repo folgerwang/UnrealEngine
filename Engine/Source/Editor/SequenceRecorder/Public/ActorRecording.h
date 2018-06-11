@@ -8,14 +8,17 @@
 #include "Misc/Guid.h"
 #include "Animation/AnimationRecordingSettings.h"
 #include "IMovieSceneSectionRecorder.h"
-#include "Sections/MovieSceneAnimationSectionRecorder.h"
 #include "ActorRecordingSettings.h"
 #include "UObject/ObjectKey.h"
+#include "GameFramework/Actor.h"
 
 #include "ActorRecording.generated.h"
 
+class UAnimSequence;
 class ULevelSequence;
 class UMovieScene;
+class USceneComponent;
+class FMovieSceneAnimationSectionRecorder;
 
 UCLASS(MinimalAPI)
 class UActorRecording : public UObject
