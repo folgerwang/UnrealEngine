@@ -153,6 +153,22 @@ void UNiagaraNodeAssignment::PostLoad()
 			UE_LOG(LogNiagaraEditor, Log, TEXT("Found old Assignment Node, nothing was attached???? variable \"%s\" in \"%s\""), *AssignmentTarget_DEPRECATED.GetName().ToString(), *GetFullName());
 		}
 	}
+	else
+	{
+		const int32 NiagaraVer = GetLinkerCustomVersion(FNiagaraCustomVersion::GUID);
+		if (NiagaraVer < FNiagaraCustomVersion::AssignmentNodeUsesBeginDefaults)
+		{
+			FunctionScript = nullptr;
+			GenerateScript();
+		}
+		if (NiagaraVer < FNiagaraCustomVersion::AssignmentNodeHasCorrectUsageBitmask)
+		{
+			if (FunctionScript != nullptr)
+			{
+				UpdateUsageBitmaskFromOwningScript();
+			}
+		}
+	}
 }
 
 void UNiagaraNodeAssignment::BuildParameterMapHistory(FNiagaraParameterMapHistoryBuilder& OutHistory, bool bRecursive)
@@ -168,6 +184,7 @@ void UNiagaraNodeAssignment::GenerateScript()
 		FunctionScript->SetUsage(ENiagaraScriptUsage::Module);
 		FunctionScript->Description = LOCTEXT("AssignmentNodeDesc", "Sets one or more variables in the stack.");
 		InitializeScript(FunctionScript);
+		UpdateUsageBitmaskFromOwningScript();
 		ComputeNodeName();
 	}
 }
@@ -238,6 +255,7 @@ void UNiagaraNodeAssignment::AddParameter(FNiagaraVariable InVar, FString InDefa
 	AddAssignmentTarget(InVar, &InDefaultValue);
 
 	RefreshFromExternalChanges();
+	MarkNodeRequiresSynchronization(__FUNCTION__, true);
 	OnInputsChangedDelegate.Broadcast();
 }
 
@@ -265,7 +283,13 @@ void UNiagaraNodeAssignment::RemoveParameter(const FNiagaraVariable& InVar)
 	}
 
 	RefreshFromExternalChanges();
+	MarkNodeRequiresSynchronization(__FUNCTION__, true);
 	OnInputsChangedDelegate.Broadcast();
+}
+
+void UNiagaraNodeAssignment::UpdateUsageBitmaskFromOwningScript()
+{
+	FunctionScript->ModuleUsageBitmask = CalculateScriptUsageBitmask();
 }
 
 void UNiagaraNodeAssignment::InitializeScript(UNiagaraScript* NewScript)
@@ -289,14 +313,45 @@ void UNiagaraNodeAssignment::InitializeScript(UNiagaraScript* NewScript)
 		
 		TArray<UNiagaraNodeInput*> InputNodes;
 		CreatedGraph->FindInputNodes(InputNodes);
-		if (InputNodes.Num() == 0)
+
+		UNiagaraNodeInput* InputMapInputNode;
+		UNiagaraNodeInput** InputMapInputNodePtr = InputNodes.FindByPredicate([](UNiagaraNodeInput* InputNode)
+		{ 
+			return InputNode->Usage == ENiagaraInputNodeUsage::Parameter && InputNode->Input.GetType() == FNiagaraTypeDefinition::GetParameterMapDef() && InputNode->Input.GetName() == "InputMap"; 
+		});
+		if (InputMapInputNodePtr == nullptr)
 		{
 			FGraphNodeCreator<UNiagaraNodeInput> InputNodeCreator(*CreatedGraph);
-			UNiagaraNodeInput* InputNode = InputNodeCreator.CreateNode();
-			InputNode->Input = FNiagaraVariable(FNiagaraTypeDefinition::GetParameterMapDef(), TEXT("InputMap"));
-			InputNode->Usage = ENiagaraInputNodeUsage::Parameter;
+			InputMapInputNode = InputNodeCreator.CreateNode();
+			InputMapInputNode->Input = FNiagaraVariable(FNiagaraTypeDefinition::GetParameterMapDef(), TEXT("InputMap"));
+			InputMapInputNode->Usage = ENiagaraInputNodeUsage::Parameter;
 			InputNodeCreator.Finalize();
-			InputNodes.Add(InputNode);
+		}
+		else
+		{
+			InputMapInputNode = *InputMapInputNodePtr;
+		}
+
+		UNiagaraNodeInput* BeginDefaultsInputNode;
+		UNiagaraNodeInput** BeginDefaultsInputNodePtr = InputNodes.FindByPredicate([](UNiagaraNodeInput* InputNode)
+		{
+			return InputNode->Usage == ENiagaraInputNodeUsage::TranslatorConstant && InputNode->Input == TRANSLATOR_PARAM_BEGIN_DEFAULTS;
+		});
+		if (BeginDefaultsInputNodePtr == nullptr)
+		{
+			FGraphNodeCreator<UNiagaraNodeInput> InputNodeCreator(*CreatedGraph);
+			BeginDefaultsInputNode = InputNodeCreator.CreateNode();
+			BeginDefaultsInputNode->Input = TRANSLATOR_PARAM_BEGIN_DEFAULTS;
+			BeginDefaultsInputNode->Usage = ENiagaraInputNodeUsage::TranslatorConstant;
+			BeginDefaultsInputNode->ExposureOptions.bCanAutoBind = true;
+			BeginDefaultsInputNode->ExposureOptions.bHidden = true;
+			BeginDefaultsInputNode->ExposureOptions.bRequired = false;
+			BeginDefaultsInputNode->ExposureOptions.bExposed = false;
+			InputNodeCreator.Finalize();
+		}
+		else
+		{
+			BeginDefaultsInputNode = *BeginDefaultsInputNodePtr;
 		}
 
 		UNiagaraNodeOutput* OutputNode = CreatedGraph->FindOutputNode(ENiagaraScriptUsage::Module);
@@ -323,7 +378,7 @@ void UNiagaraNodeAssignment::InitializeScript(UNiagaraScript* NewScript)
 			InputNodeCreator.Finalize();
 			SetNodes.Add(InputNode);
 
-			InputNodes[0]->GetOutputPin(0)->MakeLinkTo(SetNodes[0]->GetInputPin(0));
+			InputMapInputNode->GetOutputPin(0)->MakeLinkTo(SetNodes[0]->GetInputPin(0));
 			SetNodes[0]->GetOutputPin(0)->MakeLinkTo(OutputNode->GetInputPin(0));
 		}
 
@@ -336,7 +391,7 @@ void UNiagaraNodeAssignment::InitializeScript(UNiagaraScript* NewScript)
 			InputNodeCreator.Finalize();
 			GetNodes.Add(InputNode);
 
-			InputNodes[0]->GetOutputPin(0)->MakeLinkTo(GetNodes[0]->GetInputPin(0));
+			InputMapInputNode->GetOutputPin(0)->MakeLinkTo(GetNodes[0]->GetInputPin(0));
 		}
 		if (GetNodes.Num() == 1)
 		{
@@ -345,7 +400,7 @@ void UNiagaraNodeAssignment::InitializeScript(UNiagaraScript* NewScript)
 			InputNodeCreator.Finalize();
 			GetNodes.Add(InputNode);
 
-			InputNodes[0]->GetOutputPin(0)->MakeLinkTo(GetNodes[1]->GetInputPin(0));
+			BeginDefaultsInputNode->GetOutputPin(0)->MakeLinkTo(GetNodes[1]->GetInputPin(0));
 		}
 
 		// Clean out existing pins
@@ -417,6 +472,44 @@ void UNiagaraNodeAssignment::InitializeScript(UNiagaraScript* NewScript)
 
 		CreatedGraph->PurgeUnreferencedMetaData();
 	}
+}
+
+int32 UsageToBitmask(ENiagaraScriptUsage Usage)
+{
+	return 1 << (int32)Usage;
+}
+
+int32 UNiagaraNodeAssignment::CalculateScriptUsageBitmask()
+{
+	int32 UsageBitmask = 0;
+	UNiagaraNodeOutput* OutputNode = FNiagaraStackGraphUtilities::GetEmitterOutputNodeForStackNode(*this);
+	if (OutputNode != nullptr)
+	{
+		if (UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::SystemSpawnScript) ||
+			UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::SystemUpdateScript))
+		{
+			UsageBitmask =
+				UsageToBitmask(ENiagaraScriptUsage::SystemSpawnScript) |
+				UsageToBitmask(ENiagaraScriptUsage::SystemUpdateScript);
+		}
+		if (UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::EmitterSpawnScript) ||
+			UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::EmitterUpdateScript))
+		{
+			UsageBitmask =
+				UsageToBitmask(ENiagaraScriptUsage::EmitterSpawnScript) |
+				UsageToBitmask(ENiagaraScriptUsage::EmitterUpdateScript);
+		}
+		if (UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::ParticleSpawnScript) ||
+			UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::ParticleUpdateScript) ||
+			UNiagaraScript::IsEquivalentUsage(OutputNode->GetUsage(), ENiagaraScriptUsage::ParticleEventScript))
+		{
+			UsageBitmask =
+				UsageToBitmask(ENiagaraScriptUsage::ParticleSpawnScript) |
+				UsageToBitmask(ENiagaraScriptUsage::ParticleUpdateScript) |
+				UsageToBitmask(ENiagaraScriptUsage::ParticleEventScript);
+		}
+	}
+	return UsageBitmask;
 }
 
 int32 UNiagaraNodeAssignment::FindAssignmentTarget(const FName& InName, const FNiagaraTypeDefinition& InType)

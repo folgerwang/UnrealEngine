@@ -130,7 +130,7 @@ protected:
 
 
 // Actions that can be invoked from this mode as long as at least one mesh is selected
-class FMeshEditorCommonCommands : public TCommands<FMeshEditorCommonCommands>
+class MESHEDITOR_API FMeshEditorCommonCommands : public TCommands<FMeshEditorCommonCommands>
 {
 public:
 	FMeshEditorCommonCommands();
@@ -170,7 +170,7 @@ public:
 
 
 // Actions that can be invoked from this mode for any type of selected element
-class FMeshEditorAnyElementCommands : public TCommands<FMeshEditorAnyElementCommands>
+class MESHEDITOR_API FMeshEditorAnyElementCommands : public TCommands<FMeshEditorAnyElementCommands>
 {
 public:
 	FMeshEditorAnyElementCommands();
@@ -178,16 +178,11 @@ public:
 	// TCommands<> interface
 	virtual void RegisterCommands() override;
 	// End of TCommands<> interface
-
-public:
-
-	/** Deletes selected mesh elements, including polygons partly defined by selected elements */
-	TSharedPtr<FUICommandInfo> DeleteMeshElement;
 };
 
 
 // Actions that can be invoked from this mode when vertices are selected
-class FMeshEditorVertexCommands : public TCommands<FMeshEditorVertexCommands>
+class MESHEDITOR_API FMeshEditorVertexCommands : public TCommands<FMeshEditorVertexCommands>
 {
 public:
 	FMeshEditorVertexCommands();
@@ -207,7 +202,7 @@ public:
 
 
 // Actions that can be invoked from this mode when edges are selected
-class FMeshEditorEdgeCommands : public TCommands<FMeshEditorEdgeCommands>
+class MESHEDITOR_API FMeshEditorEdgeCommands : public TCommands<FMeshEditorEdgeCommands>
 {
 public:
 	FMeshEditorEdgeCommands();
@@ -227,7 +222,7 @@ public:
 
 
 // Actions that can be invoked from this mode when polygons are selected
-class FMeshEditorPolygonCommands : public TCommands<FMeshEditorPolygonCommands>
+class MESHEDITOR_API FMeshEditorPolygonCommands : public TCommands<FMeshEditorPolygonCommands>
 {
 public:
 	FMeshEditorPolygonCommands();
@@ -241,19 +236,13 @@ public:
 	/** Sets the primary action to move polygons */
 	TSharedPtr<FUICommandInfo> MovePolygon;
 
-	/** Flips the currently selected polygon(s) */
-	TSharedPtr<FUICommandInfo> FlipPolygon;
-
 	/** Triangulates the currently selected polygon(s) */
 	TSharedPtr<FUICommandInfo> TriangulatePolygon;
-
-	/** Assigns the highlighted material to the currently selected polygon(s) */
-	TSharedPtr<FUICommandInfo> AssignMaterial;
 };
 
 
 UCLASS()
-class UMeshEditorCommandList : public UObject
+class MESHEDITOR_API UMeshEditorCommandList : public UObject
 {
 	GENERATED_BODY()
 
@@ -269,7 +258,7 @@ public:
 
 namespace MeshEditorCommands
 {
-	extern const TArray<UMeshEditorCommand*>& Get();
+	MESHEDITOR_API const TArray<UMeshEditorCommand*>& Get();
 }
 
 

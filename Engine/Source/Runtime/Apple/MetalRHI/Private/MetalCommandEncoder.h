@@ -161,7 +161,7 @@ public:
 	FMetalCommandBufferStats* GetCommandBufferStats(void);
 #endif
 
-#if METAL_DEBUG_OPTIONS
+#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
 	/** @returns The active render command encoder or nil if there isn't one. */
 	FMetalCommandBufferDebugging& GetCommandBufferDebugging(void) { return CommandBufferDebug; } 
 	
@@ -395,10 +395,10 @@ private:
 	mtlpp::ComputeCommandEncoder ComputeCommandEncoder;
 	mtlpp::BlitCommandEncoder BlitCommandEncoder;
 	
-	METAL_DEBUG_OPTION(FMetalCommandBufferDebugging CommandBufferDebug);
-	METAL_DEBUG_OPTION(FMetalRenderCommandEncoderDebugging RenderEncoderDebug);
-	METAL_DEBUG_OPTION(FMetalComputeCommandEncoderDebugging ComputeEncoderDebug);
-	METAL_DEBUG_OPTION(FMetalBlitCommandEncoderDebugging BlitEncoderDebug);
+	METAL_DEBUG_ONLY(FMetalCommandBufferDebugging CommandBufferDebug);
+	METAL_DEBUG_ONLY(FMetalRenderCommandEncoderDebugging RenderEncoderDebug);
+	METAL_DEBUG_ONLY(FMetalComputeCommandEncoderDebugging ComputeEncoderDebug);
+	METAL_DEBUG_ONLY(FMetalBlitCommandEncoderDebugging BlitEncoderDebug);
 	
 	FMetalFence EncoderFence;
 #if ENABLE_METAL_GPUPROFILE

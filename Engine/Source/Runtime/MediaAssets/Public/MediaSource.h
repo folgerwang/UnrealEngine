@@ -21,7 +21,7 @@
  * location is encoded as a media URL string, whose URI scheme and optional file
  * extension will be used to locate a suitable media player.
  */
-UCLASS(Abstract, BlueprintType, hidecategories=(Object))
+UCLASS(Abstract, editinlinenew, BlueprintType, hidecategories=(Object))
 class MEDIAASSETS_API UMediaSource
 	: public UObject
 	, public IMediaOptions

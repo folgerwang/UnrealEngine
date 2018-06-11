@@ -87,6 +87,7 @@
 #include "Customizations/NiagaraTypeCustomizations.h"
 #include "Customizations/NiagaraEventScriptPropertiesCustomization.h"
 #include "HAL/IConsoleManager.h"
+#include "NiagaraHlslTranslator.h"
 
 
 IMPLEMENT_MODULE( FNiagaraEditorModule, NiagaraEditor );
@@ -281,6 +282,7 @@ class FNiagaraSystemColorParameterTrackEditor : public FNiagaraSystemParameterTr
 
 void FNiagaraEditorModule::StartupModule()
 {
+	FHlslNiagaraTranslator::Init();
 	MenuExtensibilityManager = MakeShareable(new FExtensibilityManager);
 	ToolBarExtensibilityManager = MakeShareable(new FExtensibilityManager);
 

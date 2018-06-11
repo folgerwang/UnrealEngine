@@ -223,7 +223,7 @@ FString FHlslNiagaraTranslator::GetCodeAsSource(int32 ChunkIdx)
 	if(ChunkIdx>=0 && ChunkIdx<CodeChunks.Num())
 	{ 
 		FNiagaraCodeChunk& Chunk = CodeChunks[ChunkIdx];
-		return Chunk.SymbolName;
+		return Chunk.SymbolName + Chunk.ComponentMask;
 	}
 	return "Undefined";
 }
@@ -385,27 +385,42 @@ FString FHlslNiagaraTranslator::GetFunctionDefinitions()
 
 	
 
-FString FHlslNiagaraTranslator::BuildMissingDefaults()
+void FHlslNiagaraTranslator::BuildMissingDefaults()
 {
-	FString HlslOutputString = TEXT("void HandleMissingDefaultValues(inout FSimulationContext Context)\n{\n");
+	AddBodyComment(TEXT("// Begin HandleMissingDefaultValues"));
+
 	if (UNiagaraScript::IsSpawnScript(TranslationStages[ActiveStageIdx].ScriptUsage))
 	{
+		// First go through all the variables that we did not write the defaults for yet. For spawn scripts, this usually
+		// means variables that reference other variables but are not themselves used within spawn.
+		for (FNiagaraVariable& Var : DeferredVariablesMissingDefault)
+		{
+			const UEdGraphPin* DefaultPin = UniqueVarToDefaultPin.FindChecked(Var);
+			bool bWriteToParamMapEntries = UniqueVarToWriteToParamMap.FindChecked(Var);
+			int32 OutputChunkId = INDEX_NONE;
+			HandleParameterRead(ActiveStageIdx, Var, DefaultPin, DefaultPin != nullptr ? Cast<UNiagaraNode>(DefaultPin->GetOwningNode()) : nullptr, OutputChunkId, !bWriteToParamMapEntries);
+		}
+
+		DeferredVariablesMissingDefault.Empty();
+
+		// Now go through and initialize any "Particles.Initial." variables
 		for (FNiagaraVariable& Var : InitialNamespaceVariablesMissingDefault)
 		{
 			if (FNiagaraParameterMapHistory::IsInitialValue(Var))
 			{
 				FNiagaraVariable SourceForInitialValue = FNiagaraParameterMapHistory::GetSourceForInitialValue(Var);
 				FString ParameterMapInstanceName = GetParameterMapInstanceName(0);
-				HlslOutputString += TEXT("\t") + ParameterMapInstanceName + TEXT(".") + GetSanitizedSymbolName(Var.GetName().ToString() + TEXT(" = ") +
-					ParameterMapInstanceName + TEXT(".") + GetSanitizedSymbolName(SourceForInitialValue.GetName().ToString()) + TEXT(";"));
+				FString Value = FString::Printf(TEXT("%s.%s = %s.%s;\n"), *ParameterMapInstanceName, *GetSanitizedSymbolName(Var.GetName().ToString()),
+					*ParameterMapInstanceName, *GetSanitizedSymbolName(SourceForInitialValue.GetName().ToString()));
+				AddBodyChunk(Value);
 				continue;
 			}
 		}
-		HlslOutputString += TEXT("\n");
+
+		InitialNamespaceVariablesMissingDefault.Empty();
 	}
-	
-	HlslOutputString += TEXT("\n}\n");
-	return HlslOutputString;
+
+	AddBodyComment(TEXT("// End HandleMissingDefaultValues\n\n"));
 }
 
 FString FHlslNiagaraTranslator::BuildParameterMapHlslDefinitions(TArray<FNiagaraVariable>& PrimaryDataSetOutputEntries)
@@ -549,10 +564,11 @@ FString FHlslNiagaraTranslator::BuildParameterMapHlslDefinitions(TArray<FNiagara
 		}
 
 		TArray<FString> StructNameArray;
-		int32 NumFound = Variable.GetName().ToString().ParseIntoArray(StructNameArray, TEXT("."));
+		FString SanitizedVarName = GetSanitizedSymbolName(Variable.GetName().ToString());
+		int32 NumFound = SanitizedVarName.ParseIntoArray(StructNameArray, TEXT("."));
 		if (NumFound == 1) // Meaning no split above
 		{
-			Error(FText::Format(LOCTEXT("OnlyOneNamespaceEntry", "Only one namespace entry found for: {0}"), FText::FromName(Variable.GetName())), nullptr, nullptr);
+			Error(FText::Format(LOCTEXT("OnlyOneNamespaceEntry", "Only one namespace entry found for: {0}"), FText::FromString(SanitizedVarName)), nullptr, nullptr);
 		}
 		else if (NumFound > 1)
 		{
@@ -844,13 +860,13 @@ const FNiagaraTranslateResults &FHlslNiagaraTranslator::Translate(const FNiagara
 			CurrentBodyChunkMode = TranslationStages[i].ChunkModeIndex;
 			if (UNiagaraScript::IsParticleSpawnScript(TranslationStages[i].ScriptUsage))
 			{
-				AddBodyChunk(TEXT(""), bHasInterpolatedSpawn ? TEXT("//Begin Interpolated Spawn Script!") : TEXT("//Begin Spawn Script!"), FNiagaraTypeDefinition::GetIntDef(), false, false);
+				AddBodyComment(bHasInterpolatedSpawn ? TEXT("//Begin Interpolated Spawn Script!") : TEXT("//Begin Spawn Script!"));
 				CurrentParamMapIndices.Empty();
 				CurrentParamMapIndices.Add(0);
 				TranslationStages[i].OutputNode->Compile(ThisTranslator, OutputChunks);
 				InstanceWrite = FDataSetAccessInfo(); // Reset after building the output..
-				AddBodyChunk(TEXT(""), TEXT("//End Spawn Script!\n\n"), FNiagaraTypeDefinition::GetIntDef(), false, false);
-				AddBodyChunk(TEXT(""), TEXT("HandleMissingDefaultValues(Context);"), FNiagaraTypeDefinition::GetIntDef(), false, false);
+				AddBodyComment(TEXT("//End Spawn Script!\n\n"));
+				BuildMissingDefaults();
 			}
 			
 			if (TranslationStages[i].bInterpolatePreviousParams)
@@ -860,12 +876,12 @@ const FNiagaraTranslateResults &FHlslNiagaraTranslator::Translate(const FNiagara
 
 			if (UNiagaraScript::IsParticleUpdateScript(TranslationStages[i].ScriptUsage))
 			{
-				AddBodyChunk(TEXT(""), TEXT("//Begin Update Script!"), FNiagaraTypeDefinition::GetIntDef(), false, false);
+				AddBodyComment(TEXT("//Begin Update Script!"));
 				//Now we compile the update script (with partial dt) and read from the temp values written above.
 				CurrentParamMapIndices.Empty();
 				CurrentParamMapIndices.Add(1);
 				TranslationStages[i].OutputNode->Compile(ThisTranslator, OutputChunks);
-				AddBodyChunk(TEXT(""), TEXT("//End Update Script!\n\n"), FNiagaraTypeDefinition::GetIntDef(), false, false);
+				AddBodyComment(TEXT("//End Update Script!\n\n"));
 			}
 		}
 		CurrentBodyChunkMode = ENiagaraCodeChunkMode::Body;
@@ -882,7 +898,7 @@ const FNiagaraTranslateResults &FHlslNiagaraTranslator::Translate(const FNiagara
 
 		if (IsSpawnScript())
 		{
-			AddBodyChunk(TEXT(""), TEXT("HandleMissingDefaultValues(Context);"), FNiagaraTypeDefinition::GetIntDef(), false, false);
+			BuildMissingDefaults();
 		}
 	}
 	else
@@ -1110,16 +1126,7 @@ const FNiagaraTranslateResults &FHlslNiagaraTranslator::Translate(const FNiagara
 		}
 
 		DefineInterpolatedParametersFunction(HlslOutput);
-
-		if (IsSpawnScript())
-		{
-			// The missing defaults function assumes the active stage index is the 0th value in the array.
-			int32 CurStageIdx = ActiveStageIdx;
-			ActiveStageIdx = 0;
-			HlslOutput += BuildMissingDefaults();
-			ActiveStageIdx = CurStageIdx;
-		}
-
+		
 		// define functions for reading and writing all secondary data sets
 		DefineDataSetReadFunction(HlslOutput, CompilationOutput.ScriptData.ReadDataSets);
 		DefineDataSetWriteFunction(HlslOutput, CompilationOutput.ScriptData.WriteDataSets, WriteConditionVars);
@@ -1167,7 +1174,7 @@ const FNiagaraTranslateResults &FHlslNiagaraTranslator::Translate(const FNiagara
 		{
 			if (FNiagaraParameterMapHistory::IsAttribute(Var))
 			{
-				FNiagaraVariable BasicAttribVar = FNiagaraParameterMapHistory::ResolveAsBasicAttribute(Var);
+				FNiagaraVariable BasicAttribVar = FNiagaraParameterMapHistory::ResolveAsBasicAttribute(Var, false);
 				CompilationOutput.ScriptData.Attributes.AddUnique(BasicAttribVar);
 			}
 			else
@@ -1383,7 +1390,7 @@ void FHlslNiagaraTranslator::DefineInterpolatedParametersFunction(FString &HlslO
 						FNiagaraCodeChunk& Chunk = CodeChunks[ChunkIdx];
 						if (ShouldInterpolateParameter(*FoundNamespacedVar))
 						{
-							HlslOutputString += TEXT("\tContext.") + PrevMap + TEXT(".") + FoundName + TEXT(" = lerp(") + INTERPOLATED_PARAMETER_PREFIX + Chunk.SymbolName + TEXT(", ") + Chunk.SymbolName + TEXT(", ") + TEXT("SpawnInterp);\n");
+							HlslOutputString += TEXT("\tContext.") + PrevMap + TEXT(".") + FoundName + TEXT(" = lerp(") + INTERPOLATED_PARAMETER_PREFIX + Chunk.SymbolName + Chunk.ComponentMask + TEXT(", ") + Chunk.SymbolName + Chunk.ComponentMask + TEXT(", ") + TEXT("SpawnInterp);\n");
 						}
 						else
 						{
@@ -2057,15 +2064,433 @@ void FHlslNiagaraTranslator::DecomposeVariableAccess(UStruct* Struct, bool bRead
 	}
 };
 
+TMap<FString, FString> FHlslNiagaraTranslator::ReplacementsForInvalid;
+
+void FHlslNiagaraTranslator::Init()
+{
+	if (ReplacementsForInvalid.Num() == 0)
+	{
+		// hlsl keywords
+		ReplacementsForInvalid.Add(TEXT("AppendStructuredBuffer"), TEXT("APPENDSTRUCTUREDBUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("asm"), TEXT("ASSEMBLY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("asm_fragment"), TEXT("ASSEMBLY_FRAGMENT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("BlendState"), TEXT("BLEND_STATE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("bool"), TEXT("BOOL_VAR"));
+		ReplacementsForInvalid.Add(TEXT("bool1"), TEXT("BOOL1_VAR"));
+		ReplacementsForInvalid.Add(TEXT("bool2"), TEXT("BOOL2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("bool3"), TEXT("BOOL3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("bool4"), TEXT("BOOL4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("break"), TEXT("BREAK_VAR"));
+		ReplacementsForInvalid.Add(TEXT("Buffer"), TEXT("BUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("ByteAddressBuffer"), TEXT("BYTE_ADDRESS_BUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("case"), TEXT("CASE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("cbuffer"), TEXT("CBUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("centroid"), TEXT("CENTROID_VAR"));
+		ReplacementsForInvalid.Add(TEXT("class"), TEXT("CLASS_VAR"));
+		ReplacementsForInvalid.Add(TEXT("column_major"), TEXT("COLUMN_MAJOR_VAR"));
+		ReplacementsForInvalid.Add(TEXT("compile"), TEXT("COMPILE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("compile_fragment"), TEXT("COMPILE_FRAGMENT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("CompileShader"), TEXT("COMPILE_SHADER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("const"), TEXT("CONST_VAR"));
+		ReplacementsForInvalid.Add(TEXT("continue"), TEXT("CONTINUE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("ComputeShader"), TEXT("COMPUTE_SHADER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("ConsumeStructuredBuffer"), TEXT("CONSUME_STRUCTURED_BUFFER"));
+		ReplacementsForInvalid.Add(TEXT("default"), TEXT("DEFAULT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("DepthStencilState"), TEXT("DEPTHSTENCILSTATE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("DepthStencilView"), TEXT("DEPTHSTENCILVIEW_VAR"));
+		ReplacementsForInvalid.Add(TEXT("discard"), TEXT("DISCARD_VAR"));
+		ReplacementsForInvalid.Add(TEXT("do"), TEXT("DO_VAR"));
+		ReplacementsForInvalid.Add(TEXT("double"), TEXT("DOUBLE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("double1"), TEXT("DOUBLE1_VAR"));
+		ReplacementsForInvalid.Add(TEXT("double2"), TEXT("DOUBLE2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("double3"), TEXT("DOUBLE3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("double4"), TEXT("DOUBLE4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("DomainShader"), TEXT("DOMAINSHADER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("dword"), TEXT("DWORD_VAR"));
+		ReplacementsForInvalid.Add(TEXT("else"), TEXT("ELSE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("export"), TEXT("EXPORT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("extern"), TEXT("EXTERN_VAR"));
+		ReplacementsForInvalid.Add(TEXT("false"), TEXT("FALSE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("float"), TEXT("FLOAT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("float1"), TEXT("FLOAT1_VAR"));
+		ReplacementsForInvalid.Add(TEXT("float2"), TEXT("FLOAT2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("float3"), TEXT("FLOAT3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("float4"), TEXT("FLOAT4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("for"), TEXT("FOR_VAR"));
+		ReplacementsForInvalid.Add(TEXT("fxgroup"), TEXT("FXGROUP_VAR"));
+		ReplacementsForInvalid.Add(TEXT("GeometryShader"), TEXT("GEOMETRYSHADER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("groupshared"), TEXT("GROUPSHARED_VAR"));
+		ReplacementsForInvalid.Add(TEXT("half"), TEXT("HALF_VAR"));
+		ReplacementsForInvalid.Add(TEXT("half1"), TEXT("HALF1_VAR"));
+		ReplacementsForInvalid.Add(TEXT("half2"), TEXT("HALF2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("half3"), TEXT("HALF3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("half4"), TEXT("HALF4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("Hullshader"), TEXT("HULLSHADER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("if"), TEXT("IF_VAR"));
+		ReplacementsForInvalid.Add(TEXT("in"), TEXT("IN_VAR"));
+		ReplacementsForInvalid.Add(TEXT("inline"), TEXT("INLINE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("inout"), TEXT("INOUT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("InputPatch"), TEXT("INPUTPATCH_VAR"));
+		ReplacementsForInvalid.Add(TEXT("int"), TEXT("INT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("int1"), TEXT("INT1_VAR"));
+		ReplacementsForInvalid.Add(TEXT("int2"), TEXT("INT2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("int3"), TEXT("INT3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("int4"), TEXT("INT4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("interface"), TEXT("INTERFACE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("line"), TEXT("LINE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("lineadj"), TEXT("LINEADJ_VAR"));
+		ReplacementsForInvalid.Add(TEXT("linear"), TEXT("LINEAR_VAR"));
+		ReplacementsForInvalid.Add(TEXT("LineStream"), TEXT("LINESTREAM_VAR"));
+		ReplacementsForInvalid.Add(TEXT("matrix"), TEXT("MATRIX_VAR"));
+		ReplacementsForInvalid.Add(TEXT("min16float"), TEXT("MIN16FLOAT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("min10float"), TEXT("MIN10FLOAT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("min16int"), TEXT("MIN16INT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("min12int"), TEXT("MIN12INT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("min16uint"), TEXT("MIN16UINT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("namespace"), TEXT("NAMESPACE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("nointerpolation"), TEXT("NOINTERPOLATION_VAR"));
+		ReplacementsForInvalid.Add(TEXT("noperspective"), TEXT("NOPERSPECTIVE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("NULL"), TEXT("NULL_VAR"));
+		ReplacementsForInvalid.Add(TEXT("out"), TEXT("OUT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("OutputPatch"), TEXT("OUTPUTPATCH_VAR"));
+		ReplacementsForInvalid.Add(TEXT("packoffset"), TEXT("PACKOFFSET,_VAR"));
+		ReplacementsForInvalid.Add(TEXT("pass"), TEXT("PASS,_VAR"));
+		ReplacementsForInvalid.Add(TEXT("pixelfragment"), TEXT("PIXELFRAGMENT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("PixelShader"), TEXT("PIXELSHADER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("point"), TEXT("POINT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("PointStream"), TEXT("POINTSTREAM_VAR"));
+		ReplacementsForInvalid.Add(TEXT("precise"), TEXT("PRECISE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("RasterizerState"), TEXT("RASTERIZERSTATE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("RenderTargetView"), TEXT("RENDERTARGETVIEW_VAR"));
+		ReplacementsForInvalid.Add(TEXT("return"), TEXT("RETURN_VAR"));
+		ReplacementsForInvalid.Add(TEXT("register"), TEXT("REGISTER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("row_major"), TEXT("ROW_MAJOR_VAR"));
+		ReplacementsForInvalid.Add(TEXT("RWBuffer"), TEXT("RWBUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("RWByteAddressBuffer"), TEXT("RWBYTEADDRESSBUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("RWStructuredBuffer"), TEXT("RWSTRUCTUREDBUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("RWTexture1D"), TEXT("RWTEXTURE1D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("RWTexture1DArray"), TEXT("RWTEXTURE1DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("RWTexture2D"), TEXT("RWTEXTURE2D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("RWTexture2DArray"), TEXT("RWTEXTURE2DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("RWTexture3D"), TEXT("RWTEXTURE3D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sample"), TEXT("SAMPLE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sampler"), TEXT("SAMPLER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("SamplerState"), TEXT("SAMPLERSTATE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("SamplerComparisonState"), TEXT("SAMPLERCOMPARISONSTATE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("shared"), TEXT("SHARED_VAR"));
+		ReplacementsForInvalid.Add(TEXT("snorm"), TEXT("SNORM_VAR"));
+		ReplacementsForInvalid.Add(TEXT("stateblock"), TEXT("STATEBLOCK_VAR"));
+		ReplacementsForInvalid.Add(TEXT("stateblock_state"), TEXT("STATEBLOCK_STATE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("static"), TEXT("STATIC_VAR"));
+		ReplacementsForInvalid.Add(TEXT("string"), TEXT("STRING_VAR"));
+		ReplacementsForInvalid.Add(TEXT("struct"), TEXT("STRUCT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("switch"), TEXT("SWITCH_VAR"));
+		ReplacementsForInvalid.Add(TEXT("StructuredBuffer"), TEXT("STRUCTUREDBUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("tbuffer"), TEXT("TBUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("technique"), TEXT("TECHNIQUE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("technique10"), TEXT("TECHNIQUE10_VAR"));
+		ReplacementsForInvalid.Add(TEXT("technique11"), TEXT("TECHNIQUE11_VAR"));
+		ReplacementsForInvalid.Add(TEXT("texture"), TEXT("TEXTURE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("Texture1D"), TEXT("TEXTURE1D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("Texture1DArray"), TEXT("TEXTURE1DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("Texture2D"), TEXT("TEXTURE2D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("Texture2DArray"), TEXT("TEXTURE2DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("Texture2DMS"), TEXT("TEXTURE2DMS_VAR"));
+		ReplacementsForInvalid.Add(TEXT("Texture2DMSArray"), TEXT("TEXTURE2DMSARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("Texture3D"), TEXT("TEXTURE3D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("TextureCube"), TEXT("TEXTURECUBE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("TextureCubeArray"), TEXT("TEXTURECUBEARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("true"), TEXT("TRUE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("typedef"), TEXT("TYPEDEF_VAR"));
+		ReplacementsForInvalid.Add(TEXT("triangle"), TEXT("TRIANGLE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("triangleadj"), TEXT("TRIANGLEADJ_VAR"));
+		ReplacementsForInvalid.Add(TEXT("TriangleStream"), TEXT("TRIANGLESTREAM_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uint"), TEXT("UINT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uint1"), TEXT("UINT1_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uint2"), TEXT("UINT2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uint3"), TEXT("UINT3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uint4"), TEXT("UINT4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uniform"), TEXT("UNIFORM_VAR"));
+		ReplacementsForInvalid.Add(TEXT("unorm"), TEXT("UNORM_VAR"));
+		ReplacementsForInvalid.Add(TEXT("unsigned"), TEXT("UNSIGNED_VAR"));
+		ReplacementsForInvalid.Add(TEXT("vector"), TEXT("VECTOR_VAR"));
+		ReplacementsForInvalid.Add(TEXT("vertexfragment"), TEXT("VERTEXFRAGMENT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("VertexShader"), TEXT("VERTEXSHADER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("void"), TEXT("VOID_VAR"));
+		ReplacementsForInvalid.Add(TEXT("volatile"), TEXT("VOLATILE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("while"), TEXT("WHILE_VAR"));
+
+		// additional glsl keywords
+		ReplacementsForInvalid.Add(TEXT("attribute"), TEXT("ATTRIBUTE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("varying"), TEXT("VARYING_VAR"));
+		ReplacementsForInvalid.Add(TEXT("layout"), TEXT("LAYOUT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("mat2"), TEXT("MAT2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("mat3"), TEXT("MAT3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("mat4"), TEXT("MAT4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("mat2x2"), TEXT("MAT2X2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("mat2x3"), TEXT("MAT2X3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("mat2x4"), TEXT("MAT2X4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("mat3x2"), TEXT("MAT3X2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("mat3x3"), TEXT("MAT3X3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("mat3x4"), TEXT("MAT3X4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("mat4x2"), TEXT("MAT4X2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("mat4x3"), TEXT("MAT4X3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("mat4x4"), TEXT("MAT4X4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("vec2"), TEXT("VEC2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("vec3"), TEXT("VEC3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("vec4"), TEXT("VEC4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("ivec2"), TEXT("IVEC2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("ivec3"), TEXT("IVEC3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("ivec4"), TEXT("IVEC4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("bvec2"), TEXT("BVEC2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("bvec3"), TEXT("BVEC3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("bvec4"), TEXT("BVEC4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uvec2"), TEXT("UVEC2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uvec3"), TEXT("UVEC3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uvec4"), TEXT("UVEC4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("lowp"), TEXT("LOWP_VAR"));
+		ReplacementsForInvalid.Add(TEXT("mediump"), TEXT("MEDIUMP_VAR"));
+		ReplacementsForInvalid.Add(TEXT("highp"), TEXT("HIGHP_VAR"));
+		ReplacementsForInvalid.Add(TEXT("precision"), TEXT("PRECISION_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sampler1D"), TEXT("SAMPLER1D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sampler2D"), TEXT("SAMPLER2D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sampler3D"), TEXT("SAMPLER3D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("samplerCube"), TEXT("SAMPLERCUBE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sampler1DShadow"), TEXT("SAMPLER1DSHADOW_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sampler2DShadow"), TEXT("SAMPLER2DSHADOW_VAR"));
+		ReplacementsForInvalid.Add(TEXT("samplerCubeShadow"), TEXT("SAMPLERCUBESHADOW_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sampler1DArray"), TEXT("SAMPLER1DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sampler2DArray"), TEXT("SAMPLER2DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sampler1DArrayShadow"), TEXT("SAMPLER1DARRAYSHADOW_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sampler2DArrayShadow"), TEXT("SAMPLER2DARRAYSHADOW_VAR"));
+		ReplacementsForInvalid.Add(TEXT("isampler1D"), TEXT("ISAMPLER1D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("isampler2D"), TEXT("ISAMPLER2D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("isampler3D"), TEXT("ISAMPLER3D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("isamplerCube"), TEXT("ISAMPLERCUBE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("isampler1DArray"), TEXT("ISAMPLER1DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("isampler2DArray"), TEXT("ISAMPLER2DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("usampler1D"), TEXT("USAMPLER1D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("usampler2D"), TEXT("USAMPLER2D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("usampler3D"), TEXT("USAMPLER3D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("usamplerCube"), TEXT("USAMPLERCUBE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("usampler1DArray"), TEXT("USAMPLER1DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("usampler2DArray"), TEXT("USAMPLER2DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sampler2DRect"), TEXT("SAMPLER2DRECT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sampler2DRectShadow"), TEXT("SAMPLER2DRECTSHADOW_VAR"));
+		ReplacementsForInvalid.Add(TEXT("isampler2DRect"), TEXT("ISAMPLER2DRECT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("usampler2DRect"), TEXT("USAMPLER2DRECT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("samplerBuffer"), TEXT("SAMPLERBUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("isamplerBuffer"), TEXT("ISAMPLERBUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("usamplerBuffer"), TEXT("USAMPLERBUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("struct"), TEXT("STRUCT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("flat"), TEXT("FLAT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("smooth"), TEXT("SMOOTH_VAR"));
+		ReplacementsForInvalid.Add(TEXT("invariant"), TEXT("INVARIANT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("union"), TEXT("UNION_VAR"));
+		ReplacementsForInvalid.Add(TEXT("enum"), TEXT("ENUM_VAR"));
+		ReplacementsForInvalid.Add(TEXT("typedef"), TEXT("TYPEDEF_VAR"));
+		ReplacementsForInvalid.Add(TEXT("template"), TEXT("TEMPLATE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("this"), TEXT("THIS_VAR"));
+		ReplacementsForInvalid.Add(TEXT("packed"), TEXT("PACKED_VAR"));
+		ReplacementsForInvalid.Add(TEXT("goto"), TEXT("GOTO_VAR"));
+		ReplacementsForInvalid.Add(TEXT("noinline"), TEXT("NOINLINE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("public"), TEXT("PUBLIC_VAR"));
+		ReplacementsForInvalid.Add(TEXT("external"), TEXT("EXTERNAL_VAR"));
+		ReplacementsForInvalid.Add(TEXT("long short"), TEXT("LONG SHORT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("superp"), TEXT("SUPERP_VAR"));
+		ReplacementsForInvalid.Add(TEXT("input"), TEXT("INPUT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("output"), TEXT("OUTPUT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("hvec2"), TEXT("HVEC2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("hvec3"), TEXT("HVEC3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("hvec4"), TEXT("HVEC4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("dvec2"), TEXT("DVEC2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("dvec3"), TEXT("DVEC3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("dvec4"), TEXT("DVEC4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("fvec2"), TEXT("FVEC2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("fvec3"), TEXT("FVEC3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("fvec4"), TEXT("FVEC4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sampler3DRect"), TEXT("SAMPLER3DRECT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("filter"), TEXT("FILTER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image1D"), TEXT("IMAGE1D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image2D"), TEXT("IMAGE2D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image3D"), TEXT("IMAGE3D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("imageCube"), TEXT("IMAGECUBE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("iimage1D"), TEXT("IIMAGE1D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("iimage2D"), TEXT("IIMAGE2D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("iimage3D"), TEXT("IIMAGE3D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("iimageCub"), TEXT("IIMAGECUBE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uimage1D"), TEXT("UIMAGE1D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uimage2D"), TEXT("UIMAGE2D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uimage3D"), TEXT("UIMAGE3D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uimageCube"), TEXT("UIMAGECUBE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image1DArray"), TEXT("IMAGE1DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image2DArray"), TEXT("IMAGE2DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("iimage1DArray"), TEXT("IIMAGE1DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("iimage2DArray"), TEXT("IIMAGE2DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uimage1DArray"), TEXT("UIMAGE1DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uimage2DArray"), TEXT("UIMAGE2DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image1DShadow"), TEXT("IMAGE1DSHADOW_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image2DShadow"), TEXT("IMAGE2DSHADOW_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image1DArrayShadow"), TEXT("IMAGE1DARRAYSHADOW_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image2DArrayShadow"), TEXT("IMAGE2DARRAYSHADOW_VAR"));
+		ReplacementsForInvalid.Add(TEXT("imageBuffer"), TEXT("IMAGEBUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("iimageBuffer"), TEXT("IIMAGEBUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uimageBuffer"), TEXT("UIMAGEBUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sizeof"), TEXT("SIZEOF_VAR"));
+		ReplacementsForInvalid.Add(TEXT("cast"), TEXT("CAST_VAR"));
+		ReplacementsForInvalid.Add(TEXT("using"), TEXT("USING_VAR"));
+		ReplacementsForInvalid.Add(TEXT("row_major"), TEXT("ROW_MAJOR_VAR"));
+		ReplacementsForInvalid.Add(TEXT("int8_t"), TEXT("INT8_T_VAR"));
+		ReplacementsForInvalid.Add(TEXT("unsigned char"), TEXT("UNSIGNED_CHAR_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uchar"), TEXT("UCHAR_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uint8_t"), TEXT("UINT8_T_VAR"));
+		ReplacementsForInvalid.Add(TEXT("short"), TEXT("SHORT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("int16_t"), TEXT("INT16_T_VAR"));
+		ReplacementsForInvalid.Add(TEXT("unsigned shorT"), TEXT("UNSIGNED_SHORT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("ushort"), TEXT("USHORT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("unit16_t"), TEXT("UNIT16_T_VAR"));
+		ReplacementsForInvalid.Add(TEXT("int32_t"), TEXT("INT32_T_VAR"));
+		ReplacementsForInvalid.Add(TEXT("unsigned int"), TEXT("UNSIGNED_INT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uint32_t"), TEXT("UINT32_T_VAR"));
+		ReplacementsForInvalid.Add(TEXT("smooth"), TEXT("SMOOTH_VAR"));
+		ReplacementsForInvalid.Add(TEXT("invariant"), TEXT("INVARIANT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("union"), TEXT("UNION_VAR"));
+		ReplacementsForInvalid.Add(TEXT("enum"), TEXT("ENUM_VAR"));
+		ReplacementsForInvalid.Add(TEXT("typedef"), TEXT("TYPEDEF_VAR"));
+		ReplacementsForInvalid.Add(TEXT("template"), TEXT("TEMPLATE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("this"), TEXT("THIS_VAR"));
+		ReplacementsForInvalid.Add(TEXT("packed"), TEXT("PACKED_VAR"));
+		ReplacementsForInvalid.Add(TEXT("goto"), TEXT("GOTO_VAR"));
+		ReplacementsForInvalid.Add(TEXT("noinline"), TEXT("NOINLINE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("public"), TEXT("PUBLIC_VAR"));
+		ReplacementsForInvalid.Add(TEXT("external"), TEXT("EXTERNAL_VAR"));
+		ReplacementsForInvalid.Add(TEXT(" long short"), TEXT("LONG_SHORT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("superp"), TEXT("SUPERP_VAR"));
+		ReplacementsForInvalid.Add(TEXT("input"), TEXT("INPUT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("output"), TEXT("OUTPUT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("hvec2"), TEXT("HVEC2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("hvec3"), TEXT("HVEC3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("hvec4"), TEXT("HVEC4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("dvec2"), TEXT("DVEC2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("dvec3"), TEXT("DVEC3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("dvec4"), TEXT("DVEC4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("fvec2"), TEXT("FVEC2_VAR"));
+		ReplacementsForInvalid.Add(TEXT("fvec3"), TEXT("FVEC3_VAR"));
+		ReplacementsForInvalid.Add(TEXT("fvec4"), TEXT("FVEC4_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sampler3DRect"), TEXT("SAMPLER3DRECT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("filter"), TEXT("FILTER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image2D"), TEXT("IMAGE2D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image3D"), TEXT("IMAGE3D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("imageCube"), TEXT("IMAGECUBE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("iimage1D"), TEXT("IIMAGE1D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("iimage2D"), TEXT("IIMAGE2D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("iimage3D"), TEXT("IIMAGE3D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("iimageCube"), TEXT("IIMAGECUBE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uimage1D"), TEXT("UIMAGE1D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uimage2D"), TEXT("UIMAGE2D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uimage3D"), TEXT("UIMAGE3D_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uimageCube"), TEXT("UIMAGECUBE_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image1DArray"), TEXT("IMAGE1DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image2DArray"), TEXT("IMAGE2DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("iimage1DArray"), TEXT("IIMAGE1DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("iimage2DArray"), TEXT("IIMAGE2DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uimage1DArray"), TEXT("UIMAGE1DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uimage2DArray"), TEXT("UIMAGE2DARRAY_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image1DShadow"), TEXT("IMAGE1DSHADOW_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image2DShadow"), TEXT("IMAGE2DSHADOW_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image1DArrayShadow"), TEXT("IMAGE1DARRAYSHADOW_VAR"));
+		ReplacementsForInvalid.Add(TEXT("image2DArrayShadow"), TEXT("IMAGE2DARRAYSHADOW_VAR"));
+		ReplacementsForInvalid.Add(TEXT("imageBuffer"), TEXT("IMAGEBUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("iimageBuffer"), TEXT("IIMAGEBUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uimageBuffer"), TEXT("UIMAGEBUFFER_VAR"));
+		ReplacementsForInvalid.Add(TEXT("sizeof"), TEXT("SIZEOF_VAR"));
+		ReplacementsForInvalid.Add(TEXT("cast"), TEXT("CAST_VAR"));
+		ReplacementsForInvalid.Add(TEXT("using"), TEXT("USING_VAR"));
+		ReplacementsForInvalid.Add(TEXT("row_major"), TEXT("ROW_MAJOR_VAR"));
+		ReplacementsForInvalid.Add(TEXT("int8_t"), TEXT("INT8_T_VAR"));
+		ReplacementsForInvalid.Add(TEXT("unsigned char"), TEXT("UNSIGNED_CHAR_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uchar"), TEXT("UCHAR_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uint8_t"), TEXT("UINT8_T_VAR"));
+		ReplacementsForInvalid.Add(TEXT("short"), TEXT("SHORT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("int16_t"), TEXT("INT16_T_VAR"));
+		ReplacementsForInvalid.Add(TEXT("unsigned short"), TEXT("UNSIGNED_SHORT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("ushort"), TEXT("USHORT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("unit16_t"), TEXT("UNIT16_T_VAR"));
+		ReplacementsForInvalid.Add(TEXT("int32_t"), TEXT("INT32_T_VAR"));
+		ReplacementsForInvalid.Add(TEXT("unsigned int"), TEXT("UNSIGNED_INT_VAR"));
+		ReplacementsForInvalid.Add(TEXT("uint32_t"), TEXT("UINT32_T_VAR"));
+	}
+}
+
 FString FHlslNiagaraTranslator::GetSanitizedSymbolName(FString SymbolName, bool bCollapsNamespaces)
 {
+	if (SymbolName.Len() == 0)
+	{
+		return SymbolName;
+	}
+
+	check(ReplacementsForInvalid.Num() != 0);
+
 	FString Ret = SymbolName;
-	Ret.ReplaceInline(TEXT(" "), TEXT(""));
+
+	// Split up into individual namespaces...
+	TArray<FString> SplitName;
+	Ret.ParseIntoArray(SplitName, TEXT("."));
+
+	// Rules for variable namespaces..
+	for (int32 i = 0; i < SplitName.Num(); i++)
+	{
+		SplitName[i].ReplaceInline(TEXT("__"), TEXT("ASC95ASC95")); // Opengl reserves "__" within a name
+		if (SplitName[i][0] >= TCHAR('0') && SplitName[i][0] <= TCHAR('9')) // Cannot start with a numeric digit
+		{
+			SplitName[i] = TEXT("INTEGER_") + SplitName[i];
+		}
+		
+		FString* FoundReplacementStr = ReplacementsForInvalid.Find(SplitName[i]); // Look for the string in the keyword protections array.
+		if (FoundReplacementStr)
+		{
+			SplitName[i] = *FoundReplacementStr;
+		}		
+
+		SplitName[i].ReplaceInline(TEXT("\t"), TEXT(""));
+		SplitName[i].ReplaceInline(TEXT(" "), TEXT(""));
+
+		// Handle internationalization of characters..
+		FString ChangedSplitName;
+		ChangedSplitName.Reserve(SplitName[i].Len()*6); // Assign room for every current char to be 'ASCXXX'
+		for (int32 j = 0; j < SplitName[i].Len(); j++)
+		{
+			if ((SplitName[i][j] >= TCHAR('0') && SplitName[i][j] <= TCHAR('9')) ||
+				(SplitName[i][j] >= TCHAR('A') && SplitName[i][j] <= TCHAR('Z')) ||
+				(SplitName[i][j] >= TCHAR('a') && SplitName[i][j] <= TCHAR('z')) ||
+				SplitName[i][j] == TCHAR('_') ||
+				SplitName[i][j] == TCHAR(' '))
+			{
+				// Do nothing.. these are valid chars..
+				ChangedSplitName.AppendChar(SplitName[i][j]);
+			}
+			else
+			{
+				// Need to replace the bad characters..
+				ChangedSplitName.Append(TEXT("ASC"));
+				ChangedSplitName.AppendInt((int32)SplitName[i][j]);
+			}
+		}
+		SplitName[i] = ChangedSplitName;
+	}
+
+	// Gather back into single string..
+	Ret = FString::Join<FString>(SplitName, TEXT("."));
+
+	/*
 	Ret.ReplaceInline(TEXT("\\"), TEXT("_"));
 	Ret.ReplaceInline(TEXT("/"), TEXT("_"));
 	Ret.ReplaceInline(TEXT(","), TEXT("_"));
 	Ret.ReplaceInline(TEXT("-"), TEXT("_"));
 	Ret.ReplaceInline(TEXT(":"), TEXT("_"));
+	Ret = Ret.ConvertTabsToSpaces(0);
+	*/
+
 	if (bCollapsNamespaces)
 	{
 		Ret.ReplaceInline(TEXT("."), TEXT("_"));
@@ -2209,6 +2634,21 @@ int32 FHlslNiagaraTranslator::AddUniformChunk(FString SymbolName, const FNiagara
 		FNiagaraCodeChunk& Chunk = CodeChunks[Ret];
 		Chunk.SymbolName = GetSanitizedSymbolName(SymbolName);
 		Chunk.Type = Type;
+
+		if (CompileOptions.TargetUsage == ENiagaraScriptUsage::ParticleGPUComputeScript)
+		{
+			if (Type == FNiagaraTypeDefinition::GetVec2Def())
+			{
+				Chunk.Type = FNiagaraTypeDefinition::GetVec4Def();
+				Chunk.ComponentMask = TEXT(".xy");
+			}
+			else if (Type == FNiagaraTypeDefinition::GetVec3Def())
+			{
+				Chunk.Type = FNiagaraTypeDefinition::GetVec4Def();
+				Chunk.ComponentMask = TEXT(".xyz");
+			}
+		}
+
 		Chunk.Mode = ENiagaraCodeChunkMode::Uniform;
 
 		ChunksByMode[(int32)ENiagaraCodeChunkMode::Uniform].Add(Ret);
@@ -2216,7 +2656,7 @@ int32 FHlslNiagaraTranslator::AddUniformChunk(FString SymbolName, const FNiagara
 	return Ret;
 }
 
-int32 FHlslNiagaraTranslator::AddSourceChunk(FString SymbolName, const FNiagaraTypeDefinition& Type)
+int32 FHlslNiagaraTranslator::AddSourceChunk(FString SymbolName, const FNiagaraTypeDefinition& Type, bool bSanitize)
 {
 	int32 Ret = CodeChunks.IndexOfByPredicate(
 		[&](const FNiagaraCodeChunk& Chunk)
@@ -2229,7 +2669,7 @@ int32 FHlslNiagaraTranslator::AddSourceChunk(FString SymbolName, const FNiagaraT
 	{
 		Ret = CodeChunks.AddDefaulted();
 		FNiagaraCodeChunk& Chunk = CodeChunks[Ret];
-		Chunk.SymbolName = GetSanitizedSymbolName(SymbolName);
+		Chunk.SymbolName = bSanitize ? GetSanitizedSymbolName(SymbolName) : SymbolName;
 		Chunk.Type = Type;
 		Chunk.Mode = ENiagaraCodeChunkMode::Source;
 
@@ -2238,6 +2678,16 @@ int32 FHlslNiagaraTranslator::AddSourceChunk(FString SymbolName, const FNiagaraT
 	return Ret;
 }
 
+
+int32 FHlslNiagaraTranslator::AddBodyComment(const FString& Comment)
+{
+	return AddBodyChunk(TEXT(""), Comment, FNiagaraTypeDefinition::GetIntDef(), false, false);
+}
+
+int32 FHlslNiagaraTranslator::AddBodyChunk(const FString& Value)
+{
+	return AddBodyChunk(TEXT(""), Value, FNiagaraTypeDefinition::GetIntDef(), INDEX_NONE, false, false);
+}
 
 int32 FHlslNiagaraTranslator::AddBodyChunk(FString SymbolName, FString Definition, const FNiagaraTypeDefinition& Type, TArray<int32>& SourceChunks, bool bDecl, bool bIsTerminated)
 {
@@ -2328,6 +2778,67 @@ bool FHlslNiagaraTranslator::ShouldInterpolateParameter(const FNiagaraVariable& 
 	}
 
 	return true;
+}
+
+int32 FHlslNiagaraTranslator::GetRapidIterationParameter(const FNiagaraVariable& Parameter)
+{
+	if (!AddStructToDefinitionSet(Parameter.GetType()))
+	{
+		Error(FText::Format(LOCTEXT("GetRapidIterationParameterTypeFail", "Cannot handle type {0}! Variable: {1}"), Parameter.GetType().GetNameText(), FText::FromName(Parameter.GetName())), nullptr, nullptr);
+		return INDEX_NONE;
+	}
+
+	int32 FuncParam = INDEX_NONE;
+	if (GetFunctionParameter(Parameter, FuncParam))
+	{
+		Error(FText::Format(LOCTEXT("GetRapidIterationParameterFuncParamFail", "Variable: {0} cannot be a function parameter because it is a RapidIterationParameter type."), FText::FromName(Parameter.GetName())), nullptr, nullptr);
+		return INDEX_NONE;
+	}
+
+	bool bIsCandidateForRapidIteration = false;
+	if (ActiveHistoryForFunctionCalls.InTopLevelFunctionCall(CompileOptions.TargetUsage))
+	{
+		if (Parameter.GetType() != FNiagaraTypeDefinition::GetBoolDef() && !Parameter.GetType().IsEnum() && !Parameter.GetType().IsDataInterface())
+		{
+			bIsCandidateForRapidIteration = true;
+		}
+		else
+		{
+			Error(FText::Format(LOCTEXT("GetRapidIterationParameterTypeFail", "Variable: {0} cannot be a RapidIterationParameter input node because it isn't a supported type {1}"), FText::FromName(Parameter.GetName()), Parameter.GetType().GetNameText()), nullptr, nullptr);
+			return INDEX_NONE;
+		}
+	}
+	else
+	{
+		Error(FText::Format(LOCTEXT("GetRapidIterationParameterInTopLevelFail", "Variable: {0} cannot be a RapidIterationParameter input node because it isn't in the top level of an emitter/system/particle graph."), FText::FromName(Parameter.GetName())), nullptr, nullptr);
+		return INDEX_NONE;
+	}
+
+	FNiagaraVariable RapidIterationConstantVar = Parameter;
+
+	int32 LastSetChunkIdx = INDEX_NONE;
+	// Check to see if this is the first time we've encountered this node and it is a viable candidate for rapid iteration
+	if (bIsCandidateForRapidIteration && TranslationOptions.bParameterRapidIteration)
+	{
+		
+		// go ahead and make it into a constant variable..
+		int32 OutputChunkId = INDEX_NONE;
+		if (ParameterMapRegisterExternalConstantNamespaceVariable(Parameter, nullptr, INDEX_NONE, OutputChunkId, nullptr))
+		{
+			return OutputChunkId;
+		}
+	}
+	else
+	{
+		int32 FoundIdx = TranslationOptions.OverrideModuleConstants.Find(RapidIterationConstantVar);
+		if (FoundIdx != INDEX_NONE)
+		{
+			int32 OutputChunkId = GetConstant(TranslationOptions.OverrideModuleConstants[FoundIdx]);
+			return OutputChunkId;
+		}
+	}
+
+	return INDEX_NONE;
 }
 
 int32 FHlslNiagaraTranslator::GetParameter(const FNiagaraVariable& Parameter)
@@ -2454,9 +2965,17 @@ int32 FHlslNiagaraTranslator::GetConstant(const FNiagaraVariable& Constant)
 	return AddBodyChunk(GetUniqueSymbolName(TEXT("Constant")), ConstantStr, Constant.GetType());
 }
 
-int32 FHlslNiagaraTranslator::GetConstantFloat(float InConstantValue)
+int32 FHlslNiagaraTranslator::GetConstantDirect(float InConstantValue)
 {
 	FNiagaraVariable Constant(FNiagaraTypeDefinition::GetFloatDef(), TEXT("Constant"));
+	Constant.SetValue(InConstantValue);
+
+	return GetConstant(Constant);
+}
+
+int32 FHlslNiagaraTranslator::GetConstantDirect(bool InConstantValue)
+{
+	FNiagaraVariable Constant(FNiagaraTypeDefinition::GetBoolDef(), TEXT("Constant"));
 	Constant.SetValue(InConstantValue);
 
 	return GetConstant(Constant);
@@ -2537,12 +3056,13 @@ FString FHlslNiagaraTranslator::GenerateConstantString(const FNiagaraVariable& C
 void FHlslNiagaraTranslator::InitializeParameterMapDefaults(int32 ParamMapHistoryIdx)
 {
 	bInitializedDefaults = true;
-	AddBodyChunk(TEXT(""), TEXT("//Begin Initialize Parameter Map Defaults"), FNiagaraTypeDefinition::GetIntDef(), false, false);
-	TArray<FNiagaraVariable> UniqueVars;
+	AddBodyComment(TEXT("//Begin Initialize Parameter Map Defaults"));
 	check(ParamMapHistories.Num() == TranslationStages.Num());
 
-	TMap<FNiagaraVariable, const UEdGraphPin*> UniqueVarToDefaultPin;
-	TMap<FNiagaraVariable, bool> UniqueVarToWriteToParamMap;
+	UniqueVars.Empty();
+	UniqueVarToDefaultPin.Empty();
+	UniqueVarToWriteToParamMap.Empty();
+	UniqueVarToChunk.Empty();
 
 	// First pass just use the current parameter map.
 	{
@@ -2570,6 +3090,8 @@ void FHlslNiagaraTranslator::InitializeParameterMapDefaults(int32 ParamMapHistor
 	// Above we added all the known from the spawn script, now let's add for all the others.
 	if (UNiagaraScript::IsSpawnScript(TranslationStages[ActiveStageIdx].ScriptUsage))
 	{
+		// Go through all referenced parameter maps and pull in any variables that are 
+		// in the primary data set output namespaces.
 		for (int32 ParamMapIdx = 0; ParamMapIdx < OtherOutputParamMapHistories.Num(); ParamMapIdx++)
 		{
 			const FNiagaraParameterMapHistory& History = OtherOutputParamMapHistories[ParamMapIdx];
@@ -2588,14 +3110,21 @@ void FHlslNiagaraTranslator::InitializeParameterMapDefaults(int32 ParamMapHistor
 			}
 		}
 
+		// Now sort them into buckets: Defined by constants (write immediately), Defined as initial values (delay to end),
+		// or defined by linkage or other script (defer to end if not originating from spawn, otherwise insert before first use)
 		for (FNiagaraVariable& Var : UniqueVars)
 		{
 			const UEdGraphPin* DefaultPin = UniqueVarToDefaultPin.FindChecked(Var);
 			bool bWriteToParamMapEntries = UniqueVarToWriteToParamMap.FindChecked(Var);
 			int32 OutputChunkId = INDEX_NONE;
-			HandleParameterRead(ParamMapHistoryIdx, Var, DefaultPin, DefaultPin != nullptr ? Cast<UNiagaraNode>(DefaultPin->GetOwningNode()) : nullptr, OutputChunkId, !bWriteToParamMapEntries);
 
-			if (FNiagaraParameterMapHistory::IsInitialValue(Var))
+			// During the initial pass, only support constants for the default pin.
+			if (!FNiagaraParameterMapHistory::IsInitialValue(Var) && (DefaultPin == nullptr || DefaultPin->LinkedTo.Num() == 0))
+			{
+				HandleParameterRead(ParamMapHistoryIdx, Var, DefaultPin, DefaultPin != nullptr ? Cast<UNiagaraNode>(DefaultPin->GetOwningNode()) : nullptr, OutputChunkId, !bWriteToParamMapEntries);
+				UniqueVarToChunk.Add(Var, OutputChunkId);
+			}
+			else if (FNiagaraParameterMapHistory::IsInitialValue(Var))
 			{
 				FNiagaraVariable SourceForInitialValue = FNiagaraParameterMapHistory::GetSourceForInitialValue(Var);
 				if (!UniqueVars.Contains(SourceForInitialValue))
@@ -2604,10 +3133,14 @@ void FHlslNiagaraTranslator::InitializeParameterMapDefaults(int32 ParamMapHistor
 				}
 				InitialNamespaceVariablesMissingDefault.Add(Var);
 			}
+			else
+			{
+				DeferredVariablesMissingDefault.Add(Var);
+			}
 		}
 	}
 
-	AddBodyChunk(TEXT(""), TEXT("//End Initialize Parameter Map Defaults"), FNiagaraTypeDefinition::GetIntDef(), false, false);
+	AddBodyComment(TEXT("//End Initialize Parameter Map Defaults"));
 }
 
 void FHlslNiagaraTranslator::Output(UNiagaraNodeOutput* OutputNode, const TArray<int32>& ComputedInputs)
@@ -2637,7 +3170,7 @@ void FHlslNiagaraTranslator::Output(UNiagaraNodeOutput* OutputNode, const TArray
 
 			if (Attributes[i].GetType() != FNiagaraTypeDefinition::GetParameterMapDef())
 			{
-				FString SymbolName = *(TEXT("Out_") + GetSanitizedSymbolName(Attributes[i].GetName().ToString()));
+				FString SymbolName = *GetSanitizedSymbolName((TEXT("Out_") + Attributes[i].GetName().ToString()));
 				ENiagaraCodeChunkMode OldMode = CurrentBodyChunkMode;
 				CurrentBodyChunkMode = ENiagaraCodeChunkMode::Body;
 				AddBodyChunk(SymbolName, TEXT("{0}"), Attributes[i].GetType(), Inputs[i], false);
@@ -2923,6 +3456,20 @@ bool FHlslNiagaraTranslator::RequiresInterpolation() const
 	return false;
 }
 
+bool FHlslNiagaraTranslator::GetLiteralConstantVariable(FNiagaraVariable& OutVar)
+{
+	if (FNiagaraParameterMapHistory::IsInNamespace(OutVar, PARAM_MAP_EMITTER_STR) || FNiagaraParameterMapHistory::IsInNamespace(OutVar, PARAM_MAP_SYSTEM_STR))
+	{
+		FNiagaraVariable ResolvedVar = ActiveHistoryForFunctionCalls.ResolveAliases(OutVar);
+		if (OutVar == FNiagaraVariable(FNiagaraTypeDefinition::GetBoolDef(), TEXT("Emitter.Localspace")))
+		{
+			bool bEmitterLocalSpace = CompileOptions.AdditionalDefines.Contains(ResolvedVar.GetName().ToString());
+			OutVar.SetValue(bEmitterLocalSpace ? FNiagaraBool(true) : FNiagaraBool(false));
+			return true;
+		}
+	}
+	return false;
+}
 
 bool FHlslNiagaraTranslator::ParameterMapRegisterExternalConstantNamespaceVariable(FNiagaraVariable InVariable, UNiagaraNode* InNode, int32 InParamMapHistoryIdx, int32& Output, const UEdGraphPin* InDefaultPin)
 {
@@ -2941,16 +3488,20 @@ bool FHlslNiagaraTranslator::ParameterMapRegisterExternalConstantNamespaceVariab
 			if (InVariable == SYS_PARAM_ENGINE_DELTA_TIME || InVariable == SYS_PARAM_ENGINE_INV_DELTA_TIME)
 			{
 				Warning(FText::Format(LOCTEXT("GetParameterInvalidParam", "Cannot call system variable {0} in a spawn script! It is invalid."), FText::FromName(InVariable.GetName())), nullptr, nullptr);
-				Output = GetConstantFloat(0.0f);
+				Output = GetConstantDirect(0.0f);
 				return true;
 			}
 		}
 
 		bool bMissingParameter = false;
-		UNiagaraParameterCollection* Collection = ParamMapHistories[InParamMapHistoryIdx].IsParameterCollectionParameter(InVariable, bMissingParameter);
-		if (Collection && bMissingParameter)
+		UNiagaraParameterCollection* Collection = nullptr;
+		if (InParamMapHistoryIdx >= 0)
 		{
-			Error(FText::Format(LOCTEXT("MissingNPCParameterError", "Parameter {0} was not found in Parameter Collection {1}"), FText::FromName(InVariable.GetName()), FText::FromString(Collection->GetFullName())), InNode, nullptr);
+			Collection = ParamMapHistories[InParamMapHistoryIdx].IsParameterCollectionParameter(InVariable, bMissingParameter);
+			if (Collection && bMissingParameter)
+			{
+				Error(FText::Format(LOCTEXT("MissingNPCParameterError", "Parameter {0} was not found in Parameter Collection {1}"), FText::FromName(InVariable.GetName()), FText::FromString(Collection->GetFullName())), InNode, nullptr);
+			}
 		}
 
 		bool bIsDataInterface = InVariable.GetType().IsDataInterface();
@@ -3006,6 +3557,7 @@ bool FHlslNiagaraTranslator::ParameterMapRegisterExternalConstantNamespaceVariab
 
 				CompilationOutput.ScriptData.Parameters.SetOrAdd(InVariable);
 				UniformIdx = ChunksByMode[(int32)ENiagaraCodeChunkMode::Uniform].Num();
+
 				UniformChunk = AddUniformChunk(SymbolNameDefined, InVariable.GetType());
 				ParamMapDefinedSystemVarsToUniformChunks.Add(InVariable.GetName(), UniformIdx);
 				ParamMapDefinedSystemToNamespaceVars.Add(InVariable.GetName(), InVariable);
@@ -3255,6 +3807,20 @@ void FHlslNiagaraTranslator::HandleParameterRead(int32 ParamMapHistoryIdx, const
 	bool bIsCandidateForRapidIteration = false;
 	const UEdGraphPin* InputPin = DefaultPin;
 
+	FString Namespace = FNiagaraParameterMapHistory::GetNamespace(Var);
+	if (!ParamMapHistories[ParamMapHistoryIdx].IsValidNamespaceForReading(CompileOptions.TargetUsage, CompileOptions.TargetUsageBitmask, Namespace))
+	{
+		Error(FText::Format(LOCTEXT("InvalidReadingNamespace", "Variable {0} is in a namespace that isn't valid for reading"), FText::FromName(Var.GetName())), ErrorNode, nullptr);
+		return;
+	}
+
+	//Some special variables can be replaced directly with constants which allows for extra optimization in the compiler.
+	if (GetLiteralConstantVariable(Var))
+	{
+		OutputChunkId = GetConstant(Var);
+		return;
+	}
+
 	if (FNiagaraParameterMapHistory::IsExternalConstantNamespace(Var, CompileOptions.TargetUsage, CompileOptions.GetTargetUsageBitmask()))
 	{
 		if (ParameterMapRegisterExternalConstantNamespaceVariable(Var, ErrorNode, ParamMapHistoryIdx, OutputChunkId, DefaultPin))
@@ -3380,6 +3946,14 @@ void FHlslNiagaraTranslator::HandleParameterRead(int32 ParamMapHistoryIdx, const
 					Error(FText::Format(LOCTEXT("MissingInitialValueSource", "Variable {0} is used, but its source variable {1} is not set!"), FText::FromName(Var.GetName()), FText::FromName(SourceForInitialValue.GetName())), nullptr, nullptr);
 				}
 			}
+			else if (UniqueVars.Contains(Var) && UniqueVarToChunk.Contains(Var))
+			{
+				int32* FoundIdx = UniqueVarToChunk.Find(Var);
+				if (FoundIdx != nullptr)
+				{
+					LastSetChunkIdx = *FoundIdx;
+				}
+			}
 		}
 
 		if (LastSetChunkIdx == INDEX_NONE && !bIgnoreDefaultValue)
@@ -3448,6 +4022,10 @@ void FHlslNiagaraTranslator::HandleParameterRead(int32 ParamMapHistoryIdx, const
 					{
 						// Record that we wrote to it.
 						ParamMapSetVariablesToChunks[ParamMapHistoryIdx][VarIdx] = LastSetChunkIdx;
+						ParamMapDefinedAttributesToNamespaceVars.FindOrAdd(Var.GetName()) = Var;
+					}
+					else if (VarIdx == INDEX_NONE && UniqueVars.Contains(Var))
+					{
 						ParamMapDefinedAttributesToNamespaceVars.FindOrAdd(Var.GetName()) = Var;
 					}
 					else
@@ -3890,7 +4468,7 @@ void FHlslNiagaraTranslator::FinalResolveNamespacedTokens(const FString& Paramet
 					}
 
 					
-					Tokens[i] = ParameterMapInstanceNamespace + Var.GetName().ToString();
+					Tokens[i] = ParameterMapInstanceNamespace + GetSanitizedSymbolName(Var.GetName().ToString());
 					break;
 				}
 			}
@@ -3978,7 +4556,7 @@ void FHlslNiagaraTranslator::HandleCustomHlslNode(UNiagaraNodeCustomHlsl* Custom
 		// Clean up any namespaced variables in the token list if they are aliased or promote any tokens that are namespaced to the parent 
 		// parameter map.
 		TArray<FString> PossibleNamespaces;
-		FNiagaraParameterMapHistory::GetValidNamespacesForReading(CompileOptions.TargetUsage, PossibleNamespaces);
+		FNiagaraParameterMapHistory::GetValidNamespacesForReading(CompileOptions.TargetUsage, 0, PossibleNamespaces);
 
 		for (FNiagaraParameterMapHistory& History : ParamMapHistories)
 		{
@@ -4133,17 +4711,14 @@ void FHlslNiagaraTranslator::RegisterFunctionCall(ENiagaraScriptUsage ScriptUsag
 								{
 									const UEdGraphPin* DefaultPin = History.GetDefaultValuePin(VarIdx);
 									HandleParameterRead(ActiveStageIdx, AliasedVar, DefaultPin, ParamNode, LastSetChunkIdx);
-/*
-									if (History.IsPrimaryDataSetOutput(AliasedVar, CompileOptions.TargetUsage))
+									
+									// If this variable was in the pending defaults list, go ahead and remove it
+									// as we added it before first use...
+									if (DeferredVariablesMissingDefault.Contains(Var))
 									{
-										// insert defaults here..
+										DeferredVariablesMissingDefault.Remove(Var);
+										UniqueVarToChunk.Add(Var, LastSetChunkIdx);
 									}
-									else if (History.IsAliasedModuleParameter(AliasedVar))
-									{
-										// insert defaults here..
-										HandleParameterRead(ActiveStageIdx, AliasedVar, DefaultPin, ParamNode, LastSetChunkIdx);
-									}
-									*/
 								}
 							}
 						}
@@ -4287,7 +4862,7 @@ void FHlslNiagaraTranslator::RegisterFunctionCall(ENiagaraScriptUsage ScriptUsag
 				if (Info.UserPtrIdx != INDEX_NONE)
 				{
 					//This interface requires per instance data via a user ptr so place the index to it at the end of the inputs.
-					Inputs.Add(AddSourceChunk(LexToString(Info.UserPtrIdx), FNiagaraTypeDefinition::GetIntDef()));
+					Inputs.Add(AddSourceChunk(LexToString(Info.UserPtrIdx), FNiagaraTypeDefinition::GetIntDef(), false));
 					OutSignature.Inputs.Add(FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("InstanceData")));
 				}
 			}
@@ -4495,7 +5070,7 @@ FString FHlslNiagaraTranslator::GetFunctionSignature(const FNiagaraFunctionSigna
 					SigStr += TEXT(", ");
 				}
 
-				SigStr += TEXT("out ") + FHlslNiagaraTranslator::GetStructHlslTypeName(Output.GetType()) + TEXT(" Out_") + FHlslNiagaraTranslator::GetSanitizedSymbolName(Output.GetName().ToString());
+				SigStr += TEXT("out ") + FHlslNiagaraTranslator::GetStructHlslTypeName(Output.GetType()) + TEXT(" ") + FHlslNiagaraTranslator::GetSanitizedSymbolName(TEXT("Out_") + Output.GetName().ToString());
 				++ParamIdx;
 			}
 		}
@@ -4842,14 +5417,42 @@ int32 FHlslNiagaraTranslator::CompileOutputPin(const UEdGraphPin* InPin)
 
 void FHlslNiagaraTranslator::Error(FText ErrorText, UNiagaraNode* Node, UEdGraphPin* Pin)
 {
-	FString ErrorString = FString::Printf(TEXT("Node: @@ - Pin: @@ - %s - Callstack: %s"), *ErrorText.ToString(), *GetCallstack());
+	FString NodePinStr = TEXT("");
+	FString NodePinPrefix = TEXT(" - ");
+	FString NodePinSuffix = TEXT("");
+	if (Node && Node->GetName().Len() > 0)
+	{
+		NodePinStr += TEXT("Node: ") + Node->GetName();
+		NodePinSuffix = TEXT(" - ");
+	}
+	if (Pin && Pin->PinFriendlyName.ToString().Len() > 0)
+	{
+		NodePinStr += TEXT(" Pin: ") + Pin->PinFriendlyName.ToString();
+		NodePinSuffix = TEXT(" - ");
+	}
+	
+	FString ErrorString = FString::Printf(TEXT("%s%s%s%sCallstack: %s"), *ErrorText.ToString(), *NodePinPrefix, *NodePinStr, *NodePinSuffix, *GetCallstack());
 	TranslateResults.CompileEvents.Add(FNiagaraCompileEvent(FNiagaraCompileEventType::Error, ErrorString, Node ? Node->NodeGuid : FGuid(), Pin ? Pin->PersistentGuid : FGuid(), GetCallstackGuids()));
 	TranslateResults.NumErrors++;
 }
 
 void FHlslNiagaraTranslator::Warning(FText WarningText, UNiagaraNode* Node, UEdGraphPin* Pin)
 {
-	FString WarnString = FString::Printf(TEXT("Node: @@ - Pin: @@ - %s - Callstack: %s"), *WarningText.ToString(), *GetCallstack());
+	FString NodePinStr = TEXT("");
+	FString NodePinPrefix = TEXT(" - ");
+	FString NodePinSuffix = TEXT("");
+	if (Node && Node->GetName().Len() > 0)
+	{
+		NodePinStr += TEXT("Node: ") + Node->GetName();
+		NodePinSuffix = TEXT(" - ");
+	}
+	if (Pin && Pin->PinFriendlyName.ToString().Len() > 0)
+	{
+		NodePinStr += TEXT(" Pin: ") + Pin->PinFriendlyName.ToString();
+		NodePinSuffix = TEXT(" - ");
+	}
+
+	FString WarnString = FString::Printf(TEXT("%s%s%s%sCallstack: %s"), *WarningText.ToString(), *NodePinPrefix, *NodePinStr, *NodePinSuffix, *GetCallstack());
 	TranslateResults.CompileEvents.Add(FNiagaraCompileEvent(FNiagaraCompileEventType::Warning, WarnString, Node ? Node->NodeGuid : FGuid(), Pin ? Pin->PersistentGuid : FGuid(), GetCallstackGuids()));
 	TranslateResults.NumWarnings++;
 }

@@ -223,6 +223,23 @@ TSharedPtr<SGraphNode> UNiagaraNode::CreateVisualWidget()
 }
 
 
+void UNiagaraNode::GetPinHoverText(const UEdGraphPin& Pin, FString& HoverTextOut) const
+{
+	const UNiagaraGraph* NiagaraGraph = GetNiagaraGraph();
+	if (NiagaraGraph)
+	{
+		const UEdGraphSchema_Niagara* Schema = Cast<UEdGraphSchema_Niagara>(NiagaraGraph->GetSchema());
+		if (Schema)
+		{
+			FNiagaraTypeDefinition TypeDef = Schema->PinToTypeDefinition(&Pin);
+			const FText Text = FText::Format(LOCTEXT("PinHoverTooltip", "Name: \"{0}\"\nType: {1}"),
+				FText::FromName(Pin.PinName),
+				TypeDef.GetNameText());
+			HoverTextOut = Text.ToString();
+		}
+	}
+}
+
 void UNiagaraNode::MarkNodeRequiresSynchronization(FString Reason, bool bRaiseGraphNeedsRecompile)
 {
 	Modify();

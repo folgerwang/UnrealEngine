@@ -4,10 +4,14 @@
 #define OVR_ASSETFILEDOWNLOADRESULT_H
 
 #include "OVR_Platform_Defs.h"
+#include "OVR_Types.h"
 
 typedef struct ovrAssetFileDownloadResult *ovrAssetFileDownloadResultHandle;
 
-/// Filepath of the downloaded asset file.
+/// ID of the asset file
+OVRP_PUBLIC_FUNCTION(ovrID) ovr_AssetFileDownloadResult_GetAssetId(const ovrAssetFileDownloadResultHandle obj);
+
+/// File path of the asset file.
 OVRP_PUBLIC_FUNCTION(const char *) ovr_AssetFileDownloadResult_GetFilepath(const ovrAssetFileDownloadResultHandle obj);
 
 

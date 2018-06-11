@@ -78,10 +78,6 @@ void SBlueprintEditorSelectedDebugObjectWidget::Construct(const FArguments& InAr
 			BrowseButton
 		];
 
-
-
-
-
 	ChildSlot
 		[
 			SNew(SLevelOfDetailBranchNode)
@@ -105,7 +101,6 @@ void SBlueprintEditorSelectedDebugObjectWidget::Construct(const FArguments& InAr
 			.HighDetail()
 				[
 					SNew(SVerticalBox)
-					.Visibility(this, &SBlueprintEditorSelectedDebugObjectWidget::ShouldShowDebugObjectPicker)
 					+ SVerticalBox::Slot()
 					.AutoHeight()
 					.VAlign(VAlign_Bottom)
@@ -540,12 +535,6 @@ void SBlueprintEditorSelectedDebugObjectWidget::GenerateDebugObjectNames(bool bR
 
 		DebugObjectsComboBox->RefreshOptions();
 	}
-}
-
-EVisibility SBlueprintEditorSelectedDebugObjectWidget::ShouldShowDebugObjectPicker() const
-{
-	check(GetBlueprintObj());
-	return FBlueprintEditorUtils::IsLevelScriptBlueprint(GetBlueprintObj()) ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 TSharedPtr<FString> SBlueprintEditorSelectedDebugObjectWidget::GetDebugObjectName() const

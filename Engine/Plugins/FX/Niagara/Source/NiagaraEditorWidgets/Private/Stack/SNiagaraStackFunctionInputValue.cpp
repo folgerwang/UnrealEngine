@@ -11,6 +11,7 @@
 #include "NiagaraNodeCustomHlsl.h"
 #include "NiagaraActions.h"
 #include "SNiagaraParameterEditor.h"
+#include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Input/SButton.h"
@@ -476,8 +477,8 @@ void SNiagaraStackFunctionInputValue::CollectAllActions(FGraphActionListBuilderB
 		for (UNiagaraScript* DynamicInputScript : DynamicInputScripts)
 		{
 			const FText DynamicInputText = FText::FromString(FName::NameToDisplayString(DynamicInputScript->GetName(), false));
-			const FText Tooltip = FText::Format(LOCTEXT("DynamicInputFormat", "Use {0} to provide a value for this input. Description: {1}"), DynamicInputText, DynamicInputScript->GetDescription());
-			TSharedPtr<FNiagaraMenuAction> DynamicInputAction(new FNiagaraMenuAction(CategoryName, DynamicInputText, Tooltip, 0, FText(),
+			const FText Tooltip = FNiagaraEditorUtilities::FormatScriptAssetDescription(DynamicInputScript->Description, *DynamicInputScript->GetPathName());
+			TSharedPtr<FNiagaraMenuAction> DynamicInputAction(new FNiagaraMenuAction(CategoryName, DynamicInputText, Tooltip, 0, DynamicInputScript->Keywords,
 				FNiagaraMenuAction::FOnExecuteStackAction::CreateSP(this, &SNiagaraStackFunctionInputValue::DynamicInputScriptSelected, DynamicInputScript)));
 			OutAllActions.AddAction(DynamicInputAction);
 		}
@@ -747,7 +748,7 @@ bool SNiagaraStackFunctionInputValue::OnFunctionInputAllowDrop(TSharedPtr<FDragD
 	{
 		TSharedPtr<FNiagaraStackDragOperation> InputDragDropOperation = StaticCastSharedPtr<FNiagaraStackDragOperation>(DragDropOperation);
 		TSharedPtr<FNiagaraParameterAction> Action = StaticCastSharedPtr<FNiagaraParameterAction>(InputDragDropOperation->GetAction());
-		if (Action->GetParameter().GetType() == FunctionInput->GetInputType())
+		if (Action->GetParameter().GetType() == FunctionInput->GetInputType() && FNiagaraStackGraphUtilities::ParameterAllowedInExecutionCategory(Action->GetParameter().GetName(), FunctionInput->GetExecutionCategoryName()))
 		{
 			return true;
 		}

@@ -17,11 +17,11 @@
 
 #define LOCTEXT_NAMESPACE "NiagaraStackEventHandlerGroup"
 
-class FEventHandlerGroupAddUtilities : public FNiagaraStackItemGroupAddUtilities
+class FEventHandlerGroupAddUtilities : public TNiagaraStackItemGroupAddUtilities<FNiagaraEventScriptProperties>
 {
 public:
 	FEventHandlerGroupAddUtilities(TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, FOnItemAdded InOnItemAdded)
-		: FNiagaraStackItemGroupAddUtilities(LOCTEXT("ScriptGroupAddItemName", "Event Handler"), EAddMode::AddDirectly, false, InOnItemAdded)
+		: TNiagaraStackItemGroupAddUtilities(LOCTEXT("ScriptGroupAddItemName", "Event Handler"), EAddMode::AddDirectly, false, InOnItemAdded)
 		, EmitterViewModel(InEmitterViewModel)
 	{
 	}
@@ -56,7 +56,7 @@ public:
 		// TODO: Move the logic for managing event handlers into the emitter view model or script view model.
 		EmitterViewModelPinned->SetEmitter(Emitter);
 
-		OnItemAdded.ExecuteIfBound();
+		OnItemAdded.ExecuteIfBound(EventScriptProperties);
 	}
 
 	virtual void GenerateAddActions(TArray<TSharedRef<INiagaraStackItemGroupAddAction>>& OutAddActions) const override { unimplemented(); }
@@ -71,7 +71,7 @@ void UNiagaraStackEventHandlerGroup::Initialize(FRequiredEntryData InRequiredEnt
 	FText DisplayName = LOCTEXT("EventGroupName", "Add Event Handler");
 	FText ToolTip = LOCTEXT("EventGroupTooltip", "Determines how this Emitter responds to incoming events. There can be more than one event handler script stack per Emitter.");
 	AddUtilities = MakeShared<FEventHandlerGroupAddUtilities>(InRequiredEntryData.EmitterViewModel, 
-		FNiagaraStackItemGroupAddUtilities::FOnItemAdded::CreateUObject(this, &UNiagaraStackEventHandlerGroup::ItemAddedFromUtilties));
+		TNiagaraStackItemGroupAddUtilities<FNiagaraEventScriptProperties>::FOnItemAdded::CreateUObject(this, &UNiagaraStackEventHandlerGroup::ItemAddedFromUtilties));
 	Super::Initialize(InRequiredEntryData, DisplayName, ToolTip, AddUtilities.Get());
 }
 
@@ -80,7 +80,7 @@ void UNiagaraStackEventHandlerGroup::SetOnItemAdded(FOnItemAdded InOnItemAdded)
 	ItemAddedDelegate = InOnItemAdded;
 }
 
-void UNiagaraStackEventHandlerGroup::ItemAddedFromUtilties()
+void UNiagaraStackEventHandlerGroup::ItemAddedFromUtilties(FNiagaraEventScriptProperties AddedEventHandler)
 {
 	ItemAddedDelegate.ExecuteIfBound();
 }

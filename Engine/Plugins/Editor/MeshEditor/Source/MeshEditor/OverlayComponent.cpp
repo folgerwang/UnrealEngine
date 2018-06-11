@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved. 
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OverlayComponent.h"
 #include "RenderingThread.h"
@@ -356,7 +356,7 @@ FOverlayLineID UOverlayComponent::AddLine( const FOverlayLine& OverlayLine )
 
 void UOverlayComponent::InsertLine( const FOverlayLineID ID, const FOverlayLine& OverlayLine )
 {
-	Lines.Insert( ID.GetValue(), OverlayLine ); 
+	Lines.Insert( ID.GetValue(), OverlayLine );
 	MarkRenderStateDirty();
 	bBoundsDirty = true;
 }
@@ -485,6 +485,7 @@ void UOverlayComponent::RemoveTriangle( const FOverlayTriangleID ID )
 	if( Container.Num() == 0 )
 	{
 		TrianglesByMaterial.RemoveAt( MaterialIndex );
+		MaterialToIndex.Remove(GetMaterial(MaterialIndex + 2));
 		SetMaterial( MaterialIndex + 2, nullptr );
 	}
 	Triangles.RemoveAt( ID.GetValue() );

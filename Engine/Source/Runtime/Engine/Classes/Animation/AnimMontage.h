@@ -310,6 +310,9 @@ struct FAnimMontageInstance
 	// Whether this in this tick's call to Advance we used marker based sync
 	bool bDidUseMarkerSyncThisTick;
 
+	// enable auto blend out. This is instance set up. You can override
+	bool bEnableAutoBlendOut;
+
 private:
 	struct FMontageSubStepper MontageSubStepper;
 
@@ -591,6 +594,10 @@ class UAnimMontage : public UAnimCompositeBase
 	/** If this is on, it will allow extracting root motion rotation. DEPRECATED in 4.5 root motion is controlled by anim sequences **/
 	UPROPERTY()
 	bool bEnableRootMotionRotation;
+
+	/** When it hits end, it automatically blends out. If this is false, it won't blend out but keep the last pose until stopped explicitly */
+	UPROPERTY(EditAnywhere, Category = BlendOption)
+	bool bEnableAutoBlendOut;
 
 	/** Root Bone will be locked to that position when extracting root motion. DEPRECATED in 4.5 root motion is controlled by anim sequences **/
 	UPROPERTY()

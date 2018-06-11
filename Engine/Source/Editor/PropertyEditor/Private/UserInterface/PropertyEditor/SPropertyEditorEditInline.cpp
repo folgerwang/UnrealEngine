@@ -71,9 +71,12 @@ void SPropertyEditorEditInline::Construct( const FArguments& InArgs, const TShar
 {
 	PropertyEditor = InPropertyEditor;
 
+	TWeakPtr<IPropertyHandle> WeakHandlePtr = InPropertyEditor->GetPropertyHandle();
+
 	ChildSlot
 	[
 		SAssignNew(ComboButton, SComboButton)
+		.IsEnabled(this, &SPropertyEditorEditInline::IsValueEnabled, WeakHandlePtr)
 		.OnGetMenuContent(this, &SPropertyEditorEditInline::GenerateClassPicker)
 		.ContentPadding(0)
 		.ToolTipText(InPropertyEditor, &FPropertyEditor::GetValueAsText )
@@ -97,6 +100,16 @@ void SPropertyEditorEditInline::Construct( const FArguments& InArgs, const TShar
 			]
 		]
 	];
+}
+
+bool SPropertyEditorEditInline::IsValueEnabled(TWeakPtr<IPropertyHandle> WeakHandlePtr) const
+{
+	if (WeakHandlePtr.IsValid())
+	{
+		return !WeakHandlePtr.Pin()->IsEditConst();
+	}
+
+	return false;
 }
 
 FText SPropertyEditorEditInline::GetDisplayValueAsString() const

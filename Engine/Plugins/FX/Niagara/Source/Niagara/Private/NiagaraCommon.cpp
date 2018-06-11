@@ -6,10 +6,14 @@
 #include "NiagaraSystemInstance.h"
 #include "NiagaraParameterCollection.h"
 #include "NiagaraComponent.h"
+#include "NiagaraScriptSourceBase.h"
+#include "NiagaraStats.h"
 #include "UObject/Linker.h"
 #include "UObject/Class.h"
 #include "UObject/Package.h"
 #include "Modules/ModuleManager.h"
+
+DECLARE_CYCLE_STAT(TEXT("Niagara - Utilities - PrepareRapidIterationParameters"), STAT_Niagara_Utilities_PrepareRapidIterationParameters, STATGROUP_Niagara);
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -301,3 +305,81 @@ UNiagaraDataInterface* FNiagaraScriptDataInterfaceCompileInfo::GetDefaultDataInt
 	UNiagaraDataInterface* Obj = CastChecked<UNiagaraDataInterface>(const_cast<UClass*>(Type.GetClass())->GetDefaultObject(true));
 	return Obj;
 }
+#if WITH_EDITORONLY_DATA
+void FNiagaraUtilities::PrepareRapidIterationParameters(const TArray<UNiagaraScript*>& Scripts, const TMap<UNiagaraScript*, UNiagaraScript*>& ScriptDependencyMap, const TMap<UNiagaraScript*, FString>& ScriptToEmitterNameMap)
+{
+	SCOPE_CYCLE_COUNTER(STAT_Niagara_Utilities_PrepareRapidIterationParameters);
+
+	TMap<UNiagaraScript*, FNiagaraParameterStore> ScriptToPreparedParameterStoreMap;
+
+	// Remove old and initialize new parameters.
+	for (UNiagaraScript* Script : Scripts)
+	{
+		FNiagaraParameterStore& ParameterStoreToPrepare = ScriptToPreparedParameterStoreMap.FindOrAdd(Script);
+		Script->RapidIterationParameters.CopyParametersTo(ParameterStoreToPrepare, false, FNiagaraParameterStore::EDataInterfaceCopyMethod::None);
+		const FString* EmitterName = ScriptToEmitterNameMap.Find(Script);
+		checkf(EmitterName != nullptr, TEXT("Script to emitter name map must have an entry for each script to be processed."));
+		Script->GetSource()->CleanUpOldAndInitializeNewRapidIterationParameters(*EmitterName, Script->GetUsage(), Script->GetUsageId(), ParameterStoreToPrepare);
+	}
+
+	// Copy parameters for dependencies.
+	for (auto It = ScriptToPreparedParameterStoreMap.CreateIterator(); It; ++It)
+	{
+		UNiagaraScript* Script = It.Key();
+		FNiagaraParameterStore& PreparedParameterStore = It.Value();
+		UNiagaraScript*const* DependentScriptPtr = ScriptDependencyMap.Find(Script);
+		if (DependentScriptPtr != nullptr)
+		{
+			UNiagaraScript* DependentScript = *DependentScriptPtr;
+			FNiagaraParameterStore* DependentPreparedParameterStore = ScriptToPreparedParameterStoreMap.Find(DependentScript);
+			checkf(DependentPreparedParameterStore != nullptr, TEXT("Dependent scripts must be one of the scripts being processed."));
+			PreparedParameterStore.CopyParametersTo(*DependentPreparedParameterStore, false, FNiagaraParameterStore::EDataInterfaceCopyMethod::None);
+		}
+	}
+
+	// Resolve prepared parameters with the source parameters.
+	for (auto It = ScriptToPreparedParameterStoreMap.CreateIterator(); It; ++It)
+	{
+		UNiagaraScript* Script = It.Key();
+		FNiagaraParameterStore& PreparedParameterStore = It.Value();
+
+		bool bOverwriteParameters = false;
+		if (Script->RapidIterationParameters.GetNumParameters() != PreparedParameterStore.GetNumParameters())
+		{
+			bOverwriteParameters = true;
+		}
+		else
+		{
+			const TMap<FNiagaraVariable, int32>& SourceParameterOffsets = Script->RapidIterationParameters.GetParameterOffests();
+			for (auto ParameterOffsetIt = SourceParameterOffsets.CreateConstIterator(); ParameterOffsetIt; ++ParameterOffsetIt)
+			{
+				const FNiagaraVariable& SourceParameter = ParameterOffsetIt.Key();
+				int32 SourceOffset = ParameterOffsetIt.Value();
+
+				int32 PreparedOffset = PreparedParameterStore.IndexOf(SourceParameter);
+				if (PreparedOffset == INDEX_NONE)
+				{
+					bOverwriteParameters = true;
+					break;
+				}
+				else
+				{
+					if (FMemory::Memcmp(
+						Script->RapidIterationParameters.GetParameterData(SourceOffset),
+						PreparedParameterStore.GetParameterData(PreparedOffset),
+						SourceParameter.GetSizeInBytes()) != 0)
+					{
+						bOverwriteParameters = true;
+						break;
+					}
+				}
+			}
+		}
+
+		if (bOverwriteParameters)
+		{
+			Script->RapidIterationParameters = PreparedParameterStore;
+		}
+	}
+}
+#endif

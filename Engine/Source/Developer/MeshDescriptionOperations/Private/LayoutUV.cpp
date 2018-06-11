@@ -29,22 +29,36 @@ namespace MeshDescriptionOp
 		const float ThreshUVsAreSame = GetUVEqualityThreshold();
 		double Begin = FPlatformTime::Seconds();
 
-		uint32 NumIndexes = MeshDescription->VertexInstances().Num();
-		uint32 NumTris = NumIndexes / 3;
-		check(MeshDescription->Polygons().Num() == NumTris);
+		uint32 NumTris = 0;
+		for (const FPolygonID& PolygonID : MeshDescription->Polygons().GetElementIDs())
+		{
+			NumTris += MeshDescription->GetPolygonTriangles(PolygonID).Num();
+		}
+		uint32 NumIndexes = NumTris * 3;
 
 		TArray< int32 > TranslatedMatches;
 		TranslatedMatches.SetNumUninitialized(NumIndexes);
 		TexCoords.SetNumUninitialized(NumIndexes);
-		int32 VertexInstanceIndex = 0;
+		int32 WedgeIndex = 0;
+		RemapVerts.SetNumUninitialized(NumIndexes);
 
 		const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, SrcChannel);
-		for (const FVertexInstanceID VertexInstanceID : MeshDescription->VertexInstances().GetElementIDs())
+
+		for (const FPolygonID& PolygonID : MeshDescription->Polygons().GetElementIDs())
 		{
-			check(VertexInstanceIndex == VertexInstanceID.GetValue());
-			TranslatedMatches[VertexInstanceIndex] = -1;
-			TexCoords[VertexInstanceIndex] = VertexUVs[VertexInstanceID];
-			VertexInstanceIndex++;
+			const TArray<FMeshTriangle>& Triangles = MeshDescription->GetPolygonTriangles(PolygonID);
+			for (const FMeshTriangle& MeshTriangle : Triangles)
+			{
+				for (int32 Corner = 0; Corner < 3; ++Corner)
+				{
+					const FVertexInstanceID VertexInstanceID = MeshTriangle.GetVertexInstanceID(Corner);
+
+					TranslatedMatches[WedgeIndex] = -1;
+					TexCoords[WedgeIndex] = VertexUVs[VertexInstanceID];
+					RemapVerts[WedgeIndex] = VertexInstanceID.GetValue();
+					++WedgeIndex;
+				}
+			}
 		}
 
 		// Build disjoint set
@@ -191,7 +205,7 @@ namespace MeshDescriptionOp
 				{
 					uint32 Index = 3 * SortedTris[Tri] + k;
 
-					FVertexInstanceID VertexInstanceID(Index);
+					FVertexInstanceID VertexInstanceID(RemapVerts[Index]);
 					Positions[k] = VertexPositions[MeshDescription->GetVertexInstanceVertex(VertexInstanceID)];
 					UVs[k] = TexCoords[Index];
 
@@ -1079,7 +1093,7 @@ namespace MeshDescriptionOp
 				{
 					uint32 Index = 3 * SortedTris[Tri] + k;
 					const FVector2D& UV = TexCoords[Index];
-					const FVertexInstanceID VertexInstanceID(Index);
+					const FVertexInstanceID VertexInstanceID(RemapVerts[Index]);
 					VertexUVs[VertexInstanceID] = UV.X * Chart.PackingScaleU + UV.Y * Chart.PackingScaleV + Chart.PackingBias;
 				}
 			}

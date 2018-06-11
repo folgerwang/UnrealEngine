@@ -677,6 +677,15 @@ FORCEINLINE VectorRegister VectorLoadByte4Reverse( const uint8* Ptr )
  */
 #define VectorStoreByte4( Vec, Ptr )		DirectX::PackedVector::XMStoreUByte4( (DirectX::PackedVector::XMUBYTE4*)(Ptr), Vec )
 
+ /**
+ * Converts the 4 FLOATs in the vector to 4 BYTEs, clamped to [-127,127], and stores to unaligned memory.
+ * IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
+ *
+ * @param Vec			Vector containing 4 FLOATs
+ * @param Ptr			Unaligned memory pointer to store the 4 BYTEs.
+ */
+#define VectorStoreSignedByte4( Vec, Ptr )		DirectX::PackedVector::XMStoreByte4( (DirectX::PackedVector::XMBYTE4*)(Ptr), Vec )
+
 /**
 * Loads packed RGB10A2(4 bytes) from unaligned memory and converts them into 4 FLOATs.
 * IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!

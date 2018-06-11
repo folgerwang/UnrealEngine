@@ -40,6 +40,7 @@ public:
 	virtual void PostLoad() override;
 
 	void GatherExternalDependencyIDs(ENiagaraScriptUsage InMasterUsage, const FGuid& InMasterUsageId, TArray<FGuid>& InReferencedIDs, TArray<UObject*>& InReferencedObjs) const override;
+	virtual void GetPinHoverText(const UEdGraphPin& Pin, FString& HoverTextOut) const override;
 
 protected:
 	virtual void OnNewTypedPinAdded(UEdGraphPin* NewPin) override;
@@ -52,7 +53,7 @@ protected:
 	void SynchronizeDefaultInputPin(UEdGraphPin* DefaultPin, UEdGraphPin* OutputPin);
 	
 	/** Reverse the lookup from GetDefaultPin.*/
-	UEdGraphPin* GetOutputPinForDefault(UEdGraphPin* DefaultPin);
+	UEdGraphPin* GetOutputPinForDefault(const UEdGraphPin* DefaultPin) const;
 	
 	/** Properly set up the default input pin for an output pin.*/
 	UEdGraphPin* CreateDefaultPin(UEdGraphPin* OutputPin);

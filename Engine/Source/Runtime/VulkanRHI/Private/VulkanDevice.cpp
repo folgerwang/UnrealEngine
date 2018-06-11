@@ -206,7 +206,9 @@ void FVulkanDevice::CreateDevice()
 	DeviceInfo.queueCreateInfoCount = QueueFamilyInfos.Num();
 	DeviceInfo.pQueueCreateInfos = QueueFamilyInfos.GetData();
 
-	DeviceInfo.pEnabledFeatures = &Features;
+	VkPhysicalDeviceFeatures EnabledFeatures;
+	FVulkanPlatform::RestrictEnabledPhysicalDeviceFeatures(Features, EnabledFeatures);
+	DeviceInfo.pEnabledFeatures = &EnabledFeatures;
 
 	// Create the device
 	VERIFYVULKANRESULT(VulkanRHI::vkCreateDevice(Gpu, &DeviceInfo, nullptr, &Device));

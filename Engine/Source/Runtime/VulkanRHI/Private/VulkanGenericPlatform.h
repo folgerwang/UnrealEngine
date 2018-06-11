@@ -54,4 +54,22 @@ public:
 	static bool RegisterGPUWork() { return true; }
 
 	static void WriteBufferMarkerAMD(VkCommandBuffer CmdBuffer, VkBuffer DestBuffer, const TArrayView<uint32>& Entries, bool bAdding) {}
+
+	// allow the platform code to restrict the device features
+	static void RestrictEnabledPhysicalDeviceFeatures(const VkPhysicalDeviceFeatures& DeviceFeatures, VkPhysicalDeviceFeatures& FeaturesToEnable)
+	{ 
+		FeaturesToEnable = DeviceFeatures; 
+
+		// disable everything sparse-related
+		FeaturesToEnable.shaderResourceResidency	= VK_FALSE;
+		FeaturesToEnable.shaderResourceMinLod		= VK_FALSE;
+		FeaturesToEnable.sparseBinding				= VK_FALSE;
+		FeaturesToEnable.sparseResidencyBuffer		= VK_FALSE;
+		FeaturesToEnable.sparseResidencyImage2D		= VK_FALSE;
+		FeaturesToEnable.sparseResidencyImage3D		= VK_FALSE;
+		FeaturesToEnable.sparseResidency2Samples	= VK_FALSE;
+		FeaturesToEnable.sparseResidency4Samples	= VK_FALSE;
+		FeaturesToEnable.sparseResidency8Samples	= VK_FALSE;
+		FeaturesToEnable.sparseResidencyAliased		= VK_FALSE;
+	}
 };
