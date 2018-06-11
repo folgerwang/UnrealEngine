@@ -1437,7 +1437,7 @@ FORCEINLINE void FTransform::ScaleTranslation(const FVector& InScale3D)
 	DiagnosticCheckNaN_Translate();
 }
 
-/** Scale the translation part of the Transform by the supplied float. */
+/** Scale the translation part of the Transform by the supplied value. */
 FORCEINLINE void FTransform::ScaleTranslation(const float& InScale)
 {
 	ScaleTranslation( FVector(InScale) );

@@ -324,7 +324,7 @@ struct FMath : public FPlatformMath
 	}
 
 	/**
-	* Computes the sine and cosine of a scalar float.
+	* Computes the sine and cosine of a scalar value.
 	*
 	* @param ScalarSin	Pointer to where the Sin result should be stored
 	* @param ScalarCos	Pointer to where the Cos result should be stored
@@ -379,7 +379,7 @@ struct FMath : public FPlatformMath
 	//		FASTASIN_HALF_PI	== 1.5707963050f  == 0x3fC90FDA
 #define FASTASIN_HALF_PI (1.5707963050f)
 	/**
-	* Computes the ASin of a scalar float.
+	* Computes the ASin of a scalar value.
 	*
 	* @param Value  input angle
 	* @return ASin of Value

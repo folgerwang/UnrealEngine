@@ -99,7 +99,7 @@ public:
 	FORCEINLINE void operator+=(const FMatrix& Other);
 
 	/** 
-	  * This isn't applying SCALE, just multiplying float to all members - i.e. weighting
+	  * This isn't applying SCALE, just multiplying the value to all members - i.e. weighting
 	  */
 	FORCEINLINE FMatrix operator* (float Other) const;
 

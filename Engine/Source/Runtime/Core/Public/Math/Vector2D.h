@@ -107,18 +107,18 @@ public:
 	FVector2D operator/(float Scale) const;
 
 	/**
-	 * Gets the result of this vector + float A.
+	 * Gets the result of adding A to each component of the vector.
 	 *
 	 * @param A Float to add to each component.
-	 * @return The result of this vector + float A.
+	 * @return The result of adding A to each component.
 	 */
 	FORCEINLINE FVector2D operator+(float A) const;
 
 	/**
-	 * Gets the result of subtracting from each component of the vector.
+	 * Gets the result of subtracting A from each component of the vector.
 	 *
 	 * @param A Float to subtract from each component
-	 * @return The result of this vector - float A.
+	 * @return The result of subtracting A from each component.
 	 */
 	FORCEINLINE FVector2D operator-(float A) const;
 
