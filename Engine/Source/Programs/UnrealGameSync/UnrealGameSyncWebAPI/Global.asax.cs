@@ -14,16 +14,15 @@ namespace UnrealGameSyncWebAPI
 		{
 			try
 			{
-				string MsSqlConnectionString = System.Configuration.ConfigurationManager.AppSettings["MsSqlConnectionString"];
-				string SQLiteConnectionString = System.Configuration.ConfigurationManager.AppSettings["SQLiteConnectionString"];
-				string FileName = Regex.Match(SQLiteConnectionString, "Data Source=(.+);.+").Groups[1].Value;
+				string ConnectionString = System.Configuration.ConfigurationManager.AppSettings["ConnectionString"];
+				string FileName = Regex.Match(ConnectionString, "Data Source=(.+);.+").Groups[1].Value;
 				Directory.CreateDirectory(new FileInfo(FileName).Directory.FullName);
 				if (!File.Exists(FileName))
 				{
 					SQLiteConnection.CreateFile(FileName);
 				}
 				// initialize the db if it doesn't exist
-				using (SQLiteConnection Connection = new SQLiteConnection(SQLiteConnectionString, true))
+				using (SQLiteConnection Connection = new SQLiteConnection(ConnectionString, true))
 				{
 					Connection.Open();
 					string CreateTables = @"CREATE TABLE IF NOT EXISTS
