@@ -162,7 +162,7 @@ inline bool RHISupports4ComponentUAVReadWrite(EShaderPlatform Platform)
 	Shader Platform must not use the mobile renderer, and for Metal, the shader lanugage must be at least 2. */
 inline bool RHISupportsManualVertexFetch(EShaderPlatform InShaderPlatform)
 {
-	return !IsMobilePlatform(InShaderPlatform) && (!IsMetalPlatform(InShaderPlatform) || RHIGetShaderLanguageVersion(InShaderPlatform) >= 2);
+	return !IsOpenGLPlatform(InShaderPlatform) && !IsMobilePlatform(InShaderPlatform) && (!IsMetalPlatform(InShaderPlatform) || RHIGetShaderLanguageVersion(InShaderPlatform) >= 2);
 }
 
 // Wrapper for GRHI## global variables, allows values to be overridden for mobile preview modes.

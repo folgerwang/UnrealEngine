@@ -371,11 +371,19 @@ public:
 	virtual const FShaderResourceViewRHIRef GetColorComponentsSRV() const = 0;
 	virtual const uint32 GetColorIndexMask() const = 0;
 
+	inline const FVertexStreamComponent& GetTangentStreamComponent(int Index)
+	{
+		check(TangentStreamComponents[Index].VertexBuffer != nullptr);
+		return TangentStreamComponents[Index];
+	}
+
 protected:
 	/** dynamic data need for setting the shader */ 
 	FShaderDataType ShaderData;
 	/** Pool of buffers for bone matrices. */
 	static TGlobalResource<FBoneBufferPool> BoneBufferPool;
+
+	FVertexStreamComponent TangentStreamComponents[2];
 
 private:
 	uint32 NumVertices;
@@ -434,6 +442,8 @@ public:
 	void SetData(const FDataType& InData)
 	{
 		Data = InData;
+		this->TangentStreamComponents[0] = InData.TangentBasisComponents[0];
+		this->TangentStreamComponents[1] = InData.TangentBasisComponents[1];
 		FGPUBaseSkinVertexFactory::UpdateRHI();
 	}
 
@@ -530,6 +540,12 @@ public:
 	//TODO should be supported
 	bool SupportsPositionOnlyStream() const override { return false; }
 
+	inline void InvalidateStreams()
+	{
+		PositionStreamIndex = -1;
+		TangentStreamIndex = -1;
+	}
+
 protected:
 	// Vertex buffer required for creating the Vertex Declaration
 	FVertexBuffer PositionVBAlias;
@@ -577,6 +593,8 @@ public:
 	void SetData(const FDataType& InData)
 	{
 		MorphData = InData;
+		this->TangentStreamComponents[0] = InData.TangentBasisComponents[0];
+		this->TangentStreamComponents[1] = InData.TangentBasisComponents[1];
 		FGPUBaseSkinVertexFactory::UpdateRHI();
 	}
 
@@ -897,6 +915,8 @@ public:
 	{
         Super::SetData(InData);
 		MeshMappingData = InData;
+		this->TangentStreamComponents[0] = InData.TangentBasisComponents[0];
+		this->TangentStreamComponents[1] = InData.TangentBasisComponents[1];
 		FGPUBaseSkinVertexFactory::UpdateRHI();
 	}
 
