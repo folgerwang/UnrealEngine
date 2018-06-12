@@ -451,6 +451,16 @@ public:
 	 */
 	void MoveBindingContents(const FGuid& SourceBindingId, const FGuid& DestinationBindingId);
 
+	/**
+	 * Tries to find an FMovieSceneBinding for the specified Guid.
+	 * 
+	 * @param ForGuid	The binding's Guid to look for.
+	 * @return			Pointer to the binding, otherwise nullptr.
+	 */
+	FMovieSceneBinding* FindBinding(const FGuid& ForGuid)
+	{
+		return ObjectBindings.FindByPredicate([ForGuid](const FMovieSceneBinding& Binding) { return Binding.GetObjectGuid() == ForGuid; });
+	}
 public:
 
 	// @todo sequencer: the following methods really shouldn't be here
