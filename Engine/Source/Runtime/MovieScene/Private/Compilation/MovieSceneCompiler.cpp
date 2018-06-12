@@ -396,11 +396,16 @@ const FMovieSceneSubSequenceData* FMovieSceneCompiler::GetOrCreateSubSequenceDat
 {
 	// Find/add sub data in the root template
 	const FMovieSceneSubSequenceData* SubData = InOutHierarchy.FindSubData(InnerSequenceID);
-	if (SubData)
+	if (SubData && !SubData->IsDirty(SubSection))
 	{
 		return SubData;
 	}
-	
+
+	// Ensure that any ((great)grand)child sub sequences have their sub data regenerated
+	// by removing this whole sequence branch from the hierarchy (if it exists). This is
+	// necessary as all children will depend on this sequences's transform
+	InOutHierarchy.Remove(MakeArrayView(&InnerSequenceID, 1));
+
 	FSubSequenceInstanceDataParams InstanceParams{ InnerSequenceID, FMovieSceneEvaluationOperand(ParentSequenceID, InObjectBindingId) };
 	FMovieSceneSubSequenceData NewSubData = SubSection.GenerateSubSequenceData(InstanceParams);
 
