@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 
-namespace UnrealGameSyncWebAPI.Models
+namespace UnrealGameSyncMetadataServer.Models
 {
 	public class CommentData
 	{

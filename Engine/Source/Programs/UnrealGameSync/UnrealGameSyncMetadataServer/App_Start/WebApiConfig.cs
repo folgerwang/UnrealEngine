@@ -2,7 +2,7 @@
 
 using System.Web.Http;
 
-namespace UnrealGameSyncWebAPI
+namespace UnrealGameSyncMetadataServer
 {
 	public static class WebApiConfig
 	{
