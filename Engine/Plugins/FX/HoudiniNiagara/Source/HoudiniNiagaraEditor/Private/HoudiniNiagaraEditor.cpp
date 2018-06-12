@@ -93,4 +93,4 @@ void FHoudiniNiagaraEditorModule::ShutdownModule()
 
 #undef LOCTEXT_NAMESPACE
 	
-IMPLEMENT_MODULE(FHoudiniNiagaraEditorModule, HoudiniNiagara)
+IMPLEMENT_MODULE(FHoudiniNiagaraEditorModule, HoudiniNiagaraEditor)

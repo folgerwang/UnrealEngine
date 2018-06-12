@@ -6,7 +6,7 @@
 
 #define LOCTEXT_NAMESPACE "NiagaraNodeReroute"
 
-const char* PC_Wildcard = "wildcard";
+const char* PC_Wildcard_Niagara = "wildcard";
 
 UNiagaraNodeReroute::UNiagaraNodeReroute(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -32,11 +32,11 @@ void UNiagaraNodeReroute::PostLoad()
 void UNiagaraNodeReroute::AllocateDefaultPins()
 {
 	const FName InputPinName(TEXT("InputPin"));
-	UEdGraphPin* MyInputPin = CreatePin(EGPD_Input, PC_Wildcard, InputPinName);
+	UEdGraphPin* MyInputPin = CreatePin(EGPD_Input, PC_Wildcard_Niagara, InputPinName);
 	MyInputPin->bDefaultValueIsIgnored = true;
 
 	const FName OutputPinName(TEXT("OutputPin"));
-	CreatePin(EGPD_Output, PC_Wildcard, OutputPinName);
+	CreatePin(EGPD_Output, PC_Wildcard_Niagara, OutputPinName);
 }
 
 FText UNiagaraNodeReroute::GetTooltipText() const
@@ -138,7 +138,7 @@ void UNiagaraNodeReroute::PropagatePinType()
 
 	for (UEdGraphPin* Inputs : MyInputPin->LinkedTo)
 	{
-		if (Inputs->PinType.PinCategory != PC_Wildcard)
+		if (Inputs->PinType.PinCategory != PC_Wildcard_Niagara)
 		{
 			PropagatePinTypeFromDirection(true);
 			return;
@@ -147,7 +147,7 @@ void UNiagaraNodeReroute::PropagatePinType()
 
 	for (UEdGraphPin* Outputs : MyOutputPin->LinkedTo)
 	{
-		if (Outputs->PinType.PinCategory != PC_Wildcard)
+		if (Outputs->PinType.PinCategory != PC_Wildcard_Niagara)
 		{
 			PropagatePinTypeFromDirection(false);
 			return;
@@ -170,11 +170,11 @@ void UNiagaraNodeReroute::PropagatePinType()
 		// Revert to wildcard
 		MyInputPin->BreakAllPinLinks();
 		MyInputPin->PinType.ResetToDefaults();
-		MyInputPin->PinType.PinCategory = PC_Wildcard;
+		MyInputPin->PinType.PinCategory = PC_Wildcard_Niagara;
 
 		MyOutputPin->BreakAllPinLinks();
 		MyOutputPin->PinType.ResetToDefaults();
-		MyOutputPin->PinType.PinCategory = PC_Wildcard;
+		MyOutputPin->PinType.PinCategory = PC_Wildcard_Niagara;
 	}
 }
 

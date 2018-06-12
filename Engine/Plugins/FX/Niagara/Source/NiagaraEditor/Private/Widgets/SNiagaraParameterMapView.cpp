@@ -35,8 +35,6 @@
 
 #define LOCTEXT_NAMESPACE "NiagaraParameterMapView"
 
-DEFINE_LOG_CATEGORY(LogNiagara);
-
 FText NiagaraParameterMapSectionID::OnGetSectionTitle(const NiagaraParameterMapSectionID::Type InSection)
 {
 	/* Setup an appropriate name for the section for this node */
