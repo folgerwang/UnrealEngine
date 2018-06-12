@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -16,39 +16,6 @@ namespace UnrealBuildTool
 	/// </summary>
 	class UEBuildModuleCPP : UEBuildModule
 	{
-		public class AutoGenerateCppInfoClass
-		{
-			public class BuildInfoClass
-			{
-				/// <summary>
-				/// The wildcard of the *.gen.cpp file which was generated for the module
-				/// </summary>
-				public readonly string FileWildcard;
-
-				public BuildInfoClass(string InWildcard)
-				{
-					Debug.Assert(InWildcard != null);
-
-					FileWildcard = InWildcard;
-				}
-			}
-
-			/// <summary>
-			/// Information about how to build the .gen.cpp files. If this is null, then we're not building .gen.cpp files for this module.
-			/// </summary>
-			public BuildInfoClass BuildInfo;
-
-			public AutoGenerateCppInfoClass(BuildInfoClass InBuildInfo)
-			{
-				BuildInfo = InBuildInfo;
-			}
-		}
-
-		/// <summary>
-		/// Information about the .gen.cpp file.  If this is null then this module doesn't have any UHT-produced code.
-		/// </summary>
-		public AutoGenerateCppInfoClass AutoGenerateCppInfo = null;
-
 		public class SourceFilesClass
 		{
 			public readonly List<FileItem> MissingFiles = new List<FileItem>();
@@ -101,16 +68,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Adds additional source cpp files for this module.
-		/// </summary>
-		/// <param name="Files">Files to add.</param>
-		public void AddAdditionalCPPFiles(IEnumerable<FileItem> Files)
-		{
-			SourceFiles.AddRange(Files);
-			SourceFilesToBuild.CPPFiles.AddRange(Files);
-		}
-
-		/// <summary>
 		/// All the source files for this module
 		/// </summary>
 		public readonly List<FileItem> SourceFiles = new List<FileItem>();
@@ -134,6 +91,11 @@ namespace UnrealBuildTool
 		/// The directory for this module's generated code
 		/// </summary>
 		public readonly DirectoryReference GeneratedCodeDirectory;
+
+		/// <summary>
+		/// Wildcard matching the *.gen.cpp files for this module.  If this is null then this module doesn't have any UHT-produced code.
+		/// </summary>
+		public string GeneratedCodeWildcard;
 
 		public List<DirectoryReference> IncludeSearchPaths = new List<DirectoryReference>();
 
@@ -405,7 +367,7 @@ namespace UnrealBuildTool
 			bool bLegacyPublicIncludePaths
 			)
 		{
-			if(AutoGenerateCppInfo != null)
+			if(GeneratedCodeWildcard != null)
 			{
 				IncludePaths.Add(GeneratedCodeDirectory);
 			}
@@ -616,9 +578,9 @@ namespace UnrealBuildTool
 			}
 
 			// Compile all the generated CPP files
-			if (AutoGenerateCppInfo != null && AutoGenerateCppInfo.BuildInfo != null && !CompileEnvironment.bHackHeaderGenerator)
+			if (GeneratedCodeWildcard != null && !CompileEnvironment.bHackHeaderGenerator)
 			{
-				string[] GeneratedFiles = Directory.GetFiles(Path.GetDirectoryName(AutoGenerateCppInfo.BuildInfo.FileWildcard), Path.GetFileName(AutoGenerateCppInfo.BuildInfo.FileWildcard));
+				string[] GeneratedFiles = Directory.GetFiles(Path.GetDirectoryName(GeneratedCodeWildcard), Path.GetFileName(GeneratedCodeWildcard));
 				if(GeneratedFiles.Length > 0)
 				{
 					// Create a compile environment for the generated files. We can disable creating debug info here to improve link times.

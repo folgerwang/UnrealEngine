@@ -499,14 +499,11 @@ namespace UnrealBuildTool
 				{
 					// If we've got this far and there are no source files then it's likely we're installed and ignoring
 					// engine files, so we don't need a .gen.cpp either
-					UEBuildModuleCPP.AutoGenerateCppInfoClass.BuildInfoClass BuildInfo = null;
 					UHTModuleInfo.Info.GeneratedCPPFilenameBase = Path.Combine(Module.GeneratedCodeDirectory.FullName, UHTModuleInfo.Info.ModuleName) + ".gen";
 					if (Module.SourceFilesToBuild.Count != 0)
 					{
-						BuildInfo = new UEBuildModuleCPP.AutoGenerateCppInfoClass.BuildInfoClass(Path.Combine(Module.GeneratedCodeDirectory.FullName, "*.gen.cpp"));
+						Module.GeneratedCodeWildcard = Path.Combine(Module.GeneratedCodeDirectory.FullName, "*.gen.cpp");
 					}
-
-					Module.AutoGenerateCppInfo = new UEBuildModuleCPP.AutoGenerateCppInfoClass(BuildInfo);
 
 					// If we're running in "gather" mode only, we'll go ahead and cache PCH information for each module right now, so that we don't
 					// have to do it in the assembling phase.  It's OK for gathering to take a bit longer, even if UObject headers are not out of
