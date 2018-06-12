@@ -110,6 +110,9 @@ public:
 		return false;
 	}
 
+	IStereoLayers* GetStereoLayers() override;
+
+
 	// FXRRenderTargetManager interface
 	virtual void UpdateViewportRHIBridge(bool bUseSeparateRenderTarget, const class FViewport& Viewport, FRHIViewport* const ViewportRHI) override;
 	virtual bool ShouldUseSeparateRenderTarget() const override
