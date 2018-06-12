@@ -10,6 +10,7 @@
 #include "IMovieSceneSectionRecorder.h"
 #include "ActorRecordingSettings.h"
 #include "UObject/ObjectKey.h"
+#include "UObject/SoftObjectPath.h"
 #include "GameFramework/Actor.h"
 
 #include "ActorRecording.generated.h"
@@ -143,7 +144,7 @@ public:
 private:
 	/** The actor we want to record */
 	UPROPERTY(EditAnywhere, Category = "Actor Recording")
-	TLazyObjectPtr<AActor> ActorToRecord;
+	FSoftObjectPath ActorToRecord;
 
 	/** This actor's current set of section recorders */
 	TArray<TSharedPtr<class IMovieSceneSectionRecorder>> SectionRecorders;
