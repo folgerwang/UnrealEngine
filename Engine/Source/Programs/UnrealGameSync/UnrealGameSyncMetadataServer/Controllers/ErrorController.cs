@@ -1,10 +1,10 @@
 ﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System.Web.Http;
-using UnrealGameSyncWebAPI.Connectors;
-using UnrealGameSyncWebAPI.Models;
+using UnrealGameSyncMetadataServer.Connectors;
+using UnrealGameSyncMetadataServer.Models;
 
-namespace UnrealGameSyncWebAPI.Controllers
+namespace UnrealGameSyncMetadataServer.Controllers
 {
     public class ErrorController : ApiController
     {

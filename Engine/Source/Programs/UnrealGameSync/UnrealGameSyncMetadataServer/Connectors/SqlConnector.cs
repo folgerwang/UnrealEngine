@@ -6,9 +6,9 @@ using System.Data.SqlClient;
 using System.Data.SQLite;
 using System.IO;
 using System.Text.RegularExpressions;
-using UnrealGameSyncWebAPI.Models;
+using UnrealGameSyncMetadataServer.Models;
 
-namespace UnrealGameSyncWebAPI.Connectors
+namespace UnrealGameSyncMetadataServer.Connectors
 {
 	public static class SqlConnector
 	{

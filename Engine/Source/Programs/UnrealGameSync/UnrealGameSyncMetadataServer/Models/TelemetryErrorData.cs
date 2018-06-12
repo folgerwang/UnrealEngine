@@ -5,15 +5,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 
-namespace UnrealGameSyncWebAPI.Models
+namespace UnrealGameSyncMetadataServer.Models
 {
-	public class TelemetryTimingData
+	public class TelemetryErrorData
 	{
-		public string Action;
-		public string Result;
+		public enum TelemetryErrorType
+		{
+			Crash,
+		}
+		public TelemetryErrorType Type;
+		public string Text;
 		public string UserName;
 		public string Project;
 		public DateTime Timestamp;
-		public float Duration;
 	}
 }

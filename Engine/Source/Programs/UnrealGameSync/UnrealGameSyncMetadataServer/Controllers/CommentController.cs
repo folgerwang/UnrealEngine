@@ -2,10 +2,10 @@
 
 using System.Collections.Generic;
 using System.Web.Http;
-using UnrealGameSyncWebAPI.Connectors;
-using UnrealGameSyncWebAPI.Models;
+using UnrealGameSyncMetadataServer.Connectors;
+using UnrealGameSyncMetadataServer.Models;
 
-namespace UnrealGameSyncWebAPI.Controllers
+namespace UnrealGameSyncMetadataServer.Controllers
 {
 	public class CommentController : ApiController
 	{
