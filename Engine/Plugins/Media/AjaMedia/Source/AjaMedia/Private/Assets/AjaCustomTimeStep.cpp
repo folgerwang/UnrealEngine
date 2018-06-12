@@ -50,10 +50,11 @@ bool UAjaCustomTimeStep::Initialize(class UEngine* InEngine)
 	State = ECustomTimeStepSynchronizationState::Closed;
 	bDidAValidUpdateTimeStep = false;
 
-	if (!MediaPort.IsValid())
+	FString FailureReason;
+	if (!FAjaMediaFinder::IsValid(MediaPort, MediaMode, FailureReason))
 	{
-		UE_LOG(LogAjaMedia, Warning, TEXT("The Source of '%s' is not valid."), *GetName());
 		State = ECustomTimeStepSynchronizationState::Error;
+		UE_LOG(LogAjaMedia, Warning, TEXT("The CustomTimeStep '%s' is invalid. %s"), *GetName(), *FailureReason);
 		return false;
 	}
 
@@ -66,6 +67,7 @@ bool UAjaCustomTimeStep::Initialize(class UEngine* InEngine)
 	AJA::AJASyncChannelOptions Options(*GetName(), MediaPort.PortIndex);
 	Options.CallbackInterface = SyncCallback;
 	Options.bUseTimecode = false;
+	Options.VideoFormatIndex = MediaMode.VideoFormatIndex;
 
 	check(SyncChannel == nullptr);
 	SyncChannel = new AJA::AJASyncChannel();

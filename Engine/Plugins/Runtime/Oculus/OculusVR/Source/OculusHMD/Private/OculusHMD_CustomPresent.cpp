@@ -87,6 +87,11 @@ bool FCustomPresent::NeedsNativePresent()
 		}
 	}
 
+	if (FPlatformMisc::IsStandaloneStereoOnlyDevice())
+	{
+		bNeedsNativePresent = false;
+	}
+
 	return bNeedsNativePresent;
 }
 
@@ -106,6 +111,11 @@ bool FCustomPresent::Present(int32& SyncInterval)
 			bNeedsNativePresent = Frame_RHIThread->Flags.bSpectatorScreenActive;
 			FinishRendering_RHIThread();
 		}
+	}
+
+	if (FPlatformMisc::IsStandaloneStereoOnlyDevice())
+	{
+		bNeedsNativePresent = false;
 	}
 
 	if (bNeedsNativePresent)
@@ -253,6 +263,13 @@ bool FCustomPresent::IsSRGB(ovrpTextureFormat InFormat)
 	return false;
 }
 
+
+int FCustomPresent::GetSystemRecommendedMSAALevel() const
+{
+	int SystemRecommendedMSAALevel = 1;
+	ovrp_GetSystemRecommendedMSAALevel2(&SystemRecommendedMSAALevel);
+	return SystemRecommendedMSAALevel;
+}
 
 
 FTextureSetProxyPtr FCustomPresent::CreateTextureSetProxy_RenderThread(uint32 InSizeX, uint32 InSizeY, EPixelFormat InFormat, FClearValueBinding InBinding, uint32 InNumMips, uint32 InNumSamples, uint32 InNumSamplesTileMem, ERHIResourceType InResourceType, const TArray<ovrpTextureHandle>& InTextures, uint32 InTexCreateFlags)

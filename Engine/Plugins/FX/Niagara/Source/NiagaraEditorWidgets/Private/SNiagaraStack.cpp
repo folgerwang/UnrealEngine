@@ -135,7 +135,7 @@ void SNiagaraStack::Construct(const FArguments& InArgs, UNiagaraStackViewModel* 
 					LOCTEXT("OpenAndFocusEmitter", "Open and focus source emitter"),
 					LOCTEXT("OpenAndFocusEmitterToolTip", "Open the source emitter in emitter mode"),
 					FSlateIcon(),
-					FUIAction(FExecuteAction::CreateSP(this, &SNiagaraStack::OpenSourceEmitter)));
+					FUIAction(FExecuteAction::CreateSP(this, &SNiagaraStack::OpenSourceEmitter), FCanExecuteAction::CreateSP(this, &SNiagaraStack::CanOpenSourceEmitter)));
 				MenuBuilder.AddMenuEntry(
 					LOCTEXT("ShowEmitterInContentBrowser", "Show in content browser"),
 					LOCTEXT("ShowEmitterInContentBrowserToolTip", "Show the emitter in this stack in the Content Browser"),
@@ -433,7 +433,28 @@ bool SNiagaraStack::IsEntryFocusedInSearch(UNiagaraStackEntry* Entry) const
 
 void SNiagaraStack::OpenSourceEmitter()
 {
-	FAssetEditorManager::Get().OpenEditorForAsset(const_cast<UNiagaraEmitter*>(StackViewModel->GetEmitterHandleViewModel()->GetEmitterHandle()->GetSource()));
+	if (StackViewModel && StackViewModel->GetEmitterHandleViewModel().IsValid() && StackViewModel->GetEmitterHandleViewModel()->GetEmitterHandle())
+	{
+		UNiagaraEmitter* Emitter = const_cast<UNiagaraEmitter*>(StackViewModel->GetEmitterHandleViewModel()->GetEmitterHandle()->GetSource());
+		if (Emitter != nullptr)
+		{
+			FAssetEditorManager::Get().OpenEditorForAsset(Emitter);
+		}
+	}
+}
+
+bool SNiagaraStack::CanOpenSourceEmitter() const
+{
+	if (StackViewModel && StackViewModel->GetEmitterHandleViewModel().IsValid() && StackViewModel->GetEmitterHandleViewModel()->GetEmitterHandle())
+	{
+		UNiagaraEmitter* Emitter = const_cast<UNiagaraEmitter*>(StackViewModel->GetEmitterHandleViewModel()->GetEmitterHandle()->GetSource());
+		if (Emitter != nullptr)
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 void SNiagaraStack::SetEmitterEnabled(bool bIsEnabled)

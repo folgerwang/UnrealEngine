@@ -2998,6 +2998,13 @@ void FBlueprintEditor::OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGr
 			}
 		}
 	}
+
+	// If the bookmarks view is active, check whether or not we're restricting the view to the current graph. If we are, update the tree to reflect the focused graph context.
+	if (BookmarksWidget.IsValid()
+		&& GetDefault<UBlueprintEditorSettings>()->bShowBookmarksForCurrentDocumentOnlyInTab)
+	{
+		BookmarksWidget->RefreshBookmarksTree();
+	}
 }
 
 void FBlueprintEditor::OnGraphEditorBackgrounded(const TSharedRef<SGraphEditor>& InGraphEditor)

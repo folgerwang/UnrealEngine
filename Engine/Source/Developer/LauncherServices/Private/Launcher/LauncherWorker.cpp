@@ -309,62 +309,63 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 		// Platform info for the given platform
 		const PlatformInfo::FPlatformInfo* PlatformInfo = PlatformInfo::FindPlatformInfo(FName(*InPlatforms[PlatformIndex]));
 
-		// switch server and no editor platforms to the proper type
-		if (PlatformInfo->TargetPlatformName == FName("LinuxServer"))
+		if (ensure(PlatformInfo))
 		{
-			ServerPlatforms += TEXT("+Linux");
-		}
-		else if (PlatformInfo->TargetPlatformName == FName("WindowsServer"))
-		{
-			ServerPlatforms += TEXT("+Win64");
-		}
-		else if (PlatformInfo->TargetPlatformName == FName("MacServer"))
-		{
-			ServerPlatforms += TEXT("+Mac");
-		}
-		else if (PlatformInfo->TargetPlatformName == FName("LinuxNoEditor") || PlatformInfo->TargetPlatformName == FName("LinuxClient"))
-		{
-			Platforms += TEXT("+Linux");
-		}
-		else if (PlatformInfo->TargetPlatformName == FName("WindowsNoEditor") || PlatformInfo->TargetPlatformName == FName("Windows") || PlatformInfo->TargetPlatformName == FName("WindowsClient"))
-		{
-			Platforms += TEXT("+Win64");
-		}
-		else if (PlatformInfo->TargetPlatformName == FName("MacNoEditor") || PlatformInfo->TargetPlatformName == FName("MacClient"))
-		{
-			Platforms += TEXT("+Mac");
-		}
-		else
-		{
-			Platforms += TEXT("+");
-			Platforms += PlatformInfo->TargetPlatformName.ToString();
-		}
-
-		// Append any extra UAT flags specified for this platform flavor
-		if (!PlatformInfo->UATCommandLine.IsEmpty())
-		{
-			FString OptionalUATCommandLine = PlatformInfo->UATCommandLine;
-			
-			FString OptionalTargetPlatform;
-			if (FParse::Value(*OptionalUATCommandLine, TEXT("-targetplatform="), OptionalTargetPlatform))
+			// switch server and no editor platforms to the proper type
+			if (PlatformInfo->TargetPlatformName == FName("LinuxServer"))
 			{
-				OptionalTargetPlatforms.Add(OptionalTargetPlatform);
-				OptionalUATCommandLine.ReplaceInline(*(TEXT("-targetplatform=") + OptionalTargetPlatform), TEXT(""));
+				ServerPlatforms += TEXT("+Linux");
+			}
+			else if (PlatformInfo->TargetPlatformName == FName("WindowsServer"))
+			{
+				ServerPlatforms += TEXT("+Win64");
+			}
+			else if (PlatformInfo->TargetPlatformName == FName("MacServer"))
+			{
+				ServerPlatforms += TEXT("+Mac");
+			}
+			else if (PlatformInfo->TargetPlatformName == FName("LinuxNoEditor") || PlatformInfo->TargetPlatformName == FName("LinuxClient"))
+			{
+				Platforms += TEXT("+Linux");
+			}
+			else if (PlatformInfo->TargetPlatformName == FName("WindowsNoEditor") || PlatformInfo->TargetPlatformName == FName("Windows") || PlatformInfo->TargetPlatformName == FName("WindowsClient"))
+			{
+				Platforms += TEXT("+Win64");
+			}
+			else if (PlatformInfo->TargetPlatformName == FName("MacNoEditor") || PlatformInfo->TargetPlatformName == FName("MacClient"))
+			{
+				Platforms += TEXT("+Mac");
+			}
+			else
+			{
+				Platforms += TEXT("+");
+				Platforms += PlatformInfo->TargetPlatformName.ToString();
 			}
 
-			FString OptionalCookFlavor;
-			if (FParse::Value(*OptionalUATCommandLine, TEXT("-cookflavor="), OptionalCookFlavor))
+			// Append any extra UAT flags specified for this platform flavor
+			if (!PlatformInfo->UATCommandLine.IsEmpty())
 			{
-				OptionalCookFlavors.Add(OptionalCookFlavor);
-				OptionalUATCommandLine.ReplaceInline(*(TEXT("-cookflavor=") + OptionalCookFlavor), TEXT(""));
+				FString OptionalUATCommandLine = PlatformInfo->UATCommandLine;
+
+				FString OptionalTargetPlatform;
+				if (FParse::Value(*OptionalUATCommandLine, TEXT("-targetplatform="), OptionalTargetPlatform))
+				{
+					OptionalTargetPlatforms.Add(OptionalTargetPlatform);
+					OptionalUATCommandLine.ReplaceInline(*(TEXT("-targetplatform=") + OptionalTargetPlatform), TEXT(""));
+				}
+
+				FString OptionalCookFlavor;
+				if (FParse::Value(*OptionalUATCommandLine, TEXT("-cookflavor="), OptionalCookFlavor))
+				{
+					OptionalCookFlavors.Add(OptionalCookFlavor);
+					OptionalUATCommandLine.ReplaceInline(*(TEXT("-cookflavor=") + OptionalCookFlavor), TEXT(""));
+				}
+
+				OptionalParams += TEXT(" ");
+				OptionalParams += OptionalUATCommandLine;
 			}
-			
-			OptionalParams += TEXT(" ");
-			OptionalParams += OptionalUATCommandLine;
+			bUATClosesAfterLaunch |= PlatformInfo->bUATClosesAfterLaunch;
 		}
-
-		bUATClosesAfterLaunch |= PlatformInfo->bUATClosesAfterLaunch;
-
 	}
 	if (ServerPlatforms.Len() > 0)
 	{

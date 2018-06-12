@@ -20,6 +20,15 @@ void UNiagaraStackEmitterPropertiesItem::Initialize(FRequiredEntryData InRequire
 	Emitter->OnPropertiesChanged().AddUObject(this, &UNiagaraStackEmitterPropertiesItem::EmitterPropertiesChanged);
 }
 
+void UNiagaraStackEmitterPropertiesItem::FinalizeInternal()
+{
+	if (Emitter.IsValid())
+	{
+		Emitter->OnPropertiesChanged().RemoveAll(this);
+	}
+	Super::FinalizeInternal();
+}
+
 FText UNiagaraStackEmitterPropertiesItem::GetDisplayName() const
 {
 	return LOCTEXT("EmitterPropertiesDisplayName", "Emitter Properties");
@@ -51,15 +60,6 @@ void UNiagaraStackEmitterPropertiesItem::ResetToBase()
 		TSharedRef<FNiagaraScriptMergeManager> MergeManager = FNiagaraScriptMergeManager::Get();
 		MergeManager->ResetEmitterEditablePropertySetToBase(*Emitter, *BaseEmitter);
 	}
-}
-
-void UNiagaraStackEmitterPropertiesItem::BeginDestroy()
-{
-	if (Emitter.IsValid())
-	{
-		Emitter->OnPropertiesChanged().RemoveAll(this);
-	}
-	Super::BeginDestroy();
 }
 
 void UNiagaraStackEmitterPropertiesItem::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)

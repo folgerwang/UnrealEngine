@@ -45,7 +45,7 @@ FTimecode UAjaTimecodeProvider::GetTimecode() const
 		AJA::FTimecode NewTimecode;
 		if (SyncChannel->GetTimecode(NewTimecode))
 		{
-			return FAja::ConvertAJATimecode2Timecode(NewTimecode, FrameRate);
+			return FAja::ConvertAJATimecode2Timecode(NewTimecode, GetFrameRate());
 		}
 		else if (State == ETimecodeProviderSynchronizationState::Synchronized)
 		{
@@ -59,10 +59,11 @@ bool UAjaTimecodeProvider::Initialize(class UEngine* InEngine)
 {
 	State = ETimecodeProviderSynchronizationState::Closed;
 
-	if (!MediaPort.IsValid())
+	FString FailureReason;
+	if (!FAjaMediaFinder::IsValid(MediaPort, MediaMode, FailureReason))
 	{
-		UE_LOG(LogAjaMedia, Warning, TEXT("The Source of '%s' is not valid."), *GetName());
 		State = ETimecodeProviderSynchronizationState::Error;
+		UE_LOG(LogAjaMedia, Warning, TEXT("The TimecodeProvider '%s' is invalid. %s"), *GetName(), *FailureReason);
 		return false;
 	}
 

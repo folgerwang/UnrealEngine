@@ -330,9 +330,9 @@ protected:
 	virtual void BeginDestroy() override;
 
 #if WITH_EDITORONLY_DATA
+private:
 	void SyncEmitterAlias(const FString& InOldName, const FString& InNewName);
 
-private:
 	void UpdateChangeId();
 
 	void ScriptRapidIterationParameterChanged();

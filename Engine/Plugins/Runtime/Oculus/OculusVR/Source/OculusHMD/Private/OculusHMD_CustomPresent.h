@@ -62,6 +62,8 @@ public:
 	ovrpTextureFormat GetDefaultOvrpTextureFormat() const { return DefaultOvrpTextureFormat; }
 	ovrpTextureFormat GetDefaultDepthOvrpTextureFormat() const { return DefaultDepthOvrpTextureFormat; }
 	static bool IsSRGB(ovrpTextureFormat InFormat);
+	virtual int GetSystemRecommendedMSAALevel() const;
+	virtual int GetEyeLayerFlags() const { return 0; }
 
 	virtual FTextureRHIRef CreateTexture_RenderThread(uint32 InSizeX, uint32 InSizeY, EPixelFormat InFormat, FClearValueBinding InBinding, uint32 InNumMips, uint32 InNumSamples, uint32 InNumSamplesTileMem, ERHIResourceType InResourceType, ovrpTextureHandle InTexture, uint32 TexCreateFlags) = 0;
 	FTextureSetProxyPtr CreateTextureSetProxy_RenderThread(uint32 InSizeX, uint32 InSizeY, EPixelFormat InFormat, FClearValueBinding InBinding, uint32 InNumMips, uint32 InNumSamples, uint32 InNumSamplesTileMem, ERHIResourceType InResourceType, const TArray<ovrpTextureHandle>& InTextures, uint32 InTexCreateFlags);

@@ -17,6 +17,7 @@ class UNiagaraScript;
 class UNiagaraScriptSource;
 class FNiagaraScriptViewModel;
 class FNiagaraObjectSelection;
+struct FEdGraphEditAction;
 
 /** Viewer/editor for a DataTable */
 class FNiagaraScriptToolkit : public FAssetEditorToolkit, public FGCObject
@@ -61,10 +62,10 @@ protected:
 	virtual void SaveAssetAs_Execute() override;
 	virtual bool OnRequestClose() override;
 
-	void OnDetailsSelectionPropertyFinishedChanging(const FPropertyChangedEvent& InEvent);
-	void OnVMScriptCompiled(UNiagaraScript* InScript);
-
 private:
+	void OnEditedScriptPropertyFinishedChanging(const FPropertyChangedEvent& InEvent);
+
+	void OnVMScriptCompiled(UNiagaraScript* InScript);
 
 	/** Spawns the tab with the update graph inside */
 	TSharedRef<SDockTab> SpawnTabNodeGraph(const FSpawnTabArgs& Args);
@@ -94,7 +95,6 @@ private:
 	FSlateIcon GetRefreshStatusImage() const;
 	FText GetRefreshStatusTooltip() const;
 	
-private:
 	bool IsEditScriptDifferentFromOriginalScript() const;
 
 	/** Command for the apply button */
@@ -102,6 +102,10 @@ private:
 	bool OnApplyEnabled() const;
 
 	void UpdateOriginalNiagaraScript();
+
+	void OnEditedScriptGraphChanged(const FEdGraphEditAction& InAction);
+
+private:
 
 	/** The Script being edited */
 	TSharedPtr<FNiagaraScriptViewModel> ScriptViewModel;
@@ -117,4 +121,9 @@ private:
 	/** Stats log, with the log listing that it reflects */
 	TSharedPtr<class SWidget> Stats;
 	TSharedPtr<class IMessageLogListing> StatsListing;
+
+	FDelegateHandle OnEditedScriptGraphChangedHandle;
+
+	bool bEditedScriptHasPendingChanges;
+	bool bChangesDiscarded;
 };

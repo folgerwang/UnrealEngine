@@ -3,13 +3,14 @@
 #pragma once
 
 #include "Components/SceneCaptureComponent2D.h"
+#include "Delegates/Delegate.h"
 #include "InputCoreTypes.h" // for EControllerHand
 #include "Math/Color.h" // for FLinearColor
-#include "MrcVideoCaptureDevice.h"
-#include "Delegates/Delegate.h"
-#include "Templates/SubclassOf.h"
 #include "MrcCalibrationData.h"
-#include "MrcLensDistortion.h"
+#include "MrcVideoCaptureDevice.h"
+#include "OpenCVLensDistortionParameters.h"
+#include "Templates/SubclassOf.h"
+
 #include "MixedRealityCaptureComponent.generated.h"
 
 class UMediaPlayer;
@@ -49,7 +50,7 @@ public:
 	FMrcVideoCaptureFeedIndex CaptureFeedRef;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, BlueprintSetter=SetLensDistortionParameters, Category=VideoCapture)
-	FMrcLensDistortion LensDistortionParameters;
+	FOpenCVLensDistortionParameters LensDistortionParameters;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Tracking)
 	FName TrackingSourceName;
@@ -154,7 +155,7 @@ public:
 	void SetCaptureDevice(const FMrcVideoCaptureFeedIndex& FeedRef);
 
 	UFUNCTION(BlueprintSetter)
-	void SetLensDistortionParameters(const FMrcLensDistortion& ModelRef);
+	void SetLensDistortionParameters(const FOpenCVLensDistortionParameters& ModelRef);
 
 	UFUNCTION(BlueprintGetter)
 	int32 GetTrackingDelay() const;
@@ -253,8 +254,7 @@ private:
 	UTexture2D* DistortionDisplacementMap;
 
 	float CalibratedFOV;
-	float LensFocalLenRatio; // Fy/Fx
-	float UndistortedFOV;
+	FOpenCVCameraViewInfo UndistortedCameraInfo;
 
 	TSharedPtr<FMrcLatencyViewExtension, ESPMode::ThreadSafe> ViewExtension;
 };

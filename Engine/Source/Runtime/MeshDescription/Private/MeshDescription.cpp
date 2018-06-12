@@ -500,6 +500,19 @@ void UMeshDescription::ComputePolygonTriangulation(const FPolygonID PolygonID, T
 	const int32 PolygonVertexCount = PolygonVertexInstanceIDs.Num();
 	check(PolygonVertexCount >= 3);
 
+	// If perimeter has 3 vertices, just copy content of perimeter out 
+	if (PolygonVertexCount == 3)
+	{
+		OutTriangles.Emplace();
+		FMeshTriangle& Triangle = OutTriangles.Last();
+
+		Triangle.SetVertexInstanceID(0, PolygonVertexInstanceIDs[0]);
+		Triangle.SetVertexInstanceID(1, PolygonVertexInstanceIDs[1]);
+		Triangle.SetVertexInstanceID(2, PolygonVertexInstanceIDs[2]);
+
+		return;
+	}
+
 	// First figure out the polygon normal.  We need this to determine which triangles are convex, so that
 	// we can figure out which ears to clip
 	const FVector PolygonNormal = ComputePolygonNormal(PolygonID);

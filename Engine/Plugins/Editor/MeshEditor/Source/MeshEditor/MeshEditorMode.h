@@ -21,6 +21,8 @@
 #include "UObject/ObjectKey.h"
 #include "MeshEditorMode.generated.h"
 
+class UMeshEditorSelectionModifier;
+
 
 UCLASS()
 class UMeshEditorModeProxyObject : public UObject
@@ -112,33 +114,6 @@ public:
 	UEditableMesh* FindOrCreateEditableMesh( class UPrimitiveComponent& Component, const FEditableMeshSubMeshAddress& SubMeshAddress );
 
 
-	/** Checks to see that the mesh element actually exists in the mesh */
-	inline static bool IsElementIDValid( const FMeshElement& MeshElement, const UEditableMesh* EditableMesh )
-	{
-		bool bIsValid = false;
-
-		if( EditableMesh != nullptr && MeshElement.ElementAddress.ElementID != FElementID::Invalid )
-		{
-			switch( MeshElement.ElementAddress.ElementType )
-			{
-				case EEditableMeshElementType::Vertex:
-					bIsValid = EditableMesh->IsValidVertex( FVertexID( MeshElement.ElementAddress.ElementID ) );
-					break;
-
-				case EEditableMeshElementType::Edge:
-					bIsValid = EditableMesh->IsValidEdge( FEdgeID( MeshElement.ElementAddress.ElementID ) );
-					break;
-
-				case EEditableMeshElementType::Polygon:
-					bIsValid = EditableMesh->IsValidPolygon( FPolygonID( MeshElement.ElementAddress.ElementID ) );
-					break;
-			}
-		}
-
-		return bIsValid;
-	}
-
-
 protected:
 
 	// FEdMode interface
@@ -169,6 +144,11 @@ protected:
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetVertexActions() const override { return VertexActions; }
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetEdgeActions() const override { return EdgeActions; }
 	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetPolygonActions() const override { return PolygonActions; }
+
+	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetVertexSelectionModifiers() const override { return VertexSelectionModifiersActions; }
+	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetEdgeSelectionModifiers() const override { return EdgeSelectionModifiersActions; }
+	virtual const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& GetPolygonSelectionModifiers() const override { return PolygonSelectionModifiersActions; }
+
 	virtual bool IsEditingPerInstance() const override { return bPerInstanceEdits; }
 	virtual void SetEditingPerInstance( bool bPerInstance ) override { bPerInstanceEdits = bPerInstance; }
 	virtual void PropagateInstanceChanges() override;
@@ -186,6 +166,10 @@ protected:
 	{
 		return GetSelectedMeshElementIndex( MeshElement ) != INDEX_NONE;
 	}
+
+	/** Helper function that returns a map keying an editable mesh with its selected elements */
+	virtual void GetSelectedMeshesAndElements( EEditableMeshElementType ElementType, TMap<UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndElements ) override;
+
 	virtual void GetSelectedMeshesAndVertices( TMap<UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndVertices ) override 
 	{
 		GetSelectedMeshesAndElements( EEditableMeshElementType::Vertex, /* Out */ OutMeshesAndVertices ); 
@@ -210,7 +194,6 @@ protected:
 	{
 		return ActiveActionInteractor;
 	}
-
 
 
 	/** Gets the container of all the assets used in the mesh editor */
@@ -276,14 +259,21 @@ protected:
 	void RegisterEdgeCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction );
 	void RegisterPolygonCommand( const TSharedPtr<FUICommandInfo>& Command, const FExecuteAction& ExecuteAction );
 
+	FName GetEquippedSelectionModifier( const EEditableMeshElementType ForElementType ) const;
+	UMeshEditorSelectionModifier* GetEquippedSelectionModifier() const;
+	void SetEquippedSelectionModifier( const EEditableMeshElementType ForElementType, const FName ModifierToEquip );
+
+	/** Creates the selection modifiers UI actions */
+	void BindSelectionModifiersCommands();
+
+	/** Applies the equipped selection modifier to InOutMeshElementsToSelect */
+	void ModifySelection( TArray< FMeshElement >& InOutMeshElementsToSelect );
+
 	/** Return the CommandList pertinent to the currently selected element type, or nullptr if nothing is selected */
 	const FUICommandList* GetCommandListForSelectedElementType() const;
 
 	/** Commits the mesh instance for the given component */
 	void CommitEditableMeshIfNecessary( UEditableMesh* EditableMesh, UPrimitiveComponent* Component );
-
-	/** Deletes selected polygons, or polygons partly defined by selected elements; returns whether successful */
-	bool DeleteSelectedMeshElement();
 
 #if EDITABLE_MESH_USE_OPENSUBDIV
 	/** Adds or removes a subdivision level for selected meshes */
@@ -299,14 +289,8 @@ protected:
 	/** Welds the selected vertices if possible, keeping the first selected vertex */
 	bool WeldSelectedVertices();
 
-	/** Flips selected polygons; returns whether successful */
-	bool FlipSelectedPolygons();
-
 	/** Triangulates selected polygons; returns whether successful */
 	bool TriangulateSelectedPolygons();
-	
-	/** Assigns a material to the selected polygons; returns whether successful */
-	bool AssignSelectedMaterialToSelectedPolygons();
 
 	/** Assigns a material to the selected polygons; returns whether successful */
 	bool AssignMaterialToSelectedPolygons( UMaterialInterface* SelectedMaterial );
@@ -317,9 +301,6 @@ protected:
 	/** Gets mesh editor interactor data for the specified viewport interactor.  If we've never seen this viewport interactor before,
 	    new (empty) data will be created for it on demand */
 	FMeshEditorInteractorData& GetMeshEditorInteractorData( const UViewportInteractor* ViewportInteractor ) const;
-
-	/** Helper function that returns a map keying an editable mesh with its selected elements */
-	void GetSelectedMeshesAndElements( EEditableMeshElementType ElementType, TMap<UEditableMesh*, TArray<FMeshElement>>& OutMeshesAndElements );
 
 	/** Selects elements of the given type captured by the last marquee select */
 	void PerformMarqueeSelect( EEditableMeshElementType ElementType );
@@ -603,6 +584,11 @@ protected:
 	    result in a 'final' application of the change that performs a more exhaustive (and more expensive) update. */
 	FName ActiveAction;
 
+	/** The selection modifier to apply when selecting mesh elements */
+	FName EquippedVertexSelectionModifier;
+	FName EquippedEdgeSelectionModifier;
+	FName EquippedPolygonSelectionModifier;
+
 	/** Whether we're actually in the middile of updating the active action.  This means that StoreUndo() will behave
 	    differently in this case -- instead of pushing undo data to the editor, we'll capture it temporarily in PreviewRevertChanges,
 		so that we can roll it back at the beginning of the next frame. */
@@ -664,6 +650,9 @@ protected:
 	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> EdgeActions;
 	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> PolygonActions;
 
+	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> VertexSelectionModifiersActions;
+	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> EdgeSelectionModifiersActions;
+	TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>> PolygonSelectionModifiersActions;
 
 	//
 	// DrawVertices

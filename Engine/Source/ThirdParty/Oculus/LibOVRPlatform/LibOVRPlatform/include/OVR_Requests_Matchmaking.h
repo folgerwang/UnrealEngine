@@ -404,8 +404,8 @@ OVRP_PUBLIC_FUNCTION(ovrRequest) ovr_Matchmaking_CreateAndEnqueueRoom(const char
 /// method. But, if you do not wish to automatically enqueue the room, you can
 /// call CreateRoom2 instead.
 ///
-/// Visit https://developer2.oculus.com/application/[YOUR_APP_ID]/matchmaking
-/// to set up pools and queries
+/// Visit https://dashboard.oculus.com/application/[YOUR_APP_ID]/matchmaking to
+/// set up pools and queries
 /// \param pool The matchmaking pool to use, which is defined for the app.
 /// \param matchmakingOptions Additional matchmaking configuration for this request. Optional.
 ///
@@ -440,8 +440,8 @@ OVRP_PUBLIC_FUNCTION(ovrRequest) ovr_Matchmaking_CreateRoom(const char *pool, un
 /// creation, you can call EnqueueRoom. Consider using CreateAndEnqueueRoom
 /// instead.
 ///
-/// Visit https://developer2.oculus.com/application/[YOUR_APP_ID]/matchmaking
-/// to set up pools and queries
+/// Visit https://dashboard.oculus.com/application/[YOUR_APP_ID]/matchmaking to
+/// set up pools and queries
 /// \param pool The matchmaking pool to use, which is defined for the app.
 /// \param matchmakingOptions Additional matchmaking configuration for this request. Optional.
 ///

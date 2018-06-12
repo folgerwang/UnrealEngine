@@ -31,11 +31,6 @@ UNiagaraStackParameterStoreEntry::UNiagaraStackParameterStoreEntry()
 {
 }
 
-void UNiagaraStackParameterStoreEntry::BeginDestroy()
-{
-	Super::BeginDestroy();
-}
-
 void UNiagaraStackParameterStoreEntry::Initialize(
 	FRequiredEntryData InRequiredEntryData,
 	UObject* InOwner,

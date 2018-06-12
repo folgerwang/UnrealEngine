@@ -15,6 +15,9 @@ public:
 	/** Gets a long description of what will happen if this add action is executed. */
 	virtual FText GetDescription() const = 0;
 
+	/** Gets a space separated string of keywords which expose additional search terms for this action. */
+	virtual FText GetKeywords() const = 0;
+
 	virtual ~INiagaraStackItemGroupAddAction() { }
 };
 
@@ -56,14 +59,10 @@ public:
 class FNiagaraStackItemGroupAddUtilities : public INiagaraStackItemGroupAddUtilities
 {
 public:
-	DECLARE_DELEGATE(FOnItemAdded);
-
-public:
-	FNiagaraStackItemGroupAddUtilities(FText InAddItemName, EAddMode InAddMode, bool bInAutoExpandAddActions, FOnItemAdded InOnItemAdded)
+	FNiagaraStackItemGroupAddUtilities(FText InAddItemName, EAddMode InAddMode, bool bInAutoExpandAddActions)
 		: AddItemName(InAddItemName)
 		, bAutoExpandAddActions(bInAutoExpandAddActions)
 		, AddMode(InAddMode)
-		, OnItemAdded(InOnItemAdded)
 	{
 	}
 
@@ -75,5 +74,21 @@ protected:
 	FText AddItemName;
 	bool bAutoExpandAddActions;
 	EAddMode AddMode;
+};
+
+template<typename AddedItemType>
+class TNiagaraStackItemGroupAddUtilities : public FNiagaraStackItemGroupAddUtilities
+{
+public:
+	DECLARE_DELEGATE_OneParam(FOnItemAdded, AddedItemType);
+
+public:
+	TNiagaraStackItemGroupAddUtilities(FText InAddItemName, EAddMode InAddMode, bool bInAutoExpandAddActions, FOnItemAdded InOnItemAdded)
+		: FNiagaraStackItemGroupAddUtilities(InAddItemName, InAddMode, bInAutoExpandAddActions)
+		, OnItemAdded(InOnItemAdded)
+	{
+	}
+
+protected:
 	FOnItemAdded OnItemAdded;
 };

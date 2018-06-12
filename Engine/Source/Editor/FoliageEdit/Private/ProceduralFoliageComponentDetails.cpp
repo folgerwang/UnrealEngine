@@ -91,7 +91,7 @@ FReply FProceduralFoliageComponentDetails::OnResimulateClicked()
 					OverrideGeometryFilter.bAllowFoliage = Component->bAllowFoliage;
 					OverrideGeometryFilter.bAllowTranslucent = Component->bAllowTranslucent;
 
-					FEdModeFoliage::AddInstances(Component->GetWorld(), DesiredFoliageInstances, OverrideGeometryFilter);
+					FEdModeFoliage::AddInstances(Component->GetWorld(), DesiredFoliageInstances, OverrideGeometryFilter, true);					
 				}
 
 				// If no instances were spawned, inform the user

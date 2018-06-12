@@ -228,7 +228,7 @@ mtlpp::CommandBuffer FMetalCommandQueue::CreateCommandBuffer(void)
 		
 		if (RuntimeDebuggingLevel > EMetalDebugLevelLogDebugGroups)
 		{			
-			METAL_DEBUG_OPTION(FMetalCommandBufferDebugging AddDebugging(CmdBuffer));
+			METAL_DEBUG_ONLY(FMetalCommandBufferDebugging AddDebugging(CmdBuffer));
 			MTLPP_VALIDATION(mtlpp::CommandBufferValidationTable ValidatedCommandBuffer(CmdBuffer));
 		}
 		else if (RuntimeDebuggingLevel == EMetalDebugLevelLogDebugGroups)

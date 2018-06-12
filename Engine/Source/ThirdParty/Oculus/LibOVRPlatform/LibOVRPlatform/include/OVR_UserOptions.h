@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#include "OVR_ServiceProvider.h"
 #include "OVR_TimeWindow.h"
 
 struct ovrUserOptions;
@@ -16,6 +17,8 @@ typedef struct ovrUserOptions* ovrUserOptionsHandle;
 OVRP_PUBLIC_FUNCTION(ovrUserOptionsHandle) ovr_UserOptions_Create();
 OVRP_PUBLIC_FUNCTION(void) ovr_UserOptions_Destroy(ovrUserOptionsHandle handle);
 OVRP_PUBLIC_FUNCTION(void) ovr_UserOptions_SetMaxUsers(ovrUserOptionsHandle handle, unsigned int value);
+OVRP_PUBLIC_FUNCTION(void) ovr_UserOptions_AddServiceProvider(ovrUserOptionsHandle handle, ovrServiceProvider value);
+OVRP_PUBLIC_FUNCTION(void) ovr_UserOptions_ClearServiceProviders(ovrUserOptionsHandle handle);
 OVRP_PUBLIC_FUNCTION(void) ovr_UserOptions_SetTimeWindow(ovrUserOptionsHandle handle, ovrTimeWindow value);
 
 #endif

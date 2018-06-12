@@ -39,4 +39,11 @@ protected:
 	virtual void OnPinRenamed(UEdGraphPin* RenamedPin, const FString& OldName) override;
 
 	UEdGraphPin* PinPendingRename;
+
+public:
+	/** The sub category for parameter pins. */
+	static const FName ParameterPinSubCategory;
+
+	static const FName SourcePinName;
+	static const FName DestPinName;
 };
