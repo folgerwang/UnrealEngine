@@ -112,13 +112,13 @@ FNiagaraDataSet::~FNiagaraDataSet()
 
 }
 
-void FNiagaraDataSet::Dump(FNiagaraDataSet& Other, bool bCurr, int32 StartIdx , int32 NumInstances)
+void FNiagaraDataSet::Dump(FNiagaraDataSet& Other, bool bCurr, int32 StartIdx , int32 NumInstances)const
 {
 	Other.Reset();
 	Other.Variables = Variables;
 	Other.VariableLayouts = VariableLayouts;
 
-	FNiagaraDataBuffer& DataBuffer = bCurr ? CurrData() : PrevData();
+	const FNiagaraDataBuffer& DataBuffer = bCurr ? CurrData() : PrevData();
 	FNiagaraDataBuffer& OtherDataBuffer = Other.CurrData();
 
 	
@@ -132,11 +132,11 @@ void FNiagaraDataSet::Dump(FNiagaraDataSet& Other, bool bCurr, int32 StartIdx , 
 }
 
 
-void FNiagaraDataSet::Dump(bool bCurr, int32 StartIdx, int32 NumInstances)
+void FNiagaraDataSet::Dump(bool bCurr, int32 StartIdx, int32 NumInstances)const
 {
 	TArray<FNiagaraVariable> Vars(Variables);
 
-	FNiagaraDataSetVariableIterator Itr(*this, StartIdx, bCurr);
+	FNiagaraDataSetVariableIteratorConst Itr(*this, StartIdx, bCurr);
 	Itr.AddVariables(Vars);
 
 	if (NumInstances == INDEX_NONE)
@@ -238,6 +238,22 @@ int32 FNiagaraDataBuffer::TransferInstance(FNiagaraDataBuffer& SourceBuffer, int
 	}
 
 	return INDEX_NONE;
+}
+
+bool FNiagaraDataBuffer::CheckForNaNs()const
+{
+	bool bContainsNaNs = false;
+	int32 NumFloatComponents = Owner->GetNumFloatComponents();
+	for (int32 CompIdx = 0; CompIdx < NumFloatComponents && !bContainsNaNs; ++CompIdx)
+	{
+		for (int32 InstIdx = 0; InstIdx < (int32)NumInstances && !bContainsNaNs; ++InstIdx)
+		{
+			float Val = *GetInstancePtrFloat(CompIdx, InstIdx);
+			bContainsNaNs = FMath::IsNaN(Val) || !FMath::IsFinite(Val);
+		}
+	}
+
+	return bContainsNaNs;
 }
 
 void FNiagaraDataBuffer::Allocate(uint32 InNumInstances, bool bMaintainExisting)
@@ -370,9 +386,13 @@ void FNiagaraDataBuffer::KillInstance(uint32 InstanceIdx)
 		int32* Dst = GetInstancePtrInt32(CompIdx, InstanceIdx);
 		*Dst = *Src;
 	}
+
+#if NIAGARA_NAN_CHECKING
+	CheckForNaNs();
+#endif
 }
 
-void FNiagaraDataBuffer::CopyTo(FNiagaraDataBuffer& DestBuffer, int32 InStartIdx, int32 InNumInstances)
+void FNiagaraDataBuffer::CopyTo(FNiagaraDataBuffer& DestBuffer, int32 InStartIdx, int32 InNumInstances)const
 {
 	if (InStartIdx < 0 || (uint32)InStartIdx > NumInstances)
 	{
@@ -392,8 +412,8 @@ void FNiagaraDataBuffer::CopyTo(FNiagaraDataBuffer& DestBuffer, int32 InStartIdx
 
 		for (uint32 CompIdx = 0; CompIdx < Owner->TotalFloatComponents; ++CompIdx)
 		{
-			float* SrcStart = GetInstancePtrFloat(CompIdx, InStartIdx);
-			float* SrcEnd = GetInstancePtrFloat(CompIdx, InStartIdx + InNumInstances);
+			const float* SrcStart = GetInstancePtrFloat(CompIdx, InStartIdx);
+			const float* SrcEnd = GetInstancePtrFloat(CompIdx, InStartIdx + InNumInstances);
 			float* Dst = DestBuffer.GetInstancePtrFloat(CompIdx, 0);
 			size_t Count = SrcEnd - SrcStart;
 			FMemory::Memcpy(Dst, SrcStart, Count*sizeof(float));
@@ -408,8 +428,8 @@ void FNiagaraDataBuffer::CopyTo(FNiagaraDataBuffer& DestBuffer, int32 InStartIdx
 		}
 		for (uint32 CompIdx = 0; CompIdx < Owner->TotalInt32Components; ++CompIdx)
 		{
-			int32* SrcStart = GetInstancePtrInt32(CompIdx, InStartIdx);
-			int32* SrcEnd = GetInstancePtrInt32(CompIdx, InStartIdx + InNumInstances);
+			const int32* SrcStart = GetInstancePtrInt32(CompIdx, InStartIdx);
+			const int32* SrcEnd = GetInstancePtrInt32(CompIdx, InStartIdx + InNumInstances);
 			int32* Dst = DestBuffer.GetInstancePtrInt32(CompIdx, 0);
 			size_t Count = SrcEnd - SrcStart;
 			FMemory::Memcpy(Dst, SrcStart, Count * sizeof(int32));
@@ -426,7 +446,7 @@ void FNiagaraDataBuffer::CopyTo(FNiagaraDataBuffer& DestBuffer, int32 InStartIdx
 	}
 }
 
-void FNiagaraDataBuffer::CopyTo(FNiagaraDataBuffer& DestBuffer)
+void FNiagaraDataBuffer::CopyTo(FNiagaraDataBuffer& DestBuffer)const
 {
 	DestBuffer.FloatStride = FloatStride;
 	DestBuffer.FloatData = FloatData;

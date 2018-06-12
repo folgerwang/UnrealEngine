@@ -120,6 +120,15 @@ void FNiagaraSystemInstance::SetActualExecutionState(ENiagaraExecutionState InSt
 	}
 }
 
+void FNiagaraSystemInstance::Dump()const
+{
+	GetSystemSimulation()->DumpInstance(this);
+	for (auto& Emitter : Emitters)
+	{
+		Emitter->Dump();
+	}
+}
+
 #if WITH_EDITORONLY_DATA
 bool FNiagaraSystemInstance::RequestCapture(const FGuid& RequestId)
 {
