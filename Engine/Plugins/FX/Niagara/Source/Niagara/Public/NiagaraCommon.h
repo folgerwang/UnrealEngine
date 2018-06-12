@@ -16,6 +16,9 @@ class FNiagaraSystemInstance;
 class UNiagaraParameterCollection;
 struct FNiagaraParameterStore;
 
+//#define NIAGARA_NAN_CHECKING 1
+#define NIAGARA_NAN_CHECKING 0
+
 const uint32 NIAGARA_COMPUTE_THREADGROUP_SIZE = 64;
 const uint32 NIAGARA_MAX_COMPUTE_THREADGROUPS = 65536;
 

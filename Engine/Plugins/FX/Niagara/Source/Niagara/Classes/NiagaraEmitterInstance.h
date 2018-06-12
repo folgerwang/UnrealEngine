@@ -102,6 +102,7 @@ public:
 
 	NIAGARA_API bool IsReadyToRun() const;
 
+	void Dump()const;
 private:
 
 	void CheckForErrors();

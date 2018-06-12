@@ -103,6 +103,20 @@ bool FNiagaraEmitterInstance::IsReadyToRun() const
 	return true;
 }
 
+void FNiagaraEmitterInstance::Dump()const
+{
+	UE_LOG(LogNiagara, Log, TEXT("==  %s ========"), *CachedEmitter->GetUniqueEmitterName());
+	UE_LOG(LogNiagara, Log, TEXT(".................Spawn................."));
+	SpawnExecContext.Parameters.DumpParameters(true);
+	UE_LOG(LogNiagara, Log, TEXT(".................Update................."));
+	UpdateExecContext.Parameters.DumpParameters(true);
+	UE_LOG(LogNiagara, Log, TEXT("................. %s Combined Parameters ................."), TEXT("GPU Script"));
+	GPUExecContext.CombinedParamStore.DumpParameters();
+	UE_LOG(LogNiagara, Log, TEXT("................. Particles ................."));
+	ParticleDataSet->Dump(false);
+	ParticleDataSet->Dump(true);
+}
+
 void FNiagaraEmitterInstance::Init(int32 InEmitterIdx, FName InSystemInstanceName)
 {
 	check(ParticleDataSet);
@@ -617,6 +631,7 @@ FBox FNiagaraEmitterInstance::CalculateDynamicBounds()
 				UE_LOG(LogNiagara, Warning, TEXT("Particle position data contains NaNs. Likely a divide by zero somewhere in your modules. Emitter \"%s\" in System \"%s\""),
 					*CachedEmitter->GetName(), *ParentSystemInstance->GetSystem()->GetName());
 				bEncounteredNaNs = true;
+				ParentSystemInstance->Dump();
 			}
 #endif
 		}

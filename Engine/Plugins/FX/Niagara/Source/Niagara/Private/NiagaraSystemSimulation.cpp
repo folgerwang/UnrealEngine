@@ -246,6 +246,20 @@ void FNiagaraSystemSimulation::TransferInstance(FNiagaraSystemSimulation* Source
 	}
 }
 
+void FNiagaraSystemSimulation::DumpInstance(const FNiagaraSystemInstance* Inst)const
+{
+	UE_LOG(LogNiagara, Log, TEXT("==  %s (%d) ========"), *Inst->GetSystem()->GetFullName(), Inst->SystemInstanceIndex);
+	UE_LOG(LogNiagara, Log, TEXT(".................Spawn................."));
+	SpawnExecContext.Parameters.DumpParameters(false);
+	SpawnInstanceParameterDataSet.Dump(false, Inst->SystemInstanceIndex, 1);
+	UE_LOG(LogNiagara, Log, TEXT(".................Update................."));
+	UpdateExecContext.Parameters.DumpParameters(false);
+	UpdateInstanceParameterDataSet.Dump(false, Inst->SystemInstanceIndex, 1);
+	UE_LOG(LogNiagara, Log, TEXT("................. System Instance ................."));
+	DataSet.Dump(false, Inst->SystemInstanceIndex, 1);
+	DataSet.Dump(true, Inst->SystemInstanceIndex, 1);
+}
+
 bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 {
 	UNiagaraSystem* System = WeakSystem.Get();
@@ -673,6 +687,10 @@ void FNiagaraSystemSimulation::RemoveInstance(FNiagaraSystemInstance* Instance)
 			SystemInstances[SystemIndex]->SystemInstanceIndex = SystemIndex;
 		}
 	}
+
+#if NIAGARA_NAN_CHECKING
+	DataSet.CheckForNaNs();
+#endif
 }
 
 void FNiagaraSystemSimulation::AddInstance(FNiagaraSystemInstance* Instance)
