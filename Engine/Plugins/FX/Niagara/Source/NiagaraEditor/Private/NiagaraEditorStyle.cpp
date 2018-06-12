@@ -34,7 +34,7 @@ FName FNiagaraEditorStyle::GetStyleSetName()
 	return StyleSetName;
 }
 
-FString RelativePathToPluginPath(const FString& RelativePath, const ANSICHAR* Extension)
+NIAGARAEDITOR_API FString RelativePathToPluginPath(const FString& RelativePath, const ANSICHAR* Extension)
 {
 	static FString ContentDir = IPluginManager::Get().FindPlugin(TEXT("Niagara"))->GetContentDir();
 	return (ContentDir / RelativePath) + Extension;
