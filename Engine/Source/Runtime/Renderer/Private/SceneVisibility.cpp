@@ -1505,7 +1505,12 @@ static int32 OcclusionCull(FRHICommandListImmediate& RHICmdList, const FScene* S
 	float CurrentRealTime = View.Family->CurrentRealTime;
 	if (ViewState)
 	{
-		if (Scene->GetFeatureLevel() >= ERHIFeatureLevel::ES3_1)
+		if (ViewState->SceneSoftwareOcclusion)
+		{
+			SCOPE_CYCLE_COUNTER(STAT_SoftwareOcclusionCull)
+			NumOccludedPrimitives += ViewState->SceneSoftwareOcclusion->Process(RHICmdList, Scene, View);
+		}
+		else if (Scene->GetFeatureLevel() >= ERHIFeatureLevel::ES3_1)
 		{
 			bool bSubmitQueries = !View.bDisableQuerySubmissions;
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -2991,13 +2996,6 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList)
 		if (!View.Family->EngineShowFlags.Wireframe)
 		{
 			int32 NumOccludedPrimitivesInView = OcclusionCull(RHICmdList, Scene, View);
-			STAT(NumOccludedPrimitives += NumOccludedPrimitivesInView);
-		}
-
-		if (ViewState && ViewState->SceneSoftwareOcclusion && !View.Family->EngineShowFlags.Wireframe)
-		{
-			SCOPE_CYCLE_COUNTER(STAT_SoftwareOcclusionCull)
-			int32 NumOccludedPrimitivesInView = ViewState->SceneSoftwareOcclusion->Process(RHICmdList, Scene, View);
 			STAT(NumOccludedPrimitives += NumOccludedPrimitivesInView);
 		}
 
