@@ -599,6 +599,10 @@ bool IPlatformFile::DeleteDirectoryRecursively(const TCHAR* Directory)
 			}
 			else
 			{
+				if (PlatformFile.DeleteFile(FilenameOrDirectory))
+					return true;
+
+				// File delete failed -- unset readonly flag and try again
 				PlatformFile.SetReadOnly(FilenameOrDirectory, false);
 				PlatformFile.DeleteFile(FilenameOrDirectory);
 			}
