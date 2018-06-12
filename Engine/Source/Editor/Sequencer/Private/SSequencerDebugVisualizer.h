@@ -75,6 +75,10 @@ protected:
 
 	const FMovieSceneEvaluationTemplate* GetTemplate() const;
 
+	FReply OnSlotMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent, int32 SlotIndex);
+
+	void InvalidateSegment(int32 SlotIndex);
+
 private:
 
 	/** The current view range */
