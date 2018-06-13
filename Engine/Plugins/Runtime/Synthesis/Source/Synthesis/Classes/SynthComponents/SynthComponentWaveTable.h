@@ -65,7 +65,7 @@ public:
 	void SetPitch(float InPitch, float TimeSec);
 
 	UFUNCTION(BlueprintCallable, Category = "Synth|Components|Audio")
-	void SeekToTime(float TimeSec, ESamplePlayerSeekType SeekType);
+	void SeekToTime(float TimeSec, ESamplePlayerSeekType SeekType, bool bWrap = true);
 
 	UFUNCTION(BlueprintCallable, Category = "Synth|Components|Audio")
 	void SetScrubMode(bool bScrubMode);

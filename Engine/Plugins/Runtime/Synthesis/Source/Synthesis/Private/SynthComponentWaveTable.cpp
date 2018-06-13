@@ -36,7 +36,7 @@ void USynthSamplePlayer::SetPitch(float InPitch, float InTimeSec)
 	});
 }
 
-void USynthSamplePlayer::SeekToTime(float InTimeSecs, ESamplePlayerSeekType InSeekType)
+void USynthSamplePlayer::SeekToTime(float InTimeSecs, ESamplePlayerSeekType InSeekType, bool bWrap)
 {
 	Audio::ESeekType::Type SeekType;
 	switch (InSeekType)
@@ -55,9 +55,9 @@ void USynthSamplePlayer::SeekToTime(float InTimeSecs, ESamplePlayerSeekType InSe
 			break;
 	}
 
-	SynthCommand([this, InTimeSecs, SeekType]()
+	SynthCommand([this, InTimeSecs, SeekType, bWrap]()
 	{
-		SampleBufferReader.SeekTime(InTimeSecs, SeekType);
+		SampleBufferReader.SeekTime(InTimeSecs, SeekType, bWrap);
 	});
 }
 
