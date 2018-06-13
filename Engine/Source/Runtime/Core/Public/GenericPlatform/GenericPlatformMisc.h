@@ -763,6 +763,16 @@ public:
 	static FString CloudDir();
 
 	/**
+	*	Return true if the PersistentDownloadDir is available.
+	*	On some platforms, a writable directory might not be available by default.
+	*	Using this function allows handling that case early.
+	*/
+	static bool HasProjectPersistentDownloadDir()
+	{
+		return true;
+	}
+
+	/**
 	*	Return the GamePersistentDownloadDir.  
 	*	On some platforms, returns the writable directory for downloaded data that persists across play sessions.
 	*	This dir is always per-game.
