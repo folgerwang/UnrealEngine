@@ -174,7 +174,7 @@ void FNiagaraParameterStore::CheckForNaNs()const
 
 		if (bContainsNans)
 		{
-			ensureAlwaysMsgf(false, TEXT("Niagara Parameter Store containts Nans!\n%s"), *DebugName);
+			ensureAlwaysMsgf(false, TEXT("Niagara Parameter Store containts Nans!\n"));
 			DumpParameters(false);
 		}
 	}
