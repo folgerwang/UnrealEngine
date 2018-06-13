@@ -304,7 +304,7 @@ FIntPoint FSceneRenderTargets::ComputeDesiredSize(const FSceneViewFamily& ViewFa
 		bIsVRScene |= View->StereoPass != EStereoscopicPass::eSSP_FULL;
 	}
 
-	if(!FPlatformProperties::SupportsWindowedMode() || bIsVRScene)
+	if(!FPlatformProperties::SupportsWindowedMode() || (bIsVRScene && !bIsSceneCapture))
 	{
 		// Force ScreenRes on non windowed platforms.
 		SceneTargetsSizingMethod = RequestedSize;

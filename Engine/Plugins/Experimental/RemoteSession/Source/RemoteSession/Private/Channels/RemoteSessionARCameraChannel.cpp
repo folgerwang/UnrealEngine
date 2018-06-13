@@ -38,6 +38,7 @@
 
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
+#include "GeneralProjectSettings.h"
 
 #define CAMERA_MESSAGE_ADDRESS TEXT("/ARCamera")
 
@@ -381,12 +382,14 @@ FRemoteSessionARCameraChannel::FRemoteSessionARCameraChannel(ERemoteSessionChann
 	
 	static bool OnceTimeARInit = false;
 	
-	if (!OnceTimeARInit && InRole == ERemoteSessionChannelMode::Send)
+	if (!OnceTimeARInit && InRole == ERemoteSessionChannelMode::Write)
 	{
-		// Initialize AR if desired - todo, does this need to check device caps?
-		UARSessionConfig* Settings = NewObject<UARSessionConfig>();
-		UARBlueprintLibrary::StartARSession(Settings);
-		
+		// Workaround - we don't want to set bSupportAR in our project as it prevents us running on old devices, but this needs
+		// to be true before we try to init ARKit stuff
+		UGeneralProjectSettings* Settings = const_cast<UGeneralProjectSettings*>(GetDefault<UGeneralProjectSettings>());
+		Settings->bSupportAR = true;
+		UARSessionConfig* Config = NewObject<UARSessionConfig>();
+		UARBlueprintLibrary::StartARSession(Config);
 		OnceTimeARInit = true;
 	}
 	
@@ -401,7 +404,7 @@ FRemoteSessionARCameraChannel::FRemoteSessionARCameraChannel(ERemoteSessionChann
 		MaterialInstanceDynamic->SetTextureParameterValue(CameraImageParamName, DefaultTexture);
 	}
 
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		// Create our image renderer
 		SceneViewExtension = FSceneViewExtensions::NewExtension<FARCameraSceneViewExtension>(*this);
@@ -414,7 +417,7 @@ FRemoteSessionARCameraChannel::FRemoteSessionARCameraChannel(ERemoteSessionChann
 
 FRemoteSessionARCameraChannel::~FRemoteSessionARCameraChannel()
 {
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		// Remove the callback so it doesn't call back on an invalid this
 		Connection->RemoveMessageHandler(CAMERA_MESSAGE_ADDRESS, MessageCallbackHandle);
@@ -433,13 +436,13 @@ void FRemoteSessionARCameraChannel::Tick(const float InDeltaTime)
 {
 	// Camera capture only works on iOS right now
 #if PLATFORM_IOS
-	if (Role == ERemoteSessionChannelMode::Send)
+	if (Role == ERemoteSessionChannelMode::Write)
 	{
 		QueueARCameraImage();
 		SendARCameraImage();
 	}
 #endif
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		UpdateRenderingTexture();
 		if (MaterialInstanceDynamic != nullptr)

@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SNiagaraSelectedEmitterHandles.h"
 #include "NiagaraEditorStyle.h"
@@ -59,10 +59,7 @@ SNiagaraSelectedEmitterHandles::~SNiagaraSelectedEmitterHandles()
 	SystemViewModel->OnSelectedEmitterHandlesChanged().RemoveAll(this);
 	SystemViewModel->GetOnPinnedEmittersChanged().RemoveAll(this);
 
-	for (auto Model : StackViewModels)
-	{
-		Model->Initialize(nullptr, nullptr);
-	}
+	ResetViewModels();
 }
 
 void SNiagaraSelectedEmitterHandles::AddReferencedObjects(FReferenceCollector& Collector)
@@ -72,7 +69,9 @@ void SNiagaraSelectedEmitterHandles::AddReferencedObjects(FReferenceCollector& C
 
 void SNiagaraSelectedEmitterHandles::RefreshEmitterWidgets()
 {
-	ClearViewModels();
+	ResetWidgets();
+	ResetViewModels();
+
 	TArray<TSharedPtr<FNiagaraEmitterHandleViewModel>> EmitterHandlesToDisplay;
 	EmitterHandlesToDisplay.Append(SystemViewModel->GetPinnedEmitterHandles());
 	TArray<TSharedRef<FNiagaraEmitterHandleViewModel>> SelectedEmitterHandles;
@@ -97,13 +96,20 @@ void SNiagaraSelectedEmitterHandles::RefreshEmitterWidgets()
 	EmitterHandlesToDisplay.Empty();
 }
 
-void SNiagaraSelectedEmitterHandles::ClearViewModels()
+void SNiagaraSelectedEmitterHandles::ResetWidgets()
 {
 	while (EmitterSplitter->GetChildren()->Num() > 0)
 	{
 		int i = EmitterSplitter->GetChildren()->Num() - 1;
 		EmitterSplitter->RemoveAt(i);
-		StackViewModels[i]->Initialize(nullptr, nullptr);
+	}
+}
+
+void SNiagaraSelectedEmitterHandles::ResetViewModels()
+{
+	for (UNiagaraStackViewModel* StackViewModel : StackViewModels)
+	{
+		StackViewModel->Finalize();
 	}
 	StackViewModels.Empty();
 }

@@ -218,7 +218,7 @@ UActorRecording* FSequenceRecorder::AddNewQueuedRecording(AActor* Actor, UAnimSe
 	ActorRecording->TargetAnimation = AnimSequence;
 	ActorRecording->AnimationSettings.Length = Length;
 
-	TWeakObjectPtr<USequenceRecorderActorGroup> RecordingGroup = GetRecordingGroup();
+	TWeakObjectPtr<USequenceRecorderActorGroup> RecordingGroup = GetCurrentRecordingGroup();
 	if (RecordingGroup.IsValid())
 	{
 		ActorRecording->bCreateLevelSequence = RecordingGroup.Get()->bSpecifyTargetLevelSequence;
@@ -367,7 +367,7 @@ void FSequenceRecorder::Tick(float DeltaSeconds)
 			bool bAllFinished = true;
 			for(UActorRecording* Recording : QueuedRecordings)
 			{
-				if(Recording->IsRecording())
+				if(Recording->GetActorToRecord() && Recording->IsRecording())
 				{
 					bAllFinished = false;
 					break;
@@ -580,10 +580,20 @@ bool FSequenceRecorder::StartRecordingInternal(UWorld* World)
 
 	const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
 
-	UWorld* ActorWorld = nullptr;
-	if(World != nullptr || (QueuedRecordings.Num() > 0 && QueuedRecordings[0]->GetActorToRecord() != nullptr))
+	UWorld* ActorWorld = World;
+	if(ActorWorld == nullptr)
 	{
-		ActorWorld = World != nullptr ? World : QueuedRecordings[0]->GetActorToRecord()->GetWorld();
+		for (auto QueuedRecording : QueuedRecordings)
+		{
+			if (QueuedRecording->GetActorToRecord() != nullptr)
+			{
+				if (QueuedRecording->GetActorToRecord()->GetWorld() != nullptr)
+				{
+					ActorWorld = QueuedRecording->GetActorToRecord()->GetWorld();
+					break;
+				}
+			}
+		}
 	}
 
 	if(Settings->bRecordWorldSettingsActor)
@@ -649,7 +659,7 @@ bool FSequenceRecorder::StartRecordingInternal(UWorld* World)
 		
 		if(Settings->bCreateLevelSequence)
 		{
-			TWeakObjectPtr<USequenceRecorderActorGroup> RecordingGroup = GetRecordingGroup();
+			TWeakObjectPtr<USequenceRecorderActorGroup> RecordingGroup = GetCurrentRecordingGroup();
 			if (RecordingGroup.IsValid() && RecordingGroup.Get()->bSpecifyTargetLevelSequence && RecordingGroup.Get()->TargetLevelSequence != nullptr)
 			{
 				LevelSequence = RecordingGroup.Get()->TargetLevelSequence;
@@ -1184,15 +1194,15 @@ TWeakObjectPtr<ASequenceRecorderGroup> FSequenceRecorder::GetRecordingGroupActor
 	return CachedRecordingActor;
 }
 
-void FSequenceRecorder::AddRecordingGroup()
+TWeakObjectPtr<USequenceRecorderActorGroup> FSequenceRecorder::AddRecordingGroup()
 {
 	TWeakObjectPtr<ASequenceRecorderGroup> GroupActor = GetRecordingGroupActor();
 	UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
 
 	FDirectoryPath ExistingBasePath;
-	if (GetRecordingGroup().IsValid())
+	if (GetCurrentRecordingGroup().IsValid())
 	{
-		ExistingBasePath = GetRecordingGroup().Get()->SequenceRecordingBasePath;
+		ExistingBasePath = GetCurrentRecordingGroup().Get()->SequenceRecordingBasePath;
 	}
 
 	// There may not be a group actor in the level yet, so we'll spawn a new one.
@@ -1220,11 +1230,18 @@ void FSequenceRecorder::AddRecordingGroup()
 
 	// And then select our new object by default
 	CurrentRecorderGroup = ActorGroup;
+	
+	if (OnRecordingGroupAddedDelegate.IsBound())
+	{
+		OnRecordingGroupAddedDelegate.Broadcast(CurrentRecorderGroup);
+	}
+
+	return CurrentRecorderGroup;
 }
 
 void FSequenceRecorder::RemoveCurrentRecordingGroup()
 {
-	if (!GetRecordingGroup().IsValid())
+	if (!GetCurrentRecordingGroup().IsValid())
 	{
 		return;
 	}
@@ -1233,29 +1250,29 @@ void FSequenceRecorder::RemoveCurrentRecordingGroup()
 	TWeakObjectPtr<ASequenceRecorderGroup> GroupActor = GetRecordingGroupActor();
 	if (GroupActor.IsValid())
 	{
-		GroupActor->ActorGroups.Remove(GetRecordingGroup().Get());
+		GroupActor->ActorGroups.Remove(GetCurrentRecordingGroup().Get());
 	}
 }
 
-void FSequenceRecorder::DuplicateRecordingGroup()
+TWeakObjectPtr<USequenceRecorderActorGroup> FSequenceRecorder::DuplicateRecordingGroup()
 {
-	check(GetRecordingGroup().IsValid());
+	check(GetCurrentRecordingGroup().IsValid());
 	check(GetRecordingGroupActor().IsValid());
 
 	FString BaseName;
-	if (GetRecordingGroup().IsValid())
+	if (GetCurrentRecordingGroup().IsValid())
 	{
-		BaseName = GetRecordingGroup().Get()->SequenceName;
+		BaseName = GetCurrentRecordingGroup().Get()->SequenceName;
 	}
 
-	USequenceRecorderActorGroup* DuplicatedGroup = DuplicateObject<USequenceRecorderActorGroup>(GetRecordingGroup().Get(), GetRecordingGroupActor().Get());
+	USequenceRecorderActorGroup* DuplicatedGroup = DuplicateObject<USequenceRecorderActorGroup>(GetCurrentRecordingGroup().Get(), GetRecordingGroupActor().Get());
 	FString NewName = SequenceRecorderUtils::MakeNewGroupName(*DuplicatedGroup->SequenceRecordingBasePath.Path, BaseName, GetRecordingGroupNames());
 	DuplicatedGroup->GroupName = FName(*NewName);
 	DuplicatedGroup->SequenceName = NewName;
 	GetRecordingGroupActor().Get()->ActorGroups.Add(DuplicatedGroup);
 
 	// We'll invoke the standard load function so that it triggers everything to clear/update correctly.
-	LoadRecordingGroup(DuplicatedGroup->GroupName);
+	return LoadRecordingGroup(DuplicatedGroup->GroupName);
 }
 
 TArray<FName> FSequenceRecorder::GetRecordingGroupNames() const
@@ -1284,7 +1301,7 @@ TArray<FName> FSequenceRecorder::GetRecordingGroupNames() const
 	return GroupNames;
 }
 
-void FSequenceRecorder::LoadRecordingGroup(const FName Name)
+TWeakObjectPtr<USequenceRecorderActorGroup> FSequenceRecorder::LoadRecordingGroup(const FName Name)
 {
 	TWeakObjectPtr<ASequenceRecorderGroup> GroupActor = nullptr;
 	UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
@@ -1321,7 +1338,7 @@ void FSequenceRecorder::LoadRecordingGroup(const FName Name)
 				}
 			}
 			RefreshNextSequence();
-			return;
+			return CurrentRecorderGroup;
 		}
 	}
 
@@ -1330,11 +1347,12 @@ void FSequenceRecorder::LoadRecordingGroup(const FName Name)
 	RefreshNextSequence();
 	ClearQueuedRecordings();
 	CurrentRecorderGroup = nullptr;
+	return nullptr;
 }
 
 FString FSequenceRecorder::GetSequenceRecordingBasePath() const
 {
-	TWeakObjectPtr<USequenceRecorderActorGroup> RecordingGroup = GetRecordingGroup();
+	TWeakObjectPtr<USequenceRecorderActorGroup> RecordingGroup = GetCurrentRecordingGroup();
 	if (RecordingGroup.IsValid())
 	{
 		return RecordingGroup->SequenceRecordingBasePath.Path;
@@ -1346,7 +1364,7 @@ FString FSequenceRecorder::GetSequenceRecordingBasePath() const
 
 FString FSequenceRecorder::GetSequenceRecordingName() const
 {
-	TWeakObjectPtr<USequenceRecorderActorGroup> RecordingGroup = GetRecordingGroup();
+	TWeakObjectPtr<USequenceRecorderActorGroup> RecordingGroup = GetCurrentRecordingGroup();
 	if (RecordingGroup.IsValid())
 	{
 		return RecordingGroup->SequenceName;

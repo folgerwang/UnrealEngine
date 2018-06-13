@@ -50,7 +50,7 @@ void SNiagaraStackItemGroupAddMenu::CollectAllAddActions(FGraphActionListBuilder
 	for (TSharedRef<INiagaraStackItemGroupAddAction> AddAction : AddActions)
 	{
 		TSharedPtr<FNiagaraMenuAction> NewNodeAction(
-			new FNiagaraMenuAction(AddAction->GetCategory(), AddAction->GetDisplayName(), AddAction->GetDescription(), 0, FText(),
+			new FNiagaraMenuAction(AddAction->GetCategory(), AddAction->GetDisplayName(), AddAction->GetDescription(), 0, AddAction->GetKeywords(),
 				FNiagaraMenuAction::FOnExecuteStackAction::CreateRaw(AddUtilities, &INiagaraStackItemGroupAddUtilities::ExecuteAddAction, AddAction, InsertIndex)));
 		OutAllActions.AddAction(NewNodeAction);
 	}

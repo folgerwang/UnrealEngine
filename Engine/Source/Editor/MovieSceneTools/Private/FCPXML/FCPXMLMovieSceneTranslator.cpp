@@ -58,8 +58,6 @@ FText FFCPXMLImporter::GetMessageLogLabel() const
 
 bool FFCPXMLImporter::Import(UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InFilename, TSharedRef<FMovieSceneTranslatorContext> InContext)
 {
-	InContext->Init();
-
 	// Create intermediate structure to assist with import
 	TSharedRef<FMovieSceneImportData> ImportData = MakeShared<FMovieSceneImportData>(InMovieScene, InContext);
 	if (!ImportData->IsImportDataValid())
@@ -146,15 +144,23 @@ FText FFCPXMLExporter::GetMessageLogLabel() const
 	return LOCTEXT("FCPXMLExportLogLabel", "FCP 7 XML Export Log");
 }
 
-bool FFCPXMLExporter::Export(const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveFilename, int32 InHandleFrames, TSharedRef<FMovieSceneTranslatorContext> InContext)
+bool FFCPXMLExporter::Export(const UMovieScene* InMovieScene, FString InFilenameFormat, FFrameRate InFrameRate, uint32 InResX, uint32 InResY, int32 InHandleFrames, FString InSaveFilename, TSharedRef<FMovieSceneTranslatorContext> InContext)
 {
-	InContext->Init();
+	// add warning message if filename format is not "{shot}"
+	FString AcceptedFormat = TEXT("{shot}");
+	if (InFilenameFormat != AcceptedFormat)
+	{
+		InContext->AddMessage(EMessageSeverity::Warning,
+			FText::Format(LOCTEXT("FCPXMLExportFilenameFormatWarning", "FCP 7 XML export expects rendered video sequences with filename format '{0}' but most recent rendered filename format is '{1}'."),
+				FText::FromString(AcceptedFormat),
+				FText::FromString(InFilenameFormat)));
+	}
 
 	// Construct XML from file string
 	TSharedRef<FFCPXMLFile> FCPXMLFile = MakeShared<FFCPXMLFile>();
 	FCPXMLFile->ConstructFile(FPaths::GetBaseFilename(InSaveFilename, true));
 
-	TSharedRef<FMovieSceneExportData> ExportData = MakeShared<FMovieSceneExportData>(InMovieScene, InFrameRate, InHandleFrames, InSaveFilename, InContext);
+	TSharedRef<FMovieSceneExportData> ExportData = MakeShared<FMovieSceneExportData>(InMovieScene, InFrameRate, InResX, InResY, InHandleFrames, InSaveFilename, InContext);
 
 	// Export sequencer movie scene, merging with existing Xml structure.
 	FFCPXMLExportVisitor ExportVisitor(InSaveFilename, ExportData, InContext);

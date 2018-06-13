@@ -1,5 +1,6 @@
-#include "EditorScriptingUtils.h"
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
+#include "EditorScriptingUtils.h"
 #include "Algo/Count.h"
 #include "AssetRegistryModule.h"
 #include "Editor.h"
@@ -138,7 +139,7 @@ namespace EditorScriptingUtils
 			int32 FoundIndex = 0;
 			AnyAssetPath.FindChar(TEXT(' '), FoundIndex);
 			check(FoundIndex > INDEX_NONE && FoundIndex < AnyAssetPath.Len()); // because of TrimStartAndEnd
-			
+
 			// Confirm that it's a valid Class
 			FString ClassName = AnyAssetPath.Left(FoundIndex);
 
@@ -149,7 +150,7 @@ namespace EditorScriptingUtils
 			const int32 StrLen = FCString::Strlen(INVALID_OBJECTNAME_CHARACTERS);
 			for (int32 Index = 0; Index < StrLen; ++Index)
 			{
-				int32 InvalidFoundIndex = 0; 
+				int32 InvalidFoundIndex = 0;
 				if (ClassName.FindChar(INVALID_OBJECTNAME_CHARACTERS[Index], InvalidFoundIndex))
 				{
 					OutFailureReason = FString::Printf(TEXT("Can't convert the path %s because it contains invalid characters (probably spaces)."), *AnyAssetPath);
@@ -190,30 +191,28 @@ namespace EditorScriptingUtils
 			return FString();
 		}
 
-		// Get the Short name of the asset. "MyAsset.MyAsset:InnerAsset.2ndInnerAsset" from "/Game/Folder/MyAsset.MyAsset:InnerAsset.2ndInnerAsset"
-		FString ObjectName; // = FPackageName::GetShortName(TextPath);
-		{
-			int32 IndexOfLastSlash = INDEX_NONE;
-			TextPath.FindLastChar(TEXT('/'), IndexOfLastSlash);
-			ObjectName = TextPath.Mid(IndexOfLastSlash + 1);
-			TextPath = TextPath.Left(IndexOfLastSlash);
-		}
+		// Get asset full name, i.e."PackageName.ObjectName:InnerAssetName.2ndInnerAssetName" from "/Game/Folder/PackageName.ObjectName:InnerAssetName.2ndInnerAssetName"
+		FString AssetFullName = FPackageName::GetShortName(TextPath);
 
-		// Get the first Object name. "MyAsset" from "MyAsset.MyAsset:InnerAsset.2ndInnerAsset"
-		//ObjectName = FPackageName::ObjectPathToObjectName(ObjectName); won't works because of the possible ':' character
+		// Remove possible ':' character from asset full name
 		{
-			// Check for a top level object
-			int32 ObjectDelimiterIdx;
-			if (ObjectName.FindChar(TEXT('.'), ObjectDelimiterIdx))
+			int32 IndexOfSemiColumn;
+			if (AssetFullName.FindChar(TEXT(':'), IndexOfSemiColumn))
 			{
-				ObjectName = ObjectName.Left(ObjectDelimiterIdx);
+				AssetFullName = AssetFullName.Left(IndexOfSemiColumn);
 			}
 		}
 
+		// Get the object name
+		FString ObjectName = FPackageName::ObjectPathToObjectName(AssetFullName);
 		if (ObjectName.IsEmpty())
 		{
-			OutFailureReason = FString::Printf(TEXT("Can't convert the path '%s' because it doesn't contain an asset name."), *AnyAssetPath);
-			return FString();
+			ObjectName = FPackageName::ObjectPathToPackageName(AssetFullName);
+			if (ObjectName.IsEmpty())
+			{
+				OutFailureReason = FString::Printf(TEXT("Can't convert the path '%s' because it doesn't contain an asset name."), *AnyAssetPath);
+				return FString();
+			}
 		}
 
 		// Confirm that we have a valid Root Package and get the valid PackagePath /Game/MyFolder/MyAsset
@@ -235,7 +234,7 @@ namespace EditorScriptingUtils
 			return FString();
 		}
 
-		FString ObjectPath = FString::Printf(TEXT("%s/%s.%s"), *PackagePath, *ObjectName, *ObjectName);
+		FString ObjectPath = FString::Printf(TEXT("%s.%s"), *PackagePath, *ObjectName);
 
 		if (FPackageName::IsScriptPackage(ObjectPath))
 		{

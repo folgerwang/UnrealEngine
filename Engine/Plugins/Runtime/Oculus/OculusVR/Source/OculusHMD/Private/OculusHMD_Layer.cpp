@@ -10,6 +10,11 @@
 #include "PostProcess/SceneRenderTargets.h"
 #include "HeadMountedDisplayTypes.h" // for LogHMD
 #include "XRThreadUtils.h"
+#include "Engine/Texture2D.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Engine/GameEngine.h"
 
 
 namespace OculusHMD
@@ -47,14 +52,16 @@ FOvrpLayer::~FOvrpLayer()
 
 FLayer::FLayer(uint32 InId, const IStereoLayers::FLayerDesc& InDesc) :
 	Id(InId),
-	Desc(InDesc),
 	OvrpLayerId(0),
 	bUpdateTexture(false),
 	bInvertY(true),
-	bHasDepth(false)
+	bHasDepth(false),
+	PokeAHoleComponentPtr(nullptr), 
+	PokeAHoleActor(nullptr)
 {
 	FMemory::Memzero(OvrpLayerDesc);
 	FMemory::Memzero(OvrpLayerSubmit);
+	SetDesc(InDesc);
 }
 
 
@@ -69,7 +76,9 @@ FLayer::FLayer(const FLayer& Layer) :
 	RightDepthTextureSetProxy(Layer.RightDepthTextureSetProxy),
 	bUpdateTexture(Layer.bUpdateTexture),
 	bInvertY(Layer.bInvertY),
-	bHasDepth(Layer.bHasDepth)
+	bHasDepth(Layer.bHasDepth),
+	PokeAHoleComponentPtr(Layer.PokeAHoleComponentPtr),
+	PokeAHoleActor(Layer.PokeAHoleActor)
 {
 	FMemory::Memcpy(&OvrpLayerDesc, &Layer.OvrpLayerDesc, sizeof(OvrpLayerDesc));
 	FMemory::Memcpy(&OvrpLayerSubmit, &Layer.OvrpLayerSubmit, sizeof(OvrpLayerSubmit));
@@ -89,7 +98,184 @@ void FLayer::SetDesc(const IStereoLayers::FLayerDesc& InDesc)
 	}
 
 	Desc = InDesc;
+
+#if PLATFORM_ANDROID
+	// PokeAHole is un-necessary on PC due to depth buffer sharing and compositing
+	HandlePokeAHoleComponent();
+#else
+	// Mark all layers as supporting depth for now, due to artifacts with ovrpLayerSubmitFlag_NoDepth
+	Desc.Flags |= IStereoLayers::LAYER_FLAG_SUPPORT_DEPTH;
+#endif
 }
+
+#if PLATFORM_ANDROID
+void FLayer::HandlePokeAHoleComponent()
+{
+	if (NeedsPokeAHole())
+	{
+		const FString BaseComponentName = FString::Printf(TEXT("OculusPokeAHole_%d"), Id);
+		const FName ComponentName(*BaseComponentName);
+
+		if (!PokeAHoleComponentPtr) {
+			UWorld* World = nullptr;
+			for (const FWorldContext& Context : GEngine->GetWorldContexts())
+			{
+				if (Context.WorldType == EWorldType::Game || Context.WorldType == EWorldType::PIE)
+				{
+					World = Context.World();
+				}
+			}
+
+			if (!World)
+			{
+				return;
+			}
+
+			PokeAHoleActor = World->SpawnActor<AActor>();
+
+			PokeAHoleComponentPtr = NewObject<UProceduralMeshComponent>(PokeAHoleActor, ComponentName);
+			PokeAHoleComponentPtr->RegisterComponent();
+
+			TArray<FVector> Vertices;
+			TArray<int32> Triangles;
+			TArray<FVector> Normals;
+			TArray<FVector2D> UV0;
+			TArray<FLinearColor> VertexColors;
+			TArray<FProcMeshTangent> Tangents;
+
+			BuildPokeAHoleMesh(Vertices, Triangles, UV0);
+			PokeAHoleComponentPtr->CreateMeshSection_LinearColor(0, Vertices, Triangles, Normals, UV0, VertexColors, Tangents, false);
+
+			UMaterial *PokeAHoleMaterial = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), NULL, TEXT("/OculusVR/Materials/PokeAHoleMaterial")));
+			UMaterialInstanceDynamic* DynamicMaterial = UMaterialInstanceDynamic::Create(PokeAHoleMaterial, NULL);
+
+			PokeAHoleComponentPtr->SetMaterial(0, DynamicMaterial);
+
+		}
+		PokeAHoleComponentPtr->SetWorldTransform(Desc.Transform);
+
+	}
+
+	return;
+}
+
+static void AppendFaceIndices(const int v0, const int v1, const int v2, const int v3, TArray<int32>& Triangles, bool inverse)
+{
+	if (inverse)
+	{
+		Triangles.Add(v0);
+		Triangles.Add(v2);
+		Triangles.Add(v1);
+		Triangles.Add(v0);
+		Triangles.Add(v3);
+		Triangles.Add(v2);
+	}
+	else
+	{
+		Triangles.Add(v0);
+		Triangles.Add(v1);
+		Triangles.Add(v2);
+		Triangles.Add(v0);
+		Triangles.Add(v2);
+		Triangles.Add(v3);
+	}
+}
+
+void FLayer::BuildPokeAHoleMesh(TArray<FVector>& Vertices, TArray<int32>& Triangles, TArray<FVector2D>& UV0)
+{
+	if (Desc.ShapeType == IStereoLayers::QuadLayer)
+	{
+		const float QuadScale = 0.99;
+
+		FIntPoint TexSize = Desc.Texture.IsValid() ? Desc.Texture->GetTexture2D()->GetSizeXY() : Desc.LayerSize;
+		float AspectRatio = TexSize.X ? (float)TexSize.Y / (float)TexSize.X : 3.0f / 4.0f;
+
+		float QuadSizeX = Desc.QuadSize.X;
+		float QuadSizeY = (Desc.Flags & IStereoLayers::LAYER_FLAG_QUAD_PRESERVE_TEX_RATIO) ? Desc.QuadSize.X * AspectRatio : Desc.QuadSize.Y;
+
+		Vertices.Init(FVector::ZeroVector, 4);
+		Vertices[0] = FVector(0.0, -QuadSizeX / 2, -QuadSizeY / 2) * QuadScale;
+		Vertices[1] = FVector(0.0, QuadSizeX / 2, -QuadSizeY / 2) * QuadScale;
+		Vertices[2] = FVector(0.0, QuadSizeX / 2, QuadSizeY / 2) * QuadScale;
+		Vertices[3] = FVector(0.0, -QuadSizeX / 2, QuadSizeY / 2) * QuadScale;
+
+		UV0.Init(FVector2D::ZeroVector, 4);
+		UV0[0] = FVector2D(1, 0);
+		UV0[1] = FVector2D(1, 1);
+		UV0[2] = FVector2D(0, 0);
+		UV0[3] = FVector2D(0, 1);
+
+		Triangles.Reserve(6);
+		AppendFaceIndices(0, 1, 2, 3, Triangles, false);
+	}
+	else if (Desc.ShapeType == IStereoLayers::CylinderLayer)
+	{
+		const float CylinderScale = 0.99;
+
+		FIntPoint TexSize = Desc.Texture.IsValid() ? Desc.Texture->GetTexture2D()->GetSizeXY() : Desc.LayerSize;
+		float AspectRatio = TexSize.X ? (float)TexSize.Y / (float)TexSize.X : 3.0f / 4.0f;
+
+		float CylinderHeight = (Desc.Flags & IStereoLayers::LAYER_FLAG_QUAD_PRESERVE_TEX_RATIO) ? Desc.CylinderOverlayArc * AspectRatio : Desc.CylinderHeight;
+
+		const FVector XAxis = FVector(1, 0, 0);
+		const FVector YAxis = FVector(0, 1, 0);
+		const FVector HalfHeight = FVector(0, 0, CylinderHeight / 2);
+
+		const float ArcAngle = Desc.CylinderOverlayArc / Desc.CylinderRadius;
+		const int Sides = (int)( (ArcAngle * 180) / (PI * 5) ); // one triangle every 10 degrees of cylinder for a good-cheap approximation
+		Vertices.Init(FVector::ZeroVector, 2 * (Sides + 1));
+		UV0.Init(FVector2D::ZeroVector, 2 * (Sides + 1));
+		Triangles.Init(0, Sides * 6);
+
+		float CurrentAngle = -ArcAngle / 2;
+		const float AngleStep = ArcAngle / Sides;
+		
+
+		for (int Side = 0; Side < Sides + 1; Side++)
+		{
+			FVector MidVertex = Desc.CylinderRadius * (FMath::Cos(CurrentAngle) * XAxis + FMath::Sin(CurrentAngle) * YAxis);
+			Vertices[2 * Side] = (MidVertex - HalfHeight) * CylinderScale;
+			Vertices[(2 * Side) + 1] = (MidVertex + HalfHeight) * CylinderScale;
+
+			UV0[2 * Side] = FVector2D(1 - (Side / (float)Sides ), 0);
+			UV0[(2 * Side) + 1] = FVector2D(1 - (Side / (float)Sides ), 1);
+
+			CurrentAngle += AngleStep;
+
+			if (Side < Sides)
+			{
+				Triangles[6 * Side + 0] = 2 * Side;
+				Triangles[6 * Side + 2] = 2 * Side + 1;
+				Triangles[6 * Side + 1] = 2 * (Side + 1) + 1;
+				Triangles[6 * Side + 3] = 2 * Side;
+				Triangles[6 * Side + 5] = 2 * (Side + 1) + 1;
+				Triangles[6 * Side + 4] = 2 * (Side + 1);
+			}
+		}
+	}
+	else if (Desc.ShapeType == IStereoLayers::CubemapLayer)
+	{
+		const float CubemapScale = 1000;
+		Vertices.Init(FVector::ZeroVector, 8);
+		Vertices[0] = FVector(-1.0, -1.0, -1.0) * CubemapScale;
+		Vertices[1] = FVector(-1.0, -1.0, 1.0) * CubemapScale;
+		Vertices[2] = FVector(-1.0, 1.0, -1.0) * CubemapScale;
+		Vertices[3] = FVector(-1.0, 1.0, 1.0) * CubemapScale;
+		Vertices[4] = FVector(1.0, -1.0, -1.0) * CubemapScale;
+		Vertices[5] = FVector(1.0, -1.0, 1.0) * CubemapScale;
+		Vertices[6] = FVector(1.0, 1.0, -1.0) * CubemapScale;
+		Vertices[7] = FVector(1.0, 1.0, 1.0) * CubemapScale;
+
+		Triangles.Reserve(24);
+		AppendFaceIndices(0, 1, 3, 2, Triangles, false);
+		AppendFaceIndices(4, 5, 7, 6, Triangles, true);
+		AppendFaceIndices(0, 1, 5, 4, Triangles, true);
+		AppendFaceIndices(2, 3, 7, 6, Triangles, false);
+		AppendFaceIndices(0, 2, 6, 4, Triangles, false);
+		AppendFaceIndices(1, 3, 7, 5, Triangles, true);
+	}
+}
+#endif
 
 
 void FLayer::SetEyeLayerDesc(const ovrpLayerDesc_EyeFov& InEyeLayerDesc, const ovrpRecti InViewportRect[ovrpEye_Count])
@@ -323,7 +509,7 @@ void FLayer::Initialize_RenderThread(FCustomPresent* CustomPresent, FRHICommandL
 			uint32 NumSamplesTileMem = 1;
 			if (OvrpLayerDesc.Shape == ovrpShape_EyeFov)
 			{
-				ovrp_GetSystemRecommendedMSAALevel2((int*) &NumSamplesTileMem);
+				NumSamplesTileMem = CustomPresent->GetSystemRecommendedMSAALevel();
 			}
 
 			ERHIResourceType ResourceType;			
@@ -426,7 +612,7 @@ void FLayer::UpdateTexture_RenderThread(FCustomPresent* CustomPresent, FRHIComma
 }
 
 
-const ovrpLayerSubmit* FLayer::UpdateLayer_RHIThread(const FSettings* Settings, const FGameFrame* Frame)
+const ovrpLayerSubmit* FLayer::UpdateLayer_RHIThread(const FSettings* Settings, const FGameFrame* Frame, const int LayerIndex)
 {
 	OvrpLayerSubmit.LayerId = OvrpLayerId;
 	OvrpLayerSubmit.TextureStage = TextureSetProxy.IsValid() ? TextureSetProxy->GetSwapChainIndex_RHIThread() : 0;
@@ -465,8 +651,8 @@ const ovrpLayerSubmit* FLayer::UpdateLayer_RHIThread(const FSettings* Settings, 
 		switch (Desc.PositionType)
 		{
 		case IStereoLayers::WorldLocked:
-			BaseOrientation = Frame->PlayerOrientation;
-			BaseLocation = Frame->PlayerLocation;
+			BaseOrientation = Frame->TrackingToWorld.GetRotation();
+			BaseLocation = Frame->TrackingToWorld.GetTranslation();
 			break;
 
 		case IStereoLayers::TrackerLocked:
@@ -480,31 +666,43 @@ const ovrpLayerSubmit* FLayer::UpdateLayer_RHIThread(const FSettings* Settings, 
 			break;
 		}
 
-		FTransform playerTransform(BaseOrientation, BaseLocation);
+		FTransform PlayerTransform(BaseOrientation, BaseLocation);
 
 		FQuat Orientation = Desc.Transform.Rotator().Quaternion();
 		FVector Location = Desc.Transform.GetLocation();
 
 		OvrpLayerSubmit.Pose.Orientation = ToOvrpQuatf(BaseOrientation.Inverse() * Orientation);
-		OvrpLayerSubmit.Pose.Position = ToOvrpVector3f((playerTransform.InverseTransformPosition(Location)) * LocationScale);
+		OvrpLayerSubmit.Pose.Position = ToOvrpVector3f((PlayerTransform.InverseTransformPosition(Location)) * LocationScale);
 		OvrpLayerSubmit.LayerSubmitFlags = 0;
 
 		if (Desc.PositionType == IStereoLayers::FaceLocked)
 		{
 			OvrpLayerSubmit.LayerSubmitFlags |= ovrpLayerSubmitFlag_HeadLocked;
 		}
+
+		if (!(Desc.Flags & IStereoLayers::LAYER_FLAG_SUPPORT_DEPTH))
+		{
+			OvrpLayerSubmit.LayerSubmitFlags |= ovrpLayerSubmitFlag_NoDepth;
+		}
 	}
 	else
 	{
 		OvrpLayerSubmit.EyeFov.DepthFar = 0;
 		OvrpLayerSubmit.EyeFov.DepthNear = Frame->NearClippingPlane / 100.f; //physical scale is 100UU/meter
-		OvrpLayerSubmit.LayerSubmitFlags |= ovrpLayerSubmitFlag_ReverseZ;
+		OvrpLayerSubmit.LayerSubmitFlags = ovrpLayerSubmitFlag_ReverseZ;
 
 		if (Frame->Flags.bPixelDensityAdaptive)
 		{
 			OvrpLayerSubmit.ViewportRect[0] = ToOvrpRecti(Frame->FinalViewRect[0]);
 			OvrpLayerSubmit.ViewportRect[1] = ToOvrpRecti(Frame->FinalViewRect[1]);
 		}
+
+#if PLATFORM_ANDROID
+		if (LayerIndex != 0)
+		{
+			OvrpLayerSubmit.LayerSubmitFlags |= ovrpLayerSubmitFlag_InverseAlpha;
+		}
+#endif
 	}
 
 	return &OvrpLayerSubmit.Base;
@@ -548,126 +746,6 @@ void FLayer::ReleaseResources_RHIThread()
 	RightTextureSetProxy.Reset();
 	RightDepthTextureSetProxy.Reset();
 	bUpdateTexture = false;
-}
-
-// PokeAHole layer drawing implementation
-
-
-static void DrawPokeAHoleQuadMesh(FRHICommandList& RHICmdList, const FMatrix& PosTransform, float X, float Y, float Z, float SizeX, float SizeY, float SizeZ, bool InvertCoords)
-{
-	float ClipSpaceQuadZ = 0.0f;
-
-	FFilterVertex Vertices[4];
-	Vertices[0].Position = PosTransform.TransformFVector4(FVector4(X, Y, Z, 1));
-	Vertices[1].Position = PosTransform.TransformFVector4(FVector4(X + SizeX, Y, Z + SizeZ, 1));
-	Vertices[2].Position = PosTransform.TransformFVector4(FVector4(X, Y + SizeY, Z, 1));
-	Vertices[3].Position = PosTransform.TransformFVector4(FVector4(X + SizeX, Y + SizeY, Z + SizeZ, 1));
-
-	if (InvertCoords)
-	{
-		Vertices[0].UV = FVector2D(1, 0);
-		Vertices[1].UV = FVector2D(1, 1);
-		Vertices[2].UV = FVector2D(0, 0);
-		Vertices[3].UV = FVector2D(0, 1);
-	}
-	else
-	{
-		Vertices[0].UV = FVector2D(0, 1);
-		Vertices[1].UV = FVector2D(0, 0);
-		Vertices[2].UV = FVector2D(1, 1);
-		Vertices[3].UV = FVector2D(1, 0);
-	}
-
-	static const uint16 Indices[] = { 0, 1, 3, 0, 3, 2 };
-
-	DrawIndexedPrimitiveUP(RHICmdList, PT_TriangleList, 0, 4, 2, Indices, sizeof(Indices[0]), Vertices, sizeof(Vertices[0]));
-}
-
-static void DrawPokeAHoleCylinderMesh(FRHICommandList& RHICmdList, FVector Base, FVector X, FVector Y, const FMatrix& PosTransform, float ArcAngle, float CylinderHeight, float CylinderRadius, bool InvertCoords)
-{
-	float ClipSpaceQuadZ = 0.0f;
-	const int Sides = 40;
-
-	FFilterVertex Vertices[2 * (Sides + 1)];
-	static uint16 Indices[6 * Sides]; //	 = { 0, 1, 3, 0, 3, 2 };
-
-	float currentAngle = -ArcAngle / 2;
-	float angleStep = ArcAngle / Sides;
-
-	FVector LastVertex = Base + CylinderRadius * (FMath::Cos(currentAngle) * X + FMath::Sin(currentAngle) * Y);
-	FVector HalfHeight = FVector(0, 0, CylinderHeight / 2);
-
-	Vertices[0].Position = PosTransform.TransformFVector4(LastVertex - HalfHeight);
-	Vertices[1].Position = PosTransform.TransformFVector4(LastVertex + HalfHeight);
-	Vertices[0].UV = FVector2D(1, 0);
-	Vertices[1].UV = FVector2D(1, 1);
-
-	currentAngle += angleStep;
-
-	for (int side = 0; side < Sides; side++)
-	{
-		FVector ThisVertex = Base + CylinderRadius * (FMath::Cos(currentAngle) * X + FMath::Sin(currentAngle) * Y);
-		currentAngle += angleStep;
-
-		Vertices[2 * (side + 1)].Position = PosTransform.TransformFVector4(ThisVertex - HalfHeight);
-		Vertices[2 * (side + 1) + 1].Position = PosTransform.TransformFVector4(ThisVertex + HalfHeight);
-		Vertices[2 * (side + 1)].UV = FVector2D(1 - (side + 1) / (float)Sides, 0);
-		Vertices[2 * (side + 1) + 1].UV = FVector2D(1 - (side + 1) / (float)Sides, 1);
-
-		Indices[6 * side + 0] = 2 * side;
-		Indices[6 * side + 1] = 2 * side + 1;
-		Indices[6 * side + 2] = 2 * (side + 1) + 1;
-		Indices[6 * side + 3] = 2 * side;
-		Indices[6 * side + 4] = 2 * (side + 1) + 1;
-		Indices[6 * side + 5] = 2 * (side + 1);
-
-		LastVertex = ThisVertex;
-	}
-
-	DrawIndexedPrimitiveUP(RHICmdList, PT_TriangleList, 0, 2 * (Sides + 1), 2 * Sides, Indices, sizeof(Indices[0]), Vertices, sizeof(Vertices[0]));
-}
-
-void FLayer::DrawPokeAHoleMesh(FRHICommandList& RHICmdList, const FMatrix& matrix, float scale, bool invertCoords)
-{
-	int SizeX = OvrpLayerDesc.TextureSize.w;
-	int SizeY = OvrpLayerDesc.TextureSize.h;
-	float AspectRatio = SizeX ? (float)SizeY / (float)SizeX : 3.0f / 4.0f;
-
-	FMatrix MultipliedMatrix = matrix;
-
-	if (invertCoords)
-	{
-		FMatrix multiplierMatrix;
-		multiplierMatrix.SetIdentity();
-		multiplierMatrix.M[1][1] = -1;
-		MultipliedMatrix *= multiplierMatrix;
-	}
-
-	if (OvrpLayerDesc.Shape == ovrpShape_Quad)
-	{
-		float QuadSizeY = (Desc.Flags & IStereoLayers::LAYER_FLAG_QUAD_PRESERVE_TEX_RATIO) ? Desc.QuadSize.X * AspectRatio : Desc.QuadSize.Y;
-
-		FVector2D quadsize = FVector2D(Desc.QuadSize.X, QuadSizeY);
-
-		DrawPokeAHoleQuadMesh(RHICmdList, MultipliedMatrix, 0, -quadsize.X*scale / 2, -quadsize.Y*scale / 2, 0, quadsize.X*scale, quadsize.Y*scale, invertCoords);
-	}
-	else if (OvrpLayerDesc.Shape == ovrpShape_Cylinder)
-	{
-		float CylinderHeight = (Desc.Flags & IStereoLayers::LAYER_FLAG_QUAD_PRESERVE_TEX_RATIO) ? Desc.CylinderOverlayArc * AspectRatio : Desc.CylinderHeight;
-
-		FVector XAxis = FVector(1, 0, 0);
-		FVector YAxis = FVector(0, 1, 0);
-		FVector Base = FVector::ZeroVector;
-
-		float CylinderRadius = Desc.CylinderRadius;
-		float ArcAngle = Desc.CylinderOverlayArc / Desc.CylinderRadius;
-
-		DrawPokeAHoleCylinderMesh(RHICmdList, Base, XAxis, YAxis, MultipliedMatrix, ArcAngle*scale, CylinderHeight*scale, CylinderRadius, invertCoords);
-	}
-	else if (OvrpLayerDesc.Shape == ovrpShape_Cubemap)
-	{
-		DrawPokeAHoleQuadMesh(RHICmdList, FMatrix::Identity, -1, -1, 0, 2, 2, 0, false);
-	}
 }
 
 } // namespace OculusHMD

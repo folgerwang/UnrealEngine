@@ -39,7 +39,7 @@ FText UNiagaraNodeCustomHlsl::GetHlslText() const
 void UNiagaraNodeCustomHlsl::OnCustomHlslTextCommitted(const FText& InText, ETextCommit::Type InType)
 {
 	FString NewValue = InText.ToString();
-	if (NewValue != CustomHlsl)
+	if (!NewValue.Equals(CustomHlsl, ESearchCase::CaseSensitive))
 	{
 		FScopedTransaction Transaction(LOCTEXT("CustomHlslCommit", "Edited Custom Hlsl"));
 		Modify();
@@ -167,7 +167,6 @@ void UNiagaraNodeCustomHlsl::InitAsCustomHlslDynamicInput(const FNiagaraTypeDefi
 /** Called when a new typed pin is added by the user. */
 void UNiagaraNodeCustomHlsl::OnNewTypedPinAdded(UEdGraphPin* NewPin)
 {
-	FScopedTransaction Transaction(LOCTEXT("AddedTypedPin", "New Pin Added"));
 	UNiagaraNodeWithDynamicPins::OnNewTypedPinAdded(NewPin);
 	RebuildSignatureFromPins();
 }
@@ -175,7 +174,6 @@ void UNiagaraNodeCustomHlsl::OnNewTypedPinAdded(UEdGraphPin* NewPin)
 /** Called when a pin is renamed. */
 void UNiagaraNodeCustomHlsl::OnPinRenamed(UEdGraphPin* RenamedPin, const FString& OldPinName)
 {
-	FScopedTransaction Transaction(LOCTEXT("PinRenamed", "Pin Rename"));
 	UNiagaraNodeWithDynamicPins::OnPinRenamed(RenamedPin, OldPinName);
 	RebuildSignatureFromPins();
 }
@@ -183,14 +181,12 @@ void UNiagaraNodeCustomHlsl::OnPinRenamed(UEdGraphPin* RenamedPin, const FString
 /** Removes a pin from this node with a transaction. */
 void UNiagaraNodeCustomHlsl::RemoveDynamicPin(UEdGraphPin* Pin)
 {
-	FScopedTransaction Transaction(LOCTEXT("PinRemoved", "Remove Pin"));
 	UNiagaraNodeWithDynamicPins::RemoveDynamicPin(Pin);
 	RebuildSignatureFromPins();
 }
 
 void UNiagaraNodeCustomHlsl::MoveDynamicPin(UEdGraphPin* Pin, int32 DirectionToMove)
 {
-	FScopedTransaction Transaction(LOCTEXT("PinMoved", "Moved Pin"));
 	UNiagaraNodeWithDynamicPins::MoveDynamicPin(Pin, DirectionToMove);
 	RebuildSignatureFromPins();
 }
@@ -261,7 +257,7 @@ void UNiagaraNodeCustomHlsl::BuildParameterMapHistory(FNiagaraParameterMapHistor
 		}
 
 		TArray<FString> PossibleNamespaces;
-		FNiagaraParameterMapHistory::GetValidNamespacesForReading(OutHistory.GetBaseUsageContext(), PossibleNamespaces);
+		FNiagaraParameterMapHistory::GetValidNamespacesForReading(OutHistory.GetBaseUsageContext(), 0, PossibleNamespaces);
 
 		if ((bHasParamMapOutput || bHasParamMapInput) && ParamMapIdx != INDEX_NONE)
 		{

@@ -12,8 +12,6 @@ template<typename> struct TMovieSceneChannelTraits;
 
 /**
  * Handle to a specific channel in a UMovieSceneSection. Will become nullptr when the FMovieSceneChannelProxy it was created with is reallocated.
- * Implemented internally as a weak pointer, but not advertised as such to ensure that no shared references are held to FMovieSceneChannelProxy
- * outside of the owning MovieSceneSection's reference.
  */
 struct MOVIESCENE_API FMovieSceneChannelHandle
 {
@@ -75,13 +73,31 @@ private:
 	int32 ChannelIndex;
 };
 
+
+/**
+ * Forward declaration of a typed channel handle.
+ * Typed channel handles replicate the inheritance hierarchy of their channels in order that overload resolution on them can happen without user-conversion or templating
+ */
+template<typename ChannelType> struct TMovieSceneChannelHandle;
+
+/** Base implementation that is just the untyped handle type */
+template<> struct TMovieSceneChannelHandle<FMovieSceneChannel> : FMovieSceneChannelHandle
+{
+protected:
+	TMovieSceneChannelHandle()
+	{}
+
+	TMovieSceneChannelHandle(TWeakPtr<FMovieSceneChannelProxy> InWeakChannelProxy, FName InName, int32 InChannelIndex)
+		: FMovieSceneChannelHandle(InWeakChannelProxy, InName, InChannelIndex)
+	{}
+};
+
 /**
  * Handle to a specific channel in a UMovieSceneSection. Will become nullptr when the FMovieSceneChannelProxy it was created with is reallocated.
- * Implemented internally as a weak pointer, but not advertised as such to ensure that no shared references are held to FMovieSceneChannelProxy
- * outside of the owning MovieSceneSection's reference.
+ * The handle class hierarchy matches that of the channel itself so that functions can be overloaded for any given base/derived handle type
  */
 template<typename ChannelType>
-struct TMovieSceneChannelHandle : FMovieSceneChannelHandle
+struct TMovieSceneChannelHandle : TMovieSceneChannelHandle<typename ChannelType::Super>
 {
 	TMovieSceneChannelHandle()
 	{}
@@ -90,7 +106,7 @@ struct TMovieSceneChannelHandle : FMovieSceneChannelHandle
 	 * Construction from a weak channel proxy, and the channel's index
 	 */
 	TMovieSceneChannelHandle(TWeakPtr<FMovieSceneChannelProxy> InWeakChannelProxy, int32 InChannelIndex)
-		: FMovieSceneChannelHandle(InWeakChannelProxy, ChannelType::StaticStruct()->GetFName(), InChannelIndex)
+		: TMovieSceneChannelHandle<typename ChannelType::Super>(InWeakChannelProxy, ChannelType::StaticStruct()->GetFName(), InChannelIndex)
 	{}
 
 	/**
@@ -116,6 +132,12 @@ struct TMovieSceneChannelHandle : FMovieSceneChannelHandle
 	}
 
 #endif // WITH_EDITOR
+
+protected:
+
+	TMovieSceneChannelHandle(TWeakPtr<FMovieSceneChannelProxy> InWeakChannelProxy, FName InChannelTypeName, int32 InChannelIndex)
+		: TMovieSceneChannelHandle<typename ChannelType::Super>(InWeakChannelProxy, InChannelTypeName, InChannelIndex)
+	{}
 };
 
 

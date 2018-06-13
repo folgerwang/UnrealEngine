@@ -84,6 +84,8 @@ private:
 
 	FOculusRemoteControllerState Remote;
 
+	FOculusTouchpadState Touchpad;
+
 	/** Threshold for treating trigger pulls as button presses, from 0.0 to 1.0 */
 	static float TriggerThreshold;
 

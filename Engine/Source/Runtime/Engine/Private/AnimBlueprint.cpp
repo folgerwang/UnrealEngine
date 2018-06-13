@@ -180,12 +180,6 @@ bool UAnimBlueprint::CanRecompileWhilePlayingInEditor() const
 {
 	return GetDefault<UEditorExperimentalSettings>()->bEnableLiveRecompilationOfAnimationBlueprints;
 }
-
-void UAnimBlueprint::LoadModulesRequiredForCompilation()
-{
-	static const FName ModuleName(TEXT("AnimationBlueprintEditor"));
-	FModuleManager::Get().LoadModule(ModuleName);
-}
 #endif
 
 USkeletalMesh* UAnimBlueprint::GetPreviewMesh(bool bFindIfNotSet/*=false*/)

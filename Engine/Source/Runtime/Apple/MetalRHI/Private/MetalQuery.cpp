@@ -411,11 +411,20 @@ void FMetalDynamicRHI::RHICalibrateTimers()
 		
 		id<IMetalStatisticsSamples> Samples = Context.GetCommandQueue().GetStatistics()->RegisterEncoderStatistics(Buffer.GetPtr(), EMetalSampleComputeEncoderStart);
 		mtlpp::ComputeCommandEncoder Encoder = Buffer.ComputeCommandEncoder();
+#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
+		FMetalComputeCommandEncoderDebugging Debugging;
+		if (SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
+		{
+			FMetalCommandBufferDebugging CmdDebug = FMetalCommandBufferDebugging::Get(Buffer);
+			Debugging = FMetalComputeCommandEncoderDebugging(Encoder, CmdDebug);
+		}
+#endif
 		
 		Context.GetCommandQueue().GetStatistics()->RegisterEncoderStatistics(Buffer.GetPtr(), EMetalSampleComputeEncoderEnd);
 		check(Samples);
 		[Samples retain];
 		Encoder.EndEncoding();
+		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, Debugging.EndEncoder());
 		
 		FMetalProfiler* Profiler = ImmediateContext.GetProfiler();
 		Buffer.AddCompletedHandler(^(const mtlpp::CommandBuffer & theBuffer) {

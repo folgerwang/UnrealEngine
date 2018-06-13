@@ -286,6 +286,7 @@ USkeletalMesh::USkeletalMesh(const FObjectInitializer& ObjectInitializer)
 	SkelMirrorFlipAxis = EAxis::Z;
 #if WITH_EDITORONLY_DATA
 	ImportedModel = MakeShareable(new FSkeletalMeshModel());
+	VertexColorGuid = FGuid();
 #endif
 
 	MinLod.Default = 0;

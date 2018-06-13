@@ -345,12 +345,6 @@ public:
 	/** Constructor */
 	FFCPXMLClipNode(TSharedPtr<FFCPXMLNode> InParent, TSharedPtr<FFCPXMLFile> InFile);
 
-	/** Get metadata section name from sequencer section name */
-	static FString GetMetadataSectionName(const FString& InSequencerSectionName);
-
-	/** Get sequencer section name from metadata shot name */
-	static bool GetSequencerSectionName(const FString& InMetadataSectionName, FString &OutSequencerSectionName);
-
 private:
 	/** Accepts a node visitor object */
 	virtual bool DoAccept(FFCPXMLNodeVisitor& NodeVisitor) override final;

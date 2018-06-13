@@ -14,36 +14,40 @@
 FText FInputChord::GetInputText( ) const
 {
 #if PLATFORM_MAC
-    const FText CommandText = LOCTEXT("KeyName_Control", "Ctrl");
-    const FText ControlText = LOCTEXT("KeyName_Command", "Cmd");
+	const FText CommandText = LOCTEXT("KeyName_Control", "Ctrl");
+	const FText ControlText = LOCTEXT("KeyName_Command", "Cmd");
 #else
-    const FText ControlText = LOCTEXT("KeyName_Control", "Ctrl");
-    const FText CommandText = LOCTEXT("KeyName_Command", "Cmd"); 
+	const FText ControlText = LOCTEXT("KeyName_Control", "Ctrl");
+	const FText CommandText = LOCTEXT("KeyName_Command", "Cmd");
 #endif
-    const FText AltText = LOCTEXT("KeyName_Alt", "Alt");
-    const FText ShiftText = LOCTEXT("KeyName_Shift", "Shift");
-    
-	const FText AppenderText = LOCTEXT("ModAppender", "+");
+	const FText AltText = LOCTEXT("KeyName_Alt", "Alt");
+	const FText ShiftText = LOCTEXT("KeyName_Shift", "Shift");
+
+
+	const FText AppenderText = Key != EKeys::Invalid ? LOCTEXT("ModAppender", "+") : FText::GetEmpty();
 
 	FFormatNamedArguments Args;
 	int32 ModCount = 0;
 
-    if (bCtrl)
-    {
-		Args.Add(FString::Printf(TEXT("Mod%d"),++ModCount), ControlText);
-    }
-    if (bCmd)
-    {
-		Args.Add(FString::Printf(TEXT("Mod%d"),++ModCount), CommandText);
-    }
-    if (bAlt)
-    {
-		Args.Add(FString::Printf(TEXT("Mod%d"),++ModCount), AltText);
-    }
-    if (bShift)
-    {
-		Args.Add(FString::Printf(TEXT("Mod%d"),++ModCount), ShiftText);
-    }
+	if (bCtrl)
+	{
+		Args.Add(FString::Printf(TEXT("Mod%d"), ++ModCount), ControlText);
+	}
+
+	if (bCmd)
+	{
+		Args.Add(FString::Printf(TEXT("Mod%d"), ++ModCount), CommandText);
+	}
+
+	if (bAlt)
+	{
+		Args.Add(FString::Printf(TEXT("Mod%d"), ++ModCount), AltText);
+	}
+
+	if (bShift)
+	{
+		Args.Add(FString::Printf(TEXT("Mod%d"), ++ModCount), ShiftText);
+	}
 
 	for (int32 i = 1; i <= 4; ++i)
 	{

@@ -69,6 +69,7 @@ float NormalCurvatureToRoughness(float3 WorldNormal)
 
 #define FORCE_FULLY_ROUGH (SIMPLE_FORWARD_SHADING || MATERIAL_FULLY_ROUGH)
 #define EDITOR_ALPHA2COVERAGE (USE_EDITOR_COMPOSITING && SUPPORTS_PIXEL_COVERAGE)
+#define POST_PROCESS_SUBSURFACE ((MATERIAL_SHADINGMODEL_SUBSURFACE_PROFILE || MATERIAL_SHADINGMODEL_EYE) && USES_GBUFFER)
 
 #if TRANSLUCENCY_LIGHTING_SURFACE_LIGHTINGVOLUME || TRANSLUCENCY_LIGHTING_SURFACE_FORWARDSHADING || FORWARD_SHADING
 #include "ForwardLightingCommon.ush" 
@@ -769,7 +770,7 @@ void FPixelShaderInOut_MainPS(
 
 	// If we don't use this shading model the color should be black (don't generate shader code for unused data, don't do indirectlighting cache lighting with this color).
 	float3 SubsurfaceColor = 0;
-#if MATERIAL_SHADINGMODEL_SUBSURFACE || MATERIAL_SHADINGMODEL_PREINTEGRATED_SKIN || MATERIAL_SHADINGMODEL_SUBSURFACE_PROFILE || MATERIAL_SHADINGMODEL_TWOSIDED_FOLIAGE || MATERIAL_SHADINGMODEL_CLOTH
+#if MATERIAL_SHADINGMODEL_SUBSURFACE || MATERIAL_SHADINGMODEL_PREINTEGRATED_SKIN || MATERIAL_SHADINGMODEL_SUBSURFACE_PROFILE || MATERIAL_SHADINGMODEL_TWOSIDED_FOLIAGE || MATERIAL_SHADINGMODEL_CLOTH || MATERIAL_SHADINGMODEL_EYE
 	{
 		float4 SubsurfaceData = GetMaterialSubsurfaceData(PixelMaterialInputs);
 
@@ -835,7 +836,8 @@ void FPixelShaderInOut_MainPS(
 		Metallic, 
 		Specular, 
 		Roughness, 
-		float4(SubsurfaceColor, SubsurfaceProfile));
+		SubsurfaceColor,
+		SubsurfaceProfile);
 
 #if USES_GBUFFER
 	GBuffer.SelectiveOutputMask = GetSelectiveOutputMask();
@@ -875,11 +877,11 @@ void FPixelShaderInOut_MainPS(
 #endif
 #endif
 
-#if MATERIAL_SHADINGMODEL_SUBSURFACE_PROFILE && USES_GBUFFER
+#if POST_PROCESS_SUBSURFACE
 	// SubsurfaceProfile applies the BaseColor in a later pass. Any lighting output in the base pass needs
 	// to separate specular and diffuse lighting in a checkerboard pattern
 	bool bChecker = CheckerFromPixelPos(MaterialParameters.SvPosition.xy);
-	if ( GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE ) 
+	if (UseSubsurfaceProfile(GBuffer.ShadingModelID))
 	{
 		AdjustBaseColorAndSpecularColorForSubsurfaceProfileLighting(BaseColor, GBuffer.SpecularColor, Specular, bChecker);
 	}
@@ -1052,7 +1054,7 @@ void FPixelShaderInOut_MainPS(
 	#endif
 #endif
 
-#if !(MATERIAL_SHADINGMODEL_SUBSURFACE_PROFILE && USES_GBUFFER) 
+#if !POST_PROCESS_SUBSURFACE
  	// For non-skin, we just add diffuse and non-diffuse color together, otherwise we need to keep them separate
 	Color += DiffuseColor;
 #endif
@@ -1085,18 +1087,18 @@ void FPixelShaderInOut_MainPS(
 			// Apply vertex fog
 			Color = Color * Fogging.a + Fogging.rgb;
 
-#if MATERIAL_SHADINGMODEL_SUBSURFACE_PROFILE && USES_GBUFFER
+#if POST_PROCESS_SUBSURFACE
 			// Apply vertex fog to diffuse color
 			DiffuseColor = DiffuseColor * Fogging.a + Fogging.rgb;
 
-			if (GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE && 
+			if (UseSubsurfaceProfile(GBuffer.ShadingModelID) && 
                 View.bSubsurfacePostprocessEnabled > 0 && View.bCheckerboardSubsurfaceProfileRendering > 0 )
 			{
 				// Adjust for checkerboard. only apply non-diffuse lighting (including emissive) 
 				// to the specular component, otherwise lighting is applied twice
 				Color *= !bChecker;
 			}
-			LightAccumulator_Add(LightAccumulator, Color + DiffuseColor, DiffuseColor, 1.0f, GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE);
+			LightAccumulator_Add(LightAccumulator, Color + DiffuseColor, DiffuseColor, 1.0f, UseSubsurfaceProfile(GBuffer.ShadingModelID));
 #else
 			LightAccumulator_Add(LightAccumulator, Color, 0, 1.0f, false);
 #endif

@@ -1,8 +1,8 @@
 {
 	"FileVersion": 3,
-	"Version": 180,
-	"VersionName": "0.18",
-	"FriendlyName": "DatasmithContent",
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Datasmith Content",
 	"Description": "Content for Datasmith Importer.",
 	"Category": "Unreal Studio",
 	"CreatedBy": "Epic Games, Inc.",

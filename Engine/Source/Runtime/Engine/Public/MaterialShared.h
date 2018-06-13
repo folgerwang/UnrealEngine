@@ -66,9 +66,19 @@ extern FName GetMaterialQualityLevelFName(EMaterialQualityLevel::Type InMaterial
 
 inline bool IsSubsurfaceShadingModel(EMaterialShadingModel ShadingModel)
 {
-	return ShadingModel == MSM_Subsurface || ShadingModel == MSM_PreintegratedSkin || 
-		ShadingModel == MSM_SubsurfaceProfile || ShadingModel == MSM_TwoSidedFoliage || 
-		ShadingModel == MSM_Cloth;
+	return ShadingModel == MSM_Subsurface || ShadingModel == MSM_PreintegratedSkin ||
+		ShadingModel == MSM_SubsurfaceProfile || ShadingModel == MSM_TwoSidedFoliage ||
+		ShadingModel == MSM_Cloth || ShadingModel == MSM_Eye;
+}
+
+inline bool UseSubsurfaceProfile(EMaterialShadingModel ShadingModel)
+{
+	return ShadingModel == MSM_SubsurfaceProfile || ShadingModel == MSM_Eye;
+}
+
+inline uint32 GetUseSubsurfaceProfileShadingModelMask()
+{
+	return (1 << MSM_SubsurfaceProfile) | (1 << MSM_Eye);
 }
 
 /**

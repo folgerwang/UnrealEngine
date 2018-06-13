@@ -14,6 +14,7 @@
 #include "RenderResource.h"
 #include "RenderUtils.h"
 #include "Misc/EnumClassFlags.h"
+#include "UniformBuffer.h"
 
 class FCanvas;
 class FMaterial;
@@ -21,6 +22,7 @@ class FSceneInterface;
 class FSceneRenderTargets;
 class FSceneView;
 class FSceneViewFamily;
+class FSceneTexturesUniformParameters;
 struct FMeshBatch;
 struct FSynthBenchmarkResults;
 
@@ -546,6 +548,7 @@ class FPostOpaqueRenderParameters
 		FRHITexture2D* SmallDepthTexture;
 		FRHICommandListImmediate* RHICmdList;
 		FUniformBufferRHIParamRef ViewUniformBuffer;
+		TUniformBufferRef<FSceneTexturesUniformParameters> SceneTexturesUniformParams;
 		void* Uid; // A unique identifier for the view.
 };
 DECLARE_DELEGATE_OneParam(FPostOpaqueRenderDelegate, class FPostOpaqueRenderParameters&);
@@ -734,7 +737,7 @@ public:
 
 	virtual void RegisterPostOpaqueRenderDelegate(const FPostOpaqueRenderDelegate& PostOpaqueRenderDelegate) = 0;
 	virtual void RegisterOverlayRenderDelegate(const FPostOpaqueRenderDelegate& OverlayRenderDelegate) = 0;
-	virtual void RenderPostOpaqueExtensions(const class FViewInfo& View, FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext) = 0;
+	virtual void RenderPostOpaqueExtensions(const class FViewInfo& View, FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext, TUniformBufferRef<FSceneTexturesUniformParameters>& SceneTextureUniformParams) = 0;
 	virtual void RenderOverlayExtensions(const class FViewInfo& View, FRHICommandListImmediate& RHICmdList, FSceneRenderTargets& SceneContext) = 0;
 	virtual bool HasPostOpaqueExtentions() const = 0;
 

@@ -206,7 +206,9 @@ void FVulkanDevice::CreateDevice()
 	DeviceInfo.queueCreateInfoCount = QueueFamilyInfos.Num();
 	DeviceInfo.pQueueCreateInfos = QueueFamilyInfos.GetData();
 
-	DeviceInfo.pEnabledFeatures = &Features;
+	VkPhysicalDeviceFeatures EnabledFeatures;
+	FVulkanPlatform::RestrictEnabledPhysicalDeviceFeatures(Features, EnabledFeatures);
+	DeviceInfo.pEnabledFeatures = &EnabledFeatures;
 
 	// Create the device
 	VERIFYVULKANRESULT(VulkanRHI::vkCreateDevice(Gpu, &DeviceInfo, nullptr, &Device));
@@ -235,11 +237,17 @@ void FVulkanDevice::CreateDevice()
 	TransferQueue = new FVulkanQueue(this, TransferQueueFamilyIndex);
 
 #if VULKAN_ENABLE_DRAW_MARKERS
-	if (bDebugMarkersFound || FVulkanPlatform::SupportsMarkersWithoutExtension())
+	if (bDebugMarkersFound || FVulkanPlatform::ForceEnableDebugMarkers())
 	{
 		DebugMarkers.CmdBegin = (PFN_vkCmdDebugMarkerBeginEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkCmdDebugMarkerBeginEXT");
 		DebugMarkers.CmdEnd = (PFN_vkCmdDebugMarkerEndEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkCmdDebugMarkerEndEXT");
 		DebugMarkers.CmdSetObjectName = (PFN_vkDebugMarkerSetObjectNameEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkDebugMarkerSetObjectNameEXT");
+
+		if (DebugMarkers.CmdBegin && DebugMarkers.CmdEnd && DebugMarkers.CmdSetObjectName)
+		{
+			bDebugMarkersFound = true;
+		}
+
 		if (!DebugMarkers.CmdBegin || !DebugMarkers.CmdEnd || !DebugMarkers.CmdSetObjectName)
 		{
 			UE_LOG(LogVulkanRHI, Warning, TEXT("Extension found, but entry points for vkCmdDebugMarker(Begin|End)EXT NOT found!"));

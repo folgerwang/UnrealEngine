@@ -2,9 +2,9 @@
 
 #include "AjaMediaViewportOutputImpl.h"
 
-
 #include "AjaMediaOutput.h"
 #include "IAjaMediaOutputModule.h"
+#include "MediaIOCoreEncodeTime.h"
 
 #include "RHIResources.h"
 
@@ -53,7 +53,7 @@ FAjaMediaViewportOutputImpl::FAjaMediaViewportOutputImpl()
 	, bIgnoreTextureAlphaChanged(false)
 	, WakeUpEvent(nullptr)
 	, CurrentState(EMediaState::Closed)
-	, AjaThreadNewState(EMediaState::Error)
+	, AjaThreadNewState(EMediaState::Closed)
 	, OutputChannel(nullptr)
 	, LastFrameDropCount(0)
 	, FrameRate(30, 1)
@@ -166,7 +166,7 @@ void FAjaMediaViewportOutputImpl::Shutdown()
 	SceneViewport.Reset();
 	if(FrameGrabber.IsValid())
 	{
-		FrameGrabber->StopCapturingFrames();
+		FrameGrabber->Shutdown();
 		FrameGrabber.Reset();
 	}
 
@@ -179,37 +179,25 @@ void FAjaMediaViewportOutputImpl::Shutdown()
 bool FAjaMediaViewportOutputImpl::InitAJA(UAjaMediaOutput* MediaOutput)
 {
 	check(MediaOutput);
-	if (!MediaOutput->FillPort.IsValid())
+	FString FailureReason;
+	if (!MediaOutput->Validate(FailureReason))
 	{
-		UE_LOG(LogAjaMediaOutput, Warning, TEXT("The FillPort of '%s' is not valid."), *MediaOutput->GetName());
+		UE_LOG(LogAjaMediaOutput, Error, TEXT("Couldn't start the capture. %s"), *FailureReason);
 		return false;
 	}
 
-	if (MediaOutput->FillPort.DeviceIndex != MediaOutput->SyncPort.DeviceIndex || MediaOutput->FillPort.DeviceIndex != MediaOutput->KeyPort.DeviceIndex)
-	{
-		UE_LOG(LogAjaMediaOutput, Warning, TEXT("The FillPort & SyncPort & KeyPort of '%s' are not on the same device."), *MediaOutput->GetName());
-		return false;
-	}
+	FrameRate = MediaOutput->MediaMode.FrameRate;
 
 	AJA::AJADeviceOptions DeviceOptions(MediaOutput->FillPort.DeviceIndex);
 
 	AJA::AJAInputOutputChannelOptions ChannelOptions(TEXT("ViewportOutput"), MediaOutput->FillPort.PortIndex);
 	ChannelOptions.CallbackInterface = this;
 	ChannelOptions.bOutput = true;
-
-	if (!AJA::Mode2FrameDesc(MediaOutput->MediaMode.Mode, AJA::EDirectionFilter::DF_OUTPUT, ChannelOptions.FrameDesc))
-	{
-		UE_LOG(LogAjaMediaOutput, Warning, TEXT("Mode not supported for output."), *MediaOutput->GetName());
-		return false;
-	}
-
-	AJA::FFrameInfo FrameInfo;
-	AJA::FrameDesc2Info(ChannelOptions.FrameDesc, FrameInfo);
-	FrameRate = FFrameRate(FrameInfo.TimeValue, FrameInfo.TimeScale);
-
 	ChannelOptions.NumberOfAudioChannel = 0;
 	ChannelOptions.SynchronizeChannelIndex = MediaOutput->SyncPort.PortIndex;
 	ChannelOptions.OutputKeyChannelIndex = MediaOutput->KeyPort.PortIndex;
+	ChannelOptions.VideoFormatIndex = MediaOutput->MediaMode.VideoFormatIndex;
+	ChannelOptions.PixelFormat = AJA::EPixelFormat::PF_ARGB;
 	ChannelOptions.bUseAutoCirculating = MediaOutput->bOutputWithAutoCirculating;
 	ChannelOptions.bOutputKey = MediaOutput->OutputType == EAjaMediaOutputType::FillAndKey;  // must be RGBA to support Fill+Key
 	ChannelOptions.bUseTimecode = bOutputTimecode;
@@ -217,6 +205,19 @@ bool FAjaMediaViewportOutputImpl::InitAJA(UAjaMediaOutput* MediaOutput)
 	ChannelOptions.bUseAncillaryField2 = false;
 	ChannelOptions.bUseAudio = false;
 	ChannelOptions.bUseVideo = true;
+
+	switch(MediaOutput->OutputReference)
+	{
+	case EAjaMediaOutputReferenceType::External:
+		ChannelOptions.OutputReferenceType = AJA::EAJAReferenceType::EAJA_REFERENCETYPE_EXTERNAL;
+		break;
+	case EAjaMediaOutputReferenceType::Input:
+		ChannelOptions.OutputReferenceType = AJA::EAJAReferenceType::EAJA_REFERENCETYPE_INPUT;
+		break;
+	default:
+		ChannelOptions.OutputReferenceType = AJA::EAJAReferenceType::EAJA_REFERENCETYPE_FREERUN;
+		break;
+	}
 
 	OutputChannel = new AJA::AJAOutputChannel();
 	if (!OutputChannel->Initialize(DeviceOptions, ChannelOptions))
@@ -245,13 +246,20 @@ void FAjaMediaViewportOutputImpl::Tick(const FTimecode& InTimecode)
 	EMediaState NewState = AjaThreadNewState;
 	if (NewState != CurrentState)
 	{
-		CurrentState = NewState;
-
 		check(FrameGrabber.IsValid());
 		if (NewState == EMediaState::Playing)
 		{
 			FrameGrabber->StartCapturingFrames();
 		}
+		else if (NewState == EMediaState::Error || NewState == EMediaState::Closed)
+		{
+			if (CurrentState == EMediaState::Playing)
+			{
+				FrameGrabber->StopCapturingFrames();
+			}
+		}
+
+		CurrentState = NewState;
 	}
 
 	if (FrameGrabber.IsValid() && OutputChannel)
@@ -362,59 +370,6 @@ bool FAjaMediaViewportOutputImpl::WaitForSync() const
 	return bResult;
 }
 
-void FAjaMediaViewportOutputImpl::EncodeTimecode_Pattern(FColor* ColorBuffer, uint32 ColorBufferWidth, int32 HeightIndex, int32 Amount) const
-{
-	for (int32 Index = 0; Index < Amount; ++Index)
-	{
-		*(ColorBuffer + (ColorBufferWidth * HeightIndex) + Index) = (Index % 2) ? FColor::Red : FColor::Black;
-	}
-}
-
-void FAjaMediaViewportOutputImpl::EncodeTimecode_Time(FColor* ColorBuffer, uint32 ColorBufferWidth, int32 HeightIndex, int32 Time) const
-{
-	int32 Tenth = (Time / 10);
-	int32 Unit = (Time % 10);
-	if (Tenth > 0)
-	{
-		*(ColorBuffer + (ColorBufferWidth * HeightIndex) + Tenth - 1) = FColor::White;
-	}
-	*(ColorBuffer + (ColorBufferWidth * (1 + HeightIndex)) + Unit) = FColor::White;
-}
-
-void FAjaMediaViewportOutputImpl::EncodeTimecode(const AJA::FTimecode& Timecode, FColor* ColorBuffer, uint32 ColorBufferWidth, uint32 ColorBufferHeight) const
-{
-	if (bEncodeTimecodeInTexel)
-	{
-		const int32 FillWidth = 12;
-		const int32 FillHeight = 6*2;
-
-		if (ColorBufferWidth > FillWidth && ColorBufferHeight > FillHeight)
-		{
-			for (int32 IndexHeight = 0; IndexHeight < FillHeight; ++IndexHeight)
-			{
-				for (int32 IndexWidth = 0; IndexWidth < FillWidth; ++IndexWidth)
-				{
-					*(ColorBuffer + (ColorBufferWidth*IndexHeight) + IndexWidth) = FColor::Black;
-				}
-			}
-
-			EncodeTimecode_Pattern(ColorBuffer, ColorBufferWidth, 0, 2);	//hh
-			EncodeTimecode_Pattern(ColorBuffer, ColorBufferWidth, 1, 10);
-			EncodeTimecode_Pattern(ColorBuffer, ColorBufferWidth, 3, 6);	//mm
-			EncodeTimecode_Pattern(ColorBuffer, ColorBufferWidth, 4, 10);
-			EncodeTimecode_Pattern(ColorBuffer, ColorBufferWidth, 6, 6);	//ss
-			EncodeTimecode_Pattern(ColorBuffer, ColorBufferWidth, 7, 10);
-			EncodeTimecode_Pattern(ColorBuffer, ColorBufferWidth, 9, 6);	//ff
-			EncodeTimecode_Pattern(ColorBuffer, ColorBufferWidth, 10, 10);
-
-			EncodeTimecode_Time(ColorBuffer, ColorBufferWidth, 0, Timecode.Hours);
-			EncodeTimecode_Time(ColorBuffer, ColorBufferWidth, 3, Timecode.Minutes);
-			EncodeTimecode_Time(ColorBuffer, ColorBufferWidth, 6, Timecode.Seconds);
-			EncodeTimecode_Time(ColorBuffer, ColorBufferWidth, 9, Timecode.Frames);
-		}
-	}
-}
-
 void FAjaMediaViewportOutputImpl::SendToAja(const FTimecode& FrameTimecode, FColor* ColorBuffer, uint32 ColorBufferWidth, uint32 ColorBufferHeight)
 {
 	check(ColorBuffer);
@@ -429,7 +384,6 @@ void FAjaMediaViewportOutputImpl::SendToAja(const FTimecode& FrameTimecode, FCol
 
 	if (AjaWishResolution.X == ColorBufferWidth && AjaWishResolution.Y == ColorBufferHeight)
 	{
-		EncodeTimecode(Timecode, ColorBuffer, ColorBufferWidth, ColorBufferHeight);
 		OutputChannel->SetVideoBuffer(Timecode, reinterpret_cast<uint8_t*>(ColorBuffer), ColorBufferWidth*ColorBufferHeight * 4);
 	}
 	else
@@ -470,7 +424,9 @@ void FAjaMediaViewportOutputImpl::SendToAja(const FTimecode& FrameTimecode, FCol
 			UE_LOG(LogAjaMediaOutput, Log, TEXT("Aja output port %s has timecode : %02d:%02d:%02d:%02d"), *PortName, Timecode.Hours, Timecode.Minutes, Timecode.Seconds, Timecode.Frames);
 		}
 
-		EncodeTimecode(Timecode, ColorBuffer, AjaWidth, AjaHeight);
+		FMediaIOCoreEncodeTime EncodeTime(EMediaTextureSampleFormat::CharBGRA, ColorBuffer, AjaWidth, AjaHeight);
+		EncodeTime.Render(0, 0, Timecode.Hours, Timecode.Minutes, Timecode.Seconds, Timecode.Frames);
+
 		OutputChannel->SetVideoBuffer(Timecode, reinterpret_cast<uint8*>(FrameData.ColorBuffer.GetData()), AjaWidth*AjaHeight* 4);
 	}
 }

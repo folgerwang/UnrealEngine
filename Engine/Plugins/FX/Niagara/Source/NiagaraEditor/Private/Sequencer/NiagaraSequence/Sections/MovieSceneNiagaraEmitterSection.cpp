@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneNiagaraEmitterSection.h"
 #include "NiagaraEmitterSection.h"
@@ -99,7 +99,7 @@ TSharedPtr<FStructOnScope> GetKeyStruct(TMovieSceneChannelHandle<FMovieSceneNiag
 	int32 KeyValueIndex = Channel.Get()->GetData().GetIndex(InHandle);
 	if (KeyValueIndex != INDEX_NONE)
 	{
-		FNiagaraEmitterSectionKey KeyValue = Channel.Get()->GetData().GetValues()[KeyValueIndex];
+		FNiagaraEmitterSectionKey& KeyValue = Channel.Get()->GetData().GetValues()[KeyValueIndex];
 		return MakeShared<FStructOnScope>(KeyValue.Value.GetType().GetStruct(), KeyValue.Value.GetData());
 	}
 	return TSharedPtr<FStructOnScope>();
@@ -257,6 +257,15 @@ void UMovieSceneNiagaraEmitterSection::UpdateSectionFromTimeRangeModule(const FF
 	{
 		float ModuleStartTime = StartTimeBinder.GetValue<float>();
 		float ModuleLength = LengthBinder.GetValue<float>();
+
+		if (ModuleLength < 0)
+		{
+			// TODO: Add ui support for this issue rather than a log error.
+			UE_LOG(LogNiagaraEditor, Error, TEXT("Invalid length in niagara editor timeline.  Bound Module: %s Bound Input: %s"),
+				LengthBinder.GetFunctionCallNode() != nullptr ? *LengthBinder.GetFunctionCallNode()->GetFunctionName() : TEXT("Unknown"),
+				*LengthBinder.GetInputName().ToString());
+			ModuleLength = 0;
+		}
 		
 		SetRange(TRange<FFrameNumber>(
 			(ModuleStartTime * InTickResolution).RoundToFrame(),

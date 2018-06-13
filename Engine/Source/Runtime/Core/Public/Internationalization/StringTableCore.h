@@ -38,6 +38,12 @@ public:
 	/** Get the display string of this string table entry */
 	FTextDisplayStringPtr GetDisplayString() const;
 
+	/** Get the placeholder source string to use for string table entries that are missing */
+	static const FString& GetPlaceholderSourceString();
+
+	/** Get the placeholder display string to use for string table entries that are missing */
+	static FTextDisplayStringRef GetPlaceholderDisplayString();
+
 private:
 	/** The string table that owns us (if any) */
 	FStringTableConstWeakPtr OwnerTable;

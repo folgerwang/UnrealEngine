@@ -30,6 +30,9 @@ namespace WatchViewer
 	// called when an asset is renamed; updates the watches on the asset
 	void KISMET_API OnRenameAsset(const FAssetData& AssetData, const FString& OldAssetName);
 
+	// called when a BlueprintObj should no longer be watched
+	void KISMET_API ClearWatchListFromBlueprint(class UBlueprint* BlueprintObj);
+
 	FName GetTabName();
 	void RegisterTabSpawner(FTabManager& TabManager);
 }

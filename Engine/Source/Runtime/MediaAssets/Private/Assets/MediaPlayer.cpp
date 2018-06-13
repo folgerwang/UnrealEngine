@@ -41,7 +41,8 @@ UMediaPlayer::UMediaPlayer(const FObjectInitializer& ObjectInitializer)
 	, ViewRotation(FRotator::ZeroRotator)
 	, PlayerGuid(FGuid::NewGuid())
 	, PlayOnNext(false)
-#if WITH_EDITOR
+#if WITH_EDITORONLY_DATA
+	, AffectedByPIEHandling(true)
 	, WasPlayingInPIE(false)
 #endif
 {

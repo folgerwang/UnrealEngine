@@ -651,7 +651,11 @@ public:
 	/** Array of physical interactions for the frame. This is a temporary solution for a more permanent force system and should not be used directly*/
 	TArray<FPendingRadialForces> PendingRadialForces;
 
-	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh", meta=(Keywords = "AnimBlueprint"))
+	/** Set the anim instance class. Clears and re-initializes the anim instance with the new class and sets animation mode to 'AnimationBlueprint' */
+	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh", meta=(Keywords = "AnimBlueprint", DisplayName = "Set Anim Instance Class"))
+	virtual void K2_SetAnimInstanceClass(class UClass* NewClass);
+
+	/** Set the anim instance class. Clears and re-initializes the anim instance with the new class and sets animation mode to 'AnimationBlueprint' */
 	void SetAnimInstanceClass(class UClass* NewClass);
 
 	/** 
@@ -1800,7 +1804,7 @@ public:
 
 protected:
 	bool NeedToSpawnAnimScriptInstance() const;
-	bool NeedToSpawnPostPhysicsInstance() const;
+	bool NeedToSpawnPostPhysicsInstance(bool bForceReinit) const;
 
 	bool ShouldBlendPhysicsBones() const;
 

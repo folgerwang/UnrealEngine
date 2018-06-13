@@ -1,4 +1,5 @@
- // Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "NiagaraDataInterfaceSkeletalMeshDetails.h"
 #include "NiagaraDetailSourcedArrayBuilder.h"
 #include "NiagaraDataInterfaceDetails.h"
@@ -24,7 +25,7 @@ void FNiagaraDataInterfaceSkeletalMeshDetails::CustomizeDetails(IDetailLayoutBui
 	 if (MeshInterface != nullptr)
 	 {
 		 MeshInterface->OnChanged().RemoveAll(this);
-		 MeshInterface->OnChanged().AddRaw(this, &FNiagaraDataInterfaceSkeletalMeshDetails::OnDataChanged);
+		 MeshInterface->OnChanged().AddRaw(this, &FNiagaraDataInterfaceSkeletalMeshDetails::OnInterfaceChanged);
 	 }
 	 TWeakObjectPtr<USceneComponent> SceneComponent;
 	 USkeletalMeshComponent* FoundSkelComp = nullptr;
@@ -61,6 +62,23 @@ void FNiagaraDataInterfaceSkeletalMeshDetails::CustomizeDetails(IDetailLayoutBui
  TSharedRef<IDetailCustomization> FNiagaraDataInterfaceSkeletalMeshDetails::MakeInstance()
  {
 	 return MakeShared<FNiagaraDataInterfaceSkeletalMeshDetails>();
+ }
+
+ void FNiagaraDataInterfaceSkeletalMeshDetails::OnInterfaceChanged()
+ {
+     // Rebuild the data changed listener
+	 TWeakObjectPtr<USceneComponent> SceneComponent;
+	 USkeletalMeshComponent* FoundSkelComp = nullptr;
+	 if (MeshObject != nullptr)
+	 {
+		 MeshObject->GetOnMeshChanged().RemoveAll(this);
+	 }
+	 MeshObject = UNiagaraDataInterfaceSkeletalMesh::GetSkeletalMeshHelper(MeshInterface, Cast<UNiagaraComponent>(MeshInterface->GetOuter()), SceneComponent, FoundSkelComp);
+	 if (MeshObject != nullptr)
+	 {
+		 MeshObject->GetOnMeshChanged().AddRaw(this, &FNiagaraDataInterfaceSkeletalMeshDetails::OnDataChanged);
+	 }
+	 OnDataChanged();
  }
 
  void FNiagaraDataInterfaceSkeletalMeshDetails::OnDataChanged()

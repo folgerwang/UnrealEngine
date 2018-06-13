@@ -209,13 +209,16 @@ void FMainFrameCommands::RegisterCommands()
 
 FReply FMainFrameActionCallbacks::OnUnhandledKeyDownEvent(const FKeyEvent& InKeyEvent)
 {
-	if(FMainFrameCommands::ActionList->ProcessCommandBindings(InKeyEvent))
+	if(!GIsSlowTask)
 	{
-		return FReply::Handled();
-	}
-	else if(FPlayWorldCommands::GlobalPlayWorldActions.IsValid() && FPlayWorldCommands::GlobalPlayWorldActions->ProcessCommandBindings(InKeyEvent))
-	{
-		return FReply::Handled();
+		if (FMainFrameCommands::ActionList->ProcessCommandBindings(InKeyEvent))
+		{
+			return FReply::Handled();
+		}
+		else if (FPlayWorldCommands::GlobalPlayWorldActions.IsValid() && FPlayWorldCommands::GlobalPlayWorldActions->ProcessCommandBindings(InKeyEvent))
+		{
+			return FReply::Handled();
+		}
 	}
 
 	return FReply::Unhandled();

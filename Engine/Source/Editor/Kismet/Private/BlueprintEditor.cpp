@@ -7093,6 +7093,8 @@ void FBlueprintEditor::SetViewLocation(const FVector2D& Location, float ZoomAmou
 
 void FBlueprintEditor::Tick(float DeltaTime)
 {
+	PreviewScene.UpdateCaptureContents();
+
 	// Create or update the Blueprint actor instance in the preview scene
 	if ( GetPreviewActor() == nullptr )
 	{

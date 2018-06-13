@@ -476,7 +476,7 @@ bool USkeletalMeshComponent::NeedToSpawnAnimScriptInstance() const
 	return false;
 }
 
-bool USkeletalMeshComponent::NeedToSpawnPostPhysicsInstance() const
+bool USkeletalMeshComponent::NeedToSpawnPostPhysicsInstance(bool bForceReinit) const
 {
 	if(SkeletalMesh)
 	{
@@ -485,7 +485,7 @@ bool USkeletalMeshComponent::NeedToSpawnPostPhysicsInstance() const
 		const UClass* CurrentClass = PostProcessAnimInstance ? PostProcessAnimInstance->GetClass() : nullptr;
 
 		// We need to have an instance, and we have the wrong class (different or null)
-		if(ClassToUse && ClassToUse != CurrentClass && MainInstanceClass != ClassToUse)
+		if(ClassToUse && (ClassToUse != CurrentClass || bForceReinit ) && MainInstanceClass != ClassToUse)
 		{
 			return true;
 		}
@@ -753,7 +753,7 @@ bool USkeletalMeshComponent::InitializeAnimScriptInstance(bool bForceReinit)
 			PostProcessAnimInstance = nullptr;
 		}
 
-		if(NeedToSpawnPostPhysicsInstance())
+		if(NeedToSpawnPostPhysicsInstance(bForceReinit))
 		{
 			PostProcessAnimInstance = NewObject<UAnimInstance>(this, *SkeletalMesh->PostProcessAnimBlueprint);
 
@@ -768,6 +768,10 @@ bool USkeletalMeshComponent::InitializeAnimScriptInstance(bool bForceReinit)
 
 				bInitializedPostInstance = true;
 			}
+		}
+		else if (!SkeletalMesh->PostProcessAnimBlueprint.Get())
+		{
+			PostProcessAnimInstance = nullptr;
 		}
 
 		if (AnimScriptInstance && !bInitializedMainInstance && bForceReinit)
@@ -1523,7 +1527,9 @@ void USkeletalMeshComponent::ComputeRequiredBones(TArray<FBoneIndexType>& OutReq
 	{
 		check(BoneVisibilityStates.Num() == GetNumComponentSpaceTransforms());
         
-        if (BoneVisibilityStates.Num() >= OutRequiredBones.Num())
+		if (ensureMsgf(BoneVisibilityStates.Num() >= OutRequiredBones.Num(), 
+			TEXT("Skeletal Mesh asset '%s' has incorrect BoneVisibilityStates. # of BoneVisibilityStatese (%d), # of OutRequiredBones (%d)"), 
+			*SkeletalMesh->GetName(), BoneVisibilityStates.Num(), OutRequiredBones.Num()))
         {
             int32 VisibleBoneWriteIndex = 0;
             for (int32 i = 0; i < OutRequiredBones.Num(); ++i)
@@ -1544,11 +1550,7 @@ void USkeletalMeshComponent::ComputeRequiredBones(TArray<FBoneIndexType>& OutReq
                 OutRequiredBones.RemoveAt(VisibleBoneWriteIndex, NumBonesHidden);
             }
         }
-        else
-        {
-            UE_LOG(LogAnimation, Warning, TEXT("Skeletal Mesh asset '%s' has no BoneVisibilityStates"), *SkeletalMesh->GetName());
-        }
-	}
+ 	}
 
 	// Add in any bones that may be required when mirroring.
 	// JTODO: This is only required if there are mirroring nodes in the tree, but hard to know...
@@ -2442,6 +2444,17 @@ void USkeletalMeshComponent::SetSkeletalMesh(USkeletalMesh* InSkelMesh, bool bRe
 		return;
 	}
 
+	if(!bReinitPose)	// To stop double ticking when reusing the anim instance we need to make sure 
+						// we have completed animation parallel work before continuing with SetSkeletalMesh	
+	{
+		// We may be doing parallel evaluation on the current anim instance
+		// Calling this here with true will block this init till that thread completes
+		// and it is safe to continue
+		const bool bBlockOnTask = true; // wait on evaluation task so it is safe to continue with Init
+		const bool bPerformPostAnimEvaluation = true;
+		HandleExistingParallelEvaluationTask(bBlockOnTask, bPerformPostAnimEvaluation);
+	}
+
 	UPhysicsAsset* OldPhysAsset = GetPhysicsAsset();
 
 	{
@@ -2535,6 +2548,11 @@ void USkeletalMeshComponent::SetDisablePostProcessBlueprint(bool bInDisablePostP
 	}
 
 	bDisablePostProcessBlueprint = bInDisablePostProcess;
+}
+
+void USkeletalMeshComponent::K2_SetAnimInstanceClass(class UClass* NewClass)
+{
+	SetAnimInstanceClass(NewClass);
 }
 
 void USkeletalMeshComponent::SetAnimInstanceClass(class UClass* NewClass)

@@ -2,6 +2,7 @@
 
 #include "SequencerChannelTraits.h"
 #include "EditorStyleSet.h"
+#include "CurveModel.h"
 
 namespace Sequencer
 {
@@ -19,6 +20,9 @@ void DrawKeys(FMovieSceneChannel* Channel, TArrayView<const FKeyHandle> InHandle
 	}
 }
 
-
+TUniquePtr<FCurveModel> CreateCurveEditorModel(const FMovieSceneChannelHandle& ChannelHandle, UMovieSceneSection* OwningSection, TSharedRef<ISequencer> InSequencer)
+{
+	return nullptr;
+}
 
 }	// namespace Sequencer

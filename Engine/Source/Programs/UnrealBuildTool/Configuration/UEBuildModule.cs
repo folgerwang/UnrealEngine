@@ -187,7 +187,14 @@ namespace UnrealBuildTool
 			PublicAdditionalShadowFiles = HashSetFromOptionalEnumerableStringParameter(InRules.PublicAdditionalShadowFiles);
 			PublicAdditionalBundleResources = InRules.AdditionalBundleResources == null ? new HashSet<UEBuildBundleResource>() : new HashSet<UEBuildBundleResource>(InRules.AdditionalBundleResources);
 			PublicDelayLoadDLLs = HashSetFromOptionalEnumerableStringParameter(InRules.PublicDelayLoadDLLs);
-			PrivateIncludePaths = CreateDirectoryHashSet(InRules.PrivateIncludePaths);
+			if(Rules.bUsePrecompiled)
+			{
+				PrivateIncludePaths = new HashSet<DirectoryReference>();
+			}
+			else
+			{
+				PrivateIncludePaths = CreateDirectoryHashSet(InRules.PrivateIncludePaths);
+			}
 			RuntimeDependencies = InRuntimeDependencies;
 			IsRedistributableOverride = InRules.IsRedistributableOverride;
 

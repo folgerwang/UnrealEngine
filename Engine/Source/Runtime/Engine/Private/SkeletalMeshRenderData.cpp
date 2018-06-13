@@ -47,6 +47,8 @@ static FString BuildSkeletalMeshDerivedDataKey(USkeletalMesh* SkelMesh)
 
 	KeySuffix += SkelMesh->GetImportedModel()->GetIdString();
 	KeySuffix += (SkelMesh->bUseFullPrecisionUVs || !GVertexElementTypeSupport.IsSupported(VET_Half2)) ? "1" : "0";
+	KeySuffix += SkelMesh->bHasVertexColors ? "1" : "0";
+	KeySuffix += SkelMesh->VertexColorGuid.ToString(EGuidFormats::Digits);
 
 	return FDerivedDataCacheInterface::BuildCacheKey(
 		TEXT("SKELETALMESH"),

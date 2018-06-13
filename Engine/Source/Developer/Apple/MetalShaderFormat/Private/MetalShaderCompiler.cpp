@@ -475,7 +475,7 @@ FString GetMetalBinaryPath(uint32 ShaderPlatform)
 		FString XcodePath = GetXcodePath();
 		if (XcodePath.Len() > 0)
 		{
-			FString MetalToolsPath = FString::Printf(TEXT("%s/Toolchains/XcodeDefault.xctoolchain/usr/bin"), *XcodePath);
+			FString MetalToolsPath = FString::Printf(TEXT("%s/Toolchains/XcodeDefault.xctoolchain/usr/metal/macos/bin"), *XcodePath);
 			FString MetalPath = MetalToolsPath + TEXT("/metal");
 			if (!RemoteFileExists(MetalPath))
 			{
@@ -497,15 +497,7 @@ FString GetMetalBinaryPath(uint32 ShaderPlatform)
 				
 				GMetalCompilerVers[bIsMobile] = GetMetalCompilerVers(MetalPath);
 				
-				FString MetalLibraryPath;
-				if (bIsMobile)
-				{
-					MetalLibraryPath = FString::Printf(TEXT("%s/Platforms/iPhoneOS.platform/usr/lib"), *XcodePath);
-				}
-				else
-				{
-					MetalLibraryPath = FString::Printf(TEXT("%s/Platforms/MacOSX.platform/usr/lib"), *XcodePath);
-				}
+				FString MetalLibraryPath = FString::Printf(TEXT("%s/../lib"), *MetalToolsPath);
 				
 				FString MetalStdLibPath = GetMetalStdLibPath(MetalLibraryPath);
 				if (RemoteFileExists(MetalStdLibPath))
@@ -947,6 +939,7 @@ void BuildMetalShaderOutput(
 	uint32 TypedBuffers,
 	uint32 InvariantBuffers,
 	uint32 TypedUAVs,
+	uint32 ConstantBuffers,
 	TArray<uint8> const& TypedBufferFormats,
 	bool bAllowFastIntriniscs
 	)
@@ -978,10 +971,10 @@ void BuildMetalShaderOutput(
 	const ANSICHAR* SideTableString = FCStringAnsi::Strstr(USFSource, "@SideTable: ");
 	
 	EShaderFrequency Frequency = (EShaderFrequency)ShaderOutput.Target.Frequency;
-	const bool bIsMobile = (ShaderInput.Target.Platform == SP_METAL_MRT);
+	const bool bIsMobile = (ShaderInput.Target.Platform == SP_METAL || ShaderInput.Target.Platform == SP_METAL_MRT);
 	bool bNoFastMath = ShaderInput.Environment.CompilerFlags.Contains(CFLAG_NoFastMath);
 	FString const* UsingWPO = ShaderInput.Environment.GetDefinitions().Find(TEXT("USES_WORLD_POSITION_OFFSET"));
-	if (UsingWPO && FString("1") == *UsingWPO && bIsMobile && Frequency == SF_Vertex)
+	if (UsingWPO && FString("1") == *UsingWPO && (ShaderInput.Target.Platform == SP_METAL_MRT) && Frequency == SF_Vertex)
 	{
 		// WPO requires that we make all multiply/sincos instructions invariant :(
 		bNoFastMath = true;
@@ -1001,6 +994,7 @@ void BuildMetalShaderOutput(
 	Header.SourceLen = SourceCRCLen;
 	Header.SourceCRC = SourceCRC;
     Header.Bindings.bDiscards = false;
+	Header.Bindings.ConstantBuffers = ConstantBuffers;
 	if (Version >= 2)
 	{
 		Header.Bindings.TypedBufferFormats.SetNumZeroed(METAL_MAX_BUFFERS);
@@ -1400,11 +1394,11 @@ void BuildMetalShaderOutput(
         FString MetalFilePath = (TempDir / HashedName) + TEXT(".metal");
         
 		FString InputFilename = MetalFilePath;
-		FString ObjFilename = FPaths::CreateTempFilename(TempDir, TEXT("ShaderIn"), TEXT(""));
-		FString OutputFilename = FPaths::CreateTempFilename(TempDir, TEXT("ShaderIn"), TEXT(""));
+		FString ObjFilename = FPaths::CreateTempFilename(TempDir, TEXT("ShaderObj"), TEXT(""));
+		FString OutputFilename = FPaths::CreateTempFilename(TempDir, TEXT("ShaderOut"), TEXT(""));
 		
         // write out shader source, the move it into place using an atomic move - ensures only one compile "wins"
-        FString SaveFile = FPaths::CreateTempFilename(TempDir, TEXT("ShaderIn"), TEXT(""));
+        FString SaveFile = FPaths::CreateTempFilename(TempDir, TEXT("ShaderTemp"), TEXT(""));
         FFileHelper::SaveStringToFile(MetalCode, *SaveFile);
         IFileManager::Get().Move(*MetalFilePath, *SaveFile, false, false, true, true);
         IFileManager::Get().Delete(*SaveFile);
@@ -1589,7 +1583,7 @@ void BuildMetalShaderOutput(
 				if (UE4StdLibCRC == 0)
 				{
 					TArrayView<const uint8> UE4PCHData((const uint8*)ue4_stdlib_metal, ue4_stdlib_metal_len);
-					FString UE4StdLibFilename = FPaths::CreateTempFilename(TempDir, TEXT("ShaderIn"), TEXT(""));
+					FString UE4StdLibFilename = FPaths::CreateTempFilename(TempDir, TEXT("ShaderStdLib"), TEXT(""));
 					if (FFileHelper::SaveArrayToFile(UE4PCHData, *UE4StdLibFilename))
 					{
 						FString RemoteTempPath = LocalPathToRemote(UE4StdLibFilename, MakeRemoteTempFolder(FString(TempDir)));
@@ -1604,7 +1598,7 @@ void BuildMetalShaderOutput(
 				if (!RemoteFileExists(RemoteUE4StdLibFilePath) || !ChecksumRemoteFile(*RemoteUE4StdLibFilePath, &RemotePchCRC, &RemotePchLen) || RemotePchCRC != UE4StdLibCRC)
 				{
 					TArrayView<const uint8> UE4PCHData((const uint8*)ue4_stdlib_metal, ue4_stdlib_metal_len);
-					FString UE4StdLibFilename = FPaths::CreateTempFilename(TempDir, TEXT("ShaderIn"), TEXT(""));
+					FString UE4StdLibFilename = FPaths::CreateTempFilename(TempDir, TEXT("ShaderStdLib"), TEXT(""));
 					if (FFileHelper::SaveArrayToFile(UE4PCHData, *UE4StdLibFilename))
 					{
 						IFileManager::Get().Move(*UE4StdLibFilePath, *UE4StdLibFilename, false, false, true, true);

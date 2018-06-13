@@ -105,13 +105,13 @@ public:
 	/**
 	* Remove the Particles namespace if it exists.
 	*/
-	static FNiagaraVariable ResolveAsBasicAttribute(const FNiagaraVariable& InVar);
+	static FNiagaraVariable ResolveAsBasicAttribute(const FNiagaraVariable& InVar, bool bSanitizeInput = true);
 
 
 	/**
 	* Reverses ResolveAsBasicAttribute.
 	*/
-	static FNiagaraVariable BasicAttributeToNamespacedAttribute(const FNiagaraVariable& InVar);
+	static FNiagaraVariable BasicAttributeToNamespacedAttribute(const FNiagaraVariable& InVar, bool bSanitizeInput = true);
 
 	
 	/** Prepends the namespace string to the variable name.*/
@@ -137,7 +137,7 @@ public:
 	static bool IsPerInstanceEngineParameter(const FNiagaraVariable& InVar, const FString& EmitterAlias);
 	static bool IsUserParameter(const FNiagaraVariable& InVar);
 	static bool IsRapidIterationParameter(const FNiagaraVariable& InVar);
-	static bool TryGetEmitterAndFunctionCallNamesFromRapidIterationParameter(const FNiagaraVariable& InVar, FString& EmitterName, FString& FunctionCallName);
+	static bool SplitRapidIterationParameterName(const FNiagaraVariable& InVar, FString& EmitterName, FString& FunctionCallName, FString& InputName);
 	
 	/** Take an input string and make it hlsl safe.*/
 	static FString MakeSafeNamespaceString(const FString& InStr);
@@ -152,8 +152,8 @@ public:
 	static bool IsEmitterNamespaceReadOnly(const UNiagaraScript* InScript);
 
 	static void GetValidNamespacesForReading(const UNiagaraScript* InScript, TArray<FString>& OutputNamespaces);
-	static void GetValidNamespacesForReading(ENiagaraScriptUsage InScriptUsage, TArray<FString>& OutputNamespaces);
-	static bool IsValidNamespaceForReading(ENiagaraScriptUsage InScriptUsage, FString Namespace);
+	static void GetValidNamespacesForReading(ENiagaraScriptUsage InScriptUsage, int32 InUsageBitmask, TArray<FString>& OutputNamespaces);
+	static bool IsValidNamespaceForReading(ENiagaraScriptUsage InScriptUsage, int32 InUsageBitmask, FString Namespace);
 
 	/** Called to determine if a given variable should be output from a script. It is not static as it requires the overall context to include emitter namespaces visited for system scripts.*/
 	bool IsPrimaryDataSetOutput(const FNiagaraVariable& InVar, const UNiagaraScript* InScript, bool bAllowDataInterfaces = false) const;

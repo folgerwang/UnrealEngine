@@ -157,7 +157,7 @@ private:
 };
 
 /** Creates a shader code declaration of this struct for the given shader platform. */
-extern SHADERCORE_API void CreateUniformBufferShaderDeclaration(const TCHAR* Name,const FUniformBufferStruct& UniformBufferStruct,EShaderPlatform Platform, FString& OutDeclaration);
+extern SHADERCORE_API void CreateUniformBufferShaderDeclaration(const TCHAR* Name,const FUniformBufferStruct& UniformBufferStruct, FString& OutDeclaration);
 
 class FShaderUniformBufferParameter
 {

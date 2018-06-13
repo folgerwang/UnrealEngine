@@ -12,10 +12,11 @@ public class Niagara : ModuleRules
                 "NiagaraShader",
                 "Core",
                 "Engine",
-				"RenderCore",
+                "RenderCore",
                 "UtilityShaders",
                 "ShaderCore",
-                "TimeManagement"
+                "TimeManagement",
+                "Renderer",
             }
         );
 

@@ -98,7 +98,7 @@ public:
 	FSettings();
 	virtual ~FSettings() {}
 
-	bool IsStereoEnabled() const { return Flags.bStereoEnabled && Flags.bHMDEnabled; }
+	bool IsStereoEnabled() const { return FPlatformMisc::IsStandaloneStereoOnlyDevice() || Flags.bStereoEnabled && Flags.bHMDEnabled; }
 
 	bool UpdatePixelDensity(const float NewPixelDensity);
 

@@ -1350,7 +1350,7 @@ FArchive& operator<<(FArchive& Ar, FMeshBuildSettings& BuildSettings)
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define STATICMESH_DERIVEDDATA_VER TEXT("397F52ED7403467A825B98E90EDCBD69")
+#define STATICMESH_DERIVEDDATA_VER TEXT("42B9CFE0CAFE46F29F43E9049AA21282")
 
 static const FString& GetStaticMeshDerivedDataVersion()
 {
@@ -1738,6 +1738,7 @@ UStaticMesh::UStaticMesh(const FObjectInitializer& ObjectInitializer)
 	MinLOD.Default = 0;
 
 	bSupportUniformlyDistributedSampling = false;
+	bRenderingResourcesInitialized = false;
 #if WITH_EDITOR
 	BuildCacheAutomationTestGuid.Invalidate();
 #endif
@@ -1759,6 +1760,8 @@ void UStaticMesh::PostInitProperties()
  */
 void UStaticMesh::InitResources()
 {
+	bRenderingResourcesInitialized = true;
+
 	UpdateUVChannelData(false);
 
 	if (RenderData)
@@ -2074,6 +2077,8 @@ void UStaticMesh::ReleaseResources()
 	
 	// insert a fence to signal when these commands completed
 	ReleaseResourcesFence.BeginFence();
+
+	bRenderingResourcesInitialized = false;
 }
 
 #if WITH_EDITOR

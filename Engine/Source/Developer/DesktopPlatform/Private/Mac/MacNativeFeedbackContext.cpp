@@ -65,6 +65,8 @@
 		[Window setTitle:@"Unreal Engine 4"];
 		[Window setReleasedWhenClosed:NO];
 		[Window setMinSize:NSMakeSize(400, 100)];
+		[Window setRestorable:NO];
+		[Window disableSnapshotRestoration];
 		
 		NSView* View = [Window contentView];
 		[View setAutoresizesSubviews:YES];

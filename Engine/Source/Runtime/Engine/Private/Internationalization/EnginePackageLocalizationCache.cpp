@@ -23,7 +23,7 @@ FEnginePackageLocalizationCache::~FEnginePackageLocalizationCache()
 {
 	if (FModuleManager::Get().IsModuleLoaded(TEXT("AssetRegistry")))
 	{
-		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::GetModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 		IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
 
 		AssetRegistry.OnAssetAdded().RemoveAll(this);

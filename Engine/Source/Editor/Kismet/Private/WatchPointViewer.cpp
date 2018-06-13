@@ -101,9 +101,9 @@ struct FWatchRow
 		UPackage* Package = Cast<UPackage>(BP ? BP->GetOuter() : nullptr);
 		BlueprintPackageName = Package ? Package->GetFName() : FName();
 
-		for (const FDebugInfo& ChildInfo : Info.Children)
+		for (FDebugInfo& ChildInfo : Info.Children)
 		{
-			Children.Add(MakeShared<FWatchRow>(InBP, InNode, InPin, InObjectBeingDebugged, BlueprintName, GraphName, NodeName, ChildInfo));
+			Children.Add(MakeShared<FWatchRow>(InBP, InNode, InPin, InObjectBeingDebugged, BlueprintName, GraphName, NodeName, MoveTemp(ChildInfo)));
 		}
 	}
 
@@ -669,30 +669,31 @@ void UpdateNonInstancedWatchDisplay()
 
 		for (const FEdGraphPinReference& PinRef : BlueprintObj->WatchedPins)
 		{
-			UEdGraphPin* Pin = PinRef.Get();
+			if (UEdGraphPin* Pin = PinRef.Get())
+			{
+				FText GraphName = FText::FromString(Pin->GetOwningNode()->GetGraph()->GetName());
+				FText NodeName = Pin->GetOwningNode()->GetNodeTitle(ENodeTitleType::ListView);
 
-			FText GraphName = FText::FromString(Pin->GetOwningNode()->GetGraph()->GetName());
-			FText NodeName = Pin->GetOwningNode()->GetNodeTitle(ENodeTitleType::ListView);
+				const UEdGraphSchema* Schema = Pin->GetOwningNode()->GetSchema();
 
-			const UEdGraphSchema* Schema = Pin->GetOwningNode()->GetSchema();
+				FDebugInfo DebugInfo;
+				DebugInfo.DisplayName = Schema->GetPinDisplayName(Pin);
+				DebugInfo.Type = UEdGraphSchema_K2::TypeToText(Pin->PinType);
+				DebugInfo.Value = LOCTEXT("ExecutionNotPaused", "(execution not paused)");
 
-			FDebugInfo DebugInfo;
-			DebugInfo.DisplayName = Schema->GetPinDisplayName(Pin);
-			DebugInfo.Type = UEdGraphSchema_K2::TypeToText(Pin->PinType);
-			DebugInfo.Value = LOCTEXT("ExecutionNotPaused", "(execution not paused)");
-
-			Private_WatchSource.Add(
-				MakeShared<FWatchRow>(
-					BlueprintObj,
-					Pin->GetOwningNode(),
-					Pin,
-					nullptr,
-					BlueprintName,
-					GraphName,
-					NodeName,
-					DebugInfo
-					)
-			);
+				Private_WatchSource.Add(
+					MakeShared<FWatchRow>(
+						BlueprintObj,
+						Pin->GetOwningNode(),
+						Pin,
+						nullptr,
+						BlueprintName,
+						MoveTemp(GraphName),
+						MoveTemp(NodeName),
+						MoveTemp(DebugInfo)
+						)
+				);
+			}
 		}
 	}
 }
@@ -838,26 +839,30 @@ FName WatchViewer::GetTabName()
 	return TabName;
 }
 
-void WatchViewer::UpdateWatchListFromBlueprint(UBlueprint* BlueprintObj)
+void UpdateWatchListFromBlueprintImpl(UBlueprint* BlueprintObj, const bool bShouldWatch)
 {
 	if (!ensure(BlueprintObj))
 	{
 		return;
 	}
 
-	if (BlueprintObj->WatchedPins.Num() == 0)
+	if (bShouldWatch)
 	{
-		// if this blueprint doesn't have any watched pins and we aren't watching it already then there is nothing to do
+		// make sure the blueprint is in our list
+		WatchedBlueprints.AddUnique(BlueprintObj);
+	}
+	else
+	{
+		// if this blueprint shouldn't be watched and we aren't watching it already then there is nothing to do
 		int32 FoundIdx = WatchedBlueprints.Find(BlueprintObj);
 		if (FoundIdx == INDEX_NONE)
 		{
 			return;
 		}
 
-		// since we're not watching any pins anymore we should remove it from the watched list
+		// since we're not watching the blueprint anymore we should remove it from the watched list
 		WatchedBlueprints.RemoveAt(FoundIdx);
 	}
-	else
 	{
 		// make sure the blueprint is in our list
 		WatchedBlueprints.AddUnique(BlueprintObj);
@@ -947,6 +952,16 @@ void WatchViewer::OnRenameAsset(const struct FAssetData& AssetData, const FStrin
 			WatchListSubscribers.Broadcast(&Private_WatchSource);
 		}
 	}
+}
+
+void WatchViewer::UpdateWatchListFromBlueprint(UBlueprint* BlueprintObj)
+{
+	UpdateWatchListFromBlueprintImpl(BlueprintObj, BlueprintObj && BlueprintObj->WatchedPins.Num() > 0);
+}
+
+void WatchViewer::ClearWatchListFromBlueprint(UBlueprint* BlueprintObj)
+{
+	UpdateWatchListFromBlueprintImpl(BlueprintObj, false);
 }
 
 void WatchViewer::RegisterTabSpawner(FTabManager& TabManager)

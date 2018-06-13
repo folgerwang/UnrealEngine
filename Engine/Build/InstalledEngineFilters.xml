@@ -60,6 +60,9 @@
 	
 	<!-- Define Editor Filters -->
 	<Property Name="CopyEditorFilter">
+		<!-- This assembly is normally embedded into the UBT executable, but it can technically be rebuilt from an installed build -->
+		Engine/Binaries/ThirdParty/VisualStudio/...
+
 		<!-- In-editor documentation -->
 		Engine/Documentation/Source/Shared/...
 		Engine/Documentation/Extras/...
@@ -260,6 +263,10 @@
 			Engine/Build/BatchFiles/Linux/RunMono.sh
 			Engine/Build/BatchFiles/Linux/RunXBuild.sh
 			Engine/Build/BatchFiles/RunUAT.sh
+
+			<!-- Debug tools -->
+			Engine/Binaries/Linux/dump_syms
+			Engine/Binaries/Linux/BreakpadSymbolEncoder
 
 			<!-- Mono -->
 			Engine/Binaries/ThirdParty/Mono/...

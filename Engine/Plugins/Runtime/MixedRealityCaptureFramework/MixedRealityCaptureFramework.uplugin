@@ -26,28 +26,12 @@
         "Win32",
         "Linux"
       ]
-    },
-    {
-      "Name": "MixedRealityCaptureCalibration",
-      "Type": "Runtime",
-      "LoadingPhase": "PostEngineInit",
-      "WhitelistPlatforms": [
-        "Win64",
-        "Win32",
-        "Linux"
-      ]
-    },
-    {
-      "Name": "OpenCVHelper",
-      "Type": "Runtime",
-      "LoadingPhase": "PostEngineInit",
-      "WhitelistPlatforms": [
-        "Win64",
-        "Win32",
-        "Linux"
-      ]
     }
   ],
   "Plugins": [
+	{
+		"Name": "OpenCVLensDistortion",
+		"Enabled": true
+	}
 	]
 }

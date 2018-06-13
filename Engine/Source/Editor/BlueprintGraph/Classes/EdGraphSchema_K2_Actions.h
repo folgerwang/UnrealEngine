@@ -83,9 +83,9 @@ struct BLUEPRINTGRAPH_API FEdGraphSchemaAction_K2NewNode : public FEdGraphSchema
 			ParentGraph,
 			TArrayView<UEdGraphPin*>(),
 			Location,
-			[NodeClass](UEdGraph* ParentGraph)->UK2Node*
+			[NodeClass](UEdGraph* InParentGraph)->UK2Node*
 			{
-				return NewObject<UK2Node>(ParentGraph, NodeClass);
+				return NewObject<UK2Node>(InParentGraph, NodeClass);
 			},
 			[InitializerFn](UK2Node* NewNode)
 			{

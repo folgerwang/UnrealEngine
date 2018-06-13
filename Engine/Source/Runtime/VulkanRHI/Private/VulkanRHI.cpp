@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanRHI.cpp: Vulkan device RHI implementation.
@@ -61,7 +61,7 @@ FDynamicRHI* FVulkanDynamicRHIModule::CreateRHI(ERHIFeatureLevel::Type InRequest
 			FParse::Param(FCommandLine::Get(), TEXT("featureleveles31")) || FParse::Param(FCommandLine::Get(), TEXT("featureleveles2"))))
 	{
 		GMaxRHIFeatureLevel = ERHIFeatureLevel::ES3_1;
-		GMaxRHIShaderPlatform = PLATFORM_ANDROID ? SP_VULKAN_ES3_1_ANDROID : SP_VULKAN_PCES3_1;
+		GMaxRHIShaderPlatform = PLATFORM_LUMIN ? SP_VULKAN_ES3_1_LUMIN : (PLATFORM_ANDROID ? SP_VULKAN_ES3_1_ANDROID : SP_VULKAN_PCES3_1);
 	}
 	else if (InRequestedFeatureLevel == ERHIFeatureLevel::SM4)
 	{
@@ -71,7 +71,7 @@ FDynamicRHI* FVulkanDynamicRHIModule::CreateRHI(ERHIFeatureLevel::Type InRequest
 	else
 	{
 		GMaxRHIFeatureLevel = ERHIFeatureLevel::SM5;
-		GMaxRHIShaderPlatform = SP_VULKAN_SM5;
+		GMaxRHIShaderPlatform = (PLATFORM_LUMINGL4 || PLATFORM_LUMIN) ? SP_VULKAN_SM5_LUMIN : SP_VULKAN_SM5;
 	}
 
 	// VULKAN_USE_MSAA_RESOLVE_ATTACHMENTS=0 requires separate MSAA and resolve textures
@@ -269,6 +269,9 @@ void FVulkanDynamicRHI::Shutdown()
 
 	delete Device;
 	Device = nullptr;
+
+	// Release the early HMD interface used to query extra extensions - if any was used
+	HMDVulkanExtensions = nullptr;
 
 #if VULKAN_HAS_DEBUGGING_ENABLED
 	RemoveDebugLayerCallback();
@@ -633,9 +636,6 @@ void FVulkanDynamicRHI::InitInstance()
 
 		GProjectionSignY = 1.0f;
 
-		// Release the early HMD interface used to query extra extensions - if any was used
-		HMDVulkanExtensions = nullptr;
-
 		GIsRHIInitialized = true;
 
 		SavePipelineCacheCmd = IConsoleManager::Get().RegisterConsoleCommand(
@@ -764,10 +764,11 @@ void FVulkanCommandListContext::RHIPushEvent(const TCHAR* Name, FColor Color)
 #if VULKAN_ENABLE_DRAW_MARKERS
 	if (auto CmdDbgMarkerBegin = Device->GetCmdDbgMarkerBegin())
 	{
+		FTCHARToUTF8 Converter(Name);
 		VkDebugMarkerMarkerInfoEXT Info;
 		FMemory::Memzero(Info);
 		Info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
-		Info.pMarkerName = TCHAR_TO_ANSI(Name);
+		Info.pMarkerName = Converter.Get();
 		FLinearColor LColor(Color);
 		Info.color[0] = LColor.R;
 		Info.color[1] = LColor.G;

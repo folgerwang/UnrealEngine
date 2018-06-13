@@ -36,6 +36,8 @@
 #include <Metal/Metal.h>
 #endif
 
+DEFINE_LOG_CATEGORY(LogSteamVR);
+
 // Visibility mesh
 static TAutoConsoleVariable<int32> CUseSteamVRVisibleAreaMesh(TEXT("vr.SteamVR.UseVisibleAreaMesh"), 1, TEXT("If non-zero, SteamVR will use the visible area mesh in addition to the hidden area mesh optimization.  This may be problematic on beta versions of platforms."));
 

@@ -3,6 +3,7 @@
 #include "ViewModels/Stack/NiagaraStackEntry.h"
 #include "ViewModels/Stack/NiagaraStackErrorItem.h"
 #include "NiagaraStackEditorData.h"
+#include "Misc/SecureHash.h"
 
 const FName UNiagaraStackEntry::FExecutionCategoryNames::System = TEXT("System");
 const FName UNiagaraStackEntry::FExecutionCategoryNames::Emitter = TEXT("Emitter");
@@ -14,13 +15,115 @@ const FName UNiagaraStackEntry::FExecutionSubcategoryNames::Spawn = TEXT("Spawn"
 const FName UNiagaraStackEntry::FExecutionSubcategoryNames::Update = TEXT("Update");
 const FName UNiagaraStackEntry::FExecutionSubcategoryNames::Event = TEXT("Event");
 
+UNiagaraStackEntry::FStackIssueFix::FStackIssueFix()
+{
+}
+
+UNiagaraStackEntry::FStackIssueFix::FStackIssueFix(FText InDescription, FStackIssueFixDelegate InFixDelegate)
+	: Description(InDescription)
+	, FixDelegate(InFixDelegate)
+	, UniqueIdentifier(FMD5::HashAnsiString(*FString::Printf(TEXT("%s"), *InDescription.ToString())))
+{
+	checkf(Description.IsEmptyOrWhitespace() == false, TEXT("Description can not be empty."));
+	checkf(InFixDelegate.IsBound(), TEXT("Fix delegate must be bound."));
+}
+
+bool UNiagaraStackEntry::FStackIssueFix::IsValid() const
+{
+	return FixDelegate.IsBound();
+}
+
+const FText& UNiagaraStackEntry::FStackIssueFix::GetDescription() const
+{
+	return Description;
+}
+
+void UNiagaraStackEntry::FStackIssueFix::SetFixDelegate(const FStackIssueFixDelegate& InFixDelegate)
+{
+	FixDelegate = InFixDelegate;
+}
+
+const FString& UNiagaraStackEntry::FStackIssueFix::GetUniqueIdentifier() const
+{
+	return UniqueIdentifier;
+}
+
+const UNiagaraStackEntry::FStackIssueFixDelegate& UNiagaraStackEntry::FStackIssueFix::GetFixDelegate() const
+{
+	return FixDelegate;
+}
+
+UNiagaraStackEntry::FStackIssue::FStackIssue()
+{
+}
+
+UNiagaraStackEntry::FStackIssue::FStackIssue(EStackIssueSeverity InSeverity, FText InShortDescription, FText InLongDescription, FString InStackEditorDataKey, bool bInCanBeDismissed, const TArray<FStackIssueFix>& InFixes)
+	: Severity(InSeverity)
+	, ShortDescription(InShortDescription)
+	, LongDescription(InLongDescription)
+	, UniqueIdentifier(FMD5::HashAnsiString(*FString::Printf(TEXT("%s-%s"), *InStackEditorDataKey, *InLongDescription.ToString())))
+	, bCanBeDismissed(bInCanBeDismissed)
+	, Fixes(InFixes)
+{
+	checkf(ShortDescription.IsEmptyOrWhitespace() == false, TEXT("Short description can not be empty."));
+	checkf(LongDescription.IsEmptyOrWhitespace() == false, TEXT("Long description can not be empty."));
+	checkf(InStackEditorDataKey.IsEmpty() == false, TEXT("Stack editor data key can not be empty."));
+}
+
+UNiagaraStackEntry::FStackIssue::FStackIssue(EStackIssueSeverity InSeverity, FText InShortDescription, FText InLongDescription, FString InStackEditorDataKey, bool bInCanBeDismissed, FStackIssueFix InFix)
+	: FStackIssue(InSeverity, InShortDescription, InLongDescription, InStackEditorDataKey, bInCanBeDismissed, TArray<FStackIssueFix>({InFix }))
+{
+}
+
+UNiagaraStackEntry::FStackIssue::FStackIssue(EStackIssueSeverity InSeverity, FText InShortDescription, FText InLongDescription, FString InStackEditorDataKey, bool bInCanBeDismissed)
+	: FStackIssue(InSeverity, InShortDescription, InLongDescription, InStackEditorDataKey, bInCanBeDismissed, TArray<FStackIssueFix>())
+{
+}
+
+bool UNiagaraStackEntry::FStackIssue::IsValid()
+{
+	return UniqueIdentifier.IsEmpty() == false;
+}
+
+EStackIssueSeverity UNiagaraStackEntry::FStackIssue::GetSeverity() const
+{
+	return Severity;
+}
+
+const FText& UNiagaraStackEntry::FStackIssue::GetShortDescription() const
+{
+	return ShortDescription;
+}
+
+const FText& UNiagaraStackEntry::FStackIssue::GetLongDescription() const
+{
+	return LongDescription;
+}
+
+bool UNiagaraStackEntry::FStackIssue::GetCanBeDismissed() const
+{
+	return bCanBeDismissed;
+}
+
+const FString& UNiagaraStackEntry::FStackIssue::GetUniqueIdentifier() const
+{
+	return UniqueIdentifier;
+}
+
+const TArray<UNiagaraStackEntry::FStackIssueFix>& UNiagaraStackEntry::FStackIssue::GetFixes() const
+{
+	return Fixes;
+}
+
 UNiagaraStackEntry::UNiagaraStackEntry()
 	: IndentLevel(0)
+	, bIsFinalized(false)
 {
 }
 
 void UNiagaraStackEntry::Initialize(FRequiredEntryData InRequiredEntryData, FString InStackEditorDataKey)
 {
+	checkf(bIsFinalized == false, TEXT("Can not initialize an entry after it has been finalized."));
 	SystemViewModel = InRequiredEntryData.SystemViewModel;
 	EmitterViewModel = InRequiredEntryData.EmitterViewModel;
 	ExecutionCategoryName = InRequiredEntryData.ExecutionCategoryName;
@@ -29,9 +132,26 @@ void UNiagaraStackEntry::Initialize(FRequiredEntryData InRequiredEntryData, FStr
 	StackEditorDataKey = InStackEditorDataKey;
 }
 
-bool UNiagaraStackEntry::IsValid() const
+void UNiagaraStackEntry::Finalize()
 {
-	return SystemViewModel.IsValid();
+	FinalizeInternal();
+	checkf(bIsFinalized, TEXT("Parent FinalizeInternal not called from overriden FinalizeInternal"));
+
+	SystemViewModel.Reset();
+	EmitterViewModel.Reset();
+	StackEditorData = nullptr;
+
+	for (UNiagaraStackEntry* Child : Children)
+	{
+		Child->Finalize();
+	}
+	Children.Empty();
+
+	for (UNiagaraStackEntry* ErrorChild : ErrorChildren)
+	{
+		ErrorChild->Finalize();
+	}
+	ErrorChildren.Empty();
 }
 
 FText UNiagaraStackEntry::GetDisplayName() const
@@ -181,6 +301,11 @@ UNiagaraStackEntry::FOnDataObjectModified& UNiagaraStackEntry::OnDataObjectModif
 	return DataObjectModifiedDelegate;
 }
 
+UNiagaraStackEntry::FOnRequestFullRefresh& UNiagaraStackEntry::OnRequestFullRefresh()
+{
+	return RequestFullRefreshDelegate;
+}
+
 int32 UNiagaraStackEntry::GetIndentLevel() const
 {
 	return IndentLevel;
@@ -270,14 +395,21 @@ void UNiagaraStackEntry::ChlildStructureChangedInternal()
 {
 }
 
+void UNiagaraStackEntry::FinalizeInternal()
+{
+	bIsFinalized = true;
+}
+
 void UNiagaraStackEntry::RefreshChildren()
 {
+	checkf(bIsFinalized == false, TEXT("Can not refresh children on an entry after it has been finalized."));
 	checkf(SystemViewModel.IsValid() && EmitterViewModel.IsValid(), TEXT("Base stack entry not initialized."));
 
 	for (UNiagaraStackEntry* Child : Children)
 	{
 		Child->OnStructureChanged().RemoveAll(this);
 		Child->OnDataObjectModified().RemoveAll(this);
+		Child->OnRequestFullRefresh().RemoveAll(this);
 		Child->SetOnRequestCanDrop(FOnRequestDrop());
 		Child->SetOnRequestDrop(FOnRequestDrop());
 	}
@@ -285,12 +417,24 @@ void UNiagaraStackEntry::RefreshChildren()
 	{
 		ErrorChild->OnStructureChanged().RemoveAll(this);
 		ErrorChild->OnDataObjectModified().RemoveAll(this);
+		ErrorChild->OnRequestFullRefresh().RemoveAll(this);
 		ErrorChild->OnIssueModified().RemoveAll(this);
 	}
 
 	TArray<UNiagaraStackEntry*> NewChildren;
 	TArray<FStackIssue> NewStackIssues;
 	RefreshChildrenInternal(Children, NewChildren, NewStackIssues);
+
+	// If any of the current children were not moved to the new children collection than finalize them since
+	// they weren't reused.
+	for (UNiagaraStackEntry* Child : Children)
+	{
+		if (NewChildren.Contains(Child) == false)
+		{
+			Child->Finalize();
+		}
+	}
+
 	Children.Empty();
 	Children.Append(NewChildren);
 
@@ -300,12 +444,13 @@ void UNiagaraStackEntry::RefreshChildren()
 		Child->RefreshChildren();
 		Child->OnStructureChanged().AddUObject(this, &UNiagaraStackEntry::ChildStructureChanged);
 		Child->OnDataObjectModified().AddUObject(this, &UNiagaraStackEntry::ChildDataObjectModified);
+		Child->OnRequestFullRefresh().AddUObject(this, &UNiagaraStackEntry::ChildRequestFullRefresh);
 		Child->SetOnRequestCanDrop(FOnRequestDrop::CreateUObject(this, &UNiagaraStackEntry::ChildRequestCanDrop));
 		Child->SetOnRequestDrop(FOnRequestDrop::CreateUObject(this, &UNiagaraStackEntry::ChildRequestDrop));
 	}
 	
 	// Stack issues refresh
-	NewStackIssues.RemoveAll([=](const FStackIssue& Issue) { return GetStackEditorData().GetDismissedStackIssueIds().Contains(Issue.UniqueIdentifier); }); 
+	NewStackIssues.RemoveAll([=](const FStackIssue& Issue) { return Issue.GetCanBeDismissed() && GetStackEditorData().GetDismissedStackIssueIds().Contains(Issue.GetUniqueIdentifier()); }); 
 
 	StackIssues.Empty();
 	StackIssues.Append(NewStackIssues);
@@ -316,6 +461,7 @@ void UNiagaraStackEntry::RefreshChildren()
 		ErrorChild->RefreshChildren();
 		ErrorChild->OnStructureChanged().AddUObject(this, &UNiagaraStackEntry::ChildStructureChanged);
 		ErrorChild->OnDataObjectModified().AddUObject(this, &UNiagaraStackEntry::ChildDataObjectModified);
+		ErrorChild->OnRequestFullRefresh().AddUObject(this, &UNiagaraStackEntry::ChildRequestFullRefresh);
 		ErrorChild->OnIssueModified().AddUObject(this, &UNiagaraStackEntry::IssueModified);
 	}
 
@@ -332,7 +478,7 @@ void UNiagaraStackEntry::RefreshStackErrorChildren()
 	{
 		UNiagaraStackErrorItem* ErrorEntry = nullptr;
 		UNiagaraStackErrorItem** Found = ErrorChildren.FindByPredicate(
-			[&](UNiagaraStackErrorItem* CurrentChild) { return CurrentChild->GetStackIssue().UniqueIdentifier == Issue.UniqueIdentifier; });
+			[&](UNiagaraStackErrorItem* CurrentChild) { return CurrentChild->GetStackIssue().GetUniqueIdentifier() == Issue.GetUniqueIdentifier(); });
 		if (Found == nullptr)
 		{
 			ErrorEntry = NewObject<UNiagaraStackErrorItem>(this);
@@ -341,9 +487,21 @@ void UNiagaraStackEntry::RefreshStackErrorChildren()
 		else
 		{
 			ErrorEntry = *Found;
+			ErrorEntry->SetStackIssue(Issue); // we found the entry by id but we want to properly refresh the subentries of the issue (specifically its fixes), too
 		}
 		NewErrorChildren.Add(ErrorEntry);
 	}
+
+	// If any of the current error children were not moved to the new error children collection than finalize them since
+	// they weren't reused.
+	for (UNiagaraStackEntry* ErrorChild : ErrorChildren)
+	{
+		if(NewErrorChildren.Contains(ErrorChild) == false)
+		{
+			ErrorChild->Finalize();
+		}
+	}
+
 	ErrorChildren.Empty();
 	ErrorChildren.Append(NewErrorChildren);
 }
@@ -351,6 +509,12 @@ void UNiagaraStackEntry::RefreshStackErrorChildren()
 void UNiagaraStackEntry::IssueModified()
 {
 	RefreshChildren();
+}
+
+void UNiagaraStackEntry::BeginDestroy()
+{
+	ensureMsgf(HasAnyFlags(RF_ClassDefaultObject) || bIsFinalized, TEXT("Stack entry being destroyed but it was not finalized."));
+	Super::BeginDestroy();
 }
 
 void UNiagaraStackEntry::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)
@@ -380,6 +544,11 @@ void UNiagaraStackEntry::ChildStructureChanged()
 void UNiagaraStackEntry::ChildDataObjectModified(UObject* ChangedObject)
 {
 	DataObjectModifiedDelegate.Broadcast(ChangedObject);
+}
+
+void UNiagaraStackEntry::ChildRequestFullRefresh()
+{
+	RequestFullRefreshDelegate.Broadcast();
 }
 
 TOptional<UNiagaraStackEntry::FDropResult> UNiagaraStackEntry::ChildRequestCanDrop(const UNiagaraStackEntry& TargetChild, const TArray<UNiagaraStackEntry*>& DraggedEntries)

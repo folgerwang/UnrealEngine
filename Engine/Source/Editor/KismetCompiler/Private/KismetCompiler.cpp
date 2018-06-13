@@ -2948,12 +2948,23 @@ void FKismetCompilerContext::ExpansionStep(UEdGraph* Graph, bool bAllowUbergraph
 	{
 		BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_Expansion);
 
+		// First we need to expand knot nodes, so it will remote disconnected knots
 		// Collapse any remaining tunnels or macros
 		ExpandTunnelsAndMacros(Graph);
 
 		// First pruning pass must be call after all collapsed nodes are expanded. Before the expansion we don't know which collapsed graph is really isolated. 
 		// If the pruning was called before expansion (and all collapsed graphs were saved), the isolated collapsed graphs would be unnecessarily validated.
 		PruneInner();
+
+		// First we need to expand knot nodes so any other expansions like AutoCreateRefTerm will have the correct pins hooked up
+		for (int32 NodeIndex = 0; NodeIndex < Graph->Nodes.Num(); ++NodeIndex)
+		{
+			UK2Node_Knot* KnotNode = Cast<UK2Node_Knot>(Graph->Nodes[NodeIndex]);
+			if (KnotNode)
+			{
+				KnotNode->ExpandNode(*this, Graph);
+			}
+		}
 
 		for (int32 NodeIndex = 0; NodeIndex < Graph->Nodes.Num(); ++NodeIndex)
 		{
@@ -3803,7 +3814,7 @@ void FKismetCompilerContext::CompileClassLayout(EInternalCompilerFlags InternalF
 		}
 	}
 
-	if (CompileOptions.DoesRequireBytecodeGeneration())
+	if (CompileOptions.DoesRequireBytecodeGeneration() && !Blueprint->bIsRegeneratingOnLoad)
 	{
 		TArray<UEdGraph*> AllGraphs;
 		Blueprint->GetAllGraphs(AllGraphs);

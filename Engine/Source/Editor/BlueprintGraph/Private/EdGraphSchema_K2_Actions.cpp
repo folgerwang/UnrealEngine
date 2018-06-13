@@ -195,9 +195,9 @@ UEdGraphNode* FEdGraphSchemaAction_K2NewNode::CreateNode(
 			ParentGraph,
 			FromPins,
 			Location,
-			[NodeTemplate](UEdGraph* ParentGraph)->UK2Node*
+			[NodeTemplate](UEdGraph* InParentGraph)->UK2Node*
 			{
-				return DuplicateObject<UK2Node>(NodeTemplate, ParentGraph);
+				return DuplicateObject<UK2Node>(NodeTemplate, InParentGraph);
 			},
 			[](UK2Node*) {},
 			Options
@@ -221,7 +221,10 @@ UEdGraphNode* FEdGraphSchemaAction_K2NewNode::CreateNode(
 	ParentGraph->Modify();
 	for(UEdGraphPin* FromPin : FromPins)
 	{
-		FromPin->Modify();
+		if (FromPin != nullptr)
+		{
+			FromPin->Modify();
+		}
 	}
 
 	// Smart pointer that handles fixup after potential node reconstruction
