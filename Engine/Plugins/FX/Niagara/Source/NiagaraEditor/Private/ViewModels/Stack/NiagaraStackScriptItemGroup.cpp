@@ -264,15 +264,16 @@ void UNiagaraStackScriptItemGroup::Initialize(
 	ScriptViewModel = InScriptViewModel;
 	ScriptUsage = InScriptUsage;
 	ScriptUsageId = InScriptUsageId;
-	OnGraphChangedHandle = InScriptViewModel->GetGraphViewModel()->GetGraph()->AddOnGraphChangedHandler(
+	ScriptGraph = InScriptViewModel->GetGraphViewModel()->GetGraph();
+	ScriptGraph->AddOnGraphChangedHandler(
 		FOnGraphChanged::FDelegate::CreateUObject(this, &UNiagaraStackScriptItemGroup::OnScriptGraphChanged));
 }
 
 void UNiagaraStackScriptItemGroup::FinalizeInternal()
 {
-	if (ScriptViewModel.IsValid())
+	if (ScriptGraph.IsValid())
 	{
-		ScriptViewModel.Pin()->GetGraphViewModel()->GetGraph()->RemoveOnGraphChangedHandler(OnGraphChangedHandle);
+		ScriptGraph->RemoveOnGraphChangedHandler(OnGraphChangedHandle);
 	}
 	Super::FinalizeInternal();
 }

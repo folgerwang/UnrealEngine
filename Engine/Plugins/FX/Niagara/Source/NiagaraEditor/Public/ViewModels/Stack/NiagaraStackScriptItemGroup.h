@@ -13,6 +13,7 @@ class UNiagaraNodeOutput;
 class UNiagaraNodeFunctionCall;
 class FScriptItemGroupAddUtilities;
 class UNiagaraStackModuleItem;
+class UEdGraph;
 
 UCLASS()
 class NIAGARAEDITOR_API UNiagaraStackScriptItemGroup : public UNiagaraStackItemGroup
@@ -58,6 +59,8 @@ private:
 
 	FGuid ScriptUsageId;
 	bool bIsValidForOutput;
+
+	TWeakObjectPtr<UEdGraph> ScriptGraph;
 
 	FDelegateHandle OnGraphChangedHandle;
 
