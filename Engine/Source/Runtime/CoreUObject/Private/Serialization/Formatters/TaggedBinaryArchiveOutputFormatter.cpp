@@ -255,6 +255,36 @@ void FTaggedBinaryArchiveOutputFormatter::Serialize(UObject*& Value)
 	SerializeObject(Inner, Value);
 }
 
+void FTaggedBinaryArchiveOutputFormatter::Serialize(FText& Value)
+{
+	WriteType(EArchiveValueType::Text);
+	Inner << Value;
+}
+
+void FTaggedBinaryArchiveOutputFormatter::Serialize(FWeakObjectPtr& Value)
+{
+	WriteType(EArchiveValueType::WeakObjectPtr);
+	Inner << Value;
+}
+
+void FTaggedBinaryArchiveOutputFormatter::Serialize(FSoftObjectPtr& Value)
+{
+	WriteType(EArchiveValueType::SoftObjectPtr);
+	Inner << Value;
+}
+
+void FTaggedBinaryArchiveOutputFormatter::Serialize(FSoftObjectPath& Value)
+{
+	WriteType(EArchiveValueType::SoftObjectPath);
+	Inner << Value;
+}
+
+void FTaggedBinaryArchiveOutputFormatter::Serialize(FLazyObjectPtr& Value)
+{
+	WriteType(EArchiveValueType::LazyObjectPtr);
+	Inner << Value;
+}
+
 void FTaggedBinaryArchiveOutputFormatter::Serialize(TArray<uint8>& Value) 
 {
 	WriteType(EArchiveValueType::RawData);

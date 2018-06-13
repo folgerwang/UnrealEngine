@@ -49,6 +49,11 @@ enum class EArchiveValueType
 	String,
 	Name,
 	Object,
+	Text,
+	WeakObjectPtr,
+	SoftObjectPtr,
+	SoftObjectPath,
+	LazyObjectPtr,
 	RawData,
 };
 
