@@ -169,6 +169,13 @@ void UAnimStateTransitionNode::PostPasteNode()
 		CreateBoundGraph();
 	}
 
+	for (UEdGraphNode* GraphNode : BoundGraph->Nodes)
+	{
+		GraphNode->CreateNewGuid();
+		GraphNode->PostPasteNode();
+		GraphNode->ReconstructNode();
+	}
+
 	if(CustomTransitionGraph)
 	{
 		// Needs to be added to the parent graph
