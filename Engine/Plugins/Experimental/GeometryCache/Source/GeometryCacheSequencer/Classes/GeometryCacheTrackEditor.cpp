@@ -83,9 +83,13 @@ UMovieSceneSection* FGeometryCacheSection::GetSectionObject()
 
 FText FGeometryCacheSection::GetSectionTitle() const
 {
-	if (Section.Params.GeometryCache != nullptr  && Section.Params.GeometryCache->GetOwner() != nullptr)
+	if (Section.Params.GeometryCache.ResolveObject() != nullptr )
 	{
-		return FText::FromString(Section.Params.GeometryCache->GetOwner()->GetName());
+		UGeometryCacheComponent* GeometryCache = Cast<UGeometryCacheComponent>(Section.Params.GeometryCache.ResolveObject());
+		if (GeometryCache && GeometryCache->GetOwner() != nullptr)
+		{	
+			return FText::FromString(GeometryCache->GetOwner()->GetName());
+		}
 	}
 	return LOCTEXT("NoGeometryCacheSection", "No GeometryCache");
 }
@@ -146,12 +150,15 @@ int32 FGeometryCacheSection::OnPaintSection( FSequencerSectionPainter& Painter )
 	if (Painter.bIsSelected && SequencerPtr.IsValid())
 	{
 		FFrameTime CurrentTime = SequencerPtr->GetLocalTime().Time;
-		if (Section.GetRange().Contains(CurrentTime.FrameNumber) && Section.Params.GeometryCache != nullptr)
+		if (Section.GetRange().Contains(CurrentTime.FrameNumber) && Section.Params.GeometryCache.ResolveObject() != nullptr)
 		{
 			const float Time = TimeToPixelConverter.FrameToPixel(CurrentTime); 
 
+			UGeometryCacheComponent* GeometryCache = Cast<UGeometryCacheComponent>(Section.Params.GeometryCache.ResolveObject());
+
 			// Draw the current time next to the scrub handle
-			const float AnimTime = Section.MapTimeToAnimation(CurrentTime, TickResolution);			int32 FrameTime = Section.Params.GeometryCache->GetFrameAtTime(AnimTime);
+			const float AnimTime = Section.MapTimeToAnimation(CurrentTime, TickResolution);			
+			int32 FrameTime = GeometryCache->GetFrameAtTime(AnimTime);
 			FString FrameString = FString::FromInt(FrameTime);
 
 			const FSlateFontInfo SmallLayoutFont = FCoreStyle::GetDefaultFontStyle("Bold", 10);
