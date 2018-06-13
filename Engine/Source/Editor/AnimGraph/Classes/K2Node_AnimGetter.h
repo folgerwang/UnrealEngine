@@ -55,6 +55,11 @@ class UK2Node_AnimGetter : public UK2Node_CallFunction
 	GENERATED_BODY()
 public:
 
+	// UObject interface
+	virtual void Serialize(FArchive& Ar) override;
+	virtual void PostPasteNode() override;
+	// End of UObject interface
+
 	// UEdGraphNode interface
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
@@ -94,6 +99,9 @@ public:
 protected:
 	
 	//UFunction* GetSourceBlueprintFunction() const;
+
+	// Fixes the SourceNode to be the state machine owner of SourceStateNode (if it is not null)
+	void RestoreStateMachineNode();
 
 	/** Returns whether or not the provided UFunction requires the named parameter */
 	bool GetterRequiresParameter(const UFunction* Getter, FString ParamName) const;
