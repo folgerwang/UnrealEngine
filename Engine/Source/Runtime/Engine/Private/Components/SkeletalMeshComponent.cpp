@@ -743,6 +743,11 @@ bool USkeletalMeshComponent::InitializeAnimScriptInstance(bool bForceReinit)
 					// otherwise, initialize with AnimationData
 					AnimationData.Initialize(Cast<UAnimSingleNodeInstance>(AnimScriptInstance));
 				}
+
+				if (AnimScriptInstance)
+				{
+					AnimScriptInstance->AddToCluster(this);
+				}
 			}
 		}
 
