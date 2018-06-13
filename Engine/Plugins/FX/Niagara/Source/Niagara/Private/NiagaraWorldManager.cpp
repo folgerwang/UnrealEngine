@@ -32,9 +32,11 @@ void FNiagaraViewDataMgr::Init()
 
 void FNiagaraViewDataMgr::Shutdown()
 {
-
+	GNiagaraViewDataManager.SceneDepthTexture = nullptr;
+	GNiagaraViewDataManager.SceneNormalTexture = nullptr;
+	GNiagaraViewDataManager.ViewUniformBuffer = nullptr;
+	GNiagaraViewDataManager.SceneTexturesUniformParams.SafeRelease();
 }
-
 
 FNiagaraWorldManager::FNiagaraWorldManager(UWorld* InWorld)
 	: World(InWorld)
