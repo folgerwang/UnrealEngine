@@ -445,6 +445,18 @@ bool UNiagaraSystem::ReferencesSourceEmitter(UNiagaraEmitter& Emitter)
 	return false;
 }
 
+bool UNiagaraSystem::ReferencesInstanceEmitter(UNiagaraEmitter& Emitter)
+{
+	for (FNiagaraEmitterHandle& Handle : EmitterHandles)
+	{
+		if (&Emitter == Handle.GetInstance())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 void UNiagaraSystem::UpdateFromEmitterChanges(UNiagaraEmitter& ChangedSourceEmitter)
 {
 	bool bNeedsCompile = false;
