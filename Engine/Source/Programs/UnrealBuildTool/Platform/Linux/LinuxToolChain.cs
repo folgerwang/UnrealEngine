@@ -1539,7 +1539,7 @@ namespace UnrealBuildTool
 				LinkCommandString = LinkCommandString.Replace("}", "}'");
 			}
 
-			string LinkScriptName = string.Format((bUseCmdExe ? "Link-{0}.bat" : "Link-{0}.sh"), OutputFile.Location.GetFileName());
+			string LinkScriptName = string.Format((bUseCmdExe ? "Link-{0}.link.bat" : "Link-{0}.link.sh"), OutputFile.Location.GetFileName());
 			string LinkScriptFullPath = Path.Combine(LinkEnvironment.LocalShadowDirectory.FullName, LinkScriptName);
 			Log.TraceVerbose("Creating link script: {0}", LinkScriptFullPath);
 			Directory.CreateDirectory(Path.GetDirectoryName(LinkScriptFullPath));
@@ -1577,6 +1577,8 @@ namespace UnrealBuildTool
 			};
 
 			LinkAction.CommandPath = ShellBinary;
+
+			// This must maintain the quotes around the LinkScriptFullPath
 			LinkAction.CommandArguments = ExecuteSwitch + " \"" + LinkScriptFullPath + "\"";
 
 			// prepare a linker script
