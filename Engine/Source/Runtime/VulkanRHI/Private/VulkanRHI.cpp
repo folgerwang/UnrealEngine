@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanRHI.cpp: Vulkan device RHI implementation.
@@ -682,6 +682,9 @@ void FVulkanCommandListContext::RHIBeginFrame()
 {
 	check(IsImmediate());
 	RHIPrivateBeginFrame();
+
+	extern uint32 GVulkanRHIDeletionFrameNumber;
+	++GVulkanRHIDeletionFrameNumber;
 
 	GpuProfiler.BeginFrame();
 }
