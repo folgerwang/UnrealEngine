@@ -496,13 +496,16 @@ private:
 	FTextHistory_StringTableEntry& operator=(FTextHistory_StringTableEntry&);
 
 	/** Get the string table pointer, potentially re-caching it if it's missing or stale */
-	FStringTableEntryConstPtr GetStringTableEntry() const;
+	FStringTableEntryConstPtr GetStringTableEntry(const bool InSilent = false) const;
 
 	/** The string table ID being referenced */
 	FName TableId;
 
 	/** The key within the string table being referenced */
 	FString Key;
+
+	/** True if the string table asset referenced is pending load because we weren't able to load it during Serialize */
+	mutable bool bStringTableAssetPendingLoad;
 
 	/** Cached string table entry pointer */
 	mutable FStringTableEntryConstWeakPtr StringTableEntry;
