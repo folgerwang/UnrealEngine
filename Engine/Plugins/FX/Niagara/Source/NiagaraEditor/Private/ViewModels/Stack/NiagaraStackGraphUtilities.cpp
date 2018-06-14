@@ -870,7 +870,7 @@ bool FNiagaraStackGraphUtilities::RemoveModuleFromStack(UNiagaraScript& OwningSc
 	{
 		UNiagaraNode* NodeToRemove = NodesToCheck[0];
 		NodesToCheck.RemoveAt(0);
-		NodesToRemove.Add(NodeToRemove);
+		NodesToRemove.AddUnique(NodeToRemove);
 
 		TArray<UEdGraphPin*> InputPins;
 		NodeToRemove->GetInputPins(InputPins);
@@ -891,6 +891,7 @@ bool FNiagaraStackGraphUtilities::RemoveModuleFromStack(UNiagaraScript& OwningSc
 	UNiagaraGraph* Graph = ModuleNode.GetNiagaraGraph();
 	for (UNiagaraNode* NodeToRemove : NodesToRemove)
 	{
+		NodeToRemove->Modify();
 		Graph->RemoveNode(NodeToRemove);
 		UNiagaraNodeInput* InputNode = Cast<UNiagaraNodeInput>(NodeToRemove);
 		if (InputNode != nullptr)
