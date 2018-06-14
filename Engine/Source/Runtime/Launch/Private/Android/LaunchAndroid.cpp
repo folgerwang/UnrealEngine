@@ -371,6 +371,13 @@ int32 AndroidMain(struct android_app* state)
 	// OBBs and APK are found.
 	IPlatformFile::GetPlatformPhysical().Initialize(nullptr, FCommandLine::Get());
 
+	//wait for re-creating the native window, if previously destroyed by onStop()
+	while (FAndroidWindow::GetHardwareWindow() == nullptr)
+	{
+		FPlatformProcess::Sleep(0.01f);
+		FPlatformMisc::MemoryBarrier();
+	}
+
 	// initialize the engine
 	int32 PreInitResult = GEngineLoop.PreInit(0, NULL, FCommandLine::Get());
 
