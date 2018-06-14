@@ -165,6 +165,7 @@ namespace UnrealGameSync
 		}
 
 		SynchronizationContext MainThreadSynchronizationContext;
+		bool bIsDisposing;
 
 		string EditorTargetName;
 		bool bIsEnterpriseProject;
@@ -398,6 +399,8 @@ namespace UnrealGameSync
 		/// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
 		protected override void Dispose(bool disposing)
 		{
+			bIsDisposing = true;
+
 			if (disposing && (components != null))
 			{
 				components.Dispose();
@@ -499,7 +502,7 @@ namespace UnrealGameSync
 
 		private void LoginExpired()
 		{
-			if(!IsDisposed)
+			if(!bIsDisposing)
 			{
 				Owner.RequestProjectChange(this, SelectedProject);
 			}
@@ -804,7 +807,7 @@ namespace UnrealGameSync
 			if(!bUpdateBuildListPosted)
 			{
 				bUpdateBuildListPosted = true;
-				MainThreadSynchronizationContext.Post((o) => { bUpdateBuildListPosted = false; if(!IsDisposed) { UpdateBuildList(); } }, null);
+				MainThreadSynchronizationContext.Post((o) => { bUpdateBuildListPosted = false; if(!bIsDisposing) { UpdateBuildList(); } }, null);
 			}
 		}
 
@@ -985,7 +988,7 @@ namespace UnrealGameSync
 			if(!bUpdateBuildMetadataPosted)
 			{
 				bUpdateBuildMetadataPosted = true;
-				MainThreadSynchronizationContext.Post((o) => { bUpdateBuildMetadataPosted = false; if(!IsDisposed) { UpdateBuildMetadata(); } }, null);
+				MainThreadSynchronizationContext.Post((o) => { bUpdateBuildMetadataPosted = false; if(!bIsDisposing) { UpdateBuildMetadata(); } }, null);
 			}
 		}
 
@@ -1025,7 +1028,7 @@ namespace UnrealGameSync
 			if(!bUpdateReviewsPosted)
 			{
 				bUpdateReviewsPosted = true;
-				MainThreadSynchronizationContext.Post((o) => { bUpdateReviewsPosted = false; if(!IsDisposed) { UpdateReviews(); } }, null);
+				MainThreadSynchronizationContext.Post((o) => { bUpdateReviewsPosted = false; if(!bIsDisposing) { UpdateReviews(); } }, null);
 			}
 		}
 
