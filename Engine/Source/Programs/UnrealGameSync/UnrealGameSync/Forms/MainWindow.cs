@@ -337,6 +337,10 @@ namespace UnrealGameSync
 		public void ShowAndActivate()
 		{
 			Show();
+			if(WindowState == FormWindowState.Minimized)
+			{
+				WindowState = FormWindowState.Normal;
+			}
 			Activate();
 		}
 
