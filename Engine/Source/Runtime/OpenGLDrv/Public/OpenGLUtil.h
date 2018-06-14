@@ -15,7 +15,7 @@
 #define ENABLE_VERIFY_GL_TRACE 0
 
 // Additional check that our GL calls are occurring on the expected thread
-#define ENABLE_VERIFY_GL_THREAD (DO_CHECK)
+#define ENABLE_VERIFY_GL_THREAD (UE_BUILD_DEBUG)
 
 /** Set to 1 to verify that the the engine side uniform buffer layout matches the driver side of the GLSL shader*/
 #define ENABLE_UNIFORM_BUFFER_LAYOUT_VERIFICATION ( 0 & UE_BUILD_DEBUG & (OPENGL_ESDEFERRED | OPENGL_GL3 | OPENGL_GL4))
