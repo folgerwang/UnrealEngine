@@ -80,6 +80,7 @@ FNiagaraParameterStore::~FNiagaraParameterStore()
 	{
 		Binding.Value.Empty(Binding.Key, this);
 	}
+	Bindings.Empty();
 }
 
 void FNiagaraParameterStore::Bind(FNiagaraParameterStore* DestStore)
@@ -491,6 +492,7 @@ void FNiagaraParameterStore::Empty(bool bClearBindings)
 	DataInterfaces.Empty();
 	if (bClearBindings)
 	{
+		UnbindFromSourceStores();
 		Bindings.Empty();
 	}
 }
@@ -505,6 +507,7 @@ void FNiagaraParameterStore::Reset(bool bClearBindings)
 	DataInterfaces.Reset();
 	if (bClearBindings)
 	{
+		UnbindFromSourceStores();
 		Bindings.Reset();
 	}
 }
