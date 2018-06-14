@@ -25,6 +25,12 @@ bool USynthSamplePlayer::Init(int32& SampleRate)
 
 	SampleBufferReader.Init(SampleRate);
 	SoundWaveLoader.Init(GetAudioDevice());
+
+	if (SoundWave != nullptr)
+	{
+		SoundWaveLoader.LoadSoundWave(SoundWave);
+	}
+
 	return true;
 }
 
