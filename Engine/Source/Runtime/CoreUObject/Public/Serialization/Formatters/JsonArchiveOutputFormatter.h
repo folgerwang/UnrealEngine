@@ -16,6 +16,7 @@ public:
 	virtual FArchive& GetUnderlyingArchive() override;
 
 	virtual void EnterRecord() override;
+	virtual void EnterRecord(TArray<FString>& OutFieldNamesWhenLoading) override;
 	virtual void LeaveRecord() override;
 	virtual void EnterField(FArchiveFieldName Name) override;
 	virtual void LeaveField() override;

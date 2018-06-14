@@ -40,6 +40,11 @@ void FJsonArchiveOutputFormatter::EnterRecord()
 	bNeedsNewline = true;
 }
 
+void FJsonArchiveOutputFormatter::EnterRecord(TArray<FString>& OutFieldNamesWhenLoading)
+{
+	EnterRecord();
+}
+
 void FJsonArchiveOutputFormatter::LeaveRecord()
 {
 	Newline.Pop(false);

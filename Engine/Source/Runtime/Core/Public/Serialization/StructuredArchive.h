@@ -106,6 +106,7 @@ public:
 	{
 	public:
 		FRecord EnterRecord();
+		FRecord EnterRecord(TArray<FString>& OutFieldNamesWhenLoading);
 		FArray EnterArray(int32& Num);
 		FStream EnterStream();
 		FMap EnterMap(int32& Num);
@@ -181,6 +182,7 @@ public:
 	public:
 		FSlot EnterField(FArchiveFieldName Name);
 		FRecord EnterRecord(FArchiveFieldName Name);
+		FRecord EnterRecord(FArchiveFieldName Name, TArray<FString>& OutFieldNamesWhenLoading);
 		FArray EnterArray(FArchiveFieldName Name, int32& Num);
 		FStream EnterStream(FArchiveFieldName Name);
 		FMap EnterMap(FArchiveFieldName Name, int32& Num);
@@ -518,6 +520,11 @@ private:
 		return FRecord(Ar);
 	}
 
+	FORCEINLINE FStructuredArchive::FRecord FStructuredArchive::FSlot::EnterRecord(TArray<FString>& OutFieldNamesWhenLoading)
+	{
+		return FRecord(Ar);
+	}
+
 	FORCEINLINE FStructuredArchive::FArray FStructuredArchive::FSlot::EnterArray(int32& Num)
 	{
 		Ar.Formatter.EnterArray(Num);
@@ -652,11 +659,6 @@ private:
 	FORCEINLINE FStructuredArchive::FSlot FStructuredArchive::FRecord::EnterField(FArchiveFieldName Name)
 	{
 		return FSlot(Ar);
-	}
-
-	FORCEINLINE FStructuredArchive::FRecord FStructuredArchive::FRecord::EnterRecord(FArchiveFieldName Name)
-	{
-		return EnterField(Name).EnterRecord();
 	}
 
 	FORCEINLINE FStructuredArchive::FArray FStructuredArchive::FRecord::EnterArray(FArchiveFieldName Name, int32& Num)

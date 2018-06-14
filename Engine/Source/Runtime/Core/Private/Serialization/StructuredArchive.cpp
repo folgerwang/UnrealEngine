@@ -224,6 +224,19 @@ FStructuredArchive::FRecord FStructuredArchive::FSlot::EnterRecord()
 	return FRecord(Ar, Depth + 1, ElementId);
 }
 
+FStructuredArchive::FRecord FStructuredArchive::FSlot::EnterRecord(TArray<FString>& OutFieldNamesWhenLoading)
+{
+	Ar.EnterSlot(ElementId, EElementType::Record);
+
+#if DO_GUARD_SLOW
+	Ar.CurrentContainer.Add(new FContainer(0));
+#endif
+
+	Ar.Formatter.EnterRecord(OutFieldNamesWhenLoading);
+
+	return FRecord(Ar, Depth + 1, ElementId);
+}
+
 FStructuredArchive::FArray FStructuredArchive::FSlot::EnterArray(int32& Num)
 {
 	Ar.EnterSlot(ElementId, EElementType::Array);
@@ -444,6 +457,11 @@ FStructuredArchive::FSlot FStructuredArchive::FRecord::EnterField(FArchiveFieldN
 FStructuredArchive::FRecord FStructuredArchive::FRecord::EnterRecord(FArchiveFieldName Name)
 {
 	return EnterField(Name).EnterRecord();
+}
+
+FStructuredArchive::FRecord FStructuredArchive::FRecord::EnterRecord(FArchiveFieldName Name, TArray<FString>& OutFieldNamesWhenLoading)
+{
+	return EnterField(Name).EnterRecord(OutFieldNamesWhenLoading);
 }
 
 FStructuredArchive::FArray FStructuredArchive::FRecord::EnterArray(FArchiveFieldName Name, int32& Num)

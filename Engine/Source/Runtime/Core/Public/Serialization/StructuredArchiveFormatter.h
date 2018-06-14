@@ -73,6 +73,7 @@ public:
 	virtual FStructuredArchiveFormatter* CreateSubtreeReader() { return this; }
 
 	virtual void EnterRecord() = 0;
+	virtual void EnterRecord(TArray<FString>& OutFieldNamesWhenLoading) = 0;
 	virtual void LeaveRecord() = 0;
 	virtual void EnterField(FArchiveFieldName Name) = 0;
 	virtual void LeaveField() = 0;

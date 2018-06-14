@@ -20,7 +20,7 @@ public:
 	virtual FStructuredArchiveFormatter* CreateSubtreeReader() override;
 
 	virtual void EnterRecord() override;
-	virtual void EnterRecord(TArray<FString>& OutKeys) override;
+	virtual void EnterRecord(TArray<FString>& OutFieldNamesWhenLoading) override;
 	virtual void LeaveRecord() override;
 	virtual void EnterField(FArchiveFieldName Name) override;
 	virtual void EnterField(FArchiveFieldName Name, EArchiveValueType& OutType) override;

@@ -52,13 +52,13 @@ void FJsonArchiveInputFormatter::EnterRecord()
 	ObjectStack.Add(FObjectRecord(Value->AsObject(), ValueStack.Num()));
 }
 
-void FJsonArchiveInputFormatter::EnterRecord(TArray<FString>& OutKeys)
+void FJsonArchiveInputFormatter::EnterRecord(TArray<FString>& OutFieldNamesWhenLoading)
 {
 	EnterRecord();
-	ObjectStack.Top().JsonObject->Values.GetKeys(OutKeys);
-	for(int32 Idx = 0; Idx < OutKeys.Num(); Idx++)
+	ObjectStack.Top().JsonObject->Values.GetKeys(OutFieldNamesWhenLoading);
+	for(int32 Idx = 0; Idx < OutFieldNamesWhenLoading.Num(); Idx++)
 	{
-		OutKeys[Idx] = UnescapeFieldName(*OutKeys[Idx]);
+		OutFieldNamesWhenLoading[Idx] = UnescapeFieldName(*OutFieldNamesWhenLoading[Idx]);
 	}
 }
 

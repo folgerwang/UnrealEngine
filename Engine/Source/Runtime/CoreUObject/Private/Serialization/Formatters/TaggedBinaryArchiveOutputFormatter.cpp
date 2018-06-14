@@ -68,6 +68,11 @@ void FTaggedBinaryArchiveOutputFormatter::EnterRecord()
 	RecordStack.Push(NextRecordIdx++);
 }
 
+void FTaggedBinaryArchiveOutputFormatter::EnterRecord(TArray<FString>& OutFieldNames)
+{
+	EnterRecord();
+}
+
 void FTaggedBinaryArchiveOutputFormatter::LeaveRecord()
 {
 	FRecord& Record = Records[RecordStack.Top()];
