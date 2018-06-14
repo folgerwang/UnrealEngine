@@ -542,6 +542,23 @@ void UAIPerceptionSystem::OnNewPawn(APawn& Pawn)
 	}
 }
 
+void UAIPerceptionSystem::RegisterSource(AActor& SourceActor)
+{
+	for (UAISense* Sense : Senses)
+	{
+		if (Sense == nullptr)
+		{
+			continue;
+		}
+
+		const FAISenseID SenseID = Sense->GetSenseID();
+		if (IsSenseInstantiated(SenseID))
+		{
+			RegisterSource(SenseID, SourceActor);
+		}
+	}
+}
+
 void UAIPerceptionSystem::StartPlay()
 {
 	for (UAISense* Sense : Senses)

@@ -149,13 +149,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI|Perception", meta = (WorldContext="WorldContextObject"))
 	static void ReportPerceptionEvent(UObject* WorldContextObject, UAISenseEvent* PerceptionEvent);
 
+	/** Registers a source of given sense's stimuli */
 	template<typename FSenseClass>
+	void RegisterSource(AActor& SourceActor);
+
+	/** Registers given actor as a source for all registered senses */
 	void RegisterSource(AActor& SourceActor);
 
 	void RegisterSourceForSenseClass(TSubclassOf<UAISense> Sense, AActor& Target);
 
 	/** 
 	 *	unregisters given actor from the list of active stimuli sources
+	 *	@param Sense if null will result in removing SourceActor from all the senses
 	 */
 	void UnregisterSource(AActor& SourceActor, const TSubclassOf<UAISense> Sense = nullptr);
 
