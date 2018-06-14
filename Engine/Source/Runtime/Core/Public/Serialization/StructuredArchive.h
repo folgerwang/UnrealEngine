@@ -661,6 +661,16 @@ private:
 		return FSlot(Ar);
 	}
 
+	FORCEINLINE FStructuredArchive::FRecord FStructuredArchive::FRecord::EnterRecord(FArchiveFieldName Name)
+	{
+		return EnterField(Name).EnterRecord();
+	}
+
+	FORCEINLINE FStructuredArchive::FRecord FStructuredArchive::FRecord::EnterRecord(FArchiveFieldName Name, TArray<FString>& OutFieldNamesWhenLoading)
+	{
+		return EnterField(Name).EnterRecord(OutFieldNamesWhenLoading);
+	}
+
 	FORCEINLINE FStructuredArchive::FArray FStructuredArchive::FRecord::EnterArray(FArchiveFieldName Name, int32& Num)
 	{
 		return EnterField(Name).EnterArray(Num);
