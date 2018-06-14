@@ -6483,6 +6483,8 @@ FMovieScenePossessable* FSequencer::ConvertToPossessableInternal(FGuid Spawnable
 		return nullptr;
 	}
 
+	PossessedActor->SetActorLabel(Spawnable->GetName());
+
 	const bool bIsDefaultTransform = true;
 	PossessedActor->FinishSpawning(SpawnTransform, bIsDefaultTransform);
 
