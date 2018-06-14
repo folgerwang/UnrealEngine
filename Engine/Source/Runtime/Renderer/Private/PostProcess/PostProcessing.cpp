@@ -932,11 +932,11 @@ static void AddTemporalAA( FPostprocessContext& Context, FRenderingCompositeOutp
 
 	FSceneViewState* ViewState = Context.View.ViewState;
 
-	FRCPassPostProcessTemporalAA* TemporalAAPass = new(FMemStack::Get()) FRCPassPostProcessTemporalAA(
+	FRCPassPostProcessTemporalAA* TemporalAAPass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessTemporalAA(
 		Context,
 		Parameters,
 		Context.View.PrevViewInfo.TemporalAAHistory,
-		&ViewState->PendingPrevFrameViewInfo.TemporalAAHistory);
+		&ViewState->PendingPrevFrameViewInfo.TemporalAAHistory));
 
 	TemporalAAPass->SetInput( ePId_Input0, Context.FinalOutput );
 	TemporalAAPass->SetInput( ePId_Input2, VelocityInput );
@@ -1734,7 +1734,6 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 			// some views don't have a state (thumbnail rendering)
 			if(!GIsHighResScreenshot && View.State && IStereoRendering::IsAPrimaryView(StereoPass))
 			{
-				
 				const bool bUseBasicEyeAdaptation = (AutoExposure.MethodId == EAutoExposureMethod::AEM_Basic);
 
 				if (bUseBasicEyeAdaptation) // log average ps reduction ( non histogram ) 
