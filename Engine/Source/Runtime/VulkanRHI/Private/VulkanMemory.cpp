@@ -9,6 +9,12 @@
 #include "Misc/OutputDeviceRedirector.h"
 #include "HAL/PlatformStackWalk.h"
 
+
+// This 'frame number' should only be used for the deletion queue
+uint32 GVulkanRHIDeletionFrameNumber = 0;
+const uint32 NUM_FRAMES_TO_WAIT_FOR_RESOURCE_DELETE = 2;
+
+
 #if VULKAN_MEMORY_TRACK_CALLSTACK
 static FCriticalSection GStackTraceMutex;
 static char GStackTrace[65536];
@@ -1610,14 +1616,16 @@ namespace VulkanRHI
 		Queue->GetLastSubmittedInfo(Entry.CmdBuffer, Entry.FenceCounter);
 		Entry.Handle = Handle;
 		Entry.StructureType = Type;
+		Entry.FrameNumber = GVulkanRHIDeletionFrameNumber;
 
 		{
 			FScopeLock ScopeLock(&CS);
 
 #if VULKAN_HAS_DEBUGGING_ENABLED
-			FEntry* ExistingEntry = Entries.FindByPredicate([&](const FEntry& InEntry) { 
-				return InEntry.Handle == Entry.Handle; 
-			});
+			FEntry* ExistingEntry = Entries.FindByPredicate([&](const FEntry& InEntry)
+				{ 
+					return InEntry.Handle == Entry.Handle; 
+				});
 			checkf(ExistingEntry == nullptr, TEXT("Attempt to double-delete resource, Type: %d, Handle: %llu"), (int32)Type, Handle);
 #endif
 
@@ -1639,7 +1647,10 @@ namespace VulkanRHI
 		{
 			FEntry* Entry = &Entries[Index];
 			// #todo-rco: Had to add this check, we were getting null CmdBuffers on the first frame, or before first frame maybe
-			if (bDeleteImmediately || Entry->CmdBuffer == nullptr || Entry->FenceCounter < Entry->CmdBuffer->GetFenceSignaledCounter())
+			if (bDeleteImmediately ||
+				(GVulkanRHIDeletionFrameNumber > Entry->FrameNumber + NUM_FRAMES_TO_WAIT_FOR_RESOURCE_DELETE &&
+				(Entry->CmdBuffer == nullptr || Entry->FenceCounter < Entry->CmdBuffer->GetFenceSignaledCounter()))
+				)
 			{
 				switch (Entry->StructureType)
 				{
