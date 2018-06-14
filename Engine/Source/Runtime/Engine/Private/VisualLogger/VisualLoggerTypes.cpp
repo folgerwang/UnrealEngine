@@ -207,9 +207,11 @@ void FVisualLogEntry::AddElement(const FBox& Box, const FMatrix& Matrix, const F
 	ElementsToDraw.Add(Element);
 }
 
-void FVisualLogEntry::AddBoxes(const TArray<FBox>& Boxes, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FColor& Color, const TArray<FString>& Descriptions)
+void FVisualLogEntry::AddBoxes(const TArray<FBox>& Boxes, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FColor& Color)
 {
 	FVisualLogShapeElement& Element = ElementsToDraw[ElementsToDraw.Add(FVisualLogShapeElement(EVisualLoggerShapeElement::Box))];
+	Element.Category = CategoryName;
+	Element.Verbosity = Verbosity;
 	Element.Points.Reserve(2 * Boxes.Num());
 	for (const FBox& Box : Boxes)
 	{
