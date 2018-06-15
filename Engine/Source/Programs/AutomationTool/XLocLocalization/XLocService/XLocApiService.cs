@@ -96,8 +96,6 @@ namespace XLoc.Xml.Types
         
         private string LanguageNameField;
         
-        private System.Guid[] LocalizationIdsField;
-        
         public System.Runtime.Serialization.ExtensionDataObject ExtensionData
         {
             get
@@ -133,19 +131,6 @@ namespace XLoc.Xml.Types
             set
             {
                 this.LanguageNameField = value;
-            }
-        }
-        
-        [System.Runtime.Serialization.DataMemberAttribute()]
-        public System.Guid[] LocalizationIds
-        {
-            get
-            {
-                return this.LocalizationIdsField;
-            }
-            set
-            {
-                this.LocalizationIdsField = value;
             }
         }
     }
@@ -1752,7 +1737,6 @@ public partial class ContextListData : object, System.Runtime.Serialization.IExt
 [System.Runtime.Serialization.KnownTypeAttribute(typeof(XLoc.Xml.Types.ContextType))]
 [System.Runtime.Serialization.KnownTypeAttribute(typeof(XLoc.Xml.Types.LocalizedString[]))]
 [System.Runtime.Serialization.KnownTypeAttribute(typeof(XLoc.Xml.Types.SearchCriteria))]
-[System.Runtime.Serialization.KnownTypeAttribute(typeof(System.Guid[]))]
 [System.Runtime.Serialization.KnownTypeAttribute(typeof(ContextListData[]))]
 [System.Runtime.Serialization.KnownTypeAttribute(typeof(ContextListData))]
 [System.Runtime.Serialization.KnownTypeAttribute(typeof(ContextListLine[]))]
@@ -1983,6 +1967,12 @@ public interface IXLocApi
     [System.ServiceModel.OperationContractAttribute(Action="urn:XLoc.Services/IXLocApi/GetLatestBuild", ReplyAction="urn:XLoc.Services/IXLocApi/GetLatestBuildResponse")]
     System.Threading.Tasks.Task<string> GetLatestBuildAsync(string api_key, string auth_token, string api_sig, string localization_id, string language_id);
     
+    [System.ServiceModel.OperationContractAttribute(Action="urn:XLoc.Services/IXLocApi/GetLatestBuildByFile", ReplyAction="urn:XLoc.Services/IXLocApi/GetLatestBuildByFileResponse")]
+    string GetLatestBuildByFile(string api_key, string auth_token, string api_sig, string localization_id, string language_id, string filename);
+    
+    [System.ServiceModel.OperationContractAttribute(Action="urn:XLoc.Services/IXLocApi/GetLatestBuildByFile", ReplyAction="urn:XLoc.Services/IXLocApi/GetLatestBuildByFileResponse")]
+    System.Threading.Tasks.Task<string> GetLatestBuildByFileAsync(string api_key, string auth_token, string api_sig, string localization_id, string language_id, string filename);
+    
     [System.ServiceModel.OperationContractAttribute(Action="urn:XLoc.Services/IXLocApi/Build", ReplyAction="urn:XLoc.Services/IXLocApi/BuildResponse")]
     string Build(string api_key, string auth_token, string api_sig, string localization_id, string language_id, string platform_id);
     
@@ -2198,6 +2188,16 @@ public partial class XLocApiClient : System.ServiceModel.ClientBase<IXLocApi>, I
     public System.Threading.Tasks.Task<string> GetLatestBuildAsync(string api_key, string auth_token, string api_sig, string localization_id, string language_id)
     {
         return base.Channel.GetLatestBuildAsync(api_key, auth_token, api_sig, localization_id, language_id);
+    }
+    
+    public string GetLatestBuildByFile(string api_key, string auth_token, string api_sig, string localization_id, string language_id, string filename)
+    {
+        return base.Channel.GetLatestBuildByFile(api_key, auth_token, api_sig, localization_id, language_id, filename);
+    }
+    
+    public System.Threading.Tasks.Task<string> GetLatestBuildByFileAsync(string api_key, string auth_token, string api_sig, string localization_id, string language_id, string filename)
+    {
+        return base.Channel.GetLatestBuildByFileAsync(api_key, auth_token, api_sig, localization_id, language_id, filename);
     }
     
     public string Build(string api_key, string auth_token, string api_sig, string localization_id, string language_id, string platform_id)
