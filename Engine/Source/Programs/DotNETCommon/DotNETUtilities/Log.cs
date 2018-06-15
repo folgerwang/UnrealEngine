@@ -418,21 +418,7 @@ namespace Tools.DotNETCommon
 					// Handle the console output separately; we format things differently
 					if ((Verbosity != LogEventType.Log || LogLevel >= LogEventType.Verbose) && (FormatOptions & LogFormatOptions.NoConsoleOutput) == 0)
 					{
-						if(StatusMessageStack.Count > 0)
-						{
-							StatusMessage CurrentStatus = StatusMessageStack.Peek();
-							if(CurrentStatus.HeadingText.Length > 0 && !CurrentStatus.bHasFlushedHeadingText && bAllowStatusUpdates)
-							{
-								SetStatusText(CurrentStatus.HeadingText);
-								Console.WriteLine();
-								StatusText = "";
-								CurrentStatus.bHasFlushedHeadingText = true;
-							}
-							else
-							{
-								SetStatusText("");
-							}
-						}
+						FlushStatusHeading();
 
 						bool bResetConsoleColor = false;
 						if (bColorConsoleOutput)
@@ -719,6 +705,28 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
+		/// Flushes the current status text before writing out a new log line or status message
+		/// </summary>
+		static void FlushStatusHeading()
+		{
+			if(StatusMessageStack.Count > 0)
+			{
+				StatusMessage CurrentStatus = StatusMessageStack.Peek();
+				if(CurrentStatus.HeadingText.Length > 0 && !CurrentStatus.bHasFlushedHeadingText && bAllowStatusUpdates)
+				{
+					SetStatusText(CurrentStatus.HeadingText);
+					Console.WriteLine();
+					StatusText = "";
+					CurrentStatus.bHasFlushedHeadingText = true;
+				}
+				else
+				{
+					SetStatusText("");
+				}
+			}
+		}
+
+		/// <summary>
 		/// Enter a scope with the given status message. The message will be written to the console without a newline, allowing it to be updated through subsequent calls to UpdateStatus().
 		/// The message will be written to the log immediately. If another line is written while in a status scope, the initial status message is flushed to the console first.
 		/// </summary>
@@ -729,6 +737,8 @@ namespace Tools.DotNETCommon
 		{
 			lock(SyncObject)
 			{
+				FlushStatusHeading();
+
 				StatusMessage NewStatusMessage = new StatusMessage();
 				NewStatusMessage.HeadingText = Message;
 				NewStatusMessage.CurrentText = Message;
