@@ -286,4 +286,7 @@ private:
 
 	/** Holds an event signaling that work is available. */
 	FEvent* WorkEvent;
+
+	/** Whether or not to allow delayed messaging */
+	bool bAllowDelayedMessaging;
 };
