@@ -118,7 +118,7 @@ public:
 		if (SerializedObject)
 		{
 			uint32_t PtrIdx = Bytes.Num() - sizeof(UObject*);
-			ensure(*(UObject**)(&Bytes[PtrIdx]) == SerializedObject);
+			ensure(*((UObject**)(&Bytes[PtrIdx])) == SerializedObject);
 		}
 #endif
 
