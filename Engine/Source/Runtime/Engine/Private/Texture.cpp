@@ -1149,8 +1149,6 @@ void GetAllDefaultTextureFormats(const class ITargetPlatform* TargetPlatform, TA
 
 void UTexture::NotifyMaterials()
 {
-	TArray<UMaterialInterface*> MaterialsThatUseThisTexture;
-
 	// Create a material update context to safely update materials.
 	{
 		FMaterialUpdateContext UpdateContext;
@@ -1162,8 +1160,7 @@ void UTexture::NotifyMaterials()
 			UMaterialInterface* MaterialInterface = *It;
 			if (DoesMaterialUseTexture(MaterialInterface, this))
 			{
-				MaterialsThatUseThisTexture.Add(MaterialInterface);
-
+				UpdateContext.AddMaterialInterface(MaterialInterface);
 				// This is a bit tricky. We want to make sure all materials using this texture are
 				// updated. Materials are always updated. Material instances may also have to be
 				// updated and if they have static permutations their children must be updated
@@ -1176,15 +1173,8 @@ void UTexture::NotifyMaterials()
 		// Go ahead and update any base materials that need to be.
 		for (TSet<UMaterial*>::TConstIterator It(BaseMaterialsThatUseThisTexture); It; ++It)
 		{
-			UpdateContext.AddMaterial(*It);
 			(*It)->PostEditChange();
 		}
-	}
-
-	// Now that all materials and instances have updated send necessary callbacks.
-	for (int32 i = 0; i < MaterialsThatUseThisTexture.Num(); ++i)
-	{
-		FEditorSupportDelegates::MaterialTextureSettingsChanged.Broadcast(MaterialsThatUseThisTexture[i]);
 	}
 }
 
