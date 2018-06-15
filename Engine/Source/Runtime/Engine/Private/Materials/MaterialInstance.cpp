@@ -482,6 +482,19 @@ void UMaterialInstance::InitResources()
 	GameThread_InitMIParameters(this, VectorParameterValues);
 	GameThread_InitMIParameters(this, TextureParameterValues);
 	GameThread_InitMIParameters(this, FontParameterValues);
+
+#if WITH_EDITOR
+	//recalculate any scalar params based on a curve position in an atlas in case the atlas changed
+	for (FScalarParameterValue ScalarParam : ScalarParameterValues)
+	{
+		IsScalarParameterUsedAsAtlasPosition(ScalarParam.ParameterInfo, ScalarParam.AtlasData.bIsUsedAsAtlasPosition, ScalarParam.AtlasData.Curve, ScalarParam.AtlasData.Atlas);
+		if (ScalarParam.AtlasData.bIsUsedAsAtlasPosition)
+		{
+			SetScalarParameterAtlasInternal(ScalarParam.ParameterInfo, ScalarParam.AtlasData);
+		}
+	}
+#endif
+
 	PropagateDataToMaterialProxy();
 
 	CacheMaterialInstanceUniformExpressions(this);
@@ -647,6 +660,18 @@ bool UMaterialInstance::IsScalarParameterUsedAsAtlasPosition(const FMaterialPara
 	{
 		return false;
 	}
+
+	// Instance override
+	const FScalarParameterValue* ParameterValue = GameThread_FindParameterByName(ScalarParameterValues, ParameterInfo);
+#if WITH_EDITOR
+	if (ParameterValue && ParameterValue->AtlasData.Curve.Get() != nullptr && ParameterValue->AtlasData.Atlas.Get() != nullptr)
+	{
+		OutValue = ParameterValue->AtlasData.bIsUsedAsAtlasPosition;
+		Curve = ParameterValue->AtlasData.Curve;
+		Atlas = ParameterValue->AtlasData.Atlas;
+		return true;
+	}
+#endif
 
 	// Instance-included default
 	if (ParameterInfo.Association != EMaterialParameterAssociation::GlobalParameter)
@@ -969,6 +994,33 @@ void UMaterialInstance::GetTextureExpressionValues(const FMaterialResource* Mate
 	}
 }
 
+void UMaterialInstance::GetAtlasTextureValues(const FMaterialResource* MaterialResource, TArray<UTexture*>& OutTextures) const
+{
+	check(MaterialResource);
+
+	const TArray<TRefCountPtr<FMaterialUniformExpression> >* AtlasExpressions[1] =
+	{
+		&MaterialResource->GetUniformScalarParameterExpressions()
+	};
+	for (int32 TypeIndex = 0; TypeIndex < ARRAY_COUNT(AtlasExpressions); TypeIndex++)
+	{
+		// Iterate over each of the material's scalar expressions.
+		for (FMaterialUniformExpression* Expression : *AtlasExpressions[TypeIndex])
+		{
+			const FMaterialUniformExpressionScalarParameter* ScalarExpression = static_cast<const FMaterialUniformExpressionScalarParameter*>(Expression);
+			bool bIsUsedAsAtlasPosition = false;
+			TSoftObjectPtr<class UCurveLinearColor> Curve;
+			TSoftObjectPtr<class UCurveLinearColorAtlas> Atlas;
+			ScalarExpression->GetGameThreadUsedAsAtlas(this, bIsUsedAsAtlasPosition, Curve, Atlas);
+
+			if (Atlas)
+			{
+				OutTextures.AddUnique(Atlas.Get());
+			}
+		}
+	}
+}
+
 void UMaterialInstance::GetUsedTextures(TArray<UTexture*>& OutTextures, EMaterialQualityLevel::Type QualityLevel, bool bAllQualityLevels, ERHIFeatureLevel::Type FeatureLevel, bool bAllFeatureLevels) const
 {
 	OutTextures.Empty();
@@ -1019,6 +1071,7 @@ void UMaterialInstance::GetUsedTextures(TArray<UTexture*>& OutTextures, EMateria
 					if (MaterialResource)
 					{
 						GetTextureExpressionValues(MaterialResource, OutTextures);
+						GetAtlasTextureValues(MaterialResource, OutTextures);
 					}
 				}
 			}
@@ -1530,7 +1583,6 @@ void UMaterialInstance::CopyMaterialInstanceParameters(UMaterialInterface* Sourc
 			}
 		}
 
-
 		// Now do the scalar params
 		OutParameterInfo.Reset();
 		Guids.Reset();
@@ -1544,6 +1596,9 @@ void UMaterialInstance::CopyMaterialInstanceParameters(UMaterialInterface* Sourc
 				ParameterValue->ParameterInfo = ParameterInfo;
 				ParameterValue->ExpressionGUID.Invalidate();
 				ParameterValue->ParameterValue = ScalarValue;
+#if WITH_EDITOR
+				IsScalarParameterUsedAsAtlasPosition(ParameterValue->ParameterInfo, ParameterValue->AtlasData.bIsUsedAsAtlasPosition, ParameterValue->AtlasData.Curve, ParameterValue->AtlasData.Atlas);
+#endif
 			}
 		}
 
@@ -3320,6 +3375,40 @@ void UMaterialInstance::SetScalarParameterValueInternal(const FMaterialParameter
 		CacheMaterialInstanceUniformExpressions(this);
 	}
 }
+
+#if WITH_EDITOR
+void UMaterialInstance::SetScalarParameterAtlasInternal(const FMaterialParameterInfo& ParameterInfo, FScalarParameterAtlasInstanceData AtlasData)
+{
+	FScalarParameterValue* ParameterValue = GameThread_FindParameterByName(ScalarParameterValues, ParameterInfo);
+
+	if (ParameterValue)
+	{
+		ParameterValue->AtlasData = AtlasData;
+		UCurveLinearColorAtlas* Atlas = Cast<UCurveLinearColorAtlas>(AtlasData.Atlas.Get());
+		UCurveLinearColor* Curve = Cast<UCurveLinearColor>(AtlasData.Curve.Get());
+		if (!Atlas || !Curve)
+		{
+			return;
+		}
+		int32 Index = Atlas->GradientCurves.Find(Curve);
+		if (Index == INDEX_NONE)
+		{
+			return;
+		}
+
+		float NewValue = ((float)Index * Atlas->GradientPixelSize) / Atlas->TextureSize + (0.5f * Atlas->GradientPixelSize) / Atlas->TextureSize;
+		
+		// Don't enqueue an update if it isn't needed
+		if (ParameterValue->ParameterValue != NewValue)
+		{
+			ParameterValue->ParameterValue = NewValue;
+			// Update the material instance data in the rendering thread.
+			GameThread_UpdateMIParameter(this, *ParameterValue);
+			CacheMaterialInstanceUniformExpressions(this);
+		}
+	}
+}
+#endif
 
 void UMaterialInstance::SetTextureParameterValueInternal(const FMaterialParameterInfo& ParameterInfo, UTexture* Value)
 {

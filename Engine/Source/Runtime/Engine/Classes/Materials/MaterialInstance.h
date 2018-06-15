@@ -28,6 +28,34 @@ class FMaterialShaderMapId;
 class FSHAHash;
 
 /** Editable scalar parameter. */
+
+USTRUCT()
+struct FScalarParameterAtlasInstanceData
+{
+	GENERATED_BODY()
+public:
+	UPROPERTY()
+	bool bIsUsedAsAtlasPosition;
+
+	UPROPERTY()
+	TSoftObjectPtr<class UCurveLinearColor> Curve;
+
+	UPROPERTY()
+	TSoftObjectPtr<class UCurveLinearColorAtlas> Atlas;
+
+	bool operator==(const FScalarParameterAtlasInstanceData& Other) const
+	{
+		return
+			bIsUsedAsAtlasPosition == Other.bIsUsedAsAtlasPosition &&
+			Curve == Other.Curve &&
+			Atlas == Other.Atlas;
+	}
+	bool operator!=(const FScalarParameterAtlasInstanceData& Other) const
+	{
+		return !((*this) == Other);
+	}
+};
+
 USTRUCT(BlueprintType)
 struct FScalarParameterValue
 {
@@ -36,6 +64,9 @@ struct FScalarParameterValue
 #if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	FName ParameterName_DEPRECATED;
+
+	UPROPERTY()
+	FScalarParameterAtlasInstanceData AtlasData;
 #endif
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ScalarParameterValue)
@@ -570,7 +601,8 @@ protected:
 
 	void GetTextureExpressionValues(const FMaterialResource* MaterialResource, TArray<UTexture*>& OutTextures, TArray< TArray<int32> >* OutIndices = nullptr) const;
 
-	/** 
+	void GetAtlasTextureValues(const FMaterialResource* MaterialResource, TArray<UTexture*>& OutTextures) const;
+	/**
 	 * Updates StaticPermutationMaterialResources based on the value of bHasStaticPermutationResource
 	 * This is a helper used when recompiling MI's with static parameters.  
 	 * Assumes that the rendering thread command queue has been flushed by the caller.
@@ -592,6 +624,9 @@ protected:
 	bool SetVectorParameterByIndexInternal(int32 ParameterIndex, FLinearColor Value);
 	bool SetScalarParameterByIndexInternal(int32 ParameterIndex, float Value);
 	void SetScalarParameterValueInternal(const FMaterialParameterInfo& ParameterInfo, float Value);
+#if WITH_EDITOR
+	void SetScalarParameterAtlasInternal(const FMaterialParameterInfo& ParameterInfo, FScalarParameterAtlasInstanceData AtlasData);
+#endif
 	void SetTextureParameterValueInternal(const FMaterialParameterInfo& ParameterInfo, class UTexture* Value);
 	void SetFontParameterValueInternal(const FMaterialParameterInfo& ParameterInfo, class UFont* FontValue, int32 FontPage);
 	void ClearParameterValuesInternal(const bool bAllParameters = true);
