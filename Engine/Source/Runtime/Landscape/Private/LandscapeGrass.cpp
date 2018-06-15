@@ -1464,6 +1464,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 	FVector2D ShadowmapBaseScale;
 	FVector2D LightMapComponentBias;
 	FVector2D LightMapComponentScale;
+	bool RequireCPUAccess;
 
 	// output
 	FStaticMeshInstanceData InstanceBuffer;
@@ -1499,6 +1500,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 		, ShadowmapBaseScale(FVector2D::UnitVector)
 		, LightMapComponentBias(FVector2D::ZeroVector)
 		, LightMapComponentScale(FVector2D::UnitVector)
+		, RequireCPUAccess(GrassVariety.bKeepInstanceBufferCPUCopy)
 
 		// output
 		, InstanceBuffer(/*bSupportsVertexHalfFloat*/ GVertexElementTypeSupport.IsSupported(VET_Half2))
@@ -1506,6 +1508,8 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 		, OutOcclusionLayerNum(0)
 	{
 		bHaveValidData = bHaveValidData && GrassData.IsValid();
+
+		InstanceBuffer.SetAllowCPUAccess(RequireCPUAccess);
 
 		check(DesiredInstancesPerLeaf > 0);
 
@@ -2485,7 +2489,7 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 
 						if (!HierarchicalInstancedStaticMeshComponent->PerInstanceRenderData.IsValid())
 						{
-							HierarchicalInstancedStaticMeshComponent->InitPerInstanceRenderData(true, &Inner.Builder->InstanceBuffer);
+							HierarchicalInstancedStaticMeshComponent->InitPerInstanceRenderData(true, &Inner.Builder->InstanceBuffer, Inner.Builder->RequireCPUAccess);
 						}
 						else
 						{

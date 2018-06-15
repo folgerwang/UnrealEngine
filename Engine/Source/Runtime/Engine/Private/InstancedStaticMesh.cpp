@@ -547,6 +547,7 @@ FPerInstanceRenderData::~FPerInstanceRenderData()
 
 void FPerInstanceRenderData::UpdateFromPreallocatedData(FStaticMeshInstanceData& InOther)
 {
+	InstanceBuffer.RequireCPUAccess = (InOther.GetOriginResourceArray()->GetAllowCPUAccess() || InOther.GetTransformResourceArray()->GetAllowCPUAccess() || InOther.GetLightMapResourceArray()->GetAllowCPUAccess()) ? true : InstanceBuffer.RequireCPUAccess;
 	ResourceSize = InOther.GetResourceSize(); // 2x when with CPU access?
 	InstanceBuffer.UpdateFromPreallocatedData_Concurrent(InOther);
 }
@@ -2020,7 +2021,7 @@ static bool ComponentRequestsCPUAccess(UInstancedStaticMeshComponent* InComponen
 	return false;
 }
 
-void UInstancedStaticMeshComponent::InitPerInstanceRenderData(bool InitializeFromCurrentData, FStaticMeshInstanceData* InSharedInstanceBufferData)
+void UInstancedStaticMeshComponent::InitPerInstanceRenderData(bool InitializeFromCurrentData, FStaticMeshInstanceData* InSharedInstanceBufferData, bool InRequireCPUAccess)
 {
 	if (PerInstanceRenderData.IsValid())
 	{
@@ -2038,7 +2039,7 @@ void UInstancedStaticMeshComponent::InitPerInstanceRenderData(bool InitializeFro
 	UWorld* World = GetWorld();
 	ERHIFeatureLevel::Type FeatureLevel = World != nullptr ? World->FeatureLevel : GMaxRHIFeatureLevel;
 
-	bool KeepInstanceBufferCPUAccess = GIsEditor || ComponentRequestsCPUAccess(this, FeatureLevel);
+	bool KeepInstanceBufferCPUAccess = GIsEditor || InRequireCPUAccess || ComponentRequestsCPUAccess(this, FeatureLevel);
 
 	if (InSharedInstanceBufferData != nullptr)
 	{

@@ -2836,10 +2836,17 @@ static void GatherInstanceTransformsInArea(const UHierarchicalInstancedStaticMes
 					}
 					else if (Component.PerInstanceRenderData.IsValid())
 					{
-						// if there's no PerInstanceSMData (e.g. for grass), we'll go ge the transform from the render buffer
-						FMatrix XformMat;
-						Component.PerInstanceRenderData->InstanceBuffer.GetInstanceTransform(i, XformMat);
-						InstanceToComponent = FTransform(XformMat);
+						if (Component.PerInstanceRenderData->InstanceBuffer.RequireCPUAccess)
+						{
+							// if there's no PerInstanceSMData (e.g. for grass), we'll go get the transform from the render buffer
+							FMatrix XformMat;
+							Component.PerInstanceRenderData->InstanceBuffer.GetInstanceTransform(i, XformMat);
+							InstanceToComponent = FTransform(XformMat);
+						}
+						else
+						{
+							UE_LOG(LogStaticMesh, Warning, TEXT("Trying to query the Instance buffer for information but we don't have a CPU copy to provide the data. Please set KeepInstanceBufferCPUCopy from the Grass variety to true."));
+						}
 					}
 					
 					if (!InstanceToComponent.GetScale3D().IsZero())
