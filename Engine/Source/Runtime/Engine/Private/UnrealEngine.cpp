@@ -11767,6 +11767,8 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 	// Unload the current world
 	if( WorldContext.World() )
 	{
+		WorldContext.World()->bIsTearingDown = true;
+
 		if(!URL.HasOption(TEXT("quiet")) )
 		{
 			TransitionType = TT_Loading;
