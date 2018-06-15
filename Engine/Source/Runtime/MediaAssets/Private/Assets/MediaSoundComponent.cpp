@@ -47,10 +47,6 @@ UMediaSoundComponent::UMediaSoundComponent(const FObjectInitializer& ObjectIniti
 	PrimaryComponentTick.bCanEverTick = true;
 	bAutoActivate = true;
 
-#if PLATFORM_MAC
-	PreferredBufferLength = 2048; // increase buffer callback size on macOS to prevent underruns
-#endif
-
 #if WITH_EDITORONLY_DATA
 	bVisualizeComponent = true;
 #endif
@@ -277,6 +273,9 @@ bool UMediaSoundComponent::Init(int32& SampleRate)
 	{
 		NumChannels = 8;
 	}*/
+
+	// increase buffer callback size for media decoding. Media doesn't need fast response time so can decode more per callback.
+	PreferredBufferLength = NumChannels * 8196;
 
 	Resampler->Initialize(NumChannels, SampleRate);
 
