@@ -2065,7 +2065,7 @@ public:
 	float GetMonoFarFieldCullingDistance() const;
 
 	/** Creates a new physics scene for this world. */
-	void CreatePhysicsScene();
+	void CreatePhysicsScene(const AWorldSettings* Settings = nullptr);
 
 	/** Returns a pointer to the physics scene for this world. */
 	FPhysScene* GetPhysicsScene() const { return PhysicsScene; }

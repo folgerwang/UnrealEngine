@@ -1206,12 +1206,13 @@ void UWorld::InitWorld(const InitializationValues IVS)
 
 	FWorldDelegates::OnPreWorldInitialization.Broadcast(this, IVS);
 
+	AWorldSettings* WorldSettings = GetWorldSettings();
 	if (IVS.bInitializeScenes)
 	{
 		if (IVS.bCreatePhysicsScene)
 		{
 			// Create the physics scene
-			CreatePhysicsScene();
+			CreatePhysicsScene(WorldSettings);
 		}
 
 		bShouldSimulatePhysics = IVS.bShouldSimulatePhysics;
@@ -1222,7 +1223,6 @@ void UWorld::InitWorld(const InitializationValues IVS)
 	}
 
 	// Prepare AI systems
-	AWorldSettings* WorldSettings = GetWorldSettings();
 	if (WorldSettings)
 	{
 		if (IVS.bCreateNavigation || IVS.bCreateAISystem)
@@ -4022,9 +4022,9 @@ float UWorld::GetMonoFarFieldCullingDistance() const
 	return Result;
 }
 
-void UWorld::CreatePhysicsScene()
+void UWorld::CreatePhysicsScene(const AWorldSettings* Settings)
 {
-	SetPhysicsScene(new FPhysScene());
+	SetPhysicsScene(new FPhysScene(Settings));
 }
 
 void UWorld::SetPhysicsScene(FPhysScene* InScene)
