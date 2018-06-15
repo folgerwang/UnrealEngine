@@ -4222,10 +4222,41 @@ void UStaticMesh::SetMaterial(int32 MaterialIndex, UMaterialInterface* NewMateri
 			{
 				StaticMaterials[MaterialIndex].MaterialSlotName = NewMaterial->GetFName();
 			}
-			//Set the original fbx material name so we can re-import correctly
+			
+			//Set the original fbx material name so we can re-import correctly, ensure the name is unique
 			if (StaticMaterials[MaterialIndex].ImportedMaterialSlotName == NAME_None)
 			{
-				StaticMaterials[MaterialIndex].ImportedMaterialSlotName = NewMaterial->GetFName();
+				auto IsMaterialNameUnique = [this, MaterialIndex](const FName TestName)
+				{
+					for (int32 MatIndex = 0; MatIndex < StaticMaterials.Num(); ++MatIndex)
+					{
+						if (MatIndex == MaterialIndex)
+						{
+							continue;
+						}
+						if (StaticMaterials[MatIndex].ImportedMaterialSlotName == TestName)
+						{
+							return false;
+						}
+					}
+					return true;
+				};
+
+				int32 MatchNameCounter = 0;
+				//Make sure the name is unique for imported material slot name
+				bool bUniqueName = false;
+				FString MaterialSlotName = NewMaterial->GetName();
+				while (!bUniqueName)
+				{
+					bUniqueName = true;
+					if (!IsMaterialNameUnique(FName(*MaterialSlotName)))
+					{
+						bUniqueName = false;
+						MatchNameCounter++;
+						MaterialSlotName = NewMaterial->GetName() + TEXT("_") + FString::FromInt(MatchNameCounter);
+					}
+				}
+				StaticMaterials[MaterialIndex].ImportedMaterialSlotName = FName(*MaterialSlotName);
 			}
 		}
 
