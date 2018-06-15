@@ -11,6 +11,7 @@
 #include "EngineGlobals.h"
 #include "ARFilter.h"
 #include "AssetRegistryModule.h"
+#include "Misc/CommandLine.h"
 
 #define LOCTEXT_NAMESPACE "FunctionalTesting"
 
@@ -38,9 +39,16 @@ private:
 	void OnGetAssetTagsForWorld(const UWorld* World, TArray<UObject::FAssetRegistryTag>& OutTags);
 
 	void BuildTestBlacklistFromConfig();
-	bool IsBlacklisted(const FString& MapName, const FString& TestName) const;
+	bool IsBlacklisted(const FString& MapName, const FString& TestName, FString& OutReason) const;
 
-	TArray<FString> TestBlacklist;
+	struct FBlacklistEntry
+	{
+		FString	Map;
+		FString Test;
+		FString Reason;
+	};
+
+	TMap<FString, FBlacklistEntry> TestBlacklist;
 	TWeakObjectPtr<class UFunctionalTestingManager> TestManager;
 	bool bPendingActivation;
 };
@@ -148,11 +156,16 @@ void FFunctionalTestingModule::GetMapTests(bool bEditorOnlyTests, TArray<FString
 
 							if (MapTest.Split(TEXT("|"), &BeautifulTestName, &RealTestName))
 							{
-								if (!IsBlacklisted(MapPackageName, RealTestName))
+								FString BlacklistReason;
+								if (!IsBlacklisted(MapPackageName, RealTestName, BlacklistReason))
 								{
 									OutBeautifiedNames.Add(MapPackageName + TEXT(".") + *BeautifulTestName);
 									OutTestCommands.Add(MapAssetPath + TEXT(";") + MapAsset.PackageName.ToString() + TEXT(";") + *RealTestName);
 									OutTestMapAssets.AddUnique(MapAssetPath);
+								}
+								else
+								{
+									UE_LOG(LogFunctionalTest, Warning, TEXT("Test '%s' is blacklisted. %s"), *MapTest, *BlacklistReason);
 								}
 							}
 						}
@@ -266,30 +279,47 @@ void FFunctionalTestingModule::BuildTestBlacklistFromConfig()
 	TestBlacklist.Empty();
 	if (GConfig)
 	{
+	
+		const FString CommandLine = FCommandLine::Get();
+
 		for (const TPair<FString,FConfigFile>& Config : *GConfig)
 		{
 			FConfigSection* BlacklistSection = GConfig->GetSectionPrivate(TEXT("AutomationTestBlacklist"), false, true, Config.Key);
 			if (BlacklistSection)
 			{
-				// Parse all blacklist definitions of the format "BlacklistTest=(Map=/Game/Tests/MapName, Test=TestName)"
+				// Parse all blacklist definitions of the format "BlacklistTest=(Map=/Game/Tests/MapName, Test=TestName, Reason="Foo")"
 				for (FConfigSection::TIterator Section(*BlacklistSection); Section; ++Section)
 				{
 					if (Section.Key() == TEXT("BlacklistTest"))
 					{
 						FString BlacklistValue = Section.Value().GetValue();
-						FString Map, Test;
+						FString Map, Test, Reason;
 						bool bSuccess = false;
 						
 						if (FParse::Value(*BlacklistValue, TEXT("Map="), Map, true) && FParse::Value(*BlacklistValue, TEXT("Test="), Test, true))
 						{
+							FParse::Value(*BlacklistValue, TEXT("Reason="), Reason);
+
 							// These are used as folders so ensure they match the expected layout
 							if (Map.StartsWith(TEXT("/")))
 							{
 								FString ListName = Map + TEXT("/") + Test;
 								ListName.RemoveSpacesInline();
-
-								TestBlacklist.AddUnique(ListName);
 								bSuccess = true;
+
+								if (CommandLine.Contains(Map) || CommandLine.Contains(Test))
+								{
+									UE_LOG(LogFunctionalTest, Warning, TEXT("Test '%s' is blacklisted but allowing due to command line."), *BlacklistValue);
+								}
+								else
+								{
+									// convert Pretty.Name into PrettyName as we compare on the latter.
+									ListName = ListName.Replace(TEXT("."), TEXT(""));
+									FBlacklistEntry& Entry = TestBlacklist.Add(ListName);
+									Entry.Map = Map;
+									Entry.Test = Test;
+									Entry.Reason = Reason;
+								}
 							}
 						}
 						
@@ -306,18 +336,26 @@ void FFunctionalTestingModule::BuildTestBlacklistFromConfig()
 	if (TestBlacklist.Num() > 0)
 	{
 		UE_LOG(LogFunctionalTest, Log, TEXT("Automated Test Blacklist:"));
-		for (FString& Test : TestBlacklist)
+		for (auto& KV : TestBlacklist)
 		{
-			UE_LOG(LogFunctionalTest, Log, TEXT("\tTest: %s"), *Test);
+			UE_LOG(LogFunctionalTest, Log, TEXT("\tTest: %s"), *KV.Key);
 		}
 	}
 }
 
-bool FFunctionalTestingModule::IsBlacklisted(const FString& MapName, const FString& TestName) const
+bool FFunctionalTestingModule::IsBlacklisted(const FString& MapName, const FString& TestName, FString& OutReason) const
 {
 	FString ListName = MapName + TEXT("/") + TestName;
 	ListName.RemoveSpacesInline();
-	return TestBlacklist.Contains(ListName);
+
+	const FBlacklistEntry* Entry = TestBlacklist.Find(ListName);
+
+	if (Entry)
+	{
+		OutReason = Entry->Reason;
+	}
+
+	return Entry != nullptr;
 }
 
 //////////////////////////////////////////////////////////////////////////
