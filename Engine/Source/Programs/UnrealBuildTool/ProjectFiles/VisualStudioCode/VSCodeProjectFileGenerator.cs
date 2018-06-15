@@ -689,7 +689,7 @@ namespace UnrealBuildTool
 								OutFile.AddUnnamedField(BuildProduct.Config.ToString());
 								if (bForeignProject)
 								{
-									OutFile.AddUnnamedField(MakeQuotedPathString(BuildProduct.UProjectFile, EPathType.Relative, null, EQuoteType.Single));
+									OutFile.AddUnnamedField(MakeUnquotedPathString(BuildProduct.UProjectFile, EPathType.Relative, null));
 								}
 								OutFile.AddUnnamedField("-waitmutex");
 
