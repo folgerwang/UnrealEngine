@@ -406,7 +406,6 @@ void AWorldSettings::PostLoad()
 		Entry.MergeSetting.LODSelectionType = EMeshLODSelectionType::CalculateLOD;
 	}
 
-	SetIsTemporarilyHiddenInEditor(true);
 #endif// WITH_EDITOR
 
 	if (bEnableNavigationSystem && NavigationSystemConfig == nullptr)
