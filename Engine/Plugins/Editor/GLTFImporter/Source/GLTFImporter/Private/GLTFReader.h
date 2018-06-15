@@ -18,6 +18,9 @@ class FGLTFReader
 	uint32 AccessorCount { 0 };
 	uint32 MeshCount { 0 };
 
+	uint32 NodeCount { 0 };
+	uint32 SkinCount { 0 };
+
 	uint32 ImageCount { 0 };
 	uint32 SamplerCount { 0 };
 	uint32 TextureCount { 0 };
@@ -40,6 +43,9 @@ class FGLTFReader
 	void SetupAccessor(const FJsonObject&);
 	void SetupPrimitive(const FJsonObject&, GLTF::FMesh&);
 	void SetupMesh(const FJsonObject&);
+
+	void SetupNode(const FJsonObject&);
+	void SetupSkin(const FJsonObject&);
 
 	void SetupImage(const FJsonObject&);
 	void SetupSampler(const FJsonObject&);

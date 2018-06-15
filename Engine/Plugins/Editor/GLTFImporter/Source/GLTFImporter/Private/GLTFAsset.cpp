@@ -27,12 +27,16 @@ FString FTex::GetName() const
 }
 
 void FAsset::Reset(uint32 BufferCount, uint32 BufferViewCount, uint32 AccessorCount, uint32 MeshCount,
+                   uint32 NodeCount, uint32 SkinCount,
                    uint32 ImageCount, uint32 SamplerCount, uint32 TextureCount, uint32 MaterialCount)
 {
 	Buffers.Empty(BufferCount);
 	BufferViews.Empty(BufferViewCount);
 	Accessors.Empty(AccessorCount);
 	Meshes.Empty(MeshCount);
+
+	Nodes.Empty(NodeCount);
+	Skins.Empty(SkinCount);
 
 	Images.Empty(ImageCount);
 	Samplers.Empty(SamplerCount);

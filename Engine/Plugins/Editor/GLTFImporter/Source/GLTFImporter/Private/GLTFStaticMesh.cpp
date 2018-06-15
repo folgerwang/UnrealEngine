@@ -161,6 +161,11 @@ UStaticMesh* ImportStaticMesh(const FAsset& Asset, const TArray<UMaterial*>& Mat
 
 	const FMesh& Mesh = Asset.Meshes[Index];
 
+	if (Mesh.HasJointWeights())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Mesh has joint weights; import as Skeletal Mesh?"));
+	}
+
 	FString AssetName;
 	UPackage* AssetPackage = GetAssetPackageAndName<UStaticMesh>(InParent, Mesh.Name, TEXT("SM"), InName, Index, AssetName);
 
