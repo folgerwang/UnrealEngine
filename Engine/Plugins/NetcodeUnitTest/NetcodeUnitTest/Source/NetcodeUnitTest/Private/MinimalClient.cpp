@@ -13,6 +13,7 @@
 #include "NetcodeUnitTest.h"
 #include "UnitTestEnvironment.h"
 #include "UnitTestManager.h"
+#include "NUTGlobals.h"
 #include "NUTUtilDebug.h"
 #include "NUTUtilReflection.h"
 #include "Net/NUTUtilNet.h"
@@ -720,7 +721,7 @@ void UMinimalClient::CreateNetDriver()
 
 	if (GameEngine != nullptr && UnitWorld != nullptr)
 	{
-		static int UnitTestNetDriverCount = 0;
+		int32& UnitTestNetDriverCount = UNUTGlobals::Get().UnitTestNetDriverCount;
 
 		// Setup a new driver name entry
 		bool bFoundDef = false;

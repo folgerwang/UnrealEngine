@@ -47,17 +47,28 @@ void UProcessUnitTest::NotifyProcessSuspendState(TWeakPtr<FUnitTestProcess> InPr
 }
 
 
-void UProcessUnitTest::CleanupUnitTest()
+void UProcessUnitTest::CleanupUnitTest(EUnitTestResetStage ResetStage)
 {
-	for (int32 i=ActiveProcesses.Num()-1; i>=0; i--)
+	if (ResetStage <= EUnitTestResetStage::FullReset)
 	{
-		if (ActiveProcesses[i].IsValid())
+		for (int32 i=ActiveProcesses.Num()-1; i>=0; i--)
 		{
-			ShutdownUnitTestProcess(ActiveProcesses[i]);
+			if (ActiveProcesses[i].IsValid())
+			{
+				ShutdownUnitTestProcess(ActiveProcesses[i]);
+			}
 		}
 	}
 
-	Super::CleanupUnitTest();
+	if (ResetStage != EUnitTestResetStage::None)
+	{
+		if (ResetStage <= EUnitTestResetStage::FullReset)
+		{
+			ProcessLogWatches.Empty();
+		}
+	}
+
+	Super::CleanupUnitTest(ResetStage);
 }
 
 TWeakPtr<FUnitTestProcess> UProcessUnitTest::StartUnitTestProcess(FString Path, FString InCommandline, bool bMinimized/*=true*/)

@@ -65,10 +65,6 @@ public:
 	bool bMonitorForBeacon;
 
 
-	/** The UNetConnection 'watch' events will be sent to */
-	static UNetConnection* EventWatcher;
-
-
 	virtual void PostActorCreated() override;
 
 #if TARGET_UE4_CL < CL_CONSTNETCONN

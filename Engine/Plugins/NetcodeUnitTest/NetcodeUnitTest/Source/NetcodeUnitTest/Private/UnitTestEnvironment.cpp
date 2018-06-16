@@ -17,7 +17,9 @@ TMap<FString, FUnitTestEnvironment*> UnitTestEnvironments;
 
 void FUnitTestEnvironment::AddUnitTestEnvironment(FString Game, FUnitTestEnvironment* Env)
 {
-	if (UnitTestEnvironments.Find(Game) == NULL)
+	// @todo #JohnB: This memleaks Env if the game is already added (relevant to hot reload situations)
+	// @todo #JohnB: Actually....this memleaks Env always! (including normal shutdown) Need to refactor this code - shared pointer?
+	if (UnitTestEnvironments.Find(Game) == nullptr)
 	{
 		UnitTestEnvironments.Add(Game, Env);
 

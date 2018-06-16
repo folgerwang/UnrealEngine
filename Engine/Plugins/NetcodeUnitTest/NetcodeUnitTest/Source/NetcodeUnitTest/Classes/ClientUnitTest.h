@@ -118,10 +118,12 @@ protected:
 	UPROPERTY()
 	UMinimalClient* MinClient;
 
-
 	/** Whether or not the initial connect of the minimal client was triggered */
 	bool bTriggerredInitialConnect;
 
+
+	/** Client state variables */
+protected:
 	/** Stores a reference to the replicated PlayerController (if set to wait for this), after NotifyHandleClientPlayer */
 	TWeakObjectPtr<APlayerController> UnitPC;
 
@@ -146,6 +148,8 @@ protected:
 	/** An expected network failure occurred, which will be handled during the next tick instead of immediately */
 	bool bPendingNetworkFailure;
 
+
+	/** Static variables */
 private:
 	/** Static reference to the OnlineBeaconClient static class */
 	static UClass* OnlineBeaconClass;
@@ -576,7 +580,7 @@ public:
 protected:
 	virtual bool ExecuteUnitTest() override;
 
-	virtual void CleanupUnitTest() override;
+	virtual void CleanupUnitTest(EUnitTestResetStage ResetStage) override;
 
 
 	/**

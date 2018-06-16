@@ -7,8 +7,11 @@
 #include "ProcessUnitTest.h"
 #include "Misc/OutputDeviceFile.h"
 #include "Misc/OutputDeviceHelper.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Package.h"
 #include "UObject/UObjectHash.h"
 #include "UObject/UObjectIterator.h"
+
 #include "ClientUnitTest.h"
 
 
@@ -109,6 +112,65 @@ void NUTUtil::SortUnitTestClassDefList(TArray<UUnitTest*>& InUnitTestClassDefaul
 	InUnitTestClassDefaults.Sort(FUnitTestTypeDateSort(ListTypes));
 }
 
+bool NUTUtil::ParseEnum(const TCHAR* Stream, const TCHAR* Match, const TCHAR* EnumName, uint32& Value)
+{
+	bool bReturnVal = false;
+	FString StrValue;
+
+	if (FParse::Value(Stream, Match, StrValue) && StrValue.Len() > 0)
+	{
+		UEnum* EnumObj = FindObject<UEnum>(ANY_PACKAGE, EnumName);
+
+		if (EnumObj != nullptr)
+		{
+			int32 EnumCount = EnumObj->NumEnums();
+			FString Prefix = (EnumCount > 1 ? EnumObj->GetNameStringByIndex(0) : TEXT(""));
+
+			for (int32 i=1; i<EnumCount && Prefix.Len() > 0; i++)
+			{
+				FString CurEnum = EnumObj->GetNameStringByIndex(i);
+				int32 PrefixIdx = 0;
+
+				while (PrefixIdx < Prefix.Len() && PrefixIdx < CurEnum.Len() && Prefix[PrefixIdx] == CurEnum[PrefixIdx])
+				{
+					PrefixIdx++;
+				}
+
+				Prefix = Prefix.Left(PrefixIdx);
+			}
+
+
+			if (Prefix.Len() > 0)
+			{
+				int32 UnderscoreIdx = Prefix.Find(TEXT("_"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+
+				Prefix = UnderscoreIdx != INDEX_NONE ? Prefix.Left(UnderscoreIdx+1) : TEXT("");
+
+				if (Prefix.Len() > 0 && !StrValue.StartsWith(Prefix))
+				{
+					StrValue = Prefix + StrValue;
+				}
+			}
+
+
+			for (int32 i=0; i<EnumCount; i++)
+			{
+				FString CurEnum = EnumObj->GetNameStringByIndex(i);
+
+				if (CurEnum == StrValue)
+				{
+					Value = EnumObj->GetValueByIndex(i);
+					bReturnVal = true;
+
+					break;
+				}
+			}
+		}
+	}
+
+	return bReturnVal;
+}
+
 void NUTUtil::SpecialLog(FOutputDeviceFile* Ar, const TCHAR* SpecialCategory, const TCHAR* Data, ELogVerbosity::Type Verbosity,
 							const FName& Category)
 {
@@ -146,6 +208,27 @@ void NUTUtil::SpecialLog(FOutputDeviceFile* Ar, const TCHAR* SpecialCategory, co
 	Ar->Serialize(Data, Verbosity, Category);
 
 	Ar->SetSuppressEventTag(bOldSuppressEvent);
+}
+
+FString NUTUtil::GetPackageModule(UPackage* Package, bool bVerifyModule/*=true*/)
+{
+	FString ReturnVal = TEXT("");
+
+	if (Package != nullptr)
+	{
+		ReturnVal = Package->GetName();
+
+		int32 SlashIdx = ReturnVal.Find(TEXT("/"), ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+
+		ReturnVal = (SlashIdx != INDEX_NONE ? ReturnVal.Mid(SlashIdx+1) : TEXT(""));
+
+		if (bVerifyModule && FModuleManager::Get().GetModule(*ReturnVal) == nullptr)
+		{
+			ReturnVal = TEXT("");
+		}
+	}
+
+	return ReturnVal;
 }
 
 

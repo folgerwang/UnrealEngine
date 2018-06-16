@@ -15,7 +15,9 @@
 // @todo #JohnBDoc: Need to tidy up and fully document this class; not all of the code below is clear
 
 #include "Net/NUTUtilNet.h"
+#include "NUTGlobals.h"
 #include "NUTUtil.h"
+
 
 #if TARGET_UE4_CL < CL_BEACONHOST
 const FName NAME_BeaconDriver = FName(TEXT("BeaconDriver"));
@@ -161,7 +163,7 @@ bool ANUTActor::NotifyControlMessage(UNetConnection* Connection, uint8 MessageTy
 			else if (CmdType == ENUTControlCommand::WatchEvent)
 			{
 				// NOTE: Only the last NetConnection to request a WatchEvent, will receive notifications
-				EventWatcher = Connection;
+				UNUTGlobals::Get().EventWatcher = Connection;
 
 				// Watch for the end of seamless travel
 				if (Command == TEXT("SeamlessTravelEnd"))
@@ -301,16 +303,15 @@ void ANUTActor::NotifyPostLoadMap(UWorld* LoadedWorld)
 		ENUTControlCommand CmdType = ENUTControlCommand::NotifyEvent;
 		FString Command = TEXT("NotifySeamlessTravelEnd");
 
-		FNetControlMessage<NMT_NUTControl>::Send(EventWatcher, CmdType, Command);
+		FNetControlMessage<NMT_NUTControl>::Send(UNUTGlobals::Get().EventWatcher, CmdType, Command);
 	}
 }
-
-UNetConnection* ANUTActor::EventWatcher = NULL;
 
 // Safety check, to ensure the EventWatcher UNetConnection is still valid
 bool ANUTActor::VerifyEventWatcher()
 {
 	bool bVerified = false;
+	UNetConnection*& EventWatcher = UNUTGlobals::Get().EventWatcher;
 
 	if (EventWatcher != nullptr)
 	{
