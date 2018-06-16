@@ -26,12 +26,14 @@
 #include "Engine/MapBuildDataRegistry.h"
 #include "MeshMergeModule.h"
 #include "PhysicsEngine/BodySetup.h"
-#include "RawMesh.h"
 #include "ScopedTransaction.h"
 #include "Toolkits/AssetEditorManager.h"
 #include "UnrealEdGlobals.h"
 #include "UnrealEd/Private/GeomFitUtils.h"
 #include "UnrealEd/Private/ConvexDecompTool.h"
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
+#include "MeshAttributeArray.h"
 
 #define LOCTEXT_NAMESPACE "EditorStaticMeshLibrary"
 
@@ -673,19 +675,23 @@ bool UEditorStaticMeshLibrary::HasVertexColors(UStaticMesh* StaticMesh)
 		return false;
 	}
 
-	for (FStaticMeshSourceModel& SourceModel : StaticMesh->SourceModels)
+	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
 	{
-		if (SourceModel.RawMeshBulkData && !SourceModel.RawMeshBulkData->IsEmpty())
+		FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LodIndex);
+		if (!MeshDescription->VertexInstanceAttributes().HasAttribute<FVector4>(MeshAttribute::VertexInstance::Color))
 		{
-			FRawMesh RawMesh;
-			SourceModel.RawMeshBulkData->LoadRawMesh(RawMesh);
-			if (RawMesh.WedgeColors.Num() > 0)
+			continue;
+		}
+		const TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
+		for (const FVertexInstanceID& VertexInstanceID : MeshDescription->VertexInstances().GetElementIDs())
+		{
+			FLinearColor VertexInstanceColor(VertexInstanceColors[VertexInstanceID]);
+			if (VertexInstanceColor != FLinearColor::White)
 			{
 				return true;
 			}
 		}
 	}
-
 	return false;
 }
 
@@ -731,10 +737,11 @@ bool UEditorStaticMeshLibrary::SetGenerateLightmapUVs(UStaticMesh* StaticMesh, b
 	}
 
 	bool AnySettingsToChange = false;
-	for (FStaticMeshSourceModel& SourceModel : StaticMesh->SourceModels)
+	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
 	{
+		FStaticMeshSourceModel& SourceModel = StaticMesh->SourceModels[LodIndex];
 		//Make sure LOD is not a reduction before considering its BuildSettings
-		if (SourceModel.RawMeshBulkData && !SourceModel.RawMeshBulkData->IsEmpty())
+		if (StaticMesh->GetOriginalMeshDescription(LodIndex) != nullptr)
 		{
 			AnySettingsToChange = (SourceModel.BuildSettings.bGenerateLightmapUVs != bGenerateLightmapUVs);
 
