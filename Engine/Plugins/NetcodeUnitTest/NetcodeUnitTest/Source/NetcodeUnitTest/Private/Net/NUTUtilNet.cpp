@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Net/NUTUtilNet.h"
+
 #include "UObject/CoreOnline.h"
 #include "GameFramework/OnlineReplStructs.h"
 #include "Engine/Engine.h"
@@ -10,6 +11,7 @@
 #include "Engine/LocalPlayer.h"
 #include "EngineUtils.h"
 #include "Net/DataChannel.h"
+#include "Net/RepLayout.h"
 
 #include "NUTUtil.h"
 #include "NUTUtilReflection.h"
@@ -23,6 +25,13 @@
 
 // Forward declarations
 class FWorldTickHook;
+
+
+// Enable access to FRepLayout.Cmds
+IMPLEMENT_GET_PRIVATE_VAR(FRepLayout, Cmds, TArray<FRepLayoutCmd>);
+
+
+IMPLEMENT_INTRINSIC_CLASS(UNetPropertyHook, NETCODEUNITTEST_API, UProperty, COREUOBJECT_API, "/Script/NetcodeUnitTest", {});
 
 
 /** Active unit test worlds */
@@ -379,6 +388,81 @@ FScopedNetNameReplace::~FScopedNetNameReplace()
 			PackageMap->OnSerializeName.Remove(Handle);
 		}
 	}
+}
+
+/**
+ * FScopedRPCParamReplace
+ */
+
+FScopedRPCParamReplace::FScopedRPCParamReplace(UMinimalClient* InMinClient, UFunction* InTargetRPC, FString InParamName,
+												const FOnNetSerializeItem& InSerializeHook)
+	: ParamRepCmd(nullptr)
+	, OriginalParam(nullptr)
+{
+	TSharedPtr<FRepLayout> FuncRepLayout;
+
+	if (UNetConnection* UnitConn = (InMinClient != nullptr ? InMinClient->GetConn() : nullptr))
+	{
+		if (UNetDriver* NetDriver = UnitConn->GetDriver())
+		{
+			FuncRepLayout = NetDriver->GetFunctionRepLayout(InTargetRPC);
+		}
+	}
+
+	if (FuncRepLayout.IsValid())
+	{
+		TArray<FRepLayoutCmd>& Cmds = GET_PRIVATE(FRepLayout, FuncRepLayout.Get(), Cmds);
+
+		for (FRepLayoutCmd& CurCmd : Cmds)
+		{
+			if (UProperty* CurProp = CurCmd.Property)
+			{
+				if (CurProp->GetName() == InParamName)
+				{
+					ParamRepCmd = &CurCmd;
+					OriginalParam = CurProp;
+
+					UNetPropertyHook* HookParam = GetMutableDefault<UNetPropertyHook>();
+
+					HookParam->SerializeHook = InSerializeHook;
+
+					ParamRepCmd->Property = HookParam;
+
+					break;
+				}
+			}
+		}
+	}
+}
+
+
+FScopedRPCParamReplace::~FScopedRPCParamReplace()
+{
+	GetMutableDefault<UNetPropertyHook>()->SerializeHook.Unbind();
+
+	if (ParamRepCmd != nullptr)
+	{
+		ParamRepCmd->Property = OriginalParam;
+	}
+
+	ParamRepCmd = nullptr;
+	OriginalParam = nullptr;
+}
+
+/**
+ * UNetPropertyHook
+ */
+
+bool UNetPropertyHook::NetSerializeItem(FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8>* MetaData) const
+{
+	bool bReturnVal = false;
+
+	if (SerializeHook.IsBound())
+	{
+		bReturnVal = SerializeHook.Execute(Ar, Map, Data, MetaData);
+	}
+
+	return bReturnVal;
 }
 
 

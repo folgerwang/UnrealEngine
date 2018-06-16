@@ -16,12 +16,14 @@ class APlayerController;
 class FInBunch;
 class FInternetAddr;
 class FOutBunch;
-class UMinimalClient;
+class FRepLayoutCmd;
 class UNetConnection;
 class UNetDriver;
+struct FUniqueNetIdRepl;
+
+class UMinimalClient;
 class UUnitTestChannel;
 class UUnitTestNetDriver;
-struct FUniqueNetIdRepl;
 class UClientUnitTest;
 
 
@@ -37,6 +39,17 @@ class UClientUnitTest;
  * @param bBlockRPC		Whether or not to block execution of the RPC
 */
 DECLARE_DELEGATE_FourParams(FOnProcessNetEvent, AActor* /*Actor*/, UFunction* /*Function*/, void* /*Parameters*/, bool& /*bBlockRPC*/);
+
+/**
+ * Delegate used to control hooked serialization of RPC parameters
+ *
+ * @param Ar			The archive being serialized to
+ * @param Map			The PackageMap for the net connection
+ * @param Data			The raw property data
+ * @param MetaData		The meta data for the property
+ */
+DECLARE_DELEGATE_RetVal_FourParams(bool, FOnNetSerializeItem, FArchive& /*Ar*/, UPackageMap* /*Map*/, void* /*Data*/,
+									TArray<uint8>* /*MetaData*/);
 
 
 /**
@@ -307,6 +320,37 @@ private:
 	UMinimalClient* MinClient;
 
 	FDelegateHandle Handle;
+};
+
+/**
+ * Hooks the netcode serialization of a specific RPC parameter, in order to override the raw serialized param data with something else
+ */
+class NETCODEUNITTEST_API FScopedRPCParamReplace
+{
+public:
+	FScopedRPCParamReplace(UMinimalClient* InMinClient, UFunction* InTargetRPC, FString InParamName,
+							const FOnNetSerializeItem& InSerializeHook);
+
+	~FScopedRPCParamReplace();
+
+private:
+	FRepLayoutCmd*		ParamRepCmd;
+
+	UProperty*			OriginalParam;
+};
+
+/**
+ * Implements the actual hook for the above class
+ */
+class UNetPropertyHook : public UProperty
+{
+	DECLARE_CLASS_INTRINSIC(UNetPropertyHook, UProperty, 0, TEXT("/Script/NetcodeUnitTest"))
+
+private:
+	virtual bool NetSerializeItem(FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8>* MetaData /*=nullptr*/) const override;
+
+public:
+	FOnNetSerializeItem SerializeHook;
 };
 
 
