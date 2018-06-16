@@ -32,10 +32,10 @@ namespace UnrealBuildTool.Rules
 					"SlateCore",
                     "EditorStyle",
                     "InputCore",
-				    "RawMesh",
                     "UnrealEd",
-                    "MainFrame"
-				}
+                    "MainFrame",
+                    "MeshDescription",
+                }
 				);
 
 			DynamicallyLoadedModuleNames.AddRange(
