@@ -13,25 +13,21 @@
 class FNUTUnrealEngine4 : public INUTUnrealEngine4
 {
 public:
-	/**
-	 * Called upon loading of the NUTFortnite library
-	 */
 	virtual void StartupModule() override
 	{
+		FNUTModuleInterface::StartupModule();
+
 		FShooterGameEnvironment::Register();
 		FQAGameEnvironment::Register();
 		FUTEnvironment::Register();
 	}
 
-	/**
-	 * Called immediately prior to unloading of the NUTFortnite library
-	 */
 	virtual void ShutdownModule() override
 	{
+		FNUTModuleInterface::ShutdownModule();
 	}
 };
 
 
-// Essential for getting the .dll to compile, and for the package to be loadable
 IMPLEMENT_MODULE(FNUTUnrealEngine4, NUTUnrealEngine4);
 

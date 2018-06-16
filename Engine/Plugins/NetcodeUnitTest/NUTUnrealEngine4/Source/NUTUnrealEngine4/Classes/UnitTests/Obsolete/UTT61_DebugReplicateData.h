@@ -37,7 +37,7 @@ class UUTT61_DebugReplicateData : public UClientUnitTest
 
 protected:
 	/** Reference to the GameplayDebuggingReplicator class */
-	static UClass* RepClass;
+	UClass* RepClass;
 
 private:
 	/** Once the GameplayDebuggingReplicator is received, cache it */

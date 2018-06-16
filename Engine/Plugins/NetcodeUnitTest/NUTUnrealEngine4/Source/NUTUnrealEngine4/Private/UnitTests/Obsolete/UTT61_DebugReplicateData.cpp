@@ -10,15 +10,13 @@
 #include "UnitTestEnvironment.h"
 
 
-UClass* UUTT61_DebugReplicateData::RepClass = FindObject<UClass>(ANY_PACKAGE, TEXT("GameplayDebuggingReplicator"));
-
-
 /**
  * UUTT61_DebugReplicateData
  */
 
 UUTT61_DebugReplicateData::UUTT61_DebugReplicateData(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, RepClass(FindObject<UClass>(ANY_PACKAGE, TEXT("GameplayDebuggingReplicator")))
 	, Replicator(nullptr)
 {
 	UnitTestName = TEXT("ReplicateDataCheck");
@@ -151,7 +149,7 @@ void UUTT61_DebugReplicateData::ExecuteClientUnitTest()
 		Parms.InMessage = 4; //EDebugComponentMessage::ActivateDataView;
 		Parms.DataView = -1;
 
-		static const FName ServerRepMessageName = FName(TEXT("ServerReplicateMessage"));
+		const FName ServerRepMessageName = FName(TEXT("ServerReplicateMessage"));
 
 		Replicator->ProcessEvent(Replicator->FindFunctionChecked(ServerRepMessageName), &Parms);
 
