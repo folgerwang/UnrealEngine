@@ -27,7 +27,7 @@ public:
 	//Build a render mesh description with the BuildSettings. This will update the InRenderMeshDescription ptr content
 	UMeshDescription* GetRenderMeshDescription(UObject* Owner);
 
-	void ReduceLOD(const UMeshDescription* BaseMesh, UMeshDescription* DestMesh, const struct FMeshReductionSettings& ReductionSettings, const TMultiMap<int32, int32>& InOverlappingCorners);
+	void ReduceLOD(const UMeshDescription* BaseMesh, UMeshDescription* DestMesh, const struct FMeshReductionSettings& ReductionSettings, const TMultiMap<int32, int32>& InOverlappingCorners, float &OutMaxDeviation);
 
 	//Return true if there is a valid original mesh description, false otherwise(Auto generate LOD).
 	bool IsValidOriginalMeshDescription();

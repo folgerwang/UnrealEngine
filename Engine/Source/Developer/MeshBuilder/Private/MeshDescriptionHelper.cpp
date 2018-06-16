@@ -147,7 +147,7 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 	return RenderMeshDescription;
 }
 
-void FMeshDescriptionHelper::ReduceLOD(const UMeshDescription* BaseMesh, UMeshDescription* DestMesh, const FMeshReductionSettings& ReductionSettings, const TMultiMap<int32, int32>& InOverlappingCorners)
+void FMeshDescriptionHelper::ReduceLOD(const UMeshDescription* BaseMesh, UMeshDescription* DestMesh, const FMeshReductionSettings& ReductionSettings, const TMultiMap<int32, int32>& InOverlappingCorners, float &OutMaxDeviation)
 {
 	if (BaseMesh == nullptr || DestMesh == nullptr)
 	{
@@ -163,8 +163,8 @@ void FMeshDescriptionHelper::ReduceLOD(const UMeshDescription* BaseMesh, UMeshDe
 	{
 		return;
 	}
-	float MaxDeviation = ReductionSettings.MaxDeviation;
-	MeshReduction->ReduceMeshDescription(DestMesh, MaxDeviation, BaseMesh, InOverlappingCorners, ReductionSettings);
+	OutMaxDeviation = ReductionSettings.MaxDeviation;
+	MeshReduction->ReduceMeshDescription(DestMesh, OutMaxDeviation, BaseMesh, InOverlappingCorners, ReductionSettings);
 }
 
 bool FMeshDescriptionHelper::IsValidOriginalMeshDescription()
