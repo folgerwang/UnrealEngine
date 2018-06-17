@@ -279,7 +279,7 @@ public:
 	bool IsCreatedByConstructionScript() const;
 
 	UFUNCTION()
-	void OnRep_IsActive();
+	virtual void OnRep_IsActive();
 
 private:
 	AActor* GetActorOwnerNoninline() const;
