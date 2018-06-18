@@ -212,7 +212,7 @@ void FRemoteSessionRole::CreateChannel(const FString& InChannelName, ERemoteSess
     else if (InChannelName == FRemoteSessionXRTrackingChannel::StaticType())
 	{
 		// Skip if there isn't an AR session running
-		if (UARBlueprintLibrary::GetSessionStatus().Status == EARSessionStatus::Running))
+		if (UARBlueprintLibrary::GetARSessionStatus().Status == EARSessionStatus::Running)
 		{
 			NewChannel = MakeShareable(new FRemoteSessionXRTrackingChannel(InMode, OSCConnection));
 		}
@@ -224,7 +224,7 @@ void FRemoteSessionRole::CreateChannel(const FString& InChannelName, ERemoteSess
 	else if (InChannelName == FRemoteSessionARCameraChannel::StaticType())
 	{
 		// Skip if there isn't an AR session running
-		if (UARBlueprintLibrary::GetSessionStatus().Status == EARSessionStatus::Running))
+		if (UARBlueprintLibrary::GetARSessionStatus().Status == EARSessionStatus::Running)
 		{
 			// Client side sending only works on iOS with Android coming in the future
 			bool IsSupported = (InMode == ERemoteSessionChannelMode::Read) || PLATFORM_IOS;
