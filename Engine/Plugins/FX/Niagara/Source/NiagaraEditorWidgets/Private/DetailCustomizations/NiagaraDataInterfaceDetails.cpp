@@ -202,7 +202,7 @@ void FNiagaraDataInterfaceDetailsBase::CustomizeDetails(IDetailLayoutBuilder& De
 	check(SelectedObjects.Num() == 1);
 	DataInterface = Cast<UNiagaraDataInterface>(SelectedObjects[0].Get());
 	check(DataInterface.IsValid());
-	DataInterface->OnChanged().AddRaw(this, &FNiagaraDataInterfaceDetailsBase::OnDataChanged);
+	DataInterface->OnChanged().AddSP(this, &FNiagaraDataInterfaceDetailsBase::OnDataChanged);
 	IDetailCategoryBuilder& ErrorsBuilderRef = DetailBuilder.EditCategory(ErrorsCategoryName, LOCTEXT("Errors", "Errors"), ECategoryPriority::Important);
 	ErrorsCategoryBuilder = &ErrorsBuilderRef;
 	CustomBuilder = MakeShared<FNiagaraDataInterfaceCustomNodeBuilder>(&DetailBuilder);
