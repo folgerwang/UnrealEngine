@@ -26,6 +26,57 @@ void UMeshDescription::Serialize( FArchive& Ar )
 	Ar << EdgeAttributesSet;
 	Ar << PolygonAttributesSet;
 	Ar << PolygonGroupAttributesSet;
+
+	if( Ar.IsLoading() )
+	{
+		// Populate vertex instance IDs for vertices
+		for( const FVertexInstanceID VertexInstanceID : VertexInstanceArray.GetElementIDs() )
+		{
+			const FVertexID VertexID = GetVertexInstanceVertex( VertexInstanceID );
+			VertexArray[ VertexID ].VertexInstanceIDs.Add( VertexInstanceID );
+		}
+
+		// Populate edge IDs for vertices
+		for( const FEdgeID EdgeID : EdgeArray.GetElementIDs() )
+		{
+			const FVertexID VertexID0 = GetEdgeVertex( EdgeID, 0 );
+			const FVertexID VertexID1 = GetEdgeVertex( EdgeID, 1 );
+			VertexArray[ VertexID0 ].ConnectedEdgeIDs.Add( EdgeID );
+			VertexArray[ VertexID1 ].ConnectedEdgeIDs.Add( EdgeID );
+		}
+
+		// Populate polygon IDs for vertex instances, edges and polygon groups
+		for( const FPolygonID PolygonID : PolygonArray.GetElementIDs() )
+		{
+			auto PopulatePolygonIDs = [ this, PolygonID ]( const TArray<FVertexInstanceID>& VertexInstanceIDs )
+			{
+				const int32 NumVertexInstances = VertexInstanceIDs.Num();
+				for( int32 Index = 0; Index < NumVertexInstances; ++Index )
+				{
+					const FVertexInstanceID VertexInstanceID0 = VertexInstanceIDs[ Index ];
+					const FVertexInstanceID VertexInstanceID1 = VertexInstanceIDs[ ( Index + 1 ) % NumVertexInstances ];
+					const FVertexID VertexID0 = GetVertexInstanceVertex( VertexInstanceID0 );
+					const FVertexID VertexID1 = GetVertexInstanceVertex( VertexInstanceID1 );
+					const FEdgeID EdgeID = GetVertexPairEdge( VertexID0, VertexID1 );
+					VertexInstanceArray[ VertexInstanceID0 ].ConnectedPolygons.Add( PolygonID );
+					EdgeArray[ EdgeID ].ConnectedPolygons.Add( PolygonID );
+				}
+			};
+
+			PopulatePolygonIDs( GetPolygonPerimeterVertexInstances( PolygonID ) );
+
+			for( int32 HoleIndex = 0; HoleIndex < GetNumPolygonHoles( PolygonID ); ++HoleIndex )
+			{
+				PopulatePolygonIDs( GetPolygonHoleVertexInstances( PolygonID, HoleIndex ) );
+			}
+
+			const FPolygonGroupID PolygonGroupID = PolygonArray[ PolygonID ].PolygonGroupID;
+			PolygonGroupArray[ PolygonGroupID ].Polygons.Add( PolygonID );
+
+			// We don't serialize triangles; instead the polygon gets retriangulated on load
+			ComputePolygonTriangulation( PolygonID, PolygonArray[ PolygonID ].Triangles );
+		}
+	}
 }
 
 #if WITH_EDITOR
@@ -54,6 +105,7 @@ void UMeshDescription::Empty()
 	PolygonGroupAttributesSet.Initialize( 0 );
 }
 
+#if 0
 #if WITH_EDITORONLY_DATA
 FString UMeshDescription::GetIdString()
 {
@@ -216,6 +268,7 @@ FString UMeshDescription::GetIdString()
 	return Guid.ToString(EGuidFormats::Digits);
 }
 #endif //WITH_EDITORONLY_DATA
+#endif
 
 void UMeshDescription::Compact( FElementIDRemappings& OutRemappings )
 {
