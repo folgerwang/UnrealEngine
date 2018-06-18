@@ -127,7 +127,7 @@ namespace Tools.DotNETCommon.Perforce
 		/// <param name="RecordHandler">Handler for each received record.</param>
 		public void Command(string CommandLine, byte[] InputData, Action<List<KeyValuePair<string, object>>> RecordHandler)
 		{
-			using(PerforceChildProcess Process = new PerforceChildProcess(InputData, "-G {0} {1}", GlobalOptions, CommandLine))
+			using(PerforceChildProcess Process = new PerforceChildProcess(InputData, "{0} {1}", GlobalOptions, CommandLine))
 			{
 				List<KeyValuePair<string, object>> Record = new List<KeyValuePair<string, object>>();
 				while(Process.TryReadRecord(Record))

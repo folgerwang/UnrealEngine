@@ -36,8 +36,19 @@ namespace Tools.DotNETCommon.Perforce
 
 		public PerforceChildProcess(byte[] InputData, string Format, params object[] Args)
 		{
+			string PerforceFileName;
+			if(Environment.OSVersion.Platform == PlatformID.Win32NT || Environment.OSVersion.Platform == PlatformID.Win32S || Environment.OSVersion.Platform == PlatformID.Win32Windows)
+			{
+				PerforceFileName = "p4.exe";
+			}
+			else
+			{
+				PerforceFileName = File.Exists("/usr/local/bin/p4")? "/usr/local/bin/p4" : "/usr/bin/p4";
+			}
+
 			ChildProcessGroup = new ManagedProcessGroup();
-			ChildProcess = new ManagedProcess(ChildProcessGroup, "p4.exe", "-G " + String.Format(Format, Args), null, null, InputData, ProcessPriorityClass.Normal);
+			ChildProcess = new ManagedProcess(ChildProcessGroup, PerforceFileName, "-G " + String.Format(Format, Args), null, null, InputData, ProcessPriorityClass.Normal);
+
 			Buffer = new byte[2048];
 		}
 
