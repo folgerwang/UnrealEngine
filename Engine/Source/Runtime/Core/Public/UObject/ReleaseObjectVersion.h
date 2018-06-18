@@ -61,6 +61,9 @@ struct CORE_API FReleaseObjectVersion
 		// During copy and paste transition getters could end up with broken state machine references
 		FixBrokenStateMachineReferencesInTransitionGetters,
 
+		// Change to MeshDescription serialization
+		MeshDescriptionNewSerialization,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

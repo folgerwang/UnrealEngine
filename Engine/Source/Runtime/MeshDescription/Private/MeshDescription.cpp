@@ -15,6 +15,9 @@ UMeshDescription::UMeshDescription()
 void UMeshDescription::Serialize( FArchive& Ar )
 {
 	Super::Serialize( Ar );
+
+	Ar.UsingCustomVersion( FReleaseObjectVersion::GUID );
+
 	Ar << VertexArray;
 	Ar << VertexInstanceArray;
 	Ar << EdgeArray;
@@ -27,7 +30,7 @@ void UMeshDescription::Serialize( FArchive& Ar )
 	Ar << PolygonAttributesSet;
 	Ar << PolygonGroupAttributesSet;
 
-	if( Ar.IsLoading() )
+	if( Ar.IsLoading() && Ar.CustomVer( FReleaseObjectVersion::GUID ) >= FReleaseObjectVersion::MeshDescriptionNewSerialization )
 	{
 		// Populate vertex instance IDs for vertices
 		for( const FVertexInstanceID VertexInstanceID : VertexInstanceArray.GetElementIDs() )
