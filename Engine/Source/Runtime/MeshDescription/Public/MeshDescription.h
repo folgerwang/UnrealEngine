@@ -1,14 +1,15 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+#if defined(_MSC_VER) && _MSC_FULL_VER <= 190023918
+#pragma warning(disable:4503)
+#endif
 
 #include "CoreMinimal.h"
 #include "CoreTypes.h"
 #include "MeshTypes.h"
 #include "MeshElementArray.h"
 #include "MeshAttributeArray.h"
-#include "UObject/ObjectMacros.h"
-#include "UObject/EditorObjectVersion.h"
 #include "MeshDescription.generated.h"
 
 enum
@@ -31,12 +32,6 @@ struct FMeshVertex
 	/** Serializer */
 	friend FArchive& operator<<( FArchive& Ar, FMeshVertex& Vertex )
 	{
-		if( Ar.IsLoading() && Ar.CustomVer( FEditorObjectVersion::GUID ) < FEditorObjectVersion::MeshDescriptionNewSerialization )
-		{
-			Ar << Vertex.VertexInstanceIDs;
-			Ar << Vertex.ConnectedEdgeIDs;
-		}
-
 		return Ar;
 	}
 };
@@ -58,11 +53,6 @@ struct FMeshVertexInstance
 	friend FArchive& operator<<( FArchive& Ar, FMeshVertexInstance& VertexInstance )
 	{
 		Ar << VertexInstance.VertexID;
-		if( Ar.IsLoading() && Ar.CustomVer( FEditorObjectVersion::GUID ) < FEditorObjectVersion::MeshDescriptionNewSerialization )
-		{
-			Ar << VertexInstance.ConnectedPolygons;
-		}
-
 		return Ar;
 	}
 };
@@ -88,11 +78,6 @@ struct FMeshEdge
 	{
 		Ar << Edge.VertexIDs[ 0 ];
 		Ar << Edge.VertexIDs[ 1 ];
-		if( Ar.IsLoading() && Ar.CustomVer( FEditorObjectVersion::GUID ) < FEditorObjectVersion::MeshDescriptionNewSerialization )
-		{
-			Ar << Edge.ConnectedPolygons;
-		}
-
 		return Ar;
 	}
 };
@@ -155,7 +140,6 @@ struct FMeshTriangle
 		Ar << Triangle.VertexInstanceID0;
 		Ar << Triangle.VertexInstanceID1;
 		Ar << Triangle.VertexInstanceID2;
-
 		return Ar;
 	}
 };
@@ -187,12 +171,7 @@ struct FMeshPolygon
 	{
 		Ar << Polygon.PerimeterContour;
 		Ar << Polygon.HoleContours;
-		if( Ar.IsLoading() && Ar.CustomVer( FEditorObjectVersion::GUID ) < FEditorObjectVersion::MeshDescriptionNewSerialization )
-		{
-			Ar << Polygon.Triangles;
-		}
 		Ar << Polygon.PolygonGroupID;
-
 		return Ar;
 	}
 };
@@ -209,11 +188,6 @@ struct FMeshPolygonGroup
 	/** Serializer */
 	friend FArchive& operator<<( FArchive& Ar, FMeshPolygonGroup& PolygonGroup )
 	{
-		if( Ar.IsLoading() && Ar.CustomVer( FEditorObjectVersion::GUID ) < FEditorObjectVersion::MeshDescriptionNewSerialization )
-		{
-			Ar << PolygonGroup.Polygons;
-		}
-
 		return Ar;
 	}
 };
