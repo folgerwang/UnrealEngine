@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "MeshTypes.h"
 #include "MeshElementRemappings.h"
-#include "UObject/EditorObjectVersion.h"
+#include "UObject/ReleaseObjectVersion.h"
 
 
 /**
