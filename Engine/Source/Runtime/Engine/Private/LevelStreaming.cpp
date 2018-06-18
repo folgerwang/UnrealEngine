@@ -706,6 +706,36 @@ FName ULevelStreaming::GetLODPackageNameToLoad() const
 	}
 }
 
+#if WITH_EDITOR
+void ULevelStreaming::RemoveLevelFromCollectionForReload()
+{
+	if (LoadedLevel)
+	{
+		// Remove the loaded level from its current collection, if any.
+		if (LoadedLevel->GetCachedLevelCollection())
+		{
+			LoadedLevel->GetCachedLevelCollection()->RemoveLevel(LoadedLevel);
+		}
+	}
+}
+
+void ULevelStreaming::AddLevelToCollectionAfterReload()
+{
+	if (LoadedLevel)
+	{
+		// Remove the loaded level from its current collection, if any.
+		if (LoadedLevel->GetCachedLevelCollection())
+		{
+			LoadedLevel->GetCachedLevelCollection()->RemoveLevel(LoadedLevel);
+		}
+		// Add this level to the correct collection
+		const ELevelCollectionType CollectionType = bIsStatic ? ELevelCollectionType::StaticLevels : ELevelCollectionType::DynamicSourceLevels;
+		FLevelCollection& LC = GetWorld()->FindOrAddCollectionByType(CollectionType);
+		LC.AddLevel(LoadedLevel);
+	}
+}
+#endif
+
 void ULevelStreaming::SetLoadedLevel(ULevel* Level)
 { 
 	// Pending level should be unloaded at this point
