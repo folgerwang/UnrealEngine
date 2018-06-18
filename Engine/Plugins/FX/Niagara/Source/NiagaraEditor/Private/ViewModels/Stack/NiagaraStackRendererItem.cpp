@@ -52,6 +52,15 @@ void UNiagaraStackRendererItem::Initialize(FRequiredEntryData InRequiredEntryDat
 	}
 }
 
+void UNiagaraStackRendererItem::FinalizeInternal()
+{
+	if (RendererProperties.IsValid())
+	{
+		RendererProperties->OnChanged().RemoveAll(this);
+	}
+	Super::FinalizeInternal();
+}
+
 TArray<FNiagaraVariable> UNiagaraStackRendererItem::GetMissingVariables(UNiagaraRendererProperties* RendererProperties, UNiagaraEmitter* Emitter)
 {
 	TArray<FNiagaraVariable> MissingAttributes;
@@ -159,6 +168,7 @@ void UNiagaraStackRendererItem::Delete()
 	Emitter->Modify();
 	Emitter->RemoveRenderer(RendererProperties.Get());
 
+	OnDataObjectModified().Broadcast(RendererProperties.Get());
 	ModifiedGroupItemsDelegate.ExecuteIfBound();
 }
 
@@ -201,17 +211,9 @@ bool UNiagaraStackRendererItem::GetIsEnabled() const
 void UNiagaraStackRendererItem::SetIsEnabled(bool bInIsEnabled)
 {
 	FScopedTransaction ScopedTransaction(LOCTEXT("SetRendererEnabledState", "Set renderer enabled/disabled state."));
-	RendererObject->Modify();
+	RendererProperties->Modify();
 	RendererProperties->SetIsEnabled(bInIsEnabled);
-}
-
-void UNiagaraStackRendererItem::BeginDestroy()
-{
-	if (RendererProperties.IsValid())
-	{
-		RendererProperties->OnChanged().RemoveAll(this);
-	}
-	Super::BeginDestroy();
+	OnDataObjectModified().Broadcast(RendererProperties.Get());
 }
 
 void UNiagaraStackRendererItem::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)
@@ -232,17 +234,19 @@ void UNiagaraStackRendererItem::RefreshChildrenInternal(const TArray<UNiagaraSta
 
 void UNiagaraStackRendererItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 {
+	if (!GetIsEnabled())
+	{
+		NewIssues.Empty();
+		return;
+	}
 	for (FNiagaraVariable Attribute : MissingAttributes)
 	{
-		UNiagaraStackEntry::FStackIssue MissingAttributeError;
-		MissingAttributeError.ShortDescription = LOCTEXT("FailedRendererBindShort", "An attribute is missing.");
-		MissingAttributeError.LongDescription = FText::Format(LOCTEXT("FailedRendererBind", "Missing attribute \"{0}\" of Type \"{1}\"."), FText::FromName(Attribute.GetName()), Attribute.GetType().GetNameText());
-		MissingAttributeError.UniqueIdentifier = FName(*FString::Printf(TEXT("%s-AttributeMissing-%s"), *GetStackEditorDataKey(), *Attribute.GetName().ToString()));
-		UNiagaraStackEntry::FStackIssueFix Fix;
-		Fix.Description = LOCTEXT("AddMissingVariable", "Add missing variable");
-		Fix.FixDelegate.BindLambda([=]()
+		FText FixDescription = LOCTEXT("AddMissingVariable", "Add missing variable");
+		FStackIssueFix AddAttributeFix(
+			FixDescription,
+			FStackIssueFixDelegate::CreateLambda([=]()
 		{
-			FScopedTransaction ScopedTransaction(Fix.Description);
+			FScopedTransaction ScopedTransaction(FixDescription);
 			if (AddMissingVariable(GetEmitterViewModel()->GetEmitter(), Attribute))
 			{
 				FNotificationInfo Info(FText::Format(LOCTEXT("AddedVariableForFix", "Added {0} to the Spawn script to support the renderer."), FText::FromName(Attribute.GetName())));
@@ -251,16 +255,28 @@ void UNiagaraStackRendererItem::RefreshIssues(TArray<FStackIssue>& NewIssues)
 				Info.Image = FCoreStyle::Get().GetBrush(TEXT("MessageLog.Info"));
 				FSlateNotificationManager::Get().AddNotification(Info);
 			}
-		});
-		MissingAttributeError.Fixes.Add(Fix);
+		}));
+
+		FStackIssue MissingAttributeError(
+			EStackIssueSeverity::Error,
+			LOCTEXT("FailedRendererBindShort", "An attribute is missing."),
+			FText::Format(LOCTEXT("FailedRendererBind", "Missing attribute \"{0}\" of Type \"{1}\"."), FText::FromName(Attribute.GetName()), Attribute.GetType().GetNameText()),
+			GetStackEditorDataKey(),
+			false,
+			AddAttributeFix);
+
 		NewIssues.Add(MissingAttributeError);
 	}
+
 	if (RendererProperties->GetIsEnabled() && !RendererProperties->IsSimTargetSupported(GetEmitterViewModel()->GetEmitter()->SimTarget))
 	{
-		UNiagaraStackEntry::FStackIssue TargetSupportError;
-		TargetSupportError.ShortDescription = LOCTEXT("FailedRendererDueToSimTarget", "Renderer incompatible with SimTarget mode.");
-		TargetSupportError.LongDescription = FText::Format(LOCTEXT("FailedRendererDueToSimTargetLong", "Renderer incompatible with SimTarget mode \"{0}\"."), (int32)GetEmitterViewModel()->GetEmitter()->SimTarget);
-		TargetSupportError.UniqueIdentifier = FName(*FString::Printf(TEXT("%s-SimTargetModeError-%d"), *GetStackEditorDataKey(), (int32)GetEmitterViewModel()->GetEmitter()->SimTarget));
+		FStackIssue TargetSupportError(
+			EStackIssueSeverity::Error,
+			LOCTEXT("FailedRendererDueToSimTarget", "Renderer incompatible with SimTarget mode."),
+			FText::Format(LOCTEXT("FailedRendererDueToSimTargetLong", "Renderer incompatible with SimTarget mode \"{0}\"."), (int32)GetEmitterViewModel()->GetEmitter()->SimTarget),
+			GetStackEditorDataKey(),
+			false);
+
 		NewIssues.Add(TargetSupportError);
 	}
 }

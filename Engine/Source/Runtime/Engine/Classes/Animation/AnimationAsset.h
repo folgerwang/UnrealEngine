@@ -51,6 +51,12 @@ struct FMarkerTickRecord
 	bool IsValid() const { return PreviousMarker.MarkerIndex != MarkerIndexSpecialValues::Unitialized && NextMarker.MarkerIndex != MarkerIndexSpecialValues::Unitialized; }
 
 	void Reset() { PreviousMarker.Reset(); NextMarker.Reset(); }
+
+	/** Debug output function*/
+	FString ToString() const
+	{
+		return FString::Printf(TEXT("[PreviousMarker Index/Time %i/%.2f, NextMarker Index/Time %i/%.2f]"), PreviousMarker.MarkerIndex, PreviousMarker.TimeToMarker, NextMarker.MarkerIndex, NextMarker.TimeToMarker);
+	}
 };
 
 /** Transform definition */

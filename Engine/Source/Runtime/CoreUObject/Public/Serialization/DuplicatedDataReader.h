@@ -6,6 +6,7 @@
 #include "Serialization/ArchiveUObject.h"
 #include "UObject/UObjectAnnotation.h"
 #include "Serialization/DuplicatedObject.h"
+#include "Serialization/LargeMemoryData.h"
 
 /*----------------------------------------------------------------------------
 	FDuplicateDataReader.
@@ -19,8 +20,8 @@ class FDuplicateDataReader : public FArchiveUObject
 private:
 
 	class FUObjectAnnotationSparse<FDuplicatedObject,false>&	DuplicatedObjectAnnotation;
-	const TArray<uint8>&					ObjectData;
-	int32									Offset;
+	const FLargeMemoryData&					ObjectData;
+	int64									Offset;
 
 	//~ Begin FArchive Interface.
 
@@ -33,14 +34,13 @@ private:
 
 	virtual void Serialize(void* Data,int64 Num)
 	{
-		if(Num)
+		if (ObjectData.Read(Data, Offset, Num))
 		{
-			if (!(Offset + Num <= ObjectData.Num()))
-			{
-				SerializeFail();
-			}
-			FMemory::Memcpy(Data,&ObjectData[Offset],Num);
 			Offset += Num;
+		}
+		else
+		{
+			SerializeFail();
 		}
 	}
 
@@ -64,7 +64,7 @@ public:
 	}
 	virtual int64 TotalSize()
 	{
-		return ObjectData.Num();
+		return ObjectData.GetSize();
 	}
 
 	/**
@@ -73,5 +73,5 @@ public:
 	 * @param	InDuplicatedObjectAnnotation		Annotation for storing a mapping from source to duplicated object
 	 * @param	InObjectData					Object data to read from
 	 */
-	FDuplicateDataReader( FUObjectAnnotationSparse<FDuplicatedObject,false>& InDuplicatedObjectAnnotation, const TArray<uint8>& InObjectData, uint32 InPortFlags, UObject* InDestOuter );
+	FDuplicateDataReader( FUObjectAnnotationSparse<FDuplicatedObject,false>& InDuplicatedObjectAnnotation, const FLargeMemoryData& InObjectData, uint32 InPortFlags, UObject* InDestOuter );
 };

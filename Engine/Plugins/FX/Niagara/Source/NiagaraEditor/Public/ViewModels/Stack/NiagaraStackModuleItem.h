@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ViewModels/Stack/NiagaraStackItem.h"
+#include "NiagaraTypes.h"
 #include "NiagaraStackModuleItem.generated.h"
 
 class UNiagaraNodeFunctionCall;
@@ -51,6 +52,10 @@ public:
 
 	void NotifyModuleMoved();
 
+	bool CanAddInput() const;
+
+	void AddInput(FNiagaraVariable InputParameter);
+
 protected:
 	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
@@ -60,7 +65,6 @@ private:
 
 private:
 	void RefreshIsEnabled();
-	void InputPinnedChanged();
 
 private:
 	UNiagaraNodeFunctionCall* FunctionCallNode;

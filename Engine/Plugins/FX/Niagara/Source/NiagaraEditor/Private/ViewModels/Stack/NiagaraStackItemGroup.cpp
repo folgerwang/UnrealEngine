@@ -47,9 +47,9 @@ uint32 UNiagaraStackItemGroup::GetRecursiveStackIssuesCount() const
 		EStackIssueSeverity MinSeverity = EStackIssueSeverity::Info;
 		for (auto Issue : RecursiveIssues)
 		{
-			if (Issue->GetStackIssue().Severity < MinSeverity)
+			if (Issue->GetStackIssue().GetSeverity() < MinSeverity)
 			{
-				MinSeverity = Issue->GetStackIssue().Severity;
+				MinSeverity = Issue->GetStackIssue().GetSeverity();
 			}
 		}
 		HighestIssueSeverity = MinSeverity;

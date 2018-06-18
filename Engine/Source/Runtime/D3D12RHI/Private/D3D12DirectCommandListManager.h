@@ -214,7 +214,7 @@ protected:
 	FD3D12CommandAllocatorManager ResourceBarrierCommandAllocatorManager;
 	FD3D12CommandAllocator* ResourceBarrierCommandAllocator;
 
-	FD3D12Fence* CommandListFence;
+	TRefCountPtr<FD3D12Fence> CommandListFence;
 
 	D3D12_COMMAND_LIST_TYPE					CommandListType;
 	ED3D12CommandQueueType					QueueType;

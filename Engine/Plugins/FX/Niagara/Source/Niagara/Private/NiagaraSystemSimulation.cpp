@@ -32,6 +32,14 @@ static FAutoConsoleVariableRef CVarNiagaraDumpSystemData(
 	ECVF_Default
 );
 
+static int32 GbSystemUpdateOnSpawn = 1;
+static FAutoConsoleVariableRef CVarSystemUpdateOnSpawn(
+	TEXT("fx.SystemUpdateOnSpawn"),
+	GbSystemUpdateOnSpawn,
+	TEXT("If > 0, system simulations are given a small update after spawn. \n"),
+	ECVF_Default
+);
+
 //Pretick can no longer be run in parallel. Will likely remain this way.
 // static int32 GbParallelSystemPreTick = 0;
 // static FAutoConsoleVariableRef CVarNiagaraParallelSystemPreTick(
@@ -364,9 +372,6 @@ bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 			SpawnInstanceParameterDataSet.Tick();
 			UpdateInstanceParameterDataSet.Tick();
 
-			DataSet.Tick();
-			DataSet.Allocate(NewNum);
-
 			//Setup the few real constants like delta time.
 			float InvDt = 1.0f / DeltaSeconds;
 			float GlobalSpawnCountScale = INiagaraModule::GetGlobalSpawnCountScale();
@@ -385,60 +390,16 @@ bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 			DataSetExecInfos.Emplace(&DataSet, 0, false, true);
 		}
 
-		{
-			SCOPE_CYCLE_COUNTER(STAT_NiagaraSystemSim_Update);
-			DataSet.SetNumInstances(OrigNum);
-			UpdateInstanceParameterDataSet.SetNumInstances(OrigNum);
-
-			//Run update.
-			UpdateExecContext.Tick(SystemInstances[0]);
-			DataSetExecInfos[0].StartInstance = 0;
-			DataSetExecInfos.Emplace(&UpdateInstanceParameterDataSet, 0, false, false);
-
-// 			if (GbDumpSystemData || System->bDumpDebugSystemInfo)
-// 			{
-// 				UE_LOG(LogNiagara, Log, TEXT("=== PreUpdated %d Systems ==="), OrigNum);
-// 				DataSet.Dump(false, 0, OrigNum);
-// 				UpdateInstanceParameterDataSet.Dump(false, 0, OrigNum);
-// 			}
-
-			UpdateExecContext.Execute(OrigNum, DataSetExecInfos);
-
-			if (GbDumpSystemData || System->bDumpDebugSystemInfo)
-			{
-				UE_LOG(LogNiagara, Log, TEXT("=== Updated %d Systems ==="), OrigNum);
-				DataSet.Dump(true, 0, OrigNum);
-			}
-
-#if WITH_EDITORONLY_DATA
-			if (SoloSystemInstance && SoloSystemInstance->ShouldCaptureThisFrame())
-			{
-				FNiagaraScriptDebuggerInfo* DebugInfo = SoloSystemInstance->GetActiveCaptureWrite(NAME_None, ENiagaraScriptUsage::SystemUpdateScript, FGuid());
-				if (DebugInfo)
-				{
-					DataSet.Dump(DebugInfo->Frame, true, 0, OrigNum);
-					//DebugInfo->Frame.Dump(true, 0, OrigNum);
-					DebugInfo->Parameters = UpdateExecContext.Parameters;
-				}
-			}
-#endif
-		}
-
-		SystemExecutionStateAccessor.InitForAccess(true);
-		for (int32 EmitterIdx = 0; EmitterIdx < System->GetNumEmitters(); ++EmitterIdx)
-		{
-			EmitterExecutionStateAccessors[EmitterIdx].InitForAccess(true);
-			for (int32 SpawnInfoIdx = 0; SpawnInfoIdx < EmitterSpawnInfoAccessors[EmitterIdx].Num(); ++SpawnInfoIdx)
-			{
-				EmitterSpawnInfoAccessors[EmitterIdx][SpawnInfoIdx].InitForAccess(true);
-			}
-		}
-
-		if(SpawnNum)
+		//TODO: JIRA - UE-60096 - Remove.
+		//We're having to allocate and spawn before update here so we have to do needless copies.			
+		//Ideally this should be compiled directly into the script similarly to interpolated particle spawning.
+		if (SpawnNum)
 		{
 			SCOPE_CYCLE_COUNTER(STAT_NiagaraSystemSim_Spawn);
+			DataSet.Allocate(NewNum, true);
+
 			DataSet.SetNumInstances(NewNum);
-			SpawnInstanceParameterDataSet.SetNumInstances(NewNum);
+			//SpawnInstanceParameterDataSet.SetNumInstances(NewNum);
 
 			//Run Spawn
 			SpawnExecContext.Tick(SoloSystemInstance);//We can't require a specific instance here as these are for all instances.
@@ -466,6 +427,82 @@ bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 				}
 			}
 #endif
+		}
+
+		DataSet.Tick();
+		DataSet.Allocate(NewNum);
+
+		{
+			SCOPE_CYCLE_COUNTER(STAT_NiagaraSystemSim_Update);
+			DataSet.SetNumInstances(NewNum);
+			//UpdateInstanceParameterDataSet.SetNumInstances(OrigNum);
+
+			//Run update.
+			UpdateExecContext.Tick(SystemInstances[0]);
+			DataSetExecInfos[0].StartInstance = 0;
+			DataSetExecInfos.Emplace(&UpdateInstanceParameterDataSet, 0, false, false);
+
+// 			if (GbDumpSystemData || System->bDumpDebugSystemInfo)
+// 			{
+// 				UE_LOG(LogNiagara, Log, TEXT("=== PreUpdated %d Systems ==="), OrigNum);
+// 				DataSet.Dump(false, 0, OrigNum);
+// 				UpdateInstanceParameterDataSet.Dump(false, 0, OrigNum);
+// 			}
+
+			UpdateExecContext.Execute(OrigNum, DataSetExecInfos);
+
+			if (GbDumpSystemData || System->bDumpDebugSystemInfo)
+			{
+				UE_LOG(LogNiagara, Log, TEXT("=== Updated %d Systems ==="), OrigNum);
+				DataSet.Dump(true, 0, OrigNum);
+			}
+
+ 			//Also run the update script on the newly spawned systems too.
+			//TODO: JIRA - UE-60096 - Remove.
+			//Ideally this should be compiled directly into the script similarly to interpolated particle spawning.
+			if (SpawnNum && GbSystemUpdateOnSpawn)
+			{
+				DataSet.SetNumInstances(NewNum);
+
+				//Run update.
+				UpdateExecContext.Tick(SystemInstances[0]);
+				DataSetExecInfos[0].StartInstance = OrigNum;
+				DataSetExecInfos[1].StartInstance = OrigNum;
+
+				UpdateExecContext.Parameters.SetParameterValue(0.0001f, SYS_PARAM_ENGINE_DELTA_TIME);
+				UpdateExecContext.Parameters.SetParameterValue(10000.0f, SYS_PARAM_ENGINE_INV_DELTA_TIME);
+
+				UpdateExecContext.Execute(SpawnNum, DataSetExecInfos);
+
+				if (GbDumpSystemData || System->bDumpDebugSystemInfo)
+				{
+					UE_LOG(LogNiagara, Log, TEXT("=== Spawn Updated %d Systems ==="), SpawnNum);
+					DataSet.Dump(true, OrigNum, SpawnNum);
+				}
+			}
+
+#if WITH_EDITORONLY_DATA
+			if (SoloSystemInstance && SoloSystemInstance->ShouldCaptureThisFrame())
+			{
+				FNiagaraScriptDebuggerInfo* DebugInfo = SoloSystemInstance->GetActiveCaptureWrite(NAME_None, ENiagaraScriptUsage::SystemUpdateScript, FGuid());
+				if (DebugInfo)
+				{
+					DataSet.Dump(DebugInfo->Frame, true, 0, NewNum);
+					//DebugInfo->Frame.Dump(true, 0, OrigNum);
+					DebugInfo->Parameters = UpdateExecContext.Parameters;
+				}
+			}
+#endif
+		}
+
+		SystemExecutionStateAccessor.InitForAccess(true);
+		for (int32 EmitterIdx = 0; EmitterIdx < System->GetNumEmitters(); ++EmitterIdx)
+		{
+			EmitterExecutionStateAccessors[EmitterIdx].InitForAccess(true);
+			for (int32 SpawnInfoIdx = 0; SpawnInfoIdx < EmitterSpawnInfoAccessors[EmitterIdx].Num(); ++SpawnInfoIdx)
+			{
+				EmitterSpawnInfoAccessors[EmitterIdx][SpawnInfoIdx].InitForAccess(true);
+			}
 		}
 
 		{

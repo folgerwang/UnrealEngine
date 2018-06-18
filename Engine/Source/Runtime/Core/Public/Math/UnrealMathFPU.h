@@ -1027,6 +1027,23 @@ FORCEINLINE void VectorStoreByte4( const VectorRegister& Vec, void* Ptr )
 }
 
 /**
+* Converts the 4 FLOATs in the vector to 4 BYTEs, clamped to [-127,127], and stores to unaligned memory.
+* IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
+*
+* @param Vec			Vector containing 4 FLOATs
+* @param Ptr			Unaligned memory pointer to store the 4 BYTEs.
+*/
+FORCEINLINE void VectorStoreSignedByte4(const VectorRegister& Vec, void* Ptr)
+{
+	int8 *BytePtr = (int8*)Ptr;
+	BytePtr[0] = int8(Vec.V[0]);
+	BytePtr[1] = int8(Vec.V[1]);
+	BytePtr[2] = int8(Vec.V[2]);
+	BytePtr[3] = int8(Vec.V[3]);
+}
+
+
+/**
 * Loads packed RGB10A2(4 bytes) from unaligned memory and converts them into 4 FLOATs.
 * IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
 *

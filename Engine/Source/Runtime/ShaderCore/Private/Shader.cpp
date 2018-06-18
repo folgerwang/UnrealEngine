@@ -153,10 +153,7 @@ FShaderType::FShaderType(
 	GetStreamOutElementsRef(InGetStreamOutElementsRef),
 	GlobalListLink(this)
 {
-	for (int32 Platform = 0; Platform < SP_NumPlatforms; Platform++)
-	{
-		bCachedUniformBufferStructDeclarations[Platform] = false;
-	}
+	bCachedUniformBufferStructDeclarations = false;
 
 	// This will trigger if an IMPLEMENT_SHADER_TYPE was in a module not loaded before InitializeShaderTypes
 	// Shader types need to be implemented in modules that are loaded before that

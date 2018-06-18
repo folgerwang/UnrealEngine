@@ -87,6 +87,8 @@ private:
 
 	void ScriptParameterStoreChanged(const FNiagaraParameterStore& ChangedParameterStore, const UNiagaraScript& OwningScript);
 
+	void OnEmitterPropertiesChanged();
+
 private:
 
 	/** The text format stats display .*/
@@ -118,8 +120,6 @@ private:
 	FOnScriptGraphChanged OnScriptGraphChangedDelegate;
 
 	FOnScriptParameterStoreChanged OnScriptParameterStoreChangedDelegate;
-
-	ENiagaraScriptCompileStatus LastEventScriptStatus;
 
 	TNiagaraViewModelManager<UNiagaraEmitter, FNiagaraEmitterViewModel>::Handle RegisteredHandle;
 

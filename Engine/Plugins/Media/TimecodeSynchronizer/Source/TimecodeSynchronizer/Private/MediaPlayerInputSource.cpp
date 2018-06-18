@@ -37,7 +37,7 @@ FFrameTime UMediaPlayerInputSource::GetNextSampleTime() const
 		if (MediaTexture->GetAvailableSampleCount() > 0)
 		{
 			const FTimespan TextureTime = MediaTexture->GetNextSampleTime();
-			NextSampleTime = FFrameTime::FromDecimal(TextureTime.GetTotalSeconds() * PlayerFrameRate.AsDecimal()).RoundToFrame();
+			NextSampleTime = FFrameTime::FromDecimal(TextureTime.GetTotalSeconds() * GetFrameRate().AsDecimal()).RoundToFrame();
 		}
 		else if (Player->GetCache().GetSampleCount(EMediaCacheState::Loaded) > 0)
 		{
@@ -54,13 +54,9 @@ FFrameTime UMediaPlayerInputSource::GetNextSampleTime() const
 				{
 					MinBound = TRangeBound<FTimespan>::MinLower(MinBound, Range.GetLowerBound());
 				}
-
 				const FTimespan MinSampleTime = MinBound.GetValue();
-				
-				//todo : Next time sequencer is integrated to main, get changes to TRangeSet to be able to use this code. (CL 3967195) 
-				//const FTimespan& MinSampleTime = SampleTimes.GetMinBoundValue();
 			
-				NextSampleTime = FFrameTime::FromDecimal(MinSampleTime.GetTotalSeconds() * PlayerFrameRate.AsDecimal()).RoundToFrame();
+				NextSampleTime = FFrameTime::FromDecimal(MinSampleTime.GetTotalSeconds() * GetFrameRate().AsDecimal()).RoundToFrame();
 			}
 		}
 	}
@@ -84,7 +80,19 @@ int32 UMediaPlayerInputSource::GetAvailableSampleCount() const
 
 FFrameRate UMediaPlayerInputSource::GetFrameRate() const
 {
-	return PlayerFrameRate;
+	const auto& Player = MediaPlayer->GetPlayerFacade()->GetPlayer();
+	if (Player.IsValid() && IsReady())
+	{
+		//Save the FrameRate of the current track of the media player for future use
+		const int32 SelectedTrack = MediaPlayer->GetSelectedTrack(EMediaPlayerTrack::Video);
+		const int32 SelectedFormat = MediaPlayer->GetTrackFormat(EMediaPlayerTrack::Video, SelectedTrack);
+		const float FrameRate = MediaPlayer->GetVideoTrackFrameRate(SelectedTrack, SelectedFormat);
+
+		//Convert using 1001 for DropFrame FrameRate detection
+		const uint32 Precision = 1001;
+		return FFrameRate(FMath::RoundToInt(FrameRate * Precision), Precision);
+	}
+	return FFrameRate();
 }
 
 bool UMediaPlayerInputSource::IsReady() const
@@ -111,18 +119,7 @@ bool UMediaPlayerInputSource::Open()
 			else
 			{
 				const auto& Player = MediaPlayer->GetPlayerFacade()->GetPlayer();
-				if (Player.IsValid())
-				{
-					//Save the FrameRate of the current track of the media player for future use
-					const int32 SelectedTrack = MediaPlayer->GetSelectedTrack(EMediaPlayerTrack::Video);
-					const int32 SelectedFormat = MediaPlayer->GetTrackFormat(EMediaPlayerTrack::Video, SelectedTrack);
-					const float FrameRate = MediaPlayer->GetVideoTrackFrameRate(SelectedTrack, SelectedFormat);
-
-					//Convert using 1001 for DropFrame FrameRate detection
-					const uint32 Precision = 1001;
-					PlayerFrameRate = FFrameRate(FMath::RoundToInt(FrameRate * Precision), Precision);
-				}
-				else
+				if (!Player.IsValid())
 				{
 					UE_LOG(LogTimecodeSynchronizer, Error, TEXT("Current player is invalid."));
 					MediaPlayer->Close();

@@ -65,9 +65,9 @@ namespace MeshDescriptionOperationNamespace
 void FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(const UMeshDescription* SourceMeshDescription, struct FRawMesh &DestinationRawMesh)
 {
 	TMap<FPolygonID, uint32> PolygonSmoothGroup;
-	PolygonSmoothGroup.Reserve(SourceMeshDescription->Polygons().Num());
+	PolygonSmoothGroup.Reserve(SourceMeshDescription->Polygons().GetArraySize());
 	TArray<bool> ConsumedPolygons;
-	ConsumedPolygons.AddZeroed(SourceMeshDescription->Polygons().Num());
+	ConsumedPolygons.AddZeroed(SourceMeshDescription->Polygons().GetArraySize());
 
 	TMap < FPolygonID, uint32> PolygonAvoidances;
 
@@ -256,21 +256,14 @@ void FMeshDescriptionOperations::ConverToRawMesh(const UMeshDescription* SourceM
 	const TPolygonGroupAttributeArray<FName>& PolygonGroupMaterialSlotName = SourceMeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 
 	DestinationRawMesh.VertexPositions.AddZeroed(SourceMeshDescription->Vertices().Num());
+	TArray<int32> RemapVerts;
+	RemapVerts.AddZeroed(SourceMeshDescription->Vertices().GetArraySize());
+	int32 VertexIndex = 0;
 	for (const FVertexID& VertexID : SourceMeshDescription->Vertices().GetElementIDs())
 	{
-		int32 VertexIDValue = VertexID.GetValue();
-		DestinationRawMesh.VertexPositions[VertexIDValue] = VertexPositions[VertexID];
-	}
-	int32 VertexInstanceNumber = SourceMeshDescription->VertexInstances().Num();
-	DestinationRawMesh.WedgeColors.AddZeroed(VertexInstanceNumber);
-	DestinationRawMesh.WedgeIndices.AddZeroed(VertexInstanceNumber);
-	DestinationRawMesh.WedgeTangentX.AddZeroed(VertexInstanceNumber);
-	DestinationRawMesh.WedgeTangentY.AddZeroed(VertexInstanceNumber);
-	DestinationRawMesh.WedgeTangentZ.AddZeroed(VertexInstanceNumber);
-	int32 ExistingUVCount = VertexInstanceUVs.GetNumIndices();
-	for (int32 UVIndex = 0; UVIndex < ExistingUVCount; ++UVIndex)
-	{
-		DestinationRawMesh.WedgeTexCoords[UVIndex].AddZeroed(VertexInstanceNumber);
+		DestinationRawMesh.VertexPositions[VertexIndex] = VertexPositions[VertexID];
+		RemapVerts[VertexID.GetValue()] = VertexIndex;
+		++VertexIndex;
 	}
 
 	int32 TriangleNumber = 0;
@@ -281,7 +274,20 @@ void FMeshDescriptionOperations::ConverToRawMesh(const UMeshDescription* SourceM
 	DestinationRawMesh.FaceMaterialIndices.AddZeroed(TriangleNumber);
 	DestinationRawMesh.FaceSmoothingMasks.AddZeroed(TriangleNumber);
 
+	int32 WedgeIndexNumber = TriangleNumber * 3;
+	DestinationRawMesh.WedgeColors.AddZeroed(WedgeIndexNumber);
+	DestinationRawMesh.WedgeIndices.AddZeroed(WedgeIndexNumber);
+	DestinationRawMesh.WedgeTangentX.AddZeroed(WedgeIndexNumber);
+	DestinationRawMesh.WedgeTangentY.AddZeroed(WedgeIndexNumber);
+	DestinationRawMesh.WedgeTangentZ.AddZeroed(WedgeIndexNumber);
+	int32 ExistingUVCount = VertexInstanceUVs.GetNumIndices();
+	for (int32 UVIndex = 0; UVIndex < ExistingUVCount; ++UVIndex)
+	{
+		DestinationRawMesh.WedgeTexCoords[UVIndex].AddZeroed(WedgeIndexNumber);
+	}
+
 	int32 TriangleIndex = 0;
+	int32 WedgeIndex = 0;
 	for (const FPolygonID& PolygonID : SourceMeshDescription->Polygons().GetElementIDs())
 	{
 		const FPolygonGroupID& PolygonGroupID = SourceMeshDescription->GetPolygonPolygonGroup(PolygonID);
@@ -301,16 +307,17 @@ void FMeshDescriptionOperations::ConverToRawMesh(const UMeshDescription* SourceM
 			for (int32 Corner = 0; Corner < 3; ++Corner)
 			{
 				const FVertexInstanceID VertexInstanceID = MeshTriangle.GetVertexInstanceID(Corner);
-				const int32 VertexInstanceIDValue = VertexInstanceID.GetValue();
-				DestinationRawMesh.WedgeColors[VertexInstanceIDValue] = FLinearColor(VertexInstanceColors[VertexInstanceID]).ToFColor(true);
-				DestinationRawMesh.WedgeIndices[VertexInstanceIDValue] = SourceMeshDescription->GetVertexInstanceVertex(VertexInstanceID).GetValue();
-				DestinationRawMesh.WedgeTangentX[VertexInstanceIDValue] = VertexInstanceTangents[VertexInstanceID];
-				DestinationRawMesh.WedgeTangentY[VertexInstanceIDValue] = FVector::CrossProduct(VertexInstanceNormals[VertexInstanceID], VertexInstanceTangents[VertexInstanceID]).GetSafeNormal() * VertexInstanceBinormalSigns[VertexInstanceID];
-				DestinationRawMesh.WedgeTangentZ[VertexInstanceIDValue] = VertexInstanceNormals[VertexInstanceID];
+
+				DestinationRawMesh.WedgeColors[WedgeIndex] = FLinearColor(VertexInstanceColors[VertexInstanceID]).ToFColor(true);
+				DestinationRawMesh.WedgeIndices[WedgeIndex] = RemapVerts[SourceMeshDescription->GetVertexInstanceVertex(VertexInstanceID).GetValue()];
+				DestinationRawMesh.WedgeTangentX[WedgeIndex] = VertexInstanceTangents[VertexInstanceID];
+				DestinationRawMesh.WedgeTangentY[WedgeIndex] = FVector::CrossProduct(VertexInstanceNormals[VertexInstanceID], VertexInstanceTangents[VertexInstanceID]).GetSafeNormal() * VertexInstanceBinormalSigns[VertexInstanceID];
+				DestinationRawMesh.WedgeTangentZ[WedgeIndex] = VertexInstanceNormals[VertexInstanceID];
 				for (int32 UVIndex = 0; UVIndex < ExistingUVCount; ++UVIndex)
 				{
-					DestinationRawMesh.WedgeTexCoords[UVIndex][VertexInstanceIDValue] = VertexInstanceUVs.GetArrayForIndex(UVIndex)[VertexInstanceID];
+					DestinationRawMesh.WedgeTexCoords[UVIndex][WedgeIndex] = VertexInstanceUVs.GetArrayForIndex(UVIndex)[VertexInstanceID];
 				}
+				++WedgeIndex;
 			}
 			++TriangleIndex;
 		}
@@ -751,9 +758,6 @@ void FMeshDescriptionOperations::CreateNormals(UMeshDescription* MeshDescription
 		{
 			continue;
 		}
-
-		//Make sure we consume all our vertex instance
-		check(VertexInfoMap.Num() == MeshDescription->GetVertexVertexInstances(VertexID).Num());
 
 		//Build all group by recursively traverse all polygon connected to the vertex
 		TArray<TArray<FPolygonID>> Groups;

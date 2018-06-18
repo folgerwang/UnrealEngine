@@ -9,8 +9,14 @@
 
 typedef struct ovrAssetFileDeleteResult *ovrAssetFileDeleteResultHandle;
 
-/// ID of the asset file.
+/// DEPRECATED. Alias to asset id.
 OVRP_PUBLIC_FUNCTION(ovrID) ovr_AssetFileDeleteResult_GetAssetFileId(const ovrAssetFileDeleteResultHandle obj);
+
+/// ID of the asset file
+OVRP_PUBLIC_FUNCTION(ovrID) ovr_AssetFileDeleteResult_GetAssetId(const ovrAssetFileDeleteResultHandle obj);
+
+/// File path of the asset file.
+OVRP_PUBLIC_FUNCTION(const char *) ovr_AssetFileDeleteResult_GetFilepath(const ovrAssetFileDeleteResultHandle obj);
 
 /// Whether the asset delete was successful.
 OVRP_PUBLIC_FUNCTION(bool) ovr_AssetFileDeleteResult_GetSuccess(const ovrAssetFileDeleteResultHandle obj);

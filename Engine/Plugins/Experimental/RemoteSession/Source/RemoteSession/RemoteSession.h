@@ -11,6 +11,12 @@
 
 REMOTESESSION_API DECLARE_LOG_CATEGORY_EXTERN(LogRemoteSession, Log, All);
 
+enum class ERemoteSessionChannelMode
+{
+    Read,
+    Write
+};
+
 class REMOTESESSION_API IRemoteSessionModule : public IModuleInterface
 {
 public:
@@ -51,6 +57,9 @@ public:
 
 	/** Stops the server, after this InitHost() must be called if a new connection is desired */
 	virtual void StopHost() = 0;
+
+    /** Programatically sets the desired channels. Defaults are Input=Receive and Framebuffer=Send. Unioned with values from ini file */
+    virtual void SetSupportedChannels(TMap<FString,ERemoteSessionChannelMode>& SupportedChannels) = 0;
 
 	/** Returns a reference to the server role (if any) */
 	virtual TSharedPtr<IRemoteSessionRole>		GetHost() const = 0;

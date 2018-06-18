@@ -123,7 +123,8 @@ UObject* UNiagaraEmitterFactoryNew::FactoryCreateNew(UClass* Class, UObject* InP
 							{
 								FNiagaraVariable VelocityVar(FNiagaraTypeDefinition::GetVec3Def(), *(TEXT("Constants.Emitter.") + CallNode->GetFunctionName() + TEXT(".Velocity")));
 								VelocityVar.SetValue(FVector(0.0f, 0.0f, 100.0f));
-								NewEmitter->SpawnScriptProps.Script->RapidIterationParameters.AddParameter(VelocityVar);
+								bool bAddParameterIfMissing = true;
+								NewEmitter->SpawnScriptProps.Script->RapidIterationParameters.SetParameterData(VelocityVar.GetData(), VelocityVar, bAddParameterIfMissing);
 							}
 						}
 						else

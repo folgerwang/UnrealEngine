@@ -57,6 +57,7 @@ public:
 	bool IsShown() const;
 
 	void Startup();
+	void ReleaseResources_RHIThread();
 	void PreShutdown();
 	void Shutdown();
 

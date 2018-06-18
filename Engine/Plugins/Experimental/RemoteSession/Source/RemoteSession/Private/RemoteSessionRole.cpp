@@ -83,7 +83,9 @@ void FRemoteSessionRole::StartBackgroundThread()
 
 bool FRemoteSessionRole::IsConnected() const
 {
-	return OSCConnection.IsValid() && OSCConnection->IsConnected();
+    // just check this is valid, when it's actually disconnected we do some error
+    // handling and clean this up
+    return OSCConnection.IsValid();
 }
 
 uint32 FRemoteSessionRole::Run()
@@ -213,7 +215,7 @@ void FRemoteSessionRole::CreateChannel(const FString& InChannelName, ERemoteSess
 	else if (InChannelName == FRemoteSessionARCameraChannel::StaticType())
 	{
 		// Client side sending only works on iOS with Android coming in the future
-		bool IsSupported = (InMode == ERemoteSessionChannelMode::Receive) || PLATFORM_IOS;
+		bool IsSupported = (InMode == ERemoteSessionChannelMode::Read) || PLATFORM_IOS;
 		if (IsSupported)
 		{
 			NewChannel = MakeShareable(new FRemoteSessionARCameraChannel(InMode, OSCConnection));

@@ -48,6 +48,8 @@ public:
 
 	FNiagaraTypeDefinition GetInputType() const;
 
+	UNiagaraNodeFunctionCall* GetFunctionCallNode() const;
+
 	template<typename ValueType>
 	ValueType GetValue() const
 	{

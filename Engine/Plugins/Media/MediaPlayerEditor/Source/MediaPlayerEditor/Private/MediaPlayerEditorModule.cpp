@@ -269,7 +269,11 @@ private:
 	{
 		for (TObjectIterator<UMediaPlayer> It; It; ++It)
 		{
-			(*It)->Close();
+			UMediaPlayer* Player = *It;
+			if (Player->AffectedByPIEHandling)
+			{
+				Player->Close();
+			}
 		}
 	}
 
@@ -277,7 +281,11 @@ private:
 	{
 		for (TObjectIterator<UMediaPlayer> It; It; ++It)
 		{
-			(*It)->Close();
+			UMediaPlayer* Player = *It;
+			if (Player->AffectedByPIEHandling)
+			{
+				(*It)->Close();
+			}
 		}
 	}
 
@@ -285,7 +293,11 @@ private:
 	{
 		for (TObjectIterator<UMediaPlayer> It; It; ++It)
 		{
-			(*It)->PausePIE();
+			UMediaPlayer* Player = *It;
+			if (Player->AffectedByPIEHandling)
+			{
+				(*It)->PausePIE();
+			}
 		}
 	}
 
@@ -293,7 +305,11 @@ private:
 	{
 		for (TObjectIterator<UMediaPlayer> It; It; ++It)
 		{
-			(*It)->ResumePIE();
+			UMediaPlayer* Player = *It;
+			if (Player->AffectedByPIEHandling)
+			{
+				(*It)->ResumePIE();
+			}
 		}
 	}
 

@@ -40,14 +40,6 @@ ENGINE_API void UpdateRefToLocalMatrices( TArray<FMatrix>& ReferenceToLocal, con
 */
 ENGINE_API void UpdatePreviousRefToLocalMatrices(TArray<FMatrix>& ReferenceToLocal, const USkinnedMeshComponent* InMeshComponent, const FSkeletalMeshRenderData* InSkeletalMeshRenderData, int32 LODIndex, const TArray<FBoneIndexType>* ExtraRequiredBoneIndices = NULL);
 
-extern ENGINE_API const VectorRegister		VECTOR_PACK_127_5;
-extern ENGINE_API const VectorRegister		VECTOR4_PACK_127_5;
-
-extern ENGINE_API const VectorRegister		VECTOR_INV_127_5;
-extern ENGINE_API const VectorRegister		VECTOR4_INV_127_5;
-
-extern ENGINE_API const VectorRegister		VECTOR_UNPACK_MINUS_1;
-extern ENGINE_API const VectorRegister		VECTOR4_UNPACK_MINUS_1;
 
 extern ENGINE_API const VectorRegister		VECTOR_0001;
 
@@ -60,7 +52,7 @@ extern ENGINE_API const VectorRegister		VECTOR_0001;
 */
 static FORCEINLINE VectorRegister Unpack3( const uint32 *PackedNormal )
 {
-	return VectorMultiplyAdd( VectorLoadByte4(PackedNormal), VECTOR_INV_127_5, VECTOR_UNPACK_MINUS_1 );
+	return VectorMultiply(VectorLoadSignedByte4(PackedNormal), VectorSetFloat3(1.0f / 127.0f, 1.0f / 127.0f, 1.0f / 127.0f));
 }
 
 /**
@@ -72,8 +64,8 @@ static FORCEINLINE VectorRegister Unpack3( const uint32 *PackedNormal )
 */
 static FORCEINLINE void Pack3( VectorRegister Normal, uint32 *PackedNormal )
 {
-	Normal = VectorMultiplyAdd(Normal, VECTOR_PACK_127_5, VECTOR_PACK_127_5);
-	VectorStoreByte4( Normal, PackedNormal );
+	Normal = VectorMultiply(Normal, VectorSetFloat3(127.0f, 127.0f, 127.0f));
+	VectorStoreSignedByte4( Normal, PackedNormal );
 }
 
 /**
@@ -85,7 +77,7 @@ static FORCEINLINE void Pack3( VectorRegister Normal, uint32 *PackedNormal )
 */
 static FORCEINLINE VectorRegister Unpack4( const uint32 *PackedNormal )
 {
-	return VectorMultiplyAdd( VectorLoadByte4(PackedNormal), VECTOR4_INV_127_5, VECTOR4_UNPACK_MINUS_1 );
+	return VectorMultiply(VectorLoadSignedByte4(PackedNormal), VectorSetFloat1(1.0f / 127.0f));
 }
 
 /**
@@ -97,7 +89,7 @@ static FORCEINLINE VectorRegister Unpack4( const uint32 *PackedNormal )
 */
 static FORCEINLINE void Pack4( VectorRegister Normal, uint32 *PackedNormal )
 {
-	Normal = VectorMultiplyAdd(Normal, VECTOR4_PACK_127_5, VECTOR4_PACK_127_5);
-	VectorStoreByte4( Normal, PackedNormal );
+	Normal = VectorMultiply(Normal, VectorSetFloat1(127.0f));
+	VectorStoreSignedByte4( Normal, PackedNormal );
 }
 

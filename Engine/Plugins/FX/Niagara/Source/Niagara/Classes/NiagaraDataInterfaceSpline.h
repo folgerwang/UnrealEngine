@@ -19,7 +19,7 @@ struct FNDISpline_InstanceData
 	FMatrix TransformInverseTransposed;
 };
 
-/** Data Interface allowing sampling of static meshes. */
+/** Data Interface allowing sampling of in-world spline components. Note that this data interface is very experimental. */
 UCLASS(EditInlineNew, Category = "Splines", meta = (DisplayName = "Spline"))
 class NIAGARA_API UNiagaraDataInterfaceSpline : public UNiagaraDataInterface
 {

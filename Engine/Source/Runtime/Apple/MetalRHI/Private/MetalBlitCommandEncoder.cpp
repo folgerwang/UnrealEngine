@@ -10,7 +10,7 @@
 #include "MetalCommandBuffer.h"
 #include "MetalFence.h"
 
-#if METAL_DEBUG_OPTIONS
+#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
 extern int32 GMetalRuntimeDebugLevel;
 
 @interface FMetalDebugBlitCommandEncoder : FMetalDebugCommandEncoder
