@@ -445,6 +445,12 @@ public:
 		NeverBlock,
 	};
 
+#if WITH_EDITOR
+	// After a sub level is reloaded in the editor the cache state needs to be refreshed
+	void RemoveLevelFromCollectionForReload();
+	void AddLevelToCollectionAfterReload();
+#endif
+
 private:
 	/** @return Name of the LOD level package used for loading.																		*/
 	FName GetLODPackageName() const;
