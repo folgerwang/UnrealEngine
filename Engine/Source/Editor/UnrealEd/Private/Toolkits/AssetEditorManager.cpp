@@ -168,6 +168,8 @@ void FAssetEditorManager::CloseAllEditorsForAsset(UObject* Asset)
 	{
 		EditorIter->CloseWindow();
 	}
+
+	AssetEditorRequestCloseEvent.Broadcast(Asset, EAssetEditorCloseReason::CloseAllEditorsForAsset);
 }
 
 void FAssetEditorManager::RemoveAssetFromAllEditors(UObject* Asset)
@@ -178,6 +180,8 @@ void FAssetEditorManager::RemoveAssetFromAllEditors(UObject* Asset)
 	{
 		EditorIter->RemoveEditingAsset(Asset);
 	}
+
+	AssetEditorRequestCloseEvent.Broadcast(Asset, EAssetEditorCloseReason::RemoveAssetFromAllEditors);
 }
 
 
@@ -192,6 +196,8 @@ void FAssetEditorManager::CloseOtherEditors( UObject* Asset, IAssetEditorInstanc
 			Editor->CloseWindow();
 		}
 	}
+
+	AssetEditorRequestCloseEvent.Broadcast(Asset, EAssetEditorCloseReason::CloseOtherEditors);
 }
 
 
@@ -285,6 +291,8 @@ bool FAssetEditorManager::CloseAllAssetEditors()
 			}
 		}
 	}
+
+	AssetEditorRequestCloseEvent.Broadcast(nullptr, EAssetEditorCloseReason::CloseAllAssetEditors);
 
 	return bAllEditorsClosed;
 }
