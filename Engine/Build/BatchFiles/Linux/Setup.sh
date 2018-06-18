@@ -18,6 +18,8 @@ set -e
 TOP_DIR=$(cd "$SCRIPT_DIR/../../.." ; pwd)
 cd "${TOP_DIR}"
 
+NEED_TOOLCHAIN=false
+
 if [ -e /etc/os-release ]; then
   source /etc/os-release
   # Ubuntu/Debian/Mint
@@ -47,9 +49,9 @@ if [ -e /etc/os-release ]; then
        libmono-system-io-compression4.0-cil
        libmono-system-io-compression-filesystem4.0-cil
        mono-devel
-       clang-3.5
        build-essential
        "
+      NEED_TOOLCHAIN=true
     elif [ -n "$VERSION_ID" ] && [[ "$VERSION_ID" == 16.04 ]]; then
      DEPS="mono-xbuild \
        mono-dmcs \
@@ -200,6 +202,15 @@ if [ -e /etc/os-release ]; then
       set +x
     fi
   fi
+fi
+
+# If we are using a distro that doesn't have a supported version of clang
+# we need to setup our toolchain
+if $NEED_TOOLCHAIN; then
+  echo "No supported version of clang found, setting up bundled toolchain"
+  pushd Build/BatchFiles/Linux > /dev/null
+  ./SetupToolchain.sh
+  popd > /dev/null
 fi
 
 # Provide the hooks for locally building third party libs if needed

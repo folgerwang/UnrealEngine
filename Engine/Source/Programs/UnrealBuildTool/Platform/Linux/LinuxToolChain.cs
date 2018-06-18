@@ -134,7 +134,7 @@ namespace UnrealBuildTool
 			// disable that only if you are a dev and you know what you are doing
 			if (!UsingClang())
 			{
-				throw new BuildException("This version of the engine can only be compiled by clang - refusing to register the Linux toolchain.");
+				throw new BuildException("Unable to build: no compatible clang version found. Please run Setup.sh");
 			}
 			// prevent unknown clangs since the build is likely to fail on too old or too new compilers
 			else if ((CompilerVersionMajor * 10 + CompilerVersionMinor) > 60 || (CompilerVersionMajor * 10 + CompilerVersionMinor) < 38)
