@@ -790,7 +790,7 @@ UObject* UFbxFactory::RecursiveImportNode(void* VoidFbxImporter, void* VoidNode,
 						//Add a Lod generated model
 						while (NewStaticMesh->SourceModels.Num() <= LODIndex)
 						{
-							new(NewStaticMesh->SourceModels) FStaticMeshSourceModel();
+							NewStaticMesh->AddSourceModel();
 						}
 						if (LODIndex - 1 > 0 && (NewStaticMesh->SourceModels[LODIndex - 1].ReductionSettings.PercentTriangles < 1.0f || NewStaticMesh->SourceModels[LODIndex - 1].ReductionSettings.MaxDeviation > 0.0f))
 						{
