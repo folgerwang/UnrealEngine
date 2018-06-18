@@ -98,8 +98,7 @@ public:
 	/** Remaps mesh element arrays according to the provided remappings, in order to undo a compact operation */
 	void Uncompact( const FElementIDRemappings& Remappings );
 
-	const FMeshDescription* GetMeshDescription() const { return &MeshDescription; }
-	FMeshDescription* GetMeshDescription() { return &MeshDescription; }
+	UMeshDescription* GetMeshDescription() const { return MeshDescription; }
 
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void InitializeAdapters();
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void RebuildRenderMesh();
@@ -244,7 +243,7 @@ protected:
 	void SetPolygonAttribute( const FPolygonID PolygonID, const FMeshElementAttributeData& Attribute );
 	void SetPolygonGroupAttribute( const FPolygonGroupID PolygonGroupID, const FMeshElementAttributeData& Attribute );
 	FVertexInstanceID CreateVertexInstanceForContourVertex( const FVertexAndAttributes& ContourVertex, const FPolygonID PolygonID );
-	void CreatePolygonContour( const TArray<FVertexAndAttributes>& Contour, TArray<FEdgeID>& OutExistingEdgeIDs, TArray<FEdgeID>& OutEdgeIDs, TArray<FMeshDescription::FContourPoint>& OutContourPoints );
+	void CreatePolygonContour( const TArray<FVertexAndAttributes>& Contour, TArray<FEdgeID>& OutExistingEdgeIDs, TArray<FEdgeID>& OutEdgeIDs, TArray<UMeshDescription::FContourPoint>& OutContourPoints );
 	void BackupPolygonContour( const FMeshPolygonContour& Contour, TArray<FVertexAndAttributes>& OutVerticesAndAttributes );
 	void GetConnectedSoftEdges( const FVertexID VertexID, TArray<FEdgeID>& OutConnectedSoftEdges ) const;
 	void GetVertexConnectedPolygonsInSameSoftEdgedGroup( const FVertexID VertexInstanceID, const FPolygonID PolygonID, TArray<FPolygonID>& OutPolygonIDs ) const;
@@ -535,7 +534,8 @@ public:
 
 public:
 
-	FMeshDescription MeshDescription;
+	UPROPERTY()
+	UMeshDescription* MeshDescription;
 
 // @todo mesheditor: sort out member access. Currently StaticMesh adapter relies on accessing this stuff directly
 //protected:

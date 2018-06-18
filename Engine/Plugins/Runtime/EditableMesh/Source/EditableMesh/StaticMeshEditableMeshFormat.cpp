@@ -45,8 +45,9 @@ UEditableMesh* FStaticMeshEditableMeshFormat::MakeEditableMesh( UPrimitiveCompon
 	}
 
 	UEditableMesh* EditableMesh = NewObject<UEditableMesh>();
-	FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
-	UStaticMesh::RegisterMeshAttributes( *MeshDescription );
+	UMeshDescription* MeshDescription = NewObject<UMeshDescription>( EditableMesh );
+	EditableMesh->MeshDescription = MeshDescription;
+	UStaticMesh::RegisterMeshAttributes( MeshDescription );
 
 	// Register additional attributes required by EditableMesh
 	MeshDescription->PolygonGroupAttributes().RegisterAttribute<FName>( MeshAttribute::PolygonGroup::MaterialAssetName );

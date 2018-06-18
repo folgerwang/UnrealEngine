@@ -268,7 +268,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 	FbxMesh* Mesh = Node->GetMesh();
 	FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LODIndex];
 	
-	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+	UMeshDescription *MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
 	//The mesh description should have been created before calling BuildStaticMeshFromGeometry
 	check(MeshDescription);
 	//remove the bad polygons before getting any data from mesh
@@ -831,13 +831,13 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxNode* Node, UStaticMesh
 		}
 
 		// Create polygon edges
-		TArray<FMeshDescription::FContourPoint> Contours;
+		TArray<UMeshDescription::FContourPoint> Contours;
 		{
 			// Add the edges of this polygon
 			for (uint32 PolygonEdgeNumber = 0; PolygonEdgeNumber < (uint32)PolygonVertexCount; ++PolygonEdgeNumber)
 			{
 				int32 ContourPointIndex = Contours.AddDefaulted();
-				FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
+				UMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
 				//Find the matching edge ID
 				uint32 CornerIndices[2];
 				CornerIndices[0] = (PolygonEdgeNumber + 0) % PolygonVertexCount;
@@ -1045,7 +1045,7 @@ void UnFbx::FFbxImporter::AddStaticMeshSourceModelGeneratedLOD(UStaticMesh* Stat
 	//Add a Lod generated model
 	while (StaticMesh->SourceModels.Num() <= LODIndex)
 	{
-		StaticMesh->AddSourceModel();
+		new(StaticMesh->SourceModels) FStaticMeshSourceModel();
 	}
 	if (LODIndex - 1 > 0 && (StaticMesh->SourceModels[LODIndex - 1].ReductionSettings.PercentTriangles < 1.0f || StaticMesh->SourceModels[LODIndex - 1].ReductionSettings.MaxDeviation > 0.0f))
 	{
@@ -1488,6 +1488,8 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 
 	// create empty mesh
 	UStaticMesh*	StaticMesh = NULL;
+	UMeshDescription* MeshDescription = nullptr;
+
 	UStaticMesh* ExistingMesh = NULL;
 	UObject* ExistingObject = NULL;
 
@@ -1587,13 +1589,15 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		}
 	}
 
-	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+	MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
 	if (MeshDescription == nullptr)
 	{
-		MeshDescription = StaticMesh->CreateOriginalMeshDescription(LODIndex);
+		StaticMesh->ClearOriginalMeshDescription(LODIndex);
+		//Create private asset in the same package as the StaticMesh, and make sure reference are set to avoid GC
+		MeshDescription = NewObject<UMeshDescription>(StaticMesh, NAME_None, RF_NoFlags);
 		check(MeshDescription != nullptr);
-		UStaticMesh::RegisterMeshAttributes(*MeshDescription);
-		StaticMesh->CommitOriginalMeshDescription(LODIndex);
+		UStaticMesh::RegisterMeshAttributes(MeshDescription);
+		StaticMesh->SetOriginalMeshDescription(LODIndex, MeshDescription);
 	}
 	
 	FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LODIndex];
@@ -1726,7 +1730,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 			}
 		}
 		//Set the original mesh description to be able to do non destructive reduce
-		StaticMesh->CommitOriginalMeshDescription(LODIndex);
+		StaticMesh->SetOriginalMeshDescription(LODIndex, MeshDescription);
 
 		// Setup default LOD settings based on the selected LOD group.
 		if (LODIndex == 0)
@@ -2023,7 +2027,7 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 	bool bOriginalGenerateMeshDistanceField = StaticMesh->bGenerateMeshDistanceField;
 	
 	//Always triangulate the original mesh description after we import it
-	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
+	UMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LODIndex);
 	if (MeshDescription)
 	{
 		MeshDescription->TriangulateMesh();
@@ -2080,7 +2084,17 @@ void UnFbx::FFbxImporter::PostImportStaticMesh(UStaticMesh* StaticMesh, TArray<F
 				LODCount = MAX_STATIC_MESH_LODS;
 			}
 
-			StaticMesh->SetNumSourceModels(LODCount);
+			//Remove extra LODs
+			if (StaticMesh->SourceModels.Num() > LODCount)
+			{
+				int32 NumToRemove = StaticMesh->SourceModels.Num() - LODCount;
+				StaticMesh->SourceModels.RemoveAt(LODCount, NumToRemove);
+			}
+			//Add missing LODs
+			while (StaticMesh->SourceModels.Num() < LODCount)
+			{
+				StaticMesh->AddSourceModel();
+			}
 		}
 	}
 
