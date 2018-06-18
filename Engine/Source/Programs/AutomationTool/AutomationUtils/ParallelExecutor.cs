@@ -61,7 +61,7 @@ namespace AutomationTool
 					LogLines.Add(Action.OutputPrefix);
 				}
 
-				using(ManagedProcess Process = new ManagedProcess(ProcessGroup, Action.ToolPath, Action.ToolArguments, Action.WorkingDirectory, Action.Environment, null, ManagedProcessPriority.BelowNormal))
+				using(ManagedProcess Process = new ManagedProcess(ProcessGroup, Action.ToolPath, Action.ToolArguments, Action.WorkingDirectory, Action.Environment, null, ProcessPriorityClass.BelowNormal))
 				{
 					LogLines.AddRange(Process.ReadAllLines());
 					ExitCode = Process.ExitCode;

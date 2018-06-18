@@ -27,7 +27,8 @@ namespace Tools.DotNETCommon.Perforce
 
 	class PerforceChildProcess : IDisposable
 	{
-		Process ChildProcess;
+		ManagedProcessGroup ChildProcessGroup;
+		ManagedProcess ChildProcess;
 		byte[] Buffer;
 		int BufferPos;
 		int BufferEnd;
@@ -35,24 +36,8 @@ namespace Tools.DotNETCommon.Perforce
 
 		public PerforceChildProcess(byte[] InputData, string Format, params object[] Args)
 		{
-			ChildProcess = new Process();
-			ChildProcess.StartInfo.FileName = "p4.exe";
-			ChildProcess.StartInfo.Arguments = "-G " + String.Format(Format, Args);
-
-			ChildProcess.StartInfo.RedirectStandardError = true;
-			ChildProcess.StartInfo.RedirectStandardOutput = true;
-			ChildProcess.StartInfo.RedirectStandardInput = InputData != null;
-			ChildProcess.StartInfo.UseShellExecute = false;
-			ChildProcess.StartInfo.CreateNoWindow = true;
-
-			ChildProcess.Start();
-
-			if(InputData != null)
-			{
-				ChildProcess.StandardInput.BaseStream.Write(InputData, 0, InputData.Length);
-				ChildProcess.StandardInput.BaseStream.Close();
-			}
-
+			ChildProcessGroup = new ManagedProcessGroup();
+			ChildProcess = new ManagedProcess(ChildProcessGroup, "p4.exe", "-G " + String.Format(Format, Args), null, null, InputData, ProcessPriorityClass.Normal);
 			Buffer = new byte[2048];
 		}
 
@@ -60,20 +45,13 @@ namespace Tools.DotNETCommon.Perforce
 		{
 			if(ChildProcess != null)
 			{
-				try
-				{
-					if(!ChildProcess.HasExited)
-					{
-						ChildProcess.Kill();
-						ChildProcess.WaitForExit();
-					}
-				}
-				catch
-				{
-				}
-
 				ChildProcess.Dispose();
 				ChildProcess = null;
+			}
+			if(ChildProcessGroup != null)
+			{
+				ChildProcessGroup.Dispose();
+				ChildProcessGroup = null;
 			}
 		}
 
@@ -210,7 +188,7 @@ namespace Tools.DotNETCommon.Perforce
 					BufferPos = 0;
 				}
 
-				int ReadSize = ChildProcess.StandardOutput.BaseStream.Read(Buffer, BufferEnd, Buffer.Length - BufferEnd);
+				int ReadSize = ChildProcess.Read(Buffer, BufferEnd, Buffer.Length - BufferEnd);
 				if(ReadSize == 0)
 				{
 					if(BufferPos == BufferEnd)
