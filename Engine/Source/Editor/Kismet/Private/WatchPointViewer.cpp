@@ -162,7 +162,6 @@ namespace
 	TArray<TSharedRef<FWatchRow>> Private_InstanceWatchSource;
 
 	TArray<UBlueprint*> WatchedBlueprints;
-	TArray<UObject*> BlueprintStackInstances;
 
 	// Returns true if the blueprint execution is currently paused; false otherwise
 	bool IsPaused()
@@ -209,115 +208,6 @@ namespace
 		}
 	}
 
-	void UpdateInstancedWatchDisplay()
-	{
-		Private_InstanceWatchSource.Reset();
-
-		for (UObject* BlueprintInstance : BlueprintStackInstances)
-		{
-			UClass* Class = BlueprintInstance->GetClass();
-			UBlueprint* BlueprintObj = (Class ? Cast<UBlueprint>(Class->ClassGeneratedBy) : nullptr);
-			if (BlueprintObj == nullptr)
-			{
-				continue;
-			}
-
-			FText BlueprintName = FText::FromString(BlueprintObj->GetName());
-
-			// Don't show info for the CDO
-			if (BlueprintInstance->IsDefaultSubobject())
-			{
-				continue;
-			}
-
-			// Don't show info if this instance is pending kill
-			if (BlueprintInstance->IsPendingKill())
-			{
-				continue;
-			}
-
-			// Don't show info if this instance isn't in the current world
-			UObject* ObjOuter = BlueprintInstance;
-			UWorld* ObjWorld = nullptr;
-			static bool bUseNewWorldCode = false;
-			do		// Run through at least once in case the TestObject is a UGameInstance
-			{
-				UGameInstance* ObjGameInstance = Cast<UGameInstance>(ObjOuter);
-
-				ObjOuter = ObjOuter->GetOuter();
-				ObjWorld = ObjGameInstance ? ObjGameInstance->GetWorld() : Cast<UWorld>(ObjOuter);
-			} while (ObjWorld == nullptr && ObjOuter != nullptr);
-
-			if (ObjWorld)
-			{
-				// Make check on owning level (not streaming level)
-				if (ObjWorld->PersistentLevel && ObjWorld->PersistentLevel->OwningWorld)
-				{
-					ObjWorld = ObjWorld->PersistentLevel->OwningWorld;
-				}
-
-				if (ObjWorld->WorldType != EWorldType::PIE && !((ObjWorld->WorldType == EWorldType::Editor) && (GUnrealEd->GetPIEViewport() == nullptr)))
-				{
-					continue;
-				}
-			}
-
-			// We have a valid instance, iterate over all the watched pins and create rows for them
-			for (const FEdGraphPinReference& PinRef : BlueprintObj->WatchedPins)
-			{
-				UEdGraphPin* Pin = PinRef.Get();
-
-				FText GraphName = FText::FromString(Pin->GetOwningNode()->GetGraph()->GetName());
-				FText NodeName = Pin->GetOwningNode()->GetNodeTitle(ENodeTitleType::ListView);
-
-				FDebugInfo DebugInfo;
-				const FKismetDebugUtilities::EWatchTextResult WatchStatus = FKismetDebugUtilities::GetDebugInfo(DebugInfo, BlueprintObj, BlueprintInstance, Pin);
-
-				if (WatchStatus != FKismetDebugUtilities::EWTR_Valid)
-				{
-					const UEdGraphSchema* Schema = Pin->GetOwningNode()->GetSchema();
-					DebugInfo.DisplayName = Schema->GetPinDisplayName(Pin);
-					DebugInfo.Type = UEdGraphSchema_K2::TypeToText(Pin->PinType);
-
-					switch (WatchStatus)
-					{
-					case FKismetDebugUtilities::EWTR_NotInScope:
-						DebugInfo.Value = LOCTEXT("NotInScope", "(not in scope)");
-						break;
-
-					case FKismetDebugUtilities::EWTR_NoProperty:
-						DebugInfo.Value = LOCTEXT("NoDebugData", "(no debug data)");
-						break;
-
-					case FKismetDebugUtilities::EWTR_NoDebugObject:
-						DebugInfo.Value = LOCTEXT("NoDebugObject", "(no debug object)");
-						break;
-
-					default:
-						// do nothing
-						break;
-					}
-				}
-
-				Private_InstanceWatchSource.Add(
-					MakeShared<FWatchRow>(
-						BlueprintObj,
-						Pin->GetOwningNode(),
-						Pin,
-						BlueprintInstance,
-						BlueprintName,
-						GraphName,
-						NodeName,
-						DebugInfo
-						)
-				);
-			}
-		}
-
-		// Notify subscribers:
-		WatchListSubscribers.Broadcast(&Private_InstanceWatchSource);
-	}
-
 	void UpdateWatchListFromBlueprintImpl(UBlueprint* BlueprintObj, const bool bShouldWatch)
 	{
 		if (!ensure(BlueprintObj))
@@ -352,7 +242,7 @@ namespace
 
 		if (IsPaused())
 		{
-			UpdateInstancedWatchDisplay();
+			WatchViewer::UpdateInstancedWatchDisplay();
 		}
 
 		// Notify subscribers:
@@ -858,24 +748,116 @@ TSharedRef<SWidget> SWatchTreeWidgetItem::GenerateWidgetForColumn(const FName& C
 	}
 }
 
-void WatchViewer::UpdateDisplayedWatches(const TArray<const FFrame*>& ScriptStack)
+void WatchViewer::UpdateInstancedWatchDisplay()
 {
-	BlueprintStackInstances.Reset();
-
-	for (const FFrame* Frame : ScriptStack)
 	{
-		if (Frame == nullptr)
+		const TArray<const FFrame*>& ScriptStack = FBlueprintExceptionTracker::Get().ScriptStack;
+
+		for (const FFrame* ScriptFrame : ScriptStack)
 		{
-			continue;
+			UObject* BlueprintInstance = ScriptFrame ? ScriptFrame->Object : nullptr;
+			UClass* Class = BlueprintInstance ? BlueprintInstance->GetClass() : nullptr;
+			UBlueprint* BlueprintObj = (Class ? Cast<UBlueprint>(Class->ClassGeneratedBy) : nullptr);
+			if (BlueprintObj == nullptr)
+			{
+				continue;
+			}
+
+			FText BlueprintName = FText::FromString(BlueprintObj->GetName());
+
+			// Don't show info for the CDO
+			if (BlueprintInstance->IsDefaultSubobject())
+			{
+				continue;
+			}
+
+			// Don't show info if this instance is pending kill
+			if (BlueprintInstance->IsPendingKill())
+			{
+				continue;
+			}
+
+			// Don't show info if this instance isn't in the current world
+			UObject* ObjOuter = BlueprintInstance;
+			UWorld* ObjWorld = nullptr;
+			static bool bUseNewWorldCode = false;
+			do		// Run through at least once in case the TestObject is a UGameInstance
+			{
+				UGameInstance* ObjGameInstance = Cast<UGameInstance>(ObjOuter);
+
+				ObjOuter = ObjOuter->GetOuter();
+				ObjWorld = ObjGameInstance ? ObjGameInstance->GetWorld() : Cast<UWorld>(ObjOuter);
+			} while (ObjWorld == nullptr && ObjOuter != nullptr);
+
+			if (ObjWorld)
+			{
+				// Make check on owning level (not streaming level)
+				if (ObjWorld->PersistentLevel && ObjWorld->PersistentLevel->OwningWorld)
+				{
+					ObjWorld = ObjWorld->PersistentLevel->OwningWorld;
+				}
+
+				if (ObjWorld->WorldType != EWorldType::PIE && !((ObjWorld->WorldType == EWorldType::Editor) && (GUnrealEd->GetPIEViewport() == nullptr)))
+				{
+					continue;
+				}
+			}
+
+			// We have a valid instance, iterate over all the watched pins and create rows for them
+			for (const FEdGraphPinReference& PinRef : BlueprintObj->WatchedPins)
+			{
+				UEdGraphPin* Pin = PinRef.Get();
+
+				FText GraphName = FText::FromString(Pin->GetOwningNode()->GetGraph()->GetName());
+				FText NodeName = Pin->GetOwningNode()->GetNodeTitle(ENodeTitleType::ListView);
+
+				FDebugInfo DebugInfo;
+				const FKismetDebugUtilities::EWatchTextResult WatchStatus = FKismetDebugUtilities::GetDebugInfo(DebugInfo, BlueprintObj, BlueprintInstance, Pin);
+
+				if (WatchStatus != FKismetDebugUtilities::EWTR_Valid)
+				{
+					const UEdGraphSchema* Schema = Pin->GetOwningNode()->GetSchema();
+					DebugInfo.DisplayName = Schema->GetPinDisplayName(Pin);
+					DebugInfo.Type = UEdGraphSchema_K2::TypeToText(Pin->PinType);
+
+					switch (WatchStatus)
+					{
+					case FKismetDebugUtilities::EWTR_NotInScope:
+						DebugInfo.Value = LOCTEXT("NotInScope", "(not in scope)");
+						break;
+
+					case FKismetDebugUtilities::EWTR_NoProperty:
+						DebugInfo.Value = LOCTEXT("NoDebugData", "(no debug data)");
+						break;
+
+					case FKismetDebugUtilities::EWTR_NoDebugObject:
+						DebugInfo.Value = LOCTEXT("NoDebugObject", "(no debug object)");
+						break;
+
+					default:
+						// do nothing
+						break;
+					}
+				}
+
+				Private_InstanceWatchSource.Add(
+					MakeShared<FWatchRow>(
+						BlueprintObj,
+						Pin->GetOwningNode(),
+						Pin,
+						BlueprintInstance,
+						BlueprintName,
+						GraphName,
+						NodeName,
+						DebugInfo
+						)
+				);
+			}
 		}
 
-		if (Frame->Object)
-		{
-			BlueprintStackInstances.AddUnique(Frame->Object);
-		}
+		// Notify subscribers:
+		WatchListSubscribers.Broadcast(&Private_InstanceWatchSource);
 	}
-
-	UpdateInstancedWatchDisplay();
 }
 
 void WatchViewer::ContinueExecution()
@@ -911,7 +893,7 @@ void WatchViewer::RemoveWatchesForBlueprint(class UBlueprint* BlueprintObj)
 
 	if (IsPaused())
 	{
-		UpdateInstancedWatchDisplay();
+		WatchViewer::UpdateInstancedWatchDisplay();
 	}
 
 	// Notify subscribers
@@ -955,7 +937,7 @@ void WatchViewer::OnRenameAsset(const struct FAssetData& AssetData, const FStrin
 
 			if (IsPaused())
 			{
-				UpdateInstancedWatchDisplay();
+				WatchViewer::UpdateInstancedWatchDisplay();
 			}
 
 			// Notify subscribers if necessary
