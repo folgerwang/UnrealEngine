@@ -13,12 +13,6 @@ struct FMeshBuildSettings;
 struct FVertexInstanceID;
 struct FMeshReductionSettings;
 
-enum
-{
-	//Remove the _MD when FRawMesh will be remove
-	MAX_MESH_TEXTURE_COORDS_MD = 8,
-};
-
 class FMeshDescriptionHelper
 {
 public:

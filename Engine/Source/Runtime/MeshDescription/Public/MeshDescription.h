@@ -11,6 +11,11 @@
 #include "UObject/EditorObjectVersion.h"
 #include "MeshDescription.generated.h"
 
+enum
+{
+	//Remove the _MD when FRawMesh will be remove
+	MAX_MESH_TEXTURE_COORDS_MD = 8,
+};
 
 struct FMeshVertex
 {
