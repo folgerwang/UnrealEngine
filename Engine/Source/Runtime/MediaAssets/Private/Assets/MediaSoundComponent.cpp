@@ -36,7 +36,7 @@ USoundClass* UMediaSoundComponent::DefaultMediaSoundClassObject = nullptr;
 UMediaSoundComponent::UMediaSoundComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, Channels(EMediaSoundChannels::Stereo)
-	, DynamicRateAdjustment(true)
+	, DynamicRateAdjustment(false)
 	, RateAdjustmentFactor(0.00000001f)
 	, RateAdjustmentRange(FFloatRange(0.995f, 1.005f))
 	, CachedRate(0.0f)
