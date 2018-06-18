@@ -24,7 +24,6 @@
 #include "PhysicsEngine/SphereElem.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "FbxImporter.h"
-#include "Misc/ScopedSlowTask.h"
 
 #include "Materials/MaterialInterface.h"
 #include "Materials/Material.h"
@@ -581,6 +580,39 @@ void AddConvexGeomFromVertices( const TArray<FVector>& Verts, FKAggregateGeom* A
 	ConvexElem->UpdateElemBox();
 }
 
+/**
+* Creates a static mesh object from raw triangle data.
+*/
+UStaticMesh* CreateStaticMesh(UMeshDescription* MeshDescription, TArray<FStaticMaterial>& Materials, UObject* InOuter, FName InName)
+{
+	// Create the UStaticMesh object.
+	FStaticMeshComponentRecreateRenderStateContext RecreateRenderStateContext(FindObject<UStaticMesh>(InOuter, *InName.ToString()));
+	auto StaticMesh = NewObject<UStaticMesh>(InOuter, InName, RF_Public | RF_Standalone);
+
+	// Add one LOD for the base mesh
+	FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
+	StaticMesh->SetOriginalMeshDescription(StaticMesh->SourceModels.Num() - 1, MeshDescription);
+	StaticMesh->StaticMaterials = Materials;
+
+	int32 NumSections = StaticMesh->StaticMaterials.Num();
+
+	// Set up the SectionInfoMap to enable collision
+	for (int32 SectionIdx = 0; SectionIdx < NumSections; ++SectionIdx)
+	{
+		FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(0, SectionIdx);
+		Info.MaterialIndex = SectionIdx;
+		Info.bEnableCollision = true;
+		StaticMesh->SectionInfoMap.Set(0, SectionIdx, Info);
+		StaticMesh->OriginalSectionInfoMap.Set(0, SectionIdx, Info);
+	}
+
+	//Set the Imported version before calling the build
+	StaticMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;
+
+	StaticMesh->Build();
+	StaticMesh->MarkPackageDirty();
+	return StaticMesh;
+}
 
 /**
  * Creates a static mesh object from raw triangle data.
@@ -615,7 +647,6 @@ UStaticMesh* CreateStaticMesh(struct FRawMesh& RawMesh,TArray<FStaticMaterial>& 
 	StaticMesh->MarkPackageDirty();
 	return StaticMesh;
 }
-
 
 /**
  *Constructor, setting all values to usable defaults 
@@ -678,17 +709,19 @@ inline bool FVerticesEqual(FVector& V1,FVector& V2)
 	return 1;
 }
 
-void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescription, TArray<FStaticMaterial>& OutMaterials)
+void GetBrushMesh(ABrush* Brush, UModel* Model, UMeshDescription* MeshDescription, TArray<FStaticMaterial>& OutMaterials)
 {
-	TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
-	TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
-	TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
-	TVertexInstanceAttributeArray<float>& VertexInstanceBinormalSigns = MeshDescription.VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
-	TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
-	TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription.VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
-	TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription.EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
-	TEdgeAttributeArray<float>& EdgeCreaseSharpnesses = MeshDescription.EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness);
-	TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription.PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+	check(MeshDescription != nullptr);
+
+	TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+	TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
+	TVertexInstanceAttributeArray<float>& VertexInstanceBinormalSigns = MeshDescription->VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
+	TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
+	TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
+	TEdgeAttributeArray<float>& EdgeCreaseSharpnesses = MeshDescription->EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness);
+	TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 	
 	//Make sure we have one UVChannel
 	VertexInstanceUVs.SetNumIndices(1);
@@ -714,7 +747,7 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescriptio
 
 		int32 MaterialIndex = OutMaterials.AddUnique(FStaticMaterial(Material, Material->GetFName(), Material->GetFName()));
 		FPolygonGroupID CurrentPolygonGroupID = FPolygonGroupID::Invalid;
-		for (const FPolygonGroupID& PolygonGroupID : MeshDescription.PolygonGroups().GetElementIDs())
+		for (const FPolygonGroupID& PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs())
 		{
 			if (Material->GetFName() == PolygonGroupImportedMaterialSlotNames[PolygonGroupID])
 			{
@@ -724,7 +757,7 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescriptio
 		}
 		if (CurrentPolygonGroupID == FPolygonGroupID::Invalid)
 		{
-			CurrentPolygonGroupID = MeshDescription.CreatePolygonGroup();
+			CurrentPolygonGroupID = MeshDescription->CreatePolygonGroup();
 			PolygonGroupImportedMaterialSlotNames[CurrentPolygonGroupID] = Material->GetFName();
 		}
 
@@ -740,7 +773,7 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescriptio
 			Positions[1] = ActorToWorld.TransformPosition(Polygon.Vertices[VertexIndex - 1]) - PostSub;
 			Positions[ReverseVertices ? 2 : 0] = ActorToWorld.TransformPosition(Polygon.Vertices[VertexIndex]) - PostSub;
 			FVertexID VertexID[3] = { FVertexID::Invalid, FVertexID::Invalid, FVertexID::Invalid };
-			for (FVertexID IterVertexID : MeshDescription.Vertices().GetElementIDs())
+			for (FVertexID IterVertexID : MeshDescription->Vertices().GetElementIDs())
 			{
 				if (FVerticesEqual(Positions[0], VertexPositions[IterVertexID]))
 				{
@@ -762,10 +795,10 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescriptio
 			{
 				if (VertexID[CornerIndex] == FVertexID::Invalid)
 				{
-					VertexID[CornerIndex] = MeshDescription.CreateVertex();
+					VertexID[CornerIndex] = MeshDescription->CreateVertex();
 					VertexPositions[VertexID[CornerIndex]] = Positions[CornerIndex];
 				}
-				VertexInstanceIDs[CornerIndex] = MeshDescription.CreateVertexInstance(VertexID[CornerIndex]);
+				VertexInstanceIDs[CornerIndex] = MeshDescription->CreateVertexInstance(VertexID[CornerIndex]);
 				VertexInstanceUVs.GetArrayForIndex(0)[VertexInstanceIDs[CornerIndex]] = FVector2D(
 					(Positions[CornerIndex] - TextureBase) | TextureX,
 					(Positions[CornerIndex] - TextureBase) | TextureY);
@@ -773,11 +806,11 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescriptio
 
 			// Create a polygon with the 3 vertex instances
 			
-			TArray<FMeshDescription::FContourPoint> Contours;
+			TArray<UMeshDescription::FContourPoint> Contours;
 			for (uint32 TriangleEdgeNumber = 0; TriangleEdgeNumber < 3; ++TriangleEdgeNumber)
 			{
 				int32 ContourPointIndex = Contours.AddDefaulted();
-				FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
+				UMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
 				//Find the matching edge ID
 				uint32 CornerIndices[2];
 				CornerIndices[0] = (TriangleEdgeNumber + 0) % 3;
@@ -787,10 +820,10 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescriptio
 				EdgeVertexIDs[0] = VertexID[CornerIndices[0]];
 				EdgeVertexIDs[1] = VertexID[CornerIndices[1]];
 
-				FEdgeID MatchEdgeId = MeshDescription.GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+				FEdgeID MatchEdgeId = MeshDescription->GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
 				if (MatchEdgeId == FEdgeID::Invalid)
 				{
-					MatchEdgeId = MeshDescription.CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+					MatchEdgeId = MeshDescription->CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
 				}
 				ContourPoint.EdgeID = MatchEdgeId;
 				ContourPoint.VertexInstanceID = VertexInstanceIDs[CornerIndices[0]];
@@ -798,9 +831,9 @@ void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescriptio
 				EdgeHardnesses[MatchEdgeId] = true;
 			}
 			// Insert a polygon into the mesh
-			const FPolygonID NewPolygonID = MeshDescription.CreatePolygon(CurrentPolygonGroupID, Contours);
-			int32 NewTriangleIndex = MeshDescription.GetPolygonTriangles(NewPolygonID).AddDefaulted();
-			FMeshTriangle& NewTriangle = MeshDescription.GetPolygonTriangles(NewPolygonID)[NewTriangleIndex];
+			const FPolygonID NewPolygonID = MeshDescription->CreatePolygon(CurrentPolygonGroupID, Contours);
+			int32 NewTriangleIndex = MeshDescription->GetPolygonTriangles(NewPolygonID).AddDefaulted();
+			FMeshTriangle& NewTriangle = MeshDescription->GetPolygonTriangles(NewPolygonID)[NewTriangleIndex];
 			for (int32 TriangleVertexIndex = 0; TriangleVertexIndex < 3; ++TriangleVertexIndex)
 			{
 				const FVertexInstanceID &VertexInstanceID = VertexInstanceIDs[TriangleVertexIndex];
@@ -897,45 +930,16 @@ void GetBrushMesh(ABrush* Brush,UModel* Model,struct FRawMesh& OutMesh,TArray<FS
 //	CreateStaticMeshFromBrush - Creates a static mesh from the triangles in a model.
 //
 
-UStaticMesh* CreateStaticMeshFromBrush(UObject* Outer, FName Name, ABrush* Brush, UModel* Model)
+UStaticMesh* CreateStaticMeshFromBrush(UObject* Outer,FName Name,ABrush* Brush,UModel* Model)
 {
-	FScopedSlowTask SlowTask(0.0f, NSLOCTEXT("UnrealEd", "CreatingStaticMeshE", "Creating static mesh..."));
-	SlowTask.MakeDialog();
-
-	// Create the UStaticMesh object.
-	FStaticMeshComponentRecreateRenderStateContext RecreateRenderStateContext(FindObject<UStaticMesh>(Outer, *Name.ToString()));
-	UStaticMesh* StaticMesh = NewObject<UStaticMesh>(Outer, Name, RF_Public | RF_Standalone);
-
-	// Add one LOD for the base mesh
-	FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
-	const int32 LodIndex = StaticMesh->SourceModels.Num() - 1;
-	FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LodIndex);
-	UStaticMesh::RegisterMeshAttributes(*MeshDescription);
-
-	// Fill out the mesh description and materials from the brush geometry
+	GWarn->BeginSlowTask( NSLOCTEXT("UnrealEd", "CreatingStaticMeshE", "Creating static mesh..."), true );
+	UStaticMesh* StaticMesh = nullptr;
+	UMeshDescription* MeshDescription = NewObject<UMeshDescription>(Outer);
+	UStaticMesh::RegisterMeshAttributes(MeshDescription);
 	TArray<FStaticMaterial> Materials;
-	GetBrushMesh(Brush, Model, *MeshDescription, Materials);
-
-	// Commit mesh description and materials list to static mesh
-	StaticMesh->CommitOriginalMeshDescription(LodIndex);
-	StaticMesh->StaticMaterials = Materials;
-
-	// Set up the SectionInfoMap to enable collision
-	const int32 NumSections = StaticMesh->StaticMaterials.Num();
-	for (int32 SectionIdx = 0; SectionIdx < NumSections; ++SectionIdx)
-	{
-		FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(0, SectionIdx);
-		Info.MaterialIndex = SectionIdx;
-		Info.bEnableCollision = true;
-		StaticMesh->SectionInfoMap.Set(0, SectionIdx, Info);
-		StaticMesh->OriginalSectionInfoMap.Set(0, SectionIdx, Info);
-	}
-
-	//Set the Imported version before calling the build
-	StaticMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;
-
-	StaticMesh->Build();
-	StaticMesh->MarkPackageDirty();
+	GetBrushMesh(Brush, Model, MeshDescription, Materials);
+	StaticMesh = CreateStaticMesh(MeshDescription, Materials, Outer, Name);
+	GWarn->EndSlowTask();
 
 	return StaticMesh;
 
@@ -1062,13 +1066,13 @@ static void TransformPolys(UPolys* Polys,const FMatrix& Matrix)
 // LOD data to copy over
 struct ExistingLODMeshData
 {
-	FMeshBuildSettings				ExistingBuildSettings;
-	FMeshReductionSettings			ExistingReductionSettings;
-	FRawMesh						ExistingRawMesh;
-	TUniquePtr<FMeshDescription>	ExistingMeshDescription;
-	TArray<FStaticMaterial>			ExistingMaterials;
-	FPerPlatformFloat				ExistingScreenSize;
-	FString							ExistingSourceImportFilename;
+	FMeshBuildSettings			ExistingBuildSettings;
+	FMeshReductionSettings		ExistingReductionSettings;
+	FRawMesh					ExistingRawMesh;
+	UMeshDescription*			ExistingMeshDescription;
+	TArray<FStaticMaterial>		ExistingMaterials;
+	FPerPlatformFloat			ExistingScreenSize;
+	FString						ExistingSourceImportFilename;
 };
 
 struct ExistingStaticMeshData
@@ -1221,13 +1225,7 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings = ExistingMesh->SourceModels[i].ReductionSettings;
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize = ExistingMesh->SourceModels[i].ScreenSize.Default;
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingSourceImportFilename = ExistingMesh->SourceModels[i].SourceImportFilename;
-
-			const FMeshDescription* MeshDescription = ExistingMesh->GetOriginalMeshDescription(i);
-			if (MeshDescription)
-			{
-				ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription = MakeUnique<FMeshDescription>(*MeshDescription);
-			}
-
+			ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription = ExistingMesh->SourceModels[i].OriginalMeshDescription;
 			ExistingMesh->SourceModels[i].RawMeshBulkData->LoadRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);
 		}
 
@@ -1296,7 +1294,7 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 	{
 		if (CurrentNumLods > ExistingNumLods)
 		{
-			NewMesh->SetNumSourceModels(ExistingNumLods);
+			NewMesh->SourceModels.RemoveAt(ExistingNumLods, CurrentNumLods - ExistingNumLods);
 		}
 		//Create only the LOD Group we need, extra LOD will be put back when calling RestoreExistingMeshData later in the re import process
 		if (NewMesh->LODGroup != NAME_None)
@@ -1612,11 +1610,9 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 	for(int32 i=NumCommonLODs; i < ExistingMeshDataPtr->ExistingLODData.Num(); ++i)
 	{
 		FStaticMeshSourceModel& SrcModel = NewMesh->AddSourceModel();
-		if (ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription.IsValid())
+		if (ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription != nullptr)
 		{
-			FMeshDescription* MeshDescription = NewMesh->CreateOriginalMeshDescription(i);
-			*MeshDescription = MoveTemp(*ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription);
-			ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription.Reset();
+			SrcModel.OriginalMeshDescription = ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription;
 		}
 		if (ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh.IsValidOrFixable())
 		{

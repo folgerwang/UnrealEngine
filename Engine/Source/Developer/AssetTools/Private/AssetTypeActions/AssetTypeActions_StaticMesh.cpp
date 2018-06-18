@@ -208,7 +208,16 @@ void FAssetTypeActions_StaticMesh::ExecutePasteLODSettings(TArray<TWeakObjectPtr
 			UStaticMesh* Mesh = MeshPtr.Get();
 
 			const int32 LODCount = LODSettings.Num();
-			Mesh->SetNumSourceModels(LODCount);
+			if (Mesh->SourceModels.Num() > LODCount)
+			{
+				const int32 NumToRemove = Mesh->SourceModels.Num() - LODCount;
+				Mesh->SourceModels.RemoveAt(LODCount, NumToRemove);
+			}
+
+			while (Mesh->SourceModels.Num() < LODCount)
+			{
+				Mesh->AddSourceModel();
+			}
 
 			for (int32 i = 0; i < LODCount; i++)
 			{

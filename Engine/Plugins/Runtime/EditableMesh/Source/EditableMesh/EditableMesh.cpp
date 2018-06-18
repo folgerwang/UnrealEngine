@@ -372,8 +372,6 @@ void UEditableMesh::Serialize( FArchive& Ar )
 	Super::Serialize( Ar );
 	Ar.UsingCustomVersion( FEditableMeshCustomVersion::GUID );
 
-	Ar << MeshDescription;
-
 	// If the array was serialized containing any editor-only transient adapters, they will appear here as null, so remove them.
 	if( Ar.IsLoading() )
 	{
@@ -1619,7 +1617,7 @@ void UEditableMesh::GetPolygonHoleVertexInstances( const FPolygonID PolygonID, c
 
 FEdgeID UEditableMesh::GetPolygonPerimeterEdge( const FPolygonID PolygonID, const int32 PerimeterEdgeNumber, bool& bOutEdgeWindingIsReversedForPolygon ) const
 {
-	const FMeshDescription* Description = GetMeshDescription();
+	const UMeshDescription* Description = GetMeshDescription();
 	const TArray<FVertexInstanceID>& VertexInstanceIDs = Description->GetPolygonPerimeterVertexInstances( PolygonID );
 	if( PerimeterEdgeNumber >= VertexInstanceIDs.Num() )
 	{
@@ -1647,7 +1645,7 @@ FEdgeID UEditableMesh::GetVertexPairEdge( const FVertexID StartVertexID, const F
 
 FEdgeID UEditableMesh::GetPolygonHoleEdge( const FPolygonID PolygonID, const int32 HoleNumber, const int32 HoleEdgeNumber ) const
 {
-	const FMeshDescription* Description = GetMeshDescription();
+	const UMeshDescription* Description = GetMeshDescription();
 
 	if( HoleNumber >= Description->GetNumPolygonHoles( PolygonID ) )
 	{
@@ -1668,7 +1666,7 @@ FEdgeID UEditableMesh::GetPolygonHoleEdge( const FPolygonID PolygonID, const int
 
 void UEditableMesh::GetPolygonPerimeterEdges( const FPolygonID PolygonID, TArray<FEdgeID>& OutPolygonPerimeterEdgeIDs ) const
 {
-	const FMeshDescription* Description = GetMeshDescription();
+	const UMeshDescription* Description = GetMeshDescription();
 	const TArray<FVertexInstanceID>& VertexInstanceIDs = Description->GetPolygonPerimeterVertexInstances( PolygonID );
 	const int32 NumContourEdges = VertexInstanceIDs.Num();
 
@@ -1685,7 +1683,7 @@ void UEditableMesh::GetPolygonPerimeterEdges( const FPolygonID PolygonID, TArray
 
 void UEditableMesh::GetPolygonHoleEdges( const FPolygonID PolygonID, const int32 HoleNumber, TArray<FEdgeID>& OutHoleEdgeIDs ) const
 {
-	const FMeshDescription* Description = GetMeshDescription();
+	const UMeshDescription* Description = GetMeshDescription();
 
 	OutHoleEdgeIDs.Reset();
 	if( HoleNumber < Description->GetNumPolygonHoles( PolygonID ) )
@@ -2075,7 +2073,7 @@ void UEditableMesh::GenerateOpenSubdivLimitSurfaceData()
 
 				// @todo mesheditor perf: note that now we expose vertex positions as an array of FVector, so this is just copying from one array to another.
 				// This needs to be refactored to not require this.
-				const TVertexAttributeArray<FVector>& SrcVertexPositions = GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+				const TVertexAttributeArray<FVector>& SrcVertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 				for( int32 VertexNumber = 0; VertexNumber < VertexArraySize; ++VertexNumber )
 				{
@@ -4145,7 +4143,7 @@ FVertexInstanceID UEditableMesh::CreateVertexInstanceForContourVertex( const FVe
 }
 
 
-void UEditableMesh::CreatePolygonContour( const TArray<FVertexAndAttributes>& Contour, TArray<FEdgeID>& OutExistingEdgeIDs, TArray<FEdgeID>& OutNewEdgeIDs, TArray<FMeshDescription::FContourPoint>& OutContourPoints )
+void UEditableMesh::CreatePolygonContour( const TArray<FVertexAndAttributes>& Contour, TArray<FEdgeID>& OutExistingEdgeIDs, TArray<FEdgeID>& OutNewEdgeIDs, TArray<UMeshDescription::FContourPoint>& OutContourPoints )
 {
 	// All polygons must have at least three vertices
 	const int32 NumContourVertices = Contour.Num();
@@ -4213,7 +4211,7 @@ void UEditableMesh::CreatePolygonContour( const TArray<FVertexAndAttributes>& Co
 		// Fill in missing edge indices
 		int32 NewEdgeIndex = 0;
 
-		for( FMeshDescription::FContourPoint& ContourPoint : OutContourPoints )
+		for( UMeshDescription::FContourPoint& ContourPoint : OutContourPoints )
 		{
 			if( ContourPoint.EdgeID == FEdgeID::Invalid )
 			{
@@ -4268,7 +4266,7 @@ void UEditableMesh::CreatePolygonContour( const TArray<FVertexAndAttributes>& Co
 		// Fill in missing vertex instance indices
 		int32 NewVertexInstanceIndex = 0;
 
-		for( FMeshDescription::FContourPoint& ContourPoint : OutContourPoints )
+		for( UMeshDescription::FContourPoint& ContourPoint : OutContourPoints )
 		{
 			if( ContourPoint.VertexInstanceID == FEdgeID::Invalid )
 			{
@@ -4298,7 +4296,7 @@ void UEditableMesh::CreatePolygons( const TArray<FPolygonToCreate>& PolygonsToCr
 		GetMeshDescription()->ReserveNewPolygons( PolygonsToCreate.Num() );
 		for( const FPolygonToCreate& PolygonToCreate : PolygonsToCreate )
 		{
-			static TArray<FMeshDescription::FContourPoint> PerimeterContourPoints;
+			static TArray<UMeshDescription::FContourPoint> PerimeterContourPoints;
 			static TArray<FEdgeID> NewEdgeIDsForContour;
 			static TArray<FEdgeID> ExistingEdgeIDsForContour;
 
@@ -4306,7 +4304,7 @@ void UEditableMesh::CreatePolygons( const TArray<FPolygonToCreate>& PolygonsToCr
 			ExistingEdgeIDs.Append( ExistingEdgeIDsForContour );
 			OutNewEdgeIDs.Append( NewEdgeIDsForContour );
 
-			static TArray<TArray<FMeshDescription::FContourPoint>> HoleContourPoints;
+			static TArray<TArray<UMeshDescription::FContourPoint>> HoleContourPoints;
 
 			// Iterate through hole definitions, and create edges and vertex instances for those
 			for( const FPolygonHoleVertices& PolygonHole : PolygonToCreate.PolygonHoles )

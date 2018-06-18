@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "StaticMeshEditorTools.h"
 #include "Framework/Commands/UIAction.h"
@@ -2895,7 +2895,7 @@ FReply FLevelOfDetailSettingsLayout::OnRemoveLOD(int32 LODIndex)
 				FScopedTransaction Transaction( TEXT(""), TransactionDescription, StaticMesh );
 
 				StaticMesh->Modify();
-				StaticMesh->RemoveSourceModel(LODIndex);
+				StaticMesh->SourceModels.RemoveAt(LODIndex);
 				--LODCount;
 				StaticMesh->PostEditChange();
 
@@ -3565,7 +3565,16 @@ void FLevelOfDetailSettingsLayout::ApplyChanges()
 	FlushRenderingCommands();
 
 	StaticMesh->Modify();
-	StaticMesh->SetNumSourceModels(LODCount);
+	if (StaticMesh->SourceModels.Num() > LODCount)
+	{
+		int32 NumToRemove = StaticMesh->SourceModels.Num() - LODCount;
+		StaticMesh->SourceModels.RemoveAt(LODCount, NumToRemove);
+	}
+	while (StaticMesh->SourceModels.Num() < LODCount)
+	{
+		StaticMesh->AddSourceModel();
+	}
+	check(StaticMesh->SourceModels.Num() == LODCount);
 
 	for (int32 LODIndex = 0; LODIndex < LODCount; ++LODIndex)
 	{

@@ -11,7 +11,7 @@ bool FMeshEditorUtilities::AssignMaterialToPolygons( UMaterialInterface* Selecte
 {
 	EditableMesh->StartModification( EMeshModificationType::Final, EMeshTopologyChange::TopologyChange );
 	{
-		const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+		const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 
 		UPrimitiveComponent* Component = nullptr;
 		for( const FMeshElement& PolygonElement : PolygonElements )

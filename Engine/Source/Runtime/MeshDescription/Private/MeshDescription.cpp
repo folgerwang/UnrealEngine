@@ -1,91 +1,98 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MeshDescription.h"
+#include "Misc/SecureHash.h"
+#include "Serialization/MemoryWriter.h"
 #include "MeshAttributes.h"
+#include "Serialization/ObjectWriter.h"
 
 
-void UDEPRECATED_MeshDescription::Serialize( FArchive& Ar )
+UMeshDescription::UMeshDescription()
 {
-	Super::Serialize( Ar );
-
-	// Discard the contents
-	FMeshDescription MeshDescription;
-	Ar << MeshDescription;
 }
 
 
-FArchive& operator<<( FArchive& Ar, FMeshDescription& MeshDescription )
+void UMeshDescription::Serialize( FArchive& Ar )
 {
+	Super::Serialize( Ar );
+
 	Ar.UsingCustomVersion( FReleaseObjectVersion::GUID );
 
-	Ar << MeshDescription.VertexArray;
-	Ar << MeshDescription.VertexInstanceArray;
-	Ar << MeshDescription.EdgeArray;
-	Ar << MeshDescription.PolygonArray;
-	Ar << MeshDescription.PolygonGroupArray;
+	Ar << VertexArray;
+	Ar << VertexInstanceArray;
+	Ar << EdgeArray;
+	Ar << PolygonArray;
+	Ar << PolygonGroupArray;
 
-	Ar << MeshDescription.VertexAttributesSet;
-	Ar << MeshDescription.VertexInstanceAttributesSet;
-	Ar << MeshDescription.EdgeAttributesSet;
-	Ar << MeshDescription.PolygonAttributesSet;
-	Ar << MeshDescription.PolygonGroupAttributesSet;
+	Ar << VertexAttributesSet;
+	Ar << VertexInstanceAttributesSet;
+	Ar << EdgeAttributesSet;
+	Ar << PolygonAttributesSet;
+	Ar << PolygonGroupAttributesSet;
 
 	if( Ar.IsLoading() && Ar.CustomVer( FReleaseObjectVersion::GUID ) >= FReleaseObjectVersion::MeshDescriptionNewSerialization )
 	{
 		// Populate vertex instance IDs for vertices
-		for( const FVertexInstanceID VertexInstanceID : MeshDescription.VertexInstanceArray.GetElementIDs() )
+		for( const FVertexInstanceID VertexInstanceID : VertexInstanceArray.GetElementIDs() )
 		{
-			const FVertexID VertexID = MeshDescription.GetVertexInstanceVertex( VertexInstanceID );
-			MeshDescription.VertexArray[ VertexID ].VertexInstanceIDs.Add( VertexInstanceID );
+			const FVertexID VertexID = GetVertexInstanceVertex( VertexInstanceID );
+			VertexArray[ VertexID ].VertexInstanceIDs.Add( VertexInstanceID );
 		}
 
 		// Populate edge IDs for vertices
-		for( const FEdgeID EdgeID : MeshDescription.EdgeArray.GetElementIDs() )
+		for( const FEdgeID EdgeID : EdgeArray.GetElementIDs() )
 		{
-			const FVertexID VertexID0 = MeshDescription.GetEdgeVertex( EdgeID, 0 );
-			const FVertexID VertexID1 = MeshDescription.GetEdgeVertex( EdgeID, 1 );
-			MeshDescription.VertexArray[ VertexID0 ].ConnectedEdgeIDs.Add( EdgeID );
-			MeshDescription.VertexArray[ VertexID1 ].ConnectedEdgeIDs.Add( EdgeID );
+			const FVertexID VertexID0 = GetEdgeVertex( EdgeID, 0 );
+			const FVertexID VertexID1 = GetEdgeVertex( EdgeID, 1 );
+			VertexArray[ VertexID0 ].ConnectedEdgeIDs.Add( EdgeID );
+			VertexArray[ VertexID1 ].ConnectedEdgeIDs.Add( EdgeID );
 		}
 
 		// Populate polygon IDs for vertex instances, edges and polygon groups
-		for( const FPolygonID PolygonID : MeshDescription.PolygonArray.GetElementIDs() )
+		for( const FPolygonID PolygonID : PolygonArray.GetElementIDs() )
 		{
-			auto PopulatePolygonIDs = [ &MeshDescription, PolygonID ]( const TArray<FVertexInstanceID>& VertexInstanceIDs )
+			auto PopulatePolygonIDs = [ this, PolygonID ]( const TArray<FVertexInstanceID>& VertexInstanceIDs )
 			{
 				const int32 NumVertexInstances = VertexInstanceIDs.Num();
 				for( int32 Index = 0; Index < NumVertexInstances; ++Index )
 				{
 					const FVertexInstanceID VertexInstanceID0 = VertexInstanceIDs[ Index ];
 					const FVertexInstanceID VertexInstanceID1 = VertexInstanceIDs[ ( Index + 1 ) % NumVertexInstances ];
-					const FVertexID VertexID0 = MeshDescription.GetVertexInstanceVertex( VertexInstanceID0 );
-					const FVertexID VertexID1 = MeshDescription.GetVertexInstanceVertex( VertexInstanceID1 );
-					const FEdgeID EdgeID = MeshDescription.GetVertexPairEdge( VertexID0, VertexID1 );
-					MeshDescription.VertexInstanceArray[ VertexInstanceID0 ].ConnectedPolygons.Add( PolygonID );
-					MeshDescription.EdgeArray[ EdgeID ].ConnectedPolygons.Add( PolygonID );
+					const FVertexID VertexID0 = GetVertexInstanceVertex( VertexInstanceID0 );
+					const FVertexID VertexID1 = GetVertexInstanceVertex( VertexInstanceID1 );
+					const FEdgeID EdgeID = GetVertexPairEdge( VertexID0, VertexID1 );
+					VertexInstanceArray[ VertexInstanceID0 ].ConnectedPolygons.Add( PolygonID );
+					EdgeArray[ EdgeID ].ConnectedPolygons.Add( PolygonID );
 				}
 			};
 
-			PopulatePolygonIDs( MeshDescription.GetPolygonPerimeterVertexInstances( PolygonID ) );
+			PopulatePolygonIDs( GetPolygonPerimeterVertexInstances( PolygonID ) );
 
-			for( int32 HoleIndex = 0; HoleIndex < MeshDescription.GetNumPolygonHoles( PolygonID ); ++HoleIndex )
+			for( int32 HoleIndex = 0; HoleIndex < GetNumPolygonHoles( PolygonID ); ++HoleIndex )
 			{
-				PopulatePolygonIDs( MeshDescription.GetPolygonHoleVertexInstances( PolygonID, HoleIndex ) );
+				PopulatePolygonIDs( GetPolygonHoleVertexInstances( PolygonID, HoleIndex ) );
 			}
 
-			const FPolygonGroupID PolygonGroupID = MeshDescription.PolygonArray[ PolygonID ].PolygonGroupID;
-			MeshDescription.PolygonGroupArray[ PolygonGroupID ].Polygons.Add( PolygonID );
+			const FPolygonGroupID PolygonGroupID = PolygonArray[ PolygonID ].PolygonGroupID;
+			PolygonGroupArray[ PolygonGroupID ].Polygons.Add( PolygonID );
 
 			// We don't serialize triangles; instead the polygon gets retriangulated on load
-			MeshDescription.ComputePolygonTriangulation( PolygonID, MeshDescription.PolygonArray[ PolygonID ].Triangles );
+			ComputePolygonTriangulation( PolygonID, PolygonArray[ PolygonID ].Triangles );
 		}
 	}
-
-	return Ar;
 }
 
+#if WITH_EDITOR
+void UMeshDescription::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+	
+	//We need to triangulate the mesh every time the mesh description change
+	TriangulateMesh();
+}
+#endif // WITH_EDITOR
 
-void FMeshDescription::Empty()
+void UMeshDescription::Empty()
 {
 	VertexArray.Reset();
 	VertexInstanceArray.Reset();
@@ -101,8 +108,172 @@ void FMeshDescription::Empty()
 	PolygonGroupAttributesSet.Initialize( 0 );
 }
 
+#if 0
+#if WITH_EDITORONLY_DATA
+FString UMeshDescription::GetIdString()
+{
+	//The serialisation of the sparse array can be different with the same data, so to get a unique identifier we need to take the data with no IDs(FVertexID...)
+	FSHA1 Sha;
+	TArray<uint8> TempBytes;
 
-void FMeshDescription::Compact( FElementIDRemappings& OutRemappings )
+	TVertexAttributeArray<FVector>& VertexPositions = VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+	TVertexAttributeArray<float>& VertexCornerSharpness = VertexAttributes().GetAttributes<float>(MeshAttribute::Vertex::CornerSharpness);
+
+	TVertexInstanceAttributeIndicesArray<FVector2D>& TextureCoordinates = VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
+	TVertexInstanceAttributeArray<float>& VertexInstanceBiNormals = VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
+	TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
+
+	TEdgeAttributeArray<bool>& EdgeHards = EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
+	TEdgeAttributeArray<float>& EdgeCreaseSharpness = EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness);
+
+	TPolygonAttributeArray<FVector>& PolygonNormals = PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Normal);
+	TPolygonAttributeArray<FVector>& PolygonTangents = PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Tangent);
+	TPolygonAttributeArray<FVector>& PolygonBinormals = PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Binormal);
+	TPolygonAttributeArray<FVector>& PolygonCenters = PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Center);
+
+	TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+	TPolygonGroupAttributeArray<bool>& PolygonGroupEnableCollisions = PolygonGroupAttributes().GetAttributes<bool>(MeshAttribute::PolygonGroup::EnableCollision);
+	TPolygonGroupAttributeArray<bool>& PolygonGroupCastShadows = PolygonGroupAttributes().GetAttributes<bool>(MeshAttribute::PolygonGroup::CastShadow);
+	
+	
+	//Fail safe, we always want to compute the string ID with the triangle triangulate
+	if(GetPolygon(Polygons().GetFirstValidID()).Triangles.Num() == 0)
+	{
+		//We should not get here since Triangulate is call when we import staticMesh and in the post edit change of the MeshDescription
+		ensure(GetPolygon(Polygons().GetFirstValidID()).Triangles.Num() != 0);
+		TriangulateMesh();
+	}
+
+	auto AddItemToSha = [&](auto ItemSerialization)
+	{
+		FMemoryWriter Ar(TempBytes);
+		ItemSerialization(Ar);
+		if (TempBytes.Num() > 0)
+		{
+			uint8* Buffer = TempBytes.GetData();
+			Sha.Update(Buffer, TempBytes.Num());
+		}
+		TempBytes.Reset();
+	};
+
+	//Vertex Identifier
+	auto VertexSerializer = [&](FMemoryWriter &Ar)
+	{
+		for (const FVertexID& ArrayID : Vertices().GetElementIDs())
+		{
+			const FMeshVertex& MeshItem = GetVertex(ArrayID);
+			uint32 ItemCount = MeshItem.ConnectedEdgeIDs.Num();
+			Ar.SerializeInt(ItemCount, 0);
+			ItemCount = MeshItem.VertexInstanceIDs.Num();
+			Ar.SerializeInt(ItemCount, 0);
+			Ar << VertexPositions[ArrayID];
+			Ar << VertexCornerSharpness[ArrayID];
+		}
+	};
+	AddItemToSha(VertexSerializer);
+	
+	//Vertex Instance Identifier
+	auto VertexInstanceSerializer = [&](FMemoryWriter &Ar)
+	{
+		for (const FVertexInstanceID& ArrayID : VertexInstances().GetElementIDs())
+		{
+			const FMeshVertexInstance& MeshItem = GetVertexInstance(ArrayID);
+			uint32 ItemCount = MeshItem.ConnectedPolygons.Num();
+			Ar.SerializeInt(ItemCount, 0);
+			Ar << VertexPositions[MeshItem.VertexID];
+			for (int32 UVIndex = 0; UVIndex < TextureCoordinates.GetNumIndices(); ++UVIndex)
+			{
+				Ar << TextureCoordinates.GetArrayForIndex(UVIndex)[ArrayID];
+			}
+			Ar << VertexInstanceNormals[ArrayID];
+			Ar << VertexInstanceTangents[ArrayID];
+			Ar << VertexInstanceBiNormals[ArrayID];
+			Ar << VertexInstanceColors[ArrayID];
+		}
+	};
+	AddItemToSha(VertexInstanceSerializer);
+
+	//Edge Identifier
+	auto EdgeSerializer = [&](FMemoryWriter &Ar)
+	{
+		for (const FEdgeID& ArrayID : Edges().GetElementIDs())
+		{
+			const FMeshEdge& MeshItem = GetEdge(ArrayID);
+			uint32 ItemCount = MeshItem.ConnectedPolygons.Num();
+			Ar.SerializeInt(ItemCount, 0);
+			Ar << VertexPositions[MeshItem.VertexIDs[0]];
+			Ar << VertexPositions[MeshItem.VertexIDs[1]];
+			Ar << EdgeHards[ArrayID];
+			Ar << EdgeCreaseSharpness[ArrayID];
+		}
+	};
+	AddItemToSha(EdgeSerializer);
+
+	//Polygon Identifier
+	auto PolygonSerializer = [&](FMemoryWriter &Ar)
+	{
+		for (const FPolygonID& ArrayID : Polygons().GetElementIDs())
+		{
+			const FMeshPolygon& MeshItem = GetPolygon(ArrayID);
+			uint32 ItemCount = MeshItem.HoleContours.Num();
+			Ar.SerializeInt(ItemCount, 0);
+			for(const FMeshPolygonContour& MeshPolygonContour : MeshItem.HoleContours)
+			{
+				ItemCount = MeshPolygonContour.VertexInstanceIDs.Num();
+				Ar.SerializeInt(ItemCount, 0);
+				for (const FVertexInstanceID& VertexInstanceID : MeshPolygonContour.VertexInstanceIDs)
+				{
+					Ar << VertexPositions[GetVertexInstance(VertexInstanceID).VertexID];
+				}
+			}
+			ItemCount = MeshItem.PerimeterContour.VertexInstanceIDs.Num();
+			Ar.SerializeInt(ItemCount, 0);
+			for (const FVertexInstanceID& VertexInstanceID : MeshItem.PerimeterContour.VertexInstanceIDs)
+			{
+				Ar << VertexPositions[GetVertexInstance(VertexInstanceID).VertexID];
+			}
+			FPolygonGroupID PolygonGroupId = MeshItem.PolygonGroupID;
+			ItemCount = (uint32)PolygonGroupId.GetValue();
+			Ar.SerializeInt(ItemCount, 0);
+
+			Ar << GetPolygon(ArrayID);
+			Ar << PolygonNormals[ArrayID];
+			Ar << PolygonTangents[ArrayID];
+			Ar << PolygonBinormals[ArrayID];
+			Ar << PolygonCenters[ArrayID];
+		}
+	};
+	AddItemToSha(PolygonSerializer);
+
+	//PolygonGroup Identifier
+	auto PolygonGroupSerializer = [&](FMemoryWriter &Ar)
+	{
+		for (const FPolygonGroupID& ArrayID : PolygonGroups().GetElementIDs())
+		{
+			const FMeshPolygonGroup& MeshItem = GetPolygonGroup(ArrayID);
+			uint32 ItemCount = MeshItem.Polygons.Num();
+			Ar.SerializeInt(ItemCount, 0);
+			Ar << PolygonGroupImportedMaterialSlotNames[ArrayID];
+			Ar << PolygonGroupEnableCollisions[ArrayID];
+			Ar << PolygonGroupCastShadows[ArrayID];
+		}
+	};
+	AddItemToSha(PolygonGroupSerializer);
+	
+	Sha.Final();
+	TempBytes.Empty();
+	// Retrieve the hash and use it to construct a pseudo-GUID.
+	uint32 Hash[5];
+	Sha.GetHash((uint8*)Hash);
+	FGuid Guid = FGuid(Hash[0] ^ Hash[4], Hash[1], Hash[2], Hash[3]);
+	return Guid.ToString(EGuidFormats::Digits);
+}
+#endif //WITH_EDITORONLY_DATA
+#endif
+
+void UMeshDescription::Compact( FElementIDRemappings& OutRemappings )
 {
 	VertexArray.Compact( OutRemappings.NewVertexIndexLookup );
 	VertexInstanceArray.Compact( OutRemappings.NewVertexInstanceIndexLookup );
@@ -115,7 +286,7 @@ void FMeshDescription::Compact( FElementIDRemappings& OutRemappings )
 }
 
 
-void FMeshDescription::Remap( const FElementIDRemappings& Remappings )
+void UMeshDescription::Remap( const FElementIDRemappings& Remappings )
 {
 	VertexArray.Remap( Remappings.NewVertexIndexLookup );
 	VertexInstanceArray.Remap( Remappings.NewVertexInstanceIndexLookup );
@@ -128,7 +299,7 @@ void FMeshDescription::Remap( const FElementIDRemappings& Remappings )
 }
 
 
-void FMeshDescription::FixUpElementIDs( const FElementIDRemappings& Remappings )
+void UMeshDescription::FixUpElementIDs( const FElementIDRemappings& Remappings )
 {
 	for( const FVertexID VertexID : VertexArray.GetElementIDs() )
 	{
@@ -220,7 +391,7 @@ void FMeshDescription::FixUpElementIDs( const FElementIDRemappings& Remappings )
 }
 
 
-void FMeshDescription::RemapAttributes( const FElementIDRemappings& Remappings )
+void UMeshDescription::RemapAttributes( const FElementIDRemappings& Remappings )
 {
 	VertexAttributesSet.Remap( Remappings.NewVertexIndexLookup );
 	VertexInstanceAttributesSet.Remap( Remappings.NewVertexInstanceIndexLookup );
@@ -230,7 +401,7 @@ void FMeshDescription::RemapAttributes( const FElementIDRemappings& Remappings )
 }
 
 
-bool FMeshDescription::IsVertexOrphaned( const FVertexID VertexID ) const
+bool UMeshDescription::IsVertexOrphaned( const FVertexID VertexID ) const
 {
 	for( const FVertexInstanceID VertexInstanceID : GetVertex( VertexID ).VertexInstanceIDs )
 	{
@@ -244,7 +415,7 @@ bool FMeshDescription::IsVertexOrphaned( const FVertexID VertexID ) const
 }
 
 
-void FMeshDescription::GetPolygonPerimeterVertices( const FPolygonID PolygonID, TArray<FVertexID>& OutPolygonPerimeterVertexIDs ) const
+void UMeshDescription::GetPolygonPerimeterVertices( const FPolygonID PolygonID, TArray<FVertexID>& OutPolygonPerimeterVertexIDs ) const
 {
 	const FMeshPolygon& Polygon = GetPolygon( PolygonID );
 
@@ -260,7 +431,7 @@ void FMeshDescription::GetPolygonPerimeterVertices( const FPolygonID PolygonID, 
 }
 
 
-void FMeshDescription::GetPolygonHoleVertices( const FPolygonID PolygonID, const int32 HoleIndex, TArray<FVertexID>& OutPolygonHoleVertexIDs ) const
+void UMeshDescription::GetPolygonHoleVertices( const FPolygonID PolygonID, const int32 HoleIndex, TArray<FVertexID>& OutPolygonHoleVertexIDs ) const
 {
 	const FMeshPolygon& Polygon = GetPolygon( PolygonID );
 
@@ -277,23 +448,22 @@ void FMeshDescription::GetPolygonHoleVertices( const FPolygonID PolygonID, const
 
 
 /** Given three direction vectors, indicates if A and B are on the same 'side' of Vec. */
-bool FMeshDescription::VectorsOnSameSide( const FVector& Vec, const FVector& A, const FVector& B, const float SameSideDotProductEpsilon )
+bool UMeshDescription::VectorsOnSameSide(const FVector& Vec, const FVector& A, const FVector& B, const float SameSideDotProductEpsilon)
 {
-	const FVector CrossA = FVector::CrossProduct( Vec, A );
-	const FVector CrossB = FVector::CrossProduct( Vec, B );
-	float DotWithEpsilon = SameSideDotProductEpsilon + FVector::DotProduct( CrossA, CrossB );
-	return !FMath::IsNegativeFloat( DotWithEpsilon );
+	const FVector CrossA = Vec ^ A;
+	const FVector CrossB = Vec ^ B;
+	float DotWithEpsilon = SameSideDotProductEpsilon + (CrossA | CrossB);
+	return !FMath::IsNegativeFloat(DotWithEpsilon);
 }
 
-
 /** Util to see if P lies within triangle created by A, B and C. */
-bool FMeshDescription::PointInTriangle( const FVector& A, const FVector& B, const FVector& C, const FVector& P, const float InsideTriangleDotProductEpsilon )
+bool UMeshDescription::PointInTriangle(const FVector& A, const FVector& B, const FVector& C, const FVector& P, const float InsideTriangleDotProductEpsilon)
 {
 	// Cross product indicates which 'side' of the vector the point is on
 	// If its on the same side as the remaining vert for all edges, then its inside.	
-	if ( VectorsOnSameSide( B - A, P - A, C - A, InsideTriangleDotProductEpsilon ) &&
-		 VectorsOnSameSide( C - B, P - B, A - B, InsideTriangleDotProductEpsilon ) &&
-		 VectorsOnSameSide( A - C, P - C, B - C, InsideTriangleDotProductEpsilon ) )
+	if (VectorsOnSameSide(B - A, P - A, C - A, InsideTriangleDotProductEpsilon) &&
+		VectorsOnSameSide(C - B, P - B, A - B, InsideTriangleDotProductEpsilon) &&
+		VectorsOnSameSide(A - C, P - C, B - C, InsideTriangleDotProductEpsilon))
 	{
 		return true;
 	}
@@ -301,10 +471,10 @@ bool FMeshDescription::PointInTriangle( const FVector& A, const FVector& B, cons
 	{
 		return false;
 	}
+
 }
 
-
-FPlane FMeshDescription::ComputePolygonPlane( const FPolygonID PolygonID ) const
+FPlane UMeshDescription::ComputePolygonPlane(const FPolygonID PolygonID) const
 {
 	// NOTE: This polygon plane computation code is partially based on the implementation of "Newell's method" from Real-Time 
 	//       Collision Detection by Christer Ericson, published by Morgan Kaufmann Publishers, (c) 2005 Elsevier Inc
@@ -318,46 +488,44 @@ FPlane FMeshDescription::ComputePolygonPlane( const FPolygonID PolygonID ) const
 	FVector Normal = FVector::ZeroVector;
 
 	static TArray<FVertexID> PerimeterVertexIDs;
-	GetPolygonPerimeterVertices( PolygonID, /* Out */ PerimeterVertexIDs );
+	GetPolygonPerimeterVertices(PolygonID, /* Out */ PerimeterVertexIDs);
 
-	// @todo Maybe this shouldn't be in FMeshDescription but in a utility class, as it references a specific attribute name
-	const TVertexAttributeArray<FVector>& VertexPositions = VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+	const TVertexAttributeArray<FVector>& VertexPositions = VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
 
 	// Use 'Newell's Method' to compute a robust 'best fit' plane from the vertices of this polygon
-	for ( int32 VertexNumberI = PerimeterVertexIDs.Num() - 1, VertexNumberJ = 0; VertexNumberJ < PerimeterVertexIDs.Num(); VertexNumberI = VertexNumberJ, VertexNumberJ++ )
+	for (int32 VertexNumberI = PerimeterVertexIDs.Num() - 1, VertexNumberJ = 0; VertexNumberJ < PerimeterVertexIDs.Num(); VertexNumberI = VertexNumberJ, VertexNumberJ++)
 	{
-		const FVertexID VertexIDI = PerimeterVertexIDs[ VertexNumberI ];
-		const FVector PositionI = VertexPositions[ VertexIDI ];
+		const FVertexID VertexIDI = PerimeterVertexIDs[VertexNumberI];
+		const FVector PositionI = VertexPositions[VertexIDI];
 
-		const FVertexID VertexIDJ = PerimeterVertexIDs[ VertexNumberJ ];
-		const FVector PositionJ = VertexPositions[ VertexIDJ ];
+		const FVertexID VertexIDJ = PerimeterVertexIDs[VertexNumberJ];
+		const FVector PositionJ = VertexPositions[VertexIDJ];
 
 		Centroid += PositionJ;
 
-		Normal.X += ( PositionJ.Y - PositionI.Y ) * ( PositionI.Z + PositionJ.Z );
-		Normal.Y += ( PositionJ.Z - PositionI.Z ) * ( PositionI.X + PositionJ.X );
-		Normal.Z += ( PositionJ.X - PositionI.X ) * ( PositionI.Y + PositionJ.Y );
+		Normal.X += (PositionJ.Y - PositionI.Y) * (PositionI.Z + PositionJ.Z);
+		Normal.Y += (PositionJ.Z - PositionI.Z) * (PositionI.X + PositionJ.X);
+		Normal.Z += (PositionJ.X - PositionI.X) * (PositionI.Y + PositionJ.Y);
 	}
 
 	Normal.Normalize();
 
 	// Construct a plane from the normal and centroid
-	return FPlane( Normal, FVector::DotProduct( Centroid, Normal ) / ( float )PerimeterVertexIDs.Num() );
+	return FPlane(Normal, FVector::DotProduct(Centroid, Normal) / (float)PerimeterVertexIDs.Num());
 }
 
 
-FVector FMeshDescription::ComputePolygonNormal( const FPolygonID PolygonID ) const
+FVector UMeshDescription::ComputePolygonNormal(const FPolygonID PolygonID) const
 {
 	// @todo mesheditor: Polygon normals are now computed and cached when changes are made to a polygon.
 	// In theory, we can just return that cached value, but we need to check that there is nothing which relies on the value being correct before
 	// the cache is updated at the end of a modification.
-	const FPlane PolygonPlane = ComputePolygonPlane( PolygonID );
-	const FVector PolygonNormal( PolygonPlane.X, PolygonPlane.Y, PolygonPlane.Z );
+	const FPlane PolygonPlane = ComputePolygonPlane(PolygonID);
+	const FVector PolygonNormal(PolygonPlane.X, PolygonPlane.Y, PolygonPlane.Z);
 	return PolygonNormal;
 }
 
-
-void FMeshDescription::ComputePolygonTriangulation(const FPolygonID PolygonID, TArray<FMeshTriangle>& OutTriangles)
+void UMeshDescription::ComputePolygonTriangulation(const FPolygonID PolygonID, TArray<FMeshTriangle>& OutTriangles)
 {
 	// NOTE: This polygon triangulation code is partially based on the ear cutting algorithm described on
 	//       page 497 of the book "Real-time Collision Detection", published in 2005.
@@ -518,19 +686,17 @@ void FMeshDescription::ComputePolygonTriangulation(const FPolygonID PolygonID, T
 	check(OutTriangles.Num() > 0);
 }
 
-
-void FMeshDescription::TriangulateMesh()
+void UMeshDescription::TriangulateMesh()
 {
 	// Perform triangulation directly into mesh polygons
-	for( const FPolygonID PolygonID : Polygons().GetElementIDs() )
+	for (const FPolygonID PolygonID : Polygons().GetElementIDs())
 	{
-		FMeshPolygon& Polygon = PolygonArray[ PolygonID ];
-		ComputePolygonTriangulation( PolygonID, Polygon.Triangles );
+		FMeshPolygon& Polygon = PolygonArray[PolygonID];
+		ComputePolygonTriangulation(PolygonID, Polygon.Triangles);
 	}
 }
 
-
-bool FMeshDescription::ComputePolygonTangentsAndNormals(const FPolygonID PolygonID
+bool UMeshDescription::ComputePolygonTangentsAndNormals(const FPolygonID PolygonID
 	, float ComparisonThreshold
 	, const TVertexAttributeArray<FVector>& VertexPositions
 	, const TVertexInstanceAttributeArray<FVector2D>& VertexUVs
@@ -594,8 +760,7 @@ bool FMeshDescription::ComputePolygonTangentsAndNormals(const FPolygonID Polygon
 	return bValidNTBs;
 }
 
-
-void FMeshDescription::ComputePolygonTangentsAndNormals(const TArray<FPolygonID>& PolygonIDs, float ComparisonThreshold)
+void UMeshDescription::ComputePolygonTangentsAndNormals(const TArray<FPolygonID>& PolygonIDs, float ComparisonThreshold)
 {
 	const TVertexAttributeArray<FVector>& VertexPositions = VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
 	const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, 0);
@@ -647,8 +812,7 @@ void FMeshDescription::ComputePolygonTangentsAndNormals(const TArray<FPolygonID>
 	}
 }
 
-
-void FMeshDescription::ComputePolygonTangentsAndNormals(float ComparisonThreshold)
+void UMeshDescription::ComputePolygonTangentsAndNormals(float ComparisonThreshold)
 {
 	TArray<FPolygonID> PolygonsToComputeNTBs;
 	PolygonsToComputeNTBs.Reserve(Polygons().Num());
@@ -659,8 +823,7 @@ void FMeshDescription::ComputePolygonTangentsAndNormals(float ComparisonThreshol
 	ComputePolygonTangentsAndNormals(PolygonsToComputeNTBs, ComparisonThreshold);
 }
 
-
-void FMeshDescription::GetConnectedSoftEdges(const FVertexID VertexID, TArray<FEdgeID>& OutConnectedSoftEdges) const
+void UMeshDescription::GetConnectedSoftEdges(const FVertexID VertexID, TArray<FEdgeID>& OutConnectedSoftEdges) const
 {
 	OutConnectedSoftEdges.Reset();
 
@@ -674,8 +837,7 @@ void FMeshDescription::GetConnectedSoftEdges(const FVertexID VertexID, TArray<FE
 	}
 }
 
-
-void FMeshDescription::GetPolygonsInSameSoftEdgedGroupAsPolygon(const FPolygonID PolygonID, const TArray<FPolygonID>& CandidatePolygonIDs, const TArray<FEdgeID>& SoftEdgeIDs, TArray<FPolygonID>& OutPolygonIDs) const
+void UMeshDescription::GetPolygonsInSameSoftEdgedGroupAsPolygon(const FPolygonID PolygonID, const TArray<FPolygonID>& CandidatePolygonIDs, const TArray<FEdgeID>& SoftEdgeIDs, TArray<FPolygonID>& OutPolygonIDs) const
 {
 	// The aim of this method is:
 	// - given a polygon ID,
@@ -720,8 +882,7 @@ void FMeshDescription::GetPolygonsInSameSoftEdgedGroupAsPolygon(const FPolygonID
 	}
 }
 
-
-void FMeshDescription::GetVertexConnectedPolygonsInSameSoftEdgedGroup(const FVertexID VertexID, const FPolygonID PolygonID, TArray<FPolygonID>& OutPolygonIDs) const
+void UMeshDescription::GetVertexConnectedPolygonsInSameSoftEdgedGroup(const FVertexID VertexID, const FPolygonID PolygonID, TArray<FPolygonID>& OutPolygonIDs) const
 {
 	// The aim here is to determine which polygons form part of the same soft edged group as the polygons attached to this vertex.
 	// They should all contribute to the final vertex instance normal.
@@ -738,8 +899,7 @@ void FMeshDescription::GetVertexConnectedPolygonsInSameSoftEdgedGroup(const FVer
 	GetPolygonsInSameSoftEdgedGroupAsPolygon(PolygonID, ConnectedPolygons, ConnectedSoftEdges, OutPolygonIDs);
 }
 
-
-float FMeshDescription::GetPolygonCornerAngleForVertex(const FPolygonID PolygonID, const FVertexID VertexID) const
+float UMeshDescription::GetPolygonCornerAngleForVertex(const FPolygonID PolygonID, const FVertexID VertexID) const
 {
 	const FMeshPolygon& Polygon = GetPolygon(PolygonID);
 
@@ -798,8 +958,7 @@ float FMeshDescription::GetPolygonCornerAngleForVertex(const FPolygonID PolygonI
 	return 0.0f;
 }
 
-
-void FMeshDescription::ComputeTangentsAndNormals(const FVertexInstanceID& VertexInstanceID
+void UMeshDescription::ComputeTangentsAndNormals(const FVertexInstanceID& VertexInstanceID
 	, EComputeNTBsOptions ComputeNTBsOptions
 	, const TPolygonAttributeArray<FVector>& PolygonNormals
 	, const TPolygonAttributeArray<FVector>& PolygonTangents
@@ -908,8 +1067,7 @@ void FMeshDescription::ComputeTangentsAndNormals(const FVertexInstanceID& Vertex
 	}
 }
 
-
-void FMeshDescription::ComputeTangentsAndNormals(const TArray<FVertexInstanceID>& VertexInstanceIDs, EComputeNTBsOptions ComputeNTBsOptions)
+void UMeshDescription::ComputeTangentsAndNormals(const TArray<FVertexInstanceID>& VertexInstanceIDs, EComputeNTBsOptions ComputeNTBsOptions)
 {
 	const TPolygonAttributeArray<FVector>& PolygonNormals = PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Normal);
 	const TPolygonAttributeArray<FVector>& PolygonTangents = PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Tangent);
@@ -925,8 +1083,7 @@ void FMeshDescription::ComputeTangentsAndNormals(const TArray<FVertexInstanceID>
 	}
 }
 
-
-void FMeshDescription::ComputeTangentsAndNormals(EComputeNTBsOptions ComputeNTBsOptions)
+void UMeshDescription::ComputeTangentsAndNormals(EComputeNTBsOptions ComputeNTBsOptions)
 {
 	const TPolygonAttributeArray<FVector>& PolygonNormals = PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Normal);
 	const TPolygonAttributeArray<FVector>& PolygonTangents = PolygonAttributes().GetAttributes<FVector>(MeshAttribute::Polygon::Tangent);
@@ -943,7 +1100,7 @@ void FMeshDescription::ComputeTangentsAndNormals(EComputeNTBsOptions ComputeNTBs
 }
 
 
-void FMeshDescription::DetermineEdgeHardnessesFromVertexInstanceNormals( const float Tolerance )
+void UMeshDescription::DetermineEdgeHardnessesFromVertexInstanceNormals( const float Tolerance )
 {
 	const TVertexInstanceAttributeArray<FVector>& VertexNormals = VertexInstanceAttributes().GetAttributes<FVector>( MeshAttribute::VertexInstance::Normal );
 	TEdgeAttributeArray<bool>& EdgeHardnesses = EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsHard );
@@ -1007,7 +1164,7 @@ void FMeshDescription::DetermineEdgeHardnessesFromVertexInstanceNormals( const f
 }
 
 
-void FMeshDescription::DetermineUVSeamsFromUVs( const int32 UVIndex, const float Tolerance )
+void UMeshDescription::DetermineUVSeamsFromUVs( const int32 UVIndex, const float Tolerance )
 {
 	const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = VertexInstanceAttributes().GetAttributes<FVector2D>( MeshAttribute::VertexInstance::TextureCoordinate, UVIndex );
 	TEdgeAttributeArray<bool>& EdgeUVSeams = EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsUVSeam );
@@ -1070,7 +1227,7 @@ void FMeshDescription::DetermineUVSeamsFromUVs( const int32 UVIndex, const float
 }
 
 
-void FMeshDescription::GetPolygonsInSameChartAsPolygon( const FPolygonID PolygonID, TArray<FPolygonID>& OutPolygonIDs )
+void UMeshDescription::GetPolygonsInSameChartAsPolygon( const FPolygonID PolygonID, TArray<FPolygonID>& OutPolygonIDs )
 {
 	const TEdgeAttributeArray<bool>& EdgeUVSeams = EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsUVSeam );
 	const int32 NumPolygons = Polygons().Num();
@@ -1120,7 +1277,7 @@ void FMeshDescription::GetPolygonsInSameChartAsPolygon( const FPolygonID Polygon
 }
 
 
-void FMeshDescription::GetAllCharts( TArray<TArray<FPolygonID>>& OutCharts )
+void UMeshDescription::GetAllCharts( TArray<TArray<FPolygonID>>& OutCharts )
 {
 	// @todo: OutCharts: array of array doesn't seem like a really efficient data structure. Also templatize on allocator?
 
@@ -1149,7 +1306,7 @@ void FMeshDescription::GetAllCharts( TArray<TArray<FPolygonID>>& OutCharts )
 }
 
 
-void FMeshDescription::ReversePolygonFacing(const FPolygonID PolygonID)
+void UMeshDescription::ReversePolygonFacing(const FPolygonID PolygonID)
 {
 	FMeshPolygon& Polygon = GetPolygon(PolygonID);
 
@@ -1171,8 +1328,7 @@ void FMeshDescription::ReversePolygonFacing(const FPolygonID PolygonID)
 	ComputePolygonTriangulation(PolygonID, Polygon.Triangles);
 }
 
-
-void FMeshDescription::ReverseAllPolygonFacing()
+void UMeshDescription::ReverseAllPolygonFacing()
 {
 	// Perform triangulation directly into mesh polygons
 	for (const FPolygonID PolygonID : Polygons().GetElementIDs())

@@ -563,9 +563,9 @@ public:
 	}
 
 	virtual void ReduceMeshDescription(
-		FMeshDescription& OutReducedMesh,
+		class UMeshDescription* OutReducedMesh,
 		float& OutMaxDeviation,
-		const FMeshDescription& InMesh,
+		const class UMeshDescription* InMesh,
 		const TMultiMap<int32, int32>& InOverlappingCorners,
 		const struct FMeshReductionSettings& ReductionSettings
 	) override
