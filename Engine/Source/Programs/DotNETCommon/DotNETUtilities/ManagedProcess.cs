@@ -81,7 +81,7 @@ namespace Tools.DotNETCommon
 		/// </summary>
 		static internal bool SupportsJobObjects
 		{
-			get { return false; }// Environment.OSVersion.Platform == PlatformID.Win32NT; }
+			get { return Environment.OSVersion.Platform == PlatformID.Win32NT || Environment.OSVersion.Platform == PlatformID.Win32S || Environment.OSVersion.Platform == PlatformID.Win32Windows; }
 		}
 
 		/// <summary>
