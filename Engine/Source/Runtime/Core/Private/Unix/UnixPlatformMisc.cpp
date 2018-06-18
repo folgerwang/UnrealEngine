@@ -102,6 +102,9 @@ void UnixPlatform_UpdateCacheLineSize()
 	}
 }
 
+// Init'ed in UnixPlatformMemory for now. Once the old crash symbolicator is gone remove this
+extern bool CORE_API GUseNewCrashSymbolicator;
+
 void FUnixPlatformMisc::PlatformInit()
 {
 	// install a platform-specific signal handler
@@ -110,6 +113,15 @@ void FUnixPlatformMisc::PlatformInit()
 	// do not remove the below check for IsFirstInstance() - it is not just for logging, it actually lays the claim to be first
 	bool bFirstInstance = FPlatformProcess::IsFirstInstance();
 	bool bIsNullRHI = !FApp::CanEverRender();
+
+	if (GUseNewCrashSymbolicator)
+	{
+		UE_LOG(LogInit, Log, TEXT("Using custom *.sym to symbolicate"));
+	}
+	else
+	{
+		UE_LOG(LogInit, Log, TEXT("Using libdwarf/libelf to symbolicate"));
+	}
 
 	UE_LOG(LogInit, Log, TEXT("Unix hardware info:"));
 	UE_LOG(LogInit, Log, TEXT(" - we are %sthe first instance of this executable"), bFirstInstance ? TEXT("") : TEXT("not "));
