@@ -3374,12 +3374,22 @@ namespace UnrealBuildTool
 			// Map of plugin names to instances of that plugin
 			Dictionary<string, UEBuildPlugin> NameToInstance = new Dictionary<string, UEBuildPlugin>(StringComparer.InvariantCultureIgnoreCase);
 
-			// Configure plugins explicitly referenced via target settings
+			// Configure plugins explicitly enabled via target settings
 			foreach(string PluginName in Rules.EnablePlugins)
 			{
 				if(ReferencedNames.Add(PluginName))
 				{
 					PluginReferenceDescriptor PluginReference = new PluginReferenceDescriptor(PluginName, null, true);
+					AddPlugin(PluginReference, "target settings", ExcludeFolders, NameToInstance, NameToInfo);
+				}
+			}
+
+			// Configure plugins explicitly disabled via target settings
+			foreach(string PluginName in Rules.DisablePlugins)
+			{
+				if(ReferencedNames.Add(PluginName))
+				{
+					PluginReferenceDescriptor PluginReference = new PluginReferenceDescriptor(PluginName, null, false);
 					AddPlugin(PluginReference, "target settings", ExcludeFolders, NameToInstance, NameToInfo);
 				}
 			}
@@ -3466,19 +3476,6 @@ namespace UnrealBuildTool
 			if(!Reference.bEnabled)
 			{
 				return null;
-			}
-
-			// If this plugin is listed to be excluded, do so here. The reference must be optional in this case.
-			if(Rules.DisablePlugins.Contains(Reference.Name, StringComparer.InvariantCultureIgnoreCase))
-			{
-				if(!Reference.bOptional)
-				{
-					throw new BuildException("The '{0}' plugin is listed in the target's ExcludePlugins list, but is not referenced (via {1}) without the bOptional flag set. This will cause load failures at runtime.", Reference.Name, ReferenceChain);
-				}
-				else
-				{
-					return null;
-				}
 			}
 
 			// Try to get an existing reference to this plugin
