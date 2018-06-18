@@ -20,7 +20,7 @@ DEFINE_LOG_CATEGORY(LogStaticMeshBuilder);
 void BuildVertexBuffer(
 	  UStaticMesh *StaticMesh
 	, int32 LodIndex
-	, UMeshDescription* MeshDescription
+	, const FMeshDescription& MeshDescription
 	, FStaticMeshLODResources& StaticMeshLOD
 	, const FMeshBuildSettings& LODBuildSettings
 	, TArray< uint32 >& IndexBuffer
@@ -46,6 +46,7 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 		UE_LOG(LogStaticMeshBuilder, Error, TEXT("Cannot find a valid mesh description to build the asset."));
 		return false;
 	}
+
 	if (StaticMeshRenderData.LODResources.Num() > 0)
 	{
 		//At this point the render data is suppose to be empty
@@ -56,61 +57,40 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 
 		return false;
 	}
+
 	StaticMeshRenderData.AllocateLODResources(StaticMesh->SourceModels.Num());
 
-	TArray<UMeshDescription*> MeshDescriptions;
-	auto GetMeshDescription = [&MeshDescriptions](int32 ArrayIndex)->UMeshDescription*
-	{
-		if (!MeshDescriptions.IsValidIndex(ArrayIndex))
-		{
-			return nullptr;
-		}
-		return MeshDescriptions[ArrayIndex];
-	};
-	auto SetMeshDescription = [&MeshDescriptions](int32 ArrayIndex, UMeshDescription* InMeshDescription)
-	{
-		if (!MeshDescriptions.IsValidIndex(ArrayIndex) && ArrayIndex >= 0)
-		{
-			//Add nullptr missing entries
-			MeshDescriptions.AddZeroed(ArrayIndex - MeshDescriptions.Num() + 1);
-		}
-		//Set the original mesh description
-		MeshDescriptions[ArrayIndex] = InMeshDescription;
-	};
+	TArray<FMeshDescription> MeshDescriptions;
+	MeshDescriptions.SetNum(StaticMesh->SourceModels.Num());
 
 	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
 	{
 		float MaxDeviation = 0.0f;
 		FMeshBuildSettings& LODBuildSettings = StaticMesh->SourceModels[LodIndex].BuildSettings;
-		UMeshDescription* OriginalMeshDescription = StaticMesh->GetOriginalMeshDescription(LodIndex);
-		FMeshDescriptionHelper MeshDescriptionHelper(&LODBuildSettings, OriginalMeshDescription);
-		
+		const FMeshDescription* OriginalMeshDescription = StaticMesh->GetOriginalMeshDescription(LodIndex);
+		FMeshDescriptionHelper MeshDescriptionHelper(&LODBuildSettings);
+
 		const FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[LodIndex];
 		FMeshReductionSettings ReductionSettings = LODGroup.GetSettings(SrcModel.ReductionSettings, LodIndex);
 
-		UMeshDescription* MeshDescription = nullptr;
-		
-
-		bool bUseReduction = (ReductionSettings.PercentTriangles < 1.0f || ReductionSettings.MaxDeviation > 0.0f) && (GetMeshDescription(0) != nullptr);
+		bool bUseReduction = (ReductionSettings.PercentTriangles < 1.0f || ReductionSettings.MaxDeviation > 0.0f) && LodIndex > 0;
 
 		if (OriginalMeshDescription != nullptr)
 		{
-			MeshDescription = MeshDescriptionHelper.GetRenderMeshDescription(StaticMesh);
+			MeshDescriptionHelper.GetRenderMeshDescription(StaticMesh, *OriginalMeshDescription, MeshDescriptions[LodIndex]);
 		}
-		
-		if(MeshDescription == nullptr)
+		else
 		{
-			int32 BaseReduceLodIndex = 0;
+			const int32 BaseReduceLodIndex = 0;
 			if (bUseReduction)
 			{
-				//Create an empty mesh description that the reduce will fill
-				MeshDescription = NewObject<UMeshDescription>(StaticMesh, NAME_None);
-				UStaticMesh::RegisterMeshAttributes(MeshDescription);
+				// Initialize an empty mesh description that the reduce will fill
+				UStaticMesh::RegisterMeshAttributes(MeshDescriptions[LodIndex]);
 			}
-			else if(GetMeshDescription(BaseReduceLodIndex) != nullptr)
+			else
 			{
 				//Duplicate the lodindex 0 we have a 100% reduction which is like a duplicate
-				MeshDescription = Cast<UMeshDescription>(StaticDuplicateObject(GetMeshDescription(BaseReduceLodIndex), StaticMesh, NAME_None, RF_NoFlags));
+				MeshDescriptions[LodIndex] = MeshDescriptions[BaseReduceLodIndex];
 				if (LodIndex > 0)
 				{
 					
@@ -140,67 +120,58 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 			}
 		}
 
-		check(MeshDescription != nullptr);
-		SetMeshDescription(LodIndex, MeshDescription);
-		
 		//Reduce LODs
 		if (bUseReduction)
 		{
-			int32 BaseLODIndex = 0;
+			const int32 BaseLodIndex = 0;
 			float OverlappingThreshold = LODBuildSettings.bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
 			TMultiMap<int32, int32> OverlappingCorners;
-			FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, GetMeshDescription(BaseLODIndex), OverlappingThreshold);
+			FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, MeshDescriptions[BaseLodIndex], OverlappingThreshold);
 
-			//Create a new destination mesh in case we reduce ourself
-			UMeshDescription* MeshDescriptionReduced = NewObject<UMeshDescription>(StaticMesh, NAME_None);
-			UStaticMesh::RegisterMeshAttributes(MeshDescriptionReduced);
-			MeshDescriptionHelper.ReduceLOD(GetMeshDescription(BaseLODIndex), MeshDescriptionReduced, ReductionSettings, OverlappingCorners, MaxDeviation);
-			SetMeshDescription(LodIndex, MeshDescriptionReduced);
-			MeshDescription = MeshDescriptionReduced;
+			//Create a reduced mesh from the base LOD
+			UStaticMesh::RegisterMeshAttributes(MeshDescriptions[LodIndex]);
+			MeshDescriptionHelper.ReduceLOD(MeshDescriptions[BaseLodIndex], MeshDescriptions[LodIndex], ReductionSettings, OverlappingCorners, MaxDeviation);
 
-			if (MeshDescriptionReduced != nullptr)
+			const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescriptions[LodIndex].PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+			// Recompute adjacency information. Since we change the vertices when we reduce
+			MeshDescriptionHelper.FindOverlappingCorners(MeshDescriptions[LodIndex], OverlappingThreshold);
+			
+			//Make sure the static mesh SectionInfoMap is up to date with the new reduce LOD
+			//We have to remap the material index with the ReductionSettings.BaseLODModel sectionInfoMap
+			
+			//Set the new SectionInfoMap for this reduced LOD base on the ReductionSettings.BaseLODModel SectionInfoMap
+			const FMeshSectionInfoMap& LODModelSectionInfoMap = StaticMesh->SectionInfoMap;
+			const FMeshSectionInfoMap& LODModelOriginalSectionInfoMap = StaticMesh->OriginalSectionInfoMap;
+			TArray<int32> UniqueMaterialIndex;
+			//Find all unique Material in used order
+			for (const FPolygonGroupID& PolygonGroupID : MeshDescriptions[LodIndex].PolygonGroups().GetElementIDs())
 			{
-				const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescriptionReduced->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
-				// Recompute adjacency information. Since we change the vertices when we reduce
-				MeshDescriptionHelper.FindOverlappingCorners(MeshDescriptionReduced, OverlappingThreshold);
-			
-				//Make sure the static mesh SectionInfoMap is up to date with the new reduce LOD
-				//We have to remap the material index with the ReductionSettings.BaseLODModel sectionInfoMap
-			
-				//Set the new SectionInfoMap for this reduced LOD base on the ReductionSettings.BaseLODModel SectionInfoMap
-				const FMeshSectionInfoMap& LODModelSectionInfoMap = StaticMesh->SectionInfoMap;
-				const FMeshSectionInfoMap& LODModelOriginalSectionInfoMap = StaticMesh->OriginalSectionInfoMap;
-				TArray<int32> UniqueMaterialIndex;
-				//Find all unique Material in used order
-				for (const FPolygonGroupID& PolygonGroupID : MeshDescriptionReduced->PolygonGroups().GetElementIDs())
+				int32 MaterialIndex = StaticMesh->GetMaterialIndexFromImportedMaterialSlotName(PolygonGroupImportedMaterialSlotNames[PolygonGroupID]);
+				if (MaterialIndex == INDEX_NONE)
 				{
-					int32 MaterialIndex = StaticMesh->GetMaterialIndexFromImportedMaterialSlotName(PolygonGroupImportedMaterialSlotNames[PolygonGroupID]);
-					if (MaterialIndex == INDEX_NONE)
-					{
-						MaterialIndex = PolygonGroupID.GetValue();
-					}
-					UniqueMaterialIndex.AddUnique(MaterialIndex);
+					MaterialIndex = PolygonGroupID.GetValue();
 				}
-				//All used material represent a different section
-				for (int32 SectionIndex = 0; SectionIndex < UniqueMaterialIndex.Num(); ++SectionIndex)
+				UniqueMaterialIndex.AddUnique(MaterialIndex);
+			}
+			//All used material represent a different section
+			for (int32 SectionIndex = 0; SectionIndex < UniqueMaterialIndex.Num(); ++SectionIndex)
+			{
+				//Keep the old data
+				bool bHasValidLODInfoMap = LODModelSectionInfoMap.IsValidSection(LodIndex, SectionIndex);
+				//Section material index have to be remap with the ReductionSettings.BaseLODModel SectionInfoMap to create
+				//a valid new section info map for the reduced LOD.
+				if (!bHasValidLODInfoMap && LODModelSectionInfoMap.IsValidSection(ReductionSettings.BaseLODModel, UniqueMaterialIndex[SectionIndex]))
 				{
-					//Keep the old data
-					bool bHasValidLODInfoMap = LODModelSectionInfoMap.IsValidSection(LodIndex, SectionIndex);
-					//Section material index have to be remap with the ReductionSettings.BaseLODModel SectionInfoMap to create
-					//a valid new section info map for the reduced LOD.
-					if (!bHasValidLODInfoMap && LODModelSectionInfoMap.IsValidSection(ReductionSettings.BaseLODModel, UniqueMaterialIndex[SectionIndex]))
-					{
-						//Copy the BaseLODModel section info to the reduce LODIndex.
-						FMeshSectionInfo SectionInfo = LODModelSectionInfoMap.Get(ReductionSettings.BaseLODModel, UniqueMaterialIndex[SectionIndex]);
-						FMeshSectionInfo OriginalSectionInfo = LODModelOriginalSectionInfoMap.Get(ReductionSettings.BaseLODModel, UniqueMaterialIndex[SectionIndex]);
-						StaticMesh->SectionInfoMap.Set(LodIndex, SectionIndex, SectionInfo);
-						StaticMesh->OriginalSectionInfoMap.Set(LodIndex, SectionIndex, OriginalSectionInfo);
-					}
+					//Copy the BaseLODModel section info to the reduce LODIndex.
+					FMeshSectionInfo SectionInfo = LODModelSectionInfoMap.Get(ReductionSettings.BaseLODModel, UniqueMaterialIndex[SectionIndex]);
+					FMeshSectionInfo OriginalSectionInfo = LODModelOriginalSectionInfoMap.Get(ReductionSettings.BaseLODModel, UniqueMaterialIndex[SectionIndex]);
+					StaticMesh->SectionInfoMap.Set(LodIndex, SectionIndex, SectionInfo);
+					StaticMesh->OriginalSectionInfoMap.Set(LodIndex, SectionIndex, OriginalSectionInfo);
 				}
 			}
 		}
 
-		const FPolygonGroupArray& PolygonGroups = MeshDescription->PolygonGroups();
+		const FPolygonGroupArray& PolygonGroups = MeshDescriptions[LodIndex].PolygonGroups();
 
 		FStaticMeshLODResources& StaticMeshLOD = StaticMeshRenderData.LODResources[LodIndex];
 		StaticMeshLOD.MaxDeviation = MaxDeviation;
@@ -221,10 +192,10 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 
 		//Prepare the PerSectionIndices array so we can optimize the index buffer for the GPU
 		TArray<TArray<uint32> > PerSectionIndices;
-		PerSectionIndices.AddDefaulted(MeshDescription->PolygonGroups().Num());
+		PerSectionIndices.AddDefaulted(MeshDescriptions[LodIndex].PolygonGroups().Num());
 
 		//Build the vertex and index buffer
-		BuildVertexBuffer(StaticMesh, LodIndex, MeshDescription, StaticMeshLOD, LODBuildSettings, IndexBuffer, WedgeMap, PerSectionIndices, StaticMeshBuildVertices, MeshDescriptionHelper.GetOverlappingCorners(), VertexComparisonThreshold, RemapVerts);
+		BuildVertexBuffer(StaticMesh, LodIndex, MeshDescriptions[LodIndex], StaticMeshLOD, LODBuildSettings, IndexBuffer, WedgeMap, PerSectionIndices, StaticMeshBuildVertices, MeshDescriptionHelper.GetOverlappingCorners(), VertexComparisonThreshold, RemapVerts);
 
 		// Concatenate the per-section index buffers.
 		TArray<uint32> CombinedIndices;
@@ -316,7 +287,7 @@ bool AreVerticesEqual(FStaticMeshBuildVertex const& A, FStaticMeshBuildVertex co
 void BuildVertexBuffer(
 	  UStaticMesh *StaticMesh
 	, int32 LodIndex
-	, UMeshDescription* MeshDescription
+	, const FMeshDescription& MeshDescription
 	, FStaticMeshLODResources& StaticMeshLOD
 	, const FMeshBuildSettings& LODBuildSettings
 	, TArray< uint32 >& IndexBuffer
@@ -327,10 +298,10 @@ void BuildVertexBuffer(
 	, float VertexComparisonThreshold
 	, TArray<int32>& RemapVerts)
 {
-	FVertexArray& Vertices = MeshDescription->Vertices();
-	FVertexInstanceArray& VertexInstances = MeshDescription->VertexInstances();
-	FPolygonGroupArray& PolygonGroupArray = MeshDescription->PolygonGroups();
-	FPolygonArray& PolygonArray = MeshDescription->Polygons();
+	const FVertexArray& Vertices = MeshDescription.Vertices();
+	const FVertexInstanceArray& VertexInstances = MeshDescription.VertexInstances();
+	const FPolygonGroupArray& PolygonGroupArray = MeshDescription.PolygonGroups();
+	const FPolygonArray& PolygonArray = MeshDescription.Polygons();
 	
 	OutWedgeMap.Reset();
 	OutWedgeMap.AddZeroed(VertexInstances.Num());
@@ -347,21 +318,21 @@ void BuildVertexBuffer(
 	}
 	TArray<int32> DupVerts;
 
-	const uint32 NumTextureCoord = MeshDescription->VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	const uint32 NumTextureCoord = MeshDescription.VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 
-	const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+	const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription.PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 
-	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
-	const TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>( MeshAttribute::VertexInstance::Normal );
-	const TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>( MeshAttribute::VertexInstance::Tangent );
-	const TVertexInstanceAttributeArray<float>& VertexInstanceBinormalSigns = MeshDescription->VertexInstanceAttributes().GetAttributes<float>( MeshAttribute::VertexInstance::BinormalSign );
-	const TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector4>( MeshAttribute::VertexInstance::Color );
-	const TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>( MeshAttribute::VertexInstance::TextureCoordinate );
+	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
+	const TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector>( MeshAttribute::VertexInstance::Normal );
+	const TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector>( MeshAttribute::VertexInstance::Tangent );
+	const TVertexInstanceAttributeArray<float>& VertexInstanceBinormalSigns = MeshDescription.VertexInstanceAttributes().GetAttributes<float>( MeshAttribute::VertexInstance::BinormalSign );
+	const TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector4>( MeshAttribute::VertexInstance::Color );
+	const TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription.VertexInstanceAttributes().GetAttributesSet<FVector2D>( MeshAttribute::VertexInstance::TextureCoordinate );
 
 	TMap<FPolygonGroupID, int32> PolygonGroupToSectionIndex;
 	
 	
-	for (const FPolygonGroupID PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs())
+	for (const FPolygonGroupID PolygonGroupID : MeshDescription.PolygonGroups().GetElementIDs())
 	{
 		int32& SectionIndex = PolygonGroupToSectionIndex.FindOrAdd(PolygonGroupID);
 		SectionIndex = StaticMeshLOD.Sections.Add(FStaticMeshSection());
@@ -374,20 +345,20 @@ void BuildVertexBuffer(
 	}
 
 	int32 ReserveIndicesCount = 0;
-	for (const FPolygonID& PolygonID : MeshDescription->Polygons().GetElementIDs())
+	for (const FPolygonID& PolygonID : MeshDescription.Polygons().GetElementIDs())
 	{
-		const TArray<FMeshTriangle>& PolygonTriangles = MeshDescription->GetPolygonTriangles(PolygonID);
+		const TArray<FMeshTriangle>& PolygonTriangles = MeshDescription.GetPolygonTriangles(PolygonID);
 		ReserveIndicesCount += PolygonTriangles.Num() * 3;
 	}
 	IndexBuffer.Reset(ReserveIndicesCount);
 
-	for (const FPolygonID& PolygonID : MeshDescription->Polygons().GetElementIDs())
+	for (const FPolygonID& PolygonID : MeshDescription.Polygons().GetElementIDs())
 	{
-		const FPolygonGroupID PolygonGroupID = MeshDescription->GetPolygonPolygonGroup(PolygonID);
+		const FPolygonGroupID PolygonGroupID = MeshDescription.GetPolygonPolygonGroup(PolygonID);
 		const int32 SectionIndex = PolygonGroupToSectionIndex[PolygonGroupID];
 		TArray<uint32>& SectionIndices = OutPerSectionIndices[SectionIndex];
 
-		const TArray<FMeshTriangle>& PolygonTriangles = MeshDescription->GetPolygonTriangles(PolygonID);
+		const TArray<FMeshTriangle>& PolygonTriangles = MeshDescription.GetPolygonTriangles(PolygonID);
 		uint32 MinIndex = TNumericLimits< uint32 >::Max();
 		uint32 MaxIndex = TNumericLimits< uint32 >::Min();
 		for (int32 TriangleIndex = 0; TriangleIndex < PolygonTriangles.Num(); ++TriangleIndex)
@@ -398,7 +369,7 @@ void BuildVertexBuffer(
 			for (int32 TriVert = 0; TriVert < 3; ++TriVert)
 			{
 				const FVertexInstanceID VertexInstanceID = Triangle.GetVertexInstanceID(TriVert);
-				const FVertexID VertexID = MeshDescription->GetVertexInstanceVertex(VertexInstanceID);
+				const FVertexID VertexID = MeshDescription.GetVertexInstanceVertex(VertexInstanceID);
 				CornerPositions[TriVert] = VertexPositions[VertexID];
 			}
 			FOverlappingThresholds OverlappingThresholds;
@@ -485,7 +456,7 @@ void BuildVertexBuffer(
 	if (VertexInstances.Num() < 100000 * 3)
 	{
 		BuildOptimizationHelper::CacheOptimizeVertexAndIndexBuffer(StaticMeshBuildVertices, OutPerSectionIndices, OutWedgeMap);
-		check(OutWedgeMap.Num() == MeshDescription->VertexInstances().Num());
+		check(OutWedgeMap.Num() == MeshDescription.VertexInstances().Num());
 	}
 
 	StaticMeshLOD.VertexBuffers.StaticMeshVertexBuffer.SetUseHighPrecisionTangentBasis(LODBuildSettings.bUseHighPrecisionTangentBasis);
