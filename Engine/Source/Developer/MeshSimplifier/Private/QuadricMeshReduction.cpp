@@ -552,6 +552,9 @@ public:
 
 			for (const FMeshTriangle& MeshTriangle : Triangles)
 			{
+				int32 CurrentFaceIndex = FaceIndex;
+				//Increment face index here because there is many continue in this for loop
+				++FaceIndex;
 				for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
 				{
 					VertexInstanceIDs[CornerIndex] = MeshTriangle.GetVertexInstanceID(CornerIndex);
@@ -570,8 +573,7 @@ public:
 				int32 VertexIndices[3];
 				for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
 				{
-					int32 WedgeIndex = FaceIndex * 3 + CornerIndex;
-					++FaceIndex;
+					int32 WedgeIndex = CurrentFaceIndex * 3 + CornerIndex;
 
 					TVertSimp< NumTexCoords > NewVert;
 
