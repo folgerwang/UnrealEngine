@@ -21,6 +21,9 @@ namespace UnrealBuildTool.Rules
 				}
 			);
 
+			PrivateDefinitions.Add(string.Format("UBT_TARGET_ENABLED_PLUGINS=TEXT(\"{0}\")", string.Join("\", TEXT(\"", Target.EnablePlugins)));
+			PrivateDefinitions.Add(string.Format("UBT_TARGET_DISABLED_PLUGINS=TEXT(\"{0}\")", string.Join("\", TEXT(\"", Target.DisablePlugins)));
+
 			if (Target.bIncludePluginsForTargetPlatforms)
 			{
 				PublicDefinitions.Add("LOAD_PLUGINS_FOR_TARGET_PLATFORMS=1");

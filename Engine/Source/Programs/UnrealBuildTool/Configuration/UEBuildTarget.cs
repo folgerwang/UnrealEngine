@@ -476,6 +476,15 @@ namespace UnrealBuildTool
 				ValidateSharedEnvironment(RulesAssembly, Desc.Name, RulesObject);
 			}
 
+			// Make sure that we don't explicitly enable or disable any plugins through the target rules. We can't 
+			if(RulesObject.BuildEnvironment == TargetBuildEnvironment.Shared && Desc.OnlyModules.Count == 0)
+			{
+				if(RulesObject.EnablePlugins.Count > 0 || RulesObject.DisablePlugins.Count > 0)
+				{
+					throw new BuildException("Explicitly enabling and disabling plugins for a target is only supported when using a unique build environment (eg. for monolithic game targets).");
+				}
+			}
+
 			// Setup the malloc profiler
 			if (RulesObject.bUseMallocProfiler)
 			{

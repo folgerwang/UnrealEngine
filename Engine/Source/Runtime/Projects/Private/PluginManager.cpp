@@ -454,6 +454,34 @@ bool FPluginManager::ConfigureEnabledPlugins()
 #if !IS_PROGRAM || HACK_HEADER_GENERATOR
 		if (!FParse::Param(FCommandLine::Get(), TEXT("NoEnginePlugins")))
 		{
+			// Configure the plugins that were enabled from the target file
+			TArray<FString> TargetEnabledPlugins = { UBT_TARGET_ENABLED_PLUGINS };
+			for (const FString& TargetEnabledPlugin : TargetEnabledPlugins)
+			{
+				if (!ConfiguredPluginNames.Contains(TargetEnabledPlugin))
+				{
+					if (!ConfigureEnabledPlugin(FPluginReferenceDescriptor(TargetEnabledPlugin, true), EnabledPluginNames))
+					{
+						return false;
+					}
+					ConfiguredPluginNames.Add(TargetEnabledPlugin);
+				}
+			}
+
+			// Configure the plugins that were enabled from the target file
+			TArray<FString> TargetDisabledPlugins = { UBT_TARGET_DISABLED_PLUGINS };
+			for (const FString& TargetDisabledPlugin : TargetDisabledPlugins)
+			{
+				if (!ConfiguredPluginNames.Contains(TargetDisabledPlugin))
+				{
+					if (!ConfigureEnabledPlugin(FPluginReferenceDescriptor(TargetDisabledPlugin, false), EnabledPluginNames))
+					{
+						return false;
+					}
+					ConfiguredPluginNames.Add(TargetDisabledPlugin);
+				}
+			}
+
 			// Find all the plugin references in the project file
 			const FProjectDescriptor* ProjectDescriptor = IProjectManager::Get().GetCurrentProject();
 			if (ProjectDescriptor != nullptr)
