@@ -1071,7 +1071,6 @@ void UMaterialInstance::GetUsedTextures(TArray<UTexture*>& OutTextures, EMateria
 					if (MaterialResource)
 					{
 						GetTextureExpressionValues(MaterialResource, OutTextures);
-						GetAtlasTextureValues(MaterialResource, OutTextures);
 					}
 				}
 			}
