@@ -185,7 +185,7 @@ void FMeshDescriptionOperations::ConvertHardEdgesToSmoothGroup(const FMeshDescri
 	}
 }
 
-void FMeshDescriptionOperations::ConvertSmoothGroupToHardEdges(const FRawMesh& SourceRawMesh, FMeshDescription& DestinationMeshDescription)
+void FMeshDescriptionOperations::ConvertSmoothGroupToHardEdges(const TArray<uint32>& FaceSmoothingMasks, FMeshDescription& DestinationMeshDescription)
 {
 	TEdgeAttributeArray<bool>& EdgeHardnesses = DestinationMeshDescription.EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
 
@@ -203,8 +203,8 @@ void FMeshDescriptionOperations::ConvertSmoothGroupToHardEdges(const FRawMesh& S
 		{
 			FPolygonID CurrentPolygonID = ConnectedPolygons.Pop(true);
 			int32 CurrentPolygonIDValue = CurrentPolygonID.GetValue();
-			check(SourceRawMesh.FaceSmoothingMasks.IsValidIndex(CurrentPolygonIDValue));
-			const uint32 ReferenceSmoothGroup = SourceRawMesh.FaceSmoothingMasks[CurrentPolygonIDValue];
+			check(FaceSmoothingMasks.IsValidIndex(CurrentPolygonIDValue));
+			const uint32 ReferenceSmoothGroup = FaceSmoothingMasks[CurrentPolygonIDValue];
 			TArray<FEdgeID> PolygonEdges;
 			DestinationMeshDescription.GetPolygonEdges(CurrentPolygonID, PolygonEdges);
 			for (const FEdgeID& EdgeID : PolygonEdges)
@@ -222,8 +222,8 @@ void FMeshDescriptionOperations::ConvertSmoothGroupToHardEdges(const FRawMesh& S
 					{
 						continue;
 					}
-					check(SourceRawMesh.FaceSmoothingMasks.IsValidIndex(EdgePolygonIDValue));
-					const uint32 TestSmoothGroup = SourceRawMesh.FaceSmoothingMasks[EdgePolygonIDValue];
+					check(FaceSmoothingMasks.IsValidIndex(EdgePolygonIDValue));
+					const uint32 TestSmoothGroup = FaceSmoothingMasks[EdgePolygonIDValue];
 					if ((TestSmoothGroup & ReferenceSmoothGroup) == 0)
 					{
 						EdgeHardnesses[EdgeID] = true;
@@ -571,7 +571,7 @@ void FMeshDescriptionOperations::ConvertFromRawMesh(const FRawMesh& SourceRawMes
 		}
 	}
 	
-	ConvertSmoothGroupToHardEdges(SourceRawMesh, DestinationMeshDescription);
+	ConvertSmoothGroupToHardEdges(SourceRawMesh.FaceSmoothingMasks, DestinationMeshDescription);
 
 	//Create the missing normals and tangents, should we use Mikkt space for tangent???
 	if (!bHasNormals || !bHasTangents)
