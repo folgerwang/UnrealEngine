@@ -46,13 +46,20 @@ void SPluginBrowser::Construct( const FArguments& Args )
 	}
 	if(FApp::HasProjectName())
 	{
-		WatchDirectoryNames.Add(FPaths::ProjectPluginsDir());
+		const FString ProjectPluginsDir = FPaths::ProjectPluginsDir();
+		if (FPaths::DirectoryExists(ProjectPluginsDir))
+		{
+			WatchDirectoryNames.Add(ProjectPluginsDir);
+		}
 		const FProjectDescriptor* Project = IProjectManager::Get().GetCurrentProject();
 		if (Project != nullptr)
 		{
 			for (const FString& Path : Project->GetAdditionalPluginDirectories())
 			{
-				WatchDirectoryNames.Add(Path);
+				if (FPaths::DirectoryExists(Path))
+				{
+					WatchDirectoryNames.Add(Path);
+				}
 			}
 		}
 	}
