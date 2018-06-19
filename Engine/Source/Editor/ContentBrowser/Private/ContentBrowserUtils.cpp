@@ -581,8 +581,10 @@ bool ContentBrowserUtils::DeleteFolders(const TArray<FString>& PathsToDelete)
 			// Make sure we loaded all of them
 			if ( LoadedAssets.Num() == NumAssetsInPaths )
 			{
-				const int32 NumAssetsDeleted = ContentBrowserUtils::DeleteAssets(LoadedAssets);
-				if ( NumAssetsDeleted == NumAssetsInPaths )
+				TArray<UObject*> ToDelete = LoadedAssets;
+				ObjectTools::AddExtraObjectsToDelete(ToDelete);
+				const int32 NumAssetsDeleted = ContentBrowserUtils::DeleteAssets(ToDelete);
+				if ( NumAssetsDeleted == ToDelete.Num() )
 				{
 					// Successfully deleted all assets in the specified path. Allow the folder to be removed.
 					bAllowFolderDelete = true;
