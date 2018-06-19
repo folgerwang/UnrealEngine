@@ -86,7 +86,7 @@ FCinematicViewportClient::FCinematicViewportClient()
 	bDrawAxes = false;
 	bIsRealtime = true;
 	SetGameView(true);
-	SetAllowCinematicPreview(true);
+	SetAllowCinematicControl(true);
 	bDisableInput = false;
 }
 

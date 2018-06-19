@@ -1033,8 +1033,8 @@ void UVREditorMode::StartViewport(TSharedPtr<SLevelViewport> Viewport)
 		VREditorViewportClient.EngineShowFlags.SetSelectionOutline(true);
 
 		// Change viewport settings to more VR-friendly sequencer settings
-		SavedEditorState.bCinematicPreviewViewport = VRViewportClient.AllowsCinematicPreview();
-		VRViewportClient.SetAllowCinematicPreview(false);
+		SavedEditorState.bCinematicControlViewport = VRViewportClient.AllowsCinematicControl();
+		VRViewportClient.SetAllowCinematicControl(false);
 		// Need to force fading and color scaling off in case we enter VR editing mode with a sequence open
 		VRViewportClient.bEnableFading = false;
 		VRViewportClient.bEnableColorScaling = false;
@@ -1082,7 +1082,7 @@ void UVREditorMode::CloseViewport( const bool bShouldDisableStereo )
 			VRViewportClient.bAlwaysShowModeWidgetAfterSelectionChanges = SavedEditorState.bAlwaysShowModeWidgetAfterSelectionChanges;
 			VRViewportClient.EngineShowFlags = SavedEditorState.ShowFlags;
 			VRViewportClient.SetGameView(SavedEditorState.bGameView);
-			VRViewportClient.SetAllowCinematicPreview(SavedEditorState.bCinematicPreviewViewport);
+			VRViewportClient.SetAllowCinematicControl(SavedEditorState.bCinematicControlViewport);
 			VRViewportClient.bEnableFading = true;
 			VRViewportClient.bEnableColorScaling = true;
 			VRViewportClient.Invalidate(true);

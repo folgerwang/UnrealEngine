@@ -713,10 +713,10 @@ public:
 	virtual bool DropObjectsAtCoordinates(int32 MouseX, int32 MouseY, const TArray<UObject*>& DroppedObjects, TArray<AActor*>& OutNewActors, bool bOnlyDropOnTarget = false, bool bCreateDropPreview = false, bool bSelectActors = true, UActorFactory* FactoryToUse = NULL ) { return false; }
 
 	/** Returns true if the viewport is allowed to be possessed for previewing cinematic sequences or keyframe animations*/
-	bool AllowsCinematicPreview() const { return bAllowCinematicPreview; }
+	bool AllowsCinematicControl() const { return bAllowCinematicControl; }
 
 	/** Sets whether or not this viewport is allowed to be possessed by cinematic/scrubbing tools */
-	void SetAllowCinematicPreview( bool bInAllowCinematicPreview ) { bAllowCinematicPreview = bInAllowCinematicPreview; }
+	void SetAllowCinematicControl( bool bInAllowCinematicControl) { bAllowCinematicControl = bInAllowCinematicControl; }
 
 public:
 	/** True if the window is maximized or floating */
@@ -979,7 +979,7 @@ public:
 protected:
 
 	/** true if this window is allowed to be possessed by cinematic tools for previewing sequences in real-time */
-	bool bAllowCinematicPreview;
+	bool bAllowCinematicControl;
 
 	/** Camera speed setting */
 	int32 CameraSpeedSetting;

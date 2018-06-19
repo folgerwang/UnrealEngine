@@ -663,7 +663,7 @@ void FTrackEditorThumbnailCache::Setup()
 			InternalViewportClient->ViewportType = LVT_Perspective;
 			InternalViewportClient->bDisableInput = true;
 			InternalViewportClient->bDrawAxes = false;
-			InternalViewportClient->SetAllowCinematicPreview(false);
+			InternalViewportClient->SetAllowCinematicControl(false);
 			InternalViewportClient->SetRealtime(false);
 
 			SetupViewportEngineFlags();
