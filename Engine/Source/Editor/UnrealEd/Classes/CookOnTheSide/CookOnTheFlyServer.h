@@ -853,7 +853,7 @@ private:
 
 	//////////////////////////////////////////////////////////////////////////
 	// General cook options
-	TArray<UClass*> FullGCAssetClasses;
+
 	/** Number of packages to load before performing a garbage collect. Set to 0 to never GC based on number of loaded packages */
 	uint32 PackagesPerGC;
 	/** Amount of time that is allowed to be idle before forcing a garbage collect. Set to 0 to never force GC due to idle time */
@@ -866,7 +866,7 @@ private:
 	uint64 MinFreeMemory;
 	/** Max number of packages to save before we partial gc */
 	int32 MaxNumPackagesBeforePartialGC;
-	/** Max number of conncurrent shader jobs reducing this too low will increase cook time */
+	/** Max number of concurrent shader jobs reducing this too low will increase cook time */
 	int32 MaxConcurrentShaderJobs;
 	ECookInitializationFlags CookFlags;
 	TUniquePtr<class FSandboxPlatformFile> SandboxFile;
@@ -1081,14 +1081,12 @@ public:
 		bool bGenerateStreamingInstallManifests; 
 		bool bGenerateDependenciesForMaps; 
 		bool bErrorOnEngineContentUse; // this is a flag for dlc, will cause the cooker to error if the dlc references engine content
-		int32 NumProcesses;
 		FCookByTheBookStartupOptions() :
 			CookOptions(ECookByTheBookOptions::None),
 			DLCName(FString()),
 			bGenerateStreamingInstallManifests(false),
 			bGenerateDependenciesForMaps(false),
-			bErrorOnEngineContentUse(false),
-			NumProcesses(0)
+			bErrorOnEngineContentUse(false)
 		{ }
 	};
 
@@ -1125,7 +1123,7 @@ public:
 	/**
 	* Get any packages which are in memory, these were probably required to be loaded because of the current package we are cooking, so we should probably cook them also
 	*/
-	void GetUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, bool &ContainsFullGCAssetClasses, const TArray<FName>& TargetPlatformNames) const;
+	void GetUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames) const;
 
 	/**
 	* PostLoadPackageFixup
@@ -1220,12 +1218,6 @@ public:
 
 
 	virtual void BeginDestroy() override;
-
-	/**
-	* SetFullGCAssetClasses FullGCAssetClasses is used to determine when TickCookOnTheSide returns RequiresGC
-	*   When one of these classes is saved it will return COSR_RequiresGC
-	*/
-	void SetFullGCAssetClasses( const TArray<UClass*>& InFullGCAssetClasses );
 
 	/** Returns the configured number of packages to process before GC */
 	uint32 GetPackagesPerGC() const;
@@ -1447,7 +1439,7 @@ private:
 	 * @param ContainsFullAssetGCClasses do these packages contain any of the assets which require a GC after cooking 
 	 *				(this is mostly historical for when objects like UWorld were global, almost nothing should require a GC to work correctly after being cooked anymore).
 	 */
-	void GetAllUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames, bool& ContainsFullAssetGCClasses);
+	void GetAllUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames);
 
 
 	/**

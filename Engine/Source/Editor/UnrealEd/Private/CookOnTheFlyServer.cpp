@@ -1543,14 +1543,7 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 		int32 FirstUnsolicitedPackage = PackagesToSave.Num();
 
 		UE_LOG(LogCook, Verbose, TEXT("Finding unsolicited packages for package %s"), *ToBuild.GetFilename().ToString());
-		bool ContainsFullAssetGCClasses = false;
-		GetAllUnsolicitedPackages(PackagesToSave, AllTargetPlatformNames, ContainsFullAssetGCClasses);
-		if (ContainsFullAssetGCClasses)
-		{
-			Result |= COSR_RequiresGC;
-		}
-
-
+		GetAllUnsolicitedPackages(PackagesToSave, AllTargetPlatformNames);
 		
 		// in cook by the book bail out early because shaders and compiled for the primary package we are trying to save. 
 		// note in this case we also put the package at the end of the queue that queue might be reordered if we do partial gc
@@ -1839,7 +1832,6 @@ void UCookOnTheFlyServer::OpportunisticSaveInMemoryPackages()
 	const float TimeSlice = 0.01f;
 	FCookerTimer Timer(TimeSlice, IsRealtimeMode());
 	TArray<UPackage*> PackagesToSave;
-	bool ContainsFullAssetGCClasses = false;
 
 	TArray<FName> TargetPlatformNames;
 	for (const auto& TargetPlatform : PresaveTargetPlatforms)
@@ -1848,7 +1840,7 @@ void UCookOnTheFlyServer::OpportunisticSaveInMemoryPackages()
 	}
 
 
-	GetAllUnsolicitedPackages(PackagesToSave, TargetPlatformNames, ContainsFullAssetGCClasses);
+	GetAllUnsolicitedPackages(PackagesToSave, TargetPlatformNames);
 
 	
 	uint32 CookedPackageCount = 0;
@@ -1856,7 +1848,7 @@ void UCookOnTheFlyServer::OpportunisticSaveInMemoryPackages()
 	SaveCookedPackages( PackagesToSave, TargetPlatformNames, PresaveTargetPlatforms, Timer, 0, CookedPackageCount, Result);
 }
 
-void UCookOnTheFlyServer::GetAllUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames, bool& ContainsFullAssetGCClasses )
+void UCookOnTheFlyServer::GetAllUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames)
 {
 	// generate a list of other packages which were loaded with this one
 	if (!IsCookByTheBookMode() || (CookByTheBookOptions->bDisableUnsolicitedPackages == false))
@@ -1874,7 +1866,7 @@ void UCookOnTheFlyServer::GetAllUnsolicitedPackages(TArray<UPackage*>& PackagesT
 			}
 		}
 		SCOPE_TIMER(UnsolicitedMarkup);
-		GetUnsolicitedPackages(PackagesToSave, ContainsFullAssetGCClasses, TargetPlatformNames);
+		GetUnsolicitedPackages(PackagesToSave, TargetPlatformNames);
 	}
 }
 
@@ -2408,7 +2400,7 @@ bool UCookOnTheFlyServer::HasExceededMaxMemory() const
 	return false;
 }
 
-void UCookOnTheFlyServer::GetUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, bool &ContainsFullGCAssetClasses, const TArray<FName>& TargetPlatformNames) const
+void UCookOnTheFlyServer::GetUnsolicitedPackages(TArray<UPackage*>& PackagesToSave, const TArray<FName>& TargetPlatformNames) const
 {
 	TSet<UPackage*> PackagesToSaveSet;
 	for (UPackage* Package : PackagesToSave)
@@ -2430,12 +2422,6 @@ void UCookOnTheFlyServer::GetUnsolicitedPackages(TArray<UPackage*>& PackagesToSa
 		for (int32 Index = 0; Index < ObjectsInOuter.Num(); Index++)
 		{
 			UPackage* Package = Cast<UPackage>(ObjectsInOuter[Index]);
-
-			UObject* Object = ObjectsInOuter[Index];
-			if (FullGCAssetClasses.Contains(Object->GetClass()))
-			{
-				ContainsFullGCAssetClasses = true;
-			}
 
 			if (Package)
 			{
@@ -2619,11 +2605,6 @@ void UCookOnTheFlyServer::EndNetworkFileServer()
 		NetworkFileServer = NULL;
 	}
 	NetworkFileServers.Empty();
-}
-
-void UCookOnTheFlyServer::SetFullGCAssetClasses( const TArray<UClass*>& InFullGCAssetClasses)
-{
-	FullGCAssetClasses = InFullGCAssetClasses;
 }
 
 uint32 UCookOnTheFlyServer::GetPackagesPerGC() const
@@ -3289,38 +3270,11 @@ void UCookOnTheFlyServer::Initialize( ECookMode::Type DesiredCookMode, ECookInit
 	FCoreDelegates::OnFConfigCreated.AddUObject(this, &UCookOnTheFlyServer::OnFConfigCreated);
 	FCoreDelegates::OnFConfigDeleted.AddUObject(this, &UCookOnTheFlyServer::OnFConfigDeleted);
 
-	bool bUseFullGCAssetClassNames = true;
-	GConfig->GetBool(TEXT("CookSettings"), TEXT("bUseFullGCAssetClassNames"), bUseFullGCAssetClassNames, GEditorIni);
-	
 	MaxPrecacheShaderJobs = FPlatformMisc::NumberOfCores() - 1; // number of cores -1 is a good default allows the editor to still be responsive to other shader requests and allows cooker to take advantage of multiple processors while the editor is running
 	GConfig->GetInt(TEXT("CookSettings"), TEXT("MaxPrecacheShaderJobs"), MaxPrecacheShaderJobs, GEditorIni);
 
 	MaxConcurrentShaderJobs = FPlatformMisc::NumberOfCores() * 4; // number of cores -1 is a good default allows the editor to still be responsive to other shader requests and allows cooker to take advantage of multiple processors while the editor is running
 	GConfig->GetInt(TEXT("CookSettings"), TEXT("MaxConcurrentShaderJobs"), MaxConcurrentShaderJobs, GEditorIni);
-
-	if (bUseFullGCAssetClassNames)
-	{
-		TArray<FString> FullGCAssetClassNames;
-		GConfig->GetArray( TEXT("CookSettings"), TEXT("FullGCAssetClassNames"), FullGCAssetClassNames, GEditorIni );
-		for ( const FString& FullGCAssetClassName : FullGCAssetClassNames )
-		{
-			UClass* FullGCAssetClass = FindObject<UClass>(ANY_PACKAGE, *FullGCAssetClassName, true);
-			if( FullGCAssetClass == NULL )
-			{
-				UE_LOG(LogCook, Warning, TEXT("Unable to find full gc asset class name %s may result in bad cook"), *FullGCAssetClassName);
-			}
-			else
-			{
-				FullGCAssetClasses.Add( FullGCAssetClass );
-			}
-		}
-		if ( FullGCAssetClasses.Num() == 0 )
-		{
-			// default to UWorld
-			FullGCAssetClasses.Add( UWorld::StaticClass() );
-		}
-	}
-
 
 	ITargetPlatformManagerModule& TPM = GetTargetPlatformManagerRef();
 	TArray<FString> PresaveTargetPlatformNames;
@@ -5132,9 +5086,8 @@ void UCookOnTheFlyServer::CollectFilesToCook(TArray<FName>& FilesInPath, const T
 	{
 		// Gather initial unsolicited package list, this is needed in iterative mode because it may skip cooking all explicit packages and never hit this code
 		TArray<UPackage*> UnsolicitedPackages;
-		bool ContainsFullAssetGCClasses = false;
 		UE_LOG(LogCook, Verbose, TEXT("Finding initial unsolicited packages"));
-		GetUnsolicitedPackages(UnsolicitedPackages, ContainsFullAssetGCClasses, CookByTheBookOptions->TargetPlatformNames);
+		GetUnsolicitedPackages(UnsolicitedPackages, CookByTheBookOptions->TargetPlatformNames);
 
 		for (UPackage* UnsolicitedPackage : UnsolicitedPackages)
 		{
