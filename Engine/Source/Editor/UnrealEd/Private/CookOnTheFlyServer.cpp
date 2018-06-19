@@ -6221,7 +6221,6 @@ void UCookOnTheFlyServer::MaybeMarkPackageAsAlreadyLoaded(UPackage *Package)
 		return;
 	}
 
-
 	// if the package is already fully loaded then we are not going to mark it up anyway
 	if ( Package->IsFullyLoaded() )
 	{
@@ -6247,7 +6246,6 @@ void UCookOnTheFlyServer::MaybeMarkPackageAsAlreadyLoaded(UPackage *Package)
 			}
 		}
 
-
 		FString Platforms;
 		for (const FName& CookedPlatform : CookedPlatforms)
 		{
@@ -6257,11 +6255,11 @@ void UCookOnTheFlyServer::MaybeMarkPackageAsAlreadyLoaded(UPackage *Package)
 		if (IsCookFlagSet(ECookInitializationFlags::LogDebugInfo))
 		{
 			if (!bShouldMarkAsAlreadyProcessed)
-		{
+			{
 				UE_LOG(LogCook, Display, TEXT("Reloading package %s slowly because it wasn't cooked for all platforms %s."), *StandardName.ToString(), *Platforms);
-		}
-		else
-		{
+			}
+			else
+			{
 				UE_LOG(LogCook, Display, TEXT("Marking %s as reloading for cooker because it's been cooked for platforms %s."), *StandardName.ToString(), *Platforms);
 			}
 		}
