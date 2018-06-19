@@ -11,22 +11,38 @@
 
 #define LOCTEXT_NAMESPACE "AjaMediaPortCustomization"
 
-FAjaMediaModeCustomization::FAjaMediaModeCustomization(bool InOutput)
-	: bOutput(InOutput)
-{
-}
-
 
 void FAjaMediaModeCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InPropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& CustomizationUtils)
 {
 	MediaModeProperty = InPropertyHandle;
+	MediaPortProperty.Reset();
+
 	if (MediaModeProperty->GetNumPerObjectValues() == 1 && MediaModeProperty->IsValidHandle())
 	{
 		UProperty* Property = MediaModeProperty->GetProperty();
 
 		check(Property && Cast<UStructProperty>(Property) && Cast<UStructProperty>(Property)->Struct &&
-				(Cast<UStructProperty>(Property)->Struct->IsChildOf(FAjaMediaModeInput::StaticStruct())
-				|| Cast<UStructProperty>(Property)->Struct->IsChildOf(FAjaMediaModeOutput::StaticStruct())));
+				Cast<UStructProperty>(Property)->Struct->IsChildOf(FAjaMediaMode::StaticStruct()));
+
+		// Check if it's an output. By default it's an Input
+		{
+			static FName NAME_CustomizeAsInput = TEXT("CustomizeAsInput");
+			const FString& MetaDataValue = Property->GetMetaData(NAME_CustomizeAsInput);
+			bOutput = Property->HasMetaData(NAME_CustomizeAsInput) && !MetaDataValue.IsEmpty() && !MetaDataValue.ToBool();
+		}
+		// Get the MediaPort to read from the same device
+		{
+			static FName NAME_MediaPort = TEXT("MediaPort");
+			TSharedPtr<IPropertyHandle> ParentHandle = InPropertyHandle->GetParentHandle();
+			if (ParentHandle.IsValid() && Property->HasMetaData(NAME_MediaPort))
+			{
+				const FString& MetaDataValue = Property->GetMetaData(NAME_MediaPort);
+				if (!MetaDataValue.IsEmpty())
+				{
+					MediaPortProperty = ParentHandle->GetChildHandle(*MetaDataValue, false);
+				}
+			}
+		}
 
 		TArray<void*> RawData;
 		MediaModeProperty->AccessRawData(RawData);
@@ -52,7 +68,7 @@ void FAjaMediaModeCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InP
 			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-				.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateLambda([=] { return FText::FromString(MediaModeValue->ToUrl()); })))
+				.Text(MakeAttributeLambda([=] { return FText::FromString(MediaModeValue->ToString()); }))
 			]
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
@@ -63,7 +79,7 @@ void FAjaMediaModeCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InP
 				.OnGetMenuContent(this, &FAjaMediaModeCustomization::HandleSourceComboButtonMenuContent)
 				.ContentPadding(FMargin(4.0, 2.0))
 			]
-		].IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda([=] { return !InPropertyHandle->IsEditConst() && PropertyUtils->IsPropertyEditingEnabled(); })));
+		].IsEnabled(MakeAttributeLambda([=] { return !InPropertyHandle->IsEditConst() && PropertyUtils->IsPropertyEditingEnabled(); }));
 	}
 }
 
@@ -73,9 +89,25 @@ void FAjaMediaModeCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> I
 
 TSharedRef<SWidget> FAjaMediaModeCustomization::HandleSourceComboButtonMenuContent() const
 {
+	int32 DeviceIndex = 0;
+	if (MediaPortProperty.IsValid())
+	{
+		TArray<void*> RawData;
+		MediaPortProperty->AccessRawData(RawData);
+
+		check(RawData.Num() == 1);
+		FAjaMediaPort* MediaPortValue = reinterpret_cast<FAjaMediaPort*>(RawData[0]);
+		check(MediaPortValue);
+		if (!MediaPortValue->IsValid())
+		{
+			return SNullWidget::NullWidget;
+		}
+		DeviceIndex = MediaPortValue->DeviceIndex;
+	}
+
 	// fetch found sources
 	TArray<FAjaMediaMode> OutModes;
-	if (!UAjaMediaFinder::GetModes(OutModes, bOutput))
+	if (!FAjaMediaFinder::GetModes(DeviceIndex, bOutput, OutModes))
 	{
 		return SNullWidget::NullWidget;
 	}
@@ -93,7 +125,7 @@ TSharedRef<SWidget> FAjaMediaModeCustomization::HandleSourceComboButtonMenuConte
 		for (const FAjaMediaMode& Mode : OutModes)
 		{
 			const TSharedPtr<IPropertyHandle> ValueProperty = MediaModeProperty;
-			const FString Url = Mode.ToUrl();
+			const FString Url = Mode.ToString();
 
 			MenuBuilder.AddMenuEntry(
 				FText::FromString(Mode.ToString()),
@@ -101,21 +133,23 @@ TSharedRef<SWidget> FAjaMediaModeCustomization::HandleSourceComboButtonMenuConte
 				FSlateIcon(),
 				FUIAction(
 					FExecuteAction::CreateLambda([=] {
+						if (UStructProperty* StructProperty = Cast<UStructProperty>(MediaModeProperty->GetProperty()))
+						{
+							TArray<void*> RawData;
+							MediaModeProperty->AccessRawData(RawData);
+							FAjaMediaMode* PreviousMediaModeValue = reinterpret_cast<FAjaMediaMode*>(RawData[0]);
 
-						TArray<void*> RawData;
-						MediaModeProperty->AccessRawData(RawData);
-
-						check(RawData.Num() == 1);
-						MediaModeProperty->NotifyPreChange();
-						FAjaMediaMode* MediaModeValue = reinterpret_cast<FAjaMediaMode*>(RawData[0]);
-						*MediaModeValue = Mode;
-						MediaModeProperty->NotifyPostChange();
-						MediaModeProperty->NotifyFinishedChangingProperties();
+							FString TextValue;
+							StructProperty->Struct->ExportText(TextValue, &Mode, PreviousMediaModeValue, nullptr, EPropertyPortFlags::PPF_None, nullptr);
+							ensure(MediaModeProperty->SetValueFromFormattedString(TextValue, EPropertyValueSetFlags::InteractiveChange) == FPropertyAccess::Result::Success);
+						}
 					}),
 					FCanExecuteAction(),
 					FIsActionChecked::CreateLambda([=] {
-						FString CurrentValue;
-						return ((ValueProperty->GetValue(CurrentValue) == FPropertyAccess::Success) && CurrentValue == Url);
+						TArray<void*> RawData;
+						MediaModeProperty->AccessRawData(RawData);
+						FAjaMediaMode* MediaModeValue = reinterpret_cast<FAjaMediaMode*>(RawData[0]);
+						return *MediaModeValue == Mode;
 					})
 				),
 				NAME_None,

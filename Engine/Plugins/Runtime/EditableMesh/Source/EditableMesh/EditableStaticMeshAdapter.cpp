@@ -810,6 +810,11 @@ void UEditableStaticMeshAdapter::OnEndModification( const UEditableMesh* Editabl
 
 void UEditableStaticMeshAdapter::OnRebuildRenderMeshFinish( const UEditableMesh* EditableMesh, const bool bRebuildBoundsAndCollision, const bool bIsPreviewRollback )
 {
+	if (!bIsPreviewRollback)
+	{
+		StaticMesh->InitResources();
+	}
+
 	UpdateBounds( EditableMesh, bRebuildBoundsAndCollision );
 	
 	if( bRebuildBoundsAndCollision )
@@ -821,8 +826,6 @@ void UEditableStaticMeshAdapter::OnRebuildRenderMeshFinish( const UEditableMesh*
 	// 'final' changes to the same mesh later this frame, and we want to avoid updating the GPU resources twice in one frame.
 	if( !bIsPreviewRollback )
 	{
-		StaticMesh->InitResources();
-
 		// NOTE: This can call InvalidateLightingCache() on all components using this mesh, causing Modify() to be 
 		// called on those components!  Just something to be aware of when EndModification() is called within
 		// an undo transaction.

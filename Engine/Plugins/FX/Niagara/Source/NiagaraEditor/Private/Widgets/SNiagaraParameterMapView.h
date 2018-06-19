@@ -18,6 +18,7 @@ class SGraphActionMenu;
 class SEditableTextBox;
 class SExpanderArrow;
 class SSearchBox;
+class SComboButton;
 class SNiagaraGraphPinAdd;
 class FNiagaraObjectSelection;
 class UNiagaraGraph;
@@ -30,12 +31,12 @@ namespace NiagaraParameterMapSectionID
 	{
 		NONE = 0,
 		MODULE,
+		ENGINE,
+		PARAMETERCOLLECTION,
+		USER,
+		SYSTEM,
 		EMITTER,
 		PARTICLE,
-		SYSTEM,
-		ENGINE,
-		USER,
-		PARAMETERCOLLECTION,
 		OTHER,
 	};
 
@@ -79,8 +80,8 @@ public:
 
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
-	/** Helper function indicating whether we're in editing mode, and can modify the target blueprint */
-	bool IsEditingMode() const;
+	/** Wheter the add parameter button should be enabled. */
+	bool ParameterAddEnabled() const;
 
 	/** Adds parameter to the graph parameter store and refreshes the menu. */
 	void AddParameter(FNiagaraVariable NewVariable);
@@ -144,6 +145,9 @@ private:
 	/** The filter box that handles filtering for both graph action menus. */
 	TSharedPtr<SSearchBox> FilterBox;
 
+	/** Add parameter buttons for all sections. */
+	TArray<TSharedPtr<SComboButton>> AddParameterButtons;
+
 	/** The selected objects being viewed and edited by this widget. */
 	TSharedPtr<FNiagaraObjectSelection> SelectedObjects;
 
@@ -172,7 +176,8 @@ public:
 		, _AllowCreatingNew(true)
 		, _ShowNamespaceCategory(true)
 		, _ShowGraphParameters(true)
-		, _AutoExpandMenu(false) {}
+		, _AutoExpandMenu(false)
+		, _IsParameterRead(true) {}
 		SLATE_EVENT(FOnAddParameter, OnAddParameter)
 		SLATE_EVENT(FOnCollectCustomActions, OnCollectCustomActions)
 		SLATE_EVENT(FOnAllowMakeType, OnAllowMakeType)
@@ -181,9 +186,10 @@ public:
 		SLATE_ATTRIBUTE(bool, ShowNamespaceCategory)
 		SLATE_ATTRIBUTE(bool, ShowGraphParameters)
 		SLATE_ATTRIBUTE(bool, AutoExpandMenu)
+		SLATE_ATTRIBUTE(bool, IsParameterRead)
 	SLATE_END_ARGS();
 
-	void Construct(const FArguments& InArgs, UNiagaraGraph* InGraph);
+	void Construct(const FArguments& InArgs, TArray<TWeakObjectPtr<UNiagaraGraph>> InGraphs);
 
 	TSharedRef<SEditableTextBox> GetSearchBox();
 
@@ -203,11 +209,12 @@ private:
 	FOnCollectCustomActions OnCollectCustomActions;
 	FOnAllowMakeType OnAllowMakeType;
 
-	TWeakObjectPtr<UNiagaraGraph> Graph;
+	TArray<TWeakObjectPtr<UNiagaraGraph>> Graphs;
 
 	TAttribute<NiagaraParameterMapSectionID::Type> Section;
 	TAttribute<bool> AllowCreatingNew;
 	TAttribute<bool> ShowNamespaceCategory;
 	TAttribute<bool> ShowGraphParameters;
 	TAttribute<bool> AutoExpandMenu;
+	TAttribute<bool> IsParameterRead;
 };

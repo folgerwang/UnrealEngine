@@ -85,6 +85,7 @@ struct FTextureStreamingSettings
 	int32 MinMipForSplitRequest;
 	float MinLevelTextureScreenSize;
 	float MaxTextureUVDensity;
+	int32 MaterialQualityLevel;
 
 protected:
 

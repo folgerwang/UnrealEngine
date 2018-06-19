@@ -17,6 +17,14 @@ enum class EAjaMediaOutputType : uint8
 	FillAndKey		UMETA(Tooltip="Fill will be on provided FillPort and Key will be on KeyPort"),
 };
 
+UENUM()
+enum class EAjaMediaOutputReferenceType
+{
+	FreeRun,
+	External,
+	Input
+};
+
 /**
  * Output Media for Aja streams.
  * The output format is ARGB8. 
@@ -24,9 +32,7 @@ enum class EAjaMediaOutputType : uint8
 UCLASS(BlueprintType)
 class AJAMEDIA_API UAjaMediaOutput : public UObject
 {
-	GENERATED_BODY()
-
-	UAjaMediaOutput();
+	GENERATED_UCLASS_BODY()
 
 public:
 	/**
@@ -36,11 +42,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA")
 	EAjaMediaOutputType OutputType;
 
-	/** 
-	 * Frame format.
-	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = AJA, AssetRegistrySearchable)
-	FAjaMediaModeOutput MediaMode;
+	/** The signal output mode. */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = AJA, AssetRegistrySearchable, meta=(CustomizeAsInput="false", MediaPort="FillPort"))
+	FAjaMediaMode MediaMode;
 
 	/**
 	 * The AJA Device and port to output to.
@@ -48,14 +52,6 @@ public:
 	 */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA", AssetRegistrySearchable)
 	FAjaMediaPort FillPort;
-
-	/**
-	 * The AJA Device and port to sync with.
-	 * Need to be the same Device as the FillPort.
-	 * This combines the device ID, and the output port.
-	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA")
-	FAjaMediaPort SyncPort;
 
 	/**
 	 * The AJA Device and port to output the key to.
@@ -66,6 +62,19 @@ public:
 	 */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA", meta=(EditCondition="IN_CPP"))
 	FAjaMediaPort KeyPort;
+
+
+	/** The AJA Device output sync with either its internal clock, an external reference, or an other input. */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA")
+	EAjaMediaOutputReferenceType OutputReference;
+
+	/**
+	 * The AJA Device and port to sync with.
+	 * Need to be the same Device as the FillPort.
+	 * This combines the device ID, and the output port.
+	 */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA", meta=(EditCondition="IN_CPP"))
+	FAjaMediaPort SyncPort;
 
 public:
 	/**
@@ -116,6 +125,8 @@ public:
 	bool bEncodeTimecodeInTexel;
 
 public:
+	bool Validate(FString& FailureReason) const;
+
 #if WITH_EDITOR
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

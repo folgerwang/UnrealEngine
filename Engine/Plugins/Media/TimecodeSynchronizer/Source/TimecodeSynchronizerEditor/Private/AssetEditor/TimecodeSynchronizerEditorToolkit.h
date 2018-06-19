@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "Toolkits/SimpleAssetEditor.h"
 
+#include "TimecodeSynchronizer.h"
+
 /** Viewer/editor for a TimecodeSynchronizer */
 class FTimecodeSynchronizerEditorToolkit : public FAssetEditorToolkit
 {
@@ -12,7 +14,7 @@ private:
 	using Super = FAssetEditorToolkit;
 
 public:
-	static TSharedRef<FTimecodeSynchronizerEditorToolkit> CreateEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, class UTimecodeSynchronizer* InTimecodeSynchronizer);
+	static TSharedRef<FTimecodeSynchronizerEditorToolkit> CreateEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UTimecodeSynchronizer* InTimecodeSynchronizer);
 
 	/**
 	 * Edits the specified table
@@ -21,7 +23,7 @@ public:
 	 * @param	InitToolkitHost			When Mode is WorldCentric, this is the level editor instance to spawn this editor within
 	 * @param	InTimecodeSynchronizer	The TimecodeSynchronizer asset to edit
 	 */
-	void InitTimecodeSynchronizerEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, class UTimecodeSynchronizer* InTimecodeSynchronizer);
+	void InitTimecodeSynchronizerEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UTimecodeSynchronizer* InTimecodeSynchronizer);
 	~FTimecodeSynchronizerEditorToolkit();
 
 	/** IToolkit interface */
@@ -30,6 +32,7 @@ public:
 	virtual FText GetToolkitName() const override;
 	virtual FString GetWorldCentricTabPrefix() const override;
 	virtual FLinearColor GetWorldCentricTabColorScale() const override;
+	virtual void RemoveEditingObject(UObject* Object) override;
 
 	virtual void RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
 	virtual void UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
@@ -42,8 +45,10 @@ private:
 	TSharedRef<SDockTab> SpawnPropertiesTab(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnSourceViewerTab(const FSpawnTabArgs& Args);
 
-	void BindCommands();
 	void ExtendToolBar();
+
+	FLinearColor GetProgressColor() const;
+	void HandleSynchronizationEvent(ETimecodeSynchronizationEvent Event);
 
 private:
 	/** Dockable tab for properties */

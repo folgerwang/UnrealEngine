@@ -497,8 +497,7 @@ void FD3D12Adapter::Cleanup()
 	if (FrameFence)
 	{
 		FrameFence->Destroy();
-		delete FrameFence;
-		FrameFence = nullptr;
+		FrameFence.SafeRelease();
 	}
 
 	PipelineStateCache.Close();

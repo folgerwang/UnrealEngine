@@ -8,10 +8,12 @@
 #include "Misc/Attribute.h"
 
 class UNiagaraNodeInput;
+class UNiagaraNodeOutput;
 struct FNiagaraVariable;
 struct FNiagaraTypeDefinition;
 class UNiagaraGraph;
 class UNiagaraSystem;
+struct FNiagaraEmitterHandle;
 class UNiagaraEmitter;
 class UNiagaraScript;
 class FStructOnScope;
@@ -134,4 +136,19 @@ namespace FNiagaraEditorUtilities
 	void FixUpNumericPins(const UEdGraphSchema_Niagara* Schema, UNiagaraNode* Node);
 
 	void PreprocessFunctionGraph(const UEdGraphSchema_Niagara* Schema, UNiagaraGraph* Graph, const TArray<UEdGraphPin*>& CallInputs, const TArray<UEdGraphPin*>& CallOutputs, ENiagaraScriptUsage ScriptUsage);
+
+	UNiagaraNodeOutput* GetScriptOutputNode(UNiagaraScript& Script);
+
+	UNiagaraScript* GetScriptFromSystem(UNiagaraSystem& System, FGuid EmitterHandleId, ENiagaraScriptUsage Usage, FGuid UsageId);
+
+	/**
+	 * Gets an emitter handle from a system and an owned emitter.  This handle will become invalid if emitters are added or
+	 * removed from the system, so in general this value should not be cached across frames.
+	 * @param System The source system which owns the emitter handles.
+	 * @param The emitter to search for in the system.
+	 * @returns The emitter handle for the supplied emitter, or nullptr if the emitter isn't owned by this system.
+	 */
+	const FNiagaraEmitterHandle* GetEmitterHandleForEmitter(UNiagaraSystem& System, UNiagaraEmitter& Emitter);
+
+	NIAGARAEDITOR_API FText FormatScriptAssetDescription(FText Description, FName Path);
 };

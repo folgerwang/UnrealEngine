@@ -59,9 +59,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA", AssetRegistrySearchable)
 	FAjaMediaPort MediaPort;
 
-	/** Source FrameRate(default = 30). */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA")
-	FFrameRate FrameRate;
+	/** The expected signal input from the MediaPort. */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA", meta=(MediaPort="MediaPort"))
+	FAjaMediaMode MediaMode;
 
 	/** Use the time code embedded in the input stream. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA")
@@ -118,13 +118,6 @@ public:
 	int32 MaxNumAudioFrameBuffer;
 
 public:
-	/**
-	 * Specifies if the video format is expected to be progressive or not.
-	 * The hardware has no way of knowing if the incoming signal is progressive or interlaced (e.g., 525/29.97fps progressive versus 525/59.94fps interlaced)
-	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Video", meta=(EditCondition="bCaptureVideo"))
-	bool bIsProgressivePicture;
-
 	/** Desired color format of input video frames (default = BGRA). */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Video", meta=(EditCondition="bCaptureVideo"))
 	EAjaMediaColorFormat ColorFormat;
@@ -134,6 +127,10 @@ public:
 	int32 MaxNumVideoFrameBuffer;
 
 public:
+	/** Log a warning when there's a drop frame. */
+	UPROPERTY(EditAnywhere, Category="Debug")
+	bool bLogDropFrame;
+
 	/**
 	 * Encode Timecode in the output
 	 * Current value will be white. The format will be encoded in hh:mm::ss::ff. Each value, will be on a different line.
@@ -154,6 +151,7 @@ public:
 	virtual FString GetUrl() const override;
 	virtual bool Validate() const override;
 
+public:
 #if WITH_EDITOR
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

@@ -48,8 +48,6 @@ public:
 public:
 	UNiagaraStackFunctionInput();
 
-	virtual void BeginDestroy() override;
-
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	void AddReferencedObjects(FReferenceCollector& Collector);
 
@@ -202,6 +200,7 @@ public:
 
 protected:
 	//~ UNiagaraStackEntry interface
+	virtual void FinalizeInternal() override;
 	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
 	FNiagaraVariable GetDefaultVariableForRapidIterationParameter() const;

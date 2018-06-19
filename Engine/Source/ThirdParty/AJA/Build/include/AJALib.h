@@ -3,6 +3,8 @@
 #pragma once
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #ifdef AJA_EXPORTS
 #define AJA_API __declspec(dllexport)
@@ -13,19 +15,20 @@
 namespace AJA
 {
 
-/*
-* Types provided from the interface
-*/
+	/*
+	 * Types provided from the interface
+	 */
 
 	typedef void* FDeviceScanner;
 	typedef void* FDeviceInfo;
 	typedef void* FAJADevice;
+	typedef uint32_t FAJAVideoFormat;
 
 	using LoggingCallbackPtr =  void (*)(const TCHAR* Format, ...);
 
 	/*
-	* Pixel formats supported
-	*/
+	 * Pixel formats supported
+	 */
 
 	enum struct EPixelFormat
 	{
@@ -34,139 +37,8 @@ namespace AJA
 	};
 
 	/*
-	* Frame formats supported
-	* PSF - Progressive segmented frame - https://en.wikipedia.org/wiki/Progressive_segmented_frame
-	* PSF is returned when interlace frame is passed to AJA, and the progressive input flag is set.
-	*/
-
-	enum struct EFrameFormat
-	{
-		FF_PALI,
-		FF_PALPSF,
-		FF_NTSCI,
-		FF_NTSCPSF,
-		FF_720P,
-		FF_1080I,
-		FF_1080PSF,
-		FF_1080P,
-		FF_AUTO,
-		FF_UNKNOWN,
-	};
-
-	/*
-	* Frame Rates
-	*/
-
-	enum struct EFrameRate
-	{
-		FR_2398,
-		FR_2400,
-		FR_2500,
-		FR_2997,
-		FR_3000,
-		FR_5000,
-		FR_5000A,
-		FR_5000B,
-		FR_5994,
-		FR_5994A,
-		FR_5994B,
-		FR_6000,
-		FR_6000A,
-		FR_6000B,
-		FR_AUTO,
-		FR_UNKNOWN,
-	};
-
-	enum struct EDirectionFilter
-	{
-		DF_INPUT,
-		DF_OUTPUT,
-	};
-
-	/*
-	* Format of the required frame format
-	*/
-
-	struct AJA_API FFrameDesc
-	{
-		FFrameDesc()
-			: FrameFormat(EFrameFormat::FF_AUTO)
-			, PixelFormat(EPixelFormat::PF_ARGB)
-			, FrameRate(EFrameRate::FR_AUTO)
-		{
-		}
-
-		FFrameDesc(EFrameFormat InFrameFormat, EPixelFormat InPixelFormat, EFrameRate InFrameRate)
-			: FrameFormat(InFrameFormat)
-			, PixelFormat(InPixelFormat)
-			, FrameRate(InFrameRate)
-		{
-		}
-		bool operator== (const FFrameDesc& Other) const
-		{
-			return FrameFormat == Other.FrameFormat
-				&& PixelFormat == Other.PixelFormat
-				&& FrameRate == Other.FrameRate;
-		}
-		EFrameFormat FrameFormat;
-		EPixelFormat PixelFormat;
-		EFrameRate FrameRate;
-	};
-
-	/*
-	* Information about a given frame desc
-	*/
-
-	struct AJA_API FFrameInfo
-	{
-		FFrameInfo()
-			: DropFrame(false)
-			, FrameRate(60.0f)
-			, RootFrameRate(60.0f)
-			, TimeScale(1)
-			, TimeValue(60)
-			, Width(0)
-			, Height(0)
-			, RatioWidth(1)
-			, RatioHeight(1)
-			, BytesPerPixel(4)
-		{
-		}
-
-		/** Is Drop framerate */
-		bool DropFrame;
-
-		/** Actual framerate */
-		float FrameRate;
-
-		/** Root framerate to calculate timecode */
-		float RootFrameRate;
-
-		/** Clocks per Second */
-		uint32_t TimeScale;
-
-		/** Clocks per Frame */
-		uint32_t TimeValue;
-
-		/** Image Width in pixels */
-		uint32_t Width;
-
-		/** Image Height in pixels */
-		uint32_t Height;
-
-		/** Aspect Ratio Width */
-		uint32_t RatioWidth;
-
-		/** Aspect Ratio Height */
-		uint32_t RatioHeight;
-
-		/** number of effective bytes per pixel (YUYV is 2 bytes per pixel) */
-		uint32_t BytesPerPixel;
-	};
-
-	/*
-	* Timecode
-	*/
+	 * Timecode
+	 */
 
 	struct AJA_API FTimecode
 	{
@@ -180,70 +52,86 @@ namespace AJA
 	};
 
 	/*
-	 * Format support
-	 */
-
-	AJA_API	uint32_t ModeCount();
-	AJA_API bool ModeNames(uint32_t InMode, EDirectionFilter InDirectionFilter, TCHAR* OutModeName, uint32_t InSize);
-	AJA_API bool Mode2FrameDesc(uint32_t InMode, EDirectionFilter InDirectionFilter, FFrameDesc& OutFrameDesc);
-	AJA_API bool FrameDescSupported(const FFrameDesc& InFrameDesc, EDirectionFilter InDirectionFilter);
-	AJA_API bool FrameDesc2Info(const FFrameDesc& InFrameDesc, FFrameInfo& OutFrameInfo);
-	AJA_API bool FrameDesc2Name(const FFrameDesc& InFrameDesc, TCHAR* OutModeName, uint32_t InSize);
-
-	/*
 	 * Logging Callbacks
 	 */
 
 	AJA_API void SetLoggingCallbacks(LoggingCallbackPtr LogInfoFunc, LoggingCallbackPtr LogWarningFunc, LoggingCallbackPtr LogErrorFunc);
 
-	/*
-	 * DeviceScanner
-	 */
-
-	AJA_API FDeviceScanner CreateDeviceScanner(void);
-	AJA_API void ReleaseDeviceScanner(FDeviceScanner InDeviceScanner);
-
-	AJA_API uint32_t DeviceScannerGetNumDevices(FDeviceScanner InDeviceScanner);
-	AJA_API void DeviceScannerScanHardware(FDeviceScanner InDeviceScanner);
-	AJA_API FDeviceInfo DeviceScannerGetDeviceInfo(FDeviceScanner InDeviceScanner, uint32_t InDeviceIndex);
-
-	/*
-	 * Device Info
-	 */
-
-	AJA_API void ReleaseDeviceInfo(FDeviceInfo InDeviceInfo);
-	AJA_API bool DeviceInfoGetDeviceId(FDeviceInfo InDeviceInfo, TCHAR* OutDeviceId, uint32_t InSize);
-
-	AJA_API uint32_t DeviceInfoGetVidInputs(FDeviceInfo InDeviceInfo);
-	AJA_API uint32_t DeviceInfoGetVidOutputs(FDeviceInfo InDeviceInfo);
 
 	namespace Private
 	{
-		class SyncChannel;
+		class DeviceScanner;
 		class InputChannel;
 		class OutputChannel;
+		class SyncChannel;
+		class VideoFormatsScanner;
 	}
+
+	/* AJADeviceScanner definition
+	*****************************************************************************/
+	class  AJA_API AJADeviceScanner
+	{
+	public:
+		const static int32_t FormatedTextSize = 64;
+		using FormatedTextType = TCHAR[FormatedTextSize];
+
+		AJADeviceScanner();
+		~AJADeviceScanner();
+
+		AJADeviceScanner(const AJADeviceScanner&) = delete;
+		AJADeviceScanner& operator=(const AJADeviceScanner&) = delete;
+
+		int32_t GetNumDevices() const;
+		bool GetDeviceTextId(int32_t InDeviceIndex, FormatedTextType& OutTextId) const;
+		bool GetNumberVideoChannels(int32_t InDeviceIndex, int32_t& OutInput, int32_t& OutOutput) const;
+
+	private:
+		Private::DeviceScanner* Scanner;
+	};
+
+	/* AJAVideoFormats definition
+	*****************************************************************************/
+	struct AJA_API AJAVideoFormats
+	{
+		const static int32_t FormatedTextSize = 64;
+		struct AJA_API VideoFormatDescriptor
+		{
+			VideoFormatDescriptor();
+
+			FAJAVideoFormat VideoFormatIndex;
+			TCHAR FormatedText[FormatedTextSize];
+			double FrameRate;
+			uint32_t Width;
+			uint32_t Height;
+			bool bIsProgressive;
+			bool bValid;
+
+			bool operator<(const VideoFormatDescriptor& Other) const;
+		};
+
+		AJAVideoFormats(int32_t InDeviceId, bool bForOutput);
+		~AJAVideoFormats();
+
+		AJAVideoFormats(const AJAVideoFormats&) = delete;
+		AJAVideoFormats& operator=(const AJAVideoFormats&) = delete;
+
+		int32_t GetNumSupportedFormat() const;
+		VideoFormatDescriptor GetSupportedFormat(int32_t InIndex) const;
+		static VideoFormatDescriptor GetVideoFormat(FAJAVideoFormat InVideoFormatIndex);
+
+	private:
+		Private::VideoFormatsScanner* Formats;
+	};
 
 	/* AJADeviceOptions definition
 	*****************************************************************************/
-	enum class EAJAReferenceType
-	{
-		EAJA_REFERENCETYPE_EXTERNAL,
-		EAJA_REFERENCETYPE_FREERUN,
-		EAJA_REFERENCETYPE_INPUT,
-	};
-
 	struct AJA_API AJADeviceOptions
 	{
 		AJADeviceOptions(uint32_t InChannelIndex)
 			: DeviceIndex(InChannelIndex)
-			, ReferenceType(EAJAReferenceType::EAJA_REFERENCETYPE_FREERUN)
-			, ChannelIndexForReferenceInput(0)
 		{}
 
 		uint32_t DeviceIndex;
-		EAJAReferenceType ReferenceType;
-		uint32_t ChannelIndexForReferenceInput;
 	};
 
 	/* AJASyncChannel definition
@@ -263,6 +151,7 @@ namespace AJA
 		IAJASyncChannelCallbackInterface* CallbackInterface;
 
 		uint32_t ChannelIndex; // [1...x]
+		FAJAVideoFormat VideoFormatIndex;
 		bool bOutput; // port is output
 		bool bUseTimecode; // enable timecode
 		bool bUseLTCTimecode; // enable LTC or VITC timecode
@@ -333,7 +222,7 @@ namespace AJA
 	struct AJA_API AJAVideoFrameData
 	{
 		AJAVideoFrameData();
-		FFrameDesc FrameDesc;
+		FAJAVideoFormat VideoFormatIndex;
 		uint8_t* VideoBuffer;
 		uint32_t VideoBufferSize;
 		uint32_t Stride;
@@ -353,18 +242,26 @@ namespace AJA
 
 	/* AJAInputOutputChannelOptions definition
 	*****************************************************************************/
+	enum class EAJAReferenceType
+	{
+		EAJA_REFERENCETYPE_EXTERNAL,
+		EAJA_REFERENCETYPE_FREERUN,
+		EAJA_REFERENCETYPE_INPUT,
+	};
+
 	struct AJA_API AJAInputOutputChannelOptions
 	{
 		AJAInputOutputChannelOptions(const TCHAR* DebugName, uint32_t InChannelIndex);
 
 		IAJAInputOutputChannelCallbackInterface* CallbackInterface;
 
-		FFrameDesc FrameDesc;
-
 		uint32_t NumberOfAudioChannel;
 		uint32_t ChannelIndex; // [1...x]
 		uint32_t SynchronizeChannelIndex; // [1...x]
 		uint32_t OutputKeyChannelIndex; // [1...x] for output
+		FAJAVideoFormat VideoFormatIndex;
+		EPixelFormat PixelFormat;
+		EAJAReferenceType OutputReferenceType;
 
 		union
 		{
@@ -380,7 +277,6 @@ namespace AJA
 				uint32_t bUseAncillaryField2 : 1; // enable ANC Field 2 system
 				uint32_t bUseAudio : 1; // enable audio input/output
 				uint32_t bUseVideo : 1; // enable video input/output
-				uint32_t bIsProgressivePicture : 1; // Specifies if the video format is expected to be progressive or not.
 			};
 			uint32_t Options;
 		};

@@ -747,6 +747,14 @@ TSharedPtr<FNiagaraSystemSimulation, ESPMode::ThreadSafe> UNiagaraComponent::Get
 	return nullptr;
 }
 
+void UNiagaraComponent::CreateRenderState_Concurrent()
+{
+	Super::CreateRenderState_Concurrent();
+	// The emitter instance may not tick again next frame so we send the dynamic data here so that the current state
+	// renders.  This can happen when while editing, or any time the age update mode is set to desired age.
+	SendRenderDynamicData_Concurrent();
+}
+
 void UNiagaraComponent::SendRenderDynamicData_Concurrent()
 {
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraComponentSendRenderData);

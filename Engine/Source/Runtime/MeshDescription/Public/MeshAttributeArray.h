@@ -58,7 +58,7 @@ public:
 
 protected:
 
-	friend class UMeshDescription;
+	friend class FMeshDescription;
 
 	/** Should not instance this base class directly */
 	TMeshAttributeArrayBase() = default;

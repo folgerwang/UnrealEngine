@@ -16,7 +16,7 @@
 UCLASS(Abstract)
 class TIMEMANAGEMENT_API UTimeSynchronizationSource : public UObject
 {
-	GENERATED_BODY()
+	GENERATED_UCLASS_BODY()
 
 public:
 	/** If the source has a time base that can be used to synchronize other sources. */

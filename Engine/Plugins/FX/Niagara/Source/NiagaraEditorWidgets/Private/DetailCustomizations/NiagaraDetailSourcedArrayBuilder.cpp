@@ -18,15 +18,17 @@ FNiagaraDetailSourcedArrayBuilder::FNiagaraDetailSourcedArrayBuilder(TSharedRef<
 	, ArrayProperty(InBaseProperty->AsArray())
 	, FNameSubproperty(InFNameSubproperty)
 {
+	// bradut TODO set new Delegate for when the number of children in the array changes, where you empty the map of selectors and double check if it is regenerated and also call 
+	// 
+	FSimpleDelegate OnArrayNumChildrenChanged = FSimpleDelegate::CreateRaw(this, &FNiagaraDetailSourcedArrayBuilder::OnArrayNumChildrenChanged);
+	ArrayProperty->SetOnNumElementsChanged(OnArrayNumChildrenChanged);
+	uint32 EntryCount;
+	ArrayProperty->GetNumElements(EntryCount);
+	NameSelectors.AddZeroed(EntryCount);
 };
 
 void FNiagaraDetailSourcedArrayBuilder::OnGenerateEntry(TSharedRef<IPropertyHandle> PropertyHandle, int32 ArrayIndex, IDetailChildrenBuilder& ChildrenBuilder)
 {
-	TSharedRef<IPropertyHandle> SubPropertyHandle = PropertyHandle;
-	if (FNameSubproperty != NAME_None)
-	{
-		SubPropertyHandle = PropertyHandle->GetChildHandle(FNameSubproperty).ToSharedRef();
-	}
 	IDetailPropertyRow& RegionRow = ChildrenBuilder.AddProperty(PropertyHandle);
 
 	FNumberFormattingOptions NoCommas;
@@ -36,9 +38,13 @@ void FNiagaraDetailSourcedArrayBuilder::OnGenerateEntry(TSharedRef<IPropertyHand
 	RegionRow.DisplayName(SlotDesc);
 
 	RegionRow.ShowPropertyButtons(true);
-	
-	NameSelector = SNew(SNiagaraNamePropertySelector, SubPropertyHandle, OptionsSourceList);
-	
+
+	TSharedPtr<IPropertyHandle> SubPropertyHandle = PropertyHandle;
+	if (FNameSubproperty != NAME_None)
+	{
+		SubPropertyHandle = PropertyHandle->GetChildHandle(FNameSubproperty).ToSharedRef();
+	}
+	NameSelectors[ArrayIndex] = SNew(SNiagaraNamePropertySelector, SubPropertyHandle.ToSharedRef(), OptionsSourceList);
 	RegionRow.CustomWidget(false)
 		.NameContent()
 		[
@@ -48,16 +54,28 @@ void FNiagaraDetailSourcedArrayBuilder::OnGenerateEntry(TSharedRef<IPropertyHand
 		.MaxDesiredWidth(TOptional<float>())
 		[
 			// add combo button
-			NameSelector.ToSharedRef()
+			NameSelectors[ArrayIndex].ToSharedRef()
 		];
+}
+
+void FNiagaraDetailSourcedArrayBuilder::OnArrayNumChildrenChanged()
+{
+	NameSelectors.Empty();
+	uint32 EntryCount;
+	ArrayProperty->GetNumElements(EntryCount);
+	NameSelectors.AddZeroed(EntryCount); // allocate the memory for ease of use when refreshing children
+	RefreshChildren();
 }
 
 void FNiagaraDetailSourcedArrayBuilder::SetSourceArray(TArray<TSharedPtr<FName>>& InOptionsSource)
 {
 	OptionsSourceList = InOptionsSource;
-	if (NameSelector.IsValid())
+	for (auto NameSelector : NameSelectors)
 	{
-		NameSelector->SetSourceArray(InOptionsSource);
+		if (NameSelector.IsValid())
+		{
+			NameSelector->SetSourceArray(InOptionsSource);
+		}
 	}
 }
 

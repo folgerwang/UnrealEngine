@@ -432,32 +432,8 @@ void FD3D12CommandContext::RHISetScissorRect(bool bEnable, uint32 MinX, uint32 M
 */
 void FD3D12CommandContext::RHISetBoundShaderState(FBoundShaderStateRHIParamRef BoundShaderStateRHI)
 {
-	//SCOPE_CYCLE_COUNTER(STAT_D3D12SetBoundShaderState);
-	FD3D12BoundShaderState* const BoundShaderState = FD3D12DynamicRHI::ResourceCast(BoundShaderStateRHI);
-
-	StateCache.SetBoundShaderState(BoundShaderState);
-
-	if (BoundShaderState->GetHullShader() && BoundShaderState->GetDomainShader())
-	{
-		bUsingTessellation = true;
-
-		// Ensure the command buffers are reset to reduce the amount of data that needs to be versioned.
-		HSConstantBuffer.Reset();
-		DSConstantBuffer.Reset();
-	}
-	else
-	{
-		bUsingTessellation = false;
-	}
-
-	// @TODO : really should only discard the constants if the shader state has actually changed.
-	bDiscardSharedConstants = true;
-
-	// Ensure the command buffers are reset to reduce the amount of data that needs to be versioned.
-	VSConstantBuffer.Reset();
-	PSConstantBuffer.Reset();
-	GSConstantBuffer.Reset();
-	CSConstantBuffer.Reset();	// Should this be here or in RHISetComputeShader? Might need a new bDiscardSharedConstants for CS.
+	// This shouldn't be used. Instead use RHISetGraphicsPipelineState.
+	unimplemented();
 }
 
 D3D_PRIMITIVE_TOPOLOGY GetD3D12PrimitiveType(uint32 PrimitiveType, bool bUsingTessellation)
@@ -541,10 +517,19 @@ void FD3D12CommandContext::RHISetGraphicsPipelineState(FGraphicsPipelineStateRHI
 	FD3D12GraphicsPipelineState* GraphicsPipelineState = FD3D12DynamicRHI::ResourceCast(GraphicsState);
 
 	// TODO: [PSO API] Every thing inside this scope is only necessary to keep the PSO shadow in sync while we convert the high level to only use PSOs
-	{
-		RHISetBoundShaderState(GraphicsPipelineState->BoundShaderState);
-		RHIEnableDepthBoundsTest(GraphicsPipelineState->PipelineStateInitializer.bDepthBounds);
-	}
+	bUsingTessellation = GraphicsPipelineState->GetHullShader() && GraphicsPipelineState->GetDomainShader();
+	// Ensure the command buffers are reset to reduce the amount of data that needs to be versioned.
+	VSConstantBuffer.Reset();
+	PSConstantBuffer.Reset();
+	HSConstantBuffer.Reset();
+	DSConstantBuffer.Reset();
+	GSConstantBuffer.Reset();
+	// Should this be here or in RHISetComputeShader? Might need a new bDiscardSharedConstants for CS.
+	CSConstantBuffer.Reset();
+	// @TODO : really should only discard the constants if the shader state has actually changed.
+	bDiscardSharedConstants = true;
+
+	RHIEnableDepthBoundsTest(GraphicsPipelineState->PipelineStateInitializer.bDepthBounds);
 
 	StateCache.SetGraphicsPipelineState(GraphicsPipelineState);
 }
@@ -1197,13 +1182,13 @@ void FD3D12CommandContext::CommitNonComputeShaderConstants()
 {
 	//SCOPE_CYCLE_COUNTER(STAT_D3D12CommitGraphicsConstants);
 
-	FD3D12BoundShaderState* RESTRICT CurrentBoundShaderStateRef = StateCache.GetBoundShaderState();
+	const FD3D12GraphicsPipelineState* const RESTRICT GraphicPSO = StateCache.GetGraphicsPipelineState();
 
-	check(CurrentBoundShaderStateRef);
+	check(GraphicPSO);
 
 	// Only set the constant buffer if this shader needs the global constant buffer bound
 	// Otherwise we will overwrite a different constant buffer
-	if (CurrentBoundShaderStateRef->bShaderNeedsGlobalConstantBuffer[SF_Vertex])
+	if (GraphicPSO->bShaderNeedsGlobalConstantBuffer[SF_Vertex])
 	{
 		StateCache.SetConstantBuffer<SF_Vertex>(VSConstantBuffer, bDiscardSharedConstants);
 	}
@@ -1214,23 +1199,23 @@ void FD3D12CommandContext::CommitNonComputeShaderConstants()
 	// is always reset whenever bUsingTessellation changes in SetBoundShaderState()
 	if (bUsingTessellation)
 	{
-		if (CurrentBoundShaderStateRef->bShaderNeedsGlobalConstantBuffer[SF_Hull])
+		if (GraphicPSO->bShaderNeedsGlobalConstantBuffer[SF_Hull])
 		{
 			StateCache.SetConstantBuffer<SF_Hull>(HSConstantBuffer, bDiscardSharedConstants);
 		}
 
-		if (CurrentBoundShaderStateRef->bShaderNeedsGlobalConstantBuffer[SF_Domain])
+		if (GraphicPSO->bShaderNeedsGlobalConstantBuffer[SF_Domain])
 		{
 			StateCache.SetConstantBuffer<SF_Domain>(DSConstantBuffer, bDiscardSharedConstants);
 		}
 	}
 
-	if (CurrentBoundShaderStateRef->bShaderNeedsGlobalConstantBuffer[SF_Geometry])
+	if (GraphicPSO->bShaderNeedsGlobalConstantBuffer[SF_Geometry])
 	{
 		StateCache.SetConstantBuffer<SF_Geometry>(GSConstantBuffer, bDiscardSharedConstants);
 	}
 
-	if (CurrentBoundShaderStateRef->bShaderNeedsGlobalConstantBuffer[SF_Pixel])
+	if (GraphicPSO->bShaderNeedsGlobalConstantBuffer[SF_Pixel])
 	{
 		StateCache.SetConstantBuffer<SF_Pixel>(PSConstantBuffer, bDiscardSharedConstants);
 	}
@@ -1377,26 +1362,26 @@ void FD3D12CommandContext::CommitGraphicsResourceTables()
 {
 	//SCOPE_CYCLE_COUNTER(STAT_D3D12CommitResourceTables);
 
-	const FD3D12BoundShaderState* const RESTRICT CurrentBoundShaderStateRef = StateCache.GetBoundShaderState();
-	check(CurrentBoundShaderStateRef);
+	const FD3D12GraphicsPipelineState* const RESTRICT GraphicPSO = StateCache.GetGraphicsPipelineState();
+	check(GraphicPSO);
 
-	if (auto* Shader = CurrentBoundShaderStateRef->GetVertexShader())
+	if (auto* Shader = GraphicPSO->GetVertexShader())
 	{
 		SetResourcesFromTables(Shader);
 	}
-	if (auto* Shader = CurrentBoundShaderStateRef->GetPixelShader())
+	if (auto* Shader = GraphicPSO->GetPixelShader())
 	{
 		SetResourcesFromTables(Shader);
 	}
-	if (auto* Shader = CurrentBoundShaderStateRef->GetHullShader())
+	if (auto* Shader = GraphicPSO->GetHullShader())
 	{
 		SetResourcesFromTables(Shader);
 	}
-	if (auto* Shader = CurrentBoundShaderStateRef->GetDomainShader())
+	if (auto* Shader = GraphicPSO->GetDomainShader())
 	{
 		SetResourcesFromTables(Shader);
 	}
-	if (auto* Shader = CurrentBoundShaderStateRef->GetGeometryShader())
+	if (auto* Shader = GraphicPSO->GetGeometryShader())
 	{
 		SetResourcesFromTables(Shader);
 	}

@@ -7,6 +7,7 @@
 #include "HModel.h"
 #include "SceneView.h"
 #include "Model.h"
+#include "Components/ModelComponent.h"
 #include "Raster.h"
 #include "Engine/Polys.h"
 #include "Engine/Brush.h"
@@ -136,4 +137,10 @@ bool HModel::ResolveSurface(const FSceneView* View,int32 X,int32 Y,uint32& OutSu
 
 	OutSurfaceIndex = HitState.SurfaceIndex;
 	return HitState.bHitSurface;
+}
+
+void HModel::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	Collector.AddReferencedObject(Component);
+	Collector.AddReferencedObject(Model);
 }

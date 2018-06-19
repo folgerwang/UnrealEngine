@@ -89,6 +89,7 @@ private:
 	
 	// Inline menu commands
 	void OpenSourceEmitter();
+	bool CanOpenSourceEmitter() const;
 	void SetEmitterEnabled(bool bIsEnabled);
 	bool CheckEmitterEnabledStatus(bool bIsEnabled);
 	void ShowEmitterInContentBrowser();

@@ -698,6 +698,57 @@ public:
 	}
 };
 
+/**
+* Android cooking platform which cooks only ETC1a based textures.
+*/
+class FAndroid_ETC1aTargetPlatform : public FAndroidTargetPlatform
+{
+public:
+
+	FAndroid_ETC1aTargetPlatform(bool bIsClient) : FAndroidTargetPlatform(bIsClient)
+	{
+		this->PlatformInfo = PlatformInfo::FindPlatformInfo("Android_ETC1a");
+	}
+
+	virtual FText DisplayName() const override
+	{
+		return LOCTEXT("Android_ETC1a", "Android (ETCa1)");
+	}
+
+	virtual FString GetAndroidVariantName() const override
+	{
+		return TEXT("ETC1a");
+	}
+
+	virtual bool SupportsTextureFormat(FName Format) const override
+	{
+		if (Format == AndroidTexFormat::NameAutoETC1a)
+		{
+			return true;
+		}
+
+		return false;
+	}
+
+	// End FAndroidTargetPlatform overrides
+
+	virtual bool SupportedByExtensionsString(const FString& ExtensionsString, const int GLESVersion) const override
+	{
+		return GLESVersion >= 0x30000;
+	}
+
+	virtual FText GetVariantDisplayName() const override
+	{
+		return LOCTEXT("Android_ETC1a_ShortName", "ETC1a");
+	}
+
+	virtual float GetVariantPriority() const override
+	{
+		float Priority;
+		return GConfig->GetFloat(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("TextureFormatPriority_ETC1a"), Priority, GEngineIni) ? Priority : 1.0f;
+	}
+};
+
 
 
 

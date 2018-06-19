@@ -321,8 +321,6 @@ UMixedRealityCaptureComponent::UMixedRealityCaptureComponent(const FObjectInitia
 	// initialize to a "unknown" state - we don't know what this was calibrated at
 	, RelativeOriginType(MRCaptureComponent_Impl::InvalidOriginType)
 	, CalibratedFOV(0.f)
-	, LensFocalLenRatio(0.f)
-	, UndistortedFOV(0.f)
 {
 	const UMrcFrameworkSettings* MrcSettings = GetDefault<UMrcFrameworkSettings>();
 
@@ -823,7 +821,7 @@ void UMixedRealityCaptureComponent::SetCaptureDevice(const FMrcVideoCaptureFeedI
 }
 
 //------------------------------------------------------------------------------
-void UMixedRealityCaptureComponent::SetLensDistortionParameters(const FMrcLensDistortion & ModelRef)
+void UMixedRealityCaptureComponent::SetLensDistortionParameters(const FOpenCVLensDistortionParameters& ModelRef)
 {
 	if (ModelRef != LensDistortionParameters)
 	{
@@ -903,9 +901,9 @@ float UMixedRealityCaptureComponent::GetDesiredAspectRatio() const
 		}
 	}
 
-	if (MRCaptureComponent_Impl::UseUndistortion && MRCaptureComponent_Impl::UseFocalLenAspect && LensDistortionParameters.IsSet() && LensFocalLenRatio > 0)
+	if (MRCaptureComponent_Impl::UseUndistortion && MRCaptureComponent_Impl::UseFocalLenAspect && !LensDistortionParameters.IsIdentity() && UndistortedCameraInfo.FocalLengthRatio > 0)
 	{ 
-		DesiredAspectRatio *= LensFocalLenRatio;
+		DesiredAspectRatio *= UndistortedCameraInfo.FocalLengthRatio;
 	}
 
 	return DesiredAspectRatio;
@@ -914,13 +912,9 @@ float UMixedRealityCaptureComponent::GetDesiredAspectRatio() const
 //------------------------------------------------------------------------------
 void UMixedRealityCaptureComponent::RefreshDistortionDisplacementMap()
 {
-	if (MRCaptureComponent_Impl::UseUndistortion && LensDistortionParameters.IsSet() && TextureTarget)
+	if (MRCaptureComponent_Impl::UseUndistortion && !LensDistortionParameters.IsIdentity() && TextureTarget)
 	{
-		// for OpenCv, 0.0 is cropped fully, whereas 1.0 is uncropped
-		float CroppingInterpoler = 1.f - MRCaptureComponent_Impl::DistortionCroppingAmount;
-
-		float OutVFOV_Unused;
-		DistortionDisplacementMap = LensDistortionParameters.CreateUndistortUVMap(FIntPoint(TextureTarget->SizeX, TextureTarget->SizeY), CroppingInterpoler, UndistortedFOV, OutVFOV_Unused, LensFocalLenRatio);
+		DistortionDisplacementMap = LensDistortionParameters.CreateUndistortUVDisplacementMap(FIntPoint(TextureTarget->SizeX, TextureTarget->SizeY), MRCaptureComponent_Impl::DistortionCroppingAmount, UndistortedCameraInfo);
 	}
 	else
 	{
@@ -946,9 +940,9 @@ void UMixedRealityCaptureComponent::RefreshFOV()
 	{
 		FOVAngle = MRCaptureComponent_Impl::CaptureFOVOverride;
 	}
-	else if (MRCaptureComponent_Impl::UseUndistortion && MRCaptureComponent_Impl::UseUndistortedFOV && LensDistortionParameters.IsSet() && UndistortedFOV > 0)
+	else if (MRCaptureComponent_Impl::UseUndistortion && MRCaptureComponent_Impl::UseUndistortedFOV && !LensDistortionParameters.IsIdentity() && UndistortedCameraInfo.HorizontalFOV > 0)
 	{
-		FOVAngle = UndistortedFOV;
+		FOVAngle = UndistortedCameraInfo.HorizontalFOV;
 	}
 	else if (CalibratedFOV > 0)
 	{

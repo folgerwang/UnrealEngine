@@ -112,6 +112,41 @@ void FMeshEditorStyle::Initialize()
 	StyleSet->Set("MeshEditorMode.EdgeEditMode", new IMAGE_PLUGIN_BRUSH("Icons/T_Radial_Mesh_Edge", Icon512x512));
 	StyleSet->Set("MeshEditorMode.VertexEditMode", new IMAGE_PLUGIN_BRUSH("Icons/T_Radial_Mesh_Vertex", Icon512x512));
 
+	StyleSet->Set( "MeshEditorPolygonMode.EditMode", new IMAGE_PLUGIN_BRUSH( "Icons/EditMode", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorPolygonMode.EditMode.Small", new IMAGE_PLUGIN_BRUSH( "Icons/EditMode", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorPolygonMode.EditMode.Selected", new IMAGE_PLUGIN_BRUSH( "Icons/EditMode", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorPolygonMode.EditMode.Selected.Small", new IMAGE_PLUGIN_BRUSH( "Icons/EditMode", Icon40x40 ) );
+
+	StyleSet->Set( "MeshEditorAnyElement.DeleteMeshElement", new IMAGE_PLUGIN_BRUSH( "Icons/DeleteMeshElement", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorAnyElement.DeleteMeshElement.Small", new IMAGE_PLUGIN_BRUSH( "Icons/DeleteMeshElement", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorAnyElement.DeleteMeshElement.Selected", new IMAGE_PLUGIN_BRUSH( "Icons/DeleteMeshElement", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorAnyElement.DeleteMeshElement.Selected.Small", new IMAGE_PLUGIN_BRUSH( "Icons/DeleteMeshElement", Icon40x40 ) );
+
+	StyleSet->Set( "MeshEditorPolygon.FlipPolygon", new IMAGE_PLUGIN_BRUSH( "Icons/FlipPolygon", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorPolygon.FlipPolygon.Small", new IMAGE_PLUGIN_BRUSH( "Icons/FlipPolygon", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorPolygon.FlipPolygon.Selected", new IMAGE_PLUGIN_BRUSH( "Icons/FlipPolygon", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorPolygon.FlipPolygon.Selected.Small", new IMAGE_PLUGIN_BRUSH( "Icons/FlipPolygon", Icon40x40 ) );
+
+	StyleSet->Set( "MeshEditorPolygon.AssignMaterial", new IMAGE_PLUGIN_BRUSH( "Icons/AssignMaterial", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorPolygon.AssignMaterial.Small", new IMAGE_PLUGIN_BRUSH( "Icons/AssignMaterial", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorPolygon.AssignMaterial.Selected", new IMAGE_PLUGIN_BRUSH( "Icons/AssignMaterial", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorPolygon.AssignMaterial.Selected.Small", new IMAGE_PLUGIN_BRUSH( "Icons/AssignMaterial", Icon40x40 ) );
+
+	StyleSet->Set( "MeshEditorSelectionModifiers.PolygonsByGroup", new IMAGE_PLUGIN_BRUSH( "Icons/PolygonsByGroup", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorSelectionModifiers.PolygonsByGroup.Small", new IMAGE_PLUGIN_BRUSH( "Icons/PolygonsByGroup", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorSelectionModifiers.PolygonsByGroup.Selected", new IMAGE_PLUGIN_BRUSH( "Icons/PolygonsByGroup", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorSelectionModifiers.PolygonsByGroup.Selected.Small", new IMAGE_PLUGIN_BRUSH( "Icons/PolygonsByGroup", Icon40x40 ) );
+
+	StyleSet->Set( "MeshEditorSelectionModifiers.SingleElement", new IMAGE_PLUGIN_BRUSH( "Icons/SingleElement", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorSelectionModifiers.SingleElement.Small", new IMAGE_PLUGIN_BRUSH( "Icons/SingleElement", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorSelectionModifiers.SingleElement.Selected", new IMAGE_PLUGIN_BRUSH( "Icons/SingleElement", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorSelectionModifiers.SingleElement.Selected.Small", new IMAGE_PLUGIN_BRUSH( "Icons/SingleElement", Icon40x40 ) );
+
+	StyleSet->Set( "MeshEditorSelectionModifiers.PolygonsByConnectivity", new IMAGE_PLUGIN_BRUSH( "Icons/PolygonsByConnectivity", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorSelectionModifiers.PolygonsByConnectivity.Small", new IMAGE_PLUGIN_BRUSH( "Icons/PolygonsByConnectivity", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorSelectionModifiers.PolygonsByConnectivity.Selected", new IMAGE_PLUGIN_BRUSH( "Icons/PolygonsByConnectivity", Icon40x40 ) );
+	StyleSet->Set( "MeshEditorSelectionModifiers.PolygonsByConnectivity.Selected.Small", new IMAGE_PLUGIN_BRUSH( "Icons/PolygonsByConnectivity", Icon40x40 ) );
+
 	FSlateStyleRegistry::RegisterSlateStyle( *StyleSet.Get() );
 }
 

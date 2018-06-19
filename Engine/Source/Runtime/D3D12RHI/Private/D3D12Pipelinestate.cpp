@@ -287,6 +287,22 @@ ID3D12PipelineState* FD3D12PipelineState::GetPipelineState()
 	return PipelineState.GetReference();
 }
 
+FD3D12GraphicsPipelineState::FD3D12GraphicsPipelineState(
+	const FGraphicsPipelineStateInitializer& Initializer,
+	FD3D12BoundShaderState* InBoundShaderState,
+	FD3D12PipelineState* InPipelineState)
+	: PipelineStateInitializer(Initializer)
+	, RootSignature(InBoundShaderState->pRootSignature)
+	, PipelineState(InPipelineState)
+{
+	FMemory::Memcpy(StreamStrides, InBoundShaderState->StreamStrides, sizeof(StreamStrides));
+	bShaderNeedsGlobalConstantBuffer[SF_Vertex] = GetVertexShader() && GetVertexShader()->ResourceCounts.bGlobalUniformBufferUsed;
+	bShaderNeedsGlobalConstantBuffer[SF_Pixel] = GetPixelShader() && GetPixelShader()->ResourceCounts.bGlobalUniformBufferUsed;
+	bShaderNeedsGlobalConstantBuffer[SF_Hull] = GetHullShader() && GetHullShader()->ResourceCounts.bGlobalUniformBufferUsed;
+	bShaderNeedsGlobalConstantBuffer[SF_Domain] = GetDomainShader() && GetDomainShader()->ResourceCounts.bGlobalUniformBufferUsed;
+	bShaderNeedsGlobalConstantBuffer[SF_Geometry] = GetGeometryShader() && GetGeometryShader()->ResourceCounts.bGlobalUniformBufferUsed;
+}
+
 FD3D12GraphicsPipelineState::~FD3D12GraphicsPipelineState()
 {
 	// At this point the object is not safe to use in the PSO cache.
@@ -309,39 +325,51 @@ FD3D12ComputePipelineState::~FD3D12ComputePipelineState()
 
 void FD3D12PipelineStateCacheBase::CleanupPipelineStateCaches()
 {
-	// The runtime caches manage the lifetime of their FD3D12GraphicsPipelineState and FD3D12ComputePipelineState.
-	// We need to release them.
-	for (auto Pair : InitializerToGraphicsPipelineMap)
 	{
-		FD3D12GraphicsPipelineState* GraphicsPipelineState = Pair.Value;
-		ensure(GIsRHIInitialized || (!GIsRHIInitialized && GraphicsPipelineState->GetRefCount() == 1));
-		GraphicsPipelineState->Release();
+		FRWScopeLock Lock(InitializerToGraphicsPipelineMapMutex, FRWScopeLockType::SLT_Write);
+		// The runtime caches manage the lifetime of their FD3D12GraphicsPipelineState and FD3D12ComputePipelineState.
+		// We need to release them.
+		for (auto Pair : InitializerToGraphicsPipelineMap)
+		{
+			FD3D12GraphicsPipelineState* GraphicsPipelineState = Pair.Value;
+			ensure(GIsRHIInitialized || (!GIsRHIInitialized && GraphicsPipelineState->GetRefCount() == 1));
+			GraphicsPipelineState->Release();
+		}
+		InitializerToGraphicsPipelineMap.Reset();
 	}
-	InitializerToGraphicsPipelineMap.Reset();
 
-	for (auto Pair : ComputeShaderToComputePipelineMap)
 	{
-		FD3D12ComputePipelineState* ComputePipelineState = Pair.Value;
-		ensure(GIsRHIInitialized || (!GIsRHIInitialized && ComputePipelineState->GetRefCount() == 1));
-		ComputePipelineState->Release();
+		FRWScopeLock Lock(ComputeShaderToComputePipelineMapMutex, FRWScopeLockType::SLT_Write);
+		for (auto Pair : ComputeShaderToComputePipelineMap)
+		{
+			FD3D12ComputePipelineState* ComputePipelineState = Pair.Value;
+			ensure(GIsRHIInitialized || (!GIsRHIInitialized && ComputePipelineState->GetRefCount() == 1));
+			ComputePipelineState->Release();
+		}
+		ComputeShaderToComputePipelineMap.Reset();
 	}
-	ComputeShaderToComputePipelineMap.Reset();
 
-	// The low level graphics and compute maps manage the lifetime of their PSOs.
-	// We need to delete each element before we empty it.
-	for (auto Iter = LowLevelGraphicsPipelineStateCache.CreateConstIterator(); Iter; ++Iter)
 	{
-		const FD3D12PipelineState* const PipelineState = Iter.Value();
-		delete PipelineState;
+		FRWScopeLock Lock(LowLevelGraphicsPipelineStateCacheMutex, FRWScopeLockType::SLT_Write);
+		// The low level graphics and compute maps manage the lifetime of their PSOs.
+		// We need to delete each element before we empty it.
+		for (auto Iter = LowLevelGraphicsPipelineStateCache.CreateConstIterator(); Iter; ++Iter)
+		{
+			const FD3D12PipelineState* const PipelineState = Iter.Value();
+			delete PipelineState;
+		}
+		LowLevelGraphicsPipelineStateCache.Empty();
 	}
-	LowLevelGraphicsPipelineStateCache.Empty();
 
-	for (auto Iter = ComputePipelineStateCache.CreateConstIterator(); Iter; ++Iter)
 	{
-		const FD3D12PipelineState* const PipelineState = Iter.Value();
-		delete PipelineState;
+		FRWScopeLock Lock(ComputePipelineStateCacheMutex, FRWScopeLockType::SLT_Write);
+		for (auto Iter = ComputePipelineStateCache.CreateConstIterator(); Iter; ++Iter)
+		{
+			const FD3D12PipelineState* const PipelineState = Iter.Value();
+			delete PipelineState;
+		}
+		ComputePipelineStateCache.Empty();
 	}
-	ComputePipelineStateCache.Empty();
 }
 
 FD3D12GraphicsPipelineState* FD3D12PipelineStateCacheBase::AddToRuntimeCache(const FGraphicsPipelineStateInitializer& Initializer, uint32 InitializerHash, FD3D12BoundShaderState* BoundShaderState, FD3D12PipelineState* PipelineState)
@@ -368,7 +396,7 @@ FD3D12PipelineState* FD3D12PipelineStateCacheBase::FindInLowLevelCache(const FD3
 	check(Desc.CombinedHash != 0);
 
 	{
-		FRWScopeLock Lock(LowLevelDescToGraphicsPipelineMapMutex, FRWScopeLockType::SLT_ReadOnly);
+		FRWScopeLock Lock(LowLevelGraphicsPipelineStateCacheMutex, FRWScopeLockType::SLT_ReadOnly);
 		FD3D12PipelineState** Found = LowLevelGraphicsPipelineStateCache.Find(Desc);
 		if (Found)
 		{
@@ -399,7 +427,7 @@ void FD3D12PipelineStateCacheBase::AddToLowLevelCache(const FD3D12LowLevelGraphi
 
 	// Double check the desc doesn't already exist while the lock is taken.
 	// This avoids having multiple threads try to create the same PSO.
-	FRWScopeLock Lock(LowLevelDescToGraphicsPipelineMapMutex, FRWScopeLockType::SLT_Write);
+	FRWScopeLock Lock(LowLevelGraphicsPipelineStateCacheMutex, FRWScopeLockType::SLT_Write);
 	FD3D12PipelineState** const PipelineState = LowLevelGraphicsPipelineStateCache.Find(Desc);
 	if (PipelineState)
 	{
@@ -443,7 +471,7 @@ FD3D12PipelineState* FD3D12PipelineStateCacheBase::FindInLowLevelCache(const FD3
 	check(Desc.CombinedHash != 0);
 
 	{
-		FRWScopeLock Lock(LowLevelDescToComputePipelineMapMutex, FRWScopeLockType::SLT_ReadOnly);
+		FRWScopeLock Lock(ComputePipelineStateCacheMutex, FRWScopeLockType::SLT_ReadOnly);
 		FD3D12PipelineState** Found = ComputePipelineStateCache.Find(Desc);
 		if (Found)
 		{
@@ -475,7 +503,7 @@ void FD3D12PipelineStateCacheBase::AddToLowLevelCache(const FD3D12ComputePipelin
 
 	// Double check the desc doesn't already exist while the lock is taken.
 	// This avoids having multiple threads try to create the same PSO.
-	FRWScopeLock Lock(LowLevelDescToComputePipelineMapMutex, FRWScopeLockType::SLT_Write);
+	FRWScopeLock Lock(ComputePipelineStateCacheMutex, FRWScopeLockType::SLT_Write);
 	FD3D12PipelineState** const PipelineState = ComputePipelineStateCache.Find(Desc);
 	if (PipelineState)
 	{
