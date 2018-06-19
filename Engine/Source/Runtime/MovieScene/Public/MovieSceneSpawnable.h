@@ -90,6 +90,15 @@ public:
 	}
 
 	/**
+	 * Set the object template to the specified object directly.
+	 * Used for Copy/Paste, typically you should use CopyObjectTemplate.
+	 */
+	void SetObjectTemplate(UObject* InObjectTemplate)
+	{
+		ObjectTemplate = InObjectTemplate;
+	}
+
+	/**
 	 * Copy the specified object into this spawnable's template
 	 *
 	 * @param InSourceObject The source object to use. This object will be duplicated into the spawnable.

@@ -71,6 +71,7 @@
 #include "FrameNumberNumericInterface.h"
 #include "LevelSequence.h"
 #include "SequencerLog.h"
+#include "MovieSceneCopyableBinding.h"
 
 #define LOCTEXT_NAMESPACE "Sequencer"
 
@@ -2296,30 +2297,27 @@ void SSequencer::OnPaste()
 bool SSequencer::CanPaste()
 {
 	TSharedPtr<FSequencer> Sequencer = SequencerPtr.Pin();
-	TSet<TSharedRef<FSequencerDisplayNode>> SelectedNodes = Sequencer->GetSelection().GetSelectedOutlinerNodes();
-	if (SelectedNodes.Num() != 0)
+	
+	FString TextToImport;
+	FPlatformApplicationMisc::ClipboardPaste(TextToImport);
+
+	// Attempts to deserialize the text into object bindings/tracks that Sequencer understands.
+	if (Sequencer->CanPaste(TextToImport))
 	{
-		FString TexttoImport;
-		FPlatformApplicationMisc::ClipboardPaste(TexttoImport);
+		TArray<UMovieSceneTrack*> ImportedTrack;
+		TArray<UMovieSceneCopyableBinding*> ImportedObjects;
+		Sequencer->ImportTracksFromText(TextToImport, ImportedTrack);
+		Sequencer->ImportObjectsFromText(TextToImport, ImportedObjects);
 
-		if (Sequencer->CanPaste(TexttoImport))
+		// If we couldn't deserialize any tracks or objects then the data isn't valid for sequencer,
+		// and we'll block a paste attempt.
+		if (ImportedTrack.Num() == 0 && ImportedObjects.Num() == 0)
 		{
-			TArray<UMovieSceneTrack*> ImportedTrack;
-			Sequencer->ImportTracksFromText(TexttoImport, ImportedTrack);
-			if (ImportedTrack.Num() == 0)
-			{
-				return false;
-			}
-
-			for (TSharedRef<FSequencerDisplayNode> Node : SelectedNodes)
-			{
-				if (Node->GetType() == ESequencerNode::Object)
-				{
-					return true;
-				}
-			}
 			return false;
 		}
+
+		// Otherwise, as long as they have one or the other, there is something to paste.
+		return true;
 	}
 
 	return SequencerPtr.Pin()->GetClipboardStack().Num() != 0;
