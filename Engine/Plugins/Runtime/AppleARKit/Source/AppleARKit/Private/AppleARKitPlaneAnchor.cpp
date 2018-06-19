@@ -3,7 +3,7 @@
 // AppleARKit
 #include "AppleARKitPlaneAnchor.h"
 #include "AppleARKitModule.h"
-#include "AppleARKitTransform.h"
+#include "AppleARKitConversion.h"
 
 // UE4
 #include "Misc/ScopeLock.h"
@@ -44,8 +44,8 @@ void UAppleARKitPlaneAnchor::Update_DelegateThread( ARAnchor* Anchor )
 		FScopeLock ScopeLock( &UpdateLock );
 		
 		// @todo use World Settings WorldToMetersScale
-		Extent = FAppleARKitTransform::ToFVector( PlaneAnchor.extent ).GetAbs();
-		Center = FAppleARKitTransform::ToFVector( PlaneAnchor.center );
+		Extent = FAppleARKitConversion::ToFVector( PlaneAnchor.extent ).GetAbs();
+		Center = FAppleARKitConversion::ToFVector( PlaneAnchor.center );
 	}
 }
 

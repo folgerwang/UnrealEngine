@@ -1,31 +1,76 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AppleARKitFaceMeshComponent.h"
-#include "ARBlueprintLibrary.h"
-#include "HeadMountedDisplayFunctionLibrary.h"
-#include "Engine/World.h"
+#pragma once
 
-#if SUPPORTS_ARKIT_1_0
-	#import <ARKit/ARKit.h>
-#endif
-
-#include "AppleARKitFaceMeshConversion.h"
-#include "ARTrackable.h"
-#include "ARSessionConfig.h"
 #include "AppleARKitSettings.h"
 
-
 #if SUPPORTS_ARKIT_1_0
 
-NSDictionary<ARBlendShapeLocation,NSNumber *>* ToBlendShapeDictionary(const FARBlendShapeMap& BlendShapeMap)
+static FORCEINLINE TArray<int32> To32BitIndexBuffer(const int16_t* Indices, const uint64 IndexCount)
 {
-	NSMutableDictionary<ARBlendShapeLocation,NSNumber *>* BlendShapeDict = [[[NSMutableDictionary<ARBlendShapeLocation,NSNumber *> alloc] init] autorelease];
+	check(IndexCount % 3 == 0);
+
+	TArray<int32> IndexBuffer;
+	IndexBuffer.AddUninitialized(IndexCount);
+	for (uint32 Index = 0; Index < IndexCount; Index += 3)
+	{
+		IndexBuffer[Index] = (int32)Indices[Index];
+		// We need to reverse the winding order
+		IndexBuffer[Index + 1] = (int32)Indices[Index + 2];
+		IndexBuffer[Index + 2] = (int32)Indices[Index + 1];
+	}
+	return IndexBuffer;
+}
+
+// @todo JoeG - An option for which way to orient tris (down +X or -X)
+static FORCEINLINE TArray<FVector> ToVertexBuffer(const vector_float3* Vertices, const uint64 VertexCount)
+{
+	TArray<FVector> VertexBuffer;
+	VertexBuffer.AddUninitialized(VertexCount);
+	// @todo JoeG - make a fast routine for this
+	for (int32 Index = 0; Index < VertexBuffer.Num(); Index++)
+	{
+		VertexBuffer[Index] = FVector(Vertices[Index].z, Vertices[Index].x, Vertices[Index].y);
+	}
+	return VertexBuffer;
+}
+
+static FORCEINLINE FARBlendShapeMap ToBlendShapeMap(NSDictionary<ARBlendShapeLocation,NSNumber *>* BlendShapes, const FTransform& Transform, const FTransform& LeftEyeTransform, const FTransform& RightEyeTransform)
+{
+	FARBlendShapeMap BlendShapeMap;
+	FRotator TrackedRot(Transform.GetRotation());
+	// Map the -180..180 range to -1..1
+	float HeadYaw = (float)TrackedRot.Yaw / 180.f;
+	float HeadPitch = (float)TrackedRot.Pitch / 180.f;
+	float HeadRoll = (float)TrackedRot.Roll / 180.f;
+	BlendShapeMap.Add(EARFaceBlendShape::HeadYaw, HeadYaw);
+	BlendShapeMap.Add(EARFaceBlendShape::HeadPitch, HeadPitch);
+	BlendShapeMap.Add(EARFaceBlendShape::HeadRoll, HeadRoll);
+//@joeg -- Eye tracking support
+	FRotator LeftEyeRot(LeftEyeTransform.GetRotation());
+	float LeftEyeYaw = (float)LeftEyeRot.Yaw / 180.f;
+	float LeftEyePitch = (float)LeftEyeRot.Pitch / 180.f;
+	float LeftEyeRoll = (float)LeftEyeRot.Roll / 180.f;
+	BlendShapeMap.Add(EARFaceBlendShape::LeftEyeYaw, LeftEyeYaw);
+	BlendShapeMap.Add(EARFaceBlendShape::LeftEyePitch, LeftEyePitch);
+	BlendShapeMap.Add(EARFaceBlendShape::LeftEyeRoll, LeftEyeRoll);
+	FRotator RightEyeRot(RightEyeTransform.GetRotation());
+	float RightEyeYaw = (float)RightEyeRot.Yaw / 180.f;
+	float RightEyePitch = (float)RightEyeRot.Pitch / 180.f;
+	float RightEyeRoll = (float)RightEyeRot.Roll / 180.f;
+	BlendShapeMap.Add(EARFaceBlendShape::RightEyeYaw, RightEyeYaw);
+	BlendShapeMap.Add(EARFaceBlendShape::RightEyePitch, RightEyePitch);
+	BlendShapeMap.Add(EARFaceBlendShape::RightEyeRoll, RightEyeRoll);
+
 
 #define SET_BLEND_SHAPE(AppleShape, UE4Shape) \
-	if (BlendShapeMap.Contains(UE4Shape)) \
+	if (BlendShapes[AppleShape]) \
 	{ \
-		NSNumber* Num = [NSNumber numberWithFloat: BlendShapeMap[UE4Shape]]; \
-		BlendShapeDict[AppleShape] = Num; \
+		BlendShapeMap.Add(UE4Shape, [BlendShapes[AppleShape] floatValue]); \
+	} \
+	else \
+	{ \
+		BlendShapeMap.Add(UE4Shape, 0.f); \
 	}
 
 	// Do we want to capture face performance or look at the face as if in a mirror
@@ -129,236 +174,17 @@ NSDictionary<ARBlendShapeLocation,NSNumber *>* ToBlendShapeDictionary(const FARB
 	SET_BLEND_SHAPE(ARBlendShapeLocationMouthShrugUpper, EARFaceBlendShape::MouthShrugUpper);
 	SET_BLEND_SHAPE(ARBlendShapeLocationBrowInnerUp, EARFaceBlendShape::BrowInnerUp);
 	SET_BLEND_SHAPE(ARBlendShapeLocationCheekPuff, EARFaceBlendShape::CheekPuff);
+//@joeg -- Tongue blend shape
+#if SUPPORTS_ARKIT_2_0
+	if (FAppleARKitAvailability::SupportsARKit20())
+	{
+		SET_BLEND_SHAPE(ARBlendShapeLocationTongueOut, EARFaceBlendShape::TongueOut);
+	}
+#endif
 
 #undef SET_BLEND_SHAPE
 
-	return BlendShapeDict;
+	return BlendShapeMap;
 }
 
 #endif
-
-UAppleARKitFaceMeshComponent::UAppleARKitFaceMeshComponent(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-	PrimaryComponentTick.bCanEverTick = true;
-	// Tick late in the frame to make sure the ARKit has had a chance to update
-	PrimaryComponentTick.TickGroup = TG_PostPhysics;
-	// Init the blend shape map so that all blend shapes are present
-	for (int32 Shape = 0; Shape < (int32)EARFaceBlendShape::MAX; Shape++)
-	{
-		BlendShapes.Add((EARFaceBlendShape)Shape, 0.f);
-	}
-}
-
-void UAppleARKitFaceMeshComponent::InitializeComponent()
-{
-	Super::InitializeComponent();
-
-	if (bAutoBindToLocalFaceMesh)
-	{
-		PrimaryComponentTick.SetTickFunctionEnable(true);
-	}
-}
-
-void UAppleARKitFaceMeshComponent::CreateMesh(const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector2D>& UV0)
-{
-	// @todo JoeG - add a counter here so we can measure the cost
-	TArray<FVector> Normals;
-	TArray<FLinearColor> VertexColors;
-	TArray<FProcMeshTangent> Tangents;
-
-	CreateMeshSection_LinearColor(0, Vertices, Triangles, Normals, UV0, VertexColors, Tangents, bWantsCollision);
-}
-
-void UAppleARKitFaceMeshComponent::SetBlendShapes(const TMap<EARFaceBlendShape, float>& InBlendShapes)
-{
-	BlendShapes = InBlendShapes;
-	LastUpdateFrameNumber++;
-	LastUpdateTimestamp = FPlatformTime::Seconds();
-	if (LiveLinkSource.IsValid())
-	{
-		LiveLinkSource->PublishBlendShapes(LiveLinkSubjectName, LastUpdateTimestamp, LastUpdateFrameNumber, BlendShapes);
-	}
-}
-
-void UAppleARKitFaceMeshComponent::SetBlendShapeAmount(EARFaceBlendShape BlendShape, float Amount)
-{
-	BlendShapes.Add(BlendShape, Amount);
-}
-
-float UAppleARKitFaceMeshComponent::GetFaceBlendShapeAmount(EARFaceBlendShape BlendShape) const
-{
-	float BlendShapeAmount = 0.f;
-	if (BlendShapes.Contains(BlendShape))
-	{
-		BlendShapeAmount = BlendShapes[BlendShape];
-	}
-	return BlendShapeAmount;
-}
-
-FMatrix UAppleARKitFaceMeshComponent::GetRenderMatrix() const
-{
-	const float Scale = UHeadMountedDisplayFunctionLibrary::GetWorldToMetersScale( this->GetWorld() );
-	
-	FTransform RenderTrans;
-	switch (TransformSetting)
-	{
-		case EARFaceComponentTransformMixing::ComponentOnly:
-		{
-			RenderTrans = GetComponentTransform();
-			break;
-		}
-		case EARFaceComponentTransformMixing::ComponentLocationTrackedRotation:
-		{
-			RenderTrans = GetComponentTransform();
-			FQuat TrackedRot = LocalToWorldTransform.GetRotation();
-			RenderTrans.SetRotation(TrackedRot);
-			break;
-		}
-		case EARFaceComponentTransformMixing::ComponentWithTracked:
-		{
-			RenderTrans = GetComponentTransform() * LocalToWorldTransform;
-			break;
-		}
-		case EARFaceComponentTransformMixing::TrackingOnly:
-		{
-			RenderTrans = LocalToWorldTransform;
-			break;
-		}
-	}
-	RenderTrans.MultiplyScale3D(FVector(Scale));
-	return RenderTrans.ToMatrixWithScale();
-}
-
-class UMaterialInterface* UAppleARKitFaceMeshComponent::GetMaterial(int32 ElementIndex) const
-{
-	if (ElementIndex == 0)
-	{
-		return FaceMaterial;
-	}
-	return nullptr;
-}
-
-void UAppleARKitFaceMeshComponent::SetMaterial(int32 ElementIndex, class UMaterialInterface* Material)
-{
-	if (ElementIndex == 0)
-	{
-		FaceMaterial = Material;
-	}
-}
-
-void UAppleARKitFaceMeshComponent::UpdateMeshFromBlendShapes()
-{
-	LocalToWorldTransform = FTransform::Identity;
-#if SUPPORTS_ARKIT_1_0
-	// @todo JoeG - add a counter here so we can measure the cost
-	NSDictionary<ARBlendShapeLocation,NSNumber *>* BlendShapeDict = ToBlendShapeDictionary(BlendShapes);
-	ARFaceGeometry* FaceGeo = [[ARFaceGeometry alloc] initWithBlendShapes: BlendShapeDict];
-	if (FaceGeo != nullptr)
-	{
-		// Create or update the mesh depending on if we've been created before
-		if (GetNumSections() > 0)
-		{
-			UpdateMesh(ToVertexBuffer(FaceGeo.vertices, FaceGeo.vertexCount));
-		}
-		else
-		{
-			// @todo JoeG - route the uvs in
-			TArray<FVector2D> UVs;
-			CreateMesh(ToVertexBuffer(FaceGeo.vertices, FaceGeo.vertexCount), To32BitIndexBuffer(FaceGeo.triangleIndices, FaceGeo.triangleCount * 3), UVs);
-		}
-	}
-	[FaceGeo release];
-#endif
-}
-
-void UAppleARKitFaceMeshComponent::UpdateMesh(const TArray<FVector>& Vertices)
-{
-	// @todo JoeG - add a counter here so we can measure the cost
-	TArray<FVector> Normals;
-	TArray<FVector2D> UV0;
-	TArray<FLinearColor> VertexColors;
-	TArray<FProcMeshTangent> Tangents;
-
-	UpdateMeshSection_LinearColor(0, Vertices, Normals, UV0, VertexColors, Tangents);
-}
-
-int32 UAppleARKitFaceMeshComponent::GetLastUpdateFrameNumber() const
-{
-	return LastUpdateFrameNumber;
-}
-
-float UAppleARKitFaceMeshComponent::GetLastUpdateTimestamp() const
-{
-	return LastUpdateTimestamp;
-}
-
-UARFaceGeometry* UAppleARKitFaceMeshComponent::FindFaceGeometry()
-{
-	const TArray<UARTrackedGeometry*> Geometries = UARBlueprintLibrary::GetAllGeometries();
-	for (UARTrackedGeometry* Geo : Geometries)
-	{
-		if (UARFaceGeometry* FaceGeo = Cast<UARFaceGeometry>(Geo))
-		{
-			return FaceGeo;
-		}
-	}
-	return nullptr;
-}
-
-void UAppleARKitFaceMeshComponent::SetAutoBind(bool bAutoBind)
-{
-	if (bAutoBindToLocalFaceMesh != bAutoBind)
-	{
-		bAutoBindToLocalFaceMesh = bAutoBind;
-		PrimaryComponentTick.SetTickFunctionEnable(bAutoBind);
-	}
-}
-
-void UAppleARKitFaceMeshComponent::TickComponent(float DeltaTime, ELevelTick, FActorComponentTickFunction*)
-{
-	if (!bAutoBindToLocalFaceMesh)
-	{
-		return;
-	}
-	// Find the tracked face geometry and skip updates if it is not found (can happen if tracking is lost)
-	if (UARFaceGeometry* FaceGeometry = FindFaceGeometry())
-	{
-		LocalToWorldTransform = FaceGeometry->GetLocalToWorldTransform();
-		// +X is the default for Unreal, but you probably want the face point out of the screen (-X)
-		if (bFlipTrackedRotation)
-		{
-			FRotator TrackedRot(LocalToWorldTransform.GetRotation());
-			TrackedRot.Yaw = TrackedRot.Yaw - 180.f;
-			TrackedRot.Pitch = -TrackedRot.Pitch;
-			TrackedRot.Roll = -TrackedRot.Roll;
-			LocalToWorldTransform.SetRotation(FQuat(TrackedRot));
-		}
-		BlendShapes = FaceGeometry->GetBlendShapes();
-		LastUpdateFrameNumber = FaceGeometry->GetLastUpdateFrameNumber();
-		LastUpdateTimestamp = FaceGeometry->GetLastUpdateTimestamp();
-		// Create or update the mesh depending on if we've been created before
-		if (GetNumSections() > 0)
-		{
-			UpdateMesh(FaceGeometry->GetVertexBuffer());
-		}
-		else
-		{
-			CreateMesh(FaceGeometry->GetVertexBuffer(), FaceGeometry->GetIndexBuffer(), FaceGeometry->GetUVs());
-		}
-	}
-}
-
-void UAppleARKitFaceMeshComponent::PublishViaLiveLink(FName SubjectName)
-{
-	LiveLinkSubjectName = SubjectName;
-	if (!LiveLinkSource.IsValid())
-	{
-		LiveLinkSource = FAppleARKitLiveLinkSourceFactory::CreateLiveLinkSource(false);
-	}
-}
-
-FTransform UAppleARKitFaceMeshComponent::GetTransform() const
-{
-	return LocalToWorldTransform;
-}

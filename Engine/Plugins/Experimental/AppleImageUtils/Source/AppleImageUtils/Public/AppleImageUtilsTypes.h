@@ -46,7 +46,9 @@ public:
 	virtual CVPixelBufferRef GetPixelBuffer() const { return nullptr; }
 	/** @return the IOSurface held by the implementing object */
 	virtual IOSurfaceRef GetSurface() const { return nullptr; }
-	/** @return the CVMetalTexture held by the implementing object */
-	virtual CVMetalTextureRef GetMetalTexture() const { return nullptr; }
+
+//@joeg -- Added for environment capture support
+	/** @return the MTLTextureid<MTL held by the implementing object */
+	virtual id<MTLTexture> GetMetalTexture() const { return nullptr; }
 #endif
 };
