@@ -149,6 +149,7 @@ FMovieSceneMediaSectionTemplate::FMovieSceneMediaSectionTemplate(const UMovieSce
 	Params.MediaSoundComponent = InSection.MediaSoundComponent;
 	Params.MediaSource = InSection.GetMediaSource();
 	Params.MediaTexture = InSection.MediaTexture;
+	Params.bLooping = InSection.bLooping;
 
 	if (InSection.HasStartFrame())
 	{
@@ -269,6 +270,8 @@ void FMovieSceneMediaSectionTemplate::Initialize(const FMovieSceneEvaluationOper
 			Params.MediaTexture->SetMediaPlayer(nullptr);
 		}
 	}
+
+	MediaPlayer->SetLooping(Params.bLooping);
 }
 
 

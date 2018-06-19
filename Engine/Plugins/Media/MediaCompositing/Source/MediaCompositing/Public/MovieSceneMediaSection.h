@@ -22,7 +22,11 @@ public:
 
 	GENERATED_BODY()
 
-	/** The media source proxy to use. */
+	/** Should the media player be set to loop? This can be helpful for media formats that can use this information (such as exr sequences) to pre-cache the starting data when nearing the end of playback. Media playback is still limited by length of section. */
+	UPROPERTY(EditAnywhere, Category = "Media")
+	bool bLooping;
+
+	/** The media source proxy to use. This allows the usage of a lower resolution (or otherwise modified) version during development. */
 	UPROPERTY(EditAnywhere, Category="Media")
 	FString Proxy;
 
@@ -33,7 +37,6 @@ public:
 	/** The media texture that receives the track's video output. */
 	UPROPERTY(EditAnywhere, Category="Media")
 	UMediaTexture* MediaTexture;
-
 public:
 
 	/**

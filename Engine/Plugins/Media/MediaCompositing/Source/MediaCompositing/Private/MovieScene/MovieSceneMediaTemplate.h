@@ -36,6 +36,9 @@ struct FMovieSceneMediaSectionParams
 
 	UPROPERTY()
 	FFrameNumber SectionEndFrame;
+
+	UPROPERTY()
+	bool bLooping;
 };
 
 
