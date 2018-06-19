@@ -80,6 +80,38 @@ namespace UnrealGameSync
 		{
 			get { return Result == BuildDataResult.Failure; }
 		}
+
+		public string BadgeName
+		{
+			get
+			{
+				int Idx = BuildType.IndexOf(':');
+				if(Idx == -1)
+				{
+					return BuildType;
+				}
+				else
+				{
+					return BuildType.Substring(0, Idx);
+				}
+			}
+		}
+
+		public string BadgeLabel
+		{
+			get
+			{
+				int Idx = BuildType.IndexOf(':');
+				if(Idx == -1)
+				{
+					return BuildType;
+				}
+				else
+				{
+					return BuildType.Substring(Idx + 1);
+				}
+			}
+		}
 	}
 
 	enum ReviewVerdict
