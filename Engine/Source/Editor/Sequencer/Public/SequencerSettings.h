@@ -278,11 +278,6 @@ public:
 	/** Set whether to show channel colors */
 	void SetShowChannelColors(bool bInShowChannelColors);
 
-	/** @return true if showing transport controls in level editor viewports */
-	bool GetShowViewportTransportControls() const;
-	/** Toggle whether to show transport controls in level editor viewports */
-	void SetShowViewportTransportControls(bool bVisible);
-
 	/** @return Whether to allow possession of PIE viewports */
 	bool ShouldAllowPossessionOfPIEViewports() const;
 	/** Toggle whether to allow possession of PIE viewports */
@@ -472,10 +467,6 @@ protected:
 	/** Enable or disable displaying channel bar colors for vector properties. */
 	UPROPERTY( config, EditAnywhere, Category=Timeline )
 	bool bShowChannelColors;
-
-	/** Enable or disable transport controls in the viewport. */
-	UPROPERTY( config )
-	bool bShowViewportTransportControls;
 
 	/** When enabled, sequencer is able to possess viewports that represent PIE worlds */
 	UPROPERTY(config, EditAnywhere, Category=General)

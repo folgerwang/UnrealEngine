@@ -154,9 +154,6 @@ private:
 	/** The sequencer used by this editor. */
 	TSharedPtr<ISequencer> Sequencer;
 
-	/** A map of all the transport controls to viewports that this sequencer has made */
-	TMap<TWeakPtr<ILevelViewport>, TSharedPtr<SWidget>> TransportControls;
-
 	FDelegateHandle SequencerExtenderHandle;
 
 	/** Pointer to the style set to use for toolkits. */
