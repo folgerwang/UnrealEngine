@@ -4273,8 +4273,9 @@ void UNavigationSystemV1::GetOnScreenMessages(TMultiMap<FCoreDelegates::EOnScree
 #else
 	const bool bIsNavigationAutoUpdateEnabled = true;
 #endif
-	if (IsNavigationDirty() 
-		&& (!bIsNavigationAutoUpdateEnabled || !SupportsNavigationGeneration() || !CanRebuildDirtyNavigation()))
+	if (IsNavigationDirty()
+		&& ((OperationMode == FNavigationSystemRunMode::EditorMode && !bIsNavigationAutoUpdateEnabled)
+			|| !SupportsNavigationGeneration() || !CanRebuildDirtyNavigation()))
 	{
 		OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Error
 			, LOCTEXT("NAVMESHERROR", "NAVMESH NEEDS TO BE REBUILT"));
