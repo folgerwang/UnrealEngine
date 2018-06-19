@@ -485,7 +485,21 @@ void FSequencerObjectBindingNode::SetDisplayName(const FText& NewDisplayName)
 
 	if (MovieScene != nullptr)
 	{
+		// Modify the movie scene so that it gets marked dirty and renames are saved consistently.
+		MovieScene->Modify();
 		MovieScene->SetObjectDisplayName(ObjectBinding, NewDisplayName);
+
+		FMovieSceneSpawnable* Spawnable = MovieScene->FindSpawnable(GetObjectBinding());
+		if (Spawnable)
+		{
+			Spawnable->SetName(NewDisplayName.ToString());
+		}
+
+		FMovieScenePossessable* Possessable = MovieScene->FindPossessable(GetObjectBinding());
+		if (Possessable)
+		{
+			Possessable->SetName(NewDisplayName.ToString());
+		}
 	}
 }
 
