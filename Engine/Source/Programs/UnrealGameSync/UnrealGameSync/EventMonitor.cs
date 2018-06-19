@@ -148,6 +148,7 @@ namespace UnrealGameSync
 		ConcurrentQueue<BuildData> IncomingBuilds = new ConcurrentQueue<BuildData>();
 		Dictionary<int, EventSummary> ChangeNumberToSummary = new Dictionary<int, EventSummary>();
 		Dictionary<string, EventData> UserNameToLastSyncEvent = new Dictionary<string, EventData>(StringComparer.InvariantCultureIgnoreCase);
+		Dictionary<string, BuildData> BadgeNameToLatestBuild = new Dictionary<string, BuildData>();
 		BoundedLogWriter LogWriter;
 		long LastEventId;
 		long LastCommentId;
@@ -342,6 +343,12 @@ namespace UnrealGameSync
 
 			Summary.Builds.Add(Build);
 			Summary.Verdict = GetVerdict(Summary.Reviews, Summary.Builds);
+
+			BuildData LatestBuild;
+			if(!BadgeNameToLatestBuild.TryGetValue(Build.BadgeName, out LatestBuild) || Build.ChangeNumber > LatestBuild.ChangeNumber || (Build.ChangeNumber == LatestBuild.ChangeNumber && Build.Id > LatestBuild.Id))
+			{
+				BadgeNameToLatestBuild[Build.BadgeName] = Build;
+			}
 		}
 
 		void ApplyCommentUpdate(CommentData Comment)
@@ -655,6 +662,11 @@ namespace UnrealGameSync
 			EventSummary Summary;
 			ChangeNumberToSummary.TryGetValue(ChangeNumber, out Summary);
 			return Summary;
+		}
+
+		public bool TryGetLatestBuild(string BuildType, out BuildData BuildData)
+		{
+			return BadgeNameToLatestBuild.TryGetValue(BuildType, out BuildData);
 		}
 
 		public static bool IsReview(EventType Type)

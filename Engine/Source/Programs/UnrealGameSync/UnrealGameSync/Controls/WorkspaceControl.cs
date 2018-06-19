@@ -206,6 +206,7 @@ namespace UnrealGameSync
 		Font BadgeFont;
 		List<KeyValuePair<string, string>> BadgeNameAndGroupPairs = new List<KeyValuePair<string, string>>();
 		Dictionary<string, Size> BadgeLabelToSize = new Dictionary<string, Size>();
+		List<KeyValuePair<string, BuildData>> ServiceBadges = new List<KeyValuePair<string, BuildData>>();
 
 		string OriginalExecutableFileName;
 
@@ -369,6 +370,7 @@ namespace UnrealGameSync
 			UpdateBuildSteps();
 			UpdateSyncActionCheckboxes();
 			UpdateStatusPanel();
+			UpdateServiceBadges();
 
 			if(CurrentChangeNumber != -1)
 			{
@@ -377,6 +379,23 @@ namespace UnrealGameSync
 
 			PerforceMonitor.Start();
 			EventMonitor.Start();
+		}
+
+		private void UpdateServiceBadges()
+		{
+			string[] ServiceBadgeNames;
+			if(!TryGetProjectSetting(Workspace.ProjectConfigFile, "ServiceBadges", out ServiceBadgeNames))
+			{
+				ServiceBadgeNames = new string[0];
+			}
+
+			ServiceBadges.Clear();
+			foreach(string ServiceBadgeName in ServiceBadgeNames)
+			{
+				BuildData LatestBuild;
+				EventMonitor.TryGetLatestBuild(ServiceBadgeName, out LatestBuild);
+				ServiceBadges.Add(new KeyValuePair<string, BuildData>(ServiceBadgeName, LatestBuild));
+			}
 		}
 
 		protected override void OnLoad(EventArgs e)
@@ -731,6 +750,7 @@ namespace UnrealGameSync
 			UpdateTimer.Stop();
 
 			UpdateSyncConfig(Workspace.CurrentChangeNumber, Workspace.CurrentSyncFilterHash);
+			UpdateServiceBadges();
 
 			if(Result == WorkspaceUpdateResult.Success && Context.Options.HasFlag(WorkspaceUpdateOptions.SyncSingleChange))
 			{
@@ -1042,6 +1062,12 @@ namespace UnrealGameSync
 				}
 			}
 
+			// Remove anything that's a service badge
+			foreach(KeyValuePair<string, BuildData> ServiceBadge in ServiceBadges)
+			{
+				BadgeNameToGroup.Remove(ServiceBadge.Key);
+			}
+
 			// Sort the list of groups for display
 			BadgeNameAndGroupPairs = BadgeNameToGroup.OrderBy(x => x.Value).ThenBy(x => x.Key).ToList();
 
@@ -1049,6 +1075,7 @@ namespace UnrealGameSync
 			ChangeNumberToArchivePath.Clear();
 			ChangeNumberToLayoutInfo.Clear();
 			BuildList.Invalidate();
+			UpdateServiceBadges();
 			UpdateStatusPanel();
 			UpdateBuildFailureNotification();
 		}
@@ -1757,6 +1784,21 @@ namespace UnrealGameSync
 			return false;
 		}
 
+		private bool TryGetProjectSetting(ConfigFile ProjectConfigFile, string Name, out string[] Values)
+		{
+			string ValueList;
+			if(TryGetProjectSetting(ProjectConfigFile, Name, out ValueList))
+			{
+				Values = ValueList.Split('\n').Select(x => x.Trim()).Where(x => x.Length > 0).ToArray();
+				return true;
+			}
+			else
+			{
+				Values = null;
+				return false;
+			}
+		}
+
 		private bool TryGetProjectSetting(ConfigFile ProjectConfigFile, string Name, string LegacyName, out string Value)
 		{
 			string NewValue;
@@ -1801,26 +1843,7 @@ namespace UnrealGameSync
 					if(BadgeNameToBuildData.TryGetValue(BadgeNameAndGroup.Key, out Build))
 					{
 						BadgeLabel = Build.BadgeLabel;
-						if(Build.Result == BuildDataResult.Starting)
-						{
-							BadgeColor = Color.FromArgb(128, 192, 255);
-						}
-						else if(Build.Result == BuildDataResult.Warning)
-						{
-							BadgeColor = Color.FromArgb(255, 192, 0);
-						}
-						else if(Build.Result == BuildDataResult.Failure)
-						{
-							BadgeColor = Color.FromArgb(192, 64, 0);
-						}
-						else if(Build.Result == BuildDataResult.Skipped)
-						{
-							BadgeColor = Color.FromArgb(192, 192, 192);
-						}
-						else
-						{
-							BadgeColor = Color.FromArgb(128, 192, 64);
-						}
+						BadgeColor = GetBuildBadgeColor(Build.Result);
 					}
 
 					Color HoverBadgeColor = Color.FromArgb(BadgeColor.A, Math.Min(BadgeColor.R + 32, 255), Math.Min(BadgeColor.G + 32, 255), Math.Min(BadgeColor.B + 32, 255));
@@ -1833,6 +1856,30 @@ namespace UnrealGameSync
 			LayoutBadges(Badges);
 
 			return Badges;
+		}
+
+		private static Color GetBuildBadgeColor(BuildDataResult Result)
+		{
+			if(Result == BuildDataResult.Starting)
+			{
+				return Color.FromArgb(128, 192, 255);
+			}
+			else if(Result == BuildDataResult.Warning)
+			{
+				return Color.FromArgb(255, 192, 0);
+			}
+			else if(Result == BuildDataResult.Failure)
+			{
+				return Color.FromArgb(192, 64, 0);
+			}
+			else if(Result == BuildDataResult.Skipped)
+			{
+				return Color.FromArgb(192, 192, 192);
+			}
+			else
+			{
+				return Color.FromArgb(128, 192, 64);
+			}
 		}
 
 		private Rectangle GetSyncBadgeRectangle(Rectangle Bounds)
@@ -2318,6 +2365,18 @@ namespace UnrealGameSync
 				ProgramsLine.AddLink("Visual Studio", FontStyle.Regular, () => { OpenSolution(); });
 				ProgramsLine.AddText("  |  ");
 				ProgramsLine.AddLink("Windows Explorer", FontStyle.Regular, () => { Process.Start("explorer.exe", String.Format("\"{0}\"", Path.GetDirectoryName(SelectedFileName))); });
+				foreach(KeyValuePair<string, BuildData> ServiceBadge in ServiceBadges)
+				{
+					ProgramsLine.AddText("  |  ");
+					if(ServiceBadge.Value == null)
+					{
+						ProgramsLine.AddBadge(ServiceBadge.Key, GetBuildBadgeColor(BuildDataResult.Skipped), null);
+					}
+					else
+					{
+						ProgramsLine.AddBadge(ServiceBadge.Key, GetBuildBadgeColor(ServiceBadge.Value.Result), () => { Process.Start(ServiceBadge.Value.Url); });
+					}
+				}
 				ProgramsLine.AddText("  |  ");
 				ProgramsLine.AddLink("More... \u25BE", FontStyle.Regular, (P, R) => { ShowActionsMenu(R); });
 				Lines.Add(ProgramsLine);

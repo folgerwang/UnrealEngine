@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -15,10 +15,13 @@ namespace UnrealGameSync
 	class StatusElementResources
 	{
 		Dictionary<FontStyle, Font> FontCache = new Dictionary<FontStyle, Font>();
+		public readonly Font BadgeFont;
 
 		public StatusElementResources(Font BaseFont)
 		{
 			FontCache.Add(FontStyle.Regular, BaseFont);
+
+			BadgeFont = new Font(BaseFont.FontFamily, BaseFont.Size - 1.25f, FontStyle.Bold);
 		}
 
 		public void Dispose()
@@ -30,6 +33,8 @@ namespace UnrealGameSync
 					FontPair.Value.Dispose();
 				}
 			}
+
+			BadgeFont.Dispose();
 		}
 
 		public Font FindOrAddFont(FontStyle Style)
@@ -171,6 +176,57 @@ namespace UnrealGameSync
 		}
 	}
 
+	class BadgeStatusElement : StatusElement
+	{
+		string Name;
+		Color BackgroundColor;
+		Color HoverBackgroundColor;
+		Action ClickAction;
+
+		public BadgeStatusElement(string InName, Color InBackgroundColor, Action InClickAction)
+		{
+			Name = InName;
+			BackgroundColor = InBackgroundColor;
+			if(ClickAction == null)
+			{
+				HoverBackgroundColor = BackgroundColor;
+			}
+			else
+			{
+				HoverBackgroundColor = Color.FromArgb(Math.Min(BackgroundColor.R + 32, 255), Math.Min(BackgroundColor.G + 32, 255), Math.Min(BackgroundColor.B + 32, 255));
+			}
+			ClickAction = InClickAction;
+			if(ClickAction != null)
+			{
+				Cursor = Cursors.Hand;
+			}
+		}
+
+		public override void OnClick(Point Location)
+		{
+			if(ClickAction != null)
+			{
+				ClickAction();
+			}
+		}
+
+		public override Size Measure(Graphics Graphics, StatusElementResources Resources)
+		{
+			Size LabelSize = TextRenderer.MeasureText(Name, Resources.BadgeFont);
+			int BadgeHeight = Resources.BadgeFont.Height + 1;
+			return new Size(LabelSize.Width + BadgeHeight - 4, BadgeHeight);
+		}
+
+		public override void Draw(Graphics Graphics, StatusElementResources Resources)
+		{
+			using(SolidBrush Brush = new SolidBrush(bMouseOver? HoverBackgroundColor : BackgroundColor))
+			{
+				Graphics.FillRectangle(Brush, Bounds);
+			}
+			TextRenderer.DrawText(Graphics, Name, Resources.BadgeFont, Bounds, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.PreserveGraphicsClipping);
+		}
+	}
+
 	class ProgressBarStatusElement : StatusElement
 	{
 		float Progress;
@@ -245,6 +301,11 @@ namespace UnrealGameSync
 		public void AddLink(string InText, FontStyle InStyle, Action<Point, Rectangle> InLinkAction)
 		{
 			Elements.Add(new LinkStatusElement(InText, InStyle, InLinkAction));
+		}
+
+		public void AddBadge(string InText, Color InBackgroundColor, Action InClickAction)
+		{
+			Elements.Add(new BadgeStatusElement(InText, InBackgroundColor, InClickAction));
 		}
 
 		public void AddProgressBar(float Progress)
@@ -502,9 +563,9 @@ namespace UnrealGameSync
 			int LogoY = (BodyHeight - LogoHeight) / 2;
 
 			// Layout the caption. We may move the logo to make room for this.
+			LogoY -= Font.Height / 2;
 			if(Caption != null)
 			{
-				LogoY -= Font.Height / 2;
 				Caption.Layout(Graphics, Point.Empty, Resources);
 				int CaptionWidth = Caption.Bounds.Width;
 				Caption.Layout(Graphics, new Point(Math.Min(LogoX + (LogoWidth / 2) - (CaptionWidth / 2), DividerX - CaptionWidth), LogoY + LogoHeight), Resources);
