@@ -278,6 +278,21 @@ bool FBlueprintSupport::ShouldSuppressWarning(FName WarningIdentifier)
 	return BlueprintWarningsToSuppress.Find(WarningIdentifier) != nullptr;
 }
 
+bool FBlueprintSupport::IsClassPlaceholder(UClass* Class)
+{
+	while (Class)
+	{
+		if (Cast<ULinkerPlaceholderClass>(Class))
+		{
+			return true;
+		}
+
+		Class = Class->GetSuperClass();
+	}
+
+	return false;
+}
+
 #if WITH_EDITOR
 void FBlueprintSupport::ValidateNoRefsToOutOfDateClasses()
 {
