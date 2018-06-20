@@ -132,6 +132,17 @@ TSubclassOf<AGameSession> AGameModeBase::GetGameSessionClass() const
 
 UClass* AGameModeBase::GetDefaultPawnClassForController_Implementation(AController* InController)
 {
+#if WITH_EDITOR && DO_CHECK
+	UClass* DefaultClass = DefaultPawnClass.DebugAccessRawClassPtr();
+	if (DefaultClass)
+	{
+		if (FBlueprintSupport::IsClassPlaceholder(DefaultClass))
+		{
+			ensureMsgf(false, TEXT("Trying to spawn class that is, directly or indirectly, a placeholder"));
+			return ADefaultPawn::StaticClass();
+		}
+	}
+#endif
 	return DefaultPawnClass;
 }
 
