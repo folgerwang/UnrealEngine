@@ -271,4 +271,12 @@ class HEADMOUNTEDDISPLAY_API UHeadMountedDisplayFunctionLibrary : public UBluepr
 	 */
 	UFUNCTION(BlueprintCallable, Category="Input|XRTracking",  meta=(WorldContext="WorldContext"))
 	static void GetDeviceWorldPose(UObject* WorldContext, const FXRDeviceId& XRDeviceId, bool& bIsTracked, FRotator& Orientation, bool& bHasPositionalTracking, FVector& Position);
+
+	/**
+	 * Cross XR-System query that returns whether the specified device is tracked or not.
+	 *
+	 * @param  XRDeviceId	Specifies the device you're querying for.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Input|XRTracking")
+	static bool IsDeviceTracking(const FXRDeviceId& XRDeviceId);
 };

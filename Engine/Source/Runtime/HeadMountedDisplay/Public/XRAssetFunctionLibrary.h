@@ -55,7 +55,7 @@ public:
 	 * @return A new component representing the specified device (invalid/null if a model for the device doesn't exist).
 	 */
 	UFUNCTION(BlueprintCallable, Category = "XR|Devices", meta = (DefaultToSelf = "Target"))
-	static UPrimitiveComponent* AddNamedDeviceVisualizationComponentBlocking(AActor* Target, const FName SystemName, const FName DeviceName, bool bManualAttachment, const FTransform& RelativeTransform);
+	static UPrimitiveComponent* AddNamedDeviceVisualizationComponentBlocking(AActor* Target, const FName SystemName, const FName DeviceName, bool bManualAttachment, const FTransform& RelativeTransform, FXRDeviceId& XRDeviceId);
 };
 
 /* UAsyncTask_LoadXRDeviceVisComponent
@@ -71,7 +71,7 @@ class UAsyncTask_LoadXRDeviceVisComponent : public UBlueprintAsyncActionBase
 public:
 
 	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", DefaultToSelf = "Target"), Category = "XR|Devices")
-	static UAsyncTask_LoadXRDeviceVisComponent* AddNamedDeviceVisualizationComponentAsync(AActor* Target, const FName SystemName, const FName DeviceName, bool bManualAttachment, const FTransform& RelativeTransform, UPrimitiveComponent*& NewComponent);
+	static UAsyncTask_LoadXRDeviceVisComponent* AddNamedDeviceVisualizationComponentAsync(AActor* Target, const FName SystemName, const FName DeviceName, bool bManualAttachment, const FTransform& RelativeTransform, FXRDeviceId& XRDeviceId, UPrimitiveComponent*& NewComponent);
 
 	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", DefaultToSelf = "Target"), Category = "XR|Devices")
 	static UAsyncTask_LoadXRDeviceVisComponent* AddDeviceVisualizationComponentAsync(AActor* Target, const FXRDeviceId& XRDeviceId, bool bManualAttachment, const FTransform& RelativeTransform, UPrimitiveComponent*& NewComponent);
