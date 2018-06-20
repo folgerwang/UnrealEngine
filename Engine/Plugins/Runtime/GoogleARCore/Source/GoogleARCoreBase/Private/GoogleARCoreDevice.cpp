@@ -227,7 +227,7 @@ void FGoogleARCoreDevice::OnWorldTickStart(ELevelTick TickType, float DeltaTime)
 		}
 		else
 		{
-			CameraBlitter.DoBlit(PassthroughCameraTextureId, FIntPoint(1080, 1920));
+			CameraBlitter.DoBlit(PassthroughCameraTextureId, FIntPoint(1920, 1080));
 		}
 	}
 }

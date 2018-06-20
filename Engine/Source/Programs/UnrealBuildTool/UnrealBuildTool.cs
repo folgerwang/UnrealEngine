@@ -890,6 +890,9 @@ namespace UnrealBuildTool
 								case ProjectFileFormat.VisualStudioCode:
 									Generator = new VSCodeProjectFileGenerator(ProjectFile);
 									break;
+﻿								case ProjectFileFormat.CLion:
+									Generator = new CLionGenerator(ProjectFile);
+									break;
 								default:
 									throw new BuildException("Unhandled project file type '{0}", ProjectFileFormat);
 							}

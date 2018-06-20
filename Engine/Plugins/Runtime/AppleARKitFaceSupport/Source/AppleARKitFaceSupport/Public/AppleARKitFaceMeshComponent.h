@@ -27,7 +27,7 @@ enum class EARFaceComponentTransformMixing : uint8
  * This component is updated by the ARSystem with face data on devices that have support for it
  */
 UCLASS(hidecategories = (Object, LOD, "Components|ProceduralMesh"), meta = (BlueprintSpawnableComponent), ClassGroup = "AR")
-class APPLEARKIT_API UAppleARKitFaceMeshComponent :
+class APPLEARKITFACESUPPORT_API UAppleARKitFaceMeshComponent :
 	public UProceduralMeshComponent
 {
 	GENERATED_UCLASS_BODY()

@@ -7,6 +7,7 @@
 #include "GoogleARCoreTypes.h"
 #include "GoogleARCoreSessionConfig.h"
 #include "GoogleARCoreCameraImageBlitter.h"
+#include "GoogleARCoreAugmentedImage.h"
 #include "ARSessionConfig.h"
 
 #if PLATFORM_ANDROID
@@ -113,6 +114,10 @@ static ArTrackableType GetTrackableType(UClass* ClassType)
 	{
 		return ArTrackableType::AR_TRACKABLE_POINT;
 	}
+	else if (ClassType == UGoogleARCoreAugmentedImage::StaticClass())
+	{
+		return ArTrackableType::AR_TRACKABLE_AUGMENTED_IMAGE;
+	}
 	else
 	{
 		return ArTrackableType::AR_TRACKABLE_NOT_VALID;
@@ -191,9 +196,8 @@ public:
 
 	void GetAllAnchors(TArray<UARPin*>& OutAnchors) const;
 	template< class T > void GetAllTrackables(TArray<T*>& OutARCoreTrackableList);
-
 	EGoogleARCoreAPIStatus AcquireCameraImage(UGoogleARCoreCameraImage *&OutCameraImage);
-	
+
 	void* GetLatestFrameRawPointer();
 
 private:
@@ -345,6 +349,22 @@ public:
 #endif
 };
 
+class FGoogleARCoreAugmentedImageResource : public FGoogleARCoreTrackableResource
+{
+public:
+#if PLATFORM_ANDROID
+	FGoogleARCoreAugmentedImageResource(TSharedPtr<FGoogleARCoreSession> InSession, ArTrackable* InTrackableHandle, UARTrackedGeometry* InTrackedGeometry)
+		: FGoogleARCoreTrackableResource(InSession, InTrackableHandle, InTrackedGeometry)
+	{
+		ensure(TrackableHandle != nullptr);
+	}
+
+	void UpdateGeometryData() override;
+
+	ArAugmentedImage* GetImageHandle() { return reinterpret_cast<ArAugmentedImage*>(TrackableHandle); }
+#endif
+};
+
 #if PLATFORM_ANDROID
 // Template function definition
 template< class T >
@@ -371,9 +391,15 @@ T* UGoogleARCoreUObjectManager::GetTrackableFromHandle(ArTrackable* TrackableHan
 			NewTrackableObject = static_cast<UARTrackedGeometry*>(PointObject);
 			NativeResource = new FGoogleARCoreTrackedPointResource(Session->AsShared(), TrackableHandle, NewTrackableObject);
 		}
+		else if (TrackableType == ArTrackableType::AR_TRACKABLE_AUGMENTED_IMAGE)
+		{
+			UGoogleARCoreAugmentedImage* ImageObject = NewObject<UGoogleARCoreAugmentedImage>();
+			NewTrackableObject = static_cast<UARTrackedGeometry*>(ImageObject);
+			NativeResource = new FGoogleARCoreAugmentedImageResource(Session->AsShared(), TrackableHandle, NewTrackableObject);
+		}
 
 		// We should have a valid trackable object now.
-		checkf(NewTrackableObject, TEXT("Unknow ARCore Trackable Type: %d"), TrackableType);
+		checkf(NewTrackableObject, TEXT("Unknown ARCore Trackable Type: %d"), TrackableType);
 
 		NewTrackableObject->InitializeNativeResource(NativeResource);
 		NativeResource = nullptr;
