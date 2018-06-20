@@ -1539,7 +1539,10 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	{
 		for( FConstPlayerControllerIterator Iterator = MyWorld->GetPlayerControllerIterator(); Iterator; ++Iterator )
 		{
-			(*Iterator)->GetPlayerViewPoint( PlayerCameraLocation, PlayerCameraRotation );
+			if (APlayerController* PC = Iterator->Get())
+			{
+				PC->GetPlayerViewPoint(PlayerCameraLocation, PlayerCameraRotation);
+			}
 		}
 	}
 
@@ -3431,7 +3434,7 @@ bool UGameViewportClient::RequestBugScreenShot(const TCHAR* Cmd, bool bDisplayHU
 		{
 			for (FConstPlayerControllerIterator Iterator = ViewportWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
-						APlayerController* PlayerController = Iterator->Get();
+				APlayerController* PlayerController = Iterator->Get();
 				if (PlayerController && PlayerController->GetHUD())
 				{
 					PlayerController->GetHUD()->HandleBugScreenShot();

@@ -143,7 +143,7 @@ int32 AGameModeBase::GetNumPlayers()
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		APlayerController* PlayerActor = Iterator->Get();
-		if (PlayerActor->PlayerState && !MustSpectate(PlayerActor))
+		if (PlayerActor && PlayerActor->PlayerState && !MustSpectate(PlayerActor))
 		{
 			PlayerCount++;
 		}
@@ -157,7 +157,7 @@ int32 AGameModeBase::GetNumSpectators()
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		APlayerController* PlayerActor = Iterator->Get();
-		if (PlayerActor->PlayerState && MustSpectate(PlayerActor))
+		if (PlayerActor && PlayerActor->PlayerState && MustSpectate(PlayerActor))
 		{
 			PlayerCount++;
 		}
@@ -261,7 +261,7 @@ void AGameModeBase::ForceClearUnpauseDelegates(AActor* PauseActor)
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
 				APlayerController* Player = Iterator->Get();
-				if (Player->PlayerState != nullptr
+				if (Player && Player->PlayerState != nullptr
 					&&	Player->PlayerState != PC->PlayerState
 					&& !Player->IsPendingKillPending() && !Player->PlayerState->IsPendingKillPending())
 				{
@@ -355,17 +355,19 @@ APlayerController* AGameModeBase::ProcessClientTravel(FString& FURL, FGuid NextM
 	APlayerController* LocalPlayerController = nullptr;
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
-		APlayerController* PlayerController = Iterator->Get();
-		if (Cast<UNetConnection>(PlayerController->Player) != nullptr)
+		if (APlayerController* PlayerController = Iterator->Get())
 		{
-			// Remote player
-			PlayerController->ClientTravel(FURL, TRAVEL_Relative, bSeamless, NextMapGuid);
-		}
-		else
-		{
-			// Local player
-			LocalPlayerController = PlayerController;
-			PlayerController->PreClientTravel(FURL, bAbsolute ? TRAVEL_Absolute : TRAVEL_Relative, bSeamless);
+			if (Cast<UNetConnection>(PlayerController->Player) != nullptr)
+			{
+				// Remote player
+				PlayerController->ClientTravel(FURL, TRAVEL_Relative, bSeamless, NextMapGuid);
+			}
+			else
+			{
+				// Local player
+				LocalPlayerController = PlayerController;
+				PlayerController->PreClientTravel(FURL, bAbsolute ? TRAVEL_Absolute : TRAVEL_Relative, bSeamless);
+			}
 		}
 	}
 

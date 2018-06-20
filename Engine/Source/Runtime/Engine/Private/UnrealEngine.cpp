@@ -6117,7 +6117,7 @@ bool UEngine::HandleMergeMeshCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorl
 	for (FConstPlayerControllerIterator Iterator = InWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		APlayerController* PlayerController = Iterator->Get();
-		if (PlayerController->GetCharacter() != NULL && PlayerController->GetCharacter()->GetMesh())
+		if (PlayerController && PlayerController->GetCharacter() != NULL && PlayerController->GetCharacter()->GetMesh())
 		{
 			PlayerPawn = PlayerController->GetCharacter();
 			PlayerMesh = PlayerController->GetCharacter()->GetMesh()->SkeletalMesh;
@@ -6139,7 +6139,7 @@ bool UEngine::HandleMergeMeshCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorl
 		for (FConstPlayerControllerIterator Iterator = InWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			APlayerController* PlayerController = Iterator->Get();
-			if (PlayerController->GetPawn() != NULL)
+			if (PlayerController && PlayerController->GetPawn() != NULL)
 			{
 				PlayerPawn = PlayerController->GetPawn();
 				break;
@@ -13192,12 +13192,15 @@ bool UEngine::CommitMapChange( FWorldContext &Context )
 						// notify players of the change
 						for( FConstPlayerControllerIterator Iterator = Context.World()->GetPlayerControllerIterator(); Iterator; ++Iterator )
 						{
-							(*Iterator)->LevelStreamingStatusChanged( 
-								StreamingLevel, 
-								bShouldBeLoaded, 
-								bShouldBeVisible,
-								StreamingLevel->bShouldBlockOnLoad,
-								StreamingLevel->GetLevelLODIndex());							
+							if (APlayerController* PlayerController = Iterator->Get())
+							{
+								PlayerController->LevelStreamingStatusChanged(
+									StreamingLevel,
+									bShouldBeLoaded,
+									bShouldBeVisible,
+									StreamingLevel->bShouldBlockOnLoad,
+									StreamingLevel->GetLevelLODIndex());
+							}
 						}
 					}
 #endif // WITH_SERVER_CODE

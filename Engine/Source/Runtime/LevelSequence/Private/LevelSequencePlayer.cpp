@@ -363,8 +363,8 @@ void ULevelSequencePlayer::EnableCinematicMode(bool bEnable)
 		{
 			for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
-				APlayerController *PC = Iterator->Get();
-				if (PC->IsLocalController())
+				APlayerController* PC = Iterator->Get();
+				if (PC && PC->IsLocalController())
 				{
 					PC->SetCinematicMode(bEnable, PlaybackSettings.bHidePlayer, PlaybackSettings.bHideHud, PlaybackSettings.bDisableMovementInput, PlaybackSettings.bDisableLookAtInput);
 				}

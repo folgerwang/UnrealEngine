@@ -4339,7 +4339,7 @@ bool UWorld::DestroySwappedPC(UNetConnection* Connection)
 	for( FConstPlayerControllerIterator Iterator = GetPlayerControllerIterator(); Iterator; ++Iterator )
 	{
 		APlayerController* PlayerController = Iterator->Get();
-		if (PlayerController->Player == NULL && PlayerController->PendingSwapConnection == Connection)
+		if (PlayerController && PlayerController->Player == NULL && PlayerController->PendingSwapConnection == Connection)
 		{
 			DestroyActor(PlayerController);
 			return true;
@@ -5677,8 +5677,10 @@ UWorld* FSeamlessTravelHandler::Tick()
 
 			for (FConstPlayerControllerIterator Iterator = CurrentWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
-				APlayerController* Player = Iterator->Get();
-				ProcessActor(Player);
+				if (APlayerController* Player = Iterator->Get())
+				{
+					ProcessActor(Player);
+				}
 			}
 
 			bool bCreateNewGameMode = !bIsClient;

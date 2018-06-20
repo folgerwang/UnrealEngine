@@ -914,7 +914,7 @@ void FNiagaraSystemInstance::TickInstanceParameters(float DeltaSeconds)
 			for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
 				APlayerController* PlayerController = Iterator->Get();
-				if (PlayerController->IsLocalPlayerController())
+				if (PlayerController && PlayerController->IsLocalPlayerController())
 				{
 					FVector* POVLoc = new(PlayerViewLocations) FVector;
 					FRotator POVRotation;

@@ -190,26 +190,27 @@ void FStreamLevelAction::ActivateLevel( ULevelStreaming* LevelStreamingObject )
 		// If we have a valid world
 		if (UWorld* LevelWorld = LevelStreamingObject->GetWorld())
 		{
+			const bool bShouldBeLoaded = LevelStreamingObject->ShouldBeLoaded();
+			const bool bShouldBeVisible = LevelStreamingObject->ShouldBeVisible();
+
+			UE_LOG(LogLevel, Log, TEXT("ActivateLevel %s %i %i %i"),
+				*LevelStreamingObject->GetWorldAssetPackageName(),
+				bShouldBeLoaded,
+				bShouldBeVisible,
+				bShouldBlock);
+
 			// Notify players of the change
 			for (FConstPlayerControllerIterator Iterator = LevelWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
-				APlayerController* PlayerController = Iterator->Get();
-
-				const bool bShouldBeLoaded = LevelStreamingObject->ShouldBeLoaded();
-				const bool bShouldBeVisible = LevelStreamingObject->ShouldBeVisible();
-
-				UE_LOG(LogLevel, Log, TEXT("ActivateLevel %s %i %i %i"), 
-					*LevelStreamingObject->GetWorldAssetPackageName(), 
-					bShouldBeLoaded, 
-					bShouldBeVisible, 
-					bShouldBlock);
-
-				PlayerController->LevelStreamingStatusChanged( 
-					LevelStreamingObject, 
-					bShouldBeLoaded, 
-					bShouldBeVisible,
-					bShouldBlock, 
-					INDEX_NONE);
+				if (APlayerController* PlayerController = Iterator->Get())
+				{
+					PlayerController->LevelStreamingStatusChanged(
+						LevelStreamingObject,
+						bShouldBeLoaded,
+						bShouldBeVisible,
+						bShouldBlock,
+						INDEX_NONE);
+				}
 			}
 		}
 	}
