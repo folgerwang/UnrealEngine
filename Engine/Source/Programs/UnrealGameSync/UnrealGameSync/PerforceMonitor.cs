@@ -45,13 +45,14 @@ namespace UnrealGameSync
 		BoundedLogWriter LogWriter;
 		bool bIsEnterpriseProject;
 		bool bDisposing;
+		List<KeyValuePair<string, DateTime>> LocalConfigFiles;
 
 		public event Action OnUpdate;
 		public event Action OnUpdateMetadata;
 		public event Action OnStreamChange;
 		public event Action OnLoginExpired;
 
-		public PerforceMonitor(PerforceConnection InPerforce, string InBranchClientPath, string InSelectedClientFileName, string InSelectedProjectIdentifier, string InLogPath, bool bInIsEnterpriseProject, ConfigFile InProjectConfigFile)
+		public PerforceMonitor(PerforceConnection InPerforce, string InBranchClientPath, string InSelectedClientFileName, string InSelectedProjectIdentifier, string InLogPath, bool bInIsEnterpriseProject, ConfigFile InProjectConfigFile, List<KeyValuePair<string, DateTime>> InLocalConfigFiles)
 		{
 			Perforce = InPerforce;
 			BranchClientPath = InBranchClientPath;
@@ -63,6 +64,7 @@ namespace UnrealGameSync
 			OtherStreamNames = new List<string>();
 			bIsEnterpriseProject = bInIsEnterpriseProject;
 			LatestProjectConfigFile = InProjectConfigFile;
+			LocalConfigFiles = InLocalConfigFiles;
 
 			LogWriter = new BoundedLogWriter(InLogPath);
 		}
@@ -419,6 +421,16 @@ namespace UnrealGameSync
 					OnUpdateMetadata();
 				}
 			}
+
+			if(LocalConfigFiles.Any(x => File.GetLastWriteTimeUtc(x.Key) != x.Value))
+			{
+				UpdateProjectConfigFile();
+				if(OnUpdateMetadata != null)
+				{
+					OnUpdateMetadata();
+				}
+			}
+
 			return true;
 		}
 
@@ -500,10 +512,11 @@ namespace UnrealGameSync
 
 		void UpdateProjectConfigFile()
 		{
-			LatestProjectConfigFile = ReadProjectConfigFile(Perforce, BranchClientPath, SelectedClientFileName, LogWriter);
+			LocalConfigFiles.Clear();
+			LatestProjectConfigFile = ReadProjectConfigFile(Perforce, BranchClientPath, SelectedClientFileName, LocalConfigFiles, LogWriter);
 		}
 
-		public static ConfigFile ReadProjectConfigFile(PerforceConnection Perforce, string BranchClientPath, string SelectedClientFileName, TextWriter Log)
+		public static ConfigFile ReadProjectConfigFile(PerforceConnection Perforce, string BranchClientPath, string SelectedClientFileName, List<KeyValuePair<string, DateTime>> LocalConfigFiles, TextWriter Log)
 		{
 			List<string> ConfigFilePaths = Utility.GetConfigFileLocations(BranchClientPath, SelectedClientFileName, '/');
 
@@ -524,6 +537,8 @@ namespace UnrealGameSync
 							string LocalFileName;
 							if(Perforce.ConvertToLocalPath(ConfigFilePath, out LocalFileName, Log))
 							{
+								DateTime LastModifiedTime = File.GetLastWriteTimeUtc(LocalFileName);
+								LocalConfigFiles.Add(new KeyValuePair<string, DateTime>(LocalFileName, LastModifiedTime));
 								Lines = File.ReadAllLines(LocalFileName).ToList();
 							}
 						}
