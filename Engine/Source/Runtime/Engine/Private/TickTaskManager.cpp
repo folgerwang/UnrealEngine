@@ -760,6 +760,14 @@ public:
 		bTickNewlySpawned = true;
 
 		{
+			SCOPE_CYCLE_COUNTER(STAT_GatherTicksForParallel);
+			for (TSet<FTickFunction*>::TIterator It(AllEnabledTickFunctions); It; ++It)
+			{
+				FTickFunction* TickFunction = *It;
+				AllTickFunctions.Add(TickFunction);
+			}
+		}
+		{
 			SCOPE_CYCLE_COUNTER(STAT_DequeueCooldowns);
 			// Determine which cooled down ticks will be enabled this frame
 			float CumulativeCooldown = 0.f;
@@ -781,14 +789,6 @@ public:
 
 				AllCoolingDownTickFunctions.Head = TickFunction->Next;
 				TickFunction = TickFunction->Next;
-			}
-		}
-		{
-			SCOPE_CYCLE_COUNTER(STAT_GatherTicksForParallel);
-			for (TSet<FTickFunction*>::TIterator It(AllEnabledTickFunctions); It; ++It)
-			{
-				FTickFunction* TickFunction = *It;
-				AllTickFunctions.Add(TickFunction);
 			}
 		}
 	}
