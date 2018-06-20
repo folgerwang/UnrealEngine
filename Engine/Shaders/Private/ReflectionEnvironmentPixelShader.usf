@@ -298,7 +298,7 @@ void ReflectionEnvironmentSkyLighting(
 {
 	float2 ScreenUV = UVAndScreenPos.xy;
 	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(ScreenUV);
-	uint ShadingModelID = GetShadingModelId(ScreenUV);
+	uint ShadingModelID = ScreenSpaceData.GBuffer.ShadingModelID;
 
 	OutColor = 0.0f;
 
