@@ -109,7 +109,10 @@ void AGameNetworkManager::UpdateNetSpeeds(bool bIsLanMatch)
 		AdjustedNetSpeed = NewNetSpeed;
 		for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
 		{
-			(*Iterator)->SetNetSpeed(AdjustedNetSpeed);
+			if (APlayerController* PC = Iterator->Get())
+			{
+				PC->SetNetSpeed(AdjustedNetSpeed);
+			}
 		}
 	}
 }
