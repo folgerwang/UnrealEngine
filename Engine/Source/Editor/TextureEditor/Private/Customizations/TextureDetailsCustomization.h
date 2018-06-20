@@ -35,6 +35,7 @@ private:
 	void OnPowerOfTwoModeChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
 	bool CanEditPowerOfTwoMode(int32 NewPowerOfTwoMode) const;
 	void CreatePowerOfTwoModeMessage() const;
+	void OnPropertyResetToDefault() const;
 
 	TSharedPtr<IPropertyHandle> MaxTextureSizePropertyHandle;
 	TSharedPtr<IPropertyHandle> PowerOfTwoModePropertyHandle;
