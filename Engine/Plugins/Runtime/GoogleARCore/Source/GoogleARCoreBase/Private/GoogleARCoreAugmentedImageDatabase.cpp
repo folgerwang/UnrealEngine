@@ -139,7 +139,7 @@ void UGoogleARCoreAugmentedImageDatabase::Serialize(FArchive& Ar)
 	FString OutStderr;
 	int32 OutReturnCode = 0;
 
-#if !PLATFORM_ANDROID
+#if !PLATFORM_ANDROID && WITH_EDITORONLY_DATA
 
 	if (!Ar.IsLoading() && Ar.IsCooking()) {
 
