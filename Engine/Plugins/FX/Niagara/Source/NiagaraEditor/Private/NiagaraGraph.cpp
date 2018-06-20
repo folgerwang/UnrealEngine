@@ -547,7 +547,7 @@ void UNiagaraGraph::RemoveParameter(const FNiagaraVariable& Parameter, const boo
 		{
 			const FNiagaraGraphParameterReference& Reference = ReferenceCollection->ParameterReferences[Index];
 			UNiagaraNode* Node = Reference.Value.Get();
-			if (Node)
+			if (Node && Node->GetGraph() == this)
 			{
 				UEdGraphPin* Pin = Node->GetPinByPersistentGuid(Reference.Key);
 				if (Pin)
@@ -592,7 +592,7 @@ bool UNiagaraGraph::RenameParameter(const FNiagaraVariable& Parameter, FName New
 		for (FNiagaraGraphParameterReference& Reference : NewReferences.ParameterReferences)
 		{
 			UNiagaraNode* Node = Reference.Value.Get();
-			if (Node)
+			if (Node && Node->GetGraph() == this)
 			{
 				UEdGraphPin* Pin = Node->GetPinByPersistentGuid(Reference.Key);
 				if (Pin)
