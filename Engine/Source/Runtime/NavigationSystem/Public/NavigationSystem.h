@@ -11,7 +11,6 @@
 #include "NavFilters/NavigationQueryFilter.h"
 #include "AI/Navigation/NavigationTypes.h"
 #include "NavigationSystemTypes.h"
-#include "GenericOctreePublic.h"
 #include "NavigationData.h"
 #include "AI/NavigationSystemBase.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
@@ -991,6 +990,13 @@ class NAVIGATIONSYSTEM_API UNavigationSystemModuleConfig : public UNavigationSys
 	GENERATED_BODY()
 
 protected:
+	/** Whether at game runtime we expect any kind of dynamic navigation generation */
+	UPROPERTY(EditAnywhere, Category = Navigation)
+	uint32 bStrictlyStatic : 1;
+
+	UPROPERTY(EditAnywhere, Category = Navigation)
+	uint32 bCreateOnClient : 1;
+
 	UPROPERTY(EditAnywhere, Category = Navigation)
 	uint32 bAutoSpawnMissingNavData : 1;
 
@@ -1000,4 +1006,14 @@ protected:
 public:
 	UNavigationSystemModuleConfig(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	virtual UNavigationSystemBase* CreateAndConfigureNavigationSystem(UWorld& World) const override;
+
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif // WITH_EDITOR
+
+protected:
+#if WITH_EDITOR
+	friend UNavigationSystemV1;
+#endif // WITH_EDITOR
+	void UpdateWithNavSysCDO(const UNavigationSystemV1& NavSysCDO);
 };
