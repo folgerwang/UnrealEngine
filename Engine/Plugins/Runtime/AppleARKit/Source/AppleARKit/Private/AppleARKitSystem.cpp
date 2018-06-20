@@ -1594,12 +1594,8 @@ namespace AppleARKitSupport
 		// Handle older iOS devices somehow calling this
 		if (FAppleARKitAvailability::SupportsARKit10())
 		{
-			const bool bIsARApp = GetDefault<UGeneralProjectSettings>()->bSupportAR;
-			if (bIsARApp)
-			{
-				auto NewARKitSystem = NewARSystem<FAppleARKitSystem>();
-				return NewARKitSystem;
-			}
+            auto NewARKitSystem = NewARSystem<FAppleARKitSystem>();
+            return NewARKitSystem;
 		}
 #endif
 		return TSharedPtr<class FAppleARKitSystem, ESPMode::ThreadSafe>();

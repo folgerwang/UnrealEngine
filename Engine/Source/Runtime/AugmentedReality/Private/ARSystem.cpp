@@ -44,25 +44,11 @@ EARTrackingQuality FARSystemBase::GetTrackingQuality() const
 
 void FARSystemBase::StartARSession(UARSessionConfig* InSessionConfig)
 {
-	static const TCHAR NotARApp_Warning[] = TEXT("To use AR, enable Supports AR under Project Settings.");
-	
-	const bool bIsARApp = GetDefault<UGeneralProjectSettings>()->bSupportAR;
-	if (ensureAlwaysMsgf(bIsARApp, NotARApp_Warning))
-	{
-		if (GetARSessionStatus().Status != EARSessionStatus::Running)
-		{
-			OnStartARSession(InSessionConfig);
-			ARSettings = InSessionConfig;
-		}
-	}
-	else
-	{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		// Ensures don't show up on iOS, but we definitely want a developer to see this
-		// Their AR project just doesn't make sense unless they have enabled the AR setting.
-		GEngine->AddOnScreenDebugMessage((uint64)((PTRINT)this), 3600.0f, FColor(255,48,16),NotARApp_Warning);
-#endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	}
+    if (GetARSessionStatus().Status != EARSessionStatus::Running)
+    {
+        OnStartARSession(InSessionConfig);
+        ARSettings = InSessionConfig;
+    }
 }
 
 void FARSystemBase::PauseARSession()
