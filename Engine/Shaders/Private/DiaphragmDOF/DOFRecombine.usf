@@ -131,6 +131,7 @@
 
 float2 TemporalJitterPixels;
 float4 CocModelParameters;
+float2 DepthBlurParameters;
 float2 DOFBufferUVMax;
 
 RWTexture2D<float4>	Output0;
@@ -174,7 +175,7 @@ float2 RotVec(float Radius, float Radians)
 
 float DepthToHalfResCocRadius(float WorldDepth)
 {
-	return DepthToHalfResCocRadius(CocModelParameters, WorldDepth);
+	return DepthToHalfResCocRadius(CocModelParameters, DepthBlurParameters, WorldDepth);
 }
 
 void AmendAdditiveColorWithMaxTranslucency(inout float4 Color, inout float Translucency, float MaxTranslucency)

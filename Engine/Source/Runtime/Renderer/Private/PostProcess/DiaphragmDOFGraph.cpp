@@ -141,6 +141,9 @@ enum class EHybridScatterMode
 }
 
 
+FVector4 CircleDofHalfCoc(const FViewInfo& View);
+
+
 bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRenderingCompositeOutputRef& VelocityInput, const FRenderingCompositeOutputRef& SeparateTranslucency)
 {
 	if (Context.View.Family->EngineShowFlags.VisualizeDOF)
