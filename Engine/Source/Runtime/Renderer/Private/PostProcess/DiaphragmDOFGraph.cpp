@@ -356,7 +356,7 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 				MaximumTileDilation, FRCPassDiaphragmDOFDilateCoc::MaxSampleRadiusCount);
 			
 			// If the theoric radius is too big, setup second dilate pass.
-			if (MaximumTileDilation - DilateParams[0].SampleRadiusCount > FRCPassDiaphragmDOFDilateCoc::MaxSampleRadiusCount)
+			if (MaximumTileDilation > DilateParams[0].SampleRadiusCount)
 			{
 				DilateParams[1].SampleDistanceMultiplier = DilateParams[0].SampleRadiusCount + 1;
 				DilateParams[1].SampleRadiusCount = FMath::Min(
