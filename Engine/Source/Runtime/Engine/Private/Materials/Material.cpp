@@ -939,6 +939,7 @@ void UMaterial::GetUsedTextures(TArray<UTexture*>& OutTextures, EMaterialQuality
 						}
 					}
 				}
+#if WITH_EDITOR
 				// Also look for any scalar parameters that are acting as lookups for an atlas texture, and store the atlas texture
 				const TArray<TRefCountPtr<FMaterialUniformExpression> >* AtlasExpressions[1] =
 				{
@@ -961,6 +962,7 @@ void UMaterial::GetUsedTextures(TArray<UTexture*>& OutTextures, EMaterialQuality
 						}
 					}
 				}
+#endif 
 			}
 		}
 	}
