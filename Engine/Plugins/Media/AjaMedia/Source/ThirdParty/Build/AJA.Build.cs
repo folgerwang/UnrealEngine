@@ -13,11 +13,10 @@ public class AJA : ModuleRules
 		{
 			PublicDefinitions.Add("AJAMEDIA_DLL_PLATFORM=1");
 
-			string AJASDKDir = ModuleDirectory;
-			string AJALibPath = AJASDKDir + "/lib/Win64";
+			string AjaLibDir = Path.Combine(ModuleDirectory, "../../../Binaries/ThirdParty/Win64");
 
 			string LibraryName = "AJA";
-			bool bHaveDebugLib = false;
+			bool bHaveDebugLib = File.Exists(Path.Combine(AjaLibDir, "AJAd.dll"));
 			if (bHaveDebugLib && Target.Configuration == UnrealTargetConfiguration.Debug)
 			{
 				LibraryName = "AJAd";
@@ -28,12 +27,12 @@ public class AJA : ModuleRules
 				PublicDefinitions.Add("AJAMEDIA_DLL_DEBUG=0");
 			}
 
-			PublicIncludePaths.Add(Path.Combine(AJASDKDir, "include"));
-			PublicLibraryPaths.Add(AJALibPath);
+			PublicIncludePaths.Add(Path.Combine(Path.Combine(ModuleDirectory, "include")));
+			PublicLibraryPaths.Add(AjaLibDir);
 			PublicAdditionalLibraries.Add(LibraryName + ".lib");
 
 			PublicDelayLoadDLLs.Add(LibraryName + ".dll");
-			RuntimeDependencies.Add(Path.Combine("$(EngineDir)/Binaries/ThirdParty/AJA/Win64", LibraryName + ".dll"));
+			RuntimeDependencies.Add(Path.Combine(AjaLibDir, LibraryName + ".dll"));
 		}
 		else
 		{
