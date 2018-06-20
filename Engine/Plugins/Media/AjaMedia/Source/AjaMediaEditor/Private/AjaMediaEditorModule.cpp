@@ -33,6 +33,7 @@ public:
 	virtual void StartupModule() override
 	{
 		RegisterCustomizations();
+		RegisterSettings();
 		RegisterStyle();
 	}
 
@@ -41,6 +42,7 @@ public:
 		if (!UObjectInitialized() && !GIsRequestingExit)
 		{
 			UnregisterStyle();
+			UnregisterSettings();
 			UnregisterCustomizations();
 		}
 	}
@@ -64,6 +66,30 @@ private:
 		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 		PropertyModule.UnregisterCustomPropertyTypeLayout(FAjaMediaPort::StaticStruct()->GetFName());
 		PropertyModule.UnregisterCustomPropertyTypeLayout(FAjaMediaMode::StaticStruct()->GetFName());
+	}
+
+	void RegisterSettings()
+	{
+		// register settings
+		ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
+		if (SettingsModule != nullptr)
+		{
+			ISettingsSectionPtr SettingsSection = SettingsModule->RegisterSettings("Project", "Plugins", "AJAMedia",
+				LOCTEXT("AJAMediaSettingsName", "AJA Media"),
+				LOCTEXT("AJAMediaSettingsDescription", "Configure the AJA Media plug-in."),
+				GetMutableDefault<UAjaMediaSettings>()
+			);
+		}
+	}
+
+	void UnregisterSettings()
+	{
+		// unregister settings
+		ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
+		if (SettingsModule != nullptr)
+		{
+			SettingsModule->UnregisterSettings("Project", "Plugins", "AJAMedia");
+		}
 	}
 
 	void RegisterStyle()

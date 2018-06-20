@@ -2,6 +2,8 @@
 
 #include "AjaMediaOutput.h"
 
+#include "AjaMediaCapture.h"
+#include "AjaMediaSettings.h"
 
 /* UAjaMediaOutput
 *****************************************************************************/
@@ -10,17 +12,20 @@ UAjaMediaOutput::UAjaMediaOutput(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, OutputType(EAjaMediaOutputType::FillOnly)
 	, bOutputWithAutoCirculating(false)
-	, bOutputTimecode(true)
-	, bCopyVideoOnRenderThread(true)
+	, TimecodeFormat(EAjaMediaTimecodeFormat::LTC)
+	, PixelFormat(EAjaMediaOutputPixelFormat::PF_10BIT_RGB)
 	, bWaitForSyncEvent(false)
-	, bClearBuffer(false)
-	, ClearBufferColor(FColor::Green)
 	, bEncodeTimecodeInTexel(false)
 {
 }
 
 bool UAjaMediaOutput::Validate(FString& OutFailureReason) const
 {
+	if (!Super::Validate(OutFailureReason))
+	{
+		return false;
+	}
+	
 	if (!FillPort.IsValid())
 	{
 		OutFailureReason = FString::Printf(TEXT("The FillPort of '%s' is invalid ."), *GetName());
@@ -56,20 +61,61 @@ bool UAjaMediaOutput::Validate(FString& OutFailureReason) const
 			return false;
 		}
 	}
-
-	if (!MediaMode.IsValid())
+	const FAjaMediaMode CurrentMode = GetMediaMode();
+	if (!CurrentMode.IsValid())
 	{
-		OutFailureReason = FString::Printf(TEXT("The MediaMode of '%s' is invalid ."), *GetName());
+		const FString OverrideString = !bIsDefaultModeOverriden ? TEXT("The project settings haven't been set for this port.") : TEXT("");
+		OutFailureReason = FString::Printf(TEXT("The MediaMode of '%s' is invalid. %s"), *GetName(), *OverrideString);
 		return false;
 	}
 
-	if (MediaMode.DeviceIndex != FillPort.DeviceIndex)
+	if (CurrentMode.DeviceIndex != FillPort.DeviceIndex)
 	{
 		OutFailureReason = FString::Printf(TEXT("The MediaMode & FillPort of '%s' are not on the same device."), *GetName());
 		return false;
 	}
 
 	return true;
+}
+
+FAjaMediaMode UAjaMediaOutput::GetMediaMode() const
+{
+	FAjaMediaMode CurrentMode;
+	if (bIsDefaultModeOverriden == false)
+	{
+		CurrentMode = GetDefault<UAjaMediaSettings>()->GetOutputMediaMode(FillPort);
+	}
+	else
+	{
+		CurrentMode = MediaMode;
+	}
+
+	return CurrentMode;
+}
+
+FIntPoint UAjaMediaOutput::GetRequestedSize() const
+{
+	return MediaMode.TargetSize;
+}
+
+EPixelFormat UAjaMediaOutput::GetRequestedPixelFormat() const
+{
+	EPixelFormat Result = EPixelFormat::PF_A2B10G10R10;
+	switch (PixelFormat)
+	{
+	case EAjaMediaOutputPixelFormat::PF_8BIT_ARGB:
+		Result = EPixelFormat::PF_B8G8R8A8;
+		break;
+	case EAjaMediaOutputPixelFormat::PF_10BIT_RGB:
+		Result = EPixelFormat::PF_A2B10G10R10;
+		break;
+	}
+	return Result;
+}
+
+UMediaCapture* UAjaMediaOutput::CreateMediaCaptureImpl()
+{
+	return NewObject<UAjaMediaCapture>();
 }
 
 #if WITH_EDITOR

@@ -2,34 +2,23 @@
 
 #pragma once
 
-#include "UObject/ObjectMacros.h"
-#include "UObject/Object.h"
-
-#include "Misc/FrameRate.h"
-#include "Misc/FrameTime.h"
 #include "TimeSynchronizationSource.h"
 
-#include "MediaPlayerInputSource.generated.h"
+#include "MediaPlayerTimeSynchronizationSource.generated.h"
 
 
-class UMediaPlayer;
 class UTimeSynchronizableMediaSource;
 class UMediaTexture;
 
-
 /**
- * Synchronization Source using Media framework
+ * Synchronization Source using the Media Player framework
  */
 UCLASS(EditInlineNew)
-class TIMECODESYNCHRONIZER_API UMediaPlayerInputSource : public UTimeSynchronizationSource
+class TIMECODESYNCHRONIZER_API UMediaPlayerTimeSynchronizationSource : public UTimeSynchronizationSource
 {
 	GENERATED_BODY()
 
 public:
-	/* MediaPlayer asset used to play this input*/
-	UPROPERTY(EditAnywhere, Category=Player)
-	UMediaPlayer* MediaPlayer;
-
 	/* Media source asset of this input*/
 	UPROPERTY(EditAnywhere, Category=Player)
 	UTimeSynchronizableMediaSource* MediaSource;
@@ -44,8 +33,8 @@ public:
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
-
 	//~ End UObject Interface
+
 	//~ Begin UTimeSynchronizationSource Interface
 	virtual FFrameTime GetNextSampleTime() const override;
 	virtual int32 GetAvailableSampleCount() const override;

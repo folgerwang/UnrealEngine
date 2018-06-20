@@ -89,6 +89,16 @@ void UMediaSoundComponent::SetMediaPlayer(UMediaPlayer* NewMediaPlayer)
 	CurrentPlayer = NewMediaPlayer;
 }
 
+#if WITH_EDITOR
+
+void UMediaSoundComponent::SetDefaultMediaPlayer(UMediaPlayer* NewMediaPlayer)
+{
+	MediaPlayer = NewMediaPlayer;
+	CurrentPlayer = MediaPlayer;
+}
+
+#endif
+
 
 void UMediaSoundComponent::UpdatePlayer()
 {

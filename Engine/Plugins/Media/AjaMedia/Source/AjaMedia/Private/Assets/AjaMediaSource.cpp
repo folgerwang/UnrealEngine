@@ -13,7 +13,7 @@ UAjaMediaSource::UAjaMediaSource()
 	, MaxNumAncillaryFrameBuffer(8)
 	, AudioChannel(EAjaMediaAudioChannel::Channel8)
 	, MaxNumAudioFrameBuffer(8)
-	, ColorFormat(EAjaMediaColorFormat::BGRA)
+	, ColorFormat(EAjaMediaSourceColorFormat::BGRA)
 	, MaxNumVideoFrameBuffer(8)
 	, bLogDropFrame(true)
 	, bEncodeTimecodeInTexel(false)
@@ -61,11 +61,13 @@ int64 UAjaMediaSource::GetMediaOption(const FName& Key, int64 DefaultValue) cons
 {
 	if (Key == AjaMediaOption::FrameRateNumerator)
 	{
-		return MediaMode.FrameRate.Numerator;
+		const FAjaMediaMode CurrentMediaMode = GetMediaMode();
+		return CurrentMediaMode.FrameRate.Numerator;
 	}
 	if (Key == AjaMediaOption::FrameRateDenominator)
 	{
-		return MediaMode.FrameRate.Denominator;
+		const FAjaMediaMode CurrentMediaMode = GetMediaMode();
+		return CurrentMediaMode.FrameRate.Denominator;
 	}
 	if (Key == AjaMediaOption::TimecodeFormat)
 	{
@@ -85,7 +87,8 @@ int64 UAjaMediaSource::GetMediaOption(const FName& Key, int64 DefaultValue) cons
 	}
 	if (Key == AjaMediaOption::AjaVideoFormat)
 	{
-		return MediaMode.VideoFormatIndex;
+		const FAjaMediaMode CurrentMediaMode = GetMediaMode();
+		return CurrentMediaMode.VideoFormatIndex;
 	}
 	if (Key == AjaMediaOption::ColorFormat)
 	{
@@ -125,6 +128,27 @@ bool UAjaMediaSource::HasMediaOption(const FName& Key) const
 	return Super::HasMediaOption(Key);
 }
 
+FAjaMediaMode UAjaMediaSource::GetMediaMode() const
+{
+	FAjaMediaMode CurrentMode;
+	if (bIsDefaultModeOverriden == false)
+	{
+		CurrentMode = GetDefault<UAjaMediaSettings>()->GetInputMediaMode(MediaPort);
+	}
+	else
+	{
+		CurrentMode = MediaMode;
+	}
+
+	return CurrentMode;
+}
+
+void UAjaMediaSource::OverrideMediaMode(const FAjaMediaMode& InMediaMode)
+{
+	bIsDefaultModeOverriden = true;
+	MediaMode = InMediaMode;
+}
+
 /*
  * UMediaSource interface
  */
@@ -137,9 +161,12 @@ FString UAjaMediaSource::GetUrl() const
 bool UAjaMediaSource::Validate() const
 {
 	FString FailureReason;
-	if (!FAjaMediaFinder::IsValid(MediaPort, MediaMode, FailureReason))
+	const FAjaMediaMode CurrentMode = GetMediaMode();
+	if (!FAjaMediaFinder::IsValid(MediaPort, CurrentMode, FailureReason))
 	{
-		UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' is invalid. %s"), *GetName(), *FailureReason);
+		const bool bAddProjectSettingMessage = MediaPort.IsValid() && !bIsDefaultModeOverriden;
+		const FString OverrideString = bAddProjectSettingMessage ? TEXT("The project settings haven't been set for this port.") : TEXT("");
+		UE_LOG(LogAjaMedia, Warning, TEXT("The MediaSource '%s' is invalid. %s %s"), *GetName(), *FailureReason, *OverrideString);
 		return false;
 	}
 

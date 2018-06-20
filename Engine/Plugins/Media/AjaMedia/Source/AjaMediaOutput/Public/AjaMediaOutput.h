@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "MediaOutput.h"
 #include "AjaMediaFinder.h"
 
 #include "AjaMediaOutput.generated.h"
@@ -10,11 +10,21 @@
 /**
  * Option for Aja output formats.
  */
-UENUM(BlueprintType)
+UENUM()
 enum class EAjaMediaOutputType : uint8
 {
 	FillOnly		UMETA(Tooltip="Fill will be on the provided FillPort"),
 	FillAndKey		UMETA(Tooltip="Fill will be on provided FillPort and Key will be on KeyPort"),
+};
+
+/**
+ * Option for Aja output formats.
+ */
+UENUM()
+enum class EAjaMediaOutputPixelFormat : uint8
+{
+	PF_10BIT_RGB,
+	PF_8BIT_ARGB,
 };
 
 UENUM()
@@ -26,11 +36,10 @@ enum class EAjaMediaOutputReferenceType
 };
 
 /**
- * Output Media for Aja streams.
- * The output format is ARGB8. 
+ * Output Media for AJA streams.
  */
 UCLASS(BlueprintType)
-class AJAMEDIA_API UAjaMediaOutput : public UObject
+class AJAMEDIAOUTPUT_API UAjaMediaOutput : public UMediaOutput
 {
 	GENERATED_UCLASS_BODY()
 
@@ -42,10 +51,7 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA")
 	EAjaMediaOutputType OutputType;
 
-	/** The signal output mode. */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = AJA, AssetRegistrySearchable, meta=(CustomizeAsInput="false", MediaPort="FillPort"))
-	FAjaMediaMode MediaMode;
-
+public:
 	/**
 	 * The AJA Device and port to output to.
 	 * This combines the device ID, and the output port.
@@ -64,6 +70,16 @@ public:
 	FAjaMediaPort KeyPort;
 
 
+private:
+	/** Override project setting's media mode. */
+	UPROPERTY()
+	bool bIsDefaultModeOverriden;
+
+	/** The signal output format. Uses project settings by default. */
+	UPROPERTY(EditAnywhere, Category="AJA", AssetRegistrySearchable, meta=(EditCondition="bIsDefaultModeOverriden", CustomizeAsInput="false", MediaPort="FillPort"))
+	FAjaMediaMode MediaMode;
+
+public:
 	/** The AJA Device output sync with either its internal clock, an external reference, or an other input. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA")
 	EAjaMediaOutputReferenceType OutputReference;
@@ -86,37 +102,16 @@ public:
 
 	/** Whether to embed the timecode to the output frame (if enabled by the Engine). */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Output")
-	bool bOutputTimecode;
+	EAjaMediaTimecodeFormat TimecodeFormat;
 
-	/*
-	 * Copy of the "game" frame buffer on the Render Thread or the Game Thread.
-	 * The copy may take some time and can lock the thread.
-	 * If the copy is on the Render Thread, it will guarantee that the output will be available.
-	 */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Output")
-	bool bCopyVideoOnRenderThread;
+	EAjaMediaOutputPixelFormat PixelFormat;
 
-	/**
-	 * Try to maintain a the engine "Genlock" with the VSync signal.
-	 * This is not necessary if you are waiting for the Output frame. You will be "Genlock" once the card output buffer are filled.
-	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Synchronization", meta=(EditCondition="bOutputWithAutoCirculating"))
+	/** Try to maintain a the engine "Genlock" with the VSync signal. */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Synchronization")
 	bool bWaitForSyncEvent;
 
 public:
-	/**
-	 * Clear the buffer before filling the output
-	 * Will only clear if the game output frame buffer is smaller than the AJA output.
-	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Debug")
-	bool bClearBuffer;
-
-	/**
-	 * Color to fill when clearing the buffer
-	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Debug", meta=(EditCondition=bClearBuffer))
-	FColor ClearBufferColor;
-
 	/**
 	 * Encode Timecode in the output
 	 * Current value will be white. The format will be encoded in hh:mm::ss::ff. Each value, will be on a different line.
@@ -126,9 +121,19 @@ public:
 
 public:
 	bool Validate(FString& FailureReason) const;
+	FAjaMediaMode GetMediaMode() const;
 
+	virtual FIntPoint GetRequestedSize() const override;
+	virtual EPixelFormat GetRequestedPixelFormat() const override;
+
+protected:
+	virtual UMediaCapture* CreateMediaCaptureImpl() override;
+
+	//~ UObject interface
 #if WITH_EDITOR
+public:
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
+	//~ End UObject interface
 };

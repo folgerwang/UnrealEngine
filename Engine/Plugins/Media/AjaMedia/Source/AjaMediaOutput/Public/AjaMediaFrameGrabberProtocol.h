@@ -3,13 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AjaMediaCapture.h"
 #include "AjaMediaOutput.h"
 #include "Protocols/FrameGrabberProtocol.h"
 #include "UObject/StrongObjectPtr.h"
 
 #include "AjaMediaFrameGrabberProtocol.generated.h"
-
-class FAjaMediaViewportOutputImpl;
 
 struct AJAMEDIAOUTPUT_API FAjaFrameGrabberProtocol : public IMovieSceneCaptureProtocol
 {
@@ -18,14 +17,13 @@ public:
 
 	/** ~FFrameGrabberProtocol implementation */
 	virtual bool Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host) override;
-	virtual void CaptureFrame(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host) override;
 	virtual bool HasFinishedProcessing() const override;
 	virtual void Finalize() override;
 	virtual bool CanWriteToFile(const TCHAR* InFilename, bool bOverwriteExisting) const { return false; }
 	/** ~End FFrameGrabberProtocol implementation */
 
 private:
-	TSharedPtr<FAjaMediaViewportOutputImpl, ESPMode::ThreadSafe> Implementation;
+	TStrongObjectPtr<UAjaMediaCapture> MediaCapture;
 	TStrongObjectPtr<UAjaMediaOutput> MediaOutput;
 	bool bInitialized;
 };

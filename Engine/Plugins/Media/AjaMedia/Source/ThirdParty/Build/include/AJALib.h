@@ -32,8 +32,9 @@ namespace AJA
 
 	enum struct EPixelFormat
 	{
-		PF_UYVY,
-		PF_ARGB,
+		PF_8BIT_YCBCR,	// As Input
+		PF_8BIT_ARGB,	// As Input/Output
+		PF_10BIT_RGB,	// As Output
 	};
 
 	/*
@@ -49,6 +50,13 @@ namespace AJA
 		uint32_t Minutes;
 		uint32_t Seconds;
 		uint32_t Frames;
+	};
+
+	enum struct ETimecodeFormat
+	{
+		TCF_None,
+		TCF_LTC,
+		TCF_VITC1,
 	};
 
 	/*
@@ -100,7 +108,8 @@ namespace AJA
 
 			FAJAVideoFormat VideoFormatIndex;
 			TCHAR FormatedText[FormatedTextSize];
-			double FrameRate;
+			uint32_t FrameRateNumerator;
+			uint32_t FrameRateDenominator;
 			uint32_t Width;
 			uint32_t Height;
 			bool bIsProgressive;
@@ -129,9 +138,11 @@ namespace AJA
 	{
 		AJADeviceOptions(uint32_t InChannelIndex)
 			: DeviceIndex(InChannelIndex)
+			, bWantMutliFormatMode(true)
 		{}
 
 		uint32_t DeviceIndex;
+		bool bWantMutliFormatMode;
 	};
 
 	/* AJASyncChannel definition
@@ -152,9 +163,8 @@ namespace AJA
 
 		uint32_t ChannelIndex; // [1...x]
 		FAJAVideoFormat VideoFormatIndex;
+		ETimecodeFormat TimecodeFormat;
 		bool bOutput; // port is output
-		bool bUseTimecode; // enable timecode
-		bool bUseLTCTimecode; // enable LTC or VITC timecode
 	};
 
 	class AJA_API AJASyncChannel
@@ -236,6 +246,7 @@ namespace AJA
 		IAJAInputOutputChannelCallbackInterface();
 
 		virtual bool OnInputFrameReceived(const AJAInputFrameData& InFrameData, const AJAAncillaryFrameData& InAncillaryFrame, const AJAAudioFrameData& InAudioFrame, const AJAVideoFrameData& InVideoFrame) = 0;
+		virtual void OnOutputFrameStarted() { }
 		virtual bool OnOutputFrameCopied(const AJAOutputFrameData& InFrameData) = 0;
 		virtual void OnCompletion(bool bSucceed) = 0;
 	};
@@ -261,6 +272,7 @@ namespace AJA
 		uint32_t OutputKeyChannelIndex; // [1...x] for output
 		FAJAVideoFormat VideoFormatIndex;
 		EPixelFormat PixelFormat;
+		ETimecodeFormat TimecodeFormat;
 		EAJAReferenceType OutputReferenceType;
 
 		union
@@ -271,8 +283,6 @@ namespace AJA
 				uint32_t bOutput : 1; // port is output
 				uint32_t bOutputKey : 1; // output will also sent the key on OutputKeyPortIndex
 				uint32_t bOutputFreeRun : 1; // output as fast as the card & game can do
-				uint32_t bUseTimecode : 1; // enable input/output timecode
-				uint32_t bUseLTCTimecode : 1; // enable LTC or VITC timecode
 				uint32_t bUseAncillary : 1; // enable ANC system
 				uint32_t bUseAncillaryField2 : 1; // enable ANC Field 2 system
 				uint32_t bUseAudio : 1; // enable audio input/output
