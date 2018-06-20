@@ -523,6 +523,11 @@ void SetCocModelParameters(FRenderingCompositePassContext& Context, DispatchCont
 	CocModelParameters.Y = CocRadiusBasis * CocModel.MinForegroundCocRadius;
 	CocModelParameters.Z = CocRadiusBasis * CocModel.MaxBackgroundCocRadius;
 	SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->CocModelParameters, CocModelParameters);
+
+	FVector2D DepthBlurParameters(0, 0);
+	DepthBlurParameters.X = CocModel.DepthBlurExponent;
+	DepthBlurParameters.Y = CocRadiusBasis * CocModel.MaxDepthBlurRadius;
+	SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->DepthBlurParameters, DepthBlurParameters);
 }
 
 
@@ -643,6 +648,7 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFDilateCoc::ComputeOutputDesc(EPassOut
 
 #define SETUP_SHADER_PARAMS(PARAMETER) \
 	PARAMETER(FShaderParameter, CocModelParameters) \
+	PARAMETER(FShaderParameter, DepthBlurParameters) \
 	PARAMETER(FShaderParameter, CocRadiusBasis) \
 
 
@@ -1700,6 +1706,7 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFHybridScatter::ComputeOutputDesc(EPas
 	PARAMETER(FSceneTextureShaderParameters, SceneTextureParameters) \
 	PARAMETER(FShaderParameter, TemporalJitterPixels) \
 	PARAMETER(FShaderParameter, CocModelParameters) \
+	PARAMETER(FShaderParameter, DepthBlurParameters) \
 	PARAMETER(FShaderParameter, DOFBufferUVMax) \
 
 class FPostProcessDiaphragmDOFRecombineCS : public FPostProcessDiaphragmDOFShader
