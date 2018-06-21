@@ -95,7 +95,7 @@ FAjaMediaMode UAjaMediaOutput::GetMediaMode() const
 
 FIntPoint UAjaMediaOutput::GetRequestedSize() const
 {
-	return MediaMode.TargetSize;
+	return GetMediaMode().TargetSize;
 }
 
 EPixelFormat UAjaMediaOutput::GetRequestedPixelFormat() const
