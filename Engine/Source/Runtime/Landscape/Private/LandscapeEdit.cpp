@@ -5045,13 +5045,15 @@ void ULandscapeComponent::GeneratePlatformPixelData()
 				// If we can pack into 2 channels with the 3rd implied, track the mask for the weight blendable layers
 				if (bAtLeastOneWeightBasedBlend && MobileWeightmapLayerAllocations.Num() <= 3)
 				{
+					MobileBlendableLayerMask |= (!Allocation.LayerInfo->bNoWeightBlend ? (1 << CurrentChannel) : 0);
+
 					// we don't need to create a new texture for the 3rd layer
 					if (RemainingChannels == 0)
 					{
+						Allocation.WeightmapTextureIndex = 0;
+						Allocation.WeightmapTextureChannel = 2; // not a valid texture channel, but used for the mask.
 						break;
 					}
-
-					MobileBlendableLayerMask |= (!Allocation.LayerInfo->bNoWeightBlend ? (1 << CurrentChannel) : 0);
 				}
 
 				if (RemainingChannels == 0)

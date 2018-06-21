@@ -90,6 +90,9 @@ namespace LandscapeCookStats
 // Set this to 0 to disable landscape cooking and thus disable it on device.
 #define ENABLE_LANDSCAPE_COOKING 1
 
+// Increment this to regenerate mobile landscape data
+#define LANDSCAPE_MOBILE_COOK_VERSION 0
+
 #define LOCTEXT_NAMESPACE "Landscape"
 
 static void PrintNumLandscapeShadows()
@@ -215,6 +218,10 @@ void ULandscapeComponent::CheckGenerateLandscapePlatformData(bool bIsCooking, co
 
 	FBufferArchive ComponentStateAr;
 	SerializeStateHashes(ComponentStateAr);
+
+	// Serialize the version number as part of the hash so we can invalidate DDC data if needed
+	int32 Version = LANDSCAPE_MOBILE_COOK_VERSION;
+	ComponentStateAr << Version;
 	
 	uint32 Hash[5];
 	FSHA1::HashBuffer(ComponentStateAr.GetData(), ComponentStateAr.Num(), (uint8*)Hash);
