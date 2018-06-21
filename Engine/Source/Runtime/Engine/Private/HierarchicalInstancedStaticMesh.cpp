@@ -2797,7 +2797,7 @@ void UHierarchicalInstancedStaticMeshComponent::OnPostLoadPerInstanceData()
 			{
 				// create PerInstanceRenderData either from current data or pre-built instance buffer
 				InitPerInstanceRenderData(true, InstanceDataBuffers.Release());
-				NumBuiltRenderInstances = PerInstanceRenderData->InstanceBuffer.GetNumInstances();
+				NumBuiltRenderInstances = PerInstanceRenderData->InstanceBuffer_GameThread->GetNumInstances();
 			}
 
 			// If any of the data is out of sync, build the tree now!
@@ -2840,7 +2840,7 @@ static void GatherInstanceTransformsInArea(const UHierarchicalInstancedStaticMes
 						{
 							// if there's no PerInstanceSMData (e.g. for grass), we'll go get the transform from the render buffer
 							FMatrix XformMat;
-							Component.PerInstanceRenderData->InstanceBuffer.GetInstanceTransform(i, XformMat);
+							Component.PerInstanceRenderData->InstanceBuffer_GameThread->GetInstanceTransform(i, XformMat);
 							InstanceToComponent = FTransform(XformMat);
 						}
 						else
