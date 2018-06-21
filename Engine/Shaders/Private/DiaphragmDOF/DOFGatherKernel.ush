@@ -203,7 +203,7 @@ void UpdateRuntimeKernelScope(
 	}
 
 	// Compute the randomising range of the kernel offset in pixels.
-	float KernelRandomRange = max((GatherParameters.KernelRadius - GATHER_HALF_RES_DIVISOR * GatherParameters.MaxRingCount) * UnitSampleRadius, 0.0);
+	float KernelRandomRange = max((GatherParameters.KernelRadius - GatherParameters.MaxRingCount) * UnitSampleRadius, 0.0);
 	
 	// No need to do kernel randomization when there is enough samples.
 	if (static_condition(KernelScope.bKenrelHasEnoughSamples))
@@ -289,7 +289,11 @@ void GatherRing(
 	const uint BatchCount = RingSamplePairCount / SamplePairBatchSize;
 
 	// Iterate over the batch of samples.
-	UNROLL
+	#if CONFIG_UNROLL_GATHER
+		UNROLL
+	#else
+		LOOP
+	#endif
 	for (uint BatchId = 0; BatchId < BatchCount; BatchId++)
 	#if defined(WORKARROUND_UE_58394)
 		WORKARROUND_UE_58394 // TODO: nuke that guy once original issue is fixed.
@@ -434,13 +438,6 @@ void GatherRing(
 				// TODO: SampleDistanceSquare for perf reasons.
 				//float SampleDistance = length(RandomKernelPosOffset + SamplePosOffset[k]);
 				//float SampleDistance = length(SamplePosOffset[0]);
-					
-				// Substract the CocRadius error to the sample distance to fight against layering opacity issues caused by undersampling.
-				// TODO: technically, should be done on the Coc radius instead so that it also happens on FGatherAccumulator::CurrentTranslucency 
-				//if (static_condition(KernelScope.bKenrelHasEnoughSamples)) // TODO: bug here.
-				//{
-				//	SampleDistance = max(SampleDistance - KernelScope.CocRadiusError, 0);
-				//}
 
 				// Compute sample's input buffer UV
 				// TODO: VGPR could be optimised.

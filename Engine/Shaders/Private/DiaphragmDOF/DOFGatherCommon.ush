@@ -100,6 +100,9 @@
 	// Background DOF can suffer under sampling on smaller out of focus, because
 	// the gathering kernel is too large.
 	#define CONFIG_KERNEL_SAMPLING_DENSITY_DRIVER 1
+	
+	// Background need coc radius error correction to reduce amount of background leaking.
+	#define CONFIG_COC_RADIUS_CORRECTION 1
 
 #elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
 	#define GATHER_ACCUMULATOR_METHOD (GATHER_ACCUMULATOR_METHOD_SIMPLE)
@@ -202,6 +205,18 @@
 #endif
 
 
+// D3D shader compiler is rediculously slow to compile this shader.
+#if SM5_PROFILE
+	#define CONFIG_UNROLL_GATHER 0
+#else
+	#define CONFIG_UNROLL_GATHER 1
+#endif
+
+// Substract the CocRadius error to the sample distance to fight against layering opacity issues caused by undersampling.
+#ifndef CONFIG_COC_RADIUS_CORRECTION
+	#define CONFIG_COC_RADIUS_CORRECTION 0
+#endif
+
 
 //------------------------------------------------------- CONFIG CHECKS
 
@@ -214,11 +229,6 @@
 #endif
 
 //------------------------------------------------------- CONFIG DERIVED VALUES
-
-// Sets the gather pass's half resolution divisor.
-#define GATHER_HALF_RES_DIVISOR 1
-
-#define GATHER_HALF_RES_DIVISOR_INV (1.0/float(GATHER_HALF_RES_DIVISOR))
 
 // Wether the group size is larger than COC tile size.
 #define GROUP_SIZE_IS_LARGER_THAN_COC_TILE_SIZE 0

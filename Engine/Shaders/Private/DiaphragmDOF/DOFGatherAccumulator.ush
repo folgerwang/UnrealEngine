@@ -678,8 +678,11 @@ void MergeCurrentBucketIntoPreviousBucket(inout FGatherAccumulator Accumulator, 
 /** Accumulates center sample. */
 void AccumulateCenterSample(inout FGatherAccumulator Accumulator, in FGatherSample A)
 {
+	// Error in coc radius error introduced by the under sampling of the kernel
+	const float CocRadiusError = CONFIG_COC_RADIUS_CORRECTION ? 1.0 : 0.0;
+
 	// Set the bordering radius at exactly the radius of the center sample.
-	Accumulator.BorderingRadius = 0.5 * Accumulator.GatherParameters.KernelRadius * rcp(0.5 + Accumulator.GatherParameters.RingCount);
+	Accumulator.BorderingRadius = (0.5 + CocRadiusError) * Accumulator.GatherParameters.KernelRadius * rcp(0.5 + Accumulator.GatherParameters.RingCount);
 
 	// Center sample is first ring only when smallest ring first.
 	Accumulator.bIsFirstRing = LARGEST_RINGS_FIRST == 0;
@@ -708,7 +711,11 @@ void AmendAccumulatedRingsWeight(
 void StartRingSamples(inout FGatherAccumulator Accumulator, in FGatherRingInfos RingInfos)
 {
 	Accumulator.bIsFirstRing = RingInfos.bIsFirstRing;
-	Accumulator.BorderingRadius = (RingInfos.RingId + 1.5) * (Accumulator.GatherParameters.KernelRadius * rcp(0.5 + Accumulator.GatherParameters.RingCount)); 
+	
+	// Error in coc radius error introduced by the under sampling of the kernel
+	const float CocRadiusError = CONFIG_COC_RADIUS_CORRECTION ? 1.0 : 0.0;
+
+	Accumulator.BorderingRadius = (RingInfos.RingId + (1.5 + CocRadiusError)) * (Accumulator.GatherParameters.KernelRadius * rcp(0.5 + Accumulator.GatherParameters.RingCount)); 
 
 	#if CONFIG_SGPR_HINTS
 	{
