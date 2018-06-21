@@ -1040,7 +1040,7 @@ void UPoseAsset::CreatePoseFromAnimation(class UAnimSequence* AnimSequence, cons
 						// have to do iterate over time
 						// support curve
 						FBlendedCurve SourceCurve;
-						SourceCurve.InitFrom(&UIDList);
+						SourceCurve.InitFrom(&TargetSkeleton->GetDefaultCurveUIDList());
 						AnimSequence->EvaluateCurveData(SourceCurve, PoseIndex*IntervalBetweenKeys, true);
 
 						// copy back to CurveData
