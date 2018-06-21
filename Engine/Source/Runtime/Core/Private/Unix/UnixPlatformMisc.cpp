@@ -298,11 +298,6 @@ FString FUnixPlatformMisc::GetOSVersion()
 	return FString();
 }
 
-void FUnixPlatformMisc::GetValidTargetPlatforms(class TArray<class FString>& TargetPlatformNames)
-{
-	TargetPlatformNames.Add(TEXT("Unix"));
-}
-
 const TCHAR* FUnixPlatformMisc::GetSystemErrorMessage(TCHAR* OutBuffer, int32 BufferCount, int32 Error)
 {
 	check(OutBuffer && BufferCount);
