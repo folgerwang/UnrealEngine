@@ -40,7 +40,7 @@ enum class ENiagaraSpriteFacingMode : uint8
 
 
 UCLASS(editinlinenew)
-class UNiagaraSpriteRendererProperties : public UNiagaraRendererProperties
+class NIAGARA_API UNiagaraSpriteRendererProperties : public UNiagaraRendererProperties
 {
 public:
 	GENERATED_BODY()
