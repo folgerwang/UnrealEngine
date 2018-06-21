@@ -1200,6 +1200,9 @@ private:
 	/** Is forcibly making streaming levels visible?																			*/
 	bool										bShouldForceVisibleStreamingLevels;
 
+	/** Is there at least one material parameter collection instance waiting for a deferred update?								*/
+	uint8										bMaterialParameterCollectionInstanceNeedsDeferredUpdate : 1;
+
 public:
 
 	bool GetShouldForceUnloadStreamingLevels() const { return bShouldForceUnloadStreamingLevels; }
@@ -2522,7 +2525,15 @@ public:
 	 */
 	void UpdateActorComponentEndOfFrameUpdateState(UActorComponent* Component) const;
 
-	bool HasEndOfFrameUpdates();
+	/** 
+	 * Used to indicate a UMaterialParameterCollectionInstance needs a deferred update 
+	 */
+	void SetMaterialParameterCollectionInstanceNeedsUpdate();
+
+	/** 
+	 * Returns true if we have any updates that have been deferred to the end of the current frame.
+	 */
+	bool HasEndOfFrameUpdates() const;
 
 	/**
 	 * Send all render updates to the rendering thread.
