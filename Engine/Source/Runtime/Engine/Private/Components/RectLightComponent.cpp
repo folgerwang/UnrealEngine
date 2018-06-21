@@ -53,10 +53,10 @@ public:
 		LightParameters.NormalizedLightDirection = -GetDirection();
 		LightParameters.NormalizedLightTangent = ZAxis;
 		LightParameters.SpotAngles = FVector2D( -2.0f, 1.0f );
+		LightParameters.SpecularScale = SpecularScale;
 		LightParameters.LightSourceRadius = SourceWidth * 0.5f;
 		LightParameters.LightSoftSourceRadius = 0.0f;
 		LightParameters.LightSourceLength = SourceHeight * 0.5f;
-		LightParameters.LightMinRoughness = 0.0f;
 		LightParameters.SourceTexture = GWhiteTexture;
 		//LightParameters.SourceTexture = SourceTexture ? SourceTexture->Resource : GWhiteTexture;
 	}

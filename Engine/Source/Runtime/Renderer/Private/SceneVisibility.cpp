@@ -3209,9 +3209,7 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 			if( View.bIsReflectionCapture 
 				&& VisibleLightViewInfo.bInViewFrustum
 				&& Proxy->HasStaticLighting() 
-				&& Proxy->GetLightType() != LightType_Directional 
-				// Min roughness is used to hide the specular response of virtual area lights, so skip drawing the source shape when Min Roughness is 1
-				&& Proxy->GetMinRoughness() < 1.0f)
+				&& Proxy->GetLightType() != LightType_Directional )
 			{
 				FVector Origin = Proxy->GetOrigin();
 				FVector ToLight = Origin - View.ViewMatrices.GetViewOrigin();
@@ -3267,6 +3265,8 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 					// Spot falloff
 					FVector L = ToLight.GetSafeNormal();
 					Color.A *= FMath::Square( FMath::Clamp( ( (L | LightParameters.NormalizedLightDirection) - LightParameters.SpotAngles.X ) * LightParameters.SpotAngles.Y, 0.0f, 1.0f ) );
+
+					Color.A *= LightParameters.SpecularScale;
 
 					// Rect is one sided
 					if( Proxy->IsRectLight() && (L | LightParameters.NormalizedLightDirection) < 0.0f )
