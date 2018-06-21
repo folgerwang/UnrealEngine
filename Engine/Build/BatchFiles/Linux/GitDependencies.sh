@@ -24,7 +24,7 @@ RESULT=0
 source "$BASE_PATH/SetupMono.sh" $BASE_PATH
 
 while : ; do
-        mono Engine/Binaries/DotNET/GitDependencies.exe $ARGS
+        mono Engine/Binaries/DotNET/GitDependencies.exe $ARGS && break
         RESULT=$?
 
         echo "Result: $RESULT"
