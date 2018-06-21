@@ -69,8 +69,9 @@ struct FShadowTerms
 
 float New_a2( float a2, float SinAlpha, float VoH )
 {
-	//return a2 + 0.25 * SinAlpha * (3.0 * sqrtFast(a2) + SinAlpha) / ( VoH + 0.001 );
-	return a2 + 0.25 * SinAlpha * ( saturate(12 * a2 + 0.125) + SinAlpha ) / ( VoH + 0.001 );
+	return a2 + 0.25 * SinAlpha * (3.0 * sqrtFast(a2) + SinAlpha) / ( VoH + 0.001 );
+	//return a2 + 0.25 * SinAlpha * ( saturate(12 * a2 + 0.125) + SinAlpha ) / ( VoH + 0.001 );
+	//return a2 + 0.25 * SinAlpha * ( a2 * 2 + 1 + SinAlpha ) / ( VoH + 0.001 );
 }
 
 float EnergyNormalization( inout float a2, float VoH, FAreaLight AreaLight )
@@ -78,7 +79,7 @@ float EnergyNormalization( inout float a2, float VoH, FAreaLight AreaLight )
 	if( AreaLight.SphereSinAlphaSoft > 0 )
 	{
 		// Modify Roughness
-		a2 = a2 + Pow2( AreaLight.SphereSinAlphaSoft ) / ( VoH * 3.6 + 0.4 );
+		a2 = saturate( a2 + Pow2( AreaLight.SphereSinAlphaSoft ) / ( VoH * 3.6 + 0.4 ) );
 	}
 
 	float Sphere_a2 = a2;
