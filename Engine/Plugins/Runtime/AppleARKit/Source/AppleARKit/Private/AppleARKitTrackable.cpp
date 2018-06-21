@@ -14,7 +14,7 @@ UAppleARKitEnvironmentCaptureProbe::UAppleARKitEnvironmentCaptureProbe()
 #endif
 }
 
-#if SUPPORTS_ARKIT_2_0
+#if PLATFORM_IOS
 void UAppleARKitEnvironmentCaptureProbe::UpdateEnvironmentCapture(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double InTimestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, FVector InExtent, id<MTLTexture> InMetalTexture)
 {
 	Super::UpdateEnvironmentCapture(InTrackingSystem, FrameNumber, InTimestamp, InLocalToTrackingTransform, InAlignmentTransform, InExtent);
