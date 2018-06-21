@@ -28,7 +28,8 @@
 		{
 			"Name": "AjaMediaFactory",
 			"Type": "Editor",
-			"LoadingPhase": "PostEngineInit"
+			"LoadingPhase": "PostEngineInit",
+			"WhitelistPlatforms": [ "Win64" ]
 		},
 		{
 			"Name": "AjaMediaFactory",
@@ -39,7 +40,8 @@
 		{
 			"Name": "AjaMediaEditor",
 			"Type": "Editor",
-			"LoadingPhase": "PostEngineInit"
+			"LoadingPhase": "PostEngineInit",
+			"WhitelistPlatforms": [ "Win64" ]
 		}
 	],
 	"Plugins" :
