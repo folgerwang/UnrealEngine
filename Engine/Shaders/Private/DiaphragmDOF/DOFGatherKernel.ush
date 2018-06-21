@@ -572,39 +572,47 @@ void GatherSamplesAndResolve(
 
 			bIsFirstRing = false;
 		} // for (int RingId)
-
-		BRANCH
-		if (GatherParameters.bDoHighDensityGatheringAtCenter)
+		
+		UNROLL
+		for (uint SamplingDensityChangeId = 0; SamplingDensityChangeId < CONFIG_MAX_SAMPLING_DENSITY_CHANGES; SamplingDensityChangeId++)
 		{
-			// Decrease kernel size, and changes the already accumulated weight.
+			BRANCH
+			if (GatherParameters.bDoHighDensityGatheringAtCenter[SamplingDensityChangeId])
 			{
-				const int LargerRingCount = GatherParameters.MaxRingCount - LowerRingId;
+				// Decrease kernel size, and changes the already accumulated weight.
+				{
+					const int LargerRingCount = GatherParameters.MaxRingCount - LowerRingId;
 
-				const float LargeKernelRadius = 1 + 2 * GatherParameters.MaxRingCount;
-				const float SmallKernelRadius = 1 + 2 * (GatherParameters.MaxRingCount - LargerRingCount);
+					const float LargeKernelRadius = 1 + 2 * GatherParameters.MaxRingCount;
+					const float SmallKernelRadius = 1 + 2 * (GatherParameters.MaxRingCount - LargerRingCount);
 
-				const float RadiusDownScaleFactor = SmallKernelRadius / LargeKernelRadius;
+					const float RadiusDownScaleFactor = SmallKernelRadius / LargeKernelRadius;
 
-				const float AccumulatedWeightMultiplier = rcp(RadiusDownScaleFactor * RadiusDownScaleFactor);
+					const float AccumulatedWeightMultiplier = rcp(RadiusDownScaleFactor * RadiusDownScaleFactor);
 				
-				GatherParameters.KernelRadius *= RadiusDownScaleFactor;
+					GatherParameters.KernelRadius *= RadiusDownScaleFactor;
 
-				AmendAccumulatedRingsWeight(/* inout */ Accumulator, GatherParameters, AccumulatedWeightMultiplier);
-				AmendAccumulatedRingsWeight(/* inout */ FastAccumulator, AccumulatedWeightMultiplier);
-				UpdateRuntimeKernelScope(GatherParameters, /* inout */ KernelScope);
+					AmendAccumulatedRingsWeight(/* inout */ Accumulator, GatherParameters, AccumulatedWeightMultiplier);
+					AmendAccumulatedRingsWeight(/* inout */ FastAccumulator, AccumulatedWeightMultiplier);
+					UpdateRuntimeKernelScope(GatherParameters, /* inout */ KernelScope);
+				}
+
+				UNROLL
+				for (int RingId2 = GatherParameters.MaxRingCount - 1; RingId2 >= LowerRingId; RingId2--)
+				{
+					GatherRing(
+						GatherParameters,
+						KernelScope,
+						uint(RingId2),
+						/* bIsFirstRing = */ false,
+						/* inout */ Accumulator,
+						/* inout */ FastAccumulator);
+				} // for (int RingId)
 			}
-
-			UNROLL
-			for (int RingId2 = GatherParameters.MaxRingCount - 1; RingId2 >= LowerRingId; RingId2--)
+			else
 			{
-				GatherRing(
-					GatherParameters,
-					KernelScope,
-					uint(RingId2),
-					/* bIsFirstRing = */ false,
-					/* inout */ Accumulator,
-					/* inout */ FastAccumulator);
-			} // for (int RingId)
+				break;
+			}
 		}
 
 		UNROLL

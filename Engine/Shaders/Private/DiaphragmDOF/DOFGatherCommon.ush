@@ -217,6 +217,10 @@
 	#define CONFIG_COC_RADIUS_CORRECTION 0
 #endif
 
+/** Defines the maximum number of gathering sampling density changes supported in the kernel. */
+#ifndef CONFIG_MAX_SAMPLING_DENSITY_CHANGES
+	#define CONFIG_MAX_SAMPLING_DENSITY_CHANGES 3
+#endif
 
 //------------------------------------------------------- CONFIG CHECKS
 
@@ -346,7 +350,7 @@ struct FGatherInputParameters
 	uint KernelSamplingDensityMode;
 
 	// Runtime toggle when KernelSamplingDensityMode == KERNEL_DENSITY_HIGHER_IN_CENTER_DISK 
-	bool bDoHighDensityGatheringAtCenter;
+	bool bDoHighDensityGatheringAtCenter[CONFIG_MAX_SAMPLING_DENSITY_CHANGES];
 };
 
 /** Informations about a ring. */
