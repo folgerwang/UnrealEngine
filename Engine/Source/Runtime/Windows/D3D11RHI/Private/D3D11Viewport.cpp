@@ -287,6 +287,7 @@ bool FD3D11Viewport::PresentChecked(int32 SyncInterval)
 
 	if (IsValidRef(CustomPresent))
 	{
+		SCOPE_CYCLE_COUNTER(STAT_D3D11CustomPresentTime);
 		bNeedNativePresent = CustomPresent->Present(SyncInterval);
 	}
 

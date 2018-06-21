@@ -732,6 +732,7 @@ bool AssertResourceState(ID3D12CommandList* pCommandList, FD3D12Resource* pResou
 //
 
 DEFINE_STAT(STAT_D3D12PresentTime);
+DEFINE_STAT(STAT_D3D12CustomPresentTime);
 
 DEFINE_STAT(STAT_D3D12NumCommandAllocators);
 DEFINE_STAT(STAT_D3D12NumCommandLists);

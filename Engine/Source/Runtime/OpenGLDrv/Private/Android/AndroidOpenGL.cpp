@@ -180,6 +180,7 @@ bool PlatformBlitToViewport( FPlatformOpenGLDevice* Device, const FOpenGLViewpor
 {
 	if (bPresent && Viewport.GetCustomPresent())
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FAndroidOpenGL_PlatformBlitToViewport_CustomPresent);
 		bPresent = Viewport.GetCustomPresent()->Present(SyncInterval);
 	}
 	if (bPresent)

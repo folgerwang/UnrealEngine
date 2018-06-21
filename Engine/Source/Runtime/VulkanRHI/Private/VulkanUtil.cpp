@@ -620,6 +620,7 @@ namespace VulkanRHI
 DEFINE_STAT(STAT_VulkanDrawCallTime);
 DEFINE_STAT(STAT_VulkanDispatchCallTime);
 DEFINE_STAT(STAT_VulkanDrawCallPrepareTime);
+DEFINE_STAT(STAT_VulkanCustomPresentTime);
 DEFINE_STAT(STAT_VulkanDispatchCallPrepareTime);
 DEFINE_STAT(STAT_VulkanGetOrCreatePipeline);
 DEFINE_STAT(STAT_VulkanGetDescriptorSet);
