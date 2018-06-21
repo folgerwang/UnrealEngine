@@ -54,11 +54,6 @@ public:
 		return TEXT("Lumin");
 	}
 
-	virtual bool SupportsVariants() const override
-	{
-		return false;
-	}
-
 	virtual bool IsSdkInstalled(bool bProjectHasCode, FString& OutDocumentationPath) const override;
 
 	virtual int32 CheckRequirements(const FString& ProjectPath, bool bProjectHasCode, FString& OutTutorialPath, FString& OutDocumentationPath, FText& CustomizedLogMessage) const override;
