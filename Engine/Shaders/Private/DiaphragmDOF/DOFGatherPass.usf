@@ -225,7 +225,7 @@ void GatherMainCS(
 	{
 		// Actually sample the Coc tile buffer.
 		#if GROUP_SIZE_IS_LARGER_THAN_COC_TILE_SIZE
-			const uint2 TilePos = (DispatchThreadId * GATHER_HALF_RES_DIVISOR) / COC_TILE_SIZE;
+			const uint2 TilePos = DispatchThreadId / COC_TILE_SIZE;
 		#else
 			const uint2 TilePos = GroupId;
 		#endif
@@ -249,9 +249,6 @@ void GatherMainCS(
 		#endif
 	}
 	
-	// Coc error accepted for fast gathering, set to 5% of the kernel size.
-	float FastGatheringCocError = GatherParameters.KernelRadius * 0.05;
-
 	// Whether can entirely skeep gathering.
 	bool bSkipGathering = TileSuggestion.bCanEarlyReturn;
 
@@ -386,8 +383,18 @@ void GatherMainCS(
 		}
 
 		#if DEBUG_FAST_ACCUMULATOR
+		{
+			#if CONFIG_KERNEL_SAMPLING_DENSITY_DRIVER == 1
+			if (GatherParameters.bDoHighDensityGatheringAtCenter)
+			{
+				AccumulatorOutput.ForegroundColor.rgb *= float3(1, 0.5, 0.5);
+				AccumulatorOutput.BackgroundColor.rgb *= float3(1, 0.5, 0.5);
+			}
+			#endif
+
 			AccumulatorOutput.ForegroundColor.rgb *= float3(1, 0.5, 0.5);
 			AccumulatorOutput.BackgroundColor.rgb *= float3(1, 0.5, 0.5);
+		}
 		#endif
 		
 		#if 1 // Lower VGPR footprint.
