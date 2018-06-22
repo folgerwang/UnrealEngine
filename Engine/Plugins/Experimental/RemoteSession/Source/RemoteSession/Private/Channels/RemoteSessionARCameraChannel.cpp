@@ -378,16 +378,6 @@ FRemoteSessionARCameraChannel::FRemoteSessionARCameraChannel(ERemoteSessionChann
 	, Connection(InConnection)
 	, Role(InRole)
 {
-	
-	static bool OnceTimeARInit = false;
-	
-	if (!OnceTimeARInit && InRole == ERemoteSessionChannelMode::Write)
-	{
-		UARSessionConfig* Config = NewObject<UARSessionConfig>();
-		UARBlueprintLibrary::StartARSession(Config);
-		OnceTimeARInit = true;
-	}
-	
 	RenderingTextures[0] = nullptr;
 	RenderingTextures[1] = nullptr;
 	PPMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/RemoteSession/ARCameraPostProcess.ARCameraPostProcess"));

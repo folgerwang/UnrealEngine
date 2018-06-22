@@ -208,21 +208,37 @@ void FRemoteSessionRole::CreateChannel(const FString& InChannelName, ERemoteSess
 	{
 		NewChannel = MakeShareable(new FRemoteSessionFrameBufferChannel(InMode, OSCConnection));
 	}
-	else if (InChannelName == FRemoteSessionXRTrackingChannel::StaticType())
+    else if (InChannelName == FRemoteSessionXRTrackingChannel::StaticType())
 	{
-		NewChannel = MakeShareable(new FRemoteSessionXRTrackingChannel(InMode, OSCConnection));
-	}
-	else if (InChannelName == FRemoteSessionARCameraChannel::StaticType())
-	{
-		// Client side sending only works on iOS with Android coming in the future
-		bool IsSupported = (InMode == ERemoteSessionChannelMode::Read) || PLATFORM_IOS;
-		if (IsSupported)
+		// Skip if there isn't an AR session running
+		if (UARBlueprintLibrary::GetSessionStatus().Status == EARSessionStatus::Running))
 		{
-			NewChannel = MakeShareable(new FRemoteSessionARCameraChannel(InMode, OSCConnection));
+			NewChannel = MakeShareable(new FRemoteSessionXRTrackingChannel(InMode, OSCConnection));
 		}
 		else
 		{
-			UE_LOG(LogRemoteSession, Warning, TEXT("FRemoteSessionARCameraChannel does not support sending on this platform"));
+			UE_LOG(LogRemoteSession, Warning, TEXT("No AR session in progress so FRemoteSessionXRTrackingChannel is disabled"));
+		}
+	}
+	else if (InChannelName == FRemoteSessionARCameraChannel::StaticType())
+	{
+		// Skip if there isn't an AR session running
+		if (UARBlueprintLibrary::GetSessionStatus().Status == EARSessionStatus::Running))
+		{
+			// Client side sending only works on iOS with Android coming in the future
+			bool IsSupported = (InMode == ERemoteSessionChannelMode::Read) || PLATFORM_IOS;
+			if (IsSupported)
+			{
+				NewChannel = MakeShareable(new FRemoteSessionARCameraChannel(InMode, OSCConnection));
+			}
+			else
+			{
+				UE_LOG(LogRemoteSession, Warning, TEXT("FRemoteSessionARCameraChannel does not support sending on this platform"));
+			}
+		}
+		else
+		{
+			UE_LOG(LogRemoteSession, Warning, TEXT("No AR session in progress so FRemoteSessionARCameraChannel is disabled"));
 		}
 	}
 	
