@@ -4662,6 +4662,7 @@ bool FMeshUtilities::BuildSkeletalMesh_Legacy(FSkeletalMeshLODModel& LODModel
 	TArray<FSoftSkinBuildVertex> RawVertices;
 	RawVertices.Reserve(Points.Num());
 
+	int32 NTBErrorCount = 0;
 	// Create a list of vertex Z/index pairs
 
 	for (int32 FaceIndex = 0; FaceIndex < Faces.Num(); FaceIndex++)
@@ -4798,6 +4799,19 @@ bool FMeshUtilities::BuildSkeletalMesh_Legacy(FSkeletalMeshLODModel& LODModel
 				TangentZ.Normalize();
 			}
 
+			if (TangentX.IsNearlyZero() || TangentX.ContainsNaN())
+			{
+				NTBErrorCount++;
+			}
+			if (TangentY.IsNearlyZero() || TangentY.ContainsNaN())
+			{
+				NTBErrorCount++;
+			}
+			if (TangentZ.IsNearlyZero() || TangentZ.ContainsNaN())
+			{
+				NTBErrorCount++;
+			}
+
 			Vertex.TangentX = TangentX;
 			Vertex.TangentY = TangentY;
 			Vertex.TangentZ = TangentZ;
@@ -4854,6 +4868,15 @@ bool FMeshUtilities::BuildSkeletalMesh_Legacy(FSkeletalMeshLODModel& LODModel
 			IAndZ.Z = Vertex.Position.Z;
 
 			VertIndexAndZ.Add(IAndZ);
+		}
+	}
+
+	if (NTBErrorCount > 0 && OutWarningMessages)
+	{
+		OutWarningMessages->Add(FText::FromString(TEXT("SkeletalMesh compute tangents [built in]: Build result data contain 0 or NAN tangent value. Bad tangent value will impact shading.")));
+		if (OutWarningNames)
+		{
+			OutWarningNames->Add(FFbxErrors::Generic_Mesh_TangentsComputeError);
 		}
 	}
 
