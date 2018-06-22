@@ -221,7 +221,8 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 
 		// This is just to get the number of shader permutation down.
 		RecombineQuality == 0 &&
-		bUseLowAccumulatorQuality);
+		bUseLowAccumulatorQuality &&
+		FRCPassDiaphragmDOFGather::SupportRGBColorBuffer(ShaderPlatform));
 
 
 	// Derives everything needed from the view.
