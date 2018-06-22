@@ -778,7 +778,8 @@ bool FAndroidTargetPlatform::HandleTicker( float DeltaTime )
 			// create target device
 			FAndroidTargetDevicePtr& Device = Devices.Add(DeviceInfo.SerialNumber);
 
-			Device = MakeShareable(new FAndroidTargetDevice(*this, DeviceInfo.SerialNumber, GetAndroidVariantName()));
+			Device = CreateNewDevice(DeviceInfo);
+
 
 			Device->SetConnected(true);
 			Device->SetModel(DeviceInfo.Model);
@@ -805,6 +806,11 @@ bool FAndroidTargetPlatform::HandleTicker( float DeltaTime )
 	}
 
 	return true;
+}
+
+FAndroidTargetDeviceRef FAndroidTargetPlatform::CreateNewDevice(const FAndroidDeviceInfo &DeviceInfo)
+{
+	return MakeShareable(new FAndroidTargetDevice(*this, DeviceInfo.SerialNumber, GetAndroidVariantName()));
 }
 
 #undef LOCTEXT_NAMESPACE
