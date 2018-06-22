@@ -25,7 +25,7 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	 * 
 	 * @return True if TagOne matches TagTwo
 	 */
-	UFUNCTION(BlueprintPure, Category="GameplayTags", meta = (Keywords = "DoGameplayTagsMatch"))
+	UFUNCTION(BlueprintPure, Category="GameplayTags", meta = (Keywords = "DoGameplayTagsMatch", BlueprintThreadSafe))
 	static bool MatchesTag(FGameplayTag TagOne, FGameplayTag TagTwo, bool bExactMatch);
 
 	/**
@@ -37,27 +37,27 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	 * 
 	 * @return True if TagOne matches any tags explicitly present in OtherContainer
 	 */
-	UFUNCTION(BlueprintPure, Category="GameplayTags")
+	UFUNCTION(BlueprintPure, Category="GameplayTags", meta = (BlueprintThreadSafe))
 	static bool MatchesAnyTags(FGameplayTag TagOne, const FGameplayTagContainer& OtherContainer, bool bExactMatch);
 
 	/** Returns true if the values are equal (A == B) */
-	UFUNCTION(BlueprintPure, meta=(DisplayName="Equal (GameplayTag)", CompactNodeTitle="=="), Category="GameplayTags")
+	UFUNCTION(BlueprintPure, meta=(DisplayName="Equal (GameplayTag)", CompactNodeTitle="==", BlueprintThreadSafe), Category="GameplayTags")
 	static bool EqualEqual_GameplayTag( FGameplayTag A, FGameplayTag B );
 	
 	/** Returns true if the values are not equal (A != B) */
-	UFUNCTION(BlueprintPure, meta=(DisplayName="NotEqual (GameplayTag)", CompactNodeTitle="!="), Category="GameplayTags")
+	UFUNCTION(BlueprintPure, meta=(DisplayName="NotEqual (GameplayTag)", CompactNodeTitle="!=", BlueprintThreadSafe), Category="GameplayTags")
 	static bool NotEqual_GameplayTag( FGameplayTag A, FGameplayTag B );
 
 	/** Returns true if the passed in gameplay tag is non-null */
-	UFUNCTION(BlueprintPure, Category = "GameplayTags")
+	UFUNCTION(BlueprintPure, Category = "GameplayTags", meta = (BlueprintThreadSafe))
 	static bool IsGameplayTagValid(FGameplayTag GameplayTag);
 
 	/** Returns FName of this tag */
-	UFUNCTION(BlueprintPure, Category = "GameplayTags")
+	UFUNCTION(BlueprintPure, Category = "GameplayTags", meta = (BlueprintThreadSafe))
 	static FName GetTagName(const FGameplayTag& GameplayTag);
 
 	/** Creates a literal FGameplayTag */
-	UFUNCTION(BlueprintPure, Category = "GameplayTags")
+	UFUNCTION(BlueprintPure, Category = "GameplayTags", meta = (BlueprintThreadSafe))
 	static FGameplayTag MakeLiteralGameplayTag(FGameplayTag Value);
 
 	/**
@@ -67,7 +67,7 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	 * 
 	 * @return The number of tags in the specified container
 	 */
-	UFUNCTION(BlueprintPure, Category="GameplayTags")
+	UFUNCTION(BlueprintPure, Category="GameplayTags", meta = (BlueprintThreadSafe))
 	static int32 GetNumGameplayTagsInContainer(const FGameplayTagContainer& TagContainer);
 
 	/**
@@ -79,7 +79,7 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	 *
 	 * @return True if the container has the specified tag, false if it does not
 	 */
-	UFUNCTION(BlueprintPure, Category="GameplayTags", meta = (Keywords = "DoesContainerHaveTag"))
+	UFUNCTION(BlueprintPure, Category="GameplayTags", meta = (Keywords = "DoesContainerHaveTag", BlueprintThreadSafe))
 	static bool HasTag(const FGameplayTagContainer& TagContainer, FGameplayTag Tag, bool bExactMatch);
 
 	/**
@@ -91,7 +91,7 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	 * 
 	 * @return True if the container has ANY of the tags in the other container
 	 */
-	UFUNCTION(BlueprintPure, Category="GameplayTags", meta = (Keywords = "DoesContainerMatchAnyTagsInContainer"))
+	UFUNCTION(BlueprintPure, Category="GameplayTags", meta = (Keywords = "DoesContainerMatchAnyTagsInContainer", BlueprintThreadSafe))
 	static bool HasAnyTags(const FGameplayTagContainer& TagContainer, const FGameplayTagContainer& OtherContainer, bool bExactMatch);
 
 	/**
@@ -103,7 +103,7 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	 * 
 	 * @return True if the container has ALL of the tags in the other container
 	 */
-	UFUNCTION(BlueprintPure, Category="GameplayTags", meta = (Keywords = "DoesContainerMatchAllTagsInContainer"))
+	UFUNCTION(BlueprintPure, Category="GameplayTags", meta = (Keywords = "DoesContainerMatchAllTagsInContainer", BlueprintThreadSafe))
 	static bool HasAllTags(const FGameplayTagContainer& TagContainer, const FGameplayTagContainer& OtherContainer, bool bExactMatch);
 
 	/**
@@ -114,7 +114,7 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	 * 
 	 * @return True if the container matches the query, false otherwise.
 	 */
-	UFUNCTION(BlueprintPure, Category = "GameplayTags")
+	UFUNCTION(BlueprintPure, Category = "GameplayTags", meta = (BlueprintThreadSafe))
 	static bool DoesContainerMatchTagQuery(const FGameplayTagContainer& TagContainer, const FGameplayTagQuery& TagQuery);
 
 	/**
@@ -133,7 +133,7 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	 * @param InOutTagContainer		The container that will be appended too.
 	 * @param Tag					The tag to add to the container
 	 */
-	UFUNCTION(BlueprintCallable, Category = "GameplayTags")
+	UFUNCTION(BlueprintCallable, Category = "GameplayTags", meta = (BlueprintThreadSafe))
 	static void AddGameplayTag(UPARAM(ref) FGameplayTagContainer& TagContainer, FGameplayTag Tag);
 
 	/**
@@ -142,7 +142,7 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	 * @param InOutTagContainer		The container that will be appended too.
 	 * @param Tag					The tag to add to the container
 	 */
-	UFUNCTION(BlueprintCallable, Category = "GameplayTags")
+	UFUNCTION(BlueprintCallable, Category = "GameplayTags", meta = (BlueprintThreadSafe))
 	static bool RemoveGameplayTag(UPARAM(ref) FGameplayTagContainer& TagContainer, FGameplayTag Tag);
 
 	/**
@@ -151,31 +151,31 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	 * @param InOutTagContainer		The container that will be appended too.
 	 * @param InTagContainer		The container to append.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "GameplayTags")
+	UFUNCTION(BlueprintCallable, Category = "GameplayTags", meta = (BlueprintThreadSafe))
 	static void AppendGameplayTagContainers(UPARAM(ref) FGameplayTagContainer& InOutTagContainer, const FGameplayTagContainer& InTagContainer);
 
 	/** Returns true if the values are equal (A == B) */
-	UFUNCTION(BlueprintPure, meta=(DisplayName="Equal (GameplayTagContainer)", CompactNodeTitle="=="), Category="GameplayTags")
+	UFUNCTION(BlueprintPure, meta=(DisplayName="Equal (GameplayTagContainer)", CompactNodeTitle="==", BlueprintThreadSafe), Category="GameplayTags")
 	static bool EqualEqual_GameplayTagContainer( const FGameplayTagContainer& A, const FGameplayTagContainer& B );
 	
 	/** Returns true if the values are not equal (A != B) */
-	UFUNCTION(BlueprintPure, meta=(DisplayName="NotEqual (GameplayTagContainer)", CompactNodeTitle="!="), Category="GameplayTags")
+	UFUNCTION(BlueprintPure, meta=(DisplayName="NotEqual (GameplayTagContainer)", CompactNodeTitle="!=", BlueprintThreadSafe), Category="GameplayTags")
 	static bool NotEqual_GameplayTagContainer( const FGameplayTagContainer& A, const FGameplayTagContainer& B );
 
 	/** Creates a literal FGameplayTagContainer */
-	UFUNCTION(BlueprintPure, Category = "GameplayTags")
+	UFUNCTION(BlueprintPure, Category = "GameplayTags", meta = (BlueprintThreadSafe))
 	static FGameplayTagContainer MakeLiteralGameplayTagContainer(FGameplayTagContainer Value);
 
 	/** Creates a FGameplayTagContainer from the array of passed in tags */
-	UFUNCTION(BlueprintPure, Category = "GameplayTags")
+	UFUNCTION(BlueprintPure, Category = "GameplayTags", meta = (BlueprintThreadSafe))
 	static FGameplayTagContainer MakeGameplayTagContainerFromArray(const TArray<FGameplayTag>& GameplayTags);
 
 	/** Creates a FGameplayTagContainer containing a single tag */
-	UFUNCTION(BlueprintPure, Category = "GameplayTags")
+	UFUNCTION(BlueprintPure, Category = "GameplayTags", meta = (BlueprintThreadSafe))
 	static FGameplayTagContainer MakeGameplayTagContainerFromTag(FGameplayTag SingleTag);
 
 	/** Breaks tag container into explicit array of tags */
-	UFUNCTION(BlueprintPure, Category = "GameplayTags")
+	UFUNCTION(BlueprintPure, Category = "GameplayTags", meta = (BlueprintThreadSafe))
 	static void BreakGameplayTagContainer(const FGameplayTagContainer& GameplayTagContainer, TArray<FGameplayTag>& GameplayTags);
 
 	/**
@@ -185,7 +185,7 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	 *
 	 * @return	The literal FGameplayTagQuery
 	 */
-	UFUNCTION(BlueprintPure, Category = "GameplayTags")
+	UFUNCTION(BlueprintPure, Category = "GameplayTags", meta = (BlueprintThreadSafe))
 	static FGameplayTagQuery MakeGameplayTagQuery(FGameplayTagQuery TagQuery);
 
 	/**
@@ -223,7 +223,7 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	 *
 	 * @param TagContainer	The tag container to get the debug string from.
 	 */
-	UFUNCTION(BlueprintPure, Category = "GameplayTags")
+	UFUNCTION(BlueprintPure, Category = "GameplayTags", meta = (BlueprintThreadSafe))
 	static FString GetDebugStringFromGameplayTagContainer(const FGameplayTagContainer& TagContainer);
 
 	/**
@@ -231,7 +231,7 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	 *
 	 * @param GameplayTag	The tag to get the debug string from.
 	 */
-	UFUNCTION(BlueprintPure, Category = "GameplayTags")
+	UFUNCTION(BlueprintPure, Category = "GameplayTags", meta = (BlueprintThreadSafe))
 	static FString GetDebugStringFromGameplayTag(FGameplayTag GameplayTag);
 
 };
