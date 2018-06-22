@@ -144,7 +144,7 @@ public:
 private:
 	/** The actor we want to record */
 	UPROPERTY(EditAnywhere, Category = "Actor Recording")
-	FSoftObjectPath ActorToRecord;
+	TSoftObjectPtr<AActor> ActorToRecord;
 
 	/** This actor's current set of section recorders */
 	TArray<TSharedPtr<class IMovieSceneSectionRecorder>> SectionRecorders;

@@ -801,7 +801,7 @@ bool UActorRecording::StopRecording(ULevelSequence* OriginalSequence, float Curr
 	}
 
 	// Swap to editor actor in case the actor was set while in PIE
-	if (AActor* Actor = Cast<AActor>(ActorToRecord.ResolveObject()))
+	if (AActor* Actor = ActorToRecord.Get())
 	{
 		if (AActor* EditorActor = EditorUtilities::GetEditorWorldCounterpartActor(Actor))
 		{
@@ -819,7 +819,7 @@ bool UActorRecording::IsRecording() const
 
 AActor* UActorRecording::GetActorToRecord() const
 {
-	if (AActor* AssignedActor = Cast<AActor>(ActorToRecord.ResolveObject()))
+	if (AActor* AssignedActor = ActorToRecord.Get())
 	{
 		AActor* OutActor = EditorUtilities::GetSimWorldCounterpartActor(AssignedActor);
 
