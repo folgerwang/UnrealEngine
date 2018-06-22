@@ -418,9 +418,9 @@ struct FAccumulatorOutput
 	// Coc average and variance for background.
 	float2 BackgroundCocAvgAndSquareAvg;
 
-	// Slight out of focus color and weight.
+	// Slight out of focus color and opacity.
 	float4 SlightFocusColor;
-	float SlightFocusWeight;
+	float SlightFocusOpacity;
 };
 
 
@@ -451,6 +451,6 @@ FAccumulatorOutput CreateAccumulatorOutput()
 	AccumulatorOutput.BackgroundWeight = 0;
 	AccumulatorOutput.BackgroundCocAvgAndSquareAvg = 0;
 	AccumulatorOutput.SlightFocusColor = 0;
-	AccumulatorOutput.SlightFocusWeight = 0;
+	AccumulatorOutput.SlightFocusOpacity = 0;
 	return AccumulatorOutput;
 }

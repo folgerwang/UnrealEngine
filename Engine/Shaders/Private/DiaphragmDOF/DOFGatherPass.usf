@@ -102,7 +102,7 @@ void StoreAccumulatorOutput(in uint2 OutputPixelPosition, in FAccumulatorOutput 
 		#elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
 			Output0[OutputPixelPosition] = float4(
 				AccumulatorOutput.SlightFocusColor.rgb,
-				AccumulatorOutput.SlightFocusWeight);
+				AccumulatorOutput.SlightFocusOpacity);
 		
 		#else
 			#error Unknown layer processing.
@@ -129,7 +129,7 @@ void StoreAccumulatorOutput(in uint2 OutputPixelPosition, in FAccumulatorOutput 
 		#elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
 			Output0[OutputPixelPosition] = float4(
 				AccumulatorOutput.SlightFocusColor.rgb,
-				AccumulatorOutput.SlightFocusWeight);
+				AccumulatorOutput.SlightFocusOpacity);
 		
 		#else
 			#error Unknown layer processing.
@@ -336,10 +336,6 @@ void GatherMainCS(
 
 			AccumulatorOutput.BackgroundCocAvgAndSquareAvg.x = GatherParameters.KernelRadius;
 			AccumulatorOutput.BackgroundCocAvgAndSquareAvg.y = 0;
-
-		#elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
-			AccumulatorOutput.SlightFocusColor = FastAccumulatorOutput.Color;
-			AccumulatorOutput.SlightFocusWeight = FastAccumulatorOutput.Weight;
 
 		#else
 			#error Fast gathering is not supported.

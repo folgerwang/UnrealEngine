@@ -4,6 +4,8 @@
 	DiaphragmDOF/DOFSetup.usf: Diaphragm DOF's setup shader. 
 =============================================================================*/
 
+#define CONFIG_SETUP 1
+
 #include "DOFDownsample.ush"
 
 
