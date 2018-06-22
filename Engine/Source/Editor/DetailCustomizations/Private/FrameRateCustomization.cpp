@@ -73,7 +73,7 @@ void FFrameRateCustomization::SetFrameRate(FFrameRate NewFrameRate)
 
 		FString TextValue;
 		StructProperty->Struct->ExportText(TextValue, &NewFrameRate, PreviousFrameRate, nullptr, EPropertyPortFlags::PPF_None, nullptr);
-		ensure(StructPropertyHandle->SetValueFromFormattedString(TextValue, EPropertyValueSetFlags::InteractiveChange) == FPropertyAccess::Result::Success);
+		ensure(StructPropertyHandle->SetValueFromFormattedString(TextValue, EPropertyValueSetFlags::DefaultFlags) == FPropertyAccess::Result::Success);
 	}
 }
 
