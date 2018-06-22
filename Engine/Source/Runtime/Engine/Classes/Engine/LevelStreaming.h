@@ -161,6 +161,11 @@ private:
 	UPROPERTY(Category=LevelStreaming, BlueprintSetter=SetShouldBeVisible)
 	uint8 bShouldBeVisible:1;
 
+protected:
+	/** Whether the level should be loaded																						*/
+	UPROPERTY(Category=LevelStreaming, BlueprintSetter=SetShouldBeLoaded, BlueprintGetter=ShouldBeLoaded)
+	uint8 bShouldBeLoaded:1;
+
 public:
 
 	/** Whether this level is locked; that is, its actors are read-only. */
@@ -264,6 +269,7 @@ public:
 	 * Virtual that can be overriden to change whether a streaming level should be loaded.
 	 * Doesn't do anything at the base level as should be loaded defaults to true 
 	 */
+	UFUNCTION(BlueprintSetter)
 	virtual void SetShouldBeLoaded(bool bInShouldBeLoaded);
 
 	/** Returns the world composition level LOD index. */
@@ -325,7 +331,8 @@ public:
 	 *
 	 * @return true if level should be loaded/ streamed in, false otherwise
 	 */
-	virtual bool ShouldBeLoaded() const;
+	UFUNCTION(BlueprintGetter)
+	virtual bool ShouldBeLoaded() const { return true; }
 
 	/**
 	 * Return whether this level should be visible/ associated with the world if it is
@@ -525,4 +532,3 @@ private:
 	friend class UEngine;
 	friend class UWorld;
 };
-

@@ -55,14 +55,9 @@ class ENGINE_API ULevelStreamingKismet : public ULevelStreaming
 	virtual bool ShouldBeLoaded() const override { return bShouldBeLoaded; }
 	//~ End ULevelStreaming Interface
 
-	UFUNCTION(BlueprintSetter)
 	virtual void SetShouldBeLoaded(bool bShouldBeLoaded) override;
 
 private:
-
-	/** Whether the level should be loaded																						*/
-	UPROPERTY(Category=LevelStreaming, BlueprintSetter=SetShouldBeLoaded)
-	uint32 bShouldBeLoaded:1;
 
 	// Counter used by LoadLevelInstance to create unique level names
 	static int32 UniqueLevelInstanceId;
