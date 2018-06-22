@@ -18,6 +18,12 @@ FD3D12Device::FD3D12Device() :
 	}
 
 FD3D12Device::FD3D12Device(FRHIGPUMask Node, FD3D12Adapter* InAdapter) :
+	FD3D12SingleNodeGPUObject(Node),
+	FD3D12AdapterChild(InAdapter),
+	CommandListManager(nullptr),
+	CopyCommandListManager(nullptr),
+	AsyncCommandListManager(nullptr),
+	TextureStreamingCommandAllocatorManager(this, D3D12_COMMAND_LIST_TYPE_COPY),
 	RTVAllocator(Node, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 256),
 	DSVAllocator(Node, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 256),
 	SRVAllocator(Node, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024),
@@ -26,20 +32,14 @@ FD3D12Device::FD3D12Device(FRHIGPUMask Node, FD3D12Adapter* InAdapter) :
 	CBVAllocator(Node, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2048),
 #endif
 	SamplerAllocator(Node, FD3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 128),
-	SamplerID(0),
+	GlobalSamplerHeap(this, Node),
+	GlobalViewHeap(this, Node),
 	OcclusionQueryHeap(this, D3D12_QUERY_HEAP_TYPE_OCCLUSION, 65536, 4 /*frames to keep results */ * 1 /*batches per frame*/),
 	TimestampQueryHeap(this, D3D12_QUERY_HEAP_TYPE_TIMESTAMP, 8192, 4 /*frames to keep results */ * 5 /*batches per frame*/ ),
 	DefaultBufferAllocator(this, Node), //Note: Cross node buffers are possible 
-	CommandListManager(nullptr),
-	CopyCommandListManager(nullptr),
-	AsyncCommandListManager(nullptr),
-	TextureStreamingCommandAllocatorManager(this, D3D12_COMMAND_LIST_TYPE_COPY),
-	GlobalSamplerHeap(this, Node),
-	GlobalViewHeap(this, Node),
+	SamplerID(0),
 	DefaultFastAllocator(this, Node, D3D12_HEAP_TYPE_UPLOAD, 1024 * 1024 * 4),
-	TextureAllocator(this, Node),
-	FD3D12SingleNodeGPUObject(Node),
-	FD3D12AdapterChild(InAdapter)
+	TextureAllocator(this, Node)
 {
 	InitPlatformSpecific();
 }

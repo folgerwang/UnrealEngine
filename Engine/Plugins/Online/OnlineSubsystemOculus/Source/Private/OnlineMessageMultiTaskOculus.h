@@ -29,9 +29,11 @@ PACKAGE_SCOPE:
 
 	FOnlineMessageMultiTaskOculus(
 		FOnlineSubsystemOculus& InOculusSubsystem,
-		const FOnlineMessageMultiTaskOculus::FFinalizeDelegate& InDelegate) :
-		OculusSubsystem(InOculusSubsystem),
-		Delegate(InDelegate) {}
+		const FOnlineMessageMultiTaskOculus::FFinalizeDelegate& InDelegate)
+		: Delegate(InDelegate)
+		, OculusSubsystem(InOculusSubsystem)
+	{
+	}
 
 	void AddNewRequest(ovrRequest RequestId);
 };

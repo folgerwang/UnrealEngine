@@ -11,8 +11,8 @@
 
 FDisplayClusterSession::FDisplayClusterSession(FSocket* pSock, IDisplayClusterSessionListener* pListener, const FString& name) :
 	FDisplayClusterSocketOps(pSock),
-	Listener(pListener),
-	Name(name)
+	Name(name),
+	Listener(pListener)
 {
 	check(pSock);
 	check(pListener);

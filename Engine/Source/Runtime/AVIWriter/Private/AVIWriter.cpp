@@ -32,9 +32,16 @@ typedef TCHAR* PTCHAR;
 	#pragma warning(disable:6101)  // Returning uninitialized memory '*lpdwExitCode'.  A successful path through the function does not set the named _Out_ parameter.
 	#pragma warning(disable:28204) // 'Func' has an override at 'file' and only the override is annotated for _Param_(N): when an override is annotated, the base (this function) should be similarly annotated.
 #endif
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wreorder"
+#endif
 #include <streams.h>
 #include <dshow.h>
 #include <initguid.h>
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 #pragma warning(pop)
 
 #include "Windows/HideWindowsPlatformTypes.h"

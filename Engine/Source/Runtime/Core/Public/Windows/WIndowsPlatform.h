@@ -46,11 +46,7 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #endif
 
 #define PLATFORM_SUPPORTS_PRAGMA_PACK						1
-#if defined(__clang__)
-	#define PLATFORM_ENABLE_VECTORINTRINSICS				0
-#else
-	#define PLATFORM_ENABLE_VECTORINTRINSICS				1
-#endif
+#define PLATFORM_ENABLE_VECTORINTRINSICS					1
 #define PLATFORM_USE_LS_SPEC_FOR_WIDECHAR					0
 //#define PLATFORM_USE_SYSTEM_VSWPRINTF						1
 //#define PLATFORM_TCHAR_IS_4_BYTES							0

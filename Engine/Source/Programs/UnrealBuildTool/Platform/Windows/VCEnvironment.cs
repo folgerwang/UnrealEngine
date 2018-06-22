@@ -18,14 +18,24 @@ namespace UnrealBuildTool
 	class VCEnvironment
 	{
 		/// <summary>
-		/// The platform the envvars have been initialized for
+		/// The compiler version
 		/// </summary>
-		public readonly CppPlatform Platform;
+		public readonly WindowsCompiler Compiler;
+
+		/// <summary>
+		/// The compiler directory
+		/// </summary>
+		public readonly DirectoryReference CompilerDir;
 
 		/// <summary>
 		/// The compiler version
 		/// </summary>
-		public readonly WindowsCompiler Compiler;
+		public readonly VersionNumber CompilerVersion;
+
+		/// <summary>
+		/// The underlying toolchain to use. Using Clang/ICL will piggy-back on a Visual Studio toolchain for the CRT, linker, etc...
+		/// </summary>
+		public readonly WindowsCompiler ToolChain;
 
 		/// <summary>
 		/// Root directory containing the toolchain
@@ -80,33 +90,39 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Constructor
 		/// </summary>
-		/// <param name="Compiler">The compiler version</param>
 		/// <param name="Platform">The platform to find the compiler for</param>
+		/// <param name="Compiler">The compiler to use</param>
+		/// <param name="CompilerDir">The compiler directory</param>
+		/// <param name="CompilerVersion">The compiler version number</param>
+		/// <param name="ToolChain">The base toolchain version</param>
 		/// <param name="ToolChainDir">Directory containing the toolchain</param>
 		/// <param name="ToolChainVersion">Version of the toolchain</param>
 		/// <param name="WindowsSdkDir">Root directory containing the Windows Sdk</param>
 		/// <param name="WindowsSdkVersion">Version of the Windows Sdk</param>
-		public VCEnvironment(WindowsCompiler Compiler, CppPlatform Platform, DirectoryReference ToolChainDir, VersionNumber ToolChainVersion, DirectoryReference WindowsSdkDir, VersionNumber WindowsSdkVersion)
+		public VCEnvironment(CppPlatform Platform, WindowsCompiler Compiler, DirectoryReference CompilerDir, VersionNumber CompilerVersion, WindowsCompiler ToolChain, DirectoryReference ToolChainDir, VersionNumber ToolChainVersion, DirectoryReference WindowsSdkDir, VersionNumber WindowsSdkVersion)
 		{
 			this.Compiler = Compiler;
-			this.Platform = Platform;
+			this.CompilerDir = CompilerDir;
+			this.CompilerVersion = CompilerVersion;
+			this.ToolChain = ToolChain;
 			this.ToolChainDir = ToolChainDir;
 			this.ToolChainVersion = ToolChainVersion;
 			this.WindowsSdkDir = WindowsSdkDir;
 			this.WindowsSdkVersion = WindowsSdkVersion;
 
-			DirectoryReference VCToolPath32 = GetVCToolPath32(Compiler, ToolChainDir);
-			DirectoryReference VCToolPath64 = GetVCToolPath64(Compiler, ToolChainDir);
+			// Get the standard VC paths
+			DirectoryReference VCToolPath32 = GetVCToolPath32(ToolChain, ToolChainDir);
+			DirectoryReference VCToolPath64 = GetVCToolPath64(ToolChain, ToolChainDir);
 
             // Compile using 64 bit tools for 64 bit targets, and 32 for 32.
-            DirectoryReference CompilerDir = (Platform == CppPlatform.Win64) ? VCToolPath64 : VCToolPath32;
+			CompilerPath = GetCompilerToolPath(Platform, Compiler, CompilerDir);
 
 			// Regardless of the target, if we're linking on a 64 bit machine, we want to use the 64 bit linker (it's faster than the 32 bit linker and can handle large linking jobs)
-			DirectoryReference LinkerDir = VCToolPath64;
+			DirectoryReference DefaultLinkerDir = VCToolPath64;
+			LinkerPath = GetLinkerToolPath(Platform, Compiler, DefaultLinkerDir);
+			LibraryManagerPath = GetLibraryLinkerToolPath(Platform, Compiler, DefaultLinkerDir);
 
-			CompilerPath = GetCompilerToolPath(Platform, CompilerDir);
-			LinkerPath = GetLinkerToolPath(Platform, LinkerDir);
-			LibraryManagerPath = GetLibraryLinkerToolPath(Platform, LinkerDir);
+			// Get the resource compiler path from the Windows SDK
 			ResourceCompilerPath = GetResourceCompilerToolPath(Platform, WindowsSdkDir, WindowsSdkVersion);
 
 			// Add both toolchain paths to the PATH environment variable. There are some support DLLs which are only added to one of the paths, but which the toolchain in the other directory
@@ -123,7 +139,7 @@ namespace UnrealBuildTool
 			}
 
 			// Get all the system include paths
-			SetupEnvironment();
+			SetupEnvironment(Platform);
 		}
 
 		/// <summary>
@@ -224,107 +240,94 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Gets the path to the compiler.
 		/// </summary>
-		static FileReference GetCompilerToolPath(CppPlatform Platform, DirectoryReference PlatformVSToolPath)
+		static FileReference GetCompilerToolPath(CppPlatform Platform, WindowsCompiler Compiler, DirectoryReference CompilerDir)
 		{
-			// If we were asked to use Clang, then we'll redirect the path to the compiler to the LLVM installation directory
-			if (WindowsPlatform.bCompileWithClang)
+			if (Compiler == WindowsCompiler.Clang)
 			{
-				string CompilerDriverName;
-				string Result;
-				if (WindowsPlatform.bUseVCCompilerArgs)
+				return FileReference.Combine(CompilerDir, "bin", "clang-cl.exe");
+			}
+			else if(Compiler == WindowsCompiler.Intel)
+			{
+				if(Platform == CppPlatform.Win32)
 				{
-					// Use 'clang-cl', a wrapper around Clang that supports Visual C++ compiler command-line arguments
-					CompilerDriverName = "clang-cl.exe";
+					return FileReference.Combine(CompilerDir, "bin", "ia32", "icl.exe");
 				}
 				else
 				{
-					// Use regular Clang compiler on Windows
-					CompilerDriverName = "clang.exe";
+					return FileReference.Combine(CompilerDir, "bin", "intel64", "icl.exe");
 				}
-
-				Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "LLVM", "bin", CompilerDriverName);
-				if (!File.Exists(Result))
-				{
-					Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "LLVM", "bin", CompilerDriverName);
-				}
-
-				if (!File.Exists(Result))
-				{
-					throw new BuildException("Clang was selected as the Windows compiler, but LLVM/Clang does not appear to be installed.  Could not find: " + Result);
-				}
-
-				return new FileReference(Result);
 			}
-
-			if (WindowsPlatform.bCompileWithICL)
+			else
 			{
-				string Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "bin", Platform == CppPlatform.Win32 ? "ia32" : "intel64", "icl.exe");
-				if (!File.Exists(Result))
+				if(Platform == CppPlatform.Win32)
 				{
-					throw new BuildException("ICL was selected as the Windows compiler, but does not appear to be installed.  Could not find: " + Result);
+					return FileReference.Combine(GetVCToolPath32(Compiler, CompilerDir), "cl.exe");
 				}
-
-				return new FileReference(Result);
+				else
+				{
+					return FileReference.Combine(GetVCToolPath64(Compiler, CompilerDir), "cl.exe");
+				}
 			}
-
-			return FileReference.Combine(PlatformVSToolPath, "cl.exe");
 		}
 
 		/// <summary>
 		/// Gets the path to the linker.
 		/// </summary>
-		static FileReference GetLinkerToolPath(CppPlatform Platform, DirectoryReference PlatformVSToolPath)
+		static FileReference GetLinkerToolPath(CppPlatform Platform, WindowsCompiler Compiler, DirectoryReference DefaultLinkerDir)
 		{
 			// If we were asked to use Clang, then we'll redirect the path to the compiler to the LLVM installation directory
-			if (WindowsPlatform.bCompileWithClang && WindowsPlatform.bAllowClangLinker)
+			if (Compiler == WindowsCompiler.Clang && WindowsPlatform.bAllowClangLinker)
 			{
-				string Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "LLVM", "bin", "lld.exe");
-				if (!File.Exists(Result))
+				FileReference LinkerPath = FileReference.Combine(DirectoryReference.GetSpecialFolder(Environment.SpecialFolder.ProgramFiles), "LLVM", "bin", "lld.exe");
+				if (FileReference.Exists(LinkerPath))
 				{
-					Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "LLVM", "bin", "lld.exe");
-				}
-				if (!File.Exists(Result))
-				{
-					throw new BuildException("Clang was selected as the Windows compiler, but LLVM/Clang does not appear to be installed.  Could not find: " + Result);
+					return LinkerPath;
 				}
 
-				return new FileReference(Result);
+				FileReference LinkerPathX86 = FileReference.Combine(DirectoryReference.GetSpecialFolder(Environment.SpecialFolder.ProgramFilesX86), "LLVM", "bin", "lld.exe");
+				if (FileReference.Exists(LinkerPathX86))
+				{
+					return LinkerPathX86;
+				}
+
+				throw new BuildException("Clang was selected as the Windows compiler, but {0} and {1} were not found.", LinkerPath, LinkerPathX86);
 			}
-
-			if (WindowsPlatform.bCompileWithICL && WindowsPlatform.bAllowICLLinker)
+			else if(Compiler == WindowsCompiler.Intel && WindowsPlatform.bAllowICLLinker)
 			{
-				string Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "bin", Platform == CppPlatform.Win32 ? "ia32" : "intel64", "xilink.exe");
-				if (!File.Exists(Result))
+				FileReference LinkerPath = FileReference.Combine(DirectoryReference.GetSpecialFolder(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "bin", (Platform == CppPlatform.Win32)? "ia32" : "intel64", "xilink.exe");
+				if (FileReference.Exists(LinkerPath))
 				{
-					throw new BuildException("ICL was selected as the Windows compiler, but does not appear to be installed.  Could not find: " + Result);
+					return LinkerPath;
 				}
 
-				return new FileReference(Result);
+				throw new BuildException("ICL was selected as the Windows compiler, but {0} was not found.", LinkerPath);
 			}
-
-			return FileReference.Combine(PlatformVSToolPath, "link.exe");
+			else
+			{
+				return FileReference.Combine(DefaultLinkerDir, "link.exe");
+			}
 		}
 
 		/// <summary>
 		/// Gets the path to the library linker.
 		/// </summary>
-		static FileReference GetLibraryLinkerToolPath(CppPlatform Platform, DirectoryReference PlatformVSToolPath)
+		static FileReference GetLibraryLinkerToolPath(CppPlatform Platform, WindowsCompiler Compiler, DirectoryReference DefaultLinkerDir)
 		{
 			// Regardless of the target, if we're linking on a 64 bit machine, we want to use the 64 bit linker (it's faster than the 32 bit linker)
-			//@todo.WIN32: Using the 64-bit linker appears to be broken at the moment.
-
-			if (WindowsPlatform.bCompileWithICL && WindowsPlatform.bAllowICLLinker)
+			if (Compiler == WindowsCompiler.Intel && WindowsPlatform.bAllowICLLinker)
 			{
-				string Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "bin", Platform == CppPlatform.Win32 ? "ia32" : "intel64", "xilib.exe");
-				if (!File.Exists(Result))
+				FileReference LibPath = FileReference.Combine(DirectoryReference.GetSpecialFolder(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "bin", Platform == CppPlatform.Win32 ? "ia32" : "intel64", "xilib.exe");
+				if (FileReference.Exists(LibPath))
 				{
-					throw new BuildException("ICL was selected as the Windows compiler, but does not appear to be installed.  Could not find: " + Result);
+					return LibPath;
 				}
 
-				return new FileReference(Result);
+				throw new BuildException("ICL was selected as the Windows compiler, but does not appear to be installed.  Could not find: " + LibPath);
 			}
-
-			return FileReference.Combine(PlatformVSToolPath, "lib.exe");
+			else
+			{
+				return FileReference.Combine(DefaultLinkerDir, "lib.exe");
+			}
 		}
 
 		/// <summary>
@@ -367,13 +370,13 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Sets up the standard compile environment for the toolchain
 		/// </summary>
-		private void SetupEnvironment()
+		private void SetupEnvironment(CppPlatform Platform)
 		{
 			// Add the standard Visual C++ include paths
 			IncludePaths.Add(DirectoryReference.Combine(ToolChainDir, "INCLUDE"));
 
 			// Add the standard Visual C++ library paths
-			if (Compiler >= WindowsCompiler.VisualStudio2017)
+			if (ToolChain >= WindowsCompiler.VisualStudio2017)
 			{
 				if (Platform == CppPlatform.Win32)
 				{
@@ -397,12 +400,12 @@ namespace UnrealBuildTool
 			}
 
 			// If we're on Visual Studio 2015 and using pre-Windows 10 SDK, we need to find a Windows 10 SDK and add the UCRT include paths
-			if(Compiler >= WindowsCompiler.VisualStudio2015 && WindowsSdkVersion < new VersionNumber(10))
+			if(ToolChain >= WindowsCompiler.VisualStudio2015 && WindowsSdkVersion < new VersionNumber(10))
 			{
 				KeyValuePair<VersionNumber, DirectoryReference> Pair = WindowsPlatform.FindUniversalCrtDirs().OrderByDescending(x => x.Key).FirstOrDefault();
 				if(Pair.Key == null || Pair.Key < new VersionNumber(10))
 				{
-					throw new BuildException("{0} requires the Universal CRT to be installed.", WindowsPlatform.GetCompilerName(Compiler));
+					throw new BuildException("{0} requires the Universal CRT to be installed.", WindowsPlatform.GetCompilerName(ToolChain));
 				}
 
 				DirectoryReference IncludeRootDir = DirectoryReference.Combine(Pair.Value, "include", Pair.Key.ToString());
@@ -484,12 +487,31 @@ namespace UnrealBuildTool
 		/// <returns>New environment object with paths for the given settings</returns>
 		public static VCEnvironment Create(WindowsCompiler Compiler, CppPlatform Platform, string CompilerVersion, string WindowsSdkVersion)
 		{
-			// Get the actual toolchain directory
-			VersionNumber SelectedToolChainVersion;
-			DirectoryReference SelectedToolChainDir;
-			if(!WindowsPlatform.TryGetVCToolChainDir(Compiler, CompilerVersion, out SelectedToolChainVersion, out SelectedToolChainDir))
+			// Get the compiler version info
+			VersionNumber SelectedCompilerVersion;
+			DirectoryReference SelectedCompilerDir;
+			if(!WindowsPlatform.TryGetToolChainDir(Compiler, CompilerVersion, out SelectedCompilerVersion, out SelectedCompilerDir))
 			{
 				throw new BuildException("{0}{1} must be installed in order to build this target.", WindowsPlatform.GetCompilerName(Compiler), String.IsNullOrEmpty(CompilerVersion)? "" : String.Format(" ({0})", CompilerVersion));
+			}
+
+			// Get the toolchain info
+			WindowsCompiler ToolChain;
+			VersionNumber SelectedToolChainVersion;
+			DirectoryReference SelectedToolChainDir;
+			if(Compiler == WindowsCompiler.Clang || Compiler == WindowsCompiler.Intel)
+			{
+				ToolChain = WindowsCompiler.VisualStudio2017;
+				if(!WindowsPlatform.TryGetToolChainDir(ToolChain, CompilerVersion, out SelectedToolChainVersion, out SelectedToolChainDir))
+				{
+					throw new BuildException("{0}{1} must be installed in order to build this target.", WindowsPlatform.GetCompilerName(Compiler), String.IsNullOrEmpty(CompilerVersion)? "" : String.Format(" ({0})", CompilerVersion));
+				}
+			}
+			else
+			{
+				ToolChain = Compiler;
+				SelectedToolChainVersion = SelectedCompilerVersion;
+				SelectedToolChainDir = SelectedCompilerDir;
 			}
 
 			// Get the actual Windows SDK directory
@@ -500,7 +522,7 @@ namespace UnrealBuildTool
 				throw new BuildException("Windows SDK{1} must be installed in order to build this target.", String.IsNullOrEmpty(WindowsSdkVersion)? "" : String.Format(" ({0})", WindowsSdkVersion));
 			}
 
-			return new VCEnvironment(Compiler, Platform, SelectedToolChainDir, SelectedToolChainVersion, SelectedWindowsSdkDir, SelectedWindowsSdkVersion);
+			return new VCEnvironment(Platform, Compiler, SelectedCompilerDir, SelectedCompilerVersion, ToolChain, SelectedToolChainDir, SelectedToolChainVersion, SelectedWindowsSdkDir, SelectedWindowsSdkVersion);
 		}
 	}
 }

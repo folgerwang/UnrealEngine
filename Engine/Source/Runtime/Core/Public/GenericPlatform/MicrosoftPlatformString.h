@@ -187,7 +187,7 @@ struct FMicrosoftPlatformString : public FGenericPlatformString
 		_strupr_s(Dest, DestCount);
 		return Dest;
 #else
-		return (ANSICHAR*)strupr(Dest);
+		return (ANSICHAR*)_strupr(Dest);
 #endif // USE_SECURE_CRT
 	}
 

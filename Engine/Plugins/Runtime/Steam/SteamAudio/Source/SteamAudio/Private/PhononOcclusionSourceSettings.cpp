@@ -5,8 +5,8 @@
 #include "PhononOcclusionSourceSettings.h"
 
 UPhononOcclusionSourceSettings::UPhononOcclusionSourceSettings()
-	: DirectOcclusionMethod(EIplDirectOcclusionMethod::RAYCAST)
-	, DirectOcclusionMode(EIplDirectOcclusionMode::NONE)
+	: DirectOcclusionMode(EIplDirectOcclusionMode::NONE)
+	, DirectOcclusionMethod(EIplDirectOcclusionMethod::RAYCAST)
 	, DirectOcclusionSourceRadius(100.0f)
 	, DirectAttenuation(true)
 	, AirAbsorption(true)

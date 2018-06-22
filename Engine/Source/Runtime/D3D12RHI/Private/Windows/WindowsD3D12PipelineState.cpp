@@ -600,8 +600,8 @@ bool FD3D12PipelineStateCache::IsInErrorState() const
 }
 
 FD3D12PipelineStateCache::FD3D12PipelineStateCache(FD3D12Adapter* InParent)
-	: bUseAPILibaries(true)
-	, FD3D12PipelineStateCacheBase(InParent)
+	: FD3D12PipelineStateCacheBase(InParent)
+	, bUseAPILibaries(true)
 {
 }
 
@@ -629,7 +629,7 @@ ID3D12PipelineState* CreatePipelineStateWrapper(FD3D12Adapter* Adapter, const TD
 	else
 	{
 		// Use the older pipeline descs.
-		const TPSOStreamFunctionMap<TDesc>::D3D12PipelineStateDescV0Type Desc = (CreationArgs->Desc->Desc.*TPSOStreamFunctionMap<TDesc>::GetPipelineStateDescV0())();
+		const typename TPSOStreamFunctionMap<TDesc>::D3D12PipelineStateDescV0Type Desc = (CreationArgs->Desc->Desc.*TPSOStreamFunctionMap<TDesc>::GetPipelineStateDescV0())();
 		return CreatePipelineState(Adapter->GetD3DDevice(), &Desc, CreationArgs->Library, *Name);
 	}
 }

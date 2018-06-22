@@ -307,7 +307,7 @@ struct CD3DX12_DEPTH_STENCIL_DESC1 : public D3D12_DEPTH_STENCIL_DESC1
     }
     ~CD3DX12_DEPTH_STENCIL_DESC1() {}
     operator const D3D12_DEPTH_STENCIL_DESC1&() const { return *this; }
-    operator const D3D12_DEPTH_STENCIL_DESC() const
+    operator D3D12_DEPTH_STENCIL_DESC() const
     {
         D3D12_DEPTH_STENCIL_DESC D;
         D.DepthEnable                  = DepthEnable;

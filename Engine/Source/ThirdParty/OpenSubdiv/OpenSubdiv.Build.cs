@@ -16,17 +16,7 @@ public class OpenSubdiv : ModuleRules
 		// @todo mesheditor subdiv: Support other platforms, 32-bit Windows, and older/newer compiler toolchains
 		if (Target.Platform == UnrealTargetPlatform.Win64)
 		{
-            string LibFolder = "";
-            {
-                switch (Target.WindowsPlatform.Compiler)
-                {
-                    case WindowsCompiler.VisualStudio2017:
-                    case WindowsCompiler.VisualStudio2015:
-						LibFolder = "/lib/Win64/VS2015";
-						break;
-                }
-            }
-
+            string LibFolder = "/lib/Win64/VS2015";
             if (LibFolder != "")
             {
                 bool bDebug = (Target.Configuration == UnrealTargetConfiguration.Debug && Target.bDebugBuildsActuallyUseDebugCRT);

@@ -27,7 +27,7 @@ namespace Audio
 	/* TSampleBuffer<int16> AnIntBuffer = AFloatBuffer;                     */
 	/************************************************************************/
 	template <class SampleType = DefaultUSoundWaveSampleType>
-	class ENGINE_API TSampleBuffer
+	class TSampleBuffer
 	{
 	public:
 		// Ptr to raw PCM data buffer

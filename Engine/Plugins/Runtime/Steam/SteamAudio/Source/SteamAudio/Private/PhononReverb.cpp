@@ -22,14 +22,14 @@ namespace SteamAudio
 	//==============================================================================================================================================
 
 	FPhononReverb::FPhononReverb()
-		: Environment(nullptr)
-		, BinauralRenderer(nullptr)
+		: BinauralRenderer(nullptr)
 		, IndirectBinauralEffect(nullptr)
 		, IndirectPanningEffect(nullptr)
 		, ReverbConvolutionEffect(nullptr)
 		, AmbisonicsChannels(0)
 		, IndirectOutDeinterleaved(nullptr)
 		, CachedSpatializationMethod(EIplSpatializationMethod::PANNING)
+		, Environment(nullptr)
 	{
 	}
 

@@ -108,11 +108,20 @@ int32 FWindowsOSVersionHelper::GetOSVersions( FString& out_OSVersionLabel, FStri
 	OsVersionInfo.dwOSVersionInfoSize = sizeof( OSVERSIONINFOEX );
 	out_OSVersionLabel = TEXT( "Windows (unknown version)" );
 	out_OSSubVersionLabel = FString();
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#else
 #pragma warning(push)
 #pragma warning(disable : 4996) // 'function' was declared deprecated
+#endif
 	CA_SUPPRESS(28159)
 	if( GetVersionEx( (LPOSVERSIONINFO)&OsVersionInfo ) )
+#ifdef __clang__
+#pragma clang diagnostic pop
+#else
 #pragma warning(pop)
+#endif
 	{
 		bool bIsInvalidVersion = false;
 
@@ -369,11 +378,20 @@ FString FWindowsOSVersionHelper::GetOSVersion()
 
 	OSVERSIONINFOEX OsVersionInfo = { 0 };
 	OsVersionInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#else
 #pragma warning(push)
 #pragma warning(disable : 4996) // 'function' was declared deprecated
+#endif
 	CA_SUPPRESS(28159)
 	if (GetVersionEx((LPOSVERSIONINFO)&OsVersionInfo))
+#ifdef __clang__
+#pragma clang diagnostic pop
+#else
 #pragma warning(pop)
+#endif
 	{
 		return FString::Printf(TEXT("%d.%d.%d.%d.%d.%s"), OsVersionInfo.dwMajorVersion, OsVersionInfo.dwMinorVersion, OsVersionInfo.dwBuildNumber, OsVersionInfo.wProductType, OsVersionInfo.wSuiteMask, Architecture);
 	}

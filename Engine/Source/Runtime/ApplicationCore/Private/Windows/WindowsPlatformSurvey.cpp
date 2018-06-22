@@ -706,11 +706,20 @@ void GetOSVersionLabels(const SYSTEM_INFO& SystemInfo, FHardwareSurveyResults& O
 	{
 		OSVERSIONINFOEX OsVersionInfo = {0};
 		OsVersionInfo.dwOSVersionInfoSize = sizeof( OSVERSIONINFOEX );
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#else
 #pragma warning(push)
 #pragma warning(disable : 4996) // 'function' was declared deprecated
+#endif
 		CA_SUPPRESS(28159)
 		GetVersionEx( (LPOSVERSIONINFO)&OsVersionInfo );
+#ifdef __clang__
+#pragma clang diagnostic pop
+#else
 #pragma warning(pop)
+#endif
 
 		UE_LOG( LogWindows, Warning, TEXT( "FWindowsPlatformSurvey::GetOSVersionLabel() unknown Windows version info from GetVersionEx()" ) );
 		OutResults.ErrorCount++;

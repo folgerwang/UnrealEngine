@@ -25,6 +25,8 @@ enum EStereoscopicPass
 class IStereoRendering
 {
 public:
+	virtual ~IStereoRendering() { }
+
 	/** 
 	 * Whether or not stereo rendering is on this frame.
 	 */

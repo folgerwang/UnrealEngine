@@ -1157,7 +1157,7 @@ FTexture2DRHIRef FD3D12DynamicRHI::RHIAsyncCreateTexture2D(uint32 SizeX, uint32 
 		1,  // Sample count
 		0);  // Sample quality
 
-	D3D12_SUBRESOURCE_DATA SubResourceData[MAX_TEXTURE_MIP_COUNT] = { 0 };
+	D3D12_SUBRESOURCE_DATA SubResourceData[MAX_TEXTURE_MIP_COUNT] = { };
 	for (uint32 MipIndex = 0; MipIndex < NumInitialMips; ++MipIndex)
 	{
 		uint32 NumBlocksX = FMath::Max<uint32>(1, (SizeX >> MipIndex) / GPixelFormats[Format].BlockSizeX);
@@ -1782,7 +1782,7 @@ void TD3D12Texture2D<RHIResourceType>::UpdateTexture2D(class FRHICommandListImme
 	while (Texture)
 	{
 		FD3D12ResourceLocation UploadHeapResourceLocation(GetParentDevice());
-		void* pData = GetParentDevice()->GetDefaultFastAllocator().Allocate<FD3D12ScopeLock>(bufferSize, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, &UploadHeapResourceLocation);
+		void* pData = GetParentDevice()->GetDefaultFastAllocator().template Allocate<FD3D12ScopeLock>(bufferSize, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, &UploadHeapResourceLocation);
 		check(nullptr != pData);
 
 		byte* pRowData = (byte*)pData;

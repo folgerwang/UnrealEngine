@@ -23,8 +23,8 @@ FRemoteTalkerDataOculus::FRemoteTalkerDataOculus() :
 }
 
 FOnlineVoiceOculus::FOnlineVoiceOculus(FOnlineSubsystemOculus& InSubsystem) :
-	OculusSubsystem(InSubsystem),
-	bIsLocalPlayerMuted(false)
+	bIsLocalPlayerMuted(false),
+	OculusSubsystem(InSubsystem)
 {
 }
 

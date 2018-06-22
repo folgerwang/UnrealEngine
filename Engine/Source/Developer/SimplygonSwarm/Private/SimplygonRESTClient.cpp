@@ -20,8 +20,8 @@ FSimplygonSwarmTask::FSimplygonSwarmTask(const FSwarmTaskkData& InTaskData)
 	:
 	TaskData(InTaskData),
 	State(SRS_UNKNOWN),
-	TimeSinceProcessStart(0.0f),
-	bProcessingStarted(false)
+	bProcessingStarted(false),
+	TimeSinceProcessStart(0.0f)
 {
 	bMultiPartUploadInitialized = false;
 	TaskData.TaskUploadComplete = false;

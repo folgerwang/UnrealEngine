@@ -94,11 +94,11 @@ using namespace D3D12RHI;
 
 #if WITH_MGPU
 FD3D12FramePacing::FD3D12FramePacing(FD3D12Adapter* Parent)
-	: bKeepRunning(true)
+	: FD3D12AdapterChild(Parent)
+	, bKeepRunning(true)
 	, AvgFrameTimeMs(0.0f)
 	, LastFrameTimeMs(0)
 	, Thread(nullptr)
-	, FD3D12AdapterChild(Parent)
 {
 	VERIFYD3D12RESULT(Parent->GetD3DDevice()->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(Fence.GetInitReference())));
 	FMemory::Memset(SleepTimes, 0);

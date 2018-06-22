@@ -559,12 +559,12 @@ private:
 struct FD3D12LockedResource : public FD3D12DeviceChild
 {
 	FD3D12LockedResource(FD3D12Device* Device) 
-		: LockedOffset(0)
-		, LockedPitch(0)
+		: FD3D12DeviceChild(Device)
 		, ResourceLocation(Device)
+		, LockedOffset(0)
+		, LockedPitch(0)
 		, bLocked(false)
 		, bLockedForReadOnly(false)
-		, FD3D12DeviceChild(Device)
 	{}
 
 	inline void Reset()
@@ -594,9 +594,9 @@ public:
 
 public:
 	FD3D12BaseShaderResource(FD3D12Device* InParent)
-		: ResourceLocation(InParent)
+		: FD3D12DeviceChild(InParent)
+		, ResourceLocation(InParent)
 		, BufferAlignment(0)
-		, FD3D12DeviceChild(InParent)
 	{
 	}
 };
@@ -624,12 +624,12 @@ public:
 
 	/** Initialization constructor. */
 	FD3D12UniformBuffer(class FD3D12Device* InParent, const FRHIUniformBufferLayout& InLayout)
-		: ResourceLocation(InParent)
-		, FRHIUniformBuffer(InLayout)
+		: FRHIUniformBuffer(InLayout)
 		, FD3D12DeviceChild(InParent)
 #if USE_STATIC_ROOT_SIGNATURE
 		, View(nullptr)
 #endif
+		, ResourceLocation(InParent)
 	{
 	}
 
@@ -654,8 +654,8 @@ public:
 
 	FD3D12IndexBuffer(FD3D12Device* InParent, uint32 InStride, uint32 InSize, uint32 InUsage)
 		: FRHIIndexBuffer(InStride, InSize, InUsage)
-		, LockedData(InParent)
 		, FD3D12BaseShaderResource(InParent)
+		, LockedData(InParent)
 	{}
 
 	virtual ~FD3D12IndexBuffer();
@@ -687,8 +687,8 @@ public:
 
 	FD3D12StructuredBuffer(FD3D12Device* InParent, uint32 InStride, uint32 InSize, uint32 InUsage)
 		: FRHIStructuredBuffer(InStride, InSize, InUsage)
-		, LockedData(InParent)
 		, FD3D12BaseShaderResource(InParent)
+		, LockedData(InParent)
 	{
 	}
 
@@ -725,9 +725,9 @@ public:
 
 	FD3D12VertexBuffer(FD3D12Device* InParent, uint32 InStride, uint32 InSize, uint32 InUsage)
 		: FRHIVertexBuffer(InSize, InUsage)
-		, LockedData(InParent)
 		, FD3D12BaseShaderResource(InParent)
 		, DynamicSRV(nullptr)
+		, LockedData(InParent)
 	{
 		UNREFERENCED_PARAMETER(InStride);
 	}

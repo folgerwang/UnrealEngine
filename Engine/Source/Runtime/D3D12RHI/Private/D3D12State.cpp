@@ -375,8 +375,8 @@ TRefCountPtr<FRHIComputePipelineState> FD3D12DynamicRHI::RHICreateComputePipelin
 }
 
 FD3D12SamplerState::FD3D12SamplerState(FD3D12Device* InParent, const D3D12_SAMPLER_DESC& Desc, uint16 SamplerID)
-	: ID(SamplerID),
-	FD3D12DeviceChild(InParent)
+	: FD3D12DeviceChild(InParent)
+	, ID(SamplerID)
 {
 	Descriptor.ptr = 0;
 	FD3D12OfflineDescriptorManager& DescriptorAllocator = GetParentDevice()->GetSamplerDescriptorAllocator();

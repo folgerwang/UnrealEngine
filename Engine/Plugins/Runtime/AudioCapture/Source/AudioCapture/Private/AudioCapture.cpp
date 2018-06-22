@@ -112,9 +112,9 @@ bool FAudioCapture::IsCapturing() const
 }
 
 FAudioCaptureSynth::FAudioCaptureSynth()
-	: bInitialized(false)
+	: NumSamplesEnqueued(0)
+	, bInitialized(false)
 	, bIsCapturing(false)
-	, NumSamplesEnqueued(0)
 {
 }
 

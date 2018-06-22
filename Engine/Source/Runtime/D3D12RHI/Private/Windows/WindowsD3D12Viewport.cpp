@@ -15,6 +15,7 @@ static const uint32 WindowsDefaultNumBackBuffers = 3;
 extern FD3D12Texture2D* GetSwapChainSurface(FD3D12Device* Parent, EPixelFormat PixelFormat, IDXGISwapChain* SwapChain, uint32 BackBufferIndex);
 
 FD3D12Viewport::FD3D12Viewport(class FD3D12Adapter* InParent, HWND InWindowHandle, uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen, EPixelFormat InPreferredPixelFormat) :
+	FD3D12AdapterChild(InParent),
 	LastFlipTime(0),
 	LastFrameComplete(0),
 	LastCompleteTime(0),
@@ -26,24 +27,23 @@ FD3D12Viewport::FD3D12Viewport(class FD3D12Adapter* InParent, HWND InWindowHandl
 	SizeY(InSizeY),
 	bIsFullscreen(bInIsFullscreen),
 	PixelFormat(InPreferredPixelFormat),
+	bIsValid(true),
 	bHDRMetaDataSet(false),
 	ColorSpace(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709),
-	bIsValid(true),
 	NumBackBuffers(WindowsDefaultNumBackBuffers),
 	PresentGPUIndex(0),
 	CurrentBackBufferIndex_RenderThread(0),
 	BackBuffer_RenderThread(nullptr),
 	CurrentBackBufferIndex_RHIThread(0),
 	BackBuffer_RHIThread(nullptr),
-	Fence(InParent, FRHIGPUMask::All(), L"Viewport Fence"),
-	LastSignaledValue(0),
-#if WITH_MGPU
-	FramePacerRunnable(nullptr),
-#endif //WITH_MGPU
 	SDRBackBuffer_RenderThread(nullptr),
 	SDRBackBuffer_RHIThread(nullptr),
 	SDRPixelFormat(PF_B8G8R8A8),
-	FD3D12AdapterChild(InParent)
+	Fence(InParent, FRHIGPUMask::All(), L"Viewport Fence"),
+	LastSignaledValue(0)
+#if WITH_MGPU
+	, FramePacerRunnable(nullptr)
+#endif //WITH_MGPU
 {
 	check(IsInGameThread());
 	GetParentAdapter()->GetViewports().Add(this);

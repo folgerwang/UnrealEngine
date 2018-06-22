@@ -26,11 +26,11 @@ struct FRHICommandSignalFrameFence final : public FRHICommand<FRHICommandSignalF
 };
 
 FD3D12Adapter::FD3D12Adapter(FD3D12AdapterDesc& DescIn)
-	: Desc(DescIn)
-	, bDeviceRemoved(false)
-	, OwningRHI(nullptr)
-	, RootSignatureManager(this)
+	: OwningRHI(nullptr)
 	, bDepthBoundsTestSupported(false)
+	, bDeviceRemoved(false)
+	, Desc(DescIn)
+	, RootSignatureManager(this)
 	, PipelineStateCache(this)
 	, FenceCorePool(this)
 	, FrameFence(nullptr)

@@ -89,21 +89,23 @@ FD3D12ComputePipelineStateDesc GetComputePipelineStateDesc(const FD3D12ComputeSh
 }
 
 FD3D12PipelineStateWorker::FD3D12PipelineStateWorker(FD3D12Adapter* Adapter, const ComputePipelineCreationArgs& InArgs)
-	: bIsGraphics(false)
-	, FD3D12AdapterChild(Adapter)
+	: FD3D12AdapterChild(Adapter)
+	, bIsGraphics(false)
 {
 	CreationArgs.ComputeArgs.Init(InArgs.Args);
 };
 
 FD3D12PipelineStateWorker::FD3D12PipelineStateWorker(FD3D12Adapter* Adapter, const GraphicsPipelineCreationArgs& InArgs)
-	: bIsGraphics(true)
-	, FD3D12AdapterChild(Adapter)
+	: FD3D12AdapterChild(Adapter)
+	, bIsGraphics(true)
 {
 	CreationArgs.GraphicsArgs.Init(InArgs.Args);
 };
 
 
 /// @endcond
+
+#ifndef __clang__
 
 FORCEINLINE uint32 SSE4_CRC32(const void* Data, SIZE_T NumBytes)
 {
@@ -142,8 +144,13 @@ FORCEINLINE uint32 SSE4_CRC32(const void* Data, SIZE_T NumBytes)
 	return Hash;
 }
 
+#endif
+
 uint32 FD3D12PipelineStateCacheBase::HashData(const void* Data, SIZE_T NumBytes)
 {
+#ifdef __clang__
+	return FCrc::MemCrc32(Data, NumBytes);
+#else
 	if (GCPUSupportsSSE4)
 	{
 		return SSE4_CRC32(Data, NumBytes);
@@ -152,6 +159,7 @@ uint32 FD3D12PipelineStateCacheBase::HashData(const void* Data, SIZE_T NumBytes)
 	{
 		return FCrc::MemCrc32(Data, NumBytes);
 	}
+#endif
 }
 
 SIZE_T FD3D12PipelineStateCacheBase::HashPSODesc(const FD3D12LowLevelGraphicsPipelineStateDesc& Desc)
@@ -212,9 +220,9 @@ FD3D12PipelineStateCacheBase::~FD3D12PipelineStateCacheBase()
 
 
 FD3D12PipelineState::FD3D12PipelineState(FD3D12Adapter* Parent)
-	: Worker(nullptr)
-	, FD3D12AdapterChild(Parent)
+	: FD3D12AdapterChild(Parent)
 	, FD3D12MultiNodeGPUObject(FRHIGPUMask::All(), FRHIGPUMask::All()) //Create on all, visible on all
+	, Worker(nullptr)
 	, PendingWaitOnWorkerCalls(0)
 	, bAddToDiskCache(false)
 {

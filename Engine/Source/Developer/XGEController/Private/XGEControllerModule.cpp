@@ -143,16 +143,16 @@ public:
 };
 
 FXGEControllerModule::FXGEControllerModule()
-	: bShutdown(false)
-	, bSupported(false)
+	: bSupported(false)
 	, bInitialized(false)
-	, bRestartWorker(false)
 	, ControlWorkerDirectory(FPaths::ConvertRelativePathToFull(XGE_CONTROL_WORKER_REL_DIR))
 	, RootWorkingDirectory(FString::Printf(TEXT("%sUnrealXGEWorkingDir/"), FPlatformProcess::UserTempDir()))
 	, WorkingDirectory(RootWorkingDirectory + FGuid::NewGuid().ToString(EGuidFormats::Digits))
 	, PipeName(FString::Printf(TEXT("UnrealEngine-XGE-%s"), *FGuid::NewGuid().ToString(EGuidFormats::Digits)))
-	, WriteOutThreadEvent(FPlatformProcess::CreateSynchEvent(false))
 	, TasksCS(new FCriticalSection)
+	, bShutdown(false)
+	, bRestartWorker(false)
+	, WriteOutThreadEvent(FPlatformProcess::CreateSynchEvent(false))
 	, LastEventTime(0)
 {}
 

@@ -16,9 +16,6 @@
 DECLARE_STATS_GROUP(TEXT("Oculus"), STATGROUP_Oculus, STATCAT_Advanced);
 DECLARE_CYCLE_STAT(TEXT("GPUStressRendering"), STAT_GPUStressRendering, STATGROUP_Oculus);
 
-namespace OculusHMD
-{
-
 //-------------------------------------------------------------------------------------------------
 // Uniform buffers
 //-------------------------------------------------------------------------------------------------
@@ -41,6 +38,9 @@ END_UNIFORM_BUFFER_STRUCT(FOculusPixelShaderVariableParameters)
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FOculusPixelShaderVariableParameters, TEXT("PSVariables"))
 
 typedef TUniformBufferRef<FOculusPixelShaderVariableParameters> FOculusPixelShaderVariableParametersRef;
+
+namespace OculusHMD
+{
 
 
 //-------------------------------------------------------------------------------------------------
@@ -189,9 +189,9 @@ FStressTester::FStressTester()
 	, CPUsTimeLimitInSeconds(10.)// 10 secs
 	, GPUsTimeLimitInSeconds(10.)// 10 secs
 	, GPUIterationsMultiplier(0.)
-	, PDStartTimeInSeconds(0.)
-	, GPUStartTimeInSeconds(0.)
 	, CPUStartTimeInSeconds(0.)
+	, GPUStartTimeInSeconds(0.)
+	, PDStartTimeInSeconds(0.)
 {
 
 }
@@ -376,7 +376,7 @@ void FStressTester::DoTickGPU_RenderThread(FRHICommandListImmediate& RHICmdList,
 		PixelShader->UnbindBuffers(RHICmdList);
 	}
 
-#endif 0
+#endif // 0
 // END DO NOT MERGE -- Removing Packaging Issue
 }
 

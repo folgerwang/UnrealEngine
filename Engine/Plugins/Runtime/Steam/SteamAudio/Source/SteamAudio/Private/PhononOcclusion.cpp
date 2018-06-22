@@ -167,12 +167,12 @@ namespace SteamAudio
 namespace SteamAudio
 {
 	FDirectSoundSource::FDirectSoundSource()
-		: bNeedsUpdate(false)
-		, bAirAbsorption(false)
-		, bDirectAttenuation(false)
+		: DirectSoundEffect(nullptr)
 		, DirectOcclusionMethod(EIplDirectOcclusionMethod::RAYCAST)
 		, DirectOcclusionMode(EIplDirectOcclusionMode::NONE)
-		, DirectSoundEffect(nullptr)
+		, bDirectAttenuation(false)
+		, bAirAbsorption(false)
+		, bNeedsUpdate(false)
 	{
 		memset(&DirectSoundPath, 0, sizeof(DirectSoundPath));
 		Position.x = Position.y = Position.z = 0.0f;

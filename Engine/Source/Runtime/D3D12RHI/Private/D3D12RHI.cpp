@@ -29,7 +29,7 @@ TAutoConsoleVariable<int32> CVarD3D12ZeroBufferSizeInMB(
 
 /// @cond DOXYGEN_WARNINGS
 
-FD3D12FastAllocator* FD3D12DynamicRHI::HelperThreadDynamicHeapAllocator = nullptr;
+__declspec(thread) FD3D12FastAllocator* FD3D12DynamicRHI::HelperThreadDynamicHeapAllocator = nullptr;
 
 /// @endcond
 

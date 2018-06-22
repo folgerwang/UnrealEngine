@@ -600,7 +600,7 @@ OVRPL_PUBLIC_FUNCTION(ovrPlatformInitializeResult) ovr_PlatformInitializeWindows
 	auto hLib = OVR_FindLibraryPath(PLATFORM_PRODUCT_VERSION, PLATFORM_MAJOR_VERSION, &InitializeResult, filePath, sizeof(filePath) / sizeof(filePath[0]));
 
 	if (InitializeResult == ovrPlatformInitialize_Success) {
-		if (hLibPreLoad != NULL && wcsicmp(filePath, preLoadFilePath) != 0) {
+		if (hLibPreLoad != NULL && _wcsicmp(filePath, preLoadFilePath) != 0) {
 			// The pre-loaded module was on a different path than the validated library. Not a particularly likely case, but if it happens we should fail, since
 			// the non-shimmed functions could call into the wrong library.
 			InitializeResult = ovrPlatformInitialize_PreLoaded;
