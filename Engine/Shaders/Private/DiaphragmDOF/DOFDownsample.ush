@@ -218,17 +218,13 @@ float DownsampleCoc_Wave8x8(float CocRadius, const uint ReductionScale)
 		// Horizontal.
 		float OtherCocRadius = WaveSwapWithinLaneGroup(
 			OutCocRadius,
-			/* LaneGroupSize = */ 2 * ReductionScale,
-			/* InnerLaneGroupSize = */ 1 * ReductionScale,
-			/* InnerLaneGroupId = */ 1);
+			/* LaneGroupSize = */ 2 * ReductionScale);
 		OutCocRadius = min(OutCocRadius, OtherCocRadius);
 		
 		// Vertical.
 		OtherCocRadius = WaveSwapWithinLaneGroup(
 			OutCocRadius,
-			/* LaneGroupSize = */ 16 * ReductionScale,
-			/* InnerLaneGroupSize = */ 8 * ReductionScale,
-			/* InnerLaneGroupId = */ 1);
+			/* LaneGroupSize = */ 16 * ReductionScale);
 		OutCocRadius = min(OutCocRadius, OtherCocRadius);
 	#else
 		#error Unimplemented.
