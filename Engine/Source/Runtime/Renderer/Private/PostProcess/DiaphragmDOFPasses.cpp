@@ -34,6 +34,14 @@ TAutoConsoleVariable<int32> CVarDebugScatterPerf(
 
 #endif
 
+TAutoConsoleVariable<float> CVarScatterNeighborCompareMaxColor(
+	TEXT("r.DOF.Scatter.NeighborCompareMaxColor"),
+	10,
+	TEXT("Controles the linear color clamping upperbound applied before color of pixel and neighbors are compared.")
+	TEXT(" To low, and you may not scatter enough; to high you may scatter unnecessarily too much in highlights")
+	TEXT(" (Default: 10)."),
+	ECVF_RenderThreadSafe);
+
 } // namespace
 
 
@@ -750,6 +758,7 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFSetup::ComputeOutputDesc(EPassOutputI
 	PARAMETER(FShaderParameter, MaxScatteringGroupCount) \
 	PARAMETER(FShaderParameter, PreProcessingToProcessingCocRadiusFactor) \
 	PARAMETER(FShaderParameter, MinScatteringCocRadius) \
+	PARAMETER(FShaderParameter, NeighborCompareMaxColor) \
 	PARAMETER(FShaderResourceParameter, OutScatterDrawIndirectParameters) \
 	PARAMETER(FShaderResourceParameter, OutForegroundScatterDrawList) \
 	PARAMETER(FShaderResourceParameter, OutBackgroundScatterDrawList) \
@@ -895,6 +904,9 @@ void FRCPassDiaphragmDOFReduce::Process(FRenderingCompositePassContext& Context)
 				DispatchCtx->OutBackgroundScatterDrawList, ScatterDrawListBuffer[1]->UAV);
 
 			SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->MinScatteringCocRadius, Params.MinScatteringCocRadius);
+
+			float NeighborCompareMaxColor = CVarScatterNeighborCompareMaxColor.GetValueOnRenderThread();
+			SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->NeighborCompareMaxColor, NeighborCompareMaxColor);
 		}
 
 		DispatchCtx.Dispatch();
