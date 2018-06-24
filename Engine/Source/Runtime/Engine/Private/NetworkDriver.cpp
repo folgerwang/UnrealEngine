@@ -1260,7 +1260,7 @@ bool UNetDriver::InitBase(bool bInitAsClient, FNetworkNotify* InNotify, const FU
 
 		DDoS.Init(FMath::Clamp(NetServerMaxTickRate, 1, 1000));
 
-		if (DDoS.bDDoSDetection && DDoS.bDDoSAnalytics)
+		if (DDoS.IsDDoSDetectionEnabled() && DDoS.IsDDoSAnalyticsEnabled())
 		{
 			DDoS.NotifySeverityEscalation.BindLambda(
 				[this](FString SeverityCategory)
@@ -1287,10 +1287,7 @@ void UNetDriver::InitConnectionlessHandler()
 
 		if (ConnectionlessHandler.IsValid())
 		{
-			ConnectionlessHandler->bConnectionlessHandler = true;
-			ConnectionlessHandler->DDoS = &DDoS;
-
-			ConnectionlessHandler->Initialize(Handler::Mode::Server, MAX_PACKET_SIZE, true, AnalyticsProvider);
+			ConnectionlessHandler->Initialize(Handler::Mode::Server, MAX_PACKET_SIZE, true, AnalyticsProvider, &DDoS);
 
 			// Add handling for the stateless connect handshake, for connectionless packets, as the outermost layer
 			TSharedPtr<HandlerComponent> NewComponent =
@@ -2664,6 +2661,11 @@ void UNetDriver::AddReferencedObjects(UObject* InThis, FReferenceCollector& Coll
 	{
 		Collector.AddReferencedObject(Replicator->ObjectPtr, This);
 		Collector.AddReferencedObject(Replicator->ObjectClass, This);
+	}
+
+	for (FConnectionMap::TIterator It(This->MappedClientConnections); It; ++It)
+	{
+		Collector.AddReferencedObject(It.Value(), This);
 	}
 }
 
@@ -4144,7 +4146,7 @@ void UNetDriver::AddClientConnection(UNetConnection * NewConnection)
 
 	if (ConnAddr.IsValid())
 	{
-		MappedClientConnections.Add(FInternetAddrMapRef(ConnAddr), NewConnection);
+		MappedClientConnections.Add(ConnAddr.ToSharedRef(), NewConnection);
 	}
 
 	if (ReplicationDriver)
@@ -4250,7 +4252,7 @@ void UNetDriver::RemoveClientConnection(UNetConnection* ClientConnectionToRemove
 
 	if (AddrToRemove.IsValid())
 	{
-		verify(MappedClientConnections.Remove(AddrToRemove) == 1);
+		verify(MappedClientConnections.Remove(AddrToRemove.ToSharedRef()) == 1);
 	}
 
 	if (ReplicationDriver)

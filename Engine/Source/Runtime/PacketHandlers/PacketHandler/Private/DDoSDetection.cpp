@@ -62,21 +62,56 @@
  * FDDoSDetection
  */
 
+FDDoSDetection::FDDoSDetection()
+	: bDDoSDetection(false)
+	, bDDoSAnalytics(false)
+	, bHitFrameNonConnLimit(false)
+	, bHitFrameNetConnLimit(false)
+	, DetectionSeverity()
+	, ActiveState(0)
+	, WorstActiveState(0)
+	, LastMetEscalationConditions(0.0)
+	, bMetEscalationConditionsThisFrame(false)
+	, bDDoSLogRestrictions(false)
+	, DDoSLogSpamLimit(0)
+	, LogHitCounter(0)
+	, HitchTimeQuotaMS(-1)
+	, HitchFrameTolerance(-1)
+	, HitchFrameCount(0)
+	, LastPerSecQuotaBegin(0.0)
+	, CounterPerSecHistory()
+	, LastCounterPerSecHistoryIdx(0)
+	, StartFrameRecvTimestamp(0.0)
+	, EndFrameRecvTimestamp(0.0)
+	, StartFramePacketCount(0)
+	, ExpectedFrameTime(0.0)
+	, FrameAdjustment(0.f)
+	, NotifySeverityEscalation()
+{
+}
+
 void FDDoSDetection::Init(int32 MaxTickRate)
 {
 	ExpectedFrameTime = 1.0 / (MaxTickRate > 0.0 ? MaxTickRate : 30.0);
 
+	InitConfig();
+}
+
+void FDDoSDetection::InitConfig()
+{
 	const TCHAR* DDoSSection = TEXT("DDoSDetection");
-	int32 HitchFrameTolerance32 = 0;
+	int32 HitchFrameTolerance32 = -1;
 
 	GConfig->GetBool(DDoSSection, TEXT("bDDoSDetection"), bDDoSDetection, GEngineIni);
 	GConfig->GetBool(DDoSSection, TEXT("bDDoSAnalytics"), bDDoSAnalytics, GEngineIni);
+	GConfig->GetInt(DDoSSection, TEXT("DDoSLogSpamLimit"), DDoSLogSpamLimit, GEngineIni);
 	GConfig->GetInt(DDoSSection, TEXT("HitchTimeQuotaMS"), HitchTimeQuotaMS, GEngineIni);
+	GConfig->GetInt(DDoSSection, TEXT("HitchFrameTolerance"), HitchFrameTolerance32, GEngineIni);
 
-	if (GConfig->GetInt(DDoSSection, TEXT("HitchFrameTolerance"), HitchFrameTolerance32, GEngineIni))
-	{
-		HitchFrameTolerance = HitchFrameTolerance32;
-	}
+	HitchFrameTolerance = HitchFrameTolerance32;
+	DDoSLogSpamLimit = DDoSLogSpamLimit > 0 ? DDoSLogSpamLimit : 64;
+
+	DetectionSeverity.Empty();
 
 	if (bDDoSDetection)
 	{
@@ -85,7 +120,7 @@ void FDDoSDetection::Init(int32 MaxTickRate)
 
 		GConfig->GetArray(DDoSSection, TEXT("DetectionSeverity"), SeverityCatagories, GEngineIni);
 
-		for (FString CurCategory : SeverityCatagories)
+		for (const FString& CurCategory : SeverityCatagories)
 		{
 			FString CurSection = FString(DDoSSection) + TEXT(".") + CurCategory;
 
@@ -251,8 +286,11 @@ void FDDoSDetection::PreFrameReceive(float DeltaTime)
 
 		if (((StartFrameRecvTimestamp - LastPerSecQuotaBegin) - 1.0) > 0.0)
 		{
-			UE_CLOG(DroppedPacketCounter > 0, PacketHandlerLog, Warning, TEXT("DDoS Detection dropped '%i' packets during last second."),
-					DroppedPacketCounter);
+			UE_CLOG(DroppedPacketCounter > 0, PacketHandlerLog, Warning,
+				TEXT("DDoS Detection dropped '%i' packets during last second (bHitFrameNonConnLimit: %i, bHitFrameNetConnLimit: %i, ")
+				TEXT("DetectionSeverity: %s)."),
+				DroppedPacketCounter, (int32)bHitFrameNonConnLimit, (int32)bHitFrameNetConnLimit,
+				*DetectionSeverity[ActiveState].SeverityCategory);
 
 
 			// Record the last quota
@@ -274,17 +312,33 @@ void FDDoSDetection::PreFrameReceive(float DeltaTime)
 		}
 
 		StartFramePacketCount = NonConnPacketCounter;
-	}
 
-	if (LogHitCounter >= DDOS_LOGSPAM_LIMIT)
+		if (LogHitCounter >= DDoSLogSpamLimit)
+		{
+			UE_LOG(PacketHandlerLog, Warning, TEXT("Previous frame hit DDoS LogHitCounter limit - hit count: %i (Max: %i)"), LogHitCounter,
+					DDoSLogSpamLimit);
+		}
+
+		LogHitCounter = 0;
+		bHitFrameNonConnLimit = false;
+		bHitFrameNetConnLimit = false;
+	}
+}
+
+void FDDoSDetection::PostFrameReceive()
+{
+	if (bDDoSDetection)
 	{
-		UE_LOG(PacketHandlerLog, Warning, TEXT("Previous frame hit DDoS LogHitCounter limit - hit count: %i (Max: %i)"), LogHitCounter,
-				DDOS_LOGSPAM_LIMIT);
-	}
+		// Some packet counters require an end-frame check for DDoS detection
+		CheckNonConnQuotasAndLimits();
 
-	LogHitCounter = 0;
-	bHitFrameNonConnLimit = false;
-	bHitFrameNetConnLimit = false;
+
+		EndFrameRecvTimestamp = FPlatformTime::Seconds();
+
+		int32 FrameReceiveTimeMS = (int32)((EndFrameRecvTimestamp - StartFrameRecvTimestamp) * 1000.0);
+
+		WorstFrameReceiveTimeMS = FMath::Max(FrameReceiveTimeMS, WorstFrameReceiveTimeMS);
+	}
 }
 
 bool FDDoSDetection::CheckNonConnQuotasAndLimits()

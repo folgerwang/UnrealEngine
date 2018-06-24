@@ -14,7 +14,7 @@
 #include "PacketHandler.h"
 #include "Channel.h"
 #include "DDoSDetection.h"
-#include "Net/IPAddressRef.h"
+#include "IPAddress.h"
 
 #include "NetDriver.generated.h"
 
@@ -31,6 +31,8 @@ class StatelessConnectHandlerComponent;
 class UNetConnection;
 class UReplicationDriver;
 struct FNetworkObjectInfo;
+
+using FConnectionMap = TMap<TSharedRef<FInternetAddr>, UNetConnection*, FDefaultSetAllocator, FInternetAddrKeyMapFuncs<UNetConnection*>>;
 
 extern ENGINE_API TAutoConsoleVariable<int32> CVarNetAllowEncryption;
 extern ENGINE_API int32 GNumSaturatedConnections;
@@ -286,8 +288,7 @@ public:
 	TArray<UNetConnection*> ClientConnections;
 
 	/** Map of IP's to NetConnection's - for fast lookup, particularly under DDoS - only valid IP's mapped (e.g. excludes DemoNetConnection) */
-	UPROPERTY()
-	TMap<FInternetAddrMapRef, UNetConnection*> MappedClientConnections;
+	FConnectionMap MappedClientConnections;
 
 
 	/** Serverside PacketHandler for managing connectionless packets */

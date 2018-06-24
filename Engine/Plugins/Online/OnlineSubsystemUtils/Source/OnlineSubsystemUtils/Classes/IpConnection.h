@@ -19,7 +19,7 @@ class ONLINESUBSYSTEMUTILS_API UIpConnection : public UNetConnection
     GENERATED_UCLASS_BODY()
 	// Variables.
 
-	// @todo: This should be moved down to UNetConnection, now that GetInternetAddr is a thing.
+	// @todo #JIRA UENET-883: This should be moved down to UNetConnection, now that GetInternetAddr is a thing.
 	//			A lot of platforms reinvent the wheel in their own inefficient way here, despite having their own FInternetAddr type
 	TSharedPtr<FInternetAddr>	RemoteAddr;
 

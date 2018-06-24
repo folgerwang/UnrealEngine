@@ -225,7 +225,7 @@ TSharedPtr<FInternetAddr> UWebSocketConnection::GetInternetAddr()
 {
 	struct sockaddr_in* sock = WebSocket->GetRemoteAddr();
 
-	// @todo: This should be based on NetConnection.RemoteAddr, when moved down from IPConnection
+	// @todo #JIRA UENET-883: This should be based on NetConnection.RemoteAddr, when moved down from IPConnection
 	return ISocketSubsystem::Get()->CreateInternetAddr((int32)ntohl(sock->sin_addr.s_addr), (int32)ntohs(sock->sin_port));
 }
 

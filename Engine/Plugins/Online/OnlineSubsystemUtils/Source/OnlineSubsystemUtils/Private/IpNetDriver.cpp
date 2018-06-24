@@ -233,8 +233,7 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 	// Process all incoming packets.
 	uint8 Data[MAX_PACKET_SIZE];
 	uint8* DataRef = Data;
-	FInternetAddrMapRef FromAddrMap(SocketSubsystem->CreateInternetAddr());
-	TSharedRef<FInternetAddr>& FromAddr = FromAddrMap.Element;
+	TSharedRef<FInternetAddr> FromAddr = SocketSubsystem->CreateInternetAddr();
 
 	for (; Socket != nullptr;)
 	{
@@ -278,7 +277,7 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 		{
 			ESocketErrors Error = SocketSubsystem->GetLastErrorCode();
 
-			if(Error == SE_EWOULDBLOCK || Error == SE_NO_ERROR)
+			if (Error == SE_EWOULDBLOCK || Error == SE_NO_ERROR)
 			{
 				// No data or no error?
 				break;
@@ -289,10 +288,10 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 				// enforced by the server
 				if (Error == SE_EMSGSIZE)
 				{
+					DDoS.IncBadPacketCounter();
+
 					if (MyServerConnection)
 					{
-						DDoS.IncBadPacketCounter();
-
 						if (*MyServerConnection->RemoteAddr == *FromAddr)
 						{
 							Connection = MyServerConnection;
@@ -341,7 +340,7 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 		}
 
 		// Very-early-out - the NetConnection per frame time limit, limits all packet processing
-		if (DDoS.bHitFrameNetConnLimit)
+		if (DDoS.ShouldBlockNetConnPackets())
 		{
 			if (bOk)
 			{
@@ -368,9 +367,9 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 
 		if (Connection == nullptr)
 		{
-			UNetConnection** Result = MappedClientConnections.Find(FromAddrMap);
+			UNetConnection** Result = MappedClientConnections.Find(FromAddr);
 
-			Connection = (Result != nullptr ? (UIpConnection*)*Result : nullptr);
+			Connection = (Result != nullptr ? Cast<UIpConnection>(*Result) : nullptr);
 
 			check(Connection == nullptr || *Connection->RemoteAddr == *FromAddr);
 		}
@@ -421,10 +420,10 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 			// If we didn't find a client connection, maybe create a new one.
 			if( !Connection )
 			{
-				if (DDoS.bDDoSDetection)
+				if (DDoS.IsDDoSDetectionEnabled())
 				{
 					// If packet limits were reached, stop processing
-					if (DDoS.bHitFrameNonConnLimit)
+					if (DDoS.ShouldBlockNonConnPackets())
 					{
 						DDoS.IncDroppedPacketCounter();
 						continue;
@@ -531,7 +530,7 @@ void UIpNetDriver::TickDispatch(float DeltaTime)
 			// Send the packet to the connection for processing.
 			if (Connection && !bIgnorePacket)
 			{
-				if (DDoS.bDDoSDetection)
+				if (DDoS.IsDDoSDetectionEnabled())
 				{
 					DDoS.IncNetConnPacketCounter();
 					DDoS.CondCheckNetConnLimits();

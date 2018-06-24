@@ -79,15 +79,19 @@ void PacketHandler::Tick(float DeltaTime)
 	}
 }
 
-void PacketHandler::Initialize(Handler::Mode InMode, uint32 InMaxPacketBits, bool bConnectionlessOnly/*=false*/, TSharedPtr<IAnalyticsProvider> InProvider/*=nullptr*/)
+void PacketHandler::Initialize(Handler::Mode InMode, uint32 InMaxPacketBits, bool bConnectionlessOnly/*=false*/,
+								TSharedPtr<IAnalyticsProvider> InProvider/*=nullptr*/, FDDoSDetection* InDDoS/*=nullptr*/)
 {
 	Mode = InMode;
 	MaxPacketBits = InMaxPacketBits;
+	DDoS = InDDoS;
 
 	// @todo #JohnB: Redo this, so you don't load from the .ini at all, have it hardcoded elsewhere - do not want this in shipping.
 
+	bConnectionlessHandler = bConnectionlessOnly;
+
 	// Only UNetConnection's will load the .ini components, for now.
-	if (!bConnectionlessOnly)
+	if (!bConnectionlessHandler)
 	{
 		TArray<FString> Components;
 

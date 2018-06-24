@@ -110,14 +110,7 @@ public:
 	 *
 	 * @return	The value to use for the hash
 	 */
-	virtual uint32 GetTypeHash()
-	{
-		uint32 ThisIP;
-
-		GetIp(ThisIP);
-
-		return ThisIP + (GetPort() * 23);
-	}
+	virtual uint32 GetTypeHash() = 0;
 
 	/**
 	 * Is this a well formed internet address
@@ -349,3 +342,28 @@ public:
 		return *Addr;
 	}
 };
+
+/**
+ * KeyFuncs for mapping/hashing FInternetAddr shared references
+ *
+ * NOTE: Implements TSharedRef over TSharedPtr, as this is required for performance critical code
+ */
+template<typename ValueType>
+struct FInternetAddrKeyMapFuncs : public BaseKeyFuncs<ValueType, TSharedRef<FInternetAddr>, false>
+{
+	static FORCEINLINE const TSharedRef<FInternetAddr>& GetSetKey(const TPair<TSharedRef<FInternetAddr>, ValueType>& Element)
+	{
+		return Element.Key;
+	}
+
+	static FORCEINLINE bool Matches(const TSharedRef<FInternetAddr>& A, const TSharedRef<FInternetAddr>& B)
+	{
+		return *A == *B;
+	}
+
+	static FORCEINLINE uint32 GetKeyHash(const TSharedRef<FInternetAddr>& Key)
+	{
+		return Key->GetTypeHash();
+	}
+};
+

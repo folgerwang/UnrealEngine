@@ -7,12 +7,6 @@
 #include "HAL/PlatformTime.h"
 
 
-// Defines
-
-/** The limit for potential DDoS logspam, before log restrictions are enabled */
-#define DDOS_LOGSPAM_LIMIT 64
-
-
 // Delegates
 
 /**
@@ -103,7 +97,7 @@ struct PACKETHANDLER_API FDDoSState
 	 * @param TimePassedMS	The amount of time passed in milliseconds, since the beginning of this state
 	 * @return				Whether or not the quota was hit
 	 */
-	FORCEINLINE bool HasHitQuota(FDDoSPacketCounters& InCounter, int32 TimePassedMS) const
+	bool HasHitQuota(FDDoSPacketCounters& InCounter, int32 TimePassedMS) const
 	{
 		const bool bAtQuota = EscalateQuotaPacketsPerSec > 0 && InCounter.NonConnPacketCounter >= EscalateQuotaPacketsPerSec;
 		const bool bAtBadQuota = EscalateQuotaBadPacketsPerSec > 0 && InCounter.BadPacketCounter >= EscalateQuotaBadPacketsPerSec;
@@ -127,7 +121,7 @@ struct PACKETHANDLER_API FDDoSStateConfig : public FDDoSState
 	{
 	}
 
-	FORCEINLINE void ApplyState(FDDoSState& Target)
+	void ApplyState(FDDoSState& Target)
 	{
 		Target.EscalateQuotaPacketsPerSec		= EscalateQuotaPacketsPerSec;
 		Target.EscalateQuotaBadPacketsPerSec	= EscalateQuotaBadPacketsPerSec;
@@ -142,7 +136,7 @@ struct PACKETHANDLER_API FDDoSStateConfig : public FDDoSState
 	 * Applies only the per-frame adjusted state (based on expected vs actual framerate), to active DDoS protection.
 	 * ApplyState should be called, first.
 	 */
-	FORCEINLINE void ApplyAdjustedState(FDDoSState& Target, float FrameAdjustment)
+	void ApplyAdjustedState(FDDoSState& Target, float FrameAdjustment)
 	{
 		// Exclude escalation triggers from this
 		//Target.EscalateTimeQuotaMSPerFrame		= EscalateTimeQuotaMSPerFrame * FrameAdjustment;
@@ -160,32 +154,11 @@ struct PACKETHANDLER_API FDDoSStateConfig : public FDDoSState
 class PACKETHANDLER_API FDDoSDetection : protected FDDoSPacketCounters, protected FDDoSState
 {
 public:
-	FDDoSDetection()
-		: bDDoSDetection(false)
-		, bDDoSAnalytics(false)
-		, bHitFrameNonConnLimit(false)
-		, bHitFrameNetConnLimit(false)
-		, NotifySeverityEscalation()
-		, DetectionSeverity()
-		, ActiveState(0)
-		, WorstActiveState(0)
-		, LastMetEscalationConditions(0.0)
-		, bMetEscalationConditionsThisFrame(false)
-		, bDDoSLogRestrictions(false)
-		, LogHitCounter(0)
-		, HitchTimeQuotaMS(-1)
-		, HitchFrameTolerance(-1)
-		, HitchFrameCount(0)
-		, LastPerSecQuotaBegin(0.0)
-		, CounterPerSecHistory()
-		, LastCounterPerSecHistoryIdx(0)
-		, StartFrameRecvTimestamp(0.0)
-		, EndFrameRecvTimestamp(0.0)
-		, StartFramePacketCount(0)
-		, ExpectedFrameTime(0.0)
-		, FrameAdjustment(0.f)
-	{
-	}
+	/**
+	 * Default constructor
+	 */
+	FDDoSDetection();
+
 
 	/**
 	 * Initializes the DDoS detection settings
@@ -193,6 +166,11 @@ public:
 	 * @param MaxTickRate	The maximum tick rate of the server
 	 */
 	void Init(int32 MaxTickRate);
+
+	/**
+	 * Initializes the settings from the .ini file - must support reloading of settings on-the-fly
+	 */
+	void InitConfig();
 
 	/**
 	 * Updates the current DDoS detection severity state
@@ -210,20 +188,13 @@ public:
 	/**
 	 * Triggered after packet receive ends, during the current frame
 	 */
-	FORCEINLINE void PostFrameReceive()
-	{
-		EndFrameRecvTimestamp = FPlatformTime::Seconds();
-
-		int32 FrameReceiveTimeMS = (int32)((EndFrameRecvTimestamp - StartFrameRecvTimestamp) * 1000.0);
-
-		WorstFrameReceiveTimeMS = FMath::Max(FrameReceiveTimeMS, WorstFrameReceiveTimeMS);
-	}
+	void PostFrameReceive();
 
 
 	/**
 	 * Rate limited call to CheckNonConnQuotasAndLimits
 	 */
-	FORCEINLINE void CondCheckNonConnQuotasAndLimits()
+	void CondCheckNonConnQuotasAndLimits()
 	{
 		// Limit checks to once every 128 packets
 		if ((NonConnPacketCounter & 0x7F) == 0)
@@ -235,7 +206,7 @@ public:
 	/**
 	 * Rate limited call to CheckNetConnLimits
 	 */
-	FORCEINLINE void CondCheckNetConnLimits()
+	void CondCheckNetConnLimits()
 	{
 		// Limit checks to once every 128 packets
 		if ((NetConnPacketCounter & 0x7F) == 0)
@@ -248,24 +219,29 @@ public:
 	/**
 	 * Accessor for bDDoSLogRestrictions - doubles as a per-frame logspam counter, automatically disabling logs after a quota
 	 */
-	FORCEINLINE bool CheckLogRestrictions()
+	bool CheckLogRestrictions()
 	{
-		return bDDoSLogRestrictions || (bDDoSDetection && ++LogHitCounter > DDOS_LOGSPAM_LIMIT);
+		return bDDoSLogRestrictions || (bDDoSDetection && ++LogHitCounter > DDoSLogSpamLimit);
 	}
 
 
 	// Brief accessors
 
-	FORCEINLINE void IncNonConnPacketCounter()			{ ++NonConnPacketCounter; }
-	FORCEINLINE int32 GetNonConnPacketCounter() const	{ return NonConnPacketCounter; }
-	FORCEINLINE void IncNetConnPacketCounter()			{ ++NetConnPacketCounter; }
-	FORCEINLINE int32 GetNetConnPacketCounter() const	{ return NetConnPacketCounter; }
-	FORCEINLINE void IncBadPacketCounter()				{ ++BadPacketCounter; }
-	FORCEINLINE int32 GetBadPacketCounter() const		{ return BadPacketCounter; }
-	FORCEINLINE void IncErrorPacketCounter()			{ ++ErrorPacketCounter; }
-	FORCEINLINE int32 GetErrorPacketCounter() const		{ return ErrorPacketCounter; }
-	FORCEINLINE void IncDroppedPacketCounter()			{ ++DroppedPacketCounter; }
-	FORCEINLINE int32 GetDroppedPacketCounter() const	{ return DroppedPacketCounter; }
+	bool IsDDoSDetectionEnabled() const		{ return bDDoSDetection; }
+	bool IsDDoSAnalyticsEnabled() const		{ return bDDoSAnalytics; }
+	bool ShouldBlockNonConnPackets() const	{ return bHitFrameNonConnLimit; }
+	bool ShouldBlockNetConnPackets() const	{ return bHitFrameNetConnLimit; }
+
+	void IncNonConnPacketCounter()			{ ++NonConnPacketCounter; }
+	int32 GetNonConnPacketCounter() const	{ return NonConnPacketCounter; }
+	void IncNetConnPacketCounter()			{ ++NetConnPacketCounter; }
+	int32 GetNetConnPacketCounter() const	{ return NetConnPacketCounter; }
+	void IncBadPacketCounter()				{ ++BadPacketCounter; }
+	int32 GetBadPacketCounter() const		{ return BadPacketCounter; }
+	void IncErrorPacketCounter()			{ ++ErrorPacketCounter; }
+	int32 GetErrorPacketCounter() const		{ return ErrorPacketCounter; }
+	void IncDroppedPacketCounter()			{ ++DroppedPacketCounter; }
+	int32 GetDroppedPacketCounter() const	{ return DroppedPacketCounter; }
 
 protected:
 	/**
@@ -280,7 +256,7 @@ protected:
 	 *
 	 * @return	Whether or not NetColnnection packet limits have been reached
 	 */
-	FORCEINLINE bool CheckNetConnLimits()
+	bool CheckNetConnLimits()
 	{
 		return NetConnPacketTimeLimitMSPerFrame > 0 &&
 				(int32)((FPlatformTime::Seconds() - StartFrameRecvTimestamp) * 1000.0) > NetConnPacketTimeLimitMSPerFrame;
@@ -288,7 +264,7 @@ protected:
 
 
 
-public:
+protected:
 	/** Whether or not DDoS detection is presently enabled */
 	bool bDDoSDetection;
 
@@ -301,11 +277,7 @@ public:
 	/** Whether or not the current frame has reached NetConnection packet limits, and should block ALL further packets */
 	bool bHitFrameNetConnLimit;
 
-	/** Analytics delegate for notifying of severity state escalations */
-	FDDoSSeverityEscalation NotifySeverityEscalation;
 
-
-protected:
 	/** The different DDoS detection states, of escalating severity, depending on the strength of the DDoS */
 	TArray<FDDoSStateConfig> DetectionSeverity;
 
@@ -324,6 +296,9 @@ protected:
 
 	/** Whether or not restriction of log messages from non-NetConnection packets is enabled */
 	bool bDDoSLogRestrictions;
+
+	/** The maximum number of non-NetConnection triggered log messages per frame, before further logs are dropped this frame */
+	int32 DDoSLogSpamLimit;
 
 	/** Counter for log restriction hits, in the current frame */
 	int32 LogHitCounter;
@@ -363,4 +338,9 @@ protected:
 
 	/** The current frames adjustment/deviation, from ExpectedFrameTime */
 	float FrameAdjustment;
+
+
+public:
+	/** Analytics delegate for notifying of severity state escalations */
+	FDDoSSeverityEscalation NotifySeverityEscalation;
 };
