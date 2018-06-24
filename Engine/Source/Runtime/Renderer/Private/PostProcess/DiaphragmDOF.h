@@ -12,7 +12,7 @@
 
 
 // Whitelist diaphragm DOF for platforms that actually have been tested.
-#define WITH_DIAPHRAGM_DOF (PLATFORM_WINDOWS || PLATFORM_XBOXONE || PLATFORM_PS4)
+#define WITH_DIAPHRAGM_DOF (PLATFORM_WINDOWS || PLATFORM_XBOXONE || PLATFORM_PS4 || PLATFORM_MAC || PLATFORM_LINUX || PLATFORM_IOS)
 
 
 namespace DiaphragmDOF
@@ -117,7 +117,15 @@ inline bool IsSupported(EShaderPlatform ShaderPlatform)
 	#endif
 
 	// Only compile diaphragm DOF on platform it has been tested to ensure this is not blocking anyone else.
-	return ShaderPlatform == SP_PCD3D_SM5 || ShaderPlatform == SP_XBOXONE_D3D12 || ShaderPlatform == SP_PS4 || IsVulkanSM5Platform(ShaderPlatform);
+	return 
+		ShaderPlatform == SP_PCD3D_SM5 ||
+		ShaderPlatform == SP_XBOXONE_D3D12 ||
+		ShaderPlatform == SP_PS4 ||
+		IsVulkanSM5Platform(ShaderPlatform) ||
+		ShaderPlatform == SP_METAL_SM5 ||
+		ShaderPlatform == SP_METAL_SM5_NOTESS ||
+		ShaderPlatform == SP_METAL_MRT ||
+		ShaderPlatform == SP_METAL_MRT_MAC;
 }
 
 
