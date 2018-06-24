@@ -139,6 +139,18 @@ const TCHAR* GetEventName(FRCPassDiaphragmDOFGather::EQualityConfig e)
 	return kArray[i];
 }
 
+const TCHAR* GetEventName(FRCPassDiaphragmDOFDilateCoc::EMode e)
+{
+	static const TCHAR* const kArray[] = {
+		TEXT("StandAlone"),
+		TEXT("MinMax"),
+		TEXT("MinAbs"),
+	};
+	int32 i = int32(e);
+	check(i < ARRAY_COUNT(kArray));
+	return kArray[i];
+}
+
 // Returns X and Y for F(M) = saturate(M * X + Y) so that F(LowM) = 0 and F(HighM) = 1
 FVector2D GenerateSaturatedAffineTransformation(float LowM, float HighM)
 {
@@ -507,6 +519,7 @@ namespace
 {
 
 class FDDOFDilateRadiusDim     : SHADER_PERMUTATION_RANGE_INT("DIM_DILATE_RADIUS", 1, 3);
+class FDDOFDilateModeDim       : SHADER_PERMUTATION_ENUM_CLASS("DIM_DILATE_MODE", FRCPassDiaphragmDOFDilateCoc::EMode);
 
 class FDDOFLayerProcessingDim  : SHADER_PERMUTATION_ENUM_CLASS("DIM_LAYER_PROCESSING", EDiaphragmDOFLayerProcessing);
 class FDDOFGatherRingCountDim  : SHADER_PERMUTATION_RANGE_INT("DIM_GATHER_RING_COUNT", FRCPassDiaphragmDOFGather::kMinRingCount, 3);
@@ -601,7 +614,8 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFFlattenCoc::ComputeOutputDesc(EPassOu
 	FIntPoint TileCount = CocTileGridSize(UnmodifiedRet.Extent);
 
 	FPooledRenderTargetDesc Ret(FPooledRenderTargetDesc::Create2DDesc(TileCount, PF_FloatRGBA, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable | TexCreate_UAV, false));
-	Ret.DebugName = TEXT("DOFFlattenCoc");
+	Ret.DebugName = InPassOutputId == ePId_Output0 ? TEXT("DOFFlattenFgdCoc") : TEXT("DOFFlattenBgdCoc");
+	Ret.Format = InPassOutputId == ePId_Output0 ? PF_G16R16F : PF_FloatRGB;
 	return Ret;
 }
 
@@ -617,7 +631,7 @@ class FPostProcessCocDilateCS : public FPostProcessDiaphragmDOFShader
 	DECLARE_GLOBAL_SHADER(FPostProcessCocDilateCS);
 	SHADER_TYPE_PARAMETERS(FPostProcessCocDilateCS, FPostProcessDiaphragmDOFShader, COC_DILATE_SHADER_PARAMS);
 
-	using FPermutationDomain = TShaderPermutationDomain<FDDOFDilateRadiusDim>;
+	using FPermutationDomain = TShaderPermutationDomain<FDDOFDilateRadiusDim, FDDOFDilateModeDim>;
 };
 
 IMPLEMENT_GLOBAL_SHADER(FPostProcessCocDilateCS, "/Engine/Private/DiaphragmDOF/DOFCocTileDilate.usf", "CocDilateMainCS", SF_Compute);
@@ -627,12 +641,14 @@ void FRCPassDiaphragmDOFDilateCoc::Process(FRenderingCompositePassContext& Conte
 {
 	FPostProcessCocDilateCS::FPermutationDomain PermutationVector;
 	PermutationVector.Set<FDDOFDilateRadiusDim>(Params.SampleRadiusCount);
+	PermutationVector.Set<FDDOFDilateModeDim>(Params.Mode);
+	// TODO: permutation to do foreground and background separately, to have higher occupancy?
 
 	FDispatchDiaphragmDOFPass<FPostProcessCocDilateCS, FRCPassDiaphragmDOFDilateCoc> DispatchCtx(this, Context, PermutationVector);
 	DispatchCtx.DestViewport = FIntRect(FIntPoint::ZeroValue, FIntPoint::DivideAndRoundUp(Params.GatherViewSize, kCocTileSize));
 
-	SCOPED_DRAW_EVENTF(Context.RHICmdList, DiaphragmDOFDilateCoc, TEXT("DiaphragmDOF DilateCoc(1/16 radius=%d step=%d) %dx%d"),
-		Params.SampleRadiusCount, Params.SampleDistanceMultiplier,
+	SCOPED_DRAW_EVENTF(Context.RHICmdList, DiaphragmDOFDilateCoc, TEXT("DiaphragmDOF DilateCoc(1/16 %s radius=%d step=%d) %dx%d"),
+		GetEventName(Params.Mode), Params.SampleRadiusCount, Params.SampleDistanceMultiplier,
 		DispatchCtx.DestViewport.Width(), DispatchCtx.DestViewport.Height());
 
 	{
@@ -647,7 +663,19 @@ void FRCPassDiaphragmDOFDilateCoc::Process(FRenderingCompositePassContext& Conte
 FPooledRenderTargetDesc FRCPassDiaphragmDOFDilateCoc::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
 	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
-	Ret.DebugName = TEXT("DOFDilateCoc");
+
+	// When dilating only min foreground and max background, only one channel.
+	if (Params.Mode == EMode::MinForegroundAndMaxBackground)
+	{
+		Ret.DebugName = InPassOutputId == ePId_Output0 ? TEXT("DOFDilateMinFgdCoc") : TEXT("DOFDilateMaxBgdCoc");
+		Ret.Format = PF_R16F;
+	}
+	else
+	{
+		Ret.DebugName = InPassOutputId == ePId_Output0 ? TEXT("DOFDilateFgdCoc") : TEXT("DOFDilateBgdCoc");
+		Ret.Format = InPassOutputId == ePId_Output0 ? PF_G16R16F : PF_FloatRGB;
+	}
+
 	return Ret;
 }
 

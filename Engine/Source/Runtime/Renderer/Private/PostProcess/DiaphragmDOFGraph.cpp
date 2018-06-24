@@ -334,7 +334,8 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 	}
 
 	// Generate conservative coc tiles.
-	FRenderingCompositeOutputRef CocTileOutput;
+	FRenderingCompositeOutputRef CocTileOutput0;
+	FRenderingCompositeOutputRef CocTileOutput1;
 	{
 		// Flatten half res CoC to lower res tiles.
 		FRCPassDiaphragmDOFFlattenCoc::FParameters FlattenParams;
@@ -343,9 +344,11 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 
 		FRenderingCompositePass* CocFlatten = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFFlattenCoc(FlattenParams));
 		CocFlatten->SetInput(ePId_Input0, GatherColorSetup1.IsValid() ? GatherColorSetup1 : GatherColorSetup0);
-		CocTileOutput = CocFlatten;
+		CocTileOutput0 = FRenderingCompositeOutputRef(CocFlatten, ePId_Output0);
+		CocTileOutput1 = FRenderingCompositeOutputRef(CocFlatten, ePId_Output1);
 
 		// Parameters for the dilate Coc passes.
+		int32 DilateCount = 1;
 		FRCPassDiaphragmDOFDilateCoc::FParameters DilateParams[3];
 		{
 			const int32 MaxSampleRadiusCount = FRCPassDiaphragmDOFDilateCoc::MaxSampleRadiusCount;
@@ -383,20 +386,59 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 				DilateParams[i].SampleDistanceMultiplier = FMath::Min(IdealMultiplier, HighestPossibleMultiplierUpperBound);
 
 				CurrentConvolutionRadius += DilateParams[i].SampleRadiusCount * DilateParams[i].SampleDistanceMultiplier;
+
+				DilateCount++;
 			}
 		}
 
-		// Creates the dilates passes.
-		for (int32 i = 0; i < ARRAY_COUNT(DilateParams); i++)
+		// Setup common parameters.
+		for (int32 i = 0; i < DilateCount; i++)
 		{
-			if (!DilateParams[i].SampleRadiusCount && i != 0) break;
-
 			DilateParams[i].GatherViewSize = GatheringViewSize;
 			DilateParams[i].PreProcessingToProcessingCocRadiusFactor = PreProcessingToProcessingCocRadiusFactor;
+		}
 
-			FRenderingCompositePass* CocDilate = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFDilateCoc(DilateParams[i]));
-			CocDilate->SetInput(ePId_Input0, CocTileOutput);
-			CocTileOutput = CocDilate;
+		if (DilateCount > 1)
+		{
+			FRenderingCompositeOutputRef CocTileMinmaxOutput0 = CocTileOutput0;
+			FRenderingCompositeOutputRef CocTileMinmaxOutput1 = CocTileOutput1;
+
+			// Dilate min foreground and max background coc radii first.
+			for (int32 i = 0; i < DilateCount; i++)
+			{
+				FRCPassDiaphragmDOFDilateCoc::FParameters Params = DilateParams[i];
+				Params.Mode = FRCPassDiaphragmDOFDilateCoc::EMode::MinForegroundAndMaxBackground;
+
+				FRenderingCompositePass* CocDilate = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFDilateCoc(Params));
+				CocDilate->SetInput(ePId_Input0, CocTileMinmaxOutput0);
+				CocDilate->SetInput(ePId_Input1, CocTileMinmaxOutput1);
+				CocTileMinmaxOutput0 = FRenderingCompositeOutputRef(CocDilate, ePId_Output0);
+				CocTileMinmaxOutput1 = FRenderingCompositeOutputRef(CocDilate, ePId_Output1);
+			}
+
+			// Dilates everything else.
+			for (int32 i = 0; i < DilateCount; i++)
+			{
+				FRCPassDiaphragmDOFDilateCoc::FParameters Params = DilateParams[i];
+				Params.Mode = FRCPassDiaphragmDOFDilateCoc::EMode::MinimalAbsoluteRadiuses;
+
+				FRenderingCompositePass* CocDilate = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFDilateCoc(Params));
+				CocDilate->SetInput(ePId_Input0, CocTileOutput0);
+				CocDilate->SetInput(ePId_Input1, CocTileOutput1);
+				CocDilate->SetInput(ePId_Input2, CocTileMinmaxOutput0);
+				CocDilate->SetInput(ePId_Input3, CocTileMinmaxOutput1);
+				CocTileOutput0 = FRenderingCompositeOutputRef(CocDilate, ePId_Output0);
+				CocTileOutput1 = FRenderingCompositeOutputRef(CocDilate, ePId_Output1);
+			}
+		}
+		else
+		{
+			// Just dilate everything in one single pass.
+			FRenderingCompositePass* CocDilate = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFDilateCoc(DilateParams[0]));
+			CocDilate->SetInput(ePId_Input0, CocTileOutput0);
+			CocDilate->SetInput(ePId_Input1, CocTileOutput1);
+			CocTileOutput0 = FRenderingCompositeOutputRef(CocDilate, ePId_Output0);
+			CocTileOutput1 = FRenderingCompositeOutputRef(CocDilate, ePId_Output1);
 		}
 	}
 
@@ -495,7 +537,8 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 			FRenderingCompositePass* GatherPass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFGather(GatherParameters));
 			GatherPass->SetInput(ePId_Input0, GatherInput0);
 			GatherPass->SetInput(ePId_Input1, GatherInput1);
-			GatherPass->SetInput(ePId_Input2, CocTileOutput);
+			GatherPass->SetInput(ePId_Input2, CocTileOutput0);
+			GatherPass->SetInput(ePId_Input3, CocTileOutput1);
 
 			if (GatherParameters.BokehSimulation != EDiaphragmDOFBokehSimulation::Disabled)
 				GatherPass->SetInput(ePId_Input4, GatheringBokehLUTOutput);
@@ -509,7 +552,8 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 			{
 				FRenderingCompositePass* Postfilter = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassDiaphragmDOFPostfilter(GatherParameters));
 				Postfilter->SetInput(ePId_Input0, Input);
-				Postfilter->SetInput(ePId_Input2, CocTileOutput);
+				Postfilter->SetInput(ePId_Input2, CocTileOutput0);
+				Postfilter->SetInput(ePId_Input3, CocTileOutput1);
 				Input = FRenderingCompositeOutputRef(Postfilter, ePId_Output0);
 			}
 			return Input;
@@ -623,7 +667,8 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 			GatherParameters));
 		GatherPass->SetInput(ePId_Input0, GatherInput0); // TODO: take TAA input instead?
 		GatherPass->SetInput(ePId_Input1, GatherInput1);
-		GatherPass->SetInput(ePId_Input2, CocTileOutput);
+		GatherPass->SetInput(ePId_Input2, CocTileOutput0);
+		GatherPass->SetInput(ePId_Input3, CocTileOutput1);
 
 		// Slight out of focus gather pass use exact same LUT as scattering because all samples of ther kernel are used.
 		if (bEnableSlightOutOfFocusBokeh)

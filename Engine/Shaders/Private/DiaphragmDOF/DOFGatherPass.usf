@@ -231,7 +231,7 @@ void GatherMainCS(
 		#else
 			const uint2 TilePos = GroupId;
 		#endif
-		const FCocTileSample CocTileInfos = LoadCocTile(COC_TILE_LAYOUT_FGD_BGD, PostprocessInput2, PostprocessInput2, int2(TilePos));
+		const FCocTileSample CocTileInfos = LoadCocTile(COC_TILE_LAYOUT_FGD_SEP_BGD, PostprocessInput2, PostprocessInput3, int2(TilePos));
 
 		TileSuggestion = InferGatherTileSuggestion(CocTileInfos,
 			/* LayerProcessing = */ DIM_LAYER_PROCESSING,
@@ -376,7 +376,7 @@ void GatherMainCS(
 
 				GatherParameters.bDoHighDensityGatheringAtCenter[i] = (
 					TileSuggestion.MaxCocRadiusAbs > MinConvolutionRadius &&
-					TileSuggestion.MinCocRadiusAbs < SmallestConvolutionRadius);
+					TileSuggestion.MinIntersectableCocRadiusAbs < SmallestConvolutionRadius);
 			}
 		}
 		#endif
