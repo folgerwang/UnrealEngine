@@ -77,8 +77,8 @@
 
 //------------------------------------------------------- COMPILE TIME CONSTANTS.
 
-// A very large Coc radius that is assumed to be unreachable.
-#define EXTREMELY_LARGE_COC_RADIUS 100000
+// A very large Coc radius that is assumed to be unreachable, but still encodable in 16bits float.
+#define EXTREMELY_LARGE_COC_RADIUS 16384
 
 
 // Default border size for group.
