@@ -1,4 +1,4 @@
-﻿namespace UnrealGameSync
+namespace UnrealGameSync
 {
 	partial class WorkspaceControl
 	{
@@ -822,6 +822,7 @@
 			this.BuildList.UseCompatibleStateImageBehavior = false;
 			this.BuildList.View = System.Windows.Forms.View.Details;
 			this.BuildList.ColumnWidthChanged += new System.Windows.Forms.ColumnWidthChangedEventHandler(this.BuildList_ColumnWidthChanged);
+			this.BuildList.ColumnWidthChanging += new System.Windows.Forms.ColumnWidthChangingEventHandler(this.BuildList_ColumnWidthChanging);
 			this.BuildList.DrawColumnHeader += new System.Windows.Forms.DrawListViewColumnHeaderEventHandler(this.BuildList_DrawColumnHeader);
 			this.BuildList.DrawItem += new System.Windows.Forms.DrawListViewItemEventHandler(this.BuildList_DrawItem);
 			this.BuildList.DrawSubItem += new System.Windows.Forms.DrawListViewSubItemEventHandler(this.BuildList_DrawSubItem);
