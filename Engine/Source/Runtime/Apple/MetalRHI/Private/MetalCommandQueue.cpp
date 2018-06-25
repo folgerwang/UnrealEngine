@@ -112,13 +112,20 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		
 		Features |= EMetalFeaturesLinearTextures;
 		
-		// Using Private Memory & BlitEncoders for Vertex & Index data should be *much* faster.
-        Features |= EMetalFeaturesEfficientBufferBlits;
-		
-        // On earlier OS versions Vega didn't like non-zero blit offsets
-        if (!FString(Device.GetName()).Contains(TEXT("Vega")) || FPlatformMisc::MacOSXVersionCompare(10,13,5) >= 0)
-        {
-			Features |= EMetalFeaturesPrivateBufferSubAllocation;
+		FString DeviceName(Device.GetName());
+		// On earlier OS versions Intel Broadwell couldn't suballocate properly
+		if (!(DeviceName.Contains(TEXT("Intel")) && (DeviceName.Contains(TEXT("5300")) || DeviceName.Contains(TEXT("6000")) || DeviceName.Contains(TEXT("6100")))) || FPlatformMisc::MacOSXVersionCompare(10,14,0) >= 0)
+		{
+			// Using Private Memory & BlitEncoders for Vertex & Index data should be *much* faster.
+        	Features |= EMetalFeaturesEfficientBufferBlits;
+        	
+			Features |= EMetalFeaturesBufferSubAllocation;
+					
+	        // On earlier OS versions Vega didn't like non-zero blit offsets
+	        if (!DeviceName.Contains(TEXT("Vega")) || FPlatformMisc::MacOSXVersionCompare(10,13,5) >= 0)
+	        {
+				Features |= EMetalFeaturesPrivateBufferSubAllocation;
+			}
 		}
     }
     else if ([Device.GetName().GetPtr() rangeOfString:@"Nvidia" options:NSCaseInsensitiveSearch].location != NSNotFound)
