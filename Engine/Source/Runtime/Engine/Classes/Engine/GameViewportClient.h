@@ -70,9 +70,6 @@ public:
 	UPROPERTY()
 	TArray<struct FDebugDisplayProperty> DebugProperties;
 
-	/** border of safe area */
-	struct FTitleSafeZoneArea TitleSafeZone;
-
 	/** Array of the screen data needed for all the different splitscreen configurations */
 	TArray<struct FSplitscreenData> SplitscreenInfo;
 
