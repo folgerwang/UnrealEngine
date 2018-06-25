@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "DOFCommon.ush"
+
+
 //------------------------------------------------------- COMPILE TIME CONSTANTS.
 
 // Maximum number of buffer for Coc tile.
