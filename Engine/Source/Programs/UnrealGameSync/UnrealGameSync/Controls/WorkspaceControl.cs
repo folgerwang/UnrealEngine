@@ -291,7 +291,7 @@ namespace UnrealGameSync
 			ServerTimeZone = DetectSettings.ServerTimeZone;
 
 			// Update the branch directory
-			BranchDirectoryName = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(DetectSettings.BaseEditorTargetPath), "..", ".."));
+			BranchDirectoryName = DetectSettings.BranchDirectoryName;
 
 			// Check if we've the project we've got open in this workspace is the one we're actually synced to
 			int CurrentChangeNumber = -1;
