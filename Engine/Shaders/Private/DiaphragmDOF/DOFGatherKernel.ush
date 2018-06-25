@@ -68,10 +68,7 @@ struct FPrivateKernelSharedScope
 	// Multiplier to transform sample count unit to sample position in pixels of GatherInput's mip level 0.
 	// Set at compile time to 1 when bKenrelHasEnoughSamples==true.
 	float SampleCountToSamplePosition;
-			
-	// CocRadius error caused by undersampling.
-	float CocRadiusError;
-
+	
 	// Sampling mip level for GatherInput.
 	float GatherInputMipLevel;
 
@@ -79,6 +76,56 @@ struct FPrivateKernelSharedScope
 	// TODO: this is currently MipLevel  depent, but could save some VGPR by making it independent.
 	float2 GatherInputMaxUV;
 };
+
+
+// Computes intersection of sample from its Coc and its distance.
+// Returns 0: no intersection, 1: intersection.
+float ComputeSampleIntersection(FPrivateKernelSharedScope KernelScope, float SampleCocRadius, float SampleDistance)
+{
+	// Intersection of output pixel's disk area with sample's Coc.
+	#if 1
+		// To have an intersection of 50% when the Sample's Coc radius == SampleDistance.
+		#if 0 // TODO: clean this hack.
+			// Poor out of focus, great alpha channel, no leaking.
+			const float Offset = 1;
+		#elif 1
+			// Best slight out of focus.
+			const float Offset = 0;
+		#else
+			// Mathematically ideal.
+			const float Offset = 0.5;
+		#endif
+
+		#if DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
+			// Uses a sharper intersection for slight out of focus like Recombine pass since it is being used
+			// for full res temporal statbility clamping box, so the aliasing this may introduce at half res is
+			// Fine.
+			const float Multiplier = 4.0;
+		#else
+			const float Multiplier = 1;
+			// TODO: investigate infficient way to reduce Multiplier according to MipLevel.
+			//const float Multiplier = SampleCocRadius > 4 ? 4.0 / abs(SampleCocRadius) : 1.0;
+		#endif
+
+		return saturate((abs(SampleCocRadius) - SampleDistance) * Multiplier + Offset);
+
+	// Same as Circle DOF.
+	#elif 0
+		// 0.5 because Coc radius is at half res, and 0.5 so that the fallof is only the radius of a ful res pixel.
+		const float IntersectionSharpen = 0.5 * 0.5;
+
+		// TODO: missing +0.5 to be energy conservative.
+		return saturate((abs(SampleCocRadius) - SampleDistance) * IntersectionSharpen);
+
+	#else // Hard cut of.
+		if (SampleDistance > abs(SampleCocRadius))
+		{
+			return 0.0;
+		}
+		return 1.0;
+
+	#endif
+}
 
 
 // Returns the total number of sampling iteration for a given ring id.
@@ -172,7 +219,7 @@ void UpdateRuntimeKernelScope(
 	// Compute the mip level to sample.
 	#if CONFIG_MIP_LEVEL_METHOD == MIP_LEVEL_METHOD_INTERLEAVED_OFFSET	
 		// Compute random uniformly distributed on disk (centered, diameter = 1).
-		float2 RandomCircle = (0.5 * sqrt(GatherParameters.Random[0])) * float2(cos(2 * PI * GatherParameters.Random[1]), sin(2 * PI * GatherParameters.Random[1]));
+		float2 RandomCircle = (0.48 * sqrt(GatherParameters.Random[0])) * float2(cos(2 * PI * GatherParameters.Random[1]), sin(2 * PI * GatherParameters.Random[1]));
 
 		float MipLevel = floor(0.5 + log2(GatherParameters.KernelRadius * UnitSampleRadius));
 
@@ -203,8 +250,12 @@ void UpdateRuntimeKernelScope(
 	}
 
 	// Compute the randomising range of the kernel offset in pixels.
-	float KernelRandomRange = max((GatherParameters.KernelRadius - GatherParameters.MaxRingCount) * UnitSampleRadius, 0.0);
-	
+	#if CONFIG_FULL_KERNEL_CENTER_RANDOM
+		float KernelRandomRange = max(GatherParameters.KernelRadius - GatherParameters.MaxRingCount - pow(2.0, uint(MipLevel)), 0.0);
+	#else
+		float KernelRandomRange = max((GatherParameters.KernelRadius - GatherParameters.MaxRingCount) * UnitSampleRadius, 0.0);
+	#endif
+
 	// No need to do kernel randomization when there is enough samples.
 	if (static_condition(KernelScope.bKenrelHasEnoughSamples))
 	{
@@ -214,7 +265,6 @@ void UpdateRuntimeKernelScope(
 	KernelScope.KernelCenterUV = GatherParameters.InputBufferCenterUV + (RandomCircle * KernelRandomRange) * PostprocessInput0Size.zw;
 
 	KernelScope.SampleCountToSamplePosition = GatherParameters.KernelRadius * UnitSampleRadius;
-	KernelScope.CocRadiusError = 0.5 * KernelRandomRange;
 
 	KernelScope.GatherInputMaxUV = (ViewportSize.xy - 0.5 * pow(2.0, uint(MipLevel))) * GatherParameters.DispatchThreadIdToInputBufferUV;
 	KernelScope.GatherInputMipLevel = MipLevel;
@@ -229,7 +279,6 @@ void UpdateRuntimeKernelScope(
 	#if CONFIG_SGPR_HINTS
 	{
 		KernelScope.SampleCountToSamplePosition = ToScalarMemory(KernelScope.SampleCountToSamplePosition);
-		KernelScope.CocRadiusError = ToScalarMemory(KernelScope.CocRadiusError);
 		KernelScope.GatherInputMaxUV = ToScalarMemory(KernelScope.GatherInputMaxUV);
 		KernelScope.GatherInputMipLevel = ToScalarMemory(KernelScope.GatherInputMipLevel);
 	}
@@ -466,7 +515,7 @@ void GatherRing(
 				#endif
 
 				Sample[k].Distance = SampleDistance;
-				Sample[k].Intersection = ComputeSampleIntersection(Sample[k].CocRadius, SampleDistance);
+				Sample[k].Intersection = ComputeSampleIntersection(KernelScope, Sample[k].CocRadius, SampleDistance);
 				
 				FastAccumulator.Color += Sample[k].Color;
 			}
@@ -555,7 +604,7 @@ void GatherSamplesAndResolve(
 	{
 		//static_assert(GatherParameters.MaxRingCount >= 2, "Assumes this LARGEST_RINGS_FIRST.");
 		
-		int LowerRingId = GatherParameters.MaxRingCount / 2;
+		int LowerRingId = GatherParameters.MaxRingCount - GatherParameters.DensityChangeRingCount;
 
 		int RingId;
 
