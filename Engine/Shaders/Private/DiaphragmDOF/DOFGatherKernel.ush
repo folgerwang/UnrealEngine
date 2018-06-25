@@ -158,7 +158,16 @@ uint GetKernelSampleCount(const uint KernelSamplingDensityMode, uint RingCount)
 // Fetch and unpack a sample from GatherInput.
 FGatherSample FetchGatherSample(in FPrivateKernelSharedScope KernelScope, float2 SampleUV)
 {
-	#if CONFIG_CLAMP_INPUT_BUFFER_UV
+	#if CONFIG_MIRRORED_SAMPLER
+	{
+		SampleUV = max(SampleUV, -SampleUV);
+		#if CONFIG_CLAMP_INPUT_BUFFER_UV
+			SampleUV = min(SampleUV, 2.0 * KernelScope.GatherInputMaxUV - SampleUV);
+		#else
+			SampleUV = min(SampleUV, 2.0 - SampleUV);
+		#endif
+	}
+	#elif CONFIG_CLAMP_INPUT_BUFFER_UV
 	{
 		SampleUV = min(SampleUV, KernelScope.GatherInputMaxUV);
 	}

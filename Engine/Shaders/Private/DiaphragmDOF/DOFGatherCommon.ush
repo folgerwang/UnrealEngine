@@ -127,10 +127,12 @@
 
 #elif DIM_GATHER_QUALITY == GATHER_QUALITY_HIGH_QUALITY
 	#define CONFIG_WEIGHT_SAMPLE_FROM_COC 1
+	#define CONFIG_MIRRORED_SAMPLER 1
 
 #elif DIM_GATHER_QUALITY == GATHER_QUALITY_SCATTER_OCCLUSION_OUTPUT
 	#define CONFIG_WEIGHT_SAMPLE_FROM_COC 1
 	#define CONFIG_GENERATE_SCATTER_OCCLUSION_BUFFER 1
+	#define CONFIG_MIRRORED_SAMPLER 1
 
 #else
 	#error Unknon gathering quality.
@@ -210,6 +212,11 @@
 // Whether to randomise the kernel center on the full displacement.
 #ifndef CONFIG_FULL_KERNEL_CENTER_RANDOM
 	#define CONFIG_FULL_KERNEL_CENTER_RANDOM 0
+#endif
+
+// Uses mirrored sampler when gathering outside viewport rect.
+#ifndef CONFIG_MIRRORED_SAMPLER
+	#define CONFIG_MIRRORED_SAMPLER 0
 #endif
 
 // D3D shader compiler is rediculously slow to compile this shader.
