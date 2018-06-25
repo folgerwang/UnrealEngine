@@ -284,7 +284,7 @@ namespace UnrealGameSync
 		}
 	}
 
-	[DebuggerDisplay("{Path}")]
+	[DebuggerDisplay("{DepotPath}")]
 	class PerforceWhereRecord
 	{
 		public string LocalPath;
