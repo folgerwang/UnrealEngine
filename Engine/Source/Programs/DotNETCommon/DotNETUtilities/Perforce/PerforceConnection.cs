@@ -971,6 +971,10 @@ namespace Tools.DotNETCommon.Perforce
 			{
 				NameToValue.Add(new KeyValuePair<string, object>("LineEnd", GetEnumText(typeof(ClientLineEndings), Input.LineEnd)));
 			}
+			if(Input.Type != null)
+			{
+				NameToValue.Add(new KeyValuePair<string, object>("Type", Input.Type));
+			}
 			if(Input.Stream != null)
 			{
 				NameToValue.Add(new KeyValuePair<string, object>("Stream", Input.Stream));
