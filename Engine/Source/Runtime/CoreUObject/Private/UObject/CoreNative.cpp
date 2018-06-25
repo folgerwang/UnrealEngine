@@ -194,34 +194,12 @@ UObject* FObjectInstancingGraph::GetInstancedSubobject( UObject* SourceSubobject
 								checkf(SubobjectOuter, TEXT("No corresponding destination object found for '%s' while attempting to instance component '%s'"), *SourceSubobject->GetOuter()->GetFullName(), *SourceSubobject->GetFullName());
 							}
 
-							FName SubobjectName = SourceSubobject->GetFName();
+							const FName SubobjectName = SourceSubobject->GetFName();
 
-							// final archetype archetype will be the archetype of the template
-							UObject* FinalSubobjectArchetype = CurrentValue->GetArchetype();
-
-							// Don't search for the existing subobjects on Blueprint-generated classes. What we'll find is a subobject
-							// created by the constructor which may not have all of its fields initialized to the correct value (which
-							// should be coming from a blueprint).
-							// NOTE: Since this function is called ONLY for Blueprint-generated classes, we may as well delete this 'if'.
-							if (!SubobjectOuter->GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
-							{
-								InstancedSubobject = StaticFindObjectFast(nullptr, SubobjectOuter, SubobjectName);
-							}
-
-							if (InstancedSubobject && IsCreatingArchetype())
-							{
-								// since we are updating an archetype, this needs to reconstruct as that is the mechanism used to copy properties
-								// it will destroy the existing object and overwrite it
-								InstancedSubobject = nullptr;
-							}
-
-							if (!InstancedSubobject)
-							{
-								// finally, create the component instance
-								InstancedSubobject = StaticConstructObject_Internal(SourceSubobject->GetClass(), SubobjectOuter,
-									SubobjectName, SubobjectOuter->GetMaskedFlags(RF_PropagateToSubObjects), EInternalObjectFlags::None, SourceSubobject,
-									true, this);
-							}
+							// finally, create the component instance
+							InstancedSubobject = StaticConstructObject_Internal(SourceSubobject->GetClass(), SubobjectOuter,
+								SubobjectName, SubobjectOuter->GetMaskedFlags(RF_PropagateToSubObjects), EInternalObjectFlags::None, SourceSubobject,
+								true, this);
 						}
 					}
 				}
