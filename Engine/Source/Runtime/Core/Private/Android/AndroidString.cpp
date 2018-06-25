@@ -5,6 +5,9 @@
 =============================================================================*/
 
 #include "Android/AndroidString.h"
+
+#if !PLATFORM_TCHAR_IS_CHAR16
+
 #include "Containers/StringConv.h"
 #include <stdlib.h>
 #include <cwchar>
@@ -312,3 +315,5 @@ int vswprintf( TCHAR *buf, int max, const TCHAR *fmt, va_list args )
 	*dst = 0;  // null terminate the new string.
 	return(dst - buf);
 }
+
+#endif
