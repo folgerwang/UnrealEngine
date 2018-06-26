@@ -341,26 +341,31 @@ public:
 	// Historical number of times we've presented any and all viewports
 	uint32 TotalPresentCount = 0;
 
-	const TArray<const ANSICHAR*>& GetInstanceExtensions() const
+	inline const TArray<const ANSICHAR*>& GetInstanceExtensions() const
 	{
 		return InstanceExtensions;
 	}
 
-	const TArray<const ANSICHAR*>& GetInstanceLayers() const
+	inline const TArray<const ANSICHAR*>& GetInstanceLayers() const
 	{
 		return InstanceLayers;
 	}
 
 	static void RecreateSwapChain(void* NewNativeWindow);
 
-	VkInstance GetInstance() const
+	inline VkInstance GetInstance() const
 	{
 		return Instance;
 	}
 	
-	FVulkanDevice* GetDevice()
+	inline FVulkanDevice* GetDevice()
 	{
 		return Device;
+	}
+
+	inline bool SupportsDebugUtilsExt() const
+	{
+		return bSupportsDebugUtilsExt;
 	}
 
 	virtual void VulkanSetImageLayout( VkCommandBuffer CmdBuffer, VkImage Image, VkImageLayout OldLayout, VkImageLayout NewLayout, const VkImageSubresourceRange& SubresourceRange );
@@ -397,7 +402,7 @@ protected:
 	static void WriteEndFrameTimestamp(void*);
 	*/
 
-	static void GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& OutInstanceExtensions, TArray<const ANSICHAR*>& OutInstanceLayers);
+	static void GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& OutInstanceExtensions, TArray<const ANSICHAR*>& OutInstanceLayers, bool& bOutDebugUtils);
 
 	IConsoleObject* SavePipelineCacheCmd = nullptr;
 	IConsoleObject* RebuildPipelineCacheCmd = nullptr;
@@ -416,8 +421,13 @@ public:
 	static void DumpMemory();
 #endif
 
-#if VULKAN_HAS_DEBUGGING_ENABLED
 protected:
+	bool bSupportsDebugUtilsExt = false;
+#if VULKAN_HAS_DEBUGGING_ENABLED
+#if VULKAN_SUPPORTS_DEBUG_UTILS
+	VkDebugUtilsMessengerEXT Messenger = VK_NULL_HANDLE;
+#endif
+
 	bool bSupportsDebugCallbackExt = false;
 	VkDebugReportCallbackEXT MsgCallback = VK_NULL_HANDLE;
 	void SetupDebugLayerCallback();

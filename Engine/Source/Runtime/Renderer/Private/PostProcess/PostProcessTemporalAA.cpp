@@ -544,6 +544,11 @@ class FPostProcessTemporalAACS : public FGlobalShader
 
 IMPLEMENT_GLOBAL_SHADER(FPostProcessTemporalAACS, "/Engine/Private/PostProcessTemporalAA.usf", "MainCS", SF_Compute);
 
+static void TransitionShaderResources(FRenderingCompositePassContext& Context)
+{
+	TShaderMapRef< FPostProcessTonemapVS > VertexShader(Context.GetShaderMap());
+	VertexShader->TransitionResources(Context);
+}
 
 void DrawPixelPassTemplate(
 	FRenderingCompositePassContext& Context,
@@ -570,7 +575,6 @@ void DrawPixelPassTemplate(
 	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
 	SetGraphicsPipelineState(Context.RHICmdList, GraphicsPSOInit);
-	VertexShader->TransitionResources(Context);
 	VertexShader->SetVS(Context);
 	PixelShader->SetParameters(Context.RHICmdList, Context, InputHistory, PassParameters, bUseDither, SrcSize);
 
@@ -851,6 +855,8 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 
 		// Inform MultiGPU systems that we're starting to update this resource
 		Context.RHICmdList.BeginUpdateMultiFrameResource(DestRenderTarget[0]->ShaderResourceTexture);
+
+		TransitionShaderResources(Context);
 
 		// Setup render targets.
 		{

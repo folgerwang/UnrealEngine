@@ -580,39 +580,13 @@ static void BuildShaderOutput(
 		Header.NEWPackedGlobalUBSizes[PackedArrayIndex] = Align((uint32)Pair.Value, (uint32)16);
 	}
 
-	auto FindHlslccBindingByIndex = [&HlslccBindings](int32 TestIndex, EVulkanBindingType::EType Type)
-	{
-		int32 VulkanBindingIndex = -1;
-		int32 Index = 0;
-		for (Index = 0; Index < HlslccBindings.Num(); ++Index)
-		{
-			const FVulkanBindingTable::FBinding& Binding = HlslccBindings[Index];
-			if (Binding.Type == Type)
-			{
-				check(IsAlpha(Binding.Name[0]) && IsAlpha(Binding.Name[1]));
-				check(IsDigit(Binding.Name[2]));
-				const char* IndexStr = &Binding.Name[2];
-				int32 IndexFromName = FCStringAnsi::Atoi(IndexStr);
-				if (IndexFromName == TestIndex)
-				{
-					return Index;
-				}
-			}
-	}
-
-		return -1;
-	};
-
-	// shared samplers that are actually shared end up being generated as raw sampler uniforms by hlslcc, which follow special naming rules.  they are output as "pz0", "pz1", "pz2", etc...
-	//  take advantage of the FindHlslccBindingByIndex function someone already defined above (but never used?) and scrape these out of the file.
-	//  Note that hlslcc appears to *only* dump raw samplers to its SamplerStates array, and these raw samplers are in indexed order with the 'p'z enumeration.
 	TSet<FString> SharedSamplerStates;
 	for (int32 i = 0; i < CCHeader.SamplerStates.Num(); i++)
 	{
-		int32 HlslccBindingIndex = FindHlslccBindingByIndex(i, EVulkanBindingType::Sampler);
+		const FString& Name = CCHeader.SamplerStates[i].Name;
+		int32 HlslccBindingIndex = Spirv.FindBinding(Name);
 		check(HlslccBindingIndex != -1);
 
-		const FString& Name = CCHeader.SamplerStates[i].Name;
 		SharedSamplerStates.Add(Name);
 		auto& Binding = HlslccBindings[HlslccBindingIndex];
 		int32 BindingIndex = Spirv.FindBinding(Binding.Name, true);
@@ -739,6 +713,7 @@ static void BuildShaderOutput(
 	AppendCString(DebugNameArray, TCHAR_TO_ANSI(*DebugName));
 	Ar << DebugNameArray;
 
+	check(Spirv.Data.Num() != 0);
 	Ar << Spirv.Data;
 
 	// store data we can pickup later with ShaderCode.FindOptionalData('n'), could be removed for shipping

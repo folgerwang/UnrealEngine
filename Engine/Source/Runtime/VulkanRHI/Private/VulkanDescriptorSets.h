@@ -36,7 +36,7 @@ public:
 		return SetLayouts;
 	}
 
-	void AddBindingsForStage(VkShaderStageFlagBits StageFlags, EDescriptorSetStage DescSet, const FVulkanCodeHeader& CodeHeader);
+	void AddBindingsForStage(VkShaderStageFlagBits StageFlags, DescriptorSet::EStage DescSet, const FVulkanCodeHeader& CodeHeader);
 
 	friend uint32 GetTypeHash(const FVulkanDescriptorSetsLayoutInfo& In)
 	{
@@ -360,7 +360,7 @@ class FOLDVulkanDescriptorSets
 public:
 	~FOLDVulkanDescriptorSets();
 
-	typedef TArray<VkDescriptorSet, TInlineAllocator<SF_Compute>> FDescriptorSetArray;
+	typedef TArray<VkDescriptorSet, TInlineAllocator<DescriptorSet::NumGfxStages>> FDescriptorSetArray;
 
 	inline const FDescriptorSetArray& GetHandles() const
 	{
@@ -431,7 +431,7 @@ protected:
 	FVulkanDescriptorSetsLayout DescriptorSetLayout;
 	VkPipelineLayout PipelineLayout;
 
-	inline void AddBindingsForStage(VkShaderStageFlagBits StageFlags, EDescriptorSetStage DescSet, const FVulkanCodeHeader& CodeHeader)
+	inline void AddBindingsForStage(VkShaderStageFlagBits StageFlags, DescriptorSet::EStage DescSet, const FVulkanCodeHeader& CodeHeader)
 	{
 		// Setting descriptor is only allowed prior to compiling the layout
 		check(DescriptorSetLayout.GetHandles().Num() == 0);

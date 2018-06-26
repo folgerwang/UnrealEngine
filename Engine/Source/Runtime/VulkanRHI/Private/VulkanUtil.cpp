@@ -334,7 +334,7 @@ float FVulkanEventNode::GetTiming()
 void FVulkanGPUProfiler::BeginFrame()
 {
 #if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
-	if (Device->GetOptionalExtensions().HasAMDBufferMarker)
+	if (GGPUCrashDebuggingEnabled && Device->GetOptionalExtensions().HasAMDBufferMarker)
 	{
 		static auto* CrashCollectionEnableCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.gpucrash.collectionenable"));
 		static auto* CrashCollectionDataDepth = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.gpucrash.datadepth"));
@@ -532,8 +532,7 @@ namespace VulkanRHI
 		VkBuffer Buffer = VK_NULL_HANDLE;
 
 		VkBufferCreateInfo BufferCreateInfo;
-		FMemory::Memzero(BufferCreateInfo);
-		BufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		ZeroVulkanStruct(BufferCreateInfo, VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO);
 		BufferCreateInfo.size = Size;
 		BufferCreateInfo.usage = BufferUsageFlags;
 		VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkCreateBuffer(Device, &BufferCreateInfo, nullptr, &Buffer));
@@ -601,7 +600,7 @@ namespace VulkanRHI
 			ANSI_TO_TCHAR(VkFunction), (int32)Result, ANSI_TO_TCHAR(Filename), Line, *ErrorString);
 
 #if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
-		if (GIsGPUCrashed)
+		if (GIsGPUCrashed && GGPUCrashDebuggingEnabled)
 		{
 			FVulkanDynamicRHI* RHI = (FVulkanDynamicRHI*)GDynamicRHI;
 			FVulkanDevice* Device = RHI->GetDevice();

@@ -56,8 +56,6 @@ class FVulkanShader
 public:
 	FVulkanShader(FVulkanDevice* InDevice) :
 		ShaderModule(VK_NULL_HANDLE),
-		Code(nullptr),
-		CodeSize(0),
 		Device(InDevice)
 	{
 	}
@@ -84,16 +82,12 @@ public:
 protected:
 	/** External bindings for this shader. */
 	FVulkanCodeHeader CodeHeader;
-
 	VkShaderModule ShaderModule;
 
-	uint32* Code;
-	uint32 CodeSize;
-	FString DebugName;
+	TArray<uint32>		Spirv;
+	FString				DebugName;
 
-	TArray<ANSICHAR> GlslSource;
-
-	FVulkanDevice* Device;
+	FVulkanDevice*		Device;
 
 	friend class FVulkanCommandListContext;
 	friend class FVulkanPipelineStateCache;
@@ -130,12 +124,12 @@ public:
 	}
 };
 
-typedef TVulkanBaseShader<FRHIVertexShader, SF_Vertex> FVulkanVertexShader;
-typedef TVulkanBaseShader<FRHIPixelShader, SF_Pixel> FVulkanPixelShader;
-typedef TVulkanBaseShader<FRHIHullShader, SF_Hull> FVulkanHullShader;
-typedef TVulkanBaseShader<FRHIDomainShader, SF_Domain> FVulkanDomainShader;
-typedef TVulkanBaseShader<FRHIComputeShader, SF_Compute> FVulkanComputeShader;
-typedef TVulkanBaseShader<FRHIGeometryShader, SF_Geometry> FVulkanGeometryShader;
+typedef TVulkanBaseShader<FRHIVertexShader, SF_Vertex>		FVulkanVertexShader;
+typedef TVulkanBaseShader<FRHIPixelShader, SF_Pixel>		FVulkanPixelShader;
+typedef TVulkanBaseShader<FRHIHullShader, SF_Hull>			FVulkanHullShader;
+typedef TVulkanBaseShader<FRHIDomainShader, SF_Domain>		FVulkanDomainShader;
+typedef TVulkanBaseShader<FRHIComputeShader, SF_Compute>	FVulkanComputeShader;
+typedef TVulkanBaseShader<FRHIGeometryShader, SF_Geometry>	FVulkanGeometryShader;
 
 class FVulkanBoundShaderState : public FRHIBoundShaderState
 {
@@ -157,15 +151,15 @@ public:
 	FORCEINLINE FVulkanDomainShader*   GetDomainShader() const { return (FVulkanDomainShader*)CacheLink.GetDomainShader(); }
 	FORCEINLINE FVulkanGeometryShader* GetGeometryShader() const { return (FVulkanGeometryShader*)CacheLink.GetGeometryShader(); }
 
-	const FVulkanShader* GetShader(EShaderFrequency Stage) const
+	const FVulkanShader* GetShader(DescriptorSet::EStage Stage) const
 	{
 		switch (Stage)
 		{
-		case SF_Vertex:		return GetVertexShader();
-		case SF_Hull:		return GetHullShader();
-		case SF_Domain:		return GetDomainShader();
-		case SF_Pixel:		return GetPixelShader();
-		case SF_Geometry:	return GetGeometryShader();
+		case DescriptorSet::Vertex:		return GetVertexShader();
+		//case DescriptorSet::Hull:		return GetHullShader();
+		//case DescriptorSet::Domain:		return GetDomainShader();
+		case DescriptorSet::Pixel:		return GetPixelShader();
+		case DescriptorSet::Geometry:	return GetGeometryShader();
 		default: break;
 		}
 		checkf(0, TEXT("Invalid Shader Frequency %d"), (int32)Stage);

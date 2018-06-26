@@ -77,14 +77,19 @@ public:
 
 	struct FGenerateMipsInfo
 	{
-		// Per face/slice array of mip layouts
-		TArray<TArray<VkImageLayout>> Layouts;
+		int32 NumRenderTargets = 0;
 
 		bool bInsideGenerateMips;
 		bool bLastMip;
 		int32 CurrentSlice;
 		int32 CurrentMip;
-		VkImage CurrentImage;
+
+		struct
+		{
+			// Per face/slice array of mip layouts
+			TArray<TArray<VkImageLayout>> Layouts;
+			VkImage CurrentImage;
+		} Target[MaxSimultaneousRenderTargets];
 
 		FGenerateMipsInfo()
 		{
@@ -93,12 +98,16 @@ public:
 
 		void Reset()
 		{
+			NumRenderTargets = 0;
 			bInsideGenerateMips = false;
 			bLastMip = false;
 			CurrentSlice = -1;
 			CurrentMip = -1;
-			CurrentImage = VK_NULL_HANDLE;
-			Layouts.Reset(0);
+			for (int32 Index = 0; Index < MaxSimultaneousRenderTargets; ++Index)
+			{
+				Target[Index].Layouts.Reset(0);
+				Target[Index].CurrentImage = VK_NULL_HANDLE;
+			}
 		}
 	} GenerateMipsInfo;
 
@@ -371,7 +380,7 @@ protected:
 	bool bAutomaticFlushAfterComputeShader;
 	FVulkanUniformBufferUploader* UniformBufferUploader;
 
-	void SetShaderUniformBuffer(EShaderFrequency Stage, const FVulkanUniformBuffer* UniformBuffer, int32 BindingIndex, const FVulkanShader* Shader);
+	void SetShaderUniformBuffer(DescriptorSet::EStage Stage, const FVulkanUniformBuffer* UniformBuffer, int32 BindingIndex, const FVulkanShader* Shader);
 
 	struct
 	{
