@@ -408,7 +408,7 @@ bool GenerateSpirv(const ANSICHAR* Source, FCompilerInfo& CompilerInfo, FString&
 			{
 				Binding = Program->getUniformBinding(Index);
 			}
-			FSpirv::FEntry Entry{Name, Binding};
+			FSpirv::FEntry Entry(Name, Binding);
 			OutSpirv.ReflectionInfo.Add(Entry);
 		}
 
@@ -426,7 +426,7 @@ bool GenerateSpirv(const ANSICHAR* Source, FCompilerInfo& CompilerInfo, FString&
 			{
 				Binding = Program->getUniformBinding(Index);
 			}
-			FSpirv::FEntry Entry{Name, Binding};
+			FSpirv::FEntry Entry(Name, Binding);
 			OutSpirv.ReflectionInfo.Add(Entry);
 		}
 
