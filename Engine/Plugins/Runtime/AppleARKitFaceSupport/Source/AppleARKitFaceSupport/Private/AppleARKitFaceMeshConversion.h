@@ -180,6 +180,14 @@ static FORCEINLINE FARBlendShapeMap ToBlendShapeMap(NSDictionary<ARBlendShapeLoc
 	{
 		SET_BLEND_SHAPE(ARBlendShapeLocationTongueOut, EARFaceBlendShape::TongueOut);
 	}
+	else
+	{
+		// Always add a zeroed entry for any unsupported blend shapes
+		BlendShapeMap.Add(EARFaceBlendShape::TongueOut, 0.f);
+	}
+#else
+	// Always add a zeroed entry for any unsupported blend shapes
+	BlendShapeMap.Add(EARFaceBlendShape::TongueOut, 0.f);
 #endif
 
 #undef SET_BLEND_SHAPE
