@@ -224,7 +224,7 @@ bool FAppleARKitSystem::GetCurrentPose(int32 DeviceId, FQuat& OutOrientation, FV
 		// Apply counter-rotation to compensate for mobile device orientation
 		OutOrientation = CurrentTransform.GetRotation();
 		OutPosition = CurrentTransform.GetLocation();
-		
+
 		return true;
 	}
 	else
@@ -250,30 +250,55 @@ bool FAppleARKitSystem::EnumerateTrackedDevices(TArray<int32>& OutDevices, EXRTr
 	return false;
 }
 
-FRotator DeriveTrackingToWorldRotation( EScreenOrientation::Type DeviceOrientation )
+void FAppleARKitSystem::CalcTrackingToWorldRotation()
 {
 	// We rotate the camera to counteract the portrait vs. landscape viewport rotation
-	FRotator DeviceRot = FRotator::ZeroRotator;
-	switch (DeviceOrientation)
+	DerivedTrackingToUnrealRotation = FRotator::ZeroRotator;
+
+	const EARWorldAlignment WorldAlignment = GetSessionConfig().GetWorldAlignment();
+	if (WorldAlignment == EARWorldAlignment::Gravity || WorldAlignment == EARWorldAlignment::GravityAndHeading)
 	{
-		case EScreenOrientation::Portrait:
-			DeviceRot = FRotator(0.0f, 0.0f, -90.0f);
-			break;
-			
-		case EScreenOrientation::PortraitUpsideDown:
-			DeviceRot = FRotator(0.0f, 0.0f, 90.0f);
-			break;
-			
-		default:
-		case EScreenOrientation::LandscapeLeft:
-			break;
-			
-		case EScreenOrientation::LandscapeRight:
-			DeviceRot = FRotator(0.0f, 0.0f, 180.0f);
-			break;
-	};
-	
-	return DeviceRot;
+		switch (DeviceOrientation)
+		{
+			case EScreenOrientation::Portrait:
+				DerivedTrackingToUnrealRotation = FRotator(0.0f, 0.0f, -90.0f);
+				break;
+				
+			case EScreenOrientation::PortraitUpsideDown:
+				DerivedTrackingToUnrealRotation = FRotator(0.0f, 0.0f, 90.0f);
+				break;
+				
+			default:
+			case EScreenOrientation::LandscapeLeft:
+				break;
+				
+			case EScreenOrientation::LandscapeRight:
+				DerivedTrackingToUnrealRotation = FRotator(0.0f, 0.0f, 180.0f);
+				break;
+		}
+	}
+	// Camera aligned which means +X is to the right along the long axis
+	else
+	{
+		switch (DeviceOrientation)
+		{
+			case EScreenOrientation::Portrait:
+				DerivedTrackingToUnrealRotation = FRotator(0.0f, 0.0f, 90.0f);
+				break;
+				
+			case EScreenOrientation::PortraitUpsideDown:
+				DerivedTrackingToUnrealRotation = FRotator(0.0f, 0.0f, -90.0f);
+				break;
+				
+			default:
+			case EScreenOrientation::LandscapeLeft:
+				DerivedTrackingToUnrealRotation = FRotator(0.0f, 0.0f, -180.0f);
+				break;
+				
+			case EScreenOrientation::LandscapeRight:
+				break;
+		}
+	}
 }
 
 void FAppleARKitSystem::UpdateFrame()
@@ -319,10 +344,6 @@ void FAppleARKitSystem::UpdateFrame()
 
 void FAppleARKitSystem::UpdatePoses()
 {
-	if (DeviceOrientation == EScreenOrientation::Unknown)
-	{
-		SetDeviceOrientation( static_cast<EScreenOrientation::Type>(FPlatformMisc::GetDeviceOrientation()) );
-	}
 	UpdateFrame();
 }
 
@@ -1050,7 +1071,7 @@ void FAppleARKitSystem::SetDeviceOrientation( EScreenOrientation::Type InOrienta
 	if (NewOrientation.IsSet() && DeviceOrientation != NewOrientation.GetValue())
 	{
 		DeviceOrientation = NewOrientation.GetValue();
-		DerivedTrackingToUnrealRotation = DeriveTrackingToWorldRotation( DeviceOrientation );
+		CalcTrackingToWorldRotation();
 	}
 }
 
@@ -1073,6 +1094,12 @@ bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 		LastReceivedFrame = TSharedPtr<FAppleARKitFrame, ESPMode::ThreadSafe>();
 	}
 	
+	// Make sure this is set at session start, because there are timing issues with using only the delegate approach
+	if (DeviceOrientation == EScreenOrientation::Unknown)
+	{
+		SetDeviceOrientation( static_cast<EScreenOrientation::Type>(FPlatformMisc::GetDeviceOrientation()) );
+	}
+
 #if SUPPORTS_ARKIT_1_0
 	if (FAppleARKitAvailability::SupportsARKit10())
 	{
@@ -1298,7 +1325,8 @@ void FAppleARKitSystem::SessionDidAddAnchors_DelegateThread( NSArray<ARAnchor*>*
 	// If this object is valid, we are running a face session and need that code to process things
 	if (FaceARSupport != nullptr)
 	{
-		const TArray<TSharedPtr<FAppleARKitAnchorData>> AnchorList = FaceARSupport->MakeAnchorData(anchors, GameThreadTimestamp, GameThreadFrameNumber);
+		const FRotator& AdjustBy = GetSessionConfig().GetWorldAlignment() == EARWorldAlignment::Camera ? DerivedTrackingToUnrealRotation : FRotator::ZeroRotator;
+		const TArray<TSharedPtr<FAppleARKitAnchorData>> AnchorList = FaceARSupport->MakeAnchorData(anchors, GameThreadTimestamp, GameThreadFrameNumber, AdjustBy);
 		for (TSharedPtr<FAppleARKitAnchorData> NewAnchorData : AnchorList)
 		{
 			auto AddAnchorTask = FSimpleDelegateGraphTask::FDelegate::CreateSP(this, &FAppleARKitSystem::SessionDidAddAnchors_Internal, NewAnchorData.ToSharedRef());
@@ -1327,7 +1355,8 @@ void FAppleARKitSystem::SessionDidUpdateAnchors_DelegateThread( NSArray<ARAnchor
 	// If this object is valid, we are running a face session and need that code to process things
 	if (FaceARSupport != nullptr)
 	{
-		const TArray<TSharedPtr<FAppleARKitAnchorData>> AnchorList = FaceARSupport->MakeAnchorData(anchors, GameThreadTimestamp, GameThreadFrameNumber);
+		const FRotator& AdjustBy = GetSessionConfig().GetWorldAlignment() == EARWorldAlignment::Camera ? DerivedTrackingToUnrealRotation : FRotator::ZeroRotator;
+		const TArray<TSharedPtr<FAppleARKitAnchorData>> AnchorList = FaceARSupport->MakeAnchorData(anchors, GameThreadTimestamp, GameThreadFrameNumber, AdjustBy);
 		for (TSharedPtr<FAppleARKitAnchorData> NewAnchorData : AnchorList)
 		{
 			auto UpdateAnchorTask = FSimpleDelegateGraphTask::FDelegate::CreateSP(this, &FAppleARKitSystem::SessionDidUpdateAnchors_Internal, NewAnchorData.ToSharedRef());
@@ -1373,7 +1402,7 @@ void FAppleARKitSystem::SessionDidAddAnchors_Internal( TSharedRef<FAppleARKitAnc
 	{
 		UpdateFrame();
 	}
-
+	
 	// If this object is valid, we are running a face session and we need to publish LiveLink data on the game thread
 	if (FaceARSupport != nullptr && AnchorData->AnchorType == EAppleAnchorType::FaceAnchor)
 	{
