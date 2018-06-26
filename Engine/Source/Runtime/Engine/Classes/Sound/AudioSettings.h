@@ -46,6 +46,30 @@ enum class EVoiceSampleRate : int32
 	/* High48000Hz = 48000 //TODO: 48k VOIP requires serious performance optimizations on encoding and decoding. */
 };
 
+// Enumeration defines what method of panning to use (for non-binaural audio) with the audio-mixer.
+UENUM()
+enum class EPanningMethod : int8
+{
+	// Linear panning maintains linear amplitude when panning between speakers.
+	Linear,
+
+	// Equal power panning maintains equal power when panning between speakers.
+	EqualPower
+};
+
+// Enumeration defines how to treat mono 2D playback. Mono sounds need to upmixed to stereo when played back in 2D.
+UENUM()
+enum class EMonoChannelUpmixMethod : int8
+{
+	// The mono channel is split 0.5 left/right
+	Linear,
+	
+	// The mono channel is split 0.707 left/right
+	EqualPower,
+
+	// The mono channel is split 1.0 left/right
+	FullVolume
+};
 
 USTRUCT()
 struct ENGINE_API FAudioQualitySettings
@@ -140,6 +164,18 @@ class ENGINE_API UAudioSettings : public UDeveloperSettings
 	 */
 	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
 	uint32 NumStoppingSources;
+
+	/**
+	* The method to use when doing non-binaural or object-based panning.
+	*/
+	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
+	EPanningMethod PanningMethod;
+
+	/**
+	* The upmixing method for mono sound sources. Defines up mono channels are up-mixed to stereo channels.
+	*/
+	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
+	EMonoChannelUpmixMethod MonoChannelUpmixMethod;
 
 	/**
 	 * The format string to use when generating the filename for contexts within dialogue waves. This must generate unique names for your project.

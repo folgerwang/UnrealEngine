@@ -154,6 +154,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sound)
 	uint8 bIsUISound : 1;
 
+	/** Whether or not this synth is playing as a preview sound */
+	UPROPERTY()
+	uint8 bIsPreviewSound : 1;
+
 	/** Call if creating this synth component not via an actor component in BP, but in code or some other location. Optionally override the sample rate of the sound wave, otherwise it uses the audio device's sample rate. */
 	void Initialize(int32 SampleRateOverride = INDEX_NONE);
 

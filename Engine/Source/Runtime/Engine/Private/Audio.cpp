@@ -581,6 +581,7 @@ FSpatializationParams FSoundSource::GetSpatializationParams()
 void FSoundSource::InitCommon()
 {
 	PlaybackTime = 0.0f;
+	TickCount = 0;
 
 	// Reset pause state
 	bIsPausedByGame = false;
@@ -785,6 +786,7 @@ FWaveInstance::FWaveInstance( FActiveSound* InActiveSound )
 	, bCenterChannelOnly(false)
 	, bReportedSpatializationWarning(false)
 	, bIsAmbisonics(false)
+	, bIsStopping(false)
 	, SpatializationMethod(ESoundSpatializationAlgorithm::SPATIALIZATION_Default)
 	, OcclusionPluginSettings(nullptr)
 	, OutputTarget(EAudioOutputTarget::Speaker)
@@ -897,22 +899,28 @@ bool FWaveInstance::ShouldStopDueToMaxConcurrency() const
 
 float FWaveInstance::GetVolumeWeightedPriority() const
 {
-	if (WaveData && WaveData->bBypassVolumeScaleForPriority)
+	// This will result in zero-volume sounds still able to be sorted due to priority but give non-zero volumes higher priority than 0 volumes
+	float ActualVolume = GetVolumeWithDistanceAttenuation();
+	if (ActualVolume > 0.0f)
 	{
-		return Priority;
-	}
-	else
-	{
-		// This will result in zero-volume sounds still able to be sorted due to priority but give non-zero volumes higher priority than 0 volumes
-		float ActualVolume = GetVolumeWithDistanceAttenuation();
-		if (ActualVolume > 0.0f)
+		// Only check for bypass if the actual volume is greater than 0.0
+		if (WaveData && WaveData->bBypassVolumeScaleForPriority)
 		{
-			return ActualVolume * Priority;
+			return Priority;
 		}
 		else
 		{
-			return Priority - MAX_SOUND_PRIORITY - 1;
+			return ActualVolume * Priority;
 		}
+	}
+	else if (IsStopping())
+	{
+		// Stopping sounds will be sorted above 0-volume sounds
+		return ActualVolume * Priority - MAX_SOUND_PRIORITY - 1.0f;
+	}
+	else
+	{
+		return Priority - 2.0f * MAX_SOUND_PRIORITY - 1.0f;
 	}
 }
 

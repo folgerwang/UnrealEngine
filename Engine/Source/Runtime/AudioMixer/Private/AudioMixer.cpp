@@ -15,6 +15,15 @@ FAutoConsoleVariableRef CVarLogRenderTimes(
 	TEXT("0: Not Log, 1: Log"),
 	ECVF_Default);
 
+// Command for setting the audio render thread priority.
+static int32 SetRenderThreadPriorityCVar = (int32)TPri_Highest;
+FAutoConsoleVariableRef CVarLogRenderThreadPriority(
+	TEXT("au.RenderThreadPriority"),
+	LogRenderTimesCVar,
+	TEXT("Sets audio render thread priority. Defaults to 3.\n")
+	TEXT("0: Normal, 1: Above Normal, 2: Below Normal, 3: Highest, 4: Lowest, 5: Slightly Below Normal, 6: Time Critical"),
+	ECVF_Default);
+
 DEFINE_STAT(STAT_AudioMixerRenderAudio);
 DEFINE_STAT(STAT_AudioMixerSourceManagerUpdate);
 DEFINE_STAT(STAT_AudioMixerSourceBuffers);
@@ -190,6 +199,8 @@ namespace Audio
 			}
 			break;
 		}
+
+		bIsReady = false;
 	}
 
 	/**
@@ -380,7 +391,7 @@ namespace Audio
 		check(AudioFadeEvent != nullptr);
 
 		check(AudioRenderThread == nullptr);
-		AudioRenderThread = FRunnableThread::Create(this, *FString::Printf(TEXT("AudioMixerRenderThread(%d)"), AudioMixerTaskCounter.Increment()), 0, TPri_Highest, FPlatformAffinity::GetAudioThreadMask());
+		AudioRenderThread = FRunnableThread::Create(this, *FString::Printf(TEXT("AudioMixerRenderThread(%d)"), AudioMixerTaskCounter.Increment()), 0, (EThreadPriority)SetRenderThreadPriorityCVar, FPlatformAffinity::GetAudioThreadMask());
 		check(AudioRenderThread != nullptr);
 	}
 

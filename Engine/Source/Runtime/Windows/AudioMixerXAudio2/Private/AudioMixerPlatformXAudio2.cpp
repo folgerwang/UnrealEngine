@@ -511,9 +511,6 @@ namespace Audio
 			OutputAudioStreamSourceVoice = nullptr;
 		}
 
-		// Don't let the audio stream process while switching to new audio device!
-		//FScopeLock Lock(&AudioRenderCritSect); XXX - Audio should be stopped then the device switched then audio started again
-
 		// Now destroy the mastering voice
 		if (OutputAudioStreamMasteringVoice)
 		{

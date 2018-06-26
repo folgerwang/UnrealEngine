@@ -204,36 +204,43 @@ namespace Audio
 
 	void FMixerPlatformXAudio2::OnDefaultRenderDeviceChanged(const EAudioDeviceRole InAudioDeviceRole, const FString& DeviceId)
 	{
-		FScopeLock Lock(&AudioDeviceSwapCriticalSection);
+		if (AudioDeviceSwapCriticalSection.TryLock())
+		{
+			NewAudioDeviceId = "";
+			bMoveAudioStreamToNewAudioDevice = true;
 
-		NewAudioDeviceId = "";
-		bMoveAudioStreamToNewAudioDevice = true;
+			AudioDeviceSwapCriticalSection.Unlock();
+		}
 	}
 
 	void FMixerPlatformXAudio2::OnDeviceAdded(const FString& DeviceId)
 	{
-		FScopeLock Lock(&AudioDeviceSwapCriticalSection);
-
-		// If the device that was added is our original device and our current device is NOT our original device, 
-		// move our audio stream to this newly added device.
-		if (AudioStreamInfo.DeviceInfo.DeviceId != OriginalAudioDeviceId && DeviceId == OriginalAudioDeviceId)
+		if (AudioDeviceSwapCriticalSection.TryLock())
 		{
-			NewAudioDeviceId = OriginalAudioDeviceId;
-			bMoveAudioStreamToNewAudioDevice = true;
+			// If the device that was added is our original device and our current device is NOT our original device, 
+			// move our audio stream to this newly added device.
+			if (AudioStreamInfo.DeviceInfo.DeviceId != OriginalAudioDeviceId && DeviceId == OriginalAudioDeviceId)
+			{
+				NewAudioDeviceId = OriginalAudioDeviceId;
+				bMoveAudioStreamToNewAudioDevice = true;
+			}
+
+			AudioDeviceSwapCriticalSection.Unlock();
 		}
 	}
 
 	void FMixerPlatformXAudio2::OnDeviceRemoved(const FString& DeviceId)
 	{
-		FScopeLock Lock(&AudioDeviceSwapCriticalSection);
-
-		// If the device we're currently using was removed... then switch to the new default audio device.
-		if (AudioStreamInfo.DeviceInfo.DeviceId == DeviceId)
+		if (AudioDeviceSwapCriticalSection.TryLock())
 		{
-			NewAudioDeviceId = "";
-			bMoveAudioStreamToNewAudioDevice = true;
+			// If the device we're currently using was removed... then switch to the new default audio device.
+			if (AudioStreamInfo.DeviceInfo.DeviceId == DeviceId)
+			{
+				NewAudioDeviceId = "";
+				bMoveAudioStreamToNewAudioDevice = true;
+			}
+			AudioDeviceSwapCriticalSection.Unlock();
 		}
-
 	}
 
 	void FMixerPlatformXAudio2::OnDeviceStateChanged(const FString& DeviceId, const EAudioDeviceState InState)

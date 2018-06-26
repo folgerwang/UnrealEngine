@@ -1139,6 +1139,12 @@ public:
 		return bAudioMixerModuleLoaded;
 	}
 
+	/** Returns if stopping voices is enabled. */
+	bool IsStoppingVoicesEnabled() const
+	{
+		return bIsStoppingVoicesEnabled;
+	}
+
 	/** Updates the source effect chain. Only implemented in audio mixer. */
 	virtual void UpdateSourceEffectChain(const uint32 SourceEffectChainId, const TArray<FSourceEffectChainEntry>& SourceEffectChain, const bool bPlayEffectChainTails) {}
 
@@ -1397,6 +1403,9 @@ private:
 	/** Processes the set of pending sounds that need to be stopped */ 
 	void ProcessingPendingActiveSoundStops(bool bForceDelete = false);
 
+	/** Stops oldest sound source. */
+	void StopOldestStoppingSource();
+
 	/** Processes any pending active sounds. */
 	void ProcessPendingNewActiveSounds();
 
@@ -1478,9 +1487,6 @@ public:
 
 	/** The number of sources to reserve for stopping sounds. */
 	int32 NumStoppingVoices;
-
-	/** The number of sources currently stopping. */
-	int32 CurrentStoppingVoiceCount;
 
 	/** The maximum number of wave instances allowed. */
 	int32 MaxWaveInstances;
@@ -1613,7 +1619,9 @@ public:
 	uint8 bDisableAudioCaching:1;
 
 	/** Whether or not the lower-level audio device hardware initialized. */
-	uint32 bIsAudioDeviceHardwareInitialized : 1;
+	uint8 bIsAudioDeviceHardwareInitialized : 1;
+
+	uint8 bIsStoppingVoicesEnabled : 1;
 
 	/** Whether or not the audio mixer module is being used by this device. */
 	uint8 bAudioMixerModuleLoaded : 1;
