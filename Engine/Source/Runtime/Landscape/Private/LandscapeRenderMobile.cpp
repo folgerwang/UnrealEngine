@@ -311,11 +311,10 @@ FLandscapeComponentSceneProxyMobile::FLandscapeComponentSceneProxyMobile(ULandsc
 	check(InComponent);
 	
 	check(InComponent->MobileMaterialInterface);
-	check(InComponent->MobileWeightNormalmapTexture);
+	check(InComponent->MobileWeightmapTextures.Num() > 0);
 
-	WeightmapTextures.Empty(1);
-	WeightmapTextures.Add(InComponent->MobileWeightNormalmapTexture);
-	NormalmapTexture = InComponent->MobileWeightNormalmapTexture;
+	WeightmapTextures = InComponent->MobileWeightmapTextures;
+	NormalmapTexture = InComponent->MobileWeightmapTextures[0];
 
 	BlendableLayerMask = InComponent->MobileBlendableLayerMask;
 

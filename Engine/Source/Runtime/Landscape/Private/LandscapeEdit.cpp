@@ -5018,9 +5018,11 @@ void ULandscapeComponent::GeneratePlatformPixelData()
 
 	int32 WeightmapSize = (SubsectionSizeQuads + 1) * NumSubsections;
 
-	MobileWeightNormalmapTexture = GetLandscapeProxy()->CreateLandscapeTexture(WeightmapSize, WeightmapSize, TEXTUREGROUP_Terrain_Weightmap, TSF_BGRA8);
+	UTexture2D* MobileWeightNormalmapTexture = GetLandscapeProxy()->CreateLandscapeTexture(WeightmapSize, WeightmapSize, TEXTUREGROUP_Terrain_Weightmap, TSF_BGRA8);
 	CreateEmptyTextureMips(MobileWeightNormalmapTexture);
-	TArray<UTexture2D*> MobileWeightmapTextures;
+
+	MobileWeightmapTextures.Empty();
+	MobileWeightmapTextures.Add(MobileWeightNormalmapTexture);
 
 	{
 		FLandscapeTextureDataInterface LandscapeData;
