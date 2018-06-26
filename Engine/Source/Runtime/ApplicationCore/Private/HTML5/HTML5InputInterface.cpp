@@ -100,9 +100,7 @@ void FHTML5InputInterface::Tick(float DeltaTime, const SDL_Event& Event,TSharedR
 				const SDL_Keycode KeyCode = KeyEvent.keysym.scancode;
 				const bool bIsRepeated = KeyEvent.repeat != 0;
 
-				// UE-58440 -- note: this will be removed when new toolchain comes in
-				// UE-54056 -- filtering out Windows/Super key
-				if ( KeyCode != 227 && KeyCode != 231 && KeyCode != SDL_SCANCODE_F5) 
+				if ( KeyCode != SDL_SCANCODE_F5 ) // UE-58440 -- note: this will be removed when new toolchain comes in
 				{
 					// First KeyDown, then KeyChar. This is important, as in-game console ignores first character otherwise
 					MessageHandler->OnKeyDown(KeyCode, KeyEvent.keysym.sym, bIsRepeated);
