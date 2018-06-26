@@ -158,6 +158,9 @@ namespace FNavigationSystem
 	bool HasComponentData(UActorComponent& Comp) { return Delegates.HasComponentData.Execute(Comp);	}
 	const FNavDataConfig& GetDefaultSupportedAgent() { return Delegates.GetDefaultSupportedAgent.Execute(); }
 	TSubclassOf<UNavAreaBase> GetDefaultWalkableArea() { return Delegates.GetDefaultWalkableArea.Execute(); }
+
+	TSubclassOf<UNavAreaBase> DefaultObstacleArea;
+	TSubclassOf<UNavAreaBase> GetDefaultObstacleArea() { return DefaultObstacleArea; }
 		
 	bool WantsComponentChangeNotifies()
 	{
@@ -321,6 +324,12 @@ void UNavigationSystemBase::SetCoordTransformFrom(const ENavigationCoordSystem::
 {
 	FNavigationSystem::CoordTypeTransformsTo[uint8(CoordType)] = Transform;
 }
+
+void UNavigationSystemBase::SetDefaultObstacleArea(TSubclassOf<UNavAreaBase> InAreaClass)
+{
+	FNavigationSystem::DefaultObstacleArea = InAreaClass;
+}
+
 
 FNavigationSystem::FActorBasedSignature& UNavigationSystemBase::UpdateActorDataDelegate() { return FNavigationSystem::Delegates.UpdateActorData; }
 FNavigationSystem::FActorComponentBasedSignature& UNavigationSystemBase::UpdateComponentDataDelegate() { return FNavigationSystem::Delegates.UpdateComponentData; }

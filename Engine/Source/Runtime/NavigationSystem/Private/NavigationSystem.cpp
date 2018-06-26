@@ -387,7 +387,8 @@ UNavigationSystemV1::UNavigationSystemV1(const FObjectInitializer& ObjectInitial
 	else if (GetClass() == UNavigationSystemV1::StaticClass())
 	{
 		DefaultWalkableArea = UNavArea_Default::StaticClass();
-		DefaultObstacleArea = UNavArea_Null::StaticClass();
+		DefaultObstacleArea = UNavArea_Obstacle::StaticClass();
+		SetDefaultObstacleArea(UNavArea_Obstacle::StaticClass());
 		
 		const FTransform RecastToUnrealTransfrom(Recast2UnrealMatrix());
 		SetCoordTransformFrom(ENavigationCoordSystem::Recast, RecastToUnrealTransfrom);

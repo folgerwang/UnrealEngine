@@ -145,6 +145,7 @@ namespace FNavigationSystem
 	ENGINE_API const FNavDataConfig& GetDefaultSupportedAgent();
 
 	ENGINE_API TSubclassOf<UNavAreaBase> GetDefaultWalkableArea();
+	ENGINE_API TSubclassOf<UNavAreaBase> GetDefaultObstacleArea();
 
 	ENGINE_API const FTransform& GetCoordTransformTo(const ENavigationCoordSystem::Type CoordType);
 	ENGINE_API const FTransform& GetCoordTransformFrom(const ENavigationCoordSystem::Type CoordType);
@@ -237,6 +238,7 @@ protected:
 	
 	static void SetCoordTransformTo(const ENavigationCoordSystem::Type CoordType, const FTransform& Transform);
 	static void SetCoordTransformFrom(const ENavigationCoordSystem::Type CoordType, const FTransform& Transform);
+	static void SetDefaultObstacleArea(TSubclassOf<UNavAreaBase> InAreaClass);
 
 	static FNavigationSystem::FActorBasedSignature& UpdateActorDataDelegate();
 	static FNavigationSystem::FActorComponentBasedSignature& UpdateComponentDataDelegate();
