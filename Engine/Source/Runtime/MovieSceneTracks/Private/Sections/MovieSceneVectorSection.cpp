@@ -13,20 +13,20 @@ struct FVectorSectionEditorData
 {
 	FVectorSectionEditorData(int32 NumChannels)
 	{
-		CommonData[0].SetIdentifiers("Vector.X", FCommonChannelData::ChannelX);
-		CommonData[0].SortOrder = 0;
-		CommonData[0].Color = FCommonChannelData::RedChannelColor;
+		MetaData[0].SetIdentifiers("Vector.X", FCommonChannelData::ChannelX);
+		MetaData[0].SortOrder = 0;
+		MetaData[0].Color = FCommonChannelData::RedChannelColor;
 
-		CommonData[1].SetIdentifiers("Vector.Y", FCommonChannelData::ChannelY);
-		CommonData[1].SortOrder = 1;
-		CommonData[1].Color = FCommonChannelData::GreenChannelColor;
+		MetaData[1].SetIdentifiers("Vector.Y", FCommonChannelData::ChannelY);
+		MetaData[1].SortOrder = 1;
+		MetaData[1].Color = FCommonChannelData::GreenChannelColor;
 
-		CommonData[2].SetIdentifiers("Vector.Z", FCommonChannelData::ChannelZ);
-		CommonData[2].SortOrder = 2;
-		CommonData[2].Color = FCommonChannelData::BlueChannelColor;
+		MetaData[2].SetIdentifiers("Vector.Z", FCommonChannelData::ChannelZ);
+		MetaData[2].SortOrder = 2;
+		MetaData[2].Color = FCommonChannelData::BlueChannelColor;
 
-		CommonData[3].SetIdentifiers("Vector.W", FCommonChannelData::ChannelW);
-		CommonData[3].SortOrder = 3;
+		MetaData[3].SetIdentifiers("Vector.W", FCommonChannelData::ChannelW);
+		MetaData[3].SortOrder = 3;
 
 		ExternalValues[0].OnGetExternalValue = [NumChannels](UObject& InObject, FTrackInstancePropertyBindings* Bindings) { return ExtractChannelX(InObject, Bindings, NumChannels); };
 		ExternalValues[1].OnGetExternalValue = [NumChannels](UObject& InObject, FTrackInstancePropertyBindings* Bindings) { return ExtractChannelY(InObject, Bindings, NumChannels); };
@@ -68,7 +68,7 @@ struct FVectorSectionEditorData
 	{
 		return Bindings ? GetPropertyValue(InObject, *Bindings, NumChannels).W : TOptional<float>();
 	}
-	FMovieSceneChannelEditorData    CommonData[4];
+	FMovieSceneChannelMetaData      MetaData[4];
 	TMovieSceneExternalValue<float> ExternalValues[4];
 };
 #endif
@@ -109,7 +109,7 @@ void UMovieSceneVectorSection::Serialize(FArchive& Ar)
 
 void UMovieSceneVectorSection::RecreateChannelProxy()
 {
-	FMovieSceneChannelData Channels;
+	FMovieSceneChannelProxyData Channels;
 
 	check(ChannelsUsed <= ARRAY_COUNT(Curves));
 
@@ -118,7 +118,7 @@ void UMovieSceneVectorSection::RecreateChannelProxy()
 	const FVectorSectionEditorData EditorData(ChannelsUsed);
 	for (int32 Index = 0; Index < ChannelsUsed; ++Index)
 	{
-		Channels.Add(Curves[Index], EditorData.CommonData[Index], EditorData.ExternalValues[Index]);
+		Channels.Add(Curves[Index], EditorData.MetaData[Index], EditorData.ExternalValues[Index]);
 	}
 
 #else
@@ -152,11 +152,9 @@ TSharedPtr<FStructOnScope> UMovieSceneVectorSection::GetKeyStruct(TArrayView<con
 	if (KeyStruct.IsValid())
 	{
 		FMovieSceneVectorKeyStructBase* Struct = (FMovieSceneVectorKeyStructBase*)KeyStruct->GetStructMemory();
-
-		TArrayView<FMovieSceneFloatChannel*> Channels = ChannelProxy->GetChannels<FMovieSceneFloatChannel>();
 		for (int32 Index = 0; Index < ChannelsUsed; ++Index)
 		{
-			Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle(Channels[Index]), Struct->GetPropertyChannelByIndex(Index), KeyHandles));
+			Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(Index), Struct->GetPropertyChannelByIndex(Index), KeyHandles));
 		}
 
 		Struct->Time = Struct->KeyStructInterop.GetUnifiedKeyTime().Get(0);

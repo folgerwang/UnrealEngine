@@ -408,7 +408,7 @@ bool FAutomationLogAddMessage::RunTest(const FString& Parameters)
 	AddInfo(TEXT("Test log message."));
 
 	//** VERIFY **//
-	TestEqual<FString>(TEXT("Test log message was not added to the ExecutionInfo.Log array."), ExecutionInfo.GetEvents().Last().Message, TEXT("Test log message."));
+	TestEqual<FString>(TEXT("Test log message was not added to the ExecutionInfo.Log array."), ExecutionInfo.GetEntries().Last().Event.Message, TEXT("Test log message."));
 	
 	//** TEARDOWN **//
 	// We have to empty this log array so that it doesn't show in the automation results window as it may cause confusion.
@@ -425,7 +425,7 @@ bool FAutomationLogAddWarning::RunTest(const FString& Parameters)
 	AddWarning(TEXT("Test warning message."));
 
 	//** VERIFY **//
-	FString CurrentWarningMessage = ExecutionInfo.GetEvents().Last().Message;
+	FString CurrentWarningMessage = ExecutionInfo.GetEntries().Last().Event.Message;
 	// The warnings array is emptied so that it doesn't cause a false positive warning for this test.
 	ExecutionInfo.RemoveAllEvents(EAutomationEventType::Warning);
 
@@ -442,7 +442,7 @@ bool FAutomationLogAddError::RunTest(const FString& Parameters)
 	AddError(TEXT("Test error message"));
 	
 	//** VERIFY **//
-	FString CurrentErrorMessage = ExecutionInfo.GetEvents().Last().Message;
+	FString CurrentErrorMessage = ExecutionInfo.GetEntries().Last().Event.Message;
 	// The errors array is emptied so that this doesn't cause a false positive failure for this test.
 	ExecutionInfo.RemoveAllEvents(EAutomationEventType::Error);
 

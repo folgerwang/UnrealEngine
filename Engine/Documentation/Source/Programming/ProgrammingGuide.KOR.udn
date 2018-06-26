@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3801137
 Availability:Public
 Title:프로그래밍 가이드
 Crumbs: %ROOT%
@@ -51,7 +51,7 @@ C++ 로 프로그래밍을 하든, 블루프린트로 하든, 그 둘을 조합�
 		Unreal Engine C++ API Reference
 	[/PARAM]
 	[PARAM:description]
-	API programming reference for Unreal Engine C++ source code
+	언리얼 엔진 C++ 소스 코드에 대한 API 프로그래밍 참고서입니다.
 	[/PARAM]
 	[PARAMLITERAL:path]
 		https://api.unrealengine.com/cpp

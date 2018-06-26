@@ -13,7 +13,7 @@ FJsonArchiveInputFormatter::FJsonArchiveInputFormatter(FArchive& InInner, TFunct
 	: Inner(InInner)
 	, ResolveObjectName(InResolveObjectName)
 {
-	Inner.ArIsTextFormat = true;
+	Inner.SetIsTextFormat(true);
 
 	TSharedPtr< FJsonObject > RootObject;
 	TSharedRef< TJsonReader<char> > Reader = TJsonReaderFactory<char>::Create(&InInner);

@@ -12,6 +12,7 @@
 #include "Particles/ParticleSystem.h"
 #include "Particles/Emitter.h"
 #include "Runtime/Launch/Resources/Version.h"
+#include "Particles/WorldPSCPool.h"
 #include "ParticleSystemComponent.generated.h"
 
 class FParticleDynamicData;
@@ -438,11 +439,14 @@ private:
 	uint8 bNeedsFinalize:1;
 	/** If true, it means the Async work is in process and not yet completed */
 	uint8 bAsyncWorkOutstanding:1;
-
+	
 	/** Restore relative transform from auto attachment and optionally detach from parent (regardless of whether it was an auto attachment). */
 	void CancelAutoAttachment(bool bDetachFromParent);
 
 public:
+
+	/** If this PSC is pooling. */
+	EPSCPoolMethod PoolingMethod;
 
 	/** The method of LOD level determination to utilize for this particle system */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=LOD)
@@ -698,7 +702,7 @@ public:
 	bool CanBeOccluded()const;
 
 	void Complete();
-
+	
 	FORCEINLINE const FTransform& GetAsyncComponentToWorld()
 	{
 		if (!bParallelRenderThreadUpdate && !IsInGameThread())
@@ -1072,6 +1076,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Effects|Particles|Trails")
 	void SetTrailSourceData(FName InFirstSocketName, FName InSecondSocketName, ETrailWidthMode InWidthMode, float InWidth);
 
+	/** 
+	 * Deactivates this system and releases it to the pool on completion.
+	 * Usage of this PSC reference after this call is unsafe. 
+	 * You should clear out your references to it.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Effects|Components|ParticleSystem")
+	void ReleaseToPool();
+
 public:
 	/** Command fence used to shut down properly */
 	class FRenderCommandFence* ReleaseResourcesFence;
@@ -1222,6 +1234,9 @@ public:
 
 	/** Returns the index into the EmitterMaterials array for this named. If there are no named material slots or this material is not found, INDEX_NONE is returned. */
 	virtual int32 GetNamedMaterialIndex(FName InName) const;
+
+	/** Returns an approximate memory usage value for this component. */
+	uint32 GetApproxMemoryUsage()const;
 
 protected:
 

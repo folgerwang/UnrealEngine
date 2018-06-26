@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2720118
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title:ピボットペインタのコンテンツのサンプル
 Crumbs:%ROOT%, Resources, Resources/ContentExamples
@@ -8,43 +8,11 @@ Related:Engine/Rendering/Materials/ExpressionReference
 Related:Engine/Rendering/Materials/Functions/Reference/PivotPainter
 Related:Engine/Rendering/Materials/Functions/Creating
 Version:4.9
+topic-image:pivotPainter_compact.png
 
 [REGION:banner]
 ![](PivotPainter_Header.png)(convert:false)
 [/REGION]
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/PivotPainter:title%](pivotPainter_compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/PivotPainter:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/PivotPainter:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/PivotPainter]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/PivotPainter:title%](pivotPainter_compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/PivotPainter:title%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/PivotPainter]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
 
 [ピボットペインタ ツール](Engine\Content\Tools\PivotPainter) は、モデルの頂点データの中にモデルの回転軸 (ピボット) と回転の情報を格納する MAXScript です。この情報がアンリアル エンジン 4 のシェーダー システムの内部で参照されることによって、魅力あるインタラクティブなエフェクトが作成されるようになります。  
 
@@ -58,11 +26,11 @@ Version:4.9
 
 **ピボットペインタ** マップで提供されているサンプルは以下の通りです。 
 
-| サンプル | 実演内容 |
-| ------- | ------------|
+| サンプル | 内容 |
+| ------- | ------------ |
 | **1.1.エレメントのスケール** | 時間経過と共にオブジェクトのスケールを増減します。 |
 | **1.2.カメラ距離を使ったスケール** | プレイヤーとの距離に応じてオブジェクトのスケールを増減します。 |
-| **1.3.ユニークなアニメーション位相の作成** | 複数のオブジェクトにユニークなアニメーション フェーズを作成します。  |
+| **1.3.Create unique animation phase** |  複数のオブジェクトにユニークなアニメーション フェーズを作成します。  |
 | **1.4.ランダムに格納された値のアニメーション** | ランダムに格納された値を使って、複数のオブジェクトにユニークなアニメーション フェーズを作成します。  |
 | **1.5.サブ オブジェクトの回転** | 時間とともにオブジェクトを回転させます。 |
 | **1.6.メッシュ法線の更新** | 時間とともにオブジェクトの法線ごとオブジェクトを回転させます。  |

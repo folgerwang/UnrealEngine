@@ -16,9 +16,9 @@
 #include "Widgets/SWindow.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Widgets/Input/SButton.h"
-#include "Widgets/Input/SMultiLineEditableTextBox.h"
 #include "EditorStyleSet.h"
 #include "EditorReimportHandler.h"
 #include "Components/ActorComponent.h"
@@ -39,6 +39,7 @@
 #include "SAssetView.h"
 #include "ContentBrowserModule.h"
 #include "Dialogs/Dialogs.h"
+#include "SMetaDataView.h"
 
 #include "ObjectTools.h"
 #include "PackageTools.h"
@@ -49,6 +50,7 @@
 #include "ConsolidateWindow.h"
 #include "ReferencedAssetsUtils.h"
 #include "Internationalization/PackageLocalizationUtil.h"
+#include "Internationalization/TextLocalizationResource.h"
 
 #include "SourceControlWindows.h"
 #include "Kismet2/KismetEditorUtilities.h"
@@ -512,8 +514,8 @@ void FAssetContextMenu::MakeAssetActionsSubMenu(FMenuBuilder& MenuBuilder)
 
 		// Create Metadata menu
 		MenuBuilder.AddMenuEntry(
-			LOCTEXT("ShowAssetMetaData", "Show Meta-data"),
-			LOCTEXT("ShowAssetMetaDataTooltip", "Show the asset meta-data dialog."),
+			LOCTEXT("ShowAssetMetaData", "Show Metadata"),
+			LOCTEXT("ShowAssetMetaDataTooltip", "Show the asset metadata dialog."),
 			FSlateIcon(),
 			FUIAction(
 				FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteShowAssetMetaData),
@@ -606,7 +608,7 @@ void FAssetContextMenu::MakeAssetLocalizationSubMenu(FMenuBuilder& MenuBuilder)
 
 	// Build up the list of cultures already used
 	{
-		TSet<FString> CulturePaths;
+		TSet<FString> CultureNames;
 
 		bool bIncludeEngineCultures = false;
 		bool bIncludeProjectCultures = false;
@@ -631,24 +633,26 @@ void FAssetContextMenu::MakeAssetLocalizationSubMenu(FMenuBuilder& MenuBuilder)
 					FString AssetLocalizationFileRoot;
 					if (FPackageName::TryConvertLongPackageNameToFilename(AssetLocalizationRoot, AssetLocalizationFileRoot))
 					{
+						TArray<FString> CulturePaths;
 						CulturePaths.Add(MoveTemp(AssetLocalizationFileRoot));
+						CultureNames.Append(TextLocalizationResourceUtil::GetLocalizedCultureNames(CulturePaths));
 					}
 				}
 			}
 		}
 
+		ELocalizationLoadFlags LocLoadFlags = ELocalizationLoadFlags::None;
 		if (bIncludeEngineCultures)
 		{
-			CulturePaths.Append(FPaths::GetEngineLocalizationPaths());
+			LocLoadFlags |= ELocalizationLoadFlags::Engine;
 		}
-
 		if (bIncludeProjectCultures)
 		{
-			CulturePaths.Append(FPaths::GetGameLocalizationPaths());
+			LocLoadFlags |= ELocalizationLoadFlags::Game;
 		}
+		CultureNames.Append(FTextLocalizationManager::Get().GetLocalizedCultureNames(LocLoadFlags));
 
-		FInternationalization::Get().GetCulturesWithAvailableLocalization(CulturePaths.Array(), CurrentCultures, false);
-
+		CurrentCultures = FInternationalization::Get().GetAvailableCultures(CultureNames.Array(), false);
 		if (CurrentCultures.Num() == 0)
 		{
 			CurrentCultures.Add(FInternationalization::Get().GetCurrentCulture());
@@ -753,6 +757,26 @@ void FAssetContextMenu::MakeAssetLocalizationSubMenu(FMenuBuilder& MenuBuilder)
 		MenuBuilder.EndSection();
 	}
 #endif // USE_STABLE_LOCALIZATION_KEYS
+
+	// Add the localization cache options
+	if (SelectedAssets.Num() == 1)
+	{
+		FString PackageFilename;
+		if (FPackageName::DoesPackageExist(SelectedAssets[0].PackageName.ToString(), nullptr, &PackageFilename))
+		{
+			MenuBuilder.BeginSection(NAME_None, LOCTEXT("LocalizationCacheHeading", "Localization Cache"));
+			{
+				// Always show the reset localization ID option
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("ShowLocalizationCache", "Show Localization Cache"),
+					LOCTEXT("ShowLocalizationCacheTooltip", "Show the cached list of localized texts stored in the package header."),
+					FSlateIcon(),
+					FUIAction(FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteShowLocalizationCache, PackageFilename))
+					);
+			}
+			MenuBuilder.EndSection();
+		}
+	}
 
 	// If we found source assets for localized assets, then we can show the Source Asset options
 	if (SourceAssetsState.CurrentAssets.Num() > 0)
@@ -1758,47 +1782,36 @@ void FAssetContextMenu::ExecutePropertyMatrix()
 
 void FAssetContextMenu::ExecuteShowAssetMetaData()
 {
-	bool bFirstAsset = true;
-	FString OutputValue;
-
 	for (const FAssetData& AssetData : SelectedAssets)
 	{
 		UObject* Asset = AssetData.GetAsset();
 		if (Asset)
 		{
-			if (!bFirstAsset)
-			{
-				OutputValue.Append(TEXT("\n\n"));
-			}
-			bFirstAsset = false;
-
-			OutputValue.Append(*Asset->GetPathName());
-
 			TMap<FName, FString>* TagValues = UMetaData::GetMapForObject(Asset);
 			if (TagValues)
 			{
-				for (TMap<FName, FString>::TIterator It(*TagValues); It; ++It)
-				{
-					OutputValue.Append(TEXT("\n  "));
-					OutputValue.Append(It.Key().ToString());
-					OutputValue.Append(TEXT(": "));
-					OutputValue.Append(It.Value());
-				}
-			}
-			else
-			{
-				OutputValue.Append(TEXT("\n  "));
-				OutputValue.Append(NSLOCTEXT("AssetContextMenu", "ShowMetaData", "No meta-data found.").ToString());
+				// Create and display a resizable window to display the MetaDataView for each asset with metadata
+				FString Title = FString::Printf(TEXT("Metadata: %s"), *AssetData.AssetName.ToString());
+
+				TSharedPtr< SWindow > Window = SNew(SWindow)
+					.Title(FText::FromString(Title))
+					.SupportsMaximize(false)
+					.SupportsMinimize(false)
+					.MinWidth(500.0f)
+					.MinHeight(250.0f)
+					[
+						SNew(SBorder)
+						.Padding(4.f)
+						.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+						[
+							SNew(SMetaDataView, *TagValues)
+						]
+					];
+
+				FSlateApplication::Get().AddWindow(Window.ToSharedRef());
 			}
 		}
 	}
-
-	SGenericDialogWidget::OpenDialog(
-		NSLOCTEXT("AssetContextMenu", "ShowMetaData", "Show Meta-data"),
-		SNew(SMultiLineEditableTextBox)
-			.Text(FText::FromString(OutputValue))
-			.IsReadOnly(true)
-	);
 }
 
 void FAssetContextMenu::ExecuteEditAsset()
@@ -2160,6 +2173,84 @@ void FAssetContextMenu::ExecuteResetLocalizationId()
 		}
 	}
 #endif // USE_STABLE_LOCALIZATION_KEYS
+}
+
+void FAssetContextMenu::ExecuteShowLocalizationCache(const FString InPackageFilename)
+{
+	FString CachedLocalizationId;
+	TArray<FGatherableTextData> GatherableTextDataArray;
+
+	// Read the localization data from the cache in the package header
+	{
+		TUniquePtr<FArchive> FileReader(IFileManager::Get().CreateFileReader(*InPackageFilename));
+		if (FileReader)
+		{
+			// Read package file summary from the file
+			FPackageFileSummary PackageFileSummary;
+			*FileReader << PackageFileSummary;
+
+			CachedLocalizationId = PackageFileSummary.LocalizationId;
+
+			if (PackageFileSummary.GatherableTextDataOffset > 0)
+			{
+				FileReader->Seek(PackageFileSummary.GatherableTextDataOffset);
+
+				GatherableTextDataArray.SetNum(PackageFileSummary.GatherableTextDataCount);
+				for (int32 GatherableTextDataIndex = 0; GatherableTextDataIndex < PackageFileSummary.GatherableTextDataCount; ++GatherableTextDataIndex)
+				{
+					*FileReader << GatherableTextDataArray[GatherableTextDataIndex];
+				}
+			}
+		}
+	}
+
+	// Convert the gathered text array into a readable format
+	FString LocalizationCacheStr = FString::Printf(TEXT("Package: %s"), *CachedLocalizationId);
+	for (const FGatherableTextData& GatherableTextData : GatherableTextDataArray)
+	{
+		if (LocalizationCacheStr.Len() > 0)
+		{
+			LocalizationCacheStr += TEXT("\n\n");
+		}
+
+		FString KeysStr;
+		FString EditorOnlyKeysStr;
+		for (const FTextSourceSiteContext& TextSourceSiteContext : GatherableTextData.SourceSiteContexts)
+		{
+			FString* KeysStrPtr = TextSourceSiteContext.IsEditorOnly ? &EditorOnlyKeysStr : &KeysStr;
+			if (KeysStrPtr->Len() > 0)
+			{
+				*KeysStrPtr += TEXT(", ");
+			}
+			*KeysStrPtr += TextSourceSiteContext.KeyName;
+		}
+
+		LocalizationCacheStr += FString::Printf(TEXT("Namespace: %s\n"), *GatherableTextData.NamespaceName);
+		if (KeysStr.Len() > 0)
+		{
+			LocalizationCacheStr += FString::Printf(TEXT("Keys: %s\n"), *KeysStr);
+		}
+		if (EditorOnlyKeysStr.Len() > 0)
+		{
+			LocalizationCacheStr += FString::Printf(TEXT("Keys (Editor-Only): %s\n"), *EditorOnlyKeysStr);
+		}
+		LocalizationCacheStr += FString::Printf(TEXT("Source: %s"), *GatherableTextData.SourceData.SourceString);
+	}
+
+	// Generate a message box for the result
+	SGenericDialogWidget::OpenDialog(LOCTEXT("LocalizationCache", "Localization Cache"), 
+		SNew(SBox)
+		.MaxDesiredWidth(800.0f)
+		.MaxDesiredHeight(400.0f)
+		[
+			SNew(SMultiLineEditableTextBox)
+			.IsReadOnly(true)
+			.AutoWrapText(true)
+			.Text(FText::AsCultureInvariant(LocalizationCacheStr))
+		],
+		SGenericDialogWidget::FArguments()
+		.UseScrollBox(false)
+	);
 }
 
 void FAssetContextMenu::ExecuteExport()

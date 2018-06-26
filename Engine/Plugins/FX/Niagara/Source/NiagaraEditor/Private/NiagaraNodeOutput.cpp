@@ -49,7 +49,7 @@ void UNiagaraNodeOutput::RemoveOutputPin(UEdGraphPin* Pin)
 		Modify();
 		Outputs.RemoveAt(Index);
 		ReallocatePins();
-		GetNiagaraGraph()->NotifyGraphNeedsRecompile();
+		MarkNodeRequiresSynchronization(__FUNCTION__, true);
 	}
 }
 
@@ -69,8 +69,8 @@ void UNiagaraNodeOutput::PinNameTextCommitted(const FText& Text, ETextCommit::Ty
 		FNiagaraVariable* Var = Outputs.FindByPredicate([&](const FNiagaraVariable& InVar) {return Pin->PinName == InVar.GetName(); });
 		check(Var != nullptr);
 		Pin->PinName = *Text.ToString();
-		Var->SetName(Pin->PinName);
-		GetNiagaraGraph()->NotifyGraphNeedsRecompile();
+		Var->SetName(Pin->PinName);		
+		MarkNodeRequiresSynchronization(__FUNCTION__, true);
 	}
 }
 

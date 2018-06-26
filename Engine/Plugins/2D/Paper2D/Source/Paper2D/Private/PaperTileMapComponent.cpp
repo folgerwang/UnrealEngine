@@ -40,7 +40,9 @@ UPaperTileMapComponent::UPaperTileMapComponent(const FObjectInitializer& ObjectI
 
 #if WITH_EDITORONLY_DATA
 	bShowPerTileGridWhenSelected = true;
+	bShowPerTileGridWhenUnselected = false;
 	bShowPerLayerGridWhenSelected = true;
+	bShowPerLayerGridWhenUnselected = false;
 	bShowOutlineWhenUnselected = true;
 #endif
 

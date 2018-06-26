@@ -274,7 +274,27 @@ void UTexture2D::InvalidateLastRenderTimeForStreaming()
 	}
 	TextureReference.InvalidateLastRenderTime();
 }
-
+int32 UTexture2D::CalcNumOptionalMips() const
+{
+	if (PlatformData)
+	{
+		int32 NumOptionalMips = 0;
+		for (int32 MipIndex = 0; MipIndex < PlatformData->Mips.Num(); ++MipIndex)
+		{
+			if (PlatformData->Mips[MipIndex].BulkData.GetBulkDataFlags() & BULKDATA_OptionalPayload)
+			{
+				++NumOptionalMips;
+			}
+			else
+			{
+				// currently the rules specify all the optional mips need to be at the end of hte mip chain
+				break;
+			}
+		}
+		return NumOptionalMips;
+	}
+	return 0;
+}
 int32 UTexture2D::GetNumResidentMips() const
 {
 	FTexture2DResource* Texture2DResource = (FTexture2DResource*)Resource;
@@ -526,13 +546,6 @@ FString UTexture2D::GetDesc()
 		);
 }
 
-bool UTexture2D::IsReadyForStreaming() const
-{
-	FTexture2DResource* Texture2DResource = (FTexture2DResource*)Resource;
-	return Texture2DResource && Texture2DResource->bReadyForStreaming;
-}
-
-
 void UTexture2D::WaitForStreaming()
 {
 	if (bIsStreamable)
@@ -583,19 +596,22 @@ bool UTexture2D::UpdateStreamingStatus( bool bWaitForMipFading /*= false*/ )
 		PendingUpdate = nullptr;
 
 #if WITH_EDITOR
-		// When all the requested mips are streamed in, generate an empty property changed event, to force the
-		// ResourceSize asset registry tag to be recalculated.
-		FPropertyChangedEvent EmptyPropertyChangedEvent(nullptr);
-		FCoreUObjectDelegates::OnObjectPropertyChanged.Broadcast(this, EmptyPropertyChangedEvent);
-
-		// We can't load the source art from a bulk data object if the texture itself is pending kill because the linker will have been detached.
-		// In this case we don't rebuild the data and instead let the streaming request be cancelled. This will let the garbage collector finish
-		// destroying the object.
-		if (bRebuildPlatformData)
+		if (GIsEditor)
 		{
-			ForceRebuildPlatformData();
-			// @TODO this can not be called from this callstack since the entry needs to be removed completely from the streamer.
-			// UpdateResource();
+			// When all the requested mips are streamed in, generate an empty property changed event, to force the
+			// ResourceSize asset registry tag to be recalculated.
+			FPropertyChangedEvent EmptyPropertyChangedEvent(nullptr);
+			FCoreUObjectDelegates::OnObjectPropertyChanged.Broadcast(this, EmptyPropertyChangedEvent);
+
+			// We can't load the source art from a bulk data object if the texture itself is pending kill because the linker will have been detached.
+			// In this case we don't rebuild the data and instead let the streaming request be cancelled. This will let the garbage collector finish
+			// destroying the object.
+			if (bRebuildPlatformData)
+			{
+				ForceRebuildPlatformData();
+				// @TODO this can not be called from this callstack since the entry needs to be removed completely from the streamer.
+				// UpdateResource();
+			}
 		}
 #endif
 	}

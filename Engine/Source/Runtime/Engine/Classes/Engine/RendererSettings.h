@@ -117,6 +117,11 @@ namespace EAlphaChannelMode
 	};
 }
 
+namespace EAlphaChannelMode
+{
+	ENGINE_API EAlphaChannelMode::Type FromInt(int32 InAlphaChannelMode);
+}
+
 /** used by FPostProcessSettings AutoExposure*/
 UENUM()
 namespace EAutoExposureMethodUI
@@ -133,7 +138,7 @@ namespace EAutoExposureMethodUI
 	};
 }
 
-/** used by DefaultBackBufferPixelFormat*/
+/** used by GetDefaultBackBufferPixelFormat*/
 UENUM()
 namespace EDefaultBackBufferPixelFormat
 {
@@ -150,7 +155,9 @@ namespace EDefaultBackBufferPixelFormat
 
 namespace EDefaultBackBufferPixelFormat
 {
-	ENGINE_API EPixelFormat Convert2PixelFormat(int32 InDefaultBackBufferPixelFormat);
+	ENGINE_API EPixelFormat Convert2PixelFormat(EDefaultBackBufferPixelFormat::Type InDefaultBackBufferPixelFormat);
+	ENGINE_API int32 NumberOfBitForAlpha(EDefaultBackBufferPixelFormat::Type InDefaultBackBufferPixelFormat);
+	ENGINE_API EDefaultBackBufferPixelFormat::Type FromInt(int32 InDefaultBackBufferPixelFormat);
 }
 
 /**
@@ -183,6 +190,12 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConsoleVariable = "r.MobileMSAA", DisplayName = "Mobile MSAA",
 		ToolTip = "Multi-sample anti-aliasing setting to use on mobile. MSAA is currently supported using Metal on iOS, and on Android devices with the required support using ES 2 or ES 3.1.\nIf MSAA is not available, the current default AA method will be used."))
 	TEnumAsByte<EMobileMSAASampleCount::Type> MobileMSAASampleCount;
+
+	UPROPERTY(config, EditAnywhere, Category = Mobile, meta = (
+		ConsoleVariable = "r.Mobile.UseLegacyShadingModel", DisplayName = "Use legacy shading model",
+		ToolTip = "If true then mobile shaders will use the cheaper but lower quality specular calculation found in versions prior to 4.20.",
+		ConfigRestartRequired = true))
+		uint32 bMobileUseLegacyShadingModel : 1;
 
 	UPROPERTY(config, EditAnywhere, Category = Materials, meta = (
 		ConsoleVariable = "r.DiscardUnusedQuality", DisplayName = "Game Discards Unused Material Quality Levels",
@@ -328,6 +341,11 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 	TEnumAsByte<EAlphaChannelMode::Type> bEnableAlphaChannelInPostProcessing;
 
 	UPROPERTY(config, EditAnywhere, Category = Postprocessing, meta = (
+		ConsoleVariable = "r.DOF.Algorithm", DisplayName = "Use new DOF algorithm",
+		ToolTip = "Whether to use the new DOF implementation for Circle DOF method."))
+	uint32 bUseNewAlgorithm : 1;
+
+	UPROPERTY(config, EditAnywhere, Category = Postprocessing, meta = (
 		ConsoleVariable = "r.UsePreExposure", DisplayName = "Apply Pre-exposure before writing to the scene color",
 		ToolTip = "Whether to use pre-exposure to remap the range of the scene color around the camera exposure. This limits the render target range required to support HDR lighting value.",
 		ConfigRestartRequired=true))
@@ -451,6 +469,20 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ToolTip = "When enabled, after changing the material on a Required particle module a Particle Cutout texture will be chosen automatically from the Opacity Mask texture if it exists, if not the Opacity Texture will be used if it exists."))
 	uint32 bDefaultParticleCutouts : 1;
 
+	UPROPERTY(config, EditAnywhere, Category = Optimizations, meta = (
+		ConsoleVariable = "fx.GPUSimulationTextureSizeX",
+		DisplayName = "GPU Particle simulation texture size - X",
+		ToolTip = "The X size of the GPU simulation texture size. SizeX*SizeY determines the maximum number of GPU simulated particles in an emitter. Potentially overridden by CVar settings in BaseDeviceProfile.ini.",
+		ConfigRestartRequired = true))
+	int32 GPUSimulationTextureSizeX;
+	
+	UPROPERTY(config, EditAnywhere, Category = Optimizations, meta = (
+		ConsoleVariable = "fx.GPUSimulationTextureSizeY",
+		DisplayName = "GPU Particle simulation texture size - Y",
+		ToolTip = "The Y size of the GPU simulation texture size. SizeX*SizeY determines the maximum number of GPU simulated particles in an emitter. Potentially overridden by CVar settings in BaseDeviceProfile.ini.",
+		ConfigRestartRequired = true))
+	int32 GPUSimulationTextureSizeY;
+
 	UPROPERTY(config, EditAnywhere, Category = Lighting, meta = (
 		ConsoleVariable = "r.AllowGlobalClipPlane", DisplayName = "Support global clip plane for Planar Reflections",
 		ToolTip = "Whether to support the global clip plane needed for planar reflections.  Enabling this increases BasePass triangle cost by ~15% regardless of whether planar reflections are active. Changing this setting requires restarting the editor.",
@@ -466,10 +498,7 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConsoleVariable = "r.MorphTarget.Mode", DisplayName = "Use GPU for computing morph targets",
 		ToolTip = "Whether to use original CPU method (loop per morph then by vertex) or use a GPU-based method on Shader Model 5 hardware."))
 	uint32 bUseGPUMorphTargets : 1;
-
-	UPROPERTY(config, EditAnywhere, Category = "Optimizations", meta = (DisplayName = "GPU Particles Support Only Local Vector Field", Tooltip = "Limits Cascade GPU Particle simulations to applying local vector fields.  Global vector fields are not applied."))
-	bool bGPUParticlesLocalVFOnly;
-
+	
 	UPROPERTY(config, EditAnywhere, Category = Debugging, meta = (
 		ConsoleVariable = "r.GPUCrashDebugging", DisplayName = "Enable vendor specific GPU crash analysis tools",
 		ToolTip = "Enables vendor specific GPU crash analysis tools.  Currently only supports NVIDIA Aftermath on DX11.",
@@ -507,6 +536,12 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ToolTip = "Enable monoscopic far field rendering (only available for mobile).",
 		ConfigRestartRequired = true))
 		uint32 bMonoscopicFarField : 1;
+
+	UPROPERTY(config, EditAnywhere, Category = Experimental, meta = (
+		ConsoleVariable = "vr.ODSCapture", DisplayName = "Omni-directional Stereo Capture",
+		ToolTip = "Enable Omni-directional Stereo Capture.",
+		ConfigRestartRequired = true))
+		uint32 bODSCapture : 1;
 
 	UPROPERTY(config, EditAnywhere, Category = VR, meta = (
 		ConsoleVariable = "vr.DebugCanvasInLayer", DisplayName = "Debug Canvas in Layer",
@@ -619,8 +654,8 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ConfigRestartRequired = true))
 		uint32 bSupportReversedIndexBuffers : 1;
 
-	UPROPERTY(config, EditAnywhere, Category = Optimizations, meta = (
-		ConsoleVariable = "r.SupportMaterialLayers", DisplayName = "Support new material layering. This also requires the experimental feature 'MaterialLayeringEnabled' to be turned on",
+	UPROPERTY(config, EditAnywhere, Category = Experimental, meta = (
+		ConsoleVariable = "r.SupportMaterialLayers", Tooltip = "Support new material layering system. Disabling it reduces some overhead in place to support the experimental feature",
 		ConfigRestartRequired = true))
 		uint32 bSupportMaterialLayers : 1;
 

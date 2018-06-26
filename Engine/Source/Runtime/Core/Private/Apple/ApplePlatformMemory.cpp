@@ -183,25 +183,11 @@ void FApplePlatformMemory::ConfigureDefaultCFAllocator(void)
 	CFAllocatorSetDefault(Alloc);
 }
 
-#if ENABLE_LOW_LEVEL_MEM_TRACKER
-static uint64 GetProgramSize()
-{
-	uint64 ProgramSize = FApplePlatformMemory::GetStats().UsedPhysical;
-	return ProgramSize;
-}
-#endif
-
 void FApplePlatformMemory::Init()
 {
-#if ENABLE_LOW_LEVEL_MEM_TRACKER
-    FPlatformMemoryStats Stats = FApplePlatformMemory::GetStats();
-    uint64 ProgramSize = Stats.UsedPhysical;
-#endif
-    
 	FGenericPlatformMemory::Init();
-	
-	LLM(FLowLevelMemTracker::Get().SetProgramSize(GetProgramSize()));
-	
+    
+
 	const FPlatformMemoryConstants& MemoryConstants = FPlatformMemory::GetConstants();
 	UE_LOG(LogInit, Log, TEXT("Memory total: Physical=%.1fGB (%dGB approx) Pagefile=%.1fGB Virtual=%.1fGB"),
 		   float(MemoryConstants.TotalPhysical/1024.0/1024.0/1024.0),
@@ -215,9 +201,12 @@ void FApplePlatformMemory::Init()
 
 FMalloc* FApplePlatformMemory::BaseAllocator()
 {
-	LLM(GetProgramSize());
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+	FPlatformMemoryStats MemStats = FApplePlatformMemory::GetStats();
+	FLowLevelMemTracker::Get().SetProgramSize(MemStats.UsedPhysical);
+#endif
 	LLM(AppleLLM::Initialise());
-	
+
 	if (FORCE_ANSI_ALLOCATOR)
 	{
 		AllocatorToUse = EMemoryAllocatorToUse::Ansi;
@@ -324,6 +313,14 @@ const FPlatformMemoryConstants& FApplePlatformMemory::GetConstants()
 	return MemoryConstants;
 }
 
+uint64 FApplePlatformMemory::GetMemoryUsedFast()
+{
+	mach_task_basic_info_data_t TaskInfo;
+	mach_msg_type_number_t TaskInfoCount = MACH_TASK_BASIC_INFO_COUNT;
+	task_info( mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&TaskInfo, &TaskInfoCount );
+	return TaskInfo.resident_size;
+}
+
 bool FApplePlatformMemory::PageProtect(void* const Ptr, const SIZE_T Size, const bool bCanRead, const bool bCanWrite)
 {
 	int32 ProtectMode;
@@ -353,6 +350,11 @@ void* FApplePlatformMemory::BinnedAllocFromOS( SIZE_T Size )
     return FGenericPlatformMemory::BinnedAllocFromOS(Size);
 #else
     void* Ptr = mmap(nullptr, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    if (Ptr == (void*)-1)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("mmap failure allocating %d, error code: %d"), Size, errno);
+        Ptr = nullptr;
+    }
     LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Platform, Ptr, Size));
     return Ptr;
 #endif // USE_MALLOC_BINNED2

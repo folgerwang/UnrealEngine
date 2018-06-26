@@ -1,4 +1,3 @@
-
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "STimeRange.h"
@@ -8,7 +7,7 @@
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Input/SSpinBox.h"
 #include "EditorStyleSet.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 #include "MovieSceneTimeHelpers.h"
 
 #define LOCTEXT_NAMESPACE "STimeRange"

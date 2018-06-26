@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3643552
-Availability:Public
+﻿INTSourceChangelist:3692730
+Availability:NoPublish
 Crumbs: %ROOT%
 Title:モバイル用 VR を開発する
 Description:モバイル用 VR プラットフォームの開発に関する情報
@@ -13,7 +13,7 @@ topic-icon:%ROOT%/platform_icon.png
 
 ![](Platforms\VR\DesktopVR\Header_00.png)
 
-アンリアル エンジン 4 (UE4) はモバイル ベースの仮想現実 (VR) ヘッドマウント ディスプレイ (HMD) 、モーション コントローラー、対応するソフトウェア開発キットを幅広くサポートしています。以下のリンク先では、UE4 プロジェクトに対応するモバイル VR HMD の取得に役立つ数多くのドキュメントが提供されています。
+アンリアル エンジン 4 (UE4) はモバイル ベースの仮想現実 (VR) ヘッドマウント ディスプレイ (HMD) 、モーション コントローラー、対応するソフトウェア開発キットを幅広くサポートしています。以下のリンク先では、UE4 プロジェクトに対応するモバイル VR HMD の取得に役立つドキュメントが数多く提供されています。
 
 ## サポートされているモバイル VR ヘッドマウント ディスプレイ
 

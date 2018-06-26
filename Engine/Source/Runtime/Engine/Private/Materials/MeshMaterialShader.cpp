@@ -53,6 +53,8 @@ FShaderCompileJob* FMeshMaterialShaderType::BeginCompileShader(
 	check(VertexFactoryType);
 	VertexFactoryType->ModifyCompilationEnvironment(Platform, Material, ShaderEnvironment);
 
+	Material->SetupExtaCompilationSettings(Platform, NewJob->Input.ExtraSettings);
+
 	//update material shader stats
 	UpdateMaterialShaderCompilingStats(Material);
 

@@ -94,11 +94,8 @@ ALobbyBeaconPlayerState* ALobbyBeaconHost::HandlePlayerLogin(ALobbyBeaconClient*
 			NewPlayerName = TEXT("UnknownUser");
 		}
 
-		FString InGameAccountId = UGameplayStatics::ParseOption(Options, TEXT("GameAccountId"));
 		FString InAuthTicket = UGameplayStatics::ParseOption(Options, TEXT("AuthTicket"));
-		UE_LOG(LogLobbyBeacon, Log, TEXT("Lobby beacon received GameAccountId and AuthTicket from client for player: UniqueId:[%s] GameAccountId=[%s]"),
-			InUniqueId.IsValid() ? *InUniqueId->ToString() : TEXT("-invalid-"),
-			*InGameAccountId);
+		UE_LOG(LogLobbyBeacon, Log, TEXT("Lobby beacon received AuthTicket from client for player: UniqueId:[%s]"), *InUniqueId.ToDebugString());
 
 		if (GetNetMode() != NM_Standalone)
 		{

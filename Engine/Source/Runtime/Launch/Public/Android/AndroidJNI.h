@@ -3,6 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
+#if USE_ANDROID_JNI
 #include <jni.h>
 #include <android/log.h>
 
@@ -47,9 +49,16 @@ public:
 	static jmethodID AndroidThunkJava_LocalNotificationClearAll;
 	static jmethodID AndroidThunkJava_LocalNotificationGetLaunchNotification;
 	//static jmethodID AndroidThunkJava_LocalNotificationDestroyIfExists; - This is not needed yet but will be soon so just leaving commented out for now
-	static jmethodID AndroidThunkJava_HasActiveWiFiConnection;
+	static jmethodID AndroidThunkJava_GetNetworkConnectionType;
 	static jmethodID AndroidThunkJava_GetAndroidId;
+	static jmethodID AndroidThunkJava_ShareURL;
+	static jmethodID AndroidThunkJava_LaunchPackage;
+	static jmethodID AndroidThunkJava_HasIntentExtrasKey;
+	static jmethodID AndroidThunkJava_GetIntentExtrasBoolean;
+	static jmethodID AndroidThunkJava_GetIntentExtrasInt;
+	static jmethodID AndroidThunkJava_GetIntentExtrasString;
 	static jmethodID AndroidThunkJava_SetSustainedPerformanceMode;
+	static jmethodID AndroidThunkJava_PushSensorEvents;
 
 	static jmethodID AndroidThunkCpp_VirtualInputIgnoreClick;
 	static jmethodID AndroidThunkCpp_IsVirtuaKeyboardShown;
@@ -136,3 +145,4 @@ private:
 	/** Find GooglePlay billing classes and methods */
 	static void FindGooglePlayBillingMethods(JNIEnv* Env);
 };
+#endif

@@ -66,6 +66,11 @@ private:
 	/** Delegate registered with Steam to trigger when a server (gameserver API) is properly connected to Steam servers, logon isn't complete until this occurs */
 	STEAM_GAMESERVER_CALLBACK(FOnlineAsyncTaskManagerSteam, OnPolicyResponseGS, GSPolicyResponse_t, OnPolicyResponseGSCallback);
 
+	/** Delegate registered with Steam to trigger when a server (gameserver API) gets a response for a Steam session authentication ticket request */
+	STEAM_GAMESERVER_CALLBACK(FOnlineAsyncTaskManagerSteam, OnAuthenticationResponseGS, ValidateAuthTicketResponse_t, OnAuthenticationResponseGSCallback);
+	/** Delegate registered with Steam to trigger when a user (client API) gets a response for a Steam session authentication ticket request */
+	STEAM_CALLBACK(FOnlineAsyncTaskManagerSteam, OnAuthenticationResponse, ValidateAuthTicketResponse_t, OnAuthenticationResponseCallback);
+
 	/** Delegate registered with Steam to trigger when a user accepts an invite request to a non lobby session */
 	STEAM_CALLBACK(FOnlineAsyncTaskManagerSteam, OnInviteAccepted, GameRichPresenceJoinRequested_t, OnInviteAcceptedCallback);
 	/** Delegate registered with Steam to trigger when a user attempts JIP (via Steam client) or accepts an invite request (via Steam client) to a lobby session */
@@ -115,6 +120,8 @@ public:
 		OnSteamServersDisconnectedGSCallback(this, &FOnlineAsyncTaskManagerSteam::OnSteamServersDisconnectedGS),
 		OnSteamServersConnectFailureGSCallback(this, &FOnlineAsyncTaskManagerSteam::OnSteamServersConnectFailureGS),
 		OnPolicyResponseGSCallback(this, &FOnlineAsyncTaskManagerSteam::OnPolicyResponseGS),
+		OnAuthenticationResponseGSCallback(this, &FOnlineAsyncTaskManagerSteam::OnAuthenticationResponseGS),
+		OnAuthenticationResponseCallback(this, &FOnlineAsyncTaskManagerSteam::OnAuthenticationResponse),
 		OnInviteAcceptedCallback(this, &FOnlineAsyncTaskManagerSteam::OnInviteAccepted),
 		OnLobbyInviteAcceptedCallback(this, &FOnlineAsyncTaskManagerSteam::OnLobbyInviteAccepted),
 		OnLobbyEnterCallback(this, &FOnlineAsyncTaskManagerSteam::OnLobbyEnter),

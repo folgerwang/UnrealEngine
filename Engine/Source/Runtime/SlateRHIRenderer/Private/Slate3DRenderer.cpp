@@ -114,6 +114,8 @@ struct TKeepAliveCommand final : public FRHICommand < TKeepAliveCommand<TKeepAli
 
 void FSlate3DRenderer::DrawWindowToTarget_RenderThread( FRHICommandListImmediate& InRHICmdList, FTextureRenderTarget2DResource* RenderTargetResource, FSlateDrawBuffer& WindowDrawBuffer, bool bInClearTarget)
 {
+	check(IsInRenderingThread());
+	QUICK_SCOPE_CYCLE_COUNTER(Stat_Slate_WidgetRendererRenderThread);
 	SCOPED_DRAW_EVENT( InRHICmdList, SlateRenderToTarget );
 	SCOPED_GPU_STAT(InRHICmdList, Slate3D);
 
@@ -122,11 +124,8 @@ void FSlate3DRenderer::DrawWindowToTarget_RenderThread( FRHICommandListImmediate
 	const TArray<TSharedRef<FSlateWindowElementList>>& WindowsToDraw = WindowDrawBuffer.GetWindowElementLists();
 
 	// Enqueue a command to unlock the draw buffer after all windows have been drawn
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(SlateBeginDrawingWindowsCommand,
-		FSlateRHIRenderingPolicy&, Policy, *RenderTargetPolicy,
-		{
-			Policy.BeginDrawingWindows();
-		});
+	RenderTargetPolicy->BeginDrawingWindows();
+
 
 	// Set render target and clear.
 	FTexture2DRHIRef RTResource = RenderTargetResource->GetTextureRHI();
@@ -149,16 +148,16 @@ void FSlate3DRenderer::DrawWindowToTarget_RenderThread( FRHICommandListImmediate
 
 		BatchData.CreateRenderBatches(RootBatchMap);
 
-		RenderTargetPolicy->UpdateVertexAndIndexBuffers(InRHICmdList, BatchData);
-		
-		FVector2D DrawOffset = WindowDrawBuffer.ViewOffset;
-
-		FMatrix ProjectionMatrix = FSlateRHIRenderer::CreateProjectionMatrix(RTResource->GetSizeX(), RTResource->GetSizeY());
-		FMatrix ViewOffset = FTranslationMatrix::Make(FVector(DrawOffset, 0));
-		ProjectionMatrix = ViewOffset * ProjectionMatrix;
-
 		if ( BatchData.GetRenderBatches().Num() > 0 )
 		{
+			RenderTargetPolicy->UpdateVertexAndIndexBuffers(InRHICmdList, BatchData);
+		
+			FVector2D DrawOffset = WindowDrawBuffer.ViewOffset;
+
+			FMatrix ProjectionMatrix = FSlateRHIRenderer::CreateProjectionMatrix(RTResource->GetSizeX(), RTResource->GetSizeY());
+			FMatrix ViewOffset = FTranslationMatrix::Make(FVector(DrawOffset, 0));
+			ProjectionMatrix = ViewOffset * ProjectionMatrix;
+		
 			FSlateBackBuffer BackBufferTarget(RenderTargetResource->GetTextureRHI(), FIntPoint(RTResource->GetSizeX(), RTResource->GetSizeY()));
 
 			FSlateRenderingOptions DrawOptions(ProjectionMatrix);
@@ -192,20 +191,11 @@ void FSlate3DRenderer::DrawWindowToTarget_RenderThread( FRHICommandListImmediate
 		}
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(SlateEndDrawingWindowsCommand,
-		FSlateDrawBuffer*, DrawBuffer, &WindowDrawBuffer,
-		FSlateRHIRenderingPolicy&, Policy, *RenderTargetPolicy,
-		{
-			FSlateEndDrawingWindowsCommand::EndDrawingWindows(RHICmdList, DrawBuffer, Policy);
-		});
 
+	FSlateEndDrawingWindowsCommand::EndDrawingWindows(InRHICmdList, &WindowDrawBuffer, *RenderTargetPolicy);
 	InRHICmdList.CopyToResolveTarget(RenderTargetResource->GetTextureRHI(), RTResource, FResolveParams());
 
 	ISlate3DRendererPtr Self = SharedThis(this);
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(SlateDrawWindows_ResourceRetainer,
-		ISlate3DRendererPtr, Renderer, Self,
-		{
-			new ( RHICmdList.AllocCommand<TKeepAliveCommand<ISlate3DRendererPtr>>() ) TKeepAliveCommand<ISlate3DRendererPtr>(Renderer);
-		});
+	new ( InRHICmdList.AllocCommand<TKeepAliveCommand<ISlate3DRendererPtr>>() ) TKeepAliveCommand<ISlate3DRendererPtr>(Self);
 }

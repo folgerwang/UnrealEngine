@@ -8,18 +8,22 @@ public class Niagara : ModuleRules
     {
         PrivateDependencyModuleNames.AddRange(
             new string[] {
+                "NiagaraCore",
                 "NiagaraShader",
                 "Core",
                 "Engine",
-				"RenderCore",
+                "RenderCore",
                 "UtilityShaders",
-                "ShaderCore"
+                "ShaderCore",
+                "TimeManagement",
+                "Renderer",
             }
         );
 
 
         PublicDependencyModuleNames.AddRange(
             new string[] {
+                "NiagaraCore",
                 "NiagaraShader",
                 "MovieScene",
 				"MovieSceneTracks",
@@ -35,6 +39,7 @@ public class Niagara : ModuleRules
 
         PrivateIncludePaths.AddRange(
             new string[] {
+                "Niagara/Private",
             })
         ;
 

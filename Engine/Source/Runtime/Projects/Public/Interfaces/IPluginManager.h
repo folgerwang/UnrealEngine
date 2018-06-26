@@ -225,7 +225,7 @@ public:
 	 *
 	 * @return	 Pointer to the plugin's information, or nullptr.
 	 */
-	virtual TSharedPtr<IPlugin> FindPlugin(const FString& Name) = 0;
+	virtual PROJECTS_API TSharedPtr<IPlugin> FindPlugin(const FString& Name) = 0;
 
 	/**
 	 * Gets an array of all the enabled plugins.
@@ -275,6 +275,9 @@ public:
 	 * Event signature for being notified that a new plugin has been mounted
 	 */
 	DECLARE_EVENT_OneParam(IPluginManager, FNewPluginMountedEvent, IPlugin&);
+
+
+	virtual FNewPluginMountedEvent& OnNewPluginCreated() = 0;
 
 	/**
 	 * Gets an array of plugins that loaded their own content pak file

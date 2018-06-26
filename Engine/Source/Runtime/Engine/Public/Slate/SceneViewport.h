@@ -124,7 +124,7 @@ public:
 	TWeakPtr<SViewport> GetViewportWidget() const { return ViewportWidget; }
 
 	/** Called before BeginRenderFrame is enqueued */
-	virtual void EnqueueBeginRenderFrame() override;
+	virtual void EnqueueBeginRenderFrame(const bool bShouldPresent) override;
 
 	/** Called when a frame starts to render */
 	virtual void BeginRenderFrame(FRHICommandListImmediate& RHICmdList) override;

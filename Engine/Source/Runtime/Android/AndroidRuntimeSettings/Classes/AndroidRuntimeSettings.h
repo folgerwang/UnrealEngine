@@ -6,12 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
 #include "Engine/EngineTypes.h"
-
-#if WITH_ENGINE
 #include "AudioCompressionSettings.h"
-#else
-struct FPlatformRuntimeAudioCompressionOverrides;
-#endif
 
 #include "AndroidRuntimeSettings.generated.h"
 
@@ -217,6 +212,10 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "APK Packaging", Meta = (DisplayName = "Enable Gradle instead of Ant"))
 	bool bEnableGradle;
 
+	// Enable -Xlint:unchecked and -Xlint:depreciation for Java compiling (Gradle only)
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "APK Packaging", Meta = (DisplayName = "Enable Lint depreciation checks"))
+	bool bEnableLint;
+
 	// Should the data be placed into the .apk file instead of a separate .obb file. Amazon requires this to be enabled, but Google Play Store will not allow .apk files larger than 50MB, so only small games will work with this enabled.
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "APK Packaging", Meta = (DisplayName = "Package game data inside .apk?"))
 	bool bPackageDataInsideApk;
@@ -290,8 +289,8 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Advanced APK Packaging", Meta = (DisplayName = "Add permissions to support Voice chat (RECORD_AUDIO)"))
 	bool bAndroidVoiceEnabled;
 
-	// Configure AndroidManifest.xml for GearVR
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Advanced APK Packaging", Meta = (DisplayName = "Configure the AndroidManifest for deployment to GearVR"))
+	// Configure AndroidManifest.xml for Oculus Mobile
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Advanced APK Packaging", Meta = (DisplayName = "Configure the AndroidManifest for deployment to Oculus Mobile"))
 	bool bPackageForGearVR;
 
 	// Removes Oculus Signature Files (osig) from APK if Gear VR APK signed for distribution and enables entitlement checker
@@ -408,6 +407,14 @@ public:
 	/** Show the launch image as a startup slash screen */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = LaunchImages, meta = (DisplayName = "Show launch image"))
 	bool bShowLaunchImage;
+
+	/** Allows accelerometer, magnetometer, and gyroscope event handling, disabling may improve performance. */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Input, meta = (DisplayName = "Allow IMU Sampling"))
+	bool bAllowIMU;
+
+	// If checked, Bluetooth connected controllers will send input
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Input, meta = (DisplayName = "Allow Bluetooth controllers"))
+	bool bAllowControllers;
 
 	/** Android encoding options. */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Audio, meta = (DisplayName = "Encoding Format"))

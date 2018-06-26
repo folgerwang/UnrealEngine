@@ -83,7 +83,8 @@ void UNiagaraNodeFunctionCall::PostEditChangeProperty(struct FPropertyChangedEve
 	}
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	GetGraph()->NotifyGraphChanged();
+	MarkNodeRequiresSynchronization(__FUNCTION__, true);
+	//GetGraph()->NotifyGraphChanged();
 }
 
 void UNiagaraNodeFunctionCall::AllocateDefaultPins()
@@ -280,6 +281,31 @@ bool UNiagaraNodeFunctionCall::CanAddToGraph(UNiagaraGraph* TargetGraph, FString
 	return true;
 }
 
+UNiagaraGraph* UNiagaraNodeFunctionCall::GetCalledGraph() const
+{
+	if (FunctionScript)
+	{
+		UNiagaraScriptSource* Source = CastChecked<UNiagaraScriptSource>(FunctionScript->GetSource());
+		if (Source)
+		{
+			UNiagaraGraph* FunctionGraph = Source->NodeGraph;
+			return FunctionGraph;
+		}
+	}
+
+	return nullptr;
+}
+
+
+ENiagaraScriptUsage UNiagaraNodeFunctionCall::GetCalledUsage() const
+{
+	if (FunctionScript)
+	{
+		return FunctionScript->GetUsage();
+	}
+	return ENiagaraScriptUsage::Function;
+}
+
 void UNiagaraNodeFunctionCall::Compile(class FHlslNiagaraTranslator* Translator, TArray<int32>& Outputs)
 {
 	TArray<int32> Inputs;
@@ -327,7 +353,7 @@ void UNiagaraNodeFunctionCall::Compile(class FHlslNiagaraTranslator* Translator,
 			}
 
 			UEdGraphPin* CallerPin = *PinPtr;
-			UEdGraphPin* CallerLinkedTo = CallerPin->LinkedTo.Num() > 0 ? CallerPin->LinkedTo[0] : nullptr;			
+			UEdGraphPin* CallerLinkedTo = CallerPin->LinkedTo.Num() > 0 ? UNiagaraNode::TraceOutputPin(CallerPin->LinkedTo[0]) : nullptr;			
 			FNiagaraVariable PinVar = Schema->PinToNiagaraVariable(CallerPin);
 			if (!CallerLinkedTo)
 			{
@@ -427,7 +453,6 @@ bool UNiagaraNodeFunctionCall::RefreshFromExternalChanges()
 			if (bReload)
 			{
 				bReload = true;
-				UE_LOG(LogNiagaraEditor, Log, TEXT("RefreshFromExternalChanges %s"), *(FunctionScript->GetPathName()));
 			}
 		}
 	}
@@ -464,6 +489,31 @@ void UNiagaraNodeFunctionCall::SubsumeExternalDependencies(TMap<const UObject*, 
 		else
 		{
 			FunctionScript = FunctionScript->MakeRecursiveDeepCopy(this, ExistingConversions);
+		}
+	}
+}
+
+void UNiagaraNodeFunctionCall::GatherExternalDependencyIDs(ENiagaraScriptUsage InMasterUsage, const FGuid& InMasterUsageId, TArray<FGuid>& InReferencedIDs, TArray<UObject*>& InReferencedObjs) const
+{
+	if (FunctionScript && FunctionScript->GetOutermost() != this->GetOutermost())
+	{
+		UNiagaraScriptSource* Source = CastChecked<UNiagaraScriptSource>(FunctionScript->GetSource());
+		UNiagaraGraph* FunctionGraph = CastChecked<UNiagaraGraph>(Source->NodeGraph);
+		
+		// We don't know which graph type we're referencing, so we try them all... may need to replace this with something faster in the future.
+		if (FunctionGraph)
+		{
+			for (int32 i = (int32)ENiagaraScriptUsage::Function; i <= (int32)ENiagaraScriptUsage::Module; i++)
+			{
+				FGuid FoundGuid = FunctionGraph->GetCompileID((ENiagaraScriptUsage)i, FGuid(0, 0, 0, 0));
+				if (FoundGuid.IsValid())
+				{
+					InReferencedIDs.Add(FoundGuid);
+					InReferencedObjs.Add(FunctionGraph);
+
+					FunctionGraph->GatherExternalDependencyIDs((ENiagaraScriptUsage)i, FGuid(0, 0, 0, 0), InReferencedIDs, InReferencedObjs);
+				}
+			}
 		}
 	}
 }
@@ -505,8 +555,23 @@ void UNiagaraNodeFunctionCall::BuildParameterMapHistory(FNiagaraParameterMapHist
 		{
 			OutputNode = FunctionGraph->FindOutputNode(ENiagaraScriptUsage::DynamicInput);
 		}
+
+		int32 ParamMapIdx = INDEX_NONE;
+		uint32 NodeIdx = INDEX_NONE;
+		const UEdGraphPin* CandidateParamMapPin = GetInputPin(0);
+		if (CandidateParamMapPin && CandidateParamMapPin->LinkedTo.Num() != 0 && Schema->PinToTypeDefinition(CandidateParamMapPin) == FNiagaraTypeDefinition::GetParameterMapDef())
+		{
+			if (bRecursive)
+			{
+				ParamMapIdx = OutHistory.TraceParameterMapOutputPin(UNiagaraNode::TraceOutputPin(GetInputPin(0)->LinkedTo[0]));
+			}
+		}
 		
 		OutHistory.EnterFunction(GetFunctionName(), FunctionScript, this);
+		if (ParamMapIdx != INDEX_NONE)
+		{
+			NodeIdx = OutHistory.BeginNodeVisitation(ParamMapIdx, this);
+		}
 		OutputNode->BuildParameterMapHistory(OutHistory, true);
 
 		// Since we're about to lose the pin calling context, we finish up the function call parameter map pin wiring
@@ -530,12 +595,18 @@ void UNiagaraNodeFunctionCall::BuildParameterMapHistory(FNiagaraParameterMapHist
 					{
 						TPair<UEdGraphPin*, int32> Pair;
 						Pair.Key = OutputPins[i];
-						Pair.Value = OutHistory.TraceParameterMapOutputPin(ChildOutputNodePin->LinkedTo[0]);
+						Pair.Value = OutHistory.TraceParameterMapOutputPin(UNiagaraNode::TraceOutputPin(ChildOutputNodePin->LinkedTo[0]));
 						MatchedPairs.Add(Pair);
 					}
 				}
 			}
 		}
+
+		if (ParamMapIdx != INDEX_NONE)
+		{
+			OutHistory.EndNodeVisitation(ParamMapIdx, NodeIdx);
+		}
+
 		OutHistory.ExitFunction(GetFunctionName(), FunctionScript, this);
 
 		for (int32 i = 0; i < MatchedPairs.Num(); i++)
@@ -549,17 +620,27 @@ void UNiagaraNodeFunctionCall::BuildParameterMapHistory(FNiagaraParameterMapHist
 	}
 }
 
-UEdGraphPin* UNiagaraNodeFunctionCall::FindParameterMapDefaultValuePin(const FName VariableName)
+UEdGraphPin* UNiagaraNodeFunctionCall::FindParameterMapDefaultValuePin(const FName VariableName, ENiagaraScriptUsage InParentUsage) const
 {
 	if (FunctionScript)
 	{
 		UNiagaraScriptSource* ScriptSource = Cast<UNiagaraScriptSource>(FunctionScript->GetSource());
-		if (ScriptSource != nullptr)
+		if (ScriptSource != nullptr && ScriptSource->NodeGraph != nullptr)
 		{
-			return ScriptSource->NodeGraph->FindParameterMapDefaultValuePin(VariableName);
+			return ScriptSource->NodeGraph->FindParameterMapDefaultValuePin(VariableName, FunctionScript->GetUsage(), InParentUsage);
 		}
 	}
 	return nullptr;
+}
+
+void UNiagaraNodeFunctionCall::SuggestName(FString SuggestedName)
+{
+	ComputeNodeName(SuggestedName);
+}
+
+UNiagaraNodeFunctionCall::FOnInputsChanged& UNiagaraNodeFunctionCall::OnInputsChanged()
+{
+	return OnInputsChangedDelegate;
 }
 
 ENiagaraNumericOutputTypeSelectionMode UNiagaraNodeFunctionCall::GetNumericOutputTypeSelectionMode() const
@@ -577,14 +658,31 @@ void UNiagaraNodeFunctionCall::AutowireNewNode(UEdGraphPin* FromPin)
 	ComputeNodeName();
 }
 
-void UNiagaraNodeFunctionCall::ComputeNodeName()
+void UNiagaraNodeFunctionCall::ComputeNodeName(FString SuggestedName)
 {
-	const FString CurrentName = FunctionDisplayName;
-	FName ProposedName = *CurrentName;
 	FString FunctionName = FunctionScript ? FunctionScript->GetName() : Signature.GetName();
-	if (!FunctionName.IsEmpty())
+	FName ProposedName;
+	if (SuggestedName.IsEmpty() == false)
+	{ 
+		// If we have a suggested name and and either there is no function name, or it is a permutation of the function name
+		// it can be used as the proposed name.
+		if (FunctionName.IsEmpty() || SuggestedName == FunctionName || (SuggestedName.StartsWith(FunctionName) && SuggestedName.RightChop(FunctionName.Len()).IsNumeric()))
+		{
+			ProposedName = *SuggestedName;
+		}
+	}
+
+	if(ProposedName == NAME_None)
 	{
-		ProposedName = *FunctionName;
+		const FString CurrentName = FunctionDisplayName;
+		if (FunctionName.IsEmpty() == false)
+		{
+			ProposedName = *FunctionName;
+		}
+		else
+		{
+			ProposedName = *CurrentName;
+		}
 	}
 
 	UNiagaraGraph* Graph = GetNiagaraGraph();

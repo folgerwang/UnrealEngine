@@ -335,14 +335,14 @@ namespace ICUUtilities
 			return InCultureCode;
 		}
 
-		// ICU culture codes (IETF language tags) may only contain A-Z, a-z, 0-9, -, or _
+		// ICU culture codes (IETF language tags) may only contain A-Z, a-z, 0-9, -, ,_, @, ;, =, or .
 		FString SanitizedCultureCode = InCultureCode;
 		{
 			SanitizedCultureCode.GetCharArray().RemoveAll([](const TCHAR InChar)
 			{
 				if (InChar != 0)
 				{
-					const bool bIsValid = (InChar >= TEXT('A') && InChar <= TEXT('Z')) || (InChar >= TEXT('a') && InChar <= TEXT('z')) || (InChar >= TEXT('0') && InChar <= TEXT('9')) || (InChar == TEXT('-')) || (InChar == TEXT('_'));
+					const bool bIsValid = (InChar >= TEXT('A') && InChar <= TEXT('Z')) || (InChar >= TEXT('a') && InChar <= TEXT('z')) || (InChar >= TEXT('0') && InChar <= TEXT('9')) || (InChar == TEXT('-')) || (InChar == TEXT('_')) || (InChar == TEXT('@')) || (InChar == TEXT(';')) || (InChar == TEXT('=')) || (InChar == TEXT('.'));
 					return !bIsValid;
 				}
 				return false;

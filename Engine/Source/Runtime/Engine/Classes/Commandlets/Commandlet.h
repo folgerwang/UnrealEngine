@@ -80,6 +80,10 @@ class UCommandlet : public UObject
 	UPROPERTY()
 	uint32 ShowErrorCount:1;
 
+	/** Whether to show cooking progress on tick */
+	UPROPERTY()
+	uint32 ShowProgress:1;
+
 
 	/**
 	 * Entry point for your commandlet

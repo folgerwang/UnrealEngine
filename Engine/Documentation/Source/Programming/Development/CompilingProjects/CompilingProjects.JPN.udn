@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:ゲーム プロジェクトのコンパイル
 Crumbs: %ROOT%, Programming, Programming/Development
@@ -24,6 +24,11 @@ UnrealBuildTool はゲームプロジェクトのビルドに *.Build.cs と *.T
 
 エンジンのコンパイル方法を決定する際に、アンリアル エンジンと UnrealbuildTool は異なるビルド コンフィギュレーションを使用します。使用するコンフィギュレーションは、作成するビルドの目的によって決定されます。
 
+[INCLUDE:#winbuildconfig]
+
+[/EXCERPT:Main]
+
+[COMMENT:none]
 [EXCERPT:winbuildconfig]
 各ビルド コンフィギュレーションには、2 つのキーワードがあります。最初のキーワードは、エンジンとゲームプロジェクトのステートを表します。例えば、**Debug** コンフィギュレーションを使用してコンパイルすると、
 ゲームのコードをデバッグすることができます。2 つめのキーワードは、ビルドしているターゲットを示します。例えば、アンリアルでプロジェクトを開きたい場合、**Editor** をターゲット キーワードとして
@@ -44,8 +49,7 @@ UnrealBuildTool はゲームプロジェクトのビルドに *.Build.cs と *.T
 | **Client**                  | UE4 のネットワーク構築機能を使ってマルチプレイヤー プロジェクトの作業を行っている場合、このターゲットは指定したプロジェクトを、マルチプレイヤー ゲーム用の UE4 のクライアント サーバー モデルのクライアントとして指定します。`<Game>Client.Target.cs` ファイルがあれば、**Client** ビルド コンフィギュレーション ファイルが有効になります。                                                    |
 | **Server**                  | UE4 のネットワーク構築機能を使ってマルチプレイヤー プロジェクトの作業を行っている場合、このターゲットは指定したプロジェクトを、マルチプレイヤー ゲーム用の UE4 のクライアント サーバー モデルのサーバーとして指定します。`<Game>Server.Target.cs` ファイルがあれば **Server** ビルド コンフィギュレーションは有効になります。.                                                   |                                                                                                                                
 [/EXCERPT:winbuildconfig]
-
-[/EXCERPT:Main]
+[/COMMENT]
 
 [EXCERPT:VS]
 ##Visual Studio でビルドする
@@ -122,6 +126,17 @@ Visual Studio でビルドする場合、ゲーム プロジェクトに加え�
 
 これで、コンパイルしたプロジェクトで [エンジンを実行](GettingStarted/RunningUnrealEngine) することができます。  
 
+[INCLUDE:#MatchEXE]
+
+### Visual Studio の既知の問題
+
+| 問題 | 解決法 |
+| ----- | -------- |
+| "Project is out of date" (プロジェクトが無効です) というメッセージが常に表示される | プロジェクトが最新状態であっても Visual Studio がプロジェクトを無効と解釈しています。 [**Do not show this dialog again**] ボックスにチェックを入れて **[No]** を選択することで、このメッセージが非表示になります。 |
+| **No Debugging Information (デバッグ情報がありません)** と表示したウィンドウが _Debug_ コンフィギュレーション使用時に表示される | 「UE4editor.exe」 ファイルを _Development_ コンフィギュレーションでコンパイルしたためこのメッセージが表示されます。警告表示に関係なく、_Debug_ コンフィギュレーションを使ってゲームプロジェクトを使ってコンパイルした場合、デバッグ可能です。 [**Do not show this dialog again**] ボックスにチェックを入れて **[Yes]** を選択することでこのメッセージが非表示になります。 |
+[/EXCERPT:VS]
+
+[COMMENT:none]
 [EXCERPT:MatchEXE]
 [REGION:note]
 エンジンを実行する場合、プロジェクトを再ビルドしたビルド コンフィギュレーションと一致するアンリアル エンジンの実行ファイルを使用することが重要です。例えば、**DebugGame Uncooked** ビルド コンフィギュレーションでプロジェクトをコンパイルした場合、
@@ -132,14 +147,7 @@ Visual Studio でビルドする場合、ゲーム プロジェクトに加え�
 Unreal を実行する場合、**Uncooked** コンフィギュレーションでプロジェクトをリビルドした場合、`-game` フラグを付け加えることが重要です。**Debug** コンフィギュレーションでプロジェクトをリビルドした場合は、`-debug` フラグを付けることが重要です。  
 [/REGION:note]
 [/EXCERPT:MatchEXE]
-
-### Visual Studio の既知の問題
-
-| 問題 | 解決法 |
-| ----- | -------- |
-| "Project is out of date" (プロジェクトが無効です) というメッセージが常に表示される | プロジェクトが最新状態であっても Visual Studio がプロジェクトを無効と解釈しています。 [**Do not show this dialog again**] ボックスにチェックを入れて **[No]** を選択することで、このメッセージが非表示になります。 |
-| **No Debugging Information (デバッグ情報がありません)** と表示したウィンドウが _Debug_ コンフィギュレーション使用時に表示される | 「UE4editor.exe」 ファイルを _Development_ コンフィギュレーションでコンパイルしたためこのメッセージが表示されます。警告表示に関係なく、_Debug_ コンフィギュレーションを使ってゲームプロジェクトを使ってコンパイルした場合、デバッグ可能です。 [**Do not show this dialog again**] ボックスにチェックを入れて **[Yes]** を選択することでこのメッセージが非表示になります。 |
-[/EXCERPT:VS]
+[/COMMENT]
 
 [EXCERPT:Xcode]
 
@@ -155,11 +163,7 @@ Xcode でビルドする場合、ゲーム プロジェクトだけをコンパ�
 
 これで、コンパイルしたプロジェクトで [エンジンを実行](GettingStarted/RunningUnrealEngine) することができます。  
 
-[EXCERPT:MatchDMG]
-[REGION:note]
-バイナリ エディタを実行する場合、**Uncooked** コンフィギュレーションでプロジェクトをリビルドした場合、`-game` フラグを付け加えることが重要です。**Debug** コンフィギュレーションでプロジェクトをリビルドした場合は、`-debug` フラグを付けることが重要です。  
-[/REGION:note]	
-[/EXCERPT:MatchDMG]
+[INCLUDE:#MatchDMG]
 
 ### Xcode の既知の問題
 
@@ -168,6 +172,7 @@ Xcode でビルドする場合、ゲーム プロジェクトだけをコンパ�
 | ----- | -------- |
 | Xcode は、ブレークポイントでは停止しません。 | [INCLUDE:#XcodeDebug] |
 
+[/EXCERPT:Xcode]
 [COMMENT:none]
 
 [EXCERPT:XcodeDebug]
@@ -176,11 +181,10 @@ Xcode の LLDB デバッガーは、アンリアル エンジンのプロジェ�
 	settings set target.inline-breakpoint-strategy always
 [/EXCERPT:XcodeDebug]
 
-[/COMMENT]
+[EXCERPT:MatchDMG]
+[REGION:note]
+バイナリ エディタを実行する場合、**Uncooked** コンフィギュレーションでプロジェクトをリビルドした場合、`-game` フラグを付け加えることが重要です。**Debug** コンフィギュレーションでプロジェクトをリビルドした場合は、`-debug` フラグを付けることが重要です。  
+[/REGION:note]	
+[/EXCERPT:MatchDMG]
 
-[/EXCERPT:Xcode]
-
-[COMMENT:none]
- The following was deprecated per LaurenR 29.7.15
-| **Uncooked**      | **Uncooked** タイプを持つコンフィギュレーションを使用してビルドされたプロジェクトは、"-game" フラグを使ってアンリアル エディタで開きます。これにより、クックされていないコンテンツでゲームを新しいウィンドウで実行します。エディタの [**Play in > New Window at Default Player Start**] に相当します。       | 
 [/COMMENT]

@@ -480,6 +480,30 @@ void SDockingTabStack::CloseForegroundTab()
 	}
 }
 
+void SDockingTabStack::CloseTabsToRightOfForegroundTab(ETabsToClose TabsToClose)
+{
+	TSharedPtr<SDockTab> ForegroundTab = TabWell->GetForegroundTab();
+	if (ForegroundTab.IsValid())
+	{
+		int32 DestroyIndex = TabWell->GetForegroundTabIndex() + 1;
+		int NumTabsToClose = TabWell->GetNumTabs() - TabWell->GetForegroundTabIndex() - 1;
+		while ((NumTabsToClose > 0) && (DestroyIndex < TabWell->GetNumTabs()))
+		{
+			const TSharedRef<SDockTab>& Tab = TabWell->GetTabs()[DestroyIndex];
+
+			const bool bCanClose =
+				(TabsToClose == CloseAllTabs) ||
+				(TabsToClose == CloseDocumentTabs && Tab->GetTabRole() == ETabRole::DocumentTab) ||
+				(TabsToClose == CloseDocumentAndMajorTabs && (Tab->GetTabRole() == ETabRole::DocumentTab || Tab->GetTabRole() == ETabRole::MajorTab));
+
+			if (!bCanClose || !Tab->RequestCloseTab())
+			{
+				++DestroyIndex;
+			}
+		}
+	}
+}
+
 void SDockingTabStack::CloseAllButForegroundTab(ETabsToClose TabsToClose)
 {
 	TSharedPtr<SDockTab> ForegroundTab = TabWell->GetForegroundTab();
@@ -570,6 +594,16 @@ TSharedRef<SWidget> SDockingTabStack::MakeContextMenu()
 			);
 
 			const ETabsToClose TabsToClose = CloseDocumentAndMajorTabs;
+
+			MenuBuilder.AddMenuEntry(
+				LOCTEXT("CloseTabsToTheRight", "Close Tabs to the Right"),
+				LOCTEXT("CloseTabsToTheRightTooltip", "Closes all tabs to the right of the active tab."),
+				FSlateIcon(),
+				FUIAction(
+					FExecuteAction::CreateSP( this, &SDockingTabStack::CloseTabsToRightOfForegroundTab, TabsToClose ),
+					FCanExecuteAction::CreateSP( this, &SDockingTabStack::CanCloseTabsToRightOfForegroundTab )
+				)
+			);
 
 			MenuBuilder.AddMenuEntry(
 				LOCTEXT("CloseOtherTabs", "Close Other Tabs"),
@@ -867,6 +901,24 @@ bool SDockingTabStack::CanCloseForegroundTab() const
 {
 	TSharedPtr<SDockTab> ForegroundTabPtr = TabWell->GetForegroundTab();
 	return ForegroundTabPtr.IsValid() && ForegroundTabPtr->CanCloseTab();
+}
+
+bool SDockingTabStack::CanCloseTabsToRightOfForegroundTab() const
+{
+	TSharedPtr<SDockTab> ForegroundTabPtr = TabWell->GetForegroundTab();
+	if (ForegroundTabPtr.IsValid() && (ForegroundTabPtr->GetTabRole() == ETabRole::DocumentTab || ForegroundTabPtr->GetTabRole() == ETabRole::MajorTab) && (TabWell->GetNumTabs() > 1) && (TabWell->GetForegroundTabIndex() != TabWell->GetNumTabs() - 1))
+	{
+		const TArray< TSharedRef<SDockTab> > MyTabs = this->GetTabs().AsArrayCopy();
+		for (int32 TabIndex = TabWell->GetForegroundTabIndex() + 1; TabIndex < MyTabs.Num(); ++TabIndex)
+		{
+			TSharedRef<SDockTab> Tab = MyTabs[TabIndex];
+			if (Tab->CanCloseTab())
+			{
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 bool SDockingTabStack::CanCloseAllButForegroundTab() const

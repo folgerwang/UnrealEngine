@@ -431,16 +431,8 @@ private:
 
 	bool HandleBrowserBeforeBrowse(const FString& Url, const FWebNavigationRequest& Request)
 	{
-		if (Request.bIsMainFrame && Request.bIsRedirect)
-		{
-			UE_LOG(LogLoginFlow, Log, TEXT("HandleBrowserBeforeBrowse URL: %s"), *Url);
-			return ViewModel->HandleBeforeBrowse(Url);
-		}
-		else
-		{
-			UE_LOG(LogLoginFlow, VeryVerbose, TEXT("HandleBrowserBeforeBrowse skipped URL: %s MainFrame: %d Redirect: %d"), *Url, Request.bIsMainFrame, Request.bIsRedirect);
-		}
-		return false;
+		UE_LOG(LogLoginFlow, Log, TEXT("HandleBrowserBeforeBrowse Main:%d Redirect:%d URL: %s"), Request.bIsMainFrame, Request.bIsRedirect, *Url);
+		return ViewModel->HandleBeforeBrowse(Url);
 	}
 
 	EWebBrowserDialogEventResponse HandleShowDialog(const TWeakPtr<IWebBrowserDialog> & DialogPtr)

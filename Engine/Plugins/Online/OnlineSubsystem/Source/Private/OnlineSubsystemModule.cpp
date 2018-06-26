@@ -74,7 +74,13 @@ void FOnlineSubsystemModule::StartupModule()
 	}
 
 	LoadDefaultSubsystem();
+	
 	// Also load the console/platform specific OSS which might not necessarily be the default OSS instance
+
+	FString InterfaceString;
+	GConfig->GetString(TEXT("OnlineSubsystem"), TEXT("NativePlatformService"), InterfaceString, GEngineIni);
+	NativePlatformService = FName(*InterfaceString);
+
 	IOnlineSubsystem::GetByPlatform();
 }
 
@@ -121,7 +127,7 @@ void FOnlineSubsystemModule::LoadDefaultSubsystem()
 
 	if (!bHasLoadedModule)
 	{
-		UE_LOG(LogOnline, Log, TEXT("Failed to load any Online Subsystem Modules"));
+		UE_LOG_ONLINE(Log, TEXT("Failed to load any Online Subsystem Modules"));
 	}
 }
 
@@ -154,7 +160,7 @@ void FOnlineSubsystemModule::ShutdownOnlineSubsystem()
 	// Unload all the supporting factories
 	for (TMap<FName, IOnlineFactory*>::TIterator It(OnlineFactories); It; ++It)
 	{
-		UE_LOG(LogOnline, Verbose, TEXT("Unloading online subsystem: %s"), *It.Key().ToString());
+		UE_LOG_ONLINE(Verbose, TEXT("Unloading online subsystem: %s"), *It.Key().ToString());
 
 		// Unloading the module will do proper cleanup
 		FName ModuleName = GetOnlineModuleName(It.Key().ToString());
@@ -198,7 +204,7 @@ FName FOnlineSubsystemModule::ParseOnlineSubsystemName(const FName& FullName, FN
 	SubsystemName = DefaultPlatformService;
 	InstanceName = FOnlineSubsystemImpl::DefaultInstanceName;
 
-	if (FullName != NAME_None)
+	if (!FullName.IsNone())
 	{
 		FString FullNameStr = FullName.ToString();
 
@@ -225,7 +231,7 @@ FName FOnlineSubsystemModule::ParseOnlineSubsystemName(const FName& FullName, FN
 	return FName(*FString::Printf(TEXT("%s:%s"), *SubsystemName.ToString(), *InstanceName.ToString()));
 #else	
 	
-	SubsystemName = FullName == NAME_None ? DefaultPlatformService : FullName;
+	SubsystemName = FullName.IsNone() ? DefaultPlatformService : FullName;
 	InstanceName = FOnlineSubsystemImpl::DefaultInstanceName;
 
 #if !UE_BUILD_SHIPPING
@@ -243,7 +249,7 @@ IOnlineSubsystem* FOnlineSubsystemModule::GetOnlineSubsystem(const FName InSubsy
 	FName KeyName = ParseOnlineSubsystemName(InSubsystemName, SubsystemName, InstanceName);
 
 	IOnlineSubsystemPtr* OnlineSubsystem = nullptr;
-	if (SubsystemName != NAME_None)
+	if (!SubsystemName.IsNone())
 	{
 		OnlineSubsystem = OnlineSubsystems.Find(KeyName);
 		if (OnlineSubsystem == nullptr)
@@ -276,7 +282,7 @@ IOnlineSubsystem* FOnlineSubsystemModule::GetOnlineSubsystem(const FName InSubsy
 						bool* bNotedPreviously = OnlineSubsystemFailureNotes.Find(KeyName);
 						if (!bNotedPreviously || !(*bNotedPreviously))
 						{
-							UE_LOG(LogOnline, Log, TEXT("Unable to create OnlineSubsystem module %s"), *SubsystemName.ToString());
+							UE_LOG_ONLINE(Log, TEXT("Unable to create OnlineSubsystem module %s"), *SubsystemName.ToString());
 							OnlineSubsystemFailureNotes.Add(KeyName, true);
 						}
 					}
@@ -288,12 +294,24 @@ IOnlineSubsystem* FOnlineSubsystemModule::GetOnlineSubsystem(const FName InSubsy
 	return (OnlineSubsystem == nullptr) ? nullptr : (*OnlineSubsystem).Get();
 }
 
+IOnlineSubsystem* FOnlineSubsystemModule::GetNativeSubsystem(bool bAutoLoad)
+{
+	if (!NativePlatformService.IsNone())
+	{
+		if (bAutoLoad || IOnlineSubsystem::IsLoaded(NativePlatformService))
+		{
+			return IOnlineSubsystem::Get(NativePlatformService);
+		}
+	}
+	return nullptr;
+}
+
 void FOnlineSubsystemModule::DestroyOnlineSubsystem(const FName InSubsystemName)
 {
 	FName SubsystemName, InstanceName;
 	FName KeyName = ParseOnlineSubsystemName(InSubsystemName, SubsystemName, InstanceName);
 
-	if (SubsystemName != NAME_None)
+	if (!SubsystemName.IsNone())
 	{
 		IOnlineSubsystemPtr OnlineSubsystem;
 		OnlineSubsystems.RemoveAndCopyValue(KeyName, OnlineSubsystem);
@@ -304,7 +322,7 @@ void FOnlineSubsystemModule::DestroyOnlineSubsystem(const FName InSubsystemName)
 		}
 		else
 		{
-			UE_LOG(LogOnline, Warning, TEXT("OnlineSubsystem instance %s not found, unable to destroy."), *KeyName.ToString());
+			UE_LOG_ONLINE(Warning, TEXT("OnlineSubsystem instance %s not found, unable to destroy."), *KeyName.ToString());
 		}
 	}
 }
@@ -315,7 +333,7 @@ bool FOnlineSubsystemModule::DoesInstanceExist(const FName InSubsystemName) cons
 
 	FName SubsystemName, InstanceName;
 	FName KeyName = ParseOnlineSubsystemName(InSubsystemName, SubsystemName, InstanceName);
-	if (SubsystemName != NAME_None)
+	if (!SubsystemName.IsNone())
 	{
 		const IOnlineSubsystemPtr* OnlineSubsystem = OnlineSubsystems.Find(KeyName);
 		return OnlineSubsystem && OnlineSubsystem->IsValid() ? true : false;
@@ -331,7 +349,7 @@ bool FOnlineSubsystemModule::IsOnlineSubsystemLoaded(const FName InSubsystemName
 	FName SubsystemName, InstanceName;
 	ParseOnlineSubsystemName(InSubsystemName, SubsystemName, InstanceName);
 
-	if (SubsystemName != NAME_None)
+	if (!SubsystemName.IsNone())
 	{
 		if (FModuleManager::Get().IsModuleLoaded(GetOnlineModuleName(SubsystemName.ToString())))
 		{

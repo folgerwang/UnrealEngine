@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3580568
+﻿INTSourceChangelist:3810467
 Availability:Docs
 Crumbs: %ROOT%
 Title:Composure 操作ガイド
@@ -12,10 +12,8 @@ Tags:Composure
 
 ADD Overview Text
 [REGION:note]
-この概要では、システム、機能、概念について説明します。
+この概要では、操作ガイドで扱うシステム、機能、概念について説明します。
 [/REGION]
-
-[](FANCY:Engine\Composure\HowTo\FakeAo "%Engine\Composure\HowTo\FakeAo:description%")
 
 ADD Beginner Topic List
 [REGION:note]

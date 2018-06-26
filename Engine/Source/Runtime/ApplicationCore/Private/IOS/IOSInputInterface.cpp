@@ -4,10 +4,17 @@
 #include "IOS/IOSAppDelegate.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/ScopeLock.h"
+#include "HAL/IConsoleManager.h"
 
 #import <AudioToolbox/AudioToolbox.h>
 
 DECLARE_LOG_CATEGORY_EXTERN(LogIOSInput, Log, All);
+
+
+static TAutoConsoleVariable<float> CVarHapticsKickHeavy(TEXT("ios.VibrationHapticsKickHeavyValue"), 0.65f, TEXT("Vibation values higher than this will kick a haptics heavy Impact"));
+static TAutoConsoleVariable<float> CVarHapticsKickMedium(TEXT("ios.VibrationHapticsKickMediumValue"), 0.5f, TEXT("Vibation values higher than this will kick a haptics medium Impact"));
+static TAutoConsoleVariable<float> CVarHapticsKickLight(TEXT("ios.VibrationHapticsKickLightValue"), 0.3f, TEXT("Vibation values higher than this will kick a haptics light Impact"));
+static TAutoConsoleVariable<float> CVarHapticsRest(TEXT("ios.VibrationHapticsRestValue"), 0.2f, TEXT("Vibation values lower than this will allow haptics to Kick again when going over ios.VibrationHapticsKickValue"));
 
 
 //@interface FControllerHelper : NSObject
@@ -32,6 +39,8 @@ FIOSInputInterface::FIOSInputInterface( const TSharedRef< FGenericApplicationMes
 	, bTreatRemoteAsSeparateController(false)
 	, bUseRemoteAsVirtualJoystick(true)
 	, bUseRemoteAbsoluteDpadValues(false)
+	, bAllowControllers(true)
+    , LastHapticValue(0.0f)
 {
 #if !PLATFORM_TVOS
 	MotionManager = nil;
@@ -42,8 +51,8 @@ FIOSInputInterface::FIOSInputInterface( const TSharedRef< FGenericApplicationMes
 	GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bAllowRemoteRotation"), bAllowRemoteRotation, GEngineIni);
 	GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bUseRemoteAsVirtualJoystick"), bUseRemoteAsVirtualJoystick, GEngineIni);
 	GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bUseRemoteAbsoluteDpadValues"), bUseRemoteAbsoluteDpadValues, GEngineIni);
+	GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bAllowControllers"), bAllowControllers, GEngineIni);
 
-	
 	[[NSNotificationCenter defaultCenter] addObserverForName:GCControllerDidConnectNotification object:nil queue:[NSOperationQueue currentQueue] usingBlock:^(NSNotification* Notification)
 	 {
 		HandleConnection(Notification.object);
@@ -55,11 +64,8 @@ FIOSInputInterface::FIOSInputInterface( const TSharedRef< FGenericApplicationMes
 	 }];
 	
 
-	[GCController startWirelessControllerDiscoveryWithCompletionHandler:^{
-	 }];
-//	[GCController stopWirelessControllerDiscovery];
-	
-	
+	[GCController startWirelessControllerDiscoveryWithCompletionHandler:^{ }];
+
 	FMemory::Memzero(Controllers, sizeof(Controllers));
 }
 
@@ -80,6 +86,12 @@ void FIOSInputInterface::HandleConnection(GCController* Controller)
 	bool bIsGamepadType = (Controller.gamepad != nil);
 	// if we want to use the Remote as a separate player, then we treat it as a Gamepad for player assignment
 	bool bIsTreatedAsGamepad = bIsGamepadType || bTreatRemoteAsSeparateController;
+
+	// disallow gamepad types (but still connect remote)
+	if (bIsGamepadType && !bAllowControllers)
+	{
+		return;
+	}
 
 	// find a good controller index to use
 	bool bFoundSlot = false;
@@ -127,6 +139,12 @@ void FIOSInputInterface::HandleConnection(GCController* Controller)
 
 void FIOSInputInterface::HandleDisconnect(GCController* Controller)
 {
+	// if we don't allow controllers, there could be unset player index here
+	if (Controller.playerIndex == GCControllerPlayerIndexUnset)
+	{
+		return;
+	}
+	
 	UE_LOG(LogIOS, Log, TEXT("Controller for playerIndex %d was removed"), Controller.playerIndex);
 	
 	// mark this controller as disconnected, and reset the state
@@ -218,7 +236,7 @@ void FIOSInputInterface::ProcessTouchesAndKeys(uint32 ControllerId)
 		// send input to handler
 		if (Touch.Type == TouchBegan)
 		{
-			MessageHandler->OnTouchStarted( NULL, Touch.Position, Touch.Handle, ControllerId);
+			MessageHandler->OnTouchStarted( NULL, Touch.Position, Touch.Force, Touch.Handle, ControllerId);
 		}
 		else if (Touch.Type == TouchEnded)
 		{
@@ -226,7 +244,7 @@ void FIOSInputInterface::ProcessTouchesAndKeys(uint32 ControllerId)
 		}
 		else
 		{
-			MessageHandler->OnTouchMoved(Touch.Position, Touch.Handle, ControllerId);
+			MessageHandler->OnTouchMoved(Touch.Position, Touch.Force, Touch.Handle, ControllerId);
 		}
 	}
 	
@@ -283,18 +301,24 @@ void FIOSInputInterface::SendControllerEvents()
 	
 	for (GCController* Cont in [GCController controllers])
  	{
-		// make sure the connection handler has run on this guy
-		if (Cont.playerIndex == GCControllerPlayerIndexUnset)
-		{
-			HandleConnection(Cont);
-		}
-		
 		GCGamepad* Gamepad = Cont.gamepad;
 		GCExtendedGamepad* ExtendedGamepad = Cont.extendedGamepad;
 #if PLATFORM_TVOS
 		GCMicroGamepad* MicroGamepad = Cont.microGamepad;
 #endif
 		GCMotion* Motion = Cont.motion;
+
+		// skip over gamepads if we don't allow controllers
+		if (Gamepad != nil && !bAllowControllers)
+		{
+			continue;
+		}
+		
+		// make sure the connection handler has run on this guy
+		if (Cont.playerIndex == GCControllerPlayerIndexUnset)
+		{
+			HandleConnection(Cont);
+		}
 
 		FUserController& Controller = Controllers[Cont.playerIndex];
 		
@@ -612,10 +636,56 @@ bool FIOSInputInterface::IsControllerAssignedToGamepad(int32 ControllerId)
 
 void FIOSInputInterface::SetForceFeedbackChannelValue(int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value)
 {
-	if (Value >= 0.3f)
+	// if we are at rest, then kick when we are over the Kick cutoff
+	if (LastHapticValue == 0.0f && Value > 0.0f)
 	{
-		AudioServicesPlaySystemSound(kSystemSoundID_Vibrate);
+		const float HeavyKickVal = CVarHapticsKickHeavy.GetValueOnGameThread();
+		const float MediumKickVal = CVarHapticsKickMedium.GetValueOnGameThread();
+		const float LightKickVal = CVarHapticsKickLight.GetValueOnGameThread();
+		// once we get past the
+		if (Value > LightKickVal)
+		{
+			if (Value > HeavyKickVal)
+			{
+				FPlatformMisc::PrepareMobileHaptics(EMobileHapticsType::ImpactHeavy);
+			}
+			else if (Value > MediumKickVal)
+			{
+				FPlatformMisc::PrepareMobileHaptics(EMobileHapticsType::ImpactMedium);
+			}
+			else
+			{
+				FPlatformMisc::PrepareMobileHaptics(EMobileHapticsType::ImpactLight);
+			}
+
+			FPlatformMisc::TriggerMobileHaptics();
+			
+			// remember it to not kick again
+			LastHapticValue = Value;
+		}
 	}
+	else
+	{
+		const float RestVal = CVarHapticsRest.GetValueOnGameThread();
+
+		if (Value >= RestVal)
+		{
+			// always remember the last value if we are over the Rest amount
+			LastHapticValue = Value;
+		}
+		else
+		{
+			// release the haptics
+			FPlatformMisc::ReleaseMobileHaptics();
+			
+			// rest
+			LastHapticValue = 0.0f;
+		}
+	}
+	
+//	{
+//		AudioServicesPlaySystemSound(kSystemSoundID_Vibrate);
+//	}
 }
 
 void FIOSInputInterface::SetForceFeedbackChannelValues(int32 ControllerId, const FForceFeedbackValues &Values)
@@ -625,8 +695,6 @@ void FIOSInputInterface::SetForceFeedbackChannelValues(int32 ControllerId, const
 	float MaxRight = Values.RightLarge > Values.RightSmall ? Values.RightLarge : Values.RightSmall;
 	float Value = MaxLeft > MaxRight ? MaxLeft : MaxRight;
 
-	if (Value >= 0.3f)
-	{
-		AudioServicesPlaySystemSound(kSystemSoundID_Vibrate);
-	}
+	// the other function will just play, regardless of channel
+	SetForceFeedbackChannelValue(ControllerId, FForceFeedbackChannelType::LEFT_LARGE, Value);
 }

@@ -23,7 +23,7 @@ class UHapticFeedbackEffect_Base : public UObject
 
 
 USTRUCT()
-struct FActiveHapticFeedbackEffect
+struct ENGINE_API FActiveHapticFeedbackEffect
 {
 	GENERATED_USTRUCT_BODY()
 
@@ -31,7 +31,8 @@ struct FActiveHapticFeedbackEffect
 	class UHapticFeedbackEffect_Base* HapticEffect;
 
 	FActiveHapticFeedbackEffect()
-		: PlayTime(0.f)
+		: HapticEffect(nullptr)
+		, PlayTime(0.f)
 		, Scale(1.f)
 	{
 	}

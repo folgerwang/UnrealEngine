@@ -54,7 +54,7 @@ struct GRAPHEDITOR_API FConnectionParams
 		: WireColor(FLinearColor::White)
 		, AssociatedPin1(nullptr)
 		, AssociatedPin2(nullptr)
-		, WireThickness(1.0f)
+		, WireThickness(1.5f)
 		, bDrawBubbles(false)
 		, bUserFlag1(false)
 		, bUserFlag2(false)

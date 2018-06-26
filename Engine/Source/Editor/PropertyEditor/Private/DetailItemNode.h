@@ -23,6 +23,7 @@ public:
 	/** IDetailTreeNode interface */
 	virtual EDetailNodeType GetNodeType() const override;
 	virtual TSharedPtr<IPropertyHandle> CreatePropertyHandle() const override;
+	virtual void GetFilterStrings(TArray<FString>& OutFilterStrings) const override;
 
 	/**
 	 * Initializes this node                                                              
@@ -51,7 +52,7 @@ public:
 	 */
 	bool HasGeneratedChildren() const { return Children.Num() > 0;}
 
-	/** IDetailTreeNode interface */
+	/** FDetailTreeNode interface */
 	virtual IDetailsViewPrivate* GetDetailsView() const override{ return ParentCategory.Pin()->GetDetailsView(); }
 	virtual TSharedRef< ITableRow > GenerateWidgetForTableView( const TSharedRef<STableViewBase>& OwnerTable, const FDetailColumnSizeData& ColumnSizeData, bool bAllowFavoriteSystem) override;
 	virtual bool GenerateStandaloneWidget(FDetailWidgetRow& OutRow) const override;
@@ -70,6 +71,7 @@ public:
 	virtual bool IsLeaf() override { return true; }
 	virtual TAttribute<bool> IsPropertyEditingEnabled() const override { return IsParentEnabled; }
 	virtual TSharedPtr<FPropertyNode> GetPropertyNode() const override;
+	virtual TSharedPtr<FComplexPropertyNode> GetExternalRootPropertyNode() const override;
 	virtual TSharedPtr<IDetailPropertyRow> GetRow() const override;
 
 private:

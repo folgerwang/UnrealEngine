@@ -17,7 +17,7 @@ public class WindowsServerTargetPlatform : ModuleRules
 		if (Target.bCompileAgainstEngine)
 		{
 			PrivateDependencyModuleNames.AddRange( new string[] {
-				"Engine"
+				"Engine", "RHI"
 				}
 			);
 

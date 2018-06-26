@@ -1,5 +1,4 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-// ...
 
 #include "VulkanShaderFormat.h"
 #include "Modules/ModuleInterface.h"
@@ -10,38 +9,35 @@
 #include "ShaderCore.h"
 
 static FName NAME_VULKAN_ES3_1_ANDROID(TEXT("SF_VULKAN_ES31_ANDROID"));
-static FName NAME_VULKAN_ES3_1_ANDROID_UB(TEXT("SF_VULKAN_ES31_ANDROID_UB"));
+static FName NAME_VULKAN_ES3_1_ANDROID_NOUB(TEXT("SF_VULKAN_ES31_ANDROID_NOUB"));
 static FName NAME_VULKAN_ES3_1(TEXT("SF_VULKAN_ES31"));
-static FName NAME_VULKAN_ES3_1_UB(TEXT("SF_VULKAN_ES31_UB"));
+static FName NAME_VULKAN_ES3_1_LUMIN(TEXT("SF_VULKAN_ES31_LUMIN"));
+static FName NAME_VULKAN_ES3_1_NOUB(TEXT("SF_VULKAN_ES31_NOUB"));
 static FName NAME_VULKAN_SM4_NOUB(TEXT("SF_VULKAN_SM4_NOUB"));
 static FName NAME_VULKAN_SM4(TEXT("SF_VULKAN_SM4"));
 static FName NAME_VULKAN_SM5_NOUB(TEXT("SF_VULKAN_SM5_NOUB"));
 static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
+static FName NAME_VULKAN_SM5_LUMIN(TEXT("SF_VULKAN_SM5_LUMIN"));
 
 class FShaderFormatVulkan : public IShaderFormat
 {
 	enum 
 	{
-		UE_SHADER_VULKAN_ES3_1_VER = 14,
-		UE_SHADER_VULKAN_SM4_VER = 14,
-		UE_SHADER_VULKAN_SM5_VER = 14,
+		UE_SHADER_VULKAN_ES3_1_VER = 15,
+		UE_SHADER_VULKAN_SM5_VER = 15,
 	};
 
 	int32 InternalGetVersion(FName Format) const
 	{
 		if (Format == NAME_VULKAN_SM4 || Format == NAME_VULKAN_SM4_NOUB)
 		{
-			return UE_SHADER_VULKAN_SM4_VER;
+			return UE_SHADER_VULKAN_SM5_VER;
 		}
-		else if (Format == NAME_VULKAN_SM5 || Format == NAME_VULKAN_SM5_NOUB)
+		else if (Format == NAME_VULKAN_SM5 || Format == NAME_VULKAN_SM5_NOUB || Format == NAME_VULKAN_SM5_LUMIN)
 		{
 			return UE_SHADER_VULKAN_SM5_VER;
 		}
-		else if (Format == NAME_VULKAN_ES3_1_ANDROID || Format == NAME_VULKAN_ES3_1_ANDROID_UB || Format == NAME_VULKAN_ES3_1 || Format == NAME_VULKAN_ES3_1_UB)
-		{
-			return UE_SHADER_VULKAN_ES3_1_VER;
-		}
-		else if (Format == NAME_VULKAN_ES3_1_UB)
+		else if (Format == NAME_VULKAN_ES3_1_ANDROID || Format == NAME_VULKAN_ES3_1_ANDROID_NOUB || Format == NAME_VULKAN_ES3_1 || Format == NAME_VULKAN_ES3_1_NOUB || Format == NAME_VULKAN_ES3_1_LUMIN)
 		{
 			return UE_SHADER_VULKAN_ES3_1_VER;
 		}
@@ -61,10 +57,12 @@ public:
 	{
 		OutFormats.Add(NAME_VULKAN_SM4);
 		OutFormats.Add(NAME_VULKAN_SM5);
+		OutFormats.Add(NAME_VULKAN_SM5_LUMIN);
 		OutFormats.Add(NAME_VULKAN_ES3_1_ANDROID);
-		OutFormats.Add(NAME_VULKAN_ES3_1_ANDROID_UB);
+		OutFormats.Add(NAME_VULKAN_ES3_1_ANDROID_NOUB);
 		OutFormats.Add(NAME_VULKAN_ES3_1);
-		OutFormats.Add(NAME_VULKAN_ES3_1_UB);
+		OutFormats.Add(NAME_VULKAN_ES3_1_LUMIN);
+		OutFormats.Add(NAME_VULKAN_ES3_1_NOUB);
 		OutFormats.Add(NAME_VULKAN_SM4_NOUB);
 		OutFormats.Add(NAME_VULKAN_SM5_NOUB);
 	}
@@ -72,21 +70,21 @@ public:
 	virtual void CompileShader(FName Format, const struct FShaderCompilerInput& Input, struct FShaderCompilerOutput& Output,const FString& WorkingDirectory) const
 	{
 		check(InternalGetVersion(Format) >= 0);
-		if (Format == NAME_VULKAN_ES3_1)
+		if (Format == NAME_VULKAN_ES3_1 || Format == NAME_VULKAN_ES3_1_LUMIN)
 		{
 			CompileShader_Windows_Vulkan(Input, Output, WorkingDirectory, EVulkanShaderVersion::ES3_1);
 		}
-		else if (Format == NAME_VULKAN_ES3_1_UB)
+		else if (Format == NAME_VULKAN_ES3_1_NOUB)
 		{
-			CompileShader_Windows_Vulkan(Input, Output, WorkingDirectory, EVulkanShaderVersion::ES3_1_UB);
+			CompileShader_Windows_Vulkan(Input, Output, WorkingDirectory, EVulkanShaderVersion::ES3_1_NOUB);
 		}
 		else if (Format == NAME_VULKAN_ES3_1_ANDROID)
 		{
 			CompileShader_Windows_Vulkan(Input, Output, WorkingDirectory, EVulkanShaderVersion::ES3_1_ANDROID);
 		}
-		else if (Format == NAME_VULKAN_ES3_1_ANDROID_UB)
+		else if (Format == NAME_VULKAN_ES3_1_ANDROID_NOUB)
 		{
-			CompileShader_Windows_Vulkan(Input, Output, WorkingDirectory, EVulkanShaderVersion::ES3_1_ANDROID_UB);
+			CompileShader_Windows_Vulkan(Input, Output, WorkingDirectory, EVulkanShaderVersion::ES3_1_ANDROID_NOUB);
 		}
 		else if (Format == NAME_VULKAN_SM4_NOUB)
 		{
@@ -100,7 +98,7 @@ public:
 		{
 			CompileShader_Windows_Vulkan(Input, Output, WorkingDirectory, EVulkanShaderVersion::SM5_NOUB);
 		}
-		else if (Format == NAME_VULKAN_SM5)
+		else if (Format == NAME_VULKAN_SM5 || Format == NAME_VULKAN_SM5_LUMIN)
 		{
 			CompileShader_Windows_Vulkan(Input, Output, WorkingDirectory, EVulkanShaderVersion::SM5);
 		}

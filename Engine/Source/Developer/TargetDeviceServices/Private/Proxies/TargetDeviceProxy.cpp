@@ -67,7 +67,7 @@ void FTargetDeviceProxy::UpdateFromMessage( const FTargetDeviceServicePong& Mess
 	SupportsPowerOn = Message.SupportsPowerOn;
 	SupportsReboot = Message.SupportsReboot;
 	SupportsVariants = Message.SupportsVariants;
-	DefaultVariant = Aggregated ? Message.AllDevicesDefaultVariant: Message.DefaultVariant;
+	DefaultVariant = Message.DefaultVariant;
 
 	// Update the map of flavors.
 	for (int Index = 0; Index < Message.Variants.Num(); Index++)
@@ -82,6 +82,12 @@ void FTargetDeviceProxy::UpdateFromMessage( const FTargetDeviceServicePong& Mess
 		Variant.TargetPlatformId = MsgVariant.TargetPlatformId;
 		Variant.VanillaPlatformId = MsgVariant.VanillaPlatformId;
 		Variant.PlatformDisplayName = FText::FromString(MsgVariant.PlatformDisplayName);
+
+		if (Aggregated && MsgVariant.TargetPlatformId.IsEqual(Message.AllDevicesDefaultVariant))
+		{
+			// for aggregated platforms,check if the declared AllDevicesDefaultVariant is supported by at least one device
+			DefaultVariant = Message.AllDevicesDefaultVariant;
+		}
 	}
 
 	LastUpdateTime = FDateTime::UtcNow();

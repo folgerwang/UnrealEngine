@@ -55,12 +55,11 @@
 // These numbers define the banner UE4 version, and are the most significant numbers when ordering two engine versions (that is, a 4.12.* version is always 
 // newer than a 4.11.* version, regardless of the changelist that it was built with)
 #define ENGINE_MAJOR_VERSION	4
-#define ENGINE_MINOR_VERSION	20
+#define ENGINE_MINOR_VERSION	21
 #define ENGINE_PATCH_VERSION	0
 
 // Macros for encoding strings
-#define VERSION_TEXT_2(x) L ## x
-#define VERSION_TEXT(x) VERSION_TEXT_2(x)
+#define VERSION_TEXT(x) TEXT(x)
 #define VERSION_STRINGIFY_2(x) VERSION_TEXT(#x)
 #define VERSION_STRINGIFY(x) VERSION_STRINGIFY_2(x)
 

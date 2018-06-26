@@ -11,7 +11,6 @@
 #include "Components/ExponentialHeightFogComponent.h"
 #include "DepthRendering.h"
 #include "SceneHitProxyRendering.h"
-#include "ShadowRendering.h"
 #include "VelocityRendering.h"
 #include "BasePassRendering.h"
 #include "MobileBasePassRendering.h"
@@ -297,13 +296,16 @@ FLightPrimitiveInteraction::~FLightPrimitiveInteraction()
 
 void FLightPrimitiveInteraction::FlushCachedShadowMapData()
 {
-	if (bCastShadow && !PrimitiveSceneInfo->Proxy->IsMeshShapeOftenMoving())
+	if (LightSceneInfo && PrimitiveSceneInfo && PrimitiveSceneInfo->Proxy && PrimitiveSceneInfo->Scene)
 	{
-		FCachedShadowMapData* CachedShadowMapData = PrimitiveSceneInfo->Scene->CachedShadowMaps.Find(LightSceneInfo->Id);
-
-		if (CachedShadowMapData)
+		if (bCastShadow && !PrimitiveSceneInfo->Proxy->IsMeshShapeOftenMoving())
 		{
-			CachedShadowMapData->ShadowMap.Release();
+			FCachedShadowMapData* CachedShadowMapData = PrimitiveSceneInfo->Scene->CachedShadowMaps.Find(LightSceneInfo->Id);
+
+			if (CachedShadowMapData)
+			{
+				CachedShadowMapData->ShadowMap.Release();
+			}
 		}
 	}
 }

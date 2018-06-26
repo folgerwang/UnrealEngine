@@ -6,4 +6,4 @@
 #include "Styling/SlateTypes.h"
 #include "Framework/Text/SlateTextLayout.h"
 
-DECLARE_DELEGATE_RetVal_OneParam(TSharedRef<FSlateTextLayout>, FCreateSlateTextLayout, FTextBlockStyle);
+DECLARE_DELEGATE_RetVal_TwoParams(TSharedRef<FSlateTextLayout>, FCreateSlateTextLayout, SWidget*, const FTextBlockStyle&);

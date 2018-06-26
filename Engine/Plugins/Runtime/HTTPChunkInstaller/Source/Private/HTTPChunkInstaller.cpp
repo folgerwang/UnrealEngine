@@ -986,6 +986,8 @@ FHTTPChunkInstall::~FHTTPChunkInstall()
 
 bool FHTTPChunkInstall::Tick(float DeltaSeconds)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FHTTPChunkInstall_Tick);
+
 	if (!bSystemInitialised)
 	{
 		InitialiseSystem();

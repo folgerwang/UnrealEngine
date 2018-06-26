@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3809606
 Availability: Public
 Crumbs: %ROOT%
 Title: 메시 디스턴스 필드
@@ -83,7 +83,7 @@ SDF 를 유용하게 만드는 두 번째 속성은, 레이 트레이싱을 할 
 뷰포트에서 **표시** > **시각화** > **Mesh Distance Fields** (메시 디스턴스 필드)를 사용하여 씬을 나타내는 메시 디스턴스 필드를 시각화시켜 볼 수 있습니다.
 
 [REGION:imagetable]
-| [REGION:lightbox] [![](EnableMDFViewMode.png)(w:400 h:450)](EnableMDFViewMode.png) [/REGION] | [REGION:lightbox] [![](VisualizeMeshDistanceFields.jpg)(w:750 h:450)](VisualizeMeshDistanceFields.jpg) [/REGION] |
+| [REGION:lightbox] [![](EnableMDFViewMode.png)(w:400)](EnableMDFViewMode.png) [/REGION] | [REGION:lightbox] [![](VisualizeMeshDistanceFields.jpg)(w:750)](VisualizeMeshDistanceFields.jpg) [/REGION] |
 | --- | --- |
 | 시각화 표시 메뉴 | 메시 디스턴스 필드 시각화 |
 | _이미지를 클릭하면 원본을 확인합니다._ | _이미지를 클릭하면 원본을 확인합니다._ |
@@ -151,7 +151,7 @@ SDF 를 유용하게 만드는 두 번째 속성은, 레이 트레이싱을 할 
 뷰포트에서 **표시** > **시각화** > **Global Distance Field** (글로벌 디스턴스 필드)로 시각화시켜 볼 수 있습니다.
 
 [REGION:lightbox] 
-[![](EnableGDFViewMode.png)(w:400 h:485)](EnableGDFViewMode.png) 
+[![](EnableGDFViewMode.png)(w:400)](EnableGDFViewMode.png) 
 [/REGION]
 [REGION:caption] 이미지를 클릭하면 원본을 확인합니다. [/REGION]
 
@@ -285,7 +285,7 @@ SDF 를 유용하게 만드는 두 번째 속성은, 레이 트레이싱을 할 
 [EXCERPT:optimizations]
 * **프로젝트 세팅** > **Rendering** (렌더링) 에서 다음 옵션을 켭니다: 
 	[REGION:lightbox]
-	[![](Engine\Rendering\LightingAndShadows\MeshDistanceFields\Reference\ProjectSettings.png)(w:500 h:250)](Engine\Rendering\LightingAndShadows\MeshDistanceFields\Reference\ProjectSettings.png)
+	[![](Engine\Rendering\LightingAndShadows\MeshDistanceFields\Reference\ProjectSettings.png)(w:500)](Engine\Rendering\LightingAndShadows\MeshDistanceFields\Reference\ProjectSettings.png)
 	[/REGION]
 	[REGION:caption] 이미지를 클릭하면 원본을 확인합니다. [/REGION]
 	* **Compress Mesh Distance Fields** (메시 디스턴스 필드 압축)을 켜면 디스턴스 필드 볼륨 텍스처를 메모리에 압축 저장합니다. 

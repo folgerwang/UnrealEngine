@@ -901,10 +901,8 @@ void SAnimCurvePanel::UpdatePanel()
 
 			const bool bEditable = Curve.GetCurveTypeFlag(AACF_Editable);
 			const bool bConstant = Curve.GetCurveTypeFlag(AACF_Metadata);
-			FName CurveName;
-
 			// if editable, add to the list
-			if(bEditable && NameMapping->GetName(Curve.Name.UID, CurveName))
+			if(bEditable)
 			{
 				const bool bIsExpanded = ExpandedState.Contains(Curve.Name.UID) ? ExpandedState.FindChecked(Curve.Name.UID) : false;
 

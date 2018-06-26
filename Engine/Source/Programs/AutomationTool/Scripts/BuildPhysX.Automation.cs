@@ -22,6 +22,7 @@ using Tools.DotNETCommon;
 [Help("SkipDeploySource", "Do not perform source deployment to the engine. If this argument is not supplied source will be copied into the engine.")]
 [Help("SkipCreateChangelist", "Do not create a P4 changelist for source or libs. If this argument is not supplied source and libs will be added to a Perforce changelist.")]
 [Help("SkipSubmit", "Do not perform P4 submit of source or libs. If this argument is not supplied source and libs will be automatically submitted to Perforce. If SkipCreateChangelist is specified, this argument applies by default.")]
+[Help("Robomerge", "Which robomerge action to apply to the submission. If we're skipping submit, this is not used.")]
 [RequireP4]
 class BuildPhysX : BuildCommand
 {
@@ -800,7 +801,7 @@ class BuildPhysX : BuildCommand
 
 		return NewPath;
 	}
-	private static void SetupBuildEnvironment()
+	private static void SetupStaticBuildEnvironment()
 	{
 		if (!Utils.IsRunningOnMono)
 		{
@@ -827,21 +828,26 @@ class BuildPhysX : BuildCommand
 				Environment.SetEnvironmentVariable("PATH", CMakePath + ";" + MakePath + ";" + Environment.GetEnvironmentVariable("PATH"));
 				Log("set {0}={1}", "PATH", Environment.GetEnvironmentVariable("PATH"));
 			}
-			// ================================================================================
-			// HTML5
-			// FIXME: only run this if GetTargetPlatforms() contains HTML5
+		}
+	}
 
+	private void SetupInstanceBuildEnvironment()
+	{
+		// ================================================================================
+		// HTML5
+		if (GetTargetPlatforms().Any(X => X.Platform == UnrealTargetPlatform.HTML5))
+		{
 			// override BuildConfiguration defaults - so we can use HTML5SDKInfo
 			string EngineSourceDir = GetProjectDirectory(PhysXTargetLib.PhysX, new TargetPlatformData(UnrealTargetPlatform.HTML5)).ToString();
-			EngineSourceDir = Regex.Replace(EngineSourceDir, @"\\" , "/");
-			EngineSourceDir = Regex.Replace(EngineSourceDir, ".*Engine/" , "");
+			EngineSourceDir = Regex.Replace(EngineSourceDir, @"\\", "/");
+			EngineSourceDir = Regex.Replace(EngineSourceDir, ".*Engine/", "");
 
 			if (!HTML5SDKInfo.IsSDKInstalled())
 			{
 				throw new AutomationException("EMSCRIPTEN SDK TOOLCHAIN NOT FOUND...");
 			}
 			// warm up emscripten config file
-			HTML5SDKInfo.SetUpEmscriptenConfigFile();
+			HTML5SDKInfo.SetUpEmscriptenConfigFile(true);
 			Environment.SetEnvironmentVariable("PATH",
 					Environment.GetEnvironmentVariable("EMSCRIPTEN") + ";" +
 					Environment.GetEnvironmentVariable("NODEPATH") + ";" +
@@ -1462,7 +1468,8 @@ class BuildPhysX : BuildCommand
 
 	public override void ExecuteBuild()
 	{
-		SetupBuildEnvironment();
+		SetupStaticBuildEnvironment();
+		SetupInstanceBuildEnvironment();
 
 		bool bBuildSolutions = true;
 		if (ParseParam("SkipBuildSolutions"))
@@ -1486,6 +1493,31 @@ class BuildPhysX : BuildCommand
 		if (ParseParam("SkipSubmit"))
 		{
 			bAutoSubmit = false;
+		}
+		
+		// if we don't pass anything, we'll just merge by default
+		string RobomergeAction = ParseParamValue("Robomerge", "").ToLower();
+		if(!string.IsNullOrEmpty(RobomergeAction))
+		{
+			// empty for merge default action
+			if(RobomergeAction == "merge")
+			{
+				RobomergeAction = "";
+			}
+			// otherwise add hashtags
+			else if(RobomergeAction == "ignore")
+			{
+				RobomergeAction = "#ignore";
+			}
+			else if(RobomergeAction == "null")
+			{
+				RobomergeAction = "#null";
+			}
+			// otherwise the submit will likely fail.
+			else
+			{
+				throw new AutomationException("Invalid Robomerge param passed in {0}.  Must be empty, \"null\", or \"ignore\"", RobomergeAction);
+			}
 		}
 
 		// Parse out the libs we want to build
@@ -1580,7 +1612,12 @@ class BuildPhysX : BuildCommand
 				LibDeploymentDesc += " " + TargetData.ToString();
 			}
 
-            P4ChangeList = P4.CreateChange(P4Env.Client, String.Format("BuildPhysX.Automation: Deploying {0} libs.", LibDeploymentDesc) + Environment.NewLine + "#rb none" + Environment.NewLine + "#lockdown Nick.Penwarden" + Environment.NewLine + "#tests none" + Environment.NewLine + "#jira none" + Environment.NewLine + "#robomerge none");
+			string RobomergeLine = string.Empty;
+			if(!string.IsNullOrEmpty(RobomergeAction))
+			{
+				RobomergeLine = Environment.NewLine + "#robomerge " + RobomergeAction;
+			}
+            P4ChangeList = P4.CreateChange(P4Env.Client, String.Format("BuildPhysX.Automation: Deploying {0} libs.", LibDeploymentDesc) + Environment.NewLine + "#rb none" + Environment.NewLine + "#lockdown Nick.Penwarden" + Environment.NewLine + "#tests none" + Environment.NewLine + "#jira none" + RobomergeLine);
 		}
 
 

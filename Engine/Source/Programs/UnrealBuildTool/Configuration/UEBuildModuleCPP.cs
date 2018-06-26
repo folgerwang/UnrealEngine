@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -374,7 +374,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Path to the precompiled manifest location
 		/// </summary>
-		public FileReference PrecompiledManifestLocation
+		public virtual FileReference PrecompiledManifestLocation
 		{
 			get { return FileReference.Combine(IntermediateDirectory, String.Format("{0}.precompiled", Name)); }
 		}
@@ -431,6 +431,7 @@ namespace UnrealBuildTool
 				foreach(FileReference OutputFile in Manifest.OutputFiles)
 				{
 					FileItem ObjectFile = FileItem.GetExistingItemByFileReference(OutputFile);
+					ToolChain.DoLocalToRemoteFileItem(ObjectFile);
 					LinkInputFiles.Add(ObjectFile);
 				}
 				return LinkInputFiles;
@@ -486,7 +487,7 @@ namespace UnrealBuildTool
 			{
 				MinSourceFilesForUnityBuild = Rules.MinSourceFilesForUnityBuildOverride;
 			}
-			else if (!Rules.bTreatAsEngineModule)
+			else if (Target.ProjectFile != null && RulesFile.IsUnderDirectory(DirectoryReference.Combine(Target.ProjectFile.Directory, "Source")))
 			{
 				// Game modules with only a small number of source files are usually better off having faster iteration times
 				// on single source file changes, so we forcibly disable unity build for those modules

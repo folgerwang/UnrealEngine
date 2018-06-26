@@ -976,10 +976,7 @@ void AActor::PreReplication( IRepChangedPropertyTracker & ChangedPropertyTracker
 	// Attachment replication gets filled in by GatherCurrentMovement(), but in the case of a detached root we need to trigger remote detachment.
 	AttachmentReplication.AttachParent = nullptr;
 
-	if ( bReplicateMovement || (RootComponent && RootComponent->GetAttachParent()) )
-	{
-		GatherCurrentMovement();
-	}
+	GatherCurrentMovement();
 
 	DOREPLIFETIME_ACTIVE_OVERRIDE( AActor, ReplicatedMovement, bReplicateMovement );
 
@@ -1027,6 +1024,11 @@ void AActor::CallPreReplication(UNetDriver* NetDriver)
 }
 
 void AActor::PreReplicationForReplay(IRepChangedPropertyTracker & ChangedPropertyTracker)
+{
+	GatherCurrentMovement();
+}
+
+void AActor::RewindForReplay()
 {
 }
 
@@ -1472,8 +1474,13 @@ static void MarkOwnerRelevantComponentsDirty(AActor* TheActor)
 
 bool AActor::WasRecentlyRendered(float Tolerance) const
 {
-	UWorld* World = GetWorld();
-	return (World) ? (World->GetTimeSeconds() - GetLastRenderTime() <= Tolerance) : false;
+	if (const UWorld* const World = GetWorld())
+	{
+		// Adjust tolerance, so visibility is not affected by bad frame rate / hitches.
+		const float RenderTimeThreshold = FMath::Max(Tolerance, World->DeltaTimeSeconds + KINDA_SMALL_NUMBER);
+		return World->TimeSince(GetLastRenderTime()) <= RenderTimeThreshold;
+	}
+	return false;
 }
 
 float AActor::GetLastRenderTime() const
@@ -1827,12 +1834,21 @@ bool AActor::IsRelevancyOwnerFor(const AActor* ReplicatedActor, const AActor* Ac
 
 void AActor::ForceNetUpdate()
 {
-	if (NetDormancy > DORM_Awake)
+	if (UNetDriver* NetDriver = GetNetDriver())
 	{
-		FlushNetDormancy(); 
-	}
+		NetDriver->ForceNetUpdate(this);
 
-	SetNetUpdateTime(GetWorld()->TimeSeconds - 0.01f);
+		UWorld* MyWorld = GetWorld();
+		if (MyWorld && MyWorld->DemoNetDriver && MyWorld->DemoNetDriver != NetDriver)
+		{
+			MyWorld->DemoNetDriver->ForceNetUpdate(this);
+		}
+
+		if (NetDormancy > DORM_Awake)
+		{
+			FlushNetDormancy(); 
+		}
+	}
 }
 
 bool AActor::IsReplicationPausedForConnection(const FNetViewer& ConnectionOwnerNetViewer)
@@ -1855,7 +1871,14 @@ void AActor::SetNetDormancy(ENetDormancy NewDormancy)
 	UNetDriver* NetDriver = GEngine->FindNamedNetDriver(MyWorld, NetDriverName);
 	if (NetDriver)
 	{
+		ENetDormancy OldDormancy = NetDormancy;
 		NetDormancy = NewDormancy;
+
+		// Tell driver about change
+		if (OldDormancy != NewDormancy)
+		{
+			NetDriver->NotifyActorDormancyChange(this, OldDormancy);
+		}
 
 		// If not dormant, flush actor from NetDriver's dormant list
 		if (NewDormancy <= DORM_Awake)
@@ -1881,10 +1904,12 @@ void AActor::FlushNetDormancy()
 		return;
 	}
 
+	bool bWasDormInitial = false;
 	if (NetDormancy == DORM_Initial)
 	{
 		// No longer initially dormant
 		NetDormancy = DORM_DormantAll;
+		bWasDormInitial = true;
 	}
 
 	// Don't proceed with network operations if not actually set to replicate
@@ -1905,7 +1930,7 @@ void AActor::FlushNetDormancy()
 
 		if (MyWorld->DemoNetDriver && MyWorld->DemoNetDriver!= NetDriver)
 		{
-			MyWorld->DemoNetDriver->FlushActorDormancy(this);
+			MyWorld->DemoNetDriver->FlushActorDormancy(this, bWasDormInitial);
 		}
 	}
 }
@@ -2064,7 +2089,13 @@ void AActor::TearOff()
 
 	if (NetMode == NM_ListenServer || NetMode == NM_DedicatedServer)
 	{
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		bTearOff = true;
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+		if (UNetDriver* NetDriver = GetNetDriver())
+		{
+			NetDriver->NotifyActorTearOff(this);
+		}
 	}
 }
 
@@ -2286,7 +2317,7 @@ void AActor::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 			// networking attributes
 			T = FString::Printf(TEXT("ROLE: %i RemoteRole: %i NetNode: %i"), (int32)Role, (int32)RemoteRole, (int32)GetNetMode());
 
-			if( bTearOff )
+			if( GetTearOff() )
 			{
 				T = T + FString(TEXT(" Tear Off"));
 			}
@@ -3070,16 +3101,20 @@ void AActor::SetReplicates(bool bInReplicates)
 { 
 	if (Role == ROLE_Authority)
 	{
-		if (bReplicates == false && bInReplicates == true)
+		const bool ChangedReplicates = (bReplicates == false && bInReplicates == true);
+
+		// Update our settings before calling into net driver
+		RemoteRole = (bInReplicates ? ROLE_SimulatedProxy : ROLE_None);
+		bReplicates = bInReplicates;
+
+		// Only call into net driver if we actually changed
+		if (ChangedReplicates)
 		{
 			if (UWorld* MyWorld = GetWorld())		// GetWorld will return nullptr on CDO, FYI
 			{
 				MyWorld->AddNetworkActor(this);
 			}
 		}
-
-		RemoteRole = (bInReplicates ? ROLE_SimulatedProxy : ROLE_None);
-		bReplicates = bInReplicates;
 	}
 	else
 	{
@@ -4417,7 +4452,7 @@ void AActor::SetLifeSpan( float InLifespan )
 	// Store the new value
 	InitialLifeSpan = InLifespan;
 	// Initialize a timer for the actors lifespan if there is one. Otherwise clear any existing timer
-	if ((Role == ROLE_Authority || bTearOff) && !IsPendingKill())
+	if ((Role == ROLE_Authority || GetTearOff()) && !IsPendingKill())
 	{
 		if( InLifespan > 0.0f)
 		{
@@ -4674,6 +4709,24 @@ void AActor::PostRename(UObject* OldOuter, const FName OldName)
 		{
 			World->DemoNetDriver->NotifyActorRenamed(this, OldName);
 		}
+	}
+}
+
+void AActor::SetLODParent(UPrimitiveComponent* InLODParent, float InParentDrawDistance)
+{
+	if (InLODParent)
+	{
+		InLODParent->MinDrawDistance = InParentDrawDistance;
+		InLODParent->MarkRenderStateDirty();
+	}
+
+	TArray<UPrimitiveComponent*> ComponentsToBeReplaced;
+	GetComponents(ComponentsToBeReplaced);
+
+	for (UPrimitiveComponent* Component : ComponentsToBeReplaced)
+	{
+		// parent primitive will be null if no LOD parent is selected
+		Component->SetLODParentPrimitive(InLODParent);
 	}
 }
 

@@ -200,6 +200,16 @@ struct FStaticMeshSourceModel
 	UPROPERTY(EditAnywhere, Category=ReductionSettings)
 	FPerPlatformFloat ScreenSize;
 
+	/** The file path that was used to import this LOD. */
+	UPROPERTY(VisibleAnywhere, Category = StaticMeshSourceModel, AdvancedDisplay)
+	FString SourceImportFilename;
+
+#if WITH_EDITORONLY_DATA
+	/** Weather this LOD was imported in the same file as the base mesh. */
+	UPROPERTY()
+	bool bImportWithBaseMesh;
+#endif
+
 	/** Default constructor. */
 	ENGINE_API FStaticMeshSourceModel();
 
@@ -678,6 +688,9 @@ protected:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Instanced, Category = StaticMesh)
 	TArray<UAssetUserData*> AssetUserData;
 
+	/** Tracks whether InitResources has been called, and rendering resources are initialized. */
+	bool bRenderingResourcesInitialized;
+
 public:
 	/** The editable mesh representation of this static mesh */
 	// @todo: Maybe we don't want this visible in the details panel in the end; for now, this might aid debugging.
@@ -690,23 +703,6 @@ public:
 	ENGINE_API static void RegisterMeshAttributes( UMeshDescription* MeshDescription );
 
 #if WITH_EDITORONLY_DATA
-	/**
-	 * The MeshDescription use to build the render data.
-	 * When building the render data we copy the original mesh description and modify it to
-	 * respect the build options (tangent, UVs, reduce, ...) we then keep the copy in this array in case we need it
-	 */
-	UPROPERTY(VisibleAnywhere, Category = MeshDescription)
-	TArray<UMeshDescription*> MeshDescriptions;
-
-	/**
-	 * Accessors for the mesh description use to build the render data
-	 * This is not the data imported it is a modified version to fit the build settings
-	 * Use GetOriginalMeshDescription to get the imported MeshDescription.
-	 * It can be null 
-	 */
-	ENGINE_API UMeshDescription* GetMeshDescription(int32 LodIndex=0) const;
-	ENGINE_API void SetMeshDescription(int32 LodIndex, UMeshDescription* InMeshDescription);
-
 	/**
 	 * Accessors for the original mesh description imported data
 	 * The original import data is necessary to start from the full data when applying build options.
@@ -749,6 +745,7 @@ public:
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;
 	ENGINE_API virtual void PostInitProperties() override;
 	ENGINE_API virtual void PostLoad() override;
+	virtual bool IsPostLoadThreadSafe() const override;
 	ENGINE_API virtual void BeginDestroy() override;
 	ENGINE_API virtual bool IsReadyForFinishDestroy() override;
 	ENGINE_API virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
@@ -813,7 +810,7 @@ public:
 	/**
 	 * Returns true if the mesh has data that can be rendered.
 	 */
-	ENGINE_API bool HasValidRenderData() const;
+	ENGINE_API bool HasValidRenderData(bool bCheckLODForVerts = true, int32 LODIndex = INDEX_NONE) const;
 
 	/**
 	 * Returns the number of bounds of the mesh.
@@ -944,10 +941,13 @@ public:
 	/** Removes all vertex colors from this mesh and rebuilds it (Editor only */
 	ENGINE_API void RemoveVertexColors();
 
-	void EnforceLightmapRestrictions();
+	/** Make sure the Lightmap UV point on a valid UVChannel */
+	ENGINE_API void EnforceLightmapRestrictions();
 
 	/** Calculates the extended bounds */
 	ENGINE_API void CalculateExtendedBounds();
+
+	inline bool AreRenderingResourcesInitialized() const { return bRenderingResourcesInitialized; }
 
 #if WITH_EDITOR
 

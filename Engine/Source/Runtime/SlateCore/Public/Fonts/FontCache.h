@@ -339,6 +339,8 @@ public:
 	 */
 	FShapedGlyphSequencePtr GetSubSequence(const int32 InStartIndex, const int32 InEndIndex) const;
 
+	void AddReferencedObjects(FReferenceCollector& Collector);
+
 private:
 	/** Non-copyable */
 	FShapedGlyphSequence(const FShapedGlyphSequence&);
@@ -813,6 +815,14 @@ public:
 	 * @return The font attributes for the specified font.
 	 */
 	const TSet<FName>& GetFontAttributes( const FFontData& InFontData ) const;
+
+	/**
+	 * Get the available sub-face data from the given font.
+	 * Typically there will only be one face unless this is a TTC/OTC font.
+	 * The index of the returned entry can be passed as InFaceIndex to the FFreeTypeFace constructor.
+	 */
+	TArray<FString> GetAvailableFontSubFaces(FFontFaceDataConstRef InMemory) const;
+	TArray<FString> GetAvailableFontSubFaces(const FString& InFilename) const;
 
 	/**
 	 * Get the revision index of the currently active localized fallback font.

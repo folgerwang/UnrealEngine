@@ -1,48 +1,10 @@
-﻿INTSourceChangelist:2690693
-Availability:Public
+﻿Availability:Public
 Title:マクロ
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
 Description:別のグラフからの実行または呼び出しが可能な、折りたたまれたネットワークのノード
 version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\Macros:title%](Engine\Blueprints\UserGuide\macro_topic_2.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\Macros:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\Macros:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\Macros]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\Macros:title%](Engine\Blueprints\UserGuide\macro_topic_2.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\Macros:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\Macros:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\Macros]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/macro_topic_2.png
 
 
 [EXCERPT:Intro]

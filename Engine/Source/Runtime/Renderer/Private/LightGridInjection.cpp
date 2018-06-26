@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	LightGridInjection.cpp
+LightGridInjection.cpp
 =============================================================================*/
 
 #include "CoreMinimal.h"
@@ -28,13 +28,16 @@
 #include "Components/LightComponent.h"
 #include "Engine/MapBuildDataRegistry.h"
 
+// Workaround for platforms that don't support 16bit integers
+#define	CHANGE_LIGHTINDEXTYPE_SIZE	(PLATFORM_MAC || PLATFORM_IOS) 
+
 int32 GLightGridPixelSize = 64;
 FAutoConsoleVariableRef CVarLightGridPixelSize(
 	TEXT("r.Forward.LightGridPixelSize"),
 	GLightGridPixelSize,
 	TEXT("Size of a cell in the light grid, in pixels."),
 	ECVF_Scalability | ECVF_RenderThreadSafe
-	);
+);
 
 int32 GLightGridSizeZ = 32;
 FAutoConsoleVariableRef CVarLightGridSizeZ(
@@ -42,7 +45,7 @@ FAutoConsoleVariableRef CVarLightGridSizeZ(
 	GLightGridSizeZ,
 	TEXT("Number of Z slices in the light grid."),
 	ECVF_Scalability | ECVF_RenderThreadSafe
-	);
+);
 
 int32 GMaxCulledLightsPerCell = 32;
 FAutoConsoleVariableRef CVarMaxCulledLightsPerCell(
@@ -50,7 +53,7 @@ FAutoConsoleVariableRef CVarMaxCulledLightsPerCell(
 	GMaxCulledLightsPerCell,
 	TEXT("Controls how much memory is allocated for each cell for light culling.  When r.Forward.LightLinkedListCulling is enabled, this is used to compute a global max instead of a per-cell limit on culled lights."),
 	ECVF_Scalability | ECVF_RenderThreadSafe
-	);
+);
 
 int32 GLightLinkedListCulling = 1;
 FAutoConsoleVariableRef CVarLightLinkedListCulling(
@@ -58,18 +61,28 @@ FAutoConsoleVariableRef CVarLightLinkedListCulling(
 	GLightLinkedListCulling,
 	TEXT("Uses a reverse linked list to store culled lights, removing the fixed limit on how many lights can affect a cell - it becomes a global limit instead."),
 	ECVF_Scalability | ECVF_RenderThreadSafe
-	);
+);
+
+int32 GLightCullingQuality = 1;
+FAutoConsoleVariableRef CVarLightCullingQuality(
+	TEXT("r.LightCulling.Quality"),
+	GLightCullingQuality,
+	TEXT("Whether to run compute light culling pass.\n")
+	TEXT(" 0: off \n")
+	TEXT(" 1: on (default)\n"),
+	ECVF_RenderThreadSafe
+);
 
 /** A minimal forwarding lighting setup. */
 class FMinimalDummyForwardLightingResources : public FRenderResource
 {
 public:
 	FForwardLightingViewResources ForwardLightingResources;
-	
+
 	/** Destructor. */
 	virtual ~FMinimalDummyForwardLightingResources()
 	{}
-	
+
 	virtual void InitRHI()
 	{
 		if (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4)
@@ -104,7 +117,7 @@ public:
 			ForwardLightingResources.ForwardLightDataUniformBuffer = TUniformBufferRef<FForwardLightData>::CreateUniformBufferImmediate(ForwardLightingResources.ForwardLightData, UniformBuffer_MultiFrame);
 		}
 	}
-	
+
 	virtual void ReleaseRHI()
 	{
 		ForwardLightingResources.Release();
@@ -123,20 +136,15 @@ FForwardLightingViewResources* GetMinimalDummyForwardLightingResources()
 	return &GMinimalDummyForwardLightingResources->ForwardLightingResources;
 }
 
-IMPLEMENT_UNIFORM_BUFFER_STRUCT(FForwardLightData,TEXT("ForwardLightData"));
+IMPLEMENT_UNIFORM_BUFFER_STRUCT(FForwardLightData, TEXT("ForwardLightData"));
 
 FForwardLightData::FForwardLightData()
 {
-	NumLocalLights = 0;
-	HasDirectionalLight = 0;
-	NumDirectionalLightCascades = 0;
-	CascadeEndDepths = FVector4(0, 0, 0, 0);
+	FMemory::Memzero(*this);
 	DirectionalLightShadowmapAtlas = GBlackTexture->TextureRHI;
 	ShadowmapSampler = TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI();
-	DirectionalLightUseStaticShadowing = 0;
 	DirectionalLightStaticShadowmap = GBlackTexture->TextureRHI;
 	StaticShadowmapSampler = TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI();
-	DirectionalLightShadowmapAtlasBufferSize = FVector4(0, 0, 0, 0);
 
 	ForwardLocalLightBuffer = nullptr;
 	NumCulledLightsGrid = nullptr;
@@ -174,8 +182,8 @@ public:
 
 	template<typename ShaderRHIParamRef>
 	void Set(
-		FRHICommandList& RHICmdList, 
-		const ShaderRHIParamRef& ShaderRHI, 
+		FRHICommandList& RHICmdList,
+		const ShaderRHIParamRef& ShaderRHI,
 		const FForwardLightingCullingResources& ForwardLightingCullingResources,
 		const FForwardLightingViewResources& ViewResources)
 	{
@@ -189,8 +197,8 @@ public:
 
 	template<typename ShaderRHIParamRef>
 	void UnsetParameters(
-		FRHICommandList& RHICmdList, 
-		const ShaderRHIParamRef& ShaderRHI, 
+		FRHICommandList& RHICmdList,
+		const ShaderRHIParamRef& ShaderRHI,
 		const FForwardLightingCullingResources& ForwardLightingCullingResources,
 		const FForwardLightingViewResources& ViewResources)
 	{
@@ -240,7 +248,7 @@ public:
 	}
 
 	/** Serializer. */
-	friend FArchive& operator<<(FArchive& Ar,FForwardCullingParameters& P)
+	friend FArchive& operator<<(FArchive& Ar, FForwardCullingParameters& P)
 	{
 		Ar << P.NextCulledLightLink;
 		Ar << P.StartOffsetGrid;
@@ -267,7 +275,7 @@ uint32 LightGridInjectionGroupSize = 4;
 template<bool bLightLinkedListCulling>
 class TLightGridInjectionCS : public FGlobalShader
 {
-	DECLARE_SHADER_TYPE(TLightGridInjectionCS,Global)
+	DECLARE_SHADER_TYPE(TLightGridInjectionCS, Global)
 public:
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
@@ -277,7 +285,7 @@ public:
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FGlobalShader::ModifyCompilationEnvironment(Parameters,OutEnvironment);
+		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("THREADGROUP_SIZE"), LightGridInjectionGroupSize);
 		FForwardLightingParameters::ModifyCompilationEnvironment(Parameters.Platform, OutEnvironment);
 		FForwardCullingParameters::ModifyCompilationEnvironment(Parameters.Platform, OutEnvironment);
@@ -310,7 +318,7 @@ public:
 	}
 
 	virtual bool Serialize(FArchive& Ar)
-	{		
+	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << ForwardCullingParameters;
 		return bShaderHasOutdatedParameters;
@@ -321,12 +329,12 @@ private:
 	FForwardCullingParameters ForwardCullingParameters;
 };
 
-IMPLEMENT_SHADER_TYPE(template<>,TLightGridInjectionCS<true>,TEXT("/Engine/Private/LightGridInjection.usf"),TEXT("LightGridInjectionCS"),SF_Compute);
-IMPLEMENT_SHADER_TYPE(template<>,TLightGridInjectionCS<false>,TEXT("/Engine/Private/LightGridInjection.usf"),TEXT("LightGridInjectionCS"),SF_Compute);
+IMPLEMENT_SHADER_TYPE(template<>, TLightGridInjectionCS<true>, TEXT("/Engine/Private/LightGridInjection.usf"), TEXT("LightGridInjectionCS"), SF_Compute);
+IMPLEMENT_SHADER_TYPE(template<>, TLightGridInjectionCS<false>, TEXT("/Engine/Private/LightGridInjection.usf"), TEXT("LightGridInjectionCS"), SF_Compute);
 
 class FLightGridCompactCS : public FGlobalShader
 {
-	DECLARE_SHADER_TYPE(FLightGridCompactCS,Global)
+	DECLARE_SHADER_TYPE(FLightGridCompactCS, Global)
 public:
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
@@ -336,7 +344,7 @@ public:
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FGlobalShader::ModifyCompilationEnvironment(Parameters,OutEnvironment);
+		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("THREADGROUP_SIZE"), LightGridInjectionGroupSize);
 		FForwardLightingParameters::ModifyCompilationEnvironment(Parameters.Platform, OutEnvironment);
 		FForwardCullingParameters::ModifyCompilationEnvironment(Parameters.Platform, OutEnvironment);
@@ -369,7 +377,7 @@ public:
 	}
 
 	virtual bool Serialize(FArchive& Ar)
-	{		
+	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << ForwardCullingParameters;
 		return bShaderHasOutdatedParameters;
@@ -380,7 +388,7 @@ private:
 	FForwardCullingParameters ForwardCullingParameters;
 };
 
-IMPLEMENT_SHADER_TYPE(,FLightGridCompactCS,TEXT("/Engine/Private/LightGridInjection.usf"),TEXT("LightGridCompactCS"),SF_Compute);
+IMPLEMENT_SHADER_TYPE(, FLightGridCompactCS, TEXT("/Engine/Private/LightGridInjection.usf"), TEXT("LightGridCompactCS"), SF_Compute);
 
 FVector GetLightGridZParams(float NearPlane, float FarPlane)
 {
@@ -431,7 +439,7 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 			bAnyViewUsesForwardLighting |= View.bTranslucentSurfaceLighting || ShouldRenderVolumetricFog();
 		}
 
-		const bool bCullLightsToGrid = (IsForwardShadingEnabled(FeatureLevel) || bAnyViewUsesForwardLighting) && ViewFamily.EngineShowFlags.DirectLighting;
+		const bool bCullLightsToGrid = GLightCullingQuality && ((IsForwardShadingEnabled(FeatureLevel) || bAnyViewUsesForwardLighting) && ViewFamily.EngineShowFlags.DirectLighting);
 
 		FSimpleLightArray SimpleLights;
 
@@ -502,8 +510,9 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 
 						ShadowMapChannelMaskPacked |= LightProxy->GetLightingChannelMask() << 8;
 
-						if ((LightSceneInfoCompact.LightType == LightType_Point && ViewFamily.EngineShowFlags.PointLights)
-							|| (LightSceneInfoCompact.LightType == LightType_Spot && ViewFamily.EngineShowFlags.SpotLights))
+						if( ( LightSceneInfoCompact.LightType == LightType_Point && ViewFamily.EngineShowFlags.PointLights ) ||
+							( LightSceneInfoCompact.LightType == LightType_Spot  && ViewFamily.EngineShowFlags.SpotLights ) ||
+							( LightSceneInfoCompact.LightType == LightType_Rect  && ViewFamily.EngineShowFlags.RectLights ) )
 						{
 							ForwardLocalLightData.AddUninitialized(1);
 							FForwardLocalLightData& LightData = ForwardLocalLightData.Last();
@@ -581,7 +590,7 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 
 							const FStaticShadowDepthMap* StaticShadowDepthMap = LightSceneInfo->Proxy->GetStaticShadowDepthMap();
 							const uint32 bStaticallyShadowedValue = LightSceneInfo->IsPrecomputedLightingValid() && StaticShadowDepthMap && StaticShadowDepthMap->TextureRHI ? 1 : 0;
-	
+
 							ForwardLightData.DirectionalLightUseStaticShadowing = bStaticallyShadowedValue;
 							ForwardLightData.DirectionalLightStaticShadowBufferSize = bStaticallyShadowedValue ? FVector4(StaticShadowDepthMap->Data->ShadowMapSizeX, StaticShadowDepthMap->Data->ShadowMapSizeY, 1.0f / StaticShadowDepthMap->Data->ShadowMapSizeX, 1.0f / StaticShadowDepthMap->Data->ShadowMapSizeY) : FVector4(0, 0, 0, 0);
 							ForwardLightData.DirectionalLightWorldToStaticShadow = bStaticallyShadowedValue ? StaticShadowDepthMap->Data->WorldToLight : FMatrix::Identity;
@@ -598,7 +607,7 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 				const uint32 SimpleLightLightingChannelMask = GetLightingChannelMaskForStruct(SimpleLightLightingChannels);
 
 				for (int32 SimpleLightIndex = 0; SimpleLightIndex < SimpleLights.InstanceData.Num(); SimpleLightIndex++)
-				{	
+				{
 					ForwardLocalLightData.AddUninitialized(1);
 					FForwardLocalLightData& LightData = ForwardLocalLightData.Last();
 
@@ -616,7 +625,7 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 					// Pack both values into a single float to keep float4 alignment
 					const FFloat16 VolumetricScatteringIntensity16f = FFloat16(SimpleLight.VolumetricScatteringIntensity);
 					const uint32 PackedWInt = ((uint32)SimpleLightSourceLength16f.Encoded) | ((uint32)VolumetricScatteringIntensity16f.Encoded << 16);
-		
+
 					LightData.SpotAnglesAndSourceRadiusPacked = FVector4(-2, 1, 0, *(float*)&PackedWInt);
 				}
 			}
@@ -658,7 +667,13 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 			FVector ZParams = GetLightGridZParams(View.NearClippingDistance, FarPlane + 10.f);
 			ForwardLightData.LightGridZParams = ZParams;
 
-			const uint64 NumIndexableLights = bAllowFormatConversion ? (1llu << (sizeof(FLightIndexType) * 8llu)) : (1llu << (sizeof(FLightIndexType32) * 8llu));
+			// @todo Metal lacks efficient SRV/UAV format conversions.
+#if CHANGE_LIGHTINDEXTYPE_SIZE
+			static bool const bNoFormatConversion = (IsMetalPlatform(GMaxRHIShaderPlatform));
+			const uint64 NumIndexableLights = bNoFormatConversion ? (1llu << (sizeof(FLightIndexType32) * 8llu)) : (1llu << (sizeof(FLightIndexType) * 8llu));
+#else
+			const uint64 NumIndexableLights = 1llu << (sizeof(FLightIndexType) * 8llu);
+#endif
 
 			if ((uint64)ForwardLocalLightData.Num() > NumIndexableLights)
 			{
@@ -672,8 +687,14 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 			}
 		}
 
-		const SIZE_T LightIndexTypeSize = bAllowFormatConversion ? sizeof(FLightIndexType) : sizeof(FLightIndexType32);
-		
+		// @todo Metal lacks efficient SRV/UAV format conversions.
+#if CHANGE_LIGHTINDEXTYPE_SIZE
+		static bool const bNoFormatConversion = (IsMetalPlatform(GMaxRHIShaderPlatform));
+		const SIZE_T LightIndexTypeSize = bNoFormatConversion ? sizeof(FLightIndexType32) : sizeof(FLightIndexType);
+#else
+		const SIZE_T LightIndexTypeSize = sizeof(FLightIndexType);
+#endif
+
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{
 			FViewInfo& View = Views[ViewIndex];
@@ -699,14 +720,14 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 
 				View.ForwardLightingResources->CulledLightDataGrid.Initialize(LightIndexTypeSize, NumCells * GMaxCulledLightsPerCell, LightIndexTypeSize == sizeof(uint16) ? PF_R16_UINT : PF_R32_UINT);
 			}
-			 
+
 			const bool bShouldCacheTemporaryBuffers = View.ViewState != nullptr;
 			FForwardLightingCullingResources LocalCullingResources;
 			FForwardLightingCullingResources& ForwardLightingCullingResources = bShouldCacheTemporaryBuffers ? View.ViewState->ForwardLightingCullingResources : LocalCullingResources;
 
 			const uint32 CulledLightLinksElements = NumCells * GMaxCulledLightsPerCell * LightLinkStride;
-			if (ForwardLightingCullingResources.CulledLightLinks.NumBytes != (CulledLightLinksElements * sizeof(uint32) )
-				|| ( GFastVRamConfig.bDirty && ForwardLightingCullingResources.CulledLightLinks.NumBytes > 0 ) )
+			if (ForwardLightingCullingResources.CulledLightLinks.NumBytes != (CulledLightLinksElements * sizeof(uint32))
+				|| (GFastVRamConfig.bDirty && ForwardLightingCullingResources.CulledLightLinks.NumBytes > 0))
 			{
 				UE_CLOG(CulledLightLinksElements * sizeof(uint32) > 256llu * (1llu << 20llu), LogRenderer, Warning,
 					TEXT("Attempt to allocate large FRWBuffer (not supported by Metal): ForwardLightingCullingResources.CulledLightLinks %u Bytes, LightGridSize %dx%dx%d, NumCulledGridPrimitiveTypes %d, NumCells %d, GMaxCulledLightsPerCell %d, LightLinkStride %d, View Resolution %dx%d"),
@@ -736,8 +757,8 @@ void FDeferredShadingSceneRenderer::ComputeLightGrid(FRHICommandListImmediate& R
 			const FIntVector NumGroups = FIntVector::DivideAndRoundUp(FIntVector(LightGridSizeXY.X, LightGridSizeXY.Y, GLightGridSizeZ), LightGridInjectionGroupSize);
 
 			{
-				SCOPED_DRAW_EVENTF(RHICmdList, CullLights, TEXT("CullLights %ux%ux%u NumLights %u NumCaptures %u"), 
-					ForwardLightData.CulledGridSize.X, 
+				SCOPED_DRAW_EVENTF(RHICmdList, CullLights, TEXT("CullLights %ux%ux%u NumLights %u NumCaptures %u"),
+					ForwardLightData.CulledGridSize.X,
 					ForwardLightData.CulledGridSize.Y,
 					ForwardLightData.CulledGridSize.Z,
 					ForwardLightData.NumLocalLights,
@@ -849,3 +870,5 @@ void FDeferredShadingSceneRenderer::RenderForwardShadingShadowProjections(FRHICo
 		RHICmdList.CopyToResolveTarget(ForwardScreenSpaceShadowMask->GetRenderTargetItem().TargetableTexture, ForwardScreenSpaceShadowMask->GetRenderTargetItem().ShaderResourceTexture, FResolveParams(FResolveRect()));
 	}
 }
+
+#undef CHANGE_LIGHTINDEXTYPE_SIZE

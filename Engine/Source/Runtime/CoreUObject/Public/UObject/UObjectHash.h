@@ -105,6 +105,14 @@ COREUOBJECT_API void ForEachObjectOfClass(UClass* ClassToLookFor, TFunctionRef<v
 COREUOBJECT_API void GetDerivedClasses(UClass* ClassToLookFor, TArray<UClass *>& Results, bool bRecursive = true);
 
 /**
+ * Returns true if any instances of the class in question are currently being async loaded.
+ *
+ * @param	ClassToLookFor				The class in question
+ * @return	True if there are any instances of the class being async loaded - includes instances based on derived classes. Otherwise, false
+ */
+COREUOBJECT_API bool ClassHasInstancesAsyncLoading(UClass* ClassToLookFor);
+
+/**
  * Add an object to the name hash tables
  *
  * @param	Object		Object to add to the hash tables

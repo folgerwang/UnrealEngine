@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MeshDescription.h"
 #include "Misc/SecureHash.h"
@@ -499,6 +499,19 @@ void UMeshDescription::ComputePolygonTriangulation(const FPolygonID PolygonID, T
 	// Polygon must have at least three vertices/edges
 	const int32 PolygonVertexCount = PolygonVertexInstanceIDs.Num();
 	check(PolygonVertexCount >= 3);
+
+	// If perimeter has 3 vertices, just copy content of perimeter out 
+	if (PolygonVertexCount == 3)
+	{
+		OutTriangles.Emplace();
+		FMeshTriangle& Triangle = OutTriangles.Last();
+
+		Triangle.SetVertexInstanceID(0, PolygonVertexInstanceIDs[0]);
+		Triangle.SetVertexInstanceID(1, PolygonVertexInstanceIDs[1]);
+		Triangle.SetVertexInstanceID(2, PolygonVertexInstanceIDs[2]);
+
+		return;
+	}
 
 	// First figure out the polygon normal.  We need this to determine which triangles are convex, so that
 	// we can figure out which ears to clip

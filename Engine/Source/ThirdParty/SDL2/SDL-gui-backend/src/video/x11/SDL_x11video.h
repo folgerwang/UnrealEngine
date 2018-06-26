@@ -84,6 +84,14 @@ typedef struct SDL_VideoData
     XID window_group;
     Window clipboard_window;
 
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+#if SDL_VIDEO_DRIVER_X11_XFIXES
+    SDL_Window *active_cursor_confined_window;
+#endif
+#endif // SDL_WITH_EPIC_EXTENSIONS
+/* EG END */
+
     /* This is true for ICCCM2.0-compliant window managers */
     SDL_bool net_wm;
 

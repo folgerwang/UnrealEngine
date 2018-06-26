@@ -114,9 +114,10 @@
 #define SSSSSampleLevelZero(tex, coord) tex.SampleLevel(LinearSampler, coord, 0)
 #define SSSSSampleLevelZeroPoint(tex, coord) tex.SampleLevel(PointSampler, coord, 0)
 #define SSSSSampleShadowmap(coord)	float4(0,0,0,0)	// todo: not used yet
-#define SSSSSampleMasking(texcoord)	(GetScreenSpaceData(texcoord).GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE)	// todo: masking doesn't work with filtering ideally put in alpha to get it filtered
+#define SSSSSampleMasking(texcoord)	(HasSubsurfaceProfile(GetScreenSpaceData(texcoord).GBuffer.ShadingModelID))	// todo: masking doesn't work with filtering ideally put in alpha to get it filtered
 #define SSSSSampleSceneColor(coord) SampleSetup(coord)
 #define SSSSSampleSceneColorPoint(coord) SampleSetup(coord) // todo: could be made point
+#define SSSSSampleProfileId(coord) SampleSetupProfileId(coord)
 #define SSSSSampleLevelZeroOffset(tex, coord, offset) tex.SampleLevel(LinearSampler, coord, 0, offset)
 #define SSSSSampleOffset(tex, coord, offset) SSSSSampleLevelZeroOffset(tex, coord, offset)
 #define SSSSLerp(a, b, t) lerp(a, b, t)
@@ -236,6 +237,8 @@ float4 SSSSBlurPS(float2 BufferUV, float2 dir, bool initStencil)
 	colorInvDiv += GetKernel(SSSS_N_KERNELWEIGHTOFFSET, SubsurfaceProfileInt).rgb;
 	colorAccum = colorM.rgb * GetKernel(SSSS_N_KERNELWEIGHTOFFSET, SubsurfaceProfileInt).rgb;
 
+	float3 BoundaryColorBleed = GetProfileBoundaryColorBleed(GBufferData);
+
 	// Accumulate the other samples:
     SSSS_UNROLL
 	for (int i = 1; i < SSSS_N_KERNELWEIGHTCOUNT; i++) 
@@ -253,7 +256,11 @@ float4 SSSSBlurPS(float2 BufferUV, float2 dir, bool initStencil)
 		for (int Side = -1; Side <= 1; Side += 2)
 		{
 			// Fetch color and depth for current sample:
-			float4 color = SSSSSampleSceneColor(BufferUV + UVOffset * Side);
+			float2 LocalUV = BufferUV + UVOffset * Side;
+			float4 color = SSSSSampleSceneColor(LocalUV);
+			uint LocalSubsurfaceProfileInt = SSSSSampleProfileId(LocalUV);
+			float3 ColorTint = LocalSubsurfaceProfileInt == SubsurfaceProfileInt ? 1.0f : BoundaryColorBleed;
+
 
 			float LocalDepth = color.a;
 			
@@ -269,7 +276,7 @@ float4 SSSSBlurPS(float2 BufferUV, float2 dir, bool initStencil)
 #endif
 			// approximation, ideally we would reconstruct the mask with ComputeMaskFromDepthInAlpha() and do manual bilinear filter
 			// needed?
-			color.rgb *= color.a;
+			color.rgb *= color.a * ColorTint;
 
 			// Accumulate left and right 
 			LocalAccum += color;

@@ -56,11 +56,11 @@ void FOnlineAsyncTaskGooglePlayShowLoginUI::Finalize()
 void FOnlineAsyncTaskGooglePlayShowLoginUI::TriggerDelegates()
 {
 	UE_LOG(LogOnline, Log, TEXT("FOnlineAsyncTaskGooglePlayShowLoginUI: TriggerDelegates Success: %d."), WasSuccessful());
-	TSharedPtr<const FUniqueNetIdString> UserId = Subsystem->GetIdentityGooglePlay()->GetCurrentUserId();
+	TSharedPtr<const FUniqueNetIdGooglePlay> UserId = Subsystem->GetIdentityGooglePlay()->GetCurrentUserId();
 
 	if (bWasSuccessful && !UserId.IsValid())
 	{
-		UserId = MakeShareable(new FUniqueNetIdString());
+		UserId = MakeShareable(new FUniqueNetIdGooglePlay());
 		Subsystem->GetIdentityGooglePlay()->SetCurrentUserId(UserId);
 	}
 	else if (!bWasSuccessful)
@@ -68,7 +68,8 @@ void FOnlineAsyncTaskGooglePlayShowLoginUI::TriggerDelegates()
 		Subsystem->GetIdentityGooglePlay()->SetCurrentUserId(nullptr);
 	}
 
-	Delegate.ExecuteIfBound(UserId, PlayerId);
+	FOnlineError Error(bWasSuccessful);
+	Delegate.ExecuteIfBound(UserId, PlayerId, Error);
 }
 
 void FOnlineAsyncTaskGooglePlayShowLoginUI::ProcessGoogleClientConnectResult(bool bInSuccessful, FString AccessToken)

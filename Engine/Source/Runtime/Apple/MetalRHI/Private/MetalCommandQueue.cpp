@@ -11,7 +11,6 @@
 #include "MetalCommandList.h"
 #include "MetalProfiler.h"
 #if METAL_STATISTICS
-#include "MetalStatistics.h"
 #include "Modules/ModuleManager.h"
 #endif
 #include "Misc/ConfigCacheIni.h"
@@ -47,6 +46,7 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		Features = EMetalFeaturesSeparateStencil | EMetalFeaturesSetBufferOffset | EMetalFeaturesResourceOptions | EMetalFeaturesDepthStencilBlitOptions | EMetalFeaturesShaderVersions | EMetalFeaturesSetBytes;
 
 #if PLATFORM_TVOS
+        Features &= ~(EMetalFeaturesSetBytes);
 		if(!bNoMetalv2 && [Device supportsFeatureSet:MTLFeatureSet_tvOS_GPUFamily1_v2])
 		{
 			Features |= EMetalFeaturesStencilView | EMetalFeaturesGraphicsUAVs;
@@ -69,9 +69,15 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		
 		if(Vers.majorVersion > 10 || (Vers.majorVersion == 10 && Vers.minorVersion >= 3))
         {
-            Features |= EMetalFeaturesGPUCommandBufferTimes;
+            // This isn't currently working, with GPUStartTime and GPUStopTime usually coming back as zero.
+            // The docs say this means the GPU isn't finished with the command buffer yet, but we are running
+            // in the completed handler and the status is MTLCommandBufferStatusCompleted, so it has to be
+            // finished. My guess is that the command buffer is empty so the GPU isn't executing it.
+            //Features |= EMetalFeaturesGPUCommandBufferTimes;
+            
 			Features |= EMetalFeaturesLinearTextures;
-			Features |= EMetalFeaturesEfficientBufferBlits;
+			// InjectCurves() does not work with this
+			//Features |= EMetalFeaturesEfficientBufferBlits;
 			Features |= EMetalFeaturesPrivateBufferSubAllocation;
 			
 			if(!bNoMetalv2 && ([Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily2_v3] || [Device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily1_v3]))
@@ -91,7 +97,12 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		Features = EMetalFeaturesSeparateStencil | EMetalFeaturesSetBufferOffset;
 	}
 #else // Assume that Mac & other platforms all support these from the start. They can diverge later.
-	Features = EMetalFeaturesSeparateStencil | EMetalFeaturesSetBufferOffset | EMetalFeaturesDepthClipMode | EMetalFeaturesResourceOptions | EMetalFeaturesDepthStencilBlitOptions | EMetalFeaturesCountingQueries | EMetalFeaturesBaseVertexInstance | EMetalFeaturesIndirectBuffer | EMetalFeaturesLayeredRendering | EMetalFeaturesShaderVersions | EMetalFeaturesCombinedDepthStencil | EMetalFeaturesCubemapArrays;
+	const bool bIsNVIDIA = [Device.GetName().GetPtr() rangeOfString:@"Nvidia" options:NSCaseInsensitiveSearch].location != NSNotFound;
+	Features = EMetalFeaturesSeparateStencil | EMetalFeaturesDepthClipMode | EMetalFeaturesResourceOptions | EMetalFeaturesDepthStencilBlitOptions | EMetalFeaturesCountingQueries | EMetalFeaturesBaseVertexInstance | EMetalFeaturesIndirectBuffer | EMetalFeaturesLayeredRendering | EMetalFeaturesShaderVersions | EMetalFeaturesCombinedDepthStencil | EMetalFeaturesCubemapArrays;
+	if (!bIsNVIDIA)
+	{
+		Features |= EMetalFeaturesSetBufferOffset;
+	}
 	if (!FParse::Param(FCommandLine::Get(),TEXT("nometalv2")) && Device.SupportsFeatureSet(mtlpp::FeatureSet::macOS_GPUFamily1_v2))
     {
         Features |= EMetalFeaturesStencilView | EMetalFeaturesDepth16 | EMetalFeaturesTessellation | EMetalFeaturesFunctionConstants | EMetalFeaturesGraphicsUAVs | EMetalFeaturesDeferredStoreActions | EMetalFeaturesMSAADepthResolve | EMetalFeaturesMSAAStoreAndResolve;
@@ -101,18 +112,16 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		
 		Features |= EMetalFeaturesLinearTextures;
 		
-		// Using Private Memory & BlitEncoders for Vertex & Index data is slower on the Mac Pro's DXXX GPUs
-		// Everywhere else it should be *much* faster.
-		if (!FString(Device.GetName()).Contains(TEXT("FirePro")))
-		{
-			Features |= EMetalFeaturesEfficientBufferBlits;
-		}
-		if (!FString(Device.GetName()).Contains(TEXT("Vega")))
-		{
+		// Using Private Memory & BlitEncoders for Vertex & Index data should be *much* faster.
+        Features |= EMetalFeaturesEfficientBufferBlits;
+		
+        // On earlier OS versions Vega didn't like non-zero blit offsets
+        if (!FString(Device.GetName()).Contains(TEXT("Vega")) || FPlatformMisc::MacOSXVersionCompare(10,13,5) >= 0)
+        {
 			Features |= EMetalFeaturesPrivateBufferSubAllocation;
 		}
     }
-    else if (FString(Device.GetName()).Contains(TEXT("Nvidia")))
+    else if ([Device.GetName().GetPtr() rangeOfString:@"Nvidia" options:NSCaseInsensitiveSearch].location != NSNotFound)
     {
 		// Using set*Bytes fixes bugs on Nvidia for 10.11 so we should use it...
     	Features |= EMetalFeaturesSetBytes;
@@ -137,7 +146,7 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		Features |= EMetalFeaturesValidation;
 	}
 #endif
-	
+    
 	static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shaders.Optimize"));
 	if (CVar->GetInt() == 0 || FParse::Param(FCommandLine::Get(),TEXT("metalshaderdebug")))
 	{
@@ -158,21 +167,24 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
     }
 	
 #if METAL_STATISTICS
-    IMetalStatisticsModule* StatsModule = FModuleManager::Get().LoadModulePtr<IMetalStatisticsModule>(TEXT("MetalStatistics"));
-    
-    if(StatsModule && FParse::Param(FCommandLine::Get(),TEXT("metalstats")))
-    {
-        Statistics = StatsModule->CreateMetalStatistics(CommandQueue);
-        if(Statistics->SupportsStatistics())
-        {
-            Features |= EMetalFeaturesStatistics;
-        }
-        else
-        {
-            delete Statistics;
-            Statistics = nullptr;
-        }
-    }
+	if (FParse::Param(FCommandLine::Get(),TEXT("metalstats")))
+	{
+		IMetalStatisticsModule* StatsModule = FModuleManager::Get().LoadModulePtr<IMetalStatisticsModule>(TEXT("MetalStatistics"));		
+		if(StatsModule)
+		{
+			Statistics = StatsModule->CreateMetalStatistics(CommandQueue);
+			if(Statistics->SupportsStatistics())
+			{
+				GSupportsTimestampRenderQueries = true;
+				Features |= EMetalFeaturesStatistics;
+			}
+			else
+			{
+				delete Statistics;
+				Statistics = nullptr;
+			}
+		}
+	}
 #endif
     
 	PermittedOptions = 0;
@@ -215,8 +227,8 @@ mtlpp::CommandBuffer FMetalCommandQueue::CreateCommandBuffer(void)
 		CmdBuffer = bUnretainedRefs ? MTLPP_VALIDATE(mtlpp::CommandQueue, CommandQueue, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, CommandBufferWithUnretainedReferences()) : MTLPP_VALIDATE(mtlpp::CommandQueue, CommandQueue, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, CommandBuffer());
 		
 		if (RuntimeDebuggingLevel > EMetalDebugLevelLogDebugGroups)
-		{
-			CmdBuffer = [[[FMetalDebugCommandBuffer alloc] initWithCommandBuffer:CmdBuffer.GetPtr()] autorelease];
+		{			
+			METAL_DEBUG_ONLY(FMetalCommandBufferDebugging AddDebugging(CmdBuffer));
 			MTLPP_VALIDATION(mtlpp::CommandBufferValidationTable ValidatedCommandBuffer(CmdBuffer));
 		}
 		else if (RuntimeDebuggingLevel == EMetalDebugLevelLogDebugGroups)
@@ -327,7 +339,9 @@ mtlpp::ResourceOptions FMetalCommandQueue::GetCompatibleResourceOptions(mtlpp::R
 
 void FMetalCommandQueue::InsertDebugCaptureBoundary(void)
 {
-	CommandQueue.InsertDebugCaptureBoundary();
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	[CommandQueue insertDebugCaptureBoundary];
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 void FMetalCommandQueue::SetRuntimeDebuggingLevel(int32 const Level)

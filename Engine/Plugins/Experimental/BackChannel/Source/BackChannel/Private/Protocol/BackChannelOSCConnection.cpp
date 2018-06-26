@@ -287,7 +287,18 @@ void FBackChannelOSCConnection::SetMessageOptions(const TCHAR* Path, int32 MaxQu
 	MessageLimits.FindOrAdd(Path) = MaxQueuedMessages;
 }
 
+FDelegateHandle FBackChannelOSCConnection::AddMessageHandler(const TCHAR* Path, FBackChannelDispatchDelegate::FDelegate Delegate)
+{
+	FScopeLock Lock(&ReceiveMutex);
+	return DispatchMap.GetAddressHandler(Path).Add(Delegate);
+}
 
+/* Remove a delegate handle */
+void FBackChannelOSCConnection::RemoveMessageHandler(const TCHAR* Path, FDelegateHandle& InHandle)
+{
+	DispatchMap.GetAddressHandler(Path).Remove(InHandle);
+	InHandle.Reset();
+}
 
 int32 FBackChannelOSCConnection::GetMessageCountForPath(const TCHAR* Path)
 {
@@ -374,11 +385,5 @@ void FBackChannelOSCConnection::RemoveMessagesWithPath(const TCHAR* Path, const 
 			It++;
 		}
 	}
-}
-
-
-FBackChannelOSCDispatch& FBackChannelOSCConnection::GetDispatchMap()
-{
-	return DispatchMap;
 }
 

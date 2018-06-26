@@ -1474,15 +1474,18 @@ public:
 		FString Right;
 		while (CommandLine.Split(TEXT(" "), &Left, &Right))
 		{
-			FString Key;
-			FString Value;
-			if (!Left.Split(TEXT("="), &Key, &Value))
+			if(Left.Len() > 0)
 			{
-				Key = Left;
-				Value = TEXT("true");
+				FString Key;
+				FString Value;
+				if (!Left.Split(TEXT("="), &Key, &Value))
+				{
+					Key = Left;
+					Value = TEXT("true");
+				}
+				Key.RemoveFromStart(TEXT("-"));
+				RoleCommands.Add(Key, Value);
 			}
-			Key.RemoveFromStart(TEXT("-"));
-			RoleCommands.Add(Key, Value);
 			CommandLine = Right;
 		}
 		if (CommandLine.Len() > 0)
@@ -1544,6 +1547,10 @@ public:
 		{
 			// Platform info for the given platform
 			const PlatformInfo::FPlatformInfo* PlatformInfo = PlatformInfo::FindPlatformInfo(FName(*InPlatforms[PlatformIndex]));
+			if (PlatformInfo == nullptr)
+			{
+				return false;
+			}
 
 			// switch server and no editor platforms to the proper type
 			if (PlatformInfo->TargetPlatformName == FName("LinuxServer"))

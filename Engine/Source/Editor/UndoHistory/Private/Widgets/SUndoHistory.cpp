@@ -9,6 +9,7 @@
 #include "Editor.h"
 #include "Widgets/Views/SListView.h"
 #include "Widgets/SUndoHistoryTableRow.h"
+#include "Editor/TransBuffer.h"
 
 
 #define LOCTEXT_NAMESPACE "SUndoHistory"
@@ -82,20 +83,45 @@ void SUndoHistory::Construct( const FArguments& InArgs )
 	];
 
 	ReloadUndoList();
+
+	if (GEditor != nullptr && GEditor->Trans != nullptr)
+	{
+		UTransBuffer* TransBuffer = CastChecked<UTransBuffer>(GEditor->Trans);
+		TransBuffer->OnUndoBufferChanged().AddRaw(this, &SUndoHistory::OnUndoBufferChanged);
+	}
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+SUndoHistory::~SUndoHistory()
+{
+	if (GEditor != nullptr && GEditor->Trans != nullptr)
+	{
+		UTransBuffer* TransBuffer = CastChecked<UTransBuffer>(GEditor->Trans);
+		TransBuffer->OnUndoBufferChanged().RemoveAll(this);
+	}
+}
+
+void SUndoHistory::OnUndoBufferChanged()
+{
+	if (GEditor != nullptr && GEditor->Trans != nullptr)
+	{
+		ReloadUndoList();
+
+		LastActiveTransactionIndex = GEditor->Trans->GetQueueLength() - 1;
+		UndoListView->SetSelection(UndoList[LastActiveTransactionIndex]);
+	}
+}
 
 void SUndoHistory::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	// reload the transaction list if necessary
-	if ((GEditor == nullptr) || (GEditor->Trans == nullptr) || (LastQueueLength != GEditor->Trans->GetQueueLength()) || (GEditor->Trans->GetUndoCount() != LastUndoCount))
+	if (GEditor == nullptr || GEditor->Trans == nullptr)
 	{
 		ReloadUndoList();
 	}
-
-	// update the selected transaction if necessary
-	if ((GEditor != nullptr) && (GEditor->Trans != nullptr))
+	else if (GEditor != nullptr && GEditor->Trans != nullptr)
 	{
+		// update the selected transaction if necessary
 		int32 ActiveTransactionIndex = GEditor->Trans->GetQueueLength() - GEditor->Trans->GetUndoCount() - 1;
 
 		if (UndoList.IsValidIndex(ActiveTransactionIndex) && (ActiveTransactionIndex != LastActiveTransactionIndex))
@@ -119,10 +145,7 @@ void SUndoHistory::ReloadUndoList( )
 		return;
 	}
 
-	LastQueueLength = GEditor->Trans->GetQueueLength();
-	LastUndoCount = GEditor->Trans->GetUndoCount();
-
-	for (int32 QueueIndex = 0; QueueIndex < LastQueueLength; ++QueueIndex)
+	for (int32 QueueIndex = 0; QueueIndex < GEditor->Trans->GetQueueLength(); ++QueueIndex)
 	{
 		UndoList.Add(MakeShareable(new FTransactionInfo(QueueIndex, GEditor->Trans->GetTransaction(QueueIndex))));
 	}

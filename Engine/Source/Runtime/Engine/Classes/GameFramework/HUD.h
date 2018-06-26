@@ -21,6 +21,7 @@ class UMaterialInterface;
 class UTexture;
 
 DECLARE_MULTICAST_DELEGATE_FiveParams(FOnShowDebugInfo, AHUD* /* HUD */, UCanvas* /* Canvas */, const FDebugDisplayInfo& /* DisplayInfo */, float& /* YL */, float& /* YPos */);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnHUDPostRender, AHUD* /* HUD */, UCanvas* /* Canvas */);
 
 /** 
  * Base class of the heads-up display. This has a canvas and a debug canvas on which primitives can be drawn.
@@ -496,6 +497,9 @@ public:
 
 	// Callback allowing external systems to register to show debug info
 	static FOnShowDebugInfo OnShowDebugInfo;
+
+	// Called from ::PostRender. For less player/actor centered debugging
+	static FOnHUDPostRender OnHUDPostRender;
 
 	/** PostRender is the main draw loop. */
 	virtual void PostRender();

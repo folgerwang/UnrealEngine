@@ -8,6 +8,7 @@
 #include "Generators/MovieSceneEasingCurves.h"
 #include "Channels/MovieSceneChannelProxy.h"
 #include "Containers/ArrayView.h"
+#include "Channels/MovieSceneChannel.h"
 #include "UObject/SequencerObjectVersion.h"
 
 UMovieSceneSection::UMovieSceneSection(const FObjectInitializer& ObjectInitializer)
@@ -56,6 +57,11 @@ void UMovieSceneSection::PostInitProperties()
 	}
 }
 
+bool UMovieSceneSection::IsPostLoadThreadSafe() const
+{
+	return true;
+}
+
 void UMovieSceneSection::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
@@ -66,7 +72,7 @@ void UMovieSceneSection::Serialize(FArchive& Ar)
 	{
 		const FFrameRate LegacyFrameRate = GetLegacyConversionFrameRate();
 
-		if (bIsInfinite_DEPRECATED)
+		if (bIsInfinite_DEPRECATED && bSupportsInfiniteRange)
 		{
 			SectionRange = TRange<FFrameNumber>::All();
 		}
@@ -157,10 +163,17 @@ void UMovieSceneSection::MoveSection(FFrameNumber DeltaFrame)
 		{
 			for (const FMovieSceneChannelEntry& Entry : ChannelProxy->GetAllEntries())
 			{
-				Entry.GetBatchChannelInterface().Offset_Batch(Entry.GetChannels(), DeltaFrame);
+				for (FMovieSceneChannel* Channel : Entry.GetChannels())
+				{
+					Channel->Offset(DeltaFrame);
+				}
 			}
 		}
 	}
+
+#if WITH_EDITORONLY_DATA
+	TimecodeSource.DeltaFrame += DeltaFrame;
+#endif
 }
 
 
@@ -177,7 +190,10 @@ TRange<FFrameNumber> UMovieSceneSection::ComputeEffectiveRange() const
 	{
 		for (const FMovieSceneChannelEntry& Entry : ChannelProxy->GetAllEntries())
 		{
-			EffectiveRange = TRange<FFrameNumber>::Hull(EffectiveRange, Entry.GetBatchChannelInterface().ComputeEffectiveRange_Batch(Entry.GetChannels()));
+			for (const FMovieSceneChannel* Channel : Entry.GetChannels())
+			{
+				EffectiveRange = TRange<FFrameNumber>::Hull(EffectiveRange, Channel->ComputeEffectiveRange());
+			}
 		}
 	}
 
@@ -193,7 +209,10 @@ TOptional<TRange<FFrameNumber> > UMovieSceneSection::GetAutoSizeRange() const
 	
 		for (const FMovieSceneChannelEntry& Entry : ChannelProxy->GetAllEntries())
 		{
-			EffectiveRange = TRange<FFrameNumber>::Hull(EffectiveRange, Entry.GetBatchChannelInterface().ComputeEffectiveRange_Batch(Entry.GetChannels()));
+			for (const FMovieSceneChannel* Channel : Entry.GetChannels())
+			{
+				EffectiveRange = TRange<FFrameNumber>::Hull(EffectiveRange, Channel->ComputeEffectiveRange());
+			}
 		}
 
 		if (!EffectiveRange.IsEmpty())

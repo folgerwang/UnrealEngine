@@ -9,7 +9,9 @@
 #include "IWebBrowserWindow.h"
 #include "Widgets/SWindow.h"
 #import <UIKit/UIKit.h>
+#if !PLATFORM_TVOS
 #import "WebKit/WebKit.h"
+#endif
 
 #include "Engine/Texture2D.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -61,6 +63,10 @@ supportsMetal : (bool)InSupportsMetal supportsMetalMRT : (bool)InSupportsMetalMR
 -(bool)UpdateVideoFrame:(void*)ptr;
 -(void)updateWebViewGLESTexture:(GLuint)gltexture;
 - (void)updateWebViewMetalTexture : (id<MTLTexture>)texture;
+#if !PLATFORM_TVOS
+-(BOOL)webView:(UIWebView*)InWebView shouldStartLoadWithRequest:(NSURLRequest*)InRequest navigationType:(UIWebViewNavigationType)InNavigationType;
+-(void)webView:(UIWebView*)InWebView didFailLoadWithError:(NSError*)InError;
+#endif
 @end
 
 /**

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Channels/RemoteSessionFrameBufferChannel.h"
 #include "RemoteSession.h"
@@ -46,23 +46,26 @@ FRemoteSessionFrameBufferChannel::FRemoteSessionFrameBufferChannel(ERemoteSessio
 	NumSentImages = 0;
 	KickedTaskCount = 0;
 	Role = InRole;
+	ViewportResized = false;
 
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
-		MessageCallbackHandle = InConnection->GetDispatchMap().GetAddressHandler(TEXT("/Screen")).AddRaw(this, &FRemoteSessionFrameBufferChannel::ReceiveHostImage);
+		auto Delegate = FBackChannelDispatchDelegate::FDelegate::CreateRaw(this, &FRemoteSessionFrameBufferChannel::ReceiveHostImage);
+		MessageCallbackHandle = InConnection->AddMessageHandler(TEXT("/Screen"), Delegate);
+
 		InConnection->SetMessageOptions(TEXT("/Screen"), 1);
 	}
 }
 
 FRemoteSessionFrameBufferChannel::~FRemoteSessionFrameBufferChannel()
 {
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		TSharedPtr<FBackChannelOSCConnection, ESPMode::ThreadSafe> LocalConnection = Connection.Pin();
 		if (LocalConnection.IsValid())
 		{
 			// Remove the callback so it doesn't call back on an invalid this
-			LocalConnection->GetDispatchMap().GetAddressHandler(TEXT("/Screen")).Remove(MessageCallbackHandle);
+			LocalConnection->RemoveMessageHandler(TEXT("/Screen"), MessageCallbackHandle);
 		}
 		MessageCallbackHandle.Reset();
 	}
@@ -72,11 +75,7 @@ FRemoteSessionFrameBufferChannel::~FRemoteSessionFrameBufferChannel()
 		FPlatformProcess::SleepNoStats(0);
 	}
 
-	if (FrameGrabber.IsValid())
-	{
-		FrameGrabber->StopCapturingFrames();
-		FrameGrabber = nullptr;
-	}
+	ReleaseFrameGrabber();
 
 	for (int32 i = 0; i < 2; i++)
 	{
@@ -88,10 +87,15 @@ FRemoteSessionFrameBufferChannel::~FRemoteSessionFrameBufferChannel()
 	}
 }
 
-FString FRemoteSessionFrameBufferChannel::StaticType()
+void FRemoteSessionFrameBufferChannel::ReleaseFrameGrabber()
 {
-	return TEXT("rs.framebuffer");
+	if (FrameGrabber.IsValid())
+	{
+		FrameGrabber->StopCapturingFrames();
+		FrameGrabber = nullptr;
+	}
 }
+
 
 void FRemoteSessionFrameBufferChannel::SetCaptureQuality(int32 InQuality, int32 InFramerate)
 {
@@ -109,6 +113,17 @@ void FRemoteSessionFrameBufferChannel::SetCaptureQuality(int32 InQuality, int32 
 
 void FRemoteSessionFrameBufferChannel::SetCaptureViewport(TSharedRef<FSceneViewport> Viewport)
 {
+	SceneViewport = Viewport;
+
+	CreateFrameGrabber(Viewport);
+
+	// set the listener for the window resize event
+	Viewport->SetOnSceneViewportResizeDel(FOnSceneViewportResize::CreateRaw(this, &FRemoteSessionFrameBufferChannel::OnViewportResized));
+}
+
+void FRemoteSessionFrameBufferChannel::CreateFrameGrabber(TSharedRef<FSceneViewport> Viewport)
+{
+	ReleaseFrameGrabber();
 	FrameGrabber = MakeShareable(new FFrameGrabber(Viewport, Viewport->GetSize()));
 	FrameGrabber->StartCapturingFrames();
 }
@@ -124,6 +139,11 @@ void FRemoteSessionFrameBufferChannel::Tick(const float InDeltaTime)
 
 	if (FrameGrabber.IsValid())
 	{
+		if (ViewportResized)
+		{
+			CreateFrameGrabber(SceneViewport.ToSharedRef());
+			ViewportResized = false;
+		}
 		SCOPE_CYCLE_COUNTER(STAT_FrameBufferCapture);
 
 		FrameGrabber->CaptureThisFrame(FFramePayloadPtr());
@@ -135,15 +155,16 @@ void FRemoteSessionFrameBufferChannel::Tick(const float InDeltaTime)
 			const double ElapsedImageTimeMS = (FPlatformTime::Seconds() - LastSentImageTime) * 1000;
 			const int32 DesiredFrameTimeMS = 1000 / FramerateMasterSetting;
 
-			if (ElapsedImageTimeMS >= DesiredFrameTimeMS)
+			// Encoding/decoding can take longer than a frame, so skip if we're still processing the previous frame
+			if (NumDecodingTasks.GetValue() == 0 && ElapsedImageTimeMS >= DesiredFrameTimeMS)
 			{
+				NumDecodingTasks.Increment();
+
 				FCapturedFrameData& LastFrame = Frames.Last();
 
 				TArray<FColor>* ColorData = new TArray<FColor>(MoveTemp(LastFrame.ColorBuffer));
 
 				FIntPoint Size = LastFrame.BufferSize;
-
-				NumDecodingTasks.Increment();
 
 				AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [this, Size, ColorData]()
 				{
@@ -166,7 +187,7 @@ void FRemoteSessionFrameBufferChannel::Tick(const float InDeltaTime)
 		}
 	}
 	
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_TextureUpdate);
 
@@ -202,11 +223,17 @@ void FRemoteSessionFrameBufferChannel::Tick(const float InDeltaTime)
 			FUpdateTextureRegion2D* Region = new FUpdateTextureRegion2D(0, 0, 0, 0, QueuedImage->Width, QueuedImage->Height);
 			TArray<uint8>* TextureData = new TArray<uint8>(MoveTemp(QueuedImage->ImageData));
 
-			DecodedTextures[NextImage]->UpdateTextureRegions(0, 1, Region, 4 * QueuedImage->Width, 8, TextureData->GetData(), [this, NextImage](auto InTextureData, auto InRegions) {
+			// cleanup functions, gets executed on the render thread after UpdateTextureRegions
+			TFunction<void(uint8*, const FUpdateTextureRegion2D*)> DataCleanupFunc = [this, NextImage, TextureData](uint8* InTextureData, const FUpdateTextureRegion2D* InRegions)
+			{
 				DecodedTextureIndex = NextImage;
-				delete InTextureData;
-				delete InRegions;
-			});
+
+				//this is executed later on the render thread, meanwhile TextureData might have changed
+				delete InTextureData; 
+				delete InRegions; 
+			};
+
+			DecodedTextures[NextImage]->UpdateTextureRegions(0, 1, Region, 4 * QueuedImage->Width, 8, TextureData->GetData(), DataCleanupFunc);
 
 			UE_LOG(LogRemoteSession, Verbose, TEXT("GT: Uploaded image %d"),
 				QueuedImage->ImageIndex);
@@ -357,4 +384,8 @@ void FRemoteSessionFrameBufferChannel::CreateTexture(const int32 InSlot, const i
 	UE_LOG(LogRemoteSession, Log, TEXT("Created texture in slot %d %dx%d for incoming image"), InSlot, InWidth, InHeight);
 }
 
+void FRemoteSessionFrameBufferChannel::OnViewportResized(FVector2D NewSize)
+{
+	ViewportResized = true;
+}
 

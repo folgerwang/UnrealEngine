@@ -153,8 +153,11 @@ public:
 	virtual void SendRenderTransform_Concurrent() override;
 	virtual const UObject* AdditionalStatObject() const override;
 	//~ End UActorComponent Interface
-
+	
+	//~ Begin UObject Interface. 
 	virtual void Serialize(FArchive& Ar) override;
+	virtual bool IsPostLoadThreadSafe() const override;
+	//~ End UObject Interface
 
 	//~ Begin USceneComponent Interface
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;

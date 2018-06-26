@@ -8,8 +8,8 @@ class FSkeletalMeshVertexDataInterface;
 struct FMeshToMeshVertData;
 
 /**
-* A vertex buffer for holding skeletal mesh per APEX cloth information only.
-* This buffer sits along side FSkeletalMeshVertexBuffer in each skeletal mesh lod
+* A vertex buffer for holding skeletal mesh clothing information only.
+* This buffer sits along side the other skeletal mesh buffers per LOD
 */
 class FSkeletalMeshVertexClothBuffer : public FVertexBuffer
 {

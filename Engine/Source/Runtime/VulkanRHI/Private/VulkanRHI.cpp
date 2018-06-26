@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanRHI.cpp: Vulkan device RHI implementation.
@@ -37,7 +37,7 @@ static_assert(VK_API_VERSION >= UE_VK_API_VERSION, "Vulkan SDK is older than the
 
 TAutoConsoleVariable<int32> GRHIThreadCvar(
 	TEXT("r.Vulkan.RHIThread"),
-	1,
+	!(PLATFORM_LUMIN || PLATFORM_LUMINGL4),
 	TEXT("0 to only use Render Thread\n")
 	TEXT("1 to use ONE RHI Thread\n")
 	TEXT("2 to use multiple RHI Thread\n")
@@ -61,7 +61,7 @@ FDynamicRHI* FVulkanDynamicRHIModule::CreateRHI(ERHIFeatureLevel::Type InRequest
 			FParse::Param(FCommandLine::Get(), TEXT("featureleveles31")) || FParse::Param(FCommandLine::Get(), TEXT("featureleveles2"))))
 	{
 		GMaxRHIFeatureLevel = ERHIFeatureLevel::ES3_1;
-		GMaxRHIShaderPlatform = PLATFORM_ANDROID ? SP_VULKAN_ES3_1_ANDROID : SP_VULKAN_PCES3_1;
+		GMaxRHIShaderPlatform = PLATFORM_LUMIN ? SP_VULKAN_ES3_1_LUMIN : (PLATFORM_ANDROID ? SP_VULKAN_ES3_1_ANDROID : SP_VULKAN_PCES3_1);
 	}
 	else if (InRequestedFeatureLevel == ERHIFeatureLevel::SM4)
 	{
@@ -71,7 +71,7 @@ FDynamicRHI* FVulkanDynamicRHIModule::CreateRHI(ERHIFeatureLevel::Type InRequest
 	else
 	{
 		GMaxRHIFeatureLevel = ERHIFeatureLevel::SM5;
-		GMaxRHIShaderPlatform = SP_VULKAN_SM5;
+		GMaxRHIShaderPlatform = (PLATFORM_LUMINGL4 || PLATFORM_LUMIN) ? SP_VULKAN_SM5_LUMIN : SP_VULKAN_SM5;
 	}
 
 	// VULKAN_USE_MSAA_RESOLVE_ATTACHMENTS=0 requires separate MSAA and resolve textures
@@ -270,6 +270,9 @@ void FVulkanDynamicRHI::Shutdown()
 	delete Device;
 	Device = nullptr;
 
+	// Release the early HMD interface used to query extra extensions - if any was used
+	HMDVulkanExtensions = nullptr;
+
 #if VULKAN_HAS_DEBUGGING_ENABLED
 	RemoveDebugLayerCallback();
 #endif
@@ -339,12 +342,42 @@ void FVulkanDynamicRHI::CreateInstance()
 	}
 	else if(Result == VK_ERROR_EXTENSION_NOT_PRESENT)
 	{
-		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, TEXT(
-			"Vulkan driver doesn't contain specified extension;\n"
-			"make sure your layers path is set appropriately."), TEXT("Incomplete Vulkan driver found!"));
-		FPlatformMisc::RequestExitWithStatus(true, 1);
-		// unreachable
-		return;
+		// Check for missing extensions 
+		FString MissingExtensions;
+
+		uint32_t PropertyCount;
+		VulkanRHI::vkEnumerateInstanceExtensionProperties(nullptr, &PropertyCount, nullptr);
+
+		TArray<VkExtensionProperties> Properties;
+		Properties.SetNum(PropertyCount);
+		VulkanRHI::vkEnumerateInstanceExtensionProperties(nullptr, &PropertyCount, Properties.GetData());
+
+		for (const ANSICHAR* Extension : InstanceExtensions)
+		{
+			bool bExtensionFound = false;
+
+			for (uint32_t PropertyIndex = 0; PropertyIndex < PropertyCount; PropertyIndex++)
+			{
+				const char* PropertyExtensionName = Properties[PropertyIndex].extensionName;
+
+				if (!FCStringAnsi::Strcmp(PropertyExtensionName, Extension))
+				{
+					bExtensionFound = true;
+					break;
+				}
+			}
+
+			if (!bExtensionFound)
+			{
+				FString ExtensionStr = ANSI_TO_TCHAR(Extension);
+				UE_LOG(LogVulkanRHI, Error, TEXT("Missing required Vulkan extension: %s"), *ExtensionStr);
+				MissingExtensions += ExtensionStr + TEXT("\n");
+			}
+		}
+
+		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *FString::Printf(TEXT(
+			"Vulkan driver doesn't contain specified extensions:\n%s;\n\
+			make sure your layers path is set appropriately."), *MissingExtensions), TEXT("Incomplete Vulkan driver found!"));
 	}
 	else if (Result != VK_SUCCESS)
 	{
@@ -582,7 +615,7 @@ void FVulkanDynamicRHI::InitInstance()
 		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = GMaxRHIFeatureLevel == ERHIFeatureLevel::ES2 ? GMaxRHIShaderPlatform : SP_NumPlatforms;
 		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = GMaxRHIFeatureLevel == ERHIFeatureLevel::ES3_1 ? GMaxRHIShaderPlatform : SP_NumPlatforms;
 		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = GMaxRHIFeatureLevel == ERHIFeatureLevel::SM4 ? GMaxRHIShaderPlatform : SP_NumPlatforms;
-		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = (GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5 && bDeviceSupportsTessellation) ? GMaxRHIShaderPlatform : SP_NumPlatforms;
+		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = (GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5 /*&& bDeviceSupportsTessellation*/) ? GMaxRHIShaderPlatform : SP_NumPlatforms;
 
 		GRHIRequiresRenderTargetForPixelShaderUAVs = true;
 
@@ -602,9 +635,6 @@ void FVulkanDynamicRHI::InitInstance()
 		FHardwareInfo::RegisterHardwareInfo(NAME_RHI, TEXT("Vulkan"));
 
 		GProjectionSignY = 1.0f;
-
-		// Release the early HMD interface used to query extra extensions - if any was used
-		HMDVulkanExtensions = nullptr;
 
 		GIsRHIInitialized = true;
 
@@ -734,10 +764,11 @@ void FVulkanCommandListContext::RHIPushEvent(const TCHAR* Name, FColor Color)
 #if VULKAN_ENABLE_DRAW_MARKERS
 	if (auto CmdDbgMarkerBegin = Device->GetCmdDbgMarkerBegin())
 	{
+		FTCHARToUTF8 Converter(Name);
 		VkDebugMarkerMarkerInfoEXT Info;
 		FMemory::Memzero(Info);
 		Info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
-		Info.pMarkerName = TCHAR_TO_ANSI(Name);
+		Info.pMarkerName = Converter.Get();
 		FLinearColor LColor(Color);
 		Info.color[0] = LColor.R;
 		Info.color[1] = LColor.G;
@@ -846,9 +877,9 @@ void FVulkanDynamicRHI::RHISubmitCommandsAndFlushGPU()
 	Device->SubmitCommandsAndFlushGPU();
 }
 
-FTexture2DRHIRef FVulkanDynamicRHI::RHICreateTexture2DFromResource(EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 NumMips, uint32 NumSamples, VkImage Resource, uint32 Flags)
+FTexture2DRHIRef FVulkanDynamicRHI::RHICreateTexture2DFromResource(EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 NumMips, uint32 NumSamples, uint32 NumSamplesTileMem, VkImage Resource, uint32 Flags)
 {
-	return new FVulkanTexture2D(*Device, Format, SizeX, SizeY, NumMips, NumSamples, Resource, Flags, FRHIResourceCreateInfo());
+	return new FVulkanTexture2D(*Device, Format, SizeX, SizeY, NumMips, NumSamples, NumSamplesTileMem, Resource, Flags, FRHIResourceCreateInfo());
 }
 
 FTexture2DArrayRHIRef FVulkanDynamicRHI::RHICreateTexture2DArrayFromResource(EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 ArraySize, uint32 NumMips, VkImage Resource, uint32 Flags)

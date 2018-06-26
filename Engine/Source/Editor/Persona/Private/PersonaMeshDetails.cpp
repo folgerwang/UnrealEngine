@@ -42,6 +42,7 @@
 #include "Rendering/SkeletalMeshModel.h"
 #include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
+#include "EditorFramework/AssetImportData.h"
 
 #if WITH_APEX_CLOTHING
 	#include "ApexClothingUtils.h"
@@ -75,6 +76,15 @@
 #include "IMeshReductionManagerModule.h"
 
 #define LOCTEXT_NAMESPACE "PersonaMeshDetails"
+
+/*
+* Custom data key
+*/
+enum SK_CustomDataKey
+{
+	CustomDataKey_LODVisibilityState = 0, //This is the key to know if a LOD is shown in custom mode. Do CustomDataKey_LODVisibilityState + LodIndex for a specific LOD
+	CustomDataKey_LODEditMode = 100 //This is the key to know the state of the custom lod edit mode.
+};
 
 namespace PersonaMeshDetailsConstants
 {
@@ -129,7 +139,7 @@ private:
 			{
 				FSkeletalMeshLODInfo& LODInfo = *(SkelMesh->GetLODInfo(LODIndex));
 
-				bDoesSourceFileExist_Cached = !LODInfo.SourceImportFilename.IsEmpty() && FPaths::FileExists(LODInfo.SourceImportFilename);
+				bDoesSourceFileExist_Cached = !LODInfo.SourceImportFilename.IsEmpty() && FPaths::FileExists(UAssetImportData::ResolveImportFilename(LODInfo.SourceImportFilename, nullptr));
 			}
 		}
 		return EActiveTimerReturnType::Continue;
@@ -334,6 +344,7 @@ void FPersonaMeshDetails::OnCopySectionList(int32 LODIndex)
 				JSonSection->SetNumberField(TEXT("MaterialIndex"), ModelSection.MaterialIndex);
 				JSonSection->SetBoolField(TEXT("RecomputeTangent"), ModelSection.bRecomputeTangent);
 				JSonSection->SetBoolField(TEXT("CastShadow"), ModelSection.bCastShadow);
+				JSonSection->SetNumberField(TEXT("GenerateUpToLodIndex"), ModelSection.GenerateUpToLodIndex);
 
 				RootJsonObject->SetObjectField(FString::Printf(TEXT("Section_%d"), SectionIdx), JSonSection);
 			}
@@ -409,6 +420,10 @@ void FPersonaMeshDetails::OnPasteSectionList(int32 LODIndex)
 
 						(*JSonSection)->TryGetBoolField(TEXT("RecomputeTangent"), ModelSection.bRecomputeTangent);
 						(*JSonSection)->TryGetBoolField(TEXT("CastShadow"), ModelSection.bCastShadow);
+						if ((*JSonSection)->TryGetNumberField(TEXT("GenerateUpToLodIndex"), Value))
+						{
+							ModelSection.GenerateUpToLodIndex = (int8)Value;
+						}
 					}
 				}
 
@@ -439,6 +454,7 @@ void FPersonaMeshDetails::OnCopySectionItem(int32 LODIndex, int32 SectionIndex)
 				RootJsonObject->SetNumberField(TEXT("MaterialIndex"), ModelSection.MaterialIndex);
 				RootJsonObject->SetBoolField(TEXT("RecomputeTangent"), ModelSection.bRecomputeTangent);
 				RootJsonObject->SetBoolField(TEXT("CastShadow"), ModelSection.bCastShadow);
+				RootJsonObject->SetNumberField(TEXT("GenerateUpToLodIndex"), ModelSection.GenerateUpToLodIndex);
 			}
 
 			typedef TJsonWriter<TCHAR, TPrettyJsonPrintPolicy<TCHAR>> FStringWriter;
@@ -509,6 +525,10 @@ void FPersonaMeshDetails::OnPasteSectionItem(int32 LODIndex, int32 SectionIndex)
 
 					RootJsonObject->TryGetBoolField(TEXT("RecomputeTangent"), ModelSection.bRecomputeTangent);
 					RootJsonObject->TryGetBoolField(TEXT("CastShadow"), ModelSection.bCastShadow);
+					if (RootJsonObject->TryGetNumberField(TEXT("GenerateUpToLodIndex"), Value))
+					{
+						ModelSection.GenerateUpToLodIndex = (int8)Value;
+					}
 				}
 
 				Mesh->PostEditChange();
@@ -786,8 +806,6 @@ void FPersonaMeshDetails::AddLODLevelCategories(IDetailLayoutBuilder& DetailLayo
 			.OnCheckStateChanged(this, &FPersonaMeshDetails::SetLODCustomModeCheck, (int32)INDEX_NONE)
 			.ToolTipText(LOCTEXT("LODCustomModeFirstRowTooltip", "Custom Mode allow editing multiple LOD in same time."))
 		];
-		//Set the custom mode to false
-		CustomLODEditMode = false;
 
 		LodCategories.Empty(SkelMeshLODCount);
 		DetailDisplayLODs.Reset();
@@ -856,7 +874,8 @@ void FPersonaMeshDetails::AddLODLevelCategories(IDetailLayoutBuilder& DetailLayo
 				SectionListDelegates.OnPasteSectionItem.BindSP(this, &FPersonaMeshDetails::OnPasteSectionItem);
 				SectionListDelegates.OnEnableSectionItem.BindSP(this, &FPersonaMeshDetails::OnSectionEnabledChanged);
 
-				LODCategory.AddCustomBuilder(MakeShareable(new FSectionList(LODCategory.GetParentLayout(), SectionListDelegates, false, 64, LODIndex)));
+				FName SkeletalMeshSectionListName = FName(*(FString(TEXT("SkeletalMeshSectionListNameLOD_")) + FString::FromInt(LODIndex)));
+				LODCategory.AddCustomBuilder(MakeShareable(new FSectionList(LODCategory.GetParentLayout(), SectionListDelegates, false, 64, LODIndex, SkeletalMeshSectionListName)));
 
 				GetPersonaToolkit()->GetPreviewScene()->RegisterOnSelectedLODChanged(FOnSelectedLODChanged::CreateSP(this, &FPersonaMeshDetails::UpdateLODCategoryVisibility));
 			}
@@ -988,6 +1007,35 @@ void FPersonaMeshDetails::AddLODLevelCategories(IDetailLayoutBuilder& DetailLayo
 			LODCustomModeCategory.SetCategoryVisibility(true);
 			LODCustomModeCategory.SetShowAdvanced(false);
 		}
+
+		//Restore the state of the custom check LOD
+		for (int32 DetailLODIndex = 0; DetailLODIndex < SkelMeshLODCount; ++DetailLODIndex)
+		{
+			int32 LodCheckValue = GetPersonaToolkit()->GetCustomData(CustomDataKey_LODVisibilityState + DetailLODIndex);
+			if (LodCheckValue != INDEX_NONE && DetailDisplayLODs.IsValidIndex(DetailLODIndex))
+			{
+				DetailDisplayLODs[DetailLODIndex] = LodCheckValue > 0;
+			}
+		}
+
+		//Restore the state of the custom LOD mode if its true (greater then 0)
+		bool bCustomLodEditMode = GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0;
+		if (bCustomLodEditMode)
+		{
+			for (int32 DetailLODIndex = 0; DetailLODIndex < SkelMeshLODCount; ++DetailLODIndex)
+			{
+				if (!LodCategories.IsValidIndex(DetailLODIndex))
+				{
+					break;
+				}
+				LodCategories[DetailLODIndex]->SetCategoryVisibility(DetailDisplayLODs[DetailLODIndex]);
+			}
+		}
+
+		if (LodCustomCategory != nullptr)
+		{
+			LodCustomCategory->SetShowAdvanced(bCustomLodEditMode);
+		}
 	}
 }
 
@@ -1015,7 +1063,7 @@ ECheckBoxState FPersonaMeshDetails::IsLODCustomModeCheck(int32 LODIndex) const
 	}
 	if (LODIndex == INDEX_NONE)
 	{
-		return CustomLODEditMode ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+		return (GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
 	return DetailDisplayLODs[LODIndex] ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
@@ -1031,7 +1079,7 @@ void FPersonaMeshDetails::SetLODCustomModeCheck(ECheckBoxState NewState, int32 L
 	{
 		if (NewState == ECheckBoxState::Unchecked)
 		{
-			CustomLODEditMode = false;
+			GetPersonaToolkit()->SetCustomData(CustomDataKey_LODEditMode, 0);
 			SetCurrentLOD(CurrentLodIndex);
 			for (int32 DetailLODIndex = 0; DetailLODIndex < LODCount; ++DetailLODIndex)
 			{
@@ -1044,16 +1092,17 @@ void FPersonaMeshDetails::SetLODCustomModeCheck(ECheckBoxState NewState, int32 L
 		}
 		else
 		{
-			CustomLODEditMode = true;
+			GetPersonaToolkit()->SetCustomData(CustomDataKey_LODEditMode, 1);
 			SetCurrentLOD(0);
 		}
 	}
-	else if (CustomLODEditMode)
+	else if ((GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0))
 	{
 		DetailDisplayLODs[LODIndex] = NewState == ECheckBoxState::Checked;
+		GetPersonaToolkit()->SetCustomData(CustomDataKey_LODVisibilityState + LODIndex, DetailDisplayLODs[LODIndex] ? 1 : 0);
 	}
 
-	if (CustomLODEditMode)
+	if ((GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0))
 	{
 		for (int32 DetailLODIndex = 0; DetailLODIndex < LODCount; ++DetailLODIndex)
 		{
@@ -1067,7 +1116,7 @@ void FPersonaMeshDetails::SetLODCustomModeCheck(ECheckBoxState NewState, int32 L
 
 	if (LodCustomCategory != nullptr)
 	{
-		LodCustomCategory->SetShowAdvanced(CustomLODEditMode);
+		LodCustomCategory->SetShowAdvanced((GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0));
 	}
 }
 
@@ -1078,7 +1127,7 @@ bool FPersonaMeshDetails::IsLODCustomModeEnable(int32 LODIndex) const
 		// Custom checkbox is always enable
 		return true;
 	}
-	return CustomLODEditMode;
+	return (GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0);
 }
 
 TOptional<int32> FPersonaMeshDetails::GetLodSliderMaxValue() const
@@ -2115,6 +2164,48 @@ TSharedRef<SWidget> FPersonaMeshDetails::OnGenerateCustomNameWidgetsForSection(i
 					.Text(LOCTEXT("Isolate", "Isolate"))
 				]
 			]
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(0, 2, 0, 0)
+			[
+				SNew(SBox)
+				.Visibility(LodIndex == 0 ? EVisibility::All : EVisibility::Collapsed)
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.FillWidth(1.0f)
+					[
+						SNew(SCheckBox)
+						.IsChecked(this, &FPersonaMeshDetails::IsGenerateUpToSectionEnabled, LodIndex, SectionIndex)
+						.OnCheckStateChanged(this, &FPersonaMeshDetails::OnSectionGenerateUpToChanged, LodIndex, SectionIndex)
+						.ToolTipText(FText::Format(LOCTEXT("GenerateUpTo_ToolTip", "Generated LODs will use section {0} up to the specified value, and ignore it for lower quality LODs"), SectionIndex))
+						[
+							SNew(STextBlock)
+							.Font(IDetailLayoutBuilder::GetDetailFont())
+							.ColorAndOpacity(FLinearColor(0.4f, 0.4f, 0.4f, 1.0f))
+							.Text(LOCTEXT("GenerateUpTo", "Generate Up To"))
+						]
+					]
+					+SHorizontalBox::Slot()
+					.Padding(5, 2, 5, 0)
+					.AutoWidth()
+					[
+						SNew(SNumericEntryBox<int8>)
+						.Visibility(this, &FPersonaMeshDetails::ShowSectionGenerateUpToSlider, LodIndex, SectionIndex)
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+						.MinDesiredValueWidth(40.0f)
+						.MinValue(LodIndex)
+						//.MaxValue(1)
+						.MinSliderValue(LodIndex)
+						.MaxSliderValue(FMath::Max(8, LODCount))
+						.AllowSpin(true)
+						.Value(this, &FPersonaMeshDetails::GetSectionGenerateUpToValue, LodIndex, SectionIndex)
+						.OnValueChanged(this, &FPersonaMeshDetails::SetSectionGenerateUpToValue, LodIndex, SectionIndex)
+						.OnValueCommitted(this, &FPersonaMeshDetails::SetSectionGenerateUpToValueCommitted, LodIndex, SectionIndex)
+					]
+				]
+			]
 		]
 		+ SVerticalBox::Slot()
 		.AutoHeight()
@@ -2285,6 +2376,94 @@ void FPersonaMeshDetails::OnSectionEnabledChanged(int32 LodIndex, int32 SectionI
 	}
 }
 
+TOptional<int8> FPersonaMeshDetails::GetSectionGenerateUpToValue(int32 LodIndex, int32 SectionIndex) const
+{
+	if (!SkeletalMeshPtr.IsValid() ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels.IsValidIndex(LodIndex) ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections.IsValidIndex(SectionIndex) )
+	{
+		return TOptional<int8>(-1);
+	}
+	int8 SpecifiedLodIndex = SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections[SectionIndex].GenerateUpToLodIndex;
+	check(SpecifiedLodIndex == -1 || SpecifiedLodIndex >= LodIndex);
+	return TOptional<int8>(SpecifiedLodIndex);
+}
+
+void FPersonaMeshDetails::SetSectionGenerateUpToValue(int8 Value, int32 LodIndex, int32 SectionIndex)
+{
+	if (!SkeletalMeshPtr.IsValid() ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels.IsValidIndex(LodIndex) ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections.IsValidIndex(SectionIndex))
+	{
+		return;
+	}
+	int64 ValueKey = ((int64)LodIndex << 32) | (int64)SectionIndex;
+	if (!OldGenerateUpToSliderValues.Contains(ValueKey))
+	{
+		OldGenerateUpToSliderValues.Add(ValueKey, SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections[SectionIndex].GenerateUpToLodIndex);
+	}
+	SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections[SectionIndex].GenerateUpToLodIndex = Value;
+}
+
+void FPersonaMeshDetails::SetSectionGenerateUpToValueCommitted(int8 Value, ETextCommit::Type CommitInfo, int32 LodIndex, int32 SectionIndex)
+{
+	int64 ValueKey = ((int64)LodIndex << 32) | (int64)SectionIndex;
+	int8 OldValue;
+	bool bHasOldValue = OldGenerateUpToSliderValues.RemoveAndCopyValue(ValueKey, OldValue);
+	if (!SkeletalMeshPtr.IsValid() ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels.IsValidIndex(LodIndex) ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections.IsValidIndex(SectionIndex))
+	{
+		return;
+	}
+	
+	if (bHasOldValue)
+	{
+		//Put back the original value before registering the undo transaction
+		SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections[SectionIndex].GenerateUpToLodIndex = OldValue;
+	}
+
+	if (CommitInfo == ETextCommit::OnCleared)
+	{
+		//If the user cancel is change early exit while the value is the same as the original
+		return;
+	}
+
+	FScopedTransaction Transaction(LOCTEXT("ChangeGenerateUpTo", "Set Generate Up To"));
+
+	SkeletalMeshPtr->Modify();
+	SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections[SectionIndex].GenerateUpToLodIndex = Value;
+	SkeletalMeshPtr->PostEditChange();
+	GetPersonaToolkit()->GetPreviewScene()->InvalidateViews();
+}
+
+EVisibility FPersonaMeshDetails::ShowSectionGenerateUpToSlider(int32 LodIndex, int32 SectionIndex) const
+{
+	if (!SkeletalMeshPtr.IsValid() ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels.IsValidIndex(LodIndex) ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections.IsValidIndex(SectionIndex))
+	{
+		return EVisibility::Collapsed;
+	}
+	return SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections[SectionIndex].GenerateUpToLodIndex == -1 ? EVisibility::Collapsed : EVisibility::All;
+}
+
+ECheckBoxState FPersonaMeshDetails::IsGenerateUpToSectionEnabled(int32 LodIndex, int32 SectionIndex) const
+{
+	if (!SkeletalMeshPtr.IsValid() ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels.IsValidIndex(LodIndex) ||
+		!SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections.IsValidIndex(SectionIndex))
+	{
+		return ECheckBoxState::Unchecked;
+	}
+	return SkeletalMeshPtr->GetImportedModel()->LODModels[LodIndex].Sections[SectionIndex].GenerateUpToLodIndex != -1 ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+void FPersonaMeshDetails::OnSectionGenerateUpToChanged(ECheckBoxState NewState, int32 LodIndex, int32 SectionIndex)
+{
+	SetSectionGenerateUpToValueCommitted(NewState == ECheckBoxState::Checked ? LodIndex : -1, ETextCommit::Type::Default , LodIndex, SectionIndex);
+}
+
 void FPersonaMeshDetails::SetCurrentLOD(int32 NewLodIndex)
 {
 	if (GetPersonaToolkit()->GetPreviewMeshComponent() == nullptr)
@@ -2309,7 +2488,7 @@ void FPersonaMeshDetails::SetCurrentLOD(int32 NewLodIndex)
 
 void FPersonaMeshDetails::UpdateLODCategoryVisibility() const
 {
-	if (CustomLODEditMode == true)
+	if (GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0)
 	{
 		//Do not change the Category visibility if we are in custom mode
 		return;
@@ -2373,7 +2552,7 @@ TSharedRef<SWidget> FPersonaMeshDetails::OnGenerateLodComboBoxForLodPicker()
 EVisibility FPersonaMeshDetails::LodComboBoxVisibilityForLodPicker() const
 {
 	//No combo box when in Custom mode
-	if (CustomLODEditMode == true)
+	if (GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0)
 	{
 		return EVisibility::Hidden;
 	}
@@ -2383,7 +2562,7 @@ EVisibility FPersonaMeshDetails::LodComboBoxVisibilityForLodPicker() const
 bool FPersonaMeshDetails::IsLodComboBoxEnabledForLodPicker() const
 {
 	//No combo box when in Custom mode
-	return !CustomLODEditMode;
+	return !(GetPersonaToolkit()->GetCustomData(CustomDataKey_LODEditMode) > 0);
 }
 
 TSharedRef<SWidget> FPersonaMeshDetails::OnGenerateLodMenuForLodPicker()

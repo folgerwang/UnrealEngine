@@ -4,6 +4,18 @@
 
 #include "CoreMinimal.h"
 
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineStoreV2, Display, All);
+
+#define UE_LOG_ONLINE_STOREV2(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogOnlineStoreV2, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINE_STOREV2(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogOnlineStoreV2, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
 class FUniqueNetId;
 
 typedef FString FUniqueOfferId;

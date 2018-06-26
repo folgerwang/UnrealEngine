@@ -34,36 +34,44 @@ public:
 	UPROPERTY()
 	EAutomationState State;
 
-	UPROPERTY()
-	TArray<FAutomationArtifact> Artifacts;
-
 	FAutomatedTestResult()
 	{
+		Warnings = 0;
+		Errors = 0;
 		State = EAutomationState::NotRun;
 	}
 
-	void SetEvents(const TArray<FAutomationEvent>& InEvents, int32 InWarnings, int32 InErrors)
+	void SetEvents(const TArray<FAutomationExecutionEntry>& InEntries, int32 InWarnings, int32 InErrors)
 	{
-		Events = InEvents;
+		Entries = InEntries;
 		Warnings = InWarnings;
 		Errors = InErrors;
+	}
+
+	void SetArtifacts(const TArray<FAutomationArtifact>& InArtifacts)
+	{
+		Artifacts = InArtifacts;
 	}
 
 	int32 GetWarningTotal() const { return Warnings; }
 	int32 GetErrorTotal() const { return Errors; }
 
-	const TArray<FAutomationEvent>& GetEvents() const { return Events; }
+	const TArray<FAutomationExecutionEntry>& GetEntries() const { return Entries; }
+	TArray<FAutomationArtifact>& GetArtifacts() { return Artifacts; }
 
 private:
 
 	UPROPERTY()
-	TArray<FAutomationEvent> Events;
+	TArray<FAutomationExecutionEntry> Entries;
 
 	UPROPERTY()
 	int32 Warnings;
 
 	UPROPERTY()
 	int32 Errors;
+
+	UPROPERTY()
+	TArray<FAutomationArtifact> Artifacts;
 };
 
 USTRUCT()
@@ -517,6 +525,7 @@ private:
 
 	/** The report folder override path that may have been provided over the commandline, -ReportOutputPath="" */
 	FString ReportOutputPath;
+	FString DisplayReportOutputPath;
 
 	FString DeveloperReportUrl;
 

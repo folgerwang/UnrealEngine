@@ -652,4 +652,8 @@ void FRHICommandInvalidateCachedState::Execute(FRHICommandListBase& CmdList)
 	INTERNAL_DECORATOR(RHIInvalidateCachedState)();
 }
 
-
+void FRHICommandDiscardRenderTargets::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(RHIDiscardRenderTargets);
+	INTERNAL_DECORATOR(RHIDiscardRenderTargets)(Depth, Stencil, ColorBitMask);
+}

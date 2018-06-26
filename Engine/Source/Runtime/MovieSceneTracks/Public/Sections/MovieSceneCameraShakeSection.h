@@ -17,6 +17,7 @@ struct FMovieSceneCameraShakeSectionData
 	FMovieSceneCameraShakeSectionData()
 		: ShakeClass(nullptr)
 		, PlayScale(1.f)
+		, PlaySpace(ECameraAnimPlaySpace::CameraLocal)
 	{
 	}
 

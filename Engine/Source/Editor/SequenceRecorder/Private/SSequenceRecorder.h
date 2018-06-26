@@ -59,6 +59,7 @@ private:
 	bool IsStopAllVisible() const;
 
 	void HandleAddRecording();
+	void HandleRecordingGroupAddedToSequenceRecorder(TWeakObjectPtr<class USequenceRecorderActorGroup> ActorGroup);
 
 	bool CanAddRecording() const;
 

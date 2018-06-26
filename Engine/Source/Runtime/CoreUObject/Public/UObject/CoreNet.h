@@ -116,7 +116,7 @@ public:
 	~FClassNetCacheMgr() { ClearClassNetCache(); }
 
 	/** get the cached field to index mappings for the given class */
-	const FClassNetCache*	GetClassNetCache( const UClass* Class );
+	const FClassNetCache*	GetClassNetCache( UClass* Class );
 	void					ClearClassNetCache();
 
 	void				SortProperties( TArray< UProperty* >& Properties ) const;

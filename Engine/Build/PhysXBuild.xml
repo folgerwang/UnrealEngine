@@ -7,6 +7,7 @@
 	<Option Name="SkipBuild" DefaultValue="false" Description="Skip build"/>
 	<Option Name="SkipCreateChangelist" DefaultValue="false" Description="Whether or not to make a changelist"/>
 	<Option Name="SkipSubmit" DefaultValue="false" Description="Whether or not to submit changelist"/>
+	<Option Name="Robomerge" DefaultValue="Merge" Description="Robomerge action for this build, defaults to Merge"/>
 	<Option Name="TargetLibs" DefaultValue="PhysX+APEX" Description="Target libs"/>
 	<Option Name="TargetConfigs" DefaultValue="profile+release+checked" Description="Target Configs"/>
 	<Option Name="TargetWindowsCompilers" DefaultValue="VisualStudio2015" Description="Target Compilers"/>
@@ -35,6 +36,7 @@
 	<Property Name="OtherArgs" Value="$(OtherArgs) -SkipBuild" If="$(SkipBuild)"/>
 	<Property Name="OtherArgs" Value="$(OtherArgs) -SkipCreateChangelist" If="$(SkipCreateChangelist)"/>
 	<Property Name="OtherArgs" Value="$(OtherArgs) -SkipSubmit" If="$(SkipSubmit)"/>
+	<Property Name="OtherArgs" Value="$(OtherArgs) -Robomerge=$(Robomerge)" If="'$(Robomerge)' != ''"/>
 	
 	<Agent Name="PhysX Win32" Type="EngineWin64;PhysX_CompileWin64;Win64">
 		<Node Name="Compile PhysX Win32">

@@ -216,6 +216,12 @@ id<MTLDevice> GMetalDevice = nil;
 		static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MobileContentScaleFactor"));
 		float RequestedContentScaleFactor = CVar->GetFloat();
 
+		FString CmdLineCSF;
+		if (FParse::Value(FCommandLine::Get(), TEXT("mcsf="), CmdLineCSF, false))
+		{
+			RequestedContentScaleFactor = FCString::Atof(*CmdLineCSF);
+		}
+
 		// 0 means to leave the scale alone, use native
 		if (RequestedContentScaleFactor == 0.0f)
 		{
@@ -347,7 +353,7 @@ id<MTLDevice> GMetalDevice = nil;
 #if HAS_METAL
 - (id<CAMetalDrawable>)MakeDrawable
 {
-	return[(CAMetalLayer*)self.layer nextDrawable];
+    return [(CAMetalLayer*)self.layer nextDrawable];
 }
 #endif
 
@@ -486,6 +492,14 @@ id<MTLDevice> GMetalDevice = nil;
 		// get info from the touch
 		CGPoint Loc = [Touch locationInView:self];
 		CGPoint PrevLoc = [Touch previousLocationInView:self];
+	
+		// skip moves that didn't actually move - this will help input handling to skip over the first
+		// move since it is likely a big pop from the TouchBegan location (iOS filters out small movements
+		// on first press)
+		if (Type == TouchMoved && PrevLoc.x == Loc.x && PrevLoc.y == Loc.y)
+		{
+			continue;
+		}
 
 		// convert TOuch pointer to a unique 0 based index
 		int32 TouchIndex = [self GetTouchIndex:Touch];
@@ -494,23 +508,27 @@ id<MTLDevice> GMetalDevice = nil;
 			continue;
 		}
 
+		float Force = Touch.force;
+		// map larger values to 1..10, so 10 is a max across platforms
+		if (Force > 1.0f)
+		{
+			Force = 10.0f * Force / Touch.maximumPossibleForce;
+		}
+
+		// Handle devices without force touch 
+		if ((Type == TouchBegan || Type == TouchMoved) && Force == 0.f)
+		{
+			Force = 1.f;
+		}
+		
 		// make a new touch event struct
 		TouchInput TouchMessage;
 		TouchMessage.Handle = TouchIndex;
 		TouchMessage.Type = Type;
 		TouchMessage.Position = FVector2D(FMath::Min<float>(self.frame.size.width - 1, Loc.x), FMath::Min<float>(self.frame.size.height - 1, Loc.y)) * Scale;
 		TouchMessage.LastPosition = FVector2D(FMath::Min<float>(self.frame.size.width - 1, PrevLoc.x), FMath::Min<float>(self.frame.size.height - 1, PrevLoc.y)) * Scale;
+		TouchMessage.Force = Force;
 		TouchesArray.Add(TouchMessage);
-
-		if (Type == TouchBegan)
-		{
-			TouchInput EmulatedMessage;
-			EmulatedMessage.Handle = TouchMessage.Handle;
-			EmulatedMessage.Type = TouchMoved;
-			EmulatedMessage.Position = TouchMessage.Position;
-			EmulatedMessage.LastPosition = TouchMessage.Position;
-			TouchesArray.Add(EmulatedMessage);
-		}
 		
 		// clear out the touch when it ends
 		if (Type == TouchEnded)
@@ -1052,7 +1070,10 @@ id<MTLDevice> GMetalDevice = nil;
 	return YES;
 }
 
-
+- (UIRectEdge)preferredScreenEdgesDeferringSystemGestures
+{
+	return UIRectEdgeBottom;
+}
 
 
 

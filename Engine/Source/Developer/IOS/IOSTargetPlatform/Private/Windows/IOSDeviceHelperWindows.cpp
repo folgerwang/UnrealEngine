@@ -339,6 +339,8 @@ static FTickerDelegate TickDelegate;
 
 bool FIOSDeviceHelper::MessageTickDelegate(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FIOSDeviceHelper_MessageTickDelegate);
+
 	for (int Index = 0; Index < NotificationMessages.Num(); ++Index)
 	{
 		FDeviceNotificationCallbackInformation cbi = NotificationMessages[Index];

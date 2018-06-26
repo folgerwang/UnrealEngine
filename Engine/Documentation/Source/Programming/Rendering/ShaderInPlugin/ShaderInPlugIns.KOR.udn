@@ -9,7 +9,15 @@ Parent: Programming\Rendering\
 Order: 1
 Tags: Rendering
 
-## 토픽 리스트
+Add Banner Image
+[REGION:note]
+The Banner Image should show the user what the system, feature, or concept looks like when it's in use.
+[/REGION]
+
+
+The following documents will go over all of the various items that you need to be aware of when trying to create and use global shaders via a Plugin. 
+
+## Topic List
 
 [DIR(end:"1" output:"topic" parent:"Programming\Rendering\ShaderInPlugin" org:"Hierarchy" end:"1")]
 

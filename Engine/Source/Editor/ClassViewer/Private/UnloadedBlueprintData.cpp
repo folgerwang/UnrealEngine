@@ -4,11 +4,9 @@
 #include "Engine/BlueprintGeneratedClass.h"
 
 
-FUnloadedBlueprintData::FUnloadedBlueprintData( TWeakPtr< FClassViewerNode > InClassViewerNode )
+FUnloadedBlueprintData::FUnloadedBlueprintData(TWeakPtr<FClassViewerNode> InClassViewerNode)
+	: ClassViewerNode(InClassViewerNode)
 {
-	ClassViewerNode = InClassViewerNode;
-
-	ClassFlags = CLASS_None;
 }
 
 bool FUnloadedBlueprintData::HasAnyClassFlags( uint32 InFlagsToCheck ) const
@@ -28,7 +26,7 @@ void FUnloadedBlueprintData::SetClassFlags(uint32 InFlags)
 
 bool FUnloadedBlueprintData::IsChildOf(const UClass* InClass) const
 {
-	TSharedPtr< FClassViewerNode > CurrentNode = ClassViewerNode.Pin()->ParentNode.Pin();
+	TSharedPtr<FClassViewerNode> CurrentNode = ClassViewerNode.Pin()->ParentNode.Pin();
 
 	// Keep going through parents till you find an invalid.
 	while (CurrentNode.IsValid())
@@ -45,12 +43,28 @@ bool FUnloadedBlueprintData::IsChildOf(const UClass* InClass) const
 
 bool FUnloadedBlueprintData::ImplementsInterface(const UClass* InInterface) const
 {
-	for(int InterfaceIdx = 0; InterfaceIdx < ImplementedInterfaces.Num(); ++InterfaceIdx)
+	// Does this blueprint implement the interface directly?
+	for (const FString& DirectlyImplementedInterface : ImplementedInterfaces)
 	{
-		if(ImplementedInterfaces[InterfaceIdx] == InInterface->GetName())
+		if (DirectlyImplementedInterface == InInterface->GetName())
 		{
 			return true;
 		}
+	}
+
+	// If not, does a parent class implement the interface?
+	TSharedPtr<FClassViewerNode> CurrentNode = ClassViewerNode.Pin()->ParentNode.Pin();
+	while (CurrentNode.IsValid())
+	{
+		if (CurrentNode->Class.IsValid() && CurrentNode->Class->ImplementsInterface(InInterface))
+		{
+			return true;
+		}
+		else if (CurrentNode->UnloadedBlueprintData.IsValid() && CurrentNode->UnloadedBlueprintData->ImplementsInterface(InInterface))
+		{
+			return true;
+		}
+		CurrentNode = CurrentNode->ParentNode.Pin();
 	}
 
 	return false;
@@ -64,7 +78,7 @@ bool FUnloadedBlueprintData::IsA(const UClass* InClass) const
 
 const UClass* FUnloadedBlueprintData::GetClassWithin() const
 {
-	TSharedPtr< FClassViewerNode > CurrentNode = ClassViewerNode.Pin()->ParentNode.Pin();
+	TSharedPtr<FClassViewerNode> CurrentNode = ClassViewerNode.Pin()->ParentNode.Pin();
 
 	while (CurrentNode.IsValid())
 	{
@@ -82,12 +96,12 @@ const UClass* FUnloadedBlueprintData::GetClassWithin() const
 	return nullptr;
 }
 
-const TWeakPtr< class FClassViewerNode > FUnloadedBlueprintData::GetClassViewerNode() const
+const TWeakPtr<FClassViewerNode>& FUnloadedBlueprintData::GetClassViewerNode() const
 {
 	return ClassViewerNode;
 }
 
-void FUnloadedBlueprintData::AddImplementedInterfaces(FString& InterfaceName)
+void FUnloadedBlueprintData::AddImplementedInterface(const FString& InterfaceName)
 {
 	ImplementedInterfaces.Add(InterfaceName);
 }

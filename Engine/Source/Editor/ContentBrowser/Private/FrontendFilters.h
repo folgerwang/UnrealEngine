@@ -41,6 +41,15 @@ public:
 	/** If bIncludeClassName is true, the text filter will include an asset's class name in the search */
 	void SetIncludeClassName(const bool InIncludeClassName);
 
+	/** If bIncludeAssetPath is true, the text filter will match against full Asset path */
+	void SetIncludeAssetPath(const bool InIncludeAssetPath);
+
+	bool GetIncludeAssetPath() const;
+
+	/** If bIncludeCollectionNames is true, the text filter will match against collection names as well */
+	void SetIncludeCollectionNames(const bool InIncludeCollectionNames);
+
+	bool GetIncludeCollectionNames() const;
 private:
 	/** Handles an on collection created event */
 	void HandleCollectionCreated(const FCollectionNameType& Collection);
@@ -293,6 +302,27 @@ public:
 private:
 	class IAssetRegistry* AssetRegistry;
 	TSet<FName> LevelsDependencies;
+};
+
+/** A filter that displays recently opened assets */
+class FFrontendFilter_Recent : public FFrontendFilter
+{
+public:
+	FFrontendFilter_Recent(TSharedPtr<FFrontendFilterCategory> InCategory);
+	~FFrontendFilter_Recent();
+
+	// FFrontendFilter implementation
+	virtual FString GetName() const override { return TEXT("Modified"); }
+	virtual FText GetDisplayName() const override { return LOCTEXT("FrontendFilter_Recent", "Recently Opened"); }
+	virtual FText GetToolTipText() const override { return LOCTEXT("FrontendFilter_RecentTooltip", "Show only recently opened assets."); }
+	virtual void ActiveStateChanged(bool bActive) override;
+
+	// IFilter implementation
+	virtual bool PassesFilter(FAssetFilterType InItem) const override;
+
+	void ResetFilter(FName InName);
+private:
+	bool bIsCurrentlyActive;
 };
 
 #undef LOCTEXT_NAMESPACE

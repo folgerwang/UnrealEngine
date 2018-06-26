@@ -183,6 +183,12 @@ void FSlateFontInfo::PostSerialize(const FArchive& Ar)
 }
 #endif
 
+void FSlateFontInfo::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	Collector.AddReferencedObject(FontObject);
+	Collector.AddReferencedObject(FontMaterial);
+	Collector.AddReferencedObject(OutlineSettings.OutlineMaterial);
+}
 
 void FSlateFontInfo::UpgradeLegacyFontInfo(FName LegacyFontName, EFontHinting LegacyHinting)
 {

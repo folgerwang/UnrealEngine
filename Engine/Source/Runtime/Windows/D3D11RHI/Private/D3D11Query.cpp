@@ -6,6 +6,12 @@
 
 #include "D3D11RHIPrivate.h"
 
+
+FGPUFenceRHIRef FD3D11DynamicRHI::RHICreateGPUFence(const FName &Name)
+{
+	return new FD3D11GPUFence(Name);
+}
+
 void FD3D11DynamicRHI::RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch)
 {
 	check(RequestedOcclusionQueriesInBatch == 0);
@@ -111,12 +117,6 @@ bool FD3D11DynamicRHI::GetQueryData(ID3D11Query* Query,void* Data,SIZE_T DataSiz
 		double StartTime = FPlatformTime::Seconds();
 		do 
 		{
-			bool bGPUAlive = GDynamicRHI->CheckGpuHeartbeat();
-			if (!bGPUAlive)
-			{
-				UE_LOG(LogD3D11RHI, Fatal, TEXT("GPU has crashed"));
-				return false;
-			}
 			Result = Direct3DDeviceIMContext->GetData(Query,Data,DataSize,0);
 
 			// timer queries are used for Benchmarks which can stall a bit more

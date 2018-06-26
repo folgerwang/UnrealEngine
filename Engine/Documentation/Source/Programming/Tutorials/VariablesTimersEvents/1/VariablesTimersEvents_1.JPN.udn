@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2621690
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1.タイマーを使用したアクタの作成
 Crumbs:%ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/VariablesTimersEvents
@@ -15,14 +15,14 @@ version:4.9
 		[](Programming\Tutorials\VariablesTimersEvents)
 	[/PARAM]
 	[PARAM:next]
-		[Next Step](Programming\Tutorials\VariablesTimersEvents\2 "%Programming\Tutorials\VariablesTimersEvents\2:title%")
+		[次のステップ](Programming\Tutorials\VariablesTimersEvents\2 "%Programming\Tutorials\VariablesTimersEvents\2:title%")
 	[/PARAM]
 [/OBJECT]
 [/VAR]
 
 
 
-[REGION:tip] **アンリアルエンジン 4** 初心者の方は、最初に [%Programming\QuickStart:title% tutorial](Programming\QuickStart) をお読みください。このチュートリアルでは、プロジェクトの作成とプロジェクトに C++ コードを追加できることを前提にしています。[/REGION]
+[REGION:tip] **アンリアルエンジン 4 (UE4)** にまだ慣れていない場合は、最初に [%Programming\QuickStart:title% tutorial](Programming\QuickStart) をお読みください。このチュートリアルでは、プロジェクトの作成とプロジェクトに C++ コードを追加できることを前提にしています。[/REGION]
 
 1. まず「HowTo_VTE」という名前のスターターコンテンツを使用して、新規で Basic Code (基本コード) プロジェクトを作成し、 **Actor** クラスを追加します。このチュートリアルでは「Countdown」と名前を付けます。
 
@@ -30,7 +30,7 @@ version:4.9
 
 	[![](NameYourActor.png)](NameYourActor.png)
 
-1. ゲームに表示するシンプルなカウントダウンタイマーの作成から始めます。「Countdown.h」で、クラス定義の最後に以下の行を追加します。
+1. ゲームに表示するシンプルなカウントダウンタイマーの作成から始めます。「Countdown.h」ファイルで、クラス定義の最後に以下の行を追加します。
 
 		int32 CountdownTime;
 
@@ -38,7 +38,7 @@ version:4.9
 
 		void UpdateTimerDisplay();
 
-1. `Countdown.cpp` に、レンダリング可能なテキスト **コンポーネント** を作成して、カウントダウン時間を 3 秒に初期化します。このタイプの **アクタ** には必要ないため、**Ticking** をオフにすることもできます。**ACountdown::ACountdown** は、以下のようになります。
+1. `Countdown.cpp` に、レンダリング可能なテキスト**Component** を作成して、カウントダウン時間を 3 秒に初期化します。このタイプの **アクタ** には必要ないため、**Ticking** をオフにすることもできます。**ACountdown::ACountdown** は、以下のようになります。
 
 		PrimaryActorTick.bCanEverTick = false;
 
@@ -72,7 +72,7 @@ version:4.9
 			UpdateTimerDisplay();
 			if (CountdownTime < 1)
 			{
-				//カウントダウン終了。タイマーを終了します。
+				//カウントダウンを終了したのでタイマーの実行を停止します。
 				GetWorldTimerManager().ClearTimer(CountdownTimerHandle);
 				CountdownHasFinished();
 			}
@@ -89,133 +89,126 @@ version:4.9
 		UpdateTimerDisplay();
 		GetWorldTimerManager().SetTimer(CountdownTimerHandle, this, &ACountdown::AdvanceTimer, 1.0f, true);
 
-	[REGION:note]**アンリアル エディタ** の変数に設定する値は **BeginPlay** の前ではなくコンストラクタの後に割り当てられるため、表示は **ACountdown::ACountdown** ではなく **ACountdown::BeginPlay** で更新します。後でエディタへ CountdownTime を公開する時にこれらの値を尊重します。[/REGION]
+	[REGION:note]ACountdown::ACountdown ではなく、ACountdown::BeginPlay の表示を更新しています。**Unreal Editor** で変数に設定されている値は、コンストラクタの後で、**BeginPlay** の前に割り当てられるからです。後でエディタへ CountdownTime を公開する時にこれらの値に従います。[/REGION]
 
 1. **アンリアルエディタ** へ移動して **Compile (コンパイル)** を押して、これまでの作業進捗を確認しましょう。
 
 	[![](CompileFromEditor.png)](CompileFromEditor.png)
 
-	更新した **ACountdown** クラスは **コンテンツブラウザ** から **レベルエディタ** へドロップが可能になります。
+	更新した ACountdown クラスを、**コンテンツブラウザ** から **レベル エディタ** へドラッグできます。
 
 	[![](ClassInContentBrowser.png)](ClassInContentBrowser.png)
 
 	[![](LevelEditorText.png)](LevelEditorText.png)
 
-	[REGION:note]カウントダウン テキストは **ACountdown::ACountdown** ではなく **ACountdown::BeginPlay** で設定するため、デフォルトの "Text" は **レベルエディタ** に表示されます。[/REGION]
+	[REGION:note]カウントダウン テキストは ACountdown::ACountdown ではなく ACountdown::BeginPlay 中に設定するため、デフォルトの "Text" が **レベルエディタ** に表示されます。[/REGION]
 	**Play (再生)** を押すと、予定通りカウントダウンが始まって、 "3"、 "2"、 "1"、 最後に "GO!" となります。
 
-----
+この時点で、タイマーを使用するシンプルなクラスを作成済みです。プログラミングをしないユーザーは、カウントダウン時間を設定したり、カウントダウン終了時の挙動を変更するとさらに活用できます。次にこうした機能をエディタに公開します。
 
-この時点で、タイマーを使用するシンプルなクラスを作成済みです。プログラミングをしないユーザーは、カウントダウン時間を設定したり、カウントダウン終了時のビヘイビアを変更するとさらに活用できます。次にこれらの機能をエディタに公開します。
+## 作業中のコード
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    コード
-    [/PARAMLITERAL]
-    [PARAM:heading]
-	    作業中のコード
-    [/PARAM]
-    [PARAM:content]
-		**Countdown.h**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+**Countdown.h**
 
-			#pragma once
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-			#include "GameFramework/Actor.h"
-			#include "Countdown.generated.h"
+	#pragma once
 
-			UCLASS()
-			class HOWTO_VTE_API ACountdown : public AActor
-			{
-				GENERATED_BODY()
+	#include "GameFramework/Actor.h"
+	#include "Countdown.generated.h"
+
+	UCLASS()
+	class HOWTO_VTE_API ACountdown : public AActor
+	{
+		GENERATED_BODY()
 	public:
 
-				// このアクタのプロパティのデフォルト値を設定します。
-				ACountdown();
+		// Sets default values for this actor's properties (このアクタのプロパティのデフォルト値を設定)
+		ACountdown();
 
-				// ゲーム開始またはスポーン時に呼び出されます。
-				virtual void BeginPlay() override;
-	// フレームごとに呼び出されます。
+	protected:
+		// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
+		virtual void BeginPlay() override;
+	public:
 
-				virtual void Tick( float DeltaSeconds ) override;
+		// Called every frame (フレーム毎に呼び出されます)
+		virtual void Tick( float DeltaSeconds ) override;
 
-				// カウントダウンの実行時間 (秒)
-				int32 CountdownTime;
+		// カウントダウンの実行時間 (秒)
+		int32 CountdownTime;
 
-				UTextRenderComponent* CountdownText;
+		UTextRenderComponent* CountdownText;
 
-				void UpdateTimerDisplay();
+		void UpdateTimerDisplay();
 
-				void AdvanceTimer();
+		void AdvanceTimer();
 
-				void CountdownHasFinished();
+		void CountdownHasFinished();
 
-				FTimerHandle CountdownTimerHandle;
-			};
+		FTimerHandle CountdownTimerHandle;
+	};
 
 
-		**Countdown.cpp**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+**Countdown.cpp**
 
-			#include "HowTo_VTE.h"
-			#include "Countdown.h"
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-			// デフォルト値を設定
-			ACountdown::ACountdown()
-			{
- 				// フレーム毎に Tick() を呼び出すようにこのアクタを設定必要がなければパフォーマンスを向上させるためにオフにすることができます。
-				PrimaryActorTick.bCanEverTick = false;
+	#include "HowTo_VTE.h"
+	#include "Countdown.h"
+
+	// Sets default values (デフォルト値を設定) 
+	ACountdown::ACountdown()
+	{
+ 		// Set this actor to call Tick() every frame. (フレーム毎に Tick() を呼び出すようにこのアクタを設定) You can turn this off to improve performance if you don't need it. (必要がなければパフォーマンスを向上させるためにオフにすることができます) 
+		PrimaryActorTick.bCanEverTick = false;
 	CountdownText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("CountdownNumber"));
 
-				CountdownText->SetHorizontalAlignment(EHTA_Center);
-				CountdownText->SetWorldSize(150.0f);
-				RootComponent = CountdownText;
+		CountdownText->SetHorizontalAlignment(EHTA_Center);
+		CountdownText->SetWorldSize(150.0f);
+		RootComponent = CountdownText;
 
-				CountdownTime = 3;
-			}
+		CountdownTime = 3;
+	}
 
-			// ゲーム開始またはスポーン時に呼び出されます。
-			void ACountdown::BeginPlay()
-			{
-				Super::BeginPlay();
+	// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
+	void ACountdown::BeginPlay()
+	{
+		Super::BeginPlay();
 	UpdateTimerDisplay();
 
-				GetWorldTimerManager().SetTimer(CountdownTimerHandle, this, &ACountdown::AdvanceTimer, 1.0f, true);
-			}
+		GetWorldTimerManager().SetTimer(CountdownTimerHandle, this, &ACountdown::AdvanceTimer, 1.0f, true);
+	}
 
-			// フレームごとに呼び出されます。
-			void ACountdown::Tick( float DeltaTime )
-			{
-				Super::Tick( DeltaTime );
+	// Called every frame (フレーム毎に呼び出されます)
+	void ACountdown::Tick( float DeltaTime )
+	{
+		Super::Tick( DeltaTime );
 
-			}
+	}
 
-			void ACountdown::UpdateTimerDisplay()
-			{
-				CountdownText->SetText(FString::FromInt(FMath::Max(CountdownTime, 0)));
-			}
+	void ACountdown::UpdateTimerDisplay()
+	{
+		CountdownText->SetText(FString::FromInt(FMath::Max(CountdownTime, 0)));
+	}
 
-			void ACountdown::AdvanceTimer()
-			{
-				--CountdownTime;
-				UpdateTimerDisplay();
-				if (CountdownTime < 1)
-				{
-					//カウントダウンを終了したのでタイマーの実行を停止します。
-					GetWorldTimerManager().ClearTimer(CountdownTimerHandle);
-					//タイマー終了時に任意の特別なアクションを実行。
-					CountdownHasFinished();
-				}
-			}
+	void ACountdown::AdvanceTimer()
+	{
+		--CountdownTime;
+		UpdateTimerDisplay();
+		if (CountdownTime < 1)
+		{
+			//カウントダウンを終了したのでタイマーの実行を停止します。
+			GetWorldTimerManager().ClearTimer(CountdownTimerHandle);
+			//タイマー終了時に任意の特別なアクションを実行。
+			CountdownHasFinished();
+		}
+	}
 
-			void ACountdown::CountdownHasFinished()
-			{
-				//特別な読み出しに変更
-				CountdownText->SetText(TEXT("GO!"));
-			}
+	void ACountdown::CountdownHasFinished()
+	{
+		//特別な読み出しに変更
+		CountdownText->SetText(TEXT("GO!"));
+	}
 
-
-    [/PARAM]
-[/OBJECT]
 
 

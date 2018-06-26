@@ -723,7 +723,12 @@ namespace UnrealBuildTool
 			return RemoteFileItem;
 		}
 
-        public FileItem RemoteToLocalFileItem(FileItem RemoteFileItem)
+		public override void DoLocalToRemoteFileItem(FileItem LocalFileItem)
+		{
+			LocalToRemoteFileItem(LocalFileItem, true);
+		}
+
+		public FileItem RemoteToLocalFileItem(FileItem RemoteFileItem)
         {
             // Look to see if we've already made a remote FileItem for this local FileItem
             foreach (KeyValuePair<FileItem, FileItem> Item in CachedRemoteFileItems)
@@ -957,7 +962,8 @@ namespace UnrealBuildTool
 				// --exclude='*'  ??? why???
 				RsyncProcess.StartInfo.FileName = ResolvedRSyncExe;
                 RsyncProcess.StartInfo.Arguments = string.Format(
-                    "-vzrltgoDe \"{0}\" --rsync-path=\"mkdir -p {2} && rsync\" --chmod=ug=rwX,o=rxX --delete --files-from=\"{4}\" --include-from=\"{5}\" --include='*/' --exclude='*.o' --exclude='Timestamp' '{1}' \"{6}@{3}\":'{2}'",
+					//"-vzrltgoDe \"{0}\" --rsync-path=\"mkdir -p {2} && rsync\" --chmod=ug=rwX,o=rxX --delete --files-from=\"{4}\" --include-from=\"{5}\" --include='*/' --exclude='*.o' --exclude='Timestamp' '{1}' \"{6}@{3}\":'{2}'",
+					"-vzrltgoDe \"{0}\" --rsync-path=\"mkdir -p {2} && rsync\" --chmod=ug=rwX,o=rxX --delete --files-from=\"{4}\" --include-from=\"{5}\" --include='*/' --exclude='Timestamp' '{1}' \"{6}@{3}\":'{2}'",
 					ResolvedRsyncAuthentication,
 					CygRootPath,
 					RemotePath,

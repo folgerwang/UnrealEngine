@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if USE_ANDROID_JNI
+
 #include "CoreMinimal.h"
 #include "Widgets/SLeafWidget.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
@@ -113,3 +115,5 @@ private:
 	/** Texture sample object pool. */
 	FWebBrowserTextureSamplePool* TextureSamplePool;
 };
+
+#endif // USE_ANDROID_JNI

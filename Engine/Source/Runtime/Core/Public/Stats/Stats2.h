@@ -1093,7 +1093,11 @@ struct EStatMessagesArrayConstants
 {
 	enum
 	{
+#if WITH_EDITOR
+		MESSAGES_CHUNK_SIZE = 4*1024, // Smaller chunks prevent malloc deadlocks when running in the editor with TBB allocator
+#else
 		MESSAGES_CHUNK_SIZE = 64*1024,
+#endif
 	};
 };
 typedef TChunkedArray<FStatMessage,(uint32)EStatMessagesArrayConstants::MESSAGES_CHUNK_SIZE> FStatMessagesArray;

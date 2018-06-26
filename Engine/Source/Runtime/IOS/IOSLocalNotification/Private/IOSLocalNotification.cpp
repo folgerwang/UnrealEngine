@@ -35,6 +35,7 @@ public:
 	}
 
 #if !PLATFORM_TVOS
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	static UILocalNotification* CreateLocalNotification(const FDateTime& FireDateTime, bool bLocalTime, const FString& ActivationEvent)
 	{
 		UIApplication* application = [UIApplication sharedApplication];
@@ -74,6 +75,7 @@ public:
 		}
 		return localNotif;
 	}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 #endif
 };
 
@@ -91,15 +93,18 @@ FIOSLocalNotificationService::FIOSLocalNotificationService()
 void FIOSLocalNotificationService::ClearAllLocalNotifications()
 {
 #if !PLATFORM_TVOS
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	UIApplication* application = [UIApplication sharedApplication];
 	
 	[application cancelAllLocalNotifications];
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 #endif
 }
 
 void FIOSLocalNotificationService::ScheduleLocalNotificationAtTime(const FDateTime& FireDateTime, bool LocalTime, const FText& Title, const FText& Body, const FText& Action, const FString& ActivationEvent)
 {
 #if !PLATFORM_TVOS
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	UILocalNotification *localNotif = FIOSLocalNotificationModule::CreateLocalNotification(FireDateTime, LocalTime, ActivationEvent);
 	if (localNotif == nil)
 		return;
@@ -129,12 +134,14 @@ void FIOSLocalNotificationService::ScheduleLocalNotificationAtTime(const FDateTi
 	localNotif.applicationIconBadgeNumber = 1;
 
 	[[UIApplication sharedApplication] scheduleLocalNotification:localNotif];
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 #endif
 }
 
 void FIOSLocalNotificationService::ScheduleLocalNotificationBadgeAtTime(const FDateTime& FireDateTime, bool LocalTime, const FString& ActivationEvent)
 {
 #if !PLATFORM_TVOS
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	UILocalNotification *localNotif = FIOSLocalNotificationModule::CreateLocalNotification(FireDateTime, LocalTime, ActivationEvent);
 	if (localNotif == nil)
 		return;
@@ -145,6 +152,7 @@ void FIOSLocalNotificationService::ScheduleLocalNotificationBadgeAtTime(const FD
 	localNotif.applicationIconBadgeNumber = 1;
 
 	[[UIApplication sharedApplication] scheduleLocalNotification:localNotif];
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 #endif
 }
 

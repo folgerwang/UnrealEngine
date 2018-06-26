@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2695309
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Infiltrator デモ
 Crumbs:%ROOT%, Resources,
@@ -9,46 +9,9 @@ Related:Engine/Rendering/ParticleSystems
 Related:Engine/Animation
 Related:Engine/Content/Tools/MayaRiggingTool
 Version:4.9
-SkillLevel:Intermediate
+Skilllevel:Intermediate
+topic-image:Infiltrator_Topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/Showcases/Infiltrator:title%](Infiltrator_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/Infiltrator:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/Infiltrator:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/Infiltrator]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/Showcases/Infiltrator:title%](Infiltrator_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/Infiltrator:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/Infiltrator:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/Infiltrator]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 ![](Infiltrator_Page_Header.png)
 
@@ -60,7 +23,7 @@ Infiltrator デモの作成に使う UE4 専用ツールのいくつかに焦点
 リファレンス ライティングのある新規プロジェクトで Infiltrator のアセットを使用する場合は、Infiltrator のコンテンツがそのコンテンツに合うように、若干調整する必要があることに留意してください。
 [/region]
 
-##位置
+## 格納場所:
 Infiltrator プロジェクトは、エピック ゲームス ランチャーの **[Learn Tab (学習タブ)]** にある **[Engine Features Samples]** セクションからダウンロードすることができます。 
 
  ![](Infiltrator_Launcher_Location.png)
@@ -70,7 +33,7 @@ Infiltrator プロジェクトは、エピック ゲームス ランチャーの
 Infiltrator デモは、UE4 が提供しているほとんどすべてのツールで活用することができます。 
 以下のセクションでは、詳細ドキュメントへのリンクと合わせてこれらのツールの説明をします。
 
-### マチネ 
+### Matinee 
 
 ![](Infiltrator_Matinee.png)
 

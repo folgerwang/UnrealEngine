@@ -5,32 +5,14 @@
 #include "CoreMinimal.h"
 #include "Stats/Stats.h"
 
-#ifndef SLATE_DYNAMIC_PREPASS
-	#define SLATE_DYNAMIC_PREPASS 0
-#endif
-
-#ifndef SLATE_CHECK_UOBJECT_RENDER_RESOURCES
-	#define SLATE_CHECK_UOBJECT_RENDER_RESOURCES 0
-#endif
+#define SLATE_CHECK_UOBJECT_RENDER_RESOURCES !UE_BUILD_SHIPPING
 
 #ifndef SLATE_PARENT_POINTERS
 	#define SLATE_PARENT_POINTERS 0
 #endif
 
-#ifndef SLATE_FAST_WIDGET_PATH
-	#define SLATE_FAST_WIDGET_PATH 0
-#else
-	#ifndef SLATE_PARENT_POINTERS
-		COMPILE_ERROR("SLATE_FAST_WIDGET_PATH Requires SLATE_PARENT_POINTERS")
-	#endif
-#endif
-
-#ifndef SLATE_LAYOUT_CHANGE
-	#define SLATE_LAYOUT_CHANGE 0
-#else
-	#ifndef SLATE_PARENT_POINTERS
-		COMPILE_ERROR("SLATE_LAYOUT_CHANGE Requires SLATE_PARENT_POINTERS")
-	#endif
+#ifndef SLATE_CULL_WIDGETS
+	#define SLATE_CULL_WIDGETS 1
 #endif
 
 /* Globals
@@ -69,6 +51,12 @@ DECLARE_STATS_GROUP(TEXT("Slate Memory"), STATGROUP_SlateMemory, STATCAT_Advance
 DECLARE_STATS_GROUP(TEXT("Slate"), STATGROUP_Slate, STATCAT_Advanced);
 DECLARE_STATS_GROUP_VERBOSE(TEXT("SlateVerbose"), STATGROUP_SlateVerbose, STATCAT_Advanced);
 DECLARE_STATS_GROUP_MAYBE_COMPILED_OUT(TEXT("SlateVeryVerbose"), STATGROUP_SlateVeryVerbose, STATCAT_Advanced, WITH_VERY_VERBOSE_SLATE_STATS);
+
+/** Whether or not dynamic prepass and layout caching is enabled */
+extern SLATECORE_API int32 GSlateLayoutCaching;
+
+/** Whether or not we've enabled fast widget pathing which validates paths to widgets without arranging children. */
+extern SLATECORE_API int32 GSlateFastWidgetPath;
 
 /* Forward declarations
 *****************************************************************************/

@@ -462,6 +462,19 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Determine whether a BuildProduct Type is NonUFS or DebugNonUFS
+		/// </summary>
+		/// <param name="BuildProduct">The build product to check</param>
+		public static StagedFileType GetStageTypeFromBuildProductType(BuildProduct BuildProduct)
+		{
+			if (BuildProduct.Type == BuildProductType.SymbolFile || BuildProduct.Type == BuildProductType.MapFile)
+			{
+				return StagedFileType.DebugNonUFS;
+			}
+			return StagedFileType.NonUFS;
+		}
+
+		/// <summary>
 		/// Read a receipt from disk.
 		/// </summary>
 		/// <param name="Location">Filename to read from</param>

@@ -915,6 +915,7 @@ public:
 	//~ Begin UObject Interface
 	virtual void PostInterpChange(UProperty* PropertyThatChanged) override;
 	virtual void BeginDestroy() override;
+	virtual bool IsPostLoadThreadSafe() const override;
 #if WITH_EDITORONLY_DATA
 	virtual void Serialize(FArchive& Ar) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
@@ -1557,7 +1558,7 @@ public:
 	void ForceOverlapUpdate();
 
 	/** Registers that this move is a teleport */
-	void SetHasTeleported();
+	void SetHasTeleported(ETeleportType InTeleportType);
 
 	//--------------------------------------------------------------------------------------------------------//
 
@@ -1584,11 +1585,9 @@ protected:
 
 	USceneComponent* Owner;
 	FScopedMovementUpdate* OuterDeferredScope;
-	uint32 bDeferUpdates:1;
-	uint32 bHasMoved:1;
-	uint32 bHasTeleported:1;
-	uint32 bRequireOverlapsEventFlag:1;
+
 	EOverlapState CurrentOverlapState;
+	ETeleportType TeleportType;
 
 	FTransform InitialTransform;
 	FVector InitialRelativeLocation;
@@ -1598,6 +1597,10 @@ protected:
 	int32 FinalOverlapCandidatesIndex;		// If not INDEX_NONE, overlaps at this index and beyond in PendingOverlaps are at the final destination
 	TArray<FOverlapInfo> PendingOverlaps;	// All overlaps encountered during the scope of moves.
 	TBlockingHitArray BlockingHits;			// All blocking hits encountered during the scope of moves.
+
+	uint8 bDeferUpdates:1;
+	uint8 bHasMoved:1;
+	uint8 bRequireOverlapsEventFlag:1;
 
 	friend class USceneComponent;
 };
@@ -1665,9 +1668,10 @@ FORCEINLINE_DEBUGGABLE void FScopedMovementUpdate::ForceOverlapUpdate()
 	FinalOverlapCandidatesIndex = INDEX_NONE;
 }
 
-FORCEINLINE_DEBUGGABLE void FScopedMovementUpdate::SetHasTeleported()
+FORCEINLINE_DEBUGGABLE void FScopedMovementUpdate::SetHasTeleported(ETeleportType InTeleportType)
 {
-	bHasTeleported = true;
+	// Request an initialization. Teleport type can only go higher - i.e. if we have requested a reset, then a teleport will still reset fully
+	TeleportType = ((InTeleportType > TeleportType) ? InTeleportType : TeleportType); 
 }
 
 FORCEINLINE_DEBUGGABLE class FScopedMovementUpdate* USceneComponent::GetCurrentScopedMovement() const

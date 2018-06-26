@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3482403
-Availability:Public
+﻿Availability:Public
 Crumbs: %ROOT%
 Title:Sculpt
 Description:Sculpt ペイント ツールの概要です。
@@ -12,7 +11,7 @@ Topic-image:Landscape_Sculpt_topic.png
 
 [TOC(start:2 end:2)]
 
-**Sculpt** ツールは、選択中のブラシとフォールオフという形でランドスケープの高さの上げ下げをします。 
+**Sculpt** ツールは、選択中のブラシとフォールオフという形でランドスケープに起伏を付けます。 
 
 ## Sculpt ツールの使用方法
 

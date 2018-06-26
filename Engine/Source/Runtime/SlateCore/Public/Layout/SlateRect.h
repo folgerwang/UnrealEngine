@@ -3,9 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
-struct FMargin;
-struct Rect;
+#include "Layout/Margin.h"
 
 /** 
  * A rectangle defined by upper-left and lower-right corners.
@@ -140,7 +138,10 @@ public:
 	 *
 	 * @return An inset rectangle.
 	 */
-	FSlateRect InsetBy( const struct FMargin& InsetAmount ) const;
+	FORCEINLINE FSlateRect InsetBy(const struct FMargin& InsetAmount) const
+	{
+		return FSlateRect(Left + InsetAmount.Left, Top + InsetAmount.Top, Right - InsetAmount.Right, Bottom - InsetAmount.Bottom);
+	}
 
 	/**
 	 * Return a rectangle that is extended on each side by the amount specified in each margin.
@@ -149,7 +150,10 @@ public:
 	 *
 	 * @return An extended rectangle.
 	 */
-	FSlateRect ExtendBy(const FMargin& ExtendAmount) const;
+	FORCEINLINE FSlateRect ExtendBy(const FMargin& ExtendAmount) const
+	{
+		return FSlateRect(Left - ExtendAmount.Left, Top - ExtendAmount.Top, Right + ExtendAmount.Right, Bottom + ExtendAmount.Bottom);
+	}
 
 	/**
 	 * Return a rectangle that is offset by the amount specified .
@@ -158,7 +162,23 @@ public:
 	 *
 	 * @return An offset rectangle.
 	 */
-	FSlateRect OffsetBy( const FVector2D& OffsetAmount ) const;
+	FORCEINLINE FSlateRect OffsetBy( const FVector2D& OffsetAmount ) const
+	{
+		return FSlateRect(GetTopLeft() + OffsetAmount, GetBottomRight() + OffsetAmount);
+	}
+
+	/**
+	 * Return a rectangle that is scaled by the amount specified.
+	 *
+	 * @param ScaleBy The amount to scale the geometry.
+	 *
+	 * @return An scaled rectangle.
+	 */
+	FORCEINLINE FSlateRect ScaleBy(float ScaleBy) const
+	{
+		const FVector2D Delta = GetSize() * 0.5f * ScaleBy;
+		return ExtendBy(FMargin(Delta));
+	}
 
 	/**
 	 * Returns the rect that encompasses both rectangles
@@ -167,7 +187,7 @@ public:
 	 *
 	 * @return	Rectangle that is big enough to fit both rectangles
 	 */
-	FSlateRect Expand( const FSlateRect& Other ) const
+	FORCEINLINE FSlateRect Expand( const FSlateRect& Other ) const
 	{
 		return FSlateRect( FMath::Min( Left, Other.Left ), FMath::Min( Top, Other.Top ), FMath::Max( Right, Other.Right ), FMath::Max( Bottom, Other.Bottom ) );
 	}
@@ -175,7 +195,7 @@ public:
 	/**
 	 * Rounds the Left, Top, Right and Bottom fields and returns a new FSlateRect with rounded components.
 	 */
-	FSlateRect Round() const
+	FORCEINLINE FSlateRect Round() const
 	{
 		return FSlateRect(
 			FMath::RoundToFloat(Left),
@@ -282,7 +302,7 @@ public:
 	}
 
 	/** Is rectangle B contained within rectangle A? */
-	static bool IsRectangleContained( const FSlateRect& A, const FSlateRect& B )
+	FORCEINLINE static bool IsRectangleContained( const FSlateRect& A, const FSlateRect& B )
 	{
 		return (A.Left <= B.Left) && (A.Right >= B.Right) && (A.Top <= B.Top) && (A.Bottom >= B.Bottom);
 	}
@@ -292,10 +312,7 @@ public:
 	*
 	* @return	A string of the rect coordinates 
 	*/
-	FString ToString() const
-	{
-		return FString::Printf(TEXT("Left=%3.3f Top=%3.3f Right=%3.3f Bottom=%3.3f"), Left, Top, Right, Bottom);
-	}
+	FString ToString() const;
 
 	/**
 	* Returns a string of containing the coordinates of the rect
@@ -304,16 +321,7 @@ public:
 	*
 	* @return	True if initialized successfully
 	*/
-	bool InitFromString(const FString& InSourceString)
-	{
-		// The initialization is only successful if the values can all be parsed from the string
-		const bool bSuccessful = FParse::Value(*InSourceString, TEXT("Left="), Left) && 
-								FParse::Value(*InSourceString, TEXT("Top="), Top) && 
-								FParse::Value(*InSourceString, TEXT("Right="), Right) && 
-								FParse::Value(*InSourceString, TEXT("Bottom="), Bottom);
-
-		return bSuccessful;
-	}
+	bool InitFromString(const FString& InSourceString);
 };
 
 /**

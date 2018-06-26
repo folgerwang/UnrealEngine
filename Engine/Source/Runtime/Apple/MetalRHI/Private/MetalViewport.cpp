@@ -21,6 +21,15 @@ extern int32 GMetalSeparatePresentThread;
 extern int32 GMetalNonBlockingPresent;
 extern float GMetalPresentFramePacing;
 
+#if PLATFORM_IOS
+int32 GEnablePresentPacing = 0;
+static FAutoConsoleVariableRef CVarMetalEnablePresentPacing(
+	   TEXT("ios.PresentPacing"),
+	   GEnablePresentPacing,
+	   TEXT(""),
+		ECVF_Default);
+#endif
+
 #if PLATFORM_MAC
 
 // Quick way to disable availability warnings is to duplicate the definitions into a new type - gotta love ObjC dynamic-dispatch!
@@ -292,9 +301,10 @@ mtlpp::Drawable FMetalViewport::GetDrawable(EMetalViewportAccessFlag Accessor)
 
 	#else
 			CGSize Size;
+			IOSAppDelegate* AppDelegate = [IOSAppDelegate GetDelegate];
 			do
 			{
-				Drawable = [[IOSAppDelegate GetDelegate].IOSView MakeDrawable];
+				Drawable = [AppDelegate.IOSView MakeDrawable];
 				Size.width = ((id<CAMetalDrawable>)Drawable).texture.width;
 				Size.height = ((id<CAMetalDrawable>)Drawable).texture.height;
 			}
@@ -376,7 +386,11 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 	
 	if (!Block)
 	{
-		Block = Block_copy(^(uint32 InDisplayID)
+#if !PLATFORM_MAC
+		uint32 FramePace = FPlatformRHIFramePacer::GetFramePace();
+		float MinPresentDuration = FramePace ? (1.0f / (float)FramePace) : 0.0f;
+#endif
+		Block = Block_copy(^(uint32 InDisplayID, double OutputSeconds, double OutputDuration)
 		{
 			bool bIsInLiveResize = false;
 #if PLATFORM_MAC
@@ -397,6 +411,11 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 						mtlpp::CommandBuffer CurrentCommandBuffer = CommandQueue.CreateCommandBuffer();
 						check(CurrentCommandBuffer);
 						
+#if ENABLE_METAL_GPUPROFILE
+						FMetalProfiler* Profiler = FMetalProfiler::GetProfiler();
+						FMetalCommandBufferStats* Stats = Profiler->AllocateCommandBuffer(CurrentCommandBuffer, 0);
+#endif
+						
 						if (GMetalSupportsIntermediateBackBuffer)
 						{
 							TRefCountPtr<FMetalTexture2D> Texture = LastCompleteFrame;
@@ -410,10 +429,24 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 							
 							mtlpp::BlitCommandEncoder Encoder = CurrentCommandBuffer.BlitCommandEncoder();
 							check(Encoder.GetPtr());
+#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
+							FMetalBlitCommandEncoderDebugging Debugging;
+							if (SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
+							{
+								FMetalCommandBufferDebugging CmdDebug = FMetalCommandBufferDebugging::Get(CurrentCommandBuffer);
+								Debugging = FMetalBlitCommandEncoderDebugging(Encoder, CmdDebug);
+							}
+#endif
 							
+							METAL_STATISTIC(Profiler->BeginEncoder(Stats, Encoder));
+							METAL_GPUPROFILE(Profiler->EncodeBlit(Stats, __FUNCTION__));
+
 							Encoder.Copy(Src, 0, 0, mtlpp::Origin(0, 0, 0), mtlpp::Size(Width, Height, 1), Dst, 0, 0, mtlpp::Origin(0, 0, 0));
+							METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, Debugging.Copy(Src, 0, 0, mtlpp::Origin(0, 0, 0), mtlpp::Size(Width, Height, 1), Dst, 0, 0, mtlpp::Origin(0, 0, 0)));
 							
+							METAL_STATISTIC(Profiler->EndEncoder(Stats, Encoder));
 							Encoder.EndEncoding();
+							METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, Debugging.EndEncoder());
 							
 							mtlpp::CommandBufferHandler H = [Src, Dst](const mtlpp::CommandBuffer &) {
 							};
@@ -438,15 +471,26 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 #endif
 						};
 						
-                       	mtlpp::CommandBufferHandler H = [LocalDrawable](mtlpp::CommandBuffer const&) {
-							[LocalDrawable present];
+#if !PLATFORM_IOS
+						mtlpp::CommandBufferHandler H = [LocalDrawable](mtlpp::CommandBuffer const&) {
+#else
+						mtlpp::CommandBufferHandler H = [LocalDrawable, MinPresentDuration, FramePace](mtlpp::CommandBuffer const&) {
+							if (MinPresentDuration && GEnablePresentPacing)
+							{
+								[LocalDrawable presentAfterMinimumDuration:1.0f/(float)FramePace];
+							}
+							else
+#endif
+							{
+								[LocalDrawable present];
+							};
 						};
 						
 						CurrentCommandBuffer.AddCompletedHandler(C);
 						CurrentCommandBuffer.AddScheduledHandler(H);
 						
+						METAL_GPUPROFILE(Stats->End(CurrentCommandBuffer));
 						FMetalGPUProfiler::RecordPresent(CurrentCommandBuffer);
-						
 						CommandQueue.CommitCommandBuffer(CurrentCommandBuffer);
 					}
 				}
@@ -461,7 +505,7 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 	
 	if (bIsLiveResize || !GMetalSeparatePresentThread)
 	{
-		Block(0);
+		Block(0, 0.0, 0.0);
 	}
 	
 	if (!(GRHISupportsRHIThread && IsRunningRHIInSeparateThread()))

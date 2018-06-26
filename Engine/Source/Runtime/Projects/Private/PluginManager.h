@@ -108,6 +108,7 @@ public:
 	virtual TArray< FPluginStatus > QueryStatusForAllPlugins() const override;
 	virtual void AddPluginSearchPath(const FString& ExtraDiscoveryPath, bool bRefresh = true) override;
 	virtual TArray<TSharedRef<IPlugin>> GetPluginsWithPakFile() const override;
+	virtual FNewPluginMountedEvent& OnNewPluginCreated() override;
 	virtual FNewPluginMountedEvent& OnNewPluginMounted() override;
 	virtual void MountNewlyCreatedPlugin(const FString& PluginName) override;
 
@@ -179,6 +180,7 @@ private:
 	TSet<FString> PluginDiscoveryPaths;
 
 	/** Callback for notifications that a new plugin was mounted */
+	FNewPluginMountedEvent NewPluginCreatedEvent;
 	FNewPluginMountedEvent NewPluginMountedEvent;
 };
 PRAGMA_ENABLE_DEPRECATION_WARNINGS

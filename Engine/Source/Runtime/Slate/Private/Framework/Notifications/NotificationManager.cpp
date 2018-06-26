@@ -140,14 +140,23 @@ TSharedPtr<SNotificationItem> FSlateNotificationManager::AddNotification(const F
 	// Early calls of this function can happen before Slate is initialized.
 	if( FSlateApplication::IsInitialized() )
 	{
-		const FSlateRect PreferredWorkArea = FSlateApplication::Get().GetPreferredWorkArea();
+		FSlateRect PreferredWorkArea;
+		// Retrieve the main editor window to display the notication in, otherwise use the preferred work area
+		if (RootWindowPtr.IsValid())
+		{
+			PreferredWorkArea = FSlateApplication::Get().GetWorkArea(RootWindowPtr.Pin()->GetRectInScreen());
+		}
+		else
+		{
+			PreferredWorkArea = FSlateApplication::Get().GetPreferredWorkArea();
+		}
 
 		TSharedRef<SNotificationList> List = CreateStackForArea(PreferredWorkArea);
 
 		return List->AddNotification(Info);
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 void FSlateNotificationManager::QueueNotification(FNotificationInfo* Info)
@@ -221,23 +230,21 @@ void FSlateNotificationManager::ForceNotificationsInFront( const TSharedRef<SWin
 		for (auto& Notification : RegionList.Notifications)
 		{
 			TSharedPtr<SWindow> PinnedWindow = Notification->ParentWindowPtr.Pin();
-			if( PinnedWindow.IsValid() )
+			if( PinnedWindow.IsValid() && InWindow == PinnedWindow )
 			{
-				if( InWindow == PinnedWindow )
-				{
-					return;
-				}
+				return;
 			}
 		}
 	}
 
+	const bool IsActiveModelWindowNotValid = !FSlateApplication::Get().GetActiveModalWindow().IsValid();
 	// now bring all of our windows back to the front
 	for (const auto& RegionList : RegionalLists)
 	{
 		for (auto& Notification : RegionList.Notifications)
 		{
 			TSharedPtr<SWindow> PinnedWindow = Notification->ParentWindowPtr.Pin();
-			if( PinnedWindow.IsValid() && !FSlateApplication::Get().GetActiveModalWindow().IsValid() )
+			if( PinnedWindow.IsValid() && IsActiveModelWindowNotValid )
 			{
 				PinnedWindow->BringToFront();
 			}

@@ -73,7 +73,7 @@ static FStatFont GStatFonts[(int32)EStatFontTypes::NumFonts] =
 	FStatFont( 72, 12, 2 ),
 };
 
-void FromString( EStatFontTypes& OutValue, const TCHAR* Buffer )
+void LexFromString( EStatFontTypes& OutValue, const TCHAR* Buffer )
 {
 	OutValue = EStatFontTypes::Small;
 

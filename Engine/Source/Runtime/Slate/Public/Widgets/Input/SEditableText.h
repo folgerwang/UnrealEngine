@@ -58,6 +58,7 @@ public:
 		, _MinDesiredWidth(0.0f)
 		, _SelectAllTextOnCommit( false )
 		, _VirtualKeyboardType(EKeyboardType::Keyboard_Default)
+		, _VirtualKeyboardOptions(FVirtualKeyboardOptions())
 		, _VirtualKeyboardTrigger(EVirtualKeyboardTrigger::OnFocusByPointer)
 		, _VirtualKeyboardDismissAction(EVirtualKeyboardDismissAction::TextChangeOnDismiss)
 		, _TextShapingMethod()
@@ -151,6 +152,9 @@ public:
 
 		/** The type of virtual keyboard to use on mobile devices */
 		SLATE_ATTRIBUTE( EKeyboardType, VirtualKeyboardType)
+
+		/** Additional options used by the virtual keyboard summoned by this widget */
+		SLATE_ARGUMENT( FVirtualKeyboardOptions, VirtualKeyboardOptions )
 
 		/** The type of event that will trigger the display of the virtual keyboard */
 		SLATE_ATTRIBUTE( EVirtualKeyboardTrigger, VirtualKeyboardTrigger )
@@ -373,6 +377,7 @@ protected:
 	virtual bool CanTypeCharacter(const TCHAR InChar) const override;
 	virtual void EnsureActiveTick() override;
 	virtual EKeyboardType GetVirtualKeyboardType() const override;
+	virtual FVirtualKeyboardOptions GetVirtualKeyboardOptions() const override;
 	virtual EVirtualKeyboardTrigger GetVirtualKeyboardTrigger() const override;
 	virtual EVirtualKeyboardDismissAction GetVirtualKeyboardDismissAction() const override;
 	virtual TSharedRef<SWidget> GetSlateWidget() override;
@@ -457,6 +462,9 @@ protected:
 
 	/** The type of virtual keyboard to use for editing this text on mobile */
 	TAttribute<EKeyboardType> VirtualKeyboardType;
+
+	/** Additional options used by the virtual keyboard summoned by this widget */
+	FVirtualKeyboardOptions VirtualKeyboardOptions;
 
 	/** The type of event that will trigger the display of the virtual keyboard */
 	TAttribute<EVirtualKeyboardTrigger> VirtualKeyboardTrigger;

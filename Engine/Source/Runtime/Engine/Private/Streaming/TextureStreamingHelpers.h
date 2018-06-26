@@ -50,6 +50,7 @@ extern TAutoConsoleVariable<int32> CVarSetTextureStreaming;
 #endif
 
 extern TAutoConsoleVariable<float> CVarStreamingBoost;
+extern TAutoConsoleVariable<float> CVarStreamingMinBoost;
 extern TAutoConsoleVariable<int32> CVarStreamingUseFixedPoolSize;
 extern TAutoConsoleVariable<int32> CVarStreamingPoolSize;
 extern TAutoConsoleVariable<int32> CVarStreamingCheckBuildStatus;
@@ -84,6 +85,7 @@ struct FTextureStreamingSettings
 	int32 MinMipForSplitRequest;
 	float MinLevelTextureScreenSize;
 	float MaxTextureUVDensity;
+	int32 MaterialQualityLevel;
 
 protected:
 

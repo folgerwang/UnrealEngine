@@ -28,8 +28,9 @@ public class PhysX : ModuleRules
 					return PhysXLibraryMode.Checked;
 				}
 			case UnrealTargetConfiguration.Shipping:
-			case UnrealTargetConfiguration.Test:
 				return PhysXLibraryMode.Shipping;
+			case UnrealTargetConfiguration.Test:
+				return PhysXLibraryMode.Profile;
 			case UnrealTargetConfiguration.Development:
 			case UnrealTargetConfiguration.DebugGame:
 			case UnrealTargetConfiguration.Unknown:
@@ -264,7 +265,7 @@ public class PhysX : ModuleRules
 				PublicDefinitions.Add("UE_PHYSX_SUFFIX=" + LibrarySuffix);
 			}
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Android)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
 			PublicLibraryPaths.Add(PhysXLibDir + "Android/ARMv7");
 			PublicLibraryPaths.Add(PhysXLibDir + "Android/x86");

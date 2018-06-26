@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2726422
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:リアリスティック レンダリング 
 Crumbs:%ROOT%, Resources
@@ -12,49 +12,7 @@ Related:Engine/Rendering/Materials
 Related:Engine/Rendering/Materials/PhysicallyBased
 Related:Engine/Rendering/Materials/LayeredMaterials
 Version:4.9
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/Showcases/RealisticRendering:title%](RealisticRendering_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/RealisticRendering:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/RealisticRendering:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/RealisticRendering]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/Showcases/RealisticRendering:title%](RealisticRendering_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/RealisticRendering:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/RealisticRendering:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/RealisticRendering]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
+topic-image:RealisticRendering_Topic.png
 
 [REGION:fullwidth]
 ![](RealisticRenderingHeader.png)

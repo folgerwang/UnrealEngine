@@ -85,7 +85,7 @@ struct FMovieSceneSubSectionData
 {
 	GENERATED_BODY()
 
-	FMovieSceneSubSectionData() {}
+	FMovieSceneSubSectionData() : Flags(ESectionEvaluationFlags::None) {}
 
 	FMovieSceneSubSectionData(UMovieSceneSubSection& InSubSection, const FGuid& InObjectBindingId, ESectionEvaluationFlags InFlags);
 

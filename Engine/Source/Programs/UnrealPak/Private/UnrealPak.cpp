@@ -9,7 +9,7 @@
 #include "KeyGenerator.h"
 #include "Misc/AES.h"
 #include "Templates/UniquePtr.h"
-#include "Serialization/BufferWriter.h"
+#include "Serialization/LargeMemoryWriter.h"
 #include "AssetRegistryModule.h"
 #include "ProfilingDebugging/DiagnosticTable.h"
 #include "Serialization/JsonSerializer.h"
@@ -476,14 +476,18 @@ void ProcessCommandLine(int32 ArgC, TCHAR* ArgV[], TArray<FPakInputPair>& Entrie
 	}
 
 	FString CompressorFileName;
-	if (FParse::Value(FCommandLine::Get(), TEXT("compressor="), CompressorFileName))
+	if (FParse::Value(FCommandLine::Get(), TEXT("customcompressor="), CompressorFileName))
 	{
+		FPlatformProcess::AddDllDirectory(*FPaths::GetPath(CompressorFileName));
+
 		void* CustomCompressorDll = FPlatformProcess::GetDllHandle(*CompressorFileName);
 		if (CustomCompressorDll == nullptr)
 		{
 			UE_LOG(LogPakFile, Error, TEXT("Unable to load custom compressor from %s"), *CompressorFileName);
 			return;
 		}
+
+		UE_LOG(LogPakFile, Display, TEXT("Loaded custom compressor from %s."), *CompressorFileName);
 
 		static const TCHAR* CreateCustomCompressorExport = TEXT("CreateCustomCompressor");
 		typedef ICustomCompressor* (CreateCustomCompressorFunc)(const TCHAR*);
@@ -782,9 +786,16 @@ bool UncompressCopyFile(FArchive& Dest, FArchive& Source, const FPakEntry& Entry
 		return false;
 	}
 
-	int64 WorkingSize = Entry.CompressionBlockSize;
-	int32 MaxCompressionBlockSize = FCompression::CompressMemoryBound((ECompressionFlags)Entry.CompressionMethod, WorkingSize);
-	WorkingSize += MaxCompressionBlockSize;
+	// The compression block size depends on the bit window that the PAK file was originally created with. Since this isn't stored in the PAK file itself,
+	// we can use FCompression::CompressMemoryBound as a guideline for the max expected size to avoid unncessary reallocations, but we need to make sure
+	// that we check if the actual size is not actually greater (eg. UE-59278).
+	int32 MaxCompressionBlockSize = FCompression::CompressMemoryBound((ECompressionFlags)Entry.CompressionMethod, Entry.CompressionBlockSize);
+	for(const FPakCompressedBlock& Block : Entry.CompressionBlocks)
+	{
+		MaxCompressionBlockSize = FMath::Max<int32>(MaxCompressionBlockSize, Block.CompressedEnd - Block.CompressedStart);
+	}
+
+	int64 WorkingSize = Entry.CompressionBlockSize + MaxCompressionBlockSize;
 	if (BufferSize < WorkingSize)
 	{
 		PersistentBuffer = (uint8*)FMemory::Realloc(PersistentBuffer, WorkingSize);
@@ -1794,10 +1805,8 @@ bool DiffFilesInPaks(const FString InPakFilename1, const FString InPakFilename2,
 			
 			//serialize and memcompare the two entries
 			{
-				void* PAKDATA1 = FMemory::Malloc(EntryInfo1.UncompressedSize);
-				void* PAKDATA2 = FMemory::Malloc(EntryInfo2.UncompressedSize);
-				FBufferWriter PAKWriter1(PAKDATA1, EntryInfo1.UncompressedSize, false);
-				FBufferWriter PAKWriter2(PAKDATA2, EntryInfo2.UncompressedSize, false);
+				FLargeMemoryWriter PAKWriter1(EntryInfo1.UncompressedSize);
+				FLargeMemoryWriter PAKWriter2(EntryInfo2.UncompressedSize);
 
 				if (EntryInfo1.CompressionMethod == COMPRESS_None)
 				{
@@ -1817,7 +1826,7 @@ bool DiffFilesInPaks(const FString InPakFilename1, const FString InPakFilename2,
 					UncompressCopyFile(PAKWriter2, PakReader2, Entry2, PersistantCompressionBuffer, CompressionBufferSize, InEncryptionKey, PakFile2);
 				}
 
-				if (FMemory::Memcmp(PAKDATA1, PAKDATA2, EntryInfo1.UncompressedSize) != 0)
+				if (FMemory::Memcmp(PAKWriter1.GetData(), PAKWriter2.GetData(), EntryInfo1.UncompressedSize) != 0)
 				{
 					++NumDifferentContents;
 					UE_LOG(LogPakFile, Log, TEXT("ContentsDifferent, %s, %i, %i"), *PAK1FileName, EntryInfo1.UncompressedSize, EntryInfo2.UncompressedSize);
@@ -1826,8 +1835,6 @@ bool DiffFilesInPaks(const FString InPakFilename1, const FString InPakFilename2,
 				{
 					++NumEqualContents;
 				}
-				FMemory::Free(PAKDATA1);
-				FMemory::Free(PAKDATA2);
 			}			
 		}
 		
@@ -2530,7 +2537,7 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 		UE_LOG(LogPakFile, Error, TEXT("    -encryptionini (specify ini base name to gather encryption settings from)"));
 		UE_LOG(LogPakFile, Error, TEXT("    -extracttomountpoint (Extract to mount point path of pak file)"));
 		UE_LOG(LogPakFile, Error, TEXT("    -encryptindex (encrypt the pak file index, making it unusable in unrealpak without supplying the key)"));
-		UE_LOG(LogPakFile, Error, TEXT("    -compressor=<DllPath> (register a custom compressor)"))
+		UE_LOG(LogPakFile, Error, TEXT("    -customcompressor=<DllPath> (register a custom compressor)"))
 		UE_LOG(LogPakFile, Error, TEXT("    -overrideplatformcompressor (override the native platform compressor)"))
 		return 1;
 	}

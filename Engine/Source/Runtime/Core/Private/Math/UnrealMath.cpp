@@ -579,14 +579,14 @@ FRotator FQuat::Rotator() const
 	if (SingularityTest < -SINGULARITY_THRESHOLD)
 	{
 		RotatorFromQuat.Pitch = -90.f;
-		RotatorFromQuat.Yaw = -2.0f * FMath::Atan2(X, W) * RAD_TO_DEG;
-		RotatorFromQuat.Roll = 0.0f;
+		RotatorFromQuat.Yaw = FMath::Atan2(YawY, YawX) * RAD_TO_DEG;
+		RotatorFromQuat.Roll = FRotator::NormalizeAxis(-RotatorFromQuat.Yaw - (2.f * FMath::Atan2(X, W) * RAD_TO_DEG));
 	}
 	else if (SingularityTest > SINGULARITY_THRESHOLD)
 	{
 		RotatorFromQuat.Pitch = 90.f;
-		RotatorFromQuat.Yaw = 2.0f * FMath::Atan2(X, W) * RAD_TO_DEG;
-		RotatorFromQuat.Roll = 0.0f;
+		RotatorFromQuat.Yaw = FMath::Atan2(YawY, YawX) * RAD_TO_DEG;
+		RotatorFromQuat.Roll = FRotator::NormalizeAxis(RotatorFromQuat.Yaw - (2.f * FMath::Atan2(X, W) * RAD_TO_DEG));
 	}
 	else
 	{
@@ -1964,8 +1964,12 @@ FVector FMath::ComputeBaryCentric2D(const FVector& Point, const FVector& A, cons
 	// Compute the normal of the triangle
 	const FVector TriNorm = (B-A) ^ (C-A);
 
-	//check collinearity of A,B,C
-	check(TriNorm.SizeSquared() > SMALL_NUMBER && "Collinear points in FMath::ComputeBaryCentric2D()");
+	// Check the size of the triangle is reasonable (TriNorm.Size() will be twice the triangle area)
+	if(TriNorm.SizeSquared() <= SMALL_NUMBER)
+	{
+		UE_LOG(LogUnrealMath, Warning, TEXT("Small triangle detected in FMath::ComputeBaryCentric2D(), can't compute valid barycentric coordinate."));
+		return FVector(0.0f, 0.0f, 0.0f);
+	}
 
 	const FVector N = TriNorm.GetSafeNormal();
 

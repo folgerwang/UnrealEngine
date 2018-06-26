@@ -52,8 +52,8 @@ static char *_xml_name(xmpp_ctx_t *ctx, const char *nsname)
     len = strlen(c);
     result = xmpp_alloc(ctx, len + 1);
     if (result != NULL) {
-	memcpy(result, c, len);
-	result[len] = '\0';
+    memcpy(result, c, len);
+    result[len] = '\0';
     }
 
     return result;
@@ -67,11 +67,11 @@ static char *_xml_namespace(xmpp_ctx_t *ctx, const char *nsname)
 
     c = strchr(nsname, NAMESPACE_SEP);
     if (c != NULL) {
-	result = xmpp_alloc(ctx, (c-nsname) + 1);
-	if (result != NULL) {
-	    memcpy(result, nsname, (c-nsname));
-	    result[c-nsname] = '\0';
-	}
+    result = xmpp_alloc(ctx, (c-nsname) + 1);
+    if (result != NULL) {
+        memcpy(result, nsname, (c-nsname));
+        result[c-nsname] = '\0';
+    }
     }
 
     return result;
@@ -149,16 +149,16 @@ static void _end_element(void *userdata, const XML_Char *name)
         if (parser->endcb)
             parser->endcb((char *)name, parser->userdata);
     } else {
-	if (parser->stanza->parent) {
-	    /* we're finishing a child stanza, so set current to the parent */
-	    parser->stanza = parser->stanza->parent;
-	} else {
+    if (parser->stanza->parent) {
+        /* we're finishing a child stanza, so set current to the parent */
+        parser->stanza = parser->stanza->parent;
+    } else {
             if (parser->stanzacb)
                 parser->stanzacb(parser->stanza,
                                  parser->userdata);
-	    xmpp_stanza_release(parser->stanza);
-	    parser->stanza = NULL;
-	}
+        xmpp_stanza_release(parser->stanza);
+        parser->stanza = NULL;
+    }
     }
 }
 
@@ -172,8 +172,8 @@ static void _characters(void *userdata, const XML_Char *s, int len)
     /* create and populate stanza */
     stanza = xmpp_stanza_new(parser->ctx);
     if (!stanza) {
-	/* FIXME: allocation error, disconnect */
-	return;
+    /* FIXME: allocation error, disconnect */
+    return;
     }
     xmpp_stanza_set_text_with_size(stanza, s, len);
 
@@ -200,7 +200,7 @@ parser_t *parser_new(xmpp_ctx_t *ctx,
         parser->depth = 0;
         parser->stanza = NULL;
 
-        parser_reset(parser);
+        parser_reset(parser, 0);
     }
 
     return parser;
@@ -221,18 +221,19 @@ void parser_free(parser_t *parser)
 }
 
 /* shuts down and restarts XML parser.  true on success */
-int parser_reset(parser_t *parser)
+int parser_reset(parser_t *parser, int depth)
 {
     if (parser->expat)
-	XML_ParserFree(parser->expat);
+        XML_ParserReset(parser->expat, NULL);
+    else
+        parser->expat = XML_ParserCreateNS(NULL, NAMESPACE_SEP);
 
     if (parser->stanza) 
-	xmpp_stanza_release(parser->stanza);
+    xmpp_stanza_release(parser->stanza);
 
-    parser->expat = XML_ParserCreateNS(NULL, NAMESPACE_SEP);
     if (!parser->expat) return 0;
 
-    parser->depth = 0;
+    parser->depth = depth;
     parser->stanza = NULL;
 
     XML_SetUserData(parser->expat, parser);

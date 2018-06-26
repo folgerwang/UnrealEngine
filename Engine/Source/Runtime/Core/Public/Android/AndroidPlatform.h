@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "GenericPlatform/GenericPlatform.h"
+#include "Misc/Build.h"
+
 /** Define the android platform to be the active one **/
 #define PLATFORM_ANDROID				1
 
@@ -51,7 +54,13 @@ typedef FAndroidTypes FPlatformTypes;
 #define PLATFORM_UI_HAS_MOBILE_SCROLLBARS			1
 #define PLATFORM_UI_NEEDS_TOOLTIPS					0
 #define PLATFORM_UI_NEEDS_FOCUS_OUTLINES			0
-#define PLATFORM_RHITHREAD_DEFAULT_BYPASS			1
+#define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK		1 // movies will start before engine is initalized
+
+#if defined(EXPERIMENTAL_OPENGL_RHITHREAD) && EXPERIMENTAL_OPENGL_RHITHREAD
+	#define PLATFORM_RHITHREAD_DEFAULT_BYPASS			0
+#else
+	#define PLATFORM_RHITHREAD_DEFAULT_BYPASS			1
+#endif
 
 // Conditionally set in AndroidToolChain.cs
 // always set to 1 for ARM64 builds
@@ -62,6 +71,26 @@ typedef FAndroidTypes FPlatformTypes;
 	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 1
 #else
 	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 0
+#endif
+
+// some android platform overrides that sub-platforms can disable
+#ifndef USE_ANDROID_JNI
+	#define USE_ANDROID_JNI							1
+#endif
+#ifndef USE_ANDROID_FILE
+	#define USE_ANDROID_FILE						1
+#endif
+#ifndef USE_ANDROID_LAUNCH
+	#define USE_ANDROID_LAUNCH						1
+#endif
+#ifndef USE_ANDROID_INPUT
+	#define USE_ANDROID_INPUT						1
+#endif
+#ifndef USE_ANDROID_EVENTS
+	#define USE_ANDROID_EVENTS						1
+#endif
+#ifndef USE_ANDROID_OPENGL
+	#define USE_ANDROID_OPENGL						1
 #endif
 
 // Function type macros.

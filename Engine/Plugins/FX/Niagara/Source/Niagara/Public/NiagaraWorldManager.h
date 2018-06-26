@@ -16,6 +16,40 @@ class UWorld;
 class UNiagaraParameterCollection;
 class UNiagaraParameterCollectionInstance;
 
+
+
+class FNiagaraViewDataMgr
+{
+public:
+	FNiagaraViewDataMgr();
+
+	static void Init();
+	static void Shutdown();
+
+	void PostOpaqueRender(FPostOpaqueRenderParameters& Params)
+	{
+		SceneDepthTexture = Params.DepthTexture;
+		ViewUniformBuffer = Params.ViewUniformBuffer;
+		SceneNormalTexture = Params.NormalTexture;
+		SceneTexturesUniformParams = Params.SceneTexturesUniformParams;
+	}
+
+	FTexture2DRHIParamRef GetSceneDepthTexture() { return SceneDepthTexture; }
+	FTexture2DRHIParamRef GetSceneNormalTexture() { return SceneNormalTexture; }
+	FUniformBufferRHIParamRef GetViewUniformBuffer() { return ViewUniformBuffer; }
+	TUniformBufferRef<FSceneTexturesUniformParameters> GetSceneTextureUniformParameters() { return SceneTexturesUniformParams; }
+private:
+	FTexture2DRHIParamRef SceneDepthTexture;
+	FTexture2DRHIParamRef SceneNormalTexture;
+	FUniformBufferRHIParamRef ViewUniformBuffer;
+
+	TUniformBufferRef<FSceneTexturesUniformParameters> SceneTexturesUniformParams;
+	FPostOpaqueRenderDelegate PostOpaqueDelegate;
+};
+
+extern FNiagaraViewDataMgr GNiagaraViewDataManager;
+
+
 /**
 * Manager class for any data relating to a particular world.
 */
@@ -23,11 +57,7 @@ class FNiagaraWorldManager : public FGCObject
 {
 public:
 	
-	FNiagaraWorldManager(UWorld* InWorld)
-		: World(InWorld)
-		, CachedEffectsQuality(INDEX_NONE)
-	{}
-
+	FNiagaraWorldManager(UWorld* InWorld);
 	static FNiagaraWorldManager* Get(UWorld* World);
 
 	//~ GCObject Interface
@@ -43,7 +73,7 @@ public:
 	void Tick(float DeltaSeconds);
 
 	void OnWorldCleanup(bool bSessionEnded, bool bCleanupResources);
-
+	
 	FORCEINLINE FNDI_SkeletalMesh_GeneratedData& GetSkeletalMeshGeneratedData() { return SkeletalMeshGeneratedData; }
 private:
 	UWorld* World;

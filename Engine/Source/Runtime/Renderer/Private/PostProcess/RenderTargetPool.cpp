@@ -91,7 +91,7 @@ static TAutoConsoleVariable<int32> CVarRtPoolTransientMode(
 	TEXT("1 : enable transient resource aliasing for fastVRam rendertargets\n")
 	TEXT("2 : enable transient resource aliasing for fastVRam rendertargets and those with a Transient hint. Best for memory usage - has some GPU cost (~0.2ms)\n")
 	TEXT("3 : enable transient resource aliasing for ALL rendertargets (not recommended)\n"),
-	ECVF_ReadOnly);
+	ECVF_RenderThreadSafe);
 
 bool FRenderTargetPool::IsEventRecordingEnabled() const
 {

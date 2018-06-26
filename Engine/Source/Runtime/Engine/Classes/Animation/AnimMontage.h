@@ -57,6 +57,7 @@ public:
 	FCompositeSection()
 		: FAnimLinkableElement()
 		, SectionName(NAME_None)
+		, StartTime_DEPRECATED(0.0f)
 		, NextSectionName(NAME_None)
 	{
 	}
@@ -308,6 +309,9 @@ struct FAnimMontageInstance
 
 	// Whether this in this tick's call to Advance we used marker based sync
 	bool bDidUseMarkerSyncThisTick;
+
+	// enable auto blend out. This is instance set up. You can override
+	bool bEnableAutoBlendOut;
 
 private:
 	struct FMontageSubStepper MontageSubStepper;
@@ -591,6 +595,10 @@ class UAnimMontage : public UAnimCompositeBase
 	UPROPERTY()
 	bool bEnableRootMotionRotation;
 
+	/** When it hits end, it automatically blends out. If this is false, it won't blend out but keep the last pose until stopped explicitly */
+	UPROPERTY(EditAnywhere, Category = BlendOption)
+	bool bEnableAutoBlendOut;
+
 	/** Root Bone will be locked to that position when extracting root motion. DEPRECATED in 4.5 root motion is controlled by anim sequences **/
 	UPROPERTY()
 	TEnumAsByte<ERootMotionRootLock::Type> RootMotionRootLock;
@@ -630,7 +638,7 @@ public:
 	virtual void TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNotifyQueue& NotifyQueue, FAnimAssetTickContext& Context) const override;
 	virtual TArray<FName>* GetUniqueMarkerNames() override { return &MarkerData.UniqueMarkerNames; }
 	virtual void RefreshCacheData() override;
-	virtual bool CanBeUsedInMontage() const { return false; }
+	virtual bool CanBeUsedInComposition() const { return false; }
 	//~ End AnimSequenceBase Interface
 
 #if WITH_EDITOR

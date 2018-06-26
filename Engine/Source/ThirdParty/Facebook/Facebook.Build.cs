@@ -27,14 +27,6 @@ public class Facebook : ModuleRules
                 "xml2"
             });
 
-            PublicAdditionalFrameworks.Add(
-				new UEBuildFramework(
-					"AccountKit",
-					"IOS/FacebookSDK/AccountKit.embeddedframework.zip",
-					"AccountKit.framework/AccountKitAdditionalStrings.bundle"
-				)
-			);
-
 			PublicAdditionalFrameworks.Add(
 				new UEBuildFramework(
 					"AccountKit",
@@ -47,14 +39,6 @@ public class Facebook : ModuleRules
 				new UEBuildFramework(
 					"Bolts",
 					"IOS/FacebookSDK/Bolts.embeddedframework.zip"
-				)
-			);
-
-			// Add the FBAudienceNetwork framework
-			PublicAdditionalFrameworks.Add(
-				new UEBuildFramework(
-					"FBAudienceNetwork",
-					"IOS/FacebookSDK/FBAudienceNetwork.embeddedframework.zip"
 				)
 			);
 
@@ -83,8 +67,18 @@ public class Facebook : ModuleRules
 				)
 			);
 
-			// Access to Facebook messenger sharing
-			PublicAdditionalFrameworks.Add(
+
+            // commenting out over if(false) for #jira FORT-77943 per Peter.Sauerbrei prior change with CL 3960071
+            //// Access to Facebook places
+            //PublicAdditionalFrameworks.Add(
+            //	new UEBuildFramework(
+            //		"FBSDKPlacesKit",
+            //		"IOS/FacebookSDK/FBSDKPlacesKit.embeddedframework.zip"
+            //	)
+            //);
+
+            // Access to Facebook messenger sharing
+            PublicAdditionalFrameworks.Add(
 				new UEBuildFramework(
 					"FBSDKMessengerShareKit",
 					"IOS/FacebookSDK/FBSDKMessengerShareKit.embeddedframework.zip"

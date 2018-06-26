@@ -165,6 +165,12 @@ SDL_X11_SYM(int,XQueryTree,(Display* a,Window b,Window* c,Window* d,Window** e,u
 /* EG BEGIN */
 #ifdef SDL_WITH_EPIC_EXTENSIONS
 SDL_X11_SYM(char*,XResourceManagerString,(Display *a),(a),return)
+#if SDL_VIDEO_DRIVER_X11_XFIXES
+SDL_X11_SYM(PointerBarrier, XFixesCreatePointerBarrier, (Display* a, Window b, int c, int d, int e, int f, int g, int h, int *i),(a,b,c,d,e,f,g,h,i),return)
+SDL_X11_SYM(void, XFixesDestroyPointerBarrier, (Display* a, PointerBarrier b), (a,b),)
+SDL_X11_SYM(int, XIBarrierReleasePointer,(Display* a,  int b, PointerBarrier c, BarrierEventID d), (a,b,c,d), return)
+SDL_X11_SYM(Status, XFixesQueryVersion,(Display* a, int* b, int* c), (a,b,c), return)
+#endif
 #endif /* SDL_WITH_EPIC_EXTENSIONS */
 /* EG END */
 

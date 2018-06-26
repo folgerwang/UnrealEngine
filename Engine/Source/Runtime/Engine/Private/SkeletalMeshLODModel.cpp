@@ -432,6 +432,14 @@ FArchive& operator<<(FArchive& Ar, FSkelMeshSection& S)
 			Ar << S.bDisabled;
 		}
 
+		if (Ar.CustomVer(FSkeletalMeshCustomVersion::GUID) >= FSkeletalMeshCustomVersion::SectionIgnoreByReduceAdded)
+		{
+			Ar << S.GenerateUpToLodIndex;
+		}
+		else if(Ar.IsLoading())
+		{
+			S.GenerateUpToLodIndex = -1;
+		}
 		return Ar;
 	}
 

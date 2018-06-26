@@ -29,6 +29,10 @@
         {
             "Name": "LiveLink",
             "Enabled": true
+        },
+        {
+            "Name": "AppleImageUtils",
+            "Enabled": true
         }
     ]
 }

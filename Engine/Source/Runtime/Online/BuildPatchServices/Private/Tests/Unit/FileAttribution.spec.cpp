@@ -113,7 +113,7 @@ void FFileAttributionSpec::Define()
 			{
 				BeforeEach([this]()
 				{
-					FFileManifestData FileManifest;
+					FFileManifest FileManifest;
 					FileManifest.Filename = MissingFile;
 					MockFileSystem->FileSizes.Add(StagedFileDirectory / MissingFile, INDEX_NONE);
 					MockFileSystem->FileAttributes.Add(StagedFileDirectory / MissingFile, EFileAttributes::None);
@@ -320,11 +320,11 @@ void FFileAttributionSpec::MakeUnit()
 	MockOldManifest = MakeShareable(new FMockManifest());
 	for (const FString& File : AllFiles)
 	{
-		FChunkPartData ChunkPart;
+		FChunkPart ChunkPart;
 		ChunkPart.Guid = FGuid::NewGuid();
 		ChunkPart.Offset = 0;
 		ChunkPart.Size = 64;
-		FFileManifestData FileManifest;
+		FFileManifest FileManifest;
 		FileManifest.Filename = File;
 		FSHA1::HashBuffer(*FGuid::NewGuid().ToString(), sizeof(TCHAR) * 32, FileManifest.FileHash.Hash);
 		FileManifest.FileChunkParts.Add(ChunkPart);

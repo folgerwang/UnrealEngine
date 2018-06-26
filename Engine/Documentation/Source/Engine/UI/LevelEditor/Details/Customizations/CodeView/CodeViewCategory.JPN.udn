@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2687062
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:コードビューカテゴリ
 Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor, Engine/UI/LevelEditor/Details
@@ -13,7 +13,7 @@ Version:4.9
 
 [COMMENT:none]
 -This is especially-
-[/COMMENT] いずれかの関数をダブルクリックすると、関数の実装を目的に Visual Studio で対応する 
+[/COMMENT] いずれかの関数を **ダブルクリック** すると、関数の実装を目的に Visual Studio で対応する 
 「.cpp」ファイルが開きます。
 
 ![](code_view_goto.png)

@@ -4,6 +4,7 @@
 #include "HAL/FileManager.h"
 #include "HAL/RunnableThread.h"
 #include "Misc/ScopeLock.h"
+#include "Misc/OutputDeviceRedirector.h"
 #include "Data/ChunkData.h"
 #include "BuildPatchUtil.h"
 

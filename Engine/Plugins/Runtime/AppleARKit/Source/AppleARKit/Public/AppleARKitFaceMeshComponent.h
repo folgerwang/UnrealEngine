@@ -1,7 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "AppleARKitAvailability.h"
 #include "ARSystem.h"
 #include "ProceduralMeshComponent.h"
 #include "AppleARKitLiveLinkSourceFactory.h"

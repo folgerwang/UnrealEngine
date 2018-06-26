@@ -293,9 +293,16 @@
 #define USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS (USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING && 0)
 
 // 0 (default), set this to 1 to get draw events with "TOGGLEDRAWEVENTS" "r.ShowMaterialDrawEvents" and the "ProfileGPU" command working in test
-#define ALLOW_PROFILEGPU_IN_TEST 0
+#ifndef ALLOW_PROFILEGPU_IN_TEST
+	#define ALLOW_PROFILEGPU_IN_TEST 0
+#endif
+
+#ifndef ALLOW_PROFILEGPU_IN_SHIPPING
+	#define ALLOW_PROFILEGPU_IN_SHIPPING 0
+#endif
+
 // draw events with "TOGGLEDRAWEVENTS" "r.ShowMaterialDrawEvents" (for ProfileGPU, Pix, Razor, RenderDoc, ...) and the "ProfileGPU" command are normally compiled out for TEST and SHIPPING
-#define WITH_PROFILEGPU (!(UE_BUILD_SHIPPING || UE_BUILD_TEST) || (UE_BUILD_TEST && ALLOW_PROFILEGPU_IN_TEST))
+#define WITH_PROFILEGPU (!(UE_BUILD_SHIPPING || UE_BUILD_TEST) || (UE_BUILD_TEST && ALLOW_PROFILEGPU_IN_TEST) || (UE_BUILD_SHIPPING && ALLOW_PROFILEGPU_IN_SHIPPING))
 
 #ifndef ALLOW_CHEAT_CVARS_IN_TEST
 	#define ALLOW_CHEAT_CVARS_IN_TEST 1
@@ -315,3 +322,9 @@
 #endif
 
 #define USE_HITCH_DETECTION (ALLOW_HITCH_DETECTION && !WITH_EDITORONLY_DATA && !IS_PROGRAM && !UE_BUILD_DEBUG)
+
+// Controls whether shipping builds create backups of the most recent log file.
+// All other configurations always create backups.
+#ifndef PRESERVE_LOG_BACKUPS_IN_SHIPPING
+	#define PRESERVE_LOG_BACKUPS_IN_SHIPPING 1
+#endif

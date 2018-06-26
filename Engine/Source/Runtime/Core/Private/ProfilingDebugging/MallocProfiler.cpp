@@ -1257,8 +1257,8 @@ void FMallocProfiler::GetTexturePoolSize( FGenericMemoryStats& out_Stats )
 FMallocProfilerBufferedFileWriter::FMallocProfilerBufferedFileWriter()
 :	FileWriter( NULL )
 {
-	ArIsSaving		= true;
-	ArIsPersistent	= true;
+	this->SetIsSaving(true);
+	this->SetIsPersistent(true);
 	BaseFilePath = TEXT("");
 }
 

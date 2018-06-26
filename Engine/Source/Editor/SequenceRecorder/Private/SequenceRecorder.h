@@ -94,17 +94,17 @@ public:
 	/** Handle actors being de-spawned */
 	void HandleActorDespawned(AActor* Actor);
 
-	TWeakObjectPtr<USequenceRecorderActorGroup> GetRecordingGroup() const
+	TWeakObjectPtr<USequenceRecorderActorGroup> GetCurrentRecordingGroup() const
 	{
 		return CurrentRecorderGroup;
 	}
 
 	TWeakObjectPtr<ASequenceRecorderGroup> GetRecordingGroupActor();
 
-	void AddRecordingGroup();
+	TWeakObjectPtr<USequenceRecorderActorGroup> AddRecordingGroup();
 	void RemoveCurrentRecordingGroup();
-	void DuplicateRecordingGroup();
-	void LoadRecordingGroup(const FName Name);
+	TWeakObjectPtr<USequenceRecorderActorGroup> DuplicateRecordingGroup();
+	TWeakObjectPtr<USequenceRecorderActorGroup> LoadRecordingGroup(const FName Name);
 
 	TArray<FName> GetRecordingGroupNames() const;
 
@@ -138,6 +138,9 @@ public:
 	/** Multicast delegate fired when recording has finished */
 	FOnRecordingFinished OnRecordingFinishedDelegate;
 
+	/** Multicast delegate fired when a recording group has been added */
+	FOnRecordingGroupAdded OnRecordingGroupAddedDelegate;
+
 private:
 	/** Starts recording a sequence, possibly delayed */
 	bool StartRecordingInternal(UWorld* World);
@@ -147,9 +150,6 @@ private:
 
 	/** Handle exiting cleanly from PIE */
 	void HandleEndPIE(bool bSimulating);
-
-	/** Keep sequence range up to date with sections that are being recorded */
-	void UpdateSequencePlaybackRange();
 
 	/** Set immersive mode and store whether viewports were immersive */
 	void SetImmersive();

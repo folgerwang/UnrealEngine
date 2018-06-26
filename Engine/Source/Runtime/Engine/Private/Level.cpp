@@ -841,21 +841,21 @@ namespace FLevelSortUtils
 
 	struct FDepthSort
 	{
-		TMap<AActor*, int32> DepthMap;
+		TMap<AActor*, int32>* DepthMap;
 
 		bool operator()(AActor* A, AActor* B) const
 		{
-			const int32 DepthA = A ? DepthMap.FindRef(A) : MAX_int32;
-			const int32 DepthB = B ? DepthMap.FindRef(B) : MAX_int32;
+			const int32 DepthA = A ? DepthMap->FindRef(A) : MAX_int32;
+			const int32 DepthB = B ? DepthMap->FindRef(B) : MAX_int32;
 			return DepthA < DepthB;
 		}
 	};
 }
 
 /**
-*	Sorts actors such that parent actors will appear before children actors in the list
-*	Stable sort
-*/
+ *	Sorts actors such that parent actors will appear before children actors in the list
+ *	Stable sort
+ */
 static void SortActorsHierarchy(TArray<AActor*>& Actors, UObject* Level)
 {
 	const double StartTime = FPlatformTime::Seconds();
@@ -876,16 +876,30 @@ static void SortActorsHierarchy(TArray<AActor*>& Actors, UObject* Level)
 
 	if (ParentMap.Num())
 	{
+		TMap<AActor*, int32> DepthMap;
 		FLevelSortUtils::FDepthSort DepthSorter;
+		DepthSorter.DepthMap = &DepthMap;
+
 		TArray<AActor*> ParentChain;
 		while (ParentMap.Num())
 		{
 			ParentChain.Reset();
 			FLevelSortUtils::FindAndRemoveParentChain(ParentMap, ParentChain);
 
+			// Topmost parent in found parent chain might have its parent already removed
+			// so we need to use it's stored depth as a base depth for whole chain
+			int32 ParentChainStartDepth = 0;
+			if (ParentChain.Num() > 0)
+			{
+				if (int32* StartDepthPtr = DepthMap.Find(ParentChain.Last()))
+				{
+					ParentChainStartDepth = *StartDepthPtr;
+				}
+			}
+
 			for (int32 Idx = 0; Idx < ParentChain.Num(); Idx++)
 			{
-				DepthSorter.DepthMap.Add(ParentChain[Idx], ParentChain.Num() - Idx - 1);
+				DepthMap.Add(ParentChain[Idx], ParentChainStartDepth + ParentChain.Num() - Idx - 1);
 			}
 		}
 
@@ -964,13 +978,11 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 	}
 
 	// See whether we are done.
-	if (CurrentActorIndexForUpdateComponents == Actors.Num())
+	if (CurrentActorIndexForUpdateComponents >= Actors.Num())
 	{
 		CurrentActorIndexForUpdateComponents	= 0;
 		bHasCurrentActorCalledPreRegister		= false;
 		bAreComponentsCurrentlyRegistered		= true;
-		
-		CreateCluster();
 
 #if PERF_TRACK_DETAILED_ASYNC_STATS
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_ULevel_IncrementalUpdateComponents_RerunConstructionScripts);
@@ -997,6 +1009,8 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 			}
 			bHasRerunConstructionScripts = true;
 		}
+
+		CreateCluster();
 	}
 	// Only the game can use incremental update functionality.
 	else
@@ -1034,7 +1048,7 @@ bool ULevel::IncrementalUnregisterComponents(int32 NumComponentsToUnregister)
 		}
 	}
 
-	if (CurrentActorIndexForUnregisterComponents == Actors.Num())
+	if (CurrentActorIndexForUnregisterComponents >= Actors.Num())
 	{
 		CurrentActorIndexForUnregisterComponents = 0;
 		return true;
@@ -2007,7 +2021,7 @@ void ULevel::FixupForPIE(int32 PIEInstanceID)
 	{
 		FSoftPathPIEFixupSerializer() 
 		{
-			ArIsSaving = true;
+			this->SetIsSaving(true);
 		}
 
 		FArchive& operator<<(FSoftObjectPath& Value)

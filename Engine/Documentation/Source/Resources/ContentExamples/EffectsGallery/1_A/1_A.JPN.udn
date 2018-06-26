@@ -1,71 +1,16 @@
-﻿INTSourceChangelist:2714445
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1.1 - CPU と GPU スプライトパーティクルの比較
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/EffectsGallery
 Description:エフェクト ギャラリーのサンプル レベルの概要
-Related: Engine/Rendering/ParticleSystems/Overview
-Related: Engine/Rendering/ParticleSystems/Reference
-Related: Engine/Rendering/ParticleSystems/Optimization
-Related: Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites
-Related: Engine/Rendering/ParticleSystems/ParticleLights
-Related: Engine/Rendering/ParticleSystems/Reference/Modules/VectorField
+Related:Engine/Rendering/ParticleSystems/Overview
+Related:Engine/Rendering/ParticleSystems/Reference
+Related:Engine/Rendering/ParticleSystems/Optimization
+Related:Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites
+Related:Engine/Rendering/ParticleSystems/ParticleLights
+Related:Engine/Rendering/ParticleSystems/Reference/Modules/VectorField
 Version:4.9
-
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[エフェクト ギャラリー ホーム](Resources/ContentExamples/EffectsGallery)
-	[/PARAM]
-	[PARAM:next]
-		[次のサンプル](Resources/ContentExamples/EffectsGallery/1_B "%Resources/ContentExamples/EffectsGallery/1_B:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources\ContentExamples\EffectsGallery\1_A:title%](%ROOT%\Resources\ContentExamples\EffectsGallery\1_A\1_ATopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\EffectsGallery\1_A:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\EffectsGallery\1_A:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\EffectsGallery\1_A]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources\ContentExamples\EffectsGallery\1_A:title%](%ROOT%\Resources\ContentExamples\EffectsGallery\1_A\1_ATopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\EffectsGallery\1_A:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\EffectsGallery\1_A:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\EffectsGallery\1_A]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:1_ATopic.png
 
 [REGION:fullwidth]
 ![](image006.png)
@@ -73,7 +18,7 @@ Version:4.9
 
 
 
-アンリアル・エンジン 4 で利用可能なパーティクル タイプの 1 つに **GPU スプライト** があります。最初に CPU 上でスポーンされるパーティクルですが、その後、全てグラフィックカードで処理及び演算処理されます。GPU で演算処理をするため、何千ものより多くのパーティクルを一度に処理できるのが利点です。高密度でより詳細なパーティクル システムを実現します。
+アンリアル・エンジン 4 で利用可能なパーティクル タイプの 1 つに **GPU スプライト** があります。最初に CPU 上でスポーンされるパーティクルですが、その後、全てグラフィックカードで処理及び演算処理されます。GPU で演算処理をするため、何千もの多くのパーティクルを一度に処理できるのが利点です。高密度でより詳細なパーティクル システムを実現します。
 
 最初にとてもシンプルな 2 つのパーティクルの噴水をお見せします。ひとつは一般的なCPU パーティクルスプライトで作成し、もうひとつは GPU スプライトで作成したものです。GPU パーティクルを使用した右側の噴水は、もうひとつの噴水よりもはるかに多くのパーティクルを出力していることがわかります。 
 

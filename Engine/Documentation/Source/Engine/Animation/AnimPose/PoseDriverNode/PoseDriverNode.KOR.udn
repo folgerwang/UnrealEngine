@@ -126,7 +126,7 @@ Pose Driver 섹션에 있는 프로퍼티는 다음과 같습니다:
 | **Only Drive Selected Bones** | 선택 본만 구동 - **Only Drive Bones** 배열을 사용하여 구동시킬 본에 필터를 적용할지 여부입니다. | 
 | **Only Drive Bones** | 본만 구동 - 이 배열에 지정된 본만 포즈 드라이버 노드로 변경됩니다. | 
 | **Eval Space Bone** | 이밸 스페이스 본 - 소스 본 트랜스폼을 읽을 때 사용할 다른 옵션 본 스페이스입니다. 지정하지 않으면, 소스 본의 로컬 스페이스를(, 즉 부모 본 기준을) 사용합니다. | 
-| **RBFParams** | RBF 파라미터 - [INCLUDE:Engine\Animation\AnimPose\PoseDriverNode#rbftable] | 
+| **RBFParams** | [INCLUDE:Engine\Animation\AnimPose\PoseDriverNode#rbftable] | 
 | **Drive Source** | 구동 소스 - **Rotation** (회전) 또는 **Translation** (이동) 중 트랜스폼 어느 부분을 읽을지 입니다. | 
 | **Drive Output** | 구동 출력 - 포즈 또는 커브 중 무엇을 구동시킬지 입니다. | 
 

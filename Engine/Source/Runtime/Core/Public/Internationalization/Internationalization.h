@@ -158,8 +158,14 @@ public:
 
 	CORE_API bool IsInitialized() const {return bIsInitialized;}
 
-	// Load and cache the data needed for every culture we know about (this is usually done per-culture as required)
+	/** Load and cache the data needed for every culture we know about (this is usually done per-culture as required) */
 	CORE_API void LoadAllCultureData();
+
+	/** Has the given culture been remapped in this build? */
+	CORE_API bool IsCultureRemapped(const FString& Name, FString* OutMappedCulture);
+
+	/** Is the given culture enabled or disabled in this build? */
+	CORE_API bool IsCultureAllowed(const FString& Name);
 
 #if ENABLE_LOC_TESTING
 	static CORE_API FString& Leetify(FString& SourceString);
@@ -169,8 +175,16 @@ public:
 
 	CORE_API TArray<FString> GetPrioritizedCultureNames(const FString& Name);
 
-	// Given some paths to look at, populate a list of cultures that we have available localization information for. If bIncludeDerivedCultures, include cultures that are derived from those we have localization data for.
-	CORE_API void GetCulturesWithAvailableLocalization(const TArray<FString>& InLocalizationPaths, TArray< FCultureRef >& OutAvailableCultures, const bool bIncludeDerivedCultures);
+	/**
+	 * Given some paths to look at, populate a list of cultures that we have available localization information for. If bIncludeDerivedCultures, include cultures that are derived from those we have localization data for.
+	 * @note This function was deprecated as it only provides cultures that use localization resources.
+	 *		 FTextLocalizationManager::GetLocalizedCultureNames provides a more complete list when using alternate sources, and FInternationalization::GetAvailableCultures can be used to build a culture array from that list.
+	 */
+	DEPRECATED(4.20, "FInternationalization::GetCulturesWithAvailableLocalization is deprecated in favor of calling FTextLocalizationManager::GetLocalizedCultureNames, potentially followed by FInternationalization::GetAvailableCultures")
+	CORE_API void GetCulturesWithAvailableLocalization(const TArray<FString>& InLocalizationPaths, TArray<FCultureRef>& OutAvailableCultures, const bool bIncludeDerivedCultures);
+
+	/** Given some culture names, populate a list of cultures that are available to be used. If bIncludeDerivedCultures, include cultures that are derived from those we passed. */
+	CORE_API TArray<FCultureRef> GetAvailableCultures(const TArray<FString>& InCultureNames, const bool bIncludeDerivedCultures);
 
 	/** Broadcasts whenever the current culture changes */
 	DECLARE_EVENT(FInternationalization, FCultureChangedEvent)

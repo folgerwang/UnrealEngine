@@ -563,6 +563,11 @@ static bool AttemptApplyObjToComponent(UObject* ObjToUse, USceneComponent* Compo
 				else
 				{
 					bResult = FComponentEditorUtils::AttemptApplyMaterialToComponent(ComponentToApplyTo, DroppedObjAsMaterial, TargetMaterialSlot);
+
+					if (bResult)
+					{
+						GEditor->OnSceneMaterialsModified();
+					}
 				}
 			}
 		}
@@ -3420,11 +3425,9 @@ void FLevelEditorViewportClient::ApplyDeltaToActors(const FVector& InDrag,
 				TInlineComponentArray<USceneComponent*> ComponentsToMove;
 				for (FSelectedEditableComponentIterator EditableComponentIt(GEditor->GetSelectedEditableComponentIterator()); EditableComponentIt; ++EditableComponentIt)
 				{
-					USceneComponent* SceneComponent = CastChecked<USceneComponent>(*EditableComponentIt);
-					if (SceneComponent)
+					USceneComponent* SelectedComponent = Cast<USceneComponent>(*EditableComponentIt);
+					if (SelectedComponent)
 					{
-						USceneComponent* SelectedComponent = Cast<USceneComponent>(*EditableComponentIt);
-
 						// Check to see if any parent is selected
 						bool bParentAlsoSelected = false;
 						USceneComponent* Parent = SelectedComponent->GetAttachParent();

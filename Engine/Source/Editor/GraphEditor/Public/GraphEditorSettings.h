@@ -65,6 +65,10 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=GeneralStyle, AdvancedDisplay)
 	float PaddingTowardsNodeEdge;
 
+	/** Whether the comment bubbles for comment nodes are visible or hidden. */
+	UPROPERTY(config, EditAnywhere, Category = GeneralStyle, AdvancedDisplay, meta = (DisplayName = "Show Comment Bubbles"))
+	bool bShowCommentBubbles;
+
 	/** Returns the padding to use for an input pin on a graph node */
 	FMargin GetInputPinPadding() const;
 

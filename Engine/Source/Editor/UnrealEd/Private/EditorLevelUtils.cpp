@@ -55,7 +55,7 @@ DEFINE_LOG_CATEGORY(LogLevelTools);
 #define LOCTEXT_NAMESPACE "EditorLevelUtils"
 
 
-int32 UEditorLevelUtils::MoveActorsToLevel(const TArray<AActor *>& ActorsToMove, ULevelStreaming* DestStreamingLevel, bool bWarnAboutReferences)
+int32 UEditorLevelUtils::MoveActorsToLevel(const TArray<AActor*>& ActorsToMove, ULevelStreaming* DestStreamingLevel, bool bWarnAboutReferences)
 {
 	return MoveActorsToLevel(ActorsToMove, DestStreamingLevel ? DestStreamingLevel->GetLoadedLevel() : nullptr, bWarnAboutReferences);
 }
@@ -422,12 +422,12 @@ ULevelStreaming* UEditorLevelUtils::SetStreamingClassForLevel(ULevelStreaming* I
 	return NewStreamingLevel;
 }
 
-void UEditorLevelUtils::MakeLevelCurrent(ULevel* InLevel)
+void UEditorLevelUtils::MakeLevelCurrent(ULevel* InLevel, bool bEvenIfLocked)
 {
 	if (ensureAsRuntimeWarning(InLevel != nullptr))
 	{
 		// Locked levels can't be made current.
-		if (!FLevelUtils::IsLevelLocked(InLevel))
+		if (bEvenIfLocked || !FLevelUtils::IsLevelLocked(InLevel))
 		{
 			// Make current broadcast if it changed
 			if (InLevel->OwningWorld->SetCurrentLevel(InLevel))
@@ -617,7 +617,9 @@ bool UEditorLevelUtils::RemoveLevelFromWorld(ULevel* InLevel)
 	{
 		if (bRemovingCurrentLevel)
 		{
-			MakeLevelCurrent(OwningWorld->PersistentLevel);
+			// we must set a new level.  It must succeed
+			bool bEvenIfLocked = true;
+			MakeLevelCurrent(OwningWorld->PersistentLevel, bEvenIfLocked);
 		}
 
 		FEditorSupportDelegates::PrepareToCleanseEditorObject.Broadcast(InLevel);

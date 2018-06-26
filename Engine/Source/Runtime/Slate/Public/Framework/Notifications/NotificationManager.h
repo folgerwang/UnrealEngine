@@ -76,9 +76,6 @@ protected:
 	/** Protect constructor as this is a singleton */
 	FSlateNotificationManager();
 
-	/** Arranges the active notifications in a stack */
-	void ArrangeNotifications();
-
 	/** Create a notification list for the specified screen rectangle */
 	TSharedRef<SNotificationList> CreateStackForArea(const FSlateRect& InRectangle);
 

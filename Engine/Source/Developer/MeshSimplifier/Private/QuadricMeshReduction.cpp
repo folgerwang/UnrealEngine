@@ -187,6 +187,13 @@ public:
 	{
 		IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
 
+		TArray<FVector> VertexPositions;
+		TArray<uint32> Indices;
+		if (InSettings.WeldingThreshold > 0.0f)
+		{
+			WeldVertexPositions(InMesh, InSettings.WeldingThreshold, VertexPositions, Indices);
+		}
+
 		const uint32 NumTexCoords = MAX_STATIC_TEXCOORDS;
 
 		TArray< TVertSimp< NumTexCoords > >	Verts;
@@ -203,7 +210,14 @@ public:
 			FVector Positions[3];
 			for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
 			{
-				Positions[CornerIndex] = InMesh.VertexPositions[ InMesh.WedgeIndices[ FaceIndex * 3 + CornerIndex ] ];
+				if (InSettings.WeldingThreshold > 0.0f)
+				{
+					Positions[CornerIndex] = VertexPositions[Indices[FaceIndex * 3 + CornerIndex]];
+				}
+				else
+				{
+					Positions[CornerIndex] = InMesh.VertexPositions[InMesh.WedgeIndices[FaceIndex * 3 + CornerIndex]];
+				}
 			}
 
 			// Don't process degenerate triangles.
@@ -510,9 +524,12 @@ public:
 		TMap< int32, int32 > VertsMap;
 		TArray<int32> DupVerts;
 
-		int32 NumWedges = InMesh->VertexInstances().Num();
-		int32 NumFaces = NumWedges / 3;
-		check(InMesh->Polygons().Num() == NumFaces);
+		int32 NumFaces = 0;
+		for (const FPolygonID& PolygonID : InMesh->Polygons().GetElementIDs())
+		{
+			NumFaces += InMesh->GetPolygonTriangles(PolygonID).Num();
+		}
+		int32 NumWedges = NumFaces * 3;
 
 		const TVertexAttributeArray<FVector>& InVertexPositions = InMesh->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
 		const TVertexInstanceAttributeArray<FVector>& InVertexNormals = InMesh->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
@@ -524,118 +541,126 @@ public:
 		const TPolygonGroupAttributeArray<FName>& InPolygonGroupMaterialNames = InMesh->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 		TPolygonGroupAttributeArray<FName>& OutPolygonGroupMaterialNames = OutReducedMesh->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 
-		// Process each face, build vertex buffer and index buffer
-		for (int32 FaceIndex = 0; FaceIndex < NumFaces; FaceIndex++)
+		int32 FaceIndex = 0;
+		for (const FPolygonID& PolygonID : InMesh->Polygons().GetElementIDs())
 		{
+			const TArray<FMeshTriangle>& Triangles = InMesh->GetPolygonTriangles(PolygonID);
+
 			FVertexInstanceID VertexInstanceIDs[3];
 			FVertexID VertexIDs[3];
-
 			FVector Positions[3];
-			for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
+
+			for (const FMeshTriangle& MeshTriangle : Triangles)
 			{
-				VertexInstanceIDs[CornerIndex] = FVertexInstanceID((FaceIndex * 3) + CornerIndex);
-				VertexIDs[CornerIndex] = InMesh->GetVertexInstanceVertex(VertexInstanceIDs[CornerIndex]);
-				Positions[CornerIndex] = InVertexPositions[VertexIDs[CornerIndex]];
-			}
-
-			// Don't process degenerate triangles.
-			if (PointsEqual(Positions[0], Positions[1]) ||
-				PointsEqual(Positions[0], Positions[2]) ||
-				PointsEqual(Positions[1], Positions[2]))
-			{
-				continue;
-			}
-
-			int32 VertexIndices[3];
-			for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
-			{
-				int32 WedgeIndex = FaceIndex * 3 + CornerIndex;
-
-				TVertSimp< NumTexCoords > NewVert;
-
-				const TArray<FPolygonID>& VertexInstanceConnectedPolygons = InMesh->GetVertexInstanceConnectedPolygons(VertexInstanceIDs[CornerIndex]);
-				if (VertexInstanceConnectedPolygons.Num() > 0)
+				int32 CurrentFaceIndex = FaceIndex;
+				//Increment face index here because there is many continue in this for loop
+				++FaceIndex;
+				for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
 				{
-					const FPolygonID PolygonID = VertexInstanceConnectedPolygons[0];
-					NewVert.MaterialIndex = InMesh->GetPolygonPolygonGroup(PolygonID).GetValue();
-					// @todo: check with Alexis: OK to conflate material index with polygon group ID? (what if there are gaps in the polygon group array?)
+					VertexInstanceIDs[CornerIndex] = MeshTriangle.GetVertexInstanceID(CornerIndex);
+					VertexIDs[CornerIndex] = InMesh->GetVertexInstanceVertex(VertexInstanceIDs[CornerIndex]);
+					Positions[CornerIndex] = InVertexPositions[VertexIDs[CornerIndex]];
 				}
 
-				NewVert.Position = Positions[CornerIndex];
-				NewVert.Tangents[0] = InVertexTangents[VertexInstanceIDs[CornerIndex]];
-				NewVert.Normal = InVertexNormals[VertexInstanceIDs[CornerIndex]];
-				NewVert.Tangents[1] = FVector(0.0f);
-				if (!NewVert.Normal.IsNearlyZero(SMALL_NUMBER) && !NewVert.Tangents[0].IsNearlyZero(SMALL_NUMBER))
+				// Don't process degenerate triangles.
+				if (PointsEqual(Positions[0], Positions[1]) ||
+					PointsEqual(Positions[0], Positions[2]) ||
+					PointsEqual(Positions[1], Positions[2]))
 				{
-					NewVert.Tangents[1] = FVector::CrossProduct(NewVert.Normal, NewVert.Tangents[0]).GetSafeNormal() * InVertexBinormalSigns[VertexInstanceIDs[CornerIndex]];
+					continue;
 				}
 
-				// Fix bad tangents
-				NewVert.Tangents[0] = NewVert.Tangents[0].ContainsNaN() ? FVector::ZeroVector : NewVert.Tangents[0];
-				NewVert.Tangents[1] = NewVert.Tangents[1].ContainsNaN() ? FVector::ZeroVector : NewVert.Tangents[1];
-				NewVert.Normal = NewVert.Normal.ContainsNaN() ? FVector::ZeroVector : NewVert.Normal;
-				NewVert.Color = FLinearColor(InVertexColors[VertexInstanceIDs[CornerIndex]]);
-
-				for (int32 UVIndex = 0; UVIndex < NumTexCoords; UVIndex++)
+				int32 VertexIndices[3];
+				for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
 				{
-					if (UVIndex < InVertexUVs.GetNumIndices())
-					{
-						NewVert.TexCoords[UVIndex] = InVertexUVs.GetArrayForIndex(UVIndex)[VertexInstanceIDs[CornerIndex]];
-						InMeshNumTexCoords = FMath::Max(UVIndex+1, InMeshNumTexCoords);
-					}
-					else
-					{
-						NewVert.TexCoords[UVIndex] = FVector2D::ZeroVector;
-					}
-				}
+					int32 WedgeIndex = CurrentFaceIndex * 3 + CornerIndex;
 
-				// Make sure this vertex is valid from the start
-				NewVert.Correct();
+					TVertSimp< NumTexCoords > NewVert;
 
-				DupVerts.Reset();
-				InOverlappingCorners.MultiFind(WedgeIndex, DupVerts);
-				DupVerts.Sort();
-
-				int32 Index = INDEX_NONE;
-				for (int32 k = 0; k < DupVerts.Num(); k++)
-				{
-					if (DupVerts[k] >= WedgeIndex)
+					const TArray<FPolygonID>& VertexInstanceConnectedPolygons = InMesh->GetVertexInstanceConnectedPolygons(VertexInstanceIDs[CornerIndex]);
+					if (VertexInstanceConnectedPolygons.Num() > 0)
 					{
-						// the verts beyond me haven't been placed yet, so these duplicates are not relevant
-						break;
+						const FPolygonID ConnectedPolygonID = VertexInstanceConnectedPolygons[0];
+						NewVert.MaterialIndex = InMesh->GetPolygonPolygonGroup(ConnectedPolygonID).GetValue();
+						// @todo: check with Alexis: OK to conflate material index with polygon group ID? (what if there are gaps in the polygon group array?)
 					}
 
-					int32* Location = VertsMap.Find(DupVerts[k]);
-					if (Location)
+					NewVert.Position = Positions[CornerIndex];
+					NewVert.Tangents[0] = InVertexTangents[VertexInstanceIDs[CornerIndex]];
+					NewVert.Normal = InVertexNormals[VertexInstanceIDs[CornerIndex]];
+					NewVert.Tangents[1] = FVector(0.0f);
+					if (!NewVert.Normal.IsNearlyZero(SMALL_NUMBER) && !NewVert.Tangents[0].IsNearlyZero(SMALL_NUMBER))
 					{
-						TVertSimp< NumTexCoords >& FoundVert = Verts[*Location];
+						NewVert.Tangents[1] = FVector::CrossProduct(NewVert.Normal, NewVert.Tangents[0]).GetSafeNormal() * InVertexBinormalSigns[VertexInstanceIDs[CornerIndex]];
+					}
 
-						if (NewVert.Equals(FoundVert))
+					// Fix bad tangents
+					NewVert.Tangents[0] = NewVert.Tangents[0].ContainsNaN() ? FVector::ZeroVector : NewVert.Tangents[0];
+					NewVert.Tangents[1] = NewVert.Tangents[1].ContainsNaN() ? FVector::ZeroVector : NewVert.Tangents[1];
+					NewVert.Normal = NewVert.Normal.ContainsNaN() ? FVector::ZeroVector : NewVert.Normal;
+					NewVert.Color = FLinearColor(InVertexColors[VertexInstanceIDs[CornerIndex]]);
+
+					for (int32 UVIndex = 0; UVIndex < NumTexCoords; UVIndex++)
+					{
+						if (UVIndex < InVertexUVs.GetNumIndices())
 						{
-							Index = *Location;
-							break;
+							NewVert.TexCoords[UVIndex] = InVertexUVs.GetArrayForIndex(UVIndex)[VertexInstanceIDs[CornerIndex]];
+							InMeshNumTexCoords = FMath::Max(UVIndex+1, InMeshNumTexCoords);
+						}
+						else
+						{
+							NewVert.TexCoords[UVIndex] = FVector2D::ZeroVector;
 						}
 					}
+
+					// Make sure this vertex is valid from the start
+					NewVert.Correct();
+
+					DupVerts.Reset();
+					InOverlappingCorners.MultiFind(WedgeIndex, DupVerts);
+					DupVerts.Sort();
+
+					int32 Index = INDEX_NONE;
+					for (int32 k = 0; k < DupVerts.Num(); k++)
+					{
+						if (DupVerts[k] >= WedgeIndex)
+						{
+							// the verts beyond me haven't been placed yet, so these duplicates are not relevant
+							break;
+						}
+
+						int32* Location = VertsMap.Find(DupVerts[k]);
+						if (Location)
+						{
+							TVertSimp< NumTexCoords >& FoundVert = Verts[*Location];
+
+							if (NewVert.Equals(FoundVert))
+							{
+								Index = *Location;
+								break;
+							}
+						}
+					}
+					if (Index == INDEX_NONE)
+					{
+						Index = Verts.Add(NewVert);
+						VertsMap.Add(WedgeIndex, Index);
+					}
+					VertexIndices[CornerIndex] = Index;
 				}
-				if (Index == INDEX_NONE)
+
+				// Reject degenerate triangles.
+				if (VertexIndices[0] == VertexIndices[1] ||
+					VertexIndices[1] == VertexIndices[2] ||
+					VertexIndices[0] == VertexIndices[2])
 				{
-					Index = Verts.Add(NewVert);
-					VertsMap.Add(WedgeIndex, Index);
+					continue;
 				}
-				VertexIndices[CornerIndex] = Index;
-			}
 
-			// Reject degenerate triangles.
-			if (VertexIndices[0] == VertexIndices[1] ||
-				VertexIndices[1] == VertexIndices[2] ||
-				VertexIndices[0] == VertexIndices[2])
-			{
-				continue;
+				Indexes.Add(VertexIndices[0]);
+				Indexes.Add(VertexIndices[1]);
+				Indexes.Add(VertexIndices[2]);
 			}
-
-			Indexes.Add(VertexIndices[0]);
-			Indexes.Add(VertexIndices[1]);
-			Indexes.Add(VertexIndices[2]);
 		}
 
 		uint32 NumVerts = Verts.Num();
@@ -681,8 +706,8 @@ public:
 		MeshSimp->SetAttributeWeights(AttributeWeights);
 		//MeshSimp->SetBoundaryLocked();
 		MeshSimp->InitCosts();
-
-		float MaxErrorSqr = MeshSimp->SimplifyMesh(MAX_FLT, FMath::Max(1, int32(NumTris * ReductionSettings.PercentTriangles)));
+		//We need a minimum of 2 triangles, to see the object on both side. If we use one, we will end up with zero triangle when we will remove a shared edge
+		float MaxErrorSqr = MeshSimp->SimplifyMesh(MAX_FLT, FMath::Max(2, int32(NumTris * ReductionSettings.PercentTriangles)));
 
 		NumVerts = MeshSimp->GetNumVerts();
 		NumTris = MeshSimp->GetNumTris();
@@ -778,7 +803,13 @@ public:
 						{
 							for (int32 Index = 0; Index < AttributeIndicesArray.GetNumIndices(); ++Index)
 							{
-								OutReducedMesh->PolygonGroupAttributes().SetAttribute(MaterialPolygonGroupID, Name, Index, AttributeIndicesArray.GetArrayForIndex(Index)[PolygonGroupID]);
+								// Only copy shared attribute values, since input mesh description can differ from output mesh description
+								const auto& Value = AttributeIndicesArray.GetArrayForIndex(Index)[PolygonGroupID];
+								using AttributeType = typename TDecay<decltype( Value )>::Type;
+								if (OutReducedMesh->PolygonGroupAttributes().HasAttribute<AttributeType>(Name))
+								{
+									OutReducedMesh->PolygonGroupAttributes().SetAttribute(MaterialPolygonGroupID, Name, Index, Value);
+								}
 							}
 						}
 					);
@@ -866,6 +897,53 @@ public:
 	static FQuadricSimplifierMeshReduction* Create()
 	{
 		return new FQuadricSimplifierMeshReduction;
+	}
+private:
+	void WeldVertexPositions(const FRawMesh& InMesh, const float WeldingThreshold, TArray<FVector>& OutVertexPositions, TArray<uint32>& OutIndices)
+	{
+		//The remap use to fix the indices after welding the vertex position buffer
+		TArray<int32> VertexRemap;
+		//Initialize some arrays
+		VertexRemap.AddZeroed(InMesh.VertexPositions.Num());
+		for (int32 VertexIndexRef = 0; VertexIndexRef < InMesh.VertexPositions.Num(); ++VertexIndexRef)
+		{
+			VertexRemap[VertexIndexRef] = INDEX_NONE;
+		}
+		OutVertexPositions.Reserve(InMesh.VertexPositions.Num());
+		//Weld overlapping vertex position
+		for (int32 VertexIndexRef = 0; VertexIndexRef < InMesh.VertexPositions.Num(); ++VertexIndexRef)
+		{
+			//Skip already remap vertex
+			if (VertexRemap[VertexIndexRef] != INDEX_NONE)
+			{
+				continue;
+			}
+			const FVector& PositionA = InMesh.VertexPositions[VertexIndexRef];
+			//Add this vertex to the new vertex buffer
+			VertexRemap[VertexIndexRef] = OutVertexPositions.Add(InMesh.VertexPositions[VertexIndexRef]);
+			//Find vertex to weld, search forward VertexIndexRef
+			for (int32 VertexIndex = VertexIndexRef + 1; VertexIndex < InMesh.VertexPositions.Num(); ++VertexIndex)
+			{
+				//skip already remap vertex
+				if (VertexRemap[VertexIndex] != INDEX_NONE)
+				{
+					continue;
+				}
+				const FVector& PositionB = InMesh.VertexPositions[VertexIndex];
+				if (PositionA.Equals(PositionB, WeldingThreshold))
+				{
+					//Remap this vertex to the "reference remapped vertex"
+					VertexRemap[VertexIndex] = VertexRemap[VertexIndexRef];
+				}
+			}
+		}
+		//Remap the indices to the new vertex position buffer
+		OutIndices.AddZeroed(InMesh.WedgeIndices.Num());
+		for (int32 WedgeIndex = 0; WedgeIndex < InMesh.WedgeIndices.Num(); ++WedgeIndex)
+		{
+			int32 VertexIndex = InMesh.WedgeIndices[WedgeIndex];
+			OutIndices[WedgeIndex] = VertexRemap[VertexIndex] == INDEX_NONE ? VertexIndex : VertexRemap[VertexIndex];
+		}
 	}
 };
 TUniquePtr<FQuadricSimplifierMeshReduction> GQuadricSimplifierMeshReduction;

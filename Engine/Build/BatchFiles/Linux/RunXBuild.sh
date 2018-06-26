@@ -10,7 +10,7 @@ echo
 echo Running XBuild...
 echo
 
-# source "`dirname "$0"`/SetupMono.sh" "`dirname "$0"`"
+source "`dirname "$0"`/SetupMono.sh" "`dirname "$0"`"
 
 # put ourselves into Engine directory (two up from location of this script)
 pushd "`dirname "$0"`/../../.."

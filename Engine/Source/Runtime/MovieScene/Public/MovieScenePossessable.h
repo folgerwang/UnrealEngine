@@ -18,7 +18,7 @@ struct FMovieScenePossessable
 public:
 
 	/** Default constructor. */
-	FMovieScenePossessable() { }
+	FMovieScenePossessable() : PossessedObjectClass(nullptr) { }
 
 	/**
 	 * Creates and initializes a new instance.
@@ -107,6 +107,10 @@ public:
 	{
 		ParentGuid = InParentGuid;
 	}
+
+	/** Array of tags that can be used for grouping and categorizing. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Actor)
+	TArray<FName> Tags;
 
 private:
 

@@ -1,9 +1,9 @@
-﻿INTSourceChangelist:2795800
-Availability:Public
+﻿Availability:Public
 Title:ツールバー
 Crumbs:%ROOT%, Engine/Blueprints, Engine/Blueprints/Editor
 Description:エディタの上部にあるバーで、複数の機能を制御するボタンがあります。
 version:4.9
+tags:Blueprints
 
 
 [EXCERPT:Intro]

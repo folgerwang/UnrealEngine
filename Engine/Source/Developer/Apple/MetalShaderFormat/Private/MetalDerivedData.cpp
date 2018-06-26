@@ -46,6 +46,7 @@ extern void BuildMetalShaderOutput(
 	uint32 TypedBuffers,
 	uint32 InvariantBuffers,
 	uint32 TypedUAVs,
+	uint32 ConstantBuffers,
 	TArray<uint8> const& TypedBufferFormats,
 	bool bAllowFastIntriniscs
 );
@@ -209,11 +210,11 @@ bool FMetalShaderBytecodeCooker::Build(TArray<uint8>& OutData)
 		if (bUseSharedPCH)
         {
             CopyLocalFileToRemote(Job.InputPCHFile, RemoteInputPCHFile);
-			MetalParams = FString::Printf(TEXT("-include-pch %s %s %s %s -Wno-null-character -fbracket-depth=1024 %s %s %s %s -o %s"), *RemoteInputPCHFile, *Job.MinOSVersion, *Job.DebugInfo, *Job.MathMode, *Job.Standard, *Job.Defines, *IncludeArgs, *RemoteInputFile, *RemoteObjFile);
+			MetalParams = FString::Printf(TEXT("-include-pch %s %s %s %s -c -Wno-null-character -fbracket-depth=1024 %s %s %s %s -o %s"), *RemoteInputPCHFile, *Job.MinOSVersion, *Job.DebugInfo, *Job.MathMode, *Job.Standard, *Job.Defines, *IncludeArgs, *RemoteInputFile, *RemoteObjFile);
         }
         else
         {
-            MetalParams = FString::Printf(TEXT("%s %s %s -Wno-null-character -fbracket-depth=1024 %s %s %s %s -o %s"), *Job.MinOSVersion, *Job.DebugInfo, *Job.MathMode, *Job.Standard, *Job.Defines, *IncludeArgs, *RemoteInputFile, *RemoteObjFile);
+            MetalParams = FString::Printf(TEXT("%s %s %s -c -Wno-null-character -fbracket-depth=1024 %s %s %s %s -o %s"), *Job.MinOSVersion, *Job.DebugInfo, *Job.MathMode, *Job.Standard, *Job.Defines, *IncludeArgs, *RemoteInputFile, *RemoteObjFile);
         }
 	}
 
@@ -266,11 +267,11 @@ bool FMetalShaderBytecodeCooker::Build(TArray<uint8>& OutData)
 	{
 		if (Job.bCompileAsPCH)
 		{
-			Job.Message = FString::Printf(TEXT("Metal Shared PCH generation failed %s: %s."), CompileType, *Job.Errors);
+			Job.Message = FString::Printf(TEXT("Metal Shared PCH generation failed %s to generate %s: %s."), CompileType, *RemoteOutputFilename, *Job.Errors);
 		}
 		else
 		{
-			Job.Message = FString::Printf(TEXT("Failed to compile to bytecode %s, code: %d, output: %s %s"), CompileType, Job.ReturnCode, *Job.Results, *Job.Errors);
+			Job.Message = FString::Printf(TEXT("Failed to compile %s to bytecode %s, code: %d, output: %s %s"), CompileType, *RemoteOutputFilename, Job.ReturnCode, *Job.Results, *Job.Errors);
 		}
 	}
 
@@ -372,7 +373,7 @@ bool FMetalShaderOutputCooker::Build(TArray<uint8>& OutData)
 	FString const* FastIntrinsics = Input.Environment.GetDefinitions().Find(TEXT("METAL_USE_FAST_INTRINSICS"));
 	if (FastIntrinsics)
 	{
-		LexicalConversion::FromString(bAllowFastIntriniscs, *(*FastIntrinsics));
+		LexFromString(bAllowFastIntriniscs, *(*FastIntrinsics));
 	}
 
 	bool bForceInvariance = false;
@@ -437,7 +438,7 @@ bool FMetalShaderOutputCooker::Build(TArray<uint8>& OutData)
 	if (Result != 0)
 	{
 		Output.Target = Input.Target;
-		BuildMetalShaderOutput(Output, Input, GUIDHash, MetalShaderSource, SourceLen, CRCLen, CRC, VersionEnum, *Standard, *MinOSVersion, TypeMode, Output.Errors, Attribs, MetalBackEnd.TypedBuffers, MetalBackEnd.InvariantBuffers, MetalBackEnd.TypedUAVs, MetalBackEnd.TypedBufferFormats, bAllowFastIntriniscs);
+		BuildMetalShaderOutput(Output, Input, GUIDHash, MetalShaderSource, SourceLen, CRCLen, CRC, VersionEnum, *Standard, *MinOSVersion, TypeMode, Output.Errors, Attribs, MetalBackEnd.TypedBuffers, MetalBackEnd.InvariantBuffers, MetalBackEnd.TypedUAVs, MetalBackEnd.ConstantBuffers, MetalBackEnd.TypedBufferFormats, bAllowFastIntriniscs);
 
 		FMemoryWriter Ar(OutData);
 		Ar << Output;

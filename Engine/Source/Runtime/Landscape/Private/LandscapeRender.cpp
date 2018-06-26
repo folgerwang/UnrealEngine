@@ -43,7 +43,7 @@ FAutoConsoleVariableRef CVarLandscapeMeshLODBias(
 	GLandscapeMeshLODBias,
 	TEXT("LOD bias for landscape/terrain meshes."),
 	ECVF_Scalability
-	);
+);
 
 float GLandscapeLOD0DistributionScale = 1.f;
 FAutoConsoleVariableRef CVarLandscapeLOD0DistributionScale(
@@ -51,7 +51,7 @@ FAutoConsoleVariableRef CVarLandscapeLOD0DistributionScale(
 	GLandscapeLOD0DistributionScale,
 	TEXT("Multiplier for the landscape LOD0DistributionSetting property"),
 	ECVF_Scalability
-	);
+);
 
 float GLandscapeLODDistributionScale = 1.f;
 FAutoConsoleVariableRef CVarLandscapeLODDistributionScale(
@@ -83,6 +83,26 @@ static void OnLODDistributionScaleChanged(IConsoleVariable* CVar)
 		LandscapeComponent->MarkRenderStateDirty();
 	}
 }
+
+int32 GVarDumpLandscapeLODsCurrentFrame = 0;
+bool GVarDumpLandscapeLODs = false;
+
+static void OnDumpLandscapeLODs(const TArray< FString >& Args)
+{
+	if (Args.Num() >= 1)
+	{
+		GVarDumpLandscapeLODs = FCString::Atoi(*Args[0]) == 0 ? false : true;
+	}
+
+	// Add some buffer to be able to correctly catch the frame during the rendering
+	GVarDumpLandscapeLODsCurrentFrame = GVarDumpLandscapeLODs ? GFrameNumberRenderThread + 3 : INDEX_NONE;
+}
+
+static FAutoConsoleCommand CVarDumpLandscapeLODs(
+	TEXT("Landscape.DumpLODs"),
+	TEXT("Will dump the current status of LOD value and current texture streaming status"),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&OnDumpLandscapeLODs)
+);
 #endif
 
 #if WITH_EDITOR
@@ -96,7 +116,7 @@ FAutoConsoleVariableRef CVarLandscapeDebugViewMode(
 #endif
 
 /*------------------------------------------------------------------------------
-	Forsyth algorithm for cache optimizing index buffers.
+Forsyth algorithm for cache optimizing index buffers.
 ------------------------------------------------------------------------------*/
 
 // Forsyth algorithm to optimize post-transformed vertex cache
@@ -457,17 +477,17 @@ struct FLandscapeDebugOptions
 		, bDisableStatic(false)
 		, CombineMode(eCombineMode_Default)
 		, PatchesConsoleCommand(
-		TEXT("Landscape.Patches"),
-		TEXT("Show/hide Landscape patches"),
-		FConsoleCommandDelegate::CreateRaw(this, &FLandscapeDebugOptions::Patches))
+			TEXT("Landscape.Patches"),
+			TEXT("Show/hide Landscape patches"),
+			FConsoleCommandDelegate::CreateRaw(this, &FLandscapeDebugOptions::Patches))
 		, StaticConsoleCommand(
-		TEXT("Landscape.Static"),
-		TEXT("Enable/disable Landscape static drawlists"),
-		FConsoleCommandDelegate::CreateRaw(this, &FLandscapeDebugOptions::Static))
+			TEXT("Landscape.Static"),
+			TEXT("Enable/disable Landscape static drawlists"),
+			FConsoleCommandDelegate::CreateRaw(this, &FLandscapeDebugOptions::Static))
 		, CombineConsoleCommand(
-		TEXT("Landscape.Combine"),
-		TEXT("Set landscape component combining mode : 0 = Default, 1 = Combine All, 2 = Disabled"),
-		FConsoleCommandWithArgsDelegate::CreateRaw(this, &FLandscapeDebugOptions::Combine))
+			TEXT("Landscape.Combine"),
+			TEXT("Set landscape component combining mode : 0 = Default, 1 = Combine All, 2 = Disabled"),
+			FConsoleCommandWithArgsDelegate::CreateRaw(this, &FLandscapeDebugOptions::Combine))
 	{
 	}
 
@@ -689,20 +709,10 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 		HeightmapSubsectionOffsetV = ((float)(InComponent->SubsectionSizeQuads + 1) / (float)HeightmapTexture->GetSizeY());
 	}
 
-	LODBias = FMath::Clamp<int8>(LODBias, -MaxLOD, MaxLOD);
-
-	if (InComponent->GetLandscapeProxy()->MaxLODLevel >= 0)
-	{
-		MaxLOD = FMath::Min<int8>(MaxLOD, InComponent->GetLandscapeProxy()->MaxLODLevel);
-	}
-
-	FirstLOD = (ForcedLOD >= 0) ? FMath::Min<int32>(ForcedLOD, MaxLOD) : FMath::Max<int32>(LODBias, 0);
-	LastLOD = (ForcedLOD >= 0) ? FirstLOD : MaxLOD;	// we always need to go to MaxLOD regardless of LODBias as we could need the lowest LODs due to streaming.
-	
-	LODScreenRatioSquared.AddUninitialized(LastLOD+1);
-
-	float ScreenSizeRatioDivider =  InComponent->GetLandscapeProxy()->LOD0DistributionSetting * GLandscapeLOD0DistributionScale;
+	float ScreenSizeRatioDivider = InComponent->GetLandscapeProxy()->LOD0DistributionSetting * GLandscapeLOD0DistributionScale;
 	float CurrentScreenSizeRatio = 1.0f;
+
+	LODScreenRatioSquared.AddUninitialized(MaxLOD + 1);
 
 	// LOD 0 handling
 	LODScreenRatioSquared[0] = FMath::Square(CurrentScreenSizeRatio);
@@ -710,11 +720,26 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 	ScreenSizeRatioDivider = InComponent->GetLandscapeProxy()->LODDistributionSetting * GLandscapeLODDistributionScale;
 
 	// Other LODs
-	for (int32 LODIndex = 1; LODIndex <= LastLOD; ++LODIndex)
+	for (int32 LODIndex = 1; LODIndex <= MaxLOD; ++LODIndex) // This should ALWAYS be calculated from the component size, not user MaxLOD override
 	{
 		LODScreenRatioSquared[LODIndex] = FMath::Square(CurrentScreenSizeRatio);
 		CurrentScreenSizeRatio /= ScreenSizeRatioDivider;
 	}
+
+	if (InComponent->GetLandscapeProxy()->MaxLODLevel >= 0)
+	{
+		MaxLOD = FMath::Min<int8>(MaxLOD, InComponent->GetLandscapeProxy()->MaxLODLevel);
+	}
+
+	FirstLOD = 0;
+	LastLOD = MaxLOD;	// we always need to go to MaxLOD regardless of LODBias as we could need the lowest LODs due to streaming.
+
+	// Make sure out LastLOD is > of MinStreamedLOD otherwise we would not be using the right LOD->MIP, the only drawback is a possible minor memory usage for overallocating static mesh element batch
+	const int32 MinStreamedLOD = (HeightmapTexture != nullptr && HeightmapTexture->Resource != nullptr) ? FMath::Min<int32>(((FTexture2DResource*)HeightmapTexture->Resource)->GetCurrentFirstMip(), FMath::CeilLogTwo(SubsectionSizeVerts) - 1) : 0;
+	LastLOD = FMath::Max(MinStreamedLOD, LastLOD);
+
+	ForcedLOD = ForcedLOD != INDEX_NONE ? FMath::Clamp<int32>(ForcedLOD, FirstLOD, LastLOD) : ForcedLOD;
+	LODBias = FMath::Clamp<int8>(LODBias, -MaxLOD, MaxLOD);
 
 	int8 LocalLODBias = LODBias + (int8)GLandscapeMeshLODBias;
 	MinValidLOD = FMath::Clamp<int8>(LocalLODBias, -MaxLOD, MaxLOD);
@@ -798,16 +823,15 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 
 	const int8 SubsectionSizeLog2 = FMath::CeilLogTwo(InComponent->SubsectionSizeQuads + 1);
 	SharedBuffersKey = (SubsectionSizeLog2 & 0xf) | ((NumSubsections & 0xf) << 4) |
-	                   (FeatureLevel <= ERHIFeatureLevel::ES3_1 ? 0 : 1 << 30) | (XYOffsetmapTexture == nullptr ? 0 : 1 << 31);
+		(FeatureLevel <= ERHIFeatureLevel::ES3_1 ? 0 : 1 << 30) | (XYOffsetmapTexture == nullptr ? 0 : 1 << 31);
 
 	bSupportsHeightfieldRepresentation = true;
 
 #if WITH_EDITOR
 	for (auto& Allocation : InComponent->WeightmapLayerAllocations)
 	{
-		if (Allocation.LayerInfo != nullptr && Allocation.LayerInfo != ALandscapeProxy::VisibilityLayer)
+		if (Allocation.LayerInfo != nullptr)
 		{
-			// Use black for hole layer
 			LayerColors.Add(Allocation.LayerInfo->LayerUsageDebugColor);
 		}
 	}
@@ -890,7 +914,7 @@ void FLandscapeComponentSceneProxy::CreateRenderThreadResources()
 
 #if WITH_EDITOR
 	// Create MeshBatch for grass rendering
-	if(SharedBuffers->GrassIndexBuffer)
+	if (SharedBuffers->GrassIndexBuffer)
 	{
 		const int32 NumMips = FMath::CeilLogTwo(SubsectionSizeVerts);
 		GrassMeshBatch.Elements.Empty(NumMips);
@@ -1062,7 +1086,7 @@ FPrimitiveViewRelevance FLandscapeComponentSceneProxy::GetViewRelevance(const FS
 #else
 		IsSelected() ||
 #endif
-		 !IsStaticPathAvailable())
+		!IsStaticPathAvailable())
 	{
 		Result.bDynamicRelevance = true;
 	}
@@ -1131,8 +1155,8 @@ FLightInteraction FLandscapeComponentSceneProxy::FLandscapeLCI::GetInteraction(c
 {
 	// ask base class
 	ELightInteractionType LightInteraction = GetStaticInteraction(LightSceneProxy, IrrelevantLights);
-	
-	if(LightInteraction != LIT_MAX)
+
+	if (LightInteraction != LIT_MAX)
 	{
 		return FLightInteraction(LightInteraction);
 	}
@@ -1195,19 +1219,19 @@ void FLandscapeComponentSceneProxy::OnTransformChanged()
 		1.f / (float)SubsectionSizeQuads,
 		SectionBase.X,
 		SectionBase.Y
-		);
+	);
 	LandscapeParams.SubsectionOffsetParams = FVector4(
 		HeightmapSubsectionOffsetU,
 		HeightmapSubsectionOffsetV,
 		WeightmapSubsectionOffset,
 		SubsectionSizeQuads
-		);
+	);
 	LandscapeParams.LightmapSubsectionOffsetParams = FVector4(
 		LightmapExtendFactorX,
 		LightmapExtendFactorY,
 		0,
 		0
-		);
+	);
 
 	LandscapeUniformShaderParameters.SetContents(LandscapeParams);
 }
@@ -1250,7 +1274,7 @@ void FLandscapeComponentSceneProxy::BuildDynamicMeshElement(const FViewCustomDat
 	OutMeshBatch.LCI = ComponentLightInfo.Get();
 	OutMeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative();
 	OutMeshBatch.CastShadow = InToolMesh ? false : true;
-	OutMeshBatch.bUseAsOccluder =  ShouldUseAsOccluder() && GetScene().GetShadingPath() == EShadingPath::Deferred && !IsMovable();
+	OutMeshBatch.bUseAsOccluder = ShouldUseAsOccluder() && GetScene().GetShadingPath() == EShadingPath::Deferred && !IsMovable();
 	OutMeshBatch.bUseForMaterial = true;
 	OutMeshBatch.Type = bCurrentRequiresAdjacencyInformation ? PT_12_ControlPointPatchList : PT_TriangleList;
 	OutMeshBatch.LODIndex = 0;
@@ -1314,7 +1338,7 @@ void FLandscapeComponentSceneProxy::BuildDynamicMeshElement(const FViewCustomDat
 	{
 		const int8 CurrentLODIndex = InPrimitiveCustomData->SubSections[0].BatchElementCurrentLOD;
 
-		FMeshBatchElement BatchElement; 
+		FMeshBatchElement BatchElement;
 
 		if (InToolMesh)
 		{
@@ -1385,11 +1409,10 @@ bool FLandscapeComponentSceneProxy::GetMeshElement(bool UseSeperateBatchForShado
 		OutMeshBatch.TessellationDisablingShadowMapMeshSize = QuadSize.Size();
 	}
 
-	OutMeshBatch.Elements.Empty(LastLOD);
+	int32 BatchElementSize = NumSubsections == 1 ? 1 : MAX_SUBSECTION_COUNT + 1;
+	OutMeshBatch.Elements.Empty(FMath::Max(LastLOD - FirstLOD, 1) * BatchElementSize);
 
-	int32 StartingIndex = ForcedLOD < 0 ? 0 : ForcedLOD;
-
-	for (int32 i = StartingIndex; i <= LastLOD; ++i)
+	for (int32 i = FirstLOD; i <= LastLOD; ++i)
 	{
 		int32 LodSubsectionSizeVerts = SubsectionSizeVerts >> i;
 
@@ -1460,13 +1483,35 @@ bool FLandscapeComponentSceneProxy::GetMeshElement(bool UseSeperateBatchForShado
 	return true;
 }
 
+void FLandscapeComponentSceneProxy::ApplyWorldOffset(FVector InOffset)
+{
+	FPrimitiveSceneProxy::ApplyWorldOffset(InOffset);
+
+	if (NumSubsections > 1)
+	{
+		for (int32 SubY = 0; SubY < NumSubsections; ++SubY)
+		{
+			for (int32 SubX = 0; SubX < NumSubsections; ++SubX)
+			{
+				int32 SubSectionIndex = SubX + SubY * NumSubsections;
+				SubSectionScreenSizeTestingPosition[SubSectionIndex] += InOffset;
+			}
+		}
+	}
+}
+
 void FLandscapeComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PDI)
 {
+	if (AvailableMaterials.Num() == 0)
+	{
+		return;
+	}
+
 	bool UseSeperateBatchForShadow = TessellationEnabledOnDefaultMaterial;
-	const int32 NumBatchesPerLOD = (ForcedLOD < 0 && NumSubsections > 1) ? (FMath::Square(NumSubsections) + 1) : 1;
+	const int32 NumBatchesPerLOD = NumSubsections == 1 ? 1 : MAX_SUBSECTION_COUNT + 1;
 	const int32 BatchCount = AvailableMaterials.Num() > 1 && TessellationEnabledOnDefaultMaterial ? 4 : UseSeperateBatchForShadow ? 2 : 1;
 
-	StaticBatchParamArray.Empty(ForcedLOD < 0 ? (1 + LastLOD - FirstLOD) * NumBatchesPerLOD * BatchCount : BatchCount);
+	StaticBatchParamArray.Empty((1 + LastLOD - FirstLOD) * NumBatchesPerLOD * BatchCount);
 
 	// Default Batch, tesselated if enabled
 	FMeshBatch NormalMeshBatch;
@@ -1544,23 +1589,22 @@ void FLandscapeComponentSceneProxy::CalculateLODFromScreenSize(const FSceneView&
 		PreferedLOD = (float)ForcedLOD;
 	}
 
-	const int32 MinStreamedLOD = HeightmapTexture ? FMath::Min<int32>(((FTexture2DResource*)HeightmapTexture->Resource)->GetCurrentFirstMip(), FMath::CeilLogTwo(SubsectionSizeVerts) - 1) : 0;
+	int8 MinStreamedLOD = HeightmapTexture ? FMath::Min<int8>(((FTexture2DResource*)HeightmapTexture->Resource)->GetCurrentFirstMip(), FMath::CeilLogTwo(SubsectionSizeVerts) - 1) : 0;
+	MinStreamedLOD = FMath::Min(MinStreamedLOD, MaxLOD); // We can't go above MaxLOD even for texture streaming
+
+	int8 LocalLODBias = LODBias + (int8)GLandscapeMeshLODBias;
 	FViewCustomDataSubSectionLOD& SubSectionLODData = InOutLODData.SubSections[InSubSectionIndex];
 
 	if (PreferedLOD >= 0.0f)
 	{
-		PreferedLOD = FMath::Clamp<int32>(PreferedLOD, FMath::Max((float)FirstLOD, MinValidLOD), FMath::Min((float)LastLOD, MaxValidLOD));
-		PreferedLOD = FMath::Max<float>(PreferedLOD, MinStreamedLOD);
+		PreferedLOD = FMath::Clamp<float>(PreferedLOD + LocalLODBias, FMath::Max((float)MinStreamedLOD, MinValidLOD), FMath::Min((float)LastLOD, MaxValidLOD));
 	}
 	else
 	{
-		PreferedLOD = (float)GetLODFromScreenSize(InMeshScreenSizeSquared, InViewLODScale);
-		PreferedLOD = FMath::Max<float>(PreferedLOD, MinStreamedLOD);
-
-		PreferedLOD = ComputeBatchElementCurrentLOD((int32)PreferedLOD, InMeshScreenSizeSquared);
+		PreferedLOD = FMath::Clamp<float>(ComputeBatchElementCurrentLOD(GetLODFromScreenSize(InMeshScreenSizeSquared, InViewLODScale), InMeshScreenSizeSquared) + LocalLODBias, FMath::Max((float)MinStreamedLOD, MinValidLOD), FMath::Min((float)LastLOD, MaxValidLOD));
 	}
 
-	check(PreferedLOD != -1.0f);
+	check(PreferedLOD != -1.0f && PreferedLOD <= MaxLOD);
 	SubSectionLODData.fBatchElementCurrentLOD = PreferedLOD;
 	SubSectionLODData.BatchElementCurrentLOD = FMath::FloorToInt(PreferedLOD);
 }
@@ -1582,40 +1626,18 @@ uint64 FLandscapeComponentSceneProxy::GetStaticBatchElementVisibility(const FSce
 		INC_DWORD_STAT(STAT_LandscapeTessellatedComponents);
 	}
 
-	if(ForcedLOD >= 0)
-	{
-		// When forcing LOD we only create one Batch Element
-		ensure(InBatch->Elements.Num() == 1);
-		int32 BatchElementIndex = 0;
-		BatchesToRenderMask |= (((uint64)1) << BatchElementIndex);
-		INC_DWORD_STAT(STAT_LandscapeDrawCalls);
-		INC_DWORD_STAT_BY(STAT_LandscapeTriangles, InBatch->Elements[BatchElementIndex].NumPrimitives);
-	}
-	else
-	{
-		const void* ViewCustomData = InViewCustomData != nullptr ? InViewCustomData : InView.GetCustomData(GetPrimitiveSceneInfo()->GetIndex());
+	const void* ViewCustomData = InViewCustomData != nullptr ? InViewCustomData : InView.GetCustomData(GetPrimitiveSceneInfo()->GetIndex());
 
-		if (ViewCustomData != nullptr)
+	if (ViewCustomData != nullptr)
+	{
+		const FViewCustomDataLOD* CurrentLODData = (const FViewCustomDataLOD*)ViewCustomData;
+
+		if (NumSubsections > 1 && !CurrentLODData->UseCombinedMeshBatch)
 		{
-			const FViewCustomDataLOD* CurrentLODData = (const FViewCustomDataLOD*)ViewCustomData;
+			INC_DWORD_STAT(STAT_LandscapeComponentUsingSubSectionDrawCalls);
 
-			if (NumSubsections > 1 && !CurrentLODData->UseCombinedMeshBatch)
+			for (int32 SubSectionIndex = 0; SubSectionIndex < MAX_SUBSECTION_COUNT; ++SubSectionIndex)
 			{
-				INC_DWORD_STAT(STAT_LandscapeComponentUsingSubSectionDrawCalls);
-
-				for (int32 SubSectionIndex = 0; SubSectionIndex < MAX_SUBSECTION_COUNT; ++SubSectionIndex)
-				{
-					const FViewCustomDataSubSectionLOD& SubSectionLODData = CurrentLODData->SubSections[SubSectionIndex];
-					check(SubSectionLODData.StaticBatchElementIndexToRender != INDEX_NONE);
-
-					BatchesToRenderMask |= (((uint64)1) << SubSectionLODData.StaticBatchElementIndexToRender);
-					INC_DWORD_STAT(STAT_LandscapeDrawCalls);
-					INC_DWORD_STAT_BY(STAT_LandscapeTriangles, InBatch->Elements[SubSectionLODData.StaticBatchElementIndexToRender].NumPrimitives);
-				}
-			}
-			else
-			{
-				int32 SubSectionIndex = 0;
 				const FViewCustomDataSubSectionLOD& SubSectionLODData = CurrentLODData->SubSections[SubSectionIndex];
 				check(SubSectionLODData.StaticBatchElementIndexToRender != INDEX_NONE);
 
@@ -1623,6 +1645,16 @@ uint64 FLandscapeComponentSceneProxy::GetStaticBatchElementVisibility(const FSce
 				INC_DWORD_STAT(STAT_LandscapeDrawCalls);
 				INC_DWORD_STAT_BY(STAT_LandscapeTriangles, InBatch->Elements[SubSectionLODData.StaticBatchElementIndexToRender].NumPrimitives);
 			}
+		}
+		else
+		{
+			int32 SubSectionIndex = 0;
+			const FViewCustomDataSubSectionLOD& SubSectionLODData = CurrentLODData->SubSections[SubSectionIndex];
+			check(SubSectionLODData.StaticBatchElementIndexToRender != INDEX_NONE);
+
+			BatchesToRenderMask |= (((uint64)1) << SubSectionLODData.StaticBatchElementIndexToRender);
+			INC_DWORD_STAT(STAT_LandscapeDrawCalls);
+			INC_DWORD_STAT_BY(STAT_LandscapeTriangles, InBatch->Elements[SubSectionLODData.StaticBatchElementIndexToRender].NumPrimitives);
 		}
 	}
 
@@ -1663,7 +1695,7 @@ void FLandscapeComponentSceneProxy::CalculateBatchElementLOD(const FSceneView& I
 				CalculateLODFromScreenSize(View, SubSectionLODData.ScreenSizeSquared, InViewLODScale, SubSectionIndex, InOutLODData);
 				check(SubSectionLODData.fBatchElementCurrentLOD != -1.0f);
 
-				InOutLODData.ShaderCurrentLOD.Component(SubSectionIndex) = SubSectionLODData.fBatchElementCurrentLOD;				
+				InOutLODData.ShaderCurrentLOD.Component(SubSectionIndex) = SubSectionLODData.fBatchElementCurrentLOD;
 
 				// Determine if we should use the combined batch or not
 				if (ComponentScreenSize > ComponentSquaredScreenSizeToUseSubSections * SquaredViewLODScale)
@@ -1741,17 +1773,17 @@ float FLandscapeComponentSceneProxy::ComputeBatchElementCurrentLOD(int32 InSelec
 
 	float LODScreenRatioRange = CurrentLODScreenRatio - NextLODScreenRatio;
 
-	float CurrentScreenSize = InComponentScreenSize;
-
-	if (InComponentScreenSize > CurrentLODScreenRatio || InComponentScreenSize < NextLODScreenRatio) // is out of valid range for this LODIndex (which mean we had a clamp done either by ForcedLOD or MIP streaming
+	if (InComponentScreenSize > CurrentLODScreenRatio || InComponentScreenSize < NextLODScreenRatio)
 	{
-		CurrentScreenSize = CurrentLODScreenRatio; // assume start of the range
+		// Find corresponding LODIndex to appropriately calculate Ratio and apply it to new LODIndex
+		int32 LODFromScreenSize = GetLODFromScreenSize(InComponentScreenSize, 1.0f); // for 4.19 only
+		CurrentLODScreenRatio = LODScreenRatioSquared[LODFromScreenSize];
+		NextLODScreenRatio = LODFromScreenSize == LODScreenRatioSquared.Num() - 1 ? 0 : LODScreenRatioSquared[LODFromScreenSize + 1];
+		LODScreenRatioRange = CurrentLODScreenRatio - NextLODScreenRatio;
 	}
 
-	float CurrentLODRangeRatio = (CurrentScreenSize - NextLODScreenRatio) / LODScreenRatioRange;
+	float CurrentLODRangeRatio = (InComponentScreenSize - NextLODScreenRatio) / LODScreenRatioRange;
 	float fLOD = (float)InSelectedLODIndex + (1.0f - CurrentLODRangeRatio);
-
-	fLOD = FMath::Clamp<float>(fLOD, (float)MinValidLOD, (float)MaxValidLOD);
 
 	return fLOD;
 }
@@ -1786,7 +1818,7 @@ int8 FLandscapeComponentSceneProxy::GetLODFromScreenSize(float InScreenSizeSquar
 
 		return SelectedLODIndex;
 	}
-	
+
 	return INDEX_NONE;
 }
 
@@ -1799,7 +1831,7 @@ void* FLandscapeComponentSceneProxy::InitViewCustomData(const FSceneView& InView
 	PrimitiveCustomDataIndex = GetPrimitiveSceneInfo()->GetIndex();
 	const FSceneView& View = GetLODView(InView);
 
-	FViewCustomDataLOD* LODData = new (InCustomDataMemStack) FViewCustomDataLOD();
+	FViewCustomDataLOD* LODData = (FViewCustomDataLOD*)new(InCustomDataMemStack) FViewCustomDataLOD();
 
 	check(InMeshScreenSizeSquared <= 1.0f);
 	LODData->ComponentScreenSize = InMeshScreenSizeSquared;
@@ -1810,7 +1842,7 @@ void* FLandscapeComponentSceneProxy::InitViewCustomData(const FSceneView& InView
 		LODData->ComponentScreenSize = GetComponentScreenSize(&View, LandscapeComponent->Bounds.Origin, ComponentMaxExtend, LandscapeComponent->Bounds.SphereRadius);
 	}
 
-	CalculateBatchElementLOD(View, LODData->ComponentScreenSize, InViewLODScale, *LODData);
+	CalculateBatchElementLOD(View, LODData->ComponentScreenSize, InViewLODScale, *LODData, false);
 
 	if (InIsStaticRelevant)
 	{
@@ -1828,7 +1860,7 @@ void* FLandscapeComponentSceneProxy::InitViewCustomData(const FSceneView& InView
 				ComputeStaticBatchIndexToRender(*LODData, i);
 			}
 		}
-	}	
+	}
 
 	// Mobile use a different way of calculating the Bias
 	if (GetScene().GetFeatureLevel() >= ERHIFeatureLevel::SM4)
@@ -1852,7 +1884,7 @@ void FLandscapeComponentSceneProxy::ComputeTessellationFalloffShaderValues(const
 		if (UseTessellationComponentScreenSizeFalloff)
 		{
 			float MaxTesselationDistance = ComputeBoundsDrawDistance(FMath::Sqrt(TessellationComponentSquaredScreenSize), LandscapeComponent->Bounds.SphereRadius / 2.0f, InViewProjectionMatrix);
-			float FallOffStartingDistance = FMath::Min(ComputeBoundsDrawDistance(FMath::Sqrt(FMath::Min(FMath::Square(TessellationComponentScreenSizeFalloff), TessellationComponentSquaredScreenSize)), LandscapeComponent->Bounds.SphereRadius / 2.0f , InViewProjectionMatrix) - MaxTesselationDistance, MaxTesselationDistance);
+			float FallOffStartingDistance = FMath::Min(ComputeBoundsDrawDistance(FMath::Sqrt(FMath::Min(FMath::Square(TessellationComponentScreenSizeFalloff), TessellationComponentSquaredScreenSize)), LandscapeComponent->Bounds.SphereRadius / 2.0f, InViewProjectionMatrix) - MaxTesselationDistance, MaxTesselationDistance);
 
 			// Calculate the falloff using a = C - K * d by sending C & K into the shader
 			OutC = MaxTesselationDistance / (MaxTesselationDistance - FallOffStartingDistance);
@@ -1903,15 +1935,15 @@ struct SubSectionData
 
 // SubSectionIndex, NeighborIndex
 static const SubSectionData SubSectionValues[4][4] = { { SubSectionData(0, 1, false), SubSectionData(1, 0, false), SubSectionData(1, 0, true), SubSectionData(0, 1, true) },
-													   { SubSectionData(0, 1, false), SubSectionData(-1, 0, true), SubSectionData(-1, 0, false), SubSectionData(0, 1, true) },
-													   { SubSectionData(0, -1, true), SubSectionData(1, 0, false), SubSectionData(1, 0, true), SubSectionData(0, -1, false) },
-													   { SubSectionData(0, -1, true), SubSectionData(-1, 0, true), SubSectionData(-1, 0, false), SubSectionData(0, -1, false) } };
+{ SubSectionData(0, 1, false), SubSectionData(-1, 0, true), SubSectionData(-1, 0, false), SubSectionData(0, 1, true) },
+{ SubSectionData(0, -1, true), SubSectionData(1, 0, false), SubSectionData(1, 0, true), SubSectionData(0, -1, false) },
+{ SubSectionData(0, -1, true), SubSectionData(-1, 0, true), SubSectionData(-1, 0, false), SubSectionData(0, -1, false) } };
 
 
 float FLandscapeComponentSceneProxy::GetNeighborLOD(const FSceneView& InView, float InBatchElementCurrentLOD, int8 InNeighborIndex, int8 InSubSectionX, int8 InSubSectionY, int8 InCurrentSubSectionIndex) const
 {
 	float NeighborLOD = InBatchElementCurrentLOD;
-	
+
 	// Assume no sub section initialization
 	bool InsideComponent = false;
 	int32 PrimitiveDataIndex = PrimitiveCustomDataIndex;
@@ -1936,14 +1968,14 @@ float FLandscapeComponentSceneProxy::GetNeighborLOD(const FSceneView& InView, fl
 	if (!InsideComponent)
 	{
 		Neighbor = Neighbors[InNeighborIndex];
-		
+
 		if (Neighbor != nullptr)
 		{
 			PrimitiveDataIndex = Neighbor->PrimitiveCustomDataIndex;
 		}
 		else
 		{
-			DesiredSubSectionIndex = CurrentSubSectionIndex; 
+			DesiredSubSectionIndex = CurrentSubSectionIndex;
 		}
 	}
 
@@ -1970,7 +2002,7 @@ float FLandscapeComponentSceneProxy::GetNeighborLOD(const FSceneView& InView, fl
 			if (Neighbor->GetLandscapeComponent() != nullptr)
 			{
 				LandscapeComponentOrigin = NeighborComponent->Bounds.Origin;
-				LandscapeComponentMaxExtends = NeighborComponent->Bounds.BoxExtent[0];
+				LandscapeComponentMaxExtends = NeighborComponent->SubsectionSizeQuads * FMath::Max(NeighborComponent->GetComponentTransform().GetScale3D().X, NeighborComponent->GetComponentTransform().GetScale3D().Y);
 			}
 		}
 
@@ -2006,7 +2038,7 @@ float FLandscapeComponentSceneProxy::GetNeighborLOD(const FSceneView& InView, fl
 			{
 				NeighborLOD = SubSectionLODData.fBatchElementCurrentLOD;
 			}
-		}		
+		}
 	}
 
 	return NeighborLOD;
@@ -2018,7 +2050,7 @@ void FLandscapeComponentSceneProxy::ComputeStaticBatchIndexToRender(FViewCustomD
 
 	SubSectionLODData.StaticBatchElementIndexToRender = INDEX_NONE;
 	SubSectionLODData.StaticBatchElementIndexToRender = ConvertBatchElementLODToBatchElementIndex(SubSectionLODData.BatchElementCurrentLOD, OutLODData.UseCombinedMeshBatch) + SubSectionIndex;
-	check(SubSectionLODData.StaticBatchElementIndexToRender != INDEX_NONE);	
+	check(SubSectionLODData.StaticBatchElementIndexToRender != INDEX_NONE);
 }
 
 void FLandscapeComponentSceneProxy::PostInitViewCustomData(const FSceneView& InView, void* InViewCustomData)
@@ -2036,7 +2068,30 @@ void FLandscapeComponentSceneProxy::PostInitViewCustomData(const FSceneView& InV
 			FViewCustomDataSubSectionLOD& SubSectionLODData = CurrentLODData->SubSections[SubSectionIndex];
 			GetShaderCurrentNeighborLOD(InView, SubSectionLODData.fBatchElementCurrentLOD, NumSubsections > 1 ? SubX : INDEX_NONE, NumSubsections > 1 ? SubY : INDEX_NONE, SubSectionIndex, SubSectionLODData.ShaderCurrentNeighborLOD);
 		}
-	}	
+	}
+
+#if !UE_BUILD_SHIPPING
+	if (GVarDumpLandscapeLODs && GFrameNumberRenderThread == GVarDumpLandscapeLODsCurrentFrame)
+	{
+		if (NumSubsections == 1)
+		{
+			UE_LOG(LogLandscape, Warning, TEXT("\nComponent: [%s] -> MeshBatchLOD: %d, ComponentScreenSize: %f, ShaderCurrentLOD: %s, LODTessellation: %s\nHeightmap Texture Name: %s, Heightmap Streamed Mip: %d\nSubSections:\n|0| IndexToRender: %d, fLOD: %f, LOD: %d, NeighborLOD: %s\n"), *SectionBase.ToString(),
+				CurrentLODData->StaticMeshBatchLOD, CurrentLODData->ComponentScreenSize, *CurrentLODData->ShaderCurrentLOD.ToString(), *CurrentLODData->LodTessellationParams.ToString(),
+				HeightmapTexture != nullptr ? *HeightmapTexture->GetFullName() : TEXT("Invalid"), HeightmapTexture != nullptr ? ((FTexture2DResource*)HeightmapTexture->Resource)->GetCurrentFirstMip() : INDEX_NONE,
+				CurrentLODData->SubSections[0].StaticBatchElementIndexToRender, CurrentLODData->SubSections[0].fBatchElementCurrentLOD, CurrentLODData->SubSections[0].BatchElementCurrentLOD, *CurrentLODData->SubSections[0].ShaderCurrentNeighborLOD.ToString());
+		}
+		else
+		{
+			UE_LOG(LogLandscape, Warning, TEXT("\nComponent: [%s] -> MeshBatchLOD: %d, ComponentScreenSize: %f, UseCombinedMeshBatch: %d, ShaderCurrentLOD: %s, LODTessellation: %s\nHeightmap Texture Name: %s, Heightmap Streamed Mip: %d\nSubSections:\n|0| IndexToRender: %d, fLOD: %f, LOD: %d, NeighborLOD: %s\n|1| IndexToRender: %d, fLOD: %f, LOD: %d, NeighborLOD: %s\n|2| IndexToRender: %d, fLOD: %f, LOD: %d, NeighborLOD: %s\n|3| IndexToRender: %d, fLOD: %f, LOD: %d, NeighborLOD: %s\n"),
+				*SectionBase.ToString(), CurrentLODData->StaticMeshBatchLOD, CurrentLODData->ComponentScreenSize, CurrentLODData->UseCombinedMeshBatch, *CurrentLODData->ShaderCurrentLOD.ToString(), *CurrentLODData->LodTessellationParams.ToString(),
+				HeightmapTexture != nullptr ? *HeightmapTexture->GetFullName() : TEXT("Invalid"), HeightmapTexture != nullptr ? ((FTexture2DResource*)HeightmapTexture->Resource)->GetCurrentFirstMip() : INDEX_NONE,
+				CurrentLODData->SubSections[0].StaticBatchElementIndexToRender, CurrentLODData->SubSections[0].fBatchElementCurrentLOD, CurrentLODData->SubSections[0].BatchElementCurrentLOD, *CurrentLODData->SubSections[0].ShaderCurrentNeighborLOD.ToString(),
+				CurrentLODData->SubSections[1].StaticBatchElementIndexToRender, CurrentLODData->SubSections[1].fBatchElementCurrentLOD, CurrentLODData->SubSections[1].BatchElementCurrentLOD, *CurrentLODData->SubSections[1].ShaderCurrentNeighborLOD.ToString(),
+				CurrentLODData->SubSections[2].StaticBatchElementIndexToRender, CurrentLODData->SubSections[2].fBatchElementCurrentLOD, CurrentLODData->SubSections[2].BatchElementCurrentLOD, *CurrentLODData->SubSections[2].ShaderCurrentNeighborLOD.ToString(),
+				CurrentLODData->SubSections[3].StaticBatchElementIndexToRender, CurrentLODData->SubSections[3].fBatchElementCurrentLOD, CurrentLODData->SubSections[3].BatchElementCurrentLOD, *CurrentLODData->SubSections[3].ShaderCurrentNeighborLOD.ToString());
+		}
+	}
+#endif
 }
 
 bool FLandscapeComponentSceneProxy::IsUsingCustomLODRules() const
@@ -2045,7 +2100,7 @@ bool FLandscapeComponentSceneProxy::IsUsingCustomLODRules() const
 }
 
 bool FLandscapeComponentSceneProxy::IsUsingCustomWholeSceneShadowLODRules() const
-{ 
+{
 	return true;
 }
 
@@ -2169,15 +2224,15 @@ FLODMask FLandscapeComponentSceneProxy::GetCustomWholeSceneShadowLOD(const FScen
 
 namespace
 {
-    FLinearColor GetColorForLod(int32 CurrentLOD, int32 ForcedLOD, bool DisplayCombinedBatch)
-    {
-	    int32 ColorIndex = INDEX_NONE;
-	    if (GEngine->LODColorationColors.Num() > 0)
-	    {
-		    ColorIndex = CurrentLOD;
-		    ColorIndex = FMath::Clamp(ColorIndex, 0, GEngine->LODColorationColors.Num() - 1);
-	    }
-	    const FLinearColor& LODColor = ColorIndex != INDEX_NONE ? GEngine->LODColorationColors[ColorIndex] : FLinearColor::Gray;
+	FLinearColor GetColorForLod(int32 CurrentLOD, int32 ForcedLOD, bool DisplayCombinedBatch)
+	{
+		int32 ColorIndex = INDEX_NONE;
+		if (GEngine->LODColorationColors.Num() > 0)
+		{
+			ColorIndex = CurrentLOD;
+			ColorIndex = FMath::Clamp(ColorIndex, 0, GEngine->LODColorationColors.Num() - 1);
+		}
+		const FLinearColor& LODColor = ColorIndex != INDEX_NONE ? GEngine->LODColorationColors[ColorIndex] : FLinearColor::Gray;
 
 		if (ForcedLOD >= 0)
 		{
@@ -2189,7 +2244,7 @@ namespace
 			return LODColor * 0.2f;
 		}
 
-	    return LODColor * 0.1f;
+		return LODColor * 0.1f;
 	}
 }
 
@@ -2215,9 +2270,13 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 		{
 			const FSceneView* View = Views[ViewIndex];
 			FLandscapeElementParamArray& ParameterArray = Collector.AllocateOneFrameResource<FLandscapeElementParamArray>();
-			 
+
 			const FViewCustomDataLOD* PrimitiveCustomData = (const FViewCustomDataLOD*)View->GetCustomData(GetPrimitiveSceneInfo()->GetIndex());
-			check(PrimitiveCustomData != nullptr);
+
+			if (PrimitiveCustomData == nullptr)
+			{
+				continue;
+			}
 
 			ParameterArray.ElementParams.AddDefaulted(NumSubsections * NumSubsections);
 
@@ -2250,7 +2309,7 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 			// No Tessellation on tool material
 			BuildDynamicMeshElement(PrimitiveCustomData, true, TessellationEnabledOnDefaultMaterial ? AvailableMaterials[1] : AvailableMaterials[0], MeshTools, ParameterArray.ElementParams);
 #endif
-			
+
 			// Render the landscape component
 #if WITH_EDITOR
 			switch (GLandscapeViewMode)
@@ -2322,7 +2381,7 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 
 			case ELandscapeViewMode::LOD:
 			{
-			
+
 				const bool bMaterialModifiesMeshPosition = Mesh.MaterialRenderProxy->GetMaterial(View->GetFeatureLevel())->MaterialModifiesMeshPosition_RenderThread();
 
 				auto& TemplateMesh = bIsWireframe ? Mesh : MeshTools;
@@ -2334,7 +2393,7 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 					LODMesh.Elements.Add(TemplateMesh.Elements[i]);
 					int32 CurrentLOD = ((FLandscapeBatchElementParams*)TemplateMesh.Elements[i].UserData)->CurrentLOD;
 					LODMesh.VisualizeLODIndex = CurrentLOD;
-					FLinearColor Color = GetColorForLod(CurrentLOD, ForcedLOD, PrimitiveCustomData != nullptr? PrimitiveCustomData->UseCombinedMeshBatch : true);
+					FLinearColor Color = GetColorForLod(CurrentLOD, ForcedLOD, PrimitiveCustomData != nullptr ? PrimitiveCustomData->UseCombinedMeshBatch : true);
 					FMaterialRenderProxy* LODMaterialProxy =
 						bMaterialModifiesMeshPosition && bIsWireframe
 						? (FMaterialRenderProxy*)new FOverrideSelectionColorMaterialRenderProxy(Mesh.MaterialRenderProxy, Color)
@@ -2390,7 +2449,7 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 						auto CollisionMaterialInstance = new FColoredMaterialRenderProxy(
 							GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()),
 							GetWireframeColor()
-							);
+						);
 						Collector.RegisterOneFrameMaterialProxy(CollisionMaterialInstance);
 
 						Mesh.MaterialRenderProxy = CollisionMaterialInstance;
@@ -2406,33 +2465,33 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 				}
 				else
 #endif
-				// Regular Landscape rendering. Only use the dynamic path if we're rendering a rich view or we've disabled the static path for debugging.
-				if( IsRichView(ViewFamily) || 
-					GLandscapeDebugOptions.bDisableStatic ||
-					bIsWireframe ||
+					// Regular Landscape rendering. Only use the dynamic path if we're rendering a rich view or we've disabled the static path for debugging.
+					if (IsRichView(ViewFamily) ||
+						GLandscapeDebugOptions.bDisableStatic ||
+						bIsWireframe ||
 #if WITH_EDITOR
-					(IsSelected() && !GLandscapeEditModeActive) ||
+						(IsSelected() && !GLandscapeEditModeActive) ||
 #else
-					IsSelected() ||
+						IsSelected() ||
 #endif
-					!IsStaticPathAvailable())
-				{
-					Mesh.bCanApplyViewModeOverrides = true;
-					Mesh.bUseWireframeSelectionColoring = IsSelected();
+						!IsStaticPathAvailable())
+					{
+						Mesh.bCanApplyViewModeOverrides = true;
+						Mesh.bUseWireframeSelectionColoring = IsSelected();
 
-					Collector.AddMesh(ViewIndex, Mesh);
+						Collector.AddMesh(ViewIndex, Mesh);
 
-					NumPasses++;
-					NumTriangles += Mesh.GetNumPrimitives();
-					NumDrawCalls += Mesh.Elements.Num();
-				}
+						NumPasses++;
+						NumTriangles += Mesh.GetNumPrimitives();
+						NumDrawCalls += Mesh.Elements.Num();
+					}
 
 #if WITH_EDITOR
 			} // switch
 #endif
 
 #if WITH_EDITOR
-			// Extra render passes for landscape tools
+			  // Extra render passes for landscape tools
 			if (GLandscapeEditModeActive)
 			{
 				// Region selection
@@ -2807,17 +2866,17 @@ void FLandscapeSharedBuffers::CreateOccluderIndexBuffer(int32 NumOccluderVertice
 	}
 
 	uint16 NumLineQuads = ((uint16)FMath::Sqrt(NumOccluderVertices) - 1);
-	uint16 NumLineVtx = NumLineQuads+1;
+	uint16 NumLineVtx = NumLineQuads + 1;
 	check(NumLineVtx*NumLineVtx == NumOccluderVertices);
 
-	int32 NumTris = NumLineQuads*NumLineQuads*2;
-	int32 NumIndices = NumTris*3;
+	int32 NumTris = NumLineQuads*NumLineQuads * 2;
+	int32 NumIndices = NumTris * 3;
 	OccluderIndicesSP = MakeShared<FOccluderIndexArray, ESPMode::ThreadSafe>();
 	OccluderIndicesSP->SetNumUninitialized(NumIndices, false);
-	
+
 	uint16* OcclusionIndices = OccluderIndicesSP->GetData();
 	const uint16 NumLineVtxPlusOne = NumLineVtx + 1;
-	const uint16 QuadIndices[2][3] = {{0, NumLineVtx, NumLineVtxPlusOne}, {0, NumLineVtxPlusOne, 1}};
+	const uint16 QuadIndices[2][3] = { {0, NumLineVtx, NumLineVtxPlusOne}, {0, NumLineVtxPlusOne, 1} };
 	uint16 QuadOffset = 0;
 	int32 Index = 0;
 	for (int32 y = 0; y < NumLineQuads; y++)
@@ -2844,7 +2903,7 @@ void FLandscapeSharedBuffers::CreateGrassIndexBuffer()
 {
 	TArray<INDEX_TYPE> NewIndices;
 
-	int32 ExpectedNumIndices = FMath::Square(NumSubsections) * (FMath::Square(SubsectionSizeVerts) * 4/3 - 1); // *4/3 is for mips, -1 because we only go down to 2x2 not 1x1
+	int32 ExpectedNumIndices = FMath::Square(NumSubsections) * (FMath::Square(SubsectionSizeVerts) * 4 / 3 - 1); // *4/3 is for mips, -1 because we only go down to 2x2 not 1x1
 	NewIndices.Empty(ExpectedNumIndices);
 
 	int32 NumMips = FMath::CeilLogTwo(SubsectionSizeVerts);
@@ -3141,7 +3200,7 @@ public:
 			{
 				SetShaderValue(RHICmdList, VertexShaderParamRef, LodTessellationParameter, LODData->LodTessellationParams);
 			}
-				
+
 			if (LodBiasParameter.IsBound())
 			{
 				check(LODData->LodBias == SceneProxy->GetShaderLODBias());
@@ -3169,7 +3228,7 @@ public:
 				FVector4 ShaderCurrentNeighborLOD[FLandscapeComponentSceneProxy::NEIGHBOR_COUNT] = { FVector4(ForceInitToZero), FVector4(ForceInitToZero), FVector4(ForceInitToZero), FVector4(ForceInitToZero) };
 
 				if (LODData->UseCombinedMeshBatch)
-				{					
+				{
 					int32 SubSectionCount = SceneProxy->NumSubsections == 1 ? 1 : FLandscapeComponentSceneProxy::MAX_SUBSECTION_COUNT;
 
 					for (int32 NeighborSubSectionIndex = 0; NeighborSubSectionIndex < SubSectionCount; ++NeighborSubSectionIndex)
@@ -3188,12 +3247,12 @@ public:
 
 					SetShaderValue(RHICmdList, VertexShaderParamRef, NeighborSectionLodParameter, ShaderCurrentNeighborLOD);
 				}
-			}			
+			}
 		}
 		else
 		{
 			float ComponentScreenSize = SceneProxy->GetComponentScreenSize(&View, SceneProxy->LandscapeComponent->Bounds.Origin, SceneProxy->ComponentMaxExtend, SceneProxy->LandscapeComponent->Bounds.SphereRadius);
-			
+
 			FLandscapeComponentSceneProxy::FViewCustomDataLOD CurrentLODData;
 			SceneProxy->CalculateBatchElementLOD(InView, ComponentScreenSize, View.LODDistanceFactor, CurrentLODData, true);
 			check(CurrentLODData.UseCombinedMeshBatch);
@@ -3231,7 +3290,7 @@ public:
 				}
 
 				SetShaderValue(RHICmdList, VertexShaderParamRef, NeighborSectionLodParameter, CurrentNeighborLOD);
-			}				
+			}
 		}
 
 		if (XYOffsetTextureParameter.IsBound() && SceneProxy->XYOffsetmapTexture)
@@ -3279,8 +3338,8 @@ void FLandscapeVertexFactoryPixelShaderParameters::Bind(const FShaderParameterMa
 void FLandscapeVertexFactoryPixelShaderParameters::Serialize(FArchive& Ar)
 {
 	Ar << NormalmapTextureParameter
-	   << NormalmapTextureParameterSampler
-	   << LocalToWorldNoScalingParameter;
+		<< NormalmapTextureParameterSampler
+		<< LocalToWorldNoScalingParameter;
 }
 
 /**
@@ -3326,7 +3385,7 @@ void FLandscapeVertexFactory::InitRHI()
 }
 
 FLandscapeVertexFactory::FLandscapeVertexFactory(ERHIFeatureLevel::Type InFeatureLevel)
-: FVertexFactory(InFeatureLevel)
+	: FVertexFactory(InFeatureLevel)
 {
 }
 
@@ -3393,11 +3452,15 @@ class FLandscapeMaterialResource : public FMaterialResource
 {
 	const bool bIsLayerThumbnail;
 	const bool bDisableTessellation;
+	const bool bMobile;
+	const bool bEditorToolUsage;
 
 public:
 	FLandscapeMaterialResource(ULandscapeMaterialInstanceConstant* Parent)
 		: bIsLayerThumbnail(Parent->bIsLayerThumbnail)
 		, bDisableTessellation(Parent->bDisableTessellation)
+		, bMobile(Parent->bMobile)
+		, bEditorToolUsage(Parent->bEditorToolUsage)
 	{
 	}
 
@@ -3449,6 +3512,13 @@ public:
 
 	bool ShouldCache(EShaderPlatform Platform, const FShaderType* ShaderType, const FVertexFactoryType* VertexFactoryType) const override
 	{
+		// Don't compile if this is a mobile shadermap and a desktop MIC, and vice versa, unless it's a tool material
+		if (!(IsPCPlatform(Platform) && bEditorToolUsage) && bMobile != IsMobilePlatform(Platform))
+		{
+			// @todo For some reason this causes this resource to return true for IsCompilationFinished. For now we will needlessly compile this shader until this is fixed.
+			//return false;
+		}
+
 		if (VertexFactoryType)
 		{
 			// Always check against FLocalVertexFactory in editor builds as it is required to render thumbnails
@@ -3456,7 +3526,7 @@ public:
 			if (bIsLayerThumbnail)
 			{
 				static const FName LocalVertexFactory = FName(TEXT("FLocalVertexFactory"));
-				if (VertexFactoryType->GetFName() == LocalVertexFactory)
+				if (!IsMobilePlatform(Platform) && VertexFactoryType->GetFName() == LocalVertexFactory)
 				{
 					if (Algo::Find(GetAllowedShaderTypes(), ShaderType->GetFName()))
 					{
@@ -3526,16 +3596,17 @@ public:
 			FName(TEXT("FHitProxyVS")),
 			FName(TEXT("FHitProxyPS")),
 
-			FName(TEXT("TBasePassVSFSimpleStationaryLightVolumetricLightmapShadowsLightingPolicy")),
 			FName(TEXT("TBasePassPSFSimpleStationaryLightSingleSampleShadowsLightingPolicy")),
 			FName(TEXT("TBasePassPSFSimpleStationaryLightSingleSampleShadowsLightingPolicySkylight")),
 			FName(TEXT("TBasePassVSFSimpleStationaryLightSingleSampleShadowsLightingPolicy")),
 			FName(TEXT("TBasePassPSFSimpleStationaryLightPrecomputedShadowsLightingPolicy")),
 			FName(TEXT("TBasePassPSFSimpleStationaryLightPrecomputedShadowsLightingPolicySkylight")),
 			FName(TEXT("TBasePassVSFSimpleStationaryLightPrecomputedShadowsLightingPolicy")),
-			FName(TEXT("TBasePassPSFSimpleLightmapOnlyLightingPolicy")),
-			FName(TEXT("TBasePassPSFSimpleLightmapOnlyLightingPolicySkylight")),
-			FName(TEXT("TBasePassVSFSimpleLightmapOnlyLightingPolicy")),
+			FName(TEXT("TBasePassVSFNoLightMapPolicyAtmosphericFog")),
+			FName(TEXT("TBasePassDSFNoLightMapPolicy")),
+			FName(TEXT("TBasePassHSFNoLightMapPolicy")),
+			FName(TEXT("TLightMapDensityVSFNoLightMapPolicy")),
+			FName(TEXT("TLightMapDensityPSFNoLightMapPolicy")),
 
 			// Mobile
 			FName(TEXT("TMobileBasePassPSFMobileMovableDirectionalLightCSMLightingPolicyINT32_MAXHDRLinear64Skylight")),
@@ -3596,8 +3667,6 @@ public:
 			FName(TEXT("FVelocityPS")),
 
 			// No lightmap on thumbnails
-			FName(TEXT("TLightMapDensityVSFNoLightMapPolicy")),
-			FName(TEXT("TLightMapDensityPSFNoLightMapPolicy")),
 			FName(TEXT("TLightMapDensityVSFDummyLightMapPolicy")),
 			FName(TEXT("TLightMapDensityPSFDummyLightMapPolicy")),
 			FName(TEXT("TLightMapDensityPSTLightMapPolicyHQ")),
@@ -3613,7 +3682,9 @@ public:
 			FName(TEXT("TBasePassPSTLightMapPolicyLQ")),
 			FName(TEXT("TBasePassPSTLightMapPolicyLQSkylight")),
 			FName(TEXT("TBasePassVSTLightMapPolicyLQ")),
+			FName(TEXT("TBasePassVSFSimpleStationaryLightVolumetricLightmapShadowsLightingPolicy")),
 
+			// Mobile
 			FName(TEXT("TMobileBasePassPSFMobileMovableDirectionalLightCSMWithLightmapPolicyINT32_MAXHDRLinear64Skylight")),
 			FName(TEXT("TMobileBasePassPSFMobileMovableDirectionalLightCSMWithLightmapPolicyINT32_MAXHDRLinear64")),
 			FName(TEXT("TMobileBasePassPSFMobileMovableDirectionalLightCSMWithLightmapPolicy0HDRLinear64Skylight")),
@@ -3624,10 +3695,8 @@ public:
 			FName(TEXT("TMobileBasePassPSFMobileMovableDirectionalLightWithLightmapPolicy0HDRLinear64Skylight")),
 			FName(TEXT("TMobileBasePassPSFMobileMovableDirectionalLightWithLightmapPolicy0HDRLinear64")),
 			FName(TEXT("TMobileBasePassVSFMobileMovableDirectionalLightWithLightmapPolicyHDRLinear64")),
-
 			FName(TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicyINT32_MAXHDRLinear64Skylight")),
 			FName(TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicyINT32_MAXHDRLinear64")),
-
 			FName(TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicy0HDRLinear64Skylight")),
 			FName(TEXT("TMobileBasePassPSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicy0HDRLinear64")),
 			FName(TEXT("TMobileBasePassVSFMobileDistanceFieldShadowsLightMapAndCSMLightingPolicyHDRLinear64")),
@@ -3639,22 +3708,18 @@ public:
 			FName(TEXT("TMobileBasePassPSTLightMapPolicyLQINT32_MAXHDRLinear64Skylight")),
 			FName(TEXT("TMobileBasePassPSTLightMapPolicyLQINT32_MAXHDRLinear64")),
 			FName(TEXT("TMobileBasePassPSTLightMapPolicyLQ0HDRLinear64Skylight")),
-
 			FName(TEXT("TMobileBasePassPSTLightMapPolicyLQ0HDRLinear64")),
 			FName(TEXT("TMobileBasePassVSTLightMapPolicyLQHDRLinear64")),
 
-			FName(TEXT("TBasePassPSFCachedPointIndirectLightingPolicySkylight")),
 			FName(TEXT("TBasePassVSFCachedVolumeIndirectLightingPolicy")),
 			FName(TEXT("TBasePassPSFCachedVolumeIndirectLightingPolicy")),
 			FName(TEXT("TBasePassPSFCachedVolumeIndirectLightingPolicySkylight")),
 			FName(TEXT("TBasePassPSFPrecomputedVolumetricLightmapLightingPolicySkylight")),
 			FName(TEXT("TBasePassVSFPrecomputedVolumetricLightmapLightingPolicy")),
 			FName(TEXT("TBasePassPSFPrecomputedVolumetricLightmapLightingPolicy")),
-			FName(TEXT("TBasePassPSFPrecomputedVolumetricLightmapLightingPolicySkylight")),
 
-			FName(TEXT("TBasePassPSFSimpleStationaryLightVolumetricLightmapShadowsLightingPolicy")),			
+			FName(TEXT("TBasePassPSFSimpleStationaryLightVolumetricLightmapShadowsLightingPolicy")),
 
-			FName(TEXT("TBasePassVSFNoLightMapPolicyAtmosphericFog")),
 			FName(TEXT("TBasePassVSFCachedPointIndirectLightingPolicyAtmosphericFog")),
 			FName(TEXT("TBasePassVSFSelfShadowedCachedPointIndirectLightingPolicy")),
 			FName(TEXT("TBasePassPSFSelfShadowedCachedPointIndirectLightingPolicy")),
@@ -3699,17 +3764,8 @@ public:
 			FName(TEXT("TBasePassVSFSelfShadowedVolumetricLightmapPolicyAtmosphericFog")),
 			FName(TEXT("TBasePassVSFSelfShadowedVolumetricLightmapPolicy")),
 
-			FName(TEXT("TBasePassVSFSimpleStationaryLightVolumetricLightmapShadowsLightingPolicy")),
-			FName(TEXT("TBasePassPSFSimpleStationaryLightSingleSampleShadowsLightingPolicy")),
-			FName(TEXT("TBasePassPSFSimpleStationaryLightSingleSampleShadowsLightingPolicySkylight")),
-			FName(TEXT("TBasePassVSFSimpleStationaryLightSingleSampleShadowsLightingPolicy")),
-
-			FName(TEXT("TBasePassPSFSimpleStationaryLightPrecomputedShadowsLightingPolicy")),
-			FName(TEXT("TBasePassPSFSimpleStationaryLightPrecomputedShadowsLightingPolicySkylight ")),
-			FName(TEXT("TBasePassVSFSimpleStationaryLightPrecomputedShadowsLightingPolicy")),
 			FName(TEXT("TBasePassPSFSimpleLightmapOnlyLightingPolicy")),
 			FName(TEXT("TBasePassPSFSimpleLightmapOnlyLightingPolicySkylight")),
-
 			FName(TEXT("TBasePassVSFSimpleLightmapOnlyLightingPolicy")),
 
 			FName(TEXT("TShadowDepthDSVertexShadowDepth_OnePassPointLightfalse")),
@@ -3755,8 +3811,6 @@ public:
 
 			FName(TEXT("TBasePassDSFPrecomputedVolumetricLightmapLightingPolicy")),
 			FName(TEXT("TBasePassHSFPrecomputedVolumetricLightmapLightingPolicy")),
-			FName(TEXT("TBasePassDSFNoLightMapPolicy")),
-			FName(TEXT("TBasePassHSFNoLightMapPolicy")),
 		};
 		return ExcludedShaderTypes;
 	}
@@ -3803,7 +3857,7 @@ void ULandscapeComponent::GetStreamingTextureInfo(FStreamingTextureLevelContext&
 	ERHIFeatureLevel::Type FeatureLevel = LevelContext.GetFeatureLevel();
 
 	// TODO - LOD Materials - Currently all LOD materials are instances of [0] so have the same textures
-    const UMaterialInterface* MaterialInterface = FeatureLevel >= ERHIFeatureLevel::SM4 ? GetMaterialInstance(0): MobileMaterialInterface;
+	const UMaterialInterface* MaterialInterface = FeatureLevel >= ERHIFeatureLevel::SM4 ? GetMaterialInstance(0) : MobileMaterialInterface;
 
 	// Normal usage...
 	// Enumerate the textures used by the material.
@@ -3838,7 +3892,7 @@ void ULandscapeComponent::GetStreamingTextureInfo(FStreamingTextureLevelContext&
 				{
 					UMaterialExpressionTextureCoordinate* TextureCoordinate = nullptr;
 					UMaterialExpressionLandscapeLayerCoords* TerrainTextureCoordinate = nullptr;
-		
+
 					for (UMaterialExpression* FindExp : Material->Expressions)
 					{
 						if (FindExp && FindExp->GetFName() == TextureSample->Coordinates.ExpressionName)
@@ -3972,7 +4026,7 @@ void ALandscapeProxy::ChangeTessellationComponentScreenSize(float InTessellation
 					}
 				}
 
-				delete[] RenderProxies;
+		delete[] RenderProxies;
 			}
 		);
 	}
@@ -4005,7 +4059,7 @@ void ALandscapeProxy::ChangeComponentScreenSizeToUseSubSections(float InComponen
 					}
 				}
 
-				delete[] RenderProxies;
+		delete[] RenderProxies;
 			}
 		);
 	}
@@ -4038,7 +4092,7 @@ void ALandscapeProxy::ChangeUseTessellationComponentScreenSizeFalloff(bool InUse
 					}
 				}
 
-				delete[] RenderProxies;
+		delete[] RenderProxies;
 			}
 		);
 	}
@@ -4071,14 +4125,14 @@ void ALandscapeProxy::ChangeTessellationComponentScreenSizeFalloff(float InTesse
 					}
 				}
 
-				delete[] RenderProxies;
+		delete[] RenderProxies;
 			}
 		);
 	}
 }
 
 void ALandscapeProxy::ChangeLODDistanceFactor(float InLODDistanceFactor)
-{	
+{
 	// Deprecated
 }
 
@@ -4114,9 +4168,9 @@ void FLandscapeComponentSceneProxy::GetHeightfieldRepresentation(UTexture2D*& Ou
 	OutDescription.HeightfieldScaleBias = HeightmapScaleBias;
 
 	OutDescription.MinMaxUV = FVector4(
-		HeightmapScaleBias.Z, 
-		HeightmapScaleBias.W, 
-		HeightmapScaleBias.Z + SubsectionSizeVerts * NumSubsections * HeightmapScaleBias.X - HeightmapScaleBias.X, 
+		HeightmapScaleBias.Z,
+		HeightmapScaleBias.W,
+		HeightmapScaleBias.Z + SubsectionSizeVerts * NumSubsections * HeightmapScaleBias.X - HeightmapScaleBias.X,
 		HeightmapScaleBias.W + SubsectionSizeVerts * NumSubsections * HeightmapScaleBias.Y - HeightmapScaleBias.Y);
 
 	OutDescription.HeightfieldRect = FIntRect(SectionBase.X, SectionBase.Y, SectionBase.X + NumSubsections * SubsectionSizeQuads, SectionBase.Y + NumSubsections * SubsectionSizeQuads);
@@ -4228,7 +4282,7 @@ void FLandscapeNeighborInfo::UnregisterNeighbors()
 // FLandscapeMeshProxySceneProxy
 //
 FLandscapeMeshProxySceneProxy::FLandscapeMeshProxySceneProxy(UStaticMeshComponent* InComponent, const FGuid& InGuid, const TArray<FIntPoint>& InProxyComponentBases, int8 InProxyLOD)
-: FStaticMeshSceneProxy(InComponent, false)
+	: FStaticMeshSceneProxy(InComponent, false)
 {
 	if (!IsComponentLevelVisible())
 	{

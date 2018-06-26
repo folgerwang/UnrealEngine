@@ -66,7 +66,7 @@ public:
 	void AddObjectToCluster(int32 ObjectIndex, FUObjectItem* ObjectItem, UObject* Obj, TArray<UObject*>& ObjectsToSerialize, bool bOuterAndClass)
 	{
 		// If we haven't finished loading, we can't be sure we know all the references
-		check(!Obj->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad));
+		check(!Obj->HasAnyFlags(RF_NeedLoad));
 		check(ObjectItem->GetOwnerIndex() == 0 || ObjectItem->GetOwnerIndex() == ClusterRootIndex || ObjectIndex == ClusterRootIndex);
 		check(Obj->CanBeInCluster());
 		if (ObjectIndex != ClusterRootIndex && ObjectItem->GetOwnerIndex() == 0 && !GUObjectArray.IsDisregardForGC(Obj) && !Obj->IsRooted())
@@ -111,7 +111,7 @@ public:
 		if (Object)
 		{
 			// If we haven't finished loading, we can't be sure we know all the references
-			check(!Object->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad));
+			check(!Object->HasAnyFlags(RF_NeedLoad));
 
 			FUObjectItem* ObjectItem = GUObjectArray.ObjectToObjectItem(Object);
 
@@ -140,18 +140,18 @@ public:
 						Cluster.MutableObjects.AddUnique(OtherClusterReferencedMutableObjectIndex);
 					}
 				}
-				else if (!GUObjectArray.IsDisregardForGC(Object)) // Objects that can create clusters themselves and haven't been postloaded yet should be excluded
+				else if (!GUObjectArray.IsDisregardForGC(Object)) // Objects that are in disregard for GC set can be safely skipped
 				{
 					check(ObjectItem->GetOwnerIndex() == 0);
 
 					// New object, add it to the cluster.
-					if (CanAddToCluster(Object) && !Object->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad))
+					if (CanAddToCluster(Object) && !Object->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad) && !Object->IsRooted())
 					{
 						AddObjectToCluster(GUObjectArray.ObjectToIndex(Object), ObjectItem, Object, ObjectsToSerialize, true);
 					}
 					else
 					{
-						checkf(!Object->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad), TEXT("%s is being added to cluster but hasn't finished loading yet"), *Object->GetFullName());
+						UE_CLOG(Object->HasAnyFlags(RF_NeedLoad), LogLevelActorContainer, Log, TEXT("%s is being added to %s's cluster but hasn't finished loading yet"), *ParentLevel->GetFullName(), *Object->GetFullName());
 						Cluster.MutableObjects.AddUnique(GUObjectArray.ObjectToIndex(Object));
 					}
 				}
@@ -171,7 +171,7 @@ void ULevelActorContainer::CreateCluster()
 	}
 
 	// If we haven't finished loading, we can't be sure we know all the references
-	check(!HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad));
+	check(!HasAnyFlags(RF_NeedLoad));
 
 	// Create a new cluster, reserve an arbitrary amount of memory for it.
 	const int32 ClusterIndex = GUObjectClusters.AllocateCluster(GUObjectArray.ObjectToIndex(this));
@@ -189,15 +189,16 @@ void ULevelActorContainer::CreateCluster()
 	FGCArrayPool::Get().CheckLeaks();
 #endif
 
-	if (Cluster.Objects.Num())
+	check(RootItem->GetOwnerIndex() == 0);
+	RootItem->SetClusterIndex(ClusterIndex);
+	RootItem->SetFlags(EInternalObjectFlags::ClusterRoot);
+
+	if (Cluster.Objects.Num() >= GUObjectClusters.GetMinClusterSize())
 	{
 		// Sort all objects and set up the cluster root
 		Cluster.Objects.Sort();
 		Cluster.ReferencedClusters.Sort();
 		Cluster.MutableObjects.Sort();
-		check(RootItem->GetOwnerIndex() == 0);
-		RootItem->SetClusterIndex(ClusterIndex);
-		RootItem->SetFlags(EInternalObjectFlags::ClusterRoot);
 
 		UE_LOG(LogLevelActorContainer, Log, TEXT("Created LevelActorCluster (%d) for %s with %d objects, %d referenced clusters and %d mutable objects."),
 			ClusterIndex, *GetOuter()->GetPathName(), Cluster.Objects.Num(), Cluster.ReferencedClusters.Num(), Cluster.MutableObjects.Num());
@@ -208,9 +209,14 @@ void ULevelActorContainer::CreateCluster()
 	}
 	else
 	{
-		check(RootItem->GetOwnerIndex() == 0);
-		RootItem->SetClusterIndex(ClusterIndex);
+		for (int32 ClusterObjectIndex : Cluster.Objects)
+		{
+			FUObjectItem* ClusterObjectItem = GUObjectArray.IndexToObjectUnsafeForGC(ClusterObjectIndex);
+			ClusterObjectItem->SetOwnerIndex(0);
+		}
 		GUObjectClusters.FreeCluster(ClusterIndex);
+		check(RootItem->GetOwnerIndex() == 0);
+		check(!RootItem->HasAnyFlags(EInternalObjectFlags::ClusterRoot));
 	}
 }
 

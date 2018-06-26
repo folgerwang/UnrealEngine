@@ -97,6 +97,7 @@ private:
 	void HandleSelectionChanged(const TArrayView<TSharedPtr<ISkeletonTreeItem>>& InSelectedItems, ESelectInfo::Type InSelectInfo);
 
 	void HandleReimportMesh();
+	void HandleReimportAllMesh();
 
 	/** Callback for toggling UV drawing in the viewport */
 	void ToggleMeshSectionSelection();
@@ -122,6 +123,10 @@ private:
 
 	void ApplyClothing(UClothingAssetBase* InAsset, int32 InLodIndex, int32 InSectionIndex, int32 InClothingLod);
 	void RemoveClothing(int32 InLodIndex, int32 InSectionIndex);
+	//////////////////////////////////////////////////////////////////////////
+
+	// Generate LOD sections menu handlers
+	void OnRemoveSectionFromLodAndBelowMenuItemClicked(int32 LodIndex, int32 SectionIndex);
 	//////////////////////////////////////////////////////////////////////////
 
 private:

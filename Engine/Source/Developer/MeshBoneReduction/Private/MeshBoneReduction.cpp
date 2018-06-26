@@ -414,6 +414,7 @@ public:
 					for (FSoftSkinVertex& Vertex : Section.SoftVertices)
 					{
 						FVector TangentX = Vertex.TangentX;
+						FVector TangentY = Vertex.TangentY;
 						FVector TangentZ = Vertex.TangentZ;
 						FVector Position = Vertex.Position;
 						for (uint8 InfluenceIndex = 0; InfluenceIndex < 8; ++InfluenceIndex)
@@ -424,13 +425,14 @@ public:
 								Position += ((RemovedBoneMatrices[ArrayIndex].TransformPosition(Vertex.Position) - Vertex.Position) * ((float)Vertex.InfluenceWeights[InfluenceIndex] * InfluenceMultiplier));
 
 								TangentX += ((RemovedBoneMatrices[ArrayIndex].TransformVector(Vertex.TangentX) - Vertex.TangentX) * ((float)Vertex.InfluenceWeights[InfluenceIndex] * InfluenceMultiplier));
-
+								TangentY += ((RemovedBoneMatrices[ArrayIndex].TransformVector(Vertex.TangentY) - Vertex.TangentY) * ((float)Vertex.InfluenceWeights[InfluenceIndex] * InfluenceMultiplier));
 								TangentZ += ((RemovedBoneMatrices[ArrayIndex].TransformVector(Vertex.TangentZ) - Vertex.TangentZ) * ((float)Vertex.InfluenceWeights[InfluenceIndex] * InfluenceMultiplier));
 							}
 						}
 
 						Vertex.Position = Position;
 						Vertex.TangentX = TangentX.GetSafeNormal();
+						Vertex.TangentY = TangentY.GetSafeNormal();
 						uint8 WComponent = Vertex.TangentZ.W;
 						Vertex.TangentZ = TangentZ.GetSafeNormal();
 						Vertex.TangentZ.W = WComponent;

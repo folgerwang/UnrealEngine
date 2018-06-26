@@ -1,22 +1,33 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineHotfixManager.h"
+#include "OnlineSubsystemUtils.h"
 #include "GenericPlatform/GenericPlatformFile.h"
-#include "Misc/CommandLine.h"
-#include "Misc/FileHelper.h"
 #include "Internationalization/Culture.h"
-#include "Misc/CoreDelegates.h"
-#include "Misc/App.h"
 #include "UObject/UObjectIterator.h"
 #include "UObject/Package.h"
-#include "Misc/PackageName.h"
-#include "OnlineSubsystemUtils.h"
+#include "Http.h"
+
 #include "Logging/LogSuppressionInterface.h"
+
+#include "Misc/NetworkVersion.h"
+
+#include "Misc/PackageName.h"
+#include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/App.h"
+
 #include "Engine/CurveTable.h"
 #include "Engine/DataTable.h"
 #include "Curves/CurveFloat.h"
 
 DEFINE_LOG_CATEGORY(LogHotfixManager);
+
+/** This character must be between important pieces of file information (platform, initype, version) */
+#define HOTFIX_SEPARATOR TEXT("_")
+/** The prefix for any hotfix file that expects to indicate version information */
+#define HOTFIX_VERSION_TAG TEXT("Ver-")
 
 FName NAME_HotfixManager(TEXT("HotfixManager"));
 
@@ -34,6 +45,82 @@ public:
 
 	TArray<FString> Files;
 };
+
+namespace
+{
+	/** @return the expected network version for hotfix files determined at compile time */
+	FString GetNetworkVersion()
+	{
+		static FString NetVerStr;
+		if (NetVerStr.IsEmpty())
+		{
+			uint32 NetVer = FNetworkVersion::GetNetworkCompatibleChangelist();
+			NetVerStr = FString::Printf(TEXT("%s%d"), HOTFIX_VERSION_TAG, NetVer);
+		}
+		return NetVerStr;
+	}
+
+	/**
+	 * Given a hotfix file name, return the file name with version stripped out and exposed separately
+	 *
+	 * @param InFilename name of file to search for version information
+	 * @param OutFilename name with version information removed
+	 * @param OutVersion version of the hotfix file it present in the name
+	 */
+	void GetFilenameAndVersion(const FString& InFilename, FString& OutFilename, FString& OutVersion)
+	{
+		TArray<FString> FileParts;
+		int32 NumTokens = InFilename.ParseIntoArray(FileParts, HOTFIX_SEPARATOR);
+		if (NumTokens > 0)
+		{
+			for (int i = 0; i < FileParts.Num(); i++)
+			{
+				if (FileParts[i].StartsWith(HOTFIX_VERSION_TAG))
+				{
+					OutVersion = FileParts[i];
+				}
+				else
+				{
+					OutFilename += FileParts[i];
+					if (i < FileParts.Num() - 1)
+					{
+						OutFilename += HOTFIX_SEPARATOR;
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Is this hotfix file compatible with the current build
+	 * If the file has version information it is compared with compatibility
+	 * If the file has NO version information it is assumed compatible
+	 *
+	 * @param InFilename name of the file to check 
+	 * @param OutFilename name of file with version information stripped
+	 * 
+	 * @return true if file is compatible, false otherwise
+	 */
+	bool IsCompatibleHotfixFile(const FString& InFilename, FString& OutFilename)
+	{
+		bool bHasVersion = false;
+		bool bCompatibleHotfix = false;
+		const FString NetworkVersion = GetNetworkVersion();
+		FString OutVersion;
+		GetFilenameAndVersion(InFilename, OutFilename, OutVersion);
+
+		if (!OutVersion.IsEmpty())
+		{
+			bHasVersion = true;
+			if (OutVersion == NetworkVersion)
+			{
+				bCompatibleHotfix = true;
+			}
+		}
+
+		return bCompatibleHotfix || !bHasVersion;
+	}
+}
 
 UOnlineHotfixManager::UOnlineHotfixManager() :
 	Super(),
@@ -83,10 +170,14 @@ void UOnlineHotfixManager::PostInitProperties()
 {
 #if !UE_BUILD_SHIPPING
 	FParse::Value(FCommandLine::Get(), TEXT("HOTFIXPREFIX="), DebugPrefix);
+	if (!DebugPrefix.IsEmpty())
+	{
+		DebugPrefix += HOTFIX_SEPARATOR;
+	}
 #endif
 	// So we only try to apply files for this platform
 	PlatformPrefix = DebugPrefix + ANSI_TO_TCHAR(FPlatformProperties::PlatformName());
-	PlatformPrefix += TEXT("_");
+	PlatformPrefix += HOTFIX_SEPARATOR;
 	// Server prefix
 	ServerPrefix = DebugPrefix + TEXT("DedicatedServer");
 	// Build the default prefix too
@@ -176,32 +267,41 @@ struct FHotfixFileSortPredicate
 		{
 		}
 
-		int32 GetPriorityForCompare(const FString& HotfixName) const
+		int32 GetPriorityForCompare(const FString& InHotfixName) const
 		{
 			// Non-ini files are applied last
-			int32 Priority = 5;
+			int32 Priority = 50;
 			
-			if (HotfixName.EndsWith(TEXT("INI")))
+			if (InHotfixName.EndsWith(TEXT("INI")))
 			{
+				FString HotfixName, NetworkVersion;
+				GetFilenameAndVersion(InHotfixName, HotfixName, NetworkVersion);
+
 				// Defaults are applied first
 				if (HotfixName.StartsWith(DefaultPrefix))
 				{
-					Priority = 1;
+					Priority = 10;
 				}
 				// Server trumps default
 				else if (HotfixName.StartsWith(ServerPrefix))
 				{
-					Priority = 2;
+					Priority = 20;
 				}
 				// Platform trumps server
 				else if (HotfixName.StartsWith(PlatformPrefix))
 				{
-					Priority = 3;
+					Priority = 30;
 				}
 				// Other INIs whitelisted in game override of WantsHotfixProcessing will trump all other INIs
 				else
 				{
-					Priority = 4;
+					Priority = 40;
+				}
+
+				if (!NetworkVersion.IsEmpty())
+				{
+					// Versioned hotfixes apply last within their type
+					Priority += 5;
 				}
 			}
 
@@ -256,18 +356,12 @@ void UOnlineHotfixManager::OnEnumerateFilesComplete(bool bWasSuccessful, const F
 		BuildHotfixFileListDeltas();
 		// Sort after filtering so that the comparison below doesn't fail to different order from the server
 		ChangedHotfixFileList.Sort<FHotfixFileSortPredicate>(FHotfixFileSortPredicate(PlatformPrefix, ServerPrefix, DefaultPrefix));
-		// Perform any undo operations needed
-		if (ChangedHotfixFileList.Num() > 0 || RemovedHotfixFileList.Num() > 0)
-		{
-			RestoreBackupIniFiles();
-			UnmountHotfixFiles();
-		}
 		// Read any changed files
 		if (ChangedHotfixFileList.Num() > 0)
 		{
 			// Update our totals for our progress delegates
 			TotalFiles = ChangedHotfixFileList.Num();
-			for (auto& FileHeader : ChangedHotfixFileList)
+			for (const FCloudFileHeader& FileHeader : ChangedHotfixFileList)
 			{
 				TotalBytes += FileHeader.FileSize;
 			}
@@ -275,6 +369,14 @@ void UOnlineHotfixManager::OnEnumerateFilesComplete(bool bWasSuccessful, const F
 		}
 		else
 		{
+			if (RemovedHotfixFileList.Num() > 0)
+			{
+				// No changes, just reverts
+				// Perform any undo operations needed
+				RestoreBackupIniFiles();
+				UnmountHotfixFiles();
+			}
+
 			UE_LOG(LogHotfixManager, Display, TEXT("Returned hotfix data is the same as last application, skipping the apply phase"));
 			TriggerHotfixComplete(EHotfixResult::SuccessNoChange);
 		}
@@ -460,12 +562,12 @@ void UOnlineHotfixManager::ReadHotfixFiles()
 		check(OnlineTitleFile.IsValid());
 		// Kick off a read for each file
 		// Do this in two passes so already cached files don't trigger completion
-		for (auto& FileHeader : ChangedHotfixFileList)
+		for (const FCloudFileHeader& FileHeader : ChangedHotfixFileList)
 		{
-			UE_LOG(LogOnline, VeryVerbose, TEXT("HF: %s %s %d "), *FileHeader.DLName, *FileHeader.FileName, FileHeader.FileSize);
+			UE_LOG(LogHotfixManager, VeryVerbose, TEXT("HF: %s %s %d "), *FileHeader.DLName, *FileHeader.FileName, FileHeader.FileSize);
 			PendingHotfixFiles.Add(FileHeader.DLName, FPendingFileDLProgress());
 		}
-		for (auto& FileHeader : ChangedHotfixFileList)
+		for (const FCloudFileHeader& FileHeader : ChangedHotfixFileList)
 		{
 			OnlineTitleFile->ReadFile(FileHeader.DLName);
 		}
@@ -513,7 +615,12 @@ void UOnlineHotfixManager::UpdateProgress(uint32 FileCount, uint64 UpdateSize)
 
 void UOnlineHotfixManager::ApplyHotfix()
 {
-	for (auto& FileHeader : ChangedHotfixFileList)
+	// Perform any undo operations needed
+	// This occurs same frame as the application of new hotfixes
+	RestoreBackupIniFiles();
+	UnmountHotfixFiles();
+
+	for (const FCloudFileHeader& FileHeader : ChangedHotfixFileList)
 	{
 		if (!ApplyHotfixProcessing(FileHeader))
 		{
@@ -560,25 +667,34 @@ bool UOnlineHotfixManager::WantsHotfixProcessing(const FCloudFileHeader& FileHea
 	const FString Extension = FPaths::GetExtension(FileHeader.FileName);
 	if (Extension == TEXT("INI"))
 	{
-		bool bIsServerHotfix = FileHeader.FileName.StartsWith(ServerPrefix);
-		bool bWantsServerHotfix = IsRunningDedicatedServer() && bIsServerHotfix;
-		bool bWantsDefaultHotfix = FileHeader.FileName.StartsWith(DefaultPrefix);
-		bool bWantsPlatformHotfix = FileHeader.FileName.StartsWith(PlatformPrefix);
+		FString CloudFilename;
+		if (IsCompatibleHotfixFile(FileHeader.FileName, CloudFilename))
+		{
+			bool bIsServerHotfix = CloudFilename.StartsWith(ServerPrefix);
+			bool bWantsServerHotfix = IsRunningDedicatedServer() && bIsServerHotfix;
+			bool bWantsDefaultHotfix = CloudFilename.StartsWith(DefaultPrefix);
+			bool bWantsPlatformHotfix = CloudFilename.StartsWith(PlatformPrefix);
 
-		if (bWantsPlatformHotfix)
-		{
-			UE_LOG(LogHotfixManager, Verbose, TEXT("Using platform hotfix %s"), * FileHeader.FileName);
-		}
-		else if (bWantsServerHotfix)
-		{
-			UE_LOG(LogHotfixManager, Verbose, TEXT("Using server hotfix %s"), * FileHeader.FileName);
-		}
-		else if (bWantsDefaultHotfix)
-		{
-			UE_LOG(LogHotfixManager, Verbose, TEXT("Using default hotfix %s"), * FileHeader.FileName);
-		}
+			if (bWantsPlatformHotfix)
+			{
+				UE_LOG(LogHotfixManager, Verbose, TEXT("Using platform hotfix %s"), *FileHeader.FileName);
+			}
+			else if (bWantsServerHotfix)
+			{
+				UE_LOG(LogHotfixManager, Verbose, TEXT("Using server hotfix %s"), *FileHeader.FileName);
+			}
+			else if (bWantsDefaultHotfix)
+			{
+				UE_LOG(LogHotfixManager, Verbose, TEXT("Using default hotfix %s"), *FileHeader.FileName);
+			}
 
-		return bWantsPlatformHotfix || bWantsServerHotfix || bWantsDefaultHotfix;
+			return bWantsPlatformHotfix || bWantsServerHotfix || bWantsDefaultHotfix;
+		}
+		else
+		{
+			UE_LOG(LogHotfixManager, Verbose, TEXT("File not compatible %s, skipping."), *FileHeader.FileName);
+			return false;
+		}
 	}
 	else if (Extension == TEXT("PAK"))
 	{
@@ -596,11 +712,16 @@ bool UOnlineHotfixManager::ApplyHotfixProcessing(const FCloudFileHeader& FileHea
 		TArray<uint8> FileData;
 		if (OnlineTitleFile->GetFileContents(FileHeader.DLName, FileData))
 		{
+			UE_LOG(LogHotfixManager, Verbose, TEXT("Applying hotfix %s"), *FileHeader.FileName);
 			// Convert to a FString
 			FileData.Add(0);
 			FString HotfixStr;
 			FFileHelper::BufferToString(HotfixStr, FileData.GetData(), FileData.Num());
 			bSuccess = HotfixIniFile(FileHeader.FileName, HotfixStr);
+		}
+		else
+		{
+			UE_LOG(LogHotfixManager, Warning, TEXT("Failed to get contents of %s"), *FileHeader.FileName);
 		}
 	}
 	else if (Extension == TEXT("LOCRES"))
@@ -619,7 +740,10 @@ bool UOnlineHotfixManager::ApplyHotfixProcessing(const FCloudFileHeader& FileHea
 
 FString UOnlineHotfixManager::GetStrippedConfigFileName(const FString& IniName)
 {
-	FString StrippedIniName(IniName);
+	FString StrippedIniName;
+	FString NetworkVersion;
+	GetFilenameAndVersion(IniName, StrippedIniName, NetworkVersion);
+
 	if (StrippedIniName.StartsWith(PlatformPrefix))
 	{
 		StrippedIniName = IniName.Right(StrippedIniName.Len() - PlatformPrefix.Len());
@@ -673,6 +797,8 @@ FConfigFile* UOnlineHotfixManager::GetConfigFile(const FString& IniName)
 
 bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString& IniData)
 {
+	const bool bIsEngineIni = FileName.Contains(TEXT("Engine.ini"));
+
 	FConfigFile* ConfigFile = GetConfigFile(FileName);
 	// Store the original file so we can undo this later
 	FConfigFileBackup& BackupFile = BackupIniFile(FileName, ConfigFile);
@@ -683,6 +809,9 @@ bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString&
 	int32 StartIndex = 0;
 	int32 EndIndex = 0;
 	bool bUpdateLogSuppression = false;
+	bool bUpdateConsoleVariables = false;
+	bool bUpdateHttpConfigs = false;
+	TSet<FString> OnlineSubSections;
 	// Find the set of object classes that were affected
 	while (StartIndex >= 0 && StartIndex < IniData.Len() && EndIndex >= StartIndex)
 	{
@@ -694,6 +823,36 @@ bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString&
 			EndIndex = IniData.Find(TEXT("]"), ESearchCase::IgnoreCase, ESearchDir::FromStart, StartIndex);
 			if (EndIndex > StartIndex)
 			{
+				// Ignore square brackets in the middle of string
+				// - per object section starts with new line
+				// - there's no " character between opening bracket and line start
+				const bool bStartsWithNewLine = (StartIndex == 0) || (IniData[StartIndex - 1] == TEXT('\n'));
+				if (!bStartsWithNewLine)
+				{
+					bool bStartsInsideString = false;
+					for (int32 CharIdx = StartIndex - 1; CharIdx >= 0; CharIdx--)
+					{
+						const bool bHasStringMarker = (IniData[CharIdx] == TEXT('"'));
+						if (bHasStringMarker)
+						{
+							bStartsInsideString = true;
+							break;
+						}
+
+						const bool bHasNewLineMarker = (IniData[CharIdx] == TEXT('\n'));
+						if (bHasNewLineMarker)
+						{
+							break;
+						}
+					}
+
+					if (bStartsInsideString)
+					{
+						StartIndex = EndIndex;
+						continue;
+					}
+				}
+
 				int32 PerObjectNameIndex = IniData.Find(TEXT(" "), ESearchCase::IgnoreCase, ESearchDir::FromStart, StartIndex);
 
 				const TCHAR* AssetHotfixIniHACK = TEXT("[AssetHotfix]");
@@ -701,6 +860,31 @@ bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString&
 				{
 					// HACK - Make AssetHotfix the last element in the ini file so that this parsing isn't affected by it for now
 					break;
+				}
+
+				if (bIsEngineIni)
+				{
+					const TCHAR* LogConfigSection = TEXT("[Core.Log]");
+					const TCHAR* ConsoleVariableSection = TEXT("[ConsoleVariables]");
+					const TCHAR* HttpSection = TEXT("[HTTP]");
+					const TCHAR* OnlineSubSectionKey = TEXT("[OnlineSubsystem"); // note "]" omitted on purpose since we want a partial match
+					if (!bUpdateLogSuppression && FCString::Strnicmp(*IniData + StartIndex, LogConfigSection, FCString::Strlen(LogConfigSection)) == 0)
+					{
+						bUpdateLogSuppression = true;
+					}
+					else if (!bUpdateConsoleVariables && FCString::Strnicmp(*IniData + StartIndex, ConsoleVariableSection, FCString::Strlen(ConsoleVariableSection)) == 0)
+					{
+						bUpdateConsoleVariables = true;
+					}
+					else if (!bUpdateHttpConfigs &&	FCString::Strnicmp(*IniData + StartIndex, HttpSection, FCString::Strlen(HttpSection)) == 0)
+					{
+						bUpdateHttpConfigs = true;
+					}
+					else if (FCString::Strnicmp(*IniData + StartIndex, OnlineSubSectionKey, FCString::Strlen(OnlineSubSectionKey)) == 0)
+					{
+						const FString SectionStr = IniData.Mid(StartIndex, EndIndex - StartIndex + 1);
+						OnlineSubSections.Add(SectionStr);
+					}
 				}
 
 				// Per object config entries will have a space in the name, but classes won't
@@ -719,14 +903,6 @@ bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString&
 							// Add this to the list to check against
 							Classes.Add(Class);
 							BackupFile.ClassesReloaded.AddUnique(Class->GetPathName());
-						}
-					}
-					else if (FileName.Contains(TEXT("Engine.ini")))
-					{
-						const TCHAR* LogConfigSection = TEXT("[Core.Log]");
-						if (FCString::Strnicmp(*IniData + StartIndex, LogConfigSection, FCString::Strlen(LogConfigSection)) == 0)
-						{
-							bUpdateLogSuppression = true;
 						}
 					}
 				}
@@ -764,29 +940,26 @@ bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString&
 
 	int32 NumObjectsReloaded = 0;
 	const double StartTime = FPlatformTime::Seconds();
-	if (Classes.Num())
+	// Now that we have a list of classes to update, we can iterate objects and reload
+	for (UClass* Class : Classes)
 	{
-		// Now that we have a list of classes to update, we can iterate objects and reload
-		for (FObjectIterator It; It; ++It)
+		if (Class->HasAnyClassFlags(CLASS_Config))
 		{
-			UClass* Class = It->GetClass();
-			if (Class->HasAnyClassFlags(CLASS_Config))
+			TArray<UObject*> Objects;
+			GetObjectsOfClass(Class, Objects, true, RF_NoFlags);
+			for (UObject* Object : Objects)
 			{
-				// Check to see if this class is in our list (yes, potentially n^2, but not in practice)
-				for (int32 ClassIndex = 0; ClassIndex < Classes.Num(); ClassIndex++)
+				if (!Object->IsPendingKill())
 				{
-					if (It->IsA(Classes[ClassIndex]))
-					{
-						// Force a reload of the config vars
-						UE_LOG(LogHotfixManager, Verbose, TEXT("Reloading %s"), *It->GetPathName());
-						It->ReloadConfig();
-						NumObjectsReloaded++;
-						break;
-					}
+					// Force a reload of the config vars
+					UE_LOG(LogHotfixManager, Verbose, TEXT("Reloading %s"), *Object->GetPathName());
+					Object->ReloadConfig();
+					NumObjectsReloaded++;
 				}
 			}
 		}
 	}
+
 	// Reload any PerObjectConfig objects that were affected
 	for (auto ReloadObject : PerObjectConfigObjects)
 	{
@@ -799,6 +972,25 @@ bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString&
 	if (bUpdateLogSuppression)
 	{
 		FLogSuppressionInterface::Get().ProcessConfigAndCommandLine();
+	}
+
+	// Reload console variables if configs changed
+	if (bUpdateConsoleVariables)
+	{
+		FConfigCacheIni::LoadConsoleVariablesFromINI();
+	}
+
+	// Reload configs relevant to the HTTP module
+	if (bUpdateHttpConfigs)
+	{
+		FHttpModule::Get().UpdateConfigs();
+	}
+
+	// Reload configs relevant to OSS config sections that were updated
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(OSSName.Len() ? FName(*OSSName, FNAME_Find) : NAME_None);
+	if (OnlineSub != nullptr)
+	{
+		OnlineSub->ReloadConfigs(OnlineSubSections);
 	}
 
 	UE_LOG(LogHotfixManager, Log, TEXT("Updating config from %s took %f seconds and reloaded %d objects"),
@@ -831,7 +1023,7 @@ bool UOnlineHotfixManager::HotfixPakFile(const FCloudFileHeader& FileHeader)
 		const double StartTime = FPlatformTime::Seconds();
 		TArray<FString> IniList;
 		// Iterate through the pak file's contents for INI and asset reloading
-		for (auto& InternalPakFileName : Visitor.Files)
+		for (const FString& InternalPakFileName : Visitor.Files)
 		{
 			if (InternalPakFileName.EndsWith(TEXT(".ini")))
 			{
@@ -845,7 +1037,7 @@ bool UOnlineHotfixManager::HotfixPakFile(const FCloudFileHeader& FileHeader)
 		// Sort the INIs so they are processed consistently
 		IniList.Sort<FHotfixFileSortPredicate>(FHotfixFileSortPredicate(PlatformPrefix, ServerPrefix, DefaultPrefix));
 		// Now process the INIs in sorted order
-		for (auto& IniName : IniList)
+		for (const FString& IniName : IniList)
 		{
 			HotfixPakIniFile(IniName);
 			NumInisReloaded++;
@@ -856,7 +1048,7 @@ bool UOnlineHotfixManager::HotfixPakFile(const FCloudFileHeader& FileHeader)
 		if (bLogMountedPakContents)
 		{
 			UE_LOG(LogHotfixManager, Log, TEXT("Files in pak file (%s):"), *FileHeader.FileName);
-			for (auto& FileName : Visitor.Files)
+			for (const FString& FileName : Visitor.Files)
 			{
 				UE_LOG(LogHotfixManager, Log, TEXT("\t\t%s"), *FileName);
 			}
@@ -892,15 +1084,28 @@ bool UOnlineHotfixManager::HotfixPakIniFile(const FString& FileName)
 	int32 NumObjectsReloaded = 0;
 	// Now that we have a list of classes to update, we can iterate objects and
 	// reload if they match the INI file that was changed
-	for (FObjectIterator It; It; ++It)
+	TArray<UObject*> Classes;
+	GetObjectsOfClass(UClass::StaticClass(), Classes, true, RF_NoFlags);
+	TArray<UClass*> ClassesToReload;
+	for (UObject* ClassObject : Classes)
 	{
-		UClass* Class = It->GetClass();
-		if (Class->HasAnyClassFlags(CLASS_Config) &&
-			Class->ClassConfigName == ConfigFile->Name)
+		if (UClass* const Class = Cast<UClass>(ClassObject))
 		{
-			// Force a reload of the config vars
-			It->ReloadConfig();
-			NumObjectsReloaded++;
+			if (Class->HasAnyClassFlags(CLASS_Config) &&
+				Class->ClassConfigName == ConfigFile->Name)
+			{
+				TArray<UObject*> Objects;
+				GetObjectsOfClass(Class, Objects, true, RF_NoFlags);
+				for (UObject* Object : Objects)
+				{
+					if (!Object->IsPendingKill())
+					{
+						// Force a reload of the config vars
+						Object->ReloadConfig();
+						NumObjectsReloaded++;
+					}
+				}
+			}
 		}
 	}
 	UE_LOG(LogHotfixManager, Log, TEXT("Updating config from %s took %f seconds reloading %d objects"),
@@ -910,7 +1115,7 @@ bool UOnlineHotfixManager::HotfixPakIniFile(const FString& FileName)
 
 const FString UOnlineHotfixManager::GetFriendlyNameFromDLName(const FString& DLName) const
 {
-	for (auto& Header : HotfixFileList)
+	for (const FCloudFileHeader& Header : HotfixFileList)
 	{
 		if (Header.DLName == DLName)
 		{
@@ -927,7 +1132,7 @@ void UOnlineHotfixManager::UnmountHotfixFiles()
 		return;
 	}
 	// Unmount any changed hotfix files since we need to download them again
-	for (auto& FileHeader : ChangedHotfixFileList)
+	for (const FCloudFileHeader& FileHeader : ChangedHotfixFileList)
 	{
 		for (int32 Index = 0; Index < MountedPakFiles.Num(); Index++)
 		{
@@ -942,7 +1147,7 @@ void UOnlineHotfixManager::UnmountHotfixFiles()
 		}
 	}
 	// Unmount any removed hotfix files
-	for (auto& FileHeader : RemovedHotfixFileList)
+	for (const FCloudFileHeader& FileHeader : RemovedHotfixFileList)
 	{
 		for (int32 Index = 0; Index < MountedPakFiles.Num(); Index++)
 		{
@@ -1010,7 +1215,7 @@ void UOnlineHotfixManager::RestoreBackupIniFiles()
 	TArray<FString> ClassesToRestore;
 
 	// Restore any changed INI files and build a list of which ones changed for UObject reloading below
-	for (auto& FileHeader : ChangedHotfixFileList)
+	for (const FCloudFileHeader& FileHeader : ChangedHotfixFileList)
 	{
 		if (FileHeader.FileName.EndsWith(TEXT(".INI")))
 		{
@@ -1031,7 +1236,7 @@ void UOnlineHotfixManager::RestoreBackupIniFiles()
 	}
 
 	// Also restore any files that were previously part of the hotfix and now are not
-	for (auto& FileHeader : RemovedHotfixFileList)
+	for (const FCloudFileHeader& FileHeader : RemovedHotfixFileList)
 	{
 		if (FileHeader.FileName.EndsWith(TEXT(".INI")))
 		{
@@ -1066,20 +1271,19 @@ void UOnlineHotfixManager::RestoreBackupIniFiles()
 			}
 		}
 
-		for (FObjectIterator It; It; ++It)
+		for (UClass* Class : RestoredClasses)
 		{
-			UClass* Class = It->GetClass();
 			if (Class->HasAnyClassFlags(CLASS_Config))
 			{
-				// Check to see if this class is in our list (yes, potentially n^2, but not in practice)
-				for (int32 ClassIndex = 0; ClassIndex < RestoredClasses.Num(); ClassIndex++)
+				TArray<UObject*> Objects;
+				GetObjectsOfClass(Class, Objects, true, RF_NoFlags);
+				for (UObject* Object : Objects)
 				{
-					if (It->IsA(RestoredClasses[ClassIndex]))
+					if (!Object->IsPendingKill())
 					{
-						UE_LOG(LogHotfixManager, Verbose, TEXT("Restoring %s"), *It->GetPathName());
-						It->ReloadConfig();
+						UE_LOG(LogHotfixManager, Verbose, TEXT("Restoring %s"), *Object->GetPathName());
+						Object->ReloadConfig();
 						NumObjectsReloaded++;
-						break;
 					}
 				}
 			}
@@ -1088,7 +1292,6 @@ void UOnlineHotfixManager::RestoreBackupIniFiles()
 	UE_LOG(LogHotfixManager, Log, TEXT("Restoring config for %d changed classes took %f seconds reloading %d objects"),
 		ClassesToRestore.Num(), FPlatformTime::Seconds() - StartTime, NumObjectsReloaded);
 }
-
 
 void UOnlineHotfixManager::PatchAssetsFromIniFiles()
 {
@@ -1461,6 +1664,8 @@ struct FHotfixManagerExec :
 			TestList.Add(Header);
 			Header.FileName = TEXT("DefaultGame.ini");
 			TestList.Add(Header);
+			Header.FileName = TEXT("Ver-1234_DefaultEngine.ini");
+			TestList.Add(Header);
 			Header.FileName = TEXT("PS4_DefaultEngine.ini");
 			TestList.Add(Header);
 			Header.FileName = TEXT("DefaultEngine.ini");
@@ -1469,6 +1674,10 @@ struct FHotfixManagerExec :
 			TestList.Add(Header);
 			Header.FileName = TEXT("PS4_DefaultGame.ini");
 			TestList.Add(Header);
+			Header.FileName = TEXT("Ver-1234_PS4_DefaultGame.ini");
+			TestList.Add(Header);
+			Header.FileName = TEXT("PS4_Ver-1234_DefaultGame.ini");
+			TestList.Add(Header);
 			Header.FileName = TEXT("AnotherRandom.ini");
 			TestList.Add(Header);
 			Header.FileName = TEXT("DedicatedServerEngine.ini");
@@ -1476,7 +1685,7 @@ struct FHotfixManagerExec :
 			TestList.Sort<FHotfixFileSortPredicate>(FHotfixFileSortPredicate(TEXT("PS4_"), TEXT("DedicatedServer"), TEXT("Default")));
 
 			UE_LOG(LogHotfixManager, Log, TEXT("Hotfixing sort is:"));
-			for (auto& FileHeader : TestList)
+			for (const FCloudFileHeader& FileHeader : TestList)
 			{
 				UE_LOG(LogHotfixManager, Log, TEXT("\t%s"), *FileHeader.FileName);
 			}
@@ -1493,7 +1702,7 @@ struct FHotfixManagerExec :
 			TestList2.Sort<FHotfixFileSortPredicate>(FHotfixFileSortPredicate(TEXT("PS4_"), TEXT("DedicatedServer"), TEXT("Default")));
 
 			UE_LOG(LogHotfixManager, Log, TEXT("Hotfixing PAK INI file sort is:"));
-			for (auto& IniName : TestList2)
+			for (const FString& IniName : TestList2)
 			{
 				UE_LOG(LogHotfixManager, Log, TEXT("\t%s"), *IniName);
 			}

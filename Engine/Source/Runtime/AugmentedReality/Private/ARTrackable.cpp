@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ARTrackable.h"
 #include "ARSystem.h"
@@ -22,10 +22,10 @@ void UARTrackedGeometry::InitializeNativeResource(IARRef* InNativeResource)
 
 void UARTrackedGeometry::DebugDraw( UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds ) const
 {
-	FTransform WorldTrans = GetLocalToWorldTransform();
-	FVector Location = WorldTrans.GetLocation();
-	FRotator Rotation = FRotator(WorldTrans.GetRotation());
-	FVector Scale3D = WorldTrans.GetScale3D();
+	const FTransform WorldTrans = GetLocalToWorldTransform();
+	const FVector Location = WorldTrans.GetLocation();
+	const FRotator Rotation = FRotator(WorldTrans.GetRotation());
+	const FVector Scale3D = WorldTrans.GetScale3D();
 	DrawDebugCoordinateSystem(World, Location, Rotation, Scale3D.X, true, PersistForSeconds, 0, OutlineThickness);
 }
 
@@ -113,7 +113,7 @@ void UARPlaneGeometry::UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESP
 	Super::UpdateTrackedGeometry(InTrackingSystem, FrameNumber, Timestamp, InLocalToTrackingTransform, InAlignmentTransform);
 	Center = InCenter;
 	Extent = InExtent;
-
+	
 	BoundaryPolygon.Empty(4);
 	BoundaryPolygon.Add(FVector(-Extent.X, -Extent.Y, 0.0f));
 	BoundaryPolygon.Add(FVector(Extent.X, -Extent.Y, 0.0f));
@@ -123,23 +123,55 @@ void UARPlaneGeometry::UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESP
 	SubsumedBy = nullptr;
 }
 
-void UARPlaneGeometry::UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, const FVector InCenter, const FVector InExtent, const TArray<FVector>& InBoundaryPolygon, UARPlaneGeometry* InSubsumedBy)
+void UARPlaneGeometry::UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, const FVector InCenter, const FVector InExtent, const TArray<FVector>& InBoundingPoly, UARPlaneGeometry* InSubsumedBy)
 {
-	UpdateTrackedGeometry(InTrackingSystem, FrameNumber, Timestamp, InLocalToTrackingTransform, InAlignmentTransform, InCenter, InExtent);
-	BoundaryPolygon = InBoundaryPolygon;
+	Super::UpdateTrackedGeometry(InTrackingSystem, FrameNumber, Timestamp, InLocalToTrackingTransform, InAlignmentTransform);
+	Center = InCenter;
+	Extent = InExtent;
+
+	BoundaryPolygon = InBoundingPoly;
+
 	SubsumedBy = InSubsumedBy;
 }
 
 void UARPlaneGeometry::DebugDraw( UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds ) const
 {
 	const FTransform LocalToWorldTransform = GetLocalToWorldTransform();
+	const FColor OutlineRGB = OutlineColor.ToFColor(false);
+	if (BoundaryPolygon.Num() > 2)
+	{
+		FVector LastVert = LocalToWorldTransform.TransformPosition(BoundaryPolygon[0]);
+		for (int32 i=1; i<BoundaryPolygon.Num(); ++i)
+		{
+			const FVector NewVert = LocalToWorldTransform.TransformPosition(BoundaryPolygon[i]);
+			DrawDebugLine(World, LastVert, NewVert, OutlineRGB);
+			LastVert = NewVert;
+		}
+		DrawDebugLine(World, LastVert, LocalToWorldTransform.TransformPosition(BoundaryPolygon[0]), OutlineRGB);
+	}
+
 	const FVector WorldSpaceCenter = LocalToWorldTransform.TransformPosition(Center);
-	DrawDebugBox( World, WorldSpaceCenter, Extent, LocalToWorldTransform.GetRotation(), OutlineColor.ToFColor(false), false, PersistForSeconds, 0, 0.1f*OutlineThickness );
+	DrawDebugBox( World, WorldSpaceCenter, Extent, LocalToWorldTransform.GetRotation(), OutlineRGB, false, PersistForSeconds, 0, 0.1f*OutlineThickness );
 	
 	const FString CurAnchorDebugName = GetDebugName().ToString();
-	ARDebugHelpers::DrawDebugString( World, WorldSpaceCenter, CurAnchorDebugName, 0.25f*OutlineThickness, OutlineColor.ToFColor(false), PersistForSeconds, true);
+	ARDebugHelpers::DrawDebugString( World, WorldSpaceCenter, CurAnchorDebugName, 0.25f*OutlineThickness, OutlineRGB, PersistForSeconds, true);
 }
 
+void UARTrackedImage::DebugDraw(UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds /*= 0.0f*/) const
+{
+	const FTransform LocalToWorldTransform = GetLocalToWorldTransform();
+	const FString CurAnchorDebugName = GetDebugName().ToString();
+	const FColor OutlineRGB =OutlineColor.ToFColor(false);
+	ARDebugHelpers::DrawDebugString( World, LocalToWorldTransform.GetLocation(), CurAnchorDebugName, 0.25f*OutlineThickness, OutlineRGB, PersistForSeconds, true);
+
+	DrawDebugPoint(World, LocalToWorldTransform.GetLocation(), 0.5f, OutlineRGB, false, PersistForSeconds, 0);
+}
+
+void UARTrackedImage::UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, UARCandidateImage* InDetectedImage)
+{
+	Super::UpdateTrackedGeometry(InTrackingSystem, FrameNumber, Timestamp, InLocalToTrackingTransform, InAlignmentTransform);
+	DetectedImage = InDetectedImage;
+}
 
 void UARFaceGeometry::UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, FARBlendShapeMap& InBlendShapes, TArray<FVector>& InVertices, const TArray<int32>& Indices)
 {
@@ -155,7 +187,12 @@ void UARFaceGeometry::UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPM
 
 void UARTrackedPoint::DebugDraw(UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds /*= 0.0f*/) const
 {
-	DrawDebugPoint(World, GetLocalToWorldTransform().GetLocation(), 0.5f, OutlineColor.ToFColor(false), false, PersistForSeconds, 0);
+	const FTransform LocalToWorldTransform = GetLocalToWorldTransform();
+	const FString CurAnchorDebugName = GetDebugName().ToString();
+	const FColor OutlineRGB =OutlineColor.ToFColor(false);
+	ARDebugHelpers::DrawDebugString( World, LocalToWorldTransform.GetLocation(), CurAnchorDebugName, 0.25f*OutlineThickness, OutlineRGB, PersistForSeconds, true);
+	
+	DrawDebugPoint(World, LocalToWorldTransform.GetLocation(), 0.5f, OutlineRGB, false, PersistForSeconds, 0);
 }
 
 void UARTrackedPoint::UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform)

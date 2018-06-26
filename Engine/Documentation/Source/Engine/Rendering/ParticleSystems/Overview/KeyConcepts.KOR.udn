@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3801260
 Availability:Public
 Title: 핵심 파티클 개념
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems
@@ -33,10 +33,6 @@ topic-image:Engine/Rendering/ParticleSystems/particles_topic.png
 ![DefaultEmitter.png](DefaultEmitter.png)(convert:false)
 
 [INCLUDE:#Modules]
-
-[REGION:raw]
-![](Engine\Rendering\LightingAndShadows\LightTypes\Point\spacer.png)
-[/REGION]
 
 
 [COMMENT:none]

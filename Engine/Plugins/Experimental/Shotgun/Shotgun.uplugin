@@ -1,0 +1,44 @@
+{
+	"FileVersion" : 1,
+	"Version" : 1,
+	"VersionName" : "0.10",
+	"FriendlyName" : "Shotgun Plugin",
+	"Description" : "Shotgun integration for the UE4 Editor.",
+	"Category" : "Editor",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
+	"EnabledByDefault" : false,
+	"CanContainContent" : true,
+	"IsBetaVersion" : true,
+	"Installed" : false,
+	"SupportedTargetPlatforms":
+	[
+		"Win64"
+	],
+	"Modules":
+	[
+		{
+			"Name": "Shotgun",
+			"Type": "Editor",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms":
+			[
+				"Win64"
+			]
+		}
+	],
+	"Plugins":
+	[
+		{
+			"Name": "PythonScriptPlugin",
+			"Enabled": true
+		},
+		{
+			"Name": "EditorScriptingUtilities",
+			"Enabled": true
+		}
+	]
+}

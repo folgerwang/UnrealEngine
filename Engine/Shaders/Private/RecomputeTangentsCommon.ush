@@ -4,6 +4,7 @@
 	RecomputeTangentsCommon.usf: Recompute Skin Tangents
 =============================================================================*/
 
+#define FORCE_BIAS_CONVERSION	1
 #include "Common.ush"
 #include "GpuSkinCommon.ush"
 

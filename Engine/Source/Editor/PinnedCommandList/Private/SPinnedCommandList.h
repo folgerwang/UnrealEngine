@@ -20,10 +20,13 @@ struct FRegisteredCustomWidget
 	IPinnedCommandList::FOnGenerateCustomWidget OnGenerateCustomWidget;
 
 	/** Display name for this custom widget, used in context menus and tooltips */
-	FText CustomWidgetDisplayName;
+	TAttribute<FText> CustomWidgetDisplayName;
 
 	/** Padding to use for this custom widget */
 	FMargin CustomWidgetPadding;
+
+	/** Whether to show the label for this custom widget */
+	bool bShowLabel;
 };
 
 /**
@@ -56,7 +59,7 @@ public:
 	/** IPinnedCommandList interface */
 	virtual void BindCommandList(const TSharedRef<const FUICommandList>& InUICommandList) override;
 	virtual void BindCommandList(const TSharedRef<FUICommandList_Pinnable>& InUICommandList_Pinnable) override;
-	virtual void RegisterCustomWidget(IPinnedCommandList::FOnGenerateCustomWidget InOnGenerateCustomWidget, FName InCustomWidgetIdentifier, FText InCustomWidgetDisplayName, FMargin InCustomWidgetPadding = FMargin(2.0f, 1.0f)) override;
+	virtual void RegisterCustomWidget(IPinnedCommandList::FOnGenerateCustomWidget InOnGenerateCustomWidget, FName InCustomWidgetIdentifier, TAttribute<FText> InCustomWidgetDisplayName, FMargin InCustomWidgetPadding = FMargin(2.0f, 1.0f), bool bShowLabel = true) override;
 	virtual void AddCommand(const TSharedRef<const FUICommandInfo>& InCommandInfo, const TSharedRef<const FUICommandList>& InUICommandList) override;
 	virtual void AddCustomWidget(FName InCustomWidgetIdentifier) override;
 	virtual void RemoveCommand(const TSharedRef<const FUICommandInfo>& InCommandInfo) override;

@@ -1,32 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "XmlFile.h"
-#include "HAL/FileManager.h"
-
-#include "XmlCharacterWidthCheck.h"
-
-namespace
-{
-/**
- * Split a buffer of characters into lines
- * @param OutArray Array of strings to write lines to
- * @param InBuffer Memory containing text to split
- * @param EndOfBuffer Pointer to the byte after last byte of the buffer
- * @param Delim Character used to determine a line ending
- */
-template <typename CharType>
-void SplitLines(TArray<FString>& OutArray, const CharType* InBuffer, const void* EndOfBuffer, ANSICHAR Delim = '\n');
-
-/**
- * Take an XML buffer, detect the size of character it uses and split into lines
- * @param OutArray Array of strings to write lines to
- * @param InBuffer Memory containing text to split
- * @return False if character type not detected (only guaranteed for XML files)
- */
-bool FindCharSizeAndSplitLines(TArray<FString>& OutArray, const void* InBuffer, uint32 BufferSize);
-
-}
-
+#include "Misc/FileHelper.h"
 
 FXmlFile::FXmlFile(const FString& InFile, EConstructMethod::Type ConstructMethod)
 	: RootNode(nullptr), bFileLoaded(false)
@@ -45,9 +20,8 @@ bool FXmlFile::LoadFile(const FString& InFile, EConstructMethod::Type ConstructM
 	TArray<FString> Input;
 	if(ConstructMethod == EConstructMethod::ConstructFromFile)
 	{
-		// Create file reader
-		TUniquePtr<FArchive> FileReader(IFileManager::Get().CreateFileReader(*InFile));
-		if(!FileReader)
+		// Read and split the file
+		if (!FFileHelper::LoadFileToStringArray(Input, *InFile))
 		{
 			ErrorMessage = NSLOCTEXT("XmlParser", "FileLoadFail", "Failed to load the file").ToString();
 			ErrorMessage += TEXT("\"");
@@ -55,29 +29,11 @@ bool FXmlFile::LoadFile(const FString& InFile, EConstructMethod::Type ConstructM
 			ErrorMessage += TEXT("\"");
 			return false;
 		}
-
-		// Create buffer for file input
-		uint32 BufferSize = FileReader->TotalSize();
-		void* Buffer = FMemory::Malloc(BufferSize);
-		FileReader->Serialize(Buffer, BufferSize);
-
-		// Parse file buffer into an array of lines
-		if (!FindCharSizeAndSplitLines(Input, Buffer, BufferSize))
-		{
-			ErrorMessage = NSLOCTEXT("XmlParser", "InvalidFormatFail", "Failed to parse the file (Unsupported character encoding)").ToString();
-			ErrorMessage += TEXT("\"");
-			ErrorMessage += InFile;
-			ErrorMessage += TEXT("\"");
-			return false;
-		}
-
-		// Release resources
-		FMemory::Free(Buffer);
 	}
 	else
 	{
 		// Parse input buffer into an array of lines
-		SplitLines(Input, *InFile, *InFile + InFile.Len());
+		InFile.ParseIntoArrayLines(Input, /*bCullEmpty*/false);
 	}
 
 	// Pre-process the input
@@ -159,87 +115,15 @@ bool FXmlFile::Save(const FString& Path)
 		WriteNodeHierarchy(*CurrentNode, FString(), Xml);
 	}
 	
-	TUniquePtr<FArchive> Archive(IFileManager::Get().CreateFileWriter(*Path));
-	if (!Archive)
+	if (!FFileHelper::SaveStringToFile(Xml, *Path, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
 	{
 		ErrorMessage = NSLOCTEXT("XmlParser", "FileSaveFail", "Failed to save the file").ToString();
 		ErrorMessage += FString::Printf(TEXT("\"%s\""), *Path);
 		return false;
 	}
 
-	FTCHARToUTF8 Converter(*Xml);
-	Archive->Serialize(const_cast<char*>(Converter.Get()), Converter.Length());
 	return true;
 }
-
-namespace
-{
-template <typename CharType>
-void SplitLines(TArray<FString>& OutArray, const CharType* Buffer, const void* EndOfBuffer, ANSICHAR Delim)
-{
-	uint32 CharacterCount = static_cast<const CharType*>(EndOfBuffer) - Buffer;
-	FString WorkingLine;
-	for(uint32 i = 0; i != CharacterCount; ++i)
-	{
-		if(Buffer[i] == Delim)
-		{
-			if(WorkingLine.Len())
-			{
-				OutArray.Add(WorkingLine);
-				WorkingLine = TEXT("");
-			}
-		}
-		else
-		{
-			WorkingLine += static_cast<TCHAR>(Buffer[i]);
-		}
-	}
-
-	if(WorkingLine.Len())
-	{
-		OutArray.Add(WorkingLine);
-	}
-}
-
-bool FindCharSizeAndSplitLines(TArray<FString>& OutArray, const void* InBuffer, uint32 BufferSize)
-{
-	if (BufferSize < 4)
-	{
-		// Ensure there's enough buffer for CharacterWidthCheck to use (4 characters is not enough
-		// to store any XML)
-		return false;
-	}
-
-	CharacterWidthCheck CharCheck(InBuffer);
-	if (!CharCheck.FindCharacterWidth())
-	{
-		return false;
-	}
-
-	const void* EndOfBuffer = static_cast<const char*>(InBuffer) + BufferSize;
-
-	// Parse input buffer into an array of lines
-	switch (CharCheck.CharacterWidth)
-	{
-	case 1:
-		SplitLines(OutArray, static_cast<const uint8*>(CharCheck.TextStart), EndOfBuffer);
-		break;
-
-	case 2:
-		SplitLines(OutArray, static_cast<const uint16*>(CharCheck.TextStart), EndOfBuffer);
-		break;
-
-	case 4:
-		SplitLines(OutArray, static_cast<const uint32*>(CharCheck.TextStart), EndOfBuffer);
-		break;
-
-	default:
-		return false;
-	}
-	return true;
-}
-
-} // end anonymous namespace
 
 /** Checks if the passed character is a whitespace character */
 static bool IsWhiteSpace(TCHAR Char)

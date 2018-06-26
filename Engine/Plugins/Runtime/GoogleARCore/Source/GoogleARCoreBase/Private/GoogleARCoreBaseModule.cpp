@@ -23,7 +23,7 @@ class FGoogleARCoreBaseModule : public IGoogleARCoreBaseModule
 	}
 
 	/**
-	 * 
+	 *
 	 */
 	virtual bool IsHMDConnected()
 	{
@@ -63,7 +63,7 @@ TSharedPtr< class IXRTrackingSystem, ESPMode::ThreadSafe > FGoogleARCoreBaseModu
 void FGoogleARCoreBaseModule::StartupModule()
 {
 	ensureMsgf(FModuleManager::Get().LoadModule("AugmentedReality"), TEXT("ARCore depends on the AugmentedReality module.") );
-	
+
 	// Register editor settings:
 	ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
 	if (SettingsModule != nullptr)

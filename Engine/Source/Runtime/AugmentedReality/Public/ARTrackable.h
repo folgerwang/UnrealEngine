@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -83,9 +83,10 @@ class AUGMENTEDREALITY_API UARPlaneGeometry : public UARTrackedGeometry
 	GENERATED_BODY()
 	
 public:
+
 	void UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, const FVector InCenter, const FVector InExtent );
 	
-	void UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, const FVector InCenter, const FVector InExtent, const TArray<FVector>& InBoundaryPolygon, UARPlaneGeometry* InSubsumedBy);
+	void UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, const FVector InCenter, const FVector InExtent, const TArray<FVector>& InBoundingPoly, UARPlaneGeometry* InSubsumedBy);
 	
 	virtual void DebugDraw( UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds = 0.0f) const override;
 	
@@ -109,8 +110,6 @@ private:
 	UPROPERTY()
 	FVector Extent;
 	
-	// Used by ARCore Only
-	UPROPERTY()
 	TArray<FVector> BoundaryPolygon;
 
 	// Used by ARCore Only
@@ -127,6 +126,26 @@ public:
 	virtual void DebugDraw(UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds = 0.0f) const override;
 
 	void UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform);
+};
+
+UCLASS(BlueprintType)
+class AUGMENTEDREALITY_API UARTrackedImage : public UARTrackedGeometry
+{
+	GENERATED_BODY()
+
+public:
+	virtual void DebugDraw(UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds = 0.0f) const override;
+
+	void UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, UARCandidateImage* InDetectedImage);
+
+	/** @see DetectedImage */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
+	UARCandidateImage* GetDetectedImage() const { return DetectedImage; };
+
+private:
+	/** The candidate image that was detected in the scene */
+	UPROPERTY()
+	UARCandidateImage* DetectedImage;
 };
 
 UENUM(BlueprintType, Category="AR AugmentedReality", meta=(Experimental))
@@ -199,6 +218,10 @@ enum class EARFaceBlendShape : uint8
 	// Nose blend shapes
 	NoseSneerLeft,
 	NoseSneerRight,
+	// Treat the head rotation as curves for LiveLink support
+	HeadYaw,
+	HeadPitch,
+	HeadRoll,
 	MAX
 };
 

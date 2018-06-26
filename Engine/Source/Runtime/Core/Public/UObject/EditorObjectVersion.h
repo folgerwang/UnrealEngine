@@ -57,6 +57,8 @@ struct CORE_API FEditorObjectVersion
 		AddedMaterialSharedInputs,
 		// Added morph target section indices
 		AddedMorphTargetSectionIndices,
+		// Serialize the instanced static mesh render data, to avoid building it at runtime
+		SerializeInstancedStaticMeshRenderData,
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

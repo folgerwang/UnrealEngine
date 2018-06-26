@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemIOSPrivatePCH.h"
 #include "OnlinePurchaseIOS.h"
@@ -62,8 +62,8 @@ void FOnlinePurchaseIOS::InitStoreKit(FStoreKitHelperV2* InStoreKit)
 
 bool FOnlinePurchaseIOS::IsAllowedToPurchase(const FUniqueNetId& UserId)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::IsAllowedToPurchase"));
 	bool bCanMakePurchases = [SKPaymentQueue canMakePayments];
+	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::IsAllowedToPurchase %s"), *LexToString(bCanMakePurchases));
 	return bCanMakePurchases;
 }
 

@@ -36,6 +36,9 @@
 #include "Engine/SkeletalMesh.h"
 #include "IMeshReductionManagerModule.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "Widgets/Input/SFilePathPicker.h"
+#include "EditorDirectories.h"
+#include "EditorFramework/AssetImportData.h"
 
 const uint32 MaxHullCount = 64;
 const uint32 MinHullCount = 2;
@@ -54,6 +57,16 @@ const int32 DefaultVertsPerHull = 16;
 
 #define LOCTEXT_NAMESPACE "StaticMeshEditor"
 DEFINE_LOG_CATEGORY_STATIC(LogStaticMeshEditorTools,Log,All);
+
+/*
+* Custom data key
+*/
+enum SM_CustomDataKey
+{
+	CustomDataKey_LODVisibilityState = 0, //This is the key to know if a LOD is shown in custom mode. Do CustomDataKey_LODVisibilityState + LodIndex for a specific LOD
+	CustomDataKey_LODEditMode = 100 //This is the key to know the state of the custom lod edit mode.
+};
+
 
 FStaticMeshDetails::FStaticMeshDetails( class FStaticMeshEditor& InStaticMeshEditor )
 	: StaticMeshEditor( InStaticMeshEditor )
@@ -1412,8 +1425,9 @@ void FMeshSectionSettingsLayout::AddToCategory( IDetailCategoryBuilder& Category
 	SectionListDelegates.OnCopySectionItem.BindSP(this, &FMeshSectionSettingsLayout::OnCopySectionItem);
 	SectionListDelegates.OnCanCopySectionItem.BindSP(this, &FMeshSectionSettingsLayout::OnCanCopySectionItem);
 	SectionListDelegates.OnPasteSectionItem.BindSP(this, &FMeshSectionSettingsLayout::OnPasteSectionItem);
-
-	CategoryBuilder.AddCustomBuilder(MakeShareable(new FSectionList(CategoryBuilder.GetParentLayout(), SectionListDelegates, false, 64, LODIndex)));
+	//We need a valid name if we want the section expand state to be saved
+	FName StaticMeshSectionListName = FName(*(FString(TEXT("StaticMeshSectionListNameLOD_")) + FString::FromInt(LODIndex)));
+	CategoryBuilder.AddCustomBuilder(MakeShareable(new FSectionList(CategoryBuilder.GetParentLayout(), SectionListDelegates, true, 64, LODIndex, StaticMeshSectionListName)));
 
 	StaticMeshEditor.RegisterOnSelectedLODChanged(FOnSelectedLODChanged::CreateSP(this, &FMeshSectionSettingsLayout::UpdateLODCategoryVisibility), false);
 }
@@ -1957,7 +1971,7 @@ void FMeshSectionSettingsLayout::SetCurrentLOD(int32 NewLodIndex)
 
 void FMeshSectionSettingsLayout::UpdateLODCategoryVisibility()
 {
-	if (CustomLODEditModePtr != nullptr && *CustomLODEditModePtr == true)
+	if (StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) > 0)
 	{
 		//Do not change the Category visibility if we are in custom mode
 		return;
@@ -2954,8 +2968,6 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 			.OnCheckStateChanged(this, &FLevelOfDetailSettingsLayout::SetLODCustomModeCheck, (int32)INDEX_NONE)
 			.ToolTipText(LOCTEXT("LODCustomModeFirstRowTooltip", "Custom Mode allow editing multiple LOD in same time."))
 		];
-		//Set the custom mode to false
-		CustomLODEditMode = false;
 		// Create information panel for each LOD level.
 		for(int32 LODIndex = 0; LODIndex < StaticMeshLODCount; ++LODIndex)
 		{
@@ -3020,45 +3032,63 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 			CategoryName.AppendInt( LODIndex );
 
 			FText LODLevelString = FText::FromString(FString(TEXT("LOD ")) + FString::FromInt(LODIndex) );
+			bool bHasBeenSimplified = StaticMesh->SourceModels[LODIndex].RawMeshBulkData->IsEmpty() || StaticMesh->SourceModels[LODIndex].ReductionSettings.PercentTriangles < 1.0f || StaticMesh->SourceModels[LODIndex].ReductionSettings.MaxDeviation > 0.0f;
+			FText GeneratedString = FText::FromString(bHasBeenSimplified ? TEXT("[generated]") : TEXT(""));
 
 			IDetailCategoryBuilder& LODCategory = DetailBuilder.EditCategory( *CategoryName, LODLevelString, ECategoryPriority::Important );
 			LodCategories.Add(&LODCategory);
 
 			LODCategory.HeaderContent
 			(
-				SNew( SBox )
-				.HAlign( HAlign_Right )
+				SNew( SHorizontalBox )
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
 				[
-					SNew( SHorizontalBox )
-					+ SHorizontalBox::Slot()
-					.Padding(FMargin(5.0f, 0.0f))
-					.AutoWidth()
+					SNew(SBox)
+					.Padding(FMargin(4.0f, 0.0f))
 					[
 						SNew(STextBlock)
-						.Font(FEditorStyle::GetFontStyle("StaticMeshEditor.NormalFont"))
-						.Text(this, &FLevelOfDetailSettingsLayout::GetLODScreenSizeTitle, LODIndex)
-						.Visibility( LODIndex > 0 ? EVisibility::Visible : EVisibility::Collapsed )
+						.Text(GeneratedString)
+						.Font(IDetailLayoutBuilder::GetDetailFontItalic())
 					]
-					+ SHorizontalBox::Slot()
-					.Padding( FMargin( 5.0f, 0.0f ) )
-					.AutoWidth()
+				]
+				+SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				[
+					SNew( SBox )
+					.HAlign( HAlign_Right )
 					[
-						SNew(STextBlock)
-						.Font(FEditorStyle::GetFontStyle("StaticMeshEditor.NormalFont"))
-						.Text( FText::Format( LOCTEXT("Triangles_MeshSimplification", "Triangles: {0}"), FText::AsNumber( StaticMeshEditor.GetNumTriangles(LODIndex) ) ) )
-					]
-					+ SHorizontalBox::Slot()
-					.Padding( FMargin( 5.0f, 0.0f ) )
-					.AutoWidth()
-					[
-						SNew(STextBlock)
-						.Font(FEditorStyle::GetFontStyle("StaticMeshEditor.NormalFont"))
-						.Text( FText::Format( LOCTEXT("Vertices_MeshSimplification", "Vertices: {0}"), FText::AsNumber( StaticMeshEditor.GetNumVertices(LODIndex) ) ) )
+						SNew( SHorizontalBox )
+						+ SHorizontalBox::Slot()
+						.Padding(FMargin(5.0f, 0.0f))
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.Font(FEditorStyle::GetFontStyle("StaticMeshEditor.NormalFont"))
+							.Text(this, &FLevelOfDetailSettingsLayout::GetLODScreenSizeTitle, LODIndex)
+							.Visibility( LODIndex > 0 ? EVisibility::Visible : EVisibility::Collapsed )
+						]
+						+ SHorizontalBox::Slot()
+						.Padding( FMargin( 5.0f, 0.0f ) )
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.Font(FEditorStyle::GetFontStyle("StaticMeshEditor.NormalFont"))
+							.Text( FText::Format( LOCTEXT("Triangles_MeshSimplification", "Triangles: {0}"), FText::AsNumber( StaticMeshEditor.GetNumTriangles(LODIndex) ) ) )
+						]
+						+ SHorizontalBox::Slot()
+						.Padding( FMargin( 5.0f, 0.0f ) )
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.Font(FEditorStyle::GetFontStyle("StaticMeshEditor.NormalFont"))
+							.Text( FText::Format( LOCTEXT("Vertices_MeshSimplification", "Vertices: {0}"), FText::AsNumber( StaticMeshEditor.GetNumVertices(LODIndex) ) ) )
+						]
 					]
 				]
 			);
 					
-			SectionSettingsWidgets[ LODIndex ] = MakeShareable( new FMeshSectionSettingsLayout( StaticMeshEditor, LODIndex, LodCategories, &CustomLODEditMode) );
+			SectionSettingsWidgets[ LODIndex ] = MakeShareable( new FMeshSectionSettingsLayout( StaticMeshEditor, LODIndex, LodCategories) );
 			SectionSettingsWidgets[ LODIndex ]->AddToCategory( LODCategory );
 
 			LODCategory.AddCustomRow(( LOCTEXT("ScreenSizeRow", "ScreenSize")))
@@ -3078,6 +3108,32 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 				.OnRemovePlatform(this, &FLevelOfDetailSettingsLayout::RemoveLODScreenSizePlatformOverride, LODIndex)
 				.PlatformOverrideNames(this, &FLevelOfDetailSettingsLayout::GetLODScreenSizePlatformOverrideNames, LODIndex)
 			];
+
+			if(LODIndex > 0 && StaticMesh->SourceModels.IsValidIndex(LODIndex) && !StaticMesh->SourceModels[LODIndex].RawMeshBulkData->IsEmpty())
+			{
+				FString FileTypeFilter = TEXT("All files (*.*)|*.*");
+				LODCategory.AddCustomRow(( LOCTEXT("SourceImporFilenameRow", "SourceImportFilename")))
+				.NameContent()
+				[
+					SNew(STextBlock)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+					.Text(LOCTEXT("SourceImportFilenameName", "Source Import Filename"))
+				]
+				.ValueContent()
+					.MinDesiredWidth(125.0f)
+					.MaxDesiredWidth(0.0f)
+				[
+					SNew(SFilePathPicker)
+						.BrowseButtonImage(FEditorStyle::GetBrush("PropertyWindow.Button_Ellipsis"))
+						.BrowseButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+						.BrowseButtonToolTip(LOCTEXT("FileButtonToolTipText", "Choose a source import file"))
+						.BrowseDirectory(FEditorDirectories::Get().GetLastDirectory(ELastDirectory::GENERIC_OPEN))
+						.BrowseTitle(LOCTEXT("PropertyEditorTitle", "Source import file picker..."))
+						.FilePath(this, &FLevelOfDetailSettingsLayout::GetSourceImportFilename, LODIndex)
+						.FileTypeFilter(FileTypeFilter)
+						.OnPathPicked(this, &FLevelOfDetailSettingsLayout::SetSourceImportFilename, LODIndex)
+				];
+			}
 
 			if (BuildSettingsWidgets[LODIndex].IsValid())
 			{
@@ -3115,12 +3171,71 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 			LODCustomModeCategory.SetCategoryVisibility(true);
 			LODCustomModeCategory.SetShowAdvanced(false);
 		}
+
+
+
+		//Restore the state of the custom check LOD
+		for (int32 DetailLODIndex = 0; DetailLODIndex < StaticMeshLODCount; ++DetailLODIndex)
+		{
+			int32 LodCheckValue = StaticMeshEditor.GetCustomData(CustomDataKey_LODVisibilityState + DetailLODIndex);
+			if (LodCheckValue != INDEX_NONE)
+			{
+				DetailDisplayLODs[DetailLODIndex] = LodCheckValue > 0;
+			}
+		}
+
+		//Restore the state of the custom LOD mode if its true (greater then 0)
+		bool bCustomLodEditMode = StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) > 0;
+		if (bCustomLodEditMode)
+		{
+			for (int32 DetailLODIndex = 0; DetailLODIndex < StaticMeshLODCount; ++DetailLODIndex)
+			{
+				if (!LodCategories.IsValidIndex(DetailLODIndex))
+				{
+					break;
+				}
+				LodCategories[DetailLODIndex]->SetCategoryVisibility(DetailDisplayLODs[DetailLODIndex]);
+			}
+		}
+
+		if (LodCustomCategory != nullptr)
+		{
+			LodCustomCategory->SetShowAdvanced(bCustomLodEditMode);
+		}
 	}
 }
 
 
 FLevelOfDetailSettingsLayout::~FLevelOfDetailSettingsLayout()
 {
+}
+
+FString FLevelOfDetailSettingsLayout::GetSourceImportFilename(int32 LODIndex) const
+{
+	UStaticMesh* Mesh = StaticMeshEditor.GetStaticMesh();
+	if (!Mesh->SourceModels.IsValidIndex(LODIndex) || Mesh->SourceModels[LODIndex].SourceImportFilename.IsEmpty())
+	{
+		return FString(TEXT(""));
+	}
+	return UAssetImportData::ResolveImportFilename(Mesh->SourceModels[LODIndex].SourceImportFilename, nullptr);
+}
+
+void FLevelOfDetailSettingsLayout::SetSourceImportFilename(const FString& SourceFileName, int32 LODIndex) const
+{
+	UStaticMesh* Mesh = StaticMeshEditor.GetStaticMesh();
+	if (!Mesh->SourceModels.IsValidIndex(LODIndex))
+	{
+		return;
+	}
+	if (SourceFileName.IsEmpty())
+	{
+		Mesh->SourceModels[LODIndex].SourceImportFilename = SourceFileName;
+	}
+	else
+	{
+		Mesh->SourceModels[LODIndex].SourceImportFilename = UAssetImportData::SanitizeImportFilename(SourceFileName, nullptr);
+	}
+	Mesh->Modify();
 }
 
 int32 FLevelOfDetailSettingsLayout::GetLODCount() const
@@ -3327,23 +3442,32 @@ void FLevelOfDetailSettingsLayout::OnLODGroupChanged(TSharedPtr<FString> NewValu
 	FName NewGroup = LODGroupNames[GroupIndex];
 	if (StaticMesh->LODGroup != NewGroup)
 	{
-		EAppReturnType::Type DialogResult = FMessageDialog::Open(
-			EAppMsgType::YesNo,
-			FText::Format( LOCTEXT("ApplyDefaultLODSettings", "Changing LOD group will overwrite the current settings with the defaults from LOD group '{0}'. Do you wish to continue?"), FText::FromString( **NewValue ) )
-			);
-		if (DialogResult == EAppReturnType::Yes)
+		if (NewGroup != NAME_None)
 		{
-			StaticMesh->SetLODGroup(NewGroup);
-			// update the internal count
-			LODCount = StaticMesh->SourceModels.Num();
-			StaticMeshEditor.RefreshTool();
+			EAppReturnType::Type DialogResult = FMessageDialog::Open(
+				EAppMsgType::YesNo,
+				FText::Format(LOCTEXT("ApplyDefaultLODSettings", "Changing LOD group will overwrite the current settings with the defaults from LOD group '{0}'. Do you wish to continue?"), FText::FromString(**NewValue))
+			);
+			if (DialogResult == EAppReturnType::Yes)
+			{
+				StaticMesh->SetLODGroup(NewGroup);
+				// update the internal count
+				LODCount = StaticMesh->SourceModels.Num();
+				StaticMeshEditor.RefreshTool();
+			}
+			else
+			{
+				// Overriding the selection; ensure that the widget correctly reflects the property value
+				int32 Index = LODGroupNames.Find(StaticMesh->LODGroup);
+				check(Index != INDEX_NONE);
+				LODGroupComboBox->SetSelectedItem(LODGroupOptions[Index]);
+			}
 		}
 		else
 		{
-			// Overriding the selection; ensure that the widget correctly reflects the property value
-			int32 Index = LODGroupNames.Find(StaticMesh->LODGroup);
-			check(Index != INDEX_NONE);
-			LODGroupComboBox->SetSelectedItem(LODGroupOptions[Index]);
+			//Setting to none just change the LODGroup to None, the LOD count will not change
+			StaticMesh->SetLODGroup(NewGroup);
+			StaticMeshEditor.RefreshTool();
 		}
 	}
 }
@@ -3630,7 +3754,7 @@ ECheckBoxState FLevelOfDetailSettingsLayout::IsLODCustomModeCheck(int32 LODIndex
 	}
 	if (LODIndex == INDEX_NONE)
 	{
-		return CustomLODEditMode ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+		return StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) > 0 ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
 	return DetailDisplayLODs[LODIndex] ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
@@ -3646,7 +3770,7 @@ void FLevelOfDetailSettingsLayout::SetLODCustomModeCheck(ECheckBoxState NewState
 	{
 		if (NewState == ECheckBoxState::Unchecked)
 		{
-			CustomLODEditMode = false;
+			StaticMeshEditor.SetCustomData(CustomDataKey_LODEditMode, 0);
 			SectionSettingsWidgets[0]->SetCurrentLOD(CurrentLodIndex);
 			for (int32 DetailLODIndex = 0; DetailLODIndex < MAX_STATIC_MESH_LODS; ++DetailLODIndex)
 			{
@@ -3659,16 +3783,17 @@ void FLevelOfDetailSettingsLayout::SetLODCustomModeCheck(ECheckBoxState NewState
 		}
 		else
 		{
-			CustomLODEditMode = true;
+			StaticMeshEditor.SetCustomData(CustomDataKey_LODEditMode, 1);
 			SectionSettingsWidgets[0]->SetCurrentLOD(0);
 		}
 	}
-	else if(CustomLODEditMode)
+	else if(StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) > 0)
 	{
 		DetailDisplayLODs[LODIndex] = NewState == ECheckBoxState::Checked;
+		StaticMeshEditor.SetCustomData(CustomDataKey_LODVisibilityState + LODIndex, DetailDisplayLODs[LODIndex] ? 1 : 0);
 	}
 
-	if (CustomLODEditMode)
+	if (StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) > 0)
 	{
 		for (int32 DetailLODIndex = 0; DetailLODIndex < MAX_STATIC_MESH_LODS; ++DetailLODIndex)
 		{
@@ -3682,7 +3807,7 @@ void FLevelOfDetailSettingsLayout::SetLODCustomModeCheck(ECheckBoxState NewState
 
 	if (LodCustomCategory != nullptr)
 	{
-		LodCustomCategory->SetShowAdvanced(CustomLODEditMode);
+		LodCustomCategory->SetShowAdvanced(StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) > 0);
 	}
 }
 
@@ -3693,7 +3818,7 @@ bool FLevelOfDetailSettingsLayout::IsLODCustomModeEnable(int32 LODIndex) const
 		// Custom checkbox is always enable
 		return true;
 	}
-	return CustomLODEditMode;
+	return StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) > 0;
 }
 
 TSharedRef<SWidget> FLevelOfDetailSettingsLayout::OnGenerateLodComboBoxForLodPicker()
@@ -3716,7 +3841,7 @@ TSharedRef<SWidget> FLevelOfDetailSettingsLayout::OnGenerateLodComboBoxForLodPic
 EVisibility FLevelOfDetailSettingsLayout::LodComboBoxVisibilityForLodPicker() const
 {
 	//No combo box when in Custom mode
-	if (CustomLODEditMode == true)
+	if (StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) > 0)
 	{
 		return EVisibility::Hidden;
 	}
@@ -3726,7 +3851,7 @@ EVisibility FLevelOfDetailSettingsLayout::LodComboBoxVisibilityForLodPicker() co
 bool FLevelOfDetailSettingsLayout::IsLodComboBoxEnabledForLodPicker() const
 {
 	//No combo box when in Custom mode
-	return !CustomLODEditMode;
+	return StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) <= 0;
 }
 
 TSharedRef<SWidget> FLevelOfDetailSettingsLayout::OnGenerateLodMenuForLodPicker()

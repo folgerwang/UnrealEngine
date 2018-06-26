@@ -302,6 +302,24 @@ class ONLINESUBSYSTEMUTILS_API APartyBeaconHost : public AOnlineBeaconHostObject
 	virtual void ProcessCancelReservationRequest(APartyBeaconClient* Client, const FUniqueNetIdRepl& PartyLeader);
 
 	/**
+	 * Crossplay
+	 */
+
+	/**
+	 * @return true if there are cross play restrictions, false otherwise
+	 */
+	virtual bool HasCrossplayOptOutReservation() const;
+
+	/**
+	 * Get a count of all players for a given platform
+	 * 
+	 * @param InPlatform platform to get a count for
+	 * 
+	 * @return number of players for a given platform
+	 */
+	virtual int32 GetReservationPlatformCount(const FString& InPlatform) const;
+
+	/**
 	 * Delegate fired when a the beacon host detects a reservation addition/removal
 	 */
 	FOnReservationUpdate& OnReservationsFull() { return ReservationsFull; }

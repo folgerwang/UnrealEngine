@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2709798
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:AI とビヘイビアツリー
 Crumbs:%ROOT%, Engine, Gameplay
@@ -12,34 +12,16 @@ version:4.9
 ## [](Engine/AI/BehaviorTrees "%Engine/AI/BehaviorTrees:description%")
 
 [REGION:buttonlist]
-
-	* [](Engine/AI/BehaviorTrees/QuickStart "%Engine/AI/BehaviorTrees/QuickStart:description%")
-	* [](Engine/AI/BehaviorTrees/UserGuide "%Engine/AI/BehaviorTrees/UserGuide:description%")
-	* [](Engine/AI/BehaviorTrees/NodeReference "%Engine/AI/BehaviorTrees/NodeReference:description%")
-	* [](Engine/AI/BehaviorTrees/HowUE4BehaviorTreesDiffer "%Engine/AI/BehaviorTrees/HowUE4BehaviorTreesDiffer:description%")
-	
+* [](Engine/AI/BehaviorTrees/QuickStart "%Engine/AI/BehaviorTrees/QuickStart:description%")
+* [](Engine/AI/BehaviorTrees/UserGuide "%Engine/AI/BehaviorTrees/UserGuide:description%")
+* [](Engine/AI/BehaviorTrees/NodeReference "%Engine/AI/BehaviorTrees/NodeReference:description%")
+* [](Engine/AI/BehaviorTrees/HowUE4BehaviorTreesDiffer "%Engine/AI/BehaviorTrees/HowUE4BehaviorTreesDiffer:description%")
 [/REGION]
 
 ## [](Engine/AI/EnvironmentQuerySystem "Engine/AI/EnvironmentQuerySystem:description")
 
 [REGION:buttonlist]
-
-	* [](Engine/AI/EnvironmentQuerySystem/UserGuide "%Engine/AI/EnvironmentQuerySystem/UserGuide:description%")
-	* [](Engine/AI/EnvironmentQuerySystem/EQSPawn "%Engine/AI/EnvironmentQuerySystem/EQSPawn:description%")
-	* [](Engine/AI/EnvironmentQuerySystem/NodeReference "%Engine/AI/EnvironmentQuerySystem/NodeReference:description%")
-	[COMMENT:none]
-* [](Engine/AI/EnvironmentQuerySystem/AskingSmartQuestions "%Engine/AI/EnvironmentQuerySystem/AskingSmartQuestions:description%")
-[/COMMENT]
-	
+* [](Engine/AI/EnvironmentQuerySystem/UserGuide "%Engine/AI/EnvironmentQuerySystem/UserGuide:description%")
+* [](Engine/AI/EnvironmentQuerySystem/EQSPawn "%Engine/AI/EnvironmentQuerySystem/EQSPawn:description%")
+* [](Engine/AI/EnvironmentQuerySystem/NodeReference "%Engine/AI/EnvironmentQuerySystem/NodeReference:description%")
 [/REGION]
-
-[COMMENT:none]
--
-* [](Engine/AI/EnvironmentQuerySystem/QuickStart "%Engine/AI/EnvironmentQuerySystem/QuickStart:description%")
--
-[/COMMENT]
-
-
-
-
-

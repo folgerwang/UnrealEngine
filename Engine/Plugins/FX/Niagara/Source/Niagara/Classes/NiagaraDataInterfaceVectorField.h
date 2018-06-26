@@ -62,15 +62,14 @@ public:
 	virtual int32 PerInstanceDataSize()const override;
 
 	virtual void GetFunctions(TArray<FNiagaraFunctionSignature>& OutFunctions)override;
-	virtual FVMExternalFunction GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData)override;
+	virtual void GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc)override;
 	virtual bool Equals(const UNiagaraDataInterface* Other) const override;
 	virtual bool CanExecuteOnTarget(ENiagaraSimTarget Target)const override;
 
 	// GPU sim functionality
-	virtual bool GetFunctionHLSL(const FName&  DefinitionFunctionName, FString InstanceFunctionName, TArray<FDIGPUBufferParamDescriptor> &Descriptors, FString &HLSLInterfaceID, FString &OutHLSL) override;
-	virtual void GetBufferDefinitionHLSL(FString DataInterfaceID, TArray<FDIGPUBufferParamDescriptor> &BufferDescriptors, FString &OutHLSL) override;
-	virtual TArray<FNiagaraDataInterfaceBufferData> &GetBufferDataArray() override;
-	virtual void SetupBuffers(FDIBufferDescriptorStore &BufferDescriptors) override;
+	virtual bool GetFunctionHLSL(const FName&  DefinitionFunctionName, FString InstanceFunctionName, FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL) override;
+	virtual void GetParameterDefinitionHLSL(FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL) override;
+	virtual FNiagaraDataInterfaceParametersCS* ConstructComputeParameters()const override;
 	//~ UNiagaraDataInterface interface END
 
 	template<typename XType, typename YType, typename ZType>
@@ -82,7 +81,17 @@ public:
 
 	bool bGPUBufferDirty;
 
+	static const FString BufferBaseName;
+	static const FString DimentionsBaseName;
+	static const FString BoundsMinBaseName;
+	static const FString BoundsMaxBaseName;
+
+	FRWBuffer& GetGPUBuffer();
+	FORCEINLINE FVector GetDimentions()const { return FVector(SizeX, SizeY, SizeZ); }
+	FORCEINLINE FVector GetBoundsMin()const { return LocalBounds.Min; }
+	FORCEINLINE FVector GetBoundsMax()const { return LocalBounds.Max; }
 protected:
+
 	const void* Lock();
 	void Unlock();
 	virtual bool CopyToInternal(UNiagaraDataInterface* Destination) const override;
@@ -91,4 +100,6 @@ protected:
 	uint32 SizeX, SizeY, SizeZ;
 	FVector TilingAxes;
 	FBox LocalBounds;
+
+	FRWBuffer GPUBuffer;
 };

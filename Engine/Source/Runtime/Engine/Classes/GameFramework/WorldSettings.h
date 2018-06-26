@@ -302,20 +302,24 @@ struct ENGINE_API FHierarchicalSimplification
 	FMeshMergingSettings MergeSetting;
 
 	/** Desired Bounding Radius for clustering - this is not guaranteed but used to calculate filling factor for auto clustering */
-	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(UIMin=10.f, ClampMin=10.f))
+	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(UIMin=10.f, ClampMin=10.f, editcondition = "!bReusePreviousLevelClusters"))
 	float DesiredBoundRadius;
 
 	/** Desired Filling Percentage for clustering - this is not guaranteed but used to calculate filling factor  for auto clustering */
-	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(ClampMin = "0", ClampMax = "100", UIMin = "0", UIMax = "100"))
+	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(ClampMin = "0", ClampMax = "100", UIMin = "0", UIMax = "100", editcondition = "!bReusePreviousLevelClusters"))
 	float DesiredFillingPercentage;
 
 	/** Min number of actors to build LODActor */
-	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(ClampMin = "1", UIMin = "1"))
+	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(ClampMin = "1", UIMin = "1", editcondition = "!bReusePreviousLevelClusters"))
 	int32 MinNumberOfActorsToBuild;	
 
 	/** Min number of actors to build LODActor */
-	UPROPERTY(EditAnywhere, Category = FHierarchicalSimplification, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, Category = FHierarchicalSimplification, AdvancedDisplay, meta = (editcondition = "!bReusePreviousLevelClusters"))
 	bool bOnlyGenerateClustersForVolumes;
+
+	/** Will reuse the clusters generated for the previous (lower) HLOD level */
+	UPROPERTY(EditAnywhere, Category = FHierarchicalSimplification, AdvancedDisplay)
+	bool bReusePreviousLevelClusters;
 
 	FHierarchicalSimplification()
 		: TransitionScreenSize(0.315f)
@@ -327,6 +331,7 @@ struct ENGINE_API FHierarchicalSimplification
 		, DesiredFillingPercentage(50)
 		, MinNumberOfActorsToBuild(2)
 		, bOnlyGenerateClustersForVolumes(false)
+		, bReusePreviousLevelClusters(false)
 	{
 		MergeSetting.bMergeMaterials = true;
 		MergeSetting.bGenerateLightMapUV = true;
@@ -398,7 +403,7 @@ protected:
 
 public:
 	/** if set to false AI system will not get created. Use it to disable all AI-related activity on a map */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, config, Category = World, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, config, Category=AI, AdvancedDisplay)
 	uint32 bEnableAISystem:1;
 
 	/** 
@@ -627,19 +632,19 @@ public:
 	float DemoPlayTimeDilation;
 
 	/** Lowest acceptable global time dilation. */
-	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay, meta = (UIMin = "0", ClampMin = "0"))
 	float MinGlobalTimeDilation;
 	
 	/** Highest acceptable global time dilation. */
-	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay, meta = (UIMin = "0", ClampMin = "0"))
 	float MaxGlobalTimeDilation;
 
 	/** Smallest possible frametime, not considering dilation. Equiv to 1/FastestFPS. */
-	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay, meta = (UIMin = "0", ClampMin = "0"))
 	float MinUndilatedFrameTime;
 
 	/** Largest possible frametime, not considering dilation. Equiv to 1/SlowestFPS. */
-	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay, meta = (UIMin = "0", ClampMin = "0"))
 	float MaxUndilatedFrameTime;
 
 	// If paused, FName of person pausing the game.
@@ -749,5 +754,8 @@ private:
 	HIDE_ACTOR_TRANSFORM_FUNCTIONS();
 
 	virtual void Serialize( FArchive& Ar ) override;
+
+public:
+	virtual FSoftClassPath GetAISystemClassName() const;
 };
 

@@ -6,6 +6,7 @@ FPlatformRuntimeAudioCompressionOverrides::FPlatformRuntimeAudioCompressionOverr
 	: bOverrideCompressionTimes(false)
 	, DurationThreshold(5.0f)
 	, MaxNumRandomBranches(0)
+	, SoundCueQualityIndex(0)
 {
 	
 }

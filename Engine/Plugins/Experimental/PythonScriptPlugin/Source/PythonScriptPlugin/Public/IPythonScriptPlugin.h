@@ -27,4 +27,14 @@ public:
 	 * @return true if the command ran successfully, false if there were errors (the output log will show the errors).
 	 */
 	virtual bool ExecPythonCommand(const TCHAR* InPythonCommand) = 0;
+	
+	/**
+	 * Delegate called after Python has been initialized.
+	 */
+	virtual FSimpleMulticastDelegate& OnPythonInitialized() = 0;
+
+	/**
+	 * Delegate called before Python is shutdown.
+	 */
+	virtual FSimpleMulticastDelegate& OnPythonShutdown() = 0;
 };

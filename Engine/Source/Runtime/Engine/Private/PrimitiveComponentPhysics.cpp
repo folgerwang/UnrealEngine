@@ -13,6 +13,7 @@
 #include "DrawDebugHelpers.h"
 #include "PhysicsReplication.h"
 #include "PhysicsPublic.h"
+#include "UObject/UObjectThreadContext.h"
 
 //////////////// PRIMITIVECOMPONENT ///////////////
 
@@ -40,7 +41,7 @@ void UPrimitiveComponent::SetRigidBodyReplicatedTarget(FRigidBodyState& UpdatedS
 				FBodyInstance* BI = GetBodyInstance(BoneName);
 				if (BI && BI->IsInstanceSimulatingPhysics())
 				{
-					PhysicsReplication->SetReplicatedTarget(BI, UpdatedState);
+					PhysicsReplication->SetReplicatedTarget(this, BoneName, UpdatedState);
 				}
 			}
 		}
@@ -910,15 +911,25 @@ void UPrimitiveComponent::SetCollisionProfileName(FName InCollisionProfileName)
 {
 	SCOPE_CYCLE_COUNTER(STAT_PrimComp_SetCollisionProfileName);
 
-	ECollisionEnabled::Type OldCollisionEnabled = BodyInstance.GetCollisionEnabled();
-	BodyInstance.SetCollisionProfileName(InCollisionProfileName);
-	OnComponentCollisionSettingsChanged();
-
-	ECollisionEnabled::Type NewCollisionEnabled = BodyInstance.GetCollisionEnabled();
-
-	if (OldCollisionEnabled != NewCollisionEnabled)
+	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+	if (ThreadContext.ConstructedObject == this)
 	{
-		EnsurePhysicsStateCreated();
+		// If we are in our constructor, defer setup until PostInitProperties as derived classes
+		// may call SetCollisionProfileName more than once.
+		BodyInstance.SetCollisionProfileNameDeferred(InCollisionProfileName);
+	}
+	else
+	{
+		ECollisionEnabled::Type OldCollisionEnabled = BodyInstance.GetCollisionEnabled();
+		BodyInstance.SetCollisionProfileName(InCollisionProfileName);
+		OnComponentCollisionSettingsChanged();
+
+		ECollisionEnabled::Type NewCollisionEnabled = BodyInstance.GetCollisionEnabled();
+
+		if (OldCollisionEnabled != NewCollisionEnabled)
+		{
+			EnsurePhysicsStateCreated();
+		}
 	}
 }
 

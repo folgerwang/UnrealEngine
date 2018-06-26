@@ -241,7 +241,15 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 				{
 					if (Property->GetFName() == GET_MEMBER_NAME_CHECKED(UFbxStaticMeshImportData, StaticMeshLODGroup))
 					{
-						SetStaticMeshLODGroupWidget(PropertyRow, Handle);
+						//We cannot change the LODGroup when re-importing so hide the option
+						if (ImportUI->bIsReimport)
+						{
+							PropertyRow.Visibility(EVisibility::Collapsed);
+						}
+						else
+						{
+							SetStaticMeshLODGroupWidget(PropertyRow, Handle);
+						}
 					}
 
 					if (Property->GetFName() == GET_MEMBER_NAME_CHECKED(UFbxStaticMeshImportData, VertexOverrideColor))
@@ -253,8 +261,6 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 					}
 				}
 			}
-
-			
 		}
 	}
 
@@ -337,13 +343,6 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 	}
 	else
 	{
-		//Show the reset Material slot only when re importing
-		TSharedRef<IPropertyHandle> ResetMaterialSlotHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, bResetMaterialSlots));
-		if (!ImportUI->bIsReimport)
-		{
-			DetailBuilder.HideProperty(ResetMaterialSlotHandle);
-		}
-
 		TSharedRef<IPropertyHandle> TextureDataProp = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, TextureImportData));
 		DetailBuilder.HideProperty(TextureDataProp);
 

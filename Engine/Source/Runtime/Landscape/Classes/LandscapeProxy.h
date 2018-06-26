@@ -364,7 +364,7 @@ public:
 	float ComponentScreenSizeToUseSubSections;
 
 	/** The distribution setting used to change the LOD 0 generation, 1.75 is the normal distribution, numbers influence directly the LOD0 proportion on screen. */
-	UPROPERTY(EditAnywhere, Category = "LOD Distribution", meta = (DisplayName = "LOD 0", ClampMin = "1.0", ClampMax = "5.0", UIMin = "1.0", UIMax = "5.0"))
+	UPROPERTY(EditAnywhere, Category = "LOD Distribution", meta = (DisplayName = "LOD 0", ClampMin = "1.0", ClampMax = "10.0", UIMin = "1.0", UIMax = "10.0"))
 	float LOD0DistributionSetting;
 
 	/** The distribution setting used to change the LOD generation, 2 is the normal distribution, small number mean you want your last LODs to take more screen space and big number mean you want your first LODs to take more screen space. */
@@ -504,6 +504,9 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Rendering,  meta=(UIMin = "0", UIMax = "255", editcondition = "bRenderCustomDepth", DisplayName = "CustomDepth Stencil Value"))
 	int32 CustomDepthStencilValue;
 
+	/**  Max draw distance exposed to LDs. The real max draw distance is the min (disregarding 0) of this and volumes affecting this object. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = LOD, meta = (DisplayName = "Desired Max Draw Distance"))
+	float LDMaxDrawDistance;
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(transient)
@@ -594,8 +597,10 @@ public:
 	LANDSCAPE_API static ULandscapeLayerInfoObject* VisibilityLayer;
 #endif
 
+#if WITH_EDITORONLY_DATA
 	/** Map of material instance constants used to for the components. Key is generated with ULandscapeComponent::GetLayerAllocationKey() */
 	TMap<FString, UMaterialInstanceConstant*> MaterialInstanceConstantMap;
+#endif
 
 	/** Map of weightmap usage */
 	TMap<UTexture2D*, FLandscapeWeightmapUsage> WeightmapUsageMap;
@@ -705,6 +710,12 @@ public:
 
 	/** Frame counter to count down to the next time we check to update baked textures, so we don't check every frame */
 	int32 UpdateBakedTexturesCountdown;
+
+	/** Editor notification when changing feature level, used to flush grass */
+	void OnFeatureLevelChanged(ERHIFeatureLevel::Type NewFeatureLevel);
+
+	/** Handle so we can unregister the delegate */
+	FDelegateHandle FeatureLevelChangedDelegateHandle;
 #endif
 
 	//~ Begin AActor Interface.
@@ -823,6 +834,25 @@ public:
 
 	/** remove an overlapping component. Called from MapCheck. */
 	LANDSCAPE_API void RemoveOverlappingComponent(ULandscapeComponent* Component);
+
+	/**
+	* Samples an array of values from a Texture Render Target 2D. 
+	* Only works in the editor
+	*/
+	LANDSCAPE_API static TArray<FLinearColor> SampleRTData(UTextureRenderTarget2D* InRenderTarget, FLinearColor InRect);
+
+	/**
+	* Overwrites a landscape heightmap with render target data
+	* Only works in the editor
+	*/
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Landscape Import Heightmap from RenderTarget", Keywords = "Push RenderTarget to Landscape Heightmap", UnsafeDuringActorConstruction = "true"), Category = Rendering)
+	bool LandscapeImportHeightmapFromRenderTarget(UTextureRenderTarget2D* InRenderTarget);
+	/**
+	* Overwrites a landscape weightmap with render target data
+	* Only works in the editor
+	*/
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Landscape Import Weightmap from RenderTarget", Keywords = "Push RenderTarget to Landscape Heightmap", UnsafeDuringActorConstruction = "true"), Category = Rendering)
+	bool LandscapeImportWeightmapFromRenderTarget(UTextureRenderTarget2D* InRenderTarget, FName InLayerName);
 
 	DECLARE_EVENT(ALandscape, FLandscapeMaterialChangedDelegate);
 	FLandscapeMaterialChangedDelegate& OnMaterialChangedDelegate() { return LandscapeMaterialChangedDelegate; }

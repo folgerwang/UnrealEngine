@@ -124,9 +124,9 @@ MONOLITHIC_HEADER_BOILERPLATE()
 #include "Components/Throbber.h"
 #include "Components/CircularThrobber.h"
 
-#include "Components/TableViewBase.h"
 #include "Components/ListView.h"
 #include "Components/TileView.h"
+#include "Components/TreeView.h"
 
 #include "Components/Viewport.h"
 

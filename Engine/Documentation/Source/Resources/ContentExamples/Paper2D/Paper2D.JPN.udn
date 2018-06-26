@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:2719950
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:ペーパー 2D コンテンツ サンプル
 Crumbs:%ROOT%, Resources, Resources/ContentExamples
-Description:ペーパー 2D のコンテンツ例で提供されるサンプルの概要
+Description:ペーパー 2D のコンテンツ サンプルで提供されるサンプルの概要
 Related:Engine/Paper2D
 Related:Engine/Paper2D/Flipbooks/Editor
 Related:Engine/Content/Tools/RenderToTextureTools/5
@@ -10,52 +10,21 @@ Related:Engine/Content/Tools/RenderToTextureTools/3
 Related:Engine/Rendering/ParticleSystems/Reference/Modules/SubUV
 Related:Engine/Rendering/Materials/Functions/Reference/Misc
 Version:4.9
+topic-image:paper2d_ce_compact.png
 
 [REGION:banner]
 ![](paper2d_header.png)(convert:false)
 [/REGION]
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/Paper2D:title%](paper2d_ce_compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Paper2D:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Paper2D:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/Paper2D]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/Paper2D:title%](paper2d_ce_compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Paper2D:title%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/Paper2D]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
 
 
 コンテンツ サンプルの **ペーパー 2D** には、以下に関連するトピックが含まれています。**スプライト** の作成を始めとする 2D ゲームの作成、 **スプライト エディタ** による編集、 **スプライト** とキーフレームを使用してアニメートした 2D セットを作成する基本的な方法である Flipbooks 、その Flipbooks を ブループリント で制御する方法、物理を 2D アセットに追加する方法、 スプライト を標準的な低い解像度で表示する方法。 
 
-## サンプル
+## 例
 
 ![](paper2d_ce_topic.png)(w:640)
 
-| サンプル | 実演内容 |
+| サンプル | 内容 |
 | ------- | ------------ |
 | **1.1 スプライト** | UE4 で 2D 画像を早く簡単に描画する方法です。このサンプルは、コンテンツ ブラウザでスプライトを作成する方法を説明します (シンプルな静的な 2D スプライトとアニメートされた 2D スプライトを紹介しています)。 |
 | **1.2 スプライト エディタ** | Paper 2D スプライト エディタで Sprite アセットを個別に設定および編集することができます (スプライト エディタで編集可能な 2D アセットに対してカスタム仕様のコリジョンが紹介されています。). |

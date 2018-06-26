@@ -19,7 +19,7 @@ struct FNDISpline_InstanceData
 	FMatrix TransformInverseTransposed;
 };
 
-/** Data Interface allowing sampling of static meshes. */
+/** Data Interface allowing sampling of in-world spline components. Note that this data interface is very experimental. */
 UCLASS(EditInlineNew, Category = "Splines", meta = (DisplayName = "Spline"))
 class NIAGARA_API UNiagaraDataInterfaceSpline : public UNiagaraDataInterface
 {
@@ -41,7 +41,7 @@ public:
 	virtual bool PerInstanceTick(void* PerInstanceData, FNiagaraSystemInstance* SystemInstance, float DeltaSeconds) override;
 	virtual int32 PerInstanceDataSize()const override;
 	virtual void GetFunctions(TArray<FNiagaraFunctionSignature>& OutFunctions)override;
-	virtual FVMExternalFunction GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData)override;
+	virtual void GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc) override;
 	virtual bool Equals(const UNiagaraDataInterface* Other) const override;
 	virtual bool CanExecuteOnTarget(ENiagaraSimTarget Target)const override { return Target == ENiagaraSimTarget::CPUSim; }
 	//UNiagaraDataInterface Interface End

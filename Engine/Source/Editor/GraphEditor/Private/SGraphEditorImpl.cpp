@@ -200,6 +200,11 @@ void SGraphEditorImpl::StraightenConnections(UEdGraphPin* SourcePin, UEdGraphPin
 	GraphPanel->StraightenConnections(SourcePin, PinToAlign);
 }
 
+void SGraphEditorImpl::RefreshNode(UEdGraphNode& Node)
+{
+	GraphPanel->RefreshNode(Node);
+}
+
 void SGraphEditorImpl::Construct( const FArguments& InArgs )
 {
 	Commands = MakeShareable( new FUICommandList() );
@@ -792,6 +797,11 @@ FSlateColor SGraphEditorImpl::InstructionBorderColor() const
 void SGraphEditorImpl::CaptureKeyboard()
 {
 	FSlateApplication::Get().SetKeyboardFocus(GraphPanel);
+}
+
+void SGraphEditorImpl::SetNodeFactory(const TSharedRef<class FGraphNodeFactory>& NewNodeFactory)
+{
+	GraphPanel->SetNodeFactory(NewNodeFactory);
 }
 
 /////////////////////////////////////////////////////

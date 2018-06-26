@@ -1838,7 +1838,10 @@ void FMetalStateCache::FlushVisibilityResults(FMetalCommandEncoder& CommandEncod
 		CommandEncoder.WaitForFence(Fence);
 		
 		mtlpp::BlitCommandEncoder& Encoder = CommandEncoder.GetBlitCommandEncoder();
+
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CommandEncoder.GetCommandBufferStats(), __FUNCTION__));
 		MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, Encoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Synchronize(VisibilityResults->Buffer));
+		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CommandEncoder.GetBlitCommandEncoderDebugging().Synchronize(VisibilityResults->Buffer));
 		
 		VisibilityWritten = 0;
 	}
@@ -2051,7 +2054,11 @@ void FMetalStateCache::CommitResourceTable(EShaderFrequency const Frequency, mtl
 
 FTexture2DRHIRef FMetalStateCache::CreateFallbackDepthStencilSurface(uint32 Width, uint32 Height)
 {
+#if PLATFORM_MAC
+	if (!IsValidRef(FallbackDepthStencilSurface) || FallbackDepthStencilSurface->GetSizeX() < Width || FallbackDepthStencilSurface->GetSizeY() < Height)
+#else
 	if (!IsValidRef(FallbackDepthStencilSurface) || FallbackDepthStencilSurface->GetSizeX() != Width || FallbackDepthStencilSurface->GetSizeY() != Height)
+#endif
 	{
 		FRHIResourceCreateInfo TexInfo;
 		FallbackDepthStencilSurface = RHICreateTexture2D(Width, Height, PF_DepthStencil, 1, 1, TexCreate_DepthStencilTargetable, TexInfo);
@@ -2060,3 +2067,23 @@ FTexture2DRHIRef FMetalStateCache::CreateFallbackDepthStencilSurface(uint32 Widt
 	return FallbackDepthStencilSurface;
 }
 
+void FMetalStateCache::DiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask)
+{
+	if (Depth)
+	{
+		DepthStore = mtlpp::StoreAction::DontCare;
+	}
+
+	if (Stencil)
+	{
+		StencilStore = mtlpp::StoreAction::DontCare;
+	}
+
+	for (uint32 Index = 0; Index < MaxSimultaneousRenderTargets; ++Index)
+	{
+		if ((ColorBitMask & (1u << Index)) != 0)
+		{
+			ColorStore[Index] = mtlpp::StoreAction::DontCare;
+		}
+	}
+}

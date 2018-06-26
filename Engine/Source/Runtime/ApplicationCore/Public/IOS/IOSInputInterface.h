@@ -34,6 +34,7 @@ struct TouchInput
 	TouchType Type;
 	FVector2D LastPosition;
 	FVector2D Position;
+	float Force;
 };
 
 /**
@@ -142,6 +143,9 @@ private:
 	// should the tracking use the pad center as the virtual joystick center?
 	bool bUseRemoteAbsoluteDpadValues;
 	
+	// should we allow controllers to send input
+	bool bAllowControllers;
+	
 #if !PLATFORM_TVOS
 	/** Access to the ios devices motion */
 	CMMotionManager* MotionManager;
@@ -168,4 +172,7 @@ private:
 
 	/** When using just acceleration (without full motion) we store a frame of accel data to filter by */
 	FVector FilteredAccelerometer;
+
+	/** Last value sent to mobile haptics */
+	float LastHapticValue;
 };

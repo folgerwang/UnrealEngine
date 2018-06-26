@@ -33,6 +33,30 @@ struct FSubsurfaceProfileStruct
 	UPROPERTY(Category = "SubsurfaceProfileStruct", EditAnywhere, BlueprintReadOnly, meta = (HideAlphaChannel))
 	FLinearColor FalloffColor;
 
+	UPROPERTY(Category = "SubsurfaceProfileStruct", EditAnywhere, BlueprintReadOnly, meta = (HideAlphaChannel))
+	FLinearColor BoundaryColorBleed;
+
+	UPROPERTY(Category = "Transmission", EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.01", UIMax = "1.0", ClampMax = "1.0"))
+	float ExtinctionScale;
+	
+	UPROPERTY(Category = "Transmission", EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.01", UIMax = "0.99", ClampMax = "1.0"))
+	float NormalScale;
+
+	UPROPERTY(Category = "Transmission", EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.01", UIMax = "0.99", ClampMax = "1.0"))
+	float ScatteringDistribution;
+
+	UPROPERTY(Category = "Transmission", EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "1.0", UIMax = "3.0", ClampMax = "3.0"))
+	float IOR;
+
+	UPROPERTY(Category = "Dual Specular", EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.5", UIMax = "2.0", ClampMax = "2.0"))
+	float Roughness0;
+
+	UPROPERTY(Category = "Dual Specular", EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.5", UIMax = "2.0", ClampMax = "2.0"))
+	float Roughness1;
+
+	UPROPERTY(Category = "Dual Specular", EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "0.1", UIMax = "0.9", ClampMax = "0.9"))
+	float LobeMix;
+
 	// constructor
 	FSubsurfaceProfileStruct()
 	{
@@ -40,6 +64,14 @@ struct FSubsurfaceProfileStruct
 		ScatterRadius = 1.2f;
 		SubsurfaceColor = FLinearColor(0.48f, 0.41f, 0.28f);
 		FalloffColor = FLinearColor(1.0f, 0.37f, 0.3f);
+		BoundaryColorBleed = FLinearColor::White;
+		ExtinctionScale = 1.0f;
+		ScatteringDistribution = 0.93f;
+		NormalScale = 0.08f;
+		IOR = 1.55f;
+		Roughness0 = 0.75f;
+		Roughness1 = 1.30f;
+		LobeMix = 0.85f;
 	}
 
 	void Invalidate()
@@ -48,6 +80,14 @@ struct FSubsurfaceProfileStruct
 		ScatterRadius = 0.0f;
 		SubsurfaceColor = FLinearColor(0, 0, 0);
 		FalloffColor = FLinearColor(0, 0, 0);
+		BoundaryColorBleed = FLinearColor::White;
+		ExtinctionScale = 1.0f;
+		ScatteringDistribution = 0.93f;
+		NormalScale = 0.08f;
+		IOR = 1.55f;
+		Roughness0 = 0.75f;
+		Roughness1 = 1.30f;
+		LobeMix = 0.85f;
 	}
 };
 

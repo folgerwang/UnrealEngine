@@ -26,6 +26,7 @@ public:
 	virtual bool IsPinNameEditableUponCreation(const UEdGraphPin* GraphPinObj) const override;
 	virtual bool VerifyEditablePinName(const FText& InName, FText& OutErrorMessage, const UEdGraphPin* InGraphPinObj) const override;
 	virtual bool CommitEditablePinName(const FText& InName, UEdGraphPin* InGraphPinObj)  override;
+	virtual bool CancelEditablePinName(const FText& InName, UEdGraphPin* InGraphPinObj) override;
 
 	virtual void Compile(class FHlslNiagaraTranslator* Translator, TArray<int32>& Outputs);
 
@@ -34,9 +35,12 @@ public:
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const;
 
 	/** Get the default value input pin for one of the output pins specified.*/
-	UEdGraphPin* GetDefaultPin(UEdGraphPin* OutputPin);
+	UEdGraphPin* GetDefaultPin(UEdGraphPin* OutputPin) const;
 
 	virtual void PostLoad() override;
+
+	void GatherExternalDependencyIDs(ENiagaraScriptUsage InMasterUsage, const FGuid& InMasterUsageId, TArray<FGuid>& InReferencedIDs, TArray<UObject*>& InReferencedObjs) const override;
+	virtual void GetPinHoverText(const UEdGraphPin& Pin, FString& HoverTextOut) const override;
 
 protected:
 	virtual void OnNewTypedPinAdded(UEdGraphPin* NewPin) override;
@@ -49,12 +53,10 @@ protected:
 	void SynchronizeDefaultInputPin(UEdGraphPin* DefaultPin, UEdGraphPin* OutputPin);
 	
 	/** Reverse the lookup from GetDefaultPin.*/
-	UEdGraphPin* GetOutputPinForDefault(UEdGraphPin* DefaultPin);
+	UEdGraphPin* GetOutputPinForDefault(const UEdGraphPin* DefaultPin) const;
 	
 	/** Properly set up the default input pin for an output pin.*/
 	UEdGraphPin* CreateDefaultPin(UEdGraphPin* OutputPin);
-
-	UEdGraphPin* PinPendingRename;
 
 	UPROPERTY()
 	TMap<FGuid, FGuid> PinOutputToPinDefaultPersistentId;

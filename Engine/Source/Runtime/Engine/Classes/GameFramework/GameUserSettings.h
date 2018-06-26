@@ -41,6 +41,9 @@ class ENGINE_API UGameUserSettings : public UObject
 
 public:
 
+	/** @return the location where GGameUserSettingsIni will be found */
+	static FString GetConfigDir();
+
 	/** Applies all current user settings to the game and saves to permanent storage (e.g. file), optionally checking for command line overrides. */
 	UFUNCTION(BlueprintCallable, Category=Settings, meta=(bCheckForCommandLineOverrides=true))
 	virtual void ApplySettings(bool bCheckForCommandLineOverrides);

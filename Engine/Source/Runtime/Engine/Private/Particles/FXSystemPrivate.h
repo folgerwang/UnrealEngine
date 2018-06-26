@@ -9,6 +9,7 @@
 #include "CoreMinimal.h"
 #include "FXSystem.h"
 #include "VectorField.h"
+#include "ParticleSortingGPU.h"
 
 class FCanvas;
 class FGlobalDistanceFieldParameterData;
@@ -264,6 +265,16 @@ private:
 
 private:
 
+	template<typename TVectorFieldUniformParametersType>
+	void SimulateGPUParticles_Internal(
+		FRHICommandListImmediate& RHICmdList,
+		EParticleSimulatePhase::Type Phase,
+		const FUniformBufferRHIParamRef ViewUniformBuffer,
+		const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData,
+		FTexture2DRHIParamRef SceneDepthTexture,
+		FTexture2DRHIParamRef GBufferATexture
+	);
+
 	/*-------------------------------------------------------------------------
 		GPU simulation state.
 	-------------------------------------------------------------------------*/
@@ -281,7 +292,6 @@ private:
 
 	/** Previous frame new particles for multi-gpu simulation*/
 	TArray<FNewParticle> LastFrameNewParticles;
-
 #if WITH_EDITOR
 	/** true if the system has been suspended. */
 	bool bSuspended;

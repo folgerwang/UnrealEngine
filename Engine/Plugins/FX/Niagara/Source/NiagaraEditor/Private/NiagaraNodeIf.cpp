@@ -6,6 +6,9 @@
 
 #define LOCTEXT_NAMESPACE "NiagaraNodeIf"
 
+const FString UNiagaraNodeIf::InputAPinSuffix(" A");
+const FString UNiagaraNodeIf::InputBPinSuffix(" B");
+
 UNiagaraNodeIf::UNiagaraNodeIf(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -29,18 +32,43 @@ void UNiagaraNodeIf::PostLoad()
 	if (OutputVars.Num() != OutputVarGuids.Num())
 	{
 		OutputVarGuids.SetNum(OutputVars.Num());
-		for (int32 i = 0; i < OutputVars.Num(); i++)
+	}
+
+	if (OutputVars.Num() != InputAVarGuids.Num())
+	{
+		InputAVarGuids.SetNum(OutputVars.Num());
+	}
+
+	if (OutputVars.Num() != InputBVarGuids.Num())
+	{
+		InputBVarGuids.SetNum(OutputVars.Num());
+	}
+
+	auto LoadGuid = [&](FGuid& Guid, const FString& Name, const EEdGraphPinDirection Direction)
+	{
+		UEdGraphPin* Pin = FindPin(Name, Direction);
+		if (Pin)
 		{
-			UEdGraphPin* Pin = FindPin(OutputVars[i].GetName().ToString(), EGPD_Output);
-			if (Pin != nullptr)
+			if (!Pin->PersistentGuid.IsValid())
 			{
-				OutputVarGuids[i] = Pin->PersistentGuid;
+				Pin->PersistentGuid = FGuid::NewGuid();
 			}
-			else
-			{
-				UE_LOG(LogNiagaraEditor, Error, TEXT("Unable to find pin named %s"), *OutputVars[i].GetName().ToString());
-			}
+			Guid = Pin->PersistentGuid;
 		}
+		else
+		{
+			UE_LOG(LogNiagaraEditor, Error, TEXT("Unable to find output pin named %s"), *Name);
+		}
+	};
+
+	for (int32 i = 0; i < OutputVars.Num(); i++)
+	{
+		const FString VarName = OutputVars[i].GetName().ToString();
+		LoadGuid(OutputVarGuids[i], VarName, EGPD_Output);
+		const FString InputAName = VarName + InputAPinSuffix;
+		LoadGuid(InputAVarGuids[i], InputAName, EGPD_Input);
+		const FString InputBName = VarName + InputBPinSuffix;
+		LoadGuid(InputBVarGuids[i], InputBName, EGPD_Input);
 	}
 }
 
@@ -57,24 +85,25 @@ void UNiagaraNodeIf::AllocateDefaultPins()
 	CreatePin(EGPD_Input, Schema->TypeDefinitionToPinType(FNiagaraTypeDefinition::GetBoolDef()), TEXT("Condition"));
 
 	//Create the inputs for each path.
-	for (FNiagaraVariable& Var : OutputVars)
+	for (int32 Index = 0; Index < OutputVars.Num(); Index++)
 	{
-		const TCHAR* PathSuffix = TEXT(" A");
-		CreatePin(EGPD_Input, Schema->TypeDefinitionToPinType(Var.GetType()), *(Var.GetName().ToString() + PathSuffix));	
-	}
-
-	for (FNiagaraVariable& Var : OutputVars)
-	{
-		const TCHAR* PathSuffix = TEXT(" B");
-		CreatePin(EGPD_Input, Schema->TypeDefinitionToPinType(Var.GetType()), *(Var.GetName().ToString() + PathSuffix));
+		const FNiagaraVariable& Var = OutputVars[Index];
+		UEdGraphPin* NewPin = CreatePin(EGPD_Input, Schema->TypeDefinitionToPinType(Var.GetType()), *(Var.GetName().ToString() + InputAPinSuffix));
+		NewPin->PersistentGuid = InputAVarGuids[Index];
 	}
 
 	for (int32 Index = 0; Index < OutputVars.Num(); Index++)
 	{
 		const FNiagaraVariable& Var = OutputVars[Index];
-		const FGuid& Guid = OutputVarGuids[Index];
+		UEdGraphPin* NewPin = CreatePin(EGPD_Input, Schema->TypeDefinitionToPinType(Var.GetType()), *(Var.GetName().ToString() + InputBPinSuffix));
+		NewPin->PersistentGuid = InputBVarGuids[Index];
+	}
+
+	for (int32 Index = 0; Index < OutputVars.Num(); Index++)
+	{
+		const FNiagaraVariable& Var = OutputVars[Index];
 		UEdGraphPin* NewPin = CreatePin(EGPD_Output, Schema->TypeDefinitionToPinType(Var.GetType()), Var.GetName());
-		NewPin->PersistentGuid = Guid;
+		NewPin->PersistentGuid = OutputVarGuids[Index];
 	}
 
 	CreateAddPin(EGPD_Output);
@@ -121,9 +150,21 @@ bool UNiagaraNodeIf::RefreshFromExternalChanges()
 FGuid UNiagaraNodeIf::AddOutput(FNiagaraTypeDefinition Type, const FName& Name)
 {
 	FNiagaraVariable NewOutput(Type, Name);
-	FGuid Guid = FGuid::NewGuid();
 	OutputVars.Add(NewOutput);
+	FGuid Guid = FGuid::NewGuid();
 	OutputVarGuids.Add(Guid);
+
+	const UEdGraphSchema_Niagara* Schema = CastChecked<UEdGraphSchema_Niagara>(GetSchema());
+	FGuid PinAGuid = FGuid::NewGuid();
+	InputAVarGuids.Add(PinAGuid);
+	UEdGraphPin* PinA = CreatePin(EGPD_Input, Schema->TypeDefinitionToPinType(Type), *(Name.ToString() + InputAPinSuffix), InputAVarGuids.Num());
+	PinA->PersistentGuid = PinAGuid;
+
+	FGuid PinBGuid = FGuid::NewGuid();
+	InputBVarGuids.Add(PinBGuid);
+	UEdGraphPin* PinB = CreatePin(EGPD_Input, Schema->TypeDefinitionToPinType(Type), *(Name.ToString() + InputBPinSuffix), InputAVarGuids.Num() + InputBVarGuids.Num());
+	PinB->PersistentGuid = PinBGuid;
+
 	return Guid;
 }
 
@@ -156,9 +197,8 @@ void UNiagaraNodeIf::OnNewTypedPinAdded(UEdGraphPin* NewPin)
 	FGuid Guid = AddOutput(OutputType, OutputName);
 
 	// Update the pin's data too so that it's connection is maintained after reallocating.
+	NewPin->PinName = OutputName;
 	NewPin->PersistentGuid = Guid;
-
-	ReallocatePins();
 }
 
 void UNiagaraNodeIf::OnPinRenamed(UEdGraphPin* RenamedPin, const FString& OldName)

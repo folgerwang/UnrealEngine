@@ -1,7 +1,8 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "AppleARKitLiveLinkSourceFactory.h"
 #include "ILiveLinkClient.h"
 #include "Tickable.h"
@@ -728,6 +729,7 @@ class FAppleARKitLiveLinkRemotePublisher :
 {
 public:
 	FAppleARKitLiveLinkRemotePublisher();
+	FAppleARKitLiveLinkRemotePublisher(const FString& InRemoteIp);
 	virtual ~FAppleARKitLiveLinkRemotePublisher();
 
 	// IARKitBlendShapePublisher interface
@@ -739,6 +741,8 @@ public:
 private:
 	TSharedRef<FInternetAddr> GetSendAddress();
 
+	/** The IP address to send the blend shapes to */
+	FString RemoteIp;
 	/** Socket to send the data via to the remote listener */
 	FSocket* SendSocket;
 	/** The ram buffer to serialize the packet to */
@@ -747,7 +751,8 @@ private:
 
 /** Publishes face blend shapes to LiveLink for use locally */
 class FAppleARKitLiveLinkSource :
-	public ILiveLinkSourceARKit
+	public ILiveLinkSourceARKit,
+	public FSelfRegisteringExec
 {
 public:
 	FAppleARKitLiveLinkSource(bool bCreateRemotePublisher);
@@ -766,6 +771,10 @@ private:
 	// IARKitBlendShapePublisher interface
 	virtual void PublishBlendShapes(FName SubjectName, double Timestamp, uint32 FrameNumber, const FARBlendShapeMap& FaceBlendShapes) override;
 	// End IARKitBlendShapePublisher
+
+	//~ FSelfRegisteringExec
+	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
+	//~ FSelfRegisteringExec
 
 	/** The local client to push data updates to */
 	ILiveLinkClient* Client;

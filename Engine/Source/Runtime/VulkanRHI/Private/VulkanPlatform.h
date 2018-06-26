@@ -3,9 +3,4 @@
 
 #pragma once
 
-#if PLATFORM_WINDOWS
-#include "Windows/VulkanWindowsPlatform.h"
-#else
 #include "VulkanPlatformDefines.h"
-#endif
-

@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MeshElementViewportTransformable.h"
 #include "MeshEditorMode.h"
@@ -38,7 +38,7 @@ FBox FMeshElementViewportTransformable::BuildBoundingBox( const FTransform& Boun
 		UEditableMesh* EditableMesh = MeshEditorMode.FindOrCreateEditableMesh( *MeshElement.Component, MeshElement.ElementAddress.SubMeshAddress );
 		if( EditableMesh != nullptr )
 		{
-			if( FMeshEditorMode::IsElementIDValid( MeshElement, EditableMesh ) )
+			if( MeshElement.IsElementIDValid( EditableMesh ) )
 			{
 				const TVertexAttributeArray<FVector>& VertexPositions = EditableMesh->GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 				BoundingBox.Init();

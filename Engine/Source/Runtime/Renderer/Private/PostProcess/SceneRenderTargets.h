@@ -219,9 +219,9 @@ public:
 	void BeginRenderingCubeShadowDepth(FRHICommandList& RHICmdList, int32 ShadowResolution);
 
 	/** Begin rendering translucency in the scene color. */
-	void BeginRenderingTranslucency(FRHICommandList& RHICmdList, const class FViewInfo& View, bool bFirstTimeThisFrame = true);
+	void BeginRenderingTranslucency(FRHICommandList& RHICmdList, const class FViewInfo& View, const FSceneRenderer& Renderer, bool bFirstTimeThisFrame = true);
 	/** Begin rendering translucency in a separate (offscreen) buffer. This can be any translucency pass. */
-	void BeginRenderingSeparateTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View, bool bFirstTimeThisFrame);
+	void BeginRenderingSeparateTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View, const FSceneRenderer& Renderer, bool bFirstTimeThisFrame);
 	void FinishRenderingSeparateTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View);
 
 	void FreeSeparateTranslucency()
@@ -427,6 +427,7 @@ public:
 
 	TRefCountPtr<IPooledRenderTarget>& GetSceneColor();
 
+	EPixelFormat GetSceneColorFormat(ERHIFeatureLevel::Type InFeatureLevel) const;
 	EPixelFormat GetSceneColorFormat() const;
 	EPixelFormat GetDesiredMobileSceneColorFormat() const;
 	EPixelFormat GetMobileSceneColorFormat() const;

@@ -1,51 +1,12 @@
-﻿INTSourceChangelist:2713052
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:デカール
 Crumbs:%ROOT%, Resources, Resources/ContentExamples
 Description:デカールのサンプル レベルの概要
 Version:4.9
 Related:Engine/Actors/DecalActor
-[COMMENT:none]
--[TOC(start:2 end:2)]-
-[/COMMENT]
+topic-image:Decals_3.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/Decals:title%](Decals_3.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Decals:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Decals:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/Decals]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/Decals:title%](Decals_3.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Decals:title%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/Decals]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
-
-[REGION:fullwidth]
-
-[/REGION]
 
 **デカール** サンプル レベルへようこそ! レベルでのデカールの使用方法について説明します。 
 
@@ -63,9 +24,8 @@ Deferred Decal アクタを作成するには、**[Modes (モード)]**パネル
 
 [INCLUDE:Resources\ContentExamples\ExampleLevelOverview#ExampleLevel]
 
-## サンプル
+## 例
 
-[REGION:topics third]
 %Resources/ContentExamples/Decals/1_1:TopicCompact%
 %Resources/ContentExamples/Decals/1_2:TopicCompact%
 %Resources/ContentExamples/Decals/1_3:TopicCompact%
@@ -73,12 +33,3 @@ Deferred Decal アクタを作成するには、**[Modes (モード)]**パネル
 %Resources/ContentExamples/Decals/1_5:TopicCompact%
 %Resources/ContentExamples/Decals/1_6:TopicCompact%
 %Resources/ContentExamples/Decals/1_7:TopicCompact%
-[/REGION]
-
-[COMMENT:none]
--
-## 関連トピックと参考文献
-
-* [デカール](Engine/Actors/DecalActor)
--
-[/COMMENT]

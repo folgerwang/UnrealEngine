@@ -5,7 +5,4 @@
 #include "Math/Range.h"
 #include "Containers/UnrealString.h"
 
-namespace Lex
-{
-	MOVIESCENE_API FString ToString(const TRange<FFrameNumber>& InRange);
-}
+MOVIESCENE_API FString LexToString(const TRange<FFrameNumber>& InRange);

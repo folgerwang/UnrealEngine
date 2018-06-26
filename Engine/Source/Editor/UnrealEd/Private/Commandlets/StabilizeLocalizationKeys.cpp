@@ -78,7 +78,7 @@ public:
 		: PackageTextKeyMap(&InOutPackageTextKeyMap)
 		, PackageNamespace(TextNamespaceUtil::EnsurePackageNamespace(InPackage))
 	{
-		ArIsSaving = true;
+		this->SetIsSaving(true);
 
 		TArray<UObject*> AllObjectsInPackage;
 		GetObjectsWithOuter(InPackage, AllObjectsInPackage, true, RF_Transient, EInternalObjectFlags::PendingKill);

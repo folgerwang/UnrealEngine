@@ -178,14 +178,14 @@ TSharedPtr<const FUniqueNetId> FOnlineIdentityTwitch::CreateUniquePlayerId(uint8
 	if (Bytes != nullptr && Size > 0)
 	{
 		FString StrId(Size, (TCHAR*)Bytes);
-		return MakeShared<FUniqueNetIdString>(MoveTemp(StrId));
+		return MakeShared<FUniqueNetIdTwitch>(MoveTemp(StrId));
 	}
 	return nullptr;
 }
 
 TSharedPtr<const FUniqueNetId> FOnlineIdentityTwitch::CreateUniquePlayerId(const FString& Str)
 {
-	return MakeShared<FUniqueNetIdString>(Str);
+	return MakeShared<FUniqueNetIdTwitch>(Str);
 }
 
 bool FOnlineIdentityTwitch::Login(int32 LocalUserNum, const FOnlineAccountCredentials& AccountCredentials)
@@ -454,10 +454,10 @@ void FOnlineIdentityTwitch::OnLoginAttemptComplete(int32 LocalUserNum, const FSt
 	}
 }
 
-void FOnlineIdentityTwitch::OnExternalUILoginComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex)
+void FOnlineIdentityTwitch::OnExternalUILoginComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex, const FOnlineError& Error)
 {
-	FString ErrorStr;
-	bool bWasSuccessful = UniqueId.IsValid() && UniqueId->IsValid();
+	const FString& ErrorStr = Error.ErrorCode;
+	const bool bWasSuccessful = Error.WasSuccessful() && UniqueId.IsValid() && UniqueId->IsValid();
 	OnAccessTokenLoginComplete(ControllerIndex, bWasSuccessful, bWasSuccessful ? *UniqueId : *ZeroId, ErrorStr);
 }
 
@@ -605,7 +605,7 @@ void FOnlineIdentityTwitch::RevokeAuthToken_HttpRequestComplete(FHttpRequestPtr 
 	
 	if (OnlineError.bSucceeded)
 	{
-		UE_LOG_ONLINE(Log, TEXT("User %s successfully revoked their auth token"), *UserId->ToString());
+		UE_LOG_ONLINE(Log, TEXT("User %s successfully revoked their auth token"), *UserId->ToDebugString());
 	}
 	else
 	{
@@ -705,7 +705,7 @@ FOnlineIdentityTwitch::FOnlineIdentityTwitch(FOnlineSubsystemTwitch* InSubsystem
 	: Subsystem(InSubsystem)
 	, LoginURLDetails(InSubsystem)
 	, bHasLoginOutstanding(false)
-	, ZeroId(MakeShared<FUniqueNetIdString>())
+	, ZeroId(MakeShared<FUniqueNetIdTwitch>())
 {
 	check(InSubsystem);
 }

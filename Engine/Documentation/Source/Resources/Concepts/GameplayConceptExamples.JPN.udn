@@ -1,50 +1,12 @@
-﻿INTSourceChangelist:3501272
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:ゲームプレイのコンセプト サンプル
 Crumbs:%ROOT%
 Description:フレームワークのサンプルです。デザイン ツールやゲーム機能の追加方法を示します。
 Navigation:topic
 Version:4.9
+topic-image:UnrealStickFigure2D_Featured.png
 
-
-[VAR:Params]
-[PARAM:image]
-	![](UnrealStickFigure2D_Featured.png)
-[/PARAM]
-[PARAM:icon]
-	![](%ROOT%/tutorial_icon.png)(convert:false)
-[/PARAM]
-[PARAM:title]
-	%Resources/Concepts:title%
-[/PARAM]
-[PARAM:description]
-	%Resources/Concepts:description%
-[/PARAM]
-[PARAM:path]
-	[RELATIVE:Resources/Concepts]
-[/PARAM]
-[/VAR]
-
-[VAR:Topic]
-[OBJECT:Topic]
-%params%
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-%params%
-[/OBJECT]
-[/VAR]
-
-[VAR:Role]
-[OBJECT:Role]
-%params%
-[PARAMLITERAL:id]
-resources
-[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
 
 以下は、特定のビジュアルやスクリプト処理スタイルを必要とする場合、課題へのアプローチを示すものです。当然、特定の問題を解決する _唯一_ の方法ではなく、各自のプロジェクトで別のアプローチを使った方がうまくいく場合もあるかもしれません。
 

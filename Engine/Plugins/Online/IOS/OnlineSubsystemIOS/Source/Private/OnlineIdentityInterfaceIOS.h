@@ -14,7 +14,7 @@ class FOnlineIdentityIOS :
 {
 private:
 	/** UID for this identity */
-	TSharedPtr< FUniqueNetIdString > UniqueNetId;
+	TSharedPtr< FUniqueNetIdIOS > UniqueNetId;
 	FOnlineSubsystemIOS* Subsystem;
 
 	FOnlineIdentityIOS();
@@ -26,9 +26,9 @@ PACKAGE_SCOPE:
 	 */
 	FOnlineIdentityIOS(FOnlineSubsystemIOS* InSubsystem);
 
-	TSharedPtr<FUniqueNetIdString> GetLocalPlayerUniqueId() const;
+	TSharedPtr<FUniqueNetIdIOS> GetLocalPlayerUniqueId() const;
 
-	void SetLocalPlayerUniqueId(const TSharedPtr<FUniqueNetIdString>& UniqueId);
+	void SetLocalPlayerUniqueId(const TSharedPtr<FUniqueNetIdIOS>& UniqueId);
 
 public:
 

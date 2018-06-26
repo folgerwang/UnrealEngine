@@ -87,7 +87,8 @@ void FHighResScreenshotConfig::ChangeViewport(TWeakPtr<FSceneViewport> InViewpor
 	CaptureRegion = UnscaledCaptureRegion;
 	bMaskEnabled = false;
 	bDumpBufferVisualizationTargets = false;
-	ResolutionMultiplier = 1.0f;
+	ResolutionMultiplier = FHighResScreenshotConfig::MinResolutionMultipler;
+	ResolutionMultiplierScale = 0.0f;
 	TargetViewport = InViewport;
 }
 
@@ -95,7 +96,8 @@ bool FHighResScreenshotConfig::ParseConsoleCommand(const FString& InCmd, FOutput
 {
 	GScreenshotResolutionX = 0;
 	GScreenshotResolutionY = 0;
-	ResolutionMultiplier = 1.0f;
+	ResolutionMultiplier = FHighResScreenshotConfig::MinResolutionMultipler;
+	ResolutionMultiplierScale = 0.0f;
 
 	if( GetHighResScreenShotInput(*InCmd, Ar, GScreenshotResolutionX, GScreenshotResolutionY, ResolutionMultiplier, CaptureRegion, bMaskEnabled, bDumpBufferVisualizationTargets, bCaptureHDR, FilenameOverride) )
 	{

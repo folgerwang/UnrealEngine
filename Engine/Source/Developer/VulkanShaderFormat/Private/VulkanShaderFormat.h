@@ -1,5 +1,4 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-// .
 
 #pragma once
 
@@ -9,11 +8,11 @@
 enum class EVulkanShaderVersion
 {
 	ES3_1,
-	ES3_1_UB,
-	ES3_1_ANDROID_UB,
-	SM4_NOUB,
+	ES3_1_NOUB,
 	ES3_1_ANDROID,
+	ES3_1_ANDROID_NOUB,
 	SM4,
+	SM4_NOUB,
 	SM5,
 	SM5_NOUB,
 };

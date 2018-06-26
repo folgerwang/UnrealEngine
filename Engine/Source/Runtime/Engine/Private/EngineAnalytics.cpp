@@ -17,8 +17,6 @@
 #include "RHI.h"
 
 bool FEngineAnalytics::bIsInitialized;
-bool FEngineAnalytics::bIsEditorRun;
-bool FEngineAnalytics::bIsGameRun;
 TSharedPtr<IAnalyticsProviderET> FEngineAnalytics::Analytics;
 TSharedPtr<FEngineSessionManager> FEngineAnalytics::SessionManager;
 
@@ -58,24 +56,18 @@ void FEngineAnalytics::Initialize()
 	check(GEngine);
 
 #if WITH_EDITOR
-	// this will only be true for builds that have editor support (currently PC, Mac, Linux)
+	// this will only be true for builds that have editor support (desktop platforms)
 	// The idea here is to only send editor events for actual editor runs, not for things like -game runs of the editor.
-	bIsEditorRun = GIsEditor && !IsRunningCommandlet();
-	bIsGameRun = false;
+	bool bIsEditorRun = GIsEditor && !IsRunningCommandlet();
 #else
-	// We also want to identify a real run of a game, which is NOT necessarily the opposite of an editor run.
-	// Ideally we'd be able to tell explicitly, but with content-only games, it becomes difficult.
-	// So we ensure we are not an editor run, we don't have EDITOR stuff compiled in, we are not running a commandlet,
-	// we are not a generic, utility program, and we require cooked data.
-	bIsEditorRun = false;
-	bIsGameRun = !IsRunningCommandlet() && !FPlatformProperties::IsProgram() && FPlatformProperties::RequiresCookedData();
+	bool bIsEditorRun = false;
 #endif
 
 #if UE_BUILD_DEBUG
 	const bool bShouldInitAnalytics = false;
 #else
 	// Outside of the editor, the only engine analytics usage is the hardware survey
-	const bool bShouldInitAnalytics = (bIsEditorRun && GEngine->AreEditorAnalyticsEnabled()) || (bIsGameRun && GEngine->AreGameAnalyticsEnabled());
+	const bool bShouldInitAnalytics = bIsEditorRun && GEngine->AreEditorAnalyticsEnabled();
 #endif
 
 	if (bShouldInitAnalytics)
@@ -96,15 +88,7 @@ void FEngineAnalytics::Initialize()
 			FString UE4TypeOverride;
 			bool bHasOverride = GConfig->GetString(TEXT("Analytics"), TEXT("UE4TypeOverride"), UE4TypeOverride, GEngineIni);
 			const TCHAR* UE4TypeStr = bHasOverride ? *UE4TypeOverride : FEngineBuildSettings::IsPerforceBuild() ? TEXT("Perforce") : TEXT("UnrealEngine");
-			if (bIsEditorRun)
-			{
-				Config.APIKeyET = FString::Printf(TEXT("UEEditor.%s.%s"), UE4TypeStr, BuildTypeStr);
-			}
-			else
-			{
-				const UGeneralProjectSettings& ProjectSettings = *GetDefault<UGeneralProjectSettings>();
-				Config.APIKeyET = FString::Printf(TEXT("UEGame.%s.%s|%s|%s"), UE4TypeStr, BuildTypeStr, *ProjectSettings.ProjectID.ToString(), *ProjectSettings.ProjectName);
-			}
+			Config.APIKeyET = FString::Printf(TEXT("UEEditor.%s.%s"), UE4TypeStr, BuildTypeStr);
 		}
 		if (Config.APIServerET.IsEmpty())
 		{
@@ -125,23 +109,7 @@ void FEngineAnalytics::Initialize()
 
 		if (Analytics.IsValid())
 		{
-			// Use an anonymous user id in-game
-			if (bIsGameRun && GEngine->AreGameAnalyticsAnonymous())
-			{
-				FString AnonymousId;
-				if (!FPlatformMisc::GetStoredValue(TEXT("Epic Games"), TEXT("Unreal Engine/Privacy"), TEXT("AnonymousID"), AnonymousId) || AnonymousId.IsEmpty())
-				{
-					AnonymousId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphensInBraces);
-					FPlatformMisc::SetStoredValue(TEXT("Epic Games"), TEXT("Unreal Engine/Privacy"), TEXT("AnonymousID"), AnonymousId);
-				}
-
-				// Place the anonymous user id into the first field of the UserID set, as it most closely matches the LoginID semantics.
-				Analytics->SetUserID(FString::Printf(TEXT("ANON-%s||"), *AnonymousId));
-			}
-			else
-			{
-				Analytics->SetUserID(FString::Printf(TEXT("%s|%s|%s"), *FPlatformMisc::GetLoginId(), *FPlatformMisc::GetEpicAccountId(), *FPlatformMisc::GetOperatingSystemId()));
-			}
+			Analytics->SetUserID(FString::Printf(TEXT("%s|%s|%s"), *FPlatformMisc::GetLoginId(), *FPlatformMisc::GetEpicAccountId(), *FPlatformMisc::GetOperatingSystemId()));
 
 			TArray<FAnalyticsEventAttribute> StartSessionAttributes;
 			GEngine->CreateStartupAnalyticsAttributes( StartSessionAttributes );
@@ -179,11 +147,8 @@ void FEngineAnalytics::Initialize()
 		// Create the session manager singleton
 		if (!SessionManager.IsValid())
 		{
-			if (bIsEditorRun || (bIsGameRun && GEngine->AreGameMTBFEventsEnabled()))
-			{
-				SessionManager = MakeShareable(new FEngineSessionManager(bIsEditorRun ? EEngineSessionManagerMode::Editor : EEngineSessionManagerMode::Game));
-				SessionManager->Initialize();
-			}
+			SessionManager = MakeShareable(new FEngineSessionManager(EEngineSessionManagerMode::Editor));
+			SessionManager->Initialize();
 		}
 	}
 }

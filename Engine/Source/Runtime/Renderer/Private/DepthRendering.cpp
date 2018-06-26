@@ -149,7 +149,7 @@ public:
 
 	void SetInstancedEyeIndex(FRHICommandList& RHICmdList, const uint32 EyeIndex)
 	{
-		if (EyeIndex > 0 && InstancedEyeIndexParameter.IsBound())
+		if (InstancedEyeIndexParameter.IsBound())
 		{
 			SetShaderValue(RHICmdList, GetVertexShader(), InstancedEyeIndexParameter, EyeIndex);
 		}
@@ -1188,6 +1188,8 @@ IMPLEMENT_SHADER_TYPE(, FDitheredTransitionStencilPS, TEXT("/Engine/Private/Dith
 /** Possibly do the FX prerender and setup the prepass*/
 bool FDeferredShadingSceneRenderer::PreRenderPrePass(FRHICommandListImmediate& RHICmdList)
 {
+	SCOPED_GPU_MASK(RHICmdList, FRHIGPUMask::All()); // Required otherwise emulatestereo gets broken.
+
 	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLM_PrePass));
 	bool bDepthWasCleared = RenderPrePassHMD(RHICmdList);
 
@@ -1313,6 +1315,7 @@ bool FDeferredShadingSceneRenderer::RenderPrePass(FRHICommandListImmediate& RHIC
 		{
 			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("View%d"), ViewIndex);
 			const FViewInfo& View = Views[ViewIndex];
+			SCOPED_GPU_MASK(RHICmdList, !View.IsInstancedStereoPass() ? View.GPUMask : (Views[0].GPUMask | Views[1].GPUMask));
 
 			FSceneTexturesUniformParameters SceneTextureParameters;
 			SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);

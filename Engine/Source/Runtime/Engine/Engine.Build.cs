@@ -26,6 +26,7 @@ public class Engine : ModuleRules
 				"TargetPlatform",
 				"ImageWrapper",
 				"HeadMountedDisplay",
+				"EyeTracker",
 				"MRMesh",
 				"Advertising",
 				"NetworkReplayStreaming",
@@ -78,7 +79,6 @@ public class Engine : ModuleRules
 				"GameplayTags",
 				"DatabaseSupport",
 				"PacketHandler",
-				"HardwareSurvey",
                 "AudioPlatformConfiguration",
 				"MeshDescription",
 			}
@@ -98,6 +98,8 @@ public class Engine : ModuleRules
 				"AnalyticsET",
 			}
 		);
+
+		DynamicallyLoadedModuleNames.Add("EyeTracker");
 
 		if (Target.bUseXGEController &&
 			Target.Type == TargetType.Editor &&
@@ -390,7 +392,7 @@ public class Engine : ModuleRules
 			PublicFrameworks.AddRange(new string[] { "AVFoundation", "CoreVideo", "CoreMedia" });
 		}
 
-		if (Target.Platform == UnrealTargetPlatform.Android)
+		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"UEOgg",
@@ -406,7 +408,12 @@ public class Engine : ModuleRules
             PrivateDependencyModuleNames.Add("IOSRuntimeSettings");
         }
 
-		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
+        if (Target.Platform == UnrealTargetPlatform.Switch)
+        {
+            PrivateDependencyModuleNames.Add("SwitchRuntimeSettings");
+        }
+
+        if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"UEOgg",
@@ -415,24 +422,11 @@ public class Engine : ModuleRules
 				"libOpus"
 				);
 		}
-/*
-		ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, System.IO.DirectoryReference.FromFile(Target.ProjectFile), Target.Platform);
-		bool bLocalVectorFieldOnly = false;
-		Ini.GetBool("/Script/Engine.RendererSettings", "bGPUParticlesLocalVFOnly", out bLocalVectorFieldOnly);
-		if (bLocalVectorFieldOnly)
-		{
-			PublicDefinitions.Add("GPUPARTICLE_LOCAL_VF_ONLY=1");
-		}
-		else
-		{
-			PublicDefinitions.Add("GPUPARTICLE_LOCAL_VF_ONLY=0");
-		}
-*/
 
 		PublicDefinitions.Add("GPUPARTICLE_LOCAL_VF_ONLY=0");
 
-		// Add a reference to the stats HTML files referenced by UEngine::DumpFPSChartToHTML. Previously staged by CopyBuildToStagingDirectory.
-    if (Target.bBuildEditor || Target.Configuration != UnrealTargetConfiguration.Shipping)
+        // Add a reference to the stats HTML files referenced by UEngine::DumpFPSChartToHTML. Previously staged by CopyBuildToStagingDirectory.
+        if (Target.bBuildEditor || Target.Configuration != UnrealTargetConfiguration.Shipping)
 		{
 			RuntimeDependencies.Add("$(EngineDir)/Content/Stats/...", StagedFileType.UFS);
 		}

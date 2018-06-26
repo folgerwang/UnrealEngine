@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -31,8 +31,8 @@ private:
 	float GetNumTrianglesPercentage() const;
 	void SetNumTrianglesPercentage(float Value);
 
-	float GetMaxDeviationPercentage() const;
-	void SetMaxDeviationPercentage(float Value);
+	float GetAccuracyPercentage() const;
+	void SetAccuracyPercentage(float Value);
 
-	EVisibility GetVisibiltyIfCurrentReductionMethod(SkeletalMeshOptimizationType ReductionType) const;
+	EVisibility GetVisibiltyIfCurrentReductionMethodIsNot(SkeletalMeshOptimizationType ReductionType) const;
 };

@@ -162,6 +162,16 @@ public:
 	 */
 	virtual FTransform GetTrackingToWorldTransform() const = 0;
 
+	/** 
+	 * Computes a transform to convert from 'Floor' origin space to 'Eye' origin space.
+	 * Useful when changing between the two different TrackingOrigin spaces.
+	 * Invert the transform to get the opposite.
+	 *
+	 * @param  OutFloorToEye	[out] The returned floor-to-eye transform.
+	 * @return True if the transform was successfully constructed.
+	 */
+	virtual bool GetFloorToEyeTrackingTransform(FTransform& OutFloorToEye) const = 0;
+
 	/**
 	 * Refreshes the system's known tracking-to-world transform.
 	 * Helpful for clients if they change the world's representation of the XR origin, or if they want to override the system calculated 

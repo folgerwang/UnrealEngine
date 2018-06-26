@@ -242,6 +242,16 @@ void FPixelShaderInOut_MainPS(inout FPixelShaderIn In, inout FPixelShaderOut Out
 		MaterialParameters.WorldPosition_NoOffsets_CamRelative = WSPosition;
 	FPixelMaterialInputs PixelMaterialInputs;
 	CalcPixelMaterialInputs(MaterialParameters, PixelMaterialInputs);
+	
+	float DecalFading = saturate(4 - 4 * abs(SwizzlePos.z * 2 - 1)) * DecalParams.x * DecalParams.y;
+
+	#if DECAL_BLEND_MODE == DECALBLENDMODEID_AO
+	{
+		float AmbientOcclusion = lerp(1, GetMaterialAmbientOcclusion(PixelMaterialInputs), DecalFading);
+		Out.MRT[0] = float4(AmbientOcclusion, AmbientOcclusion, AmbientOcclusion, AmbientOcclusion);
+		return;
+	}
+	#endif
 
 	if(bVolumetric)
 	{
@@ -283,15 +293,8 @@ void FPixelShaderInOut_MainPS(inout FPixelShaderIn In, inout FPixelShaderOut Out
 			Color+= BaseColor;
 		#endif
 	#endif
-
-	float Opacity = GetMaterialOpacity(PixelMaterialInputs);
-
-	// Z fade
-	Opacity *= saturate( 4 - 4 * abs( SwizzlePos.z * 2 - 1 ) );
-
-	// decal fade
-	Opacity *= DecalParams.x;
-	Opacity *= DecalParams.y;
+	
+	float Opacity = GetMaterialOpacity(PixelMaterialInputs) * DecalFading;
 
 	FGBufferData GBufferData;
 

@@ -84,7 +84,7 @@ public:
 
 	void SetInstancedEyeIndex(FRHICommandList& RHICmdList, const uint32 EyeIndex)
 	{
-		if (EyeIndex > 0 && InstancedEyeIndexParameter.IsBound())
+		if (InstancedEyeIndexParameter.IsBound())
 		{
 			SetShaderValue(RHICmdList, GetVertexShader(), InstancedEyeIndexParameter, EyeIndex);
 		}
@@ -790,6 +790,8 @@ void FDeferredShadingSceneRenderer::RenderVelocitiesInnerParallel(FRHICommandLis
 
 		if (View.ShouldRenderView())
 		{
+			SCOPED_GPU_MASK(RHICmdList, View.GPUMask);
+
 			FSceneTexturesUniformParameters SceneTextureParameters;
 			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 			SetupSceneTextureUniformParameters(SceneContext, View.FeatureLevel, ESceneTextureSetupMode::None, SceneTextureParameters);
@@ -861,6 +863,8 @@ void FDeferredShadingSceneRenderer::RenderVelocitiesInner(FRHICommandListImmedia
 
 		if (View.ShouldRenderView())
 		{
+			SCOPED_GPU_MASK(RHICmdList, View.GPUMask);
+
 			SetVelocitiesState(RHICmdList, View, this, DrawRenderState, VelocityRT);
 
 			// Draw velocities for movable static meshes.

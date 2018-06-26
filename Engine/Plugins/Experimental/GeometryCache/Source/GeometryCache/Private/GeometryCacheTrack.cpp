@@ -47,7 +47,7 @@ UGeometryCacheTrack::~UGeometryCacheTrack()
 void UGeometryCacheTrack::Serialize(FArchive& Ar)
 {
 	Ar.UsingCustomVersion(FAnimPhysObjectVersion::GUID);
-	if (Ar.CustomVer(FAnimPhysObjectVersion::GUID) > FAnimPhysObjectVersion::GeometryCacheAssetDeprecation)
+	if (Ar.CustomVer(FAnimPhysObjectVersion::GUID) >= FAnimPhysObjectVersion::GeometryCacheAssetDeprecation)
 	{
 		Super::Serialize(Ar);
 	}

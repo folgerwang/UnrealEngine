@@ -34,20 +34,25 @@ AVREditorDockableWindow::AVREditorDockableWindow() :
 	CloseButtonHoverAlpha(0.0f),
 	DockSelectDistance(0.0f)
 {
-	UVREditorAssetContainer* AssetContainer = LoadObject<UVREditorAssetContainer>(nullptr, *UVREditorMode::AssetContainerPath);
+	if (HasAnyFlags(RF_ClassDefaultObject))
+	{
+		return;
+	}
+
+	const UVREditorAssetContainer& AssetContainer = UVREditorMode::LoadAssetContainer();
 
 	{
-		UStaticMesh* WindowMesh = AssetContainer->WindowMesh;
+		UStaticMesh* WindowMesh = AssetContainer.WindowMesh;
 		WindowMeshComponent->SetStaticMesh(WindowMesh);
 		check(WindowMeshComponent != nullptr);
 	}
 
-	UMaterialInterface* HoverMaterial = AssetContainer->WindowMaterial;
-	UMaterialInterface* TranslucentHoverMaterial = AssetContainer->WindowMaterial;
+	UMaterialInterface* HoverMaterial = AssetContainer.WindowMaterial;
+	UMaterialInterface* TranslucentHoverMaterial = AssetContainer.WindowMaterial;
 
 	const FRotator RelativeRotation(30.f, 0.f, 0.f);
 	{
-		UStaticMesh* SelectionMesh = AssetContainer->WindowSelectionBarMesh;
+		UStaticMesh* SelectionMesh = AssetContainer.WindowSelectionBarMesh;
 
 		SelectionBarMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>( TEXT( "SelectionBarMesh" ) );
 		SelectionBarMeshComponent->SetStaticMesh( SelectionMesh );
@@ -71,7 +76,7 @@ AVREditorDockableWindow::AVREditorDockableWindow() :
 	}
 
 	{
-		UStaticMesh* CloseButtonMesh = AssetContainer->WindowCloseButtonMesh;
+		UStaticMesh* CloseButtonMesh = AssetContainer.WindowCloseButtonMesh;
 
 		CloseButtonMeshComponent= CreateDefaultSubobject<UStaticMeshComponent>( TEXT( "CloseButtonMesh" ) );
 		CloseButtonMeshComponent->SetStaticMesh( CloseButtonMesh );

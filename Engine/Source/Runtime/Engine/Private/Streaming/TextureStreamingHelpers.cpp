@@ -5,6 +5,7 @@ TextureStreamingHelpers.cpp: Definitions of classes used for texture streaming.
 =============================================================================*/
 
 #include "Streaming/TextureStreamingHelpers.h"
+#include "UnrealEngine.h"
 #include "Engine/Texture2D.h"
 #include "GenericPlatform/GenericPlatformMemoryPoolStats.h"
 
@@ -59,6 +60,13 @@ TAutoConsoleVariable<float> CVarStreamingBoost(
 	TEXT("<1.0: decrease wanted mip levels\n")
 	TEXT(">1.0: increase wanted mip levels"),
 	ECVF_Scalability
+	);
+
+TAutoConsoleVariable<float> CVarStreamingMinBoost(
+	TEXT("r.Streaming.MinBoost"),
+	0.0f,
+	TEXT("Minimum clamp for r.Streaming.Boost"),
+	ECVF_Default
 	);
 
 TAutoConsoleVariable<float> CVarStreamingScreenSizeEffectiveMax(
@@ -244,6 +252,8 @@ void FTextureStreamingSettings::Update()
 
 	bUseMaterialData = bUseNewMetrics && CVarStreamingUseMaterialData.GetValueOnAnyThread() != 0;
 	HiddenPrimitiveScale = bUseNewMetrics ? CVarStreamingHiddenPrimitiveScale.GetValueOnAnyThread() : 1.f;
+
+	MaterialQualityLevel = (int32)GetCachedScalabilityCVars().MaterialQualityLevel;
 
 	if (MinMipForSplitRequest <= 0)
 	{

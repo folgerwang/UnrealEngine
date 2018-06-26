@@ -3,8 +3,9 @@
 #pragma once
 
 #include "UObject/ObjectMacros.h"
-#include "FrameNumber.h"
+#include "Misc/FrameNumber.h"
 #include "MovieSceneChannel.h"
+#include "MovieSceneChannelData.h"
 #include "MovieSceneChannelTraits.h"
 #include "KeyParams.h"
 
@@ -75,7 +76,7 @@ struct FMovieSceneFloatValue
 };
 
 USTRUCT()
-struct FMovieSceneFloatChannel
+struct MOVIESCENE_API FMovieSceneFloatChannel : public FMovieSceneChannel
 {
 	GENERATED_BODY()
 
@@ -84,30 +85,23 @@ struct FMovieSceneFloatChannel
 	{}
 
 	/**
-	 * Access an integer that uniquely identifies this channel type.
+	 * Access a mutable interface for this channel's data
 	 *
-	 * @return A static identifier that was allocated using FMovieSceneChannelEntry::RegisterNewID
+	 * @return An object that is able to manipulate this channel's data
 	 */
-	MOVIESCENE_API static uint32 GetChannelID();
-
-	/**
-	 * Access a mutable interface for this channel
-	 *
-	 * @return An object that is able to manipulate this channel
-	 */
-	FORCEINLINE TMovieSceneChannel<FMovieSceneFloatValue> GetInterface()
+	FORCEINLINE TMovieSceneChannelData<FMovieSceneFloatValue> GetData()
 	{
-		return TMovieSceneChannel<FMovieSceneFloatValue>(&Times, &Values, &KeyHandles);
+		return TMovieSceneChannelData<FMovieSceneFloatValue>(&Times, &Values, &KeyHandles);
 	}
 
 	/**
-	 * Access a constant interface for this channel
+	 * Access a constant interface for this channel's data
 	 *
-	 * @return An object that is able to interrogate this channel
+	 * @return An object that is able to interrogate this channel's data
 	 */
-	FORCEINLINE TMovieSceneChannel<const FMovieSceneFloatValue> GetInterface() const
+	FORCEINLINE TMovieSceneChannelData<const FMovieSceneFloatValue> GetData() const
 	{
-		return TMovieSceneChannel<const FMovieSceneFloatValue>(&Times, &Values);
+		return TMovieSceneChannelData<const FMovieSceneFloatValue>(&Times, &Values);
 	}
 
 	/**
@@ -137,7 +131,7 @@ struct FMovieSceneFloatChannel
 	* @param OutValue   A value to receive the result
 	* @return true if the channel was evaluated successfully, false otherwise
 	*/
-	MOVIESCENE_API bool Evaluate(FFrameTime InTime, float& OutValue) const;
+	bool Evaluate(FFrameTime InTime, float& OutValue) const;
 
 
 
@@ -157,6 +151,22 @@ struct FMovieSceneFloatChannel
 			KeyHandles.AllocateHandle(Index);
 		}
 	}
+
+public:
+
+	// ~ FMovieSceneChannel Interface
+	virtual void GetKeys(const TRange<FFrameNumber>& WithinRange, TArray<FFrameNumber>* OutKeyTimes, TArray<FKeyHandle>* OutKeyHandles) override;
+	virtual void GetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<FFrameNumber> OutKeyTimes) override;
+	virtual void SetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<const FFrameNumber> InKeyTimes) override;
+	virtual void DuplicateKeys(TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyHandle> OutNewHandles) override;
+	virtual void DeleteKeys(TArrayView<const FKeyHandle> InHandles) override;
+	virtual void ChangeFrameResolution(FFrameRate SourceRate, FFrameRate DestinationRate) override;
+	virtual TRange<FFrameNumber> ComputeEffectiveRange() const override;
+	virtual int32 GetNumKeys() const override;
+	virtual void Reset() override;
+	virtual void Offset(FFrameNumber DeltaPosition) override;
+	virtual void Optimize(const FKeyDataOptimizationParams& InParameters) override;
+	virtual void ClearDefault() override;
 
 public:
 
@@ -194,13 +204,13 @@ public:
 	/** Serialize this float function from a mismatching property tag (FRichCurve) */
 	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar);
 
-	MOVIESCENE_API int32 AddConstantKey(FFrameNumber InTime, float InValue);
+	int32 AddConstantKey(FFrameNumber InTime, float InValue);
 
-	MOVIESCENE_API int32 AddLinearKey(FFrameNumber InTime, float InValue);
+	int32 AddLinearKey(FFrameNumber InTime, float InValue);
 
-	MOVIESCENE_API int32 AddCubicKey(FFrameNumber InTime, float InValue, ERichCurveTangentMode TangentMode = RCTM_Auto, const FMovieSceneTangentData& Tangent = FMovieSceneTangentData());
+	int32 AddCubicKey(FFrameNumber InTime, float InValue, ERichCurveTangentMode TangentMode = RCTM_Auto, const FMovieSceneTangentData& Tangent = FMovieSceneTangentData());
 
-	MOVIESCENE_API void AutoSetTangents(float Tension = 0.f);
+	void AutoSetTangents(float Tension = 0.f);
 
 	/**
 	 * Populate the specified array with times and values that represent the smooth interpolation of this channel across the specified range
@@ -212,7 +222,7 @@ public:
 	 * @param TickResolution        The tick resolution with which to interpret this channel's times
 	 * @param InOutPoints           An array to populate with the evaluated points
 	 */
-	MOVIESCENE_API void PopulateCurvePoints(double StartTimeSeconds, double EndTimeSeconds, double TimeThreshold, float ValueThreshold, FFrameRate TickResolution, TArray<TTuple<double, double>>& InOutPoints) const;	
+	void PopulateCurvePoints(double StartTimeSeconds, double EndTimeSeconds, double TimeThreshold, float ValueThreshold, FFrameRate TickResolution, TArray<TTuple<double, double>>& InOutPoints) const;	
 
 public:
 
@@ -259,6 +269,8 @@ private:
 	UPROPERTY()
 	bool bHasDefaultValue;
 
+	/** This needs to be a UPROPERTY so it gets saved into editor transactions but transient so it doesn't get saved into assets. */
+	UPROPERTY(Transient)
 	FMovieSceneKeyHandleMap KeyHandles;
 
 	UPROPERTY()
@@ -279,38 +291,38 @@ struct TStructOpsTypeTraits<FMovieSceneFloatChannel> : public TStructOpsTypeTrai
 };
 
 template<>
-struct TMovieSceneChannelTraits<FMovieSceneFloatChannel>
+struct TMovieSceneChannelTraits<FMovieSceneFloatChannel> : TMovieSceneChannelTraitsBase<FMovieSceneFloatChannel>
 {
-#if WITH_EDITORONLY_DATA
+#if WITH_EDITOR
 
 	/** Float channels can have external values (ie, they can get their values from external objects for UI purposes) */
-	typedef TMovieSceneExternalValue<float> EditorDataType;
+	typedef TMovieSceneExternalValue<float> ExtendedEditorDataType;
 
 #endif
 };
 
-inline bool EvaluateChannel(const FMovieSceneFloatChannel* InChannel, float InTime, FMovieSceneFloatValue& OutValue)
-{
-	checkf(false, TEXT("Unimplemented: Please use EvaluateChannel(const FMovieSceneFloatChannel&, float, float&) instead."));
-	return false;
-}
-
-inline bool ValueExistsAtTime(const FMovieSceneFloatChannel* Channel, FFrameNumber InFrameNumber, float Value, float Tolerance = KINDA_SMALL_NUMBER)
+inline bool ValueExistsAtTime(const FMovieSceneFloatChannel* Channel, FFrameNumber InFrameNumber, float Value)
 {
 	const FFrameTime FrameTime(InFrameNumber);
 
 	float ExistingValue = 0.f;
-	return Channel->Evaluate(FrameTime,  ExistingValue) && FMath::IsNearlyEqual(ExistingValue, Value, Tolerance);
+	return Channel->Evaluate(FrameTime, ExistingValue) && FMath::IsNearlyEqual(ExistingValue, Value, KINDA_SMALL_NUMBER);
 }
 
-inline bool ValueExistsAtTime(const FMovieSceneFloatChannel* Channel, FFrameNumber InFrameNumber, const FMovieSceneFloatValue& InValue, float Tolerance = KINDA_SMALL_NUMBER)
+inline bool ValueExistsAtTime(const FMovieSceneFloatChannel* Channel, FFrameNumber InFrameNumber, const FMovieSceneFloatValue& InValue)
 {
-	return ValueExistsAtTime(Channel, InFrameNumber,  InValue.Value, Tolerance);
+	return ValueExistsAtTime(Channel, InFrameNumber, InValue.Value);
 }
 
-inline void AssignValue(FMovieSceneFloatChannel* InChannel, int32 ValueIndex, float InValue)
+inline void AssignValue(FMovieSceneFloatChannel* InChannel, FKeyHandle InKeyHandle, float InValue)
 {
-	InChannel->GetInterface().GetValues()[ValueIndex].Value = InValue;
+	TMovieSceneChannelData<FMovieSceneFloatValue> ChannelData = InChannel->GetData();
+	int32 ValueIndex = ChannelData.GetIndex(InKeyHandle);
+
+	if (ValueIndex != INDEX_NONE)
+	{
+		ChannelData.GetValues()[ValueIndex].Value = InValue;
+	}
 }
 
 /**
@@ -320,18 +332,7 @@ MOVIESCENE_API FKeyHandle AddKeyToChannel(FMovieSceneFloatChannel* Channel, FFra
 
 
 /**
- * Overload for optimizing key data for a float channel (removing superfluous keys). See MovieScene::Optimize for default implementation.
- */
-MOVIESCENE_API void Optimize(FMovieSceneFloatChannel* InChannel, const FKeyDataOptimizationParams& Params);
-
-
-/**
  * Overload for dilating float channel data. See MovieScene::Dilate for default implementation.
  */
 MOVIESCENE_API void Dilate(FMovieSceneFloatChannel* InChannel, FFrameNumber Origin, float DilationFactor);
 
-
-/**
- * Overload for Converting a float channel from one frame rate to another. Ensures that both key times and tangents are migrated correctly. See MovieScene::ChangeTickResolution for default implementation
- */
-MOVIESCENE_API void ChangeTickResolution(FMovieSceneFloatChannel* InChannel, FFrameRate SourceRate, FFrameRate DestinationRate);

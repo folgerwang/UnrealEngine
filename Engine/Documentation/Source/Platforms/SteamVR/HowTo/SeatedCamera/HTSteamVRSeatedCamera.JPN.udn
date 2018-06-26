@@ -1,26 +1,32 @@
-﻿INTSourceChangelist:3622869
+﻿INTSourceChangelist:3810467
 Availability:Public
 Crumbs: %ROOT%, Platforms
-Title:Steam VR 用座式カメラの設定方法
-Description:座式 Steam VR 体験用に UE4 カメラを設定する方法
+Title:SteamVR 用座式カメラの設定方法
+Description:座式 SteamVR 体験用に UE4 カメラを設定する方法
 Type: how-to
 Skilllevel:Beginner
 Version:4.17
-Parent:Platforms/SteamVR/HowTo
-Order:2
+Parent:Platforms/SteamVR
+Order:1
 tags:Basics
 topic-image:Platforms\SteamVR\SteamVRDevelopment_topic.png
 
-Steam VR 向けに UE4 で VR 体験の開発を始める時にまず考えなければならないことの 1 つは、体験をスタンディング式にするか、座式にするかを決める事です。この操作ガイドでは、座式 Steam VR 体験用に UE4 プロジェクト VR カメラを設定する方法を説明します。
+![](Platforms\VR\ContentSetup\VR_Seated_Experiance.png)
 
-## 座式 Steam VR 体験向けのポーンの設定方法 
+SteamVR 向けに UE4 で VR 体験の開発を始める時にまず考えなければならないことの 1 つは、体験をスタンディング式にするか、座式にするかを決める事です。この操作ガイドでは、座式 SteamVR 体験用に UE4 プロジェクト VR カメラを設定する方法を説明します。
 
-座式 Steam VR 体験で使用するポーンの設定は以下の手順で行います。
+## ステップ
+
+座式 SteamVR 体験で使用するポーンの設定は以下の手順で行います。
 
 1. まず最初に、Pawn ブループリントを開く、または新規作成して、**[Viewport]** タブの **[Component]** セクションを開きます。そこで以下の 2 つのコンポーネントを次の名前で追加して、VRCamera が必ず VRCameraRoot の子になるようにします。
-    
-    * **Scene** - VRCameraRoot
-    * **Camera** - VRCamera
+
+    [REGION:simpletable]
+	|コンポーネント名| 値 |
+    |--------|------------|
+    |**Scene**|VRCameraRoot|
+    |**Camera**|VRCamera|
+	[/region]
 
 	![](HT_SteamVR_Camera_Setup_00.png)
 
@@ -28,13 +34,7 @@ Steam VR 向けに UE4 で VR 体験の開発を始める時にまず考えな�
     この VR カメラ設定方法は実際のカメラを動かさずにカメラ位置のオフセットが可能です。エピックは VR HMD の種類に関係なく、この方法を推奨します。
     [/region]
 
-これが完了すれば VR カメラ設定の第一段階は終了です。次のセクションでは、座式 Steam VR 体験に必要なブループリント ロジックの設定をしていきます。
-
-## 座式 Steam VR 体験向けブループリントの設定方法 
-
-座式 Steam VR 体験向けのブループリントの設定は、以下の手順で行います。  
-
-1. まず、Pawn ブループリントを開いて (まだの場合)、**イベントグラフ** で **Event Begin Play** ノードを引き出して Executable Actions リストを表示します。リストで **Set Tracking Origin** ノードを検索し、クリックしてイベントグラフへ追加します。
+1. 次に、Pawn ブループリントをまだ開いていない場合は開いて、**イベントグラフ** で **Event Begin Play** ノードを引き出して Executable Actions リストを表示します。リストで **Set Tracking Origin** ノードを検索し、クリックしてイベントグラフへ追加します。
 
     [REGION:lightbox]
     [![](HT_Rift_Camera_Setup_09.png)(w:555)](HT_Rift_Camera_Setup_09.png)
@@ -44,7 +44,7 @@ Steam VR 向けに UE4 で VR 体験の開発を始める時にまず考えな�
     クリックしてフルサイズで表示
     [/REGION]
 
-1. Set Tracking Origin ノードには **Floor Level** と **Eye Level** という 2 つのオプションがあります。座式体験の場合、Set Tracking Origin ノードの **[Origin]** をデフォルトの **Eye Level** にしておく必要があります。
+1. Set Tracking Origin ノードには **Floor Level** と **Eye Level** という 2 つのオプションがあります。座式体験の場合、Set Tracking Origin ノードの **[Origin]** をデフォルトの **[Eye Level]** にしておく必要があります。
     
     [REGION:lightbox]
     [![](HT_Rift_Camera_Setup_10.png)(w:555)](HT_Rift_Camera_Setup_10.png)
@@ -59,7 +59,7 @@ Steam VR 向けに UE4 で VR 体験の開発を始める時にまず考えな�
     ![](HT_Rift_Camera_Setup_05.png)
 
     [region:note]
-    座式 Steam VR 体験の場合、カメラの常に現実世界でユーザーが座ったセンチメートルに一致する高さになるように設定することを推奨します。 
+    座式 SteamVR 体験の場合、カメラの常に現実世界でユーザーが座ったセンチメートルに一致する高さになるように設定することを推奨します。 
     [/region]
 
 1. 次に、Set Tracking Origin ノードの出力を引き出して **Set Relative Location** ノードを検索し、**SetRelativeLocation(VRCameraRoot)** オプションを選択します。
@@ -72,14 +72,14 @@ Steam VR 向けに UE4 で VR 体験の開発を始める時にまず考えな�
     クリックしてフルサイズで表示
     [/REGION]
 
-1. **ViveCameraHeight** 変数を Set Relative Location ノードの **New Location** 入力へ接続し Compile ボタンを押すと、イベントグラフは以下のようになります。
+1. **ViveCameraHeight** 変数を Set Relative Location ノードの **New Location** 入力へ接続し Compile ボタンを押すと、イベントグラフは以下のようになります。て
 
     [REGION:fullwidth]
     [INCLUDE:Platforms\SteamVR\HowTo\SeatedCamera\#SteamVRSittingVRCamera]
     [/REGION]
 
     [region:tip]
-    上図の左上端部分をクリックし CRTL + C を押せば、ブループリント全体をコピーすることができます。コピーしたら、Blueprint イベントで CTRL + V を押してペーストします。 
+    上図の左上端部分をクリックし**CRTL + C** を押せば、ブループリント全体をコピーすることができます。コピーしたら、Blueprint イベントで **CTRL + V** を押してペーストします。 
     [/region]
 
 1. コンテンツ ブラウザからPawn ブループリントをドラッグし、それをレベルの「0,0,0」にくるように配置します。
@@ -101,30 +101,32 @@ Steam VR 向けに UE4 で VR 体験の開発を始める時にまず考えな�
     クリックしてフルサイズで表示
     [/REGION]
 
-1. 最後に、**メイン ツールバー** で **[Play Mode]** を **[VR Preview]** に変更して **[Play]** ボタンを押します。HTC Vive HMD を装着し、座ってレベルを表示すると、以下のような動画が見えます。 
+## 最終結果
 
-    [OBJECT:EmbeddedVideo]
-        [PARAMLITERAL:videoid]
-        sO87nTNTATY
-        [/PARAMLITERAL]
-        [PARAMLITERAL:width]
-        100
-        [/PARAMLITERAL]
-        [PARAMLITERAL:height]
-        56.25
-        [/PARAMLITERAL]
-        [PARAMLITERAL:units]
-        %
-        [/PARAMLITERAL]
-        [PARAMLITERAL:type]
-        simple
-        [/PARAMLITERAL]
-    [/OBJECT]
+最後に、**メイン ツールバー** で **[Play Mode]** を **[VR Preview]** に変更して **[Play]** ボタンを押します。HTC Vive HMD を装着し、座ってレベルを表示すると、以下のような動画が見えます。 
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    sO87nTNTATY
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
 
 ## UE4 プロジェクトのダウンロード
 以下のリンクから、このサンプルの作成に使われた UE4 プロジェクトをダウンロードすることができます。 
 
-* [**Steam VR Seated VR Camera Example Project**](https://epicgames.box.com/s/zxsa658v6t2m917ar1joze2vql5lwprd)
+* [**SteamVR Seated VR Camera Example Project**](https://epicgames.box.com/s/zxsa658v6t2m917ar1joze2vql5lwprd)
 
 [COMMENT:none]
 

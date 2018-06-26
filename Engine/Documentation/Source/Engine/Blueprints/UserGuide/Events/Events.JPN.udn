@@ -1,50 +1,13 @@
-﻿INTSourceChangelist:2754086
-Availability:Public
+﻿Availability:Public
 Title:イベント
-Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
+Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/Scripting
 Description:イベントグラフ内の個々のネットワークの実行を開始するためにゲームプレイ コードから呼び出されるノード
 version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide/Events:title%](Engine\Blueprints\UserGuide\Events.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide/Events:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide/Events:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide/Events]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide/Events:title%](Engine\Blueprints\UserGuide\Events.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide/Events:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide/Events:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide/Events]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
+Parent:Engine/Blueprints/Scripting
+tags:Execution Flow
+tags:Blueprints
+tags:Special Nodes
+topic-image:Engine\Blueprints\UserGuide\Events.png
 
 [TOC (start:2)]
 
@@ -163,7 +126,7 @@ Sweeps を使って移動する場合、フラグを選択していなくても�
 | **Other Comp** | PrimitiveComponent - ヒットされたコリジョンに関わるもう一方のアクタ上のコンポーネント。 |
 | **Self Moved** | Boolean - 別のオブジェクトの移動からヒットを受けた際に使用し (false の場合)、Hit Normal と Hit Impact を調整して、ヒット対象となったオブジェクトに対するもう一方のオブジェクトからの力を示します。 |
 | **Hit Location** | Vector - 衝突する 2 つのアクタ間のコンタクト位置。 |
-| **Hit Normal** | Vector - コリジョンの方向。 |
+| **Hit Normal** | Vector - コリジョンの方向です。 |
 | **Normal Impulse** | Vector - アクタが衝突する力。 |
 | **Hit** | Struct Hit 内に収集されたすべてのデータである HitResult を引っ張り出し、この結果を「細分化して」個々のデータへのアクセスすることができます。 |
 
@@ -349,4 +312,4 @@ _このイベントは、レンダリング ウィンドウの中央に、クリ
 
 ![Custom Event Node](Engine\Blueprints\UserGuide\Events\Custom\name_custom_event.png)
 
-Custom Event ノードは専用のワークフローを持つ特殊なノードです。詳しくは [*Custom Event ノード](Engine\Blueprints\UserGuide\Events\Custom) をご覧ください。
+カスタム イベント ノードは専用のワークフローを持つ特殊なノードです。詳しくは [**Custom Event ノード**](Engine\Blueprints\UserGuide\Events\Custom) をご覧ください。

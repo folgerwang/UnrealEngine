@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #if defined(_MSC_VER) && _MSC_FULL_VER <= 190023918
@@ -240,7 +240,7 @@ enum class EComputeNTBsOptions : uint32
 };
 ENUM_CLASS_FLAGS(EComputeNTBsOptions);
 
-#define MESHDESCRIPTION_VER TEXT("264A91765090413DA61FE2A819147655")
+#define MESHDESCRIPTION_VER TEXT("8315CA62A4084F069C99E54C1C6EEDF0")
 
 
 UCLASS()
@@ -502,7 +502,6 @@ private:
 		}
 
 		Polygon.PolygonGroupID = PolygonGroupID;
-		checkSlow( !PolygonGroupArray[ PolygonGroupID ].Polygons.Contains( PolygonID ) );
 		PolygonGroupArray[ PolygonGroupID ].Polygons.Add( PolygonID );
 
 		PolygonAttributesSet.Insert( PolygonID );

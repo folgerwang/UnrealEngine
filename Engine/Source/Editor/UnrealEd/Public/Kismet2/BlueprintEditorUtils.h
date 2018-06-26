@@ -14,7 +14,6 @@
 #include "K2Node_EditablePinBase.h"
 #include "Editor/ClassViewer/Public/ClassViewerModule.h"
 #include "EdGraphSchema_K2.h"
-#include "BlueprintActionDatabase.h"
 
 class AActor;
 class ALevelScriptActor;
@@ -658,6 +657,13 @@ public:
 	 * @return			The given pin if its owning node is compiler-relevant, or the first pin linked to the owning node at the matching "pass-through" pin that is owned by a compiler-relevant node. May be NULL if no compiler-relevant nodes can be found from the given pin.
 	 */
 	static UEdGraphPin* FindFirstCompilerRelevantLinkedPin(UEdGraphPin* FromPin);
+
+	/**
+	 * Removes all local bookmarks that reference the given Blueprint asset.
+	 *
+	 * @param			ForBlueprint	The Blueprint asset for which to remove local Bookmarks.
+	 */
+	static void RemoveAllLocalBookmarks(const UBlueprint* ForBlueprint);
 
 	//////////////////////////////////////////////////////////////////////////
 	// Functions
@@ -1553,10 +1559,6 @@ public:
 	DECLARE_MULTICAST_DELEGATE_FourParams(FOnRenameVariableReferences, UBlueprint* /*Blueprint*/, UClass* /*VariableClass*/, const FName& /*OldVarName*/, const FName& /*NewVarName*/);
 	static FOnRenameVariableReferences OnRenameVariableReferencesEvent;
 
-	/** Delegate used for class-specific actions */
-	/** Delegate fired so specific classes can register their actions */
-	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnGetClassPropertyActions, UClass const* const /*Class*/, FBlueprintActionDatabase::FActionList& /*ActionListOut*/);
-	static FOnGetClassPropertyActions OnGetClassPropertyActionsEvent;
 protected:
 	/**
 	 * Looks through the specified blueprint for any references to the specified 

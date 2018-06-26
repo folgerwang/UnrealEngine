@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessDOF.h: Post process Depth of Field implementation.
@@ -114,7 +114,7 @@ inline bool IsSupported(EShaderPlatform ShaderPlatform)
 	#endif
 
 	// Only compile diaphragm DOF on platform it has been tested to ensure this is not blocking anyone else.
-	return ShaderPlatform == SP_PCD3D_SM5 || ShaderPlatform == SP_XBOXONE_D3D12 || ShaderPlatform == SP_PS4;
+	return ShaderPlatform == SP_PCD3D_SM5 || ShaderPlatform == SP_XBOXONE_D3D12 || ShaderPlatform == SP_PS4 || IsVulkanSM5Platform(ShaderPlatform);
 }
 
 

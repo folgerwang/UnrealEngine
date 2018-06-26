@@ -14,6 +14,7 @@ bool IsInAsyncLoadingThreadCoreUObjectInternal();
 bool IsAsyncLoadingCoreUObjectInternal();
 void SuspendAsyncLoadingInternal();
 void ResumeAsyncLoadingInternal();
+bool IsAsyncLoadingSuspendedInternal();
 bool IsAsyncLoadingMultithreadedCoreUObjectInternal();
 
 // CoreUObject module. Handles UObject system pre-init (registers init function with Core callbacks).
@@ -42,6 +43,7 @@ public:
 		IsAsyncLoading = &IsAsyncLoadingCoreUObjectInternal;
 		SuspendAsyncLoading = &SuspendAsyncLoadingInternal;
 		ResumeAsyncLoading = &ResumeAsyncLoadingInternal;
+		IsAsyncLoadingSuspended = &IsAsyncLoadingSuspendedInternal;
 		IsAsyncLoadingMultithreaded = &IsAsyncLoadingMultithreadedCoreUObjectInternal;
 
 		// Register the script callstack callback to the runtime error logging
@@ -50,7 +52,11 @@ public:
 #endif
 
 		// Make sure that additional content mount points can be registered after CoreUObject loads
-		FPackageName::EnsureContentPathsAreRegistered();		
+		FPackageName::EnsureContentPathsAreRegistered();
+
+#if DO_BLUEPRINT_GUARD
+		FFrame::InitPrintScriptCallstack();
+#endif
 	}
 };
 IMPLEMENT_MODULE( FCoreUObjectModule, CoreUObject );

@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3467293
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:VR の開発
 Crumbs:%ROOT%, Platforms
 Description:VR 用プラットフォームの開発に関する情報
 Navigation:platform
-Version:4.9
+Version:4.17
 Type:landing
 tags:VR
 tags:Platform
@@ -13,13 +13,17 @@ order:2
 topic-icon:%ROOT%/platform_icon.png
 topic-image:VirtualRealityDevelopment_topic.png
 
-## VR 用プラットフォーム
+## デスクトップ プラットフォーム
 
-[DIR(end:"1" output:"topic" type:"landing" tags:"platform" parent:"Platforms/VR")]
+[DIR(end:"1" output:"topic" type:"landing" tags:"platform" tags:"Desktop VR" parent:"Platforms/VR")]
 
-## VR に関するトピックス
+## モバイル プラットフォーム
 
-[DIR(end:"1" output:"topic" parent:"Platforms/VR" tags:"!platform")]
+[DIR(end:"1" output:"topic" type:"landing" tags:"platform" tags:"Mobile VR" parent:"Platforms/VR")]
+
+## VR 開発全般
+
+[DIR(end:"1" output:"topic" parent:"Platforms/VR" type:"overview,reference,how-to")]
 
 ## トレーニング ストリーム
 

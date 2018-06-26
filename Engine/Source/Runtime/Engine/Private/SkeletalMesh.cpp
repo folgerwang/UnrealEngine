@@ -286,6 +286,7 @@ USkeletalMesh::USkeletalMesh(const FObjectInitializer& ObjectInitializer)
 	SkelMirrorFlipAxis = EAxis::Z;
 #if WITH_EDITORONLY_DATA
 	ImportedModel = MakeShareable(new FSkeletalMeshModel());
+	VertexColorGuid = FGuid();
 #endif
 
 	MinLod.Default = 0;
@@ -849,10 +850,9 @@ void USkeletalMesh::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 	}
 
 	UpdateUVChannelData(true);
+	UpdateGenerateUpToData();
 
-#if WITH_EDITOR
 	OnMeshChanged.Broadcast();
-#endif
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
@@ -877,6 +877,23 @@ void USkeletalMesh::PostEditUndo()
 		InitMorphTargets();
 	}
 }
+
+void USkeletalMesh::UpdateGenerateUpToData()
+{
+	for (int32 LodIndex = 0; LodIndex < GetImportedModel()->LODModels.Num(); ++LodIndex)
+	{
+		FSkeletalMeshLODModel& LodModel = GetImportedModel()->LODModels[LodIndex];
+		for (int32 SectionIndex = 0; SectionIndex < LodModel.Sections.Num(); ++SectionIndex)
+		{
+			int32 SpecifiedLodIndex = LodModel.Sections[SectionIndex].GenerateUpToLodIndex;
+			if (SpecifiedLodIndex != -1 && SpecifiedLodIndex < LodIndex)
+			{
+				LodModel.Sections[SectionIndex].GenerateUpToLodIndex = LodIndex;
+			}
+		}
+	}
+}
+
 #endif // WITH_EDITOR
 
 void USkeletalMesh::BeginDestroy()
@@ -921,6 +938,7 @@ void USkeletalMesh::Serialize( FArchive& Ar )
 	Ar.UsingCustomVersion(FEditorObjectVersion::GUID);
 	Ar.UsingCustomVersion(FSkeletalMeshCustomVersion::GUID);
 	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
 	FStripDataFlags StripFlags( Ar );
 
@@ -1095,6 +1113,22 @@ void USkeletalMesh::Serialize( FArchive& Ar )
 	bRequiresLODHysteresisConversion = Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::LODHysteresisUseResolutionIndependentScreenSize;
 #endif
 
+	if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::ConvertReductionSettingOptions)
+	{
+		const int32 TotalLODNum = LODInfo.Num();
+		for (int32 LodIndex = 1; LodIndex < TotalLODNum; LodIndex++)
+		{
+			FSkeletalMeshLODInfo& ThisLODInfo = LODInfo[LodIndex];
+			// prior to this version, both of them were used
+			ThisLODInfo.ReductionSettings.ReductionMethod = SMOT_TriangleOrDeviation;
+			if (ThisLODInfo.ReductionSettings.MaxDeviationPercentage == 0.f)
+			{
+				// 0.f and 1.f should produce same result. However, it is bad to display 0.f in the slider
+				// as 0.01 and 0.f causes extreme confusion. 
+				ThisLODInfo.ReductionSettings.MaxDeviationPercentage = 1.f;
+			}
+		}
+	}
 }
 
 void USkeletalMesh::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
@@ -1135,6 +1169,10 @@ uint32 USkeletalMesh::GetVertexBufferFlags() const
 	if (bHasVertexColors)
 	{
 		VertexFlags |= ESkeletalMeshVertexFlags::HasVertexColors;
+	}
+	if (bUseHighPrecisionTangentBasis)
+	{
+		VertexFlags |= ESkeletalMeshVertexFlags::UseHighPrecisionTangentBasis;
 	}
 	return VertexFlags;
 }
@@ -1340,6 +1378,8 @@ void USkeletalMesh::UpgradeOldClothingAssets()
 				CurrAsset->BindToSkeletalMesh(this, MappedLod, MappedSection, MappedLod);
 			}
 		}
+
+		UE_LOG(LogSkeletalMesh, Warning, TEXT("Legacy clothing asset '%s' was upgraded - please resave this asset."), *GetName());
 	}
 }
 
@@ -1499,6 +1539,17 @@ void USkeletalMesh::PostLoad()
 		}
 	}
 
+	// make sure older versions contain active bone indices with parents present
+	// even if they're not skinned, missing matrix calculation will mess up skinned children
+	if (GetLinkerCustomVersion(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::EnsureActiveBoneIndicesToContainParents)
+	{
+		for (int32 LodIndex = 0; LodIndex < LODInfo.Num(); LodIndex++)
+		{
+			FSkeletalMeshLODModel& ThisLODModel = ImportedModel->LODModels[LodIndex];
+			RefSkeleton.EnsureParentsExistAndSort(ThisLODModel.ActiveBoneIndices);
+		}
+	}
+
 #if WITH_APEX_CLOTHING
 	UpgradeOldClothingAssets();
 #endif // WITH_APEX_CLOTHING
@@ -1563,6 +1614,10 @@ void USkeletalMesh::PostLoad()
 	}
 
 	bHasActiveClothingAssets = ComputeActiveClothingAssets();
+
+#if WITH_EDITOR
+	UpdateGenerateUpToData();
+#endif
 }
 
 #if WITH_EDITORONLY_DATA
@@ -1620,15 +1675,18 @@ void USkeletalMesh::RebuildRefSkeletonNameToIndexMap()
 void USkeletalMesh::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 {
 	int32 NumTriangles = 0;
+	int32 NumVertices = 0;
 	FSkeletalMeshRenderData* SkelMeshRenderData = GetResourceForRendering();
 	if (SkelMeshRenderData && SkelMeshRenderData->LODRenderData.Num() > 0)
 	{
 		const FSkeletalMeshLODRenderData& LODData = SkelMeshRenderData->LODRenderData[0];
 		NumTriangles = LODData.GetTotalFaces();
+		NumVertices = LODData.GetNumVertices();
 	}
 	
 	int32 NumLODs = LODInfo.Num();
 
+	OutTags.Add(FAssetRegistryTag("Vertices", FString::FromInt(NumVertices), FAssetRegistryTag::TT_Numerical));
 	OutTags.Add(FAssetRegistryTag("Triangles", FString::FromInt(NumTriangles), FAssetRegistryTag::TT_Numerical));
 	OutTags.Add(FAssetRegistryTag("LODs", FString::FromInt(NumLODs), FAssetRegistryTag::TT_Numerical));
 	OutTags.Add(FAssetRegistryTag("Bones", FString::FromInt(RefSkeleton.GetRawBoneNum()), FAssetRegistryTag::TT_Numerical));
@@ -1659,10 +1717,10 @@ void USkeletalMesh::DebugVerifySkeletalMeshLOD()
 	{
 		for(int32 i=1; i<LODInfo.Num(); i++)
 		{
-			if (LODInfo[i].ScreenSize <= 0.1f)
+			if (LODInfo[i].ScreenSize.Default <= 0.1f)
 			{
 				// too small
-				UE_LOG(LogSkeletalMesh, Warning, TEXT("SkelMeshLOD (%s) : ScreenSize for LOD %d may be too small (%0.5f)"), *GetPathName(), i, LODInfo[i].ScreenSize);
+				UE_LOG(LogSkeletalMesh, Warning, TEXT("SkelMeshLOD (%s) : ScreenSize for LOD %d may be too small (%0.5f)"), *GetPathName(), i, LODInfo[i].ScreenSize.Default);
 			}
 		}
 	}
@@ -2454,6 +2512,7 @@ void USkeletalMesh::CreateBodySetup()
 	{
 		BodySetup = NewObject<UBodySetup>(this);
 		BodySetup->bSharedCookedData = true;
+		BodySetup->AddToCluster(this);
 	}
 }
 
@@ -2666,17 +2725,17 @@ void USkeletalMesh::ConvertLegacyLODScreenSize()
 
 			if (bRequiresLODScreenSizeConversion)
 			{
-				if (LODInfoEntry.ScreenSize == 0.0f)
+				if (LODInfoEntry.ScreenSize.Default == 0.0f)
 				{
-					LODInfoEntry.ScreenSize = 1.0f;
+					LODInfoEntry.ScreenSize.Default = 1.0f;
 				}
 				else
 				{
 					// legacy screen size was scaled by a fixed constant of 320.0f, so its kinda arbitrary. Convert back to distance based metric first.
-					const float ScreenDepth = FMath::Max(ScreenWidth / 2.0f * ProjMatrix.M[0][0], ScreenHeight / 2.0f * ProjMatrix.M[1][1]) * Bounds.SphereRadius / (LODInfoEntry.ScreenSize * 320.0f);
+					const float ScreenDepth = FMath::Max(ScreenWidth / 2.0f * ProjMatrix.M[0][0], ScreenHeight / 2.0f * ProjMatrix.M[1][1]) * Bounds.SphereRadius / (LODInfoEntry.ScreenSize.Default * 320.0f);
 
 					// Now convert using the query function
-					LODInfoEntry.ScreenSize = ComputeBoundsScreenSize(FVector::ZeroVector, Bounds.SphereRadius, FVector(0.0f, 0.0f, ScreenDepth), ProjMatrix);
+					LODInfoEntry.ScreenSize.Default = ComputeBoundsScreenSize(FVector::ZeroVector, Bounds.SphereRadius, FVector(0.0f, 0.0f, ScreenDepth), ProjMatrix);
 				}
 			}
 
@@ -2736,7 +2795,7 @@ FSkeletalMeshLODInfo& USkeletalMesh::AddLODInfo()
 		{
 			// copy previous copy
 			const int32 LastIndex = NewIndex - 1;
-			NewLODInfo.ScreenSize = LODInfo[LastIndex].ScreenSize * 0.5f;
+			NewLODInfo.ScreenSize.Default = LODInfo[LastIndex].ScreenSize.Default * 0.5f;
 			NewLODInfo.LODHysteresis = LODInfo[LastIndex].LODHysteresis;
 			NewLODInfo.BakePose = LODInfo[LastIndex].BakePose;
 			NewLODInfo.BonesToRemove = LODInfo[LastIndex].BonesToRemove;
@@ -3990,6 +4049,11 @@ bool FSkeletalMeshSceneProxy::GetMaterialTextureScales(int32 LODIndex, int32 Sec
 	return false;
 }
 #endif
+
+void FSkeletalMeshSceneProxy::OnTransformChanged()
+{
+	MeshObject->RefreshClothingTransforms(GetLocalToWorld(), GetScene().GetFrameNumber() + 1);
+}
 
 FSkinnedMeshComponentRecreateRenderStateContext::FSkinnedMeshComponentRecreateRenderStateContext(USkeletalMesh* InSkeletalMesh, bool InRefreshBounds /*= false*/)
 	: bRefreshBounds(InRefreshBounds)

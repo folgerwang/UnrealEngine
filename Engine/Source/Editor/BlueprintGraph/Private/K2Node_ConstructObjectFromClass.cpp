@@ -226,7 +226,7 @@ void UK2Node_ConstructObjectFromClass::OnClassPinChanged()
 	}
 
 	// Rewire the old pins to the new pins so connections are maintained if possible
-	RewireOldPinsToNewPins(OldClassPins, Pins);
+	RewireOldPinsToNewPins(OldClassPins, Pins, nullptr);
 
 	// Refresh the UI for the graph so the pin changes show up
 	GetGraph()->NotifyGraphChanged();

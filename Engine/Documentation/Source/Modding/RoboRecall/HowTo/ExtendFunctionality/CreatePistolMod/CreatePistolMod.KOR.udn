@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability: Public
 Title:1. 새 피스톨 모드 생성
 Crumbs:%ROOT%
@@ -50,17 +50,17 @@ checkpoint:mod_extend
 
 1. **콘텐츠 브라우저** 에서 새로운 모드 패키지에 자동으로 포커스가 잡히지만, 모드의 루트 레벨에 있습니다.
 
-	![image alt text](image_3.png)(w:934 h:288 convert:false)
+	![image alt text](image_3.png)(w:934 convert:false)
 
 1. **Blueprints** 폴더를 더블 클릭한 뒤, **Weapons** 폴더에서 새로운 커스텀 피스톨에 쓸 블루프린트 애셋을 찾습니다.
 
-	![image alt text](image_4.png)(w:934 h:288 convert:false)
+	![image alt text](image_4.png)(w:934 convert:false)
 
 ## 결과
 
 게임의 기본 피스톨을 대체할 커스텀 피스톨 모드가 생겼습니다. 이제 던지면 폭발하는 함수 기능이 필요합니다.
 
-![image alt text](image_0.png)(w:805 h:352 convert:false)
+![image alt text](image_0.png)(w:805 convert:false)
 
 [NAV]
 

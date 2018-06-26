@@ -46,3 +46,20 @@ void UDatasmithPointLightComponentTemplate::Load( const UObject* Source )
 	AttenuationRadius = PointLightComponent->AttenuationRadius;
 #endif // #if WITH_EDITORONLY_DATA
 }
+
+bool UDatasmithPointLightComponentTemplate::Equals( const UDatasmithObjectTemplate* Other ) const
+{
+	const UDatasmithPointLightComponentTemplate* TypedOther = Cast< UDatasmithPointLightComponentTemplate >( Other );
+
+	if ( !TypedOther )
+	{
+		return false;
+	}
+
+	bool bEquals = IntensityUnits == TypedOther->IntensityUnits;
+	bEquals = bEquals && FMath::IsNearlyEqual( SourceRadius, TypedOther->SourceRadius );
+	bEquals = bEquals && FMath::IsNearlyEqual( SourceLength, TypedOther->SourceLength );
+	bEquals = bEquals && FMath::IsNearlyEqual( AttenuationRadius, TypedOther->AttenuationRadius );
+
+	return bEquals;
+}

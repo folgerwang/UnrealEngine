@@ -266,6 +266,9 @@ public:
 	/** Bake transform */
 	void BakeTransform();
 
+	/** Sync to source timecode */
+	void SyncToSourceTimecode();
+
 	/**
 	 * @return Movie scene tools used by the sequencer
 	 */
@@ -552,6 +555,7 @@ public:
 
 	/** Imports the animation from an fbx file. */
 	void ImportFBX();
+	void ImportFBXOntoSelectedNodes();
 
 	/** Exports the animation to an fbx file. */
 	void ExportFBX();
@@ -619,6 +623,7 @@ public:
 	virtual FMovieSceneRootEvaluationTemplateInstance& GetEvaluationTemplate() override { return RootTemplateInstance; }
 	virtual void ResetToNewRootSequence(UMovieSceneSequence& NewSequence) override;
 	virtual void FocusSequenceInstance(UMovieSceneSubSection& InSubSection) override;
+	virtual void SuppressAutoEvaluation(UMovieSceneSequence* Sequence, const FGuid& InSequenceSignature) override;
 	virtual EAutoChangeMode GetAutoChangeMode() const override;
 	virtual void SetAutoChangeMode(EAutoChangeMode AutoChangeMode) override;
 	virtual EAllowEditsMode GetAllowEditsMode() const override;
@@ -1156,4 +1161,10 @@ private:
 	TUniquePtr<FSequencerKeyCollection> SelectedKeyCollection;
 
 	TSharedPtr<FCurveEditor> CurveEditorModel;
+
+	bool bCachedBindSequencerToPIE;
+	bool bCachedBindSequencerToSimulate;
+
+	/** A signature that will suppress auto evaluation when it is the only change dirtying the template. */
+	TOptional<TTuple<TWeakObjectPtr<UMovieSceneSequence>, FGuid>> SuppressAutoEvalSignature;
 };

@@ -408,7 +408,7 @@ FStaticLightingSystem::FStaticLightingSystem(const FLightingBuildOptions& InOpti
 	// Never trace further than the importance or scene diameter
 	MaxRayDistance = ImportanceBounds.SphereRadius > 0.0f ? ImportanceBounds.SphereRadius * 2.0f : SceneBounds.SphereRadius * 2.0f;
 
-	Stats.NumLights = InScene.DirectionalLights.Num() + InScene.PointLights.Num() + InScene.SpotLights.Num() + MeshAreaLights.Num();
+	Stats.NumLights = InScene.DirectionalLights.Num() + InScene.PointLights.Num() + InScene.SpotLights.Num() + InScene.RectLights.Num() + MeshAreaLights.Num();
 	Stats.NumMeshAreaLights = MeshAreaLights.Num();
 	for (int32 i = 0; i < MeshAreaLights.Num(); i++)
 	{
@@ -443,6 +443,12 @@ FStaticLightingSystem::FStaticLightingSystem(const FLightingBuildOptions& InOpti
 	{
 		InScene.SpotLights[LightIndex].Initialize(Scene.PhotonMappingSettings.IndirectPhotonEmitConeAngle);
 		Lights.Add(&InScene.SpotLights[LightIndex]);
+	}
+
+	for (int32 LightIndex = 0; LightIndex < InScene.RectLights.Num(); LightIndex++)
+	{
+		InScene.RectLights[LightIndex].Initialize(Scene.PhotonMappingSettings.IndirectPhotonEmitConeAngle);
+		Lights.Add(&InScene.RectLights[LightIndex]);
 	}
 
 	const FBoxSphereBounds EffectiveImportanceBounds = ImportanceBounds.SphereRadius > 0.0f ? ImportanceBounds : SceneBounds;
@@ -2292,7 +2298,7 @@ bool FStaticLightingSystem::CalculatePointShadowing(
 }
 
 /** Calculates area shadowing from a light for the given vertex. */
-int32 FStaticLightingSystem::CalculatePointAreaShadowing(
+FVector2D FStaticLightingSystem::CalculatePointAreaShadowing(
 	const FStaticLightingMapping* Mapping,
 	const FStaticLightingVertex& Vertex,
 	int32 ElementIndex,
@@ -2316,7 +2322,7 @@ int32 FStaticLightingSystem::CalculatePointAreaShadowing(
 	// Treat points which the light doesn't affect as shadowed to avoid the costly ray check.
 	if( !Light->AffectsBounds(FBoxSphereBounds(Vertex.WorldPosition,FVector4(0,0,0),0)))
 	{
-		return 0;
+		return FVector2D::ZeroVector;
 	}
 
 	// Check for visibility between the point and the light
@@ -2324,7 +2330,7 @@ int32 FStaticLightingSystem::CalculatePointAreaShadowing(
 	{
 		MappingContext.Stats.NumDirectLightingShadowRays += LightPositionSamples.Num();
 		const bool bIsTwoSided = Mapping->Mesh->IsTwoSided(ElementIndex);
-		int32 UnShadowedRays = 0;
+		FVector2D ShadowedValue = FVector2D::ZeroVector;
 
 		// Integrate over the surface of the light using monte carlo integration
 		// Note that we are making the approximation that the BRDF and the Light's emission are equal in all of these directions and therefore are not in the integrand
@@ -2345,6 +2351,13 @@ int32 FStaticLightingSystem::CalculatePointAreaShadowing(
 				SampleOffset = Vertex.WorldTangentX * LightPositionSamples(RayIndex).DiskPosition.X * SampleRadius * SceneConstants.VisibilityTangentOffsetSampleRadiusScale
 					+ Vertex.WorldTangentY * LightPositionSamples(RayIndex).DiskPosition.Y * SampleRadius * SceneConstants.VisibilityTangentOffsetSampleRadiusScale;
 					*/
+			}
+
+			float DistSqr = LightVector.SizeSquared3() + KINDA_SMALL_NUMBER;
+			float SamplePDF = CurrentSample.PDF * -Dot3( CurrentSample.Normal, LightVector ) / ( DistSqr * FMath::Sqrt( DistSqr ) );
+			if( SamplePDF <= 0.0f )
+			{
+				continue;
 			}
 
 			FVector4 NormalForOffset = Vertex.WorldTangentZ;
@@ -2373,9 +2386,10 @@ int32 FStaticLightingSystem::CalculatePointAreaShadowing(
 
 			if (!Intersection.bIntersects)
 			{
-				UnnormalizedTransmission += Intersection.Transmission;
-				UnShadowedRays++;
+				UnnormalizedTransmission += Intersection.Transmission * SamplePDF;
+				ShadowedValue.X += SamplePDF;
 			}
+			ShadowedValue.Y += SamplePDF;
 
 #if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
 			if (bDebugThisSample)
@@ -2390,10 +2404,10 @@ int32 FStaticLightingSystem::CalculatePointAreaShadowing(
 #endif
 		}
 
-		return UnShadowedRays;
+		return ShadowedValue;
 	}
-	UnnormalizedTransmission = FLinearColor::White * LightPositionSamples.Num();
-	return LightPositionSamples.Num();
+	UnnormalizedTransmission = FLinearColor::White;
+	return FVector2D( 1.0f, 1.0f );
 }
 
 /** Calculates the lighting contribution of a light to a mapping vertex. */

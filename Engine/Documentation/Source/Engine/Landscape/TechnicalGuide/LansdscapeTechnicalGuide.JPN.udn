@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3053927
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:ランドスケープのテクニカル ガイド
 Crumbs: %ROOT%, Engine, Engine/Landscape
@@ -6,45 +6,7 @@ Description:ランドスケープの技術的な設定
 version:4.9
 parent:Engine/Landscape
 order:6
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Landscape/TechnicalGuide:title%](Engine/Landscape/Materials/LS_Technical.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/landscape_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Landscape/TechnicalGuide:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Landscape/TechnicalGuide:description%
-	[/PARAM]
-	[PARAMLITERAL:path]
-		[RELATIVE:Engine/Landscape/TechnicalGuide]
-	[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Landscape/TechnicalGuide:title%](Engine/Landscape/Materials/LS_Technical.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/landscape_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Landscape/TechnicalGuide:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Landscape/TechnicalGuide:description%
-	[/PARAM]
-	[PARAMLITERAL:path]
-		[RELATIVE:Engine/Landscape/TechnicalGuide]
-	[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/Landscape/Materials/LS_Technical.png
 
 [TOC(start:2 end:3)]
 
@@ -56,7 +18,7 @@ order:6
 ## 技術的な詳細
 
 
-始めの頃は、ランドスケープの有効なサイズが、必ずしもただちに分かるとは限りません。高さマップの有効なサイズを判断できるようになるには (またそれ以上に、最適なサイズを判断できるようになるには)、ランドスケープの基本的なアーキテクチャに精通する必要があります。メモリおよびパフォーマンス上の効率を損なうことなく、巨大なテレインを実現できるシステムを構築するには、アーキテクチャによる暗黙の制限が、ハイトマップのサイズに対して課せられることになります。つまり、サイズには有効なものもあれば、無効なものもあるのです。アンリアル エンジンの過去のテレインシステムでは、まったく制限がないか (あらゆるサイズが有効であり、機能した)、あるいは、制限があってもかなり単純なものでした (2 つの高さマップの平方のみが許されていた)。ランドスケープの高さマップに課せられる制限は、これよりも複雑で厳格なものです。
+最初から誰もが、ランドスケープの有効なサイズについてすぐに理解できるわけではありません。ハイトマップの有効なサイズを判断する (最適なサイズの判断を可能にする) には、ランドスケープの基本的なアーキテクチャについて十分に理解していなければなりません。メモリおよびパフォーマンス上の効率を下げずに巨大なテレインを実現するシステムを構築するには、アーキテクチャによって暗黙の制限がハイトマップのサイズに対して課せられることになります。つまり、あるももに有効でも他方では無効な場合もあるということです。これまでのアンリアル エンジンのテレインシステムには、制限はまったくない (あらゆるサイズが有効であり、機能した)、あるいは、あってもかなり単純なものでした (2 つの高さマップの平方のみを許可など)。ランドスケープのハイトマップには、もっと複雑で厳格な制限が課せられます。
 
 Landscape アクタは、各セクションが何を行うかが簡単にわかるように色分けされています。ランドスケープのエッジは黄色、各コンポーネントのエッジは明るい緑、セクションのエッジ (2x2 セクションの場合) は普通の緑、ランドスケープの個々のクワッドは深緑でハイライトされます。
 
@@ -76,7 +38,7 @@ Landscape アクタは、各セクションが何を行うかが簡単にわか�
 
 下図は非常に単純なランドスケープです。全体の輪郭が緑で示され、4 つのコンポーネントが含まれています。各コンポーネントは 1 個のクワッドからできています。コンポーネント同士が接している部分の頂点がどのように複製されるかを示すために、1 個のコンポーネントを分離させたところです。
 
-![Landscape_Components.jpg](Landscape_Components.jpg)(w:256 h:256)
+![Landscape_Components.jpg](Landscape_Components.jpg)(w:256)
 
 
 ##コンポーネント セクション
@@ -89,12 +51,12 @@ Landscape アクタは、各セクションが何を行うかが簡単にわか�
 
 次の図では、1 個の独立したコンポーネントが 4 つのセクションを含んでいます (全体の輪郭が緑で示されています)。各セクションは、 9 個 (3x3) クワッドからできています。ここでも、セクション同士が接している部分の頂点が、複製されていると分かります。
 
-![Landscape_Component_Sections.jpg](Landscape_Component_Sections.jpg)(w:256 h:256)
+![Landscape_Component_Sections.jpg](Landscape_Component_Sections.jpg)(w:256)
 
 
-##高さマップのサイズを計算する
+##ハイトマップのサイズを計算する
 
-見てわかるように、ランドスケープのサイズは、各セクションに含まれるクワッドの数、および、各コンポーネントに含まれるセクション数、ランドスケープ内にあるコンポーネントの数に基づきます。コンポーネントの数とそれらコンポーネントそれぞれの解像度が決まれば、ランドスケープ全体のサイズを計算するのは、簡単なことです。
+このように、ランドスケープのサイズは、各セクションに含まれるクワッドの数、および、各コンポーネントに含まれるセクション数、ランドスケープ内にあるコンポーネントの数に基づきます。コンポーネントの数とそれらコンポーネントそれぞれの解像度が決まれば、ランドスケープ全体のサイズを計算するのは、簡単なことです。
 
 以下はその計算手順の例です。
 
@@ -115,7 +77,7 @@ Landscape アクタは、各セクションが何を行うかが簡単にわか�
 
 ## パフォーマンスへの配慮
 
-コンポーネントのサイズをとるか、コンポーネントの総数をとるかという問題は、パフォーマンス上のトレードオフです。コンポーネントのサイズが小さくなると、LOD の遷移が速くなるとともに、より多くのテレインのオクルージョンが可能になります。ただし、サイズが小さくなると、より多くのコンポーネントが必要となります。
+パフォーマンスへ配慮する場合、コンポーネント サイズとコンポーネント総数がトレードオフとなります。コンポーネントのサイズが小さくなると、LOD の遷移が速くなるとともに、より多くのテレインのオクルージョンが可能になります。ただし、サイズが小さくなると、より多くのコンポーネントが必要となります。
 
 各コンポーネントではレンダリングスレッドの CPU 処理負荷がかかります。また、各セクションで描画コールが起こります。したがって、コンポーネントの数を最小限に抑える必要があるのです。最大のランドスケープについては、最大 1024 コンポーネントという値を推奨しています。
 
@@ -143,11 +105,11 @@ Landscape アクタは、各セクションが何を行うかが簡単にわか�
 
 **Layer Debug** モードは、特定レイヤーのウェイトをビューポートのランドスケープ上で視覚化できるようにします。Landscape Visualizers の配下にあるビューポートの [View (表示)] メニューで **Layer Debug** モードを有効化できます。ビューポートのランドスケープ関連のビューモードの情報については、[Landscape Visualizers](Engine/UI/LevelEditor/Viewports/ViewModes\#LandscapeVisualizers) を参照してください。
 
-Layer Debug モードが有効な場合、各カラーチャンネルを選択できるラジオ ボタンがターゲット レイヤーと共にリストに表示されます。
+Layer Debug モードを有効にすると、各カラーチャンネルを選択できるラジオ ボタンがターゲット レイヤーと共にリストに表示されます。
 
 ![Landscape_Target_Debug.png](Landscape_Target_Debug.png)(convert:false)
 
-チャンネルを選択することによって、選択したターゲットレイヤーのチャンネルがカバーするエリアを表示するランドスケープにシェーダーが適用されます。
+チャンネルを選択すると、選択したターゲットレイヤーのチャンネルがカバーするエリアを表示するシェーダーがランドスケープに反映されます。
 
 ![Landscape_Target_Debug_Demo.png](Landscape_Target_Debug_Demo.png)
 

@@ -62,7 +62,9 @@ bool FOnlineFriendsIOS::ReadFriendsList(int32 LocalUserNum, const FString& ListN
 #ifdef __IPHONE_8_0
             if ([[GKLocalPlayer localPlayer] respondsToSelector:@selector(loadFriendPlayersWithCompletionHandler)] == YES)
             {
+				PRAGMA_DISABLE_DEPRECATION_WARNINGS
                 [[GKLocalPlayer localPlayer] loadFriendPlayersWithCompletionHandler:
+				PRAGMA_ENABLE_DEPRECATION_WARNINGS
                  ^(NSArray* Friends, NSError* Error)
                  {
                     if( Error )

@@ -38,6 +38,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogHUD, Log, All);
 #define LOCTEXT_NAMESPACE "HUD"
 
 FOnShowDebugInfo AHUD::OnShowDebugInfo;
+FOnHUDPostRender AHUD::OnHUDPostRender;
 
 // Should we visualize the safe zone? (and if so, title or action?)
 TAutoConsoleVariable<int32> GSafeZoneVisualizationModeCVar(
@@ -231,6 +232,8 @@ void AHUD::PostRender()
 
 	DrawSafeZoneOverlay();
 
+	OnHUDPostRender.Broadcast(this, DebugCanvas);
+
 	LastHUDRenderTime = GetWorld()->TimeSeconds;
 }
 
@@ -260,26 +263,13 @@ void AHUD::DrawSafeZoneOverlay()
 
 	if ((DebugSafeZoneMode > 0) && (DebugCanvas != nullptr))
 	{
-		FDisplayMetrics Metrics;
-		FSlateApplication::Get().GetDisplayMetrics(Metrics);
-
-		const FMargin SafeMargin =
-#if PLATFORM_IOS
-			// FVector4(X,Y,Z,W) being used like FMargin(left, top, right, bottom)
-			(DebugSafeZoneMode == 1)
-			? FMargin(Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y, Metrics.TitleSafePaddingSize.Z, Metrics.TitleSafePaddingSize.W)
-			: FMargin(Metrics.ActionSafePaddingSize.X, Metrics.ActionSafePaddingSize.Y, Metrics.ActionSafePaddingSize.Z, Metrics.ActionSafePaddingSize.W);
-#else
-			(DebugSafeZoneMode == 1) ?
-			FMargin(Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y) :
-			FMargin(Metrics.ActionSafePaddingSize.X, Metrics.ActionSafePaddingSize.Y);
-#endif
-
-		const float UnsafeZoneAlpha = GSafeZoneVisualizationAlphaCVar.GetValueOnGameThread();
-		const FLinearColor UnsafeZoneColor(1.0f, 0.5f, 0.5f, UnsafeZoneAlpha);
 
 		const float Width = DebugCanvas->SizeX;
 		const float Height = DebugCanvas->SizeY;
+		FMargin SafeMargin;
+		FSlateApplication::Get().GetSafeZoneSize(SafeMargin, FVector2D(Width, Height));
+		const float UnsafeZoneAlpha = GSafeZoneVisualizationAlphaCVar.GetValueOnGameThread();
+		const FLinearColor UnsafeZoneColor(1.0f, 0.5f, 0.5f, UnsafeZoneAlpha);
 
 		const float HeightOfSides = Height - SafeMargin.GetTotalSpaceAlong<Orient_Vertical>();
 

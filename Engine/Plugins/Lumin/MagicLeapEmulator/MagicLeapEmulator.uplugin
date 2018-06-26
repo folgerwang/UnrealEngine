@@ -1,0 +1,41 @@
+{
+	"FileVersion" : 3,
+	"Version" : 1,
+	"VersionName": "1.0",
+	"FriendlyName" : "MagicLeapEmulator",
+	"CreatedBy" : "Magic Leap, Inc.",
+	"CreatedByURL" : "http://magicleap.com",
+	"Description" : "Support for the emulating a Magic Leap Head Mounted Display with an alternate display device.",
+	"Category" : "Augmented Reality",
+	"EnabledByDefault" : true,
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
+	"CanContainContent" : true,
+	"IsBetaVersion" : false,
+	"Installed" : false,
+	"SupportedTargetPlatforms": [
+		"Lumin"
+	],
+	"Modules" :
+	[
+	  {
+      "Name": "MagicLeapEmulator",
+      "Type": "Runtime",
+      "LoadingPhase": "PostConfigInit",
+      "WhitelistPlatforms": 
+      [
+        "Win64",
+        "Mac",
+        "Lumin"
+      ]
+    }
+	],
+	"Plugins":
+	[
+		{
+			"Name": "MagicLeap",
+			"Enabled": true
+		}
+	]
+}

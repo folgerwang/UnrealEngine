@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3810467
 Availability:Public 
 Crumbs: %ROOT%
-Title: Creating a New Global Shader in a Plugin - Code Setup
-Description: Setting up the plugin and code for the Gloabl Shader plugin
+Title: 플러그인에 새로운 글로벌 셰이더 생성 - 코드 구성
+Description: 글로벌 셰이더 플러그인용 플러그인 및 코드 구성 방법 안내입니다.
 Type:quick start
 Type:multi-step
 SkillLevel:Intermediate
@@ -15,58 +15,58 @@ Checkpoint:shaderqs
 
 [Nav]
 
-Before you can start creating a new Plugin for Unreal Engine 4 (UE4) you will first need to make sure that you have Visual Studio installed. Visual Studio is required for this Quick Start as you will need to compile your Plugin's code so that it can run. If you are not sure how to go about doing this, check out the [Setting Up Visual Studio for UE4](Programming/Development/VisualStudioSetup/) documents for more help.   
+언리얼 엔진 4 (UE4) 용 신규 플러그인 제작을 시작하기에 앞서, 먼저 Visual Studio 가 설치되었는지 확인해야 합니다. Visual Studio 는 이 퀵 스타트에 필수인데, 플러그인 코드를 컴파일해야 실행할 수 있기 때문입니다. 그 방법이 확실치 않은 경우, [](Programming/Development/VisualStudioSetup/) 문서를 참고하세요.
 
-1. First, create a new C++ **Basic Code** project that uses the **Desktop Setting** with **Maximum Quality** and does not have any **Starter Content**. 
+1. 먼저, 새로운 C++ **Basic Code** (기본 코드) 프로젝스를 만들고 **데스크탑 세팅** 은 **최대 퀄리티** 로, **시작용 콘텐츠** 는 포함시키지 않습니다.
 
     [REGION:lightbox]
     [![](HT_ShadersInPlugins_00.png)(w:555)](HT_ShadersInPlugins_00.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
-1. Once the project has been created, Visual Studio will open up and after it has,  right- click on the ShadersInPlugins project and select the **Build** option to compile the project.
+1. 프로젝트가 생성된 이후, Visual Studio 가 열리면 ShadersInPlugins 프로젝트에 우클릭하고 **Build** 옵션을 선택하여 프로젝트를 컴파일합니다.
 
     ![](HT_ShadersInPlugins_01.png)(w:481)
 
-1. When the project has finished compiling, press the **F5** key inside Visual Studio to launch the ShadersInPlugins project in the UE4 Editor.
+1. 프로젝트 컴파일이 완료되면, Visual Studio 에서 **F5** 키를 눌러 UE4 에디터에서 ShadersInPlugins 프로젝트를 실행시킵니다.
 
-1. Once the UE4 Editor has finished loading, open up the **Plugins** manager by going to **Edit** > **Plugins** and then click on the **New Plugin** option that is on the lower right-hand side of the Plugin window to bring up the New Plugin creation window. 
+1. UE4 에디터 로드가 완료되면, **Plugins** 매니저를 엽니다. **편집** > **Plugins** (플러그인)에서 플러그인 창 우하단의 **New Plugin** 옵션을 클릭하면 새 플러그인 생성 창이 뜹니다.
     [REGION:lightbox]
     [![](HT_ShadersInPlugins_02.png)(w:564)](HT_ShadersInPlugins_02.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
-1. From the **New Plugin** window, select the **Blank** plugin and then input the name **Foo** for the name and keeping all of the settings as default. When all of that is completed, press the **Create Plugin** button to create all of the initial required content for the plugin.
+1. **새 플러그인** 창에서 **Blank** (공백) 플러그인을 선택하고 이름을 **Foo** 라 입력한 뒤, 기본 설정 그대로 놔둡니다. 그 작업이 전부 완료된 후 **Create Plugin** (플러그인 생성) 버튼을 클릭하면 플러그인에 필요한 초기 필수 콘텐츠가 전부 생성됩니다.
 
     [REGION:lightbox]
     [![](HT_ShadersInPlugins_03.png)(w:564)](HT_ShadersInPlugins_03.png)
     [/REGION]
 	[REGION:caption] 
-	Click for full image. 
+	클릭하면 이미지 원본을 확인합니다. 
 	[/REGION]
 
-1. When that is completed, shut down UE4 and Visual Studio and then go to the **Plugins** > **Foo** plugin folder that was created inside your project folder.
+1. 완료 후 UE4 와 Visual Studio 를 닫은 뒤 프로젝트 폴더 내 생성된 **Plugins** > **Foo** 플러그인 폴더로 이동합니다.
 
-1. Inside the Foo plugins folder, add a new folder called **Shaders** and then inside of that folder, create a new folder called **Private**.
+1. Foo 플러그인 폴더 안에 새로운 폴더를 만들어 **Shaders** 라 하고, 그 안에 **Private** 이라는 폴더를 새로 만듭니다.
 
     [REGION:lightbox]
     [![](HT_ShadersInPlugins_04.png)(w:564)](HT_ShadersInPlugins_04.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
-1. Inside of the Private folder, create a new text file and call it **MyShader.USF** and then copy and paste the following HLSL code into this file, saving the file when completed.
+1. Private 폴더 안에 txt 파일을 새로 만들고 **MyShader.USF** 라 한 뒤 다음 HLSL 코드를 그 파일 안에 붙여넣고 파일을 저장합니다.
 
     [REGION:note]
-    Make sure that you change the file extension to **.USF** or UE4 will not understand that this is a shader file.
+    파일 확장자를 **.USF** 로 하지 않으면 UE4 가 셰이더 파일로 인식하지 못합니다.
     [/REGION]
 
         // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
@@ -201,7 +201,7 @@ Before you can start creating a new Plugin for Unreal Engine 4 (UE4) you will fi
                 DistortUVtoUndistortUV, UndistortUVtoDistortUV);
         }
 
-1. Now, locate the **Foo.uplugin** file and open it up inside of a text editor and replace the information in that file with the following text, saving the file when done.
+1. 이제 **Foo.uplugin** 파일을 찾아 텍스트 에디터에서 열고, 그 파일의 정보를 다음 텍스트로 대체한 뒤 저장합니다.
 
         {
             "FileVersion" : 3,
@@ -229,36 +229,36 @@ Before you can start creating a new Plugin for Unreal Engine 4 (UE4) you will fi
             ]
         }
 
-1. Next, go to **Plugins\Foo\Source\Foo** and create a new folder called, **Classes** and then copy both the **LensDistortionAPI.h** and **LensDistortionBlueprintLibrary.h** files from  **Engine\Plugins\Compositing\LensDistortion** to this newly created folder.
+1. **Plugins\Foo\Source\Foo** 로 이동하여 **Classes** 라는 폴더를 새로 만든 뒤 **LensDistortionAPI.h** 와 **LensDistortionBlueprintLibrary.h** 파일을 **Engine\Plugins\Compositing\LensDistortion** 에서 새로 만든 폴더로 이동합니다.
 
     [region:note]
-    The files that we will be copying can be found in **Engine\Plugins\Compositing\LensDistortion**.
+    복사하려는 파일은 **Engine\Plugins\Compositing\LensDistortion** 에서 찾을 수 있습니다.
     [/region]
 
-    * Classes - Create New Folder
+    * Classes - 새 폴더 생성
 
-        * Copy - LensDistortionAPI.h
-        * Copy - LensDistortionBlueprintLibrary.h
+        * 복사 - LensDistortionAPI.h
+        * 복사 - LensDistortionBlueprintLibrary.h
 
         ![](HT_ShadersInPlugins_05.png)
 
-1. Then, go to the **Private** folder and copy both the **LensDistortionBlueprintLibrary.cpp** and the **LensDistortionRendering.cpp** files to this Private folder.
+1. **Private** 폴더로 이동한 뒤 **LensDistortionBlueprintLibrary.cpp** 와 **LensDistortionRendering.cpp** 파일을 이 Private 폴더로 복사합니다.
 
-    * Private - Existing Folder
+    * Private - 기존 폴더
 
-        * Copy - LensDistortionBlueprintLibrary.cpp
-        * Copy - LensDistortionRendering.cpp
+        * 복사 - LensDistortionBlueprintLibrary.cpp
+        * 복사 - LensDistortionRendering.cpp
 
         ![](HT_ShadersInPlugins_06.png)
 
-1. Now close both the UE4 Editor and Visual Studio and then locate your projects .U project file. When located, right-click on it and select the **Generate Visual Studio project files** option.
+1. 이제 UE4 에디터와 Visual Studio 를 닫은 뒤 .U 프로젝트 파일 위치로 이동합니다. 그 위에 우클릭하고 **Generate Visual Studio project files** 옵션을 선택합니다.
 
     ![](HT_ShadersInPlugins_07.png)
 
-1. Reopen your Visual Studio solution and then go to Foo > Classes and open up the **LensDistortionAPI.h** file. Inside this file replace **FLensDistortionCameraModel** with **FFooCameraModel**.
+1. Visual Studio 솔루션을 다시 연 뒤 Foo > Classes 로 이동하여 **LensDistortionAPI.h** 파일을 엽니다. 이 파일 안에서 **FLensDistortionCameraModel** 을 **FFooCameraModel** 로 대체합니다.
 
     [region:note]
-    You should replace FLensDistortionCameraModel with FFooCameraModel **four** times in this file.
+    이 파일에서 FLensDistortionCameraModel 을 FFooCameraModel 로 **네 번** 대체해야 합니다.
     [/region]
 
             // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
@@ -362,10 +362,10 @@ Before you can start creating a new Plugin for Unreal Engine 4 (UE4) you will fi
                 }
             };
 
-1. Next, open up the **LensDistortionBlueprintLibrary.h** file. This file controls how this node will show up in Blueprints so not only do we need to replace **FLensDistortionCameraModel** with **FFooCameraModel**, we also need to change the **Category = "Lens Distortion" ** to **Category = "Foo | Lens Distortion"**.
+1. **LensDistortionBlueprintLibrary.h** 파일을 엽니다. 이 파일은 블루프린트에서 이 노드가 표시되는 방식을 제어하므로, **FLensDistortionCameraModel** 을 **FFooCameraModel** 로 대체하는 것과 아울러 **Category = "Lens Distortion"** 도 **Category = "Foo | Lens Distortion"** 로 변경해야 합니다.
 
     [region:note]
-    You should replace FLensDistortionCameraModel with FFooCameraModel **six** times in this file.
+    이 파일에서 FLensDistortionCameraModel 을 FFooCameraModel 로 **여섯 번** 대체합니다.
     [/region]
 
         // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
@@ -432,13 +432,13 @@ Before you can start creating a new Plugin for Unreal Engine 4 (UE4) you will fi
             }
         };
 
-1. Now go to the **Private** folder and open up the **LensDistortionBlueprintLibrary.cpp** file and replace the following:
+1. **Private** 폴더로 이동한 뒤 **LensDistortionBlueprintLibrary.cpp** 파일을 열고 다음과 같이 대체합니다:
 
-    * **FLensDistortionCameraModel** with **FFooCameraModel**
-    * **ULensDistortionBlueprintLibrary** with **UFooBlueprintLibrary**
+    * **FLensDistortionCameraModel** 을 **FFooCameraModel** 로
+    * **ULensDistortionBlueprintLibrary** 를 **UFooBlueprintLibrary** 로
 
     [region:note]
-    You should replace FLensDistortionCameraModel with FFooCameraModel **two** times and ULensDistortionBlueprintLibrary with UFooBlueprintLibrary **four** times.
+    FLensDistortionCameraModel 에서 FFooCameraModel 은 **두** 번, ULensDistortionBlueprintLibrary 에서 UFooBlueprintLibrary 는 **네** 번입니다.
     [/region]
 
             // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
@@ -477,7 +477,7 @@ Before you can start creating a new Plugin for Unreal Engine 4 (UE4) you will fi
                     OutputMultiply, OutputAdd);
             }
 
-1. Next, in the **Private** folder open up the **LensDistortionRendering.cpp** file and replace **FLensDistortionCameraModel** with **FFooCameraModel**
+1. **Private** 폴더에서 **LensDistortionRendering.cpp** 파일을 열고 **FLensDistortionCameraModel** 을 **FFooCameraModel** 로 대체합니다.
 
     [region:note]
     You should replace FLensDistortionCameraModel with FFooCameraModel **six** times in this file.
@@ -836,25 +836,25 @@ Before you can start creating a new Plugin for Unreal Engine 4 (UE4) you will fi
                 );
             }
 
-1. Finally, in the **LensDistortionRendering.cpp** file, at lines 155 and 156, change the following two lines of code to point to the new MyShader.USF file that was created earlier.
+1. 마지막으로, **LensDistortionRendering.cpp** 파일 155-156 번 다음 두 줄을 앞서 생성한 MyShader.USF 파일을 가리키도록 변경합니다.
     
-    Change:
+     대체 원본:
 
     * IMPLEMENT_SHADER_TYPE(, FLensDistortionUVGenerationVS, TEXT("/Plugin/LensDistortion/Private/UVGeneration.usf"), TEXT("MainVS"), SF_Vertex)
 
-    To: 
+     대체 대상: 
 
     * IMPLEMENT_SHADER_TYPE(, FLensDistortionUVGenerationVS, TEXT("/Plugin/Foo/Private/MyShader.usf"), TEXT("MainVS"), SF_Vertex)
 
-    Change: 
+     대체 원본:
 
      * IMPLEMENT_SHADER_TYPE(, FLensDistortionUVGenerationPS, TEXT("/Plugin/LensDistortion/Private/UVGeneration.usf"), TEXT("MainPS"), SF_Pixel)
 
-     To: 
+     대체 대상: 
 
      * IMPLEMENT_SHADER_TYPE(, FLensDistortionUVGenerationPS, TEXT("/Plugin/Foo/Private/MyShader.usf"), TEXT("MainPS"), SF_Pixel)
 
-1. Now, go to the **Foo/Source** folder and open up the **Foo.Build.cs** file and in the **Foo.Build.cs** under the **PublicDependencyModuleNames.AddRange** section add the following lines of code:
+1. **Foo/Source** 폴더로 이동하여 **Foo.Build.cs** 파일을 열고, **Foo.Build.cs** 파일의 **PublicDependencyModuleNames.AddRange** 섹션 아래 다음 코드 줄을 추가합니다:
 
             PublicDependencyModuleNames.AddRange(
             new string[]
@@ -867,7 +867,7 @@ Before you can start creating a new Plugin for Unreal Engine 4 (UE4) you will fi
             }
             );
 
-1. Then, in the **PrivateDependencyModuleNames.AddRange** section of **Foo.Build.cs** remove **Slate** and **SlateCore** and when completed your Foo.Build.cs file should look like this:
+1. **Foo.Build.cs** 파일의 **PrivateDependencyModuleNames.AddRange** 섹션에서 **Slate** 와 **SlateCore** 를 제거합니다. 완료된 Foo.Build.cs 파일은 다음과 같습니다:
 
         // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
@@ -920,32 +920,32 @@ Before you can start creating a new Plugin for Unreal Engine 4 (UE4) you will fi
             }
         }
 
-1. Re-launch your projects Visual Studio solution file and then recompile your project by pressing **CRTL + 5** and when the compile has completed, press **F5** to launch the UE4 Editor. 
+1. 프로젝트의 Visual Studio 솔루션 파일을 다시 실행한 뒤 **Ctrl + 5** 키를 눌러 프로젝트를 다시 컴파일합니다. 완료되면 **F5** 키를 눌러 UE4 에디터를 실행합니다.
 
-1. When the UE4 Editor finishes loading, go to the **Plugins** manager by going to **Edit** > **Plugins**.
+1. UE4 에디터 로드가 완료되면, **편집** > **Plugins** 에서 **Plugins** 매니저로 이동합니다.
 
     ![](HT_ShadersInPlugins_08.png)(w:250)
 	
-1. Inside of the Plugins manager, scroll down to the bottom and look for the **Project** section and in this section, you should see your Plugin. 
+1. 플러그인 매니저 화면을 아래로 내려보면 **Project** 섹션 아래 새로 만든 플러그인을 찾을 수 있을 것입니다.
     
     ![](HT_ShadersInPlugins_09.png)
 
     [region:note]
-    If your plug is not enabled, enable it by clicking on the checkmark box next to its name and re-start the UE4 editor. 
+    플러그인이 활성화되지 않은 경우, 그 이름 옆의 박스를 체크하고 UE4 에디터를 재시작합니다.
     [/region]
 
-1. To check to make sure everything is there, open up the Level Blueprint and right - click in the Event Graph inputting **Foo** into the search box. Once that is complete, you should now see all of the items that were added to the Foo Camera category. 
+1. 모든 것이 제대로 되어있는지 확인하기 위해서는, 레벨 블루프린트를 열고 이벤트 그래프에 우클릭한 뒤 검색창에 **Foo** 라 입력합니다. 그러면 Foo Camera 카테고리에 추가된 모든 항목이 보일 것입니다.
 
     [REGION:lightbox]
     [![](HT_ShadersInPlugins_10.png)(w:950)](HT_ShadersInPlugins_10.png)
     [/REGION]
 
     [REGION:caption]
-    Click for full image.
+    클릭하면 이미지 원본을 확인합니다.
     [/REGION]
 
-## End Result
+## 최종 결과
 
-Congratulations, you have now successfully recreated and compiled a new version of the Lense Distortion UE4 plugin. In the next step, you will learn how to invoke this new global shader from Blueprints and also see how it distorts Render Targets.
+축하합니다, 렌즈 디스토션 UE4 플러그인을 새로 만들어 컴파일하는 데 성공하셨습니다. 다음 단계에서는 블루프린트에서 이 새로운 글로벌 셰이더를 불러오는 법과 렌더 타겟을 왜곡시키는 법을 살펴보겠습니다.
 
 [Nav]

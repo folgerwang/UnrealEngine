@@ -19,6 +19,7 @@ UAudioComponent implementation.
 -----------------------------------------------------------------------------*/
 uint64 UAudioComponent::AudioComponentIDCounter = 0;
 TMap<uint64, UAudioComponent*> UAudioComponent::AudioIDToComponentMap;
+FCriticalSection UAudioComponent::AudioIDToComponentMapLock;
 
 UAudioComponent::UAudioComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -56,15 +57,19 @@ UAudioComponent::UAudioComponent(const FObjectInitializer& ObjectInitializer)
 	EnvelopeFollowerReleaseTime = 100;
 
 	AudioDeviceHandle = INDEX_NONE;
-	AudioComponentID = ++AudioComponentIDCounter;
+	AudioComponentID = FPlatformAtomics::InterlockedIncrement(reinterpret_cast<volatile int64*>(&AudioComponentIDCounter));
 
 	// TODO: Consider only putting played/active components in to the map
+	FScopeLock Lock(&AudioIDToComponentMapLock);
 	AudioIDToComponentMap.Add(AudioComponentID, this);
 }
 
 UAudioComponent* UAudioComponent::GetAudioComponentFromID(uint64 AudioComponentID)
 {
-	check(IsInGameThread());
+	//although we should be in the game thread when calling this function, async loading makes it possible/common for these
+	//components to be constructed outside of the game thread. this means we need a lock around anything that deals with the
+	//AudioIDToComponentMap.
+	FScopeLock Lock(&AudioIDToComponentMapLock);
 	return AudioIDToComponentMap.FindRef(AudioComponentID);
 }
 
@@ -78,6 +83,7 @@ void UAudioComponent::BeginDestroy()
 		Stop();
 	}
 
+	FScopeLock Lock(&AudioIDToComponentMapLock);
 	AudioIDToComponentMap.Remove(AudioComponentID);
 }
 
@@ -116,6 +122,7 @@ void UAudioComponent::Serialize(FArchive& Ar)
 
 void UAudioComponent::PostLoad()
 {
+#if WITH_EDITORONLY_DATA
 	const int32 LinkerUE4Version = GetLinkerUE4Version();
 
 	// Translate the old HighFrequencyGainMultiplier value to the new LowPassFilterFrequency value
@@ -134,6 +141,7 @@ void UAudioComponent::PostLoad()
 			LowPassFilterFrequency = FilterConstant * MAX_FILTER_FREQUENCY;
 		}
 	}
+#endif
 
 	Super::PostLoad();
 }
@@ -234,7 +242,7 @@ void UAudioComponent::OnUpdateTransform(EUpdateTransformFlags UpdateTransformFla
 	{
 		if (FAudioDevice* AudioDevice = GetAudioDevice())
 		{
-			DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.UpdateTransform"), STAT_AudioUpdateTransform, STATGROUP_AudioThreadCommands);
+			DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.UpdateAudioComponentTransform"), STAT_AudioUpdateComponentTransform, STATGROUP_AudioThreadCommands);
 
 			const uint64 MyAudioComponentID = AudioComponentID;
 			const FTransform& MyTransform = GetComponentTransform();
@@ -247,7 +255,7 @@ void UAudioComponent::OnUpdateTransform(EUpdateTransformFlags UpdateTransformFla
 					ActiveSound->Transform = MyTransform;
 
 				}
-			}, GET_STATID(STAT_AudioUpdateTransform));
+			}, GET_STATID(STAT_AudioUpdateComponentTransform));
 		}
 	}
 };
@@ -1049,6 +1057,8 @@ void UAudioComponent::SetSubmixSend(USoundSubmix* Submix, float SendLevel)
 {
 	if (FAudioDevice* AudioDevice = GetAudioDevice())
 	{
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.AudioSetSubmixSend"), STAT_SetSubmixSend, STATGROUP_AudioThreadCommands);
+
 		const uint64 MyAudioComponentID = AudioComponentID;
 		FAudioThread::RunCommandOnAudioThread([AudioDevice, MyAudioComponentID, Submix, SendLevel]()
 		{
@@ -1060,7 +1070,7 @@ void UAudioComponent::SetSubmixSend(USoundSubmix* Submix, float SendLevel)
 				SendInfo.SendLevel = SendLevel;
 				ActiveSound->SetSubmixSend(SendInfo);
 			}
-		});
+		}, GET_STATID(STAT_SetSubmixSend));
 	}
 }
 

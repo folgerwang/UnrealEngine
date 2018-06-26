@@ -42,7 +42,7 @@ void UMovieSceneSequence::PostLoad()
 void UMovieSceneSequence::PreSave(const ITargetPlatform* TargetPlatform)
 {
 #if WITH_EDITOR
-	if (!HasAnyFlags(RF_ClassDefaultObject))
+	if (!HasAnyFlags(RF_ClassDefaultObject|RF_ArchetypeObject))
 	{
 		if (TargetPlatform && TargetPlatform->RequiresCookedData())
 		{

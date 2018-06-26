@@ -17,11 +17,12 @@
 
 static bool IsSupportedPlatform(ITargetPlatform* Platform)
 {
-	static const FName AndroidPlaftomName("Android"); // TODO: currently implemented only for Android 
+	static const FName AndroidPlaftomName("Android"); // TODO: currently implemented only for Android & Switch. #TODO: perhaps move to ETargetDeviceFeatures ?
+	static const FName SwitchPlatformName("Switch");
 	
 	check(Platform);
 	const auto& PlatfromInfo = Platform->GetPlatformInfo();
-	return PlatfromInfo.IsVanilla() && PlatfromInfo.VanillaPlatformName == AndroidPlaftomName;
+	return PlatfromInfo.IsVanilla() && (PlatfromInfo.VanillaPlatformName == AndroidPlaftomName || PlatfromInfo.VanillaPlatformName == SwitchPlatformName);
 }
 
 

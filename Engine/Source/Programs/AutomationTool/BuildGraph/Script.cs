@@ -794,12 +794,10 @@ namespace AutomationTool
 				{
 					if (Types.Length > 0 && Agent.PossibleTypes.Length > 0)
 					{
-						string[] NewTypes = Agent.PossibleTypes.Intersect(Types, StringComparer.InvariantCultureIgnoreCase).ToArray();
-						if (NewTypes.Length == 0)
+						if (Types.Length != Agent.PossibleTypes.Length || !Types.SequenceEqual(Agent.PossibleTypes, StringComparer.InvariantCultureIgnoreCase))
 						{
-							LogError(Element, "No common agent types with previous agent definition");
+							LogError(Element, "Agent types ({0}) were different than previous agent definition with types ({1}). Must either be empty or match exactly.", string.Join(",", Types), string.Join(",", Agent.PossibleTypes));
 						}
-						Agent.PossibleTypes = NewTypes;
 					}
 				}
 				else
@@ -938,6 +936,7 @@ namespace AutomationTool
 				string[] ProducesNames = ReadListAttribute(Element, "Produces");
 				string[] AfterNames = ReadListAttribute(Element, "After");
 				string[] TokenFileNames = ReadListAttribute(Element, "Token");
+				bool bRunEarly = ReadBooleanAttribute(Element, "RunEarly", false);
 				bool bNotifyOnWarnings = ReadBooleanAttribute(Element, "NotifyOnWarnings", true);
 
 				// Resolve all the inputs we depend on
@@ -1015,6 +1014,7 @@ namespace AutomationTool
 				{
 					// Add it to the node lookup
 					Node NewNode = new Node(Name, Inputs.ToArray(), ValidOutputNames.ToArray(), InputDependencies.ToArray(), OrderDependencies.ToArray(), ControllingTrigger, RequiredTokens.ToArray());
+					NewNode.bRunEarly = bRunEarly;
 					NewNode.bNotifyOnWarnings = bNotifyOnWarnings;
 					Graph.NameToNode.Add(Name, NewNode);
 

@@ -780,6 +780,7 @@ FTextureRHIRef& GetEyeAdaptation(const FViewInfo& View)
 }
 
 void SetupSharedBasePassParameters(
+	FRHICommandListImmediate& RHICmdList,
 	const FViewInfo& View,
 	FSceneRenderTargets& SceneRenderTargets,
 	FSharedBasePassUniformParameters& SharedParameters)
@@ -798,6 +799,17 @@ void SetupSharedBasePassParameters(
 
 	SetupReflectionUniformParameters(View, SharedParameters.Reflection);
 	SetupFogUniformParameters(View, SharedParameters.Fog);
+
+	const IPooledRenderTarget* PooledRT = GetSubsufaceProfileTexture_RT(RHICmdList);
+
+	if (!PooledRT)
+	{
+		// no subsurface profile was used yet
+		PooledRT = GSystemTextures.BlackDummy;
+	}
+
+	const FSceneRenderTargetItem& Item = PooledRT->GetRenderTargetItem();
+	SharedParameters.SSProfilesTexture = Item.ShaderResourceTexture;
 }
 
 void CreateOpaqueBasePassUniformBuffer(
@@ -809,7 +821,7 @@ void CreateOpaqueBasePassUniformBuffer(
 	FSceneRenderTargets& SceneRenderTargets = FSceneRenderTargets::Get(RHICmdList);
 
 	FOpaqueBasePassUniformParameters BasePassParameters;
-	SetupSharedBasePassParameters(View, SceneRenderTargets, BasePassParameters.Shared);
+	SetupSharedBasePassParameters(RHICmdList, View, SceneRenderTargets, BasePassParameters.Shared);
 
 	// Forward shading
 	{
@@ -890,7 +902,7 @@ bool FDeferredShadingSceneRenderer::RenderBasePass(FRHICommandListImmediate& RHI
 	{
 		SCOPED_DRAW_EVENT(RHICmdList, BasePass);
 		SCOPE_CYCLE_COUNTER(STAT_BasePassDrawTime);
-		SCOPED_GPU_STAT(RHICmdList, Basepass );
+		SCOPED_GPU_STAT(RHICmdList, Basepass);
 
 		if (GRHICommandList.UseParallelAlgorithms() && CVarParallelBasePass.GetValueOnRenderThread())
 		{
@@ -899,6 +911,7 @@ bool FDeferredShadingSceneRenderer::RenderBasePass(FRHICommandListImmediate& RHI
 			{
 				SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("View%d"), ViewIndex);
 				FViewInfo& View = Views[ViewIndex];
+				SCOPED_GPU_MASK(RHICmdList, View.GPUMask);
 
 				TUniformBufferRef<FOpaqueBasePassUniformParameters> BasePassUniformBuffer;
 				CreateOpaqueBasePassUniformBuffer(RHICmdList, View, ForwardScreenSpaceShadowMask, BasePassUniformBuffer);
@@ -921,6 +934,7 @@ bool FDeferredShadingSceneRenderer::RenderBasePass(FRHICommandListImmediate& RHI
 			{
 				SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("View%d"), ViewIndex);
 				FViewInfo& View = Views[ViewIndex];
+				SCOPED_GPU_MASK(RHICmdList, View.GPUMask);
 
 				TUniformBufferRef<FOpaqueBasePassUniformParameters> BasePassUniformBuffer;
 				CreateOpaqueBasePassUniformBuffer(RHICmdList, View, ForwardScreenSpaceShadowMask, BasePassUniformBuffer);

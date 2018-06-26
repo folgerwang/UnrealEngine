@@ -118,10 +118,10 @@ int32 FParticleSection::OnPaintSection( FSequencerSectionPainter& InPainter ) co
 
 	if (ParticleSection != nullptr)
 	{
-		TMovieSceneChannel<const uint8> ChannelInterface = ParticleSection->ParticleKeys.GetInterface();
+		TMovieSceneChannelData<const uint8> ChannelData = ParticleSection->ParticleKeys.GetData();
 
-		TArrayView<const FFrameNumber> Times  = ChannelInterface.GetTimes();
-		TArrayView<const uint8>        Values = ChannelInterface.GetValues();
+		TArrayView<const FFrameNumber> Times  = ChannelData.GetTimes();
+		TArrayView<const uint8>        Values = ChannelData.GetValues();
 
 		for (int32 Index = 0; Index < Times.Num(); ++Index)
 		{

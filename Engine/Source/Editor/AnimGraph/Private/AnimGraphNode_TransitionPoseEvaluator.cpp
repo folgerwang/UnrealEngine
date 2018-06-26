@@ -67,6 +67,8 @@ void UAnimGraphNode_TransitionPoseEvaluator::GetMenuActions(FBlueprintActionData
 
 void UAnimGraphNode_TransitionPoseEvaluator::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
+	Super::CustomizeDetails(DetailBuilder);
+
 	IDetailCategoryBuilder& PoseCategory = DetailBuilder.EditCategory("Pose", LOCTEXT("PoseCategoryName", "Pose"));
 
 	FString CacheFramesPropertyName = FString::Printf(TEXT("Node.%s"), GET_MEMBER_NAME_STRING_CHECKED(FAnimNode_TransitionPoseEvaluator, FramesToCachePose));

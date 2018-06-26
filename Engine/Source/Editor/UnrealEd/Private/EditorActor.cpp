@@ -818,6 +818,11 @@ bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletion
 		{
 			for (AActor* ReferencingActor : (*ReferencingActors))
 			{
+				// Skip to next if we are referencing ourselves
+				if (ReferencingActor == Actor)
+				{
+					continue;
+				}
 
 				// If the referencing actor is a child actor that is referencing us, do not treat it
 				// as referencing for the purposes of warning about deletion

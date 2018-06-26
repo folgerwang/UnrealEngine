@@ -155,8 +155,14 @@ public:
 	 * If true, this actor is no longer replicated to new clients, and is "torn off" (becomes a ROLE_Authority) on clients to which it was being replicated.
 	 * @see TornOff()
 	 */
+	DEPRECATED(4.20, "Use GetTearOff() or TearOff() functions. This property will become private.")
 	UPROPERTY(Replicated)
-	uint8 bTearOff:1;    
+	uint8 bTearOff:1; 
+
+	/** returns TearOff status */
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	bool GetTearOff() const { return bTearOff; }
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	/** Networking - Server - TearOff this actor to stop replication to clients. Will set bTearOff to true. */
 	UFUNCTION(BlueprintCallable, Category=Replication)
@@ -180,6 +186,14 @@ public:
 	/** If true, this actor will be replicated to network replays (default is true) */
 	UPROPERTY()
 	uint8 bRelevantForNetworkReplays:1;
+
+	/**
+	 * If true, this actor will only be destroyed during scrubbing if the replay is set to a time before the actor existed.
+	 * Otherwise, RewindForReplay will be called if we detect the actor needs to be reset.
+	 * Note, this Actor must not be destroyed by gamecode, and RollbackViaDeletion may not be used. 
+	 */
+	UPROPERTY()
+	uint8 bReplayRewindable:1;
 
 	/**
 	 * Whether we allow this Actor to tick before it receives the BeginPlay event.
@@ -267,6 +281,9 @@ protected:
 	UPROPERTY()
 	uint8 bAllowReceiveTickEventOnDedicatedServer:1;
 
+	/** Flag indicating we have checked initial simulating physics state to sync networked proxies to the server. */
+	uint8 bNetCheckedInitialPhysicsState : 1;
+
 private:
 	/** Whether FinishSpawning has been called for this Actor.  If it has not, the Actor is in a malformed state */
 	uint8 bHasFinishedSpawning:1;
@@ -321,10 +338,6 @@ private:
 
 public:
 
-	// ORION TODO - was moved to private. Add accessor?
-	/** Flag indicating we have checked initial simulating physics state to sync networked proxies to the server. */
-	uint8 bNetCheckedInitialPhysicsState : 1;
-
 	/**
 	 * Set whether this actor replicates to network clients. When this actor is spawned on the server it will be sent to clients as well.
 	 * Properties flagged for replication will update on clients if they change on the server.
@@ -347,6 +360,10 @@ public:
 	
 	/** Copies RemoteRole from another Actor and adds this actor to the list of network actors if necessary. */
 	void CopyRemoteRoleFrom(const AActor* CopyFromActor);
+
+	/** Returns how much control the local machine has over this actor. */
+	UFUNCTION(BlueprintCallable, Category=Replication)
+	ENetRole GetLocalRole() const;
 
 	/** Returns how much control the remote machine has over this actor. */
 	UFUNCTION(BlueprintCallable, Category=Replication)
@@ -482,6 +499,12 @@ public:
 	 * Called for everyone when recording a Client Replay, including Simulated Proxies.
 	 */
 	virtual void PreReplicationForReplay(IRepChangedPropertyTracker & ChangedPropertyTracker);
+
+	/**
+	 * Called on the actor before checkpoint data is applied during a replay.
+	 * Only called if bReplayRewindable is set.
+	 */
+	virtual void RewindForReplay();
 
 	/** Called by the networking system to call PreReplication on this actor and its components using the given NetDriver to find or create RepChangedPropertyTrackers. */
 	void CallPreReplication(UNetDriver* NetDriver);	
@@ -1635,6 +1658,9 @@ public:
 	 */
 	virtual bool IsLevelBoundsRelevant() const { return true; }
 
+	/** Set LOD Parent Primitive*/
+	void SetLODParent(class UPrimitiveComponent* InLODParent, float InParentDrawDistance);
+
 #if WITH_EDITOR
 	// Editor specific
 
@@ -1660,10 +1686,7 @@ public:
 	virtual void EditorApplyScale(const FVector& DeltaScale, const FVector* PivotLocation, bool bAltDown, bool bShiftDown, bool bCtrlDown);
 
 	/** Called by MirrorActors to perform a mirroring operation on the actor */
-	virtual void EditorApplyMirror(const FVector& MirrorScale, const FVector& PivotLocation);
-
-	/** Set LOD Parent Primitive*/
-	void SetLODParent(class UPrimitiveComponent* InLODParent, float InParentDrawDistance);
+	virtual void EditorApplyMirror(const FVector& MirrorScale, const FVector& PivotLocation);	
 
 	/**
 	 * Simple accessor to check if the actor is hidden upon editor startup
@@ -3151,6 +3174,11 @@ FORCEINLINE_DEBUGGABLE const AActor* AActor::GetNetOwner() const
 	// NetOwner is the Actor Owner unless otherwise overridden (see PlayerController/Pawn/Beacon)
 	// Used in ServerReplicateActors
 	return Owner;
+}
+
+FORCEINLINE_DEBUGGABLE ENetRole AActor::GetLocalRole() const
+{
+	return Role;
 }
 
 FORCEINLINE_DEBUGGABLE ENetRole AActor::GetRemoteRole() const

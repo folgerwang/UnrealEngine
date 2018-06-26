@@ -182,6 +182,11 @@ UAbilitySystemComponent* UAbilitySystemGlobals::GetAbilitySystemComponentFromAct
 	return nullptr;
 }
 
+bool UAbilitySystemGlobals::ShouldPredictTargetGameplayEffects() const
+{
+	return PredictTargetGameplayEffects;
+}
+
 // --------------------------------------------------------------------
 
 UFunction* UAbilitySystemGlobals::GetGameplayCueFunction(const FGameplayTag& ChildTag, UClass* Class, FName &MatchedTag)

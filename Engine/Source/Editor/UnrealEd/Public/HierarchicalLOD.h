@@ -95,6 +95,15 @@ struct UNREALED_API FHierarchicalLODBuilder
 	/** Builds the LOD meshes for all LODActors inside of the World's Levels */
 	void BuildMeshesForLODActors(bool bForceAll);
 
+	/** Saves HLOD meshes for actors in all the World's levels */
+	void SaveMeshesForActors();
+
+	/** 
+	 * @param	bInForce	Whether to force the recalculation of this actor's build flag. If this is false then the cached flag is used an only recalculated every so often.
+	 * @return whether a build is needed (i.e. any LOD actors are dirty) 
+	 */
+	bool NeedsBuild(bool bInForce = false) const;
+
 	/**
 	* Build a single LOD Actor's mesh
 	*
@@ -111,6 +120,9 @@ private:
 	* @param bCreateMeshes - Whether or not to create/merge the StaticMeshes (false if builing preview only)
 	*/
 	void BuildClusters(ULevel* InLevel, const bool bCreateMeshes);
+
+	/** Generates a single cluster for the ULevel (across all HLOD levels) */
+	void GenerateAsSingleCluster(const int32 NumHLODLevels, ULevel* InLevel, const bool bCreateMeshes);
 
 	/**
 	* Initializes the clusters, creating one for each actor within the level eligble for HLOD-ing
@@ -158,7 +170,7 @@ private:
 	* @param bPreviewOnly - Only delete preview actors
 	* @return void
 	*/
-	void DeleteLODActors(ULevel* InLevel, const bool bPreviewOnly);
+	void DeleteLODActors(ULevel* InLevel);
 
 	/** Array of LOD Clusters - this is only valid within scope since mem stack allocator */
 	TArray<FLODCluster, TMemStackAllocator<>> Clusters;
@@ -168,6 +180,7 @@ private:
 
 	/** Array of LOD clusters created for the HierachicalLODVolumes found within the level */
 	TMap<AHierarchicalLODVolume*, FLODCluster> HLODVolumeClusters;	
+	TMap<ALODActor*, AHierarchicalLODVolume*> HLODVolumeActors;
 
 	const UHierarchicalLODSettings* HLODSettings;
 

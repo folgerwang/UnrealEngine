@@ -117,6 +117,10 @@ public:
 	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
 	TEnumAsByte<EVirtualKeyboardType::Type> KeyboardType;
 
+	/** Additional options for the virtual keyboard */
+	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
+	FVirtualKeyboardOptions VirtualKeyboardOptions;
+
 	/** What action should be taken when the virtual keyboard is dismissed? */
 	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
 	EVirtualKeyboardDismissAction VirtualKeyboardDismissAction;
@@ -155,13 +159,13 @@ public:
 	void SetText(FText InText);
 
 	UFUNCTION(BlueprintCallable, Category = "Widget")
-	void SetIsPassword(bool InbIsPassword);
+	void SetIsPassword(UPARAM(DisplayName="IsPassword") bool InbIsPassword);
 
 	UFUNCTION(BlueprintCallable, Category = "Widget")
 	void SetHintText(FText InHintText);
 
 	UFUNCTION(BlueprintCallable, Category = "Widget", meta=(DisplayName="SetIsReadOnly (Editable Text)"))
-	void SetIsReadOnly(bool InbIsReadyOnly);
+	void SetIsReadOnly(UPARAM(DisplayName="ReadyOnly") bool InbIsReadyOnly);
 
 public:
 	

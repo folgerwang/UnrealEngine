@@ -9,7 +9,7 @@
 #include "Templates/UniquePtr.h"
 
 // Not all versions of Visual Studio include the profiler SDK headers
-#if WITH_VS_PERF_PROFILER
+#if WITH_VS_PERF_PROFILER && UE_EXTERNAL_PROFILING_ENABLED
 
 #define VSPERF_NO_DEFAULT_LIB	// Don't use #pragma lib to import the library, we'll handle this stuff ourselves
 #define PROFILERAPI				// We won't be statically importing anything (we're dynamically binding), so define PROFILERAPI to a empty value
@@ -162,5 +162,4 @@ namespace VSPerfProfiler
 }
 
 
-
-#endif	// WITH_VS_PERF_PROFILER
+#endif	// WITH_VS_PERF_PROFILER && UE_EXTERNAL_PROFILING_ENABLED

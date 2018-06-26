@@ -51,6 +51,12 @@ struct FMarkerTickRecord
 	bool IsValid() const { return PreviousMarker.MarkerIndex != MarkerIndexSpecialValues::Unitialized && NextMarker.MarkerIndex != MarkerIndexSpecialValues::Unitialized; }
 
 	void Reset() { PreviousMarker.Reset(); NextMarker.Reset(); }
+
+	/** Debug output function*/
+	FString ToString() const
+	{
+		return FString::Printf(TEXT("[PreviousMarker Index/Time %i/%.2f, NextMarker Index/Time %i/%.2f]"), PreviousMarker.MarkerIndex, PreviousMarker.TimeToMarker, NextMarker.MarkerIndex, NextMarker.TimeToMarker);
+	}
 };
 
 /** Transform definition */
@@ -86,9 +92,11 @@ struct FBlendSampleData
 
 	FBlendSampleData()
 		:	SampleDataIndex(0)
+		,	Animation(nullptr)
 		,	TotalWeight(0.f)
 		,	Time(0.f)
 		,	PreviousTime(0.f)
+		,	SamplePlayRate(0.0f)
 	{}
 	FBlendSampleData(int32 Index)
 		:	SampleDataIndex(Index)
@@ -96,6 +104,7 @@ struct FBlendSampleData
 		,	TotalWeight(0.f)
 		,	Time(0.f)
 		,	PreviousTime(0.f)
+		,	SamplePlayRate(0.0f)
 	{}
 	bool operator==( const FBlendSampleData& Other ) const 
 	{
@@ -200,6 +209,7 @@ struct FMarkerSyncAnimPosition
 	bool IsValid() const { return (PreviousMarkerName != NAME_None && NextMarkerName != NAME_None); }
 
 	FMarkerSyncAnimPosition()
+		: PositionBetweenMarkers(0.0f)
 	{}
 
 	FMarkerSyncAnimPosition(const FName& InPrevMarkerName, const FName& InNextMarkerName, const float& InAlpha)
@@ -269,7 +279,8 @@ struct FAnimTickRecord
 
 public:
 	FAnimTickRecord()
-		: TimeAccumulator(nullptr)
+		: SourceAsset(nullptr)
+		, TimeAccumulator(nullptr)
 		, PlayRateMultiplier(1.f)
 		, EffectiveBlendWeight(0.f)
 		, RootMotionWeightModifier(1.f)

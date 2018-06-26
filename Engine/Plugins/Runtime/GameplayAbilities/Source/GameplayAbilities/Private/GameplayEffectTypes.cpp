@@ -297,9 +297,9 @@ void FGameplayEffectContext::GetOwnedGameplayTags(OUT FGameplayTagContainer& Act
 	{
 		TagInterface->GetOwnedGameplayTags(ActorTagContainer);
 	}
-	else if (InstigatorAbilitySystemComponent.IsValid())
+	else if (UAbilitySystemComponent* ASC = InstigatorAbilitySystemComponent.Get())
 	{
-		InstigatorAbilitySystemComponent->GetOwnedGameplayTags(ActorTagContainer);
+		ASC->GetOwnedGameplayTags(ActorTagContainer);
 	}
 }
 
@@ -761,7 +761,7 @@ bool FGameplayCueParameters::NetSerialize(FArchive& Ar, class UPackageMap* Map, 
 	return true;
 }
 
-bool FGameplayCueParameters::IsInstigatorLocallyControlled() const
+bool FGameplayCueParameters::IsInstigatorLocallyControlled(AActor* FallbackActor) const
 {
 	if (EffectContext.IsValid())
 	{
@@ -772,6 +772,15 @@ bool FGameplayCueParameters::IsInstigatorLocallyControlled() const
 	if (!Pawn)
 	{
 		Pawn = Cast<APawn>(EffectCauser.Get());
+		if (!Pawn && FallbackActor != nullptr)
+		{
+			// Fallback to passed in actor
+			Pawn = Cast<APawn>(FallbackActor);
+			if (!Pawn)
+			{
+				Pawn = FallbackActor->GetInstigator<APawn>();
+			}
+		}
 	}
 	if (Pawn)
 	{

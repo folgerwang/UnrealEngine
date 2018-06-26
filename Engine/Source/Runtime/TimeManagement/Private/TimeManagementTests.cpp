@@ -4,9 +4,9 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 
-#include "FrameNumber.h"
-#include "FrameTime.h"
-#include "FrameRate.h"
+#include "Misc/FrameNumber.h"
+#include "Misc/FrameTime.h"
+#include "Misc/FrameRate.h"
 #include "CommonFrameRates.h"
 
 namespace

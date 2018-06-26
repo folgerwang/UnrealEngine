@@ -21,6 +21,7 @@
 #include "Engine/EngineTypes.h"
 #include "RHI.h"
 #include "RenderingThread.h"
+#include "Materials/MaterialParameterCollectionInstance.h"
 #include "Engine/World.h"
 #include "GameFramework/Controller.h"
 #include "AI/NavigationSystemBase.h"
@@ -113,6 +114,7 @@ DEFINE_STAT(STAT_RuntimeMovieSceneTickTime);
 DEFINE_STAT(STAT_FinishAsyncTraceTickTime);
 DEFINE_STAT(STAT_NetBroadcastTickTime);
 DEFINE_STAT(STAT_NetServerRepActorsTime);
+DEFINE_STAT(STAT_NetServerGatherPrioritizeRepActorsTime);
 DEFINE_STAT(STAT_NetConsiderActorsTime);
 DEFINE_STAT(STAT_NetUpdateUnmappedObjectsTime);
 DEFINE_STAT(STAT_NetInitialDormantCheckTime);
@@ -1006,6 +1008,15 @@ void UWorld::SendAllEndOfFrameUpdates()
 		GTWork();
 		ParallelFor(LocalComponentsThatNeedEndOfFrameUpdate.Num(), ParallelWork);
 	}
+	
+	for (UMaterialParameterCollectionInstance* ParameterCollectionInstance : ParameterCollectionInstances)
+	{
+		if (ParameterCollectionInstance)
+		{
+			ParameterCollectionInstance->DeferredUpdateRenderState();
+		}
+	}
+			
 	LocalComponentsThatNeedEndOfFrameUpdate.Reset();
 
 	EndSendEndOfFrameUpdatesDrawEvent(DrawEvent);

@@ -9,6 +9,7 @@
 #include "OnlineSessionAsyncLobbySteam.h"
 #include "OnlineSessionAsyncServerSteam.h"
 #include "OnlineLeaderboardInterfaceSteam.h"
+#include "OnlineAuthInterfaceSteam.h"
 #include "LANBeacon.h"
 #include "NboSerializerSteam.h"
 #include "Interfaces/VoiceInterface.h"
@@ -185,6 +186,12 @@ public:
 
 						// Stop remote voice 
 						VoiceInt->RemoveAllRemoteTalkers();
+					}
+
+					FOnlineAuthSteamPtr AuthInt = Subsystem->GetAuthInterface();
+					if (AuthInt.IsValid())
+					{
+						AuthInt->RevokeAllTickets();
 					}
 				}
 			}
@@ -627,8 +634,10 @@ uint32 FOnlineSessionSteam::DestroyInternetSession(FNamedOnlineSession* Session,
 	}
 
 	// Clear any session advertisements this account had with this session.
-	if (SteamUser() != NULL && SteamUser()->BLoggedOn())
+	FOnlineAuthSteamPtr SteamAuth = SteamSubsystem->GetAuthInterface();
+	if (SteamUser() != NULL && SteamUser()->BLoggedOn() && (!SteamAuth.IsValid() || !SteamAuth->IsSessionAuthEnabled()))
 	{
+		UE_LOG_ONLINE(Warning, TEXT("AUTH: DestroyInternetSession is calling the depricated AdvertiseGame call"));
 		SteamUser()->AdvertiseGame(k_steamIDNil, 0, 0);
 	}
 
@@ -940,13 +949,22 @@ uint32 FOnlineSessionSteam::JoinInternetSession(int32 PlayerNum, FNamedOnlineSes
 					UE_LOG_ONLINE(Verbose, TEXT("Failed to set rich presence for session %s"), *Session->SessionName.ToString());
 				}
 
-				// Advertise any servers we join
-				if (SteamUser() != NULL && SteamUser()->BLoggedOn())
+				// SteamAuth will auto advertise any sessions we join.
+				bool bShouldUseFallback = true;
+				FOnlineAuthSteamPtr SteamAuth = SteamSubsystem->GetAuthInterface();
+				if (SteamAuth.IsValid() && SteamAuth->IsSessionAuthEnabled())
+				{
+					bShouldUseFallback = false;
+				}
+
+				// Advertise any servers we join (However, if we're using SteamAuth [as determined above], then we should not do this)
+				if (SteamUser() != nullptr && SteamUser()->BLoggedOn() && bShouldUseFallback)
 				{
 					uint32 IpAddr;
 					uint32 Port = SteamSessionInfo->HostAddr->GetPort();
 					SteamSessionInfo->HostAddr->GetIp(IpAddr);
-					SteamUser()->AdvertiseGame(SteamSessionInfo->SessionId, IpAddr, Port);
+					SteamUser()->AdvertiseGame(k_steamIDNonSteamGS, IpAddr, Port);
+					UE_LOG_ONLINE(Warning, TEXT("AUTH: JoinInternetSession is calling the depricated AdvertiseGame call"));
 				}
 			}
 			Result = ERROR_SUCCESS;

@@ -353,6 +353,12 @@ bool FDefaultGameMoviePlayer::PlayMovie()
 
 			bBeganPlaying = true;
 		}
+
+		//Allow anything that set up this LoadingScreenAttribute to know the loading screen is now displaying
+		if (bBeganPlaying)
+		{
+			OnMoviePlaybackStarted().Broadcast();
+		}
 	}
 
 	return bBeganPlaying;
@@ -373,13 +379,9 @@ void FDefaultGameMoviePlayer::StopMovie()
 {
 	LastPlayTime = 0;
 	bUserCalledFinish = true;
-	if (UserWidgetHolder.IsValid())
-	{
-		UserWidgetHolder->SetContent( SNullWidget::NullWidget );
-	}
 }
 
-void FDefaultGameMoviePlayer::WaitForMovieToFinish()
+void FDefaultGameMoviePlayer::WaitForMovieToFinish(bool bAllowEngineTick)
 {
 	const bool bEnforceMinimumTime = LoadingScreenAttributes.MinimumLoadingScreenDisplayTime >= 0.0f;
 
@@ -445,6 +447,11 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish()
 
 				float DeltaTime = SlateApp.GetDeltaTime();				
 
+				if (GEngine && bAllowEngineTick && LoadingScreenAttributes.bAllowEngineTick)
+				{
+					GEngine->Tick(DeltaTime, false);
+				}
+
 				ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 					BeginLoadingMovieFrameAndTickMovieStreamer,
 					FDefaultGameMoviePlayer*, MoviePlayer, this,
@@ -472,8 +479,6 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish()
 				FlushRenderingCommands();
 			}
 		}
-
-		UserWidgetHolder->SetContent( SNullWidget::NullWidget );
 
 		LoadingIsDone.Set(1);
 		IsMoviePlaying = false;
@@ -739,7 +744,11 @@ void FDefaultGameMoviePlayer::OnPreLoadMap(const FString& LevelName)
 
 void FDefaultGameMoviePlayer::OnPostLoadMap(UWorld* LoadedWorld)
 {
-	WaitForMovieToFinish();
+	if (!LoadingScreenAttributes.bAllowEngineTick)
+	{
+		// If engine tick is enabled, we don't want to tick here and instead want to run from the WaitForMovieToFinish call in LaunchEngineLoop
+		WaitForMovieToFinish();
+	}
 }
 
 void FDefaultGameMoviePlayer::SetSlateOverlayWidget(TSharedPtr<SWidget> NewOverlayWidget)
@@ -775,6 +784,13 @@ FMoviePlayerWidgetRenderer::FMoviePlayerWidgetRenderer(TSharedPtr<SWindow> InMai
 
 void FMoviePlayerWidgetRenderer::DrawWindow(float DeltaTime)
 {
+	if (GDynamicRHI && GDynamicRHI->RHIIsRenderingSuspended())
+	{
+		// This avoids crashes if we Suspend rendering whilst the loading screen is up
+		// as we don't want Slate to submit any more draw calls until we Resume.
+		return;
+	}
+
 	FVector2D DrawSize = VirtualRenderWindow->GetClientSizeInScreen();
 
 	FSlateApplication::Get().Tick(ESlateTickType::TimeOnly);

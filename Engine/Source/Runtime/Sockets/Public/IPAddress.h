@@ -111,6 +111,10 @@ public:
 	 * @return true if a valid IP, false otherwise
 	 */
 	virtual bool IsValid() const = 0;
+	
+#if PLATFORM_IOS
+	virtual void Copy(const FInternetAddr& Other) { check(false); }
+#endif
 
 	/**
 	 * Determines if the string is in IP address form or needs host resolution

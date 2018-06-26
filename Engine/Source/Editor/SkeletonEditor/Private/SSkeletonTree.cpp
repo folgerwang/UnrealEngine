@@ -746,6 +746,7 @@ TSharedPtr< SWidget > SSkeletonTree::CreateContextMenu()
 						FUIAction RecursiveRetargetingAnimationAction = FUIAction(FExecuteAction::CreateSP(this, &SSkeletonTree::SetBoneTranslationRetargetingModeRecursive, EBoneTranslationRetargetingMode::Animation));
 						FUIAction RecursiveRetargetingAnimationScaledAction = FUIAction(FExecuteAction::CreateSP(this, &SSkeletonTree::SetBoneTranslationRetargetingModeRecursive, EBoneTranslationRetargetingMode::AnimationScaled));
 						FUIAction RecursiveRetargetingAnimationRelativeAction = FUIAction(FExecuteAction::CreateSP(this, &SSkeletonTree::SetBoneTranslationRetargetingModeRecursive, EBoneTranslationRetargetingMode::AnimationRelative));
+						FUIAction RecursiveRetargetingOrientAndScaleAction = FUIAction(FExecuteAction::CreateSP(this, &SSkeletonTree::SetBoneTranslationRetargetingModeRecursive, EBoneTranslationRetargetingMode::OrientAndScale));
 
 						MenuBuilder.AddMenuEntry
 							(LOCTEXT("SetTranslationRetargetingSkeletonChildrenAction", "Recursively Set Translation Retargeting Skeleton")
@@ -774,6 +775,13 @@ TSharedPtr< SWidget > SSkeletonTree::CreateContextMenu()
 							, FSlateIcon()
 							, RecursiveRetargetingAnimationRelativeAction
 							);
+
+						MenuBuilder.AddMenuEntry
+							(LOCTEXT("SetTranslationRetargetingOrientAndScaleChildrenAction", "Recursively Set Translation Retargeting OrientAndScale")
+							, LOCTEXT("BoneTranslationRetargetingOrientAndScaleToolTip", "Orient And Scale Translation.")
+							, FSlateIcon()
+							, RecursiveRetargetingOrientAndScaleAction
+						);
 					}
 					MenuBuilder.EndSection();
 				}

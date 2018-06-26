@@ -6,9 +6,9 @@
 #include "Math/Transform.h"
 
 struct FAppleARKitTransform
-{	
+{
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 	/** 
 	 * Convert's an ARKit 'Y up' 'right handed' coordinate system transform to Unreal's 'Z up' 
@@ -44,5 +44,5 @@ struct FAppleARKitTransform
 		return FVector( -RawYUpVector.z, RawYUpVector.x, RawYUpVector.y ) * WorldToMetersScale;
 	}
 
-#endif // ARKIT_SUPPORT
+#endif
 };

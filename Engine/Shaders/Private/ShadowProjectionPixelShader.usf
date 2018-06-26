@@ -49,9 +49,15 @@
 
 float ShadowFadeFraction;
 float ShadowSharpen;
-float4x4 ScreenToShadowMatrix;
-// .x:DepthBias, y: MaxSubjectZ - MinSubjectZ
-float2 ProjectionDepthBiasParameters;
+float4 LightPositionAndInvRadius;
+
+#if USE_TRANSMISSION
+	#include "TransmissionThickness.ush"
+#else
+	float4x4 ScreenToShadowMatrix;
+	// .x:DepthBias, y: MaxSubjectZ - MinSubjectZ
+	float2 ProjectionDepthBiasParameters;
+#endif
 
 #if USE_FADE_PLANE
 	float FadePlaneOffset;
@@ -94,8 +100,7 @@ void Main(
 	float SceneW = CalcSceneDepth( ScreenUV );
 	float4 ScreenPosition = float4(((ScreenUV.xy - View.ScreenPositionScaleBias.wz ) / View.ScreenPositionScaleBias.xy) * SceneW, SceneW, 1);
 	float4 ShadowPosition = mul(ScreenPosition, ScreenToShadowMatrix);
-	float4 HomogeneousWorldPosition = mul(ScreenPosition, View.ScreenToWorld);
-	float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+	float3 WorldPosition = mul(ScreenPosition, View.ScreenToWorld).xyz;
 
 	float ShadowZ = ShadowPosition.z;
 	ShadowPosition.xyz /= ShadowPosition.w;
@@ -234,9 +239,18 @@ void Main(
 				Settings.bTreatMaxDepthUnshadowed = false;
 				Settings.DensityMulConstant = Density * ProjectionDepthBiasParameters.y;
 				Settings.ProjectionDepthBiasParameters = ProjectionDepthBiasParameters;
-				
-				// ideally we use a larger filter kernel for SSSbut as Gather4 makes that harder
-				SSSTransmission = ManualPCF(ShadowPosition.xy, Settings); 
+
+#if USE_TRANSMISSION
+				if (GBufferData.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE)
+				{
+					SSSTransmission = CalcTransmissionThickness(ScreenPosition.xyz, LightPositionAndInvRadius.xyz, GBufferData, Settings);
+				}
+				else
+#endif
+				{
+					// ideally we use a larger filter kernel for SSSbut as Gather4 makes that harder
+					SSSTransmission = ManualPCF(ShadowPosition.xy, Settings);
+				}
 			#endif
 		}
 
@@ -288,9 +302,8 @@ void Main(
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
 
-float4 LightPositionAndInvRadius;
-// .x:DepthBias, y: unused
-float2 PointLightDepthBiasParameters;
+// .x:DepthBias, y: unused, zw: depth projection parameters
+float4 PointLightDepthBiasAndProjParameters;
 
 /** Pixel shader for projecting a one pass point light shadow from a cube map. */
 void MainOnePassPointLightPS(
@@ -301,17 +314,20 @@ void MainOnePassPointLightPS(
 	float2 ScreenUV = float2( SVPos.xy * View.BufferSizeAndInvSize.zw );
 	float SceneW = CalcSceneDepth( ScreenUV );
 	float2 ScreenPosition = ( ScreenUV.xy - View.ScreenPositionScaleBias.wz ) / View.ScreenPositionScaleBias.xy;
-	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition.xy * SceneW, SceneW, 1), View.ScreenToWorld);
- 	float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+	float3 WorldPosition = mul(float4(ScreenPosition.xy * SceneW, SceneW, 1), View.ScreenToWorld).xyz;
 
 	// For debugging
 #define OUTPUT_CUBE_SHADOW_DEPTH_NO_FILTERING 0
-#if OUTPUT_CUBE_SHADOW_DEPTH_NO_FILTERING
 	float3 LightVector = LightPositionAndInvRadius.xyz - WorldPosition.xyz;
+#if OUTPUT_CUBE_SHADOW_DEPTH_NO_FILTERING
 	// Note: point light shadow depth is Z / W, not linear
+	#if OPENGL_PROFILE || COMPILER_VULKAN || COMPILER_SWITCH
+	float Shadow = TextureCubeSampleLevel(ShadowDepthCubeTexture2, ShadowDepthTextureSampler, LightVector, 0);
+	#else
 	float Shadow = TextureCubeSampleLevel(ShadowDepthCubeTexture, ShadowDepthTextureSampler, LightVector, 0);
+	#endif
 #else
- 	float Shadow = CubemapHardwarePCF(WorldPosition, LightPositionAndInvRadius.xyz, LightPositionAndInvRadius.w, PointLightDepthBiasParameters.x);
+ 	float Shadow = CubemapHardwarePCF(WorldPosition, LightPositionAndInvRadius.xyz, LightPositionAndInvRadius.w, PointLightDepthBiasAndProjParameters.x);
 
 	Shadow = saturate( (Shadow - 0.5) * ShadowSharpen + 0.5 );
 #endif
@@ -330,6 +346,19 @@ void MainOnePassPointLightPS(
 	// SSS is not correctly handled but at least it should be shadowed
 	OutColor.a = OutColor.b;
 #endif
+
+#if USE_TRANSMISSION
+	float Thickness = 1.0f;
+	// TODO: Use existing GBuffer data, instead of overwriting?
+	FGBufferData GBufferData = GetGBufferData(ScreenUV);
+	//if bSubsurface get SSS shadow,else opaque shadow.
+	bool IsSubsurfaceProfile = GBufferData.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE;
+	if (IsSubsurfaceProfile)
+	{
+		Thickness = CalcTransmissionThickness(GBufferData, WorldPosition, LightVector, PointLightDepthBiasAndProjParameters.zw, LightPositionAndInvRadius.w, 0);
+	}
+	OutColor.a = IsSubsurfaceProfile ? EncodeLightAttenuation(Thickness) : OutColor.b;
+#endif // USE_TRANSMISSION
 }
  
 #endif

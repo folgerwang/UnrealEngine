@@ -65,16 +65,16 @@ TSharedPtr<FStructOnScope> CreateKeyStruct(TMovieSceneChannelHandle<ChannelType>
 	ChannelType* Channel = ChannelHandle.Get();
 	if (Channel)
 	{
-		auto ChannelInterface = Channel->GetInterface();
-		const int32 KeyIndex = ChannelInterface.GetIndex(InHandle);
+		auto ChannelData = Channel->GetData();
+		const int32 KeyIndex = ChannelData.GetIndex(InHandle);
 
 		if (KeyIndex != INDEX_NONE)
 		{
 			KeyStruct = MakeShared<FStructOnScope>(KeyStructType::StaticStruct());
 			KeyStructType* Struct = reinterpret_cast<KeyStructType*>(KeyStruct->GetStructMemory());
 
-			Struct->Time  = ChannelInterface.GetTimes()[KeyIndex];
-			Struct->Value = ChannelInterface.GetValues()[KeyIndex];
+			Struct->Time  = ChannelData.GetTimes()[KeyIndex];
+			Struct->Value = ChannelData.GetValues()[KeyIndex];
 
 			Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelHandle, &Struct->Value, MakeTuple(InHandle, Struct->Time)));
 		}

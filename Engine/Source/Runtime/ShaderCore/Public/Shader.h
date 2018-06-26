@@ -294,6 +294,12 @@ public:
 		UncompressCode(OutCode);
 	}
 
+	/**
+	* Passes back a zeroed out hash to serialize when saving out cooked data.
+	* The goal here is to ensure that source hash changes do not cause widespread binary differences in cooked data, resulting in bloated patch diffs.
+	*/
+	SHADERCORE_API static FSHAHash &FilterShaderSourceHashForSerialization(const FArchive& Ar, FSHAHash &HashToSerialize);
+
 private:
 	// compression functions
 	void UncompressCode(TArray<uint8>& UncompressedCode) const;
@@ -682,6 +688,8 @@ public:
 	inline FShaderType* GetType() const { return Type; }
 	inline int32 GetPermutationId() const { return PermutationId; }
 	inline uint32 GetNumInstructions() const { return Resource->NumInstructions; }
+	inline void SetNumInstructions(uint32 Num) { Resource->NumInstructions = Num; }
+
 	inline uint32 GetNumTextureSamplers() const { return Resource->NumTextureSamplers; }
 	inline const TArray<uint8>& GetCode() const { return Resource->Code; }
 	inline const FShaderTarget GetTarget() const { return Target; }
@@ -809,6 +817,8 @@ public:
 		SerializedResource = nullptr;
 	}
 
+	void DumpDebugInfo();
+	void SaveShaderStableKeys(EShaderPlatform TargetShaderPlatform, const struct FStableShaderKeyAndValue& SaveKeyVal);
 
 protected:
 
@@ -1029,11 +1039,7 @@ public:
 	{
 		ReferencedUniformBufferStructsCache.Empty();
 		GenerateReferencedUniformBuffers(SourceFilename, Name, ShaderFileToUniformBufferVariables, ReferencedUniformBufferStructsCache);
-
-		for (int32 Platform = 0; Platform < SP_NumPlatforms; Platform++)
-		{
-			bCachedUniformBufferStructDeclarations[Platform] = false;
-		}
+		bCachedUniformBufferStructDeclarations = false;
 	}
 
 	void AddToShaderIdMap(FShaderId Id, FShader* Shader)
@@ -1058,6 +1064,9 @@ public:
 		(*GetStreamOutElementsRef)(ElementList, StreamStrides, RasterizedStream);
 	}
 
+	void DumpDebugInfo();
+	void SaveShaderStableKeys(EShaderPlatform TargetShaderPlatform);
+	void GetShaderStableKeyParts(FStableShaderKeyAndValue& SaveKeyVal);
 private:
 	EShaderTypeForDynamicCast ShaderTypeForDynamicCast;
 	uint32 HashIndex;
@@ -1079,15 +1088,6 @@ private:
 	// DumpShaderStats needs to access ShaderIdMap.
 	friend void SHADERCORE_API DumpShaderStats( EShaderPlatform Platform, EShaderFrequency Frequency );
 
-	/** 
-	 * Cache of referenced uniform buffer includes.  
-	 * These are derived from source files so they need to be flushed when editing and recompiling shaders on the fly. 
-	 * FShaderType::Initialize will add an entry for each referenced uniform buffer, but the declarations are added on demand as shaders are compiled.
-	 */
-	TMap<const TCHAR*, FCachedUniformBufferDeclaration> ReferencedUniformBufferStructsCache;
-
-	/** Tracks what platforms ReferencedUniformBufferStructsCache has had declarations cached for. */
-	bool bCachedUniformBufferStructDeclarations[SP_NumPlatforms];
 
 	/** 
 	 * Stores a history of serialization sizes for this shader type. 
@@ -1097,6 +1097,18 @@ private:
 
 	/** Tracks whether serialization history for all shader types has been initialized. */
 	static bool bInitializedSerializationHistory;
+
+protected:
+	/** Tracks what platforms ReferencedUniformBufferStructsCache has had declarations cached for. */
+	bool bCachedUniformBufferStructDeclarations;
+
+	/**
+	* Cache of referenced uniform buffer includes.
+	* These are derived from source files so they need to be flushed when editing and recompiling shaders on the fly.
+	* FShaderType::Initialize will add an entry for each referenced uniform buffer, but the declarations are added on demand as shaders are compiled.
+	*/
+	TMap<const TCHAR*, FCachedUniformBufferDeclaration> ReferencedUniformBufferStructsCache;
+
 };
 
 /**
@@ -1319,7 +1331,7 @@ public:
 		Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
 
 		Ar << Ref.ShaderType;
-		Ar << Ref.SourceHash;
+		Ar << FShaderResource::FilterShaderSourceHashForSerialization(Ar, Ref.SourceHash);
 
 		if (Ar.CustomVer(FRenderingObjectVersion::GUID) >= FRenderingObjectVersion::ShaderPermutationId)
 		{
@@ -1352,7 +1364,7 @@ public:
 	friend FArchive& operator<<(FArchive& Ar, class FShaderPipelineTypeDependency& Ref)
 	{
 		Ar << Ref.ShaderPipelineType;
-		Ar << Ref.StagesSourceHash;
+		Ar << FShaderResource::FilterShaderSourceHashForSerialization(Ar, Ref.StagesSourceHash);
 		return Ar;
 	}
 
@@ -1657,6 +1669,19 @@ public:
 			if (ShaderIt.Value())
 			{
 				OutShaders.Add(ShaderIt.Value()->GetId(), ShaderIt.Value());
+			}
+		}
+	}
+
+	/** Builds a list of the shaders in a shader map. Key is FShaderType::TypeName */
+	void GetShaderList(TMap<FName, FShader*>& OutShaders) const
+	{
+		check(bHasBeenRegistered);
+		for (TMap<FShaderPrimaryKey, TRefCountPtr<FShader> >::TConstIterator ShaderIt(Shaders); ShaderIt; ++ShaderIt)
+		{
+			if (ShaderIt.Value())
+			{
+				OutShaders.Add(ShaderIt.Value()->GetType()->GetFName(), ShaderIt.Value());
 			}
 		}
 	}

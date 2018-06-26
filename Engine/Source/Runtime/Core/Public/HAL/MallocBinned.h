@@ -19,7 +19,7 @@
 #endif
 
 #ifdef USE_INTERNAL_LOCKS
-//#	define USE_COARSE_GRAIN_LOCKS
+//#   define USE_COARSE_GRAIN_LOCKS
 #endif
 
 #if defined USE_LOCKFREE_DELETE

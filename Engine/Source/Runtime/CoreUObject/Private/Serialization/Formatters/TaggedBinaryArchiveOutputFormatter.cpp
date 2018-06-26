@@ -10,7 +10,7 @@ FTaggedBinaryArchiveOutputFormatter::FTaggedBinaryArchiveOutputFormatter(FArchiv
 	, StartOffset(Inner.Tell())
 	, NextRecordIdx(0)
 {
-	Inner.ArIsTextFormat = true;
+	Inner.SetIsTextFormat(true);
 
 	int64 NamesOffset = 0;
 	Inner << NamesOffset;

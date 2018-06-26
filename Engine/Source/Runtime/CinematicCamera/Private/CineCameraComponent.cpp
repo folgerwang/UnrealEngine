@@ -31,6 +31,7 @@ UCineCameraComponent::UCineCameraComponent()
 	LensSettings.MinFStop = 2.f;
 	LensSettings.MaxFStop = 2.f;
 	LensSettings.MinimumFocusDistance = 15.f;
+	LensSettings.DiaphragmBladeCount = FPostProcessSettings::kDefaultDepthOfFieldBladeCount;
 
 #if WITH_EDITORONLY_DATA
 	bTickInEditor = true;
@@ -342,11 +343,14 @@ void UCineCameraComponent::UpdateDebugFocusPlane()
 	{
 		FVector const CamLocation = GetComponentTransform().GetLocation();
 		FVector const CamDir = GetComponentTransform().GetRotation().Vector();
-		FVector const FocusPoint = GetComponentTransform().GetLocation() + CamDir * GetDesiredFocusDistance(CamLocation);
+
+		UWorld const* const World = GetWorld();
+		float const FocusDistance = (World && World->IsGameWorld()) ? CurrentFocusDistance : GetDesiredFocusDistance(CamLocation);		// in editor, use desired focus distance directly, no interp
+		FVector const FocusPoint = GetComponentTransform().GetLocation() + CamDir * FocusDistance;
+
 		DebugFocusPlaneComponent->SetWorldLocation(FocusPoint);
 	}
 }
-
 
 void UCineCameraComponent::UpdateCameraLens(float DeltaTime, FMinimalViewInfo& DesiredView)
 {
@@ -354,6 +358,8 @@ void UCineCameraComponent::UpdateCameraLens(float DeltaTime, FMinimalViewInfo& D
 	{
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldMethod = false;
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldFstop = false;
+		DesiredView.PostProcessSettings.bOverride_DepthOfFieldMinFstop = false;
+		DesiredView.PostProcessSettings.bOverride_DepthOfFieldBladeCount = false;
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldFocalDistance = false;
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldSensorWidth = false;
 	}
@@ -366,6 +372,12 @@ void UCineCameraComponent::UpdateCameraLens(float DeltaTime, FMinimalViewInfo& D
 
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldFstop = true;
 		DesiredView.PostProcessSettings.DepthOfFieldFstop = CurrentAperture;
+
+		DesiredView.PostProcessSettings.bOverride_DepthOfFieldMinFstop = true;
+		DesiredView.PostProcessSettings.DepthOfFieldMinFstop = LensSettings.MinFStop;
+
+		DesiredView.PostProcessSettings.bOverride_DepthOfFieldBladeCount = true;
+		DesiredView.PostProcessSettings.DepthOfFieldBladeCount = LensSettings.DiaphragmBladeCount;
 
 		CurrentFocusDistance = GetDesiredFocusDistance(DesiredView.Location);
 
@@ -407,7 +419,7 @@ void UCineCameraComponent::CreateDebugFocusPlane()
 		{
 			DebugFocusPlaneComponent = NewObject<UStaticMeshComponent>(MyOwner, NAME_None, RF_Transactional | RF_TextExportTransient);
 			DebugFocusPlaneComponent->SetupAttachment(this);
-			DebugFocusPlaneComponent->bIsEditorOnly = true;
+			DebugFocusPlaneComponent->bIsEditorOnly = false;
 			DebugFocusPlaneComponent->SetStaticMesh(FocusPlaneVisualizationMesh);
 			DebugFocusPlaneComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 			DebugFocusPlaneComponent->bHiddenInGame = false;

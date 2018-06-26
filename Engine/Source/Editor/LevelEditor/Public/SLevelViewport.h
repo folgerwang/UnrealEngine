@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -46,7 +46,7 @@ public:
 		SLATE_ARGUMENT( TSharedPtr<FLevelEditorViewportClient>, LevelEditorViewportClient )
 		SLATE_ARGUMENT( ELevelViewportType, ViewportType )
 		SLATE_ARGUMENT( bool, Realtime )
-		SLATE_ARGUMENT( FString, ConfigKey )
+		SLATE_ARGUMENT( FName, ConfigKey )
 	SLATE_END_ARGS()
 
 	SLevelViewport();
@@ -112,6 +112,7 @@ public:
 	virtual void RegisterGameViewportIfPIE() override;
 	virtual bool HasPlayInEditorViewport() const override; 
 	virtual FViewport* GetActiveViewport() override;
+	TSharedPtr<FSceneViewport> GetSharedActiveViewport() const override {return ActiveViewport;};
 	virtual TSharedRef< const SWidget> AsWidget() const override { return AsShared(); }
 	virtual TSharedRef< SWidget> AsWidget() override { return AsShared(); }
 	virtual TWeakPtr< SViewport > GetViewportWidget() override { return ViewportWidget; }
@@ -633,8 +634,6 @@ private:
 	/** Returns true if this viewport is the active viewport and can process UI commands */
 	bool CanProduceActionForCommand(const TSharedRef<const FUICommandInfo>& Command) const;
 
-	void TakeHighResScreenShot();
-
 	/** Called when undo is executed */
 	void OnUndo();
 
@@ -769,7 +768,7 @@ private:
 	FString DeviceProfile;
 
 	/** The current viewport config key */
-	FString ConfigKey;
+	FName ConfigKey;
 
 	/**
 	 * Contains information about an actor being previewed within this viewport

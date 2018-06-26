@@ -162,10 +162,8 @@ void PostfilterMainCS(
 	bool bEarlyReturn = false;
 	#if DIM_TILE_PERMUTATION
 	{
-		const FCocTileTexture2D CocTileTexture = CreateCocTileTexture2D(COC_TILE_LAYOUT_FGD_BGD, PostprocessInput2, PostprocessInput2);
-
 		const uint2 TilePos = GroupId;
-		const FCocTileSample CocTileInfos = LoadCocTile(CocTileTexture, TilePos);
+		const FCocTileSample CocTileInfos = LoadCocTile(COC_TILE_LAYOUT_FGD_BGD, PostprocessInput2, PostprocessInput2, TilePos);
 
 		FGatheringTileSuggestion TileSuggestion = InferGatherTileSuggestion(CocTileInfos,
 			/* LayerProcessing = */ DIM_LAYER_PROCESSING,
@@ -195,14 +193,13 @@ void PostfilterMainCS(
 	}
 	else
 	{
-		Texture2D ForegroundInput = PostprocessInput0;
-		Texture2D BackgroundInput = PostprocessInput1;
 		#if DIM_LAYER_PROCESSING == LAYER_PROCESSING_BACKGROUND_ONLY
-			BackgroundInput = PostprocessInput0;
+			float4 Foreground = 0;
+			float4 Background = PostfilterInput(PostprocessInput0, PostprocessInput0Size.zw, InputBufferUV);
+		#else
+			float4 Foreground = PostfilterInput(PostprocessInput0, PostprocessInput0Size.zw, InputBufferUV);
+			float4 Background = PostfilterInput(PostprocessInput1, PostprocessInput0Size.zw, InputBufferUV);
 		#endif
-
-		float4 Foreground = PostfilterInput(ForegroundInput, PostprocessInput0Size.zw, InputBufferUV);
-		float4 Background = PostfilterInput(BackgroundInput, PostprocessInput0Size.zw, InputBufferUV);
 
 		#if 1 // Lower VGPR footprint.
 			uint2 OutputPixelPosition = InputBufferUV * PostprocessInput0Size.xy;

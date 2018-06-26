@@ -59,7 +59,7 @@ public:
 	virtual bool IsPlayable() const override;
 	virtual void Parse(class FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances) override;
 	virtual float GetMaxDistance() const override;
-	virtual float GetDuration() const override;
+	virtual float GetDuration() override;
 	//~ End USoundBase Interface.
 
 protected:

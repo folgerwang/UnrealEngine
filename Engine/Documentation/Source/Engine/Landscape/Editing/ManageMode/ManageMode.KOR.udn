@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3260884
+﻿INTSourceChangelist:3807090
 Availability: Public
 Title:관리 모드
 Crumbs: %ROOT%, Engine, Engine/Landscape, Engine/Landscape/Editing
@@ -71,11 +71,11 @@ Selection (선택) 툴은 랜드스케이프 컴포넌트를 스트리밍 레벨
 
 선택 커서는 항상 하나의 컴포넌트에 제한됩니다:
 
-![selection_cursor.jpg](Engine/Landscape/Editing/Brushes/selection_cursor.jpg)(w:900 h:453)
+![selection_cursor.jpg](Engine/Landscape/Editing/Brushes/selection_cursor.jpg)(w:900)
 
 컴포넌트가 선택되면, 빨갛게 음영 표시됩니다:
 
-![selection_components.jpg](selection_components.jpg)(w:900 h:453)
+![selection_components.jpg](selection_components.jpg)(w:900)
 
 | 옵션 | 설명 |
 | ------ | ----------- |
@@ -94,11 +94,11 @@ Add (추가) 툴은 현재 랜드스케이프에 대한 컴포넌트를 한 번�
 
 랜드스케이프 컴포넌트 추가 툴이 활성화되면, 새 컴포넌트를 추가할 수 있는 커서 위치에 녹색 와이어프레임이 표시됩니다:
 
-![selection_add_cursor.jpg](selection_add_cursor.jpg)(w:900 h:453)
+![selection_add_cursor.jpg](selection_add_cursor.jpg)(w:900)
 
 툴을 사용하면 커서가 위치한 곳에 새 컴포넌트를 추가합니다:
 
-![selection_add.jpg](selection_add.jpg)(w:900 h:453)
+![selection_add.jpg](selection_add.jpg)(w:900)
 
 
 #### 삭제
@@ -112,11 +112,11 @@ Delete (삭제) 툴은 선택된 컴포넌트를 삭제합니다.
 | **왼쪽 마우스 버튼** | 선택 툴에서 선택한 컴포넌트를 삭제합니다. 현재 선택된 컴포넌트가 없으면, 마우스 커서를 움직여 커서 아래 강조된 컴포넌트를 삭제합니다. |
 
 
-![selection_remove_cursor.jpg](selection_remove_cursor.jpg)(w:900 h:453)
+![selection_remove_cursor.jpg](selection_remove_cursor.jpg)(w:900)
 
 툴을 사용하면 선택된 컴포넌트를 제거합니다:
 
-![selection_remove.jpg](selection_remove.jpg)(w:900 h:453)
+![selection_remove.jpg](selection_remove.jpg)(w:900)
 
 [REGION:note]
 플레이어가 들어갈 수 있는 영역에 대해 보다 세밀한 제어를 위해서는, [](Engine/Landscape/Materials) 문서를 참고하시기 바랍니다.
@@ -130,11 +130,11 @@ Move Level (레벨 이동) 툴은, 선택 툴을 사용해서 선택된 컴포�
 
 스트리밍 레벨이 표시되면, 랜드스케이프는 모든 컴포넌트를 렌더링합니다:
 
-![selection_movestream_visible.jpg](selection_movestream_visible.jpg)(w:900 h:453)
+![selection_movestream_visible.jpg](selection_movestream_visible.jpg)(w:900)
 
 레벨의 표시여부는 (레벨 에디터의 **Window** (창) 메뉴로 열 수 있는) **Levels** (레벨) 창에서 해당 레벨의 눈 모양 (![Level Window Eye Icon](icon_Landscape_LevelWindowEye.png)) 아이콘을 클릭하여 토글시킬 수 있습니다. 그렇게 하면 해당 레벨의 컴포넌트가 더이상 렌더링되지 않습니다:
 
-![selection_movestream_invisible.jpg](selection_movestream_invisible.jpg)(w:900 h:453)
+![selection_movestream_invisible.jpg](selection_movestream_invisible.jpg)(w:900)
 
 
 #### 컴포넌트 크기 변경

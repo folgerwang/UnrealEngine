@@ -938,17 +938,6 @@ public class IOSPlatform : Platform
 			}
 		}
 
-		// Per-project, per-platform setting to skip all movies. By default this is false.
-		bool bSkipMovies = false;
-		ConfigHierarchy PlatformGameIniConfig = ConfigCache.ReadHierarchy(ConfigHierarchyType.Game, DirectoryReference.FromFile(Params.RawProjectPath), SC.StageTargetPlatform.IniPlatformType);
-		PlatformGameIniConfig.GetBool("/Script/UnrealEd.ProjectPackagingSettings", "bSkipMovies", out bSkipMovies);
-
-		if (!bSkipMovies)
-        {
-            StageMovieFiles(DirectoryReference.Combine(SC.EngineRoot, "Content", "Movies"), SC);
-			StageMovieFiles(DirectoryReference.Combine(SC.ProjectRoot, "Content", "Movies"), SC);
-        }
-
 		{
 			// Stage any *.metallib files as NonUFS.
 			// Get the final output directory for cooked data
@@ -965,10 +954,13 @@ public class IOSPlatform : Platform
 			{
 				CookOutputDir = DirectoryReference.Combine(SC.ProjectRoot, "Saved", "Cooked", SC.CookPlatform);
 			}
-			List<FileReference> CookedFiles = DirectoryReference.EnumerateFiles(CookOutputDir, "*.metallib", SearchOption.AllDirectories).ToList();
-			foreach(FileReference CookedFile in CookedFiles)
+			if (DirectoryReference.Exists(CookOutputDir))
 			{
-				SC.StageFile(StagedFileType.NonUFS, CookedFile, new StagedFileReference(CookedFile.MakeRelativeTo(CookOutputDir)));
+				List<FileReference> CookedFiles = DirectoryReference.EnumerateFiles(CookOutputDir, "*.metallib", SearchOption.AllDirectories).ToList();
+				foreach (FileReference CookedFile in CookedFiles)
+				{
+					SC.StageFile(StagedFileType.NonUFS, CookedFile, new StagedFileReference(CookedFile.MakeRelativeTo(CookOutputDir)));
+				}
 			}
 		}
     }
@@ -1026,8 +1018,22 @@ public class IOSPlatform : Platform
 			}
 		}
 	}
+	protected void StageMovieFile(DirectoryReference InputDir, string Filename, DeploymentContext SC)
+	{
+		if (DirectoryReference.Exists(InputDir))
+		{
+			foreach (FileReference InputFile in DirectoryReference.EnumerateFiles(InputDir, "*", SearchOption.AllDirectories))
+			{
 
-    public override void GetFilesToArchive(ProjectParams Params, DeploymentContext SC)
+				if (!InputFile.HasExtension(".uasset") && !InputFile.HasExtension(".umap") && InputFile.GetFileNameWithoutExtension().Contains(Filename))
+				{
+					SC.StageFile(StagedFileType.NonUFS, InputFile);
+				}
+			}
+		}
+	}
+
+	public override void GetFilesToArchive(ProjectParams Params, DeploymentContext SC)
 	{
 		if (SC.StageTargetConfigurations.Count != 1)
 		{
@@ -1337,8 +1343,15 @@ public class IOSPlatform : Platform
 		}
 		if (Params.IterativeDeploy)
 		{
+			string SrcSanitizedDeltaFileName = SC.GetUFSDeploymentDeltaPath(Params.Devices.Count == 0 ? "" : Params.DeviceNames[0]);
+
+			string NoPathDstSanitizedDeltaFileName = DeploymentContext.UFSDeployDeltaFileName + SC.GetSanitizedDeviceName((Params.Devices.Count == 0 ? "" : Params.DeviceNames[0]));
+			string DstLocatedDeltaFileName = CombinePaths(Params.BaseStageDirectory, PlatformName, NoPathDstSanitizedDeltaFileName);
+
+			InternalUtils.SafeCopyFile(SrcSanitizedDeltaFileName, DstLocatedDeltaFileName, true);
+
 			// push over the changed files
-			RunAndLog(CmdEnv, DeployServer, "Deploy -manifest \"" + CombinePaths(Params.BaseStageDirectory, PlatformName, DeploymentContext.UFSDeployDeltaFileName + (Params.Devices.Count == 0 ? "" : Params.DeviceNames[0])) + "\"" + (Params.Devices.Count == 0 ? "" : " -device " + Params.DeviceNames[0]) + AdditionalCommandline + " -bundle " + BundleIdentifier);
+			RunAndLog(CmdEnv, DeployServer, "Deploy -manifest \"" + DstLocatedDeltaFileName + "\"" + (Params.Devices.Count == 0 ? "" : " -device " + Params.DeviceNames[0]) + AdditionalCommandline + " -bundle " + BundleIdentifier);
 		}
 		Directory.SetCurrentDirectory (CurrentDir);
         PrintRunTime();
@@ -1696,11 +1709,6 @@ public class IOSPlatform : Platform
 			// generate the OnDemandResources.plist
 			GenerateOnDemandResourcesPlist (ChunkData, SC.StageDirectory.FullName);
 		}*/
-	}
-
-	public override bool StageMovies
-	{
-		get { return false; }
 	}
 
 	public override bool RequiresPackageToDeploy

@@ -379,7 +379,8 @@ void FStaticParameterSet::AppendKeyString(FString& KeyString) const
 		const FStaticTerrainLayerWeightParameter& TerrainLayerWeightParameter = TerrainLayerWeightParameters[ParamIndex];
 		KeyString += TerrainLayerWeightParameter.ParameterInfo.ToString() 
 			+ TerrainLayerWeightParameter.ExpressionGUID.ToString() 
-			+ FString::FromInt(TerrainLayerWeightParameter.WeightmapIndex);
+			+ FString::FromInt(TerrainLayerWeightParameter.WeightmapIndex)
+			+ (TerrainLayerWeightParameter.bWeightBasedBlend ? TEXT("W") : TEXT("N"));
 	}
 
 	for (int32 ParamIndex = 0;ParamIndex < MaterialLayersParameters.Num();ParamIndex++)
@@ -677,6 +678,25 @@ void FMaterialShaderMapId::UpdateParameterSet(const FStaticParameterSet& StaticP
 {
 	ParameterSet = StaticParameters;
 
+	//since bOverrides aren't used to check id matches, make sure they're consistently set to false in the static parameter set as part of the id.
+	//this ensures deterministic cook results, rather than allowing bOverride to be set in the shader map's copy of the id based on the first id used.
+	for (FStaticSwitchParameter& StaticSwitchParameter : ParameterSet.StaticSwitchParameters)
+	{
+		StaticSwitchParameter.bOverride = false;
+	}
+	for (FStaticComponentMaskParameter& StaticComponentMaskParameter : ParameterSet.StaticComponentMaskParameters)
+	{
+		StaticComponentMaskParameter.bOverride = false;
+	}
+	for (FStaticTerrainLayerWeightParameter& StaticTerrainLayerWeightParameter : ParameterSet.TerrainLayerWeightParameters)
+	{
+		StaticTerrainLayerWeightParameter.bOverride = false;
+	}
+	for (FStaticMaterialLayersParameter& StaticMaterialLayersParameter : ParameterSet.MaterialLayersParameters)
+	{
+		StaticMaterialLayersParameter.bOverride = false;
+	}
+
 	// We can't store the objects referenced by layers so we re-use the DDC key as an identifier
 	ParameterSetLayerParametersKey.Empty();
 	for (const FStaticMaterialLayersParameter& LayersParam : ParameterSet.MaterialLayersParameters)
@@ -850,6 +870,8 @@ FShaderCompileJob* FMaterialShaderType::BeginCompileShader(
 
 	//update material shader stats
 	UpdateMaterialShaderCompilingStats(Material);
+
+	Material->SetupExtaCompilationSettings(Platform, NewJob->Input.ExtraSettings);
 
 	// Allow the shader type to modify the compile environment.
 	SetupCompileEnvironment(Platform, Material, ShaderEnvironment);
@@ -1641,6 +1663,11 @@ FShader* FMaterialShaderMap::ProcessCompilationResultsForSingleJob(FShaderCompil
 		}
 	}
 
+#if WITH_EDITOR
+	// add shader source to 
+	ShaderProcessedSource.Add(CurrentJob.ShaderType->GetFName(), CurrentJob.Output.OptionalFinalShaderSource);
+#endif
+
 	return Shader;
 }
 
@@ -2032,10 +2059,27 @@ void FMaterialShaderMap::LoadMissingShadersFromMemory(const FMaterial* Material)
 	}
 }
 
+#if WITH_EDITOR
+const FString* FMaterialShaderMap::GetShaderSource(const FName ShaderTypeName) const
+{
+	const FString* Source = ShaderProcessedSource.Find(ShaderTypeName);
+	return Source;
+}
+#endif
+
 void FMaterialShaderMap::GetShaderList(TMap<FShaderId, FShader*>& OutShaders) const
 {
 	TShaderMap<FMaterialShaderType>::GetShaderList(OutShaders);
 	for(int32 Index = 0;Index < MeshShaderMaps.Num();Index++)
+	{
+		MeshShaderMaps[Index].GetShaderList(OutShaders);
+	}
+}
+
+void FMaterialShaderMap::GetShaderList(TMap<FName, FShader*>& OutShaders) const
+{
+	TShaderMap<FMaterialShaderType>::GetShaderList(OutShaders);
+	for (int32 Index = 0; Index < MeshShaderMaps.Num(); Index++)
 	{
 		MeshShaderMaps[Index].GetShaderList(OutShaders);
 	}
@@ -2279,6 +2323,22 @@ void FMaterialShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources)
 				MeshShaderMap->SerializeInline(Ar, bInlineShaderResources, false);
 			}
 		}
+
+		bool bCooking = Ar.IsCooking();
+		Ar << bCooking;
+
+#if WITH_EDITOR
+		if (!bCooking)
+		{
+			int32 NrShaderSources = ShaderProcessedSource.Num();
+			Ar << NrShaderSources;
+			for (auto SourceEntry : ShaderProcessedSource)
+			{
+				Ar << SourceEntry.Key;
+				Ar << SourceEntry.Value;
+			}
+		}
+#endif
 	}
 
 	if (Ar.IsLoading())
@@ -2319,6 +2379,28 @@ void FMaterialShaderMap::Serialize(FArchive& Ar, bool bInlineShaderResources)
 			check(MeshShaderMap);
 			MeshShaderMap->SerializeInline(Ar, bInlineShaderResources, false);
 		}
+
+		bool bCooked;
+		Ar << bCooked;
+
+#if WITH_EDITOR
+		if (!bCooked)
+		{
+			int32 NrShaderSources = 0;
+			Ar << NrShaderSources;
+
+			ShaderProcessedSource.Empty();
+			FString ShaderSourceSrc;
+			FName ShaderName;
+			for (int32 i = 0; i < NrShaderSources; ++i)
+			{
+				Ar << ShaderName;
+				Ar << ShaderSourceSrc;
+
+				ShaderProcessedSource.Add(ShaderName, ShaderSourceSrc);
+			}
+		}
+#endif
 	}
 }
 
@@ -2440,6 +2522,42 @@ void FMaterialShaderMap::InitOrderedMeshShaderMaps()
 		OrderedMeshShaderMaps[VFIndex] = &MeshShaderMaps[Index];
 	}
 }
+
+void FMaterialShaderMap::DumpDebugInfo()
+{
+	const FString& FriendlyNameS = GetFriendlyName();
+	UE_LOG(LogConsoleResponse, Display, TEXT("FMaterialShaderMap:  FriendlyName %s"), *FriendlyNameS);
+	const FString& DebugDescriptionS = GetDebugDescription();
+	UE_LOG(LogConsoleResponse, Display, TEXT("  DebugDescription %s"), *DebugDescriptionS);
+
+	TMap<FShaderId, FShader*> ShadersL;
+	GetShaderList(ShadersL);
+	UE_LOG(LogConsoleResponse, Display, TEXT("  --- %d shaders"), ShadersL.Num());
+	int32 Index = 0;
+	for (auto& KeyValue : ShadersL)
+	{
+		UE_LOG(LogConsoleResponse, Display, TEXT("    --- shader %d"), Index);
+		FShader* Shader = KeyValue.Value;
+		Shader->DumpDebugInfo();
+		Index++;
+	}
+	//TArray<FShaderPipeline*> ShaderPipelinesL;
+	//GetShaderPipelineList(ShaderPipelinesL);
+}
+
+void FMaterialShaderMap::SaveShaderStableKeys(EShaderPlatform TargetShaderPlatform, const FStableShaderKeyAndValue& SaveKeyVal)
+{
+#if WITH_EDITOR
+	TMap<FShaderId, FShader*> ShadersL;
+	GetShaderList(ShadersL);
+	for (auto& KeyValue : ShadersL)
+	{
+		FShader* Shader = KeyValue.Value;
+		Shader->SaveShaderStableKeys(TargetShaderPlatform, SaveKeyVal);
+	}
+#endif
+}
+
 
 /**
  * Dump material stats for a given platform.

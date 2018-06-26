@@ -225,16 +225,13 @@ void FClothingSimulationNv::CreateActor(USkeletalMeshComponent* InOwnerComponent
 	// Pull collisions from the specified physics asset inside the clothing asset
 	ExtractActorCollisions(Asset, NewActor);
 
-	// Always start at zero, we'll pick up the right one before we simulate on the first tick
-	CurrentMeshLodIndex = 0;
-	NewActor.CurrentLodIndex = 0;
+	// Invalid indices so the call to UpdateLod runs all the correct logic as if our LOD just changed.
+	CurrentMeshLodIndex = INDEX_NONE;
+	NewActor.CurrentLodIndex = INDEX_NONE;
 
-	check(NewActor.LodData.IsValidIndex(0));
-
-	Solver->addCloth(NewActor.LodData[0].Cloth);
-
-	// Force update LODs so we're in the correct state now
-	UpdateLod(InOwnerComponent->PredictedLODLevel, InOwnerComponent->GetComponentTransform(), InOwnerComponent->GetComponentSpaceTransforms(), true);
+	// Force update LODs so we're in the correct state now, need to resolve MPC if one is present
+	USkinnedMeshComponent* TransformComponent = InOwnerComponent->MasterPoseComponent.IsValid() ? InOwnerComponent->MasterPoseComponent.Get() : InOwnerComponent;
+	UpdateLod(InOwnerComponent->PredictedLODLevel, InOwnerComponent->GetComponentTransform(), TransformComponent->GetComponentSpaceTransforms(), true);
 
 	// Compute normals for all active actors for first frame
 	for(FClothingActorNv& Actor : Actors)
@@ -558,6 +555,15 @@ void FClothingSimulationNv::Simulate(IClothingSimulationContext* InContext)
 
 		// Push the component position into the actor, this will set up the forces in local space to simulate the movement
 		FTransform RootBoneWorldTransform = RootBoneTransform * NvContext->ComponentToWorld;
+
+		if(bTeleport)
+		{
+			// Due to how NvCloth handles teleports we normally lose the velocity on a teleport. Here we instead teleport to the new location minus one step
+			// of velocity integration, which will preserve the velocity and help us to avoid pops.
+			CurrentCloth->teleportToLocation(U2PVector(RootBoneWorldTransform.GetTranslation()), U2PQuat(RootBoneWorldTransform.GetRotation()));
+			CurrentCloth->ignoreVelocityDiscontinuity();
+		}
+
 		CurrentCloth->setTranslation(U2PVector(RootBoneWorldTransform.GetTranslation()));
 		CurrentCloth->setRotation(U2PQuat(RootBoneWorldTransform.GetRotation()));
 
@@ -568,11 +574,6 @@ void FClothingSimulationNv::Simulate(IClothingSimulationContext* InContext)
 		else
 		{
 			CurrentCloth->setGravity(U2PVector(Actor.AssetCreatedFrom->ClothConfig.GravityScale * NvContext->WorldGravity));
-		}
-
-		if(bTeleport)
-		{
-			CurrentCloth->clearInertia();
 		}
 
 		Actor.UpdateMotionConstraints(NvContext);
@@ -651,6 +652,11 @@ void FClothingSimulationNv::Simulate(IClothingSimulationContext* InContext)
 
 		Actor.UpdateWind(NvContext, NvContext->WindVelocity);
 		Actor.UpdateAnimDrive(NvContext);
+
+		// Cache this frames velocity for teleport resolution
+		Actor.LastVelocity = NvContext->DeltaSeconds > 0.0f ? (RootBoneWorldTransform.GetTranslation() - Actor.LastRootTransform.GetTranslation()) / NvContext->DeltaSeconds : FVector(0.0f, 0.0f, 0.0f);
+		// Cache the last root bone transform
+		Actor.LastRootTransform = RootBoneWorldTransform;
 	}
 
 	// Sim
@@ -812,6 +818,7 @@ void FClothingSimulationNv::GetSimulationData(TMap<int32, FClothSimulData>& OutD
 			ClothData.Reset();
 			
 			ClothData.Transform = RootBoneTransform;
+			ClothData.ComponentRelativeTransform = RootBoneTransform.GetRelativeTransform(OwnerTransform);
 
 			nv::cloth::MappedRange<physx::PxVec4> Particles = Actor.LodData[CurrentClothingLod].Cloth->getCurrentParticles();
 			for(uint32 ParticleIdx = 0; ParticleIdx < NumParticles; ++ParticleIdx)
@@ -898,6 +905,20 @@ FBoxSphereBounds FClothingSimulationNv::GetBounds(const USkeletalMeshComponent* 
 
 	const bool bUsingMaster = InOwnerComponent->MasterPoseComponent.IsValid();
 	const USkinnedMeshComponent* ActualComponent = bUsingMaster ? InOwnerComponent->MasterPoseComponent.Get() : InOwnerComponent;
+
+	const TArray<FTransform>& CSTransforms = ActualComponent->GetComponentSpaceTransforms();
+
+	if(CSTransforms.Num() == 0)
+	{
+		const bool bRegistered = ActualComponent->IsRegistered();
+		FString ComponentName = ActualComponent->GetName();
+		USkeletalMesh* CurrentMesh = ActualComponent->SkeletalMesh;
+		FString MeshName = CurrentMesh ? CurrentMesh->GetName() : FString(TEXT("No Mesh"));
+
+		UE_LOG(LogSkeletalMesh, Warning, TEXT("Attempted to calculate clothing bounds for a skeletal mesh that has no component transforms. Registered=%s, Component=%s, Mesh=%s"), bRegistered ? TEXT("True") : TEXT("False"), *ComponentName, *MeshName);
+
+		return CurrentBounds;
+	}
 
 	for(const FClothingActorNv& Actor : Actors)
 	{
@@ -1474,6 +1495,8 @@ FClothingActorNv::FClothingActorNv()
 	, CurrentAnimDriveDamperStiffness(0.0f)
 	, bUseGravityOverride(false)
 	, GravityOverride(0.0f, 0.0f, 0.0f)
+	, LastVelocity(FVector::ZeroVector)
+	, LastRootTransform(FTransform::Identity)
 	, CurrentLodIndex(INDEX_NONE)
 	, bCollisionsDirty(true)
 	, SimDataIndex(INDEX_NONE)
@@ -1481,7 +1504,7 @@ FClothingActorNv::FClothingActorNv()
 	, CurrentSkinnedPositionIndex(0)
 	, PreviousTimestep(0.0f)
 {
-
+	
 }
 
 void FClothingActorNv::SkinPhysicsMesh(FClothingSimulationContextNv* InContext)

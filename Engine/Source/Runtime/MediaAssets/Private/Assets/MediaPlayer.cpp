@@ -41,7 +41,8 @@ UMediaPlayer::UMediaPlayer(const FObjectInitializer& ObjectInitializer)
 	, ViewRotation(FRotator::ZeroRotator)
 	, PlayerGuid(FGuid::NewGuid())
 	, PlayOnNext(false)
-#if WITH_EDITOR
+#if WITH_EDITORONLY_DATA
+	, AffectedByPIEHandling(true)
 	, WasPlayingInPIE(false)
 #endif
 {
@@ -564,6 +565,12 @@ bool UMediaPlayer::SetRate(float Rate)
 {
 	UE_LOG(LogMediaAssets, Verbose, TEXT("%s.SetRate %f"), *GetFName().ToString(), Rate);
 	return PlayerFacade->SetRate(Rate);
+}
+
+
+bool UMediaPlayer::SetNativeVolume(float Volume)
+{
+	return PlayerFacade->SetNativeVolume(Volume);
 }
 
 

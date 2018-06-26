@@ -1,48 +1,10 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:指向性ライト
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows, Engine/Rendering/LightingAndShadows/LightTypes
 Description:指向性ライトの基礎
 Version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/LightTypes/Directional:title%](DirectionalLight_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightTypes/Directional:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightTypes/Directional:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightTypes/Directional]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/LightTypes/Directional:title%](DirectionalLight_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightTypes/Directional:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightTypes/Directional:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightTypes/Directional]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:DirectionalLight_Topic.png
 
 [REGION:fullwidth raw]
 ![](Directional_LightHeader.png)
@@ -55,26 +17,11 @@ Version:4.9
 [EXCERPT:Intro]
 DirectionalLight (指向性ライト) は、はるか遠くにある光源から放出されるライトをシミュレートします。つまりこのライトからキャストされるシャドウは全て平行になるため、太陽光のシミュレーションに理想的な選択肢です。指向性ライトを配置する場合、以下の 3 つの可動設定のいずれかを設定できます。
 
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](Directional_LightStationary.png)(w:150 convert:false)
-	[/PARAM]
-	[PARAM:description]
-	**Static (静的)** - (左の画像) ゲーム中のライトの変更が不可能です。これは、最速のレンダリング方法であり、焼き付けたライティングを可能にします。
+* **Static (静的)** - (左の画像) ゲーム中のライトの変更が不可能です。これは、最速のレンダリング方法であり、焼き付けたライティングを可能にします。
+* **Stationary (固定)** - (同じく左の画像) ライトは **Lightmass** で焼き付けられた静的ジオメトリからのシャドウイングと反射光のみを持ちます。この設定により、ゲーム中にライトのカラーと強度を変更することが可能となりますが、移動および部分的なライトの焼付けはできません。 
+* **Moveable (可動)** - (左の図) ライトは完全に動的であり、動的シャドウイングが可能です。レンダリングは最も遅くなりますが、ゲームプレイ中は一番柔軟性があります。 
 
-	**Stationary (固定)** - (同じく左の画像) ライトは **Lightmass** で焼き付けられた静的ジオメトリからのシャドウイングと反射光のみを持ちます。この設定により、ゲーム中にライトのカラーと強度を変更することが可能となりますが、移動および部分的なライトの焼付けはできません。 
-	[/PARAM]
-[/OBJECT]
 [/EXCERPT:Intro]
-
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](Directional_LightMove.png)(w:150 convert:false)
-	[/PARAM]
-	[PARAM:description]
-	**Moveable (可動)** - (左の図) ライトは完全に動的であり、動的シャドウイングが可能です。レンダリングは最も遅くなりますが、ゲームプレイ中は一番柔軟性があります。 
-	[/PARAM]
-[/OBJECT]
 
 下図で、天井の空いた部分から日光がキャストされていることが分かります。 
 
@@ -97,15 +44,7 @@ DirectionalLight (指向性ライト) は、はるか遠くにある光源から
 
 図の左側はライトのみ、右側は **シャドウ視錘台** を有効にして指向性ライトが平行光線をキャストしているのがわかります。 
 
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](Light_Direction.png)(w:100 convert:false)
-	[/PARAM]
-	[PARAM:description]
-	**Light Direction** (左の図) の矢印は、ライトが放射する方向を示しています。必要に応じてライトを配置したり向きを決める場合に便利です。
-	[/PARAM]
-[/OBJECT]
-
+**Light Direction** (左の図) の矢印は、ライトが放射する方向を示しています。必要に応じてライトを配置したり向きを決める場合に便利です。
 
 ## 指向性ライトのプロパティ
 

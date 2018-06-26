@@ -69,6 +69,7 @@ public:
 		, _OnCursorMoved()
 		, _ContextMenuExtender()
 		, _ModiferKeyForNewLine(EModifierKey::None)
+		, _VirtualKeyboardOptions( FVirtualKeyboardOptions() )
 		, _VirtualKeyboardTrigger(EVirtualKeyboardTrigger::OnFocusByPointer)
 		, _VirtualKeyboardDismissAction(EVirtualKeyboardDismissAction::TextChangeOnDismiss)
 		, _TextShapingMethod()
@@ -182,6 +183,9 @@ public:
 
 		/** The optional modifier key necessary to create a newline when typing into the editor. */
 		SLATE_ARGUMENT(EModifierKey::Type, ModiferKeyForNewLine)
+
+		/** Additional options for the virtual keyboard used by this widget */
+		SLATE_ARGUMENT(FVirtualKeyboardOptions, VirtualKeyboardOptions)
 
 		/** The type of event that will trigger the display of the virtual keyboard */
 		SLATE_ATTRIBUTE(EVirtualKeyboardTrigger, VirtualKeyboardTrigger)
@@ -428,6 +432,7 @@ protected:
 	virtual bool CanTypeCharacter(const TCHAR InChar) const override;
 	virtual void EnsureActiveTick() override;
 	virtual EKeyboardType GetVirtualKeyboardType() const override;
+	virtual FVirtualKeyboardOptions GetVirtualKeyboardOptions() const override;
 	virtual EVirtualKeyboardTrigger GetVirtualKeyboardTrigger() const override;
 	virtual EVirtualKeyboardDismissAction GetVirtualKeyboardDismissAction() const override;
 	virtual TSharedRef<SWidget> GetSlateWidget() override;
@@ -515,6 +520,9 @@ protected:
 
 	/** Callback delegate to have first chance handling of the OnKeyDown event */
 	FOnKeyDown OnKeyDownHandler;
+
+	/** Options to use for the virtual keyboard summoned by this widget */
+	FVirtualKeyboardOptions VirtualKeyboardOptions;
 
 	/** The type of event that will trigger the display of the virtual keyboard */
 	TAttribute<EVirtualKeyboardTrigger> VirtualKeyboardTrigger;

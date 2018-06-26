@@ -6,12 +6,11 @@
 #include "Containers/Array.h"
 #include "Templates/SharedPointer.h"
 #include "UObject/WeakObjectPtr.h"
-#include "Channels/MovieSceneChannelHandle.h"
-#include "FrameNumber.h"
+#include "Channels/MovieSceneChannelProxy.h"
+#include "Misc/FrameNumber.h"
 
 struct FKeyHandle;
 struct FKeyDrawParams;
-struct FMovieSceneChannelEntry;
 struct FSequencerPasteEnvironment;
 struct FMovieSceneClipboardEnvironment;
 
@@ -27,17 +26,21 @@ class FMovieSceneClipboardKeyTrack;
 class FTrackInstancePropertyBindings;
 
 /** Utility struct representing a number of selected keys on a single channel */
-template<typename ChannelType>
-struct TChannelAndHandles
+struct FExtendKeyMenuParams
 {
+	/** The section on which the channel resides */
 	TWeakObjectPtr<UMovieSceneSection> Section;
-	TMovieSceneChannelHandle<ChannelType> Channel;
+
+	/** The channel on which the keys reside */
+	FMovieSceneChannelHandle Channel;
+
+	/** An array of key handles to operante on */
 	TArray<FKeyHandle> Handles;
 };
 
 /**
- * Abstract interface that defines all sequencer interactions with any channel type
- * Channels are stored internally as void*, so a single interface should be registered for each channel type.
+ * Abstract interface that defines all sequencer interactions for any channel type
+ * Channels are stored internally as FMovieSceneChannel*, with this interface providing a common set of operations for all channels through a safe cast from the FMovieSceneChannel*.
  * Implementations are found in TSequencerChanelInterface which calls overloaded free functions for each channel.
  */
 struct ISequencerChannelInterface
@@ -45,69 +48,17 @@ struct ISequencerChannelInterface
 	virtual ~ISequencerChannelInterface() {}
 
 	/**
-	 * Add (or update) a key to the specified channel using it's current value at that time, or some external value specified by the specialized editor data
+	 * Add (or update) a key to the specified channel using it's current value at that time, or some external value specified by the extended editor data
 	 *
 	 * @param Channel               The channel to add a key to
-	 * @param SpecializedEditorData A pointer to the specialized editor data for this channel of type TMovieSceneChannelTraits<>::EditorDataType
+	 * @param ExtendedEditorData    A pointer to the extended editor data for this channel of type TMovieSceneChannelTraits<>::ExtendedEditorDataType
 	 * @param InTime                The time at which to add a key
 	 * @param InSequencer           The currently active sequencer
 	 * @param ObjectBindingID       The object binding ID for the track that this channel resides within
 	 * @param PropertyBindings      (Optional) Property bindings where this channel exists on a property track
 	 * @return A handle to the new or updated key
 	 */
-	virtual FKeyHandle AddOrUpdateKey_Raw(void* Channel, const void* SpecializedEditorData, FFrameNumber InTime, ISequencer& InSequencer, const FGuid& ObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings) const = 0;
-
-	/**
-	 * Check whether any of the specified channels have any keys
-	 *
-	 * @return true if so, false otherwise
-	 */
-	virtual bool HasAnyKeys_Raw(TArrayView<void* const> Ptrs) const = 0;
-
-	/**
-	 * Get key information pertaining to all keys that exist within the specified range
-	 *
-	 * @param Channel               The channel to query
-	 * @param WithinRange           The range within which to return key information
-	 * @param OutKeyTimes           (Optional) Array to receive key times
-	 * @param OutKeyHandles         (Optional) Array to receive key handles
-	 */
-	virtual void GetKeys_Raw(void* InChannel, const TRange<FFrameNumber>& WithinRange, TArray<FFrameNumber>* OutKeyTimes, TArray<FKeyHandle>* OutKeyHandles) const = 0;
-
-	/**
-	 * Get all key times for the specified key handles
-	 *
-	 * @param Channel               The channel to query
-	 * @param InHandles             Array of handles to get times for
-	 * @param OutKeyTimes           Pre-sized array of key times to set. Invalid key handles will not assign to this array. Must match size of InHandles
-	 */
-	virtual void GetKeyTimes_Raw(void* InChannel, TArrayView<const FKeyHandle> InHandles, TArrayView<FFrameNumber> OutKeyTimes) const = 0;
-
-	/**
-	 * Set key times for the specified key handles
-	 *
-	 * @param Channel               The channel to query
-	 * @param InHandles             Array of handles to get times for
-	 * @param InKeyTimes            Array of times to apply - one per handle
-	 */
-	virtual void SetKeyTimes_Raw(void* InChannel, TArrayView<const FKeyHandle> InHandles, TArrayView<const FFrameNumber> InKeyTimes) const = 0;
-
-	/**
-	 * Duplicate the keys for the specified key handles
-	 *
-	 * @param Channel               The channel to query
-	 * @param InHandles             Array of handles to duplicate
-	 * @param OutKeyTimes           Pre-sized array to receive duplicated key handles. Invalid key handles will not be assigned to this array. Must match size of InHandles
-	 */
-	virtual void DuplicateKeys_Raw(void* InChannel, TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyHandle> OutNewHandles) const = 0;
-
-	/**
-	 * Delete the keys for the specified key handles
-	 *
-	 * @param Channel               The channel to query
-	 * @param InHandles             Array of handles to delete
-	 */
-	virtual void DeleteKeys_Raw(void* InChannel, TArrayView<const FKeyHandle> InHandles) const = 0;
+	virtual FKeyHandle AddOrUpdateKey_Raw(FMovieSceneChannel* Channel, const void* ExtendedEditorData, FFrameNumber InTime, ISequencer& InSequencer, const FGuid& ObjectBindingID, FTrackInstancePropertyBindings* PropertyBindings) const = 0;
 
 	/**
 	 * Copy all the keys specified in KeyMask to the specified clipboard
@@ -118,7 +69,7 @@ struct ISequencerChannelInterface
 	 * @param ClipboardBuilder      The structure responsible for building clipboard information for each key
 	 * @param KeyMask               A specific set of keys to copy
 	 */
-	virtual void CopyKeys_Raw(void* Channel, const UMovieSceneSection* Section, FName KeyAreaName, FMovieSceneClipboardBuilder& ClipboardBuilder, TArrayView<const FKeyHandle> KeyMask) const = 0;
+	virtual void CopyKeys_Raw(FMovieSceneChannel* Channel, const UMovieSceneSection* Section, FName KeyAreaName, FMovieSceneClipboardBuilder& ClipboardBuilder, TArrayView<const FKeyHandle> KeyMask) const = 0;
 
 	/**
 	 * Paste the specified key track into the specified channel
@@ -130,7 +81,7 @@ struct ISequencerChannelInterface
 	 * @param DstEnvironment        The environment we're pasting into
 	 * @param OutPastedKeys         Array to receive key handles for any pasted keys
 	 */
-	virtual void PasteKeys_Raw(void* Channel, UMovieSceneSection* Section, const FMovieSceneClipboardKeyTrack& KeyTrack, const FMovieSceneClipboardEnvironment& SrcEnvironment, const FSequencerPasteEnvironment& DstEnvironment, TArray<FKeyHandle>& OutPastedKeys) const = 0;
+	virtual void PasteKeys_Raw(FMovieSceneChannel* Channel, UMovieSceneSection* Section, const FMovieSceneClipboardKeyTrack& KeyTrack, const FMovieSceneClipboardEnvironment& SrcEnvironment, const FSequencerPasteEnvironment& DstEnvironment, TArray<FKeyHandle>& OutPastedKeys) const = 0;
 
 	/**
 	 * Get an editable key struct for the specified key
@@ -139,7 +90,7 @@ struct ISequencerChannelInterface
 	 * @param KeyHandle             Handle of the key to get
 	 * @return A shared editable key struct
 	 */
-	virtual TSharedPtr<FStructOnScope> GetKeyStruct_Raw(TMovieSceneChannelHandle<void> Channel, FKeyHandle KeyHandle) const = 0;
+	virtual TSharedPtr<FStructOnScope> GetKeyStruct_Raw(FMovieSceneChannelHandle Channel, FKeyHandle KeyHandle) const = 0;
 
 	/**
 	 * Check whether an editor on the sequencer node tree can be created for the specified channel
@@ -147,20 +98,19 @@ struct ISequencerChannelInterface
 	 * @param Channel               The channel to check
 	 * @return true if a key editor should be constructed, false otherwise
 	 */
-	virtual bool CanCreateKeyEditor_Raw(void* Channel) const = 0;
+	virtual bool CanCreateKeyEditor_Raw(const FMovieSceneChannel* Channel) const = 0;
 
 	/**
 	 * Create an editor on the sequencer node tree
 	 *
-	 * @param Channel               The channel to check
-	 * @param SpecializedEditorData A pointer to the specialized editor data for this channel of type TMovieSceneChannelTraits<>::EditorDataType
+	 * @param Channel               The channel handle to create a key editor for
 	 * @param Section               The section that owns this channel
 	 * @param InObjectBindingID     The ID of the object this key area's track is bound to
 	 * @param PropertyBindings      (Optional) Property bindings where this channel exists on a property track
 	 * @param Sequencer             The currently active sequencer
 	 * @return The editor widget to display on the node tree
 	 */
-	virtual TSharedRef<SWidget> CreateKeyEditor_Raw(void* Channel, const void* SpecializedEditorData, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> Sequencer) const = 0;
+	virtual TSharedRef<SWidget> CreateKeyEditor_Raw(const FMovieSceneChannelHandle& Channel, UMovieSceneSection* Section, const FGuid& InObjectBindingID, TWeakPtr<FTrackInstancePropertyBindings> PropertyBindings, TWeakPtr<ISequencer> Sequencer) const = 0;
 
 	/**
 	 * Extend the key context menu
@@ -169,7 +119,7 @@ struct ISequencerChannelInterface
 	 * @param Channels              Array of channels and handles that are being shown in the context menu
 	 * @param InSequencer           The currently active sequencer
 	 */
-	virtual void ExtendKeyMenu_Raw(FMenuBuilder& MenuBuilder, TArrayView<const TChannelAndHandles<void>> Channels, TWeakPtr<ISequencer> InSequencer) const = 0;
+	virtual void ExtendKeyMenu_Raw(FMenuBuilder& MenuBuilder, TArrayView<const FExtendKeyMenuParams> Parameters, TWeakPtr<ISequencer> InSequencer) const = 0;
 
 	/**
 	 * Extend the section context menu
@@ -179,7 +129,7 @@ struct ISequencerChannelInterface
 	 * @param Sections              Array of sections being shown on the context menu
 	 * @param InSequencer           The currently active sequencer
 	 */
-	virtual void ExtendSectionMenu_Raw(FMenuBuilder& MenuBuilder, TArrayView<TMovieSceneChannelHandle<void> const> Channels, TArrayView<UMovieSceneSection* const> Sections, TWeakPtr<ISequencer> InSequencer) const = 0;
+	virtual void ExtendSectionMenu_Raw(FMenuBuilder& MenuBuilder, TArrayView<const FMovieSceneChannelHandle> Channels, TArrayView<UMovieSceneSection* const> Sections, TWeakPtr<ISequencer> InSequencer) const = 0;
 
 	/**
 	 * Gather information on how to draw the specified keys
@@ -188,12 +138,12 @@ struct ISequencerChannelInterface
 	 * @param InKeyHandles          Array of handles to duplicate
 	 * @param OutKeyDrawParams      Pre-sized array to receive key draw parameters. Invalid key handles will not be assigned to this array. Must match size of InKeyHandles.
 	 */
-	virtual void DrawKeys_Raw(void* Channel, TArrayView<const FKeyHandle> InKeyHandles, TArrayView<FKeyDrawParams> OutKeyDrawParams) const = 0;
+	virtual void DrawKeys_Raw(FMovieSceneChannel* Channel, TArrayView<const FKeyHandle> InKeyHandles, TArrayView<FKeyDrawParams> OutKeyDrawParams) const = 0;
 
 	/**
 	 * Create a new model for this channel that can be used on the curve editor interface
 	 *
 	 * @return (Optional) A new model to be added to a curve editor
 	 */
-	virtual TUniquePtr<FCurveModel> CreateCurveEditorModel_Raw(TMovieSceneChannelHandle<void> Channel, UMovieSceneSection* OwningSection, TSharedRef<ISequencer> InSequencer) const = 0;
+	virtual TUniquePtr<FCurveModel> CreateCurveEditorModel_Raw(const FMovieSceneChannelHandle& Channel, UMovieSceneSection* OwningSection, TSharedRef<ISequencer> InSequencer) const = 0;
 };

@@ -276,7 +276,7 @@ bool FWindowsPlatformApplicationMisc::GetWindowTitleMatchingText(const TCHAR* Ti
 
 float FWindowsPlatformApplicationMisc::GetDPIScaleFactorAtPoint(float X, float Y)
 {
-	if (GIsEditor && IsHighDPIAwarenessEnabled())
+	if (IsHighDPIAwarenessEnabled())
 	{
 		if (GetDpiForMonitor)
 		{
@@ -286,7 +286,7 @@ float FWindowsPlatformApplicationMisc::GetDPIScaleFactorAtPoint(float X, float Y
 			{
 				uint32 DPIX = 0;
 				uint32 DPIY = 0;
-				return SUCCEEDED(GetDpiForMonitor(Monitor, 0/*MDT_EFFECTIVE_DPI_VALUE*/, &DPIX, &DPIY)) ? DPIX / 96.0f : 1.0f;
+				return SUCCEEDED(GetDpiForMonitor(Monitor, 0 /*MDT_EFFECTIVE_DPI*/, &DPIX, &DPIY)) ? DPIX / 96.0f : 1.0f;
 			}
 		}
 		else

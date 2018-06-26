@@ -155,18 +155,18 @@ private:
 	/**
 	 * Delegate fired when the call to ShowLoginUI completes 
 	 */
-	void OnExternalUILoginComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex);
+	void OnExternalUILoginComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex, const FOnlineError& Error);
 
 	/**
 	 * Delegate fired when the call to ShowLoginUI completes for requesting elevated permissions
 	 */
-	void OnExternalUIElevatedPermissionsComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex, FOnLoginCompleteDelegate InCompletionDelegate);
+	void OnExternalUIElevatedPermissionsComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex, const FOnlineError& Error, FOnLoginCompleteDelegate InCompletionDelegate);
 
 	/**
 	 * Delegate called when current permission request completes
 	 *
 	 * @param LocalUserNum user that made the request
-	 * @param bWasSuccesful was the request successful
+	 * @param bWasSuccessful was the request successful
 	 * @param NewPermissions array of all known permissions
 	 * @param CompletionDelegate follow up delegate after this request is complete
 	 */

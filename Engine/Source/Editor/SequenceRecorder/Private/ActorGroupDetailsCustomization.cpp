@@ -15,6 +15,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "SSequenceRecorder.h"
 #include "SequenceRecorderActorGroup.h"
+#include "SequenceRecorderUtils.h"
 
 #define LOCTEXT_NAMESPACE "SequenceRecorder"
 
@@ -51,7 +52,7 @@ void FActorGroupDetailsCustomization::CustomizeDetails(IDetailLayoutBuilder& Det
 			 			SAssignNew(SequenceRecorderGroupNameTextBox, SEditableTextBox)
 			 			.Text_Lambda([]()
 			 			{
-			 				TWeakObjectPtr<USequenceRecorderActorGroup> Group = FSequenceRecorder::Get().GetRecordingGroup();
+			 				TWeakObjectPtr<USequenceRecorderActorGroup> Group = FSequenceRecorder::Get().GetCurrentRecordingGroup();
 			 				if (Group.IsValid())
 			 				{
 			 					return FText::FromName(Group->GroupName);	
@@ -69,8 +70,8 @@ void FActorGroupDetailsCustomization::CustomizeDetails(IDetailLayoutBuilder& Det
 			 
 			 				// Check to see that no other profile is using this name.
 							const FSequenceRecorder& SeqRec = FSequenceRecorder::Get();
-			 				if( SeqRec.GetRecordingGroup().IsValid() &&
-								SeqRec.GetRecordingGroup()->GroupName != ProfileAsName &&
+			 				if( SeqRec.GetCurrentRecordingGroup().IsValid() &&
+								SeqRec.GetCurrentRecordingGroup()->GroupName != ProfileAsName &&
 			 					SeqRec.GetRecordingGroupNames().Contains(ProfileAsName))
 			 				{
 			 					SequenceRecorderGroupNameTextBox->SetError(FText::Format(LOCTEXT("GroupNameAlreadyExists", "Group '{0}' already exists"), InText));
@@ -177,7 +178,7 @@ TSharedRef<SWidget> FActorGroupDetailsCustomization::FillRecordingProfileOptions
 
 			Action.GetActionCheckState = FGetActionCheckState::CreateLambda([GroupName]()
 			{
-				TWeakObjectPtr<USequenceRecorderActorGroup> ActiveGroup = FSequenceRecorder::Get().GetRecordingGroup();
+				TWeakObjectPtr<USequenceRecorderActorGroup> ActiveGroup = FSequenceRecorder::Get().GetCurrentRecordingGroup();
 				return (ActiveGroup.IsValid() && ActiveGroup->GroupName == GroupName) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 			});
 
@@ -205,10 +206,17 @@ void FActorGroupDetailsCustomization::HandleRecordingGroupNameCommitted(const FT
 	if (InCommitType != ETextCommit::OnCleared)
 	{
 		// This is a group re-name operation.
-		TWeakObjectPtr<USequenceRecorderActorGroup> CurrentGroup = FSequenceRecorder::Get().GetRecordingGroup();
+		TWeakObjectPtr<USequenceRecorderActorGroup> CurrentGroup = FSequenceRecorder::Get().GetCurrentRecordingGroup();
 		if (CurrentGroup.IsValid())
 		{
-			CurrentGroup->GroupName = FName(*InText.ToString());
+			TArray<FName> ExistingGroupNames = FSequenceRecorder::Get().GetRecordingGroupNames();
+			ExistingGroupNames.Remove(FName(*InText.ToString()));
+			FString NewName = SequenceRecorderUtils::MakeNewGroupName(*CurrentGroup.Get()->SequenceRecordingBasePath.Path, InText.ToString(), ExistingGroupNames);
+			CurrentGroup->GroupName = FName(*NewName);
+			CurrentGroup->SequenceName = NewName;
+
+			// cbb: Force load to update sequence names, etc
+			SequenceRecorder.Pin()->HandleLoadRecordingActorGroup(*NewName);
 		}
 	}
 }

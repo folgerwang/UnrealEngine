@@ -142,7 +142,7 @@ public:
 	const TArray<int32>& GetLoadRequests() const { return LoadRequests; }
 	const TArray<int32>& GetCancelationRequests() const { return CancelationRequests; }
 	const TArray<int32>& GetPendingUpdateDirties() const { return PendingUpdateDirties; }
-	
+
 	FAsyncTextureStreamingData StreamingData;
 	
 	/** Performs the async work. */

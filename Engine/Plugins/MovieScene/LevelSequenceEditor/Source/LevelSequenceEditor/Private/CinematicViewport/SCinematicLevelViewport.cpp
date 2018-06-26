@@ -165,7 +165,7 @@ void SCinematicLevelViewport::Construct(const FArguments& InArgs)
 		.LevelEditorViewportClient(ViewportClient)
 		.ParentLevelEditor(InArgs._ParentLevelEditor)
 		.ParentLayout(ParentLayout.Pin())
-		.ConfigKey(LayoutName.ToString())
+		.ConfigKey(LayoutName)
 		.Realtime(true);
 
 	ViewportClient->SetViewportWidget(ViewportWidget);
@@ -738,7 +738,7 @@ void SCinematicLevelViewport::Tick(const FGeometry& AllottedGeometry, const doub
 		else
 		{
 			// Just use the FoV
-			UIData.Filmback = FText::FromString(Lex::ToString(FNumericUnit<float>(CameraComponent->FieldOfView, EUnit::Degrees)));
+			UIData.Filmback = FText::FromString(LexToString(FNumericUnit<float>(CameraComponent->FieldOfView, EUnit::Degrees)));
 		}
 	}
 	else

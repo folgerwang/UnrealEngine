@@ -342,7 +342,7 @@ public:
 			MessageListView->RequestListRefresh();
 
 			// only scroll when at the end of the listview
-			if (MessageListView->GetScrollDistanceRemaining().Y <= 0.0f)
+			if (FMath::IsNearlyEqual(MessageListView->GetScrollDistanceRemaining().Y, 0.0f, 1.e-7f))
 			{
 				MessageListView->RequestScrollIntoView(MessageList.Last());
 			}

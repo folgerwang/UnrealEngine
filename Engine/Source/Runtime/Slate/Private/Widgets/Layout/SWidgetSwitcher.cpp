@@ -8,7 +8,9 @@ SWidgetSwitcher::SWidgetSwitcher()
 	: WidgetIndex()
 	, AllChildren(this)
 	, OneDynamicChild(this, &AllChildren, &WidgetIndex)
-{ }
+{ 
+	bCanTick = false;
+}
 
 
 SWidgetSwitcher::FSlot& SWidgetSwitcher::AddSlot( int32 SlotIndex )
@@ -115,16 +117,18 @@ int32 SWidgetSwitcher::RemoveSlot( TSharedRef<SWidget> WidgetToRemove )
 	return -1;
 }
 
-
 void SWidgetSwitcher::SetActiveWidgetIndex( int32 Index )
 {
 	WidgetIndex = Index;
 	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
-
-/* SCompoundWidget interface
- *****************************************************************************/
+#if SLATE_PARENT_POINTERS
+bool SWidgetSwitcher::ValidatePathToChild(SWidget* InChild)
+{
+	return InChild == GetActiveWidget().Get();
+}
+#endif
 
 void SWidgetSwitcher::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const
 {

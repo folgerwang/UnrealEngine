@@ -175,7 +175,7 @@ struct PHYSXVEHICLES_API FVehicleInputRate
 /**
  * Component to handle the vehicle simulation for an actor.
  */
-UCLASS(Abstract, hidecategories=(PlanarMovement, "Components|Movement|Planar", Activation, "Components|Activation"))
+UCLASS(Abstract, ClassGroup = Physics, hidecategories=(PlanarMovement, "Components|Movement|Planar", Activation, "Components|Activation"))
 class PHYSXVEHICLES_API UWheeledVehicleMovementComponent : public UPawnMovementComponent, public IRVOAvoidanceInterface
 {
 	GENERATED_UCLASS_BODY()

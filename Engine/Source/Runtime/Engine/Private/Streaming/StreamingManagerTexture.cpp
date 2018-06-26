@@ -18,6 +18,7 @@
 #include "DeviceProfiles/DeviceProfileManager.h"
 #include "Streaming/AsyncTextureStreaming.h"
 #include "Components/PrimitiveComponent.h"
+#include "Misc/CoreDelegates.h"
 
 bool TrackTexture( const FString& TextureName );
 bool UntrackTexture( const FString& TextureName );
@@ -111,6 +112,8 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 	DynamicComponentManager.RegisterTasks(TextureInstanceAsyncWork->GetTask());
 
 	FCoreUObjectDelegates::GetPreGarbageCollectDelegate().AddRaw(this, &FStreamingManagerTexture::OnPreGarbageCollect);
+
+	FCoreDelegates::PakFileMountedCallback.AddRaw(this, &FStreamingManagerTexture::OnPakFileMounted);
 }
 
 FStreamingManagerTexture::~FStreamingManagerTexture()
@@ -150,6 +153,13 @@ void FStreamingManagerTexture::OnPreGarbageCollect()
 	SetTexturesRemovedTimestamp(RemovedTextures);
 }
 
+
+
+void FStreamingManagerTexture::OnPakFileMounted(const TCHAR* PakFilename)
+{
+	// clear the cached file exists checks which failed as they may now be loaded
+	bNewFilesLoaded = true;
+}
 
 /**
  * Cancels the timed Forced resources (i.e used the Kismet action "Stream In Textures").
@@ -342,16 +352,30 @@ void FStreamingManagerTexture::ConditionalUpdateStaticData()
 		for (FStreamingTexture& StreamingTexture : StreamingTextures)
 		{
 			StreamingTexture.UpdateStaticData(Settings);
+
+			// When the material quality changes, some textures could stop being used.
+			// Refreshing their removed timestamp ensures not texture ends up in the unkwown 
+			// ref heuristic (which would force load them).
+			if (PreviousSettings.MaterialQualityLevel != Settings.MaterialQualityLevel)
+			{
+				StreamingTexture.InstanceRemovedTimestamp = FApp::GetCurrentTime();
+			}
 		}
 		STAT(GatheredStats.SetupAsyncTaskCycles -= (int32)FPlatformTime::Cycles();)
 
 #if !UE_BUILD_SHIPPING
-		// Don't put anything here that could normally change in game.
-		// This is used to test regression / improvements, and insertion perfs.
-		if (PreviousSettings.bUseMaterialData != Settings.bUseMaterialData ||
+		// Those debug settings are config that are not expected to change in-game.
+		const bool bDebugSettingsChanged = 
+			PreviousSettings.bUseMaterialData != Settings.bUseMaterialData ||
 			PreviousSettings.bUseNewMetrics != Settings.bUseNewMetrics ||
 			PreviousSettings.bUsePerTextureBias != Settings.bUsePerTextureBias || 
-			PreviousSettings.MaxTextureUVDensity != Settings.MaxTextureUVDensity)
+			PreviousSettings.MaxTextureUVDensity != Settings.MaxTextureUVDensity;
+#else
+		const bool bDebugSettingsChanged = false;
+#endif
+
+		// If the material quality changes, everything needs to be updated.
+		if (bDebugSettingsChanged || PreviousSettings.MaterialQualityLevel != Settings.MaterialQualityLevel)
 		{
 			TArray<ULevel*, TInlineAllocator<32> > Levels;
 
@@ -376,7 +400,6 @@ void FStreamingManagerTexture::ConditionalUpdateStaticData()
 				NotifyPrimitiveUpdated_Concurrent(Primitive);
 			}
 		}
-#endif
 
 		// Update the cache variables.
 		PreviousLightmapStreamingFactor = GLightmapStreamingFactor;
@@ -711,6 +734,7 @@ void FStreamingManagerTexture::SetTexturesRemovedTimestamp(const FRemovedTexture
 		}
 	}
 }
+
 
 void FStreamingManagerTexture::NotifyPrimitiveUpdated( const UPrimitiveComponent* Primitive )
 {
@@ -1115,7 +1139,7 @@ void FStreamingManagerTexture::LogViewLocationChange()
  * @param DeltaTime				Time since last call in seconds
  * @param bProcessEverything	[opt] If true, process all resources with no throttling limits
  */
-static TAutoConsoleVariable<int32> CVarFramesForFullUpdate(
+ENGINE_API TAutoConsoleVariable<int32> CVarFramesForFullUpdate(
 	TEXT("r.Streaming.FramesForFullUpdate"),
 	5,
 	TEXT("Texture streaming is time sliced per frame. This values gives the number of frames to visit all textures."));

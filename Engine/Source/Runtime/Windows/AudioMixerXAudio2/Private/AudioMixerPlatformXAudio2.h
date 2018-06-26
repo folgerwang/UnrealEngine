@@ -64,6 +64,7 @@ namespace Audio
 		virtual FName GetRuntimeFormat(USoundWave* InSoundWave) override;
 		virtual bool HasCompressedAudioInfoClass(USoundWave* InSoundWave) override;
 		virtual bool SupportsRealtimeDecompression() const override { return true; }
+		virtual bool DisablePCMAudioCaching() const override;
 		virtual ICompressedAudioInfo* CreateCompressedAudioInfo(USoundWave* InSoundWave) override;
 		virtual FString GetDefaultDeviceName() override;
 		virtual FAudioPlatformSettings GetPlatformSettings() const override;
@@ -95,6 +96,7 @@ namespace Audio
 		IXAudio2MasteringVoice* OutputAudioStreamMasteringVoice;
 		IXAudio2SourceVoice* OutputAudioStreamSourceVoice;
 		FXAudio2VoiceCallback OutputVoiceCallback;
+		FCriticalSection AudioDeviceSwapCriticalSection;
 		FString OriginalAudioDeviceId;
 		FString NewAudioDeviceId;
 		FThreadSafeBool bMoveAudioStreamToNewAudioDevice;

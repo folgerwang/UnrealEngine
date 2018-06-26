@@ -123,7 +123,7 @@ In the **Material Settings** section, you'll find the texture and material prope
 | **Texture Size** | This provides access to the X and Y pixel dimensions (resolution) for the final merged Material's textures.|
 | **Texture Sizing Type** | The selection options available when choosing how you want the size of your texture to be calculated.  [INCLUDE:#texturesizing]|
 | **Normal Map** | If checked, a Normal map will be baked out for the resulting merged Actor.|
-| ** Metallic Map** | If checked, a Metallic map will be baked out for the resulting merged Actor. This nullifies the Metallic Constant property.|
+| **Metallic Map** | If checked, a Metallic map will be baked out for the resulting merged Actor. This nullifies the Metallic Constant property.|
 | **Metallic Constant** | Only enabled if Metallic Map is unchecked, this sets a constant value for the Metallic property of the resulting merged Actor's Material.|
 | **Roughness Map** | If checked, a Roughness map will be baked out for the resulting merged Actor. This nullifies the Roughness Constant property.|
 | **Roughness Constant** | Only enabled if Roughness Map is unchecked, this sets a constant value for the Roughness property of the resulting merged Actor's Material.| 

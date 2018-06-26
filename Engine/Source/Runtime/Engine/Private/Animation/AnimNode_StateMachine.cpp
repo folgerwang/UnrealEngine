@@ -998,7 +998,7 @@ const FPoseContext& FAnimNode_StateMachine::EvaluateState(int32 StateIndex, cons
 	FPoseContext* CachePosePtr = StateCachedPoses[StateIndex];
 	if (CachePosePtr == nullptr)
 	{
-		CachePosePtr = new FPoseContext(Context.AnimInstanceProxy);
+		CachePosePtr = new FPoseContext(Context);
 		check(CachePosePtr);
 		StateCachedPoses[StateIndex] = CachePosePtr;
 

@@ -389,7 +389,7 @@ void FAutomationReport::SetResults( const int32 ClusterIndex, const int32 PassIn
 		TestInfo.InformOfNewDeviceRunningTest();
 	}
 
-	TArray<FAutomationArtifact> ExistingArtifacts = Results[ClusterIndex][PassIndex].Artifacts;
+	const TArray<FAutomationArtifact> ExistingArtifacts = Results[ClusterIndex][PassIndex].Artifacts;
 	Results[ClusterIndex][PassIndex] = InResults;
 	Results[ClusterIndex][PassIndex].Artifacts.Append(ExistingArtifacts);
 

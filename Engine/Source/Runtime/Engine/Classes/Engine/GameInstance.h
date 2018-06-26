@@ -125,12 +125,17 @@ protected:
 	/** Delegate for handling external console commands */
 	void OnConsoleInput(const FString& Command);
 
+	/** List of locally participating players in this game instance */
 	UPROPERTY()
-	TArray<ULocalPlayer*> LocalPlayers;		// List of locally participating players in this game instance
+	TArray<ULocalPlayer*> LocalPlayers;
 	
 	/** Class to manage online services */
 	UPROPERTY()
 	class UOnlineSession* OnlineSession;
+
+	/** List of objects that are being kept alive by this game instance. Stored as array for fast iteration, should not be modified every frame */
+	UPROPERTY()
+	TArray<UObject*> ReferencedObjects;
 
 	/** Listeners to PreClientTravel call */
 	FOnPreClientTravel NotifyPreClientTravelDelegates;
@@ -384,6 +389,12 @@ public:
 	 * Calls HandleDisconnect on either the OnlineSession if it exists or the engine, to cause a travel back to the default map. The instance must have a world.
 	 */
 	virtual void ReturnToMainMenu();
+
+	/** Registers an object to keep alive as long as this game instance is alive */
+	virtual void RegisterReferencedObject(UObject* ObjectToReference);
+
+	/** Remove a referenced object, this will allow it to GC out */
+	virtual void UnregisterReferencedObject(UObject* ObjectToReference);
 
 protected:
 	/** Called when the game instance is started either normally or through PIE. */

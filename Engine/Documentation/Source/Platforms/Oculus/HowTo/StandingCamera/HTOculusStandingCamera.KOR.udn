@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3727108
+﻿INTSourceChangelist:3810467
 Availability: Public
 Crumbs: %ROOT%, Platforms
 Title:Oculus Rift 용 스탠딩 카메라 구성
@@ -24,7 +24,7 @@ Oculus Rift 를 사용하는 언리얼 엔진 4 (UE4) 탑재 VR 체험 개발 �
     [REGION:simpletable]
 	|컴포넌트 이름| 값 |
     |--------|------------|
-    |** Scene**|VRCameraRoot|
+    |**Scene**|VRCameraRoot|
     |**Camera**|VRCamera|
 	[/region]
 
@@ -36,7 +36,7 @@ Oculus Rift 를 사용하는 언리얼 엔진 4 (UE4) 탑재 VR 체험 개발 �
     이미지를 클릭하면 원본을 확인합니다.
     [/REGION]
 
-
+    언제 
 
     [region:note]
     어떤 VR HMD 를 사용하든 에픽에서 추천하는 VR 카메라 구성 방식은 이와 같습니다. 그래야 실제 카메라를 움직이지 않고 카메라 위치 오프셋을 적용할 수 있습니다.
@@ -83,7 +83,7 @@ Oculus Rift 를 사용하는 언리얼 엔진 4 (UE4) 탑재 VR 체험 개발 �
 
 ## 최종 결과
 
-1. **메인 툴바** 에서 **플레이 모드** 를 **VR 프리뷰** 로 설정하고 **플레이** 버튼을 클릭합니다. Oculus Rift HMD 를 쓰고 레벨을 보면 다음 비디오와 같은 화면이 보일 것입니다.
+**메인 툴바** 에서 **플레이 모드** 를 **VR 프리뷰** 로 설정하고 **플레이** 버튼을 클릭합니다. Oculus Rift HMD 를 쓰고 레벨을 보면 다음 비디오와 같은 화면이 보일 것입니다.
 
 [OBJECT:EmbeddedVideo]
     [PARAMLITERAL:videoid]

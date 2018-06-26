@@ -1,8 +1,10 @@
-﻿Availability:Public
+﻿INTSourceChangelist:3807090
+Availability:Public
 Title:テクスチャリング
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:UV の再投影、トリミングなど、テクスチャ作業の補助を目的に作成された幅広い機能
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 
@@ -105,7 +107,7 @@ TextureCropping 関数を使用すると、あるテクスチャをトリミン�
 | **LowerRightCorner (Vector2)** | 0-1 テクスチャ座標でテクスチャの新しい右上隅の位置です。|
 |[REGION:tablesection]出力値[/REGION] ||
 | **Cropped** | トリミング関数の結果です。タイリング操作の場合とよく似ています。|
-| **CroppedMasked** | *UpperLeftCorner* と *LowerRightCorner* で定義された部分以外の領域を塗りつぶし (マスク)しながら、トリミング関数の結果をレポートします。|
+| **CroppedMasked** | *UpperLeftCorner* と *LowerRightCorner* で定義された部分以外の領域を塗りつぶ (マスク)　しながら、トリミング関数の結果をレポートします。|
 | **Crop UVs** | 新しくトリミングされたエリアの UV 座標です。|
 | **Crop Mask** | トリミングされたエリアを表す黒のバックグラウンド (マスク) 上の白いエリアです。 |
 
@@ -131,13 +133,13 @@ WorldAlignedNormal は法線を受け取り、テクスチャをローカルに�
 | **XY Texture** | ワールドの X と Y 座標で投影されたテクスチャの結果です。|
 | **XYZ Texture** | ワールドの X と Y と Z 座標で投影されたテクスチャの結果です。|
 | **XYZFlatTop** | ワールドの X と Y と Z 座標で投影されたテクスチャの結果です。|
-| **Z Texture** | ワールド Z で投影されたテクスチャの結果です。|
+| **Z Texture** | ワールドの Z 座標で投影されたテクスチャの結果です。|
 
 
 ![WorldAlignedNormal](WorldAlignedNormal_Demo.png)
 
 [REGION:note]
-床が回転してもテクスチャがワールド座標にアラインされることに留意してください。
+床が回転してもテクスチャはワールド座標系に基づくことに留意してください。
 [/REGION]
 
 ### WorldAlignedTexture
@@ -159,7 +161,7 @@ WorldAlignedNormal は法線を受け取り、テクスチャをローカルに�
 | **ProjectionTansitionContrast (Vector3)** | X、Y、Z に投影されると、 2 つの投影プレーンが交わるブレンドのコントラストを制御します。 |
 |[REGION:tablesection]出力値[/REGION] ||
 | **XY Texture** | ワールドの X と Y 座標で投影されたテクスチャの結果です。|
-| **Z Texture** | ワールド Z で投影されたテクスチャの結果です。|
+| **Z Texture** | ワールドの Z 座標で投影されたテクスチャの結果です。|
 | **XYZ Texture** | ワールドの X と Y と Z 座標で投影されたテクスチャの結果です。|
 
 
@@ -207,7 +209,7 @@ WorldAlignedNormal は法線を受け取り、テクスチャをローカルに�
 | [REGION:tablesection]入力値[/REGION] ||
 | **A (Vector3)** | lerp 計算の最初のテクスチャです。|
 | **B (Vector3)** | lerp 計算の 2 番目のテクスチャです。|
-| **Transition Phase (Scalar)** | 遷移を実行するハイトマップの領域を定義する値です。この値を 0.5 にすると標準の lerp が実行されます。0 と 1 に向かって値を調整すると、それぞれハイトマップの上と下に向かってバイアスが生じます。
+| **Transition Phase (Scalar)** | 遷移を実行するハイトマップの領域を定義する値です。この値を 0.5 にすると標準の lerp が実行されます。0 と 1 に向かって値を調整すると、それぞれ高さマップの上と下に向かってバイアスが生じます。
 | **Height Texture (Scalar)** | lerp の操作に使用するハイトマップです。|
 | **Contrast (Scalar)** | CheapContrast 関数を使ってコントラストの強調をハイトマップに適用します。|
 |[REGION:tablesection]出力値[/REGION] ||
@@ -273,7 +275,7 @@ WorldAlignedNormal は法線を受け取り、テクスチャをローカルに�
 | **Frame (Scalar)** | アニメーションの現在のフレームです。ゼロベースで、10 進値でブレンドされます。例えば、値が 2.35 の場合、3 番目と 4 番目のフレームの間で 35% でブレンドされます。
 
 
-![SubUV_Function](SubUV_Function_Demo.png)(w:800 h:375)
+![SubUV_Function](SubUV_Function_Demo.png)(w:800)
 
 ### TwoSidedTexturing
 
@@ -346,7 +348,7 @@ MF_TerrainHeightLerp はハイトマップ値に基いて 2 つのテクスチ�
 | **Lerp Alpha No Contrast** | コントラストの強調は適用せずに、lerp を操作するためのアルファ チャンネルです。|
 
 
-![MF_TerrainHeightLerp](MF_TerrainHeightLerp_Demo.png)(w:600 h:543)
+![MF_TerrainHeightLerp](MF_TerrainHeightLerp_Demo.png)(w:600)
 
  TODO
 ### WorldAlignedStain

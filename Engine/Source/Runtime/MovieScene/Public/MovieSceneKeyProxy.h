@@ -71,21 +71,22 @@ void IMovieSceneKeyProxy::OnProxyValueChanged(TMovieSceneChannelHandle<ChannelTy
 		return;
 	}
 
-	auto ChannelInterface = Channel->GetInterface();
-	int32 KeyIndex = ChannelInterface.GetIndex(InKeyHandle);
+	auto ChannelData = Channel->GetData();
+
+	int32 KeyIndex = ChannelData.GetIndex(InKeyHandle);
 	if (KeyIndex != INDEX_NONE)
 	{
 		// If we have no section, or it's locked, don't let the user change the value
 		if (!InSection || !InSection->TryModify())
 		{
-			InOutTime  = ChannelInterface.GetTimes()[KeyIndex];
-			InOutValue = ChannelInterface.GetValues()[KeyIndex];
+			InOutTime  = ChannelData.GetTimes()[KeyIndex];
+			InOutValue = ChannelData.GetValues()[KeyIndex];
 		}
 		else
 		{
-			ChannelInterface.GetValues()[KeyIndex] = InOutValue;
+			ChannelData.GetValues()[KeyIndex] = InOutValue;
 
-			ChannelInterface.MoveKey(KeyIndex, InOutTime);
+			ChannelData.MoveKey(KeyIndex, InOutTime);
 			InSection->ExpandToFrame(InOutTime);
 		}
 	}
@@ -99,12 +100,12 @@ void IMovieSceneKeyProxy::RefreshCurrentValue(TMovieSceneChannelHandle<ChannelTy
 	auto* Channel = InChannelHandle.Get();
 	if (Channel)
 	{
-		auto ChannelInterface = Channel->GetInterface();
-		int32 KeyIndex = ChannelInterface.GetIndex(InKeyHandle);
+		auto ChannelData = Channel->GetData();
+		int32 KeyIndex = ChannelData.GetIndex(InKeyHandle);
 		if (KeyIndex != INDEX_NONE)
 		{
-			OutValue = ChannelInterface.GetValues()[KeyIndex];
-			OutTime  = ChannelInterface.GetTimes()[KeyIndex];
+			OutValue = ChannelData.GetValues()[KeyIndex];
+			OutTime  = ChannelData.GetTimes()[KeyIndex];
 		}
 	}
 }

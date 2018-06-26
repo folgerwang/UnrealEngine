@@ -84,6 +84,8 @@ struct FMergeCompleteData
 	FCreateProxyDelegate CallbackDelegate;
 	/** List of Components containing imposter LODs */
 	TArray<const UStaticMeshComponent*> ImposterComponents;
+	/** List of Components incorporated into the Proxy Mesh */
+	TArray<UStaticMeshComponent*> StaticMeshComponents;
 	/** Base material to instance for the proxy material */
 	UMaterialInterface* BaseMaterial;
 };

@@ -80,6 +80,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Get Vector4 Parameter"))
 	FVector4 GetVector4Parameter(const FString& InVariableName);
 
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Get Quaternion Parameter"))
+	FQuat GetQuatParameter(const FString& InVariableName);
+
 	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Get Color Parameter"))
 	FLinearColor GetColorParameter(const FString& InVariableName);
 
@@ -103,6 +106,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Color Parameter"))
 	void SetColorParameter(const FString& InVariableName, FLinearColor InValue);
+	
+	UFUNCTION(BlueprintCallable, Category = Niagara, meta = (DisplayName = "Set Quaternion Parameter"))
+	void SetQuatParameter(const FString& InVariableName, const FQuat& InValue);
 };
 
 /** Asset containing a collection of global parameters usable by Niagara. */
@@ -146,6 +152,16 @@ public:
 
 	FString FriendlyNameFromParameterName(FString ParameterName)const;
 	FString GetFullNamespace()const;
+
+	/** The compile Id is an indicator to any compiled scripts that reference this collection that contents may have changed and a recompile is recommended to be safe.*/
+	FGuid GetCompileId() const { return CompileId; };
+
+	/** If for any reason this data has changed externally and needs recompilation and it isn't autodetected, use this method. */
+	void RefreshCompileId();
+
+	//~UObject interface
+	virtual void PostLoad()override;
+	//~UObject interface
 protected:
 	
 	void MakeNamespaceNameUnique();
@@ -159,4 +175,8 @@ protected:
 	
 	UPROPERTY()
 	UNiagaraParameterCollectionInstance* DefaultInstance;
+
+	/** Used to track whenever something of note changes in this parameter collection that might invalidate a compilation downstream of a script/emitter/system.*/
+	UPROPERTY()
+	FGuid CompileId;
 };

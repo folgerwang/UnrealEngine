@@ -8,7 +8,7 @@
 #include "Blueprint/UserWidget.h"
 #include "IMovieScenePlayer.h"
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
-#include "QualifiedFrameTime.h"
+#include "Misc/QualifiedFrameTime.h"
 #include "UMGSequencePlayer.generated.h"
 
 class UWidgetAnimation;

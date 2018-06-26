@@ -3,14 +3,15 @@
 #pragma once
 
 #include "Containers/UnrealString.h"
-#include "FrameNumber.h"
+#include "Misc/FrameNumber.h"
 #include "UObject/ObjectMacros.h"
-#include "Channels/MovieSceneChannelTraits.h"
 #include "Channels/MovieSceneChannel.h"
+#include "Channels/MovieSceneChannelData.h"
+#include "Channels/MovieSceneChannelTraits.h"
 #include "MovieSceneStringChannel.generated.h"
 
 USTRUCT()
-struct FMovieSceneStringChannel
+struct FMovieSceneStringChannel : public FMovieSceneChannel
 {
 	GENERATED_BODY()
 
@@ -19,35 +20,28 @@ struct FMovieSceneStringChannel
 	{}
 
 	/**
-	 * Access an integer that uniquely identifies this channel type.
-	 *
-	 * @return A static identifier that was allocated using FMovieSceneChannelEntry::RegisterNewID
-	 */
-	MOVIESCENETRACKS_API static uint32 GetChannelID();
-
-	/**
 	 * Serialize this type from another
 	 */
 	MOVIESCENETRACKS_API bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar);
 
 	/**
-	 * Access a mutable interface for this channel
+	 * Access a mutable interface for this channel's data
 	 *
-	 * @return An object that is able to manipulate this channel
+	 * @return An object that is able to manipulate this channel's data
 	 */
-	FORCEINLINE TMovieSceneChannel<FString> GetInterface()
+	FORCEINLINE TMovieSceneChannelData<FString> GetData()
 	{
-		return TMovieSceneChannel<FString>(&Times, &Values, &KeyHandles);
+		return TMovieSceneChannelData<FString>(&Times, &Values, &KeyHandles);
 	}
 
 	/**
-	 * Access a constant interface for this channel
+	 * Access a constant interface for this channel's data
 	 *
-	 * @return An object that is able to interrogate this channel
+	 * @return An object that is able to interrogate this channel's data
 	 */
-	FORCEINLINE TMovieSceneChannel<const FString> GetInterface() const
+	FORCEINLINE TMovieSceneChannelData<const FString> GetData() const
 	{
-		return TMovieSceneChannel<const FString>(&Times, &Values);
+		return TMovieSceneChannelData<const FString>(&Times, &Values);
 	}
 
 	/**
@@ -57,6 +51,22 @@ struct FMovieSceneStringChannel
 	 * @return A pointer to the string, or nullptr
 	 */
 	MOVIESCENETRACKS_API const FString* Evaluate(FFrameTime InTime) const;
+
+public:
+
+	// ~ FMovieSceneChannel Interface
+	virtual void GetKeys(const TRange<FFrameNumber>& WithinRange, TArray<FFrameNumber>* OutKeyTimes, TArray<FKeyHandle>* OutKeyHandles) override;
+	virtual void GetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<FFrameNumber> OutKeyTimes) override;
+	virtual void SetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<const FFrameNumber> InKeyTimes) override;
+	virtual void DuplicateKeys(TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyHandle> OutNewHandles) override;
+	virtual void DeleteKeys(TArrayView<const FKeyHandle> InHandles) override;
+	virtual void ChangeFrameResolution(FFrameRate SourceRate, FFrameRate DestinationRate) override;
+	virtual TRange<FFrameNumber> ComputeEffectiveRange() const override;
+	virtual int32 GetNumKeys() const override;
+	virtual void Reset() override;
+	virtual void Offset(FFrameNumber DeltaPosition) override;
+	virtual void Optimize(const FKeyDataOptimizationParams& InParameters) override;
+	virtual void ClearDefault() override;
 
 public:
 
@@ -117,12 +127,12 @@ struct TStructOpsTypeTraits<FMovieSceneStringChannel> : public TStructOpsTypeTra
 
 
 template<>
-struct TMovieSceneChannelTraits<FMovieSceneStringChannel>
+struct TMovieSceneChannelTraits<FMovieSceneStringChannel> : TMovieSceneChannelTraitsBase<FMovieSceneStringChannel>
 {
-#if WITH_EDITORONLY_DATA
+#if WITH_EDITOR
 
 	/** String channels can have external values (ie, they can get their values from external objects for UI purposes) */
-	typedef TMovieSceneExternalValue<FString> EditorDataType;
+	typedef TMovieSceneExternalValue<FString> ExtendedEditorDataType;
 
 #endif
 };

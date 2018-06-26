@@ -941,14 +941,14 @@ protected:
 	inline FMeshEdge* FindOppositeEdge(int32 Index1, int32 Index2)
 	{
 		FMeshEdge* Edge = NULL;
-		TArray<FMeshEdge*> EdgeList;
 		// Search the hash for a corresponding vertex
-		VertexToEdgeList.MultiFind(Vertices[Index2].Position, EdgeList);
+		WorkingEdgeList.Reset();
+		VertexToEdgeList.MultiFind(Vertices[Index2].Position, WorkingEdgeList);
 		// Now search through the array for a match or not
-		for (int32 EdgeIndex = 0; EdgeIndex < EdgeList.Num() && Edge == NULL;
+		for (int32 EdgeIndex = 0; EdgeIndex < WorkingEdgeList.Num() && Edge == NULL;
 			EdgeIndex++)
 		{
-			FMeshEdge* OtherEdge = EdgeList[EdgeIndex];
+			FMeshEdge* OtherEdge = WorkingEdgeList[EdgeIndex];
 			// See if this edge matches the passed in edge
 			if (OtherEdge != NULL && DoesEdgeMatch(Index1, Index2, OtherEdge))
 			{
@@ -1035,6 +1035,9 @@ public:
 			AddEdge(Index3, Index1, Triangle);
 		}
 	}
+
+private:
+	TArray<FMeshEdge*> WorkingEdgeList;
 };
 
 /**
@@ -2310,12 +2313,10 @@ static float GetComparisonThreshold(FMeshBuildSettings const& BuildSettings)
 Static mesh building.
 ------------------------------------------------------------------------------*/
 
-static FStaticMeshBuildVertex BuildStaticMeshVertex(FRawMesh const& RawMesh, int32 WedgeIndex, FVector BuildScale)
+static void BuildStaticMeshVertex(const FRawMesh& RawMesh, const FMatrix& ScaleMatrix, const FVector& Position, int32 WedgeIndex, FStaticMeshBuildVertex& Vertex)
 {
-	FStaticMeshBuildVertex Vertex;
-	Vertex.Position = GetPositionForWedge(RawMesh, WedgeIndex) * BuildScale;
+	Vertex.Position = Position;
 
-	const FMatrix ScaleMatrix = FScaleMatrix(BuildScale).Inverse().GetTransposed();
 	Vertex.TangentX = ScaleMatrix.TransformVector(RawMesh.WedgeTangentX[WedgeIndex]).GetSafeNormal();
 	Vertex.TangentY = ScaleMatrix.TransformVector(RawMesh.WedgeTangentY[WedgeIndex]).GetSafeNormal();
 	Vertex.TangentZ = ScaleMatrix.TransformVector(RawMesh.WedgeTangentZ[WedgeIndex]).GetSafeNormal();
@@ -2329,7 +2330,7 @@ static FStaticMeshBuildVertex BuildStaticMeshVertex(FRawMesh const& RawMesh, int
 		Vertex.Color = FColor::White;
 	}
 
-	int32 NumTexCoords = FMath::Min<int32>(MAX_MESH_TEXTURE_COORDS, MAX_STATIC_TEXCOORDS);
+	static const int32 NumTexCoords = FMath::Min<int32>(MAX_MESH_TEXTURE_COORDS, MAX_STATIC_TEXCOORDS);
 	for (int32 i = 0; i < NumTexCoords; ++i)
 	{
 		if (RawMesh.WedgeTexCoords[i].IsValidIndex(WedgeIndex))
@@ -2341,7 +2342,6 @@ static FStaticMeshBuildVertex BuildStaticMeshVertex(FRawMesh const& RawMesh, int
 			Vertex.UVs[i] = FVector2D(0.0f, 0.0f);
 		}
 	}
-	return Vertex;
 }
 
 static bool AreVerticesEqual(
@@ -2385,6 +2385,15 @@ void FMeshUtilities::BuildStaticMeshVertexAndIndexBuffers(
 {
 	TMap<int32, int32> FinalVerts;
 	int32 NumFaces = RawMesh.WedgeIndices.Num() / 3;
+	OutWedgeMap.Reset(RawMesh.WedgeIndices.Num());
+	FMatrix ScaleMatrix(FScaleMatrix(BuildScale).Inverse().GetTransposed());
+
+	// Estimate how many vertices there will be to reduce number of re-allocations required
+	OutVertices.Reserve((int32)(NumFaces * 1.2) + 16);
+
+	// Work with vertex in OutVertices array directly for improved performance
+	OutVertices.AddUninitialized(1);
+	FStaticMeshBuildVertex *ThisVertex = &OutVertices.Last();
 
 	// Process each face, build vertex buffer and per-section index buffers.
 	for (int32 FaceIndex = 0; FaceIndex < NumFaces; FaceIndex++)
@@ -2412,7 +2421,7 @@ void FMeshUtilities::BuildStaticMeshVertexAndIndexBuffers(
 		for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
 		{
 			int32 WedgeIndex = FaceIndex * 3 + CornerIndex;
-			FStaticMeshBuildVertex ThisVertex = BuildStaticMeshVertex(RawMesh, WedgeIndex, BuildScale);
+			BuildStaticMeshVertex(RawMesh, ScaleMatrix, CornerPositions[CornerIndex] * BuildScale, WedgeIndex, *ThisVertex);
 
 			const TArray<int32>& DupVerts = OverlappingCorners.FindIfOverlapping(WedgeIndex);
 
@@ -2427,7 +2436,7 @@ void FMeshUtilities::BuildStaticMeshVertexAndIndexBuffers(
 
 				int32 *Location = FinalVerts.Find(DupVerts[k]);
 				if (Location != NULL
-					&& AreVerticesEqual(ThisVertex, OutVertices[*Location], ComparisonThreshold))
+					&& AreVerticesEqual(*ThisVertex, OutVertices[*Location], ComparisonThreshold))
 				{
 					Index = *Location;
 					break;
@@ -2435,8 +2444,13 @@ void FMeshUtilities::BuildStaticMeshVertexAndIndexBuffers(
 			}
 			if (Index == INDEX_NONE)
 			{
-				Index = OutVertices.Add(ThisVertex);
+				// Commit working vertex
+				Index = OutVertices.Num() - 1;
 				FinalVerts.Add(WedgeIndex, Index);
+
+				// Setup next working vertex
+				OutVertices.AddUninitialized(1);
+				ThisVertex = &OutVertices.Last();
 			}
 			VertexIndices[CornerIndex] = Index;
 		}
@@ -2470,6 +2484,9 @@ void FMeshUtilities::BuildStaticMeshVertexAndIndexBuffers(
 			OutWedgeMap.Add(VertexIndices[CornerIndex]);
 		}
 	}
+
+	// Remove working vertex
+	OutVertices.Pop(false);
 }
 
 void FMeshUtilities::CacheOptimizeVertexAndIndexBuffer(
@@ -5917,18 +5934,73 @@ void FMeshUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const stru
 	Module.CreateProxyMesh(InActors, InMeshProxySettings, InOuter, InProxyBasePackageName, InGuid, InProxyCreatedDelegate, bAllowAsync, ScreenAreaSize);
 }
 
-bool FMeshUtilities::GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int32 TextureResolution, TArray<FVector2D>& OutTexCoords) const
+bool FMeshUtilities::GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int32 TextureResolution, bool bMergeIdenticalMaterials, TArray<FVector2D>& OutTexCoords) const
 {
 	// Create a copy of original mesh (only copy necessary data)
 	FRawMesh TempMesh;
-	TempMesh.WedgeTexCoords[0] = RawMesh.WedgeTexCoords[0];
-	TempMesh.WedgeIndices = RawMesh.WedgeIndices;
 	TempMesh.VertexPositions = RawMesh.VertexPositions;
+
+	// Remove all duplicate faces if we are merging identical materials
+	const int32 NumFaces = RawMesh.FaceMaterialIndices.Num();
+	TArray<int32> DuplicateFaceRecords;
+	
+	if(bMergeIdenticalMaterials)
+	{
+		TArray<int32> UniqueFaceIndices;
+		UniqueFaceIndices.Reserve(NumFaces);
+		DuplicateFaceRecords.SetNum(NumFaces);
+
+		TempMesh.WedgeTexCoords[0].Reserve(RawMesh.WedgeTexCoords[0].Num());
+		TempMesh.WedgeIndices.Reserve(RawMesh.WedgeIndices.Num());
+
+		// insert only non-duplicate faces
+		for(int32 FaceIndex = 0; FaceIndex < NumFaces; ++FaceIndex)
+		{
+			bool bFound = false;
+			int32 UniqueFaceIndex = 0;
+			for( ; UniqueFaceIndex < UniqueFaceIndices.Num(); ++UniqueFaceIndex)
+			{
+				int32 TestIndex = UniqueFaceIndices[UniqueFaceIndex];
+
+				if (TestIndex != FaceIndex &&
+					RawMesh.FaceMaterialIndices[FaceIndex] == RawMesh.FaceMaterialIndices[TestIndex] &&
+					RawMesh.WedgeTexCoords[0][(FaceIndex * 3) + 0] == RawMesh.WedgeTexCoords[0][(TestIndex * 3) + 0] &&
+					RawMesh.WedgeTexCoords[0][(FaceIndex * 3) + 1] == RawMesh.WedgeTexCoords[0][(TestIndex * 3) + 1] &&
+					RawMesh.WedgeTexCoords[0][(FaceIndex * 3) + 2] == RawMesh.WedgeTexCoords[0][(TestIndex * 3) + 2])
+				{
+					bFound = true;
+					break;
+				}
+			}
+
+			if(!bFound)
+			{
+				UniqueFaceIndices.Add(FaceIndex);
+				TempMesh.WedgeTexCoords[0].Add(RawMesh.WedgeTexCoords[0][(FaceIndex * 3) + 0]);
+				TempMesh.WedgeTexCoords[0].Add(RawMesh.WedgeTexCoords[0][(FaceIndex * 3) + 1]);
+				TempMesh.WedgeTexCoords[0].Add(RawMesh.WedgeTexCoords[0][(FaceIndex * 3) + 2]);
+				TempMesh.WedgeIndices.Add(RawMesh.WedgeIndices[(FaceIndex * 3) + 0]);
+				TempMesh.WedgeIndices.Add(RawMesh.WedgeIndices[(FaceIndex * 3) + 1]);
+				TempMesh.WedgeIndices.Add(RawMesh.WedgeIndices[(FaceIndex * 3) + 2]);
+
+				DuplicateFaceRecords[FaceIndex] = UniqueFaceIndices.Num() - 1;
+			}
+			else
+			{
+				DuplicateFaceRecords[FaceIndex] = UniqueFaceIndex;
+			}
+		}
+	}
+	else
+	{
+		TempMesh.WedgeTexCoords[0] = RawMesh.WedgeTexCoords[0];
+		TempMesh.WedgeIndices = RawMesh.WedgeIndices;	
+	}
 
 	// Find overlapping corners for UV generator. Allow some threshold - this should not produce any error in a case if resulting
 	// mesh will not merge these vertices.
 	FOverlappingCorners OverlappingCorners;
-	FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities").FindOverlappingCorners(OverlappingCorners, RawMesh.VertexPositions, RawMesh.WedgeIndices, THRESH_POINTS_ARE_SAME);
+	FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities").FindOverlappingCorners(OverlappingCorners, TempMesh.VertexPositions, TempMesh.WedgeIndices, THRESH_POINTS_ARE_SAME);
 
 	// Generate new UVs
 	FLayoutUV Packer(&TempMesh, 0, 1, FMath::Clamp(TextureResolution / 4, 32, 512));
@@ -5938,11 +6010,34 @@ bool FMeshUtilities::GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int
 	if (bPackSuccess)
 	{
 		Packer.CommitPackedUVs();
-		// Save generated UVs
-		OutTexCoords = TempMesh.WedgeTexCoords[1];
-	}
+
+		if(bMergeIdenticalMaterials)
+		{
+			// re-duplicate faces
+			OutTexCoords.SetNum(RawMesh.WedgeTexCoords[0].Num());
+
+			for(int32 FaceIndex = 0; FaceIndex < DuplicateFaceRecords.Num(); ++FaceIndex)
+			{
+				int32 SourceFaceIndex = DuplicateFaceRecords[FaceIndex];
+
+				OutTexCoords[(FaceIndex * 3) + 0] = TempMesh.WedgeTexCoords[1][(SourceFaceIndex * 3) + 0];
+				OutTexCoords[(FaceIndex * 3) + 1] = TempMesh.WedgeTexCoords[1][(SourceFaceIndex * 3) + 1];
+				OutTexCoords[(FaceIndex * 3) + 2] = TempMesh.WedgeTexCoords[1][(SourceFaceIndex * 3) + 2];
+			}
+		}
+		else
+		{
+			// Save generated UVs
+			OutTexCoords = TempMesh.WedgeTexCoords[1];	
+		}
+ 	}
 
 	return bPackSuccess;
+}
+
+bool FMeshUtilities::GenerateUniqueUVsForStaticMesh(const FRawMesh& RawMesh, int32 TextureResolution, TArray<FVector2D>& OutTexCoords) const
+{
+	return GenerateUniqueUVsForStaticMesh(RawMesh, TextureResolution, false, OutTexCoords);
 }
 
 void FMeshUtilities::FlattenMaterialsWithMeshData(TArray<UMaterialInterface*>& InMaterials, TArray<FRawMeshExt>& InSourceMeshes, TMap<FMeshIdAndLOD, TArray<int32>>& InMaterialIndexMap, TArray<bool>& InMeshShouldBakeVertexData, const FMaterialProxySettings &InMaterialProxySettings, TArray<FFlattenMaterial> &OutFlattenedMaterials) const

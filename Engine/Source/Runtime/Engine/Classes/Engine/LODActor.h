@@ -11,8 +11,8 @@
 #include "LODActor.generated.h"
 
 class UStaticMesh;
+class UHLODProxy;
 
-extern ENGINE_API TAutoConsoleVariable<float> CVarHLODDistanceScale;
 extern ENGINE_API TAutoConsoleVariable<FString> CVarHLODDistanceOverride;
 
 /**
@@ -26,12 +26,27 @@ extern ENGINE_API TAutoConsoleVariable<FString> CVarHLODDistanceOverride;
 UCLASS(notplaceable, hidecategories = (Object, Collision, Display, Input, Blueprint, Transform, Physics))
 class ENGINE_API ALODActor : public AActor
 {
-GENERATED_UCLASS_BODY()
+	GENERATED_UCLASS_BODY()
+
+	friend class UHLODProxy;
+
+	// Disable compiler-generated deprecation warnings by implementing our own destructor
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	~ALODActor() {}
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 private:
 	// disable display of this component
 	UPROPERTY(Category=LODActor, VisibleAnywhere)
 	UStaticMeshComponent* StaticMeshComponent;
+
+	/** The mesh proxy used to display this LOD */
+	UPROPERTY(Category=LODActor, VisibleAnywhere)
+	UHLODProxy* Proxy;
+
+	/** The key used to validate this actor against the proxy */
+	UPROPERTY(Category=LODActor, VisibleAnywhere)
+	FName Key;
 
 	/** what distance do you want this to show up instead of SubActors */
 	UPROPERTY(Category = LODActor, VisibleAnywhere)
@@ -45,16 +60,14 @@ public:
 	UPROPERTY(Category=LODActor, VisibleAnywhere)
 	int32 LODLevel;
 
-	/** assets that were created for this, so that we can delete them */
-	UPROPERTY(Category=LODActor, VisibleAnywhere)
+	DEPRECATED(4.20, "This member is no longer used")
 	TArray<UObject*> SubObjects;
 
 	UPROPERTY()
 	uint8 CachedNumHLODLevels;
 
 #if WITH_EDITORONLY_DATA
-	/** Assets which have become stale and might get deleted (depends on undo/redo behaviour) */
-	UPROPERTY(transient)
+	DEPRECATED(4.20, "This member is no longer used")
 	TArray<UObject*> PreviousSubObjects;
 #endif // WITH_EDITORONLY_DATA
 
@@ -83,11 +96,25 @@ public:
 	/** Sets the LOD draw distance and updates the Static Mesh Component's min drawing distance */
 	void SetDrawDistance(float InDistance);
 
+	/** Gets the LOD draw distance */
+	float GetDrawDistance() const { return LODDrawDistance; }
 	float GetLODDrawDistance() const { return LODDrawDistance; }
 
-	const bool IsBuilt() { return StaticMeshComponent->GetStaticMesh() != nullptr;  }
+	/** Get the key that we use to check if we need to (re)build */
+	const FName& GetKey() const { return Key; }
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	/** 
+	 * Check to see if this mesh is built 
+	 * @param	bInForce	Whether to force the recalculation of this actor's build flag. If this is false then the cached flag is used an only recalculated every so often.
+	 */
+	const bool IsBuilt(bool bInForce = false) const;
+#endif
 
 #if WITH_EDITOR
+	/** Force this actor to appear unbuilt (zeros-out key) */
+	void ForceUnbuilt();
+
 	/**
 	* Adds InAcor to the SubActors array and set its LODParent to this
 	* @param InActor - Actor to add
@@ -100,17 +127,11 @@ public:
 	*/
 	const bool RemoveSubActor(AActor* InActor);
 
-	/**
-	* Returns whether or not this LODActor is dirty
-	* @return const bool
-	*/
-	const bool IsDirty() const { return bDirty; }
+	DEPRECATED(4.20, "Please use IsBuilt() instead")
+	const bool IsDirty() const { return IsBuilt(); }
 
-	/**
-	* Sets whether or not this LODActor is dirty and should have its LODMesh (re)build
-	* @param bNewState - New dirty state
-	*/
-	void SetIsDirty(const bool bNewState);
+	DEPRECATED(4.20, "Please use ForceUnbuilt() instead")
+	void SetIsDirty(const bool bNewState) { if(!bNewState) { ForceUnbuilt(); } }
 	
 	/**
 	 * Determines whether or not this LODActor has valid SubActors and can be built
@@ -142,14 +163,20 @@ public:
 	/** Updates the LODParents for the SubActors (and the drawing distance)*/
 	void UpdateSubActorLODParents();
 
+	// This will determine the shadowing flags for the static mesh component according to all sub actors
+	void DetermineShadowingFlags();
+
 	/** Cleans the SubActor array (removes all NULL entries) */
 	void CleanSubActorArray();
 
-	/** Cleans the SubObject array (removes all NULL entries) */
-	void CleanSubObjectsArray();
+	DEPRECATED(4.20, "This function is no longer used")
+	void CleanSubObjectsArray() {}
 
 	/** Recalculates the drawing distance according to a fixed FOV of 90 and the transition screen size*/
 	void RecalculateDrawingDistance(const float TransitionScreenSize);
+
+	/** Get the proxy mesh we use to render */
+	UHLODProxy* GetProxy() const { return Proxy; }
 #endif // WITH_EDITOR
 
 	//~ Begin UObject Interface.
@@ -161,15 +188,8 @@ public:
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
-	virtual void BeginDestroy() override;
 #endif // WITH_EDITOR	
 	//~ End UObject Interface.	
-protected:
-#if WITH_EDITORONLY_DATA
-	/** Whether or not this LODActor is not build or needs rebuilding */
-	UPROPERTY()
-	bool bDirty;
-#endif // WITH_EDITORONLY_DATA
 public:
 #if WITH_EDITORONLY_DATA
 	/** Cached number of triangles contained in the SubActors*/
@@ -225,12 +245,12 @@ private:
 	// Called to make sure autoregistration/manual registration state matches based on the LOD override cvar and this actor's lod level
 	void UpdateRegistrationToMatchMaximumLODLevel();
 
-	// This will determine the shadowing flags for the static mesh component according to all sub actors
-	void DetermineShadowingFlags();
-
 private:
  	// Have we already tried to register components? (a cache to avoid having to query the owning world when the global HLOD max level setting is changed)
  	uint8 bHasActorTriedToRegisterComponents : 1;
+
+	// Flag whether or not the SubActors have been moved to a Parent LODActor
+	uint8 bHasPatchedUpParent : 1;
 
 	/**
 	 * If true on post load we need to calculate resolution independent Display Factors from the
@@ -240,6 +260,15 @@ private:
 
 	/** Flags for forcing a dithering transition */
 	uint8 bNeedsDrawDistanceReset : 1;
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	/** Cached flag we use to avoid checking the built status of this actor every frame */
+	mutable uint8 bCachedIsBuilt : 1;
+
+	/** Timer we use to avoid checking the built status of this actor every frame */
+	mutable double LastIsBuiltTime;
+#endif
+
 	float ResetDrawDistanceTime;	
 
 	// Sink for when CVars are changed to check to see if the maximum HLOD level value has changed

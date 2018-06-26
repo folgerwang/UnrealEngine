@@ -22,7 +22,6 @@ class FRHIRenderTargetView;
 class FRHISetRenderTargetsInfo;
 struct FResolveParams;
 struct FViewportBounds;
-struct FRHIGPUMask;
 enum class EAsyncComputeBudget;
 enum class EResourceTransitionAccess;
 enum class EResourceTransitionPipeline;
@@ -127,12 +126,6 @@ public:
 	 * Signal to RHI that cached state is no longer valid
 	 */
 	virtual void RHIInvalidateCachedState() {};
-
-	/** Get a context that will only execute on given GPUs. */ 
-	virtual IRHIComputeContext* GetContextForNodeMask(const FRHIGPUMask& NodeMask) 
-	{ 
-		return this; 
-	}
 };
 
 // These states are now set by the Pipeline State Object and are now deprecated
@@ -259,6 +252,9 @@ public:
 	virtual void RHIEndRenderQuery(FRenderQueryRHIParamRef RenderQuery) = 0;
 
 	virtual void RHISubmitCommandsHint() = 0;
+
+	// Not all RHIs need this (Mobile specific)
+	virtual void RHIDiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask) {};
 
 	// This method is queued with an RHIThread, otherwise it will flush after it is queued; without an RHI thread there is no benefit to queuing this frame advance commands
 	virtual void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) = 0;
@@ -635,12 +631,6 @@ public:
 				RHICopyToResolveTarget(SourceTexture, DestTexture, ResolveParams);
 			}
 		}
-	}
-
-	/** Get a context that will only execute on given GPUs. */ 
-	virtual IRHICommandContext* GetContextForNodeMask(const FRHIGPUMask& NodeMask) 
-	{ 
-		return this; 
 	}
 
 	protected:

@@ -1017,8 +1017,12 @@ void UUnitTestManager::PrintUnitTestResult(UUnitTest* InUnitTest, bool bFinalSum
 			// For when the unit test is expected to be unreliable
 			else if (bExpectedResult && UnitTestResult == EUnitTestVerification::VerifiedUnreliable)
 			{
-				STATUS_LOG_OBJ(InUnitTest, ELogType::StatusWarning | StatusAutomationFlag,
+				STATUS_SET_COLOR(FLinearColor(1.f, 1.f, 0.f));
+
+				STATUS_LOG_OBJ(InUnitTest, StatusAutomationFlag,
 							TEXT("  - NOTE: Unit test expected to be unreliable - multiple runs may not change result/outcome."));
+
+				STATUS_RESET_COLOR();
 			}
 
 
@@ -1031,8 +1035,12 @@ void UUnitTestManager::PrintUnitTestResult(UUnitTest* InUnitTest, bool bFinalSum
 				}
 				else
 				{
-					STATUS_LOG_OBJ(InUnitTest, ELogType::StatusError | StatusAutomationFlag,
+					STATUS_SET_COLOR(FLinearColor(1.f, 0.f, 0.f));
+
+					STATUS_LOG_OBJ(InUnitTest, StatusAutomationFlag,
 									TEXT("  - Unit test issue has NOT been fixed."));
+
+					STATUS_RESET_COLOR();
 				}
 			}
 		}
@@ -1656,12 +1664,18 @@ bool UUnitTestManager::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar
 	}
 	else if (UnitTestName == TEXT("all"))
 	{
+		// When -ForceLogFlush is present, the Sleep(0.f) calls within log flushing, completely kill performance and break unit tests
+		if (FParse::Param(FCommandLine::Get(), TEXT("ForceLogFlush")))
+		{
+			UE_LOG(LogUnitTest, Warning, TEXT("DO NOT USE -FORCELOGFLUSH ALONGSIDE 'UnitTest All' - IT KILLS PERFORMANCE."))
+		}
+
 		// When executing all unit tests, allow them to be requeued if auto-aborted
 		bAllowRequeuingUnitTests = true;
 
 		for (int i=0; i<UnitTestClassDefaults.Num(); i++)
 		{
-			if (!UnitTestClassDefaults[i]->bWorkInProgress)
+			if (!UnitTestClassDefaults[i]->bWorkInProgress && !UnitTestClassDefaults[i]->bObsolete)
 			{
 				if (!QueueUnitTest(UnitTestClassDefaults[i]->GetClass()))
 				{

@@ -3,56 +3,6 @@
 SCRIPT_DIR=$(cd "$(dirname "$BASH_SOURCE")" ; pwd)
 TOP_DIR=$(cd "$SCRIPT_DIR/../../.." ; pwd)
 
-AddGDBPrettyPrinters()
-{
-	echo -ne "Attempting to set up UE4 pretty printers for gdb (existing UE4Printers.py, if any, will be overwritten)...\n\t"
-
-	# Copy the pretty printer into the appropriate folder.
-	mkdir -p ~/.config/Epic/GDBPrinters/
-	if [ -e ~/.config/Epic/GDBPrinters/UE4Printers.py ]; then
-		chmod 644 ~/.config/Epic/GDBPrinters/UE4Printers.py 	# set R/W so we can overwrite it
-	fi
-	cp "$TOP_DIR/Extras/GDBPrinters/UE4Printers.py" ~/.config/Epic/GDBPrinters/
-	echo -ne "updated UE4Printers.py\n\t"
-	chmod 644 ~/.config/Epic/GDBPrinters/UE4Printers.py 	# set R/W again (it can be read-only if copied from Perforce)
-
-	# Check if .gdbinit exists. If not create else add needed parts.
-	if [ ! -f ~/.gdbinit ]; then
-		echo "no ~/.gdbinit file found - creating a new one."
-		echo -e "python \nimport sys\n\nsys.path.append('$HOME/.config/Epic/GDBPrinters/')\n\nfrom UE4Printers import register_ue4_printers\nregister_ue4_printers(None)\nprint(\"Registered pretty printers for UE4 classes\")\n\nend" >> ~/.gdbinit
-	else
-		if grep -q "register_ue4_printers" ~/.gdbinit; then
-			echo "found necessary entries in ~/.gdbinit file, not changing it."
-		else
-			echo -e "cannot modify .gdbinit. Please add the below lines manually:\n\n"
-			echo -e "python"
-			echo -e "\timport sys"
-			echo -e "\tsys.path.append('$HOME/.config/Epic/GDBPrinters/')"
-			echo -e "\tfrom UE4Printers import register_ue4_printers"
-			echo -e "\tregister_ue4_printers(None)"
-			echo -e "\tprint(\"Registered pretty printers for UE4 classes\")"
-			echo -e "\tend"
-			echo -e "\n\n"
-		fi
-	fi
-}
-
-
-# args: wrong filename, correct filename
-# expects to be run in Engine folder
-CreateLinkIfNoneExists()
-{
-    WrongName=$1
-    CorrectName=$2
-
-    pushd `dirname $CorrectName` > /dev/null
-    if [ ! -f `basename $CorrectName` ] && [ -f $WrongName ]; then
-      echo "$WrongName -> $CorrectName"
-      ln -sf $WrongName `basename $CorrectName`
-    fi
-    popd > /dev/null
-}
-
 # args: package
 # returns 0 if installed, 1 if it needs to be installed
 PackageIsInstalled()
@@ -67,11 +17,6 @@ set -e
 
 TOP_DIR=$(cd "$SCRIPT_DIR/../../.." ; pwd)
 cd "${TOP_DIR}"
-
-IS_GITHUB_BUILD=true
-if [ -e Build/PerforceBuild.txt ]; then
-  IS_GITHUB_BUILD=false
-fi
 
 if [ -e /etc/os-release ]; then
   source /etc/os-release
@@ -257,86 +202,11 @@ if [ -e /etc/os-release ]; then
   fi
 fi
 
-MONO_MINIMUM_VERSION=3
-MONO_VERSION=$(mono -V | sed -n 's/.* version \([0-9]\+\).*/\1/p')
-if [[ "$MONO_VERSION" -lt "$MONO_MINIMUM_VERSION" ]]; then
-  echo "Minimum required Mono version is $MONO_MINIMUM_VERSION. Installed is:"
-  mono -V | sed -n '/version/p'
-  exit 1
-fi
-
-echo 
-if [ "$IS_GITHUB_BUILD" = true ]; then
-	echo Github build
-	echo Checking / downloading the latest archives
-	Build/BatchFiles/Linux/GitDependencies.sh --prompt "$@"
-else
-	echo Perforce build
-	echo Assuming availability of up to date third-party libraries
-fi
-
-# Fixes for case sensitive filesystem.
-echo Fixing inconsistent case in filenames.
-for BASE in Content/Editor/Slate Content/Slate Documentation/Source/Shared/Icons; do
-  find $BASE -name "*.PNG" | while read PNG_UPPER; do
-    png_lower="$(echo "$PNG_UPPER" | sed 's/.PNG$/.png/')"
-    if [ ! -f "$png_lower" ]; then
-      PNG_UPPER=$(basename "$PNG_UPPER")
-      echo "$png_lower -> $PNG_UPPER"
-      # link, and not move, to make it usable with Perforce workspaces
-      ln -sf "`basename "$PNG_UPPER"`" "$png_lower"
-    fi
-  done
-done
-
-CreateLinkIfNoneExists ../../engine/shaders/Fxaa3_11.usf  ../Engine/Shaders/Fxaa3_11.usf
-CreateLinkIfNoneExists ../../Engine/shaders/Fxaa3_11.usf  ../Engine/Shaders/Fxaa3_11.usf
-
 # Provide the hooks for locally building third party libs if needed
 echo
 pushd Build/BatchFiles/Linux > /dev/null
 ./BuildThirdParty.sh
 popd > /dev/null
-
-# Creation of user shortcuts and addition of Mime types for Ubuntu
-if [ -e /etc/os-release ]; then
-  source /etc/os-release
-  # Ubuntu/Debian/Mint
-  if [[ "$ID" == "ubuntu" ]] || [[ "$ID_LIKE" == "ubuntu" ]] || [[ "$ID" == "debian" ]] || [[ "$ID_LIKE" == "debian" ]] || [[ "$ID" == "tanglu" ]] || [[ "$ID_LIKE" == "tanglu" ]]; then
-    echo "Installing UE4 project types associations"
-    # Place icon in system icon folder
-    if [ ! -f ~/.local/share/icons/ue4editor.png ]; then
-        mkdir -p ~/.local/share/icons
-        cp "$TOP_DIR/Source/Programs/UnrealVS/Resources/Preview.png" ~/.local/share/icons/ue4editor.png
-    fi
-    # Generate Mime type file
-    if [ ! -f ~/.local/share/mime/packages/uproject.xml ]; then
-        mkdir -p ~/.local/share/mime/packages/
-        cp "$TOP_DIR/Build/Linux/uproject.xml" ~/.local/share/mime/packages/
-        update-mime-database ~/.local/share/mime
-    fi
-    # Generate .desktop file
-    if [ -d ~/.local/share/applications ] && [ ! -f ~/.local/share/applications/UE4Editor.desktop ]; then
-        ICON_DIR=$(cd $TOP_DIR/../../.. ; pwd)
-        echo "#!/usr/bin/env xdg-open
-[Desktop Entry]
-Version=1.0
-Type=Application
-Exec=$TOP_DIR/Binaries/Linux/UE4Editor %f
-Path=$TOP_DIR/Binaries/Linux
-Name=Unreal Engine Editor
-Icon=ue4editor
-Terminal=false
-StartupWMClass=UE4Editor
-MimeType=application/uproject;" > ~/.local/share/applications/UE4Editor.desktop
-        chmod u+x ~/.local/share/applications/UE4Editor.desktop
-        update-desktop-database ~/.local/share/applications
-    fi
-  fi
-fi
-
-# Add GDB scripts for common Unreal types.
-AddGDBPrettyPrinters
 
 echo "Setup successful."
 touch Build/OneTimeSetupPerformed

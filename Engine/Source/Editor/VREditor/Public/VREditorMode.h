@@ -284,6 +284,9 @@ public:
 	/** Gets the container for all the assets of VREditor. */
 	const class UVREditorAssetContainer& GetAssetContainer() const;
 	
+	/** Loads and returns the container for all the assets of VREditor. */
+	static class UVREditorAssetContainer& LoadAssetContainer();
+
 	/** Plays sound at location. */
 	void PlaySound(USoundBase* SoundBase, const FVector& InWorldLocation, const float InVolume = 1.0f);
 
@@ -480,7 +483,7 @@ public:
 	class ISequencer* GetCurrentSequencer();
 
 	/** The asset container path */
-	static const FString AssetContainerPath;
+	static const TCHAR* AssetContainerPath;
 
 private:
 

@@ -11,6 +11,7 @@
 
 FAnimNode_LiveLinkPose::FAnimNode_LiveLinkPose() 
 	: RetargetAsset(ULiveLinkRemapAsset::StaticClass())
+	, CurrentRetargetAsset(nullptr)
 	, LiveLinkClient(nullptr)
 {
 }

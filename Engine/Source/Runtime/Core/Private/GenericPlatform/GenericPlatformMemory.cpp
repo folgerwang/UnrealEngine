@@ -18,6 +18,7 @@
 #include "Misc/CoreDelegates.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/CommandLine.h"
+#include "Misc/MessageDialog.h"
 
 #if PLATFORM_UNIX || PLATFORM_MAC || PLATFORM_IOS
 	#include <sys/mman.h>
@@ -73,6 +74,8 @@ struct FGenericStatsUpdater
 	/** Gathers and sets all platform memory statistics into the corresponding stats. */
 	static void DoUpdateStats()
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_FGenericStatsUpdater_DoUpdateStats);
+
 		// This is slow, so do it on the task graph.
 		FPlatformMemoryStats MemoryStats = FPlatformMemory::GetStats();
 		SET_MEMORY_STAT( STAT_TotalPhysical, MemoryStats.TotalPhysical );
@@ -474,11 +477,13 @@ EPlatformMemorySizeBucket FGenericPlatformMemory::GetMemorySizeBucket()
 		bCalculatedBucket = true;
 
 		// get values for this platform from it's .ini
-		int32 LargestMemoryGB=0, LargerMemoryGB=0, DefaultMemoryGB=0, SmallerMemoryGB=0;
+		int32 LargestMemoryGB=0, LargerMemoryGB=0, DefaultMemoryGB=0, SmallerMemoryGB=0,SmallestMemoryGB=0,TiniestMemoryGB=0;
 		GConfig->GetInt(TEXT("PlatformMemoryBuckets"), TEXT("LargestMemoryBucket_MinGB"), LargestMemoryGB, GEngineIni);
 		GConfig->GetInt(TEXT("PlatformMemoryBuckets"), TEXT("LargerMemoryBucket_MinGB"), LargerMemoryGB, GEngineIni);
 		GConfig->GetInt(TEXT("PlatformMemoryBuckets"), TEXT("DefaultMemoryBucket_MinGB"), DefaultMemoryGB, GEngineIni);
 		GConfig->GetInt(TEXT("PlatformMemoryBuckets"), TEXT("SmallerMemoryBucket_MinGB"), SmallerMemoryGB, GEngineIni);
+		GConfig->GetInt(TEXT("PlatformMemoryBuckets"), TEXT("SmallestMemoryBucket_MinGB"), SmallestMemoryGB, GEngineIni);
+        GConfig->GetInt(TEXT("PlatformMemoryBuckets"), TEXT("TiniestMemoryBucket_MinGB"), TiniestMemoryGB, GEngineIni);
 
 		FPlatformMemoryStats Stats = FPlatformMemory::GetStats();
 
@@ -497,10 +502,14 @@ EPlatformMemorySizeBucket FGenericPlatformMemory::GetMemorySizeBucket()
 			{
 				Bucket = EPlatformMemorySizeBucket::Smaller;
 			}
-			else
+			else if (CurMemoryGB >= SmallestMemoryGB)
 			{
 				Bucket = EPlatformMemorySizeBucket::Smallest;
 			}
+            else
+            {
+                Bucket = EPlatformMemorySizeBucket::Tiniest;
+            }
 		}
 		if (DefaultMemoryGB > 0 && CurMemoryGB >= DefaultMemoryGB)
 		{
@@ -521,7 +530,8 @@ EPlatformMemorySizeBucket FGenericPlatformMemory::GetMemorySizeBucket()
 			Bucket = (EPlatformMemorySizeBucket)BucketOverride;
 		}
 
-		const TCHAR* BucketName = Bucket == EPlatformMemorySizeBucket::Smallest ? TEXT("Smallest") :
+        const TCHAR* BucketName = Bucket == EPlatformMemorySizeBucket::Tiniest ? TEXT("Tiniest") :
+            Bucket == EPlatformMemorySizeBucket::Smallest ? TEXT("Smallest") :
 			Bucket == EPlatformMemorySizeBucket::Smaller ? TEXT("Smaller") :
 			Bucket == EPlatformMemorySizeBucket::Default ? TEXT("Default") :
 			Bucket == EPlatformMemorySizeBucket::Larger ? TEXT("Larger") :

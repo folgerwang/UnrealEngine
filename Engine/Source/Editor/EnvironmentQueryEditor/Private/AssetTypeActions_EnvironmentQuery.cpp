@@ -32,7 +32,7 @@ UClass* FAssetTypeActions_EnvironmentQuery::GetSupportedClass() const
 
 uint32 FAssetTypeActions_EnvironmentQuery::GetCategories()
 {
-	IAIModule& AIModule = FModuleManager::GetModuleChecked<IAIModule>("AIModule").Get();
+	IAIModule& AIModule = FModuleManager::LoadModuleChecked<IAIModule>("AIModule").Get();
 	return AIModule.GetAIAssetCategoryBit();
 }
 #undef LOCTEXT_NAMESPACE

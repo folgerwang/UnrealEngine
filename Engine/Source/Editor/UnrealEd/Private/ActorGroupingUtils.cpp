@@ -83,11 +83,28 @@ void UActorGroupingUtils::GroupActors(const TArray<AActor*>& ActorsToGroup)
 					SpawnInfo.OverrideLevel = ActorLevel;
 					AGroupActor* SpawnedGroupActor = World->SpawnActor<AGroupActor>(SpawnInfo);
 
-					for (int32 ActorIndex = 0; ActorIndex < FinalActorList.Num(); ++ActorIndex)
+					bool bActorsInSameFolder = true;
+					FName FolderPath;
+
+					for (AActor* FinalActor : FinalActorList)
 					{
-						SpawnedGroupActor->Add(*FinalActorList[ActorIndex]);
+						SpawnedGroupActor->Add(*FinalActor);
+
+						if (bActorsInSameFolder)
+						{
+							if (FolderPath.IsNone())
+							{
+								FolderPath = FinalActor->GetFolderPath();
+							}
+							else if (FolderPath != FinalActor->GetFolderPath())
+							{
+								bActorsInSameFolder = false;
+								FolderPath = FName();
+							}
+						}
 					}
 
+					SpawnedGroupActor->SetFolderPath(FolderPath);
 					SpawnedGroupActor->CenterGroupLocation();
 					SpawnedGroupActor->Lock();
 				}

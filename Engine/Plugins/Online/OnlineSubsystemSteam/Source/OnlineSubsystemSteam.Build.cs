@@ -30,7 +30,8 @@ public class OnlineSubsystemSteam : ModuleRules
 				"Sockets", 
 				"Voice",
 				"OnlineSubsystem",
-				"Json"
+				"Json",
+				"PacketHandler"
 			}
 		);
 

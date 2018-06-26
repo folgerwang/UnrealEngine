@@ -55,6 +55,11 @@ UMovieScene::UMovieScene(const FObjectInitializer& ObjectInitializer)
 #endif
 }
 
+bool UMovieScene::IsPostLoadThreadSafe() const
+{
+	return true;
+}
+
 void UMovieScene::Serialize( FArchive& Ar )
 {
 	Ar.UsingCustomVersion(FMovieSceneEvaluationCustomVersion::GUID);
@@ -696,7 +701,7 @@ UMovieSceneTrack* UMovieScene::AddCameraCutTrack( TSubclassOf<UMovieSceneTrack> 
 	if( !CameraCutTrack )
 	{
 		Modify();
-		CameraCutTrack = NewObject<UMovieSceneTrack>(this, TrackClass, FName("Camera Cuts"), RF_Transactional);
+		CameraCutTrack = NewObject<UMovieSceneTrack>(this, TrackClass, NAME_None, RF_Transactional);
 	}
 
 	return CameraCutTrack;

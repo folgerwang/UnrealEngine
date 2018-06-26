@@ -54,6 +54,8 @@ FText UAnimGraphNode_SubInstance::GetNodeTitle(ENodeTitleType::Type TitleType) c
 
 void UAnimGraphNode_SubInstance::ValidateAnimNodeDuringCompilation(USkeleton* ForSkeleton, FCompilerResultsLog& MessageLog)
 {
+	Super::ValidateAnimNodeDuringCompilation(ForSkeleton, MessageLog);
+
 	UAnimBlueprint* AnimBP = CastChecked<UAnimBlueprint>(GetBlueprint());
 
 	UObject* OriginalNode = MessageLog.FindSourceObject(this);
@@ -199,18 +201,7 @@ void UAnimGraphNode_SubInstance::ReallocatePinsDuringReconstruction(TArray<UEdGr
 	for(FName& RemovedPropertyName : BeginExposableNames)
 	{
 		KnownExposableProperties.Remove(RemovedPropertyName);
-		ExposedPropertyNames.Remove(RemovedPropertyName);
 	}
-
-	// Make sure that any old pins that linked to properties are told not to be orphans
-	for(UEdGraphPin* OldPin : OldPins)
-	{
-		if(OldPin && !AnimGraphDefaultSchema->IsPosePin(OldPin->PinType))
-		{
-			OldPin->SetSavePinIfOrphaned(false);
-		}
-	}
-
 }
 
 void UAnimGraphNode_SubInstance::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)

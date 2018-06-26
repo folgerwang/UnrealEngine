@@ -144,15 +144,33 @@ private:
 //
 
 class FRHISamplerState : public FRHIResource {};
-class FRHIRasterizerState : public FRHIResource {};
-class FRHIDepthStencilState : public FRHIResource {};
-class FRHIBlendState : public FRHIResource {};
+class FRHIRasterizerState : public FRHIResource
+{
+public:
+	virtual bool GetInitializer(struct FRasterizerStateInitializerRHI& Init) { return false; }
+};
+class FRHIDepthStencilState : public FRHIResource
+{
+public:
+	virtual bool GetInitializer(struct FDepthStencilStateInitializerRHI& Init) { return false; }
+};
+class FRHIBlendState : public FRHIResource
+{
+public:
+	virtual bool GetInitializer(class FBlendStateInitializerRHI& Init) { return false; }
+};
 
 //
 // Shader bindings
 //
 
-class FRHIVertexDeclaration : public FRHIResource {};
+typedef TArray<struct FVertexElement,TFixedAllocator<MaxVertexElementCount> > FVertexDeclarationElementList;
+class FRHIVertexDeclaration : public FRHIResource
+{
+public:
+	virtual bool GetInitializer(FVertexDeclarationElementList& Init) { return false; }
+};
+
 class FRHIBoundShaderState : public FRHIResource {};
 
 //
@@ -179,7 +197,17 @@ class FRHIHullShader : public FRHIShader {};
 class FRHIDomainShader : public FRHIShader {};
 class FRHIPixelShader : public FRHIShader {};
 class FRHIGeometryShader : public FRHIShader {};
-class FRHIComputeShader : public FRHIShader {};
+class RHI_API FRHIComputeShader : public FRHIShader
+{
+public:
+	FRHIComputeShader() : Stats(nullptr) {}
+	
+	inline void SetStats(struct FPipelineStateStats* Ptr) { Stats = Ptr; }
+	void UpdateStats();
+	
+private:
+	struct FPipelineStateStats* Stats;
+};
 
 //
 // Pipeline States
@@ -729,6 +757,41 @@ public:
 // Misc
 //
 
+
+
+/* Generic GPU fence class used by FRHIGPUMemoryReadback and FRHIGPUMemoryUpdate
+* RHI specific fences derive from this
+*/
+class FRHIGPUFence : public FRHIResource
+{
+public:
+	FRHIGPUFence(FName InName)
+		: FenceName(InName)
+	{}
+
+	virtual ~FRHIGPUFence()
+	{}
+
+	virtual bool Write()
+	{
+		return false;
+	};
+
+	virtual bool Poll() const
+	{
+		return false;
+	};
+
+	virtual bool Wait(float TimeoutMs) const
+	{
+		return false;
+	};
+
+private:
+	FName FenceName;
+};
+
+
 class FRHIRenderQuery : public FRHIResource {};
 
 class FRHIComputeFence : public FRHIResource
@@ -896,6 +959,9 @@ typedef TRefCountPtr<FRHITextureReference> FTextureReferenceRHIRef;
 typedef FRHIRenderQuery*              FRenderQueryRHIParamRef;
 typedef TRefCountPtr<FRHIRenderQuery> FRenderQueryRHIRef;
 
+typedef FRHIGPUFence*				FGPUFenceRHIParamRef;
+typedef TRefCountPtr<FRHIGPUFence>	FGPUFenceRHIRef;
+
 typedef FRHIViewport*              FViewportRHIParamRef;
 typedef TRefCountPtr<FRHIViewport> FViewportRHIRef;
 
@@ -907,6 +973,38 @@ typedef TRefCountPtr<FRHIShaderResourceView> FShaderResourceViewRHIRef;
 
 typedef FRHIGraphicsPipelineState*              FGraphicsPipelineStateRHIParamRef;
 typedef TRefCountPtr<FRHIGraphicsPipelineState> FGraphicsPipelineStateRHIRef;
+
+
+/* Generic staging buffer class used by FRHIGPUMemoryReadback and FRHIGPUMemoryUpdate
+* RHI specific staging buffers derive from this
+*/
+class FRHIStagingBuffer : public FRHIResource
+{
+public:
+	FRHIStagingBuffer()
+		:MappedPtr(nullptr)
+		, LastLockedBuffer(nullptr)
+	{
+	}
+
+	virtual void *Lock(FVertexBufferRHIRef GPUBuffer, uint32 Offset, uint32 NumBytes, EResourceLockMode LockMode)   // copyresource, map, return ptr
+	{
+		return MappedPtr;
+	}
+
+	virtual void Unlock()	// unmap, free memory
+	{
+	}
+
+
+protected:
+	// pointer to mapped buffer; null if unmapped
+	void *MappedPtr;
+	FVertexBufferRHIParamRef LastLockedBuffer;
+};
+
+typedef FRHIStagingBuffer*				FStagingBufferRHIParamRef;
+typedef TRefCountPtr<FRHIStagingBuffer>	FStagingBufferRHIRef;
 
 
 class FRHIRenderTargetView
@@ -1340,10 +1438,7 @@ public:
 class FRHICustomPresent : public FRHIResource
 {
 public:
-	explicit FRHICustomPresent(FRHIViewport* InViewport) 
-		: ViewportRHI(InViewport) 
-	{
-	}
+	FRHICustomPresent() {}
 	
 	virtual ~FRHICustomPresent() {} // should release any references to D3D resources.
 	
@@ -1369,10 +1464,6 @@ public:
 	virtual void OnAcquireThreadOwnership() {}
 	// Called when rendering thread is released
 	virtual void OnReleaseThreadOwnership() {}
-
-protected:
-	// Weak reference, don't create a circular dependency that would prevent the viewport from being destroyed.
-	FRHIViewport* ViewportRHI;
 };
 
 
@@ -1677,10 +1768,12 @@ protected:
 class FRHIShaderLibrary : public FRHIResource
 {
 public:
-	FRHIShaderLibrary(EShaderPlatform InPlatform) : Platform(InPlatform) {}
+	FRHIShaderLibrary(EShaderPlatform InPlatform, FString const& InName) : Platform(InPlatform), LibraryName(InName), LibraryId(GetTypeHash(InName)) {}
 	virtual ~FRHIShaderLibrary() {}
 	
 	FORCEINLINE EShaderPlatform GetPlatform(void) const { return Platform; }
+	FORCEINLINE FString GetName(void) const { return LibraryName; }
+	FORCEINLINE uint32 GetId(void) const { return LibraryId; }
 	
 	virtual bool IsNativeLibrary() const = 0;
 	
@@ -1714,22 +1807,38 @@ public:
 		//Access the library we are iterating through - allow query e.g. GetPlatform from iterator object
 		FRHIShaderLibrary* GetLibrary() const			 {return ShaderLibrarySource;};
 		
-	private:
+	protected:
 		//Control source object lifetime while iterator is 'active'
 		TRefCountPtr<FRHIShaderLibrary> ShaderLibrarySource;
 	};
 	
 	virtual TRefCountPtr<FShaderLibraryIterator> CreateIterator(void) = 0;
-	
+	virtual bool RequestEntry(const FSHAHash& Hash, FArchive* Ar) = 0;
+	virtual bool ContainsEntry(const FSHAHash& Hash) = 0;
 	virtual uint32 GetShaderCount(void) const = 0;
 
 protected:
 	EShaderPlatform Platform;
+	FString LibraryName;
+	uint32 LibraryId;
 };
 
 typedef FRHIShaderLibrary*				FRHIShaderLibraryParamRef;
 typedef TRefCountPtr<FRHIShaderLibrary>	FRHIShaderLibraryRef;
 
+class FRHIPipelineBinaryLibrary : public FRHIResource
+{
+public:
+	FRHIPipelineBinaryLibrary(EShaderPlatform InPlatform, FString const& FilePath) : Platform(InPlatform) {}
+	virtual ~FRHIPipelineBinaryLibrary() {}
+	
+	FORCEINLINE EShaderPlatform GetPlatform(void) const { return Platform; }
+	
+protected:
+	EShaderPlatform Platform;
+};
+typedef FRHIPipelineBinaryLibrary*				FRHIPipelineBinaryLibraryParamRef;
+typedef TRefCountPtr<FRHIPipelineBinaryLibrary>	FRHIPipelineBinaryLibraryRef;
 
 enum class ERenderTargetActions : uint8
 {

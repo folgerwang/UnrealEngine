@@ -84,9 +84,12 @@ public:
 		return 0;
 	}
 
-	void UpdateADBPath(FString &InADBPath)
+	void UpdateADBPath(FString &InADBPath, FString& InGetPropCommand, bool InbGetExtensionsViaSurfaceFlinger)
 	{
 		ADBPath = InADBPath;
+		GetPropCommand = InGetPropCommand;
+		bGetExtensionsViaSurfaceFlinger = InbGetExtensionsViaSurfaceFlinger;
+
 		HasADBPath = !ADBPath.IsEmpty();
 		// Force a check next time we go around otherwise it can take over 10sec to find devices
 		ForceCheck = HasADBPath;	
@@ -192,7 +195,7 @@ private:
 			else
 			{
 				// grab the Android version
-				const FString AndroidVersionCommand = FString::Printf(TEXT("-s %s shell getprop ro.build.version.release"), *NewDeviceInfo.SerialNumber);
+				const FString AndroidVersionCommand = FString::Printf(TEXT("-s %s %s ro.build.version.release"), *NewDeviceInfo.SerialNumber, *GetPropCommand);
 				if (!ExecuteAdbCommand(*AndroidVersionCommand, &NewDeviceInfo.HumanAndroidVersion, nullptr))
 				{
 					continue;
@@ -201,7 +204,7 @@ private:
 				NewDeviceInfo.HumanAndroidVersion.TrimStartAndEndInline();
 
 				// grab the Android SDK version
-				const FString SDKVersionCommand = FString::Printf(TEXT("-s %s shell getprop ro.build.version.sdk"), *NewDeviceInfo.SerialNumber);
+				const FString SDKVersionCommand = FString::Printf(TEXT("-s %s %s ro.build.version.sdk"), *NewDeviceInfo.SerialNumber, *GetPropCommand);
 				FString SDKVersionString;
 				if (!ExecuteAdbCommand(*SDKVersionCommand, &SDKVersionString, nullptr))
 				{
@@ -213,16 +216,19 @@ private:
 					NewDeviceInfo.SDKVersion = INDEX_NONE;
 				}
 
-				// get the GL extensions string (and a bunch of other stuff)
-				const FString ExtensionsCommand = FString::Printf(TEXT("-s %s shell dumpsys SurfaceFlinger"), *NewDeviceInfo.SerialNumber);
-				if (!ExecuteAdbCommand(*ExtensionsCommand, &NewDeviceInfo.GLESExtensions, nullptr))
+				if (bGetExtensionsViaSurfaceFlinger)
 				{
-					continue;
+					// get the GL extensions string (and a bunch of other stuff)
+					const FString ExtensionsCommand = FString::Printf(TEXT("-s %s shell dumpsys SurfaceFlinger"), *NewDeviceInfo.SerialNumber);
+					if (!ExecuteAdbCommand(*ExtensionsCommand, &NewDeviceInfo.GLESExtensions, nullptr))
+					{
+						continue;
+					}
 				}
 
 				// grab the GL ES version
 				FString GLESVersionString;
-				const FString GLVersionCommand = FString::Printf(TEXT("-s %s shell getprop ro.opengles.version"), *NewDeviceInfo.SerialNumber);
+				const FString GLVersionCommand = FString::Printf(TEXT("-s %s %s ro.opengles.version"), *NewDeviceInfo.SerialNumber, *GetPropCommand);
 				if (!ExecuteAdbCommand(*GLVersionCommand, &GLESVersionString, nullptr))
 				{
 					continue;
@@ -233,7 +239,7 @@ private:
 				FParse::Value(*DeviceString, TEXT("model:"), NewDeviceInfo.Model);
 				if (NewDeviceInfo.Model.IsEmpty())
 				{
-					FString ModelCommand = FString::Printf(TEXT("-s %s shell getprop ro.product.model"), *NewDeviceInfo.SerialNumber);
+					FString ModelCommand = FString::Printf(TEXT("-s %s %s ro.product.model"), *NewDeviceInfo.SerialNumber, *GetPropCommand);
 					FString RoProductModel;
 					ExecuteAdbCommand(*ModelCommand, &RoProductModel, nullptr);
 					const TCHAR* Ptr = *RoProductModel;
@@ -244,7 +250,7 @@ private:
 				FParse::Value(*DeviceString, TEXT("device:"), NewDeviceInfo.DeviceName);
 				if (NewDeviceInfo.DeviceName.IsEmpty())
 				{
-					FString DeviceCommand = FString::Printf(TEXT("-s %s shell getprop ro.product.device"), *NewDeviceInfo.SerialNumber);
+					FString DeviceCommand = FString::Printf(TEXT("-s %s %s ro.product.device"), *NewDeviceInfo.SerialNumber, *GetPropCommand);
 					FString RoProductDevice;
 					ExecuteAdbCommand(*DeviceCommand, &RoProductDevice, nullptr);
 					const TCHAR* Ptr = *RoProductDevice;
@@ -348,6 +354,8 @@ private:
 
 	// path to the adb command
 	FString ADBPath;
+	FString GetPropCommand;
+	bool bGetExtensionsViaSurfaceFlinger;
 
 	// > 0 if we've been asked to abort work in progress at the next opportunity
 	FThreadSafeCounter StopTaskCounter;
@@ -366,16 +374,13 @@ class FAndroidDeviceDetection : public IAndroidDeviceDetection
 {
 public:
 
-	FAndroidDeviceDetection() :
-		DetectionThread(nullptr),
-		DetectionThreadRunnable(nullptr)
+	FAndroidDeviceDetection() 
+		: DetectionThread(nullptr)
+		, DetectionThreadRunnable(nullptr)
 	{
 		// create and fire off our device detection thread
 		DetectionThreadRunnable = new FAndroidDeviceDetectionRunnable(DeviceMap, &DeviceMapLock, &ADBPathCheckLock);
 		DetectionThread = FRunnableThread::Create(DetectionThreadRunnable, TEXT("FAndroidDeviceDetectionRunnable"));
-
-		// get the SDK binaries folder and throw it to the runnable
-		UpdateADBPath();
 	}
 
 	virtual ~FAndroidDeviceDetection()
@@ -385,6 +390,15 @@ public:
 			DetectionThreadRunnable->Stop();
 			DetectionThread->WaitForCompletion();
 		}
+	}
+
+	virtual void Initialize(const TCHAR* InSDKDirectoryEnvVar, const TCHAR* InSDKRelativeExePath, const TCHAR* InGetPropCommand, bool InbGetExtensionsViaSurfaceFlinger) override
+	{
+		SDKDirEnvVar = InSDKDirectoryEnvVar;
+		SDKRelativeExePath = InSDKRelativeExePath;
+		GetPropCommand = InGetPropCommand;
+		bGetExtensionsViaSurfaceFlinger = InbGetExtensionsViaSurfaceFlinger;
+		UpdateADBPath();
 	}
 
 	virtual const TMap<FString,FAndroidDeviceInfo>& GetDeviceMap() override
@@ -407,7 +421,7 @@ public:
 	{
 		FScopeLock PathUpdateLock(&ADBPathCheckLock);
 		TCHAR AndroidDirectory[32768] = { 0 };
-		FPlatformMisc::GetEnvironmentVariable(TEXT("ANDROID_HOME"), AndroidDirectory, 32768);
+		FPlatformMisc::GetEnvironmentVariable(*SDKDirEnvVar, AndroidDirectory, 32768);
 
 		ADBPath.Empty();
 		
@@ -436,13 +450,13 @@ public:
 
 				for (int32 Index = Lines.Num()-1; Index >=0; Index--)
 				{
-					if (AndroidDirectory[0] == 0 && Lines[Index].StartsWith(TEXT("export ANDROID_HOME=")))
+					if (AndroidDirectory[0] == 0 && Lines[Index].StartsWith(FString::Printf(TEXT("export %s="), *SDKDirEnvVar)))
 					{
 						FString Directory;
 						Lines[Index].Split(TEXT("="), NULL, &Directory);
 						Directory = Directory.Replace(TEXT("\""), TEXT(""));
 						FCString::Strcpy(AndroidDirectory, *Directory);
-						setenv("ANDROID_HOME", TCHAR_TO_ANSI(AndroidDirectory), 1);
+						setenv(TCHAR_TO_ANSI(*SDKDirEnvVar), TCHAR_TO_ANSI(AndroidDirectory), 1);
 					}
 				}
 			}
@@ -451,11 +465,7 @@ public:
 
 		if (AndroidDirectory[0] != 0)
 		{
-#if PLATFORM_WINDOWS
-			ADBPath = FString::Printf(TEXT("%s\\platform-tools\\adb.exe"), AndroidDirectory);
-#else
-			ADBPath = FString::Printf(TEXT("%s/platform-tools/adb"), AndroidDirectory);
-#endif
+			ADBPath = FPaths::Combine(AndroidDirectory, SDKRelativeExePath);
 
 			// if it doesn't exist then just clear the path as we might set it later
 			if (!FPaths::FileExists(*ADBPath))
@@ -463,13 +473,18 @@ public:
 				ADBPath.Empty();
 			}
 		}
-		DetectionThreadRunnable->UpdateADBPath(ADBPath);
+		DetectionThreadRunnable->UpdateADBPath(ADBPath, GetPropCommand, bGetExtensionsViaSurfaceFlinger);
 	}
 
 private:
 
 	// path to the adb command (local)
 	FString ADBPath;
+
+	FString SDKDirEnvVar;
+	FString SDKRelativeExePath;
+	FString GetPropCommand;
+	bool bGetExtensionsViaSurfaceFlinger;
 
 	FRunnableThread* DetectionThread;
 	FAndroidDeviceDetectionRunnable* DetectionThreadRunnable;
@@ -483,7 +498,7 @@ private:
 /**
  * Holds the target platform singleton.
  */
-static FAndroidDeviceDetection* AndroidDeviceDetectionSingleton = nullptr;
+static TMap<FString, FAndroidDeviceDetection*> AndroidDeviceDetectionSingletons;
 
 
 /**
@@ -498,22 +513,22 @@ public:
 	 */
 	~FAndroidDeviceDetectionModule( )
 	{
-		if (AndroidDeviceDetectionSingleton != nullptr)
+		for (auto It : AndroidDeviceDetectionSingletons)
 		{
-			delete AndroidDeviceDetectionSingleton;
+			delete It.Value;
 		}
-
-		AndroidDeviceDetectionSingleton = nullptr;
+		AndroidDeviceDetectionSingletons.Empty();
 	}
 
-	virtual IAndroidDeviceDetection* GetAndroidDeviceDetection() override
+	virtual IAndroidDeviceDetection* GetAndroidDeviceDetection(const TCHAR* OverridePlatformName) override
 	{
-		if (AndroidDeviceDetectionSingleton == nullptr)
+		FString Key(OverridePlatformName);
+		FAndroidDeviceDetection* Value = AndroidDeviceDetectionSingletons.FindRef(Key);
+		if (Value == nullptr)
 		{
-			AndroidDeviceDetectionSingleton = new FAndroidDeviceDetection();
+			Value = AndroidDeviceDetectionSingletons.Add(Key, new FAndroidDeviceDetection());
 		}
-
-		return AndroidDeviceDetectionSingleton;
+		return Value;
 	}
 };
 

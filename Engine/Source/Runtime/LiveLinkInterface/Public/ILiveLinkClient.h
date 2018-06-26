@@ -19,9 +19,15 @@ public:
 	// Add a new live link source to the client
 	virtual void AddSource(TSharedPtr<ILiveLinkSource> InSource) = 0;
 
+	// Remove the specified source from the live link client
+	virtual void RemoveSource(TSharedPtr<ILiveLinkSource> InSource) = 0;
+
 	virtual void PushSubjectSkeleton(FGuid SourceGuid, FName SubjectName, const FLiveLinkRefSkeleton& RefSkeleton) = 0;
 	virtual void PushSubjectData(FGuid SourceGuid, FName SubjectName, const FLiveLinkFrameData& FrameData) = 0;
 	virtual void ClearSubject(FName SubjectName) = 0;
+
+	// Populates an array with in-use subject names
+	virtual void GetSubjectNames(TArray<FName>& SubjectNames) = 0;
 
 	virtual const FLiveLinkSubjectFrame* GetSubjectData(FName SubjectName) = 0;
 };

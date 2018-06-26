@@ -1,50 +1,16 @@
-﻿INTSourceChangelist:3429264
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:プログラマ向けクイックスタート
 Crumbs:%ROOT%, Programming
 Description:最初のコード プロジェクトを作成し、新規 C++ クラスを追加します。
 prereq:GettingStarted/Installation
-prereq:Programming/Development/VisualStudioSetup
 prereq:Engine/Basics/Projects/Browser
 SkillLevel:Beginner
 Version:4.9
 type:quick start
 tags:Getting Started
 tags:Programming
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](newclass_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Programming\QuickStart:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Programming\QuickStart]
-	[/PARAM]
-	[PARAM:description]
-	%Programming\QuickStart:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](newclass_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Programming\QuickStart:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Programming\QuickStart]
-	[/PARAM]
-	[PARAM:description]
-	%Programming\QuickStart:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:newclass_topic.png
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:width]
@@ -63,13 +29,11 @@ tags:Programming
 ## ステップ
 
 [REGION:buttonlist]
-
-	* [](Programming\QuickStart\1 "%Programming\QuickStart\1:description%")
-	* [](Programming\QuickStart\2 "%Programming\QuickStart\2:description%")
-	* [](Programming\QuickStart\3 "%Programming\QuickStart\3:description%")
-	* [](Programming\QuickStart\4 "%Programming\QuickStart\4:description%")
-	* [](Programming\QuickStart\5 "%Programming\QuickStart\5:description%")
-	
+* [](Programming\QuickStart\1 "%Programming\QuickStart\1:description%")
+* [](Programming\QuickStart\2 "%Programming\QuickStart\2:description%")
+* [](Programming\QuickStart\3 "%Programming\QuickStart\3:description%")
+* [](Programming\QuickStart\4 "%Programming\QuickStart\4:description%")
+* [](Programming\QuickStart\5 "%Programming\QuickStart\5:description%")
 [/REGION]
 
 

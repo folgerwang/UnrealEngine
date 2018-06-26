@@ -58,11 +58,6 @@ namespace VREd
 
 void FVREditorModule::StartupModule()
 {
-	if (GIsEditor)
-	{
-		FVREditorStyle::Initialize();
-	}
-
 }
 
 void FVREditorModule::ShutdownModule()

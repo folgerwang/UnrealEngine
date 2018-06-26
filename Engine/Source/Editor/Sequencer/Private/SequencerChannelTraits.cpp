@@ -2,12 +2,13 @@
 
 #include "SequencerChannelTraits.h"
 #include "EditorStyleSet.h"
+#include "CurveModel.h"
 
 namespace Sequencer
 {
 
 
-void DrawKeys(void* Channel, TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyDrawParams> OutKeyDrawParams)
+void DrawKeys(FMovieSceneChannel* Channel, TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyDrawParams> OutKeyDrawParams)
 {
 	// By default just render diamonds for keys
 	FKeyDrawParams DefaultParams;
@@ -19,6 +20,9 @@ void DrawKeys(void* Channel, TArrayView<const FKeyHandle> InHandles, TArrayView<
 	}
 }
 
-
+TUniquePtr<FCurveModel> CreateCurveEditorModel(const FMovieSceneChannelHandle& ChannelHandle, UMovieSceneSection* OwningSection, TSharedRef<ISequencer> InSequencer)
+{
+	return nullptr;
+}
 
 }	// namespace Sequencer

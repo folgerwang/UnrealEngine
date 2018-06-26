@@ -1,12 +1,17 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineIdentityGoogle.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 #include "OnlineSubsystemGooglePrivate.h"
 
 #include "Android/AndroidJNI.h"
 #include "Android/AndroidApplication.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Async/TaskGraphInterfaces.h"
+
+#define GOOGLE_JNI_CPP_ERROR -2
+#define GOOGLE_JNI_JAVA_ERROR -1
+#define GOOGLE_JNI_OK 0
 
 FOnlineIdentityGoogle::FOnlineIdentityGoogle(FOnlineSubsystemGoogle* InSubsystem)
 	: FOnlineIdentityGoogleCommon(InSubsystem)
@@ -23,6 +28,19 @@ FOnlineIdentityGoogle::FOnlineIdentityGoogle(FOnlineSubsystemGoogle* InSubsystem
 
 	FOnGoogleLogoutCompleteDelegate LogoutDelegate = FOnGoogleLogoutCompleteDelegate::CreateRaw(this, &FOnlineIdentityGoogle::OnLogoutComplete);
 	OnGoogleLogoutCompleteHandle = AddOnGoogleLogoutCompleteDelegate_Handle(LogoutDelegate);
+}
+
+bool FOnlineIdentityGoogle::Init()
+{
+	int32 ResultCode = GOOGLE_JNI_CPP_ERROR;
+	if (ensure(GoogleSubsystem))
+	{
+		extern int32 AndroidThunkCpp_Google_Init(const FString&, const FString&);
+		ResultCode = AndroidThunkCpp_Google_Init(GoogleSubsystem->GetClientId(), GoogleSubsystem->GetServerClientId());
+		ensureMsgf(ResultCode == GOOGLE_JNI_OK, TEXT("FOnlineIdentityGoogle::Init AndroidThunkCpp_Google_Init failed"));
+	}
+
+	return (ResultCode == GOOGLE_JNI_OK);
 }
 
 bool FOnlineIdentityGoogle::Login(int32 LocalUserNum, const FOnlineAccountCredentials& AccountCredentials)
@@ -98,7 +116,7 @@ bool FOnlineIdentityGoogle::Login(int32 LocalUserNum, const FOnlineAccountCreden
 					FString ErrorStr;
 					if (InResponseCode == EGoogleLoginResponse::RESPONSE_CANCELED)
 					{
-						ErrorStr = GOOGLE_AUTH_CANCELED;
+						ErrorStr = LOGIN_CANCELLED;
 					}
 					else
 					{
@@ -108,14 +126,16 @@ bool FOnlineIdentityGoogle::Login(int32 LocalUserNum, const FOnlineAccountCreden
 				}
 			});
 
-			extern bool AndroidThunkCpp_Google_Login(const TArray<FString>&);
-			bTriggeredLogin = AndroidThunkCpp_Google_Login(ScopeFields);
-			if (!ensure(bTriggeredLogin))
+			extern int32 AndroidThunkCpp_Google_Login(const TArray<FString>&);
+			int32 Result = AndroidThunkCpp_Google_Login(ScopeFields);
+			if (!ensure(Result == GOOGLE_JNI_OK))
 			{
 				// Only if JEnv is wrong
-				UE_LOG_ONLINE(Verbose, TEXT("FOnlineIdentityGoogle::Login AndroidThunkCpp_Google_Login failed to trigger"));
+				UE_LOG_ONLINE(Verbose, TEXT("FOnlineIdentityGoogle::Login AndroidThunkCpp_Google_Login failed"));
 				OnLoginComplete(EGoogleLoginResponse::RESPONSE_ERROR, TEXT(""));
 			}
+
+			bTriggeredLogin = (Result == GOOGLE_JNI_OK);
 		}
 		else
 		{
@@ -172,12 +192,12 @@ void FOnlineIdentityGoogle::OnLoginAttemptComplete(int32 LocalUserNum, const FSt
 		});
 
 		// Clean up anything left behind from cached access tokens
-		extern bool AndroidThunkCpp_Google_Logout();
-		bool bTriggeredLogout = AndroidThunkCpp_Google_Logout();
-		if (!ensure(bTriggeredLogout))
+		extern int32 AndroidThunkCpp_Google_Logout();
+		int32 Result = AndroidThunkCpp_Google_Logout();
+		if (!ensure(Result == GOOGLE_JNI_OK))
 		{
 			// Only if JEnv is wrong
-			UE_LOG_ONLINE(Verbose, TEXT("FOnlineIdentityGoogle::OnLoginAttemptComplete AndroidThunkCpp_Google_Logout failed to trigger"));
+			UE_LOG_ONLINE(Verbose, TEXT("FOnlineIdentityGoogle::OnLoginAttemptComplete AndroidThunkCpp_Google_Logout failed"));
 			OnLogoutComplete(EGoogleLoginResponse::RESPONSE_ERROR);
 		}
 	}
@@ -216,14 +236,16 @@ bool FOnlineIdentityGoogle::Logout(int32 LocalUserNum)
 				});
 			});
 
-			extern bool AndroidThunkCpp_Google_Logout();
-			bTriggeredLogout = AndroidThunkCpp_Google_Logout();
-			if (!ensure(bTriggeredLogout))
+			extern int32 AndroidThunkCpp_Google_Logout();
+			int32 Result = AndroidThunkCpp_Google_Logout();
+			if (!ensure(Result == GOOGLE_JNI_OK))
 			{
 				// Only if JEnv is wrong
-				UE_LOG_ONLINE(Verbose, TEXT("FOnlineIdentityGoogle::Logout AndroidThunkCpp_Google_Logout failed to trigger"));
+				UE_LOG_ONLINE(Verbose, TEXT("FOnlineIdentityGoogle::Logout AndroidThunkCpp_Google_Logout failed"));
 				OnLogoutComplete(EGoogleLoginResponse::RESPONSE_ERROR);
 			}
+
+			bTriggeredLogout = (Result == GOOGLE_JNI_OK);
 		}
 		else
 		{
@@ -266,10 +288,44 @@ void FOnlineIdentityGoogle::OnLogoutComplete(EGoogleLoginResponse InResponseCode
 
 #define CHECK_JNI_METHOD(Id) checkf(Id != nullptr, TEXT("Failed to find " #Id));
 
-bool AndroidThunkCpp_Google_Login(const TArray<FString>& InScopeFields)
+int32 AndroidThunkCpp_Google_Init(const FString& InClientId, const FString& InServerId)
+{
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("AndroidThunkCpp_Google_Init %s %s"), *InClientId, *InServerId);
+	int32 ReturnVal = GOOGLE_JNI_CPP_ERROR;
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		const bool bIsOptional = false;
+		static jmethodID GoogleInitGoogleMethod = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_Google_Init", "(Ljava/lang/String;Ljava/lang/String;)I", bIsOptional);
+		CHECK_JNI_METHOD(GoogleInitGoogleMethod);
+		//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("GoogleInitGoogleMethod 0x%08x"), GoogleInitGoogleMethod);
+
+		jstring jClientAuthId = Env->NewStringUTF(TCHAR_TO_UTF8(*InClientId));
+		jstring jServerAuthId = Env->NewStringUTF(TCHAR_TO_UTF8(*InServerId));
+
+		ReturnVal = FJavaWrapper::CallIntMethod(Env, FJavaWrapper::GameActivityThis, GoogleInitGoogleMethod, jClientAuthId, jServerAuthId);
+		if (Env->ExceptionCheck())
+		{
+			Env->ExceptionDescribe();
+			Env->ExceptionClear();
+			ReturnVal = GOOGLE_JNI_CPP_ERROR;
+		}
+
+		Env->DeleteLocalRef(jClientAuthId);
+		Env->DeleteLocalRef(jServerAuthId);
+
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("AndroidThunkJava_Google_Init retval=%d"), ReturnVal);
+	}
+	else
+	{
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("AndroidThunkJava_Google_Init JNI error"));
+	}
+	return ReturnVal;
+}
+
+int32 AndroidThunkCpp_Google_Login(const TArray<FString>& InScopeFields)
 {
 	UE_LOG_ONLINE(Verbose, TEXT("AndroidThunkCpp_Google_Login"));
-	bool bSuccess = false;
+	int32 ReturnVal = GOOGLE_JNI_CPP_ERROR;
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
 	{
 		const bool bIsOptional = false;
@@ -286,11 +342,16 @@ bool AndroidThunkCpp_Google_Login(const TArray<FString>& InScopeFields)
 			Env->DeleteLocalRef(StringValue);
 		}
 
-		int32 ReturnVal = FJavaWrapper::CallIntMethod(Env, FJavaWrapper::GameActivityThis, GoogleLoginMethod, ScopeIDArray);
+		ReturnVal = FJavaWrapper::CallIntMethod(Env, FJavaWrapper::GameActivityThis, GoogleLoginMethod, ScopeIDArray);
+		if (Env->ExceptionCheck())
+		{
+			Env->ExceptionDescribe();
+			Env->ExceptionClear();
+			ReturnVal = GOOGLE_JNI_CPP_ERROR;
+		}
 
 		// clean up references
 		Env->DeleteLocalRef(ScopeIDArray);
-		bSuccess = true;
 		UE_LOG_ONLINE(Verbose, TEXT("AndroidThunkCpp_Google_Login retval=%d"), ReturnVal);
 	}
 	else
@@ -298,10 +359,10 @@ bool AndroidThunkCpp_Google_Login(const TArray<FString>& InScopeFields)
 		UE_LOG_ONLINE(Verbose, TEXT("AndroidThunkCpp_Google_Login JNI error"));
 	}
 
-	return bSuccess;
+	return ReturnVal;
 }
 
-extern "C" void Java_com_epicgames_ue4_GoogleLogin_nativeLoginComplete(JNIEnv* jenv, jobject thiz, jsize responseCode, jstring javaData)
+JNI_METHOD void Java_com_epicgames_ue4_GoogleLogin_nativeLoginComplete(JNIEnv* jenv, jobject thiz, jsize responseCode, jstring javaData)
 {
 	EGoogleLoginResponse LoginResponse = (EGoogleLoginResponse)responseCode;
 
@@ -331,29 +392,34 @@ extern "C" void Java_com_epicgames_ue4_GoogleLogin_nativeLoginComplete(JNIEnv* j
 	);
 }
 
-bool AndroidThunkCpp_Google_Logout()
+int32 AndroidThunkCpp_Google_Logout()
 {
 	UE_LOG_ONLINE(Verbose, TEXT("AndroidThunkCpp_Google_Logout"));
-	bool bSuccess = false;
+	int32 ReturnVal = GOOGLE_JNI_CPP_ERROR;
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
 	{
 		const bool bIsOptional = false;
 		static jmethodID GoogleLogoutMethod = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_Google_Logout", "()I", bIsOptional);
 		CHECK_JNI_METHOD(GoogleLogoutMethod);
 		UE_LOG_ONLINE(Verbose, TEXT("GoogleLogoutMethod 0x%08x"), GoogleLogoutMethod);
-		int32 ReturnVal = FJavaWrapper::CallIntMethod(Env, FJavaWrapper::GameActivityThis, GoogleLogoutMethod);
+		ReturnVal = FJavaWrapper::CallIntMethod(Env, FJavaWrapper::GameActivityThis, GoogleLogoutMethod);
+		if (Env->ExceptionCheck())
+		{
+			Env->ExceptionDescribe();
+			Env->ExceptionClear();
+			ReturnVal = GOOGLE_JNI_CPP_ERROR;
+		}
 		
-		bSuccess = true;
 		UE_LOG_ONLINE(Verbose, TEXT("AndroidThunkCpp_Google_Logout retval=%d"), ReturnVal);
 	}
 	else
 	{
 		UE_LOG_ONLINE(Verbose, TEXT("AndroidThunkCpp_Google_Logout JNI error"));
 	}
-	return bSuccess;
+	return ReturnVal;
 }
 
-extern "C" void Java_com_epicgames_ue4_GoogleLogin_nativeLogoutComplete(JNIEnv* jenv, jobject thiz, jsize responseCode)
+JNI_METHOD void Java_com_epicgames_ue4_GoogleLogin_nativeLogoutComplete(JNIEnv* jenv, jobject thiz, jsize responseCode)
 {
 	EGoogleLoginResponse LogoutResponse = (EGoogleLoginResponse)responseCode;
 	UE_LOG_ONLINE(Verbose, TEXT("nativeLogoutComplete %s"), ToString(LogoutResponse));

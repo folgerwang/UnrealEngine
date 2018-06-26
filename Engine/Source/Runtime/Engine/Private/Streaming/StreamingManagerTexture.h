@@ -138,7 +138,6 @@ struct FStreamingManagerTexture : public ITextureStreamingManager
 
 	/* Notifies manager that level primitives were shifted */
 	virtual void NotifyLevelOffset(ULevel* Level, const FVector& Offset) override;
-
 	/** Called when a spawned actor is destroyed. */
 	virtual void NotifyActorDestroyed( AActor* Actor ) override;
 
@@ -199,17 +198,40 @@ protected:
 		void BoostTextures( AActor* Actor, float BoostFactor ) override;
 
 		/**
+		 * Updates the state of a texture with information about it's optional bulkdata
+		 */
+		void SetOptionalBulkData( UTexture* Texture, bool bHasOptionalBulkData );
+
+		/**
 		 * Stream textures in/out, based on the priorities calculated by the async work.
 		 *
 		 * @param bProcessEverything	Whether we're processing all textures in one go
 		 */
 		void StreamTextures( bool bProcessEverything );
 
+		/**
+		 * If new files have loaded this function will return true once
+		 * bNewFilesLoaded is set on the game thread and reset on the async thread
+		 * no need for synchronization as if we are a frame behind then that's ok 
+		 */
+		FORCEINLINE bool GetAndResetNewFilesHaveLoaded()
+		{
+			bool bResult = bNewFilesLoaded;
+			if ( bResult )
+			{
+				bNewFilesLoaded = false;
+			}
+			return bResult;
+		}
+
 		/** All streaming UTexture2D objects. */
 		TArray<FStreamingTexture> StreamingTextures;
 
 		/** All the textures referenced in StreamingTextures. Used to handled deleted textures.  */
 		TSet<const UTexture2D*> ReferencedTextures;
+
+		/** All the currently installed optional bulkdata files */
+		TSet<FString> OptionalBulkDataFiles;
 
 		/** Index of the StreamingTexture that will be updated next by UpdateStreamingTextures(). */
 		int32 CurrentUpdateStreamingTextureIndex;
@@ -323,6 +345,8 @@ protected:
 	/** Whether texture streaming is paused or not. When paused, it won't stream any textures in or out. */
 	bool bPauseTextureStreaming;
 
+	bool bNewFilesLoaded;
+
 	/** Last time all data were fully updated. Instances are considered visible if they were rendered between that last time and the current time. */
 	float LastWorldUpdateTime;
 
@@ -330,6 +354,9 @@ protected:
 	FTextureStreamingStats GatheredStats;
 
 	TArray<int32> InflightTextures;
+
+	TMap<FString, bool> CachedFileExistsChecks;
+	void OnPakFileMounted(const TCHAR* PakFilename);
 
 #if STATS_FAST
 	uint64 MaxStreamingTexturesSize;

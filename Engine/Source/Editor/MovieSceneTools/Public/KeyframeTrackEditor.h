@@ -14,6 +14,8 @@
 #include "MovieSceneTrackEditor.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "MovieSceneCommonHelpers.h"
+#include "Channels/MovieSceneChannelTraits.h"
+#include "Channels/MovieSceneChannel.h"
 #include "Channels/MovieSceneChannelProxy.h"
 
 
@@ -79,11 +81,12 @@ private:
 		virtual void ApplyDefault(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy) const override
 		{
 			ChannelType* Channel = Proxy.GetChannel<ChannelType>(ChannelIndex);
-			if (Channel && Channel->GetInterface().GetTimes().Num() == 0)
+			if (Channel && Channel->GetData().GetTimes().Num() == 0)
 			{
 				if (Section->TryModify())
 				{
-					Channel->SetDefault(ValueToSet);
+					using namespace MovieScene;
+					SetChannelDefault(Channel, ValueToSet);
 				}
 			}
 		}
@@ -115,7 +118,7 @@ private:
 
 				if (bShouldKeyChannel)
 				{
-					if (Channel->GetInterface().GetTimes().Num() != 0 || bKeyEvenIfEmpty)
+					if (Channel->GetNumKeys() != 0 || bKeyEvenIfEmpty)
 					{
 						if (Section->TryModify())
 						{
@@ -134,11 +137,12 @@ private:
 			using namespace MovieScene;
 
 			ChannelType* Channel = Proxy.GetChannel<ChannelType>(ChannelIndex);
-			if (Channel && Channel->GetInterface().GetTimes().Num() == 0)
+			if (Channel && Channel->GetData().GetTimes().Num() == 0)
 			{
 				if (Section->TryModify())
 				{
-					Channel->SetDefault(ValueToSet);
+					using namespace MovieScene;
+					SetChannelDefault(Channel, ValueToSet);
 				}
 			}
 		}
@@ -244,7 +248,10 @@ private:
 			// Clear all defaults on the section
 			for (const FMovieSceneChannelEntry& Entry : Section->GetChannelProxy().GetAllEntries())
 			{
-				Entry.GetBatchChannelInterface().ClearDefaults_Batch(Entry.GetChannels());
+				for (FMovieSceneChannel* Channel : Entry.GetChannels())
+				{
+					Channel->ClearDefault();
+				}
 			}
 		}
 		GetSequencer()->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::TrackValueChanged);

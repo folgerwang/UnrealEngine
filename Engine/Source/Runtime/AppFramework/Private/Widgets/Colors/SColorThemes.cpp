@@ -14,6 +14,8 @@
 #include "Widgets/Notifications/SErrorText.h"
 #include "Widgets/Views/SListView.h"
 #include "Widgets/Colors/SColorBlock.h"
+#include "Widgets/Input/STextEntryPopup.h"
+#include "Framework/Application/SlateApplication.h"
 
 
 void FColorDragDrop::OnDrop( bool bDropWasHandled, const FPointerEvent& MouseEvent )
@@ -76,16 +78,22 @@ TSharedPtr<SWidget> FColorDragDrop::GetDefaultDecorator() const
 }
 
 
-FColorTheme::FColorTheme( const FString& InName, const TArray< TSharedPtr<FLinearColor> >& InColors )
+FColorTheme::FColorTheme( const FString& InName, const TArray< TSharedPtr<FColorInfo> >& InColors )
 	: Name(InName)
 	, Colors(InColors)
 	, RefreshEvent()
 { }
 
+void FColorTheme::InsertNewColor(TSharedPtr<FColorInfo> InColor, int32 InsertPosition)
+{
+	Colors.Insert(InColor, InsertPosition);
+	RefreshEvent.Broadcast();
+}
 
 void FColorTheme::InsertNewColor( TSharedPtr<FLinearColor> InColor, int32 InsertPosition )
 {
-	Colors.Insert(InColor, InsertPosition);
+	TSharedPtr<FColorInfo> NewColor = MakeShareable(new FColorInfo(InColor));
+	Colors.Insert(NewColor, InsertPosition);
 	RefreshEvent.Broadcast();
 }
 
@@ -94,7 +102,8 @@ int32 FColorTheme::FindApproxColor( const FLinearColor& InColor, float Tolerance
 {
 	for (int32 ColorIndex = 0; ColorIndex < Colors.Num(); ++ColorIndex)
 	{
-		if (Colors[ColorIndex]->Equals(InColor, Tolerance))
+		TSharedPtr<FLinearColor> ApproxColor = Colors[ColorIndex]->Color;
+		if (ApproxColor->Equals(InColor, Tolerance))
 		{
 			return ColorIndex;
 		}
@@ -111,22 +120,18 @@ void FColorTheme::RemoveAll()
 }
 
 
-void FColorTheme::RemoveColor( int32 ColorIndex )
-{
-	Colors.RemoveAt(ColorIndex);
-	RefreshEvent.Broadcast();
-}
-
 
 int32 FColorTheme::RemoveColor( const TSharedPtr<FLinearColor> InColor )
 {
-	const int32 Position = Colors.Find(InColor);
-	if (Position != INDEX_NONE)
+	int32 Index = INDEX_NONE;
+	const TSharedPtr<FColorInfo>* MatchingColor = Colors.FindByPredicate([InColor](TSharedPtr<FColorInfo>& ColorInfo) { return (ColorInfo->Color == InColor); });
+	if (MatchingColor != nullptr)
 	{
-		RemoveColor(Position);
+		Index = Colors.Find(*MatchingColor);
+		Colors.RemoveAt(Index);
+		RefreshEvent.Broadcast();
 	}
-
-	return Position;
+	return Index;
 }
 
 
@@ -224,6 +229,7 @@ const FSlateBrush* SColorTrash::GetBorderStyle() const
 void SThemeColorBlock::Construct(const FArguments& InArgs )
 {
 	ColorPtr = InArgs._Color.Get();
+	ColorInfo = InArgs._ColorInfo.Get();
 	OnSelectColor = InArgs._OnSelectColor;
 	ParentPtr = InArgs._Parent.Get();
 	ShowTrashCallback = InArgs._ShowTrashCallback;
@@ -234,6 +240,7 @@ void SThemeColorBlock::Construct(const FArguments& InArgs )
 	DistanceDragged = 0;
 
 	const FSlateFontInfo SmallLayoutFont = FCoreStyle::GetDefaultFontStyle("Regular", 9);
+	const FSlateFontInfo SmallLabelFont = FCoreStyle::GetDefaultFontStyle("Bold", 9);
 
 	TSharedPtr<SToolTip> ColorTooltip =
 		SNew(SToolTip)
@@ -255,6 +262,11 @@ void SThemeColorBlock::Construct(const FArguments& InArgs )
 							.ShowBackgroundForAlpha(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &SThemeColorBlock::OnReadShowBackgroundForAlpha)))
 							.UseSRGB(bUseSRGB)
 					]
+				]
+				+ SVerticalBox::Slot().AutoHeight().Padding(2)
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock).Font(SmallLabelFont).Text(this, &SThemeColorBlock::GetLabel) .Visibility(SharedThis(this), &SThemeColorBlock::OnGetLabelVisibility)
 				]
 				+SVerticalBox::Slot().AutoHeight() .Padding(2)
 				[
@@ -331,12 +343,52 @@ void SThemeColorBlock::Construct(const FArguments& InArgs )
 	];
 }
 
+void SThemeColorBlock::OnColorBlockRename()
+{
+	// Field to enter new color label
+	TSharedRef<STextEntryPopup> TextEntry =
+		SNew(STextEntryPopup)
+		.Label(NSLOCTEXT("ThemeColorBlock","NewColorLabel", "Color Label"))
+		.OnTextCommitted(this, &SThemeColorBlock::SetLabel);
+
+	// Show dialog to enter new color label
+	FSlateApplication::Get().PushMenu(
+		AsShared(), 
+		FWidgetPath(),
+		TextEntry,
+		FSlateApplication::Get().GetCursorPos(),
+		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
+	);
+}
+
+
+FText SThemeColorBlock::GetLabel() const
+{
+	return ColorInfo->Label;
+}
+
+
+void SThemeColorBlock::SetLabel(const FText& NewColorLabel, ETextCommit::Type CommitInfo)
+{
+	if (CommitInfo == ETextCommit::OnEnter)
+	{
+		ColorInfo->Label = NewColorLabel;
+	}
+	FSlateApplication::Get().DismissAllMenus();
+	SColorThemesViewer::SaveColorThemesToIni();
+}
+
 FReply SThemeColorBlock::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	if ( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton )
 	{
 		DistanceDragged = 0;
 		return FReply::Handled().DetectDrag( SharedThis(this), EKeys::LeftMouseButton ).CaptureMouse(SharedThis(this));
+	}
+	if (MouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
+	{
+		OnColorBlockRename();
+		return FReply::Handled();
 	}
 	else
 	{
@@ -449,6 +501,12 @@ EVisibility SThemeColorBlock::OnGetAlphaVisibility() const
 {
 	return bUseAlpha.Get() ? EVisibility::Visible : EVisibility::Collapsed;
 }
+
+EVisibility SThemeColorBlock::OnGetLabelVisibility() const
+{
+	return !ColorInfo->Label.IsEmpty() ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
 
 SThemeColorBlocksBar::SThemeColorBlocksBar()
 : ColorBlocks(this)
@@ -654,12 +712,13 @@ void SThemeColorBlocksBar::Refresh()
 
 	check(ColorTheme.Get().IsValid());
 
-	const TArray< TSharedPtr<FLinearColor> >& Theme = ColorTheme.Get()->GetColors();
+	const TArray< TSharedPtr<FColorInfo> >& Theme = ColorTheme.Get()->GetColors();
 	for (int32 i = 0; i < Theme.Num(); ++i)
 	{
 		ColorBlocks.Add(
 			SNew(SThemeColorBlock)
-				.Color(Theme[i])
+				.Color(Theme[i]->Color)
+				.ColorInfo(Theme[i])
 				.OnSelectColor(OnSelectColor)
 				.Parent(SharedThis(this))
 				.ShowTrashCallback(ShowTrashCallback)
@@ -993,7 +1052,7 @@ FString SColorThemesViewer::MakeUniqueThemeName(const FString& ThemeName)
 	return NewThemeName;
 }
 
-TSharedPtr<FColorTheme> SColorThemesViewer::NewColorTheme(const FString& ThemeName, const TArray< TSharedPtr<FLinearColor> >& ThemeColors)
+TSharedPtr<FColorTheme> SColorThemesViewer::NewColorTheme(const FString& ThemeName, const TArray< TSharedPtr<FColorInfo> >& ThemeColors)
 {
 	// Create a uniquely named theme
 	check( ThemeName.Len() > 0 );
@@ -1077,11 +1136,11 @@ FReply SColorThemesViewer::NewColorTheme()
 FReply SColorThemesViewer::DuplicateColorTheme()
 {
 	// Create a copy of the existing current color theme
-	TArray< TSharedPtr<FLinearColor> > NewColors;
-	const TArray< TSharedPtr<FLinearColor> >& CurrentColors = CurrentlySelectedThemePtr.Pin()->GetColors();
+	TArray< TSharedPtr<FColorInfo> > NewColors;
+	const TArray< TSharedPtr<FColorInfo> >& CurrentColors = CurrentlySelectedThemePtr.Pin()->GetColors();
 	for (int32 ColorIndex = 0; ColorIndex < CurrentColors.Num(); ++ColorIndex)
 	{
-		NewColors.Add(MakeShareable(new FLinearColor(*CurrentColors[ColorIndex])));
+		NewColors.Add(MakeShareable(new FColorInfo(CurrentColors[ColorIndex]->Color)));
 	}
 	const FText Name = NSLOCTEXT("ColorThemesViewer", "CopyThemeNameAppend", " Copy");
 	NewColorTheme( CurrentlySelectedThemePtr.Pin()->Name + Name.ToString(), NewColors );
@@ -1153,7 +1212,13 @@ void SColorThemesViewer::LoadColorThemesFromIni()
 						Color.InitFromString(ColorString);
 						if ( ColorTheme->FindApproxColor( Color ) == INDEX_NONE )
 						{
-							ColorTheme->InsertNewColor( MakeShareable(new FLinearColor(Color)), 0 );
+							TSharedPtr<FColorInfo> NewColor = MakeShareable(new FColorInfo(MakeShareable(new FLinearColor(Color))));
+							const FString LabelString = GConfig->GetStr(TEXT("ColorThemes"), *FString::Printf(TEXT("Theme%iLabel%i"), ThemeID, ColorID), GEditorPerProjectIni);
+							if (!LabelString.IsEmpty())
+							{
+								NewColor->Label = FText::FromString(LabelString);
+							}
+							ColorTheme->InsertNewColor(NewColor, 0);
 						}
 						++ColorID;
 					}
@@ -1188,11 +1253,13 @@ void SColorThemesViewer::SaveColorThemesToIni()
 			const TSharedPtr<FColorTheme>& Theme = ColorThemes[ThemeIndex];
 			GConfig->SetString(TEXT("ColorThemes"), *FString::Printf(TEXT("Theme%i"), ThemeIndex), *Theme->Name, GEditorPerProjectIni);
 
-			const TArray< TSharedPtr<FLinearColor> >& Colors = Theme->GetColors();
+			const TArray< TSharedPtr<FColorInfo> >& Colors = Theme->GetColors();
 			for (int32 ColorIndex = 0; ColorIndex < Colors.Num(); ++ColorIndex)
 			{
-				const TSharedPtr<FLinearColor>& Color = Colors[ColorIndex];
+				const TSharedPtr<FLinearColor>& Color = Colors[ColorIndex]->Color;
+				const FText& Label = Colors[ColorIndex]->Label;
 				GConfig->SetString(TEXT("ColorThemes"), *FString::Printf(TEXT("Theme%iColor%i"), ThemeIndex, ColorIndex), *Color->ToString(), GEditorPerProjectIni);
+				GConfig->SetString(TEXT("ColorThemes"), *FString::Printf(TEXT("Theme%iLabel%i"), ThemeIndex, ColorIndex), *Label.ToString(), GEditorPerProjectIni);
 			}
 		}
 	}

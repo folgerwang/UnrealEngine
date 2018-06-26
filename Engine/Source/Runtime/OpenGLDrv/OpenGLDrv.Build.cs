@@ -50,15 +50,15 @@ public class OpenGLDrv : ModuleRules
 			);
 		}
 		
-		if (Target.Platform == UnrealTargetPlatform.Android)
-		{
+		if ((Target.Platform == UnrealTargetPlatform.Android) || (Target.Platform == UnrealTargetPlatform.Lumin))
+        {
 			PrivateDependencyModuleNames.Add("detex");
 		}
 
 		if(Target.Platform != UnrealTargetPlatform.Win32 && Target.Platform != UnrealTargetPlatform.Win64 
 			&& Target.Platform != UnrealTargetPlatform.IOS && Target.Platform != UnrealTargetPlatform.Android
 			&& Target.Platform != UnrealTargetPlatform.HTML5 && Target.Platform != UnrealTargetPlatform.Linux
-			&& Target.Platform != UnrealTargetPlatform.TVOS)
+			&& Target.Platform != UnrealTargetPlatform.TVOS && Target.Platform != UnrealTargetPlatform.Lumin)
 		{
 			PrecompileForTargets = PrecompileTargetsType.None;
 		}

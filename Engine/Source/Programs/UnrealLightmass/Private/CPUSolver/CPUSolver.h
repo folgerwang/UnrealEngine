@@ -2,9 +2,6 @@
 
 #pragma once
 
-#ifndef CPUSOLVER_H
-#define CPUSOLVER_H
-
 #include "CoreMinimal.h"
 #include "Misc/Guid.h"
 
@@ -111,5 +108,3 @@ extern bool GReportDetailedStats;
 extern bool GDebugMode;
 
 } //namespace Lightmass
-
-#endif

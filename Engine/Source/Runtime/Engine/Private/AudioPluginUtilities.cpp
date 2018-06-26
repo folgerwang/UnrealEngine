@@ -38,6 +38,9 @@ FORCEINLINE const TCHAR* GetPlatformConfigSection(EAudioPlatform AudioPlatform)
 		case EAudioPlatform::HTML5:
 			return TEXT("/Script/HTML5PlatformEditor.HTML5TargetSettings");
 
+		case EAudioPlatform::Lumin:
+			return TEXT("/Script/LuminRuntimeSettings.LuminRuntimeSettings");
+
 		case EAudioPlatform::Unknown:
 			return TEXT("");
 

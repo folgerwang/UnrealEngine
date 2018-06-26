@@ -79,7 +79,7 @@ Visual Studio 2015 를 이미 설치한 상태라면, **File > New > Project > C
 	1. **Tools** (도구) 메뉴에서 **Options** (옵션) 대화창을 엽니다.
 		
 		![](OpenOptionsDialog.png)
-	1. **Projects and Solutions** (프로젝트 및 솔루션)을 선택한 다음 **Always show error list if build finishes with error** (오류로 인해 빌드가 종료될 때 항상 오류 목록 표시) 체크를 해제합니다.
+	1. **Projects and Solutions** (프로젝트 및 솔루션)을 선택한 다음 **Always show Error List if build finishes with error** (오류로 인해 빌드가 종료될 때 항상 오류 목록 표시) 체크를 해제합니다.
 		
 		![](UncheckErrorsListOption.png)
 	1. **OK** (확인)을 클릭합니다.
@@ -89,16 +89,16 @@ Visual Studio 2015 를 이미 설치한 상태라면, **File > New > Project > C
 [REGION:tip]
 다음과 같은 구성도 해 주면 좋습니다:
 
-* **Show Inactive Blocks** 를 끕니다. 그리 하지 않으면 다수의 코드 덩어리가 텍스트 에디터에서 회색으로 빠져 보입니다. (_Tools > Options > Text Editor > C/C++ > Formatting)_.
-* 솔루션 익스플로러의 **External** 폴더는 화면만 어지럽히니 그냥 끕니다. (_Tools > Options > Text Editor > C/C++ > Advanced_ 에서 **Disable External Dependencies Folder**)
-* 불필요한 **Edit & Continue** 기능을 끕니다. (_Tools > Options > Debugging > Edit and Continue_)
+* **Show Inactive Blocks** 를 끕니다. 그리 하지 않으면 다수의 코드 덩어리가 텍스트 에디터에서 회색으로 빠져 보입니다.  (**Tools > Options > Text Editor > C/C++ > View**).
+* 솔루션 익스플로러의 **External** 폴더는 화면만 어지럽히니 그냥 끕니다. (**Tools > Options > Text Editor > C/C++ > Advanced** 에서 **Disable External Dependencies Folder**)
+* 불필요한 **Edit & Continue** 기능을 끕니다. (**Tools > Options > Debugging > Edit and Continue--**)
 
 * IntelliSense 를 켭니다. ([Intellisense](#Intellisense) 참고)
 [/REGION]
 
 ###Visual Assist X 사용자
-**Visual Assist X 가 설치되어 있다면:**
-* **Format After Paste** 를 끕니다 (VAssistX > Visual Assist X Options > Advanced > Corrections). 이 옵션을 끄지 않으면, Visual Assist X 는 자동으로 소스 코드 포맷을 적용하여, 문서의 포맷이 잘못될 수 있습니다. 
+Visual Assist X 가 설치되어 있다면:
+* **Format After Paste** 를 끕니다 (**VAssistX > Visual Assist X Options > Advanced > Corrections**). 이 옵션을 끄지 않으면, Visual Assist X 는 자동으로 소스 코드 포맷을 적용하여, 문서의 포맷이 잘못될 수 있습니다. 
 
 ###Visual Studio 2017 사용자
 
@@ -191,7 +191,7 @@ UE4 비주얼라이저 설치는 두 단계로 이루어집니다.
     * [UE4Root]/Engine/Extras/VisualStudioDebugging/UE4.natvis
 [/PUBLISH:Rocket]
 
-`UE4.natvis` 파일을 다음 위치 중 한 곳에 복사합니다:
+1. `UE4.natvis` 파일을 다음 위치 중 한 곳에 복사합니다:
 
     * [VisualStudioInstallPath]/Common7/Packages/Debugger/Visualizers/UE4.natvis
     * [UserProfile]/My Documents/Visual Studio 2013/Visualizers/UE4.natvis

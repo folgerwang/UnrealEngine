@@ -12,6 +12,7 @@
 #include "MovieSceneSequence.h"
 #include "MovieScene.h"
 #include "MovieSceneTrack.h"
+#include "Channels/MovieSceneChannel.h"
 #include "Channels/MovieSceneChannelProxy.h"
 #include "MovieSceneSection.h"
 #include "ScopedTransaction.h"
@@ -495,7 +496,10 @@ void SSequencerTimePanel::MigrateFrameTimes(FFrameRate SourceRate, FFrameRate De
 
 	for (const FMovieSceneChannelEntry& Entry : Section->GetChannelProxy().GetAllEntries())
 	{
-		Entry.GetBatchChannelInterface().ChangeTickResolution_Batch(Entry.GetChannels(), SourceRate, DestinationRate);
+		for (FMovieSceneChannel* Channel : Entry.GetChannels())
+		{
+			Channel->ChangeFrameResolution(SourceRate, DestinationRate);
+		}
 	}
 }
 

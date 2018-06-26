@@ -17,13 +17,13 @@ class UNREALED_API UFbxAssetImportData : public UAssetImportData
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Transform, meta=(ImportType="StaticMesh|SkeletalMesh|Animation", ImportCategory="Transform"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category=Transform, meta=(ImportType="StaticMesh|SkeletalMesh|Animation", ImportCategory="Transform"))
 	FVector ImportTranslation;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Transform, meta=(ImportType="StaticMesh|SkeletalMesh|Animation", ImportCategory="Transform"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category=Transform, meta=(ImportType="StaticMesh|SkeletalMesh|Animation", ImportCategory="Transform"))
 	FRotator ImportRotation;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Transform, meta=(ImportType="StaticMesh|SkeletalMesh|Animation", ImportCategory="Transform"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category=Transform, meta=(ImportType="StaticMesh|SkeletalMesh|Animation", ImportCategory="Transform"))
 	float ImportUniformScale;
 
 	/** Whether to convert scene from FBX scene. */

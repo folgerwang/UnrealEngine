@@ -183,9 +183,49 @@ using FDesktopDomain = TShaderPermutationDomain<
 	FTonemapperGrainQuantizationDim,
 	FTonemapperOutputDeviceDim>;
 
+FDesktopDomain RemapPermutation(FDesktopDomain PermutationVector)
+{
+	FCommonDomain CommonPermutationVector = PermutationVector.Get<FCommonDomain>();
+
+	// No remapping if gamma only.
+	if (CommonPermutationVector.Get<FTonemapperGammaOnlyDim>())
+	{
+		return PermutationVector;
+	}
+
+	// Grain jitter or intensity looks bad anyway.
+	bool bFallbackToSlowest = false;
+	bFallbackToSlowest = bFallbackToSlowest || CommonPermutationVector.Get<FTonemapperGrainIntensityDim>();
+	bFallbackToSlowest = bFallbackToSlowest || CommonPermutationVector.Get<FTonemapperGrainJitterDim>();
+
+	if (bFallbackToSlowest)
+	{
+		CommonPermutationVector.Set<FTonemapperGrainIntensityDim>(true);
+		CommonPermutationVector.Set<FTonemapperGrainJitterDim>(true);
+		CommonPermutationVector.Set<FTonemapperSharpenDim>(true);
+
+		PermutationVector.Set<FTonemapperColorFringeDim>(true);
+	}
+
+	// You most likely need Bloom anyway.
+	CommonPermutationVector.Set<FTonemapperBloomDim>(true);
+
+	// Grain quantization is pretty important anyway.
+	PermutationVector.Set<FTonemapperGrainQuantizationDim>(true);
+
+	PermutationVector.Set<FCommonDomain>(CommonPermutationVector);
+	return PermutationVector;
+}
+
 bool ShouldCompileDesktopPermutation(FDesktopDomain PermutationVector)
 {
 	auto CommonPermutationVector = PermutationVector.Get<FCommonDomain>();
+
+	if (RemapPermutation(PermutationVector) != PermutationVector)
+	{
+		return false;
+	}
+
 	if (!ShouldCompileCommonPermutation(CommonPermutationVector))
 	{
 		return false;
@@ -950,6 +990,8 @@ void FRCPassPostProcessTonemap::Process(FRenderingCompositePassContext& Context)
 		}
 
 		DesktopPermutationVector.Set<TonemapperPermutation::FTonemapperOutputDeviceDim>(GetOutputDeviceValue());
+
+		DesktopPermutationVector = TonemapperPermutation::RemapPermutation(DesktopPermutationVector);
 	}
 
 	if (bIsComputePass)
@@ -1287,7 +1329,7 @@ class FPostProcessTonemapPS_ES2 : public FGlobalShader
 
 		static const auto CVarMobileMSAA = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileMSAA"));
 		const EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[View.GetFeatureLevel()];
-		if ((GSupportsShaderFramebufferFetch && (ShaderPlatform == SP_METAL || ShaderPlatform == SP_VULKAN_PCES3_1)) && (CVarMobileMSAA ? CVarMobileMSAA->GetValueOnAnyThread() > 1 : false))
+		if ((GSupportsShaderFramebufferFetch && (ShaderPlatform == SP_METAL || IsVulkanMobilePlatform(ShaderPlatform))) && (CVarMobileMSAA ? CVarMobileMSAA->GetValueOnAnyThread() > 1 : false))
 		{
 			MobilePermutationVector.Set<FTonemapperMsaaDim>(true);
 		}

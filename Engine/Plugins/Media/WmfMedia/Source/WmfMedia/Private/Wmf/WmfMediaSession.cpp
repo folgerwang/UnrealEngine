@@ -869,6 +869,14 @@ bool FWmfMediaSession::CommitTime(FTimespan Time)
 		UE_LOG(LogWmfMedia, Verbose, TEXT("Session %p: Starting from <current>, because media can't seek"), this);
 		Time = WmfMediaSession::RequestedTimeCurrent;
 	}
+	else if (Time == GetTime())
+	{
+		// Fix for audio desync and video fast-forwarding behavior
+		// There long delay (500ms+) until samples start arriving unless we specifically use RequestedTimeCurrent
+		// After delay occurs samples begin arriving at accelerated speed until caught up to playback time leading to visual and audio problems
+		UE_LOG(LogWmfMedia, Verbose, TEXT("Session %p: Starting from <current>, because media already queued up to correct time"), this);
+		Time = WmfMediaSession::RequestedTimeCurrent;
+	}
 
 	if (Time == WmfMediaSession::RequestedTimeCurrent)
 	{

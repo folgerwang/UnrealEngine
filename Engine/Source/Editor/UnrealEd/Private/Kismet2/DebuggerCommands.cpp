@@ -232,14 +232,17 @@ static void LeaveDebuggingMode()
 		GUnrealEd->PlayWorld->bDebugPauseExecution = false;
 	}
 
-	if( FSlateApplication::Get().InKismetDebuggingMode() )
+	// Determine whether or not we are resuming play.
+	const bool bIsResumingPlay = !FKismetDebugUtilities::IsSingleStepping() && !GEditor->ShouldEndPlayMap();
+
+	if( FSlateApplication::Get().InKismetDebuggingMode() && bIsResumingPlay )
 	{
-		// Focus the game view port when resuming from debugging
+		// Focus the game view port when resuming from debugging.
 		FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor").FocusPIEViewport();
 	}
 
-	// Tell the application to stop ticking in this stack frame
-	FSlateApplication::Get().LeaveDebuggingMode( FKismetDebugUtilities::IsSingleStepping() );
+	// Tell the application to stop ticking in this stack frame. The parameter controls whether or not to recapture the mouse to the game viewport.
+	FSlateApplication::Get().LeaveDebuggingMode( !bIsResumingPlay );
 }
 
 
@@ -839,9 +842,9 @@ TSharedRef< SWidget > FPlayWorldCommands::GeneratePlayMenuContent( TSharedRef<FU
 		{
 			TSharedRef<SWidget> NumPlayers = SNew(SSpinBox<int32>)	// Copy limits from PlayNumberOfClients meta data
 				.MinValue(1)
-				.MaxValue(TNumericLimits<int32>::Max())
+				.MaxValue(64)
 				.MinSliderValue(1)
-				.MaxSliderValue(64)
+				.MaxSliderValue(4)
 				.ToolTipText(LOCTEXT( "NumberOfClientsToolTip", "The editor and listen server count as players, a dedicated server will not. Clients make up the remainder." ))
 				.Value(FInternalPlayWorldCommandCallbacks::GetNumberOfClients())
 				.OnValueCommitted_Static(&FInternalPlayWorldCommandCallbacks::SetNumberOfClients);
@@ -960,6 +963,7 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 	PlatformsToMaybeInstallLinksFor.Add(TEXT("Android"));
 	PlatformsToMaybeInstallLinksFor.Add(TEXT("IOS"));
 	PlatformsToMaybeInstallLinksFor.Add(TEXT("Linux"));
+	PlatformsToMaybeInstallLinksFor.Add(TEXT("Lumin"));
 	TArray<FString> PlatformsToCheckFlavorsFor;
 	PlatformsToCheckFlavorsFor.Add(TEXT("Android"));
 	PlatformsToCheckFlavorsFor.Add(TEXT("IOS"));
@@ -1259,6 +1263,14 @@ void FPlayWorldCommandCallbacks::PausePlaySession_Clicked()
 }
 
 
+void FPlayWorldCommandCallbacks::SingleFrameAdvance_Clicked()
+{
+	if (HasPlayWorld())
+	{
+		FInternalPlayWorldCommandCallbacks::SingleFrameAdvance_Clicked();
+	}
+}
+
 bool FPlayWorldCommandCallbacks::IsInSIE()
 {
 	return GEditor->bIsSimulatingInEditor;
@@ -1385,13 +1397,12 @@ void FInternalPlayWorldCommandCallbacks::Simulate_Clicked()
 		return;
 	}
 
-	SetLastExecutedPlayMode( PlayMode_Simulate );
-
 	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>( TEXT("LevelEditor") );
 
 	TSharedPtr<ILevelViewport> ActiveLevelViewport = LevelEditorModule.GetFirstActiveViewport();
-	if( ActiveLevelViewport.IsValid() )
+	if( ActiveLevelViewport.IsValid() && ActiveLevelViewport->HasPlayInEditorViewport())
 	{
+		SetLastExecutedPlayMode(PlayMode_Simulate);
 		// Start a new simulation session!
 		if( !HasPlayWorld() )
 		{
@@ -1967,7 +1978,7 @@ bool FInternalPlayWorldCommandCallbacks::IsReadyToLaunchOnDevice(FString DeviceI
 	FString PlatformName = DeviceId.Left(Index);
 
 	const PlatformInfo::FPlatformInfo* const PlatformInfo = PlatformInfo::FindPlatformInfo(FName(*PlatformName));
-	check(PlatformInfo);
+	checkf(PlatformInfo, TEXT("Unable to find PlatformInfo for %s"), *PlatformName);
 
 	FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
 	bool bHasCode = GameProjectModule.Get().ProjectRequiresBuild(FName(*PlatformName));

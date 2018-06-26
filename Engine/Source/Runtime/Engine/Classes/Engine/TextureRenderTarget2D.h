@@ -81,7 +81,7 @@ class UTextureRenderTarget2D : public UTextureRenderTarget
 	int32 SizeY;
 
 	/** the color the texture is cleared to */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = TextureRenderTarget2D)
 	FLinearColor ClearColor;
 
 	/** The addressing mode to use for the X axis. */
@@ -133,6 +133,9 @@ class UTextureRenderTarget2D : public UTextureRenderTarget
 
 	/** Initializes the render target, the format will be derived from the value of bHDR. */
 	ENGINE_API void InitAutoFormat(uint32 InSizeX, uint32 InSizeY);
+
+	/** Resizes the render target without recreating the FTextureResource.  Will not flush commands unless the render target resource doesnt exist */
+	ENGINE_API void ResizeTarget(uint32 InSizeX, uint32 InSizeY);
 
 	/**
 	 * Utility for creating a new UTexture2D from a TextureRenderTarget2D

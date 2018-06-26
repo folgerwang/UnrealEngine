@@ -184,6 +184,9 @@ public:
 	/** Get the skeletal mesh resource for which this mesh object was created. */
 	FORCEINLINE FSkeletalMeshRenderData& GetSkeletalMeshRenderData() const { return *SkeletalMeshRenderData; }
 
+	/** Called to notify clothing data that component transform has changed */
+	virtual void RefreshClothingTransforms(const FMatrix& InNewLocalToWorld, uint32 FrameNumber) {};
+
 	/** Setup for rendering a specific LOD entry of the component */
 	struct FSkelMeshObjectLODInfo
 	{

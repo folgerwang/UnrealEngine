@@ -8,9 +8,10 @@
 class UCharacterMovementComponent;
 enum class ERootMotionFinishVelocityMode : uint8;
 
-//This delegate can be used to support target swapping on abilities.  e.g. If a decoy is created and you want root motion to switch the destination to the decoy.
+/** This delegate can be used to support target swapping on abilities.  e.g. If a decoy is created and you want root motion to switch the destination to the decoy */
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTargetActorSwapped, AActor*, AActor*);
 
+/** Base class for ability tasks that apply root motion */
 UCLASS(MinimalAPI)
 class UAbilityTask_ApplyRootMotion_Base : public UAbilityTask
 {

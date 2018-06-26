@@ -134,7 +134,7 @@ void USoundNode::SetChildNodes(TArray<USoundNode*>& InChildNodes)
 }
 #endif //WITH_EDITOR
 
-float USoundNode::GetDuration() const
+float USoundNode::GetDuration()
 {
 	// Iterate over children and return maximum length of any of them
 	float MaxDuration = 0.0f;
@@ -155,6 +155,7 @@ float USoundNode::GetMaxDistance() const
 	{
 		if (ChildNode)
 		{
+			ChildNode->ConditionalPostLoad();
 			MaxDistance = FMath::Max(ChildNode->GetMaxDistance(), MaxDistance);
 		}
 	}
@@ -165,9 +166,10 @@ bool USoundNode::HasDelayNode() const
 {
 	for (USoundNode* ChildNode : ChildNodes)
 	{
-		if (ChildNode && ChildNode->HasDelayNode())
+		if (ChildNode)
 		{
-			return true;
+			ChildNode->ConditionalPostLoad();
+			return ChildNode->HasDelayNode();
 		}
 	}
 	return false;
@@ -177,9 +179,10 @@ bool USoundNode::HasConcatenatorNode() const
 {
 	for (USoundNode* ChildNode : ChildNodes)
 	{
-		if (ChildNode && ChildNode->HasConcatenatorNode())
+		if (ChildNode)
 		{
-			return true;
+			ChildNode->ConditionalPostLoad();
+			return ChildNode->HasConcatenatorNode();
 		}
 	}
 	return false;
@@ -189,9 +192,10 @@ bool USoundNode::IsVirtualizeWhenSilent() const
 {
 	for (USoundNode* ChildNode : ChildNodes)
 	{
-		if (ChildNode && ChildNode->IsVirtualizeWhenSilent())
+		if (ChildNode)
 		{
-			return true;
+			ChildNode->ConditionalPostLoad();
+			return ChildNode->IsVirtualizeWhenSilent();
 		}
 	}
 	return false;

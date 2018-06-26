@@ -246,7 +246,7 @@ bool FLocTextWordCounts::FromCSV(const FString& InCSVString, FText* OutError)
 
 			// Parse required data
 			FDateTime::Parse(CsvCells[DateTimeColumn], RowData.Timestamp);
-			Lex::FromString(RowData.SourceWordCount, CsvCells[WordCountColumn]);
+			LexFromString(RowData.SourceWordCount, CsvCells[WordCountColumn]);
 
 			// Parse per-culture data
 			for (const auto& PerCultureColumnPair : PerCultureColumns)
@@ -254,7 +254,7 @@ bool FLocTextWordCounts::FromCSV(const FString& InCSVString, FText* OutError)
 				if (CsvCells.IsValidIndex(PerCultureColumnPair.Value))
 				{
 					int32 PerCultureWordCount = 0;
-					Lex::FromString(PerCultureWordCount, CsvCells[PerCultureColumnPair.Value]);
+					LexFromString(PerCultureWordCount, CsvCells[PerCultureColumnPair.Value]);
 					RowData.PerCultureWordCounts.Add(PerCultureColumnPair.Key, PerCultureWordCount);
 				}
 			}
@@ -378,10 +378,14 @@ const TArray<FString>& FLocTextHelper::GetForeignCultures() const
 	return ForeignCultures;
 }
 
-TArray<FString> FLocTextHelper::GetAllCultures() const
+TArray<FString> FLocTextHelper::GetAllCultures(const bool bSingleCultureMode) const
 {
+	// Single-culture mode is a hack for the Localization commandlets
+	// In this mode we only include the native culture if we have no foreign cultures
+	const bool bIncludeNativeCulture = (!bSingleCultureMode || ForeignCultures.Num() == 0) && !NativeCulture.IsEmpty();
+
 	TArray<FString> AllCultures;
-	if (!NativeCulture.IsEmpty())
+	if (bIncludeNativeCulture)
 	{
 		AllCultures.Add(NativeCulture);
 	}

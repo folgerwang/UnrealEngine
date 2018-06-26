@@ -11,6 +11,11 @@
 #include "UObject/Package.h"
 #include "UObject/UObjectHash.h"
 #include "Animation/AnimInstance.h"
+#include "LevelSequenceModule.h"
+#include "MovieSceneSpawnableAnnotation.h"
+#include "Tracks/MovieSceneSpawnTrack.h"
+#include "Modules/ModuleManager.h"
+#include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 
 #if WITH_EDITOR
 	#include "UObject/SequencerObjectVersion.h"
@@ -302,3 +307,153 @@ void ULevelSequence::UnbindPossessableObjects(const FGuid& ObjectId)
 	// Legacy object references
 	ObjectReferences.Map.Remove(ObjectId);
 }
+
+#if WITH_EDITOR
+
+FGuid ULevelSequence::FindOrAddBinding(UObject* InObject)
+{
+	UObject* PlaybackContext = InObject ? InObject->GetWorld() : nullptr;
+	if (!InObject || !PlaybackContext)
+	{
+		return FGuid();
+	}
+
+	AActor* Actor = Cast<AActor>(InObject);
+	// @todo: sequencer-python: need to figure out how we go from a spawned object to an object binding without the spawn register or any IMovieScenePlayer interface
+	// Normally this process would happen through sequencer, since it has more context than just the level sequence asset.
+	// For now we cannot possess spawnables or anything within them since we have no way of retrieving the spawnable from the object
+	if (Actor && Actor->ActorHasTag("SequencerActor"))
+	{
+		TOptional<FMovieSceneSpawnableAnnotation> Annotation = FMovieSceneSpawnableAnnotation::Find(Actor);
+		if (Annotation.IsSet() && Annotation->OriginatingSequence == this)
+		{
+			return Annotation->ObjectBindingID;
+		}
+
+		UE_LOG(LogLevelSequence, Error, TEXT("Unable to possess object '%s' since it is, or is part of a spawnable that is not in this sequence."), *InObject->GetName());
+		return FGuid();
+	}
+
+	UObject* ParentObject = GetParentObject(InObject);
+	FGuid    ParentGuid   = ParentObject ? FindOrAddBinding(ParentObject) : FGuid();
+
+	if (ParentObject && !ParentGuid.IsValid())
+	{
+		UE_LOG(LogLevelSequence, Error, TEXT("Unable to possess object '%s' because it's parent could not be bound."), *InObject->GetName());
+		return FGuid();
+	}
+
+	// Perform a potentially slow lookup of every possessable binding in the sequence to see if we already have this
+	{
+		class FTransientPlayer : public IMovieScenePlayer
+		{
+		public:
+			FMovieSceneRootEvaluationTemplateInstance Template;
+			virtual FMovieSceneRootEvaluationTemplateInstance& GetEvaluationTemplate() override { check(false); return Template; }
+			virtual void UpdateCameraCut(UObject* CameraObject, UObject* UnlockIfCameraObject, bool bJumpCut) override {}
+			virtual void SetViewportSettings(const TMap<FViewportClient*, EMovieSceneViewportParams>& ViewportParamsMap) override {}
+			virtual void GetViewportSettings(TMap<FViewportClient*, EMovieSceneViewportParams>& ViewportParamsMap) const override {}
+			virtual EMovieScenePlayerStatus::Type GetPlaybackStatus() const { return EMovieScenePlayerStatus::Stopped; }
+			virtual void SetPlaybackStatus(EMovieScenePlayerStatus::Type InPlaybackStatus) override {}
+		} Player;
+
+		Player.State.AssignSequence(MovieSceneSequenceID::Root, *this, Player);
+
+		FGuid ExistingID = Player.FindObjectId(*InObject, MovieSceneSequenceID::Root);
+		if (ExistingID.IsValid())
+		{
+			return ExistingID;
+		}
+	}
+
+	// We have to possess this object
+	if (!CanPossessObject(*InObject, PlaybackContext))
+	{
+		return FGuid();
+	}
+
+	FString NewName = Actor ? Actor->GetActorLabel() : InObject->GetName();
+
+	const FGuid NewGuid = MovieScene->AddPossessable(NewName, InObject->GetClass());
+
+	// Attempt to use the parent as a context if necessary
+	UObject* BindingContext = ParentObject && AreParentContextsSignificant() ? ParentObject : PlaybackContext;
+
+	// Set up parent/child guids for possessables within spawnables
+	if (ParentGuid.IsValid())
+	{
+		FMovieScenePossessable* ChildPossessable = MovieScene->FindPossessable(NewGuid);
+		if (ensure(ChildPossessable))
+		{
+			ChildPossessable->SetParent(ParentGuid);
+		}
+
+		FMovieSceneSpawnable* ParentSpawnable = MovieScene->FindSpawnable(ParentGuid);
+		if (ParentSpawnable)
+		{
+			ParentSpawnable->AddChildPossessable(NewGuid);
+		}
+	}
+
+	BindPossessableObject(NewGuid, *InObject, BindingContext);
+
+	return NewGuid;
+
+}
+
+FGuid ULevelSequence::CreatePossessable(UObject* ObjectToPossess)
+{
+	return FindOrAddBinding(ObjectToPossess);
+}
+
+FGuid ULevelSequence::CreateSpawnable(UObject* ObjectToSpawn)
+{
+	if (!MovieScene || !ObjectToSpawn)
+	{
+		return FGuid();
+	}
+
+	TArray<TSharedRef<IMovieSceneObjectSpawner>> ObjectSpawners;
+
+	// In order to create a spawnable, we have to instantiate all the relevant object spawners for level sequences, and try to create a spawnable from each
+	FLevelSequenceModule& LevelSequenceModule = FModuleManager::LoadModuleChecked<FLevelSequenceModule>("LevelSequence");
+	LevelSequenceModule.GenerateObjectSpawners(ObjectSpawners);
+
+	// The first object spawner to return a valid result will win
+	for (TSharedRef<IMovieSceneObjectSpawner> Spawner : ObjectSpawners)
+	{
+		TValueOrError<FNewSpawnable, FText> Result = Spawner->CreateNewSpawnableType(*ObjectToSpawn, *MovieScene, nullptr);
+		if (Result.IsValid())
+		{
+			FNewSpawnable& NewSpawnable = Result.GetValue();
+
+			// Ensure it has a unique name
+			auto DuplName = [&NewSpawnable](const FMovieSceneSpawnable& InSpawnable)
+			{
+				return InSpawnable.GetName() == NewSpawnable.Name;
+			};
+
+			int32 Index = 2;
+			FString UniqueString;
+			while (MovieScene->FindSpawnable(DuplName))
+			{
+				NewSpawnable.Name.RemoveFromEnd(UniqueString);
+				UniqueString = FString::Printf(TEXT(" (%d)"), Index++);
+				NewSpawnable.Name += UniqueString;
+			}
+
+			FGuid NewGuid = MovieScene->AddSpawnable(NewSpawnable.Name, *NewSpawnable.ObjectTemplate);
+
+			UMovieSceneSpawnTrack* NewSpawnTrack = MovieScene->AddTrack<UMovieSceneSpawnTrack>(NewGuid);
+			if (NewSpawnTrack)
+			{
+				NewSpawnTrack->AddSection(*NewSpawnTrack->CreateNewSection());
+			}
+			return NewGuid;
+		}
+	}
+
+	return FGuid();
+}
+
+#endif // WITH_EDITOR

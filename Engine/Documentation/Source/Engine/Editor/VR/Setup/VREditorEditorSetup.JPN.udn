@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:3360829
+﻿INTSourceChangelist:3746532
 Title:GitHub から VR エディタを設定する方法
 Description:GitHub からアンリアル エンジン VR エディタ プレビューをダウンロードして設定する方法
 Crumbs:
-Availability: public
+Availability: docs
 parent:Engine/Editor/VR
 type:how-to
 order:2

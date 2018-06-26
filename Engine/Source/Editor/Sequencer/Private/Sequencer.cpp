@@ -218,7 +218,7 @@ public:
 		: WeakSequencer(InSequencer)
 	{}
 
-	virtual void GetGridLinesX(TArray<float>& MajorGridLines, TArray<float>& MinorGridLines) const
+	virtual void GetGridLinesX(TArray<float>& MajorGridLines, TArray<float>& MinorGridLines, TArray<FText>& MajorGridLabels) const override
 	{
 		TSharedPtr<FSequencer> Sequencer = WeakSequencer.Pin();
 
@@ -235,7 +235,8 @@ public:
 			for (double CurrentMajorLine = FirstMajorLine; CurrentMajorLine < LastMajorLine; CurrentMajorLine += MajorGridStep)
 			{
 				MajorGridLines.Add( ScreenSpace.SecondsToScreen(CurrentMajorLine) );
-
+				MajorGridLabels.Add(FText());
+				 
 				for (int32 Step = 1; Step < MinorDivisions; ++Step)
 				{
 					MinorGridLines.Add( ScreenSpace.SecondsToScreen(CurrentMajorLine + Step*MajorGridStep/MinorDivisions) );
@@ -430,6 +431,8 @@ FSequencer::FSequencer()
 	, bUpdatingExternalSelection( false )
 	, OldMaxTickRate(GEngine->GetMaxFPS())
 	, bNeedsEvaluate(false)
+	, bCachedBindSequencerToPIE(false)
+	, bCachedBindSequencerToSimulate(false)
 {
 	Selection.GetOnOutlinerNodeSelectionChanged().AddRaw(this, &FSequencer::OnSelectedOutlinerNodesChanged);
 	Selection.GetOnNodesWithSelectedKeysOrSectionsChanged().AddRaw(this, &FSequencer::OnSelectedOutlinerNodesChanged);
@@ -499,11 +502,29 @@ void FSequencer::Tick(float InDeltaTime)
 		}
 	}
 
-	if (RootTemplateInstance.IsDirty())
 	{
-		bNeedsEvaluate = true;
+		TSet<UMovieSceneSequence*> DirtySequences;
+		bool bSequenceIsDirty = RootTemplateInstance.IsDirty(&DirtySequences);
+
+		// If we only dirtied a single sequence, and this is the sequence that has a supression assigned, and the signature is the same, we don't auto-evaluate
+		if (bSequenceIsDirty && SuppressAutoEvalSignature.IsSet() && DirtySequences.Num() == 1)
+		{
+			UMovieSceneSequence* SuppressSequence = SuppressAutoEvalSignature->Get<0>().Get();
+			const FGuid& SuppressSignature = SuppressAutoEvalSignature->Get<1>();
+
+			if (SuppressSequence && DirtySequences.Contains(SuppressSequence) && SuppressSequence->GetSignature() == SuppressSignature)
+			{
+				// Suppress auto evaluation
+				bSequenceIsDirty = false;
+			}
+		}
+
+		if (bSequenceIsDirty)
+		{
+			bNeedsEvaluate = true;
+		}
 	}
-	
+
 	if (bNeedTreeRefresh)
 	{
 		SelectionPreview.Empty();
@@ -709,6 +730,11 @@ void FSequencer::FocusSequenceInstance(UMovieSceneSubSection& InSubSection)
 	bNeedsEvaluate = true;
 }
 
+
+void FSequencer::SuppressAutoEvaluation(UMovieSceneSequence* Sequence, const FGuid& InSequenceSignature)
+{
+	SuppressAutoEvalSignature = MakeTuple(MakeWeakObjectPtr(Sequence), InSequenceSignature);
+}
 
 FGuid FSequencer::CreateBinding(UObject& InObject, const FString& InName)
 {
@@ -971,26 +997,24 @@ void FSequencer::DeleteSections(const TSet<TWeakObjectPtr<UMovieSceneSection>>& 
 
 void FSequencer::DeleteSelectedKeys()
 {
-	ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
-
 	FScopedTransaction DeleteKeysTransaction( NSLOCTEXT("Sequencer", "DeleteSelectedKeys_Transaction", "Delete Selected Keys") );
 	bool bAnythingRemoved = false;
 
-	FSelectedKeysByChannelType KeysByChannel(Selection.GetSelectedKeys().Array());
+	FSelectedKeysByChannel KeysByChannel(Selection.GetSelectedKeys().Array());
 	TSet<UMovieSceneSection*> ModifiedSections;
 
-	for (TTuple<void*, FSelectedChannelInfo>& Pair : KeysByChannel.ChannelToKeyHandleMap)
+	for (const FSelectedChannelInfo& ChannelInfo : KeysByChannel.SelectedChannels)
 	{
-		ISequencerChannelInterface* ChannelInterface = SequencerModule.FindChannelInterface(Pair.Value.ChannelTypeID);
-		if (ChannelInterface)
+		FMovieSceneChannel* Channel = ChannelInfo.Channel.Get();
+		if (Channel)
 		{
-			if (!ModifiedSections.Contains(Pair.Value.OwningSection))
+			if (!ModifiedSections.Contains(ChannelInfo.OwningSection))
 			{
-				Pair.Value.OwningSection->Modify();
-				ModifiedSections.Add(Pair.Value.OwningSection);
+				ChannelInfo.OwningSection->Modify();
+				ModifiedSections.Add(ChannelInfo.OwningSection);
 			}
 
-			ChannelInterface->DeleteKeys_Raw(Pair.Key, Pair.Value.KeyHandles);
+			Channel->DeleteKeys(ChannelInfo.KeyHandles);
 			bAnythingRemoved = true;
 		}
 	}
@@ -1016,30 +1040,31 @@ void FSequencer::SetInterpTangentMode(ERichCurveInterpMode InterpMode, ERichCurv
 	FScopedTransaction SetInterpTangentModeTransaction(NSLOCTEXT("Sequencer", "SetInterpTangentMode_Transaction", "Set Interpolation and Tangent Mode"));
 	bool bAnythingChanged = false;
 
-	FSelectedKeysByChannelType KeysByChannel(SelectedKeysArray);
+	FSelectedKeysByChannel KeysByChannel(SelectedKeysArray);
 	TSet<UMovieSceneSection*> ModifiedSections;
 
-	const uint32 FloatChannelID = FMovieSceneFloatChannel::GetChannelID();
+	const FName FloatChannelTypeName = FMovieSceneFloatChannel::StaticStruct()->GetFName();
 
 	// @todo: sequencer-timecode: move this float-specific logic elsewhere to make it extensible for any channel type
-	for (TTuple<void*, FSelectedChannelInfo>& Pair : KeysByChannel.ChannelToKeyHandleMap)
+	for (const FSelectedChannelInfo& ChannelInfo : KeysByChannel.SelectedChannels)
 	{
-		if (Pair.Value.ChannelTypeID == FloatChannelID)
+		FMovieSceneChannel* ChannelPtr = ChannelInfo.Channel.Get();
+		if (ChannelInfo.Channel.GetChannelTypeName() == FloatChannelTypeName && ChannelPtr)
 		{
-			if (!ModifiedSections.Contains(Pair.Value.OwningSection))
+			if (!ModifiedSections.Contains(ChannelInfo.OwningSection))
 			{
-				Pair.Value.OwningSection->Modify();
-				ModifiedSections.Add(Pair.Value.OwningSection);
+				ChannelInfo.OwningSection->Modify();
+				ModifiedSections.Add(ChannelInfo.OwningSection);
 			}
 
-			FMovieSceneFloatChannel* Channel = static_cast<FMovieSceneFloatChannel*>(Pair.Key);
-			TMovieSceneChannel<FMovieSceneFloatValue> ChannelInterface = static_cast<FMovieSceneFloatChannel*>(Pair.Key)->GetInterface();
+			FMovieSceneFloatChannel* Channel = static_cast<FMovieSceneFloatChannel*>(ChannelPtr);
+			TMovieSceneChannelData<FMovieSceneFloatValue> ChannelData = Channel->GetData();
 
-			TArrayView<FMovieSceneFloatValue> Values = ChannelInterface.GetValues();
+			TArrayView<FMovieSceneFloatValue> Values = ChannelData.GetValues();
 
-			for (FKeyHandle Handle : Pair.Value.KeyHandles)
+			for (FKeyHandle Handle : ChannelInfo.KeyHandles)
 			{
-				const int32 KeyIndex = ChannelInterface.GetIndex(Handle);
+				const int32 KeyIndex = ChannelData.GetIndex(Handle);
 				if (KeyIndex != INDEX_NONE)
 				{
 					Values[KeyIndex].InterpMode = InterpMode;
@@ -1071,25 +1096,28 @@ void FSequencer::ToggleInterpTangentWeightMode()
 	FScopedTransaction SetInterpTangentWeightModeTransaction(NSLOCTEXT("Sequencer", "ToggleInterpTangentWeightMode_Transaction", "Toggle Tangent Weight Mode"));
 	bool bAnythingChanged = false;
 
-	FSelectedKeysByChannelType KeysByChannel(SelectedKeysArray);
+	FSelectedKeysByChannel KeysByChannel(SelectedKeysArray);
 	TSet<UMovieSceneSection*> ModifiedSections;
 
-	const uint32 FloatChannelID = FMovieSceneFloatChannel::GetChannelID();
+	const FName FloatChannelTypeName = FMovieSceneFloatChannel::StaticStruct()->GetFName();
 
 	// Remove all tangent weights unless we find a compatible key that does not have weights yet
 	ERichCurveTangentWeightMode WeightModeToApply = RCTWM_WeightedNone;
 
 	// First off iterate all the current keys and find any that don't have weights
-	for (TTuple<void*, FSelectedChannelInfo>& Pair : KeysByChannel.ChannelToKeyHandleMap)
+	for (const FSelectedChannelInfo& ChannelInfo : KeysByChannel.SelectedChannels)
 	{
-		if (Pair.Value.ChannelTypeID == FloatChannelID)
+		FMovieSceneChannel* ChannelPtr = ChannelInfo.Channel.Get();
+		if (ChannelInfo.Channel.GetChannelTypeName() == FloatChannelTypeName && ChannelPtr)
 		{
-			TMovieSceneChannel<FMovieSceneFloatValue> ChannelInterface = static_cast<FMovieSceneFloatChannel*>(Pair.Key)->GetInterface();
-			TArrayView<FMovieSceneFloatValue> Values = ChannelInterface.GetValues();
+			FMovieSceneFloatChannel* Channel = static_cast<FMovieSceneFloatChannel*>(ChannelPtr);
+			TMovieSceneChannelData<FMovieSceneFloatValue> ChannelData = Channel->GetData();
 
-			for (FKeyHandle Handle : Pair.Value.KeyHandles)
+			TArrayView<FMovieSceneFloatValue> Values = ChannelData.GetValues();
+
+			for (FKeyHandle Handle : ChannelInfo.KeyHandles)
 			{
-				const int32 KeyIndex = ChannelInterface.GetIndex(Handle);
+				const int32 KeyIndex = ChannelData.GetIndex(Handle);
 				if (KeyIndex != INDEX_NONE && Values[KeyIndex].InterpMode == RCIM_Cubic && Values[KeyIndex].Tangent.TangentWeightMode == RCTWM_WeightedNone)
 				{
 					WeightModeToApply = RCTWM_WeightedBoth;
@@ -1102,23 +1130,25 @@ void FSequencer::ToggleInterpTangentWeightMode()
 assign_weights:
 
 	// Assign the new weight mode for all cubic keys
-	for (TTuple<void*, FSelectedChannelInfo>& Pair : KeysByChannel.ChannelToKeyHandleMap)
+	for (const FSelectedChannelInfo& ChannelInfo : KeysByChannel.SelectedChannels)
 	{
-		if (Pair.Value.ChannelTypeID == FloatChannelID)
+		FMovieSceneChannel* ChannelPtr = ChannelInfo.Channel.Get();
+		if (ChannelInfo.Channel.GetChannelTypeName() == FloatChannelTypeName && ChannelPtr)
 		{
-			if (!ModifiedSections.Contains(Pair.Value.OwningSection))
+			if (!ModifiedSections.Contains(ChannelInfo.OwningSection))
 			{
-				Pair.Value.OwningSection->Modify();
-				ModifiedSections.Add(Pair.Value.OwningSection);
+				ChannelInfo.OwningSection->Modify();
+				ModifiedSections.Add(ChannelInfo.OwningSection);
 			}
 
-			FMovieSceneFloatChannel* Channel = static_cast<FMovieSceneFloatChannel*>(Pair.Key);
-			TMovieSceneChannel<FMovieSceneFloatValue> ChannelInterface = Channel->GetInterface();
-			TArrayView<FMovieSceneFloatValue> Values = ChannelInterface.GetValues();
+			FMovieSceneFloatChannel* Channel = static_cast<FMovieSceneFloatChannel*>(ChannelPtr);
+			TMovieSceneChannelData<FMovieSceneFloatValue> ChannelData = Channel->GetData();
 
-			for (FKeyHandle Handle : Pair.Value.KeyHandles)
+			TArrayView<FMovieSceneFloatValue> Values = ChannelData.GetValues();
+
+			for (FKeyHandle Handle : ChannelInfo.KeyHandles)
 			{
-				const int32 KeyIndex = ChannelInterface.GetIndex(Handle);
+				const int32 KeyIndex = ChannelData.GetIndex(Handle);
 				if (KeyIndex != INDEX_NONE && Values[KeyIndex].InterpMode == RCIM_Cubic)
 				{
 					Values[KeyIndex].Tangent.TangentWeightMode = WeightModeToApply;
@@ -1138,31 +1168,29 @@ assign_weights:
 
 void FSequencer::SnapToFrame()
 {
-	ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
-
 	FScopedTransaction SnapToFrameTransaction(NSLOCTEXT("Sequencer", "SnapToFrame_Transaction", "Snap Selected Keys to Frame"));
 	bool bAnythingChanged = false;
 
-	FSelectedKeysByChannelType KeysByChannel(Selection.GetSelectedKeys().Array());
+	FSelectedKeysByChannel KeysByChannel(Selection.GetSelectedKeys().Array());
 	TSet<UMovieSceneSection*> ModifiedSections;
 
 	TArray<FFrameNumber> KeyTimesScratch;
-	for (TTuple<void*, FSelectedChannelInfo>& Pair : KeysByChannel.ChannelToKeyHandleMap)
+	for (const FSelectedChannelInfo& ChannelInfo : KeysByChannel.SelectedChannels)
 	{
-		ISequencerChannelInterface* ChannelInterface = SequencerModule.FindChannelInterface(Pair.Value.ChannelTypeID);
-		if (ChannelInterface)
+		FMovieSceneChannel* Channel = ChannelInfo.Channel.Get();
+		if (Channel)
 		{
-			if (!ModifiedSections.Contains(Pair.Value.OwningSection))
+			if (!ModifiedSections.Contains(ChannelInfo.OwningSection))
 			{
-				Pair.Value.OwningSection->Modify();
-				ModifiedSections.Add(Pair.Value.OwningSection);
+				ChannelInfo.OwningSection->Modify();
+				ModifiedSections.Add(ChannelInfo.OwningSection);
 			}
 
-			const int32 NumKeys = Pair.Value.KeyHandles.Num();
+			const int32 NumKeys = ChannelInfo.KeyHandles.Num();
 			KeyTimesScratch.Reset(NumKeys);
 			KeyTimesScratch.SetNum(NumKeys);
 
-			ChannelInterface->GetKeyTimes_Raw(Pair.Key, Pair.Value.KeyHandles, KeyTimesScratch);
+			Channel->GetKeyTimes(ChannelInfo.KeyHandles, KeyTimesScratch);
 
 			FFrameRate TickResolution  = GetFocusedTickResolution();
 			FFrameRate DisplayRate     = GetFocusedDisplayRate();
@@ -1176,7 +1204,7 @@ void FSequencer::SnapToFrame()
 				Time = SnappedFrame;
 			}
 
-			ChannelInterface->SetKeyTimes_Raw(Pair.Key, Pair.Value.KeyHandles, KeyTimesScratch);
+			Channel->SetKeyTimes(ChannelInfo.KeyHandles, KeyTimesScratch);
 			bAnythingChanged = true;
 		}
 	}
@@ -1197,8 +1225,6 @@ bool FSequencer::CanSnapToFrame() const
 
 void FSequencer::TransformSelectedKeysAndSections(FFrameTime InDeltaTime, float InScale)
 {
-	ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
-
 	FScopedTransaction TransformKeysAndSectionsTransaction(NSLOCTEXT("Sequencer", "TransformKeysandSections_Transaction", "Transform Keys and Sections"));
 	bool bAnythingChanged = false;
 
@@ -1207,24 +1233,24 @@ void FSequencer::TransformSelectedKeysAndSections(FFrameTime InDeltaTime, float 
 
 	const FFrameTime OriginTime = GetLocalTime().Time;
 
-	FSelectedKeysByChannelType KeysByChannel(SelectedKeysArray);
+	FSelectedKeysByChannel KeysByChannel(SelectedKeysArray);
 	TMap<UMovieSceneSection*, TRange<FFrameNumber>> SectionToNewBounds;
 
 	TArray<FFrameNumber> KeyTimesScratch;
 	if (InScale != 0.f)
 	{
 		// Dilate the keys
-		for (TTuple<void*, FSelectedChannelInfo>& Pair : KeysByChannel.ChannelToKeyHandleMap)
+		for (const FSelectedChannelInfo& ChannelInfo : KeysByChannel.SelectedChannels)
 		{
-			ISequencerChannelInterface* ChannelInterface = SequencerModule.FindChannelInterface(Pair.Value.ChannelTypeID);
-			if (ChannelInterface)
+			FMovieSceneChannel* Channel = ChannelInfo.Channel.Get();
+			if (Channel)
 			{
-				const int32 NumKeys = Pair.Value.KeyHandles.Num();
+				const int32 NumKeys = ChannelInfo.KeyHandles.Num();
 				KeyTimesScratch.Reset(NumKeys);
 				KeyTimesScratch.SetNum(NumKeys);
 
 				// Populate the key times scratch buffer with the times for these handles
-				ChannelInterface->GetKeyTimes_Raw(Pair.Key, Pair.Value.KeyHandles, KeyTimesScratch);
+				Channel->GetKeyTimes(ChannelInfo.KeyHandles, KeyTimesScratch);
 
 				// We have to find the lowest key time and the highest key time. They're added based on selection order so we can't rely on their order in the array.
 				FFrameTime LowestFrameTime = KeyTimesScratch[0];
@@ -1247,21 +1273,21 @@ void FSequencer::TransformSelectedKeysAndSections(FFrameTime InDeltaTime, float 
 					}
 				}
 
-				TRange<FFrameNumber>* NewSectionBounds = SectionToNewBounds.Find(Pair.Value.OwningSection);
+				TRange<FFrameNumber>* NewSectionBounds = SectionToNewBounds.Find(ChannelInfo.OwningSection);
 				if (!NewSectionBounds)
 				{
 					// Call Modify on the owning section before we call SetKeyTimes so that our section bounds/key times stay in sync.
-					Pair.Value.OwningSection->Modify();
-					NewSectionBounds = &SectionToNewBounds.Add(Pair.Value.OwningSection, Pair.Value.OwningSection->GetRange());
+					ChannelInfo.OwningSection->Modify();
+					NewSectionBounds = &SectionToNewBounds.Add(ChannelInfo.OwningSection, ChannelInfo.OwningSection->GetRange());
 				}
 
 
-				// Expand the range by ensuring the new range contains the range our keys are in. We add one because the upper time is exclusive
+				// Expand the range by ensuring the new range contains the range our keys are in. We add one because the highest time is exclusive
 				// for sections, but HighestFrameTime is measuring only the key's time.
 				*NewSectionBounds = TRange<FFrameNumber>::Hull(*NewSectionBounds, TRange<FFrameNumber>(LowestFrameTime.GetFrame(), HighestFrameTime.GetFrame() + 1));
 
 				// Apply the new, transformed key times
-				ChannelInterface->SetKeyTimes_Raw(Pair.Key, Pair.Value.KeyHandles, KeyTimesScratch);
+				Channel->SetKeyTimes(ChannelInfo.KeyHandles, KeyTimesScratch);
 				bAnythingChanged = true;
 			}
 		}
@@ -1298,7 +1324,7 @@ void FSequencer::TransformSelectedKeysAndSections(FFrameTime InDeltaTime, float 
 			}
 
 			// If keys have already modified the section, we're applying the same modification to the section so we can
-			// overwrite the (possibly) existing bound without a TRange::Hull.
+			// overwrite the (possibly) existing bound, so it's okay to just overwrite the range without a TRange::Hull.
 			*NewSectionBounds = TRange<FFrameNumber>(LowerBound, UpperBound);
 			bAnythingChanged = true;
 		}
@@ -1359,7 +1385,7 @@ void FSequencer::BakeTransform()
 			TArray<FFrameNumber> KeyTimes;
 
 			FFrameRate   Resolution  = FocusedMovieScene->GetTickResolution();
-			FFrameRate   SnapRate    = FocusedMovieScene->GetEvaluationType() == EMovieSceneEvaluationType::FrameLocked ? FocusedMovieScene->GetDisplayRate() : Resolution;
+			FFrameRate   SnapRate    = FocusedMovieScene->GetDisplayRate();
 
 			FFrameNumber InFrame     = MovieScene::DiscreteInclusiveLower(GetPlaybackRange());
 			FFrameNumber OutFrame    = MovieScene::DiscreteExclusiveUpper(GetPlaybackRange());
@@ -1497,6 +1523,45 @@ void FSequencer::BakeTransform()
 	}
 	
 	NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemsChanged );
+}
+
+void FSequencer::SyncToSourceTimecode()
+{
+	FScopedTransaction SynctoSourceTimecodeTransaction( LOCTEXT("SyncToSourceTimecode_Transaction", "Sync to Source Timecode") );
+	bool bAnythingChanged = false;
+
+	TArray<UMovieSceneSection*> Sections;
+
+	for (auto Section : GetSelection().GetSelectedSections())
+	{
+		if (Section.IsValid())
+		{
+			Sections.Add(Section.Get());
+		}
+	}
+
+	if (!Sections.Num())
+	{
+		UMovieScene* FocusedMovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
+		Sections = FocusedMovieScene->GetAllSections();
+	}
+
+	for (auto Section : Sections)
+	{
+		if (Section->HasStartFrame())
+		{
+			bAnythingChanged = true;
+
+			FFrameNumber DeltaFrame = Section->TimecodeSource.Timecode.ToFrameNumber(GetFocusedTickResolution()) - Section->TimecodeSource.DeltaFrame;
+
+			Section->MoveSection(DeltaFrame);
+		}
+	}
+
+	if (bAnythingChanged)
+	{
+		NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
+	}
 }
 
 
@@ -1763,6 +1828,7 @@ void FSequencer::SetPlaybackRange(TRange<FFrameNumber> Range)
 			FocusedMovieScene->SetPlaybackRange(Range);
 
 			bNeedsEvaluate = true;
+			NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::TrackValueChanged);
 		}
 	}
 }
@@ -2162,6 +2228,7 @@ void FSequencer::EvaluateInternal(FMovieSceneEvaluationRange InRange, bool bHasJ
 	RootTemplateInstance.Evaluate(Context, *this, RootOverride);
 
 	TemplateStore->PurgeStaleTracks();
+	SuppressAutoEvalSignature.Reset();
 
 	if (Settings->ShouldRerunConstructionScripts())
 	{
@@ -2295,10 +2362,10 @@ void FSequencer::RenderMovieInternal(TRange<FFrameNumber> Range, bool bSetFrameO
 	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
 
 	// Create a new movie scene capture object for an automated level sequence, and open the tab
-	UAutomatedLevelSequenceCapture* MovieSceneCapture = NewObject<UAutomatedLevelSequenceCapture>(GetTransientPackage(), UAutomatedLevelSequenceCapture::StaticClass(), NAME_None, RF_Transient);
+	UAutomatedLevelSequenceCapture* MovieSceneCapture = NewObject<UAutomatedLevelSequenceCapture>(GetTransientPackage(), UAutomatedLevelSequenceCapture::StaticClass(), UAutomatedLevelSequenceCapture::AutomatedLevelSequenceCaptureUIName, RF_Transient);
 	MovieSceneCapture->LoadFromConfig();
 
-	MovieSceneCapture->SetLevelSequenceAsset(GetCurrentAsset()->GetPathName());
+	MovieSceneCapture->LevelSequenceAsset = GetCurrentAsset()->GetPathName();
 
 	FFrameRate DisplayRate = GetFocusedDisplayRate();
 	FFrameRate TickResolution = GetFocusedTickResolution();
@@ -2776,6 +2843,8 @@ void FSequencer::ResetPerMovieSceneData()
 
 	LabelManager.SetMovieScene( GetFocusedMovieSceneSequence()->GetMovieScene() );
 
+	SuppressAutoEvalSignature.Reset();
+
 	// @todo run through all tracks for new movie scene changes
 	//  needed for audio track decompression
 }
@@ -3141,6 +3210,16 @@ FReply FSequencer::OnRecord()
 
 void FSequencer::HandleRecordingStarted(UMovieSceneSequence* Sequence)
 {
+	// If not recording into a subsection, probably don't want this sequencer to affect the PIE world, so disable the binding.
+	if (!UMovieSceneSubSection::IsSetAsRecording())
+	{
+		bCachedBindSequencerToPIE = GetDefault<ULevelEditorPlaySettings>()->bBindSequencerToPIE;
+		bCachedBindSequencerToSimulate = GetDefault<ULevelEditorPlaySettings>()->bBindSequencerToSimulate;
+
+		GetMutableDefault<ULevelEditorPlaySettings>()->bBindSequencerToPIE = false;
+		GetMutableDefault<ULevelEditorPlaySettings>()->bBindSequencerToSimulate = false;
+	}
+
 	OnPlayForward(false);
 
 	// Make sure Slate ticks during playback
@@ -3160,6 +3239,9 @@ void FSequencer::HandleRecordingStarted(UMovieSceneSequence* Sequence)
 
 void FSequencer::HandleRecordingFinished(UMovieSceneSequence* Sequence)
 {
+	GetMutableDefault<ULevelEditorPlaySettings>()->bBindSequencerToPIE = bCachedBindSequencerToPIE;
+	GetMutableDefault<ULevelEditorPlaySettings>()->bBindSequencerToSimulate = bCachedBindSequencerToSimulate;
+
 	// toggle us to no playing if we are still playing back
 	// as the post processing takes such a long time we don't really care if the sequence doesnt carry on
 	if(PlaybackState == EMovieScenePlayerStatus::Playing)
@@ -4620,7 +4702,7 @@ void FSequencer::SynchronizeExternalSelectionWithSequencerSelection()
 	TGuardValue<bool> Guard(bUpdatingExternalSelection, true);
 
 	TSet<AActor*> SelectedSequencerActors;
-	TSet<USceneComponent*> SelectedSequencerComponents;
+	TSet<UActorComponent*> SelectedSequencerComponents;
 
 	TSet<TSharedRef<FSequencerDisplayNode> > DisplayNodes = Selection.GetNodesWithSelectedKeysOrSections();
 	DisplayNodes.Append(Selection.GetSelectedOutlinerNodes());
@@ -4651,12 +4733,12 @@ void FSequencer::SynchronizeExternalSelectionWithSequencerSelection()
 					SelectedSequencerActors.Add( Actor );
 				}
 
-				USceneComponent* SceneComponent = Cast<USceneComponent>(RuntimeObject.Get());
-				if ( SceneComponent != nullptr )
+				UActorComponent* ActorComponent = Cast<UActorComponent>(RuntimeObject.Get());
+				if ( ActorComponent != nullptr )
 				{
-					SelectedSequencerComponents.Add( SceneComponent );
+					SelectedSequencerComponents.Add( ActorComponent );
 
-					Actor = SceneComponent->GetOwner();
+					Actor = ActorComponent->GetOwner();
 					if ( Actor != nullptr )
 					{
 						SelectedSequencerActors.Add( Actor );
@@ -4702,7 +4784,7 @@ void FSequencer::SynchronizeExternalSelectionWithSequencerSelection()
 		GEditor->GetSelectedComponents()->Modify();
 		GEditor->GetSelectedComponents()->BeginBatchSelectOperation();
 
-		for ( USceneComponent* SelectedSequencerComponent : SelectedSequencerComponents )
+		for ( UActorComponent* SelectedSequencerComponent : SelectedSequencerComponents )
 		{
 			GEditor->SelectComponent( SelectedSequencerComponent, true, bNotifySelectionChanged, bSelectEvenIfHidden );
 		}
@@ -4918,7 +5000,8 @@ void FSequencer::SyncCurveEditorToSelection(bool bOutlinerSelectionChanged)
 		TArray<TSharedPtr<IKeyArea>> UnanimatedCurves;
 		for (TSharedPtr<IKeyArea> KeyArea : KeyAreasToShow)
 		{
-			if (!KeyArea->HasAnyKeys())
+			const FMovieSceneChannel* Channel = KeyArea->ResolveChannel();
+			if (Channel && Channel->GetNumKeys() == 0)
 			{
 				UnanimatedCurves.Add(KeyArea);
 			}
@@ -4945,7 +5028,7 @@ void FSequencer::SyncCurveEditorToSelection(bool bOutlinerSelectionChanged)
 	// Add newly selected curves to the curve editor
 	for (TSharedPtr<IKeyArea> KeyArea : KeyAreasToShow)
 	{
-		const void* Channel = KeyArea->GetChannelPtr();
+		const FMovieSceneChannel* Channel = KeyArea->ResolveChannel();
 		if (!Channel)
 		{
 			continue;
@@ -4996,13 +5079,8 @@ void FSequencer::SyncCurveEditorToSelection(bool bOutlinerSelectionChanged)
 			{
 				for (TSharedPtr<IKeyArea> KeyArea : SelectedKeyAreasToShow)
 				{
-					const void* Channel = KeyArea->GetChannelPtr();
-					if (!Channel)
-					{
-						continue;
-					}
-
-					if (Ptr == Channel)
+					const FMovieSceneChannel* Channel = KeyArea->ResolveChannel();
+					if (Channel && Ptr == Channel)
 					{
 						CurveModelIDs.Add(Pair.Key);
 						break;
@@ -5013,7 +5091,7 @@ void FSequencer::SyncCurveEditorToSelection(bool bOutlinerSelectionChanged)
 
 		if (CurveModelIDs.Num())
 		{
-			CurveEditorModel->ZoomToFitCurves(MakeArrayView(CurveModelIDs.GetData(), CurveModelIDs.Num()));		
+			CurveEditorModel->ZoomToFitCurves(MakeArrayView(CurveModelIDs.GetData(), CurveModelIDs.Num()));
 		}
 	}
 }
@@ -5959,6 +6037,8 @@ void FSequencer::ToggleNodeActive()
 			Section->SetIsActive(bIsActive);
 		}
 	}
+
+	NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::TrackValueChanged);
 }
 
 
@@ -6727,8 +6807,6 @@ void FSequencer::SetKey()
 		}
 	}
 
-	ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
-
 	TSet<TSharedRef<FSequencerDisplayNode>> NodesToKey = Selection.GetSelectedOutlinerNodes();
 	{
 		TSet<TSharedRef<FSequencerDisplayNode>> ChildNodes;
@@ -6754,8 +6832,20 @@ void FSequencer::SetKey()
 		KeyAreas.Reset();
 		SequencerHelpers::GetAllKeyAreas(Node, KeyAreas);
 
-		TSharedPtr<FSequencerObjectBindingNode> ParentObjectBinding = Node->FindParentObjectBindingNode();
-		FGuid ObjectBinding = ParentObjectBinding.IsValid() ? ParentObjectBinding->GetObjectBinding() : FGuid();
+		FGuid ObjectBinding;
+		if (Node->GetType() == ESequencerNode::Object)
+		{
+			TSharedPtr<FSequencerObjectBindingNode> ObjectBindingNode = StaticCastSharedRef<FSequencerObjectBindingNode>(Node);
+			if (ObjectBindingNode.IsValid())
+			{
+				ObjectBinding = ObjectBindingNode->GetObjectBinding();
+			}
+		}
+		else
+		{
+			TSharedPtr<FSequencerObjectBindingNode> ParentObjectBinding = Node->FindParentObjectBindingNode();
+			ObjectBinding = ParentObjectBinding.IsValid() ? ParentObjectBinding->GetObjectBinding() : FGuid();
+		}
 
 		for (TSharedPtr<IKeyArea> KeyArea : KeyAreas)
 		{
@@ -7390,6 +7480,25 @@ void FSequencer::ImportFBX()
 {
 	UMovieScene* MovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
 
+	TMap<FGuid, FString> ObjectBindingNameMap;
+
+	TArray<TSharedRef<FSequencerObjectBindingNode>> RootObjectBindingNodes;
+	GetRootObjectBindingNodes( NodeTree->GetRootNodes(), RootObjectBindingNodes );
+
+	for (auto RootObjectBindingNode : RootObjectBindingNodes)
+	{
+		FGuid ObjectBinding = RootObjectBindingNode.Get().GetObjectBinding();
+
+		ObjectBindingNameMap.Add(ObjectBinding, RootObjectBindingNode.Get().GetDisplayName().ToString());
+	}
+
+	MovieSceneToolHelpers::ImportFBX(MovieScene, *this, ObjectBindingNameMap, TOptional<bool>());
+}
+
+void FSequencer::ImportFBXOntoSelectedNodes()
+{
+	UMovieScene* MovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
+
 	// The object binding and names to match when importing from fbx
 	TMap<FGuid, FString> ObjectBindingNameMap;
 
@@ -7405,21 +7514,7 @@ void FSequencer::ImportFBX()
 		}
 	}
 
-	// If nothing selected, try to map onto everything
-	if (ObjectBindingNameMap.Num() == 0)
-	{
-		TArray<TSharedRef<FSequencerObjectBindingNode>> RootObjectBindingNodes;
-		GetRootObjectBindingNodes( NodeTree->GetRootNodes(), RootObjectBindingNodes );
-
-		for (auto RootObjectBindingNode : RootObjectBindingNodes)
-		{
-			FGuid ObjectBinding = RootObjectBindingNode.Get().GetObjectBinding();
-
-			ObjectBindingNameMap.Add(ObjectBinding, RootObjectBindingNode.Get().GetDisplayName().ToString());
-		}
-	}
-	
-	MovieSceneToolHelpers::ImportFBX(MovieScene, *this, ObjectBindingNameMap);
+	MovieSceneToolHelpers::ImportFBX(MovieScene, *this, ObjectBindingNameMap, TOptional<bool>(false));
 }
 
 
@@ -8118,6 +8213,11 @@ void FSequencer::BindCommands()
 	SequencerCommandBindings->MapAction(
 		Commands.BakeTransform,
 		FExecuteAction::CreateSP( this, &FSequencer::BakeTransform ),
+		FCanExecuteAction::CreateLambda( []{ return true; } ) );
+
+	SequencerCommandBindings->MapAction(
+		Commands.SyncToSourceTimecode,
+		FExecuteAction::CreateSP( this, &FSequencer::SyncToSourceTimecode ),
 		FCanExecuteAction::CreateLambda( []{ return true; } ) );
 
 	SequencerCommandBindings->MapAction(

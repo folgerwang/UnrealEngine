@@ -117,7 +117,7 @@ struct FD3D12UniqueDescriptorTable
 
 	FORCEINLINE uint32 GetTypeHash(const FD3D12UniqueDescriptorTable& Table)
 	{
-		return uint32(FD3D12PipelineStateCache::HashData((void*)Table.Key.SamplerID, Table.Key.Count * sizeof(Table.Key.SamplerID[0])));
+		return FD3D12PipelineStateCache::HashData((void*)Table.Key.SamplerID, Table.Key.Count * sizeof(Table.Key.SamplerID[0]));
 	}
 
 	FD3D12SamplerArrayDesc Key;

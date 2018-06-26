@@ -157,6 +157,7 @@ void HIDInputInterface::FHIDDeviceInfo::SetupMappings()
 	}
 	else if (VendorID == 0x54c && ProductID == 0x5c4)
 	{
+		// PlayStation 4 Controller
 		ButtonsMapping[1]	= 2;	// Square		->	X
 		ButtonsMapping[2]	= 0;	// Cross		->	A
 		ButtonsMapping[3]	= 1;	// Circle		->	B
@@ -165,10 +166,10 @@ void HIDInputInterface::FHIDDeviceInfo::SetupMappings()
 		ButtonsMapping[6]	= 5;	// R1			->	Right Shoulder
 		ButtonsMapping[7]	= 10;	// L2			->	Left Trigger
 		ButtonsMapping[8]	= 11;	// R2			->	Right Trigger
-		ButtonsMapping[9]	= 7;	// Share		->	Back
 		ButtonsMapping[10]	= 6;	// Options		->	Start
 		ButtonsMapping[11]	= 8;	// L3			->	Left Thumbstick
 		ButtonsMapping[12]	= 9;	// R3			->	Right Thumbstick
+		ButtonsMapping[14]	= 7;	// Touchpad		->	Back
 
 		LeftAnalogXMapping = kHIDUsage_GD_X;
 		LeftAnalogYMapping = kHIDUsage_GD_Y;

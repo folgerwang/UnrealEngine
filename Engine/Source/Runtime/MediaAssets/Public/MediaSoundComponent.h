@@ -167,7 +167,7 @@ protected:
 	//~ USynthComponent interface
 
 	virtual bool Init(int32& SampleRate) override;
-	virtual void OnGenerateAudio(float* OutAudio, int32 NumSamples) override;
+	virtual int32 OnGenerateAudio(float* OutAudio, int32 NumSamples) override;
 
 protected:
 

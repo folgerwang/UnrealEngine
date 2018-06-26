@@ -183,50 +183,56 @@ bool FSocketBSDIPv6::Send(const uint8* Data, int32 Count, int32& BytesSent)
 
 bool FSocketBSDIPv6::RecvFrom(uint8* Data, int32 BufferSize, int32& BytesRead, FInternetAddr& Source, ESocketReceiveFlags::Type Flags)
 {
+	bool bSuccess = false;
+	const bool bStreamSocket = (SocketType == SOCKTYPE_Streaming);
+	const int TranslatedFlags = TranslateFlags(Flags);
 	SOCKLEN Size = sizeof(sockaddr_in6);
 	sockaddr& Addr = *(FInternetAddrBSDIPv6&)Source;
-
-	const int TranslatedFlags = TranslateFlags(Flags);
 
 	// Read into the buffer and set the source address
 	BytesRead = recvfrom(Socket, (char*)Data, BufferSize, TranslatedFlags, &Addr, &Size);
 
 //	NETWORK_PROFILER(FSocket::RecvFrom(Data,BufferSize,BytesRead,Source));
 
-	if (BytesRead < 0 && SocketSubsystem->TranslateErrorCode(BytesRead) == SE_EWOULDBLOCK)
+	if (BytesRead >= 0)
 	{
-		// EWOULDBLOCK is not an error condition
-		BytesRead = 0;
+		// For Streaming sockets, 0 indicates a graceful failure
+		bSuccess = !bStreamSocket || (BytesRead > 0);
 	}
-	else if (BytesRead <= 0) // 0 means gracefully closed
+	else
 	{
+		// For Streaming sockets, don't treat SE_EWOULDBLOCK as an error
+		bSuccess = bStreamSocket && (SocketSubsystem->TranslateErrorCode(BytesRead) == SE_EWOULDBLOCK);
 		BytesRead = 0;
-		return false;
 	}
 
-	return true;
+	return bSuccess;
 }
 
 
 bool FSocketBSDIPv6::Recv(uint8* Data, int32 BufferSize, int32& BytesRead, ESocketReceiveFlags::Type Flags)
 {
+	bool bSuccess = false;
+	const bool bStreamSocket = (SocketType == SOCKTYPE_Streaming);
 	const int TranslatedFlags = TranslateFlags(Flags);
+
 	BytesRead = recv(Socket, (char*)Data, BufferSize, TranslatedFlags);
 
 //	NETWORK_PROFILER(FSocket::Recv(Data,BufferSize,BytesRead));
 
-	if (BytesRead < 0 && SocketSubsystem->TranslateErrorCode(BytesRead) == SE_EWOULDBLOCK)
+	if (BytesRead >= 0)
 	{
-		// EWOULDBLOCK is not an error condition
-		BytesRead = 0;
+		// For Streaming sockets, 0 indicates a graceful failure
+		bSuccess = !bStreamSocket || (BytesRead > 0);
 	}
-	else if (BytesRead <= 0) // 0 means gracefully closed
+	else
 	{
+		// For Streaming sockets, don't treat SE_EWOULDBLOCK as an error
+		bSuccess = bStreamSocket && (SocketSubsystem->TranslateErrorCode(BytesRead) == SE_EWOULDBLOCK);
 		BytesRead = 0;
-		return false;
 	}
 
-	return true;
+	return bSuccess;
 }
 
 bool FSocketBSDIPv6::Wait(ESocketWaitConditions::Type Condition, FTimespan WaitTime)
@@ -427,9 +433,11 @@ int32 FSocketBSDIPv6::GetPortNo(void)
 	{
 		check(SocketSubsystem);
 		UE_LOG(LogSockets, Error, TEXT("Failed to read address for socket (%s)"), SocketSubsystem->GetSocketError());
+		
+		return 0;
 	}
 
-	// Read the port number
+	// Convert big endian port to native endian port.
 	return ntohs(Addr.sin6_port);
 }
 

@@ -15,6 +15,10 @@ uint ShadowAverageObjectsPerTile;
 #define SHADOW_TILE_ARRAY_DATA_STRIDE 0
 #endif
 
+// Approximation of margin added to SDF objects during generation inside FMeshUtilities::GenerateSignedDistanceFieldVolumeData.
+// This can slightly clip RTDF shadow penumbra in very rare cases, but is much more faster than a conservative value and improves tracing accuracy inside the volume
+#define SDF_APPROX_MARGIN 0.7
+
 uint2 GetShadowTileHead(uint2 TileCoordinate)
 {
 	uint TileIndex = TileCoordinate.y * ShadowTileListGroupSize.x + TileCoordinate.x;
@@ -48,7 +52,7 @@ float TwoSidedMeshDistanceBias;
 float ShadowRayTraceThroughCulledObjects(
 	float3 WorldRayStart, 
 	float3 WorldRayEnd, 
-	float MaxRayTime, 
+	float MaxRayTime,
 	float TanLightAngle, 
 	float MinSphereRadius, 
 	float MaxSphereRadius, 
@@ -59,12 +63,11 @@ float ShadowRayTraceThroughCulledObjects(
 	uniform bool bUseScatterTileCulling,
 	bool bUseSubsurfaceTransmission)
 {
-	float MinRayTime = MaxRayTime;
 	float MinConeVisibility = 1;
 	float3 WorldRayUnitDirection = normalize(WorldRayEnd - WorldRayStart);
 
 	LOOP
-	for (uint ListObjectIndex = 0; ListObjectIndex < NumIntersectingObjects && MinRayTime >= MaxRayTime; ListObjectIndex++)
+	for (uint ListObjectIndex = 0; ListObjectIndex < NumIntersectingObjects; ListObjectIndex++)
 	{
 		uint ObjectIndex;
 
@@ -86,11 +89,6 @@ float ShadowRayTraceThroughCulledObjects(
 			ObjectIndex = ListObjectIndex;
 		}
 
-		float4 SphereCenterAndRadius = LoadObjectPositionAndRadius(ObjectIndex);
-		float ObjectCenterDistanceAlongRay = dot(SphereCenterAndRadius.xyz - WorldRayStart, WorldRayUnitDirection);
-
-		BRANCH
-		if (ObjectCenterDistanceAlongRay > -SphereCenterAndRadius.w)
 		{
 			float3 LocalPositionExtent = LoadObjectLocalPositionExtent(ObjectIndex);
 			float4x4 WorldToVolume = LoadObjectWorldToVolume(ObjectIndex);
@@ -112,15 +110,20 @@ float ShadowRayTraceThroughCulledObjects(
 			float SelfShadowScale = 1.0f / max(UVAddAndSelfShadowBias.w * WorldToVolumeScale, .0001f);
 
 			// Expand the intersection box by the radius of the cone at the distance of the object along the cone
-			float LocalConeRadiusAtObject = min(TanLightAngle * max(ObjectCenterDistanceAlongRay, 0) * WorldToVolumeScale, VolumeMaxSphereRadius);
+			float ObjectCenterDistanceAlongRay = dot(-VolumeRayStart, VolumeRayDirection);
+			float LocalConeRadiusAtObject = min(TanLightAngle * max(ObjectCenterDistanceAlongRay, 0), VolumeMaxSphereRadius);
 
-			float2 IntersectionTimes = LineBoxIntersect(VolumeRayStart, VolumeRayEnd, -LocalPositionExtent - LocalConeRadiusAtObject, LocalPositionExtent + LocalConeRadiusAtObject);
+			float2 IntersectionTimes = LineBoxIntersect(VolumeRayStart, VolumeRayEnd, -LocalPositionExtent * SDF_APPROX_MARGIN - LocalConeRadiusAtObject, LocalPositionExtent * SDF_APPROX_MARGIN + LocalConeRadiusAtObject);
 
 			BRANCH
-			if (IntersectionTimes.x < IntersectionTimes.y && IntersectionTimes.x < 1)
+			if (IntersectionTimes.x < IntersectionTimes.y)
 			{
 				float SampleRayTime = IntersectionTimes.x * VolumeRayLength;
+#if DF_SHADOW_QUALITY > 1
 				uint MaxSteps = 64;
+#else
+				uint MaxSteps = 32;
+#endif
 				float MinStepSize = 1.0f / (4 * MaxSteps);
 
 				float MinDistance = 1000000;
@@ -175,15 +178,14 @@ float ShadowRayTraceThroughCulledObjects(
 					}
 				}
 
-				if (MinConeVisibility < .01f || StepIndex == MaxSteps)
-				{
-					MinConeVisibility = 0;
-					MinRayTime = min(MinRayTime, SampleRayTime * UVScaleAndVolumeScale.w);
-				}
-
 				// Force to shadowed as we approach max steps
 				MinConeVisibility = min(MinConeVisibility, (1 - StepIndex / (float)MaxSteps));
 			}
+		}
+
+		if (MinConeVisibility < .01f)
+		{
+			break;
 		}
 	}
 

@@ -100,7 +100,12 @@ void CocFlattenMainCS(
 			BufferUV = min(BufferUV, MaxBufferUV);
 		}
 		
-		float4 CocRadii = PostprocessInput0.GatherAlpha(GlobalPointClampedSampler, BufferUV, 0);
+		#if CONFIG_DOF_ALPHA
+			// The coc radius is within separate buffer's red channel.
+			float4 CocRadii = PostprocessInput0.GatherRed(GlobalPointClampedSampler, BufferUV, 0);
+		#else
+			float4 CocRadii = PostprocessInput0.GatherAlpha(GlobalPointClampedSampler, BufferUV, 0);
+		#endif
 
 		float MinCocRadius = min(min(CocRadii.x, CocRadii.y), min(CocRadii.z, CocRadii.w));
 		float MaxCocRadius = max(max(CocRadii.x, CocRadii.y), max(CocRadii.z, CocRadii.w));
@@ -108,8 +113,13 @@ void CocFlattenMainCS(
 	#else // !DIM_DO_COC_GATHER4
 		uint2 PixelPos = min(DispatchThreadId, ViewportRect.zw - 1);
 
-		// Read Coc radius from half res buffer.
-		float MinCocRadius = PostprocessInput0[PixelPos].w;
+		#if CONFIG_DOF_ALPHA
+			// The coc radius is within separate buffer's red channel.
+			float MinCocRadius = PostprocessInput0[PixelPos].r;
+		#else
+			float MinCocRadius = PostprocessInput0[PixelPos].w;
+		#endif
+
 		float MaxCocRadius = MinCocRadius;
 	#endif
 

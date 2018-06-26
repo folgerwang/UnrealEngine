@@ -161,6 +161,15 @@ void FMultiSizeIndexContainer::Serialize(FArchive& Ar, bool bNeedsCPUAccess)
 	}
 
 	IndexBuffer->Serialize(Ar);
+
+	if (bNeedsCPUAccess && IndexBuffer)
+	{
+		UE_LOG(LogSkeletalMesh, Log, TEXT("Index buffer Needs CPU: %p Num: %d"), IndexBuffer, IndexBuffer->Num());
+	}
+	else
+	{
+		UE_LOG(LogSkeletalMesh, Log, TEXT("Index buffer No CPU: %p Num: %d"), IndexBuffer, IndexBuffer->Num());
+	}
 }
 
 #if WITH_EDITOR

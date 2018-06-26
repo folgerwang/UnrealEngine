@@ -97,7 +97,8 @@ bool FGitCheckInWorker::Execute(FGitSourceControlCommand& InCommand)
 			}
 
 			Operation->SetSuccessMessage(ParseCommitResults(InCommand.InfoMessages));
-			UE_LOG(LogSourceControl, Log, TEXT("commit successful: %s"), *InCommand.InfoMessages[0]);
+			const FString Message = (InCommand.InfoMessages.Num() > 0) ? InCommand.InfoMessages[0] : TEXT("");
+			UE_LOG(LogSourceControl, Log, TEXT("commit successful: %s"), *Message);
 		}
 	}
 

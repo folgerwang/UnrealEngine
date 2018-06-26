@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2690146
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:マテリアル関数の表現式
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
 Description:マテリアル関数の作成または実行に使用する表現式
 Version:4.9
+tags:Materials
 
 [EXCERPT:TOC]
 [TOC(start:2)]

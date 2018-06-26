@@ -22,6 +22,10 @@
 #include "WorkspaceMenuStructure.h"
 #include "WorkspaceMenuStructureModule.h"
 
+// So that we can poll the running state:
+#include "Editor/UnrealEdEngine.h"
+extern UNREALED_API UUnrealEdEngine* GUnrealEd;
+
 #define LOCTEXT_NAMESPACE "CallStackViewer"
 
 enum class ECallstackLanguages : uint8
@@ -297,13 +301,32 @@ void SCallStackViewer::Construct(const FArguments& InArgs, TArray<TSharedRef<FCa
 	const auto EmptyWarningVisibility = [](TWeakPtr<SCallStackViewer> ControlOwnerWeak) -> EVisibility
 	{
 		TSharedPtr<SCallStackViewer> ControlOwner = ControlOwnerWeak.Pin();
-		if(ControlOwner.IsValid() &&
+		if( ControlOwner.IsValid() &&
 			ControlOwner->CallStackSource &&
 			ControlOwner->CallStackSource->Num() > 0)
 		{
 			return EVisibility::Hidden;
 		}
 		return EVisibility::Visible;
+	};
+
+	const auto StaleCallStackWarning = [](TWeakPtr<SCallStackViewer> ControlOwnerWeak)->FText
+	{
+		TSharedPtr<SCallStackViewer> ControlOwner = ControlOwnerWeak.Pin();
+		if (ControlOwner.IsValid() &&
+			ControlOwner->CallStackSource &&
+			ControlOwner->CallStackSource->Num() > 0)
+		{
+			if (!GUnrealEd->PlayWorld)
+			{
+				return LOCTEXT("SessionOver", "Warning: The session has ended and therefore the displayed call stack is out of date");
+			}
+			if (!GUnrealEd->PlayWorld->bDebugPauseExecution)
+			{
+				return LOCTEXT("CurrentlyRunning", "Warning: The game is currently running - the callstack will be updated when excution is paused");
+			}
+		}
+		return FText();
 	};
 
 	const auto CallStackViewIsEnabled = [](TWeakPtr<SCallStackViewer> ControlOwnerWeak) -> bool
@@ -332,31 +355,47 @@ void SCallStackViewer::Construct(const FArguments& InArgs, TArray<TSharedRef<FCa
 			SNew(SOverlay)
 			+SOverlay::Slot()
 			[
-				SAssignNew(CallStackTreeWidget, SCallStackTree)
-				.ItemHeight(25.0f)
-				.TreeItemsSource(CallStackSource)
-				.OnGenerateRow(SCallStackTree::FOnGenerateRow::CreateStatic(RowGenerator, SelfWeak))
-				.OnGetChildren(SCallStackTree::FOnGetChildren::CreateStatic(ChildrenAccessor))
-				.OnMouseButtonDoubleClick(SCallStackTree::FOnMouseButtonClick::CreateSP(SelfTyped, &SCallStackViewer::JumpToEntry))
-				.OnContextMenuOpening(FOnContextMenuOpening::CreateStatic(ContextMenuOpened, CommandListWeak, SelfWeak))
-				.IsEnabled(
-					TAttribute<bool>::Create(
-						TAttribute<bool>::FGetter::CreateStatic(CallStackViewIsEnabled, SelfWeak)
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SAssignNew(CallStackTreeWidget, SCallStackTree)
+					.ItemHeight(25.0f)
+					.TreeItemsSource(CallStackSource)
+					.OnGenerateRow(SCallStackTree::FOnGenerateRow::CreateStatic(RowGenerator, SelfWeak))
+					.OnGetChildren(SCallStackTree::FOnGetChildren::CreateStatic(ChildrenAccessor))
+					.OnMouseButtonDoubleClick(SCallStackTree::FOnMouseButtonClick::CreateSP(SelfTyped, &SCallStackViewer::JumpToEntry))
+					.OnContextMenuOpening(FOnContextMenuOpening::CreateStatic(ContextMenuOpened, CommandListWeak, SelfWeak))
+					.IsEnabled(
+						TAttribute<bool>::Create(
+							TAttribute<bool>::FGetter::CreateStatic(CallStackViewIsEnabled, SelfWeak)
+						)
 					)
-				)
-				.HeaderRow
-				(
-					SNew(SHeaderRow)
-					+SHeaderRow::Column(TEXT("ProgramCounter"))
-					.DefaultLabel(LOCTEXT("ProgramCounterLabel", ""))
-					.FixedWidth(16.f)
-					+SHeaderRow::Column(TEXT("FunctionName"))
-					.FillWidth(.8f)
-					.DefaultLabel(LOCTEXT("FunctionName", "Function Name"))
-					+SHeaderRow::Column(TEXT("Language"))
-					.DefaultLabel(LOCTEXT("Language", "Language"))
-					.FillWidth(.15f)
-				)
+					.HeaderRow
+					(
+						SNew(SHeaderRow)
+						+SHeaderRow::Column(TEXT("ProgramCounter"))
+						.DefaultLabel(LOCTEXT("ProgramCounterLabel", ""))
+						.FixedWidth(16.f)
+						+SHeaderRow::Column(TEXT("FunctionName"))
+						.FillWidth(.8f)
+						.DefaultLabel(LOCTEXT("FunctionName", "Function Name"))
+						+SHeaderRow::Column(TEXT("Language"))
+						.DefaultLabel(LOCTEXT("Language", "Language"))
+						.FillWidth(.15f)
+					)
+				]
+				+ SVerticalBox::Slot()
+				[
+					SNew(STextBlock)
+					.Text(
+						TAttribute<FText>::Create(
+							TAttribute<FText>::FGetter::CreateStatic(StaleCallStackWarning, SelfWeak)
+						)
+					)
+					.ColorAndOpacity(FLinearColor::Yellow)
+					.Justification(ETextJustify::Center)
+				]
 			]
 			+SOverlay::Slot()
 			.Padding(32.f)
@@ -538,12 +577,18 @@ void CallStackViewer::UpdateDisplayedCallstack(const TArray<const FFrame*>& Scri
 	ListSubscribers.Broadcast(&Private_CallStackSource);
 }
 
-void CallStackViewer::RegisterTabSpawner()
+FName CallStackViewer::GetTabName()
+{
+	const FName TabName = TEXT("CallStackViewer");
+	return TabName;
+}
+
+void CallStackViewer::RegisterTabSpawner(FTabManager& TabManager)
 {
 	const auto SpawnCallStackViewTab = []( const FSpawnTabArgs& Args )
 	{
 		return SNew(SDockTab)
-			.TabRole( ETabRole::NomadTab )
+			.TabRole( ETabRole::PanelTab )
 			.Label( LOCTEXT("TabTitle", "Call Stack") )
 			[
 				SNew(SBorder)
@@ -554,13 +599,9 @@ void CallStackViewer::RegisterTabSpawner()
 			];
 	};
 	
-	const IWorkspaceMenuStructure& MenuStructure = WorkspaceMenu::GetMenuStructure();
-
-	const FName TabName = TEXT("CallStackViewer");
-	FGlobalTabmanager::Get()->RegisterNomadTabSpawner( TabName, FOnSpawnTab::CreateStatic(SpawnCallStackViewTab) )
+	TabManager.RegisterTabSpawner(CallStackViewer::GetTabName(), FOnSpawnTab::CreateStatic(SpawnCallStackViewTab) )
 		.SetDisplayName( LOCTEXT("TabTitle", "Call Stack") )
-		.SetTooltipText( LOCTEXT("TooltipText", "Open the Call Stack tab.") )
-		.SetGroup( MenuStructure.GetDeveloperToolsDebugCategory() );
+		.SetTooltipText( LOCTEXT("TooltipText", "Open the Call Stack tab") );
 }
 
 #undef LOCTEXT_NAMESPACE

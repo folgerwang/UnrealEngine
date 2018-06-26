@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AbcTransform.h"
 #include "AbcImportUtilities.h"
@@ -22,7 +22,7 @@ FAbcTransform::FAbcTransform(const Alembic::AbcGeom::IXform& InTransform, const 
 	AbcImporterUtilities::GetStartTimeAndFrame(Schema, MinTime, StartFrameIndex);
 }
 
-void FAbcTransform::ReadFirstFrame(const float InTime, const int32 FrameIndex)
+bool FAbcTransform::ReadFirstFrame(const float InTime, const int32 FrameIndex)
 {
 	// Read matrix sample for sample time
 	const float Time = InTime < MinTime ? MinTime : (InTime > MinTime ? MinTime : InTime);
@@ -31,6 +31,8 @@ void FAbcTransform::ReadFirstFrame(const float InTime, const int32 FrameIndex)
 	Schema.get(MatrixSample, SampleSelector);
 	InitialValue = AbcImporterUtilities::ConvertAlembicMatrix(MatrixSample.getMatrix());
 	AbcImporterUtilities::ApplyConversion(InitialValue, File->GetImportSettings()->ConversionSettings);
+
+	return true;
 }
 
 void FAbcTransform::SetFrameAndTime(const float InTime, const int32 FrameIndex, const EFrameReadFlags InFlags, const int32 TargetIndex /*= INDEX_NONE*/)

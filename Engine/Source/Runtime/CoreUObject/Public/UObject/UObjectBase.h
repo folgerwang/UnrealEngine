@@ -17,7 +17,7 @@ DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("STAT_UObjectsStatGroupTester"), STAT_UOb
 class COREUOBJECT_API UObjectBase
 {
 	friend class UObjectBaseUtility;
-	friend COREUOBJECT_API class UClass* Z_Construct_UClass_UObject();
+	friend struct Z_Construct_UClass_UObject_Statics;
 	friend class FUObjectArray; // for access to InternalIndex without revealing it to anyone else
 	friend class FUObjectAllocator; // for access to destructor without revealing it to anyone else
 	friend COREUOBJECT_API void UObjectForceRegistration(UObjectBase* Object);

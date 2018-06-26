@@ -253,6 +253,10 @@
 #include "Editor/EditorPerProjectUserSettings.h"
 #include "JsonObjectConverter.h"
 #include "MaterialEditorModule.h"
+#include "Factories/CurveLinearColorAtlasFactory.h"
+#include "Curves/CurveLinearColorAtlas.h"
+
+#include "Misc/App.h"
 
 DEFINE_LOG_CATEGORY(LogEditorFactories);
 
@@ -345,7 +349,7 @@ UObject* UTexture2DFactoryNew::FactoryCreateNew( UClass* InClass, UObject* InPar
 		Object->Source.GetMipData( TexturePixels, 0 );
 
 		uint8* DestData = Object->Source.LockMip(0);
-		FMemory::Memset(DestData, TexturePixels.Num() * sizeof( uint8 ), 255 );
+		FMemory::Memset(DestData, 255, TexturePixels.Num() * sizeof(uint8));
 		Object->Source.UnlockMip(0);
 
 		Object->PostEditChange();
@@ -1968,6 +1972,61 @@ UObject* UCanvasRenderTarget2DFactoryNew::FactoryCreateNew(UClass* Class,UObject
 	return( Result );
 }
 
+/*-----------------------------------------------------------------------------
+UCurveLinearColorAtlasFactory
+-----------------------------------------------------------------------------*/
+
+UCurveLinearColorAtlasFactory::UCurveLinearColorAtlasFactory(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	SupportedClass = UCurveLinearColorAtlas::StaticClass();
+	bCreateNew = true;
+	bEditAfterNew = true;
+	bEditorImport = false;
+
+	Width = 256;
+	Height = 256;
+	Format = 0;
+}
+
+FText UCurveLinearColorAtlasFactory::GetDisplayName() const
+{
+	return LOCTEXT("CurveAtlas", "Curve Atlas");
+}
+
+uint32 UCurveLinearColorAtlasFactory::GetMenuCategories() const
+{
+	return EAssetTypeCategories::Misc;
+}
+
+UObject* UCurveLinearColorAtlasFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
+{
+	// Do not create a texture with bad dimensions.
+	if ((Width & (Width - 1)) || (Height & (Height - 1)))
+	{
+		return nullptr;
+	}
+
+	UCurveLinearColorAtlas* Object = NewObject<UCurveLinearColorAtlas>(InParent, Class, Name, Flags);
+	Object->Source.Init2DWithMipChain(Width, Height, TSF_BGRA8);
+	Object->SrcData.AddUninitialized(Object->TextureSize*Object->TextureSize);
+	uint8* MipData = Object->Source.LockMip(0);
+	for (uint32 y = 0; y < Object->TextureSize; y++)
+	{
+		// Create base mip for the texture we created.
+		FColor Src = FLinearColor::White.ToFColor(false);
+		for (uint32 x = 0; x < Object->TextureSize; x++)
+		{
+			Object->SrcData[x*Object->TextureSize + y] = Src;
+		}
+	}
+	FMemory::Memcpy(MipData, Object->SrcData.GetData(), Object->TextureSize*Object->TextureSize * sizeof(FColor));
+	Object->Source.UnlockMip(0);
+
+	Object->UpdateResource();
+	return Object;
+}
+
 
 /*-----------------------------------------------------------------------------
 	UTextureRenderTargetCubeFactoryNew
@@ -2078,15 +2137,15 @@ struct FPSDFileHeader
 		// Fail on bad version
 		if( Version != 1 )
 			return false;   
-		// Fail on anything other than 3 or 4 channels
-		if ((nChannels!=3) && (nChannels!=4))
+		// Fail on anything other than 1, 3 or 4 channels
+		if ((nChannels!=1) && (nChannels!=3) && (nChannels!=4))
 			return false;
 		// Fail on anything other than 8 Bits/channel or 16 Bits/channel  
 		if ((Depth != 8) && (Depth != 16))
 			return false;
-		// Fail on anything other than RGB
+		// Fail on anything other than Grayscale and RGB
 		// We can add support for indexed later if needed.
-		if (Mode!=3)
+		if (Mode!=1 && Mode!=3)
 			return false;
 
 		return true;
@@ -2144,12 +2203,15 @@ static bool psd_ReadData( uint8* pOut, const uint8*& pBuffer, FPSDFileHeader& In
 	const int32 BytesPerChannel = (Info.Depth / 8);
 	switch( Info.Mode )
 	{
+	case 1: // 'GrayScale'
+		BytesPerPixel = BytesPerChannel;
+		break;
 	case 2:        
 		BytesPerPixel = 1;        
 		return false;  // until we support indexed...
 		break;
-	case 3:
-		if( Info.nChannels == 3 )                  
+	case 3: // 'RGBColor'
+		if (Info.nChannels == 3)
 			BytesPerPixel = 3 * BytesPerChannel;
 		else                   
 			BytesPerPixel = 4 * BytesPerChannel;       
@@ -2170,7 +2232,7 @@ static bool psd_ReadData( uint8* pOut, const uint8*& pBuffer, FPSDFileHeader& In
 	}
 
 	// If no alpha channel, set alpha to opaque (255 or 65536).
-	if( Info.nChannels == 3)
+	if( Info.nChannels != 4)
 	{
 		if(Info.Depth == 8)
 		{
@@ -2194,12 +2256,21 @@ static bool psd_ReadData( uint8* pOut, const uint8*& pBuffer, FPSDFileHeader& In
 			FColor* Dest = (FColor*)pOut;
 			for(int32 Pixel=0; Pixel < NPixels; Pixel++ )
 			{
-				Dest[Pixel].R = pCur[ NPixels*0+Pixel ];
-				Dest[Pixel].G = pCur[ NPixels*1+Pixel ];
-				Dest[Pixel].B = pCur[ NPixels*2+Pixel ];
-				if (Info.nChannels == 4)
+				if (Info.nChannels == 1)
 				{
-					Dest[Pixel].A = pCur[ NPixels*3+Pixel ];
+					Dest[Pixel].R = pCur[NPixels + Pixel];
+					Dest[Pixel].G = pCur[NPixels + Pixel];
+					Dest[Pixel].B = pCur[NPixels + Pixel];
+				}
+				else
+				{
+					Dest[Pixel].R = pCur[NPixels * 0 + Pixel];
+					Dest[Pixel].G = pCur[NPixels * 1 + Pixel];
+					Dest[Pixel].B = pCur[NPixels * 2 + Pixel];
+					if (Info.nChannels == 4)
+					{
+						Dest[Pixel].A = pCur[NPixels * 3 + Pixel];
+					}
 				}
 			}
 		}
@@ -2207,21 +2278,39 @@ static bool psd_ReadData( uint8* pOut, const uint8*& pBuffer, FPSDFileHeader& In
 		{
 			uint32 SrcOffset = 0;
 			
-			// Loop through the planes	
-			for(iPlane=0 ; iPlane<Info.nChannels ; iPlane++)
+			if (Info.nChannels == 1)
 			{
 				uint16* Dest = (uint16*)pOut;
-				uint32 ChannelOffset = iPlane;
-				
-				for(int32 Pixel=0; Pixel < NPixels; Pixel++)
+				uint32 ChannelOffset = 0;
+
+				for (int32 Pixel = 0; Pixel < NPixels; Pixel++)
 				{
-					Dest[ChannelOffset] = ((pCur[SrcOffset] << 8) + (pCur[SrcOffset+1] << 0));
+					Dest[ChannelOffset + 0] = ((pCur[SrcOffset] << 8) + (pCur[SrcOffset + 1] << 0));
+					Dest[ChannelOffset + 1] = ((pCur[SrcOffset] << 8) + (pCur[SrcOffset + 1] << 0));
+					Dest[ChannelOffset + 2] = ((pCur[SrcOffset] << 8) + (pCur[SrcOffset + 1] << 0));
 
 					//Increment offsets
-					ChannelOffset +=4;
+					ChannelOffset += 4;
 					SrcOffset += BytesPerChannel;
 				}
+			}
+			else
+			{
+				// Loop through the planes	
+				for (iPlane = 0; iPlane < Info.nChannels; iPlane++)
+				{
+					uint16* Dest = (uint16*)pOut;
+					uint32 ChannelOffset = iPlane;
 
+					for (int32 Pixel = 0; Pixel < NPixels; Pixel++)
+					{
+						Dest[ChannelOffset] = ((pCur[SrcOffset] << 8) + (pCur[SrcOffset + 1] << 0));
+
+						//Increment offsets
+						ChannelOffset += 4;
+						SrcOffset += BytesPerChannel;
+					}
+				}
 			}
 		}
 	}
@@ -2266,13 +2355,22 @@ static bool psd_ReadData( uint8* pOut, const uint8*& pBuffer, FPSDFileHeader& In
 						while( Count-- > 0 )
 						{
 							int32 idx = (iPixel) + (iRow*Info.Width);
-							switch(iWritePlane)
+							if (Info.nChannels == 1)
 							{
-							case 0: Dest[idx].R = Value; break;
-							case 1: Dest[idx].G = Value; break;
-							case 2: Dest[idx].B = Value; break;
-							case 3: Dest[idx].A = Value; break;
-							}                            
+								Dest[idx].R = Value;
+								Dest[idx].G = Value;
+								Dest[idx].B = Value;
+							}
+							else
+							{
+								switch (iWritePlane)
+								{
+								case 0: Dest[idx].R = Value; break;
+								case 1: Dest[idx].G = Value; break;
+								case 2: Dest[idx].B = Value; break;
+								case 3: Dest[idx].A = Value; break;
+								}
+							}
 							iPixel++;
 						}
 					}
@@ -2285,13 +2383,22 @@ static bool psd_ReadData( uint8* pOut, const uint8*& pBuffer, FPSDFileHeader& In
 							Value = pPlane[iByte++];
 							int32 idx = (iPixel) + (iRow*Info.Width);
 
-							switch(iWritePlane)
+							if (Info.nChannels == 1)
 							{
-							case 0: Dest[idx].R = Value; break;
-							case 1: Dest[idx].G = Value; break;
-							case 2: Dest[idx].B = Value; break;
-							case 3: Dest[idx].A = Value; break;
-							}  
+								Dest[idx].R = Value;
+								Dest[idx].G = Value;
+								Dest[idx].B = Value;
+							}
+							else
+							{
+								switch (iWritePlane)
+								{
+								case 0: Dest[idx].R = Value; break;
+								case 1: Dest[idx].G = Value; break;
+								case 2: Dest[idx].B = Value; break;
+								case 3: Dest[idx].A = Value; break;
+								}
+							}
 							iPixel++;
 						}
 					}
@@ -2808,97 +2915,106 @@ public:
 
 	void ProcessData()
 	{
-		ClearZeroAlphaData();
-		HorizontalPass( 1 );
-		HorizontalPass( -1 );
-		VerticalPass( 1 );
-		VerticalPass( -1 );
+		int32 NumZeroedTopRowsToProcess = 0;
+		int32 FillColorRow = -1;
+		for (int32 Y = 0; Y < TextureHeight; ++Y)
+		{
+			if (!ProcessHorizontalRow(Y))
+			{
+				if (FillColorRow != -1)
+				{
+					FillRowColorPixels(FillColorRow, Y);
+				}
+				else
+				{
+					NumZeroedTopRowsToProcess = Y;
+				}
+			}
+			else
+			{
+				FillColorRow = Y;
+			}
+		}
+
+		// Can only fill upwards if image not fully zeroed
+		if (NumZeroedTopRowsToProcess > 0 && NumZeroedTopRowsToProcess + 1 < TextureHeight)
+		{
+			for (int32 Y = 0; Y <= NumZeroedTopRowsToProcess; ++Y)
+			{
+				FillRowColorPixels(NumZeroedTopRowsToProcess + 1, Y);
+			}
+		}
 	}
 
-	void ClearZeroAlphaData()
+	/* returns False if requires further processing because entire row is filled with zeroed alpha values */
+	bool ProcessHorizontalRow(int32 Y)
 	{
-		for( int32 Y = 0; Y < TextureHeight; ++Y )
+		// Left -> Right
+		int32 NumLeftmostZerosToProcess = 0;
+		const PixelDataType* FillColor = nullptr;
+		for (int32 X = 0; X < TextureWidth; ++X)
 		{
-			for( int32 X = 0; X < TextureWidth; ++X )
+			PixelDataType* PixelData = SourceData + (Y * TextureWidth + X) * 4;
+			if (PixelData[AIdx] == 0)
 			{
-				PixelDataType* PixelData = SourceData + (Y * TextureWidth + X) * 4;
-
-				if( PixelData[ AIdx ] == 0 )
+				if (FillColor)
 				{
+					PixelData[RIdx] = FillColor[RIdx];
+					PixelData[GIdx] = FillColor[GIdx];
+					PixelData[BIdx] = FillColor[BIdx];
+				}
+				else
+				{
+					// Mark pixel as needing fill
 					ColorDataType* ColorData = reinterpret_cast<ColorDataType*>(PixelData);
 					*ColorData = 0;
+
+					// Keep track of how many pixels to fill starting at beginning of row
+					NumLeftmostZerosToProcess = X;
 				}
+			}
+			else
+			{
+				FillColor = PixelData;
 			}
 		}
-	}
 
-	void HorizontalPass( int32 XStep )
-	{
-		const int32 XStart = XStep > 0 ? 0 : TextureWidth - 1;
-		const int32 XEnd = XStep > 0 ? TextureWidth : -1;
-
-		for( int32 Y = 0; Y < TextureHeight; ++Y )
+		if (NumLeftmostZerosToProcess == 0)
 		{
-			uint8 FillRed = 0, FillGreen = 0, FillBlue = 0;
-			bool bHaveFillColor = false;
-
-			for( int32 X = XStart; X != XEnd; X += XStep )
-			{
-				PixelDataType* PixelData = SourceData + (Y * TextureWidth + X) * 4;
-				const ColorDataType* ColorData = reinterpret_cast<const ColorDataType*>(PixelData);
-
-				if( *ColorData == 0 )
-				{
-					if( bHaveFillColor )
-					{
-						PixelData[ RIdx ] = FillRed;
-						PixelData[ GIdx ] = FillGreen;
-						PixelData[ BIdx ] = FillBlue;
-					}
-				}
-				else
-				{
-					bHaveFillColor = true;
-					FillRed		= PixelData[ RIdx ];
-					FillGreen	= PixelData[ GIdx ];
-					FillBlue	= PixelData[ BIdx ];
-				}
-			}
+			// No pixels left that are zero
+			return true;
 		}
+
+		if (NumLeftmostZerosToProcess + 1 >= TextureWidth)
+		{
+			// All pixels in this row are zero and must be filled using rows above or below
+			return false;
+		}
+
+		// Fill using non zero pixel immediately to the right of the beginning series of zeros
+		FillColor = SourceData + (Y * TextureWidth + NumLeftmostZerosToProcess + 1) * 4;
+
+		// Fill zero pixels found at beginning of row that could not be filled during the Left to Right pass
+		for (int32 X = 0; X <= NumLeftmostZerosToProcess; ++X)
+		{
+			PixelDataType* PixelData = SourceData + (Y * TextureWidth + X) * 4;
+			PixelData[RIdx] = FillColor[RIdx];
+			PixelData[GIdx] = FillColor[GIdx];
+			PixelData[BIdx] = FillColor[BIdx];
+		}
+
+		return true;
 	}
 
-	void VerticalPass( int32 YStep )
+	void FillRowColorPixels(int32 FillColorRow, int32 Y)
 	{
-		const int32 YStart = YStep > 0 ? 0 : TextureHeight - 1;
-		const int32 YEnd = YStep > 0 ? TextureHeight : -1;
-
-		for( int32 X = 0; X < TextureWidth; ++X )
+		for (int32 X = 0; X < TextureWidth; ++X)
 		{
-			uint8 FillRed = 0, FillGreen = 0, FillBlue = 0;
-			bool bHaveFillColor = false;
-
-			for( int32 Y = YStart; Y != YEnd; Y += YStep )
-			{
-				PixelDataType* PixelData = SourceData + (Y * TextureWidth + X) * 4;
-				const ColorDataType* ColorData = reinterpret_cast<const ColorDataType*>(PixelData);
-
-				if( *ColorData == 0 )
-				{
-					if( bHaveFillColor )
-					{
-						PixelData[ RIdx ] = FillRed;
-						PixelData[ GIdx ] = FillGreen;
-						PixelData[ BIdx ] = FillBlue;
-					}
-				}
-				else
-				{
-					bHaveFillColor = true;
-					FillRed		= PixelData[ RIdx ];
-					FillGreen	= PixelData[ GIdx ];
-					FillBlue	= PixelData[ BIdx ];
-				}
-			}
+			const PixelDataType* FillColor = SourceData + (FillColorRow * TextureWidth + X) * 4;
+			PixelDataType* PixelData = SourceData + (Y * TextureWidth + X) * 4;
+			PixelData[RIdx] = FillColor[RIdx];
+			PixelData[GIdx] = FillColor[GIdx];
+			PixelData[BIdx] = FillColor[BIdx];
 		}
 	}
 
@@ -3383,7 +3499,7 @@ UTexture* UTextureFactory::ImportTexture(UClass* Class, UObject* InParent, FName
 		}
 		if (!psdhdr.IsSupported())
 		{
-			Warn->Logf( TEXT("Format of this PSD is not supported") );
+			Warn->Logf( TEXT("Format of this PSD is not supported. Only Grayscale and RGBColor PSD images are currently supported, in 8-bit or 16-bit.") );
 			return nullptr;
 		}
 
@@ -3829,7 +3945,7 @@ UObject* UTextureFactory::FactoryCreateBinary
 	
 	Texture->bPreserveBorder		= bPreserveBorder;
 
-	Texture->AssetImportData->Update(CurrentFilename);
+	Texture->AssetImportData->Update(CurrentFilename, FileHash.IsValid() ? &FileHash : nullptr);
 
 	UTexture2D* Texture2D = Cast<UTexture2D>(Texture);
 
@@ -4542,9 +4658,11 @@ UFontFileImportFactory::UFontFileImportFactory(const FObjectInitializer& ObjectI
 
 	bEditorImport = true;
 
-	Formats.Add(TEXT("ttf;TrueType font"));
-	Formats.Add(TEXT("otf;OpenType font"));
-
+	Formats.Add(TEXT("ttf;TrueType Font"));
+	Formats.Add(TEXT("ttc;TrueType Font"));
+	Formats.Add(TEXT("otf;OpenType Font"));
+	Formats.Add(TEXT("otc;OpenType Font"));
+	
 	BatchCreateFontAsset = EBatchCreateFontAsset::Unknown;
 }
 
@@ -4606,6 +4724,7 @@ UObject* UFontFileImportFactory::FactoryCreateBinary(UClass* InClass, UObject* I
 		TArray<uint8> FontData;
 		FontData.Append(InBuffer, InBufferEnd - InBuffer);
 		FontFace->FontFaceData->SetData(MoveTemp(FontData));
+		FontFace->CacheSubFaces();
 	}
 
 	FEditorDelegates::OnAssetPostImport.Broadcast(this, FontFace);
@@ -4964,7 +5083,7 @@ UTextureCube* UReimportTextureFactory::CreateTextureCube( UObject* InParent, FNa
 bool UReimportTextureFactory::CanReimport( UObject* Obj, TArray<FString>& OutFilenames )
 {	
 	UTexture* pTex = Cast<UTexture>(Obj);
-	if( pTex && !pTex->IsA<UTextureRenderTarget>() )
+	if( pTex && !pTex->IsA<UTextureRenderTarget>() && !pTex->IsA<UCurveLinearColorAtlas>())
 	{
 		pTex->AssetImportData->ExtractFilenames(OutFilenames);
 		return true;
@@ -5126,7 +5245,8 @@ bool UReimportFbxStaticMeshFactory::CanReimport( UObject* Obj, TArray<FString>& 
 				//This mesh was import with a scene import, we cannot reimport it
 				return false;
 			}
-			else if (!FbxAssetImportData)
+
+			if (FPaths::GetExtension(Mesh->AssetImportData->GetFirstFilename()) == TEXT("abc"))
 			{
 				return false;
 			}
@@ -5175,17 +5295,19 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 	ReimportUI->MeshTypeToImport = FBXIT_StaticMesh;
 	ReimportUI->StaticMeshImportData->bCombineMeshes = true;
 
+	ImportOptions->OriginalMeshCopy = nullptr;
+
 	if (!ImportUI)
 	{
 		ImportUI = NewObject<UFbxImportUI>(this, NAME_None, RF_Public);
 	}
-	const bool ShowImportDialogAtReimport = GetDefault<UEditorPerProjectUserSettings>()->bShowImportDialogAtReimport && !GIsAutomationTesting;
+	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended();
+	const bool ShowImportDialogAtReimport = GetDefault<UEditorPerProjectUserSettings>()->bShowImportDialogAtReimport && !IsUnattended;
 
 	if( ImportData  && !ShowImportDialogAtReimport)
 	{
 		// Import data already exists, apply it to the fbx import options
 		ReimportUI->StaticMeshImportData = ImportData;
-		ReimportUI->bResetMaterialSlots = false;
 		ApplyImportUIToImportOptions(ReimportUI, *ImportOptions);
 	}
 	else
@@ -5199,6 +5321,13 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		ReimportUI->bIsReimport = true;
 		ReimportUI->StaticMeshImportData = ImportData;
 		
+		//Force the bAutoGenerateCollision to false if the Mesh Customize collision is true
+		bool bOldAutoGenerateCollision = ReimportUI->StaticMeshImportData->bAutoGenerateCollision;
+		if (Mesh->bCustomizedCollision)
+		{
+			ReimportUI->StaticMeshImportData->bAutoGenerateCollision = false;
+		}
+		
 		bool bImportOperationCanceled = false;
 		bool bForceImportType = true;
 		bool bShowOptionDialog = true;
@@ -5206,8 +5335,14 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		bool bIsObjFormat = false;
 		bool bIsAutomated = false;
 		GetImportOptions( FFbxImporter, ReimportUI, bShowOptionDialog, bIsAutomated, Obj->GetPathName(), bOperationCanceled, bOutImportAll, bIsObjFormat, bForceImportType, FBXIT_StaticMesh, Mesh);
+		
+		//Put back the original bAutoGenerateCollision settings since the user cancel the re-import
+		if (bOperationCanceled && Mesh->bCustomizedCollision)
+		{
+			ReimportUI->StaticMeshImportData->bAutoGenerateCollision = bOldAutoGenerateCollision;
+		}
 	}
-
+	ImportOptions->bCanShowDialog = !IsUnattended;
 	//We do not touch bAutoComputeLodDistances when we re-import, setting it to true will make sure we do not change anything.
 	//We set the LODDistance only when the value is false.
 	ImportOptions->bAutoComputeLodDistances = true;
@@ -5239,6 +5374,12 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		{
 			UE_LOG(LogEditorFactories, Warning, TEXT("-- cannot reimport: source file cannot be found."));
 			return EReimportResult::Failed;
+		}
+
+		//Create a copy of the mesh we re-import
+		if (!IsUnattended)
+		{
+			ImportOptions->OriginalMeshCopy = Cast<UStaticMesh>(StaticDuplicateObject(Mesh, GetTransientPackage(), NAME_None, RF_Standalone));
 		}
 
 		CurrentFilename = Filename;
@@ -5291,6 +5432,13 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 
 				Mesh->AssetImportData->Update(Filename);
 
+				if (ImportOptions->OriginalMeshCopy)
+				{
+					//Show the compare window in case there is a conflict
+					bool UserCancel = false;
+					FFbxImporter->ShowFbxCompareWindow(ImportOptions->OriginalMeshCopy, Mesh, UserCancel);
+				}
+
 				// Try to find the outer package so we can dirty it up
 				if (Mesh->GetOuter())
 				{
@@ -5316,6 +5464,12 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 		}
 
 		FFbxImporter->ReleaseScene(); 
+		if (ImportOptions->OriginalMeshCopy)
+		{
+			ImportOptions->OriginalMeshCopy->ClearFlags(RF_Standalone);
+			ImportOptions->OriginalMeshCopy->MarkPendingKill();
+			ImportOptions->OriginalMeshCopy = nullptr;
+		}
 
 		return bImportSucceed ? EReimportResult::Succeeded : EReimportResult::Failed;
 	}
@@ -5417,6 +5571,8 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 
 	UFbxSkeletalMeshImportData* ImportData = Cast<UFbxSkeletalMeshImportData>(SkeletalMesh->AssetImportData);
 	
+	ImportOptions->OriginalMeshCopy = nullptr;
+
 	// Prepare the import options
 	UFbxImportUI* ReimportUI = NewObject<UFbxImportUI>();
 	ReimportUI->MeshTypeToImport = FBXIT_SkeletalMesh;
@@ -5433,8 +5589,9 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 	}
 
 	bool bSuccess = false;
-
-	const bool ShowImportDialogAtReimport = GetDefault<UEditorPerProjectUserSettings>()->bShowImportDialogAtReimport && !GIsAutomationTesting;
+	const bool IsUnattended = GIsAutomationTesting || FApp::IsUnattended();
+	const bool ShowImportDialogAtReimport = GetDefault<UEditorPerProjectUserSettings>()->bShowImportDialogAtReimport && !IsUnattended;
+	
 	if( ImportData && !ShowImportDialogAtReimport)
 	{
 		// Import data already exists, apply it to the fbx import options
@@ -5442,7 +5599,6 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		//Some options not supported with skeletal mesh
 		ReimportUI->SkeletalMeshImportData->bBakePivotInVertex = false;
 		ReimportUI->SkeletalMeshImportData->bTransformVertexToAbsolute = true;
-		ReimportUI->bResetMaterialSlots = false;
 		ApplyImportUIToImportOptions(ReimportUI, *ImportOptions);
 	}
 	else
@@ -5472,6 +5628,8 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 
 	if( !bOperationCanceled && ensure(ImportData) )
 	{
+		ImportOptions->bCanShowDialog = !IsUnattended;
+
 		const FString Filename = ImportData->GetFirstFilename();
 		UE_LOG(LogEditorFactories, Log, TEXT("Performing atomic reimport of [%s]"), *Filename);
 
@@ -5483,6 +5641,12 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		}
 		CurrentFilename = Filename;
 
+		//Create a copy of the mesh we re-import
+		if (!IsUnattended)
+		{
+			ImportOptions->OriginalMeshCopy = Cast<USkeletalMesh>(StaticDuplicateObject(SkeletalMesh, GetTransientPackage(), NAME_None, RF_Standalone));
+		}
+
 		if ( FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ), true ) )
 		{
 			if ( FFbxImporter->ReimportSkeletalMesh(SkeletalMesh, ImportData) )
@@ -5490,6 +5654,13 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 				UE_LOG(LogEditorFactories, Log, TEXT("-- imported successfully") );
 
 				SkeletalMesh->AssetImportData->Update(Filename);
+				
+				if (ImportOptions->OriginalMeshCopy)
+				{
+					//Show the compare window in case there is a conflict
+					bool UserCancel = false;
+					FFbxImporter->ShowFbxCompareWindow(ImportOptions->OriginalMeshCopy, SkeletalMesh, UserCancel);
+				}
 
 				// Try to find the outer package so we can dirty it up
 				if (SkeletalMesh->GetOuter())
@@ -5520,6 +5691,13 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		if( GEditor->IsObjectInTransactionBuffer( SkeletalMesh ) )
 		{
 			GEditor->ResetTransaction( LOCTEXT("ReimportSkeletalMeshTransactionReset", "Reimporting a skeletal mesh which was in the undo buffer") );
+		}
+
+		if (ImportOptions->OriginalMeshCopy)
+		{
+			ImportOptions->OriginalMeshCopy->ClearFlags(RF_Standalone);
+			ImportOptions->OriginalMeshCopy->MarkPendingKill();
+			ImportOptions->OriginalMeshCopy = nullptr;
 		}
 
 		return bSuccess ? EReimportResult::Succeeded : EReimportResult::Failed;
@@ -5673,6 +5851,8 @@ EReimportResult::Type UReimportFbxAnimSequenceFactory::Reimport( UObject* Obj )
 			Importer->ReleaseScene();
 			return EReimportResult::Succeeded;
 		}
+		//Set the selected skeleton in the anim sequence
+		AnimSequence->SetSkeleton(Skeleton);
 	}
 
 	if ( UEditorEngine::ReimportFbxAnimation(Skeleton, AnimSequence, ImportData, *Filename) )

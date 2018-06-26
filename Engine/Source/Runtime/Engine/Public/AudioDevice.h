@@ -494,6 +494,7 @@ private:
 	bool HandleAudioSoloSoundCue(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleAudioMixerDebugSound(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleSoundClassFixup(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleAudioDebugSound(const TCHAR* Cmd, FOutputDevice& Ar);
 
 	/**
 	* Lists a summary of loaded sound collated by class
@@ -649,8 +650,8 @@ public:
 	const TArray<FListener>& GetListeners() const { check(IsInAudioThread()); return Listeners; }
 
 	/**
-	 * Get ambisonics mixer, if one is available
-	 */
+	* Get ambisonics mixer, if one is available
+	*/
 	TAmbisonicsMixerPtr GetAmbisonicsMixer() { return AmbisonicsMixer; };
 
 	/** 
@@ -670,6 +671,7 @@ public:
 		FCreateComponentParams(FAudioDevice* AudioDevice);
 
 		USoundAttenuation* AttenuationSettings;
+		TSubclassOf<UAudioComponent> AudioComponentClass = UAudioComponent::StaticClass();
 		USoundConcurrency* ConcurrencySettings;
 		bool bAutoDestroy;
 		bool bPlay;
@@ -940,6 +942,12 @@ public:
 		return false;
 	}
 
+	/** Whether or not the platform disables caching of decompressed PCM data (i.e. to save memory on fixed memory platforms */
+	virtual bool DisablePCMAudioCaching() const
+	{
+		return false;
+	}
+
 	/** Creates a Compressed audio info class suitable for decompressing this SoundWave */
 	virtual ICompressedAudioInfo* CreateCompressedAudioInfo(USoundWave* SoundWave) { return nullptr; }
 
@@ -978,12 +986,14 @@ public:
 
 		bHRTFEnabledForAll_OnGameThread = bNewHRTFEnabledForAll;
 
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.SetHRTFEnabledForAll"), STAT_SetHRTFEnabledForAll, STATGROUP_AudioThreadCommands);
+
 		FAudioDevice* AudioDevice = this;
 		FAudioThread::RunCommandOnAudioThread([AudioDevice, bNewHRTFEnabledForAll]()
 		{
 			AudioDevice->bHRTFEnabledForAll = bNewHRTFEnabledForAll;
 
-		});
+		}, GET_STATID(STAT_SetHRTFEnabledForAll));
 	}
 
 	void SetSpatializationInterfaceEnabled(bool InbSpatializationInterfaceEnabled)
@@ -1072,6 +1082,9 @@ public:
 	/** Returns the number of active sound sources */
 	virtual int32 GetNumActiveSources() const { return 0; }
 
+	/** Returns the number of free sources. */
+	int32 GetNumFreeSources() const { return Sources.Num(); }
+
 	/** Returns the sample rate used by the audio device. */
 	float GetSampleRate() const { return SampleRate; }
 
@@ -1135,13 +1148,13 @@ public:
 	/** This is called by a USoundSubmix to start recording a submix instance on this device. */
 	virtual void StartRecording(USoundSubmix* InSubmix, float ExpectedRecordingDuration) 
 	{
-		UE_LOG(LogAudio, Fatal, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to use submix recording."));
+		UE_LOG(LogAudio, Error, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to use submix recording."));
 	}
 
 	/** This is called by a USoundSubmix when we stop recording a submix on this device. */
 	virtual Audio::AlignedFloatBuffer& StopRecording(USoundSubmix* InSubmix, float& OutNumChannels, float& OutSampleRate) 
 	{
-		UE_LOG(LogAudio, Fatal, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to use submix recording."));
+		UE_LOG(LogAudio, Error, TEXT("Submix recording only works with the audio mixer. Please run using -audiomixer to use submix recording."));
 		
 		static Audio::AlignedFloatBuffer InvalidBuffer;
 		return InvalidBuffer;
@@ -1334,6 +1347,11 @@ public:
 	{
 	}
 
+	/** Updates timing information for hardware. */
+	virtual void UpdateHardwareTiming()
+	{
+	}
+
 	/** Lets the platform any tick actions */
 	virtual void UpdateHardware()
 	{
@@ -1457,6 +1475,15 @@ public:
 
 	/** The maximum number of concurrent audible sounds */
 	int32 MaxChannels;
+
+	/** The number of sources to reserve for stopping sounds. */
+	int32 NumStoppingVoices;
+
+	/** The number of sources currently stopping. */
+	int32 CurrentStoppingVoiceCount;
+
+	/** The maximum number of wave instances allowed. */
+	int32 MaxWaveInstances;
 
 	/** The sample rate of all the audio devices */
 	int32 SampleRate;
@@ -1644,6 +1671,9 @@ private:
 	float DeviceDeltaTime;
 
 	TArray<FActiveSound*> ActiveSounds;
+	/** Array of sound waves to add references to avoid GC until gauranteed to be done with precache or decodes. */
+	TArray<USoundWave*> ReferencedSoundWaves;
+	TArray<USoundWave*> PrecachingSoundWaves;
 	TArray<FWaveInstance*> ActiveWaveInstances;
 
 	/** Cached copy of sound class adjusters array. Cached to avoid allocating every frame. */
@@ -1678,9 +1708,6 @@ private:
 
 	/** A count of the number of one-shot active sounds. */
 	uint32 OneShotCount;
-
-	/** The max number of one shot active sounds. */
-	uint32 MaxOneShotActiveSounds;
 
 	/** Threshold priority for allowing oneshot active sounds through the max oneshot active sound limit. */
 	float OneShotPriorityCullThreshold;

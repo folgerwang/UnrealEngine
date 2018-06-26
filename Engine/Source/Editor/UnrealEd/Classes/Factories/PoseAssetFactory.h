@@ -13,6 +13,7 @@
 
 struct FAssetData;
 class SWindow;
+class SMultiLineEditableTextBox;
 
 UCLASS(HideCategories=Object,MinimalAPI)
 class UPoseAssetFactory : public UFactory
@@ -21,14 +22,14 @@ class UPoseAssetFactory : public UFactory
 
 	UPROPERTY()
 	class USkeleton* TargetSkeleton;
+	
+	/** The preview mesh to use with this pose asset */
+	UPROPERTY()
+	class USkeletalMesh* PreviewSkeletalMesh;
 
 	/* Used when creating a composite from an AnimSequence, becomes the only AnimSequence contained */
 	UPROPERTY()
 	class UAnimSequence* SourceAnimation;
-
-	/** The preview mesh to use with this pose asset */
-	UPROPERTY()
-	class USkeletalMesh* PreviewSkeletalMesh;
 
 	//~ Begin UFactory Interface
 	virtual bool ConfigureProperties() override;
@@ -36,9 +37,9 @@ class UPoseAssetFactory : public UFactory
 	//~ Begin UFactory Interface	
 
 private:
-	void OnTargetSkeletonSelected(const FAssetData& SelectedAsset);
+	void OnWindowUserActionDelegate(bool bCreate, UAnimSequence* InSequence, const TArray<FString>& InPoseNames);
 
 private:
-	TSharedPtr<SWindow> PickerWindow;
+	TArray<FString> PoseNames;
 };
 

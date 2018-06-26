@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AbcPolyMesh.h"
 #include "AbcImportUtilities.h"
@@ -40,7 +40,7 @@ FAbcPolyMesh::FAbcPolyMesh(const Alembic::AbcGeom::IPolyMesh& InPolyMesh, const 
 	}
 }
 
-void FAbcPolyMesh::ReadFirstFrame(const float InTime, const int32 FrameIndex)
+bool FAbcPolyMesh::ReadFirstFrame(const float InTime, const int32 FrameIndex)
 {
 	checkf(FirstSample == nullptr, TEXT("Reading First Frame Twice"));
 
@@ -50,76 +50,81 @@ void FAbcPolyMesh::ReadFirstFrame(const float InTime, const int32 FrameIndex)
 	FirstSample = AbcImporterUtilities::GenerateAbcMeshSampleForFrame(Schema, SampleSelector, SampleReadFlags, bFirstFrame);
 	bFirstFrameVisibility = AbcImporterUtilities::IsObjectVisible(PolyMesh, SampleSelector);
 	SampleReadFlags = AbcImporterUtilities::GenerateAbcMeshSampleReadFlags(Schema);
-
-	/*
+	
+	if (FirstSample)
+	{
+		/*
 		Normal cases
 		* No normals
-			- OneSmoothing group -> smooth normals and zeroed out smoothing groups
-			- Compute smooth normals
+		- OneSmoothing group -> smooth normals and zeroed out smoothing groups
+		- Compute smooth normals
 		* Normals
-			- OneSmoothing group -> smooth normals and zeroed out smoothing groups
-			- Recompute normals -> Compute normals, compute smoothing groups -> compute smooth normals
-			- else compute smoothing groups
-	*/
+		- OneSmoothing group -> smooth normals and zeroed out smoothing groups
+		- Recompute normals -> Compute normals, compute smoothing groups -> compute smooth normals
+		- else compute smoothing groups
+		*/
 
-	const bool bRecomputeNormals = File->GetImportSettings()->NormalGenerationSettings.bRecomputeNormals;
-	if (File->GetImportSettings()->NormalGenerationSettings.bForceOneSmoothingGroupPerObject && bRecomputeNormals)
-	{
-		AbcImporterUtilities::CalculateSmoothNormals(FirstSample);
-		FirstSample->SmoothingGroupIndices.AddZeroed(FirstSample->Indices.Num() / 3);
-		FirstSample->NumSmoothingGroups = 1;
-	}
-	else
-	{
-		const bool bNormalsAvailable = FirstSample->Normals.Num() != 0;
-		
-		// Recompute the (hard) normals if the user opted to do so
-		if (bRecomputeNormals)
-		{
-			AbcImporterUtilities::CalculateNormals(FirstSample);
-		}
-		// Otherwise we'd expect normals to be available, if not we should assume the object has smooth normals (so calculate them)
-		else if (!bNormalsAvailable)
+		const bool bRecomputeNormals = File->GetImportSettings()->NormalGenerationSettings.bRecomputeNormals;
+		if (File->GetImportSettings()->NormalGenerationSettings.bForceOneSmoothingGroupPerObject && bRecomputeNormals)
 		{
 			AbcImporterUtilities::CalculateSmoothNormals(FirstSample);
-		}		
-
-		// Generate smoothing groups from the normals to use for follow samples
-		AbcImporterUtilities::GenerateSmoothingGroupsIndices(FirstSample, File->GetImportSettings()->NormalGenerationSettings.HardEdgeAngleThreshold);
-
-		// In case we are expected to recompute the normals now recalculate the normals using the calculated smoothing groups
-		if (bRecomputeNormals)
-		{
-			AbcImporterUtilities::CalculateNormalsWithSmoothingGroups(FirstSample, FirstSample->SmoothingGroupIndices, FirstSample->NumSmoothingGroups);
+			FirstSample->SmoothingGroupIndices.AddZeroed(FirstSample->Indices.Num() / 3);
+			FirstSample->NumSmoothingGroups = 1;
 		}
-	}
-
-	// Compute tangents for mesh
-	AbcImporterUtilities::ComputeTangents(FirstSample, File->GetImportSettings()->NormalGenerationSettings.bIgnoreDegenerateTriangles, *File->GetMeshUtilities());
-
-	const bool bApplyTransformation = (File->GetImportSettings()->ImportType == EAlembicImportType::StaticMesh && File->GetImportSettings()->StaticMeshSettings.bMergeMeshes && File->GetImportSettings()->StaticMeshSettings.bPropagateMatrixTransformations) || (File->GetImportSettings()->ImportType == EAlembicImportType::Skeletal && File->GetImportSettings()->CompressionSettings.bBakeMatrixAnimation) || File->GetImportSettings()->ImportType == EAlembicImportType::GeometryCache;
-
-	// Transform copy of the first sample 
-	TransformedFirstSample = new FAbcMeshSample(*FirstSample);
-	AbcImporterUtilities::PropogateMatrixTransformationToSample(TransformedFirstSample, GetMatrix(FrameIndex));
-	AbcImporterUtilities::ApplyConversion(TransformedFirstSample, File->GetImportSettings()->ConversionSettings, true);
-
-	if (bConstant && bConstantTransformation && !bApplyTransformation)
-	{
-		bReturnFirstSample = true;
-	}
-	else if (bConstant && bConstantTransformation)
-	{		
-		bReturnTransformedFirstSample = true;
-	}
-	else
-	{
-		// Resident samples from initial sample (this copies all vertex attributes, which allows us to skip re-reading constant attributes in future sample reads)
-		for (int32 Index = 0; Index < MaxNumberOfResidentSamples; ++Index)
+		else
 		{
-			ResidentSamples[Index]->Copy(FirstSample, SampleReadFlags);
+			const bool bNormalsAvailable = FirstSample->Normals.Num() != 0;
+
+			// Recompute the (hard) normals if the user opted to do so
+			if (bRecomputeNormals)
+			{
+				AbcImporterUtilities::CalculateNormals(FirstSample);
+			}
+			// Otherwise we'd expect normals to be available, if not we should assume the object has smooth normals (so calculate them)
+			else if (!bNormalsAvailable)
+			{
+				AbcImporterUtilities::CalculateSmoothNormals(FirstSample);
+			}
+
+			// Generate smoothing groups from the normals to use for follow samples
+			AbcImporterUtilities::GenerateSmoothingGroupsIndices(FirstSample, File->GetImportSettings()->NormalGenerationSettings.HardEdgeAngleThreshold);
+
+			// In case we are expected to recompute the normals now recalculate the normals using the calculated smoothing groups
+			if (bRecomputeNormals)
+			{
+				AbcImporterUtilities::CalculateNormalsWithSmoothingGroups(FirstSample, FirstSample->SmoothingGroupIndices, FirstSample->NumSmoothingGroups);
+			}
 		}
-	}
+
+		// Compute tangents for mesh
+		AbcImporterUtilities::ComputeTangents(FirstSample, File->GetImportSettings()->NormalGenerationSettings.bIgnoreDegenerateTriangles, *File->GetMeshUtilities());
+
+		const bool bApplyTransformation = (File->GetImportSettings()->ImportType == EAlembicImportType::StaticMesh && File->GetImportSettings()->StaticMeshSettings.bMergeMeshes && File->GetImportSettings()->StaticMeshSettings.bPropagateMatrixTransformations) || (File->GetImportSettings()->ImportType == EAlembicImportType::Skeletal && File->GetImportSettings()->CompressionSettings.bBakeMatrixAnimation) || File->GetImportSettings()->ImportType == EAlembicImportType::GeometryCache;
+
+		// Transform copy of the first sample 
+		TransformedFirstSample = new FAbcMeshSample(*FirstSample);
+		AbcImporterUtilities::PropogateMatrixTransformationToSample(TransformedFirstSample, GetMatrix(FrameIndex));
+		AbcImporterUtilities::ApplyConversion(TransformedFirstSample, File->GetImportSettings()->ConversionSettings, true);
+
+		if (bConstant && bConstantTransformation && !bApplyTransformation)
+		{
+			bReturnFirstSample = true;
+		}
+		else if (bConstant && bConstantTransformation)
+		{
+			bReturnTransformedFirstSample = true;
+		}
+		else
+		{
+			// Resident samples from initial sample (this copies all vertex attributes, which allows us to skip re-reading constant attributes in future sample reads)
+			for (int32 Index = 0; Index < MaxNumberOfResidentSamples; ++Index)
+			{
+				ResidentSamples[Index]->Copy(FirstSample, SampleReadFlags);
+			}
+		}
+	}	
+
+	return FirstSample != nullptr;
 }
 
 void FAbcPolyMesh::SetFrameAndTime(const float InTime, const int32 FrameIndex, const EFrameReadFlags InFlags, const int32 TargetIndex /*= INDEX_NONE*/)

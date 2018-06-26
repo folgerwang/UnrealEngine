@@ -73,7 +73,7 @@ public:
 	virtual bool PlayEarlyStartupMovies() override;
 	virtual bool PlayMovie() override;
 	virtual void StopMovie() override;
-	virtual void WaitForMovieToFinish() override;
+	virtual void WaitForMovieToFinish(bool bAllowEngineTick = false) override;
 	virtual bool IsLoadingFinished() const override;
 	virtual bool IsMovieCurrentlyPlaying() const override;
 	virtual bool LoadingScreenIsPrepared() const override;
@@ -83,6 +83,7 @@ public:
 	virtual bool IsStartupMoviePlaying() const override { return IsMoviePlaying; };
 
 	virtual FOnPrepareLoadingScreen& OnPrepareLoadingScreen() override { return OnPrepareLoadingScreenDelegate; }
+	virtual FOnMoviePlaybackStarted& OnMoviePlaybackStarted() override { return OnMoviePlaybackStartedDelegate; }
 	virtual FOnMoviePlaybackFinished& OnMoviePlaybackFinished() override { return OnMoviePlaybackFinishedDelegate; }
 	virtual FOnMovieClipFinished& OnMovieClipFinished() override { return OnMovieClipFinishedDelegate; }
 
@@ -170,6 +171,8 @@ private:
 	/** Called before a movie is queued up to play to configure the movie player accordingly. */
 	FOnPrepareLoadingScreen OnPrepareLoadingScreenDelegate;
 	
+	FOnMoviePlaybackStarted OnMoviePlaybackStartedDelegate;
+
 	FOnMoviePlaybackFinished OnMoviePlaybackFinishedDelegate;
 
 	FOnMovieClipFinished OnMovieClipFinishedDelegate;

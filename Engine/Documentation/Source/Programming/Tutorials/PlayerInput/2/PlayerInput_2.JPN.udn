@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3599948
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title:2.ゲーム入力の設定
 Crumbs:%ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/PlayerInput
@@ -35,8 +35,8 @@ version:4.9
 	[![](EditProjectSettings.png)](EditProjectSettings.png)
 
 1. そして左側の **[Engine (エンジン)]** セクションから **[Input (入力)]** オプションを選択します。右側に表示される **[Bindings (バインディング)]** カテゴリを展開して、**[Action Mapping]** を1つ、**[Axis Mappings]** を2つ追加します。
-	**[Action Mapping]** または **[Axis Mapping]** セクション見出しの横にある＋記号で新しいマッピングを追加します。左側の展開用の矢印でマッピングを表示または非表示にできます。
 
+	**[Action Mapping]** または **[Axis Mapping]** セクション見出しの横にある＋記号で新しいマッピングを追加します。左側の展開用の矢印でマッピングを表示または非表示にできます。
 	マッピングに入力を追加するには、対象のマッピングの横に表示される＋記号をクリックします。必要なマッピングと入力は以下の通りです。"S" と A" の入力のマイナス値に留意してください。
 
 	| ----- | ----- | ----- |
@@ -68,95 +68,88 @@ version:4.9
 
 **Visual Studio** で MyPawn のコードを完成させます。
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    code
-    [/PARAMLITERAL]
-    [PARAM:heading]
-    作業中のコード
-    [/PARAM]
-    [PARAM:content]
-		**MyPawn.h**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+## 作業中のコード
 
-			#pragma once
+**MyPawn.h**
 
-			#include "GameFramework/Pawn.h"
-			#include "MyPawn.generated.h"
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-			UCLASS()
-			class HOWTO_PLAYERINPUT_API AMyPawn : public APawn
-			{
-				GENERATED_BODY()
+	#pragma once
+
+	#include "GameFramework/Pawn.h"
+	#include "MyPawn.generated.h"
+
+	UCLASS()
+	class HOWTO_PLAYERINPUT_API AMyPawn : public APawn
+	{
+		GENERATED_BODY()
+
+	public:
+		// Sets default values (デフォルト値を設定) 
+		AMyPawn();
+
+	public:
+		// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
+		virtual void BeginPlay() override;
 
 			public:
-				// Sets default values (デフォルト値を設定) 
-				AMyPawn();
+		// Called every frame (フレームごとに呼び出されます)
+		virtual void Tick( float DeltaSeconds ) override;
 
-			protected:
-				// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
-				virtual void BeginPlay() override;
-			public:
+		// Called to bind functionality to input (機能と入力をバインドするために呼ばれます)
+		virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
 
-				// Called every frame (フレームごとに呼び出されます)
-				virtual void Tick( float DeltaSeconds ) override;
+		UPROPERTY(EditAnywhere)
+		USceneComponent* OurVisibleComponent;
+	};
 
-				// Called to bind functionality to input (機能と入力をバインドするために呼ばれます)
-				virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
+**MyPawn.cpp**
 
-				UPROPERTY(EditAnywhere)
-				USceneComponent* OurVisibleComponent;
-			};
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-		**MyPawn.cpp**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+	#include "HowTo_PlayerInput.h"
+	#include "MyPawn.h"
 
-			#include "HowTo_PlayerInput.h"
-			#include "MyPawn.h"
+	// Sets default values (デフォルト値を設定) 
+	AMyPawn::AMyPawn()
+	{
+ 		// Set this pawn to call Tick() every frame. (フレーム毎に Tick() を呼び出すようにこのポーンを設定します。) You can turn this off to improve performance if you don't need it. (必要がなければパフォーマンスを向上させるためにオフにすることができます) 
+		PrimaryActorTick.bCanEverTick = true;
 
-			// Sets default values (デフォルト値を設定) 
-			AMyPawn::AMyPawn()
-			{
- 				// Set this pawn to call Tick() every frame. (フレーム毎に Tick() を呼び出すようにこのポーンを設定します。) You can turn this off to improve performance if you don't need it. (必要がなければパフォーマンスを向上させるためにオフにすることができます) 
-				PrimaryActorTick.bCanEverTick = true;
+		// Set this pawn to be controlled by the lowest-numbered player (このポーンが最小値のプレイヤーで制御されるように設定)
+		AutoPossessPlayer = EAutoReceiveInput::Player0;
 
-				// Set this pawn to be controlled by the lowest-numbered player (このポーンが最小値のプレイヤーで制御されるように設定)
-				AutoPossessPlayer = EAutoReceiveInput::Player0;
+		// Create a dummy root component we can attach things to.(親子付け可能なダミーのルートコンポーネントを作成)
+		RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
+		// Create a camera and a visible object (カメラと可視オブジェクトを作成)
+		UCameraComponent* OurCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("OurCamera"));
+		OurVisibleComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("OurVisibleComponent"));
+		// Attach our camera and visible object to our root component. (カメラと可視オブジェクトをルートコンポーネントに親子付け)Offset and rotate the camera. (カメラをオフセットして回転)
+		OurCamera->SetupAttachment(RootComponent);
+		OurCamera->SetRelativeLocation(FVector(-250.0f, 0.0f, 250.0f));
+		OurCamera->SetRelativeRotation(FRotator(-45.0f, 0.0f, 0.0f));
+		OurVisibleComponent->SetupAttachment(RootComponent);
+	}
 
-				// Create a dummy root component we can attach things to.(親子付け可能なダミーのルートコンポーネントを作成)
-				RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
-				// Create a camera and a visible object (カメラと可視オブジェクトを作成)
-				UCameraComponent* OurCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("OurCamera"));
-				OurVisibleComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("OurVisibleComponent"));
-				// Attach our camera and visible object to our root component. (カメラと可視オブジェクトをルートコンポーネントに親子付け)Offset and rotate the camera. (カメラをオフセットして回転)
-				OurCamera->SetupAttachment(RootComponent);
-				OurCamera->SetRelativeLocation(FVector(-250.0f, 0.0f, 250.0f));
-				OurCamera->SetRelativeRotation(FRotator(-45.0f, 0.0f, 0.0f));
-				OurVisibleComponent->SetupAttachment(RootComponent);
-			}
+	// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
+	void AMyPawn::BeginPlay()
+	{
+		Super::BeginPlay();
 
-			// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
-			void AMyPawn::BeginPlay()
-			{
-				Super::BeginPlay();
+	}
 
-			}
+	// Called every frame (フレームごとに呼び出されます)
+	void AMyPawn::Tick( float DeltaTime )
+	{
+		Super::Tick( DeltaTime );
 
-			// Called every frame (フレームごとに呼び出されます)
-			void AMyPawn::Tick( float DeltaTime )
-			{
-				Super::Tick( DeltaTime );
+	}
 
-			}
+	// Called to bind functionality to input (機能と入力をバインドするために呼ばれます)
+	void AMyPawn::SetupPlayerInputComponent(class UInputComponent* InputComponent)
+	{
+		Super::SetupPlayerInputComponent(InputComponent);
 
-			// Called to bind functionality to input (機能と入力をバインドするために呼ばれます)
-			void AMyPawn::SetupPlayerInputComponent(class UInputComponent* InputComponent)
-			{
-				Super::SetupPlayerInputComponent(InputComponent);
-
-			}
-
-    [/PARAM]
-[/OBJECT]
+	}
 
 

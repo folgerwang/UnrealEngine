@@ -3,7 +3,7 @@ Availability:Public
 Title:インターフェース
 Crumbs:%ROOT%
 Description:インターフェースの作成および実装に関するリファレンス
-tags:Programming
+Tags:Programming
 Version:4.14
 Parent:Programming/UnrealArchitecture/Reference
 Order:
@@ -27,7 +27,7 @@ Interface クラスは関連性のない一連のクラスが共通の関数を�
 
 2 つめの違いとして、UINTERFACE クラスは実際のインターフェースではありませんが、アンリアル エンジンのリフレクション システムで見えるようにするためにだけ存在する空のクラスです。他のクラスによって継承される実際のインターフェースは、必ず同じクラス名を持たなければなりませんが、イニシャルの "U" が "I" に変わっています。
 
-ヘッダー ファイルで (例、 `ReactToTriggerInterface.h`) 以下のようにします。
+ヘッダー ファイルで (例、 `ReactToTriggerInterface.h`) 以下のようにします。:
 
     #pragma once
 
@@ -44,7 +44,7 @@ Interface クラスは関連性のない一連のクラスが共通の関数を�
 		GENERATED_BODY()
 
     public:
-		/** React to a trigger volume activating this object. (このオブジェクトをアクティベートするトリガー ボリュームに反応。) Return true if the reaction succeeds. (反応が成功したら true を戻す。)  */
+		/** React to a trigger volume activating this object. Return true if the reaction succeeds. */
         UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category="Trigger Reaction")
         bool ReactToTrigger() const;
     };
@@ -52,8 +52,8 @@ Interface クラスは関連性のない一連のクラスが共通の関数を�
 関数は直接ヘッダー ファイルに書き込まれますが、これは関数がデフォルトで何も行わないか、または false、ゼロ、空の文字列、または類似のものを戻すなどの自明な挙動を持つ場合に行われます。コンパイル時間を短縮するためにより複雑な関数を、 .cpp ファイルに書き込むことができます。純粋仮想関数がサポートされます。サンプルの関数は自明であり、ヘッダー ファイルに書き込むことができますが、.cpp ファイルに書き込みます。.cpp ファイル (例、 `ReactToTriggerInterface.cpp`) には以下が含まれるようになります。:
 
     #include "ReactToTriggerInterface.h"
+	
 	bool IReactToTriggerInterface::ReactToTrigger() const
-
 	{
 		return false;
 	}
@@ -87,8 +87,8 @@ Interface クラスは関連性のない一連のクラスが共通の関数を�
 
 インターフェースを実装する C++ と Blueprint のクラスの両方で互換性を得るためには、以下のいずれかの関数を使用します。
 
-    bool bIsImplemented = OriginalObject->GetClass()->ImplementsInterface(UReactToTriggerInterface::StaticClass()); // bIsImplemented will be true if OriginalObject implements UReactToTriggerInterface.(OriginalObject が UReactToTriggerInterface を実装する場合、bIsImplemented は true)
-	IReactToTriggerInterface* ReactingObject = Cast<IReactToTriggerInterface>(OriginalObject); // ReactingObject will be non-null if OriginalObject implements UReactToTriggerInterface.(OriginalObject が UReactToTriggerInterface を実装する場合、ReactingObject は null ではない)
+    bool bIsImplemented = OriginalObject->GetClass()->ImplementsInterface(UReactToTriggerInterface::StaticClass()); // bIsImplemented will be true if OriginalObject implements UReactToTriggerInterface.
+	IReactToTriggerInterface* ReactingObject = Cast<IReactToTriggerInterface>(OriginalObject); // ReactingObject will be non-null if OriginalObject implements UReactToTriggerInterface.
 
 [REGION:note]
 `StaticClass` 関数が "I プリフィックス" クラスで実装されておらずコンパイルを行わないと同時に、"U プリフィックス" クラスで `Cast` を使用すると失敗します。
@@ -98,9 +98,9 @@ Interface クラスは関連性のない一連のクラスが共通の関数を�
 
 アンリアル エンジンは、あるインターフェースから別のインターフェースへのキャスト、もしくはあるインターフェースからあるアンリアル タイプへのキャストを適宜サポートしています。
 
-	IReactToTriggerInterface* ReactingObject = Cast<IReactToTriggerInterface>(OriginalObject); // ReactingObject will be non-null if the interface is implemented. (インターフェースが実装されている場合は ReactingObject は null ではない)
-	ISomeOtherInterface* DifferentInterface = Cast<ISomeOtherInterface>(ReactingObject); // DifferentInterface will be non-null if ReactingObject is non-null and also implements ISomeOtherInterface.(ReactingObject が null でなく、かつ ISomeOtherInterface を実装する場合、DifferentInterface は null ではない)
-	AActor* Actor = Cast<AActor>(ReactingObject); // Actor will be non-null if ReactingObject is non-null and OriginalObject is an AActor or AActor-derived class.(ReactingObject is が null でなく、かつ OriginalObject が AActor もしくは AActor 派生クラスの場合、アクタは null ではない)
+	IReactToTriggerInterface* ReactingObject = Cast<	IReactToTriggerInterface* ReactingObject = Cast<IReactToTriggerInterface>(OriginalObject); // ReactingObject will be non-null if the interface is implemented.
+	ISomeOtherInterface* DifferentInterface = Cast<ISomeOtherInterface>(ReactingObject); // DifferentInterface will be non-null if ReactingObject is non-null and also implements ISomeOtherInterface.
+	AActor* Actor = Cast<AActor>(ReactingObject); // Actor will be non-null if ReactingObject is non-null and OriginalObject is an AActor or AActor-derived class.
 
 ## Blueprint Implementable クラス
 

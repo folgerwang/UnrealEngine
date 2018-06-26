@@ -44,7 +44,7 @@ public:
 };
 
 
-SNiagaraGraphNodeInput::SNiagaraGraphNodeInput() : SGraphNode(),
+SNiagaraGraphNodeInput::SNiagaraGraphNodeInput() : SNiagaraGraphNode(),
 	ToolkitCommands(new FUICommandList()),
 	bRequestedSyncExposureOptions(false)
 {
@@ -53,7 +53,9 @@ SNiagaraGraphNodeInput::SNiagaraGraphNodeInput() : SGraphNode(),
 
 void SNiagaraGraphNodeInput::Construct(const FArguments& InArgs, UEdGraphNode* InGraphNode)
 {
-	GraphNode = InGraphNode;
+	GraphNode = InGraphNode; 
+	RegisterNiagaraGraphNode(InGraphNode);
+
 	FNiagaraGraphNodeInputCommands::Register();
 	BindCommands();
 	UpdateGraphNode();
@@ -62,7 +64,12 @@ void SNiagaraGraphNodeInput::Construct(const FArguments& InArgs, UEdGraphNode* I
 bool SNiagaraGraphNodeInput::IsNameReadOnly() const
 {
 	const UNiagaraNodeInput* InputNode = CastChecked<UNiagaraNodeInput>(GraphNode);
-	return InputNode->Usage != ENiagaraInputNodeUsage::Parameter;
+	if (InputNode->Usage == ENiagaraInputNodeUsage::Parameter ||
+		InputNode->Usage == ENiagaraInputNodeUsage::RapidIterationParameter)
+	{
+		return false;
+	}
+	return true;
 }
 
 void SNiagaraGraphNodeInput::RequestRenameOnSpawn()

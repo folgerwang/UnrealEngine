@@ -16,27 +16,25 @@ public:
 
 	void Construct(const FArguments& InArgs)
 	{
+		SNiagaraParameterEditor::Construct(SNiagaraParameterEditor::FArguments()
+			.MinimumDesiredWidth(DefaultInputSize)
+			.MaximumDesiredWidth(DefaultInputSize));
+
 		ChildSlot
 		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			[
-				SNew(SSpinBox<int32>)
-				.Style(FNiagaraEditorStyle::Get(), "NiagaraEditor.ParameterSpinBox")
-				.Font(FNiagaraEditorStyle::Get().GetFontStyle("NiagaraEditor.ParameterFont"))
-				.MinValue(TOptional<int32>())
-				.MaxValue(TOptional<int32>())
-				.MaxSliderValue(TOptional<int32>())
-				.MinSliderValue(TOptional<int32>())
-				.Delta(0.001f)
-				.Value(this, &SNiagaraIntegerParameterEditor::GetValue)
-				.OnValueChanged(this, &SNiagaraIntegerParameterEditor::ValueChanged)
-				.OnValueCommitted(this, &SNiagaraIntegerParameterEditor::ValueCommitted)
-				.OnBeginSliderMovement(this, &SNiagaraIntegerParameterEditor::BeginSliderMovement)
-				.OnEndSliderMovement(this, &SNiagaraIntegerParameterEditor::EndSliderMovement)
-				.MinDesiredWidth(100)
-			]
+			SNew(SSpinBox<int32>)
+			.Style(FNiagaraEditorStyle::Get(), "NiagaraEditor.ParameterSpinBox")
+			.Font(FNiagaraEditorStyle::Get().GetFontStyle("NiagaraEditor.ParameterFont"))
+			.MinValue(TOptional<int32>())
+			.MaxValue(TOptional<int32>())
+			.MaxSliderValue(TOptional<int32>())
+			.MinSliderValue(TOptional<int32>())
+			.Delta(0.001f)
+			.Value(this, &SNiagaraIntegerParameterEditor::GetValue)
+			.OnValueChanged(this, &SNiagaraIntegerParameterEditor::ValueChanged)
+			.OnValueCommitted(this, &SNiagaraIntegerParameterEditor::ValueCommitted)
+			.OnBeginSliderMovement(this, &SNiagaraIntegerParameterEditor::BeginSliderMovement)
+			.OnEndSliderMovement(this, &SNiagaraIntegerParameterEditor::EndSliderMovement)
 		];
 	}
 
@@ -99,13 +97,13 @@ bool FNiagaraEditorIntegerTypeUtilities::CanHandlePinDefaults() const
 FString FNiagaraEditorIntegerTypeUtilities::GetPinDefaultStringFromValue(const FNiagaraVariable& AllocatedVariable) const
 {
 	checkf(AllocatedVariable.IsDataAllocated(), TEXT("Can not generate a default value string for an unallocated variable."));
-	return Lex::ToString(AllocatedVariable.GetValue<FNiagaraFloat>().Value);
+	return LexToString(AllocatedVariable.GetValue<FNiagaraInt32>().Value);
 }
 
 bool FNiagaraEditorIntegerTypeUtilities::SetValueFromPinDefaultString(const FString& StringValue, FNiagaraVariable& Variable) const
 {
 	FNiagaraInt32 IntegerValue;
-	if(Lex::TryParseString(IntegerValue.Value, *StringValue))
+	if(LexTryParseString(IntegerValue.Value, *StringValue))
 	{
 		Variable.SetValue<FNiagaraInt32>(IntegerValue);
 		return true;

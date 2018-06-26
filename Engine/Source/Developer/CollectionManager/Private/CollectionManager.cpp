@@ -1577,6 +1577,8 @@ void FCollectionManager::HandleObjectDeleted(const FName& ObjectPath)
 
 bool FCollectionManager::TickFileCache(float InDeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FCollectionManager_TickFileCache);
+
 	enum class ECollectionFileAction : uint8
 	{
 		None,

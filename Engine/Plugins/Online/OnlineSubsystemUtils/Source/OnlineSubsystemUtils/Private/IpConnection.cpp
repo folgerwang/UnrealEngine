@@ -9,6 +9,7 @@ Notes:
 
 #include "IpConnection.h"
 #include "SocketSubsystem.h"
+#include "Engine/Engine.h"
 
 #include "IPAddress.h"
 #include "Sockets.h"
@@ -126,10 +127,14 @@ void UIpConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
 		}
 		else
 		{
-			uint32 Addr;
 			// Host name resolution just now succeeded.
+#if PLATFORM_IOS
+			RemoteAddr->Copy(ResolveInfo->GetResolvedAddress());
+#else
+			uint32 Addr;
 			ResolveInfo->GetResolvedAddress().GetIp(Addr);
 			RemoteAddr->SetIp(Addr);
+#endif
 			UE_LOG(LogNet, Log, TEXT("Host name resolution completed"));
 			delete ResolveInfo;
 			ResolveInfo = NULL;
@@ -176,12 +181,30 @@ void UIpConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
 
 		if (CountBytes > 0)
 		{
-			Socket->SendTo(DataToSend, CountBytes, BytesSent, *RemoteAddr);
+			const bool bWasSendSuccessful = Socket->SendTo(DataToSend, CountBytes, BytesSent, *RemoteAddr);
+            if (bWasSendSuccessful)
+            {
+                UNCLOCK_CYCLES(Driver->SendCycles);
+                NETWORK_PROFILER(GNetworkProfiler.FlushOutgoingBunches(this));
+                NETWORK_PROFILER(GNetworkProfiler.TrackSocketSendTo(Socket->GetDescription(),DataToSend,BytesSent,NumPacketIdBits,NumBunchBits,NumAckBits,NumPaddingBits,this));
+            }
+            else
+            {
+                ISocketSubsystem* const SocketSubsystem = Driver->GetSocketSubsystem();
+                const ESocketErrors Error = SocketSubsystem->GetLastErrorCode();
+                if (Error != SE_EWOULDBLOCK &&
+                    Error != SE_NO_ERROR)
+                {
+                    FString ErrorString = FString::Printf(TEXT("UIpNetConnection::LowLevelSend: Socket->SendTo failed with error %i (%s). %s"),
+                        static_cast<int32>(Error),
+                        SocketSubsystem->GetSocketError(Error),
+                        *Describe());
+                    
+                    GEngine->BroadcastNetworkFailure(Driver->GetWorld(), Driver, ENetworkFailure::ConnectionLost, ErrorString);
+                    Close();
+                }
+            }
 		}
-
-		UNCLOCK_CYCLES(Driver->SendCycles);
-		NETWORK_PROFILER(GNetworkProfiler.FlushOutgoingBunches(this));
-		NETWORK_PROFILER(GNetworkProfiler.TrackSocketSendTo(Socket->GetDescription(),DataToSend,BytesSent,NumPacketIdBits,NumBunchBits,NumAckBits,NumPaddingBits,this));
 	}
 }
 

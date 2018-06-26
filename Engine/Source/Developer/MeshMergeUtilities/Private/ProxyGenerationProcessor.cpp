@@ -2,10 +2,10 @@
 
 #include "ProxyGenerationProcessor.h"
 #include "MaterialUtilities.h"
-#include "MeshUtilities.h"
+#include "MeshMergeUtilities.h"
+#include "IMeshMergeExtension.h"
 #include "ProxyMaterialUtilities.h"
 #include "IMeshReductionInterfaces.h"
-
 #include "IMeshReductionManagerModule.h"
 #include "Modules/ModuleManager.h"
 
@@ -14,7 +14,8 @@
 #include "MeshMergeHelpers.h"
 #endif // WITH_EDITOR
 
-FProxyGenerationProcessor::FProxyGenerationProcessor()
+FProxyGenerationProcessor::FProxyGenerationProcessor(const FMeshMergeUtilities* InOwner)
+	: Owner(InOwner)
 {
 #if WITH_EDITOR
 	FEditorDelegates::MapChange.AddRaw(this, &FProxyGenerationProcessor::OnMapChange);
@@ -144,6 +145,11 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 	// Create a new proxy material instance
 	UMaterialInstanceConstant* ProxyMaterial = ProxyMaterialUtilities::CreateProxyMaterialInstance(Data->MergeData->InOuter, Data->MergeData->InProxySettings.MaterialSettings, Data->MergeData->BaseMaterial, FlattenMaterial, AssetBasePath, AssetBaseName, OutAssetsToSync);
 
+	for (IMeshMergeExtension* Extension : Owner->MeshMergeExtensions)
+	{
+		Extension->OnCreatedProxyMaterial(Data->MergeData->StaticMeshComponents, ProxyMaterial);
+	}
+
 	// Set material static lighting usage flag if project has static lighting enabled
 	static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
 	const bool bAllowStaticLighting = (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnGameThread() != 0);
@@ -161,6 +167,8 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 		MeshPackage->FullyLoad();
 		MeshPackage->Modify();
 	}
+
+	FStaticMeshComponentRecreateRenderStateContext RecreateRenderStateContext(FindObject<UStaticMesh>(MeshPackage, *MeshAssetName));
 
 	UStaticMesh* StaticMesh = NewObject<UStaticMesh>(MeshPackage, FName(*MeshAssetName), RF_Public | RF_Standalone);
 	StaticMesh->InitResources();
@@ -191,6 +199,7 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 	}
 
 	const bool bContainsImposters = Data->MergeData->ImposterComponents.Num() > 0;
+	FBox ImposterBounds(EForceInit::ForceInit);
 	if (bContainsImposters)
 	{
 		TArray<UMaterialInterface*> ImposterMaterials;
@@ -198,6 +207,15 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 		// Merge imposter meshes to rawmesh
 		// The base material index is always one here as we assume we only have one HLOD material
 		FMeshMergeHelpers::MergeImpostersToRawMesh(Data->MergeData->ImposterComponents, Data->RawMesh, FVector::ZeroVector, 1, ImposterMaterials);
+
+		
+		for (const UStaticMeshComponent* Component : Data->MergeData->ImposterComponents)
+		{
+			if (Component->GetStaticMesh())
+			{
+				ImposterBounds += Component->GetStaticMesh()->GetBoundingBox().TransformBy(Component->GetComponentToWorld());
+			}
+		}
 
 		if (!Data->MergeData->InProxySettings.bAllowVertexColors)
 		{
@@ -247,7 +265,17 @@ void FProxyGenerationProcessor::ProcessJob(const FGuid& JobGuid, FProxyGeneratio
 	}
 
 	StaticMesh->Build();
-	StaticMesh->PostEditChange();
+
+	if (ImposterBounds.IsValid)
+	{
+		const FBox StaticMeshBox = StaticMesh->GetBoundingBox();
+		const FBox CombinedBox = StaticMeshBox + ImposterBounds;
+		StaticMesh->PositiveBoundsExtension = (CombinedBox.Max - StaticMeshBox.Max);
+		StaticMesh->NegativeBoundsExtension = (StaticMeshBox.Min - CombinedBox.Min);
+		StaticMesh->CalculateExtendedBounds();
+	}
+
+	StaticMesh->PostEditChange();	
 
 	OutAssetsToSync.Add(StaticMesh);
 

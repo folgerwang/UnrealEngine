@@ -79,7 +79,9 @@ struct FOpenGLES2 : public FOpenGLBase
 	static FORCEINLINE bool SupportsStructuredBuffers()					{ return false; }
 	static FORCEINLINE bool SupportsOcclusionQueries()					{ return bSupportsOcclusionQueries; }
 	static FORCEINLINE bool SupportsExactOcclusionQueries()				{ return false; }
-	static FORCEINLINE bool SupportsTimestampQueries()					{ return false; }
+	// MLCHANGES BEGIN -- changed to use bSupportsDisjointTimeQueries
+	static FORCEINLINE bool SupportsTimestampQueries()					{ return bSupportsDisjointTimeQueries; }
+	// MLCHANGES END
 	static bool SupportsDisjointTimeQueries();
 	static FORCEINLINE bool SupportsBlitFramebuffer()					{ return bSupportsNVFrameBufferBlit; }
 	static FORCEINLINE bool SupportsDepthStencilRead()					{ return false; }

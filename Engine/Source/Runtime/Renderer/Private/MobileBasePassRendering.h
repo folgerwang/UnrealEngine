@@ -84,7 +84,6 @@ protected:
 		FMeshMaterialShader(Initializer)
 	{
 		VertexParametersType::Bind(Initializer.ParameterMap);
-		MobileMultiViewMaskParameter.Bind(Initializer.ParameterMap, TEXT("MobileMultiViewMask"));
 		PassUniformBuffer.Bind(Initializer.ParameterMap, FMobileBasePassUniformParameters::StaticStruct.GetShaderVariableName());
 	}
 
@@ -101,7 +100,6 @@ public:
 	{
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		VertexParametersType::Serialize(Ar);
-		Ar << MobileMultiViewMaskParameter;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -113,20 +111,6 @@ public:
 
 		FMaterialShader::SetViewParameters(RHICmdList, GetVertexShader(), *View, DrawRenderState.GetViewUniformBuffer());
 		FMeshMaterialShader::SetPassUniformBuffer(RHICmdList, GetVertexShader(), DrawRenderState.GetPassUniformBuffer());
-
-		if (MobileMultiViewMaskParameter.IsBound())
-		{
-			// Default is no masking
-			SetShaderValue(RHICmdList, GetVertexShader(), MobileMultiViewMaskParameter, -1);
-		}
-	}
-
-	void SetMobileMultiViewMask(FRHICommandList& RHICmdList, const int32 EyeIndex)
-	{
-		if (EyeIndex >= 0 && MobileMultiViewMaskParameter.IsBound())
-		{
-			SetShaderValue(RHICmdList, GetVertexShader(), MobileMultiViewMaskParameter, EyeIndex);
-		}
 	}
 
 	// Set parameters specific to mesh
@@ -144,9 +128,6 @@ public:
 		uint32 DataFlags = 0;
 		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(), InVertexFactory, View, Proxy, BatchElement, DrawRenderState, DataFlags);
 	}
-
-private:
-	FShaderParameter MobileMultiViewMaskParameter;
 };
 
 template<typename LightMapPolicyType>
@@ -199,8 +180,9 @@ public:
 	TMobileBasePassVS() {}
 };
 
-
-void GetSkyTextureParams(FPrimitiveSceneInfo* PrimitiveSceneInfo, float& AverageBrightnessOUT, FTexture*& ReflectionTextureOUT);
+// If no reflection captures are available then attempt to use sky light's texture.
+bool UseSkyReflectionCapture(const FScene* RenderScene);
+void GetSkyTextureParams(const FScene* Scene, float& AverageBrightnessOUT, FTexture*& ReflectionTextureOUT, float& OutSkyMaxMipIndex);
 
 /**
  * The base type for pixel shaders that render the emissive color, and light-mapped/ambient lighting of a mesh.
@@ -241,7 +223,7 @@ public:
 		ReflectionCubemap2.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemap2"));
 		ReflectionSampler2.Bind(Initializer.ParameterMap, TEXT("ReflectionCubemapSampler2"));
 
-		UsingSkyReflectionParam.Bind(Initializer.ParameterMap, TEXT("UsingSkyReflection"));
+		MobileSkyReflectionParam.Bind(Initializer.ParameterMap, TEXT("MobileSkyReflectionParams"));
 
 		CSMDebugHintParams.Bind(Initializer.ParameterMap, TEXT("CSMDebugHint"));
 
@@ -255,6 +237,23 @@ public:
 		const FViewInfo* View, 
 		const FDrawingPolicyRenderState& DrawRenderState)
 	{
+		// If we're using only the sky for reflection then set it once here.
+		FScene* RenderScene = View->Family->Scene->GetRenderScene();
+		if (UseSkyReflectionCapture(RenderScene))
+		{
+			// MobileSkyReflectionValues.x == max sky cube mip.
+			// if >0 this will disable shader's RGBM decoding and enable sky light tinting of this envmap.
+			FTexture* ReflectionTexture;
+			float AverageBrightness = 1.0f;
+			FVector4 MobileSkyReflectionValues;
+			GetSkyTextureParams(RenderScene, AverageBrightness, ReflectionTexture, MobileSkyReflectionValues.X);
+			FRHIPixelShader* PixelShader = GetPixelShader();
+			// Set the reflection cubemap
+			SetTextureParameter(RHICmdList, PixelShader, ReflectionCubemap, ReflectionSampler, ReflectionTexture);
+			SetShaderValue(RHICmdList, PixelShader, InvReflectionCubemapAverageBrightness, FVector(1.0f / AverageBrightness, 0, 0));
+			SetShaderValue(RHICmdList, PixelShader, MobileSkyReflectionParam, MobileSkyReflectionValues);
+		}
+
 		FMaterialShader::SetViewParameters(RHICmdList, GetPixelShader(), *View, DrawRenderState.GetViewUniformBuffer());
 		FMeshMaterialShader::SetPassUniformBuffer(RHICmdList, GetPixelShader(), DrawRenderState.GetPassUniformBuffer());
 	}
@@ -319,11 +318,11 @@ public:
 
 			SetShaderValue(RHICmdList, PixelShader, InvReflectionCubemapAverageBrightness, FVector(1.0f / AverageBrightness.X, 1.0f / AverageBrightness.Y, 1.0f / AverageBrightness.Z));
 		}
-		else if (ReflectionCubemap.IsBound())
+		else if (ReflectionCubemap.IsBound() && (!PrimitiveSceneInfo || !UseSkyReflectionCapture(PrimitiveSceneInfo->Scene)))
 		{
 			FTexture* ReflectionTexture = GBlackTextureCube;
 			float AverageBrightness = 1.0f;
-			float UsingSkyReflection = 0.0f;
+			FVector4 MobileSkyReflectionValues;
 
 			if (PrimitiveSceneInfo 
 				&& PrimitiveSceneInfo->CachedReflectionCaptureProxy
@@ -333,18 +332,11 @@ public:
 				AverageBrightness = PrimitiveSceneInfo->CachedReflectionCaptureProxy->EncodedHDRAverageBrightness;
 				ReflectionTexture = PrimitiveSceneInfo->CachedReflectionCaptureProxy->EncodedHDRCubemap;
 			}
-			else if (PrimitiveSceneInfo)
-			{
-				// If no environment map is available attempt to use sky light's texture.
-				GetSkyTextureParams(PrimitiveSceneInfo, AverageBrightness, ReflectionTexture);
-				// Disable shader's RGBM decoding and allow sky light tinting of this envmap.
-				UsingSkyReflection = 1.0f;
-			}
 
 			// Set the reflection cubemap
 			SetTextureParameter(RHICmdList, PixelShader, ReflectionCubemap, ReflectionSampler, ReflectionTexture);
 			SetShaderValue(RHICmdList, PixelShader, InvReflectionCubemapAverageBrightness, FVector(1.0f / AverageBrightness, 0, 0));
-			SetShaderValue(RHICmdList, PixelShader, UsingSkyReflectionParam, UsingSkyReflection);
+			SetShaderValue(RHICmdList, PixelShader, MobileSkyReflectionParam, MobileSkyReflectionValues);
 		}
 
 		if (NumMovablePointLights > 0)
@@ -388,7 +380,7 @@ public:
 		Ar << LightPositionAndInvRadiusParameter;
 		Ar << LightColorAndFalloffExponentParameter;
 		Ar << NumDynamicPointLightsParameter;
-		Ar << UsingSkyReflectionParam;
+		Ar << MobileSkyReflectionParam;
 		Ar << ReflectionCubemap1;
 		Ar << ReflectionCubemap2;
 		Ar << ReflectionPositionsAndRadii;
@@ -410,7 +402,7 @@ private:
 	FShaderResourceParameter ReflectionSampler;
 	FShaderParameter InvReflectionCubemapAverageBrightness;
 	FShaderParameter LightPositionAndInvRadiusParameter;
-	FShaderParameter UsingSkyReflectionParam;
+	FShaderParameter MobileSkyReflectionParam;
 	FShaderParameter LightColorAndFalloffExponentParameter;
 	FShaderParameter NumDynamicPointLightsParameter;
 
@@ -804,11 +796,6 @@ public:
 		return CompareDrawingPolicy(A.LightMapPolicy,B.LightMapPolicy);
 	}
 
-	void SetMobileMultiViewMask(FRHICommandList& RHICmdList, const int32 EyeIndex)
-	{
-		VertexShader->SetMobileMultiViewMask(RHICmdList, EyeIndex);
-	}
-
 	void SetupPipelineState(FDrawingPolicyRenderState& DrawRenderState, const FViewInfo& View) const
 	{
 		if (UseDebugViewPS())
@@ -855,7 +842,11 @@ public:
 					// Masked materials are rendered together in the base pass, where the blend state is set at a higher level
 					break;
 				case BLEND_Translucent:
-					if (bIsMobileMonoscopic)
+					if (MaterialResource->ShouldWriteOnlyAlpha())
+					{
+						DrawRenderState.SetBlendState(TStaticBlendState<CW_ALPHA, BO_Add, BF_Zero, BF_Zero, BO_Add, BF_One, BF_Zero>::GetRHI());
+					} 
+					else if (bIsMobileMonoscopic)
 					{
 						DrawRenderState.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_One, BF_One>::GetRHI());
 					}
@@ -970,20 +961,20 @@ public:
 		else
 		{
 			PixelShader->SetMesh(RHICmdList, *MaterialResource, View, MeshVertexFactory, MeshMaterialRenderProxy, PrimitiveSceneProxy, BatchElement, DrawRenderState, NumMovablePointLights);
+
+			// Set directional light UB
+			const TShaderUniformBufferParameter<FMobileDirectionalLightShaderParameters>& MobileDirectionalLightParam = PixelShader->template GetUniformBufferParameter<FMobileDirectionalLightShaderParameters>();
+			if (MobileDirectionalLightParam.IsBound())
+			{
+				int32 UniformBufferIndex = PrimitiveSceneProxy ? GetFirstLightingChannelFromMask(PrimitiveSceneProxy->GetLightingChannelMask()) + 1 : 0;
+				SetUniformBufferParameter(RHICmdList, PixelShader->GetPixelShader(), MobileDirectionalLightParam, View.MobileDirectionalLightUniformBuffers[UniformBufferIndex]);
+			}
 		}
 
 		if (bEnableReceiveDecalOutput && View.bSceneHasDecals)
 		{
 			const uint8 StencilValue = (PrimitiveSceneProxy && !PrimitiveSceneProxy->ReceivesDecals() ? 0x01 : 0x00);
 			RHICmdList.SetStencilRef(GET_STENCIL_BIT_MASK(RECEIVE_DECAL, StencilValue)); // we hash the stencil group because we only have 6 bits.
-		}
-
-		// Set directional light UB
-		const TShaderUniformBufferParameter<FMobileDirectionalLightShaderParameters>& MobileDirectionalLightParam = PixelShader->template GetUniformBufferParameter<FMobileDirectionalLightShaderParameters>();
-		if (MobileDirectionalLightParam.IsBound())
-		{
-			int32 UniformBufferIndex = PrimitiveSceneProxy ? GetFirstLightingChannelFromMask(PrimitiveSceneProxy->GetLightingChannelMask()) + 1 : 0;
-			SetUniformBufferParameter(RHICmdList, PixelShader->GetPixelShader(), MobileDirectionalLightParam, View.MobileDirectionalLightUniformBuffers[UniformBufferIndex]);
 		}
 	}
 
@@ -1040,7 +1031,6 @@ public:
 	const bool bAllowFog;
 	ERHIFeatureLevel::Type FeatureLevel;
 	const bool bIsInstancedStereo;
-	const bool bUseMobileMultiViewMask;
 
 	/** Initialization constructor. */
 	FMobileProcessBasePassMeshParameters(
@@ -1049,8 +1039,7 @@ public:
 		const FPrimitiveSceneProxy* InPrimitiveSceneProxy,
 		bool InbAllowFog,
 		ERHIFeatureLevel::Type InFeatureLevel,
-		const bool InbIsInstancedStereo = false,
-		const bool InbUseMobileMultiViewMask = false
+		const bool InbIsInstancedStereo = false
 	) :
 		Mesh(InMesh),
 		BatchElementMask(Mesh.Elements.Num() == 1 ? 1 : (1 << Mesh.Elements.Num()) - 1), // 1 bit set for each mesh element
@@ -1061,8 +1050,7 @@ public:
 		ShadingModel(InMaterial->GetShadingModel()),
 		bAllowFog(InbAllowFog),
 		FeatureLevel(InFeatureLevel),
-		bIsInstancedStereo(InbIsInstancedStereo),
-		bUseMobileMultiViewMask(InbUseMobileMultiViewMask)
+		bIsInstancedStereo(InbIsInstancedStereo)
 	{
 	}
 
@@ -1074,8 +1062,7 @@ public:
 		const FPrimitiveSceneProxy* InPrimitiveSceneProxy,
 		bool InbAllowFog,
 		ERHIFeatureLevel::Type InFeatureLevel,
-		bool InbIsInstancedStereo = false,
-		bool InbUseMobileMultiViewMask = false
+		bool InbIsInstancedStereo = false
 	) :
 		Mesh(InMesh),
 		BatchElementMask(InBatchElementMask),
@@ -1086,8 +1073,7 @@ public:
 		ShadingModel(InMaterial->GetShadingModel()),
 		bAllowFog(InbAllowFog),
 		FeatureLevel(InFeatureLevel),
-		bIsInstancedStereo(InbIsInstancedStereo),
-		bUseMobileMultiViewMask(InbUseMobileMultiViewMask)
+		bIsInstancedStereo(InbIsInstancedStereo)
 	{
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineAsyncTaskGooglePlayReadLeaderboard.h"
 #include "OnlineSubsystemGooglePlay.h"
@@ -52,7 +52,7 @@ void FOnlineAsyncTaskGooglePlayReadLeaderboard::Tick()
 	}
 
 	// We can only get the current user's leaderboard score from Google Play, so just add one row with it.
-	//TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(FString(TEXT("0"))));
+	//TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdGooglePlay(FString(TEXT("0"))));
 	auto UserId = Subsystem->GetIdentityGooglePlay()->GetCurrentUserId();
 	if (!UserId.IsValid())
 	{

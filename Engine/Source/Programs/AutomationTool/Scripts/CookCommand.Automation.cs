@@ -167,7 +167,7 @@ public partial class Project : CommandUtils
                 {
                     CommandletParams += " -iterate -iterateshash";
                 }
-				if ( Params.IterateSharedCookedBuild)
+				if ( Params.HasIterateSharedCookedBuild)
 				{
 					SharedCookedBuild.CopySharedCookedBuild(Params);
 					CommandletParams += " -iteratesharedcookedbuild";					

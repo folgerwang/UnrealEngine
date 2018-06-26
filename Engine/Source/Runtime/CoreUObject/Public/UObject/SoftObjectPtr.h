@@ -131,6 +131,13 @@ public:
 	{
 	}
 
+	/** Construct from a moveable soft pointer */
+	template <class U, class = typename TEnableIf<TPointerIsConvertibleFromTo<U, T>::Value>::Type>
+	FORCEINLINE TSoftObjectPtr(TSoftObjectPtr<U>&& Other)
+		: SoftObjectPtr(MoveTemp(Other.SoftObjectPtr))
+	{
+	}
+
 	/** Construct from an object already in memory */
 	template <typename U>
 	FORCEINLINE TSoftObjectPtr(const U* Object)
@@ -145,8 +152,8 @@ public:
 	}
 
 	/** Construct from a soft object path */
-	explicit FORCEINLINE TSoftObjectPtr(const FSoftObjectPath& ObjectPath)
-		: SoftObjectPtr(ObjectPath)
+	explicit FORCEINLINE TSoftObjectPtr(FSoftObjectPath ObjectPath)
+		: SoftObjectPtr(MoveTemp(ObjectPath))
 	{
 	}
 
@@ -178,9 +185,9 @@ public:
 	}
 
 	/** Copy from a soft object path */
-	FORCEINLINE TSoftObjectPtr& operator=(const FSoftObjectPath& ObjectPath)
+	FORCEINLINE TSoftObjectPtr& operator=(FSoftObjectPath ObjectPath)
 	{
-		SoftObjectPtr = ObjectPath;
+		SoftObjectPtr = MoveTemp(ObjectPath);
 		return *this;
 	}
 
@@ -194,9 +201,9 @@ public:
 
 	/** Copy from another soft pointer */
 	template <class U, class = typename TEnableIf<TPointerIsConvertibleFromTo<U, T>::Value>::Type>
-	FORCEINLINE TSoftObjectPtr& operator=(const TSoftObjectPtr<U>& Other)
+	FORCEINLINE TSoftObjectPtr& operator=(TSoftObjectPtr<U> Other)
 	{
-		SoftObjectPtr = Other.SoftObjectPtr;
+		SoftObjectPtr = MoveTemp(Other.SoftObjectPtr);
 		return *this;
 	}
 

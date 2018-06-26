@@ -17,9 +17,11 @@ void FDatasmithMeshBuildSettingsTemplate::Apply( FMeshBuildSettings* Destination
 {
 	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( bUseMikkTSpace, Destination, PreviousTemplate );
 
-	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( bRecomputeNormals, Destination, PreviousTemplate );
+	// The settings for RecomputeNormals and RecomputeTangents when True must be honored irrespective of the previous template settings
+	// because their values are determined by ShouldRecomputeNormals/ShouldRecomputeTangents which determine if they are needed by the renderer
+	Destination->bRecomputeNormals = PreviousTemplate ? Destination->bRecomputeNormals | bRecomputeNormals : bRecomputeNormals;
 
-	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( bRecomputeTangents, Destination, PreviousTemplate );
+	Destination->bRecomputeTangents = PreviousTemplate ? Destination->bRecomputeTangents | bRecomputeTangents : bRecomputeTangents;
 
 	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( bRemoveDegenerates, Destination, PreviousTemplate );
 
@@ -53,6 +55,23 @@ void FDatasmithMeshBuildSettingsTemplate::Load( const FMeshBuildSettings& Source
 	DstLightmapIndex = Source.DstLightmapIndex;
 }
 
+bool FDatasmithMeshBuildSettingsTemplate::Equals( const FDatasmithMeshBuildSettingsTemplate& Other ) const
+{
+	bool bEquals = bUseMikkTSpace == Other.bUseMikkTSpace;
+	bEquals = bEquals && ( bRecomputeNormals == Other.bRecomputeNormals );
+	bEquals = bEquals && ( bRecomputeTangents == Other.bRecomputeTangents );
+	bEquals = bEquals && ( bRemoveDegenerates == Other.bRemoveDegenerates );
+	bEquals = bEquals && ( bBuildAdjacencyBuffer == Other.bBuildAdjacencyBuffer );
+	bEquals = bEquals && ( bUseHighPrecisionTangentBasis == Other.bUseHighPrecisionTangentBasis );
+	bEquals = bEquals && ( bUseFullPrecisionUVs == Other.bUseFullPrecisionUVs );
+	bEquals = bEquals && ( bGenerateLightmapUVs == Other.bGenerateLightmapUVs );
+	bEquals = bEquals && ( MinLightmapResolution == Other.MinLightmapResolution );
+	bEquals = bEquals && ( SrcLightmapIndex == Other.SrcLightmapIndex );
+	bEquals = bEquals && ( DstLightmapIndex == Other.DstLightmapIndex );
+
+	return bEquals;
+}
+
 FDatasmithStaticMaterialTemplate::FDatasmithStaticMaterialTemplate()
 {
 	Load( FStaticMaterial() ); // Initialize from default object
@@ -70,6 +89,14 @@ void FDatasmithStaticMaterialTemplate::Load( const FStaticMaterial& Source )
 	MaterialInterface = Source.MaterialInterface;
 }
 
+bool FDatasmithStaticMaterialTemplate::Equals( const FDatasmithStaticMaterialTemplate& Other ) const
+{
+	bool bEquals = MaterialSlotName == Other.MaterialSlotName;
+	bEquals = bEquals && ( MaterialInterface == Other.MaterialInterface );
+
+	return bEquals;
+}
+
 FDatasmithMeshSectionInfoTemplate::FDatasmithMeshSectionInfoTemplate()
 {
 	Load( FMeshSectionInfo() ); // Initialize from default object
@@ -85,11 +112,16 @@ void FDatasmithMeshSectionInfoTemplate::Load( const FMeshSectionInfo& Source )
 	MaterialIndex = Source.MaterialIndex;
 }
 
+bool FDatasmithMeshSectionInfoTemplate::Equals( const FDatasmithMeshSectionInfoTemplate& Other ) const
+{
+	return MaterialIndex == Other.MaterialIndex;
+}
+
 void FDatasmithMeshSectionInfoMapTemplate::Apply( FMeshSectionInfoMap* Destination, FDatasmithMeshSectionInfoMapTemplate* PreviousTemplate )
 {
 	for ( auto It = Map.CreateIterator(); It; ++It )
 	{
-		It->Value.Apply( &Destination->Map.Add( It->Key ), PreviousTemplate ? PreviousTemplate->Map.Find( It->Key ) : nullptr );
+		It->Value.Apply( &Destination->Map.FindOrAdd( It->Key ), PreviousTemplate ? PreviousTemplate->Map.Find( It->Key ) : nullptr );
 	}
 }
 
@@ -104,6 +136,31 @@ void FDatasmithMeshSectionInfoMapTemplate::Load( const FMeshSectionInfoMap& Sour
 
 		Map.Add( It->Key, MoveTemp( MeshSectionInfoTemplate ) );
 	}
+}
+
+bool FDatasmithMeshSectionInfoMapTemplate::Equals( const FDatasmithMeshSectionInfoMapTemplate& Other ) const
+{
+	bool bEquals = ( Map.Num() == Other.Map.Num() );
+
+	if ( bEquals )
+	{
+		for ( const auto& It : Map )
+		{
+			bEquals = bEquals && ( Other.Map.Contains( It.Key ) );
+
+			if ( bEquals )
+			{
+				bEquals = bEquals && It.Value.Equals( *Other.Map.Find( It.Key ) );
+			}
+
+			if ( !bEquals )
+			{
+				break;
+			}
+		}
+	}
+	
+	return bEquals;
 }
 
 void UDatasmithStaticMeshTemplate::Apply( UObject* Destination, bool bForce )
@@ -219,4 +276,53 @@ void UDatasmithStaticMeshTemplate::Load( const UObject* Source )
 		StaticMaterials.Add( MoveTemp( StaticMaterialTemplate ) );
 	}
 #endif // #if WITH_EDITORONLY_DATA
+}
+
+bool UDatasmithStaticMeshTemplate::Equals( const UDatasmithObjectTemplate* Other ) const
+{
+	const UDatasmithStaticMeshTemplate* TypedOther = Cast< UDatasmithStaticMeshTemplate >( Other );
+
+	if ( !TypedOther )
+	{
+		return false;
+	}
+
+	bool bEquals = LightMapCoordinateIndex == TypedOther->LightMapCoordinateIndex;
+	bEquals = bEquals && ( LightMapResolution == TypedOther->LightMapResolution );
+
+	bEquals = bEquals && SectionInfoMap.Equals( TypedOther->SectionInfoMap );
+
+	// Build settings
+	bEquals = bEquals && ( BuildSettings.Num() == TypedOther->BuildSettings.Num() );
+
+	if ( bEquals )
+	{
+		for ( int32 BuildSettingIndex = 0; BuildSettingIndex < BuildSettings.Num(); ++BuildSettingIndex )
+		{
+			bEquals = bEquals && BuildSettings[ BuildSettingIndex ].Equals( TypedOther->BuildSettings[ BuildSettingIndex ] );
+
+			if ( !bEquals )
+			{
+				return false;
+			}
+		}
+	}
+
+	// Materials
+	bEquals = bEquals && ( StaticMaterials.Num() == TypedOther->StaticMaterials.Num() );
+
+	if ( bEquals )
+	{
+		for ( int32 StaticMaterialIndex = 0; StaticMaterialIndex < StaticMaterials.Num(); ++StaticMaterialIndex )
+		{
+			bEquals = bEquals && StaticMaterials[ StaticMaterialIndex ].Equals( TypedOther->StaticMaterials[ StaticMaterialIndex ] );
+
+			if ( !bEquals )
+			{
+				return false;
+			}
+		}
+	}
+
+	return bEquals;
 }

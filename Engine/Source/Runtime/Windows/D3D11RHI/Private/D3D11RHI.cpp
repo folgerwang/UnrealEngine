@@ -268,6 +268,7 @@ void FD3D11DynamicRHI::ClearAllShaderResourcesForFrequency()
 			InternalSetShaderResourceView<ShaderFrequency>(nullptr, nullptr, ResourceIndex, NAME_None);
 		}
 	}
+	StateCache.ClearConstantBuffers<ShaderFrequency>();
 }
 
 void FD3D11DynamicRHI::ClearAllShaderResources()
@@ -331,7 +332,7 @@ void FD3DGPUProfiler::BeginFrame(FD3D11DynamicRHI* InRHI)
 	bPreviousLatchedGProfilingGPUHitches = bLatchedGProfilingGPUHitches;
 
 	// Skip timing events when using SLI, they will not be accurate anyway
-	if (GNumActiveGPUsForRendering == 1)
+	if (GNumAlternateFrameRenderingGroups == 1)
 	{
 		FrameTiming.StartTiming();
 	}
@@ -356,14 +357,14 @@ void FD3DGPUProfiler::EndFrame()
 	}
 
 	// Skip timing events when using SLI, they will not be accurate anyway
-	if (GNumActiveGPUsForRendering == 1)
+	if (GNumAlternateFrameRenderingGroups == 1)
 	{
 		FrameTiming.EndTiming();
 	}
 
 	// Skip timing events when using SLI, as they will block the GPU and we want maximum throughput
 	// Stat unit GPU time is not accurate anyway with SLI
-	if (FrameTiming.IsSupported() && GNumActiveGPUsForRendering == 1)
+	if (FrameTiming.IsSupported() && GNumAlternateFrameRenderingGroups == 1)
 	{
 		uint64 GPUTiming = FrameTiming.GetTiming();
 		uint64 GPUFreq = FrameTiming.GetTimingFrequency();
@@ -574,6 +575,8 @@ extern CORE_API bool GIsGPUCrashed;
 bool FD3DGPUProfiler::CheckGpuHeartbeat() const
 {
 #if NV_AFTERMATH
+#define NVAFTERMATH_ON_ERROR() do { if (D3D11RHI) { D3D11RHI->StopNVAftermath(); GDX11NVAfterMathEnabled = false; } } while (false)
+
 	if (GDX11NVAfterMathEnabled && bTrackingGPUCrashData)
 	{
 		GFSDK_Aftermath_Device_Status Status;
@@ -610,11 +613,13 @@ bool FD3DGPUProfiler::CheckGpuHeartbeat() const
 					else
 					{
 						UE_LOG(LogRHI, Error, TEXT("[Aftermath] GFSDK_Aftermath_GetData failed with result: 0x%08X"), (uint32)Result);
+						NVAFTERMATH_ON_ERROR();
 					}
 				}
 				else
 				{
 					UE_LOG(LogRHI, Error, TEXT("[Aftermath] Invalid context handle"));
+					NVAFTERMATH_ON_ERROR();
 				}
 
 				return false;
@@ -623,8 +628,10 @@ bool FD3DGPUProfiler::CheckGpuHeartbeat() const
 		else
 		{
 			UE_LOG(LogRHI, Error, TEXT("[Aftermath] GFSDK_Aftermath_GetDeviceStatus failed with result: 0x%08X"), (uint32)Result);
+			NVAFTERMATH_ON_ERROR();
 		}
 	}
+#undef NVAFTERMATH_ON_ERROR
 #endif
 	return true;
 }

@@ -3,14 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
-enum class ERemoteSessionChannelMode
-{
-	Receive,
-	Send
-};
+#include "RemoteSession/RemoteSession.h"
 
 class FBackChannelOSCConnection;
+
+enum class ERemoteSessionChannelMode;
 
 class REMOTESESSION_API IRemoteSessionChannel
 {
@@ -23,6 +20,6 @@ public:
 
 	virtual void Tick(const float InDeltaTime) = 0;
 
-	virtual FString GetType() const = 0;
+	virtual const TCHAR* GetType() const = 0;
 
 };
