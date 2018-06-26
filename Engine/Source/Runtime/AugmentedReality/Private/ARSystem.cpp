@@ -46,8 +46,8 @@ void FARSystemBase::StartARSession(UARSessionConfig* InSessionConfig)
 {
     if (GetARSessionStatus().Status != EARSessionStatus::Running)
     {
+		ARSettings = InSessionConfig;
         OnStartARSession(InSessionConfig);
-        ARSettings = InSessionConfig;
     }
 }
 
