@@ -91,7 +91,7 @@ namespace LandscapeCookStats
 #define ENABLE_LANDSCAPE_COOKING 1
 
 // Increment this to regenerate mobile landscape data
-#define LANDSCAPE_MOBILE_COOK_VERSION 0
+#define LANDSCAPE_MOBILE_COOK_VERSION 2
 
 #define LOCTEXT_NAMESPACE "Landscape"
 
@@ -227,9 +227,9 @@ void ULandscapeComponent::CheckGenerateLandscapePlatformData(bool bIsCooking, co
 	FSHA1::HashBuffer(ComponentStateAr.GetData(), ComponentStateAr.Num(), (uint8*)Hash);
 	FGuid NewSourceHash = FGuid(Hash[0] ^ Hash[4], Hash[1], Hash[2], Hash[3]);
 
-	bool bHashMismatch = MobileDataSourceHash.IsValid() && MobileDataSourceHash != NewSourceHash;
+	bool bHashMismatch = MobileDataSourceHash != NewSourceHash;
 	bool bMissingVertexData = !PlatformData.HasValidPlatformData();
-	bool bMissingPixelData = !MobileMaterialInterface || !MobileWeightNormalmapTexture;
+	bool bMissingPixelData = MobileMaterialInterface == nullptr || MobileWeightmapTextures.Num() == 0;
 	
 	bool bRegenerateVertexData = bMissingVertexData || bMissingPixelData || bHashMismatch;
 	
@@ -305,6 +305,21 @@ void ULandscapeComponent::Serialize(FArchive& Ar)
 		Exchange(BackupXYOffsetmapTexture, XYOffsetmapTexture);
 		Exchange(BackupMaterialInstances, MaterialInstances);
 		Exchange(BackupWeightmapTextures, WeightmapTextures);
+	}
+	else
+	if (Ar.IsCooking() && !HasAnyFlags(RF_ClassDefaultObject) && !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::MobileRendering))
+	{
+		// These properties are only used for mobile so we back them up and clear them before serializing them.
+		UMaterialInterface* BackupMobileMaterialInterface = nullptr;
+		TArray<UTexture2D*> BackupMobileWeightmapTextures;
+
+		Exchange(MobileMaterialInterface, BackupMobileMaterialInterface);
+		Exchange(MobileWeightmapTextures, BackupMobileWeightmapTextures);
+
+		Super::Serialize(Ar);
+
+		Exchange(MobileMaterialInterface, BackupMobileMaterialInterface);
+		Exchange(MobileWeightmapTextures, BackupMobileWeightmapTextures);
 	}
 	else
 #endif
@@ -383,23 +398,6 @@ void ULandscapeComponent::Serialize(FArchive& Ar)
 				check(PlatformData.HasValidPlatformData());
 			}
 			Ar << PlatformData;
-			if (Ar.UE4Ver() >= VER_UE4_SERIALIZE_LANDSCAPE_ES2_TEXTURES)
-			{
-				Ar << MobileMaterialInterface;
-				Ar << MobileWeightNormalmapTexture;
-			}
-		}
-
-		if (Ar.UE4Ver() >= VER_UE4_LANDSCAPE_GRASS_COOKING && Ar.UE4Ver() < VER_UE4_SERIALIZE_LANDSCAPE_GRASS_DATA)
-		{
-			// deal with previous cooked FGrassMap data
-			int32 NumChannels = 0;
-			Ar << NumChannels;
-			if (NumChannels)
-			{
-				TArray<uint8> OldData;
-				OldData.BulkSerialize(Ar);
-			}
 		}
 	}
 #endif
@@ -421,7 +419,7 @@ void ULandscapeComponent::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceS
 
 #if WITH_EDITOR
 UMaterialInterface* ULandscapeComponent::GetLandscapeMaterial() const
-{
+	{		
 	if (OverrideMaterial)
 	{
 		return OverrideMaterial;
@@ -810,10 +808,10 @@ ALandscapeProxy::ALandscapeProxy(const FObjectInitializer& ObjectInitializer)
 
 		VisibilityLayer = ConstructorStatics.DataLayer.Get();
 		check(VisibilityLayer);
-#if WITH_EDITORONLY_DATA
+	#if WITH_EDITORONLY_DATA
 		// This layer should be no weight blending
 		VisibilityLayer->bNoWeightBlend = true;
-#endif
+	#endif
 		VisibilityLayer->LayerUsageDebugColor = FLinearColor(0, 0, 0, 0);
 		VisibilityLayer->AddToRoot();
 	}
@@ -1907,7 +1905,7 @@ UMaterialInterface* ALandscapeProxy::GetLandscapeMaterial() const
 	if (LandscapeMaterial)
 	{
 		return LandscapeMaterial;
-	}
+					}
 	return UMaterial::GetDefaultMaterial(MD_Surface);
 }
 
@@ -1921,7 +1919,7 @@ UMaterialInterface* ALandscapeProxy::GetLandscapeHoleMaterial() const
 }
 
 UMaterialInterface* ALandscapeStreamingProxy::GetLandscapeMaterial() const
-{
+			{
 	if (LandscapeMaterial)
 	{
 		return LandscapeMaterial;
