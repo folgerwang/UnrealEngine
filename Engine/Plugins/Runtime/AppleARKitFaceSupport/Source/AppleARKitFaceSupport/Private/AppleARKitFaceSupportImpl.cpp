@@ -44,6 +44,7 @@ static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData(ARAnchor* Anchor, const 
         {
             FAppleARKitAnchorData::FaceIndices = To32BitIndexBuffer(FaceAnchor.geometry.triangleIndices, FaceAnchor.geometry.triangleCount * 3);
         }
+		NewAnchor->bIsTracked = FaceAnchor.isTracked;
     }
 
     return NewAnchor;
