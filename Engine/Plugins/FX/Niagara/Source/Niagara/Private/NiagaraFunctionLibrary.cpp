@@ -29,6 +29,9 @@ UNiagaraComponent* UNiagaraFunctionLibrary::SpawnSystemAtLocation(UObject* World
 		{
 			AActor* Actor = World->GetWorldSettings();
 			PSC = NewObject<UNiagaraComponent>((Actor ? Actor : (UObject*)World));
+#if WITH_EDITORONLY_DATA
+			PSC->bWaitForCompilationOnActivate = true;
+#endif
 			PSC->SetAsset(SystemTemplate);
 			PSC->SetAutoDestroy(bAutoDestroy);
 			PSC->bAutoActivate = false;
