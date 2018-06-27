@@ -60,7 +60,7 @@ FVertexData GetVertex(uint VertexIndex)
 	{
 		uint InputOffset = VertexIndex + InputStreamStart;
 
-		Ret.UV = UVsInputBuffer[InputOffset];
+		Ret.UV = UVsInputBuffer[InputOffset * NumTexCoords + SelectedTexCoord];
 	}
 
 	return Ret;
