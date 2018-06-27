@@ -27,6 +27,7 @@
 #include "Components/VectorFieldComponent.h"
 #include "PrimitiveSceneProxy.h"
 #include "Materials/Material.h"
+#include "Engine/Engine.h"
 
 #if WITH_EDITORONLY_DATA
 	#include "EditorFramework/AssetImportData.h"
