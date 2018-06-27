@@ -1243,7 +1243,7 @@ void FProjectedShadowInfo::GatherDynamicMeshElementsArray(
 		}
 
 		// Only draw if the subject primitive is shadow relevant.
-		if (ViewRelevance.bShadowRelevance && ViewRelevance.bDynamicRelevance && ViewRelevance.bDrawRelevance)
+		if (ViewRelevance.bShadowRelevance && ViewRelevance.bDynamicRelevance)
 		{
 			Renderer.MeshCollector.SetPrimitive(PrimitiveSceneInfo->Proxy, PrimitiveSceneInfo->DefaultDynamicHitProxyId);
 
