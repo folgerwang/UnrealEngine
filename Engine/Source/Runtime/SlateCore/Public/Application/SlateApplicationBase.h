@@ -536,6 +536,7 @@ public:
 	}
 #if WITH_EDITOR
 	void ResetCustomSafeZone() { CustomSafeZoneRatio = FMargin(); }
+	const FMargin& GetCustomSafeZone() { return CustomSafeZoneRatio; }
 #endif
 
 #if WITH_EDITORONLY_DATA
