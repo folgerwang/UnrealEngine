@@ -294,11 +294,6 @@ public:
 	virtual void PropagateLightingScenarioChange() override;
 
 private:
-	/** Creates body instances for all instances owned by this component. */
-	void CreateAllInstanceBodies();
-
-	/** Terminate all body instances owned by this component. */
-	void ClearAllInstanceBodies();
 
 	/** Sets up new instance data to sensible defaults, creates physics counterparts if possible. */
 	void SetupNewInstanceData(FInstancedStaticMeshInstanceData& InOutNewInstanceData, int32 InInstanceIndex, const FTransform& InInstanceTransform);
@@ -307,6 +302,12 @@ private:
 	void UpdateInstanceBodyTransform(int32 InstanceIndex, const FTransform& WorldSpaceInstanceTransform, bool bTeleport);
 
 protected:
+	/** Creates body instances for all instances owned by this component. */
+	void CreateAllInstanceBodies();
+
+	/** Terminate all body instances owned by this component. */
+	void ClearAllInstanceBodies();
+
 	/** Request to navigation system to update only part of navmesh occupied by specified instance. */
 	virtual void PartialNavigationUpdate(int32 InstanceIdx);
 
