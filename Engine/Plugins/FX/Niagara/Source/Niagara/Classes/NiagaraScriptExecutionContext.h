@@ -90,17 +90,19 @@ struct FNiagaraComputeExecutionContext
 		, UpdateScript(nullptr)
 		, GPUScript(nullptr)
 		, RTUpdateScript(0)
-		, RTSpawnScript(0)	
+		, RTSpawnScript(0)
 		, RTGPUScript(0)
 		, GPUDataReadback(nullptr)
 		, AccumulatedSpawnRate(0)
 		, NumIndicesPerInstance(0)
+		, bPendingExecution(0)
 	{
 	}
 
 	void Reset()
 	{
 		AccumulatedSpawnRate = 0;
+		bPendingExecution = 0;
 		if (GPUDataReadback)
 		{
 			delete GPUDataReadback;
@@ -194,4 +196,7 @@ struct FNiagaraComputeExecutionContext
 	FRHIGPUMemoryReadback *GPUDataReadback;
 	uint32 AccumulatedSpawnRate;
 	uint32 NumIndicesPerInstance;	// how many vtx indices per instance the renderer is going to have for its draw call
+
+	/** Ensures we only enqueue each context once before they're dispatched. */
+	uint32 bPendingExecution : 1;
 };
