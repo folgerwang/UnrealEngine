@@ -25,8 +25,7 @@ class FSpeedTreeWind;
 class UAssetUserData;
 class UMaterialInterface;
 class UNavCollisionBase;
-class UMeshDescription;
-
+class FMeshDescription;
 struct FStaticMeshLODResources;
 
 /*-----------------------------------------------------------------------------
@@ -177,8 +176,7 @@ struct FStaticMeshSourceModel
 
 #if WITH_EDITORONLY_DATA
 	/* Original Imported mesh description data. Optional for all but the first LOD. Autogenerate LOD do not have original mesh description*/
-	UPROPERTY(Transient)
-	UMeshDescription* OriginalMeshDescription;
+	FMeshDescription* OriginalMeshDescription;
 #endif
 
 	/** Settings applied when building the mesh. */
@@ -443,6 +441,52 @@ struct FMaterialRemapIndex
 	TArray<int32> MaterialRemap;
 };
 
+/**
+ * Container UObject which holds a MeshDescription for every SourceModel LOD.
+ * Eventually this will be outered to the static mesh's package, so the data is saved along with the static mesh, but will not be referenced by it.
+ * The static mesh can later load the mesh description container on demand.
+ */
+UCLASS()
+class ENGINE_API UStaticMeshDescriptions : public UObject
+{
+	GENERATED_BODY()
+
+public:
+	// Define these in a concrete compilation unit so the TUniquePtr deleter works
+	UStaticMeshDescriptions(const FObjectInitializer&);
+	UStaticMeshDescriptions(FVTableHelper&);
+	~UStaticMeshDescriptions();
+
+	// UObject interface
+	virtual void Serialize(FArchive& Ar);
+
+	/** Empties the mesh description container */
+	void Empty();
+
+	/** Returns the number of mesh descriptions in the container. This should always equal the number of LODs */
+	int32 Num() const;
+
+	/** Set the number of mesh descriptions in the container */
+	void SetNum(const int32 Num);
+
+	/** Gets mesh description for the given LOD */
+	FMeshDescription* Get(int32 Index) const;
+
+	/** Creates an empty mesh description for the given LOD */
+	FMeshDescription* Create(int32 Index);
+
+	/** Clears the mesh description for the given LOD */
+	void Reset(int32 Index);
+
+	/** Inserts new LODs at the given index */
+	void InsertAt(int32 Index, int32 Count = 1);
+
+	/** Deletes LODs at the given index */
+	void RemoveAt(int32 Index, int32 Count = 1);
+
+private:
+	TArray<TUniquePtr<FMeshDescription>> MeshDescriptions;
+};
 
 /**
  * A StaticMesh is a piece of geometry that consists of a static set of polygons.
@@ -477,6 +521,10 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	/** Imported raw mesh bulk data. */
 	UPROPERTY()
 	TArray<FStaticMeshSourceModel> SourceModels;
+
+	/** Container holding mesh descriptions for each LOD */
+	UPROPERTY(transient, duplicatetransient)
+	UStaticMeshDescriptions* MeshDescriptions;
 
 	/** Map of LOD+Section index to per-section info. */
 	UPROPERTY()
@@ -700,15 +748,19 @@ public:
 	/**
 	 * Registers the mesh attributes required by the mesh description for a static mesh.
 	 */
-	ENGINE_API static void RegisterMeshAttributes( UMeshDescription* MeshDescription );
+	ENGINE_API static void RegisterMeshAttributes( FMeshDescription& MeshDescription );
 
 #if WITH_EDITORONLY_DATA
 	/**
 	 * Accessors for the original mesh description imported data
 	 * The original import data is necessary to start from the full data when applying build options.
 	 */
-	ENGINE_API UMeshDescription* GetOriginalMeshDescription(int32 LodIndex = 0);
-	ENGINE_API void SetOriginalMeshDescription(int32 LodIndex, UMeshDescription* MeshDescription);
+	ENGINE_API void LoadMeshDescriptions();
+	ENGINE_API void UnloadMeshDescriptions();
+
+	ENGINE_API FMeshDescription* GetOriginalMeshDescription(int32 LodIndex);
+	ENGINE_API FMeshDescription* CreateOriginalMeshDescription(int32 LodIndex);
+	ENGINE_API void CommitOriginalMeshDescription(int32 LodIndex);
 	ENGINE_API void ClearOriginalMeshDescription(int32 LodIndex);
 
 	/**
@@ -731,6 +783,7 @@ public:
 #if WITH_EDITOR
 	ENGINE_API virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
 	ENGINE_API virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	ENGINE_API virtual void PostEditUndo() override;
 	ENGINE_API virtual void GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetadata>& OutMetadata) const override;
 	ENGINE_API void SetLODGroup(FName NewGroup, bool bRebuildImmediately = true);
 	ENGINE_API void BroadcastNavCollisionChange();
@@ -740,6 +793,9 @@ public:
 
 	//SourceModels API
 	ENGINE_API FStaticMeshSourceModel& AddSourceModel();
+	ENGINE_API void SetNumSourceModels(int32 Num);
+	ENGINE_API void RemoveSourceModel(int32 Index);
+
 #endif // WITH_EDITOR
 
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;

@@ -84,4 +84,39 @@ private:
 #endif
 };
 
+//@joeg -- Added for environment capture support
+UCLASS(BlueprintType)
+class APPLEARKIT_API UAppleARKitEnvironmentCaptureProbeTexture :
+	public UAREnvironmentCaptureProbeTexture,
+	public IAppleImageInterface
+{
+	GENERATED_UCLASS_BODY()
+	
+public:
+	
+	// UTexture interface implementation
+	virtual void BeginDestroy() override;
+	virtual FTextureResource* CreateResource() override;
+	virtual EMaterialValueType GetMaterialType() const override { return MCT_TextureExternal; }
+	virtual float GetSurfaceWidth() const override { return Size.X; }
+	virtual float GetSurfaceHeight() const override { return Size.Y; }
+	virtual FGuid GetExternalTextureGuid() const override { return ExternalTextureGuid; }
+	// End UTexture interface
+	
+	virtual EAppleTextureType GetTextureType() const override { return EAppleTextureType::MetalTexture; }
+
+#if PLATFORM_MAC || PLATFORM_IOS
+	/** Sets any initialization data */
+	virtual void Init(float InTimestamp, id<MTLTexture> InEnvironmentTexture);
+
+	// IAppleImageInterface interface implementation
+	virtual id<MTLTexture> GetMetalTexture() const override { return MetalTexture; }
+	// End IAppleImageInterface interface
+
+private:
+	/** The Apple specific representation of the ar environment texture */
+	id<MTLTexture> MetalTexture;
+#endif
+};
+
 

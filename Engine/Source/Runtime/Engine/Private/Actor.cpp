@@ -3289,7 +3289,10 @@ void AActor::DisableInput(APlayerController* PlayerController)
 		{
 			for (FConstPlayerControllerIterator PCIt = GetWorld()->GetPlayerControllerIterator(); PCIt; ++PCIt)
 			{
-				(*PCIt)->PopInputComponent(InputComponent);
+				if (APlayerController* PC = PCIt->Get())
+				{
+					PC->PopInputComponent(InputComponent);
+				}
 			}
 		}
 	}

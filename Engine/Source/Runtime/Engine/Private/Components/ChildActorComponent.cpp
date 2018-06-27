@@ -90,11 +90,23 @@ void UChildActorComponent::Serialize(FArchive& Ar)
 #if WITH_EDITOR
 	if (ChildActorClass == nullptr)
 	{
-		// It is unknown how this state can come to be, so for now we'll simply correct the issue and record that it occurs and 
-		// and if it is occurring frequently, then investigate how the state comes to pass
-		if (!ensureAlwaysMsgf(ChildActorTemplate == nullptr, TEXT("Found unexpected ChildActorTemplate %s when ChildActorClass is null"), *ChildActorTemplate->GetFullName()))
+#if DO_CHECK
+		if (FBlueprintSupport::IsClassPlaceholder(ChildActorClass.DebugAccessRawClassPtr()))
 		{
-			ChildActorTemplate = nullptr;
+			ensureMsgf(false, TEXT("Unexpectedly encountered placeholder class while serializing a component"));
+		}
+		else
+#endif
+		{
+			if (!FBlueprintSupport::IsDeferredDependencyPlaceholder(ChildActorTemplate))
+			{
+				// It is unknown how this state can come to be, so for now we'll simply correct the issue and record that it occurs and 
+				// and if it is occurring frequently, then investigate how the state comes to pass
+				if (!ensureAlwaysMsgf(ChildActorTemplate == nullptr, TEXT("Found unexpected ChildActorTemplate %s when ChildActorClass is null"), *ChildActorTemplate->GetFullName()))
+				{
+					ChildActorTemplate = nullptr;
+				}
+			}
 		}
 	}
 	// Since we sometimes serialize properties in instead of using duplication and we can end up pointing at the wrong template

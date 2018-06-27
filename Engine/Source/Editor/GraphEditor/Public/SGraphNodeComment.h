@@ -92,10 +92,6 @@ private:
 	float GetWrapAt() const;
 
 private:
-
-	/** Gets the comment bubble and creates one if it doesn't exist. */
-	TSharedPtr<SCommentBubble> GetCommentBubble();
-
 	/** The comment bubble widget (used when zoomed out) */
 	TSharedPtr<SCommentBubble> CommentBubble;
 

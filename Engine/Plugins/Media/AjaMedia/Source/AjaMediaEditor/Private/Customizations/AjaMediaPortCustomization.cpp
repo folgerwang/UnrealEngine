@@ -97,7 +97,7 @@ TSharedRef<SWidget> FAjaMediaPortCustomization::HandleSourceComboButtonMenuConte
 
 							FString TextValue;
 							StructProperty->Struct->ExportText(TextValue, &Source, PreviousMediaPortValue, nullptr, EPropertyPortFlags::PPF_None, nullptr);
-							ensure(MediaPortProperty->SetValueFromFormattedString(TextValue, EPropertyValueSetFlags::InteractiveChange) == FPropertyAccess::Result::Success);
+							ensure(MediaPortProperty->SetValueFromFormattedString(TextValue, EPropertyValueSetFlags::DefaultFlags) == FPropertyAccess::Result::Success);
 						}
 					}),
 					FCanExecuteAction(),

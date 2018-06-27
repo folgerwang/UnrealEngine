@@ -1524,14 +1524,16 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 				// Update cameras last. This needs to be done before NetUpdates, and after all actors have been ticked.
 				for( FConstPlayerControllerIterator Iterator = GetPlayerControllerIterator(); Iterator; ++Iterator )
 				{
-					APlayerController* PlayerController = Iterator->Get();
-					if (!bIsPaused || PlayerController->ShouldPerformFullTickWhenPaused())
+					if (APlayerController* PlayerController = Iterator->Get())
 					{
-						PlayerController->UpdateCameraManager(DeltaSeconds);
-					}
-					else if (PlayerController->PlayerCameraManager && FCameraPhotographyManager::IsSupported(this))
-					{
-						PlayerController->PlayerCameraManager->UpdateCameraPhotographyOnly();
+						if (!bIsPaused || PlayerController->ShouldPerformFullTickWhenPaused())
+						{
+							PlayerController->UpdateCameraManager(DeltaSeconds);
+						}
+						else if (PlayerController->PlayerCameraManager && FCameraPhotographyManager::IsSupported(this))
+						{
+							PlayerController->PlayerCameraManager->UpdateCameraPhotographyOnly();
+						}
 					}
 				}
 

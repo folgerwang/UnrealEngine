@@ -163,7 +163,7 @@ void PostfilterMainCS(
 	#if DIM_TILE_PERMUTATION
 	{
 		const uint2 TilePos = GroupId;
-		const FCocTileSample CocTileInfos = LoadCocTile(COC_TILE_LAYOUT_FGD_BGD, PostprocessInput2, PostprocessInput2, TilePos);
+		const FCocTileSample CocTileInfos = LoadCocTile(COC_TILE_LAYOUT_FGD_SEP_BGD, PostprocessInput2, PostprocessInput3, TilePos);
 
 		FGatheringTileSuggestion TileSuggestion = InferGatherTileSuggestion(CocTileInfos,
 			/* LayerProcessing = */ DIM_LAYER_PROCESSING,

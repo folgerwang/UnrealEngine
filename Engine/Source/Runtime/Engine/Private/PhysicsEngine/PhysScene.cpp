@@ -495,7 +495,7 @@ static FAutoConsoleCommandWithWorldAndArgs GSetPhysXTreeRebuildRate(TEXT("p.Phys
 
 
 /** Exposes creation of physics-engine scene outside Engine (for use with Physics Asset Editor for example). */
-FPhysScene::FPhysScene()
+FPhysScene::FPhysScene(const AWorldSettings* Settings)
 {
 	LineBatcher = NULL;
 	OwningWorld = NULL;
@@ -519,7 +519,7 @@ FPhysScene::FPhysScene()
 	for (uint32 SceneType = 0; SceneType < NumPhysScenes; ++SceneType)
 	{
 		// Create the physics scene
-		InitPhysScene(SceneType);
+		InitPhysScene(SceneType, Settings);
 
 		// Also initialize scene data
 		bPhysXSceneExecuting[SceneType] = false;
@@ -1990,7 +1990,7 @@ void FPhysScene::ApplyWorldOffset(FVector InOffset)
 #endif
 }
 
-void FPhysScene::InitPhysScene(uint32 SceneType)
+void FPhysScene::InitPhysScene(uint32 SceneType, const AWorldSettings* Settings)
 {
 	check(SceneType < NumPhysScenes);
 
@@ -2128,8 +2128,8 @@ void FPhysScene::InitPhysScene(uint32 SceneType)
 	}
 
 	// Setup MBP desc settings if required
-	FBroadphaseSettings& BroadphaseSettings = IsRunningDedicatedServer() ? UPhysicsSettings::Get()->ServerBroadphaseSettings : UPhysicsSettings::Get()->ClientBroadphaseSettings;
-	bool bUseMBP = (GPhysXForceMbp_Server != 0 && IsRunningDedicatedServer()) || (GPhysXForceMbp_Client != 0 && !IsRunningDedicatedServer()) || BroadphaseSettings.bUseMBP;
+	const FBroadphaseSettings& BroadphaseSettings = (Settings && Settings->bOverrideDefaultBroadphaseSettings) ? Settings->BroadphaseSettings : UPhysicsSettings::Get()->DefaultBroadphaseSettings;
+	bool bUseMBP = IsRunningDedicatedServer() ? BroadphaseSettings.bUseMBPOnServer : BroadphaseSettings.bUseMBPOnClient;
 
 	if(bUseMBP)
 	{

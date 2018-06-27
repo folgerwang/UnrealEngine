@@ -377,6 +377,37 @@ public:
 #endif // WITH_EDITOR
 };
 
+/** Settings pertaining to which PhysX broadphase to use, and settings for MBP if that is the chosen broadphase type */
+USTRUCT()
+struct FBroadphaseSettings
+{
+	GENERATED_BODY();
+
+	FBroadphaseSettings()
+		: bUseMBPOnClient(false)
+		, bUseMBPOnServer(false)
+		, MBPBounds(EForceInit::ForceInitToZero)
+		, MBPNumSubdivs(2)
+	{
+
+	}
+
+	/** Whether to use MBP (Multi Broadphase Pruning */
+	UPROPERTY(EditAnywhere, Category = Broadphase)
+	bool bUseMBPOnClient;
+
+	UPROPERTY(EditAnywhere, Category = Broadphase)
+	bool bUseMBPOnServer;
+
+	/** Total bounds for MBP, must cover the game world or collisions are disabled for out of bounds actors */
+	UPROPERTY(EditAnywhere, Category = Broadphase, meta = (EditCondition = bUseMBP))
+	FBox MBPBounds;
+
+	/** Number of times to subdivide the MBP bounds, final number of regions is MBPNumSubdivs^2 */
+	UPROPERTY(EditAnywhere, Category = Broadphase, meta = (EditCondition = bUseMBP, ClampMin=1, ClampMax=16))
+	uint32 MBPNumSubdivs;
+};
+
 /**
  * Actor containing all script accessible world properties.
  */
@@ -665,6 +696,12 @@ public:
 	UPROPERTY()
 	TArray<struct FNetViewer> ReplicationViewers;
 
+	UPROPERTY(config, EditAnywhere, Category = Broadphase)
+	bool bOverrideDefaultBroadphaseSettings;
+
+	UPROPERTY(config, EditAnywhere, Category = Broadphase)
+	FBroadphaseSettings BroadphaseSettings;
+
 	// ************************************
 
 	/** Maximum number of bookmarks	*/
@@ -690,6 +727,7 @@ public:
 	//~ Begin AActor Interface.
 #if WITH_EDITOR
 	virtual void CheckForErrors() override;
+	virtual bool IsSelectable() const override { return false; }
 #endif // WITH_EDITOR
 	virtual void PostInitProperties() override;
 	virtual void PreInitializeComponents() override;

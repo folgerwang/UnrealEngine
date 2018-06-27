@@ -92,7 +92,7 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 
 				const FStaticMeshLODResources& StaticMeshLOD = StaticMeshRenderData.LODResources[ StaticMeshLODIndex ];
 
-				UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+				FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 
 				TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
@@ -341,7 +341,7 @@ void UEditableStaticMeshAdapter::InitEditableStaticMesh( UEditableMesh* Editable
 							NewRenderingPolygonGroup.Triangles.Insert( NewTriangleID );
 							FMeshTriangle& NewTriangle = NewRenderingPolygonGroup.Triangles[ NewTriangleID ];
 
-							static TArray<UMeshDescription::FContourPoint> Perimeter;
+							static TArray<FMeshDescription::FContourPoint> Perimeter;
 							Perimeter.Reset( 3 );
 							Perimeter.AddUninitialized( 3 );
 							for( uint32 TriangleVertexIndex = 0; TriangleVertexIndex < 3; ++TriangleVertexIndex )
@@ -441,7 +441,7 @@ void UEditableStaticMeshAdapter::InitializeFromEditableMesh( const UEditableMesh
 	RenderingPolygons.Reset();
 	RenderingPolygonGroups.Reset();
 
-	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 
 	// Create all the required rendering polygon groups (initialized to 'empty', each with a unique rendering section index)
 	int32 RenderingSectionIndex = 0;
@@ -503,7 +503,7 @@ void UEditableStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edita
 
 	bool bHasColor = false;
 
-	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	check( MeshDescription );
 
 	const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::ImportedMaterialSlotName );
@@ -992,7 +992,7 @@ void UEditableStaticMeshAdapter::UpdateBounds( const UEditableMesh* EditableMesh
 			FBox BoundingBox;
 			BoundingBox.Init();
 
-			const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+			const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 
 			const TVertexAttributeArray<FVector>& VertexPositions = EditableMesh->GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
@@ -1096,7 +1096,7 @@ void UEditableStaticMeshAdapter::OnSetVertexAttribute( const UEditableMesh* Edit
 {
 	FStaticMeshLODResources& StaticMeshLOD = GetStaticMeshLOD();
 
-	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 
 	if( Attribute.AttributeName == MeshAttribute::Vertex::Position )
 	{
@@ -1219,7 +1219,7 @@ void UEditableStaticMeshAdapter::OnCreateVertexInstances( const UEditableMesh* E
 {
 	if( !EditableMesh->IsPreviewingSubdivisions() )
 	{
-		const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+		const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 		FStaticMeshLODResources& StaticMeshLOD = GetStaticMeshLOD();
 		const int32 NumUVs = MeshDescription->VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>( MeshAttribute::VertexInstance::TextureCoordinate );
 		const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
@@ -1320,7 +1320,7 @@ void UEditableStaticMeshAdapter::OnChangePolygonVertexInstances( const UEditable
 
 void UEditableStaticMeshAdapter::OnRetriangulatePolygons( const UEditableMesh* EditableMesh, const TArray<FPolygonID>& PolygonIDs )
 {
-	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 
 	for( const FPolygonID PolygonID : PolygonIDs )
 	{
@@ -1635,7 +1635,7 @@ FStaticMeshLODResources& UEditableStaticMeshAdapter::GetStaticMeshLOD()
 
 void UEditableStaticMeshAdapter::OnCreatePolygonGroups( const UEditableMesh* EditableMesh, const TArray<FPolygonGroupID>& PolygonGroupIDs)
 {
-	UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	check( MeshDescription );
 
 	const TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::ImportedMaterialSlotName );
@@ -1704,7 +1704,7 @@ void UEditableStaticMeshAdapter::OnCreatePolygonGroups( const UEditableMesh* Edi
 
 void UEditableStaticMeshAdapter::OnSetPolygonGroupAttribute( const UEditableMesh* EditableMesh, const FPolygonGroupID PolygonGroupID, const FMeshElementAttributeData& Attribute )
 {
-	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 
 	FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID ];
 	FStaticMeshLODResources& StaticMeshLOD = GetStaticMeshLOD();

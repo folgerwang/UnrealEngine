@@ -1,7 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #include "ImaginaryBlueprintData.h"
 #include "Misc/ScopeLock.h"
-
+#include "Async/Async.h"
+#include "Internationalization/StringTableCore.h"
 
 #define LOCTEXT_NAMESPACE "FindInBlueprints"
 
@@ -10,11 +11,39 @@
 
 FText FSearchableValueInfo::GetDisplayText(const TMap<int32, FText>& InLookupTable) const
 {
+	FText Result;
 	if (!DisplayText.IsEmpty() || LookupTableKey == -1)
 	{
-		return DisplayText;
+		Result = DisplayText;
 	}
-	return FindInBlueprintsHelpers::AsFText(LookupTableKey, InLookupTable);
+	else
+	{
+		Result = FindInBlueprintsHelpers::AsFText(LookupTableKey, InLookupTable);
+	}
+
+	if (Result.IsFromStringTable() && FTextInspector::GetSourceString(Result) == &FStringTableEntry::GetPlaceholderSourceString() && !IsInGameThread())
+	{
+		// String Table asset references in FiB may be unresolved as we can't load the asset on the search thread
+		// To solve this we send a request to the game thread to get the display string and wait for the result, this will trigger the asset to load
+		FName TableId;
+		FString Key;
+		if (FTextInspector::GetTableIdAndKey(Result, TableId, Key) && IStringTableEngineBridge::IsStringTableFromAsset(TableId))
+		{
+			TPromise<bool> Promise;
+
+			// Run the request on the game thread, filling the promise when done
+			AsyncTask(ENamedThreads::GameThread, [Result, &Promise]()
+			{
+				Result.ToString(); // Trigger the asset load
+				Promise.SetValue(true); // Signal completion
+			});
+
+			// Get the promise value to block until the AsyncTask has completed
+			Promise.GetFuture().Get();
+		}
+	}
+
+	return Result;
 }
 
 ////////////////////////////

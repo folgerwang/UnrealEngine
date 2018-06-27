@@ -42,7 +42,7 @@ public:
 	{
 		PixelUVSize.Bind(Initializer.ParameterMap, TEXT("PixelUVSize"));
 		UndistortDisplacementMap.Bind(Initializer.ParameterMap, TEXT("UndistortDisplacementMap"));
-		BilinearSampler.Bind(Initializer.ParameterMap, TEXT("BilinearSampler"));
+		BilinearSampler.Bind(Initializer.ParameterMap, TEXT("BilinearClampedSampler"));
 	}
 
 	template<typename TShaderRHIParamRef>
