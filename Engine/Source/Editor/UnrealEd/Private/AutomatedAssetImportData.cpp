@@ -32,7 +32,7 @@ void UAutomatedAssetImportData::Initialize(TSharedPtr<FJsonObject> InImportGroup
 		for (FString& Filename : Filenames)
 		{
 			// Make sure all filenames are absolute path
-			Filename = FPaths::ConvertRelativePathToFull(Filename);
+			Filename = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir(), Filename);
 		}
 		// If a factory doesn't have a vaild full path assume it is an unreal internal factory
 		if(!FactoryName.IsEmpty() && !FactoryName.StartsWith("/Script/"))
