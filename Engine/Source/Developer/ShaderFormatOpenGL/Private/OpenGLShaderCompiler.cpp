@@ -1354,7 +1354,7 @@ uint32 FOpenGLFrontend::CalculateCrossCompilerFlags(GLSLVersion Version, bool bC
 		CCFlags |= HLSLCC_ApplyCommonSubexpressionElimination;
 	}
 
-	if (bUseFullPrecisionInPS)
+	if (bUseFullPrecisionInPS || Version == GLSL_ES2_WEBGL)
 	{
 		CCFlags |= HLSLCC_UseFullPrecisionInPS;
 	}
