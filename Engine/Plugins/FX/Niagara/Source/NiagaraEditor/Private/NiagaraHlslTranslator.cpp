@@ -4228,23 +4228,24 @@ int32 FHlslNiagaraTranslator::RegisterDataInterface(FNiagaraVariable& Var, UNiag
 	}
 
 	//If we get here then this is a new data interface.
+	FName DataInterfaceName;
+	if (FNiagaraParameterMapHistory::IsAliasedEmitterParameter(Var.GetName().ToString()))
+	{
+		FNiagaraVariable AliasedVar = ActiveHistoryForFunctionCalls.ResolveAliases(Var);
+		DataInterfaceName = AliasedVar.GetName();
+	}
+	else
+	{
+		DataInterfaceName = Var.GetName();
+	}
+
 	int32 Idx = CompilationOutput.ScriptData.DataInterfaceInfo.IndexOfByPredicate([&](const FNiagaraScriptDataInterfaceCompileInfo& OtherInfo)
 	{
-		return OtherInfo.Name == Var.GetName();
+		return OtherInfo.Name == DataInterfaceName;
 	});
+
 	if (Idx == INDEX_NONE)
 	{
-		FName DataInterfaceName;
-		if (FNiagaraParameterMapHistory::IsAliasedEmitterParameter(Var.GetName().ToString()))
-		{
-			FNiagaraVariable AliasedVar = ActiveHistoryForFunctionCalls.ResolveAliases(Var);
-			DataInterfaceName = AliasedVar.GetName();
-		}
-		else
-		{
-			DataInterfaceName = Var.GetName();
-		}
-
 		Idx = CompilationOutput.ScriptData.DataInterfaceInfo.AddDefaulted();
 		CompilationOutput.ScriptData.DataInterfaceInfo[Idx].Name = DataInterfaceName;
 		CompilationOutput.ScriptData.DataInterfaceInfo[Idx].Type = Var.GetType();
