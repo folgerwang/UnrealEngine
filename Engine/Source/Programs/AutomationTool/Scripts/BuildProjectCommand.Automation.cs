@@ -99,6 +99,15 @@ public partial class Project : CommandUtils
 			}
 		}
 
+		// allow all involved platforms to hook into the agenda
+		HashSet<UnrealTargetPlatform> UniquePlatforms = new HashSet<UnrealTargetPlatform>();
+		UniquePlatforms.UnionWith(Params.ClientTargetPlatforms.Select(x => x.Type));
+		UniquePlatforms.UnionWith(Params.ServerTargetPlatforms.Select(x => x.Type));
+		foreach (UnrealTargetPlatform TargetPlatform in UniquePlatforms)
+		{
+			Platform.GetPlatform(TargetPlatform).PreBuildAgenda(UE4Build, Agenda);
+		}
+
 		// Additional compile arguments
 		string AdditionalArgs = "";
 
