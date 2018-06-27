@@ -149,22 +149,25 @@ void FLuminTargetPlatform::GetAllPossibleShaderFormats( TArray<FName>& OutFormat
 
 	if (SupportsMobileRendering())
 	{
-		OutFormats.AddUnique(NAME_GLSL_ES2);
 		if (LuminSupportsVulkan(EngineSettings))
 		{
 			OutFormats.AddUnique(NAME_VULKAN_ES31_LUMIN);
+		}
+		else
+		{
+			OutFormats.AddUnique(NAME_GLSL_ES2);
 		}
 	}
 
 	if (SupportsDesktopRendering())
 	{
-//		OutFormats.AddUnique(NAME_GLSL_310_ES_EXT);
-//		OutFormats.AddUnique(NAME_GLSL_SM4);
-		OutFormats.AddUnique(NAME_GLSL_SM5);
-
 		if (LuminSupportsVulkan(EngineSettings))
 		{
 			OutFormats.AddUnique(NAME_VULKAN_SM5_LUMIN);
+		}
+		else
+		{
+			OutFormats.AddUnique(NAME_GLSL_SM5);
 		}
 	}
 }
