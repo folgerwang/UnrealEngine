@@ -224,8 +224,7 @@ static inline VkCullModeFlags RasterizerCullModeToVulkan(ERasterizerCullMode InC
 
 void FVulkanSamplerState::SetupSamplerCreateInfo(const FSamplerStateInitializerRHI& Initializer, FVulkanDevice& InDevice, VkSamplerCreateInfo& OutSamplerInfo)
 {
-	FMemory::Memzero(OutSamplerInfo);
-	OutSamplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	ZeroVulkanStruct(OutSamplerInfo, VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO);
 
 	OutSamplerInfo.magFilter = TranslateMagFilterMode(Initializer.Filter);
 	OutSamplerInfo.minFilter = TranslateMinFilterMode(Initializer.Filter);
@@ -275,8 +274,7 @@ FVulkanRasterizerState::FVulkanRasterizerState(const FRasterizerStateInitializer
 
 void FVulkanDepthStencilState::SetupCreateInfo(const FGraphicsPipelineStateInitializer& GfxPSOInit, VkPipelineDepthStencilStateCreateInfo& OutDepthStencilState)
 {
-	FMemory::Memzero(OutDepthStencilState);
-	OutDepthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	ZeroVulkanStruct(OutDepthStencilState, VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO);
 
 	OutDepthStencilState.depthTestEnable = (Initializer.DepthTest != CF_Always || Initializer.bEnableDepthWrite) ? VK_TRUE : VK_FALSE;
 	OutDepthStencilState.depthCompareOp = CompareOpToVulkan(Initializer.DepthTest);

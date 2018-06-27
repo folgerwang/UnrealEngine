@@ -88,8 +88,8 @@ namespace VulkanRHI
 			HeapInfos[Index].TotalSize = MemoryProperties.memoryHeaps[Index].size;
 		}
 
-		bHasUnifiedMemory = (MemoryProperties.memoryHeapCount == 1);
-		UE_LOG(LogVulkanRHI, Display, TEXT("%d Device Memory Types"), MemoryProperties.memoryTypeCount);
+		bHasUnifiedMemory = FVulkanPlatform::HasUnifiedMemory();
+		UE_LOG(LogVulkanRHI, Display, TEXT("%d Device Memory Types (%sunified)"), MemoryProperties.memoryTypeCount, bHasUnifiedMemory ? TEXT("") : TEXT("Not "));
 		for (uint32 Index = 0; Index < MemoryProperties.memoryTypeCount; ++Index)
 		{
 			auto GetFlagsString = [](VkMemoryPropertyFlags Flags)
@@ -171,8 +171,7 @@ namespace VulkanRHI
 		check(MemoryTypeIndex < MemoryProperties.memoryTypeCount);
 
 		VkMemoryAllocateInfo Info;
-		FMemory::Memzero(Info);
-		Info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		ZeroVulkanStruct(Info, VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO);
 		Info.allocationSize = AllocationSize;
 		Info.memoryTypeIndex = MemoryTypeIndex;
 
@@ -340,8 +339,7 @@ namespace VulkanRHI
 			check(IsMapped());
 			check(InOffset + InSize <= Size);
 			VkMappedMemoryRange Range;
-			FMemory::Memzero(Range);
-			Range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+			ZeroVulkanStruct(Range, VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE);
 			Range.memory = Handle;
 			Range.offset = InOffset;
 			Range.size = InSize;
@@ -356,8 +354,7 @@ namespace VulkanRHI
 			check(IsMapped());
 			check(InOffset + InSize <= Size);
 			VkMappedMemoryRange Range;
-			FMemory::Memzero(Range);
-			Range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+			ZeroVulkanStruct(Range, VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE);
 			Range.memory = Handle;
 			Range.offset = InOffset;
 			Range.size = InSize;
@@ -623,7 +620,9 @@ namespace VulkanRHI
 
 		{
 			FScopeLock ScopeLock(&GOldResourceLock);
-			for (int32 Index = 0; Index < FreePages.Num(); ++Index)
+
+			// Leave a page not freed to avoid potential hitching
+			for (int32 Index = 1; Index < FreePages.Num(); ++Index)
 			{
 				FOldResourceHeapPage* Page = FreePages[Index];
 				if (bImmediately || Page->FrameFreed + NUM_FRAMES_TO_WAIT_BEFORE_RELEASING_TO_OS < GFrameNumberRenderThread)
@@ -753,8 +752,7 @@ namespace VulkanRHI
 
 		check(Image != VK_NULL_HANDLE);
 		VkMemoryDedicatedAllocateInfoKHR DedicatedAllocInfo;
-		FMemory::Memzero(DedicatedAllocInfo);
-		DedicatedAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_KHR;
+		ZeroVulkanStruct(DedicatedAllocInfo, VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_KHR);
 		DedicatedAllocInfo.image = Image;
 		FDeviceMemoryAllocation* DeviceMemoryAllocation = Owner->GetParent()->GetMemoryManager().Alloc(false, AllocationSize, MemoryTypeIndex, &DedicatedAllocInfo, File, Line);
 
@@ -993,8 +991,7 @@ namespace VulkanRHI
 
 		VkBuffer Buffer;
 		VkBufferCreateInfo BufferCreateInfo;
-		FMemory::Memzero(BufferCreateInfo);
-		BufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		ZeroVulkanStruct(BufferCreateInfo, VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO);
 		BufferCreateInfo.size = BufferSize;
 		BufferCreateInfo.usage = BufferUsageFlags;
 		VERIFYVULKANRESULT(VulkanRHI::vkCreateBuffer(Device->GetInstanceHandle(), &BufferCreateInfo, nullptr, &Buffer));
@@ -1032,17 +1029,14 @@ namespace VulkanRHI
 	FOldResourceAllocation* FResourceHeapManager::AllocateDedicatedImageMemory(VkImage Image, const VkMemoryRequirements& MemoryReqs, VkMemoryPropertyFlags MemoryPropertyFlags, const char* File, uint32 Line)
 	{
 		VkImageMemoryRequirementsInfo2KHR ImageMemoryReqs2;
-		FMemory::Memzero(ImageMemoryReqs2);
-		ImageMemoryReqs2.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2_KHR;
+		ZeroVulkanStruct(ImageMemoryReqs2, VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2_KHR);
 		ImageMemoryReqs2.image = Image;
 
 		VkMemoryDedicatedRequirementsKHR DedMemoryReqs;
-		FMemory::Memzero(DedMemoryReqs);
-		DedMemoryReqs.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS_KHR;
+		ZeroVulkanStruct(DedMemoryReqs, VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS_KHR);
 
 		VkMemoryRequirements2KHR MemoryReqs2;
-		FMemory::Memzero(MemoryReqs2);
-		MemoryReqs2.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR;
+		ZeroVulkanStruct(MemoryReqs2, VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR);
 		MemoryReqs2.pNext = &DedMemoryReqs;
 
 		VulkanRHI::vkGetImageMemoryRequirements2KHR(Device->GetInstanceHandle(), &ImageMemoryReqs2, &MemoryReqs2);
@@ -1261,8 +1255,7 @@ namespace VulkanRHI
 		FStagingBuffer* StagingBuffer = new FStagingBuffer();
 
 		VkBufferCreateInfo StagingBufferCreateInfo;
-		FMemory::Memzero(StagingBufferCreateInfo);
-		StagingBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		ZeroVulkanStruct(StagingBufferCreateInfo, VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO);
 		StagingBufferCreateInfo.size = Size;
 		StagingBufferCreateInfo.usage = InUsageFlags;
 
@@ -1438,8 +1431,7 @@ namespace VulkanRHI
 		, Owner(InOwner)
 	{
 		VkFenceCreateInfo Info;
-		FMemory::Memzero(Info);
-		Info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		ZeroVulkanStruct(Info, VK_STRUCTURE_TYPE_FENCE_CREATE_INFO);
 		Info.flags = bCreateSignaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
 		VERIFYVULKANRESULT(VulkanRHI::vkCreateFence(InDevice->GetInstanceHandle(), &Info, nullptr, &Handle));
 	}
@@ -1587,8 +1579,7 @@ namespace VulkanRHI
 		: FDeviceChild(InDevice)
 	{
 		VkEventCreateInfo Info;
-		FMemory::Memzero(Info);
-		Info.sType = VK_STRUCTURE_TYPE_EVENT_CREATE_INFO;
+		ZeroVulkanStruct(Info, VK_STRUCTURE_TYPE_EVENT_CREATE_INFO);
 		VERIFYVULKANRESULT(VulkanRHI::vkCreateEvent(InDevice->GetInstanceHandle(), &Info, nullptr, &Handle));
 	}
 
@@ -1768,8 +1759,7 @@ namespace VulkanRHI
 		EImageLayoutBarrier Source, EImageLayoutBarrier Dest, const VkImageSubresourceRange& SubresourceRange)
 	{
 		VkImageMemoryBarrier ImageBarrier;
-		FMemory::Memzero(ImageBarrier);
-		ImageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		ZeroVulkanStruct(ImageBarrier, VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER);
 		ImageBarrier.image = Image;
 		ImageBarrier.subresourceRange = SubresourceRange;
 		ImageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -1797,9 +1787,12 @@ namespace VulkanRHI
 		VulkanRHI::vkCmdPipelineBarrier(CmdBuffer, SourceStages, DestStages, 0, 0, nullptr, 0, nullptr, 1, &ImageBarrier);
 	}
 
-	void FPendingBarrier::InnerExecute(FVulkanCmdBuffer* CmdBuffer)
+	void FPendingBarrier::InnerExecute(FVulkanCmdBuffer* CmdBuffer, bool bEnsure)
 	{
-		ensure(CmdBuffer->IsOutsideRenderPass());
+		if (bEnsure)
+		{
+			ensure(CmdBuffer->IsOutsideRenderPass());
+		}
 		VulkanRHI::vkCmdPipelineBarrier(CmdBuffer->GetHandle(),
 			SourceStage, DestStage, 0,
 			0, nullptr,
@@ -1814,8 +1807,7 @@ namespace VulkanRHI
 	{
 		// Create semaphore
 		VkSemaphoreCreateInfo CreateInfo;
-		FMemory::Memzero(CreateInfo);
-		CreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+		ZeroVulkanStruct(CreateInfo, VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO);
 		//CreateInfo.pNext = nullptr;
 		//CreateInfo.flags = 0;
 		VERIFYVULKANRESULT(VulkanRHI::vkCreateSemaphore(Device.GetInstanceHandle(), &CreateInfo, nullptr, &SemaphoreHandle));

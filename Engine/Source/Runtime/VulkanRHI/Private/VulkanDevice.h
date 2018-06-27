@@ -189,20 +189,38 @@ public:
 	void NotifyDeletedImage(VkImage Image);
 
 #if VULKAN_ENABLE_DRAW_MARKERS
-	PFN_vkCmdDebugMarkerBeginEXT GetCmdDbgMarkerBegin() const
+	inline PFN_vkCmdDebugMarkerBeginEXT GetCmdDbgMarkerBegin() const
 	{
 		return DebugMarkers.CmdBegin;
 	}
 
-	PFN_vkCmdDebugMarkerEndEXT GetCmdDbgMarkerEnd() const
+	inline PFN_vkCmdDebugMarkerEndEXT GetCmdDbgMarkerEnd() const
 	{
 		return DebugMarkers.CmdEnd;
 	}
 
-	PFN_vkDebugMarkerSetObjectNameEXT GetDebugMarkerSetObjectName() const
+	inline PFN_vkDebugMarkerSetObjectNameEXT GetDebugMarkerSetObjectName() const
 	{
 		return DebugMarkers.CmdSetObjectName;
 	}
+
+#if 0//VULKAN_SUPPORTS_DEBUG_UTILS
+	inline PFN_vkCmdBeginDebugUtilsLabelEXT GetCmdBeginDebugLabel() const
+	{
+		return DebugMarkers.CmdBeginDebugLabel;
+	}
+
+	inline PFN_vkCmdEndDebugUtilsLabelEXT GetCmdEndDebugLabel() const
+	{
+		return DebugMarkers.CmdEndDebugLabel;
+	}
+
+	inline PFN_vkSetDebugUtilsObjectNameEXT GetSetDebugName() const
+	{
+		return DebugMarkers.SetDebugName;
+	}
+#endif
+
 #endif
 
 	void PrepareForCPURead();
@@ -370,6 +388,12 @@ private:
 		PFN_vkCmdDebugMarkerBeginEXT		CmdBegin = nullptr;
 		PFN_vkCmdDebugMarkerEndEXT			CmdEnd = nullptr;
 		PFN_vkDebugMarkerSetObjectNameEXT	CmdSetObjectName = nullptr;
+
+#if 0//VULKAN_SUPPORTS_DEBUG_UTILS
+		PFN_vkCmdBeginDebugUtilsLabelEXT	CmdBeginDebugLabel = nullptr;
+		PFN_vkCmdEndDebugUtilsLabelEXT		CmdEndDebugLabel = nullptr;
+		PFN_vkSetDebugUtilsObjectNameEXT	SetDebugName = nullptr;
+#endif
 	} DebugMarkers;
 	friend class FVulkanCommandListContext;
 #endif

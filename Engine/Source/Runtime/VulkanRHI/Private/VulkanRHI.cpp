@@ -45,6 +45,9 @@ TAutoConsoleVariable<int32> GRHIThreadCvar(
 	TEXT("2 to use multiple RHI Thread\n")
 );
 
+bool GGPUCrashDebuggingEnabled = false;
+
+
 extern TAutoConsoleVariable<int32> GRHIAllowAsyncComputeCvar;
 
 
@@ -195,6 +198,11 @@ void FVulkanDynamicRHI::Init()
 		UE_LOG(LogVulkanRHI, Fatal, TEXT("Failed to find all required Vulkan entry points; make sure your driver supports Vulkan!"));
 	}
 
+	{
+		IConsoleVariable* GPUCrashDebuggingCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.GPUCrashDebugging"));
+		GGPUCrashDebuggingEnabled = GPUCrashDebuggingCVar && GPUCrashDebuggingCVar->GetInt() != 0;
+	}
+
 	InitInstance();
 
 	if (GPoolSizeVRAMPercentage > 0)
@@ -302,22 +310,19 @@ void FVulkanDynamicRHI::CreateInstance()
 	auto* CVarDisableEngineAndAppRegistration = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DisableEngineAndAppRegistration"));
 	bool bDisableEngineRegistration = (CVarDisableEngineAndAppRegistration && CVarDisableEngineAndAppRegistration->GetValueOnAnyThread() != 0) ||
 		(CVarShaderDevelopmentMode && CVarShaderDevelopmentMode->GetValueOnAnyThread() != 0);
-	VkApplicationInfo App;
-	FMemory::Memzero(App);
-	App.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	App.pApplicationName = bDisableEngineRegistration ? "" : "UE4";
-	App.applicationVersion = 0;
-	App.pEngineName = bDisableEngineRegistration ? "" : "UE4";
-	App.engineVersion = 15;
-	App.apiVersion = UE_VK_API_VERSION;
+	VkApplicationInfo AppInfo;
+	ZeroVulkanStruct(AppInfo, VK_STRUCTURE_TYPE_APPLICATION_INFO);
+	AppInfo.pApplicationName = bDisableEngineRegistration ? "" : "UE4";
+	//AppInfo.applicationVersion = 0;
+	AppInfo.pEngineName = bDisableEngineRegistration ? "" : "UE4";
+	AppInfo.engineVersion = 15;
+	AppInfo.apiVersion = UE_VK_API_VERSION;
 
 	VkInstanceCreateInfo InstInfo;
-	FMemory::Memzero(InstInfo);
-	InstInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-	InstInfo.pNext = nullptr;
-	InstInfo.pApplicationInfo = &App;
+	ZeroVulkanStruct(InstInfo, VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO);
+	InstInfo.pApplicationInfo = &AppInfo;
 
-	GetInstanceLayersAndExtensions(InstanceExtensions, InstanceLayers);
+	GetInstanceLayersAndExtensions(InstanceExtensions, InstanceLayers, bSupportsDebugUtilsExt);
 
 	InstInfo.enabledExtensionCount = InstanceExtensions.Num();
 	InstInfo.ppEnabledExtensionNames = InstInfo.enabledExtensionCount > 0 ? (const ANSICHAR* const*)InstanceExtensions.GetData() : nullptr;
@@ -325,7 +330,7 @@ void FVulkanDynamicRHI::CreateInstance()
 	InstInfo.enabledLayerCount = InstanceLayers.Num();
 	InstInfo.ppEnabledLayerNames = InstInfo.enabledLayerCount > 0 ? InstanceLayers.GetData() : nullptr;
 #if VULKAN_HAS_DEBUGGING_ENABLED
-	bSupportsDebugCallbackExt = InstanceExtensions.ContainsByPredicate([](const ANSICHAR* Key)
+	bSupportsDebugCallbackExt = !bSupportsDebugUtilsExt && InstanceExtensions.ContainsByPredicate([](const ANSICHAR* Key)
 		{ 
 			return Key && !FCStringAnsi::Strcmp(Key, VK_EXT_DEBUG_REPORT_EXTENSION_NAME); 
 		});
@@ -663,12 +668,17 @@ void FVulkanDynamicRHI::InitInstance()
 			);
 
 #if VULKAN_SUPPORTS_VALIDATION_CACHE
-		SaveValidationCacheCmd = IConsoleManager::Get().RegisterConsoleCommand(
-			TEXT("r.Vulkan.SaveValidationCache"),
-			TEXT("Save validation cache."),
-			FConsoleCommandDelegate::CreateStatic(SaveValidationCache),
-			ECVF_Default
-		);
+#if VULKAN_HAS_DEBUGGING_ENABLED
+		if (GValidationCvar.GetValueOnAnyThread() > 0)
+		{
+			SaveValidationCacheCmd = IConsoleManager::Get().RegisterConsoleCommand(
+				TEXT("r.Vulkan.SaveValidationCache"),
+				TEXT("Save validation cache."),
+				FConsoleCommandDelegate::CreateStatic(SaveValidationCache),
+				ECVF_Default
+				);
+		}
+#endif
 #endif
 
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
@@ -775,12 +785,27 @@ void FVulkanCommandListContext::RHIPushEvent(const TCHAR* Name, FColor Color)
 	EventStack.Add(Name);
 
 #if VULKAN_ENABLE_DRAW_MARKERS
+#if 0//VULKAN_SUPPORTS_DEBUG_UTILS
+	if (auto CmdBeginLabel = Device->GetCmdBeginDebugLabel())
+	{
+		FTCHARToUTF8 Converter(Name);
+		VkDebugUtilsLabelEXT Label;
+		ZeroVulkanStruct(Label, VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT);
+		Label.pLabelName = Converter.Get();
+		FLinearColor LColor(Color);
+		Label.color[0] = LColor.R;
+		Label.color[1] = LColor.G;
+		Label.color[2] = LColor.B;
+		Label.color[3] = LColor.A;
+		CmdBeginLabel(GetCommandBufferManager()->GetActiveCmdBuffer()->GetHandle(), &Label);
+	}
+	else
+#endif
 	if (auto CmdDbgMarkerBegin = Device->GetCmdDbgMarkerBegin())
 	{
 		FTCHARToUTF8 Converter(Name);
 		VkDebugMarkerMarkerInfoEXT Info;
-		FMemory::Memzero(Info);
-		Info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
+		ZeroVulkanStruct(Info, VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT);
 		Info.pMarkerName = Converter.Get();
 		FLinearColor LColor(Color);
 		Info.color[0] = LColor.R;
@@ -812,6 +837,13 @@ void FVulkanCommandListContext::RHIPushEvent(const TCHAR* Name, FColor Color)
 void FVulkanCommandListContext::RHIPopEvent()
 {
 #if VULKAN_ENABLE_DRAW_MARKERS
+#if 0//VULKAN_SUPPORTS_DEBUG_UTILS
+	if (auto CmdEndLabel = Device->GetCmdEndDebugLabel())
+	{
+		CmdEndLabel(GetCommandBufferManager()->GetActiveCmdBuffer()->GetHandle());
+	}
+	else
+#endif
 	if (auto CmdDbgMarkerEnd = Device->GetCmdDbgMarkerEnd())
 	{
 		CmdDbgMarkerEnd(GetCommandBufferManager()->GetActiveCmdBuffer()->GetHandle());
@@ -931,8 +963,7 @@ FVulkanBuffer::FVulkanBuffer(FVulkanDevice& InDevice, uint32 InSize, VkFlags InU
 	LockStack(0)
 {
 	VkBufferCreateInfo BufInfo;
-	FMemory::Memzero(BufInfo);
-	BufInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	ZeroVulkanStruct(BufInfo, VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO);
 	BufInfo.size = Size;
 	BufInfo.usage = Usage;
 	VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkCreateBuffer(Device.GetInstanceHandle(), &BufInfo, nullptr, &Buf));
@@ -1114,9 +1145,7 @@ void FVulkanDescriptorSetsLayout::Compile()
 	for (FSetLayout& Layout : SetLayouts)
 	{
 		VkDescriptorSetLayoutCreateInfo DescriptorLayoutInfo;
-		FMemory::Memzero(DescriptorLayoutInfo);
-		DescriptorLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		DescriptorLayoutInfo.pNext = nullptr;
+		ZeroVulkanStruct(DescriptorLayoutInfo, VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO);
 		DescriptorLayoutInfo.bindingCount = Layout.LayoutBindings.Num();
 		DescriptorLayoutInfo.pBindings = Layout.LayoutBindings.GetData();
 
@@ -1146,8 +1175,7 @@ FOLDVulkanDescriptorSets::FOLDVulkanDescriptorSets(FVulkanDevice* InDevice, cons
 	if (LayoutHandles.Num() > 0)
 	{
 		VkDescriptorSetAllocateInfo DescriptorSetAllocateInfo;
-		FMemory::Memzero(DescriptorSetAllocateInfo);
-		DescriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		ZeroVulkanStruct(DescriptorSetAllocateInfo, VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO);
 		// Pool will be filled in by FVulkanCommandListContext::AllocateDescriptorSets
 		//DescriptorSetAllocateInfo.descriptorPool = Pool->GetHandle();
 		DescriptorSetAllocateInfo.descriptorSetCount = LayoutHandles.Num();
@@ -1188,8 +1216,7 @@ void FVulkanBufferView::Create(FVulkanBuffer& Buffer, EPixelFormat Format, uint3
 	check(FormatInfo.Supported);
 
 	VkBufferViewCreateInfo ViewInfo;
-	FMemory::Memzero(ViewInfo);
-	ViewInfo.sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
+	ZeroVulkanStruct(ViewInfo, VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO);
 	ViewInfo.buffer = Buffer.GetBufferHandle();
 	ViewInfo.format = (VkFormat)FormatInfo.PlatformFormat;
 	ViewInfo.offset = Offset;
@@ -1217,8 +1244,7 @@ void FVulkanBufferView::Create(VkFormat Format, FVulkanResourceMultiBuffer* Buff
 	check(Format != VK_FORMAT_UNDEFINED);
 
 	VkBufferViewCreateInfo ViewInfo;
-	FMemory::Memzero(ViewInfo);
-	ViewInfo.sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
+	ZeroVulkanStruct(ViewInfo, VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO);
 	ViewInfo.buffer = Buffer->GetHandle();
 	ViewInfo.format = Format;
 	ViewInfo.offset = Offset;
@@ -1251,26 +1277,21 @@ FVulkanRenderPass::FVulkanRenderPass(FVulkanDevice& InDevice, const FVulkanRende
 	VkSubpassDescription SubpassDesc;
 	FMemory::Memzero(SubpassDesc);
 	SubpassDesc.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	SubpassDesc.flags = 0;
-	SubpassDesc.inputAttachmentCount = 0;
-	SubpassDesc.pInputAttachments = nullptr;
+	//SubpassDesc.flags = 0;
+	//SubpassDesc.inputAttachmentCount = 0;
 	SubpassDesc.colorAttachmentCount = InRTLayout.GetNumColorAttachments();
 	SubpassDesc.pColorAttachments = InRTLayout.GetColorAttachmentReferences();
 	SubpassDesc.pResolveAttachments = InRTLayout.GetResolveAttachmentReferences();
 	SubpassDesc.pDepthStencilAttachment = InRTLayout.GetDepthStencilAttachmentReference();
-	SubpassDesc.preserveAttachmentCount = 0;
-	SubpassDesc.pPreserveAttachments = nullptr;
+	//SubpassDesc.preserveAttachmentCount = 0;
 
 	VkRenderPassCreateInfo CreateInfo;
-	FMemory::Memzero(CreateInfo);
-	CreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	CreateInfo.pNext = nullptr;
+	ZeroVulkanStruct(CreateInfo, VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO);
 	CreateInfo.attachmentCount = InRTLayout.GetNumAttachmentDescriptions();
 	CreateInfo.pAttachments = InRTLayout.GetAttachmentDescriptions();
 	CreateInfo.subpassCount = 1;
 	CreateInfo.pSubpasses = &SubpassDesc;
-	CreateInfo.dependencyCount = 0;
-	CreateInfo.pDependencies = nullptr;
+	//CreateInfo.dependencyCount = 0;
 
 	VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkCreateRenderPass(Device.GetInstanceHandle(), &CreateInfo, nullptr, &RenderPass));
 }
@@ -1292,8 +1313,7 @@ void VulkanSetImageLayout(
 	const VkImageSubresourceRange& SubresourceRange)
 {
 	VkImageMemoryBarrier ImageBarrier;
-	FMemory::Memzero(ImageBarrier);
-	ImageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	ZeroVulkanStruct(ImageBarrier, VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER);
 	ImageBarrier.oldLayout = OldLayout;
 	ImageBarrier.newLayout = NewLayout;
 	ImageBarrier.image = Image;
