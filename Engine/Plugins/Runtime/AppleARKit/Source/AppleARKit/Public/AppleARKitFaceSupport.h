@@ -26,10 +26,11 @@ public:
 	 * @param NewAnchors the list of anchors to convert to our intermediate format
 	 * @param Timestamp the timestamp of this update
 	 * @param FrameNumber the frame number for this update
+	 * @param AdjustBy the additional rotation to apply to put the rotation in the proper space (camera alignment only)
 	 *
 	 * @return the set of face anchors to dispatch
 	 */
-	virtual TArray<TSharedPtr<FAppleARKitAnchorData>> MakeAnchorData(NSArray<ARAnchor*>* NewAnchors, double Timestamp, uint32 FrameNumber) { return TArray<TSharedPtr<FAppleARKitAnchorData>>(); }
+	virtual TArray<TSharedPtr<FAppleARKitAnchorData>> MakeAnchorData(NSArray<ARAnchor*>* NewAnchors, double Timestamp, uint32 FrameNumber, const FRotator& AdjustBy) { return TArray<TSharedPtr<FAppleARKitAnchorData>>(); }
 
 	/**
 	 * Publishes any face AR data that needs to be sent to LiveLink. Done as a separate step because MakeAnchorData is called
