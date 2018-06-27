@@ -1280,7 +1280,9 @@ static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData( ARAnchor* Anchor )
 			EAppleAnchorType::ImageAnchor,
 			FString(ImageAnchor.referenceImage.name)
 		);
+#if SUPPORTS_ARKIT_2_0
 		NewAnchor->bIsTracked = ImageAnchor.isTracked;
+#endif
 	}
 #endif
 //@joeg -- Added environmental texture probe support
