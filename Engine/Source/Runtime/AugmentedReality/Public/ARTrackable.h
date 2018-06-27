@@ -143,6 +143,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
 	UARCandidateImage* GetDetectedImage() const { return DetectedImage; };
 
+	/** Whether the image is currently being tracked by the AR system */
+	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality|Face Geometry")
+	bool bIsTracked;
+
 private:
 	/** The candidate image that was detected in the scene */
 	UPROPERTY()
@@ -275,10 +279,13 @@ public:
 	UFUNCTION(BlueprintPure, Category="AR AugmentedReality|Face Geometry")
 	FTransform GetWorldSpaceEyeTransform(EAREye Eye) const;
 
-//@joeg -- Eye tracking support
 	/** The target the eyes are looking at */
 	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality|Face Geometry")
 	FVector LookAtTarget;
+
+	/** Whether the face is currently being tracked by the AR system */
+	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality|Face Geometry")
+	bool bIsTracked;
 
 private:
 	UPROPERTY()
