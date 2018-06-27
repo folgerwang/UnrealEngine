@@ -152,11 +152,13 @@ UGameViewportClient::UGameViewportClient(const FObjectInitializer& ObjectInitial
 	, bHideCursorDuringCapture(false)
 	, MouseLockMode(EMouseLockMode::LockOnCapture)
 	, AudioDeviceHandle(INDEX_NONE)
+#if WITH_EDITOR
+	, bShowTitleSafeZone(true)
+#endif
 	, bHasAudioFocus(false)
 	, bIsMouseOverClient(false)
 #if WITH_EDITOR
 	, bUseMouseForTouchInEditor(false)
-	, bShowTitleSafeZone(true)
 #endif
 {
 
