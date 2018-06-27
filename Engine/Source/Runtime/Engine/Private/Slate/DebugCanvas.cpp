@@ -100,7 +100,7 @@ FDebugCanvasDrawer::~FDebugCanvasDrawer()
 		RenderThreadCanvas = nullptr;
 	}
 
-	if (LayerID != INVALID_LAYER_ID)
+	if ((LayerID != INVALID_LAYER_ID) && GEngine->StereoRenderingDevice.IsValid())
 	{
 		if (GEngine->StereoRenderingDevice.IsValid())
 		{
