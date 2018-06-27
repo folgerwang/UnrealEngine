@@ -1940,8 +1940,8 @@ struct FRHIRenderPassInfo
 	FResolveParams ResolveParameters;
 
 	// Some RHIs require a hint that occlusion queries will be used in this render pass
-	const uint32 NumOcclusionQueries = 0;
-	const bool bOcclusionQueries = false;
+	uint32 NumOcclusionQueries = 0;
+	bool bOcclusionQueries = false;
 
 	// Some RHIs need to know if this render pass is going to be reading and writing to the same texture in the case of generating mip maps for partial resource transitions
 	bool bGeneratingMips = false;
