@@ -39,6 +39,17 @@ struct FSpirv
 	TArray<uint32> Data;
 	struct FEntry
 	{
+		FEntry() = default;
+
+		FEntry(const FString& InName, int32 InBinding)
+			: Name(InName)
+			, Binding(-InBinding)
+		{
+		}
+
+		FString Name;
+		int32 Binding = -1;
+
 		FString Name;
 		int32 Binding = -1;
 
