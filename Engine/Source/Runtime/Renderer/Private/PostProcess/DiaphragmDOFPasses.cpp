@@ -624,7 +624,9 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFFlattenCoc::ComputeOutputDesc(EPassOu
 
 #define COC_DILATE_SHADER_PARAMS(PARAMETER) \
 	PARAMETER(FShaderParameter, SampleOffsetMultipler) \
+	PARAMETER(FShaderParameter, fSampleOffsetMultipler) \
 	PARAMETER(FShaderParameter, CocRadiusToBucketDistance) \
+	PARAMETER(FShaderParameter, BucketDistanceToCocRadius) \
 
 class FPostProcessCocDilateCS : public FPostProcessDiaphragmDOFShader
 {
@@ -654,8 +656,14 @@ void FRCPassDiaphragmDOFDilateCoc::Process(FRenderingCompositePassContext& Conte
 	{
 		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->SampleOffsetMultipler, Params.SampleDistanceMultiplier);
 	
+		float fSampleOffsetMultipler = Params.SampleDistanceMultiplier;
+		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->fSampleOffsetMultipler, fSampleOffsetMultipler);
+
 		float CocRadiusToBucketDistance = Params.PreProcessingToProcessingCocRadiusFactor;
 		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->CocRadiusToBucketDistance, CocRadiusToBucketDistance);
+
+		float BucketDistanceToCocRadius = 1.0f / CocRadiusToBucketDistance;
+		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->BucketDistanceToCocRadius, BucketDistanceToCocRadius);
 	}
 	DispatchCtx.Dispatch();
 }

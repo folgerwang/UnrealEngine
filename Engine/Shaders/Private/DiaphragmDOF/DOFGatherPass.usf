@@ -172,6 +172,7 @@ void GatherMainCS(
 	{
 		GatherParameters.MaxRingCount = DIM_GATHER_RING_COUNT;
 		GatherParameters.bFastGathering = false;
+		GatherParameters.DensityChangeRingCount = GatherParameters.MaxRingCount / 2;
 
 		// TODO: variable number of ring.
 		GatherParameters.RingCount = GatherParameters.MaxRingCount;
@@ -368,12 +369,16 @@ void GatherMainCS(
 
 			GatherParameters.KernelSamplingDensityMode = KERNEL_DENSITY_HIGHER_IN_CENTER_DISK;
 
+			// Scaling factor applied on the samples to decrease their size when increasing density.
+			const float SampleScaleFactor = 1.0 - GatherParameters.DensityChangeRingCount / (GatherParameters.MaxRingCount + 0.5);
+			
+			// Compute whether need to change the kernel density into SGPR.
 			UNROLL
 			for (uint i = 0; i < CONFIG_MAX_SAMPLING_DENSITY_CHANGES; i++)
 			{
-				const float MinConvolutionRadius = float(8 << i);
-				const float SmallestConvolutionRadius = rcp(float(2 << i)) * TileSuggestion.MaxCocRadiusAbs;
-
+				const float MinConvolutionRadius = GatherParameters.MaxRingCount * pow(1 / SampleScaleFactor, i);
+				const float SmallestConvolutionRadius = TileSuggestion.MaxCocRadiusAbs * pow(SampleScaleFactor, i + 1);
+	
 				GatherParameters.bDoHighDensityGatheringAtCenter[i] = (
 					TileSuggestion.MaxCocRadiusAbs > MinConvolutionRadius &&
 					TileSuggestion.MinIntersectableCocRadiusAbs < SmallestConvolutionRadius);
