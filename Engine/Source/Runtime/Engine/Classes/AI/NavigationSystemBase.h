@@ -3,6 +3,7 @@
 #pragma once
 
 #include "UObject/Object.h"
+#include "Engine/Engine.h"
 #include "AI/Navigation/NavigationTypes.h"
 #include "AI/NavigationModifier.h"
 #include "Engine/World.h"
