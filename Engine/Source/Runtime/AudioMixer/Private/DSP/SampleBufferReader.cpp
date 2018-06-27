@@ -71,9 +71,12 @@ namespace Audio
 		PlaybackProgress = 0.0f;
 	}
 
-	void FSampleBufferReader::SetBuffer(const int16** InBufferPtr, const int32 InNumBufferSamples, const int32 InNumChannels, const int32 InBufferSampleRate)
-	{	
-		BufferPtr = *InBufferPtr;
+	void FSampleBufferReader::SetBuffer(const int16* InBufferPtr, const int32 InNumBufferSamples, const int32 InNumChannels, const int32 InBufferSampleRate)
+	{
+		// Re-init on setting a new buffer
+		Init(InBufferSampleRate);
+
+		BufferPtr = InBufferPtr;
 		BufferNumSamples = InNumBufferSamples;
 		BufferNumChannels = InNumChannels;
 		BufferSampleRate = InBufferSampleRate;
@@ -315,6 +318,10 @@ namespace Audio
 						FadeValue = 1.0f - (float)(CurrentFrameIndex - (MaxWrapFrame - FadeFrames)) / FadeFrames;
 					}
 				}
+				else
+				{
+					FadeValue = 1.0f;
+				}
 
 				if (OutChannels == BufferNumChannels)
 				{
@@ -358,19 +365,23 @@ namespace Audio
 
 	float FSampleBufferReader::GetSampleValueForChannel(const int32 Channel)
 	{
-		// Wrap the current frame index
-		int32 WrappedCurrentFrameIndex = WrapIndex(CurrentFrameIndex, BufferNumFrames);
-		int32 WrappedNextFrameIndex = WrapIndex(NextFrameIndex, BufferNumFrames);
+		if (BufferPtr)
+		{
+			// Wrap the current frame index
+			int32 WrappedCurrentFrameIndex = WrapIndex(CurrentFrameIndex, BufferNumFrames);
+			int32 WrappedNextFrameIndex = WrapIndex(NextFrameIndex, BufferNumFrames);
 
-		// Update the current playback time
-		PlaybackProgress = (float)(WrappedCurrentFrameIndex / BufferSampleRate);
+			// Update the current playback time
+			PlaybackProgress = (float)(WrappedCurrentFrameIndex / BufferSampleRate);
 
-		const int32 CurrentBufferSampleIndex = BufferNumChannels * WrappedCurrentFrameIndex + Channel;
-		const int32 NextBufferSampleIndex = BufferNumChannels * WrappedNextFrameIndex + Channel;
+			const int32 CurrentBufferSampleIndex = BufferNumChannels * WrappedCurrentFrameIndex + Channel;
+			const int32 NextBufferSampleIndex = BufferNumChannels * WrappedNextFrameIndex + Channel;
 
-		const float CurrentSampleValue = GetSampleValue(BufferPtr, CurrentBufferSampleIndex);
-		const float NextSampleValue = GetSampleValue(BufferPtr, NextBufferSampleIndex);
-		return FMath::Lerp(CurrentSampleValue, NextSampleValue, AlphaLerp);
+			const float CurrentSampleValue = GetSampleValue(BufferPtr, CurrentBufferSampleIndex);
+			const float NextSampleValue = GetSampleValue(BufferPtr, NextBufferSampleIndex);
+			return FMath::Lerp(CurrentSampleValue, NextSampleValue, AlphaLerp);
+		}
+		return 0.0f;
 	}
 
 }

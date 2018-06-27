@@ -4586,9 +4586,14 @@ void FAudioDevice::Precache(USoundWave* SoundWave, bool bSynchronous, bool bTrac
 
 
 	// We're already precaching this sound wave so no need to precache again
-	if (SoundWave->DecompressionType != DTYPE_Setup)
+	if (SoundWave->DecompressionType != DTYPE_Setup && !bForceFullDecompression)
 	{
 		return; 
+	}
+
+	if (bForceFullDecompression)
+	{
+		SoundWave->SetPrecacheState(ESoundWavePrecacheState::NotStarted);
 	}
 
 	if (!bSynchronous && SoundWave->GetPrecacheState() == ESoundWavePrecacheState::NotStarted)
