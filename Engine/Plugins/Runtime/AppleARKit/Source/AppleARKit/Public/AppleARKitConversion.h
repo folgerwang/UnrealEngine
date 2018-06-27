@@ -428,6 +428,7 @@ struct FAppleARKitAnchorData
 		: Transform( InTransform )
 		, AnchorType( EAppleAnchorType::Anchor )
 		, AnchorGUID( InAnchorGuid )
+		, bIsTracked(false)
 	{
 	}
 
@@ -498,6 +499,9 @@ struct FAppleARKitAnchorData
 	FTransform LeftEyeTransform;
 	FTransform RightEyeTransform;
 	FVector LookAtTarget;
+
+	/** Only valid for tracked real world objects (face, images) */
+	bool bIsTracked;
 };
 
 namespace ARKitUtil
