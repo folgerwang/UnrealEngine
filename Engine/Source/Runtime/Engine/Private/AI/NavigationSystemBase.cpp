@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AI/NavigationSystemBase.h"
+#include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "GameFramework/WorldSettings.h"
 #include "AI/Navigation/NavigationTypes.h"
@@ -209,6 +210,13 @@ namespace FNavigationSystem
 	const FTransform& GetCoordTransformFrom(const ENavigationCoordSystem::Type CoordType)
 	{
 		return CoordTypeTransformsTo[uint8(CoordType)];
+	}
+
+	UWorld* GetWorldFromContextObject(UObject* WorldContextObject)
+	{
+		return (WorldContextObject != nullptr)
+			? GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull)
+			: nullptr;
 	}
 }
 
