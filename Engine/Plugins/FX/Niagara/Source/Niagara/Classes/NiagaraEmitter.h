@@ -94,7 +94,7 @@ enum class EScriptExecutionMode : uint8
 	/** The event script is run only on the particles that were spawned in response to the current event in the emitter.*/
 	SpawnedParticles,
 	/** The event script is run only on the particle whose int32 ParticleIndex is specified in the event payload.*/
-	SingleParticle
+	SingleParticle UMETA(Hidden)
 };
 
 USTRUCT()
