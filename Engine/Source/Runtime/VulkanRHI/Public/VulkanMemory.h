@@ -1099,11 +1099,10 @@ namespace VulkanRHI
 		struct FEntry
 		{
 			uint64 FenceCounter;
-			FVulkanCmdBuffer* CmdBuffer;
 			uint64 Handle;
+			FVulkanCmdBuffer* CmdBuffer;
 			EType StructureType;
-
-			//FRefCount* Resource;
+			uint32 FrameNumber;
 		};
 		FCriticalSection CS;
 		TArray<FEntry> Entries;

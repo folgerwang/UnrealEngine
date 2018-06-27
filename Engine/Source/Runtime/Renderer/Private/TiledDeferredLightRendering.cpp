@@ -68,7 +68,7 @@ IMPLEMENT_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData,TEXT("TiledDeferred"));
 
 /** Second constant buffer of light data for tiled deferred. */
 BEGIN_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData2,)
-	UNIFORM_MEMBER_ARRAY(FVector4,LightDirectionAndSpotlightMaskAndMinRoughness,[GMaxNumTiledDeferredLights])
+	UNIFORM_MEMBER_ARRAY(FVector4,LightDirectionAndSpotlightMaskAndSpecularScale,[GMaxNumTiledDeferredLights])
 	UNIFORM_MEMBER_ARRAY(FVector4,SpotAnglesAndSourceRadiusAndSimpleLighting,[GMaxNumTiledDeferredLights])
 	UNIFORM_MEMBER_ARRAY(FVector4,ShadowMapChannelMask,[GMaxNumTiledDeferredLights])
 END_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData2)
@@ -217,10 +217,10 @@ public:
 				}
 
 				{
-					// SpotlightMaskAndMinRoughness, >0:Spotlight, MinRoughness = abs();
-					float W = FMath::Max(0.0001f, LightParameters.LightMinRoughness) * ((LightSceneInfo->Proxy->GetLightType() == LightType_Spot) ? 1 : -1);
+					// SignBit:Spotlight, SpecularScale = abs();
+					float W = LightParameters.SpecularScale * ((LightSceneInfo->Proxy->GetLightType() == LightType_Spot) ? 1 : -1);
 
-					LightData2.LightDirectionAndSpotlightMaskAndMinRoughness[LightIndex] = FVector4(LightParameters.NormalizedLightDirection, W);
+					LightData2.LightDirectionAndSpotlightMaskAndSpecularScale[LightIndex] = FVector4(LightParameters.NormalizedLightDirection, W);
 				}
 
 				LightData2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex] = FVector4(
@@ -249,7 +249,7 @@ public:
 				const FSimpleLightPerViewEntry& SimpleLightPerViewData = SimpleLights.GetViewDependentData(SimpleLightIndex, ViewIndex, NumViews);
 				LightData.LightPositionAndInvRadius[LightIndex] = FVector4(SimpleLightPerViewData.Position, 1.0f / FMath::Max(SimpleLight.Radius, KINDA_SMALL_NUMBER));
 				LightData.LightColorAndFalloffExponent[LightIndex] = FVector4(SimpleLight.Color, SimpleLight.Exponent);
-				LightData2.LightDirectionAndSpotlightMaskAndMinRoughness[LightIndex] = FVector4(FVector(1, 0, 0), 0);
+				LightData2.LightDirectionAndSpotlightMaskAndSpecularScale[LightIndex] = FVector4(FVector(1, 0, 0), 0);
 				LightData2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex] = FVector4(-2, 1, 0, 1);
 				LightData2.ShadowMapChannelMask[LightIndex] = FVector4(0, 0, 0, 0);
 			}

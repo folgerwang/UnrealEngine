@@ -32,6 +32,17 @@ static FAutoConsoleVariableRef CVarNiagaraDumpParticleData(
 	ECVF_Default
 	);
 
+/**
+TODO: This is mainly to avoid hard limits in our storage/alloc code etc rather than for perf reasons.
+We should improve our hard limit/safety code and possibly add a max for perf reasons.
+*/
+static int32 GMaxNiagaraCPUParticlesPerEmitter = 1000000;
+static FAutoConsoleVariableRef CVarMaxNiagaraCPUParticlesPerEmitter(
+	TEXT("fx.MaxNiagaraCPUParticlesPerEmitter"),
+	GMaxNiagaraCPUParticlesPerEmitter,
+	TEXT("The max number of supported CPU particles per emitter in Niagara. \n"),
+	ECVF_Default
+);
 //////////////////////////////////////////////////////////////////////////
 
 const FName FNiagaraEmitterInstance::PositionName(TEXT("Position"));
@@ -101,6 +112,20 @@ bool FNiagaraEmitterInstance::IsReadyToRun() const
 	}
 
 	return true;
+}
+
+void FNiagaraEmitterInstance::Dump()const
+{
+	UE_LOG(LogNiagara, Log, TEXT("==  %s ========"), *CachedEmitter->GetUniqueEmitterName());
+	UE_LOG(LogNiagara, Log, TEXT(".................Spawn................."));
+	SpawnExecContext.Parameters.DumpParameters(true);
+	UE_LOG(LogNiagara, Log, TEXT(".................Update................."));
+	UpdateExecContext.Parameters.DumpParameters(true);
+	UE_LOG(LogNiagara, Log, TEXT("................. %s Combined Parameters ................."), TEXT("GPU Script"));
+	GPUExecContext.CombinedParamStore.DumpParameters();
+	UE_LOG(LogNiagara, Log, TEXT("................. Particles ................."));
+	ParticleDataSet->Dump(false);
+	ParticleDataSet->Dump(true);
 }
 
 void FNiagaraEmitterInstance::Init(int32 InEmitterIdx, FName InSystemInstanceName)
@@ -617,6 +642,7 @@ FBox FNiagaraEmitterInstance::CalculateDynamicBounds()
 				UE_LOG(LogNiagara, Warning, TEXT("Particle position data contains NaNs. Likely a divide by zero somewhere in your modules. Emitter \"%s\" in System \"%s\""),
 					*CachedEmitter->GetName(), *ParentSystemInstance->GetSystem()->GetName());
 				bEncounteredNaNs = true;
+				ParentSystemInstance->Dump();
 			}
 #endif
 		}
@@ -819,7 +845,10 @@ void FNiagaraEmitterInstance::Tick(float DeltaSeconds)
 	if (OrigNumParticles == 0 && ExecutionState != ENiagaraExecutionState::Active)
 	{
 		//Clear out curr buffer in case it had some data in previously.
-		Data.Allocate(0);
+		if (CachedEmitter->SimTarget == ENiagaraSimTarget::CPUSim)
+		{
+			Data.Allocate(0);
+		}
 		CPUTimeMS = TickTime.GetElapsedMilliseconds();
 		return;
 	}
@@ -984,6 +1013,18 @@ void FNiagaraEmitterInstance::Tick(float DeltaSeconds)
 	}
 
 	int32 AllocationSize = OrigNumParticles + SpawnTotal + EventSpawnTotal;
+
+	//Ensure we don't blow our current hard limits on cpu particle count.
+	//TODO: These current limits can be improved relatively easily. Though perf in at these counts will obviously be an issue anyway.
+	if (CachedEmitter->SimTarget == ENiagaraSimTarget::CPUSim && AllocationSize > GMaxNiagaraCPUParticlesPerEmitter)
+	{
+		UE_LOG(LogNiagara, Warning, TEXT("Emitter %s has attemted to exceed the max CPU particle count! | Max: %d | Requested: %u"), *CachedEmitter->GetUniqueEmitterName(), GMaxNiagaraCPUParticlesPerEmitter, AllocationSize);
+		//For now we completely bail out of spawning new particles. Possibly should improve this in future.
+		AllocationSize = OrigNumParticles;
+		SpawnTotal = 0;
+		EventSpawnTotal = 0;
+	}
+
 	//Allocate space for prev frames particles and any new one's we're going to spawn.
 	Data.Allocate(AllocationSize);
 	for (FNiagaraDataSet* SpawnEventDataSet : SpawnScriptEventDataSets)

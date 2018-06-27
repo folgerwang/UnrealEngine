@@ -89,6 +89,7 @@ void UCurveLinearColorAtlas::PostLoad()
 			GradientCurves[i]->OnUpdateGradient.AddUObject(this, &UCurveLinearColorAtlas::UpdateGradientSlot);
 		}
 	}
+	SizeXY = { (float)TextureSize, (float)GradientPixelSize };
 	UpdateTextures();
 	Super::PostLoad();
 }

@@ -17,6 +17,25 @@
 
 #define LOCTEXT_NAMESPACE "AnimGetter"
 
+
+void UK2Node_AnimGetter::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+	Ar.UsingCustomVersion(FReleaseObjectVersion::GUID);
+
+	if (Ar.CustomVer(FReleaseObjectVersion::GUID) < FReleaseObjectVersion::FixBrokenStateMachineReferencesInTransitionGetters)
+	{
+		RestoreStateMachineNode();
+	}
+}
+
+void UK2Node_AnimGetter::PostPasteNode()
+{
+	Super::PostPasteNode();
+
+	RestoreStateMachineNode();
+}
+
 void UK2Node_AnimGetter::AllocateDefaultPins()
 {
 	Super::AllocateDefaultPins();
@@ -303,6 +322,21 @@ bool UK2Node_AnimGetter::IsActionFilteredOut(FBlueprintActionFilter const& Filte
 	}
 
 	return true;
+}
+
+void UK2Node_AnimGetter::RestoreStateMachineNode()
+{
+	if(SourceStateNode)
+	{
+		UAnimationStateMachineGraph* Graph = Cast<UAnimationStateMachineGraph>(SourceStateNode->GetOuter());
+		if (Graph)
+		{
+			if (UAnimGraphNode_StateMachine* MachineNode = Cast<UAnimGraphNode_StateMachine>(Graph->GetOuter()))
+			{
+				SourceNode = MachineNode;
+			}
+		}
+	}
 }
 
 bool UK2Node_AnimGetter::GetterRequiresParameter(const UFunction* Getter, FString ParamName) const

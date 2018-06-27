@@ -63,11 +63,9 @@ void DecrementBufferMemory(GLenum Type, bool bStructuredBuffer, uint32 NumBytes)
 
 // Extra stats for finer-grained timing
 // They shouldn't always be on, as they may impact overall performance
-#if UE_BUILD_DEVELOPMENT
-	#define OPENGLRHI_DETAILED_STATS 1
-#else
-	#define OPENGLRHI_DETAILED_STATS 0
-#endif
+#define OPENGLRHI_DETAILED_STATS 0
+
+
 #if OPENGLRHI_DETAILED_STATS
 	DECLARE_CYCLE_STAT_EXTERN(TEXT("MapBuffer time"),STAT_OpenGLMapBufferTime,STATGROUP_OpenGLRHI, );
 	DECLARE_CYCLE_STAT_EXTERN(TEXT("UnmapBuffer time"),STAT_OpenGLUnmapBufferTime,STATGROUP_OpenGLRHI, );

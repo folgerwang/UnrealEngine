@@ -164,7 +164,7 @@ void FClothingSimulationBase::FillContext(USkeletalMeshComponent* InComponent, f
 			    {
 				    const int32 MasterIndex = InComponent->MasterBoneMap[BoneIndex];
     
-				    if(MasterIndex != INDEX_NONE)
+				    if(MasterIndex != INDEX_NONE && MasterIndex < MasterComponent->GetComponentSpaceTransforms().Num())
 				    {
 					    BaseContext->BoneTransforms[BoneIndex] = MasterComponent->GetComponentSpaceTransforms()[MasterIndex];
 					    bFoundMaster = true;

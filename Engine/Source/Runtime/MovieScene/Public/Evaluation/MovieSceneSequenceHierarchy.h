@@ -46,6 +46,11 @@ struct FMovieSceneSubSequenceData
 	 */
 	MOVIESCENE_API UMovieSceneSequence* GetLoadedSequence() const;
 
+	/**
+	 * Check whether this structure is dirty and should be reconstructed
+	 */
+	MOVIESCENE_API bool IsDirty(const UMovieSceneSubSection& InSubSection) const;
+
 	/** The sequence that the sub section references */
 	UPROPERTY(meta=(AllowedClasses="MovieSceneSequence"))
 	FSoftObjectPath Sequence;
@@ -93,6 +98,14 @@ private:
 
 	/** Cached version of the sequence to avoid resolving it every time */
 	mutable TWeakObjectPtr<UMovieSceneSequence> CachedSequence;
+
+	/** The sub section's signature at the time this structure was populated. */
+	UPROPERTY()
+	FGuid SubSectionSignature;
+
+	/** The transform from this sub sequence's parent to its own play space. */
+	UPROPERTY()
+	FMovieSceneSequenceTransform OuterToInnerTransform;
 };
 
 /**

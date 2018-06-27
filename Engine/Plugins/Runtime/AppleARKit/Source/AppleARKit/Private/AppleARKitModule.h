@@ -21,6 +21,7 @@ public:
 
 	virtual void ShutdownModule() override;
 
+    void PreExit();
 };
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAppleARKit, Log, All);

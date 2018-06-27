@@ -1311,22 +1311,12 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Create a list of all the externally referenced files
 		/// </summary>
+		/// <param name="Modules">All the modules to include files for</param>
 		/// <param name="Files">Set of referenced files</param>
-		void GetExternalFileList(HashSet<FileReference> Files)
+		void GetExternalFileList(HashSet<UEBuildModule> Modules, HashSet<FileReference> Files)
 		{
-			// Find all the modules we depend on
-			HashSet<UEBuildModule> Modules = new HashSet<UEBuildModule>(PrecompileOnlyModules);
-			foreach (UEBuildBinary Binary in Binaries.Concat(PrecompileOnlyBinaries))
-			{
-				foreach (UEBuildModule Module in Binary.GetAllDependencyModules(bIncludeDynamicallyLoaded: false, bForceCircular: false))
-				{
-					Modules.Add(Module);
-				}
-			}
-
 			// Get the platform we're building for
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform);
-
 			foreach (UEBuildModule Module in Modules)
 			{
 				// Skip artificial modules
@@ -1422,7 +1412,7 @@ namespace UnrealBuildTool
 						foreach (string IncludeFileName in Directory.EnumerateFiles(IncludePath, "*", SearchOption.AllDirectories))
 						{
 							string Extension = Path.GetExtension(IncludeFileName).ToLower();
-							if (Extension == ".h" || Extension == ".inl")
+							if (Extension == ".h" || Extension == ".inl" || Extension == ".hpp")
 							{
 								Files.Add(new FileReference(IncludeFileName));
 							}
@@ -1655,6 +1645,10 @@ namespace UnrealBuildTool
 				{
 					ReferencedModules.UnionWith(Module.GetDependencies(false, false));
 				}
+				foreach(UEBuildBinary Binary in Binaries)
+				{
+					ReferencedModules.UnionWith(Binary.Modules);
+				}
 				foreach(UEBuildBinary Binary in PrecompileOnlyBinaries)
 				{
 					ReferencedModules.UnionWith(Binary.Modules);
@@ -1674,7 +1668,7 @@ namespace UnrealBuildTool
 
 				// Add all the files which are required to use the precompiled modules
 				HashSet<FileReference> ExternalFiles = new HashSet<FileReference>();
-				GetExternalFileList(ExternalFiles);
+				GetExternalFileList(ReferencedModules, ExternalFiles);
 
 				// Convert them into relative to the target receipt
 				foreach(FileReference ExternalFile in ExternalFiles)
@@ -3365,20 +3359,33 @@ namespace UnrealBuildTool
 			// Map of plugin names to instances of that plugin
 			Dictionary<string, UEBuildPlugin> NameToInstance = new Dictionary<string, UEBuildPlugin>(StringComparer.InvariantCultureIgnoreCase);
 
+			// Configure plugins explicitly referenced via target settings
+			foreach(string PluginName in Rules.EnablePlugins)
+			{
+				if(ReferencedNames.Add(PluginName))
+				{
+					PluginReferenceDescriptor PluginReference = new PluginReferenceDescriptor(PluginName, null, true);
+					AddPlugin(PluginReference, "target settings", ExcludeFolders, NameToInstance, NameToInfo);
+				}
+			}
+
 			// Find a map of plugins which are explicitly referenced in the project file
 			if(ProjectDescriptor != null && ProjectDescriptor.Plugins != null)
 			{
 				string ProjectReferenceChain = ProjectFile.GetFileName();
 				foreach(PluginReferenceDescriptor PluginReference in ProjectDescriptor.Plugins)
 				{
-					// Make sure we don't have multiple references to the same plugin
-					if(!ReferencedNames.Add(PluginReference.Name))
+					if(!Rules.EnablePlugins.Contains(PluginReference.Name, StringComparer.InvariantCultureIgnoreCase))
 					{
-						Log.TraceWarning("Plugin '{0}' is listed multiple times in project file '{1}'.", PluginReference.Name, ProjectFile);
-					}
-					else
-					{
-						AddPlugin(PluginReference, ProjectReferenceChain, ExcludeFolders, NameToInstance, NameToInfo);
+						// Make sure we don't have multiple references to the same plugin
+						if(!ReferencedNames.Add(PluginReference.Name))
+						{
+							Log.TraceWarning("Plugin '{0}' is listed multiple times in project file '{1}'.", PluginReference.Name, ProjectFile);
+						}
+						else
+						{
+							AddPlugin(PluginReference, ProjectReferenceChain, ExcludeFolders, NameToInstance, NameToInfo);
+						}
 					}
 				}
 			}
@@ -3447,7 +3454,7 @@ namespace UnrealBuildTool
 			}
 
 			// If this plugin is listed to be excluded, do so here. The reference must be optional in this case.
-			if(Rules.ExcludePlugins.Contains(Reference.Name, StringComparer.InvariantCultureIgnoreCase))
+			if(Rules.DisablePlugins.Contains(Reference.Name, StringComparer.InvariantCultureIgnoreCase))
 			{
 				if(!Reference.bOptional)
 				{

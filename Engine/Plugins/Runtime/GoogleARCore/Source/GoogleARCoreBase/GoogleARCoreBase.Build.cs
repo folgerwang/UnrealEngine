@@ -39,7 +39,9 @@ namespace UnrealBuildTool.Rules
 					"AndroidPermission",
 					"GoogleARCoreRendering",
 					"GoogleARCoreSDK",
-					"OpenGL"
+					"OpenGL",
+					"UElibPNG",
+					"zlib"
 				}
 			);
 

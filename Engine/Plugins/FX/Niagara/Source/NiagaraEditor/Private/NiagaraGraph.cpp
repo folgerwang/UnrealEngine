@@ -29,7 +29,6 @@
 #include "NiagaraNode.h"
 #include "EdGraphSchema_Niagara.h"
 #include "ViewModels/Stack/NiagaraParameterHandle.h"
-#include "ScopedTransaction.h"
 
 DECLARE_CYCLE_STAT(TEXT("NiagaraEditor - Graph - FindInputNodes"), STAT_NiagaraEditor_Graph_FindInputNodes, STATGROUP_NiagaraEditor);
 DECLARE_CYCLE_STAT(TEXT("NiagaraEditor - Graph - FindInputNodes_NotFilterUsage"), STAT_NiagaraEditor_Graph_FindInputNodes_NotFilterUsage, STATGROUP_NiagaraEditor);
@@ -538,7 +537,6 @@ void UNiagaraGraph::AddParameter(const FNiagaraVariable& Parameter)
 
 void UNiagaraGraph::RemoveParameter(const FNiagaraVariable& Parameter, const bool bNotifyGraphChanged /*= true*/)
 {
-	FScopedTransaction RemoveParametersWithPins(LOCTEXT("RemoveParametersWithPins", "Remove parameter and referenced pins"));
 	FNiagaraGraphParameterReferenceCollection* ReferenceCollection = Parameters.Find(Parameter);
 	if (ReferenceCollection)
 	{
@@ -549,7 +547,7 @@ void UNiagaraGraph::RemoveParameter(const FNiagaraVariable& Parameter, const boo
 		{
 			const FNiagaraGraphParameterReference& Reference = ReferenceCollection->ParameterReferences[Index];
 			UNiagaraNode* Node = Reference.Value.Get();
-			if (Node)
+			if (Node && Node->GetGraph() == this)
 			{
 				UEdGraphPin* Pin = Node->GetPinByPersistentGuid(Reference.Key);
 				if (Pin)
@@ -579,8 +577,6 @@ bool UNiagaraGraph::RenameParameter(const FNiagaraVariable& Parameter, FName New
 	}
 	bIsRenamingParameter = true;
 
-	FScopedTransaction RemoveParametersWithPins(LOCTEXT("RenameParameter", "Rename parameter, referenced pins and metadata"));
-
 	// Prevent finding all parameters and metadata when renaming each pin.
 	SetFindParametersAllowed(false);
 	
@@ -596,7 +592,7 @@ bool UNiagaraGraph::RenameParameter(const FNiagaraVariable& Parameter, FName New
 		for (FNiagaraGraphParameterReference& Reference : NewReferences.ParameterReferences)
 		{
 			UNiagaraNode* Node = Reference.Value.Get();
-			if (Node)
+			if (Node && Node->GetGraph() == this)
 			{
 				UEdGraphPin* Pin = Node->GetPinByPersistentGuid(Reference.Key);
 				if (Pin)

@@ -246,6 +246,20 @@ void FNiagaraSystemSimulation::TransferInstance(FNiagaraSystemSimulation* Source
 	}
 }
 
+void FNiagaraSystemSimulation::DumpInstance(const FNiagaraSystemInstance* Inst)const
+{
+	UE_LOG(LogNiagara, Log, TEXT("==  %s (%d) ========"), *Inst->GetSystem()->GetFullName(), Inst->SystemInstanceIndex);
+	UE_LOG(LogNiagara, Log, TEXT(".................Spawn................."));
+	SpawnExecContext.Parameters.DumpParameters(false);
+	SpawnInstanceParameterDataSet.Dump(false, Inst->SystemInstanceIndex, 1);
+	UE_LOG(LogNiagara, Log, TEXT(".................Update................."));
+	UpdateExecContext.Parameters.DumpParameters(false);
+	UpdateInstanceParameterDataSet.Dump(false, Inst->SystemInstanceIndex, 1);
+	UE_LOG(LogNiagara, Log, TEXT("................. System Instance ................."));
+	DataSet.Dump(false, Inst->SystemInstanceIndex, 1);
+	DataSet.Dump(true, Inst->SystemInstanceIndex, 1);
+}
+
 bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 {
 	UNiagaraSystem* System = WeakSystem.Get();
@@ -298,9 +312,9 @@ bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 
 				Inst->TickDataInterfaces(DeltaSeconds, false);
 				Inst->SetPendingSpawn(false);
-				Inst->SystemInstanceIndex = SystemInstances.Add(Inst);
 				if (!Inst->IsComplete())
 				{
+					Inst->SystemInstanceIndex = SystemInstances.Add(Inst);
 					++SpawnNum;
 				}
 				else
@@ -324,6 +338,7 @@ bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 		}
 
 		TArray<FNiagaraDataSetExecutionInfo, TInlineAllocator<8>> DataSetExecInfos;
+		DataSetExecInfos.SetNum(2);
 		{
 			SCOPE_CYCLE_COUNTER(STAT_NiagaraSystemSim_PrepareForSimulate);
 			auto PreSimulateAndTransferParams = [&](int32 SystemIndex)
@@ -386,8 +401,6 @@ bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 			UpdateGlobalSpawnCountScaleParam.SetValue(GlobalSpawnCountScale);
 			SpawnGlobalSystemCountScaleParam.SetValue(GlobalSystemCountScale);
 			UpdateGlobalSystemCountScaleParam.SetValue(GlobalSystemCountScale);
-
-			DataSetExecInfos.Emplace(&DataSet, 0, false, true);
 		}
 
 		//TODO: JIRA - UE-60096 - Remove.
@@ -403,9 +416,8 @@ bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 
 			//Run Spawn
 			SpawnExecContext.Tick(SoloSystemInstance);//We can't require a specific instance here as these are for all instances.
-			DataSetExecInfos.SetNum(1, false);
-			DataSetExecInfos[0].StartInstance = OrigNum;
-			DataSetExecInfos.Emplace(&SpawnInstanceParameterDataSet, OrigNum, false, false);
+			DataSetExecInfos[0] = FNiagaraDataSetExecutionInfo(&DataSet, OrigNum, false, false);
+			DataSetExecInfos[1] = FNiagaraDataSetExecutionInfo(&SpawnInstanceParameterDataSet, OrigNum, false, false);
 			SpawnExecContext.Execute(SpawnNum, DataSetExecInfos);
 
 			if (GbDumpSystemData || System->bDumpDebugSystemInfo)
@@ -439,8 +451,8 @@ bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 
 			//Run update.
 			UpdateExecContext.Tick(SystemInstances[0]);
-			DataSetExecInfos[0].StartInstance = 0;
-			DataSetExecInfos.Emplace(&UpdateInstanceParameterDataSet, 0, false, false);
+			DataSetExecInfos[0] = FNiagaraDataSetExecutionInfo(&DataSet, 0, false, false);
+			DataSetExecInfos[1] = FNiagaraDataSetExecutionInfo(&UpdateInstanceParameterDataSet, 0, false, false);
 
 // 			if (GbDumpSystemData || System->bDumpDebugSystemInfo)
 // 			{
@@ -455,6 +467,7 @@ bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 			{
 				UE_LOG(LogNiagara, Log, TEXT("=== Updated %d Systems ==="), OrigNum);
 				DataSet.Dump(true, 0, OrigNum);
+				UpdateInstanceParameterDataSet.Dump(false, 0, OrigNum);
 			}
 
  			//Also run the update script on the newly spawned systems too.
@@ -466,8 +479,8 @@ bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 
 				//Run update.
 				UpdateExecContext.Tick(SystemInstances[0]);
-				DataSetExecInfos[0].StartInstance = OrigNum;
-				DataSetExecInfos[1].StartInstance = OrigNum;
+				DataSetExecInfos[0] = FNiagaraDataSetExecutionInfo(&DataSet, OrigNum, false, false);
+				DataSetExecInfos[1] = FNiagaraDataSetExecutionInfo(&UpdateInstanceParameterDataSet, OrigNum, false, false);
 
 				UpdateExecContext.Parameters.SetParameterValue(0.0001f, SYS_PARAM_ENGINE_DELTA_TIME);
 				UpdateExecContext.Parameters.SetParameterValue(10000.0f, SYS_PARAM_ENGINE_INV_DELTA_TIME);
@@ -478,6 +491,7 @@ bool FNiagaraSystemSimulation::Tick(float DeltaSeconds)
 				{
 					UE_LOG(LogNiagara, Log, TEXT("=== Spawn Updated %d Systems ==="), SpawnNum);
 					DataSet.Dump(true, OrigNum, SpawnNum);
+					UpdateInstanceParameterDataSet.Dump(false, OrigNum, SpawnNum);
 				}
 			}
 
@@ -673,6 +687,10 @@ void FNiagaraSystemSimulation::RemoveInstance(FNiagaraSystemInstance* Instance)
 			SystemInstances[SystemIndex]->SystemInstanceIndex = SystemIndex;
 		}
 	}
+
+#if NIAGARA_NAN_CHECKING
+	DataSet.CheckForNaNs();
+#endif
 }
 
 void FNiagaraSystemSimulation::AddInstance(FNiagaraSystemInstance* Instance)

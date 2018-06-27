@@ -1311,21 +1311,6 @@ namespace UnrealBuildTool
 						}
 					}
 					break;
-				case "renderdoc":
-					{
-						string RenderDocPath;
-						AndroidPlatformSDK.GetPath(Ini, "/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "RenderDocPath", out RenderDocPath);
-						if (Directory.Exists(RenderDocPath))
-						{
-							Directory.CreateDirectory(Path.Combine(UE4BuildPath, "libs", NDKArch));
-							string RenderDocLibSrcPath = Path.Combine(RenderDocPath, @"android\lib", NDKArch, "libVkLayer_GLES_RenderDoc.so");
-							string RenderDocLibDstPath = Path.Combine(UE4BuildPath, "libs", NDKArch, "libVkLayer_GLES_RenderDoc.so");
-
-							Log.TraceInformation("Copying {0} to {1}", RenderDocLibSrcPath, RenderDocLibDstPath);
-							File.Copy(RenderDocLibSrcPath, RenderDocLibDstPath, true);
-						}
-					}
-					break;
 
 				// @TODO: Add NVIDIA Gfx Debugger
 				/*
@@ -4079,16 +4064,6 @@ namespace UnrealBuildTool
 											"\t\tcatch (java.lang.UnsatisfiedLinkError e)\n" +
 											"\t\t{\n" +
 											"\t\t\tLog.debug(\"libMGD.so not loaded.\");\n" +
-											"\t\t}\n";
-					break;
-				case "renderdoc":
-					LoadLibraryDefaults += "\t\ttry\n" +
-											"\t\t{\n" +
-											"\t\t\tSystem.loadLibrary(\"VkLayer_GLES_RenderDoc\");\n" +
-											"\t\t}\n" +
-											"\t\tcatch (java.lang.UnsatisfiedLinkError e)\n" +
-											"\t\t{\n" +
-											"\t\t\tLog.debug(\"libVkLayer_GLES_RenderDoc.so not loaded.\");\n" +
 											"\t\t}\n";
 					break;
 			}

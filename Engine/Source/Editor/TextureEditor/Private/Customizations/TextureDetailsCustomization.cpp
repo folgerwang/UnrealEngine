@@ -76,6 +76,8 @@ void FTextureDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 		IDetailCategoryBuilder& TextureCategory = DetailBuilder.EditCategory("Texture");
 		IDetailPropertyRow& PowerOfTwoModePropertyRow = TextureCategory.AddProperty(GET_MEMBER_NAME_CHECKED(UTexture, PowerOfTwoMode));
 
+		PowerOfTwoModePropertyHandle->SetOnPropertyResetToDefault(FSimpleDelegate::CreateSP(this, &FTextureDetails::OnPropertyResetToDefault));
+
 		// Generate a list of enum values for the combo box
 		TArray<FText> PowerOfTwoModeComboBoxToolTips;
 		TArray<bool> RestrictedList;
@@ -229,6 +231,13 @@ void FTextureDetails::CreatePowerOfTwoModeMessage() const
 {
 	FMessageDialog::Open(EAppMsgType::Ok,
 						 LOCTEXT("CannotEditPowerOfTwoMode", "Power of Two Mode cannot be changed to None for this texture as it is a non power of two size and has a Maximum Texture Size override. Change the Maximum Texture Size to 0 before attempting to change the Power of Two Mode."));
+}
+
+void FTextureDetails::OnPropertyResetToDefault() const
+{
+	uint8 CurrentPowerOfTwoMode;
+	ensure(PowerOfTwoModePropertyHandle->GetValue(CurrentPowerOfTwoMode) == FPropertyAccess::Success);
+	TextComboBox->SetSelectedItem(PowerOfTwoModeComboBoxList[CurrentPowerOfTwoMode]);
 }
 
 void FTextureDetails::OnPowerOfTwoModeChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo)

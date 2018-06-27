@@ -267,10 +267,20 @@ void UMovieSceneNiagaraEmitterSection::UpdateSectionFromTimeRangeModule(const FF
 				*LengthBinder.GetInputName().ToString());
 			ModuleLength = 0;
 		}
+
+		FFrameNumber StartFrame = (ModuleStartTime * InTickResolution).RoundToFrame();
+		FFrameNumber EndFrame = ((ModuleStartTime + ModuleLength) * InTickResolution).RoundToFrame();
+		if (EndFrame < StartFrame)
+		{
+			// The frame value has overflowed and is negative so clamp to the max frame.
+			// TODO: Add ui support for this issue rather than a log error.
+			UE_LOG(LogNiagaraEditor, Error, TEXT("Invalid length in niagara editor timeline.  Bound Module: %s Bound Input: %s"),
+				LengthBinder.GetFunctionCallNode() != nullptr ? *LengthBinder.GetFunctionCallNode()->GetFunctionName() : TEXT("Unknown"),
+				*LengthBinder.GetInputName().ToString());
+			EndFrame.Value = TNumericLimits<int32>::Max();
+		}
 		
-		SetRange(TRange<FFrameNumber>(
-			(ModuleStartTime * InTickResolution).RoundToFrame(),
-			((ModuleStartTime + ModuleLength) * InTickResolution).RoundToFrame()));
+		SetRange(TRange<FFrameNumber>(StartFrame, EndFrame));
 	}
 	else
 	{
@@ -385,7 +395,7 @@ void UMovieSceneNiagaraEmitterSection::UpdateKeyModulesFromSection(FChannelAndMo
 	{
 		ChannelAndModules.ModulesAndBinders.RemoveAll(
 			[=](FModuleAndBinders& ModuleAndBinders) { return ModuleAndBinders.Module == ModuleWithMissingKey; });
-		FNiagaraStackGraphUtilities::RemoveModuleFromStack(*ModuleWithMissingKey);
+		FNiagaraStackGraphUtilities::RemoveModuleFromStack(GetSystemViewModel().GetSystem(), GetEmitterHandleViewModel()->GetId(), *ModuleWithMissingKey);
 	}
 
 	// Create new modules for new keys.

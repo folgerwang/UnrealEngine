@@ -564,21 +564,13 @@ void UNiagaraStackModuleItem::Delete()
 {
 	checkf(CanMoveAndDelete(), TEXT("This module can't be deleted"));
 
-	UNiagaraNodeOutput* OutputNode = FNiagaraStackGraphUtilities::GetEmitterOutputNodeForStackNode(*FunctionCallNode);
-	const FNiagaraEmitterHandle* EmitterHandle = FNiagaraEditorUtilities::GetEmitterHandleForEmitter(GetSystemViewModel()->GetSystem(), *GetEmitterViewModel()->GetEmitter());
-	checkf(OutputNode != nullptr && EmitterHandle != nullptr, TEXT("Invalid Stack - Output node or emitter handle could not be found for module"));
-
-	UNiagaraScript* OwningScript = FNiagaraEditorUtilities::GetScriptFromSystem(
-		GetSystemViewModel()->GetSystem(), EmitterHandle->GetId(), OutputNode->GetUsage(), OutputNode->GetUsageId());
-	checkf(OwningScript != nullptr, TEXT("Invalid Stack - Owning script could not be found for module"));
-
 	FScopedTransaction ScopedTransaction(LOCTEXT("RemoveAModuleFromTheStack", "Remove a module from the stack"));
 
-	// Modify the script so that any rapid iteration parameters in use are recorded.
-	OwningScript->Modify();
+	const FNiagaraEmitterHandle* EmitterHandle = FNiagaraEditorUtilities::GetEmitterHandleForEmitter(GetSystemViewModel()->GetSystem(), *GetEmitterViewModel()->GetEmitter());
+	checkf(EmitterHandle != nullptr, TEXT("Invalid Stack - Emitter handle could not be found for module"));
 
 	TArray<TWeakObjectPtr<UNiagaraNodeInput>> RemovedNodes;
-	bool bRemoved = FNiagaraStackGraphUtilities::RemoveModuleFromStack(*FunctionCallNode, RemovedNodes);
+	bool bRemoved = FNiagaraStackGraphUtilities::RemoveModuleFromStack(GetSystemViewModel()->GetSystem(), EmitterHandle->GetId(), *FunctionCallNode, RemovedNodes);
 	if (bRemoved)
 	{
 		UNiagaraGraph* Graph = FunctionCallNode->GetNiagaraGraph();

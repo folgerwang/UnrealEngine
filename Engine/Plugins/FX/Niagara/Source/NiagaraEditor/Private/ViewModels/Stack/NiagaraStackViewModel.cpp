@@ -36,6 +36,7 @@ void UNiagaraStackViewModel::Initialize(TSharedPtr<FNiagaraSystemViewModel> InSy
 		RootEntry->OnStructureChanged().RemoveAll(this);
 		RootEntry->OnDataObjectModified().RemoveAll(this);
 		RootEntry->OnRequestFullRefresh().RemoveAll(this);
+		RootEntry->OnRequestFullRefreshDeferred().RemoveAll(this);
 		RootEntries.Empty();
 		RootEntry->Finalize();
 		RootEntry = nullptr;
@@ -72,12 +73,14 @@ void UNiagaraStackViewModel::Initialize(TSharedPtr<FNiagaraSystemViewModel> InSy
 		RootEntry->OnStructureChanged().AddUObject(this, &UNiagaraStackViewModel::EntryStructureChanged);
 		RootEntry->OnDataObjectModified().AddUObject(this, &UNiagaraStackViewModel::EntryDataObjectModified);
 		RootEntry->OnRequestFullRefresh().AddUObject(this, &UNiagaraStackViewModel::EntryRequestFullRefresh);
+		RootEntry->OnRequestFullRefreshDeferred().AddUObject(this, &UNiagaraStackViewModel::EntryRequestFullRefreshDeferred);
 		RootEntries.Add(RootEntry);
 	}
 
 	CurrentFocusedSearchMatchIndex = -1;
 	StructureChangedDelegate.Broadcast();
 	bRestartSearch = false;
+	bRefreshPending = false;
 }
 
 void UNiagaraStackViewModel::Finalize()
@@ -95,6 +98,13 @@ void UNiagaraStackViewModel::Tick()
 {
 	if (RootEntry)
 	{
+		if (bRefreshPending)
+		{
+			RootEntry->RefreshChildren();
+			OnSearchTextChanged(CurrentSearchText);
+			bRefreshPending = false;
+		}
+
 		SearchTick();
 	}
 }
@@ -402,6 +412,11 @@ void UNiagaraStackViewModel::EntryRequestFullRefresh()
 {
 	checkf(RootEntry != nullptr, TEXT("Can not process full refresh when the root entry doesn't exist"));
 	RootEntry->RefreshChildren();
+}
+
+void UNiagaraStackViewModel::EntryRequestFullRefreshDeferred()
+{
+	bRefreshPending = true;
 }
 
 #undef LOCTEXT_NAMESPACE

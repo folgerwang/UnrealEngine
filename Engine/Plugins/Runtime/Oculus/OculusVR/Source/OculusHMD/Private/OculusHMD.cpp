@@ -2979,6 +2979,26 @@ namespace OculusHMD
 		return TransformWithPlayer;
 	}
 
+	ovrpVector3f FOculusHMD::WorldLocationToOculusPoint(const FVector& InUnrealPosition)
+	{
+		CheckInGameThread();
+		FQuat AdjustedPlayerOrientation = GetBaseOrientation().Inverse() * LastPlayerOrientation;
+		AdjustedPlayerOrientation.Normalize();
+
+		FVector AdjustedPlayerLocation = LastPlayerLocation;
+		if (GetXRCamera(HMDDeviceId)->GetUseImplicitHMDPosition())
+		{
+			FQuat HeadOrientation = FQuat::Identity; // Unused
+			FVector HeadPosition;
+			GetCurrentPose(HMDDeviceId, HeadOrientation, HeadPosition);
+			AdjustedPlayerLocation -= LastPlayerOrientation.Inverse().RotateVector(HeadPosition);
+		}
+		const FTransform InvWorldTransform = FTransform(AdjustedPlayerOrientation, AdjustedPlayerLocation).Inverse();
+		const FVector ConvertedPosition = InvWorldTransform.TransformPosition(InUnrealPosition) / GetWorldToMetersScale();
+
+		return ToOvrpVector3f(ConvertedPosition);
+	}
+
 
 	float FOculusHMD::ConvertFloat_M2U(float OculusFloat) const
 	{

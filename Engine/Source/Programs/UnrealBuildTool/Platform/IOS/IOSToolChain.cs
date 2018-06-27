@@ -708,12 +708,6 @@ namespace UnrealBuildTool
 					// Compile the file as C code.
 					FileArguments += GetCompileArguments_C();
 				}
-				else if (Extension == ".CC")
-				{
-					// Compile the file as C++ code.
-					FileArguments += GetCompileArguments_CPP();
-					FileArguments += GetRTTIFlag(CompileEnvironment);
-				}
 				else if (Extension == ".MM")
 				{
 					// Compile the file as Objective-C++ code.
@@ -1184,7 +1178,7 @@ namespace UnrealBuildTool
             }
 
             GenDebugAction.CommandPath = "sh";
-            GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{1}\"; dwarfdump --uuid {3} | cut -d\" \" -f2; chmod 777 ./DsymExporter; ./DsymExporter -UUID=$(dwarfdump --uuid {3} | cut -d\" \" -f2) \"{0}\" \"{2}\"'",
+            GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{1}\"; dwarfdump --uuid \"{3}\" | cut -d\" \" -f2; chmod 777 ./DsymExporter; ./DsymExporter -UUID=$(dwarfdump --uuid \"{3}\" | cut -d\" \" -f2) \"{0}\" \"{2}\"'",
                     DWARFOutFile.AbsolutePath,
                     DestFile.AbsolutePath,
                     Path.GetDirectoryName(DestFile.AbsolutePath),

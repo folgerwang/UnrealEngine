@@ -1996,6 +1996,11 @@ void FStaticMeshEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyC
 	if(StaticMesh && StaticMesh->BodySetup)
 	{
 		StaticMesh->BodySetup->CreatePhysicsMeshes();
+
+		if (GET_MEMBER_NAME_CHECKED(UStaticMesh, LODGroup) == PropertyChangedEvent.GetPropertyName())
+		{
+			RefreshTool();
+		}
 	}
 }
 

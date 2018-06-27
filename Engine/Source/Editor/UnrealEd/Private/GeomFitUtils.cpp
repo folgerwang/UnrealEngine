@@ -202,12 +202,12 @@ static void CalcBoundingBox(const FRawMesh& RawMesh, FVector& Center, FVector& E
 	Box.GetCenterAndExtents(Center, Extents);
 }
 
-static void CalcBoundingBox(const UMeshDescription* MeshDescription, FVector& Center, FVector& Extents, FVector& LimitVec)
+static void CalcBoundingBox(const FMeshDescription& MeshDescription, FVector& Center, FVector& Extents, FVector& LimitVec)
 {
-	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
 
 	FBox Box(ForceInit);
-	for (const FVertexID VertexID : MeshDescription->Vertices().GetElementIDs())
+	for (const FVertexID VertexID : MeshDescription.Vertices().GetElementIDs())
 	{
 		Box += VertexPositions[VertexID] * LimitVec;
 	}
@@ -219,9 +219,9 @@ void ComputeBoundingBox(UStaticMesh* StaticMesh, FVector& Center, FVector& Exten
 	// Calculate bounding Box.
 	
 	FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[0];
-	UMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
+	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
 	FVector unitVec = FVector(1.f);
-	CalcBoundingBox(MeshDescription, Center, Extents, unitVec);
+	CalcBoundingBox(*MeshDescription, Center, Extents, unitVec);
 }
 
 int32 GenerateBoxAsSimpleCollision(UStaticMesh* StaticMesh)
@@ -234,14 +234,12 @@ int32 GenerateBoxAsSimpleCollision(UStaticMesh* StaticMesh)
 	UBodySetup* bs = StaticMesh->BodySetup;
 
 	// Calculate bounding Box.
-	FRawMesh RawMesh;
-	UMeshDescription* MeshDescription = nullptr;
 	FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels[0];
 	
 	FVector unitVec = bs->BuildScale3D;
 	FVector Center, Extents;
-	MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
-	CalcBoundingBox(MeshDescription, Center, Extents, unitVec);
+	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
+	CalcBoundingBox(*MeshDescription, Center, Extents, unitVec);
 	bs->Modify();
 
 	// Create new GUID
@@ -393,19 +391,19 @@ static void CalcBoundingSphere2(const FRawMesh& RawMesh, FSphere& sphere, FVecto
 	sphere.W = FMath::Sqrt(sphere.W);
 }
 
-static void CalcBoundingSphere(const UMeshDescription* MeshDescription, FSphere& sphere, FVector& LimitVec)
+static void CalcBoundingSphere(const FMeshDescription& MeshDescription, FSphere& sphere, FVector& LimitVec)
 {
-	if (MeshDescription->Vertices().Num() == 0)
+	if (MeshDescription.Vertices().Num() == 0)
 		return;
 
 	FBox Box;
 	FVector MinIx[3];
 	FVector MaxIx[3];
 
-	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
 
 	bool bFirstVertex = true;
-	for (const FVertexID VertexID : MeshDescription->Vertices().GetElementIDs())
+	for (const FVertexID VertexID : MeshDescription.Vertices().GetElementIDs())
 	{
 		FVector p = VertexPositions[VertexID] * LimitVec;
 		if (bFirstVertex)
@@ -486,7 +484,7 @@ static void CalcBoundingSphere(const UMeshDescription* MeshDescription, FSphere&
 	float r2 = FMath::Square(r);
 
 	// Now check each point lies within this sphere. If not - expand it a bit.
-	for (const FVertexID VertexID : MeshDescription->Vertices().GetElementIDs())
+	for (const FVertexID VertexID : MeshDescription.Vertices().GetElementIDs())
 	{
 		const FVector cToP = (VertexPositions[VertexID] * LimitVec) - sphere.Center;
 
@@ -509,7 +507,7 @@ static void CalcBoundingSphere(const UMeshDescription* MeshDescription, FSphere&
 
 // This is the one thats already used by unreal.
 // Seems to do better with more symmetric input...
-static void CalcBoundingSphere2(const UMeshDescription* MeshDescription, FSphere& sphere, FVector& LimitVec)
+static void CalcBoundingSphere2(const FMeshDescription& MeshDescription, FSphere& sphere, FVector& LimitVec)
 {
 	FVector Center, Extents;
 	CalcBoundingBox(MeshDescription, Center, Extents, LimitVec);
@@ -517,9 +515,9 @@ static void CalcBoundingSphere2(const UMeshDescription* MeshDescription, FSphere
 	sphere.Center = Center;
 	sphere.W = 0.0f;
 
-	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
 
-	for (const FVertexID VertexID : MeshDescription->Vertices().GetElementIDs())
+	for (const FVertexID VertexID : MeshDescription.Vertices().GetElementIDs())
 	{
 		float Dist = FVector::DistSquared(VertexPositions[VertexID] * LimitVec, sphere.Center);
 		if (Dist > sphere.W)
@@ -542,9 +540,9 @@ int32 GenerateSphereAsSimpleCollision(UStaticMesh* StaticMesh)
 	FVector unitVec = bs->BuildScale3D;
 
 	// Calculate bounding sphere.
-	UMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
-	CalcBoundingSphere(MeshDescription, bSphere, unitVec);
-	CalcBoundingSphere2(MeshDescription, bSphere2, unitVec);
+	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
+	CalcBoundingSphere(*MeshDescription, bSphere, unitVec);
+	CalcBoundingSphere2(*MeshDescription, bSphere2, unitVec);
 
 	if(bSphere.W < bSphere2.W)
 		bestSphere = bSphere;
@@ -580,9 +578,9 @@ int32 GenerateSphereAsSimpleCollision(UStaticMesh* StaticMesh)
 
 /* ******************************** SPHYL ******************************** */
 
-static void CalcBoundingSphyl(const UMeshDescription* MeshDescription, FSphere& sphere, float& length, FRotator& rotation, FVector& LimitVec)
+static void CalcBoundingSphyl(const FMeshDescription& MeshDescription, FSphere& sphere, float& length, FRotator& rotation, FVector& LimitVec)
 {
-	if (MeshDescription->Vertices().Num() == 0)
+	if (MeshDescription.Vertices().Num() == 0)
 		return;
 
 	FVector Center, Extents;
@@ -613,10 +611,10 @@ static void CalcBoundingSphyl(const UMeshDescription* MeshDescription, FSphere& 
 	float r = Extents.GetMax();
 	float r2 = FMath::Square(r);
 	
-	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
 
 	// Now check each point lies within this the radius. If not - expand it a bit.
-	for (const FVertexID VertexID : MeshDescription->Vertices().GetElementIDs())
+	for (const FVertexID VertexID : MeshDescription.Vertices().GetElementIDs())
 	{
 		FVector cToP = (VertexPositions[VertexID] * LimitVec) - sphere.Center;
 		cToP = rotation.UnrotateVector(cToP);
@@ -637,7 +635,7 @@ static void CalcBoundingSphyl(const UMeshDescription* MeshDescription, FSphere& 
 	float hl = FMath::Max(0.0f, Extent - r);
 
 	// Now check each point lies within the length. If not - expand it a bit.
-	for (const FVertexID VertexID : MeshDescription->Vertices().GetElementIDs())
+	for (const FVertexID VertexID : MeshDescription.Vertices().GetElementIDs())
 	{
 		FVector cToP = (VertexPositions[VertexID] * LimitVec) - sphere.Center;
 		cToP = rotation.UnrotateVector(cToP);
@@ -767,8 +765,8 @@ int32 GenerateSphylAsSimpleCollision(UStaticMesh* StaticMesh)
 	FVector unitVec = bs->BuildScale3D;
 
 	// Calculate bounding box.
-	UMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
-	CalcBoundingSphyl(MeshDescription, sphere, length, rotation, unitVec);
+	FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(0);
+	CalcBoundingSphyl(*MeshDescription, sphere, length, rotation, unitVec);
 
 	// Dont use if radius is zero.
 	if (sphere.W <= 0.f)

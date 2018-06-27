@@ -28,8 +28,8 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogBlueprintSupport, Log, All);
 
-// Flag to enable the new BlueprintCompilationManager:
-COREUOBJECT_API bool GBlueprintUseCompilationManager = false;
+// Flag to enable the BlueprintCompilationManager:
+COREUOBJECT_API bool GBlueprintUseCompilationManager = true;
 
 const FName FBlueprintTags::GeneratedClassPath(TEXT("GeneratedClass"));
 const FName FBlueprintTags::ParentClassPath(TEXT("ParentClass"));
@@ -120,7 +120,22 @@ void FBlueprintSupport::InitializeCompilationManager()
 {
 	// 'real' initialization is done lazily because we're in a pretty tough
 	// spot in terms of dependencies:
-	GConfig->GetBool(TEXT("/Script/UnrealEd.BlueprintEditorProjectSettings"), TEXT("bUseCompilationManager"), GBlueprintUseCompilationManager, GEditorIni);
+	bool bCompilationManagerDisabled = false;
+	bool bCompilationManagerEnabled = true;
+	GConfig->GetBool(TEXT("/Script/UnrealEd.BlueprintEditorProjectSettings"), TEXT("bUseCompilationManager"), bCompilationManagerEnabled, GEditorIni);
+	GConfig->GetBool(TEXT("/Script/UnrealEd.BlueprintEditorProjectSettings"), TEXT("bDisableCompilationManager"), bCompilationManagerDisabled, GEditorIni);
+	if (bCompilationManagerDisabled)
+	{
+		GBlueprintUseCompilationManager = false;
+	}
+	else if(!bCompilationManagerEnabled)
+	{
+		UE_LOG(LogScript, Warning,
+			TEXT("Warning: Compilation manager enabled, compilation manager will be mandatory in 4.21. \
+				Use bDisableCompilationManager to disable the compilation manager as a last resort or remove \
+				bUseCompilationManager from project .ini to fix this warning.")
+		);
+	}
 }
 
 static FFlushReinstancingQueueFPtr FlushReinstancingQueueFPtr = nullptr;
@@ -261,6 +276,21 @@ bool FBlueprintSupport::ShouldTreatWarningAsError(FName WarningIdentifier)
 bool FBlueprintSupport::ShouldSuppressWarning(FName WarningIdentifier)
 {
 	return BlueprintWarningsToSuppress.Find(WarningIdentifier) != nullptr;
+}
+
+bool FBlueprintSupport::IsClassPlaceholder(UClass* Class)
+{
+	while (Class)
+	{
+		if (Cast<ULinkerPlaceholderClass>(Class))
+		{
+			return true;
+		}
+
+		Class = Class->GetSuperClass();
+	}
+
+	return false;
 }
 
 #if WITH_EDITOR

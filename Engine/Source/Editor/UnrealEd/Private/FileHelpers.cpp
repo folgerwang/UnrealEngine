@@ -393,7 +393,11 @@ FString FEditorFileUtils::GetFilterString(EFileInteraction Interaction)
 			{
 				if (Class->IsChildOf<USceneImportFactory>())
 				{
-					Factories.Add(Class->GetDefaultObject<UFactory>());
+					UFactory* Factory = Class->GetDefaultObject<UFactory>();
+					if (Factory->bEditorImport)
+					{
+						Factories.Add(Factory);
+					}
 				}
 
 			}

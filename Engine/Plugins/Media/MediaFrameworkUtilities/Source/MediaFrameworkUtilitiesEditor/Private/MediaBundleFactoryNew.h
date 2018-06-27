@@ -12,8 +12,6 @@
 
 #include "MediaBundleFactoryNew.generated.h"
 
-class UMaterial;
-
 /**
  * Implements a factory for UMediaPlayer objects.
  */
@@ -28,13 +26,6 @@ public:
 	virtual uint32 GetMenuCategories() const override;
 	virtual bool ShouldShowInNewMenu() const override;
 	//~ End UFactory Interface	
-
-private:
-	UPROPERTY(transient)
-	UMaterial* DefaultMaterial;
-
-	UPROPERTY(transient)
-	TSubclassOf<AMediaBundleActorBase> DefaultActorClass;
 };
 
 UCLASS(MinimalAPI, config=Editor, collapseCategories, hideCategories=Object)

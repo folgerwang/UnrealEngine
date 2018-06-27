@@ -29,7 +29,7 @@ class UGameplayTasksComponent;
  *	The main features provided by the AbilitySystem for GameplayAbilities are: 
  *		-CanUse functionality:
  *			-Cooldowns
- *			-Resources (mana, stamina, etc)
+ *			-Costs (mana, stamina, etc)
  *			-etc
  *			
  *		-Replication support
@@ -37,34 +37,24 @@ class UGameplayTasksComponent;
  *			-Client prediction for ability activation
  *			
  *		-Instancing support
- *			-Abilities can be non-instanced (default)
+ *			-Abilities can be non-instanced (native only)
  *			-Instanced per owner
- *			-Instanced per execution
+ *			-Instanced per execution (default)
  *			
  *		-Basic, extendable support for:
  *			-Input binding
  *			-'Giving' abilities (that can be used) to actors
  *	
- *	
- *	The intention is for programmers to create these non instanced abilities in C++. Designers can then
- *	extend them as data assets (E.g., they can change default properties, they cannot implement blueprint graphs).
- *	
- *	See GameplayAbility_Montage for example.
+ *
+ *	See GameplayAbility_Montage for an example of a non-instanced ability
  *		-Plays a montage and applies a GameplayEffect to its target while the montage is playing.
  *		-When finished, removes GameplayEffect.
- *		
  *	
  *	Note on replication support:
  *		-Non instanced abilities have limited replication support. 
  *			-Cannot have state (obviously) so no replicated properties
  *			-RPCs on the ability class are not possible either.
  *			
- *			-However: generic RPC functionality can be achieved through the UAbilitySystemAttribute.
- *				-E.g.: ServerTryActivateAbility(class UGameplayAbility* AbilityToActivate, int32 PredictionKey)
- *				
- *	A lot is possible with non instanced abilities but care must be taken.
- *	
- *	
  *	To support state or event replication, an ability must be instanced. This can be done with the InstancingPolicy property.
  */
 
@@ -120,14 +110,13 @@ public:
 	//		TryActivateAbility()	- Attempts to activate the ability. Calls CanActivateAbility(). Input events can call this directly.
 	//								- Also handles instancing-per-execution logic and replication/prediction calls.
 	//		
-	//		CallActivate()			- Protected, non virtual function. Does some boilerplate 'pre activate' stuff, then calls Activate()
+	//		CallActivateAbility()	- Protected, non virtual function. Does some boilerplate 'pre activate' stuff, then calls ActivateAbility()
 	//
-	//		Activate()				- What the abilities *does*. This is what child classes want to override.
+	//		ActivateAbility()		- What the abilities *does*. This is what child classes want to override.
 	//	
-	//		Commit()				- Commits reources/cooldowns etc. Activate() must call this!
+	//		CommitAbility()			- Commits reources/cooldowns etc. ActivateAbility() must call this!
 	//		
 	//		CancelAbility()			- Interrupts the ability (from an outside source).
-	//									-We may want to add some info on what/who cancelled.
 	//
 	//		EndAbility()			- The ability has ended. This is intended to be called by the ability to end itself.
 	//	
@@ -859,7 +848,6 @@ protected:
 
 	/** Decreases the scope lock count. Runs the waiting to execute delegates if the count drops to zero. */
 	void DecrementListLock() const;
-
 
 public:
 	/** Setter for the bMarkPendingKillOnAbilityEnd */

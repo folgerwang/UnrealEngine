@@ -50,6 +50,7 @@ public:
 
 		static FName NAME_PCD3D_SM5(TEXT("PCD3D_SM5"));
 		static FName NAME_PCD3D_SM4(TEXT("PCD3D_SM4"));
+		static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
 
 		bSupportDX11TextureFormats = true;
 		bSupportCompressedVolumeTexture = true;
@@ -67,10 +68,14 @@ public:
 				{
 					ShaderPlatform = SP_PCD3D_SM4;
 				}
+				else if (TargetedShaderFormat == NAME_VULKAN_SM5)
+				{
+					ShaderPlatform = SP_VULKAN_SM5;
+				}
 			}
 
 			// If we're targeting only DX11 we can use DX11 texture formats. Otherwise we'd have to compress fallbacks and increase the size of cooked content significantly.
-			if (ShaderPlatform != SP_PCD3D_SM5)
+			if (ShaderPlatform != SP_PCD3D_SM5 && ShaderPlatform != SP_VULKAN_SM5)
 			{
 				bSupportDX11TextureFormats = false;
 			}
