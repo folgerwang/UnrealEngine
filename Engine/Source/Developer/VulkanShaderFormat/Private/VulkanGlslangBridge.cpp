@@ -248,7 +248,7 @@ static void ComputeMovableWordIndices(FSpirv& Spirv)
 		{
 			uint32 Result = Ptr[1];
 			spv::StorageClass Storage = (spv::StorageClass)Ptr[2];
-			if (Storage == spv::StorageClassUniform || spv::StorageClassUniformConstant)
+			if (Storage == spv::StorageClassUniform || Storage == spv::StorageClassUniformConstant)
 			{
 				uint32 Type = Ptr[3];
 				TypePointerUniforms.Add(Result, Type);
