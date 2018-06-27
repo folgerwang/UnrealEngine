@@ -245,7 +245,7 @@ public:
 			// if >0 this will disable shader's RGBM decoding and enable sky light tinting of this envmap.
 			FTexture* ReflectionTexture;
 			float AverageBrightness = 1.0f;
-			FVector4 MobileSkyReflectionValues;
+			FVector4 MobileSkyReflectionValues(ForceInit);
 			GetSkyTextureParams(RenderScene, AverageBrightness, ReflectionTexture, MobileSkyReflectionValues.X);
 			FRHIPixelShader* PixelShader = GetPixelShader();
 			// Set the reflection cubemap
@@ -322,7 +322,7 @@ public:
 		{
 			FTexture* ReflectionTexture = GBlackTextureCube;
 			float AverageBrightness = 1.0f;
-			FVector4 MobileSkyReflectionValues;
+			FVector4 MobileSkyReflectionValues(ForceInit);
 
 			if (PrimitiveSceneInfo 
 				&& PrimitiveSceneInfo->CachedReflectionCaptureProxy
