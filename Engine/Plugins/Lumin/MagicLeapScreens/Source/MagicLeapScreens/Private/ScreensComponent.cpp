@@ -9,6 +9,7 @@
 #include "Containers/Array.h"
 #include "RenderUtils.h"
 #include "MagicLeapPluginUtil.h"
+#include "IMagicLeapPlugin.h"
 #include "MagicLeapHMD.h"
 #include "MagicLeapUtils.h"
 #include "IMagicLeapScreensPlugin.h"
@@ -79,6 +80,8 @@ enum ScreensTaskType
 {
 	None,
 	GetHistory,
+	AddToHistory,
+	UpdateEntry,
 };
 
 struct FScreensMessage
@@ -182,7 +185,95 @@ public:
 		{
 		case ScreensTaskType::None: break;
 		case ScreensTaskType::GetHistory: GetWatchHistory(); break;
+		case ScreensTaskType::AddToHistory: AddToHistory();  break;
+		case ScreensTaskType::UpdateEntry: UpdateWatchHistoryEntry(); break;
 		}
+	}
+
+	void AddToHistory()
+	{
+#if WITH_MLSDK
+		check(CurrentMessage.WatchHistory.Num() != 0);
+		FScreensWatchHistoryEntry WatchHistoryEntry = CurrentMessage.WatchHistory[0];
+		FScreensMessage Msg;
+		Msg.Type = ScreensMsgType::Response;
+		Msg.TaskType = ScreensTaskType::AddToHistory;
+
+		MLScreensWatchHistoryEntry Entry;
+		Entry.id = WatchHistoryEntry.ID.ID;
+		Entry.title = TCHAR_TO_UTF8(*WatchHistoryEntry.Title);
+		Entry.subtitle = TCHAR_TO_UTF8(*WatchHistoryEntry.Subtitle);
+		Entry.playback_position_ms = static_cast<uint32>(WatchHistoryEntry.PlaybackPosition.GetTotalMilliseconds());
+		Entry.playback_duration_ms = static_cast<uint32>(WatchHistoryEntry.PlaybackDuration.GetTotalMilliseconds());
+		Entry.custom_data = TCHAR_TO_UTF8(*WatchHistoryEntry.CustomData);
+		MLImage MLThumbnail;
+
+		if (!WatchHistoryEntry.Thumbnail ||
+			!IsSupportedFormat(WatchHistoryEntry.Thumbnail->GetPixelFormat()) ||
+			!UTexture2DToMLImage(*WatchHistoryEntry.Thumbnail, MLThumbnail))
+		{
+			MLThumbnail = DefaultThumbnail;
+		}
+
+		MLResult Result = MLScreensInsertWatchHistoryEntry(&Entry, &MLThumbnail);
+		if (Result != MLResult_Ok)
+		{
+			UE_LOG(LogScreens, Error, TEXT("MLScreensInsertWatchHistoryEntry failed with error %d!"), Result);
+			Msg.WatchHistory.Add(WatchHistoryEntry);
+		}
+		else
+		{
+			FScreensWatchHistoryEntry NewEntry;
+			MLWatchHistoryEntryToUnreal(Entry, NewEntry);
+			Msg.WatchHistory.Add(NewEntry);
+			Msg.bSuccess = true;
+		}
+
+		OutgoingMessages.Enqueue(Msg);
+#endif // WITH_MLSDK
+	}
+
+	void UpdateWatchHistoryEntry()
+	{
+#if WITH_MLSDK
+		check(CurrentMessage.WatchHistory.Num() != 0);
+		FScreensWatchHistoryEntry WatchHistoryEntry = CurrentMessage.WatchHistory[0];
+		FScreensMessage Msg;
+		Msg.Type = ScreensMsgType::Response;
+		Msg.TaskType = ScreensTaskType::UpdateEntry;
+		MLScreensWatchHistoryEntry Entry;
+
+		Entry.id = WatchHistoryEntry.ID.ID;
+		Entry.title = TCHAR_TO_UTF8(*WatchHistoryEntry.Title);
+		Entry.subtitle = TCHAR_TO_UTF8(*WatchHistoryEntry.Subtitle);
+		Entry.playback_position_ms = static_cast<uint32>(WatchHistoryEntry.PlaybackPosition.GetTotalMilliseconds());
+		Entry.playback_duration_ms = static_cast<uint32>(WatchHistoryEntry.PlaybackDuration.GetTotalMilliseconds());
+		Entry.custom_data = TCHAR_TO_UTF8(*WatchHistoryEntry.CustomData);
+		MLImage MLThumbnail;
+
+		if (!WatchHistoryEntry.Thumbnail ||
+			!IsSupportedFormat(WatchHistoryEntry.Thumbnail->GetPixelFormat()) ||
+			!UTexture2DToMLImage(*WatchHistoryEntry.Thumbnail, MLThumbnail))
+		{
+			MLThumbnail = DefaultThumbnail;
+		}
+
+		MLResult Result = MLScreensUpdateWatchHistoryEntry(&Entry, &MLThumbnail);
+		if (Result != MLResult_Ok)
+		{
+			UE_LOG(LogScreens, Error, TEXT("MLScreensUpdateWatchHistoryEntry failed with error %d!"), Result);
+			Msg.WatchHistory.Add(WatchHistoryEntry);
+		}
+		else
+		{
+			FScreensWatchHistoryEntry UpdatedEntry;
+			MLWatchHistoryEntryToUnreal(Entry, UpdatedEntry);
+			Msg.WatchHistory.Add(UpdatedEntry);
+			Msg.bSuccess = true;
+		}
+
+		OutgoingMessages.Enqueue(Msg);
+#endif // WITH_MLSDK
 	}
 
 	void GetWatchHistory()
@@ -193,7 +284,8 @@ public:
 		Msg.TaskType = ScreensTaskType::GetHistory;
 		MLScreensWatchHistoryList WatchHistoryList;
 
-		if (MLScreensGetWatchHistoryList(&WatchHistoryList))
+		MLResult Result = MLScreensGetWatchHistoryList(&WatchHistoryList);
+		if (Result == MLResult_Ok)
 		{
 			for (uint32 i = 0; i < WatchHistoryList.count; ++i)
 			{
@@ -201,12 +293,16 @@ public:
 				MLWatchHistoryEntryToUnreal(WatchHistoryList.entries[i], WatchHistoryEntry);
 				Msg.WatchHistory.Add(WatchHistoryEntry);
 			}
-			MLScreensReleaseWatchHistoryList(&WatchHistoryList);
+			Result = MLScreensReleaseWatchHistoryList(&WatchHistoryList);
+			if (Result != MLResult_Ok)
+			{
+				UE_LOG(LogScreens, Error, TEXT("MLScreensReleaseWatchHistoryList failed with error %d!"), Result);
+			}
 			Msg.bSuccess = true;
 		}
 		else
 		{
-			UE_LOG(LogScreens, Error, TEXT("MLScreensGetWatchHistoryList failed!"));
+			UE_LOG(LogScreens, Error, TEXT("MLScreensGetWatchHistoryList failed with error %d!"), Result);
 		}
 
 		OutgoingMessages.Enqueue(Msg);
@@ -243,10 +339,10 @@ public:
 		OutEntry.CustomData = FString(UTF8_TO_TCHAR(InEntry.custom_data));
 
 		MLImage MLThumbnail;
-
-		if (!MLScreensGetWatchHistoryThumbnail(InEntry.id, &MLThumbnail))
+		MLResult Result = MLScreensGetWatchHistoryThumbnail(InEntry.id, &MLThumbnail);
+		if (Result != MLResult_Ok)
 		{
-			UE_LOG(LogScreens, Error, TEXT("Failed to get thumbnail for screen ID %u"), (uint32)InEntry.id);
+			UE_LOG(LogScreens, Error, TEXT("MLScreensGetWatchHistoryThumbnail failed for screen ID %u with error %d!"), (uint32)InEntry.id, Result);
 			MLThumbnail = DefaultThumbnail;
 		}
 
@@ -322,7 +418,6 @@ public:
 
 UScreensComponent::UScreensComponent()
 	: Impl(new FScreensImpl())
-	, bWorkerBusy(false)
 {
 	PrimaryComponentTick.TickGroup = TG_PrePhysics;
 	PrimaryComponentTick.bStartWithTickEnabled = true;
@@ -359,7 +454,6 @@ void UScreensComponent::TickComponent(float DeltaTime, enum ELevelTick TickType,
 	{
 		FScreensMessage Msg;
 		Impl->OutgoingMessages.Dequeue(Msg);
-		bWorkerBusy = false;
 
 		if (Msg.Type == ScreensMsgType::Request)
 		{
@@ -382,100 +476,69 @@ void UScreensComponent::TickComponent(float DeltaTime, enum ELevelTick TickType,
 				}
 			}
 			break;
+			case ScreensTaskType::AddToHistory:
+			{
+				if (Msg.WatchHistory.Num() > 0)
+				{
+					FScreensWatchHistoryEntry Entry = Msg.WatchHistory[0];
+					AddToWatchHistoryResult.Broadcast(Entry, Msg.bSuccess);
+				}
+				else
+				{
+					UE_LOG(LogScreens, Error, TEXT("Unexpected empty watch history in an AddToHistory response from the worker thread"));
+				}
+			}
+			break;
+			case ScreensTaskType::UpdateEntry:
+			{
+				if (Msg.WatchHistory.Num() > 0)
+				{
+					FScreensWatchHistoryEntry Entry = Msg.WatchHistory[0];
+					UpdateWatchHistoryEntryResult.Broadcast(Entry, Msg.bSuccess);
+				}
+				else
+				{
+					UE_LOG(LogScreens, Error, TEXT("Unexpected empty watch history in an UpdateEntry response from the worker thread"));
+				}
+			}
+			break;
 			}
 		}
 	}
 }
 
-UScreensComponent::FScreensGetWatchHistorySuccess& UScreensComponent::OnScreensGetWatchHistorySuccess()
+void UScreensComponent::GetWatchHistoryAsync()
 {
-	return GetWatchHistorySuccess;
+	FScreensMessage Msg;
+	Msg.Type = ScreensMsgType::Request;
+	Msg.TaskType = ScreensTaskType::GetHistory;
+	Impl->ProcessMessage(Msg);
 }
 
-UScreensComponent::FScreensGetWatchHistoryFailure& UScreensComponent::OnScreensGetWatchHistoryFailure()
+void UScreensComponent::AddWatchHistoryEntryAsync(const FScreensWatchHistoryEntry WatchHistoryEntry)
 {
-	return GetWatchHistoryFailure;
+	FScreensMessage Msg;
+	Msg.Type = ScreensMsgType::Request;
+	Msg.TaskType = ScreensTaskType::AddToHistory;
+	Msg.WatchHistory.Add(WatchHistoryEntry);
+	Impl->ProcessMessage(Msg);
 }
 
-bool UScreensComponent::GetWatchHistoryAsync()
+void UScreensComponent::UpdateWatchHistoryEntryAsync(const FScreensWatchHistoryEntry WatchHistoryEntry)
 {
-	if (!bWorkerBusy)
-	{
-		bWorkerBusy = true;
-		FScreensMessage Msg;
-		Msg.Type = ScreensMsgType::Request;
-		Msg.TaskType = ScreensTaskType::GetHistory;
-		Impl->ProcessMessage(Msg);
-		return true;
-	}
-
-	UE_LOG(LogScreens, Warning, TEXT("Worker thread is already busy!"));
-	return false;
-}
-
-bool UScreensComponent::AddWatchHistoryEntry(const FScreensWatchHistoryEntry& WatchHistoryEntry, FScreenID& ID)
-{
-#if WITH_MLSDK
-	MLScreensWatchHistoryEntry Entry;
-	Entry.id = WatchHistoryEntry.ID.ID;
-	Entry.title = TCHAR_TO_UTF8(*WatchHistoryEntry.Title);
-	Entry.subtitle = TCHAR_TO_UTF8(*WatchHistoryEntry.Subtitle);
-	Entry.playback_position_ms = static_cast<uint32>(WatchHistoryEntry.PlaybackPosition.GetTotalMilliseconds());
-	Entry.playback_duration_ms = static_cast<uint32>(WatchHistoryEntry.PlaybackDuration.GetTotalMilliseconds());
-	Entry.custom_data = TCHAR_TO_UTF8(*WatchHistoryEntry.CustomData);
-	MLImage MLThumbnail;
-
-	if (!WatchHistoryEntry.Thumbnail ||
-		!Impl->IsSupportedFormat(WatchHistoryEntry.Thumbnail->GetPixelFormat()) ||
-		!Impl->UTexture2DToMLImage(*WatchHistoryEntry.Thumbnail, MLThumbnail))
-	{
-		MLThumbnail = Impl->DefaultThumbnail;
-	}
-
-	if (MLScreensInsertWatchHistoryEntry(&Entry, &MLThumbnail))
-	{
-		ID.ID = Entry.id;
-		return true;
-	}
-
-	UE_LOG(LogScreens, Error, TEXT("MLScreensInsertWatchHistoryEntry failed!"));
-#endif //WITH_MLSDK
-	return false;
-}
-
-bool UScreensComponent::UpdateWatchHistoryEntry(const FScreensWatchHistoryEntry& WatchHistoryEntry)
-{
-#if WITH_MLSDK
-	MLScreensWatchHistoryEntry Entry;
-	Entry.id = WatchHistoryEntry.ID.ID;
-	Entry.title = TCHAR_TO_UTF8(*WatchHistoryEntry.Title);
-	Entry.subtitle = TCHAR_TO_UTF8(*WatchHistoryEntry.Subtitle);
-	Entry.playback_position_ms = static_cast<uint32>(WatchHistoryEntry.PlaybackPosition.GetTotalMilliseconds());
-	Entry.playback_duration_ms = static_cast<uint32>(WatchHistoryEntry.PlaybackDuration.GetTotalMilliseconds());
-	Entry.custom_data = TCHAR_TO_UTF8(*WatchHistoryEntry.CustomData);
-	MLImage MLThumbnail;
-
-	if (!WatchHistoryEntry.Thumbnail ||
-		!Impl->IsSupportedFormat(WatchHistoryEntry.Thumbnail->GetPixelFormat()) ||
-		!Impl->UTexture2DToMLImage(*WatchHistoryEntry.Thumbnail, MLThumbnail))
-	{
-		MLThumbnail = Impl->DefaultThumbnail;
-	}
-
-	if (MLScreensUpdateWatchHistoryEntry(&Entry, &MLThumbnail))
-	{
-		return true;
-	}
-
-	UE_LOG(LogScreens, Error, TEXT("MLScreensUpdateWatchHistoryEntry failed!"));
-#endif //WITH_MLSDK
-	return false;
+	FScreensMessage Msg;
+	Msg.Type = ScreensMsgType::Request;
+	Msg.TaskType = ScreensTaskType::UpdateEntry;
+	Msg.WatchHistory.Add(WatchHistoryEntry);
+	Impl->ProcessMessage(Msg);
 }
 
 bool UScreensComponent::RemoveWatchHistoryEntry(const FScreenID& ID)
 {
 #if WITH_MLSDK
-	return MLScreensRemoveWatchHistoryEntry(ID.ID);
+	MLResult Result = MLScreensRemoveWatchHistoryEntry(ID.ID);
+	UE_CLOG(Result != MLResult_Ok, LogScreens, Error, TEXT("MLScreensRemoveWatchHistoryEntry failed with error %d for entry with id %d!"), Result, ID.ID);
+	return Result == MLResult_Ok;
 #else
 	return false;
 #endif //WITH_MLSDK
@@ -483,23 +546,39 @@ bool UScreensComponent::RemoveWatchHistoryEntry(const FScreenID& ID)
 
 bool UScreensComponent::ClearWatchHistory()
 {
-	bool bResult = false;
+	bool bSuccess = false;
 #if WITH_MLSDK
 	MLScreensWatchHistoryList WatchHistoryList;
-	bResult = MLScreensGetWatchHistoryList(&WatchHistoryList);
+	MLResult Result = MLScreensGetWatchHistoryList(&WatchHistoryList);
+	bSuccess = true;
 
-	if (bResult)
+	if (Result == MLResult_Ok)
 	{
 		for (uint32 i = 0; i < WatchHistoryList.count; ++i)
 		{
-			MLScreensRemoveWatchHistoryEntry(WatchHistoryList.entries[i].id);
+			Result = MLScreensRemoveWatchHistoryEntry(WatchHistoryList.entries[i].id);
+			if (Result != MLResult_Ok)
+			{
+				bSuccess = false;
+				UE_LOG(LogScreens, Error, TEXT("MLScreensRemoveWatchHistoryEntry failed with error %d for entry %d!"), Result, WatchHistoryList.entries[i].id);
+			}
 		}
 
-		MLScreensReleaseWatchHistoryList(&WatchHistoryList);
+		Result = MLScreensReleaseWatchHistoryList(&WatchHistoryList);
+		if (Result != MLResult_Ok)
+		{
+			bSuccess = false;
+			UE_LOG(LogScreens, Error, TEXT("MLScreensReleaseWatchHistoryList failed with error %d!"), Result);
+		}
+	}
+	else
+	{
+		bSuccess = false;
+		UE_LOG(LogScreens, Error, TEXT("MLScreensGetWatchHistoryList failed with error %d!"), Result);
 	}
 #endif //WITH_MLSDK
 
-	return bResult;
+	return bSuccess;
 }
 
 bool UScreensComponent::GetScreensTransforms(TArray<FScreenTransform>& ScreensTransforms)
@@ -507,6 +586,11 @@ bool UScreensComponent::GetScreensTransforms(TArray<FScreenTransform>& ScreensTr
 	bool bResult = false;
 #if WITH_MLSDK
 	ScreensTransforms.Empty();
+
+	if (!IMagicLeapPlugin::Get().IsMagicLeapHMDValid())
+	{
+		return false;
+	}
 
 	const FAppFramework& AppFramework = static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice())->GetAppFrameworkConst();
 	if (!AppFramework.IsInitialized())
@@ -516,7 +600,8 @@ bool UScreensComponent::GetScreensTransforms(TArray<FScreenTransform>& ScreensTr
 	float WorldToMetersScale = AppFramework.GetWorldToMetersScale();
 
 	MLScreensScreenInfoList ScreensInfoList;
-	bResult = MLScreensGetScreenInfoList(&ScreensInfoList);
+	MLResult Result = MLScreensGetScreenInfoList(&ScreensInfoList);
+	bResult = (Result == MLResult_Ok);
 	if (bResult)
 	{
 		FTransform PoseTransform = UHeadMountedDisplayFunctionLibrary::GetTrackingToWorldTransform(this);
@@ -537,15 +622,23 @@ bool UScreensComponent::GetScreensTransforms(TArray<FScreenTransform>& ScreensTr
 
 			ScreenTransform.ScreenPosition = screen.GetLocation();
 			ScreenTransform.ScreenOrientation = screen.Rotator();
-			ScreenTransform.ScreenDimensions = MagicLeap::ToFVector(Entry.scale, WorldToMetersScale);
+			ScreenTransform.ScreenDimensions = MagicLeap::ToFVector(Entry.dimensions, WorldToMetersScale);
 			ScreenTransform.ScreenDimensions.X = FMath::Abs<float>(ScreenTransform.ScreenDimensions.X);
 			ScreenTransform.ScreenDimensions.Y = FMath::Abs<float>(ScreenTransform.ScreenDimensions.Y);
 			ScreenTransform.ScreenDimensions.Z = FMath::Abs<float>(ScreenTransform.ScreenDimensions.Z);
 
 			ScreensTransforms.Add(ScreenTransform);
 		}
-		MLScreensReleaseScreenInfoList(&ScreensInfoList);
+		Result = MLScreensReleaseScreenInfoList(&ScreensInfoList);
+		if (Result != MLResult_Ok)
+		{
+			UE_LOG(LogScreens, Error, TEXT("MLScreensReleaseScreenInfoList failed with error %d!"), Result);
+		}
 	}
+	else
+	{
+		UE_LOG(LogScreens, Error, TEXT("MLScreensGetScreenInfoList failed with error %d!"), Result);
+	}	
 #endif //WITH_MLSDK
 	return bResult;
 }

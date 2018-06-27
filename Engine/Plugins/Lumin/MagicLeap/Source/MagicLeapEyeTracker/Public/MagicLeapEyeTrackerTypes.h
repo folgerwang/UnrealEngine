@@ -33,6 +33,13 @@ public:
 	bool bLeftBlink;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blink Data")
 	bool bRightBlink;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eye Fixation Comfort")
+	bool FixationDepthIsUncomfortable;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eye Fixation Comfort")
+	bool FixationDepthViolationHasOccurred;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eye Fixation Comfort")
+	float RemainingTimeAtUncomfortableDepth;
 };
 
 struct FMagicLeapVRStabilityData

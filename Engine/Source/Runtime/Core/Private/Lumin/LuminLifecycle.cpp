@@ -10,7 +10,7 @@ DEFINE_LOG_CATEGORY(LogLifecycle);
 
 bool FLuminLifecycle::bIsEngineLoopInitComplete = false;
 bool FLuminLifecycle::bIsAppPaused = false;
-MLLifecycleErrorCode FLuminLifecycle::LifecycleState = MLLifecycleErrorCode_Failure;
+MLResult FLuminLifecycle::LifecycleState = MLResult_UnspecifiedFailure;
 MLLifecycleCallbacks FLuminLifecycle::LifecycleCallbacks = { nullptr, nullptr, nullptr, nullptr, nullptr };
 TArray<FString> FLuminLifecycle::PendingStartupArgs;
 
@@ -34,7 +34,7 @@ void FLuminLifecycle::Initialize()
 	// TODO: confirm this comment for ml_lifecycle.
 	// There's a known issue where ck_lifecycle_init will fail to initialize if the debugger is attached.
 	// Ideally, this should assert since the app won't be able to react to events correctly.
-	if (LifecycleState == MLLifecycleErrorCode_Failure)
+	if (LifecycleState != MLResult_Ok)
 	{
 		FPlatformMisc::LowLevelOutputDebugString(TEXT("Lifecycle system failed to initialize! App may not suspend, resume, or teriminate correctly."));
 	}
@@ -46,7 +46,7 @@ void FLuminLifecycle::Initialize()
 
 bool FLuminLifecycle::IsLifecycleInitialized()
 {
-	return (LifecycleState == MLLifecycleErrorCode_Success);
+	return (LifecycleState == MLResult_Ok);
 }
 
 void FLuminLifecycle::Stop_Handler(void* ApplicationContext)
@@ -132,20 +132,24 @@ void FLuminLifecycle::UnloadResources_Handler(void* ApplicationContext)
 
 void FLuminLifecycle::OnNewInitArgs_Handler(void* ApplicationContext)
 {
-	MLLifecycleInitArgList* InitArgList = MLLifecycleGetInitArgList();
-	if (InitArgList != nullptr)
+	MLLifecycleInitArgList* InitArgList = nullptr;
+	MLResult Result = MLLifecycleGetInitArgList(&InitArgList);
+	if (Result == MLResult_Ok && InitArgList != nullptr)
 	{
-		int64 InitArgCount = MLLifecycleGetInitArgListLength(InitArgList);
-		if (InitArgCount > 0)
+		int64_t InitArgCount = 0;
+		Result = MLLifecycleGetInitArgListLength(InitArgList, &InitArgCount);
+		if (Result == MLResult_Ok && InitArgCount > 0)
 		{
 			TArray<FString> InitArgsArray;
 			for (int64 i = 0; i < InitArgCount; ++i)
 			{
-				const MLLifecycleInitArg* InitArg = MLLifecycleGetInitArgByIndex(InitArgList, i);
-				if (InitArg != nullptr)
+				const MLLifecycleInitArg* InitArg = nullptr;
+				Result = MLLifecycleGetInitArgByIndex(InitArgList, i, &InitArg);
+				if (Result == MLResult_Ok && InitArg != nullptr)
 				{
-					const char* Arg = MLLifecycleGetInitArgUri(InitArg);
-					if (Arg != nullptr)
+					const char* Arg = nullptr;
+					Result = MLLifecycleGetInitArgUri(InitArg, &Arg);
+					if (Result == MLResult_Ok && Arg != nullptr)
 					{
 						// Start with a space because the command line already in place may not have any trailing spaces.
 						FString ArgStr = TEXT(" ");

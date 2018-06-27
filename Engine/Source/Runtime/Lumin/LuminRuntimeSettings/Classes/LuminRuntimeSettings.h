@@ -87,17 +87,13 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Advanced MPK Packaging", Meta = (DisplayName = "Version Code", ClampMin = 0))
 	int32 VersionCode;
 
+	/** Name of the minimum Lumin OS Version required */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Advanced MPK Packaging", Meta = (DisplayName = "Minimum OS Version Required"))
+	FString MinimumOSVersion;
+
 	/** Any privileges your app needs. */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Advanced MPK Packaging", Meta = (DisplayName = "App Privileges (e.g. 'DenseMap')"))
 	TArray<FString> AppPrivileges;
-
-	/** 
-	 * The Store will display to users if this app requires internet access in order to function properly.
-	 * This is different than the Internet app privilege which is autogranted to all installed apps.
-	 * This will let users know if the experience can be used offline. 
-	 */
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Advanced MPK Packaging", Meta = (DisplayName = "Internet Required"))
-	bool bInternetRequired;
 
 	/** Extra nodes under the <application> node. */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Advanced MPK Packaging", Meta = (DisplayName = "Extra nodes under the <application> node"))

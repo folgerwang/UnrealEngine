@@ -16,3 +16,4 @@ IStereoLayers* FMagicLeapHMD::GetStereoLayers()
 	}
 	return DefaultStereoLayers.Get();
 }
+

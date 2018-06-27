@@ -62,33 +62,6 @@ static void InitCommandLine()
 		FCommandLine::Append(UTF8_TO_TCHAR(CommandLine));
 	}
 
-	// To use lifecycle init args, launch the app using -
-	// mldb launch -i "-arg1=value1 -arg2=value2" <package_name>
-	MLLifecycleInitArgList* InitArgList = MLLifecycleGetInitArgList();
-	if (InitArgList != nullptr)
-	{
-		int64 InitArgCount = MLLifecycleGetInitArgListLength(InitArgList);
-		if (InitArgCount > 0)
-		{
-			for (int64 i = 0; i < InitArgCount; ++i)
-			{
-				const MLLifecycleInitArg* InitArg = MLLifecycleGetInitArgByIndex(InitArgList, i);
-				if (InitArg != nullptr)
-				{
-					const char* Arg = MLLifecycleGetInitArgUri(InitArg);
-					if (Arg != nullptr)
-					{
-						// Start with a space because the command line already in place does not have any trailing spaces.
-						FString ArgStr = TEXT(" ");
-						ArgStr.Append(UTF8_TO_TCHAR(Arg));
-						ArgStr.TrimEndInline();
-						FCommandLine::Append(*ArgStr);
-					}
-				}
-			}
-		}
-	}
-
 	// This prevents duplicate logs in logcat as indicated in -
 	// Engine/Source/Runtime/Core/Public/HAL/FeedbackContextAnsi.h
 	FCommandLine::Append(TEXT(" -stdout "));

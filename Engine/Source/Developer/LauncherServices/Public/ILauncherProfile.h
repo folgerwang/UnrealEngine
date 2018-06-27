@@ -198,6 +198,9 @@ namespace ELauncherProfileValidationErrors
 
 		/** The archive step requires a directory to be specified */
 		NoArchiveDirectorySpecified,
+
+		/** Device is unauthorized or is locked */
+		LaunchDeviceIsUnauthorized,
 	};
 }
 

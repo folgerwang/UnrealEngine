@@ -53,7 +53,7 @@ enum class ERaycastResultState : uint8
 	/** The raycast request failed. */
 	RequestFailed,
 	/** The ray passed beyond maximum raycast distance and it doesn't hit any surface. */
-	NoCollission,
+	NoCollision,
 	/** The ray hit an unobserved area. This can occur only when CollideWithUnobserved is set to true. */
 	HitUnobserved,
 	/** The ray hit an observed area. */

@@ -270,7 +270,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// This is the SDK version we support
 		/// </summary>
-		static string ExpectedSDKVersion = "0.12";   // now unified for all the architectures
+		static string ExpectedSDKVersion = "0.15";   // now unified for all the architectures
 
 		public override string GetSDKTargetPlatformName()
 		{

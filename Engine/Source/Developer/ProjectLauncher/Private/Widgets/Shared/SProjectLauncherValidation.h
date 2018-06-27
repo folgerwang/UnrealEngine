@@ -159,6 +159,12 @@ public:
 			+ SVerticalBox::Slot()
 				.AutoHeight()
 				[
+					MakeValidationMessage(TEXT("Icons.Error"), LOCTEXT("LaunchDeviceIsUnauthorized", "Device is unauthorized or locked.").ToString(), ELauncherProfileValidationErrors::LaunchDeviceIsUnauthorized)
+				]
+
+			+ SVerticalBox::Slot()
+				.AutoHeight()
+				[
 					MakeCallbackMessage(TEXT("Icons.Error"), ELauncherProfileValidationErrors::NoPlatformSDKInstalled)
 				]
 		];

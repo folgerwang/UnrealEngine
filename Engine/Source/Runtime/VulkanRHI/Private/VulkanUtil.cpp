@@ -499,6 +499,11 @@ void FVulkanGPUProfiler::DumpCrashMarkers(void* BufferData)
 #include "VulkanRHIBridge.h"
 namespace VulkanRHIBridge
 {
+	uint64 GetInstance(FVulkanDynamicRHI* RHI)
+	{
+		return (uint64)RHI->GetInstance();
+	}
+
 	FVulkanDevice* GetDevice(FVulkanDynamicRHI* RHI)
 	{
 		return RHI->GetDevice();

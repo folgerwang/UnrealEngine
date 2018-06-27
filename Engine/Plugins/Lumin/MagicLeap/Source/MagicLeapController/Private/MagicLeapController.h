@@ -83,7 +83,6 @@ public:
 	bool GetControllerMapping(int32 ControllerIndex, EControllerHand& Hand) const;
 	void InvertControllerMapping();
 	EMLControllerType GetMLControllerType(EControllerHand Hand) const;
-	void CalibrateControllerNow(EControllerHand Hand, const FVector& StartPosition, const FRotator& StartOrientation);
 
 	bool PlayControllerLED(EControllerHand Hand, EMLControllerLEDPattern LEDPattern, EMLControllerLEDColor LEDColor, float DurationInSec);
 	bool PlayControllerLEDEffect(EControllerHand Hand, EMLControllerLEDEffect LEDEffect, EMLControllerLEDSpeed LEDSpeed, EMLControllerLEDPattern LEDPattern, EMLControllerLEDColor LEDColor, float DurationInSec);
@@ -134,9 +133,6 @@ private:
 
 	FTransform LeftControllerTransform;
 	FTransform RightControllerTransform;
-
-	FTransform LeftControllerCalibration;
-	FTransform RightControllerCalibration;
 
 	TMap<int32, EControllerHand> ControllerIDToHand;
 	TMap<EControllerHand, int32> HandToControllerID;

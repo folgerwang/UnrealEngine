@@ -35,6 +35,19 @@ void FLuminPlatformMisc::InitLifecycle()
 	FLuminLifecycle::Initialize();
 }
 
+void FLuminPlatformMisc::RequestExit(bool Force)
+{
+	UE_LOG(LogWindows, Log, TEXT("FLuminPlatformMisc::RequestExit(%i)"), Force);
+	if (Force)
+	{
+		_exit(1);
+	}
+	else
+	{
+		GIsRequestingExit = 1;
+	}
+}
+
 void FLuminPlatformMisc::PlatformPreInit()
 {
 	// base class version
@@ -281,8 +294,9 @@ void FLuminPlatformMisc::InitApplicationPaths()
 		}
 	}
 
-	MLLifecycleSelfInfo* SelfInfo = MLLifecycleGetSelfInfo();
-	if (SelfInfo == nullptr)
+	MLLifecycleSelfInfo* SelfInfo = nullptr;
+	MLResult Result = MLLifecycleGetSelfInfo(&SelfInfo);
+	if (Result != MLResult_Ok || SelfInfo == nullptr)
 	{
 		FLuminPlatformMisc::LowLevelOutputDebugStringWithVerbosity(TEXT("Could not get self info for the application. The application paths will be incorrect"), ELogVerbosity::Error);
 		return;

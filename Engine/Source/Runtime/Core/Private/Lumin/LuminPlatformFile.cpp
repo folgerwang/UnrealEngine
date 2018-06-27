@@ -648,11 +648,14 @@ bool FLuminPlatformFile::FileExists(const TCHAR* Filename, FString& OutLuminPath
 
 int64 FLuminPlatformFile::FileSize(const TCHAR* Filename)
 {
-	FString NormalizedFilename = NormalizeFilename(Filename);
-	// Check the read path first.
-	int64 result = FileSizeCaseInsensitive(ConvertToLuminPath(NormalizedFilename, false));
-	// If it doesnt exist, check for the write path instead.
-	return (result != -1) ? result : FileSizeCaseInsensitive(ConvertToLuminPath(NormalizedFilename, true));
+	// Checking that the file exists will also give us the true location of the file.
+	// Which can be either in the read-only or the read-write areas of the application.
+	FString LuminPath;
+	if (FileExists(Filename, LuminPath))
+	{
+		return FileSizeCaseInsensitive(LuminPath);
+	}
+	return -1;
 }
 
 bool FLuminPlatformFile::DeleteFile(const TCHAR* Filename)
@@ -676,17 +679,21 @@ bool FLuminPlatformFile::DeleteFile(const TCHAR* Filename)
 
 bool FLuminPlatformFile::IsReadOnly(const TCHAR* Filename)
 {
-	FString NormalizedFilename = NormalizeFilename(Filename);
-
-	// Check the read path first, if it doesnt exist, check for the write path instead.
-	return (IsReadOnlyCaseInsensitive(ConvertToLuminPath(NormalizedFilename, false))) ? true : IsReadOnlyCaseInsensitive(ConvertToLuminPath(NormalizedFilename, true));
+	// Checking that the file exists will also give us the true location of the file.
+	// Which can be either in the read-only or the read-write areas of the application.
+	FString LuminPath;
+	if (FileExists(Filename, LuminPath))
+	{
+		return IsReadOnlyCaseInsensitive(LuminPath);
+	}
+	return false;
 }
 
 bool FLuminPlatformFile::MoveFile(const TCHAR* To, const TCHAR* From)
 {
 	// Move to write path only.
 	FString ToLuminFilename = ConvertToLuminPath(NormalizeFilename(To), true);
-	FString FromLuminFilename = ConvertToLuminPath(NormalizeFilename(From), false);
+	FString FromLuminFilename = ConvertToLuminPath(NormalizeFilename(From), true);
 	FString CaseSensitiveFilename;
 	if (!GCaseInsensMapper.MapCaseInsensitiveFile(FromLuminFilename, CaseSensitiveFilename))
 	{
@@ -694,7 +701,7 @@ bool FLuminPlatformFile::MoveFile(const TCHAR* To, const TCHAR* From)
 		return false;
 	}
 
-	return rename(TCHAR_TO_UTF8(*CaseSensitiveFilename), TCHAR_TO_UTF8(*ToLuminFilename)) != -1;
+	return rename(TCHAR_TO_UTF8(*CaseSensitiveFilename), TCHAR_TO_UTF8(*ToLuminFilename)) == 0;
 }
 
 bool FLuminPlatformFile::SetReadOnly(const TCHAR* Filename, bool bNewReadOnlyValue)
@@ -708,7 +715,7 @@ bool FLuminPlatformFile::SetReadOnly(const TCHAR* Filename, bool bNewReadOnlyVal
 	}
 
 	struct stat FileInfo;
-	if (stat(TCHAR_TO_UTF8(*CaseSensitiveFilename), &FileInfo) != -1)
+	if (stat(TCHAR_TO_UTF8(*CaseSensitiveFilename), &FileInfo) == 0)
 	{
 		if (bNewReadOnlyValue)
 		{
@@ -718,18 +725,21 @@ bool FLuminPlatformFile::SetReadOnly(const TCHAR* Filename, bool bNewReadOnlyVal
 		{
 			FileInfo.st_mode |= S_IWUSR;
 		}
-		return chmod(TCHAR_TO_UTF8(*CaseSensitiveFilename), FileInfo.st_mode);
+		return chmod(TCHAR_TO_UTF8(*CaseSensitiveFilename), FileInfo.st_mode) == 0;
 	}
 	return false;
 }
 
 FDateTime FLuminPlatformFile::GetTimeStamp(const TCHAR* Filename)
 {
-	FString NormalizedFilename = NormalizeFilename(Filename);
-
-	// Check the read path first, if it doesnt exist, check for the write path instead.
-	FDateTime result = GetTimeStampCaseInsensitive(ConvertToLuminPath(NormalizedFilename, false));
-	return (result == FDateTime::MinValue()) ? GetTimeStampCaseInsensitive(ConvertToLuminPath(NormalizedFilename, true)) : result;
+	// Checking that the file exists will also give us the true location of the file.
+	// Which can be either in the read-only or the read-write areas of the application.
+	FString LuminPath;
+	if (FileExists(Filename, LuminPath))
+	{
+		return GetTimeStampCaseInsensitive(LuminPath);
+	}
+	return FDateTime::MinValue();
 }
 
 void FLuminPlatformFile::SetTimeStamp(const TCHAR* Filename, const FDateTime DateTime)
@@ -744,7 +754,7 @@ void FLuminPlatformFile::SetTimeStamp(const TCHAR* Filename, const FDateTime Dat
 
 	// get file times
 	struct stat FileInfo;
-	if(stat(TCHAR_TO_UTF8(*CaseSensitiveFilename), &FileInfo) == -1)
+	if(stat(TCHAR_TO_UTF8(*CaseSensitiveFilename), &FileInfo) != 0)
 	{
 		return;
 	}
@@ -758,11 +768,14 @@ void FLuminPlatformFile::SetTimeStamp(const TCHAR* Filename, const FDateTime Dat
 
 FDateTime FLuminPlatformFile::GetAccessTimeStamp(const TCHAR* Filename)
 {
-	FString NormalizedFilename = NormalizeFilename(Filename);
-
-	// Check the read path first, if it doesnt exist, check for the write path instead.
-	FDateTime result = GetAccessTimeStampCaseInsensitive(ConvertToLuminPath(NormalizedFilename, false));
-	return (result == FDateTime::MinValue()) ? GetAccessTimeStampCaseInsensitive(ConvertToLuminPath(NormalizedFilename, true)) : result;
+	// Checking that the file exists will also give us the true location of the file.
+	// Which can be either in the read-only or the read-write areas of the application.
+	FString LuminPath;
+	if (FileExists(Filename, LuminPath))
+	{
+		return GetAccessTimeStampCaseInsensitive(LuminPath);
+	}
+	return FDateTime::MinValue();
 }
 
 FString FLuminPlatformFile::GetFilenameOnDisk(const TCHAR* Filename)

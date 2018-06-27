@@ -74,6 +74,16 @@
 			]
 		},
 		{
+			"Name" : "MagicLeapMusicService",
+			"Type" : "Runtime",
+			"LoadingPhase" : "PostConfigInit",
+			"WhitelistPlatforms" :
+			[
+				"Win64",
+				"Mac",
+				"Lumin"			]
+		},
+		{
 			"Name" : "MagicLeapSecureStorage",
 			"Type" : "Runtime",
 			"LoadingPhase" : "PostConfigInit",
@@ -117,23 +127,12 @@
 				"Lumin"
 			]
 		},
-		{
-			"Name" : "MagicLeapPrivileges",
-			"Type" : "Runtime",
-			"LoadingPhase" : "PostConfigInit",
-			"WhitelistPlatforms" :
-			[
-				"Win64",
-				"Mac",
-				"Lumin"
-			]
-		}
 	],
 	"Plugins":
 	[
-    {
-      "Name": "ProceduralMeshComponent",
-      "Enabled": true
-    }
+		{
+			"Name": "ProceduralMeshComponent",
+			"Enabled": true
+		}
 	]
 }

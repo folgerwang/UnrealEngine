@@ -43,15 +43,6 @@ EMLControllerType UMagicLeapControllerFunctionLibrary::GetMLControllerType(ECont
 	return EMLControllerType::None;
 }
 
-void UMagicLeapControllerFunctionLibrary::CalibrateControllerNow(EControllerHand Hand, const FVector& StartPosition, const FRotator& StartOrientation)
-{
-	TSharedPtr<FMagicLeapController> controller = StaticCastSharedPtr<FMagicLeapController>(IMagicLeapControllerPlugin::Get().GetInputDevice());
-	if (controller.IsValid())
-	{
-		controller->CalibrateControllerNow(Hand, StartPosition, StartOrientation);
-	}
-}
-
 bool UMagicLeapControllerFunctionLibrary::PlayControllerLED(EControllerHand Hand, EMLControllerLEDPattern LEDPattern, EMLControllerLEDColor LEDColor, float DurationInSec)
 {
 	TSharedPtr<FMagicLeapController> controller = StaticCastSharedPtr<FMagicLeapController>(IMagicLeapControllerPlugin::Get().GetInputDevice());

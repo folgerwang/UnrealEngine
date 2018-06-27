@@ -156,6 +156,11 @@ public:
 		return Connected;
 	}
 
+	virtual bool IsAuthorized() const override
+	{
+		return Authorized;
+	}
+
 	virtual bool IsShared() const override
 	{
 		return Shared;
@@ -209,6 +214,9 @@ private:
 
 	/** Holds a flag indicating whether the device is connected. */
 	bool Connected;
+
+	/** Holds a flag indicating whether the device is authorized */
+	bool Authorized;
 
 	/** Holds the name of the computer that hosts the device. */
 	FString HostName;

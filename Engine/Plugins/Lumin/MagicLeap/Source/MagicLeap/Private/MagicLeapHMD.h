@@ -9,6 +9,7 @@
 #include "Misc/ScopeLock.h"
 
 #include "XRRenderTargetManager.h"
+#include "IStereoLayers.h"
 #include "AppFramework.h"
 #include "SceneViewExtension.h"
 #include "MagicLeapMath.h"
@@ -172,9 +173,11 @@ public:
 public:
 
 	uint32 GetViewportCount() const { return AppFramework.IsInitialized() ? AppFramework.GetViewportCount() : 0; }
-	FTrackingFrame* GetCurrentFrame() const;
-	FTrackingFrame* GetOldFrame() const;
 
+	// TODO: add const versions
+	FTrackingFrame& GetCurrentFrameMutable();
+	const FTrackingFrame& GetCurrentFrame() const;
+	const FTrackingFrame& GetOldFrame() const;
 
 	// HACK: This is a hack in order to pass variables from game frame to render frame
 	// This should be removed once graphics provides vergence based focus distance
@@ -226,6 +229,9 @@ private:
 
 	void EnableLuminProfile();
 	void RestoreBaseProfile();
+
+	void EnablePrivileges();
+	void DisablePrivileges();
 
 	void EnableInputDevices();
 	void DisableInputDevices();

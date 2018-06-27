@@ -26,6 +26,7 @@ ML_INCLUDES_END
 
 class FMagicLeapHMD;
 class FViewport;
+struct FWorldContext;
 
 static const uint8 kNumEyes = 2;
 
@@ -56,6 +57,7 @@ public:
 
 	// [0.0f, 1.0f]
 	float ScreenPercentage;
+	FWorldContext* WorldContext;
 
 	FTrackingFrame()
 		: FrameNumber(0)
@@ -76,6 +78,7 @@ public:
 		, Handle(ML_INVALID_HANDLE)
 #endif //WITH_MLSDK
 		, ScreenPercentage(1.0f)
+		, WorldContext(nullptr)
 	{
 #if WITH_MLSDK
 		FrameId.data[0] = 0;

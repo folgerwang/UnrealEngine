@@ -2,6 +2,8 @@
 
 #include "MagicLeapHMD.h"
 #include "MagicLeapHMDFunctionLibrary.h"
+#include "DefaultStereoLayers.h"
+#include "MagicLeapStereoLayers.h"
 #include "RendererPrivate.h"
 #include "PostProcess/PostProcessHMD.h"
 #include "ScreenRendering.h"
@@ -43,7 +45,7 @@ ML_INCLUDES_START
 #include <ml_perception.h>
 
 #if !PLATFORM_LUMIN
-#include <ml_virtual_device.h>
+#include <ml_remote.h>
 #include "Misc/MessageDialog.h"
 #endif
 
@@ -57,6 +59,8 @@ ML_INCLUDES_START
 #else
 #include <ml_graphics.h>
 #endif // PLATFORM_LUMIN
+
+#include "ml_privileges.h"
 
 ML_INCLUDES_END
 #endif //WITH_MLSDK
@@ -98,6 +102,7 @@ public:
 		APISetup.LoadDLL(TEXT("ml_perception_client"));
 		APISetup.LoadDLL(TEXT("ml_graphics"));
 		APISetup.LoadDLL(TEXT("ml_lifecycle"));
+		APISetup.LoadDLL(TEXT("ml_privileges"));
 #endif
 
 		if (bIsVDZIEnabled)
@@ -105,7 +110,7 @@ public:
 #if PLATFORM_WINDOWS
 			UE_LOG(LogMagicLeap, Log, TEXT("ML VDZI mode enabled. Using OpenGL renderer."));
 
-			APISetup.LoadDLL(TEXT("ml_virtual_device"));
+			APISetup.LoadDLL(TEXT("ml_remote"));
 
 			// DirectX, which is currently not supported by MagicLeap, is default API on Windows.
 			// OpenGL is forced by loading module in PostConfigInit phase and passing in command line.
@@ -143,26 +148,24 @@ public:
 		return LocalHMD;
 	}
 
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION <= 13
-	FString GetModulePriorityKeyName() const
-#else
 	FString GetModuleKeyName() const
-#endif // ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION <= 13
 	{
 		return FString(TEXT("MagicLeap"));
 	}
 
-	virtual bool IsMagicLeapHMDValidAndConnected() const override
+	virtual bool IsMagicLeapHMDValid() const override
 	{
+#if PLATFORM_LUMIN
+		return true;
+#else
 		if (IsValid(GEngine) && GEngine->XRSystem.IsValid() && (GEngine->XRSystem->GetSystemName().Compare(FMagicLeapHMD::SystemName) == 0))
 		{
 			TSharedPtr<FMagicLeapHMD, ESPMode::ThreadSafe> hmd = StaticCastSharedPtr<FMagicLeapHMD>(GEngine->XRSystem);
-			if (hmd.IsValid())
-			{
-				return hmd->IsHMDConnected();
-			}
+			// IsHMDConnected() is an expensive call when MLRemote is enabled, so we'll keep the onus of that check on the caller.
+			return hmd.IsValid();
 		}
 		return false;
+#endif // PLATFORM_LUMIN
 	}
 
 	virtual TWeakPtr<IMagicLeapHMD, ESPMode::ThreadSafe> GetHMD() override
@@ -243,9 +246,12 @@ bool FMagicLeapHMD::OnStartGameFrame(FWorldContext& WorldContext)
 #if WITH_MLSDK
 	check(IsInGameThread());
 
+	FTrackingFrame& TrackingFrame = GetCurrentFrameMutable();
+
 	if (!WorldContext.World() || !WorldContext.World()->IsGameWorld())
 	{
 		// ignore all non-game worlds
+		TrackingFrame.WorldContext = nullptr;
 		return false;
 	}
 
@@ -264,17 +270,19 @@ bool FMagicLeapHMD::OnStartGameFrame(FWorldContext& WorldContext)
 
 	AppFramework.BeginUpdate();
 
-	FTrackingFrame* TrackingFrame = GetCurrentFrame();
-	check(TrackingFrame);
 	// init tracking frame if first frame, otherwise we keep using last frame's data until it is refreshed in BeginRendering_GameThread
-	if (TrackingFrame->Snapshot == nullptr)
+	if (TrackingFrame.Snapshot == nullptr)
 	{
 		RefreshTrackingFrame();
 	}
 
 	// override the default value that the frame constructor initialized and make sure it is non zero
-	TrackingFrame->WorldToMetersScale = WorldContext.World()->GetWorldSettings()->WorldToMeters;
-	TrackingFrame->WorldToMetersScale = TrackingFrame->WorldToMetersScale == 0.0f ? 100.0f : TrackingFrame->WorldToMetersScale;
+	TrackingFrame.WorldToMetersScale = WorldContext.World()->GetWorldSettings()->WorldToMeters;
+	TrackingFrame.WorldToMetersScale = TrackingFrame.WorldToMetersScale == 0.0f ? 100.0f : TrackingFrame.WorldToMetersScale;
+	TrackingFrame.WorldContext = &WorldContext;
+
+	RefreshTrackingToWorldTransform(WorldContext);
+
 #endif //WITH_MLSDK
 
 	return true;
@@ -302,7 +310,17 @@ bool FMagicLeapHMD::IsHMDConnected()
 	bool bZIServerRunning = false;
 	if (bIsVDZIEnabled)
 	{
-		ML_FUNCTION_WRAPPER(bZIServerRunning = MLVirtualDeviceIsServerRunning())
+		if (FMagicLeapSDKDetection::IsSDKDetected())
+		{
+			MLResult Result = MLRemoteIsServerConfigured(&bZIServerRunning);
+			if (Result != MLResult_Ok)
+			{
+				UE_LOG(LogMagicLeap, Error, TEXT("MLRemoteIsServerConfigured failed with error %d!"), Result);
+
+				// Ensure we don't falsely mark it as running if there was an error
+				bZIServerRunning = false;
+			}
+		}
 	}
 	// TODO: MLVirtualDeviceIsServerRunning() crashes when called on render thread.
 	return AppFramework.IsInitialized() && bIsVDZIEnabled && bZIServerRunning;
@@ -317,16 +335,7 @@ bool FMagicLeapHMD::IsHMDConnected()
 
 bool FMagicLeapHMD::IsHMDEnabled() const
 {
-#if WITH_EDITOR
-	// We indicate the HMD is disable in editor so that the vr-editor mode is disabled.
-	// We do this by indicating it's enabled only when playing (i.e. when OnBeginPlay
-	// was called) and only when executing a console command (which is only indicative
-	// when the GStatProcessingViewportClient is valid -- See
-	// UUnrealEdEngine::Exec() for why this is the case).
-	return bHmdEnabled && bIsPlaying && (nullptr != GStatProcessingViewportClient);
-#else
 	return bHmdEnabled;
-#endif
 }
 
 void FMagicLeapHMD::EnableHMD(bool Enable)
@@ -369,12 +378,9 @@ bool FMagicLeapHMD::GetHMDMonitorInfo(MonitorInfo& MonitorDesc)
 
 void FMagicLeapHMD::GetFieldOfView(float& OutHFOVInDegrees, float& OutVFOVInDegrees) const
 {
-	FTrackingFrame* frame = GetCurrentFrame();
-	if (frame)
-	{
-		OutHFOVInDegrees = frame->HFov;
-		OutVFOVInDegrees = frame->VFov;
-	}
+	const FTrackingFrame& frame = GetCurrentFrame();
+	OutHFOVInDegrees = frame.HFov;
+	OutVFOVInDegrees = frame.VFov;
 }
 
 bool FMagicLeapHMD::DoesSupportPositionalTracking() const
@@ -384,33 +390,29 @@ bool FMagicLeapHMD::DoesSupportPositionalTracking() const
 
 bool FMagicLeapHMD::HasValidTrackingPosition()
 {
-	FTrackingFrame* frame = GetCurrentFrame();
-	return bHmdPosTracking && frame ? frame->HasHeadTrackingPosition : false;
+	const FTrackingFrame& frame = GetCurrentFrame();
+	return bHmdPosTracking ? frame.HasHeadTrackingPosition : false;
 }
 
 bool FMagicLeapHMD::GetTrackingSensorProperties(int32 DeviceId, FQuat& OutOrientation, FVector& OutPosition, FXRSensorProperties& OutSensorProperties)
 {
 	// Assuming there is only one tracker (the device itself) on the system being optically tracked
-	FTrackingFrame* frame = GetCurrentFrame();
-	if (frame)
-	{
-		const float HalfHFOV = frame->HFov / 2.f;
-		const float HalfVFOV = frame->VFov / 2.f;
+	const FTrackingFrame& frame = GetCurrentFrame();
+	const float HalfHFOV = frame.HFov / 2.f;
+	const float HalfVFOV = frame.VFov / 2.f;
 
-		OutSensorProperties.TopFOV = HalfVFOV;
-		OutSensorProperties.BottomFOV = HalfVFOV;
+	OutSensorProperties.TopFOV = HalfVFOV;
+	OutSensorProperties.BottomFOV = HalfVFOV;
 
-		OutSensorProperties.LeftFOV = HalfHFOV;
-		OutSensorProperties.RightFOV = HalfHFOV;
+	OutSensorProperties.LeftFOV = HalfHFOV;
+	OutSensorProperties.RightFOV = HalfHFOV;
 
-		OutSensorProperties.CameraDistance = 0.f;
-		OutSensorProperties.NearPlane = 8.f;
-		OutSensorProperties.FarPlane = 400.f; // Assumption, should get real numbers on this!
+	// TODO: set correct values here.
+	OutSensorProperties.CameraDistance = 0.f;
+	OutSensorProperties.NearPlane = 8.f;
+	OutSensorProperties.FarPlane = 400.f; // Assumption, should get real numbers on this!
 
-		return true;
-	}
-
-	return false;
+	return true;
 }
 
 void FMagicLeapHMD::SetInterpupillaryDistance(float NewInterpupillaryDistance)
@@ -430,11 +432,7 @@ bool FMagicLeapHMD::IsChromaAbCorrectionEnabled() const
 
 bool FMagicLeapHMD::IsHeadTrackingAllowed() const
 {
-	const FTrackingFrame* frame = GetCurrentFrame();
-	if (!frame)
-	{
-		return false;
-	}
+	const FTrackingFrame& frame = GetCurrentFrame();
 #if WITH_EDITOR
 	if (GIsEditor)
 	{
@@ -453,15 +451,9 @@ void FMagicLeapHMD::ResetOrientationAndPosition(float yaw)
 
 void FMagicLeapHMD::ResetOrientation(float Yaw)
 {
-	const FTrackingFrame* frame = GetCurrentFrame();
+	const FTrackingFrame& frame = GetCurrentFrame();
 
-	FTransform RawTransform;
-	if (frame)
-	{
-		RawTransform = frame->RawPose;
-	}
-
-	FRotator ViewRotation = RawTransform.Rotator();
+	FRotator ViewRotation = frame.RawPose.Rotator();
 	ViewRotation.Pitch = 0;
 	ViewRotation.Roll = 0;
 
@@ -477,16 +469,8 @@ void FMagicLeapHMD::ResetOrientation(float Yaw)
 
 void FMagicLeapHMD::ResetPosition()
 {
-	const FTrackingFrame* frame = GetCurrentFrame();
-
-	FTransform RawTransform;
-	if (frame)
-	{
-		RawTransform = frame->RawPose;
-	}
-
-	FVector ViewPositon = RawTransform.GetTranslation();
-	AppFramework.SetBasePosition(ViewPositon);
+	const FTrackingFrame& frame = GetCurrentFrame();
+	AppFramework.SetBasePosition(frame.RawPose.GetTranslation());
 }
 
 void FMagicLeapHMD::SetBasePosition(const FVector& InBasePosition)
@@ -551,12 +535,19 @@ void FMagicLeapHMD::RefreshTrackingFrame()
 	// Release the snapshot of the previous frame.
 	// This is done here instead of on end frame because modules implemented as input devices (Gestures, controller)
 	// are ticked and fire their events before the OnStartGameFrame().
-	MLPerceptionReleaseSnapshot(GameTrackingFrame.Snapshot);
+	MLResult Result = MLPerceptionReleaseSnapshot(GameTrackingFrame.Snapshot);
+#if PLATFORM_LUMIN
+	UE_CLOG(Result != MLResult_Ok, LogMagicLeap, Error, TEXT("MLImageTrackerInitSettings failed with error %d."), Result);
+#endif //PLATFORM_LUMIN
+
 	// get the snapshot for the frame
-	GameTrackingFrame.Snapshot = MLPerceptionGetSnapshot();
+	Result = MLPerceptionGetSnapshot(&GameTrackingFrame.Snapshot);
+#if PLATFORM_LUMIN
+	UE_CLOG(Result != MLResult_Ok, LogMagicLeap, Error, TEXT("MLPerceptionGetSnapshot failed with error %d."), Result);
+#endif //PLATFORM_LUMIN
 
 	MLHeadTrackingState state;
-	bHeadTrackingStateAvailable = MLHeadTrackingGetState(HeadTracker, &state);
+	bHeadTrackingStateAvailable = MLHeadTrackingGetState(HeadTracker, &state) == MLResult_Ok;
 	if (bHeadTrackingStateAvailable)
 	{
 		HeadTrackingState.Mode = MLToUnrealHeadTrackingMode(state.mode);
@@ -698,10 +689,8 @@ void FMagicLeapHMD::SetFrameTimingHint(ELuminFrameTimingHint InFrameTimingHint)
 				UE_LOG(LogMagicLeap, Warning, TEXT("Tried to set invalid Frame Timing Hint!  Defaulting to unspecified."));
 			}
 
-			MLStatus RetStatus;
-			MLGraphicsSetFrameTimingHint(GraphicsClient, FTH, &RetStatus);
-
-			if (RetStatus == MLStatus_OK)
+			MLResult Result = MLGraphicsSetFrameTimingHint(GraphicsClient, FTH);
+			if (Result == MLResult_Ok)
 			{
 				UE_LOG(LogMagicLeap, Log, TEXT("Set Lumin frame timing hint to %s."), *FrameTimingEnum->GetNameStringByValue((int64)InFrameTimingHint));
 				CurrentFrameTimingHint = InFrameTimingHint;
@@ -721,10 +710,7 @@ void FMagicLeapHMD::SetFrameTimingHint(ELuminFrameTimingHint InFrameTimingHint)
 
 float FMagicLeapHMD::GetWorldToMetersScale() const
 {
-	FTrackingFrame* TrackingFrame = GetCurrentFrame();
-	check(TrackingFrame);
-
-	return TrackingFrame->WorldToMetersScale;
+	return GetCurrentFrame().WorldToMetersScale;
 }
 
 bool FMagicLeapHMD::EnableStereo(bool bStereo)
@@ -802,9 +788,9 @@ FMatrix FMagicLeapHMD::GetStereoProjectionMatrix(const enum EStereoscopicPass St
 	check(IsInGameThread());
 	check(IsStereoEnabled());
 	const int viewport = (StereoPassType == eSSP_LEFT_EYE) ? 0 : 1;
-	FTrackingFrame* frame = GetCurrentFrame();
+	const FTrackingFrame& frame = GetCurrentFrame();
 	// TODO: Remove this for vulkan when we can get a better result from the frame
-	return (frame && bDeviceInitialized && !IsVulkanPlatform(GMaxRHIShaderPlatform)) ? MagicLeap::ToFMatrix(frame->UpdateInfoArray.virtual_camera_extents[viewport].projection) : FMatrix::Identity;
+	return (bDeviceInitialized && !IsVulkanPlatform(GMaxRHIShaderPlatform)) ? MagicLeap::ToFMatrix(frame.UpdateInfoArray.virtual_camera_extents[viewport].projection) : FMatrix::Identity;
 #else
 	return FMatrix();
 #endif //WITH_MLSDK
@@ -1153,6 +1139,7 @@ void FMagicLeapHMD::EnableDeviceFeatures()
 	// In this case, just skip these steps since their timeouts may cause the game to appear to hang.
 	if (IsHMDConnected())
 	{
+		EnablePrivileges();
 		EnablePerception();
 		EnableHeadTracking();
 		EnableInputDevices();
@@ -1167,6 +1154,7 @@ void FMagicLeapHMD::DisableDeviceFeatures()
 	DisableInputDevices();
 	DisableHeadTracking();
 	DisablePerception();
+	DisablePrivileges();
 	if (GIsEditor)
 	{
 		ReleaseDevice();
@@ -1180,7 +1168,7 @@ void FMagicLeapHMD::InitDevice_RenderThread()
 #if WITH_MLSDK
 	if (!bDeviceInitialized)
 	{
-		int32 bDeviceSuccessfullyInitialized = 0;
+		bool bDeviceSuccessfullyInitialized = false;
 		// Unreal supports sRGB which is the default we are requesting from graphics as well now.
 		MLGraphicsOptions gfx_opts;
 		gfx_opts.graphics_flags = 0; //MLGraphicsFlags_DebugMode;
@@ -1198,7 +1186,7 @@ void FMagicLeapHMD::InitDevice_RenderThread()
 #if PLATFORM_WINDOWS
 		if (IsPCPlatform(GMaxRHIShaderPlatform) && !IsOpenGLPlatform(GMaxRHIShaderPlatform))
 		{
-			bDeviceSuccessfullyInitialized = 1;
+			bDeviceSuccessfullyInitialized = true;
 			//UE_LOG(LogMagicLeap, Error, TEXT("FMagicLeapCustomPresentD3D11 is not supported."));
 		}
 #endif // PLATFORM_WINDOWS
@@ -1206,7 +1194,7 @@ void FMagicLeapHMD::InitDevice_RenderThread()
 #if PLATFORM_MAC
 		if (IsMetalPlatform(GMaxRHIShaderPlatform) && !IsOpenGLPlatform(GMaxRHIShaderPlatform))
 		{
-			bDeviceSuccessfullyInitialized = 1;
+			bDeviceSuccessfullyInitialized = true;
 			//UE_LOG(LogMagicLeap, Error, TEXT("FMagicLeapCustomPresentMetal is not supported."));
 		}
 #endif // PLATFORM_MAC
@@ -1218,16 +1206,17 @@ void FMagicLeapHMD::InitDevice_RenderThread()
 			MLHandle ContextHandle;
 			auto OpenGLRHI = static_cast<FOpenGLDynamicRHI*>(GDynamicRHI);
 			ContextHandle = reinterpret_cast<MLHandle>(OpenGLRHI->GetOpenGLCurrentContextHandle());
-			MLStatus OutStatus;
-			bDeviceSuccessfullyInitialized = MLGraphicsCreateClientGL(&gfx_opts, ContextHandle, &GraphicsClient, &OutStatus);
-			if (bDeviceSuccessfullyInitialized)
+			MLResult Result = MLGraphicsCreateClientGL(&gfx_opts, ContextHandle, &GraphicsClient);
+			if (Result == MLResult_Ok)
 			{
+				bDeviceSuccessfullyInitialized = true;
 				InitializeClipExtents_RenderThread();
 			}
 			else
 			{
+				bDeviceSuccessfullyInitialized = false;
 				GraphicsClient = ML_INVALID_HANDLE;
-				UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsCreateClientGL failed with status %d"), static_cast<int32>(OutStatus));
+				UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsCreateClientGL failed with status %d"), Result);
 			}
 		}
 		// @todo Lumin vulkan: THis doesn't compile, even with some #includes - maybe need more, I dunno
@@ -1254,24 +1243,24 @@ void FMagicLeapHMD::InitDevice_RenderThread()
 			{
 				UE_LOG(LogMagicLeap, Display, TEXT("FMagicLeapCustomPresentVulkan is supported."));
 				FVulkanDynamicRHI* VulkanDynamicRHI = (FVulkanDynamicRHI*)GDynamicRHI;
+				uint64 Instance = VulkanRHIBridge::GetInstance(VulkanDynamicRHI);
 				FVulkanDevice* VulkanDevice = VulkanRHIBridge::GetDevice(VulkanDynamicRHI);
 				uint64 PhysicalDevice = VulkanRHIBridge::GetPhysicalDevice(VulkanDevice);
 				uint64 LogicalDevice = VulkanRHIBridge::GetLogicalDevice(VulkanDevice);
 				GraphicsClient = ML_INVALID_HANDLE;
-				MLStatus OutStatus;
-				bool bDeviceSuccessfullyInitialized2 = MLGraphicsCreateClientVk(&gfx_opts, (VkPhysicalDevice)PhysicalDevice, (VkDevice)LogicalDevice, &GraphicsClient, &OutStatus);
-				if (bDeviceSuccessfullyInitialized2)
+				MLResult Result = MLGraphicsCreateClientVk(&gfx_opts, (VkInstance)Instance, (VkPhysicalDevice)PhysicalDevice, (VkDevice)LogicalDevice, &GraphicsClient);
+				if (Result == MLResult_Ok)
 				{
 					InitializeClipExtents_RenderThread();
 				}
 				else
 				{
 					GraphicsClient = ML_INVALID_HANDLE;
-					UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsCreateClientVk failed with status %d"), static_cast<int32>(OutStatus));
+					UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsCreateClientVk failed with status %d"), Result);
 				}
 
-				FPlatformAtomics::InterlockedExchange(&bDeviceInitialized, bDeviceSuccessfullyInitialized2);
-				FPlatformAtomics::InterlockedExchange(&bDeviceWasJustInitialized, bDeviceSuccessfullyInitialized2);
+				FPlatformAtomics::InterlockedExchange(&bDeviceInitialized, Result == MLResult_Ok);
+				FPlatformAtomics::InterlockedExchange(&bDeviceWasJustInitialized, Result == MLResult_Ok);
 			});
 #endif // PLATFORM_LUMIN
 		}
@@ -1422,11 +1411,10 @@ void FMagicLeapHMD::ReleaseDevice_RenderThread()
 #endif
 
 #if WITH_MLSDK
-		MLStatus OutStatus;
-		bool bResult = MLGraphicsDestroyClient(&GraphicsClient, &OutStatus);
-		if (!bResult)
+		MLResult Result = MLGraphicsDestroyClient(&GraphicsClient);
+		if (Result != MLResult_Ok)
 		{
-			UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsDestroyClient failed with status %d"), static_cast<int32>(OutStatus));
+			UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsDestroyClient failed with status %d"), Result);
 		}
 		else
 		{
@@ -1438,16 +1426,11 @@ void FMagicLeapHMD::ReleaseDevice_RenderThread()
 
 bool FMagicLeapHMD::GetCurrentPose(int32 DeviceId, FQuat& OutOrientation, FVector& OutPosition)
 {
-	FTrackingFrame* Frame = GetCurrentFrame();
-	if (Frame)
-	{
-		OutOrientation = Frame->RawPose.GetRotation();
-		OutPosition = Frame->RawPose.GetLocation();
+	const FTrackingFrame& Frame = GetCurrentFrame();
+	OutOrientation = Frame.RawPose.GetRotation();
+	OutPosition = Frame.RawPose.GetLocation();
 
-		return true;
-	}
-
-	return false;
+	return true;
 }
 
 bool FMagicLeapHMD::GetRelativeEyePose(int32 DeviceId, EStereoscopicPass Eye, FQuat& OutOrientation, FVector& OutPosition)
@@ -1457,11 +1440,11 @@ bool FMagicLeapHMD::GetRelativeEyePose(int32 DeviceId, EStereoscopicPass Eye, FQ
 	OutPosition = FVector::ZeroVector;
 	if (DeviceId == IXRTrackingSystem::HMDDeviceId && (Eye == eSSP_LEFT_EYE || Eye == eSSP_RIGHT_EYE))
 	{
-		FTrackingFrame const* const Frame = GetCurrentFrame();
+		const FTrackingFrame& Frame = GetCurrentFrame();
 		const int EyeIdx = (Eye == eSSP_LEFT_EYE) ? 0 : 1;
 
-		const FTransform EyeToWorld = MagicLeap::ToFTransform(Frame->RenderInfoArray.virtual_cameras[EyeIdx].transform, Frame->WorldToMetersScale);		// "world" here means the HMDs tracking space
-		const FTransform EyeToHMD = EyeToWorld * Frame->RawPose.Inverse();		// RawPose is HMDToWorld
+		const FTransform EyeToWorld = MagicLeap::ToFTransform(Frame.RenderInfoArray.virtual_cameras[EyeIdx].transform, Frame.WorldToMetersScale);		// "world" here means the HMDs tracking space
+		const FTransform EyeToHMD = EyeToWorld * Frame.RawPose.Inverse();		// RawPose is HMDToWorld
 		OutPosition = EyeToHMD.GetTranslation();
 		OutOrientation = EyeToHMD.GetRotation();
 
@@ -1500,6 +1483,11 @@ void FMagicLeapHMD::OnBeginRendering_GameThread()
 	check(IsInGameThread());
 
 	RefreshTrackingFrame();
+	FTrackingFrame& TrackingFrame = GetCurrentFrameMutable();
+	if (TrackingFrame.WorldContext != nullptr)
+	{
+		RefreshTrackingToWorldTransform(*(TrackingFrame.WorldContext));
+	}
 
 #if WITH_MLSDK
 	// Copy the game tracking frame to the render frame.
@@ -1638,13 +1626,10 @@ void FMagicLeapHMD::GetOrthoProjection(int32 RTWidth, int32 RTHeight, float Orth
 void FMagicLeapHMD::SetClippingPlanes(float NCP, float FCP)
 {
 	check(IsInGameThread());
-	FTrackingFrame* frame = GetCurrentFrame();
-	if (frame != nullptr)
-	{
-		frame->FarClippingPlane = (frame->RecommendedFarClippingPlane < FCP) ? frame->RecommendedFarClippingPlane : FCP;
-		GNearClippingPlane = NCP;
-		UpdateNearClippingPlane();
-	}
+	FTrackingFrame& frame = GetCurrentFrameMutable();
+	frame.FarClippingPlane = (frame.RecommendedFarClippingPlane < FCP) ? frame.RecommendedFarClippingPlane : FCP;
+	GNearClippingPlane = NCP;
+	UpdateNearClippingPlane();
 }
 
 void FMagicLeapHMD::RegisterMagicLeapInputDevice(IMagicLeapInputDevice* InputDevice)
@@ -1701,26 +1686,42 @@ void FMagicLeapHMD::ShutdownRendering()
 #endif // PLATFORM_LUMIN
 }
 
-FTrackingFrame* FMagicLeapHMD::GetCurrentFrame() const
+FTrackingFrame& FMagicLeapHMD::GetCurrentFrameMutable()
 {
 	if (IsInRHIThread())
 	{
-		return const_cast<FTrackingFrame*>(&RHITrackingFrame);
+		return RHITrackingFrame;
 	}
 	if (IsInRenderingThread())
 	{
-		return const_cast<FTrackingFrame*>(&RenderTrackingFrame);
+		return RenderTrackingFrame;
 	}
 	else
 	{
-		return const_cast<FTrackingFrame*>(&GameTrackingFrame);
+		return GameTrackingFrame;
 	}
 }
 
-FTrackingFrame* FMagicLeapHMD::GetOldFrame() const
+const FTrackingFrame& FMagicLeapHMD::GetCurrentFrame() const
+{
+	if (IsInRHIThread())
+	{
+		return RHITrackingFrame;
+	}
+	if (IsInRenderingThread())
+	{
+		return RenderTrackingFrame;
+	}
+	else
+	{
+		return GameTrackingFrame;
+	}
+}
+
+const FTrackingFrame& FMagicLeapHMD::GetOldFrame() const
 {
 	check(IsInGameThread());
-	return const_cast<FTrackingFrame*>(&OldTrackingFrame);
+	return OldTrackingFrame;
 }
 
 void FMagicLeapHMD::InitializeOldFrameFromRenderFrame()
@@ -1845,6 +1846,26 @@ void FMagicLeapHMD::RestoreBaseProfile()
 	}
 }
 
+void FMagicLeapHMD::EnablePrivileges()
+{
+#if WITH_MLSDK
+	UE_LOG(LogMagicLeap, Warning, TEXT("FMagicLeapHMD::EnablePrivileges"));
+	MLResult Result = MLPrivilegesStartup();
+	UE_CLOG(Result != MLResult_Ok, LogMagicLeap, Error, TEXT("MLPrivilegesStartup() "
+		"failed with error %s"), UTF8_TO_TCHAR(MLPrivilegesGetResultString(Result)));
+#endif // WITH_MLSDK
+}
+
+void FMagicLeapHMD::DisablePrivileges()
+{
+#if WITH_MLSDK
+	UE_LOG(LogMagicLeap, Warning, TEXT("FMagicLeapHMD::DisablePrivileges"));
+	MLResult Result = MLPrivilegesShutdown();
+	UE_CLOG(Result != MLResult_Ok, LogMagicLeap, Error, TEXT("MLPrivilegesShutdown() "
+		"failed with error %s"), UTF8_TO_TCHAR(MLPrivilegesGetResultString(Result)));
+#endif // WITH_MLSDK
+}
+
 void FMagicLeapHMD::EnableInputDevices()
 {
 	for (auto& It : InputDevices)
@@ -1870,11 +1891,22 @@ void FMagicLeapHMD::EnablePerception()
 	if (!bIsPerceptionEnabled)
 	{
 		MLPerceptionSettings perception_settings;
-		MLPerceptionInitSettings(&perception_settings);
-		bIsPerceptionEnabled = MLPerceptionStartup(&perception_settings);
-		if (!bIsPerceptionEnabled)
+		MLResult Result = MLPerceptionInitSettings(&perception_settings);
+		if (Result == MLResult_Ok)
 		{
-			UE_LOG(LogMagicLeap, Error, TEXT("Error starting perception client."));
+			Result = MLPerceptionStartup(&perception_settings);
+			if (Result == MLResult_Ok)
+			{
+				bIsPerceptionEnabled = true;
+			}
+			else
+			{
+				UE_LOG(LogMagicLeap, Error, TEXT("MLPerceptionStartup failed with error %d."), Result);
+			}
+		}
+		else
+		{
+			UE_LOG(LogMagicLeap, Error, TEXT("MLPerceptionInitSettings failed with error %d."), Result);
 		}
 	}
 #endif //WITH_MLSDK
@@ -1885,14 +1917,15 @@ void FMagicLeapHMD::DisablePerception()
 #if WITH_MLSDK
 	if (bIsPerceptionEnabled)
 	{
-		bIsPerceptionEnabled = !MLPerceptionShutdown();
-		if (bIsPerceptionEnabled)
+		MLResult Result = MLPerceptionShutdown();
+		if (Result == MLResult_Ok)
 		{
-			UE_LOG(LogMagicLeap, Error, TEXT("Error shutting down perception client."));
+			bIsPerceptionEnabled = false;
+			UE_LOG(LogMagicLeap, Display, TEXT("Perception client shutdown successfully."));
 		}
 		else
 		{
-			UE_LOG(LogMagicLeap, Display, TEXT("Perception client shutdown successfully."));
+			UE_LOG(LogMagicLeap, Error, TEXT("MLPerceptionShutdown failed with error %d"), Result);
 		}
 	}
 #endif //WITH_MLSDK
@@ -1903,10 +1936,13 @@ void FMagicLeapHMD::EnableHeadTracking()
 #if WITH_MLSDK
 	if (HeadTracker == ML_INVALID_HANDLE)
 	{
-		HeadTracker = MLHeadTrackingCreate();
-		if (HeadTracker != ML_INVALID_HANDLE)
+		MLResult CreateResult = MLHeadTrackingCreate(&HeadTracker);
+		if (CreateResult == MLResult_Ok && HeadTracker != ML_INVALID_HANDLE)
 		{
-			MLHeadTrackingGetStaticData(HeadTracker, &HeadTrackerData);
+			if (MLResult_Ok != MLHeadTrackingGetStaticData(HeadTracker, &HeadTrackerData))
+			{
+				UE_LOG(LogMagicLeap, Error, TEXT("Error getting head tracking static data."));
+			}
 		}
 		else
 		{
@@ -1921,15 +1957,9 @@ void FMagicLeapHMD::DisableHeadTracking()
 #if WITH_MLSDK
 	if (HeadTracker != ML_INVALID_HANDLE)
 	{
-		bool bResult = MLHeadTrackingDestroy(HeadTracker);
-		if (bResult)
-		{
-			HeadTracker = ML_INVALID_HANDLE;
-		}
-		else
-		{
-			UE_LOG(LogMagicLeap, Error, TEXT("Error destroying head tracking."));
-		}
+		MLResult DestroyResult = MLHeadTrackingDestroy(HeadTracker);
+		UE_CLOG(DestroyResult != MLResult_Ok, LogMagicLeap, Error, TEXT("Error destroying head tracking."));
+		HeadTracker = ML_INVALID_HANDLE;
 	}
 #endif //WITH_MLSDK
 }
@@ -1937,10 +1967,9 @@ void FMagicLeapHMD::DisableHeadTracking()
 void FMagicLeapHMD::InitializeClipExtents_RenderThread()
 {
 #if WITH_MLSDK
-	MLStatus OutStatus;
 	MLGraphicsRenderTargetsInfo RenderTargetInfo;
-	bool bResult = MLGraphicsGetRenderTargets(GraphicsClient, &RenderTargetInfo, &OutStatus);
-	if (bResult)
+	MLResult Result = MLGraphicsGetRenderTargets(GraphicsClient, &RenderTargetInfo);
+	if (Result == MLResult_Ok)
 	{
 		GameTrackingFrame.NearClippingPlane = RenderTargetInfo.min_clip * GameTrackingFrame.WorldToMetersScale;
 		GameTrackingFrame.RecommendedFarClippingPlane = RenderTargetInfo.max_clip * GameTrackingFrame.WorldToMetersScale;
@@ -1948,14 +1977,14 @@ void FMagicLeapHMD::InitializeClipExtents_RenderThread()
 	}
 	else
 	{
-		UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsGetRenderTargets() failed with status %d"), static_cast<int32>(OutStatus));
+		UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsGetRenderTargets() failed with status %d"), Result);
 	}
 
 	// get the clip extents for clipping content in update thread
-	bResult = MLGraphicsGetClipExtents(GraphicsClient, &GameTrackingFrame.UpdateInfoArray, &OutStatus);
-	if (!bResult)
+	Result = MLGraphicsGetClipExtents(GraphicsClient, &GameTrackingFrame.UpdateInfoArray);
+	if (Result != MLResult_Ok)
 	{
-		FString ErrorMesg = FString::Printf(TEXT("MLGraphicsGetClipExtents failed with status %d"), static_cast<int32>(OutStatus));
+		FString ErrorMesg = FString::Printf(TEXT("MLGraphicsGetClipExtents failed with status %d"), Result);
 
 		// In case we're running under VD/ZI, there's always the risk of disconnects.
 		// In those cases, the graphics API can return an error, but the client handle might still be valid.

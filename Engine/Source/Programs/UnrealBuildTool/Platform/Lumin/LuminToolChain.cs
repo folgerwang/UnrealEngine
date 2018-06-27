@@ -232,6 +232,10 @@ namespace UnrealBuildTool
 			Result += " -Wl,-rpath=$ORIGIN";
 			Result += " -fdiagnostics-format=msvc";
 
+			if (!LinkEnvironment.bCreateDebugInfo)
+			{
+				Result += " -Wl,--strip-debug";
+			}
 
 			if (!LinkEnvironment.bIsBuildingDLL)
 			{

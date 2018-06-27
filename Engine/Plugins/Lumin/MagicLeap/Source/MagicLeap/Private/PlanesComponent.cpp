@@ -37,9 +37,9 @@ public:
 		if (!MLHandleIsValid(Tracker))
 		{
 			UE_LOG(LogMagicLeap, Display, TEXT("Creating Planes Tracker"));
-			Tracker = MLPlanesCreate();
+			MLResult CreateResult = MLPlanesCreate(&Tracker);
 
-			if (!MLHandleIsValid(Tracker))
+			if (CreateResult != MLResult_Ok || !MLHandleIsValid(Tracker))
 			{
 				UE_LOG(LogMagicLeap, Error, TEXT("Could not create planes tracker."));
 				return false;
@@ -54,8 +54,8 @@ public:
 #if WITH_MLSDK
 		if (MLHandleIsValid(Tracker))
 		{
-			bool bResult = MLPlanesDestroy(Tracker);
-			if (!bResult)
+			MLResult DestroyResult = MLPlanesDestroy(Tracker);
+			if (DestroyResult != MLResult_Ok)
 			{
 				UE_LOG(LogMagicLeap, Error, TEXT("Error destroying planes tracker."));
 			}
@@ -199,7 +199,7 @@ void UPlanesComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, 
 #if WITH_MLSDK
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (!Impl->Create())
+	if (!(IMagicLeapPlugin::Get().IsMagicLeapHMDValid() && Impl->Create()))
 	{
 		return;
 	}
@@ -212,16 +212,19 @@ void UPlanesComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, 
 		TArray<MLPlane> resultMLPlanes;
 		resultMLPlanes.AddDefaulted(pair.Value.MaxResults);
 
-		MLPlanesQueryResult result = MLPlanesQueryGetResults(Impl->Tracker, pair.Key, resultMLPlanes.GetData(), &outNumResults);
+		MLResult result = MLPlanesQueryGetResults(Impl->Tracker, pair.Key, resultMLPlanes.GetData(), &outNumResults);
 		switch (result)
 		{
-		case MLPlanesQueryResult_Failure:
+		case MLResult_Pending:
+			// Intentionally skip. We'll continue to check until it has completed.
+			break;
+		case MLResult_UnspecifiedFailure:
 		{
 			pair.Value.ResultDelegate.ExecuteIfBound(false, TArray<FPlaneResult>(), pair.Value.UserData);
 			CompletedRequests.Add(pair.Key);
 			break;
 		}
-		case MLPlanesQueryResult_Success:
+		case MLResult_Ok:
 		{
 			const FAppFramework& AppFramework = static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice())->GetAppFrameworkConst();
 			float WorldToMetersScale = AppFramework.GetWorldToMetersScale();
@@ -267,6 +270,8 @@ void UPlanesComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, 
 			CompletedRequests.Add(pair.Key);
 			break;
 		}
+		default:
+			UE_LOG(LogMagicLeap, Warning, TEXT("Unexpected return code from MLPlanesQueryGetResults: %d"), result);		
 		}
 	}
 
@@ -285,6 +290,11 @@ void UPlanesComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, 
 bool UPlanesComponent::RequestPlanes(int32 UserData, const FPlaneResultDelegate& ResultDelegate)
 {
 #if WITH_MLSDK
+	if (!IMagicLeapPlugin::Get().IsMagicLeapHMDValid())
+	{
+		return false;
+	}
+
 	const FAppFramework& AppFramework = static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice())->GetAppFrameworkConst();
 	float WorldToMetersScale = AppFramework.GetWorldToMetersScale();
 	check(WorldToMetersScale != 0);
@@ -312,8 +322,9 @@ bool UPlanesComponent::RequestPlanes(int32 UserData, const FPlaneResultDelegate&
 		query.bounds_extents.z = FMath::Abs<float>(query.bounds_extents.z);
 	}
 
-	MLHandle handle = MLPlanesQueryBegin(Impl->Tracker, &query);
-	if (!MLHandleIsValid(handle))
+	MLHandle handle;
+	MLResult QueryResult = MLPlanesQueryBegin(Impl->Tracker, &query, &handle);
+	if (QueryResult != MLResult_Ok || !MLHandleIsValid(handle))
 	{
 		UE_LOG(LogMagicLeap, Error, TEXT("Could not request planes."));
 		return false;

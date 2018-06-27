@@ -21,7 +21,6 @@ public class MLSDK : ModuleRules
 		{
 			string IncludePath = Path.Combine(MLSDKPath, "include");
 			string LibraryPath = Path.Combine(MLSDKPath, "lib");
-			string VirtualDeviceLibraryPath = Path.Combine(MLSDKPath, "VirtualDevice", "lib");
 			string LibraryPlatformFolder = string.Empty;
 			switch (Target.Platform)
 			{
@@ -52,11 +51,10 @@ public class MLSDK : ModuleRules
 				if (Target.Platform != UnrealTargetPlatform.Lumin)
 				{
 					string VirtualDeviceIncludePath = "";
-					if (!Ini.TryGetValue("MLSDK", "IncludePath", out VirtualDeviceIncludePath))
+					if (Ini.TryGetValue("MLSDK", "IncludePath", out VirtualDeviceIncludePath))
 					{
-						VirtualDeviceIncludePath = Path.Combine(MLSDKPath, "VirtualDevice", "include");
+						PublicIncludePaths.Add(VirtualDeviceIncludePath);
 					}
-					PublicIncludePaths.Add(VirtualDeviceIncludePath);
 				}
 				PublicIncludePaths.Add(Path.Combine(MLSDKPath, "lumin/usr/include/vulkan"));
 
@@ -67,11 +65,6 @@ public class MLSDK : ModuleRules
 				if (!string.IsNullOrEmpty(MLSDKLibraryPath))
 				{
 					PublicLibraryPaths.Add(MLSDKLibraryPath);
-				}
-
-				if (Target.Platform != UnrealTargetPlatform.Lumin)
-				{
-					PublicLibraryPaths.Add(VirtualDeviceLibraryPath);
 				}
 
 				string[] MLSDKLibraryList = new string[] {
@@ -97,7 +90,8 @@ public class MLSDK : ModuleRules
 					"ml_privileges",
 					"ml_screens",
 					"ml_secure_storage",
-					"ml_sharedfile"
+					"ml_sharedfile",
+					"ml_purchase"
 				};
 
 				if (Target.Platform == UnrealTargetPlatform.Win64)
@@ -108,8 +102,8 @@ public class MLSDK : ModuleRules
 						PublicDelayLoadDLLs.Add(string.Format("{0}.dll", libname));
 					}
 
-					PublicAdditionalLibraries.Add("ml_virtual_device.lib");
-					PublicDelayLoadDLLs.Add("ml_virtual_device.dll");
+					PublicAdditionalLibraries.Add("ml_remote.lib");
+					PublicDelayLoadDLLs.Add("ml_remote.dll");
 				}
 				else if (Target.Platform == UnrealTargetPlatform.Mac)
 				{
@@ -126,14 +120,10 @@ public class MLSDK : ModuleRules
 						}
 					}
 
-					string virtualDeviceLib = "libml_virtual_device.dylib";
+					string virtualDeviceLib = "libml_remote.dylib";
 					if (!string.IsNullOrEmpty(MLSDKLibraryPath) && File.Exists(Path.Combine(MLSDKLibraryPath, virtualDeviceLib)))
 					{
 						PublicDelayLoadDLLs.Add(Path.Combine(MLSDKLibraryPath, virtualDeviceLib));
-					}
-					else
-					{
-						PublicDelayLoadDLLs.Add(Path.Combine(VirtualDeviceLibraryPath, virtualDeviceLib));
 					}
 				}
 				else if (Target.Platform == UnrealTargetPlatform.Linux)
@@ -151,14 +141,10 @@ public class MLSDK : ModuleRules
 						}
 					}
 					
-					string virtualDeviceLib = "libml_virtual_device.so";
+					string virtualDeviceLib = "libml_remote.so";
 					if (!string.IsNullOrEmpty(MLSDKLibraryPath) && File.Exists(Path.Combine(MLSDKLibraryPath, virtualDeviceLib)))
 					{
 						PublicDelayLoadDLLs.Add(Path.Combine(MLSDKLibraryPath, virtualDeviceLib));
-					}
-					else
-					{
-						PublicDelayLoadDLLs.Add(Path.Combine(VirtualDeviceLibraryPath, virtualDeviceLib));
 					}
 				}
 				else if (Target.Platform == UnrealTargetPlatform.Lumin)

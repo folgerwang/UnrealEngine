@@ -28,7 +28,7 @@ struct FScreensWatchHistoryEntry
 
 public:
 	/** Entry Identifier. Must be used to update and delete a given entry. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Screens|MagicLeap")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Screens|MagicLeap")
 	FScreenID ID;
 
 	/** Title of the media for which this entry is created. */
@@ -96,32 +96,30 @@ public:
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
 	/** 
-		Attempts to instigate a task on the worker thread to retrieve the watch history. 
-		Subscribe to the GetWatchHistorySuccess & GetWatchHistoryFailure delegates to recevie the result.
-
-		@return True if the worker thread was idle at the time of the call and the task was successfully queued.
+		Queues a task on the worker thread to retrieve the watch history. 
+		Subscribe to the GetWatchHistorySuccess & GetWatchHistoryFailure delegates to receive the result.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Screens|MagicLeap")
-	bool GetWatchHistoryAsync();
+	void GetWatchHistoryAsync();
 
 	/** 
-		Adds a watch history entry.
+		Queues a task on the worker thread to add a new entry into the watch history.
+		Subscribe to the AddToWatchHistoryResult delegate to receive the result.
 	
 		@param[in] WatchHistoryEntry The entry to be added to the history.
-		@param[out] FScreenID Stores the id of the newly created entry. The same ID should be used to update or delete this entry.
-		@return True if no errors were encountered.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Screens|MagicLeap")
-	bool AddWatchHistoryEntry(const FScreensWatchHistoryEntry& WatchHistoryEntry, FScreenID& ID);
+	void AddWatchHistoryEntryAsync(const FScreensWatchHistoryEntry WatchHistoryEntry);
 
 	/**
-		Updates a watch history entry.
+		Queues a task on the worker thread to update an entry in the watch history.
+		The ID of the entry to be updated must be valid and already present in the watch history.
+		Subscribe to the UpdateWatchHistoryEntryResult delegate to receive the result.
 	
 		@param[in] WatchHistoryEntry The entry to be updated.
-		@return True if no errors were encountered.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Screens|MagicLeap")
-	bool UpdateWatchHistoryEntry(const FScreensWatchHistoryEntry& WatchHistoryEntry);
+	void UpdateWatchHistoryEntryAsync(const FScreensWatchHistoryEntry WatchHistoryEntry);
 
 	/**
 		Removes a watch history entry.
@@ -160,19 +158,34 @@ public:
 	/** Delegate used to notify the instigating blueprint of a watch history retrieval failure. */
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FScreensGetWatchHistoryFailure);
 
-	/** Fired when the watch history is successfully retrieved on the worker thread. */
-	FScreensGetWatchHistorySuccess& OnScreensGetWatchHistorySuccess();
+	/** 
+		Delegate used to notify the instigating blueprint of the result from a request to add a new watch history entry.
 
-	/** Fired when retrieval of the watch history fails on the worker thread. */
-	FScreensGetWatchHistoryFailure& OnScreensGetWatchHistoryFailure();
+		@param[out] Entry The new entry created if a request via a call to AddToWatchHistoryAsync() succeeds.
+		@param[out] Success True when the call to AddToWatchHistoryAsync() succeeds.
+	*/
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FScreensAddToWatchHistoryResult, const FScreensWatchHistoryEntry&, Entry, const bool, Success);
+
+	/**
+		Delegate used to notify the instigating blueprint of the result from a request to update an entry in the watch history
+
+		@param[out] Entry The updated entry resulting from a successful request via a call to UpdateWatchHistoryEntry().
+		@param[out] Success True when the call to UpdateWatchHistoryEntryAsync() succeeds.
+	*/
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FScreensUpdateWatchHistoryEntryResult, const FScreensWatchHistoryEntry&, Entry, const bool, Success);
 
 private:
 	class FScreensImpl *Impl;
-	bool bWorkerBusy;
 
 	UPROPERTY(BlueprintAssignable, Category = "Screens|MagicLeap", meta = (AllowPrivateAccess = true))
 	FScreensGetWatchHistorySuccess GetWatchHistorySuccess;
 
 	UPROPERTY(BlueprintAssignable, Category = "Screens|MagicLeap", meta = (AllowPrivateAccess = true))
 	FScreensGetWatchHistoryFailure GetWatchHistoryFailure;
+
+	UPROPERTY(BlueprintAssignable, Category = "Screens|MagicLeap", meta = (AllowPrivateAccess = true))
+	FScreensAddToWatchHistoryResult AddToWatchHistoryResult;
+
+	UPROPERTY(BlueprintAssignable, Category = "Screens|MagicLeap", meta = (AllowPrivateAccess = true))
+	FScreensUpdateWatchHistoryEntryResult UpdateWatchHistoryEntryResult;
 };

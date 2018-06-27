@@ -28,6 +28,31 @@ public:
 	bool RightEyeBlinked;
 };
 
+USTRUCT(BlueprintType)
+struct FMagicLeapFixationComfort
+{
+	GENERATED_BODY()
+
+public:
+	/**
+	  Is the user's fixation point too close for sustained use. This value is true if the user is
+      focused on a point that is within 37 cm of the eyeball centers. 
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eye Fixation Comfort")
+	bool FixationDepthIsUncomfortable;
+
+	/** True if the user has fixated on a point closer than 37 cm for longer than 10 seconds within the last minute. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eye Fixation Comfort")
+	bool FixationDepthViolationHasOccurred;
+
+	/**
+	  Number of seconds remaining that the user may be fixated at an uncomfortable depth. If this
+	  persists for too long, the system may take action to move the fixation point further away.
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eye Fixation Comfort")
+	float RemainingTimeAtUncomfortableDepth;
+};
+
 /**
 * The public interface of the Magic Leap Eye Tracking Module.
 */
@@ -82,6 +107,7 @@ public:
 
 	bool IsEyeTrackerCalibrated() const;
 	bool GetEyeBlinkState(FMagicLeapEyeBlinkState& BlinkState) const;
+	bool GetFixationComfort(FMagicLeapFixationComfort& FixationComfort) const;
 
 private:
 	friend class FMagicLeapEyeTrackerModule;
@@ -133,4 +159,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Eye Tracking|MagicLeap")
 	static bool GetEyeBlinkState(FMagicLeapEyeBlinkState& BlinkState);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Eye Tracking|MagicLeap")
+	static bool GetFixationComfort(FMagicLeapFixationComfort& FixationComfort);
 };

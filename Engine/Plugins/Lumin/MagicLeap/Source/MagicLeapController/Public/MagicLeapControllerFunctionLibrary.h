@@ -52,14 +52,6 @@ public:
 	static EMLControllerType GetMLControllerType(EControllerHand Hand);
 
 	/**
-	  Match the position & orientation of the physical controller with an entity in the map and call this function
-	  with the position & orientation of that entity relative to the Player Pawn. This would apply the correct offsets
-	  to the MotionController component's transform.
-	*/
-	UFUNCTION(BlueprintCallable, Category = "MotionController|MagicLeap")
-	static void CalibrateControllerNow(EControllerHand Hand, const FVector& StartPosition, const FRotator& StartOrientation);
-
-	/**
 	  Light up the LED on the Magic Leap Controller in the given pattern for the specified duration.
 	  @param Hand Controller to play the LED pattern on.
 	  @param LEDPattern Pattern to play on the controller.

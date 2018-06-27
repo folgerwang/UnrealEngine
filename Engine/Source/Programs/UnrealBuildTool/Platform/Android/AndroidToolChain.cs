@@ -1826,7 +1826,7 @@ namespace UnrealBuildTool
 
 			ProcessStartInfo StartInfo = new ProcessStartInfo();
 			StartInfo.FileName = GetStripPath(SourceFile);
-			StartInfo.Arguments = "--strip-debug " + TargetFile.FullName;
+			StartInfo.Arguments = " --strip-debug \"" + TargetFile.FullName + "\"";
 			StartInfo.UseShellExecute = false;
 			StartInfo.CreateNoWindow = true;
 			Utils.RunLocalProcessAndLogOutput(StartInfo);

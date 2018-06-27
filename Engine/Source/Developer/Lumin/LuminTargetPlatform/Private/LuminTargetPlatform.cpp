@@ -8,6 +8,7 @@
 #include "UObject/NameTypes.h"
 #include "Logging/LogMacros.h"
 #include "Stats/Stats.h"
+#include "LuminTargetDevice.h"
 #include "Modules/ModuleManager.h"
 
 /*=============================================================================
@@ -116,6 +117,11 @@ bool FLuminTargetPlatform::SupportsFeature(ETargetPlatformFeatures Feature) cons
 	return TTargetPlatformBase<FAndroidPlatformProperties>::SupportsFeature(Feature);
 }
 
+FAndroidTargetDevicePtr FLuminTargetPlatform::CreateTargetDevice(const ITargetPlatform& InTargetPlatform, const FString& InSerialNumber, const FString& InAndroidVariant) const
+{
+	return MakeShareable(new FLuminTargetDevice(InTargetPlatform, InSerialNumber, InAndroidVariant));
+}
+
 void FLuminTargetPlatform::InitializeDeviceDetection()
 {
 	DeviceDetection = FModuleManager::LoadModuleChecked<IAndroidDeviceDetectionModule>("AndroidDeviceDetection").GetAndroidDeviceDetection(TEXT("Lumin"));
@@ -125,7 +131,7 @@ void FLuminTargetPlatform::InitializeDeviceDetection()
 #else
 	TEXT("tools/mldb/mldb"),
 #endif
-	TEXT("getprop"), false);
+	TEXT("getprop"), /*bGetExtensionsViaSurfaceFlinger*/ false, /*bForLumin*/ true);
 
 }
 

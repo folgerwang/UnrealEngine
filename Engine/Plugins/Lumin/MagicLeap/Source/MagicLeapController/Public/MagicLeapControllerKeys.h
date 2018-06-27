@@ -31,6 +31,7 @@ enum class EMLControllerType : uint8
 UENUM(BlueprintType)
 enum class EMLControllerLEDPattern : uint8
 {
+	None,
 	Clock01,
 	Clock02,
 	Clock03,
@@ -98,6 +99,7 @@ enum class EMLControllerLEDSpeed : uint8
 UENUM(BlueprintType)
 enum class EMLControllerHapticPattern : uint8
 {
+	None,
 	Click,
 	Bump,
 	DoubleClick,

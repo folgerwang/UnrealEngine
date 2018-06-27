@@ -560,10 +560,39 @@ void FMagicLeapController::Enable()
 #if WITH_MLSDK
 	if (!MLHandleIsValid(InputTracker))
 	{
-		InputTracker = MLInputCreate(nullptr);
-		FMemory::Memset(&InputState, 0, sizeof(InputState));
-		MLInputSetControllerCallbacks(InputTracker, &InputControllerCallbacks, this);
-		MLInputSetKeyboardCallbacks(InputTracker, &InputKeyboardCallbacks, this);
+		MLResult Result = MLInputCreate(nullptr, &InputTracker);
+		if (Result == MLResult_Ok)
+		{
+			FMemory::Memset(&InputState, 0, sizeof(InputState));
+			Result = MLInputSetControllerCallbacks(InputTracker, &InputControllerCallbacks, this);
+			if (Result == MLResult_Ok)
+			{
+				Result = MLInputSetKeyboardCallbacks(InputTracker, &InputKeyboardCallbacks, this);
+				if (Result == MLResult_Ok)
+				{
+					// Poll to get startup status
+					UpdateTrackerData();
+				}
+				else
+				{
+					UE_LOG(LogMagicLeapController, Error, 
+						TEXT("MLInputSetKeyboardCallbacks failed with error %s."), 
+						UTF8_TO_TCHAR(MLGetResultString(Result)));
+				}
+			}
+			else
+			{
+				UE_LOG(LogMagicLeapController, Error, 
+					TEXT("MLInputSetControllerCallbacks failed with error %s."), 
+					UTF8_TO_TCHAR(MLGetResultString(Result)));
+			}
+		}
+		else
+		{
+			UE_LOG(LogMagicLeapController, Error, 
+				TEXT("MLInputCreate failed with error %s."), 
+				UTF8_TO_TCHAR(MLGetResultString(Result)));
+		}
 	}
 #endif //WITH_MLSDK
 }
@@ -578,15 +607,15 @@ void FMagicLeapController::Disable()
 #if WITH_MLSDK
 	if (MLHandleIsValid(InputTracker))
 	{
-		if (MLInputDestroy(InputTracker))
+		MLResult Result = MLInputDestroy(InputTracker);
+		if (Result != MLResult_Ok)
 		{
-			InputTracker = ML_INVALID_HANDLE;
-			bIsInputStateValid = false;
+			UE_LOG(LogMagicLeapController, Error, 
+				TEXT("MLInputDestroy failed with error %s!"), 
+				UTF8_TO_TCHAR(MLGetResultString(Result)));
 		}
-		else
-		{
-			UE_LOG(LogMagicLeapController, Error, TEXT("Error destroying input tracker."));
-		}
+		InputTracker = ML_INVALID_HANDLE;
+		bIsInputStateValid = false;
 	}
 #endif //WITH_MLSDK
 }
@@ -642,25 +671,23 @@ void FMagicLeapController::InternalSetHapticFeedbackValues(int32 ControllerId, i
 
 					UE_LOG(LogMagicLeapController, Warning, TEXT("Disabling haptic feedback pending a lower level API.  please use UMagicLeapControllerFunctionLibrary::PlayControllerHapticFeedback for now!"));
 
-					bool bResult = false;
 					if ((EControllerHand(Hand) == EControllerHand::Left))
 					{
 						// TODO: What to do with duration?
-						//bResult = MLInputHapticsStartControllerBody(InputTracker, static_cast<uint8>(*ControllerIndex), MLInputControllerFeedbackPatternVibe_Buzz, intensity, 8);
-						if (!bResult)
-						{
-							UE_LOG(LogMagicLeapController, Error, TEXT("MLInputHapticsStartControllerBody() failed."));
-						}
+						//MLResult Result = MLInputHapticsStartControllerBody(InputTracker, static_cast<uint8>(*ControllerIndex), MLInputControllerFeedbackPatternVibe_Buzz, intensity, 8);
+						//if (Result != MLResult_Ok)
+						//{
+						//	UE_LOG(LogMagicLeapController, Error, TEXT("MLInputHapticsStartControllerBody() failed."));
+						//}
 					}
 					else
 					{
 						// TODO: What to do with duration?
-						//bResult = MLInputHapticsStartControllerTouchpad(InputTracker, static_cast<uint8>(*Controller), MLInputControllerFeedbackPatternVibe_Buzz, intensity, 8);
-						if (!bResult)
-						{
-							UE_LOG(LogMagicLeapController, Error, TEXT("MLInputHapticsStartControllerTouchpad() failed."));
-						}
-
+						//MLResult Result = MLInputHapticsStartControllerTouchpad(InputTracker, static_cast<uint8>(*Controller), MLInputControllerFeedbackPatternVibe_Buzz, intensity, 8);
+						//if (Result != MLResult_Ok)
+						//{
+						//	UE_LOG(LogMagicLeapController, Error, TEXT("MLInputHapticsStartControllerTouchpad() failed."));
+						//}
 					}
 
 					//only toggle when called from the haptics interface, not force feedback
@@ -704,26 +731,14 @@ bool FMagicLeapController::GetControllerOrientationAndPosition(const int32 Contr
 		if (GetControllerTrackingStatus(ControllerIndex, DeviceHand) != ETrackingStatus::NotTracked)
 		{
 			const FTransform* ControllerTransform = &LeftControllerTransform;
-			const FTransform* CalibrationTransform = &LeftControllerCalibration;
-			ETrackingStatus ControllerTrackingStatus = GetControllerTrackingStatus(DeviceIndex, EControllerHand::Left);
-			EMLControllerType bControllerType = GetMLControllerType(EControllerHand::Left);
 
 			if (DeviceHand == EControllerHand::Right)
 			{
-				ControllerTrackingStatus = GetControllerTrackingStatus(DeviceIndex, EControllerHand::Right);
 				ControllerTransform = &RightControllerTransform;
-				CalibrationTransform = &RightControllerCalibration;
 			}
 
-			OutPosition = ControllerTransform->GetLocation() + CalibrationTransform->GetLocation();
-			if (ControllerTrackingStatus == ETrackingStatus::InertialOnly)
-			{
-				OutOrientation = (CalibrationTransform->GetRotation() * ControllerTransform->GetRotation()).Rotator();
-			}
-			else
-			{
-				OutOrientation = (ControllerTransform->GetRotation() * CalibrationTransform->GetRotation()).Rotator();
-			}
+			OutPosition = ControllerTransform->GetLocation();
+			OutOrientation = ControllerTransform->GetRotation().Rotator();
 
 			bControllerTracked = true;
 		}
@@ -771,11 +786,11 @@ FName FMagicLeapController::GetMotionControllerDeviceTypeName() const
 void FMagicLeapController::UpdateTrackerData()
 {
 #if WITH_MLSDK
-	if (MLHandleIsValid(InputTracker))
+	if (MLHandleIsValid(InputTracker) && IMagicLeapPlugin::Get().IsMagicLeapHMDValid())
 	{
 		// Memcopy instead of assignment operator since its an array type of a c-struct and we need a deep copy here.
 		FMemory::Memcpy(&OldInputState, &InputState, sizeof(InputState));
-		bIsInputStateValid = MLInputGetControllerState(InputTracker, InputState);
+		bIsInputStateValid = MLInputGetControllerState(InputTracker, InputState) == MLResult_Ok;
 
 		if (bIsInputStateValid)
 		{
@@ -874,7 +889,7 @@ void FMagicLeapController::InvertControllerMapping()
 EMLControllerType FMagicLeapController::GetMLControllerType(EControllerHand Hand) const
 {
 #if WITH_MLSDK
-	const int32* ControllerID = HandToControllerID.Find(EControllerHand::Left);
+	const int32* ControllerID = HandToControllerID.Find(Hand);
 	if (ControllerID != nullptr)
 	{
 		switch (InputState[*ControllerID].type)
@@ -889,24 +904,6 @@ EMLControllerType FMagicLeapController::GetMLControllerType(EControllerHand Hand
 	return EMLControllerType::None;
 }
 
-void FMagicLeapController::CalibrateControllerNow(EControllerHand Hand, const FVector& StartPosition, const FRotator& StartOrientation)
-{
-	const int32* ControllerID = HandToControllerID.Find(Hand);
-	if (ControllerID != nullptr)
-	{
-		FTransform* CalibrationTransform = &LeftControllerCalibration;
-		FTransform* CurrentTransform = &LeftControllerTransform;
-		if (Hand == EControllerHand::Right)
-		{
-			CalibrationTransform = &RightControllerCalibration;
-			CurrentTransform = &RightControllerTransform;
-		}
-
-		CalibrationTransform->SetRotation(StartOrientation.Quaternion() * CurrentTransform->GetRotation().Inverse());
-		CalibrationTransform->SetLocation(StartPosition - CurrentTransform->GetLocation());
-	}
-}
-
 bool FMagicLeapController::PlayControllerLED(EControllerHand Hand, EMLControllerLEDPattern LEDPattern, EMLControllerLEDColor LEDColor, float DurationInSec)
 {
 #if WITH_MLSDK
@@ -915,7 +912,7 @@ bool FMagicLeapController::PlayControllerLED(EControllerHand Hand, EMLController
 		const int32* ControllerID = HandToControllerID.Find(Hand);
 		if (ControllerID != nullptr)
 		{
-			return MLInputStartControllerFeedbackPatternLED(InputTracker, static_cast<uint8>(*ControllerID), UnrealToMLPatternLED(LEDPattern), UnrealToMLColorLED(LEDColor), static_cast<uint32>(DurationInSec * 1000));
+			return MLInputStartControllerFeedbackPatternLED(InputTracker, static_cast<uint8>(*ControllerID), UnrealToMLPatternLED(LEDPattern), UnrealToMLColorLED(LEDColor), static_cast<uint32>(DurationInSec * 1000)) == MLResult_Ok;
 		}
 	}
 	else
@@ -935,7 +932,7 @@ bool FMagicLeapController::PlayControllerLEDEffect(EControllerHand Hand, EMLCont
 		const int32* ControllerID = HandToControllerID.Find(Hand);
 		if (ControllerID != nullptr)
 		{
-			return MLInputStartControllerFeedbackPatternEffectLED(InputTracker, static_cast<uint8>(*ControllerID), UnrealToMLEffectLED(LEDEffect), UnrealToMLSpeedLED(LEDSpeed), UnrealToMLPatternLED(LEDPattern), UnrealToMLColorLED(LEDColor), static_cast<uint32>(DurationInSec * 1000));
+			return MLInputStartControllerFeedbackPatternEffectLED(InputTracker, static_cast<uint8>(*ControllerID), UnrealToMLEffectLED(LEDEffect), UnrealToMLSpeedLED(LEDSpeed), UnrealToMLPatternLED(LEDPattern), UnrealToMLColorLED(LEDColor), static_cast<uint32>(DurationInSec * 1000)) == MLResult_Ok;
 		}
 	}
 	else
@@ -955,7 +952,7 @@ bool FMagicLeapController::PlayControllerHapticFeedback(EControllerHand Hand, EM
 		const int32* ControllerID = HandToControllerID.Find(Hand);
 		if (ControllerID != nullptr)
 		{
-			return MLInputStartControllerFeedbackPatternVibe(InputTracker, static_cast<uint8>(*ControllerID), UnrealToMLPatternVibe(HapticPattern), UnrealToMLHapticIntensity(Intensity));
+			return MLInputStartControllerFeedbackPatternVibe(InputTracker, static_cast<uint8>(*ControllerID), UnrealToMLPatternVibe(HapticPattern), UnrealToMLHapticIntensity(Intensity)) == MLResult_Ok;
 		}
 	}
 	else
@@ -1138,6 +1135,8 @@ MLInputControllerFeedbackPatternLED FMagicLeapController::UnrealToMLPatternLED(E
 {
 	switch (LEDPattern)
 	{
+		case EMLControllerLEDPattern::None:
+			return MLInputControllerFeedbackPatternLED_None;
 		case EMLControllerLEDPattern::Clock01:
 			return MLInputControllerFeedbackPatternLED_Clock1;
 		case EMLControllerLEDPattern::Clock02:
@@ -1253,6 +1252,8 @@ MLInputControllerFeedbackPatternVibe FMagicLeapController::UnrealToMLPatternVibe
 {
 	switch (HapticPattern)
 	{
+		case EMLControllerHapticPattern::None:
+			return MLInputControllerFeedbackPatternVibe_None;
 		case EMLControllerHapticPattern::Click:
 			return MLInputControllerFeedbackPatternVibe_Click;
 		case EMLControllerHapticPattern::Bump:

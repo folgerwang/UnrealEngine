@@ -11,6 +11,8 @@ class FVulkanDevice;
 
 namespace VulkanRHIBridge
 {
+	VULKANRHI_API uint64 GetInstance(FVulkanDynamicRHI*);
+
 	VULKANRHI_API FVulkanDevice* GetDevice(FVulkanDynamicRHI*);
 
 	// Returns a VkDevice

@@ -91,6 +91,7 @@ void UAudioCaptureComponent::OnEndGenerate()
 		check(CaptureSynth.IsStreamOpen());
 		CaptureSynth.AbortCapturing();
 		check(!CaptureSynth.IsStreamOpen());
+		bIsStreamOpen = false;
 
 		bIsReadyForForFinishDestroy = true;
 	}

@@ -353,7 +353,7 @@ namespace Audio
 			bResourcesNeedFreeing = (BufferType == EBufferType::PCMRealTime || BufferType == EBufferType::Streaming);
 
 			// Not all wave data types have a non-zero duration
-			if (InWaveInstance->WaveData->Duration > 0)
+			if (!InWaveInstance->WaveData->IsLooping())
 			{
 				if (!InWaveInstance->WaveData->bIsBus)
 				{

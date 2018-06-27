@@ -25,7 +25,7 @@ public:
 	  @param ResultCode Error code when getting the available attributes.
 	  @param AvailableAttributes List of attributes available for the user's Magic Leap profile.
 	*/
-	DECLARE_DYNAMIC_DELEGATE_TwoParams(FAvailableIdentityAttributesDelegate, EMagicLeapIdentityError, ResultCode, const TArray<EMagicLeapIdentityAttribute>&, AvailableAttributes);
+	DECLARE_DYNAMIC_DELEGATE_TwoParams(FAvailableIdentityAttributesDelegate, EMagicLeapIdentityError, ResultCode, const TArray<EMagicLeapIdentityKey>&, AvailableAttributes);
 
 	/**
 	  Delegate for the result of attribute values for the user's Magic Leap profile.
@@ -39,7 +39,7 @@ public:
 	  @param ResultCode Error code when modifying the attribute values.
 	  @param AttributesUpdatedSuccessfully List of attributes whose values were successfully modified.
 	*/
-	DECLARE_DYNAMIC_DELEGATE_TwoParams(FModifyIdentityAttributeValueDelegate, EMagicLeapIdentityError, ResultCode, const TArray<EMagicLeapIdentityAttribute>&, AttributesUpdatedSuccessfully);
+	DECLARE_DYNAMIC_DELEGATE_TwoParams(FModifyIdentityAttributeValueDelegate, EMagicLeapIdentityError, ResultCode, const TArray<EMagicLeapIdentityKey>&, AttributesUpdatedSuccessfully);
 
 	/**
 	  Get the attributes available for the user's Magic Leap profile. Note that this does not request the values for these attribtues.
@@ -48,7 +48,7 @@ public:
 	  @return Error code when getting the list of available attributes.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Identity|MagicLeap")
-	EMagicLeapIdentityError GetAllAvailableAttributes(TArray<EMagicLeapIdentityAttribute>& AvailableAttributes);
+	EMagicLeapIdentityError GetAllAvailableAttributes(TArray<EMagicLeapIdentityKey>& AvailableAttributes);
 
 	/**
 	  Asynchronous call to get the attributes available for the user's Magic Leap profile. Note that this does not request the values for these attribtues.
@@ -66,7 +66,7 @@ public:
 	  @return Error code when getting the attribute values.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Identity|MagicLeap")
-	EMagicLeapIdentityError RequestAttributeValue(const TArray<EMagicLeapIdentityAttribute>& RequestedAttributeList, TArray<FMagicLeapIdentityAttribute>& RequestedAttributeValues);
+	EMagicLeapIdentityError RequestAttributeValue(const TArray<EMagicLeapIdentityKey>& RequestedAttributeList, TArray<FMagicLeapIdentityAttribute>& RequestedAttributeValues);
 
 	/**
 	  Asynchronous call to get the values for the attributes of the user's Magic Leap profile.
@@ -75,28 +75,7 @@ public:
 	  @return Error code when getting the attribute values.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Identity|MagicLeap")
-	EMagicLeapIdentityError RequestAttributeValueAsync(const TArray<EMagicLeapIdentityAttribute>& RequestedAttributeList, const FRequestIdentityAttributeValueDelegate& ResultDelegate);
-
-	/**
-	  Modify the values for the attributes of the user's Magic Leap profile.
-	  This function makes a blocking call to the cloud. You can alternatively use ModifyAttributeValueAsync() to modify the attribute values asynchronously.
-	  @param UpdatedAttributeValueList List of attributes and the values to update the cloud profile with.
-	  @param AttributesUpdatedSuccessfully Output parameter populated with the list of attributes whose values were updated successfully.
-	  @return Error code when modifying the attribute values.
-	*/
-	DEPRECATED(4.19, "This function is deprecated and will be removed in future releases.")
-	UFUNCTION(BlueprintCallable, meta = (DisplayName = "ModifyAttributeValue_DEPRECATED"), Category = "Identity|MagicLeap")
-	EMagicLeapIdentityError ModifyAttributeValue(const TArray<FMagicLeapIdentityAttribute>& UpdatedAttributeValueList, TArray<EMagicLeapIdentityAttribute>& AttributesUpdatedSuccessfully);
-
-	/**
-	  Asynchronous call to modify the values for the attributes of the user's Magic Leap profile.
-	  @param UpdatedAttributeValueList List of attributes and the values to update the cloud profile with.
-	  @param ResultDelegate Callback which reports the list of attributes whose values were successfully modified.
-	  @return Error code when modifying the attribute values.
-	*/
-	DEPRECATED(4.19, "This function is deprecated and will be removed in future releases.")
-	UFUNCTION(BlueprintCallable, meta = (DisplayName = "ModifyAttributeValueAsync_DEPRECATED"), Category = "Identity|MagicLeap")
-	EMagicLeapIdentityError ModifyAttributeValueAsync(const TArray<FMagicLeapIdentityAttribute>& UpdatedAttributeValueList, const FModifyIdentityAttributeValueDelegate& ResultDelegate);
+	EMagicLeapIdentityError RequestAttributeValueAsync(const TArray<EMagicLeapIdentityKey>& RequestedAttributeList, const FRequestIdentityAttributeValueDelegate& ResultDelegate);
 
 	/** UObjectBase interface */
 	virtual UWorld* GetWorld() const override;

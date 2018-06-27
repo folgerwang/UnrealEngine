@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MagicLeapGestures.h"
+#include "IMagicLeapPlugin.h"
 #include "MagicLeapHMD.h"
 #include "MagicLeapMath.h"
 #include "Framework/Application/SlateApplication.h"
@@ -405,7 +406,7 @@ void FMagicLeapGestures::Disable()
 #if WITH_MLSDK
 	if (MLHandleIsValid(GestureTracker))
 	{
-		if (MLGestureTrackingDestroy(GestureTracker))
+		if (MLResult_Ok == MLGestureTrackingDestroy(GestureTracker))
 		{
 			GestureTracker = ML_INVALID_HANDLE;
 		}
@@ -464,7 +465,7 @@ bool FMagicLeapGestures::SetConfiguration(const TArray<EStaticGestures>& StaticG
 	config.pose_filter_level = UnrealToMLGestureFilterLevel(GestureFilterLevel);
 	config.handtype_filter_level = UnrealToMLGestureFilterLevel(HandSwitchingFilterLevel);
 
-	return MLGestureSetConfiguration(GestureTracker, &config);
+	return MLGestureSetConfiguration(GestureTracker, &config) == MLResult_Ok;
 #else
 	return false;
 #endif //WITH_MLSDK
@@ -481,7 +482,7 @@ bool FMagicLeapGestures::GetConfiguration(TArray<EStaticGestures>& ActiveStaticG
 	}
 
 	MLGestureConfiguration config;
-	bool validResult = MLGestureGetConfiguration(GestureTracker, &config);
+	bool validResult = MLGestureGetConfiguration(GestureTracker, &config) == MLResult_Ok;
 
 	if (validResult)
 	{
@@ -529,14 +530,14 @@ void FMagicLeapGestures::UpdateTrackerData()
 	if (MLHandleIsValid(GestureTracker))
 	{
 		OldData = GestureData;
-		bIsGestureStateValid = MLGestureGetData(GestureTracker, &GestureData);
+		bIsGestureStateValid = MLGestureGetData(GestureTracker, &GestureData) == MLResult_Ok;
 	}
 	else
 	{
 		bIsGestureStateValid = false;
 	}
 
-	if (bIsGestureStateValid)
+	if (bIsGestureStateValid && IMagicLeapPlugin::Get().IsMagicLeapHMDValid())
 	{
 		const FAppFramework& AppFramework = static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice())->GetAppFrameworkConst();
 		check(AppFramework.IsInitialized());
@@ -717,11 +718,13 @@ void FMagicLeapGestures::ConditionallyEnable()
 #if WITH_MLSDK
 	if (!MLHandleIsValid(GestureTracker) && GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice())
 	{
-		GestureTracker = MLGestureTrackingCreate();
-
-		if (MLHandleIsValid(GestureTracker))
+		MLResult CreateResult = MLGestureTrackingCreate(&GestureTracker);
+		if (CreateResult == MLResult_Ok && MLHandleIsValid(GestureTracker))
 		{
-			MLGestureGetStaticData(GestureTracker, &StaticData);
+			if (MLResult_Ok != MLGestureGetStaticData(GestureTracker, &StaticData))
+			{
+				UE_LOG(LogMagicLeapGestures, Error, TEXT("Error getting gesture tracker static data."));
+			}
 		}
 		else
 		{
@@ -742,7 +745,7 @@ void FMagicLeapGestures::OnAppPause()
 	{
 		MLGestureConfiguration GestureConfig;
 
-		if (!MLGestureGetConfiguration(GestureTracker, &GestureConfig))
+		if (MLResult_Ok != MLGestureGetConfiguration(GestureTracker, &GestureConfig))
 		{
 			UE_LOG(LogMagicLeapGestures, Error, TEXT("Failed to retrieve gesture tracking configuration on application pause."));
 		}
@@ -758,7 +761,7 @@ void FMagicLeapGestures::OnAppPause()
 			{
 				GestureConfig.gesture_pipeline_enabled = false;
 
-				if (!MLGestureSetConfiguration(GestureTracker, &GestureConfig))
+				if (MLResult_Ok != MLGestureSetConfiguration(GestureTracker, &GestureConfig))
 				{
 					UE_LOG(LogMagicLeapGestures, Error, TEXT("Failed to disable gesture tracking on application pause."));
 				}
@@ -789,7 +792,7 @@ void FMagicLeapGestures::OnAppResume()
 		}
 		else
 		{
-			if (!MLGestureGetConfiguration(GestureTracker, &GestureConfig))
+			if (MLResult_Ok != MLGestureGetConfiguration(GestureTracker, &GestureConfig))
 			{
 				UE_LOG(LogMagicLeapGestures, Error, TEXT("Failed to retrieve gesture tracking configuration on application resume."));
 			}
@@ -797,7 +800,7 @@ void FMagicLeapGestures::OnAppResume()
 			{
 				GestureConfig.gesture_pipeline_enabled = true;
 
-				if (!MLGestureSetConfiguration(GestureTracker, &GestureConfig))
+				if (MLResult_Ok != MLGestureSetConfiguration(GestureTracker, &GestureConfig))
 				{
 					UE_LOG(LogMagicLeapGestures, Error, TEXT("Failed to re-enable gesture tracking on application resume."));
 				}

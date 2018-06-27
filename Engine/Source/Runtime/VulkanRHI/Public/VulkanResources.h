@@ -304,10 +304,7 @@ public:
 		{
 			return ResourceAllocation->GetHandle();
 		}
-		else
-		{
-			return VK_NULL_HANDLE;
-		}
+		return VK_NULL_HANDLE;
 	}
 
 	inline uint64 GetAllocationOffset() const
