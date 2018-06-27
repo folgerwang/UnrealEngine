@@ -56,9 +56,6 @@ void FIOSApplication::AddExternalInputDevice(TSharedPtr<IInputDevice> InputDevic
 	}
 }
 
-UIDeviceOrientation CachedOrientation = UIDeviceOrientationPortrait;
-UIEdgeInsets CachedInsets;
-
 void FIOSApplication::PollGameDeviceState( const float TimeDelta )
 {
 	// initialize any externally-implemented input devices (we delay load initialize the array so any plugins have had time to load)
@@ -111,6 +108,11 @@ static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Left(TEXT("SafeZone.La
 static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Top(TEXT("SafeZone.Landscape.Top"), -1.0f, TEXT("Safe Zone - Landscape - Top"));
 static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Right(TEXT("SafeZone.Landscape.Right"), -1.0f, TEXT("Safe Zone - Landscape - Right"));
 static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Bottom(TEXT("SafeZone.Landscape.Bottom"), -1.0f, TEXT("Safe Zone - Landscape - Bottom"));
+
+#if !PLATFORM_TVOS
+UIDeviceOrientation CachedOrientation = UIDeviceOrientationPortrait;
+UIEdgeInsets CachedInsets;
+#endif
 
 void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 {
