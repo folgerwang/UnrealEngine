@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
+#include "Misc/App.h"
 #include "Misc/Timecode.h"
 #include "Misc/Timespan.h"
 
@@ -23,6 +24,8 @@ public:
 	static FTimespan ConvertAJATimecode2Timespan(const AJA::FTimecode& InTimecode, const AJA::FTimecode& PreviousTimeCode, const FTimespan& PreviousTimespan, const FFrameRate& InFPS);
 	static FTimecode ConvertAJATimecode2Timecode(const AJA::FTimecode& InTimecode, const FFrameRate& InFPS);
 
+	static bool CanUseAJACard() { return (FApp::CanEverRender() || bCanForceAJAUsage); }
+
 private:
 	static void LogInfo(const TCHAR* InFormat, ...);
 	static void LogWarning(const TCHAR* InFormat, ...);
@@ -30,4 +33,5 @@ private:
 
 private:
 	static void* LibHandle;
+	static bool bCanForceAJAUsage;
 };
