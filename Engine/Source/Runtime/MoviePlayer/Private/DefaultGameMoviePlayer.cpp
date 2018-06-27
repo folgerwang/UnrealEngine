@@ -140,6 +140,13 @@ void FDefaultGameMoviePlayer::RegisterMovieStreamer(TSharedPtr<IMovieStreamer> I
 {
 	MovieStreamer = InMovieStreamer;
 	MovieStreamer->OnCurrentMovieClipFinished().AddRaw(this, &FDefaultGameMoviePlayer::BroadcastMovieClipFinished);
+
+	// Always set the viewport interface when the movie streamer is registered.  This fixes cases movies not appearing due to module load order where the movie player is initialized after a movie streamer is registered.
+	// It also fixes cases of a different movie streamer being registered after initialization for any reason
+	if (MovieStreamer.IsValid() && MovieViewportWeakPtr.IsValid())
+	{
+		MovieViewportWeakPtr.Pin()->SetViewportInterface(MovieStreamer->GetViewportInterface().ToSharedRef());
+	}
 }
 
 void FDefaultGameMoviePlayer::Initialize(FSlateRenderer& InSlateRenderer)
@@ -212,6 +219,8 @@ void FDefaultGameMoviePlayer::Initialize(FSlateRenderer& InSlateRenderer)
 			]
 			]
 		];
+
+	MovieViewportWeakPtr = MovieViewport;
 
 	if (MovieStreamer.IsValid())
 	{

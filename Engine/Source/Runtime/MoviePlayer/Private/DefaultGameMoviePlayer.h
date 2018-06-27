@@ -149,6 +149,8 @@ private:
 	TSharedPtr<class SBorder> UserWidgetHolder;
 	/** Virtual window that we render to instead of the main slate window (for thread safety).  Shares only the same backbuffer as the main window */
 	TSharedPtr<class SVirtualWindow> VirtualRenderWindow;
+	/** Viewport responsible for displaying the movie player render target */
+	TWeakPtr<class SViewport> MovieViewportWeakPtr;
 
 	/** The threading mechanism with which we handle running slate on another thread */
 	class FSlateLoadingSynchronizationMechanism* SyncMechanism;
