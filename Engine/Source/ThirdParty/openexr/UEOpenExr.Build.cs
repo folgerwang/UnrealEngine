@@ -60,7 +60,7 @@ public class UEOpenExr : ModuleRules
 					}
 				);
 			}
-			else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
+			else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) && Target.Architecture.StartsWith("x86_64"))
 			{
 				string LibArchDir = LibDir + "/" + Target.Architecture;
 				PublicAdditionalLibraries.AddRange(
