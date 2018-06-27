@@ -35,17 +35,7 @@ USoundWaveProcedural::USoundWaveProcedural(const FObjectInitializer& ObjectIniti
 
 	SampleByteSize = 2;
 
-	// This is set to true to default to old behavior in old audio engine
-	// Audio mixer uses sound wave procedural in async tasks and sets this to false when using it.
-	bIsReadyForDestroy = true;
-
 	checkf(NumSamplesToGeneratePerCallback >= NumBufferUnderrunSamples, TEXT("Should generate more samples than this per callback."));
-}
-
-USoundWaveProcedural::USoundWaveProcedural(FVTableHelper& Helper)
-	: Super(Helper)
-{
-	bIsReadyForDestroy = true;
 }
 
 void USoundWaveProcedural::QueueAudio(const uint8* AudioData, const int32 BufferSize)
@@ -128,7 +118,7 @@ int32 USoundWaveProcedural::GeneratePCMData(uint8* PCMData, const int32 SamplesN
 	SamplesAvailable = AudioBuffer.Num() / SampleByteSize;
 
 	// Wait until we have enough samples that are requested before starting.
-	if (SamplesAvailable >= SamplesToGenerate)
+	if (SamplesAvailable > 0)
 	{
 		const int32 SamplesToCopy = FMath::Min<int32>(SamplesToGenerate, SamplesAvailable);
 		const int32 BytesToCopy = SamplesToCopy * SampleByteSize;
@@ -175,14 +165,14 @@ void USoundWaveProcedural::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTa
 	Super::GetAssetRegistryTags(OutTags);
 }
 
-bool USoundWaveProcedural::IsReadyForFinishDestroy()
-{
-	return bIsReadyForDestroy;
-}
-
 bool USoundWaveProcedural::HasCompressedData(FName Format, ITargetPlatform* TargetPlatform) const
 {
 	return false;
+}
+
+void USoundWaveProcedural::BeginGetCompressedData(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides)
+{
+	// SoundWaveProcedural does not have compressed data and should generally not be asked about it
 }
 
 FByteBulkData* USoundWaveProcedural::GetCompressedData(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides)

@@ -271,7 +271,7 @@ namespace Audio
 	{
 		// Retrieve ptr to the cached downmix channel map from the mixer device
 		int32 NewChannelCount = MixerDevice->GetNumChannelsForSubmixFormat(InNewChannelType);
-		TArray<float> ChannelMap;
+		Audio::AlignedFloatBuffer ChannelMap;
 		MixerDevice->Get2DChannelMap(false, InNewChannelType, NumChannels, false, ChannelMap);
 		float* ChannelMapPtr = ChannelMap.GetData();
 
@@ -543,11 +543,7 @@ namespace Audio
 				}
 				else
 				{
-					// Mix the output of the submix into the output buffer
-					for (int32 i = 0; i < NumSamples; ++i)
-					{
-						BufferPtr[i] += ScratchBufferPtr[i];
-					}
+					Audio::MixInBufferFast(ScratchBufferPtr, BufferPtr, NumSamples);
 				}
 			}
 		}
