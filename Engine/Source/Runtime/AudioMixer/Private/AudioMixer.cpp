@@ -300,6 +300,8 @@ namespace Audio
 
 	void IAudioMixerPlatformInterface::ReadNextBuffer()
 	{
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
 		// Don't read any more audio if we're not running or changing device
 		if (AudioStreamInfo.StreamState != EAudioOutputStreamState::Running || bAudioDeviceChanging)
 		{
@@ -434,6 +436,8 @@ namespace Audio
 
 	void IAudioMixerPlatformInterface::Tick()
 	{
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
 		// In single-threaded mode, we simply render buffers until we run out of space
 		// The single-thread audio backend will consume these rendered buffers when they need to
 		if (AudioStreamInfo.StreamState == EAudioOutputStreamState::Running && bIsDeviceInitialized)
@@ -493,6 +497,8 @@ namespace Audio
 
 	uint32 IAudioMixerPlatformInterface::Run()
 	{	
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
 		// Call different functions depending on if it's the "main" audio mixer instance. Helps debugging callstacks.
 		if (AudioStreamInfo.AudioMixer->IsMainAudioMixer())
 		{

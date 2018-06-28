@@ -73,6 +73,9 @@ namespace Audio
 
 	bool FMixerSourceBuffer::PreInit(FMixerBuffer* InBuffer, USoundWave* InWave, ELoopingMode InLoopingMode, bool bInIsSeeking)
 	{
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
+		// Mixer source buffer now owns this buffer
 		MixerBuffer = InBuffer;
 		check(MixerBuffer);
 
