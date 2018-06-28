@@ -107,7 +107,7 @@ FText SAuthorizingPlugin::GetWaitingText() const
 	case EPluginAuthorizationState::SigninRequired_Waiting:
 		return LOCTEXT("NeedUserToLoginToCheck", "Authorization failed, sign-in required...");
 	case EPluginAuthorizationState::Signin_Waiting:
-		return LOCTEXT("WaitingForSignin", "Waiting for sign-in...");
+		return LOCTEXT("WaitingForSignin", "Epic Games Launcher started. Waiting for you to sign in...");
 	case EPluginAuthorizationState::SigninFailed:
 		return LOCTEXT("SigninFailed", "Sign-in failed. Cancel and sign in manually through the launcher.");
 	}

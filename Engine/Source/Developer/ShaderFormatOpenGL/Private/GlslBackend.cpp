@@ -3823,16 +3823,24 @@ static void ConfigureInOutVariableLayout(EHlslShaderFrequency Frequency,
 	}
 	else if (Semantic && FCStringAnsi::Strnicmp(Variable->name, "gl_", 3) != 0)
 	{
-		Variable->explicit_location = 1;
 		Variable->semantic = ralloc_strdup(Variable, Semantic);
+
 		if(Mode == ir_var_in)
 		{
 			Variable->location = ParseState->next_in_location_slot++;
 		}
 		else
 		{
-			Variable->location = ParseState->next_out_location_slot++;
+			// Location may be already assigned to a pixel shader outputs (SV_TargetX HLSL output semantics).
+			// We want to preserve explicitly assigned render target indices and auto-generate them otherwise.
+			const bool bIsRenderTargetOutput = Frequency == HSF_PixelShader && Mode == ir_var_out;
+			if (!bIsRenderTargetOutput || !Variable->explicit_location)
+			{
+				Variable->location = ParseState->next_out_location_slot++;
+			}
 		}
+
+		Variable->explicit_location = true;
 	}
 }
 

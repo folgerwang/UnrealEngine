@@ -511,24 +511,30 @@ void UCheatManager::SetLevelStreamingStatus(FName PackageName, bool bShouldBeLoa
 	{
 		for( FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator )
 		{
-			(*Iterator)->ClientUpdateLevelStreamingStatus((*Iterator)->NetworkRemapPath(PackageName, false), bShouldBeLoaded, bShouldBeVisible, false, INDEX_NONE );
+			if (APlayerController* PC = Iterator->Get())
+			{
+				PC->ClientUpdateLevelStreamingStatus(PC->NetworkRemapPath(PackageName, false), bShouldBeLoaded, bShouldBeVisible, false, INDEX_NONE);
+			}
 		}
 	}
 	else
 	{
 		for( FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator )
 		{
-			TArray<FUpdateLevelStreamingLevelStatus> LevelStatuses;
-			for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
+			if (APlayerController* PC = Iterator->Get())
 			{
-				FUpdateLevelStreamingLevelStatus& LevelStatus = *new( LevelStatuses ) FUpdateLevelStreamingLevelStatus();
-				LevelStatus.PackageName = (*Iterator)->NetworkRemapPath(StreamingLevel->GetWorldAssetPackageFName(), false);
-				LevelStatus.bNewShouldBeLoaded = bShouldBeLoaded;
-				LevelStatus.bNewShouldBeVisible = bShouldBeVisible;
-				LevelStatus.bNewShouldBlockOnLoad = false;
-				LevelStatus.LODIndex = INDEX_NONE;
+				TArray<FUpdateLevelStreamingLevelStatus> LevelStatuses;
+				for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
+				{
+					FUpdateLevelStreamingLevelStatus& LevelStatus = *new(LevelStatuses) FUpdateLevelStreamingLevelStatus();
+					LevelStatus.PackageName = PC->NetworkRemapPath(StreamingLevel->GetWorldAssetPackageFName(), false);
+					LevelStatus.bNewShouldBeLoaded = bShouldBeLoaded;
+					LevelStatus.bNewShouldBeVisible = bShouldBeVisible;
+					LevelStatus.bNewShouldBlockOnLoad = false;
+					LevelStatus.LODIndex = INDEX_NONE;
+				}
+				PC->ClientUpdateMultipleLevelsStreamingStatus(LevelStatuses);
 			}
-			( *Iterator )->ClientUpdateMultipleLevelsStreamingStatus( LevelStatuses );
 		}
 	}
 }

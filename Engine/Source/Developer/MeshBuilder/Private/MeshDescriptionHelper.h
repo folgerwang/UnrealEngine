@@ -8,9 +8,10 @@
 DECLARE_LOG_CATEGORY_EXTERN(LogMeshBuilder, Log, All);
 
 class UObject;
-class UMeshDescription;
+class FMeshDescription;
 struct FMeshBuildSettings;
 struct FVertexInstanceID;
+struct FMeshReductionSettings;
 
 enum
 {
@@ -22,17 +23,14 @@ class FMeshDescriptionHelper
 {
 public:
 
-	FMeshDescriptionHelper(FMeshBuildSettings* InBuildSettings, const UMeshDescription* InOriginalMeshDescription);
+	FMeshDescriptionHelper(FMeshBuildSettings* InBuildSettings);
 
 	//Build a render mesh description with the BuildSettings. This will update the InRenderMeshDescription ptr content
-	UMeshDescription* GetRenderMeshDescription(UObject* Owner);
+	void GetRenderMeshDescription(UObject* Owner, const FMeshDescription& InOriginalMeshDescription, FMeshDescription& OutRenderMeshDescription);
 
-	void ReduceLOD(const UMeshDescription* BaseMesh, UMeshDescription* DestMesh, const struct FMeshReductionSettings& ReductionSettings, const TMultiMap<int32, int32>& InOverlappingCorners);
+	void ReduceLOD(const FMeshDescription& BaseMesh, FMeshDescription& DestMesh, const struct FMeshReductionSettings& ReductionSettings, const TMultiMap<int32, int32>& InOverlappingCorners, float &OutMaxDeviation);
 
-	//Return true if there is a valid original mesh description, false otherwise(Auto generate LOD).
-	bool IsValidOriginalMeshDescription();
-
-	void FindOverlappingCorners(const UMeshDescription* MeshDescription, float ComparisonThreshold);
+	void FindOverlappingCorners(const FMeshDescription& MeshDescription, float ComparisonThreshold);
 
 	const TMultiMap<int32, int32>& GetOverlappingCorners() const { return OverlappingCorners; }
 
@@ -44,8 +42,7 @@ private:
 	//////////////////////////////////////////////////////////////////////////
 	//PRIVATE class members
 
-	const UMeshDescription* OriginalMeshDescription;
-	FMeshBuildSettings *BuildSettings;
+	FMeshBuildSettings* BuildSettings;
 	TMultiMap<int32, int32> OverlappingCorners;
 
 	

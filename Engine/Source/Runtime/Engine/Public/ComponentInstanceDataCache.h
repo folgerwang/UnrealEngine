@@ -55,6 +55,7 @@ protected:
 
 	TArray<uint8> SavedProperties;
 	TArray<UObject*> InstancedObjects;
+	TArray<uint32_t> ObjectReferenceIndicesInByteArray;
 };
 
 /** 

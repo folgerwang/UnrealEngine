@@ -403,39 +403,40 @@ TArray<FSubLevelStatus> GetSubLevelsStatus( UWorld* World )
 
 	for( FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator )
 	{
-		APlayerController* PlayerController = Iterator->Get();
-
-		if (APawn* PCPawn = PlayerController->GetPawn())
+		if (APlayerController* PlayerController = Iterator->Get())
 		{
-			// need to do a trace down here
-			//TraceActor = Trace( out_HitLocation, out_HitNormal, TraceDest, TraceStart, false, TraceExtent, HitInfo, true );
-			FHitResult Hit(1.f);
-
-			// this will not work for flying around :-(
-			PlayerController->GetWorld()->LineTraceSingleByObjectType(Hit, PCPawn->GetActorLocation(), (PCPawn->GetActorLocation()-FVector(0.f, 0.f, 256.f)), FCollisionObjectQueryParams(ECC_WorldStatic), FCollisionQueryParams(SCENE_QUERY_STAT(FindLevel), true, PCPawn));
-
-			ULevel* LevelPlayerIsIn = nullptr;
-
-			if (AActor* HitActor = Hit.GetActor())
+			if (APawn* PCPawn = PlayerController->GetPawn())
 			{
-				LevelPlayerIsIn = HitActor->GetLevel();
-			}
-			else if (UPrimitiveComponent* HitComponent = Hit.Component.Get())
-			{
-				LevelPlayerIsIn = HitComponent->GetComponentLevel();
-			}
+				// need to do a trace down here
+				//TraceActor = Trace( out_HitLocation, out_HitNormal, TraceDest, TraceStart, false, TraceExtent, HitInfo, true );
+				FHitResult Hit(1.f);
 
-			if (LevelPlayerIsIn)
-			{
-				FName LevelName = LevelPlayerIsIn->GetOutermost()->GetFName();
-				FSubLevelStatus* LevelStatusPlayerIn = Result.FindByPredicate([LevelName](const FSubLevelStatus& InLevelStatus)
+				// this will not work for flying around :-(
+				PlayerController->GetWorld()->LineTraceSingleByObjectType(Hit, PCPawn->GetActorLocation(), (PCPawn->GetActorLocation() - FVector(0.f, 0.f, 256.f)), FCollisionObjectQueryParams(ECC_WorldStatic), FCollisionQueryParams(SCENE_QUERY_STAT(FindLevel), true, PCPawn));
+
+				ULevel* LevelPlayerIsIn = nullptr;
+
+				if (AActor* HitActor = Hit.GetActor())
 				{
-					return InLevelStatus.PackageName == LevelName;
-				});
-
-				if (LevelStatusPlayerIn)
+					LevelPlayerIsIn = HitActor->GetLevel();
+				}
+				else if (UPrimitiveComponent* HitComponent = Hit.Component.Get())
 				{
-					LevelStatusPlayerIn->bPlayerInside = true;
+					LevelPlayerIsIn = HitComponent->GetComponentLevel();
+				}
+
+				if (LevelPlayerIsIn)
+				{
+					FName LevelName = LevelPlayerIsIn->GetOutermost()->GetFName();
+					FSubLevelStatus* LevelStatusPlayerIn = Result.FindByPredicate([LevelName](const FSubLevelStatus& InLevelStatus)
+					{
+						return InLevelStatus.PackageName == LevelName;
+					});
+
+					if (LevelStatusPlayerIn)
+					{
+						LevelStatusPlayerIn->bPlayerInside = true;
+					}
 				}
 			}
 		}

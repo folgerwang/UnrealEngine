@@ -680,7 +680,7 @@ TArray<FString> FBlueprintCompilerCppBackendBase::ConstructFunctionDeclaration(F
 		UFunction* const OriginalFunction = FEmitHelper::GetOriginalFunction(Function);
 		TArray<FString> AdditionalMetaData;
 		TArray<FString> AdditionalTags;
-		bool bIsBIEOverride = false;
+		bool bGenerateAsNonNativeOverride = false;
 		bool bGenerateAsNativeEventImplementation = false;
 		const bool bNetImplementation = !bInInterface && Function->HasAllFunctionFlags(FUNC_Net) && !Function->HasAnyFunctionFlags(FUNC_NetResponse);
 
@@ -731,10 +731,18 @@ TArray<FString> FBlueprintCompilerCppBackendBase::ConstructFunctionDeclaration(F
 					if (const UBlueprintGeneratedClass* ParentBPGC = Cast<UBlueprintGeneratedClass>(SuperClass))
 					{
 						// In that case, we need to skip the UFUNCTION() markup if the parent class is also being converted, to avoid a UHT complaint about a redefinition of UFUNCTION() meta.
-						bIsBIEOverride = EmitterContext.Dependencies.WillClassBeConverted(ParentBPGC);
+						bGenerateAsNonNativeOverride = EmitterContext.Dependencies.WillClassBeConverted(ParentBPGC);
 					}
 				}
 			}
+		}
+		else if(OriginalFuncOwnerAsBPGC && Function != OriginalFunction)
+		{
+			// We assume parent classes will always be converted along with the child class.
+			check(EmitterContext.Dependencies.WillClassBeConverted(OriginalFuncOwnerAsBPGC));
+
+			// Skip the UFUNCTION() markup when the original class is also being converted, to avoid a UHT complaint about a redefinition of UFUNCTION() meta.
+			bGenerateAsNonNativeOverride = true;
 		}
 
 		ensure(!bIsVirtual || Function->IsSignatureCompatibleWith(OriginalFunction));
@@ -786,7 +794,7 @@ TArray<FString> FBlueprintCompilerCppBackendBase::ConstructFunctionDeclaration(F
 		{
 			FunctionHeaderName = FunctionBodyName;
 		}
-		else if (!bIsBIEOverride && !bGenerateAsNativeEventImplementation && !bSkipMacro)
+		else if (!bGenerateAsNonNativeOverride && !bGenerateAsNativeEventImplementation && !bSkipMacro)
 		{
 			MacroUFUNCTION = FEmitHelper::EmitUFuntion(Function, AdditionalTags, AdditionalMetaData);
 		}

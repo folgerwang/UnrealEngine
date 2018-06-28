@@ -253,8 +253,8 @@ void UNiagaraStackParameterStoreEntry::RenameInput(FString NewName)
 			}
 		}
 
-		GEditor->BeginTransaction(LOCTEXT("RenameParameter", "Rename Parameter"));
-		ParameterStore->GetOwner()->Modify();
+		FScopedTransaction ScopedTransaction(LOCTEXT("RenameUserParameter", "Rename user parameter"));
+		Owner->Modify();
 		// remove old one (a bit overkill but it beats duplicating code)
 		RemovePins(OwningPins);
 		// TODO Would it be better to actually keep variable name being ActualName and ParameterName being ParameterHandle.GetParameterHandleString(), and rewrite the way the Entry is built?
@@ -268,17 +268,22 @@ void UNiagaraStackParameterStoreEntry::RenameInput(FString NewName)
 			// generate current link
 			FNiagaraStackGraphUtilities::SetLinkedValueHandleForFunctionInput(*LinkedPin, ParameterHandle);
 		}
-		GEditor->EndTransaction();
+
+		ParameterName = VariableName;
+		DisplayName = FText::FromName(ParameterName);
 	}
 }
 
 void UNiagaraStackParameterStoreEntry::Delete()
 {
+	FScopedTransaction ScopedTransaction(LOCTEXT("RemoveUserParameter", "Remove user parameter"));
+
 	// for delete, do a parameter map traversal to deduce all the usages and then  remove them 
 	TArray<UEdGraphPin*> OwningPins = GetOwningPins();
-	NotifyBeginValueChange();
 	RemovePins(OwningPins);
+
 	//remove from store
+	Owner->Modify();
 	ParameterStore->RemoveParameter(FNiagaraVariable(InputType, ParameterName));
 	if (InputType.GetClass() != nullptr)
 	{
@@ -288,7 +293,8 @@ void UNiagaraStackParameterStoreEntry::Delete()
 			GetSystemViewModel()->NotifyDataObjectChanged(DataInterface);
 		}
 	}
-	NotifyEndValueChange();
+
+	ParameterDeletedDelegate.Broadcast();
 }
 
 void UNiagaraStackParameterStoreEntry::RemovePins(TArray<UEdGraphPin*> OwningPins /*, bool bSetPreviousValue*/)
@@ -332,6 +338,11 @@ void UNiagaraStackParameterStoreEntry::RemovePins(TArray<UEdGraphPin*> OwningPin
 UNiagaraStackParameterStoreEntry::FOnValueChanged& UNiagaraStackParameterStoreEntry::OnValueChanged()
 {
 	return ValueChangedDelegate;
+}
+
+UNiagaraStackParameterStoreEntry::FOnParameterDeleted& UNiagaraStackParameterStoreEntry::OnParameterDeleted()
+{
+	return ParameterDeletedDelegate;
 }
 
 TSharedPtr<FNiagaraVariable> UNiagaraStackParameterStoreEntry::GetCurrentValueVariable()

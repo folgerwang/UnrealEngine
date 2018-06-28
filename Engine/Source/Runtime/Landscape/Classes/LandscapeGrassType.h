@@ -103,6 +103,10 @@ struct FGrassVariety
 	UPROPERTY(EditAnywhere, Category = Grass)
 	bool bCastDynamicShadow;
 
+	/** Whether we should keep a cpu copy of the instance buffer. This should be set to true if you plan on using GetOverlappingXXXXCount functions of the component otherwise it won't return any data.**/
+	UPROPERTY(EditAnywhere, Category = Grass)
+	bool bKeepInstanceBufferCPUCopy;
+
 	FGrassVariety()
 		: GrassMesh(nullptr)
 		, GrassDensity(400)
@@ -120,6 +124,7 @@ struct FGrassVariety
 		, bUseLandscapeLightmap(false)
 		, bReceivesDecals(true)
 		, bCastDynamicShadow(true)
+		, bKeepInstanceBufferCPUCopy(false)
 	{
 	}
 };

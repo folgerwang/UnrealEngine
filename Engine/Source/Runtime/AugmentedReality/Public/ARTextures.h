@@ -5,13 +5,16 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Engine/Texture.h"
+#include "Engine/TextureCube.h"
 #include "ARTextures.generated.h"
 
 UENUM(BlueprintType, Category="AR AugmentedReality", meta=(Experimental))
 enum class EARTextureType : uint8
 {
 	CameraImage,
-	CameraDepth
+	CameraDepth,
+//@joeg -- Addedd environment capture support
+	EnvironmentCapture
 };
 
 /**
@@ -92,4 +95,31 @@ public:
 	/** Whether or not the depth information is temporally smoothed */
 	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality", meta=(Experimental))
 	bool bIsTemporallySmoothed;
+};
+
+//@joeg -- Added for environment capture support
+/**
+ * Base class for all AR textures that represent the environment for lighting and reflection
+ */
+UCLASS(Abstract, BlueprintType)
+class AUGMENTEDREALITY_API UAREnvironmentCaptureProbeTexture : public UTextureCube
+{
+	GENERATED_UCLASS_BODY()
+	
+public:
+	/** The type of texture this is */
+	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality", meta=(Experimental))
+	EARTextureType TextureType;
+	
+	/** The timestamp this texture was captured at */
+	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality", meta=(Experimental))
+	float Timestamp;
+	
+	/** The guid of texture that gets registered as an external texture */
+	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality", meta=(Experimental))
+	FGuid ExternalTextureGuid;
+	
+	/** The width and height of the texture */
+	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality", meta=(Experimental))
+	FVector2D Size;
 };

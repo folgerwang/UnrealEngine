@@ -1106,7 +1106,13 @@ namespace UnrealBuildTool
 							{
 								UBTArguments.Append(" -PLUGIN=\"" + EnabledPlugin.Info.File + "\"");
 							}
-						}						
+						}
+
+						// Add any global override for the compiler
+						if(!String.IsNullOrEmpty(BuildConfiguration.CompilerArgumentForUnrealHeaderTool))
+						{
+							UBTArguments.AppendFormat(" {0}", BuildConfiguration.CompilerArgumentForUnrealHeaderTool);
+						}
 
 						// Output the log next to the current log
 						if(String.IsNullOrEmpty(BuildConfiguration.LogFileName))

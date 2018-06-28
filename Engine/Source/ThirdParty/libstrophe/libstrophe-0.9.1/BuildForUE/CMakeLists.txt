@@ -32,6 +32,10 @@ if (${DISABLE_SRV_LOOKUP})
 	add_definitions(-DDISABLE_SRV_LOOKUP)
 endif()
 
+if (${EXPAT_MANGLE})
+	add_definitions(-DEXPAT_MANGLE=1)
+endif()
+
 if (${USE_SOCKETAPI_DISPATCH})
 	include_directories(${SOCKETAPI_PATH})
 	add_definitions(-DUSE_SOCKETAPI_DISPATCH)

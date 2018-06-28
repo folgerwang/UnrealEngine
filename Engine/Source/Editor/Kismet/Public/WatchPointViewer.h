@@ -10,8 +10,8 @@ class UBlueprint;
 
 namespace WatchViewer
 {
-	// called when we pause execution to update the displayed watch values
-	void KISMET_API UpdateDisplayedWatches(const TArray<const FFrame*>& ScriptStack);
+	// updates the instanced watch values, these are only valid while execution is paused
+	void KISMET_API UpdateInstancedWatchDisplay();
 
 	// called when we unpause execution and set watch values back to the blueprint versions
 	void KISMET_API ContinueExecution();

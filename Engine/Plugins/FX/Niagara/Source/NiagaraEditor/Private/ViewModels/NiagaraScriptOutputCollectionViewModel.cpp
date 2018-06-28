@@ -272,6 +272,17 @@ void FNiagaraScriptOutputCollectionViewModel::RefreshParameterViewModels()
 
 bool FNiagaraScriptOutputCollectionViewModel::SupportsType(const FNiagaraTypeDefinition& Type) const
 {
+	if (Scripts.Num() == 1 && Scripts[0] != nullptr)
+	{
+		// We only support parameter map outputs for modules.
+		if (Scripts[0]->GetUsage() == ENiagaraScriptUsage::Module)
+		{
+			if (Type != FNiagaraTypeDefinition::GetParameterMapDef())
+			{
+				return false;
+			}
+		}
+	}
 	return Type.GetScriptStruct() != nullptr && (bCanHaveNumericParameters || Type != FNiagaraTypeDefinition::GetGenericNumericDef());
 }
 
@@ -307,6 +318,16 @@ void FNiagaraScriptOutputCollectionViewModel::OnParameterNameChanged(FName OldNa
 	{
 		ParameterVariable->SetName(FNiagaraUtilities::GetUniqueName(ParameterVariable->GetName(), CurrentNames));
 	}
+
+	// Make sure to edit the pin name so that when we regenerate the node the 
+	// links are preserved.
+	UEdGraphPin* FoundPin = OutputNode->FindPin(OldName, EEdGraphPinDirection::EGPD_Input);
+	if (FoundPin)
+	{
+		FoundPin->Modify();
+		FoundPin->PinName = NewName;
+	}
+
 	
 	OutputNode->NotifyOutputVariablesChanged();
 

@@ -384,3 +384,20 @@ void UHeadMountedDisplayFunctionLibrary::GetDeviceWorldPose(UObject* WorldContex
 	FQuat WorldOrientation = TrackingToWorld.TransformRotation(Orientation.Quaternion());
 	Orientation = WorldOrientation.Rotator();
 }
+
+bool UHeadMountedDisplayFunctionLibrary::IsDeviceTracking(const FXRDeviceId& XRDeviceId)
+{
+	bool bIsTracked = false;
+
+	// @TODO: It seems certain IXRTrackingSystem's aren't registering themselves with the modular feature framework. Ideally we'd be loop over them instead of picking just one.
+	IXRTrackingSystem* TrackingSys = GEngine->XRSystem.Get();
+	if (TrackingSys)
+	{
+		if (XRDeviceId.IsOwnedBy(TrackingSys))
+		{
+			bIsTracked = TrackingSys->IsTracking(XRDeviceId.DeviceId);
+		}
+	}
+
+	return bIsTracked;
+}

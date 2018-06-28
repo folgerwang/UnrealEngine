@@ -5,30 +5,36 @@
 #include "CoreMinimal.h"
 #include "IMediaTextureSample.h"
 
+enum class MEDIAIOCORE_API EMediaIOCoreEncodePixelFormat
+{
+	A2B10G10R10,
+	CharBGRA,
+	CharUYVY,
+};
+
 class MEDIAIOCORE_API FMediaIOCoreEncodeTime
 {
 public:
-	FMediaIOCoreEncodeTime(EMediaTextureSampleFormat InFormat, FColor* InBuffer, uint32 InWidth, uint32 InHeight);
+	FMediaIOCoreEncodeTime(EMediaIOCoreEncodePixelFormat InFormat, void* InBuffer, uint32 InWidth, uint32 InHeight);
 	void Render(uint32 InX, uint32 InY, uint32 InHours, uint32 InMinutes, uint32 InSeconds, uint32 InFrames) const;
 
 protected:
-	void Fill(uint32 InX, uint32 InY, uint32  InWidth, uint32 InHeight, FColor InColor) const;
-	void FillChecker(uint32 InX, uint32 InY, uint32  InWidth, uint32 InHeight, FColor InColor0, FColor InColor1) const;
-	void DrawTime(uint32 InX, uint32 InY, uint32  inTime, FColor InColor) const;
+	using TColor = int32;
+	void Fill(uint32 InX, uint32 InY, uint32 InWidth, uint32 InHeight, TColor InColor) const;
+	void FillChecker(uint32 InX, uint32 InY, uint32 InWidth, uint32 InHeight, TColor InColor0, TColor InColor1) const;
+	void DrawTime(uint32 InX, uint32 InY, uint32 inTime, TColor InColor) const;
 
-	inline FColor* At(uint32 InX, uint32 InY) const
+	inline TColor& At(uint32 InX, uint32 InY) const
 	{
-		check(InX < Width);
-		check(InY < Height);
-		return Buffer + Width * InY + InX;
+		return *(reinterpret_cast<TColor*>(Buffer) + (Width * InY) + InX);
 	}
 
 protected:
 	/** Pixel format */
-	EMediaTextureSampleFormat Format;
+	EMediaIOCoreEncodePixelFormat Format;
 
 	/** Pointer to pixels */
-	FColor* Buffer;
+	void* Buffer;
 
 	/** Width of image */
 	uint32 Width;
@@ -37,7 +43,7 @@ protected:
 	uint32 Height;
 
 protected:
-	FColor ColorBlack;
-	FColor ColorRed;
-	FColor ColorWhite;
+	TColor ColorBlack;
+	TColor ColorRed;
+	TColor ColorWhite;
 };

@@ -498,11 +498,11 @@ void FNiagaraEditorUtilities::CompileExistingEmitters(const TArray<UNiagaraEmitt
 			continue;
 		}
 
-		// We only need to compile emitters referenced directly by systems since emitters can now only be used in the context 
+		// We only need to compile emitters referenced directly as instances by systems since emitters can now only be used in the context 
 		// of a system.
 		for (TObjectIterator<UNiagaraSystem> SystemIterator; SystemIterator; ++SystemIterator)
 		{
-			if (SystemIterator->ReferencesSourceEmitter(*Emitter))
+			if (SystemIterator->ReferencesInstanceEmitter(*Emitter))
 			{
 				SystemIterator->RequestCompile(false);
 

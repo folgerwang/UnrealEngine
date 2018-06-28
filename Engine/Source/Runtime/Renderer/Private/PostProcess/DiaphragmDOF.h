@@ -12,7 +12,7 @@
 
 
 // Whitelist diaphragm DOF for platforms that actually have been tested.
-#define WITH_DIAPHRAGM_DOF (PLATFORM_WINDOWS || PLATFORM_XBOXONE || PLATFORM_PS4)
+#define WITH_DIAPHRAGM_DOF (PLATFORM_WINDOWS || PLATFORM_XBOXONE || PLATFORM_PS4 || PLATFORM_MAC || PLATFORM_LINUX || PLATFORM_IOS)
 
 
 namespace DiaphragmDOF
@@ -33,6 +33,9 @@ struct FPhysicalCocModel
 	// Focus distance.
 	float FocusDistance;
 
+	// The maximum radius of depth blur.
+	float MaxDepthBlurRadius;
+	float DepthBlurExponent;
 
 	/** Compile the coc model from a view. */
 	void Compile(const FViewInfo& View);
@@ -46,7 +49,7 @@ struct FPhysicalCocModel
 	/** Returns limit(DepthToHalfResCocRadius) for SceneDepth -> Infinity. */
 	FORCEINLINE float ComputeViewMaxBackgroundCocRadius(float HorizontalResolution) const
 	{
-		return FMath::Min(InfinityBackgroundCocRadius, MaxBackgroundCocRadius) * HorizontalResolution;
+		return FMath::Min(FMath::Max(InfinityBackgroundCocRadius, MaxDepthBlurRadius), MaxBackgroundCocRadius) * HorizontalResolution;
 	}
 	
 	/** Returns limit(DepthToHalfResCocRadius) for SceneDepth -> 0.
@@ -55,7 +58,7 @@ struct FPhysicalCocModel
 	 */
 	FORCEINLINE float ComputeViewMinForegroundCocRadius(float HorizontalResolution) const
 	{
-		return MinForegroundCocRadius * HorizontalResolution;
+		return DepthToResCocRadius(GNearClippingPlane, HorizontalResolution);
 	}
 };
 
@@ -114,7 +117,15 @@ inline bool IsSupported(EShaderPlatform ShaderPlatform)
 	#endif
 
 	// Only compile diaphragm DOF on platform it has been tested to ensure this is not blocking anyone else.
-	return ShaderPlatform == SP_PCD3D_SM5 || ShaderPlatform == SP_XBOXONE_D3D12 || ShaderPlatform == SP_PS4 || IsVulkanSM5Platform(ShaderPlatform);
+	return 
+		ShaderPlatform == SP_PCD3D_SM5 ||
+		ShaderPlatform == SP_XBOXONE_D3D12 ||
+		ShaderPlatform == SP_PS4 ||
+		IsVulkanSM5Platform(ShaderPlatform) ||
+		ShaderPlatform == SP_METAL_SM5 ||
+		ShaderPlatform == SP_METAL_SM5_NOTESS ||
+		ShaderPlatform == SP_METAL_MRT ||
+		ShaderPlatform == SP_METAL_MRT_MAC;
 }
 
 

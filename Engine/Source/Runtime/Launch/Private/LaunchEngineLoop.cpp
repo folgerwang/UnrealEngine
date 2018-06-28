@@ -2030,8 +2030,11 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 		if (FPlatformProperties::RequiresCookedData())
 		{
 			// Open the game library which contains the material shaders.
-	        FShaderCodeLibrary::OpenLibrary(FApp::GetProjectName(), FPaths::ProjectContentDir());
-			FShaderCodeLibrary::OpenLibrary(FApp::GetProjectName(), FPaths::Combine(*FPaths::ProjectPersistentDownloadDir(), TEXT("InstalledContent"), FApp::GetProjectName(), TEXT("Content")));
+			FShaderCodeLibrary::OpenLibrary(FApp::GetProjectName(), FPaths::ProjectContentDir());
+			if (FPaths::HasProjectPersistentDownloadDir())
+			{
+				FShaderCodeLibrary::OpenLibrary(FApp::GetProjectName(), FPaths::Combine(*FPaths::ProjectPersistentDownloadDir(), TEXT("InstalledContent"), FApp::GetProjectName(), TEXT("Content")));
+			}
 		}
 		
 		InitGameTextLocalization();

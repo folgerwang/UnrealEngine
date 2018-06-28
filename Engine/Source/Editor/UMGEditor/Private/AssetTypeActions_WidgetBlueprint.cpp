@@ -3,10 +3,7 @@
 #include "AssetTypeActions_WidgetBlueprint.h"
 #include "Misc/MessageDialog.h"
 #include "Engine/Blueprint.h"
-#include "Framework/Application/SlateApplication.h"
-
 #include "WidgetBlueprint.h"
-
 #include "SBlueprintDiff.h"
 #include "WidgetBlueprintEditor.h"
 
@@ -68,27 +65,7 @@ void FAssetTypeActions_WidgetBlueprint::PerformAssetDiff(UObject* Asset1, UObjec
 		WindowTitle = FText::Format(LOCTEXT("WidgetBlueprintDiff", "{0} - Widget Blueprint Diff"), FText::FromString(NewBlueprint->GetName()));
 	}
 
-	const TSharedPtr<SWindow> Window = SNew(SWindow)
-		.Title(WindowTitle)
-		.ClientSize(FVector2D(1000, 800));
-
-	Window->SetContent(SNew(SBlueprintDiff)
-		.BlueprintOld(OldBlueprint)
-		.BlueprintNew(NewBlueprint)
-		.OldRevision(OldRevision)
-		.NewRevision(NewRevision)
-		.ShowAssetNames(!bIsSingleAsset));
-
-	// Make this window a child of the modal window if we've been spawned while one is active.
-	TSharedPtr<SWindow> ActiveModal = FSlateApplication::Get().GetActiveModalWindow();
-	if (ActiveModal.IsValid())
-	{
-		FSlateApplication::Get().AddWindowAsNativeChild(Window.ToSharedRef(), ActiveModal.ToSharedRef());
-	}
-	else
-	{
-		FSlateApplication::Get().AddWindow(Window.ToSharedRef());
-	}
+	SBlueprintDiff::CreateDiffWindow(WindowTitle, OldBlueprint, NewBlueprint, OldRevision, NewRevision);
 }
 
 #undef LOCTEXT_NAMESPACE

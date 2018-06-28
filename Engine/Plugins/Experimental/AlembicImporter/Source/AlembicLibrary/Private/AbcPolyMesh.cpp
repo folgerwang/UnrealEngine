@@ -14,7 +14,7 @@ THIRD_PARTY_INCLUDES_END
 
 static const ESampleReadFlags ReadAllFlags = ESampleReadFlags::Positions | ESampleReadFlags::Indices | ESampleReadFlags::UVs | ESampleReadFlags::Normals | ESampleReadFlags::Colors | ESampleReadFlags::MaterialIndices;
 
-FAbcPolyMesh::FAbcPolyMesh(const Alembic::AbcGeom::IPolyMesh& InPolyMesh, const FAbcFile* InFile, IAbcObject* InParent /*= nullptr*/) : IAbcObject(InPolyMesh, InFile, InParent), SelfBounds(EForceInit::ForceInitToZero), ChildBounds(EForceInit::ForceInitToZero), bShouldImport(true), PolyMesh(InPolyMesh), Schema(InPolyMesh.getSchema()), FirstSample(nullptr), SampleReadFlags(ESampleReadFlags::Positions | ESampleReadFlags::Indices | ESampleReadFlags::UVs | ESampleReadFlags::Normals | ESampleReadFlags::Colors | ESampleReadFlags::MaterialIndices), bReturnFirstSample(false), bReturnTransformedFirstSample(false)
+FAbcPolyMesh::FAbcPolyMesh(const Alembic::AbcGeom::IPolyMesh& InPolyMesh, const FAbcFile* InFile, IAbcObject* InParent /*= nullptr*/) : IAbcObject(InPolyMesh, InFile, InParent), SelfBounds(EForceInit::ForceInitToZero), ChildBounds(EForceInit::ForceInitToZero), bShouldImport(true), PolyMesh(InPolyMesh), Schema(InPolyMesh.getSchema()), FirstSample(nullptr), TransformedFirstSample(nullptr), SampleReadFlags(ESampleReadFlags::Positions | ESampleReadFlags::Indices | ESampleReadFlags::UVs | ESampleReadFlags::Normals | ESampleReadFlags::Colors | ESampleReadFlags::MaterialIndices), bReturnFirstSample(false), bReturnTransformedFirstSample(false), bFirstFrameVisibility(true)
 {
 	// Retrieve schema and frame information		
 	NumSamples = Schema.getNumSamples();

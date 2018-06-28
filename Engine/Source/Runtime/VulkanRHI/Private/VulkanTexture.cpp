@@ -1224,21 +1224,32 @@ void FVulkanDynamicRHI::InternalUpdateTexture3D(bool bFromRenderingThread, FText
 {
 	FVulkanTexture3D* Texture = ResourceCast(TextureRHI);
 
-	EPixelFormat PixelFormat = Texture->GetFormat();
-	check(GPixelFormats[PixelFormat].BlockSizeX == 1);
-	check(GPixelFormats[PixelFormat].BlockSizeY == 1);
+	const EPixelFormat PixelFormat = Texture->GetFormat();
+	const int32 BlockSizeX = GPixelFormats[PixelFormat].BlockSizeX;
+	const int32 BlockSizeY = GPixelFormats[PixelFormat].BlockSizeY;
+	const int32 BlockSizeZ = GPixelFormats[PixelFormat].BlockSizeZ;
+	const int32 BlockBytes = GPixelFormats[PixelFormat].BlockBytes;
+	const VkFormat Format = UEToVkFormat(PixelFormat, false);
 
-	VkFormat Format = UEToVkFormat(PixelFormat, false);
+	ensure(BlockSizeZ == 1);
 
 	FVulkanCommandListContext& Context = Device->GetImmediateContext();
 	const VkPhysicalDeviceLimits& Limits = Device->GetLimits();
 
-	const uint32 AlignedSourcePitch = Align(SourceRowPitch, Limits.optimalBufferCopyRowPitchAlignment);	
-	const int32 SlicePitch = AlignedSourcePitch * UpdateRegion.Height;
-	const uint32 BufferSize = Align(UpdateRegion.Depth * SlicePitch, Limits.minMemoryMapAlignment);
+	VkBufferImageCopy Region;
+	FMemory::Memzero(Region);
+	VulkanRHI::FStagingBuffer* StagingBuffer = nullptr;
+	const uint32 NumBlocksX = (uint32)FMath::DivideAndRoundUp<int32>(UpdateRegion.Width, (uint32)BlockSizeX);
+	const uint32 NumBlocksY = (uint32)FMath::DivideAndRoundUp<int32>(UpdateRegion.Height, (uint32)BlockSizeY);
+	check(NumBlocksX * BlockBytes <= SourceRowPitch);
+	check(NumBlocksX * BlockBytes * NumBlocksY <= SourceDepthPitch);
 
-	VulkanRHI::FStagingBuffer* StagingBuffer = Device->GetStagingManager().AcquireBuffer(BufferSize);
-	void* Memory = StagingBuffer->GetMappedPointer();
+	const uint32 DestRowPitch = NumBlocksX * BlockBytes;
+	const uint32 DestSlicePitch = DestRowPitch * NumBlocksY;
+
+	const uint32 BufferSize = Align(DestSlicePitch * UpdateRegion.Depth, Limits.minMemoryMapAlignment);
+	StagingBuffer = Device->GetStagingManager().AcquireBuffer(BufferSize);
+	void* RESTRICT Memory = StagingBuffer->GetMappedPointer();
 
 	VkImageSubresourceRange SubresourceRange;
 	FMemory::Memzero(SubresourceRange);
@@ -1248,29 +1259,25 @@ void FVulkanDynamicRHI::InternalUpdateTexture3D(bool bFromRenderingThread, FText
 	//SubresourceRange.baseArrayLayer = 0;
 	SubresourceRange.layerCount = 1;
 
-	uint32 CopyPitch = UpdateRegion.Width * GPixelFormats[Texture->GetFormat()].BlockBytes;
-	check(CopyPitch <= SourceRowPitch);
-	uint8* RowData = (uint8*)Memory;
-	for (uint32 i = 0; i < UpdateRegion.Depth; i++)
+	uint8* RESTRICT DestData = (uint8*)Memory;
+	for (uint32 Depth = 0; Depth < UpdateRegion.Depth; Depth++)
 	{
-		uint8* DestRowData = RowData + SlicePitch * i;
-		const uint8* SourceRowData = SourceData + SourceDepthPitch * i;
-		for (uint32 j = 0; j < UpdateRegion.Height; j++)
+		uint8* RESTRICT SourceRowData = (uint8*)SourceData + SourceDepthPitch * Depth;
+		for (uint32 Height = 0; Height < NumBlocksY; ++Height)
 		{
-			FMemory::Memcpy(DestRowData, SourceRowData, CopyPitch);
+			FMemory::Memcpy(DestData, SourceRowData, NumBlocksX * BlockBytes);
+			DestData += DestRowPitch;
 			SourceRowData += SourceRowPitch;
-			DestRowData += AlignedSourcePitch;
 		}
 	}
 
-	VkBufferImageCopy Region;
-	FMemory::Memzero(Region);
 	//Region.bufferOffset = 0;
-	Region.bufferRowLength = UpdateRegion.Width;
-	Region.bufferImageHeight = UpdateRegion.Height;
+	// Set these to zero to assume tightly packed buffer
+	//Region.bufferRowLength = 0;
+	//Region.bufferImageHeight = 0;
 	Region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	Region.imageSubresource.mipLevel = MipIndex;
-	Region.imageSubresource.baseArrayLayer = 0;
+	//Region.imageSubresource.baseArrayLayer = 0;
 	Region.imageSubresource.layerCount = 1;
 	Region.imageOffset.x = UpdateRegion.DestX;
 	Region.imageOffset.y = UpdateRegion.DestY;

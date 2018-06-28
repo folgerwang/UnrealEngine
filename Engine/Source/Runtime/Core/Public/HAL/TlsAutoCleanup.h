@@ -34,6 +34,18 @@ public:
 		return Value;
 	}
 
+	/* Sets the value. */
+	void Set(const T& InValue)
+	{
+		Value = InValue;
+	}
+
+	/* Sets the value. */
+	void Set(T&& InValue)
+	{
+		Value = MoveTemp(InValue);
+	}
+
 private:
 
 	/** The value. */

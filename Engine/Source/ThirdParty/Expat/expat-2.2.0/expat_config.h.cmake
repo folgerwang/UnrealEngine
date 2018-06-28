@@ -89,3 +89,6 @@
 
 /* Define to `unsigned' if <sys/types.h> does not define. */
 #cmakedefine size_t @SIZE_T@
+
+/* Define to 1 to mangle the XML functions. */
+#cmakedefine EXPAT_MANGLE 1

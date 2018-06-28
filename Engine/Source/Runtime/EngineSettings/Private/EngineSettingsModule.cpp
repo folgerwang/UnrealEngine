@@ -72,7 +72,7 @@ UGeneralProjectSettings::UGeneralProjectSettings( const FObjectInitializer& Obje
 	, bUseBorderlessWindow(false)
 	, bStartInVR(false)
 	, bStartInAR_DEPRECATED(false)
-	, bSupportAR(false)
+	, bSupportAR_DEPRECATED(false)
 	, bAllowWindowResize(true)
 	, bAllowClose(true)
 	, bAllowMaximize(true)

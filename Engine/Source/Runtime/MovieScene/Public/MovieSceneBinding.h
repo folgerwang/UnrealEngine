@@ -129,6 +129,14 @@ struct FMovieSceneBinding
 		Tracks = MoveTemp(InTracks);
 	}
 
+	/**
+	* Assign all tracks in this binding
+	*/
+	void SetTracks(TArray<UMovieSceneTrack*>& InTracks)
+	{
+		Tracks = InTracks;
+	}
+
 #if WITH_EDITOR
 	/**
 	 * Perform cook-time optimization on this object binding

@@ -39,7 +39,7 @@ private:
 
 	void ParameterEndValueChange();
 
-	void ParameterValueChanged(TSharedRef<SNiagaraParameterEditor> ParameterEditor);
+	void ParameterValueChanged(TWeakPtr<SNiagaraParameterEditor> ParameterEditor);
 
 	void ParameterPropertyValueChanged(const FPropertyChangedEvent& PropertyChangedEvent);
 

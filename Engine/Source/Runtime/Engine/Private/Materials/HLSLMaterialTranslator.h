@@ -4079,14 +4079,9 @@ protected:
 		FMaterialParameterInfo ParameterInfo = GetParameterAssociationInfo();
 		ParameterInfo.Name = ParameterName;
 
-		int32 NumActiveTerrainLayerWeightParameters = 0;
 		for(int32 ParameterIndex = 0;ParameterIndex < StaticParameters.TerrainLayerWeightParameters.Num(); ++ParameterIndex)
 		{
 			const FStaticTerrainLayerWeightParameter& Parameter = StaticParameters.TerrainLayerWeightParameters[ParameterIndex];
-			if (Parameter.bOverride)
-			{
-				NumActiveTerrainLayerWeightParameters++;
-			}
 			if(Parameter.ParameterInfo == ParameterInfo)
 			{
 				WeightmapIndex = Parameter.WeightmapIndex;
@@ -4109,7 +4104,7 @@ protected:
 		else
 		{			
 			int32 WeightmapCode;
-			if (GetFeatureLevel() <= ERHIFeatureLevel::ES3_1 && NumActiveTerrainLayerWeightParameters <= 3 && bAtLeastOneWeightBasedBlend)
+			if (GetFeatureLevel() <= ERHIFeatureLevel::ES3_1 && StaticParameters.TerrainLayerWeightParameters.Num() <= 3 && bAtLeastOneWeightBasedBlend)
 			{
 				// Mobile can pack 3 layers into the normal map texture B and A channels, implying the 3rd using weight based blending
 				// Layer texture is sampled into Parameters.LayerWeights in LandscapeVertexFactory.ush

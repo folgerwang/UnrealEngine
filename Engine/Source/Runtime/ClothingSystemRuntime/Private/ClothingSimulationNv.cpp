@@ -802,7 +802,8 @@ void FClothingSimulationNv::GetSimulationData(TMap<int32, FClothSimulData>& OutD
 
 			if(!ReadTransformArray.IsValidIndex(Asset->ReferenceBoneIndex))
 			{
-				ensureMsgf(false, TEXT("Failed to write back clothing simulation data for component % as bone transforms are invalid."), *InOwnerComponent->GetName());
+				UE_LOG(LogSkeletalMesh, Warning, TEXT("Failed to write back clothing simulation data for component % as bone transforms are invalid."), *InOwnerComponent->GetName());
+				//ensureMsgf(false, TEXT("Failed to write back clothing simulation data for component % as bone transforms are invalid."), *InOwnerComponent->GetName());
 
 				ClothData.Reset();
 

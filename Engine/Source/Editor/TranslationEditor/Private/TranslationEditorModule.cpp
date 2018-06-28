@@ -36,8 +36,11 @@ void FTranslationEditorModule::ShutdownModule()
 
 #if WITH_UNREAL_DEVELOPER_TOOLS
 	// unregister message log
-	FMessageLogModule& MessageLogModule = FModuleManager::LoadModuleChecked<FMessageLogModule>("MessageLog");
-	MessageLogModule.UnregisterLogListing("TranslationEditor");
+	FMessageLogModule* MessageLogModule = FModuleManager::LoadModulePtr<FMessageLogModule>("MessageLog");
+	if (MessageLogModule)
+	{
+		MessageLogModule->UnregisterLogListing("TranslationEditor");
+	}
 #endif
 }
 

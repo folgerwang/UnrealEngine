@@ -4,7 +4,7 @@
 #include "Core.h"
 #include "Modules/ModuleManager.h"
 #include "Interfaces/IPluginManager.h"
-#include "ExampleLibrary.h"
+#include "PLUGIN_NAMELibrary/ExampleLibrary.h"
 
 #define LOCTEXT_NAMESPACE "FPLUGIN_NAMEModule"
 

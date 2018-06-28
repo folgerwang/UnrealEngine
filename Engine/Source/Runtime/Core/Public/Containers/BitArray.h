@@ -230,7 +230,6 @@ public:
 		if(NumBits)
 		{
 			const int32 NumDWORDs = FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD);
-			Realloc(0);
 			FMemory::Memcpy(GetData(),Copy.GetData(),NumDWORDs * sizeof(uint32));
 		}
 		return *this;

@@ -218,7 +218,7 @@ void AGameMode::HandleMatchHasStarted()
 	for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
 	{
 		APlayerController* PlayerController = Iterator->Get();
-		if ((PlayerController->GetPawn() == nullptr) && PlayerCanRestart(PlayerController))
+		if (PlayerController && (PlayerController->GetPawn() == nullptr) && PlayerCanRestart(PlayerController))
 		{
 			RestartPlayer(PlayerController);
 		}
@@ -241,7 +241,7 @@ void AGameMode::HandleMatchHasStarted()
 		for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
 		{
 			APlayerController* PlayerController = Iterator->Get();
-			if( PlayerController->CheatManager != nullptr )
+			if (PlayerController &&  PlayerController->CheatManager != nullptr)
 			{
 				PlayerController->CheatManager->BugItGoString( BugLocString, BugRotString );
 			}
@@ -597,7 +597,10 @@ void AGameMode::Broadcast( AActor* Sender, const FString& Msg, FName Type )
 
 	for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
 	{
-		(*Iterator)->ClientTeamMessage( SenderPlayerState, Msg, Type );
+		if (APlayerController* PC = Iterator->Get())
+		{
+			PC->ClientTeamMessage(SenderPlayerState, Msg, Type);
+		}
 	}
 }
 
@@ -606,7 +609,10 @@ void AGameMode::BroadcastLocalized( AActor* Sender, TSubclassOf<ULocalMessage> M
 {
 	for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
 	{
-		(*Iterator)->ClientReceiveLocalizedMessage( Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject );
+		if (APlayerController* PC = Iterator->Get())
+		{
+			PC->ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+		}
 	}
 }
 

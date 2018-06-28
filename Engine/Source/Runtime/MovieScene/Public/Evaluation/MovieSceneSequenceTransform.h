@@ -41,6 +41,16 @@ struct FMovieSceneSequenceTransform
 		, Offset(InOffset)
 	{}
 
+	friend bool operator==(const FMovieSceneSequenceTransform& A, const FMovieSceneSequenceTransform& B)
+	{
+		return A.TimeScale == B.TimeScale && A.Offset == B.Offset;
+	}
+
+	friend bool operator!=(const FMovieSceneSequenceTransform& A, const FMovieSceneSequenceTransform& B)
+	{
+		return A.TimeScale != B.TimeScale || A.Offset != B.Offset;
+	}
+
 	/**
 	 * Retrieve the inverse of this transform
 	 */

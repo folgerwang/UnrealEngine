@@ -592,8 +592,6 @@ FReply SLiveLinkClientPanel::OnCloseSourceSelectionPanel(ULiveLinkSourceFactory*
 	if (Source.IsValid())
 	{
 		Client->AddSource(Source);
-
-		RefreshSourceData(true);
 	}
 	
 	FSlateApplication::Get().DismissAllMenus();

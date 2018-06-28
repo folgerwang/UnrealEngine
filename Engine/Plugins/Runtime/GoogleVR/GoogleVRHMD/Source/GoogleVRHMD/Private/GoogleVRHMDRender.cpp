@@ -388,6 +388,7 @@ FGoogleVRHMDTexture2DSet::FGoogleVRHMDTexture2DSet(
 	FClearValueBinding::Black
 	)
 {
+	OpenGLTextureAllocated(this, InFlags);
 }
 
 FGoogleVRHMDTexture2DSet::~FGoogleVRHMDTexture2DSet()

@@ -1683,9 +1683,10 @@ public:
 		FString StandardDirectory = Directory;
 		FPaths::MakeStandardFilename(StandardDirectory);
 		
+		bool bIsDownloadableDir = (FPaths::HasProjectPersistentDownloadDir() && StandardDirectory.StartsWith(FPaths::ProjectPersistentDownloadDir())) || StandardDirectory.StartsWith(FPaths::CloudDir());
+
 		// don't look for in pak files for target-only locations
-		if (!StandardDirectory.StartsWith(FPaths::ProjectPersistentDownloadDir()) &&
-			!StandardDirectory.StartsWith(FPaths::CloudDir()))
+		if (!bIsDownloadableDir)
 		{
 			GetMountedPaks(Paks);
 		}
@@ -1794,9 +1795,10 @@ public:
 		FString StandardDirectory = Directory;
 		FPaths::MakeStandardFilename(StandardDirectory);
 
+		bool bIsDownloadableDir = (FPaths::HasProjectPersistentDownloadDir() && StandardDirectory.StartsWith(FPaths::ProjectPersistentDownloadDir())) || StandardDirectory.StartsWith(FPaths::CloudDir());
+
 		// don't look for in pak files for target-only locations
-		if (!StandardDirectory.StartsWith(FPaths::ProjectPersistentDownloadDir()) &&
-			!StandardDirectory.StartsWith(FPaths::CloudDir()))
+		if (!bIsDownloadableDir)
 		{
 			GetMountedPaks(Paks);
 		}
