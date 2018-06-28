@@ -95,7 +95,7 @@ public:
 	FString AdditionalCommandLineArguments;
 
 	/** Command line arguments inherited from this process */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, transient, Category=General, AdvancedDisplay, meta=(EditCondition=bUseSeparateProcess))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, transient, Category=General, AdvancedDisplay, meta=(EditCondition=bUseSeparateProcess))
 	FString InheritedCommandLineArguments;
 
 	/** Event that is fired after we've finished capturing */
