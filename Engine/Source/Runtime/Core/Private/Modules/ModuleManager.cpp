@@ -464,7 +464,7 @@ IModuleInterface* FModuleManager::LoadModuleWithFailureReason(const FName InModu
 
 			UE_LOG(LogModuleManager, Verbose, TEXT("ModuleManager: Load Module '%s' DLL '%s'"), *InModuleName.ToString(), *ModuleInfo->Filename);
 
-			if (ModuleInfo->Filename.IsEmpty())
+			if (ModuleInfo->Filename.IsEmpty() || !FPaths::FileExists(ModuleInfo->Filename))
 			{
 				TMap<FName, FString> ModulePathMap;
 				FindModulePaths(*InModuleName.ToString(), ModulePathMap);

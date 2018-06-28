@@ -27,10 +27,10 @@ BEGIN_UNIFORM_BUFFER_STRUCT(FDeferredLightUniformStruct,)
 	UNIFORM_MEMBER(FVector,NormalizedLightDirection)
 	UNIFORM_MEMBER(FVector,NormalizedLightTangent)
 	UNIFORM_MEMBER(FVector2D,SpotAngles)
+	UNIFORM_MEMBER(float,SpecularScale)
 	UNIFORM_MEMBER(float,SourceRadius)
 	UNIFORM_MEMBER(float,SoftSourceRadius)
 	UNIFORM_MEMBER(float,SourceLength)
-	UNIFORM_MEMBER(float,MinRoughness)
 	UNIFORM_MEMBER(float,ContactShadowLength)
 	UNIFORM_MEMBER(FVector2D,DistanceFadeMAD)
 	UNIFORM_MEMBER(FVector4,ShadowMapChannelMask)
@@ -65,10 +65,10 @@ void SetDeferredLightParameters(
 	DeferredLightUniformsValue.NormalizedLightDirection = LightParameters.NormalizedLightDirection;
 	DeferredLightUniformsValue.NormalizedLightTangent = LightParameters.NormalizedLightTangent;
 	DeferredLightUniformsValue.SpotAngles = LightParameters.SpotAngles;
+	DeferredLightUniformsValue.SpecularScale = LightParameters.SpecularScale;
 	DeferredLightUniformsValue.SourceRadius = LightParameters.LightSourceRadius;
 	DeferredLightUniformsValue.SoftSourceRadius = LightParameters.LightSoftSourceRadius;
 	DeferredLightUniformsValue.SourceLength = LightParameters.LightSourceLength;
-	DeferredLightUniformsValue.MinRoughness = LightParameters.LightMinRoughness;
 	DeferredLightUniformsValue.SourceTexture = LightParameters.SourceTexture->TextureRHI;
 
 	const FVector2D FadeParams = LightSceneInfo->Proxy->GetDirectionalLightDistanceFadeParameters(View.GetFeatureLevel(), LightSceneInfo->IsPrecomputedLightingValid(), View.MaxShadowCascades);
@@ -144,10 +144,10 @@ void SetSimpleDeferredLightParameters(
 	DeferredLightUniformsValue.NormalizedLightDirection = FVector(1, 0, 0);
 	DeferredLightUniformsValue.NormalizedLightTangent = FVector(1, 0, 0);
 	DeferredLightUniformsValue.SpotAngles = FVector2D(-2, 1);
+	DeferredLightUniformsValue.SpecularScale = 1.0f;
 	DeferredLightUniformsValue.SourceRadius = 0.0f;
 	DeferredLightUniformsValue.SoftSourceRadius = 0.0f;
 	DeferredLightUniformsValue.SourceLength = 0.0f;
-	DeferredLightUniformsValue.MinRoughness = 0.08f;
 	DeferredLightUniformsValue.ContactShadowLength = 0.0f;
 	DeferredLightUniformsValue.DistanceFadeMAD = FVector2D(0, 0);
 	DeferredLightUniformsValue.ShadowMapChannelMask = FVector4(0, 0, 0, 0);

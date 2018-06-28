@@ -6,7 +6,7 @@
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
 
-DEFINE_LOG_CATEGORY(LogMediaIOCoreModule);
+DEFINE_LOG_CATEGORY(LogMediaIOCore);
 
 /**
  * Implements the MediaIOCore Module module.

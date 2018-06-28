@@ -10,6 +10,7 @@
 #include "LevelSequenceBindingReference.h"
 #include "SequenceRecorderSettings.h"
 #include "SequenceRecorderUtils.h"
+#include "Sections/MovieSceneAnimationSectionRecorder.h"
 #include "Sections/MovieScene3DTransformSectionRecorderSettings.h"
 #include "Sections/MovieSceneSubSection.h"
 #include "Tracks/MovieSceneSubTrack.h"
@@ -487,7 +488,7 @@ void UActorRecording::StartRecordingActorProperties(ULevelSequence* CurrentSeque
 			{
 				if (!Possessable->Tags.Contains(*Actor->GetActorLabel()))
 				{
-					Possessable->Tags.Add(FName(*Actor->GetActorLabel()));
+					Possessable->Tags.AddUnique(FName(*Actor->GetActorLabel()));
 				}
 				Possessable->SetName(ObjectBindingName);
 			}
@@ -496,7 +497,7 @@ void UActorRecording::StartRecordingActorProperties(ULevelSequence* CurrentSeque
 			{
 				if (!Spawnable->Tags.Contains(*Actor->GetActorLabel()))
 				{
-					Spawnable->Tags.Add(FName(*Actor->GetActorLabel()));
+					Spawnable->Tags.AddUnique(FName(*Actor->GetActorLabel()));
 				}
 				Spawnable->SetName(ObjectBindingName);
 			}
@@ -808,9 +809,9 @@ bool UActorRecording::StopRecording(ULevelSequence* OriginalSequence, float Curr
 	}
 
 	// Swap to editor actor in case the actor was set while in PIE
-	if (ActorToRecord.IsValid())
+	if (AActor* Actor = ActorToRecord.Get())
 	{
-		if (AActor* EditorActor = EditorUtilities::GetEditorWorldCounterpartActor(ActorToRecord.Get()))
+		if (AActor* EditorActor = EditorUtilities::GetEditorWorldCounterpartActor(Actor))
 		{
 			ActorToRecord = EditorActor;
 		}
@@ -821,21 +822,21 @@ bool UActorRecording::StopRecording(ULevelSequence* OriginalSequence, float Curr
 
 bool UActorRecording::IsRecording() const
 {
-	return ActorToRecord.IsValid() && SectionRecorders.Num() > 0;
+	return GetActorToRecord() && SectionRecorders.Num() > 0;
 }
 
 AActor* UActorRecording::GetActorToRecord() const
 {
-	if (ActorToRecord.IsValid())
+	if (AActor* AssignedActor = ActorToRecord.Get())
 	{
-		AActor* OutActor = EditorUtilities::GetSimWorldCounterpartActor(ActorToRecord.Get());
+		AActor* OutActor = EditorUtilities::GetSimWorldCounterpartActor(AssignedActor);
 
 		if (OutActor != nullptr)
 		{
 			return OutActor;
 		}
 
-		return ActorToRecord.Get();
+		return AssignedActor;
 	}
 
 	return nullptr;
@@ -845,14 +846,14 @@ void UActorRecording::SetActorToRecord(AActor* InActor)
 {
 	ActorToRecord = InActor; 
 
-	if (ActorToRecord != nullptr)
+	if (InActor != nullptr)
 	{
 		bRecordToPossessable = false;
 
 		const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
 		for (const FSettingsForActorClass& SettingsForActorClass : Settings->PerActorSettings)
 		{
-			if (ActorToRecord->GetClass()->IsChildOf(SettingsForActorClass.Class))
+			if (InActor->GetClass()->IsChildOf(SettingsForActorClass.Class))
 			{
 				bRecordToPossessable = SettingsForActorClass.bRecordToPossessable;
 			}
@@ -864,14 +865,14 @@ void UActorRecording::PostEditChangeProperty(struct FPropertyChangedEvent& Prope
 {
 	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UActorRecording, ActorToRecord))
 	{
-		if (ActorToRecord != nullptr)
+		if (AActor* Actor = GetActorToRecord())
 		{
 			bRecordToPossessable = false;
 
 			const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
 			for (const FSettingsForActorClass& SettingsForActorClass : Settings->PerActorSettings)
 			{
-				if (ActorToRecord->GetClass()->IsChildOf(SettingsForActorClass.Class))
+				if (Actor->GetClass()->IsChildOf(SettingsForActorClass.Class))
 				{
 					bRecordToPossessable = SettingsForActorClass.bRecordToPossessable;
 				}

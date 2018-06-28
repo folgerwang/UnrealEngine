@@ -38,7 +38,6 @@
 
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
-#include "GeneralProjectSettings.h"
 
 #define CAMERA_MESSAGE_ADDRESS TEXT("/ARCamera")
 
@@ -379,20 +378,6 @@ FRemoteSessionARCameraChannel::FRemoteSessionARCameraChannel(ERemoteSessionChann
 	, Connection(InConnection)
 	, Role(InRole)
 {
-	
-	static bool OnceTimeARInit = false;
-	
-	if (!OnceTimeARInit && InRole == ERemoteSessionChannelMode::Write)
-	{
-		// Workaround - we don't want to set bSupportAR in our project as it prevents us running on old devices, but this needs
-		// to be true before we try to init ARKit stuff
-		UGeneralProjectSettings* Settings = const_cast<UGeneralProjectSettings*>(GetDefault<UGeneralProjectSettings>());
-		Settings->bSupportAR = true;
-		UARSessionConfig* Config = NewObject<UARSessionConfig>();
-		UARBlueprintLibrary::StartARSession(Config);
-		OnceTimeARInit = true;
-	}
-	
 	RenderingTextures[0] = nullptr;
 	RenderingTextures[1] = nullptr;
 	PPMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/RemoteSession/ARCameraPostProcess.ARCameraPostProcess"));

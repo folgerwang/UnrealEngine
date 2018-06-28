@@ -4,8 +4,6 @@
 	GpuSkinCacheComputeShader.usf: Perform vertex skinning into a buffer to avoid skinning in the vertex shader.
 =============================================================================*/
 
-#define FORCE_BIAS_CONVERSION	1
-
 #include "Common.ush"
 #include "Definitions.usf"
 #include "VertexFactoryCommon.ush"
@@ -153,8 +151,8 @@ FVertexUnpacked UnpackedVertex(uint MorphIndex, uint ClothIndex, uint VertexInde
 {
 	FVertexUnpacked Unpacked;
 
-	Unpacked.TangentX = TangentBias(TangentInputBuffer[2 * VertexIndex + GPUSKIN_VB_OFFSET_TANGENT_X]);
-	Unpacked.TangentZ = TangentBias(TangentInputBuffer[2 * VertexIndex + GPUSKIN_VB_OFFSET_TANGENT_Z]);
+	Unpacked.TangentX = TangentBias_SkinCache(TangentInputBuffer[2 * VertexIndex + GPUSKIN_VB_OFFSET_TANGENT_X]);
+	Unpacked.TangentZ = TangentBias_SkinCache(TangentInputBuffer[2 * VertexIndex + GPUSKIN_VB_OFFSET_TANGENT_Z]);
 
 	uint BlendIndices = InputWeightStream[WeightOffset + GPUSKIN_VB_OFFSET_INFLUENCEBONES];
 	Unpacked.BlendIndices.x = BlendIndices & 0xff;
@@ -311,8 +309,8 @@ void SkinCacheUpdateBatchCS(uint3 GroupID : SV_GroupID,
 	PositionBufferUAV[OutputOffset * 3 + 1] = SPos.y;
 	PositionBufferUAV[OutputOffset * 3 + 2] = SPos.z;
 
-	TangentBufferUAV[2 * OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_X] = TangentUnbias(float4(TangentX, Unpacked.TangentX.w));
-	TangentBufferUAV[2 * OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z] = TangentUnbias(float4(TangentZ, Unpacked.TangentZ.w));
+	TangentBufferUAV[2 * OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_X] = TangentUnbias_SkinCache(float4(TangentX, Unpacked.TangentX.w));
+	TangentBufferUAV[2 * OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z] = TangentUnbias_SkinCache(float4(TangentZ, Unpacked.TangentZ.w));
 
 #if GPUSKIN_DEBUG_PASSTHROUGH
 	// Passthrough debug code

@@ -123,6 +123,16 @@ public:
 
 	void UpdatePlayer();
 
+#if WITH_EDITOR
+	/**
+	 * Set the component's default media player property.
+	 *
+	 * @param NewMediaPlayer The player to set.
+	 * @see SetMediaPlayer
+	 */
+	void SetDefaultMediaPlayer(UMediaPlayer* NewMediaPlayer);
+#endif
+
 public:
 
 	//~ TAttenuatedComponentVisualizer interface

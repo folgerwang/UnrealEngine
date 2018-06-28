@@ -209,7 +209,7 @@ void InjectShadowedLocalLightPS(
         LightData.LightTangent = DeferredLightUniforms.NormalizedLightTangent;
 		LightData.SpotAnglesAndSourceRadius = float4(DeferredLightUniforms.SpotAngles, DeferredLightUniforms.SourceRadius, DeferredLightUniforms.SourceLength);
         LightData.SoftSourceRadius = DeferredLightUniforms.SoftSourceRadius;
-		LightData.MinRoughness = DeferredLightUniforms.MinRoughness;
+		LightData.SpecularScale = DeferredLightUniforms.SpecularScale;
 		LightData.ContactShadowLength = abs(DeferredLightUniforms.ContactShadowLength);
 		LightData.ContactShadowLengthInWS = DeferredLightUniforms.ContactShadowLength < 0.0f;
 		LightData.DistanceFadeMAD = DeferredLightUniforms.DistanceFadeMAD;

@@ -6,9 +6,11 @@
 #include "DatasmithScene.h"
 
 #include "Engine/StaticMesh.h"
+#include "EngineUtils.h"
 #include "HAL/FileManager.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "UObject/EnterpriseObjectVersion.h"
 
 #if WITH_EDITORONLY_DATA
 
@@ -99,13 +101,25 @@ const FString& UDatasmithStaticMeshCADImportData::GetResourcePath()
 
 	return ResourcePath;
 }
+#endif // WITH_EDITORONLY_DATA
 
 void UDatasmithStaticMeshCADImportData::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
-	// Do not bother loading or saving the rest if there is no source file
-	if (SourceData.SourceFiles.Num() == 0)
+	Ar.UsingCustomVersion(FEnterpriseObjectVersion::GUID);
+
+	// Serialize/Deserialize stripping flag to control serialization of tessellation data
+	bool bIsEditorDataIncluded = true;
+	if (Ar.CustomVer(FEnterpriseObjectVersion::GUID) >= FEnterpriseObjectVersion::FixSerializationOfBulkAndExtraData)
+	{
+		FStripDataFlags StripFlags( Ar );
+		bIsEditorDataIncluded = !StripFlags.IsEditorDataStripped();
+	}
+
+#if WITH_EDITORONLY_DATA
+	// Do not bother loading or saving the rest if there is no source file or Editor's data are not included
+	if (!bIsEditorDataIncluded || SourceData.SourceFiles.Num() == 0)
 	{
 		return;
 	}
@@ -159,6 +173,6 @@ void UDatasmithStaticMeshCADImportData::Serialize(FArchive& Ar)
 			FFileHelper::SaveArrayToFile(ByteArray, *FilePath);
 		}
 	}
+#endif // WITH_EDITORONLY_DATA
 }
 
-#endif // WITH_EDITORONLY_DATA

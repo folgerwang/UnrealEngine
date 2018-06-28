@@ -209,7 +209,8 @@ public:
 #if METAL_DEBUG_OPTIONS
     void AddActiveBuffer(FMetalBuffer const& Buffer);
     void RemoveActiveBuffer(FMetalBuffer const& Buffer);
-    bool ValidateIsInactiveBuffer(FMetalBuffer const& Buffer);
+	bool ValidateIsInactiveBuffer(FMetalBuffer const& Buffer);
+	void ScribbleBuffer(FMetalBuffer& Buffer);
 #endif
 	
 private:

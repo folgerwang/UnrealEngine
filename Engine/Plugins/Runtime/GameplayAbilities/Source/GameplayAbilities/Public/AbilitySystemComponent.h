@@ -34,22 +34,17 @@ class UInputComponent;
  *	UAbilitySystemComponent	
  *
  *	A component to easily interface with the 3 aspects of the AbilitySystem:
- *		-GameplayAbilities
- *		-GameplayEffects
- *		-GameplayAttributes
- *		
- *	This component will make life easier for interfacing with these subsystems, but is not completely required. The main functions are:
  *	
  *	GameplayAbilities:
  *		-Provides a way to give/assign abilities that can be used (by a player or AI for example)
  *		-Provides management of instanced abilities (something must hold onto them)
  *		-Provides replication functionality
- *			-Ability state must always be replicated on the UGameplayAbility itself, but UAbilitySystemComponent can provide RPC replication
- *			for non-instanced gameplay abilities. (Explained more in GameplayAbility.h).
+ *			-Ability state must always be replicated on the UGameplayAbility itself, but UAbilitySystemComponent provides RPC replication
+ *			for the actual activation of abilities
  *			
  *	GameplayEffects:
  *		-Provides an FActiveGameplayEffectsContainer for holding active GameplayEffects
- *		-Provides methods for apply GameplayEffect to a target or to self
+ *		-Provides methods for applying GameplayEffects to a target or to self
  *		-Provides wrappers for querying information in FActiveGameplayEffectsContainers (duration, magnitude, etc)
  *		-Provides methods for clearing/remove GameplayEffects
  *		
@@ -57,7 +52,6 @@ class UInputComponent;
  *		-Provides methods for allocating and initializing attribute sets
  *		-Provides methods for getting AttributeSets
  *  
- * 
  */
 
 /** Called when a targeting actor rejects target confirmation */
@@ -167,7 +161,7 @@ class GAMEPLAYABILITIES_API UAbilitySystemComponent : public UGameplayTasksCompo
 	float GetNumericAttributeBase(const FGameplayAttribute &Attribute) const;
 
 	/**
-	 *	Applies an inplace mod to the given attribute. This correctly update the attribute's aggregator, updates the attribute set property,
+	 *	Applies an in-place mod to the given attribute. This correctly update the attribute's aggregator, updates the attribute set property,
 	 *	and invokes the OnDirty callbacks.
 	 *	
 	 *	This does not invoke Pre/PostGameplayEffectExecute calls on the attribute set. This does no tag checking, application requirements, immunity, etc.
@@ -1157,10 +1151,6 @@ class GAMEPLAYABILITIES_API UAbilitySystemComponent : public UGameplayTasksCompo
 
 	// ----------------------------------------------------------------------------------------------------------------
 	//	AnimMontage Support
-	//	
-	//	TODO:
-	//	-Continously update RepAnimMontageInfo on server for join in progress clients.
-	//	-Some missing functionality may still be needed (GetCurrentSectionTime, etc)	
 	// ----------------------------------------------------------------------------------------------------------------	
 
 	/** Plays a montage and handles replication and prediction based on passed in ability/activation info */
@@ -1521,10 +1511,11 @@ protected:
 		
 	TArray<UGameplayTask*>&	GetAbilityActiveTasks(UGameplayAbility* Ability);
 	
-	// Contains all of the gameplay effects that are currently active on this component
+	/** Contains all of the gameplay effects that are currently active on this component */
 	UPROPERTY(Replicated)
 	FActiveGameplayEffectsContainer	ActiveGameplayEffects;
 
+	/** List of all active gameplay cues, including ones applied manually */
 	UPROPERTY(Replicated)
 	FActiveGameplayCueContainer	ActiveGameplayCues;
 
@@ -1541,7 +1532,7 @@ protected:
 
 	void DebugCyclicAggregatorBroadcasts(struct FAggregator* Aggregator);
 	
-	// Acceleration map for all gameplay tags (OwnedGameplayTags from GEs and explicit GameplayCueTags)
+	/** Acceleration map for all gameplay tags (OwnedGameplayTags from GEs and explicit GameplayCueTags) */
 	FGameplayTagCountContainer GameplayTagCountContainer;
 
 	UPROPERTY(Replicated)

@@ -10,9 +10,13 @@
 
 //------------------------------------------------------- COMPILE TIME CONFIG
 
+#if defined(CONFIG_SETUP)
+#define DOWNSAMPLE_COC_OPERATOR 4
+#else
 // Defines the COC operator to choose when downsampling.
 // Same as circle DOF.
 #define DOWNSAMPLE_COC_OPERATOR 2
+#endif
 
 
 //------------------------------------------------------- COMMON FUNCTIONS.
@@ -116,6 +120,14 @@ float ComputeDownsamplingBilateralWeight(
 	// TODO: Tune the ScaleFactor. Looks like to large.
 	float ScaleFactor = 64.0 * CocRadiusMultiplier;
 
+	// not doing abs(OutCocRadius - SampleCocRadius) because: it is fine to leak background on foreground arround geometric
+	// edges because going to be close to the hole filling as well. This allow dither opacity material such as dithered human hair
+	// to keep consistent opacity, thickness, and temporal stability as the Coc changes between slight out focus, foreground
+	// and background.
+	#if defined(CONFIG_SETUP)
+		return saturate(1.0 - (OutCocRadius - SampleCocRadius) * ScaleFactor);
+	#endif
+	
 	// GCN Hint: one subtract with abs() post modifier + one MAD with saturate post modifier.
 	return saturate(1.0 - abs(OutCocRadius - SampleCocRadius) * ScaleFactor);
 }
@@ -144,6 +156,7 @@ void DownsampleSceneColorWithCoc(
 	{
 		OutputWeight += (OutCocRadius * CocRadii[i]) >= 0.0 ? 0.25 : 0.0;
 	}
+	OutputWeight = 1;
 
 	float WeightSum = dot(float4(1, 1, 1, 1), BilateralWeights);
 
@@ -201,6 +214,18 @@ float DownsampleCoc_Wave8x8(float CocRadius, const uint ReductionScale)
 				/* InnerLaneGroupSize = */ 8 * ReductionScale,
 				/* InnerLaneGroupId = */ 0);
 		}
+	#elif DOWNSAMPLE_COC_OPERATOR == 4
+		// Horizontal.
+		float OtherCocRadius = WaveSwapWithinLaneGroup(
+			OutCocRadius,
+			/* LaneGroupSize = */ 2 * ReductionScale);
+		OutCocRadius = min(OutCocRadius, OtherCocRadius);
+		
+		// Vertical.
+		OtherCocRadius = WaveSwapWithinLaneGroup(
+			OutCocRadius,
+			/* LaneGroupSize = */ 16 * ReductionScale);
+		OutCocRadius = min(OutCocRadius, OtherCocRadius);
 	#else
 		#error Unimplemented.
 	#endif

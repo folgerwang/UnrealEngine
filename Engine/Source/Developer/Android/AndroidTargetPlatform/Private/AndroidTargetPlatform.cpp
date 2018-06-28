@@ -213,7 +213,7 @@ bool FAndroidTargetPlatform::SupportsES2() const
 	// default to support ES2
 	bool bBuildForES2 = true;
 #if WITH_ENGINE
-	EngineSettings.GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES2"), bBuildForES2);
+	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES2"), bBuildForES2, GEngineIni);
 #endif
 	return bBuildForES2;
 }
@@ -223,7 +223,7 @@ bool FAndroidTargetPlatform::SupportsES31() const
 	// default no support for ES31
 	bool bBuildForES31 = false;
 #if WITH_ENGINE
-	EngineSettings.GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES31"), bBuildForES31);
+	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES31"), bBuildForES31, GEngineIni);
 #endif
 	return bBuildForES31;
 }
@@ -238,7 +238,7 @@ bool FAndroidTargetPlatform::SupportsVulkan() const
 	// default to not supporting Vulkan
 	bool bSupportsVulkan = false;
 #if WITH_ENGINE
-	EngineSettings.GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bSupportsVulkan"), bSupportsVulkan);
+	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bSupportsVulkan"), bSupportsVulkan, GEngineIni);
 #endif
 	return bSupportsVulkan;
 }
@@ -249,7 +249,7 @@ bool FAndroidTargetPlatform::SupportsSoftwareOcclusion() const
 	bool bSupportsSoftwareOcclusion = false;
 #if WITH_ENGINE
 	int32 IntValue = 0;
-	EngineSettings.GetInt(TEXT("ConsoleVariables"), TEXT("r.Mobile.AllowSoftwareOcclusion"), IntValue);
+	GConfig->GetInt(TEXT("ConsoleVariables"), TEXT("r.Mobile.AllowSoftwareOcclusion"), IntValue, GEngineIni);
 	bSupportsSoftwareOcclusion = (IntValue != 0);
 #endif
 	return bSupportsSoftwareOcclusion;
@@ -778,7 +778,8 @@ bool FAndroidTargetPlatform::HandleTicker( float DeltaTime )
 			// create target device
 			FAndroidTargetDevicePtr& Device = Devices.Add(DeviceInfo.SerialNumber);
 
-			Device = MakeShareable(new FAndroidTargetDevice(*this, DeviceInfo.SerialNumber, GetAndroidVariantName()));
+			Device = CreateNewDevice(DeviceInfo);
+
 
 			Device->SetConnected(true);
 			Device->SetModel(DeviceInfo.Model);
@@ -805,6 +806,11 @@ bool FAndroidTargetPlatform::HandleTicker( float DeltaTime )
 	}
 
 	return true;
+}
+
+FAndroidTargetDeviceRef FAndroidTargetPlatform::CreateNewDevice(const FAndroidDeviceInfo &DeviceInfo)
+{
+	return MakeShareable(new FAndroidTargetDevice(*this, DeviceInfo.SerialNumber, GetAndroidVariantName()));
 }
 
 #undef LOCTEXT_NAMESPACE

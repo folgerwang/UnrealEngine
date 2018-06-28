@@ -19,14 +19,7 @@ class ENGINE_API UNavigationSystemConfig : public UObject
 public:
 	UPROPERTY(EditAnywhere, Category=Navigation, meta = (MetaClass = "NavigationSystemBase", NoResetToDefault))
 	FSoftClassPath NavigationSystemClass;
-
-	/** Whether at game runtime we expect any kind of dynamic navigation generation */
-	UPROPERTY(EditAnywhere, Category = Navigation)
-	uint32 bStrictlyStatic : 1;
-
-	UPROPERTY(EditAnywhere, Category = Navigation)
-	uint32 bCreateOnClient : 1;
-
+	
 public:
 	UNavigationSystemConfig(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
@@ -35,6 +28,8 @@ public:
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
+
+	static TSubclassOf<UNavigationSystemConfig> GetDefaultConfigClass();
 };
 
 UCLASS(MinimalAPI, HideCategories=Navigation)

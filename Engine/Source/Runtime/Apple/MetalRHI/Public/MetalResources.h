@@ -645,6 +645,11 @@ public:
 	{
 		return &Surface;
 	}
+
+	virtual void* GetNativeResource() const override final
+	{
+		return Surface.Texture;
+	}
 };
 
 struct FMetalCommandBufferFence

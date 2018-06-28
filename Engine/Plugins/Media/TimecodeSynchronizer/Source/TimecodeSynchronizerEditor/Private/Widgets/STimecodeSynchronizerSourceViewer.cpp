@@ -7,7 +7,7 @@
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "MediaPlayer.h"
-#include "MediaPlayerInputSource.h"
+#include "MediaPlayerTimeSynchronizationSource.h"
 #include "MediaTexture.h"
 #include "Modules/ModuleManager.h"
 #include "Widgets/SBoxPanel.h"
@@ -72,7 +72,7 @@ void STimecodeSynchronizerSourceViewer::PopulateActiveSources()
 			const FTimecodeSynchronizerActiveTimecodedInputSource& Source = TimecodedSources[Index];
 			if (Source.InputSource)
 			{
-				UMediaPlayerInputSource* MediaPlayerSource = Cast<UMediaPlayerInputSource>(Source.InputSource);
+				UMediaPlayerTimeSynchronizationSource* MediaPlayerSource = Cast<UMediaPlayerTimeSynchronizationSource>(Source.InputSource);
 				UMediaTexture* TextureArg = MediaPlayerSource ? MediaPlayerSource->MediaTexture : nullptr;
 							 
 				//Add a Viewport Widget for each active Source
@@ -96,7 +96,7 @@ void STimecodeSynchronizerSourceViewer::PopulateActiveSources()
 			const FTimecodeSynchronizerActiveTimecodedInputSource& Source = SynchronizationSources[Index];
 			if (Source.InputSource)
 			{
-				UMediaPlayerInputSource* MediaPlayerSource = Cast<UMediaPlayerInputSource>(Source.InputSource);
+				UMediaPlayerTimeSynchronizationSource* MediaPlayerSource = Cast<UMediaPlayerTimeSynchronizationSource>(Source.InputSource);
 				UMediaTexture* TextureArg = MediaPlayerSource ? MediaPlayerSource->MediaTexture : nullptr;
 							 
 				//Add a Viewport Widget for each active Source

@@ -4906,7 +4906,7 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			APlayerController* PlayerController = Iterator->Get();
-			if (PlayerController->IsLocalPlayerController())
+			if (PlayerController && PlayerController->IsLocalPlayerController())
 			{
 				FVector POVLoc;
 				FRotator POVRotation;
@@ -6640,7 +6640,7 @@ int32 UParticleSystemComponent::DetermineLODLevelForLocation(const FVector& Effe
 			for( FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator )
 			{
 				APlayerController* PlayerController = Iterator->Get();
-				if(PlayerController->IsLocalPlayerController())
+				if(PlayerController && PlayerController->IsLocalPlayerController())
 				{
 					FVector* POVLoc = new(PlayerViewLocations) FVector;
 					FRotator POVRotation;
@@ -7456,7 +7456,7 @@ bool UParticleSystemComponent::ShouldComputeLODFromGameThread()
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			APlayerController* PlayerController = Iterator->Get();
-			if (PlayerController->IsLocalPlayerController())
+			if (PlayerController && PlayerController->IsLocalPlayerController())
 			{
 				bUseGameThread = true;
 				break;

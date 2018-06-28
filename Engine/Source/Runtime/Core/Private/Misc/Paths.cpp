@@ -303,6 +303,11 @@ FString FPaths::ProjectModsDir()
 	return FPaths::ProjectDir() + TEXT("Mods/");
 }
 
+bool FPaths::HasProjectPersistentDownloadDir()
+{
+	return FPlatformMisc::HasProjectPersistentDownloadDir();
+}
+
 FString FPaths::ProjectPersistentDownloadDir()
 {
 	return FPlatformMisc::GamePersistentDownloadDir();

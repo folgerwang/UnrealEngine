@@ -430,7 +430,7 @@ public:
 	bool SupportsManualVertexFetch(ERHIFeatureLevel::Type InFeatureLevel) const 
 	{ 
 		check(InFeatureLevel != ERHIFeatureLevel::Num);
-		return bSupportsManualVertexFetch && (InFeatureLevel > ERHIFeatureLevel::ES3_1) && !IsMobileOpenGlPlatform(GMaxRHIShaderPlatform) && (!IsMetalPlatform(GMaxRHIShaderPlatform) || (RHIGetShaderLanguageVersion(GMaxRHIShaderPlatform) >= 2));
+		return bSupportsManualVertexFetch && (InFeatureLevel > ERHIFeatureLevel::ES3_1) && RHISupportsManualVertexFetch(GMaxRHIShaderPlatform);
 	}
 
 protected:

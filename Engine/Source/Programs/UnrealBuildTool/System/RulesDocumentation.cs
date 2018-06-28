@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -21,13 +21,6 @@ namespace UnrealBuildTool
 			if(!FileReference.Exists(InputDocumentationFile))
 			{
 				throw new BuildException("Generated assembly documentation not found at {0}.", InputDocumentationFile);
-			}
-
-			// Get the current engine version for versioning the page
-			BuildVersion Version;
-			if(!BuildVersion.TryRead(BuildVersion.GetDefaultFileName(), out Version))
-			{
-				throw new BuildException("Unable to read the current build version");
 			}
 
 			// Read the documentation
@@ -53,36 +46,42 @@ namespace UnrealBuildTool
 			}
 
 			// Make sure the output file is writable
-			FileReference.MakeWriteable(OutputFile);
+			if(FileReference.Exists(OutputFile))
+			{
+				FileReference.MakeWriteable(OutputFile);
+			}
+			else
+			{
+				DirectoryReference.CreateDirectory(OutputFile.Directory);
+			}
 
-			// Generate the UDN documentation file
+			// Generate the documentation file
 			using (StreamWriter Writer = new StreamWriter(OutputFile.FullName))
 			{
-				Writer.WriteLine("Availability: NoPublish");
-				Writer.WriteLine("Title: Build Configuration Properties Page");
-				Writer.WriteLine("Crumbs:");
-				Writer.WriteLine("Description: This is a procedurally generated markdown page.");
-				Writer.WriteLine("Version: {0}.{1}", Version.MajorVersion, Version.MinorVersion);
-				Writer.WriteLine("");
+				Writer.WriteLine("<html>");
+				Writer.WriteLine("  <body>");
 				if(ReadOnlyFields.Count > 0)
 				{
-					Writer.WriteLine("### Read-Only Properties");
-					Writer.WriteLine();
+					Writer.WriteLine("    <h2>Read-Only Properties</h2>");
+					Writer.WriteLine("    <dl>");
 					foreach(FieldInfo Field in ReadOnlyFields)
 					{
 						OutputField(InputDocumentation, Field, Writer);
 					}
-					Writer.WriteLine();
+					Writer.WriteLine("    </dl>");
 				}
 				if(ReadWriteFields.Count > 0)
 				{
-					Writer.WriteLine("### Read/Write Properties");
+					Writer.WriteLine("    <h2>Read/Write Properties</h2>");
+					Writer.WriteLine("    <dl>");
 					foreach(FieldInfo Field in ReadWriteFields)
 					{
 						OutputField(InputDocumentation, Field, Writer);
 					}
-					Writer.WriteLine("");
+					Writer.WriteLine("    </dl>");
 				}
+				Writer.WriteLine("  </body>");
+				Writer.WriteLine("</html>");
 			}
 
 			// Success!
@@ -115,22 +114,36 @@ namespace UnrealBuildTool
 					}
 				}
 */
-				// Write the result to the .udn file
+				// Write the result to the HTML file
 				if(Lines.Count > 0)
 				{
-					Writer.WriteLine("$ {0} ({1}): {2}", Field.Name, GetPrettyTypeName(Field.FieldType), Lines[0]);
-					for(int Idx = 1; Idx < Lines.Count; Idx++)
+					Writer.WriteLine("      <dt>{0} ({1})</dt>", Field.Name, GetPrettyTypeName(Field.FieldType));
+
+					if(Lines.Count == 1)
 					{
-						if(Lines[Idx].StartsWith("*") || Lines[Idx].StartsWith("-"))
-						{
-							Writer.WriteLine("        * {0}", Lines[Idx].Substring(1).TrimStart());
-						}
-						else
-						{
-							Writer.WriteLine("    * {0}", Lines[Idx]);
-						}
+						Writer.WriteLine("      <dd>{0}</dd>", Lines[0]);
 					}
-					Writer.WriteLine();
+					else
+					{
+						Writer.WriteLine("      <dd>");
+						for(int Idx = 0; Idx < Lines.Count; Idx++)
+						{
+							if(Lines[Idx].StartsWith("*") || Lines[Idx].StartsWith("-"))
+							{
+								Writer.WriteLine("        <ul>");
+								for(; Idx < Lines.Count && (Lines[Idx].StartsWith("*") || Lines[Idx].StartsWith("-")); Idx++)
+								{
+									Writer.WriteLine("          <li>{0}</li>", Lines[Idx].Substring(1).TrimStart());
+								}
+								Writer.WriteLine("        </ul>");
+							}
+							else
+							{
+								Writer.WriteLine("        {0}", Lines[Idx]);
+							}
+						}
+						Writer.WriteLine("      </dd>");
+					}
 				}
 			}
 		}

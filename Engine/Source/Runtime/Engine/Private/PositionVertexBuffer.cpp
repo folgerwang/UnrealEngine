@@ -7,6 +7,7 @@
 #include "Components.h"
 
 #include "StaticMeshVertexData.h"
+#include "GPUSkinCache.h"
 
 /*-----------------------------------------------------------------------------
 FPositionVertexBuffer
@@ -183,7 +184,7 @@ void FPositionVertexBuffer::InitRHI()
 		VertexBufferRHI = RHICreateVertexBuffer(ResourceArray->GetResourceDataSize(), BUF_Static | BUF_ShaderResource, CreateInfo);
 
 		// we have decide to create the SRV based on GMaxRHIShaderPlatform because this is created once and shared between feature levels for editor preview.
-		if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
+		if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform) || IsGPUSkinCacheAvailable())
 		{
 			PositionComponentSRV = RHICreateShaderResourceView(VertexBufferRHI, 4, PF_R32_FLOAT);
 		}

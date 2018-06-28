@@ -31,6 +31,69 @@
 #include "NiagaraDataInterface.h"
 #include "NiagaraDataInterfaceHoudiniCSV.generated.h"
 
+USTRUCT()
+struct FHoudiniEvent
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, Category = "Houdini Event")
+	FVector Position;
+
+	UPROPERTY(EditAnywhere, Category = "Houdini Event")
+	FVector Normal;
+
+	UPROPERTY(EditAnywhere, Category = "Houdini Event")
+	float Impulse;
+
+	UPROPERTY(EditAnywhere, Category = "Houdini Event")
+	FVector Velocity;
+
+	UPROPERTY(EditAnywhere, Category = "Houdini Event")
+	int32 PointID;
+
+	UPROPERTY(EditAnywhere, Category = "Houdini Event")
+	float Time;	
+
+	UPROPERTY(EditAnywhere, Category = "Houdini Event")
+	float Life;
+
+	UPROPERTY(EditAnywhere, Category = "Houdini Event")
+	FLinearColor Color;
+
+	UPROPERTY(EditAnywhere, Category = "Houdini Event")
+	int32 Type;	
+
+	FHoudiniEvent()
+		: Position(FVector::ZeroVector)
+		, Normal(FVector::ZeroVector)
+		, Impulse(0.0f)
+		, Velocity( FVector::ZeroVector)
+		, PointID(0)
+		, Time(0.0f)
+		, Life(0.0f)
+		, Color(FLinearColor::White)
+		, Type(0)		 
+	{
+	}
+
+	inline bool operator==(const FHoudiniEvent& Other) const
+	{
+		if ( (Other.Position != Position) || (Other.Normal != Normal)
+			|| (Other.Velocity != Velocity) || (Other.Impulse != Impulse)
+			|| (Other.PointID != PointID) || (Other.Time != Time)
+			|| (Other.Life != Life) || (Other.Color != Color)
+			|| (Other.Type != Type) )
+			return false;
+
+		return true;
+	}
+
+	inline bool operator!=(const FHoudiniEvent& Other) const
+	{
+		return !(*this == Other);
+	}
+};
+
 
 /** Data Interface allowing sampling of Houdini CSV files. */
 UCLASS(EditInlineNew, Category = "Houdini Niagara", meta = (DisplayName = "Houdini Array Info"))
@@ -101,6 +164,10 @@ public:
 	// Returns the color for a given row in the CSV file
 	template<typename RowParamType>
 	void GetColor(FVectorVMContext& Context);
+
+	// Returns the impulse value for a given row in the CSV file
+	template<typename RowParamType>
+	void GetImpulse(FVectorVMContext& Context);
 
 	// Returns the position and time for a given row in the CSV file
 	template<typename RowParamType>

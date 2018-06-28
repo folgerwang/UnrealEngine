@@ -10,6 +10,8 @@
 
 //------------------------------------------------------- PARAMETERS
 
+float NeighborCompareMaxColor;
+
 // Parameters for ComputeScatterFactor.
 struct FHybridScatterInputs
 {
@@ -59,7 +61,7 @@ float ComputeNeighborBasedScatterFactor(in const FHybridScatterInputs Parameters
 		const float Threshold = 0.7;
 
 		float LinearScale = rcp(Parameters.FrameExposureScale);
-		float LinearColorMaximum = 3 * LinearScale;
+		float LinearColorMaximum = NeighborCompareMaxColor * LinearScale;
 
 		float4 SaturatedColor = min(Parameters.Color, LinearColorMaximum);
 

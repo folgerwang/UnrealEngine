@@ -45,6 +45,7 @@ namespace UnrealBuildTool.Rules
 				});
 
 			if ((Target.Platform == UnrealTargetPlatform.Mac) ||
+				(Target.Platform == UnrealTargetPlatform.Linux) ||
 				(Target.Platform == UnrealTargetPlatform.Win32) ||
 				(Target.Platform == UnrealTargetPlatform.Win64))
 			{

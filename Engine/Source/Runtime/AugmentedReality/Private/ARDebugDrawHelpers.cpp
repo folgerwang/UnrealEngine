@@ -25,7 +25,7 @@ namespace ARDebugHelpers
 			for( FConstPlayerControllerIterator Iterator = InWorld->GetPlayerControllerIterator(); Iterator; ++Iterator )
 			{
 				APlayerController* PlayerController = Iterator->Get();
-				if (PlayerController->MyHUD && PlayerController->Player)
+				if (PlayerController && PlayerController->MyHUD && PlayerController->Player)
 				{
 					PlayerController->MyHUD->AddDebugText(Text, BaseAct, Duration, TextLocation, TextLocation, TextColor, true, true, false, nullptr, Scale, bDrawShadow);
 					bDrawnSuccessfully = true;

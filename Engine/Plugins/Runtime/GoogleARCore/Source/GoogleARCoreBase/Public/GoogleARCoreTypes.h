@@ -30,14 +30,14 @@ UENUM(BlueprintType)
 enum class EGoogleARCoreAvailability : uint8
 {
 	/* An internal error occurred while determining ARCore availability. */
-	UnkownError = 0,
+	UnknownError = 0,
 	/* ARCore is not installed, and a query has been issued to check if ARCore is is supported. */
-	UnkownChecking = 1,
+	UnknownChecking = 1,
 	/*
 	 * ARCore is not installed, and the query to check if ARCore is supported
 	 * timed out. This may be due to the device being offline.
 	 */
-	UnkownTimedOut = 2,
+	UnknownTimedOut = 2,
 	/* ARCore is not supported on this device.*/
 	UnsupportedDeviceNotCapable = 100,
 	/* The device and Android version are supported, but the ARCore APK is not installed.*/
@@ -157,6 +157,8 @@ enum class EGoogleARCoreLineTraceChannel : uint8
 	 * Surface normal estimation is most likely to succeed on textured surfaces and with camera motion.
 	 */
 	FeaturePointWithSurfaceNormal = 16,
+	/** Trace against augmented images. */
+	AugmentedImage = 32,
 };
 ENUM_CLASS_FLAGS(EGoogleARCoreLineTraceChannel);
 
@@ -189,6 +191,10 @@ public:
 	/** Returns the point position in Unreal world space and it's confidence value from 0 ~ 1. */
 	UFUNCTION(BlueprintPure, Category = "GoogleARCore|PointCloud")
 	void GetPoint(int Index, FVector& OutWorldPosition, float& OutConfidence);
+
+	/** Returns the point position in Unreal AR Tracking space. */
+	UFUNCTION(BlueprintPure, Category = "GoogleARCore|PointCloud")
+	void GetPointInTrackingSpace(int Index, FVector& OutTrackingSpaceLocation, float& OutConfidence);
 
 	/** Release PointCloud's resources back to ArCore. Data will not be available after releasePointCloud is called. */
 	UFUNCTION(BlueprintCallable, Category = "GoogleARCore|PointCloud")
