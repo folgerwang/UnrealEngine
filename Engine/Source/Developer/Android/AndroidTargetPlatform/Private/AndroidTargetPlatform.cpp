@@ -812,4 +812,9 @@ bool FAndroidTargetPlatform::HandleTicker( float DeltaTime )
 	return true;
 }
 
+FAndroidTargetDeviceRef FAndroidTargetPlatform::CreateNewDevice(const FAndroidDeviceInfo &DeviceInfo)
+{
+	return MakeShareable(new FAndroidTargetDevice(*this, DeviceInfo.SerialNumber, GetAndroidVariantName()));
+}
+
 #undef LOCTEXT_NAMESPACE
