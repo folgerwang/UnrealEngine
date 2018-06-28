@@ -1936,6 +1936,14 @@ void FLevelEditorViewportClient::ReceivedFocus(FViewport* InViewport)
 	FEditorViewportClient::ReceivedFocus(InViewport);
 }
 
+void FLevelEditorViewportClient::LostFocus(FViewport* InViewport)
+{
+	FEditorViewportClient::LostFocus(InViewport);
+
+	GEditor->SetPreviewMeshMode(false);
+}
+
+
 //
 //	FLevelEditorViewportClient::ProcessClick
 //
