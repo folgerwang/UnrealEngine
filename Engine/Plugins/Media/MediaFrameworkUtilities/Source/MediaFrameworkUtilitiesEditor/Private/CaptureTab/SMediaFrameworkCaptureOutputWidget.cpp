@@ -185,7 +185,7 @@ void SMediaFrameworkCaptureCameraViewportWidget::Construct(const FArguments& InA
 		LevelViewportClient->bDisableInput = true;
 
 		// Never allow Matinee to possess these views
-		LevelViewportClient->SetAllowCinematicPreview(false);
+		LevelViewportClient->SetAllowCinematicControl(false);
 
 		// Our viewport is always visible
 		LevelViewportClient->VisibilityDelegate.BindLambda([] {return true; });
