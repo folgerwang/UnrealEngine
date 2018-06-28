@@ -292,6 +292,8 @@ namespace Audio
 
 	void FMixerDevice::UpdateHardware()
 	{
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
 		// If we're in editor, re-query these in case they changed. 
 		if (GIsEditor)
 		{
@@ -919,6 +921,8 @@ namespace Audio
 
 	FMixerSubmixPtr FMixerDevice::GetSubmixInstance(USoundSubmix* SoundSubmix)
 	{
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
 		check(SoundSubmix);
 		FMixerSubmixPtr* MixerSubmix = Submixes.Find(SoundSubmix);
 
@@ -936,6 +940,8 @@ namespace Audio
 
 	FMixerSourceVoice* FMixerDevice::GetMixerSourceVoice()
 	{
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
 		FMixerSourceVoice* Voice = nullptr;
 		if (!SourceVoices.Dequeue(Voice))
 		{

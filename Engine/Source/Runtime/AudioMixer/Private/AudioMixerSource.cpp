@@ -50,6 +50,8 @@ namespace Audio
 		AUDIO_MIXER_CHECK(MixerBuffer);
 		AUDIO_MIXER_CHECK(MixerBuffer->IsRealTimeSourceReady());
 
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
 		FSoundSource::InitCommon();
 
 		// Get the number of frames before creating the buffer
@@ -292,6 +294,8 @@ namespace Audio
 	{
 		SCOPE_CYCLE_COUNTER(STAT_AudioUpdateSources);
 
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
 		if (!WaveInstance || !MixerSourceVoice || Paused || !bInitialized)
 		{
 			return;
@@ -314,6 +318,8 @@ namespace Audio
 
 	bool FMixerSource::PrepareForInitialization(FWaveInstance* InWaveInstance)
 	{
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
 		// We are currently not supporting playing audio on a controller
 		if (InWaveInstance->OutputTarget == EAudioOutputTarget::Controller)
 		{
@@ -380,6 +386,8 @@ namespace Audio
 
 	bool FMixerSource::IsPreparedToInit()
 	{
+		LLM_SCOPE(ELLMTag::AudioMixer);
+			
 		if (MixerBuffer && MixerBuffer->IsRealTimeSourceReady() && !bIsReleasing)
 		{
 			check(MixerSourceBuffer.IsValid());
@@ -451,6 +459,8 @@ namespace Audio
 
 	void FMixerSource::Stop()
 	{
+		LLM_SCOPE(ELLMTag::AudioMixer);
+	
 		if (bIsFinished)
 		{
 			StopNow();
@@ -486,6 +496,8 @@ namespace Audio
 
 	void FMixerSource::StopNow()
 	{
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
 		// Immediately stop the sound source
 
 		bInitialized = false;
@@ -620,6 +632,8 @@ namespace Audio
 
 	void FMixerSource::FreeResources()
 	{
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
 		if (MixerBuffer)
 		{
 			MixerBuffer->EnsureHeaderParseTaskFinished();
