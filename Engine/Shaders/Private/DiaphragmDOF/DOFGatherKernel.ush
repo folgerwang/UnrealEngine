@@ -75,6 +75,9 @@ struct FPrivateKernelSharedScope
 	// GatherInput's max UVs.
 	// TODO: this is currently MipLevel  depent, but could save some VGPR by making it independent.
 	float2 GatherInputMaxUV;
+
+	// Multiplier to apply when computing sample intersection. Higher value sharpen, lower value feather.
+	float IntersectionMultiplier;
 };
 
 
@@ -102,9 +105,7 @@ float ComputeSampleIntersection(FPrivateKernelSharedScope KernelScope, float Sam
 			// Fine.
 			const float Multiplier = 4.0;
 		#else
-			const float Multiplier = 1;
-			// TODO: investigate infficient way to reduce Multiplier according to MipLevel.
-			//const float Multiplier = SampleCocRadius > 4 ? 4.0 / abs(SampleCocRadius) : 1.0;
+			const float Multiplier = KernelScope.IntersectionMultiplier;
 		#endif
 
 		return saturate((abs(SampleCocRadius) - SampleDistance) * Multiplier + Offset);
@@ -259,11 +260,11 @@ void UpdateRuntimeKernelScope(
 	}
 
 	// Compute the randomising range of the kernel offset in pixels.
-	#if CONFIG_FULL_KERNEL_CENTER_RANDOM
-		float KernelRandomRange = max(GatherParameters.KernelRadius - GatherParameters.MaxRingCount - pow(2.0, uint(MipLevel)), 0.0);
-	#else
-		float KernelRandomRange = max((GatherParameters.KernelRadius - GatherParameters.MaxRingCount) * UnitSampleRadius, 0.0);
-	#endif
+	float KernelRandomRange = GatherParameters.KernelRadius * UnitSampleRadius;
+	if (static_condition(KernelScope.bBilinearSampleInput))
+	{
+		KernelRandomRange = max(GatherParameters.KernelRadius - GatherParameters.MaxRingCount - pow(2.0, uint(MipLevel)), 0.0) * UnitSampleRadius;
+	}
 
 	// No need to do kernel randomization when there is enough samples.
 	if (static_condition(KernelScope.bKenrelHasEnoughSamples))
@@ -275,8 +276,10 @@ void UpdateRuntimeKernelScope(
 
 	KernelScope.SampleCountToSamplePosition = GatherParameters.KernelRadius * UnitSampleRadius;
 
-	KernelScope.GatherInputMaxUV = (ViewportSize.xy - 0.5 * pow(2.0, uint(MipLevel))) * GatherParameters.DispatchThreadIdToInputBufferUV;
+	float MipTexelSize = pow(2.0, uint(MipLevel));
+	KernelScope.GatherInputMaxUV = (ViewportSize.xy - 0.5 * MipTexelSize) * GatherParameters.DispatchThreadIdToInputBufferUV;
 	KernelScope.GatherInputMipLevel = MipLevel;
+	KernelScope.IntersectionMultiplier = rcp(MipTexelSize);
 		
 	// When there is enough samples, the sample count measurement and the sample position measurement are same.
 	if (static_condition(KernelScope.bKenrelHasEnoughSamples))
@@ -290,6 +293,7 @@ void UpdateRuntimeKernelScope(
 		KernelScope.SampleCountToSamplePosition = ToScalarMemory(KernelScope.SampleCountToSamplePosition);
 		KernelScope.GatherInputMaxUV = ToScalarMemory(KernelScope.GatherInputMaxUV);
 		KernelScope.GatherInputMipLevel = ToScalarMemory(KernelScope.GatherInputMipLevel);
+		KernelScope.IntersectionMultiplier = ToScalarMemory(KernelScope.IntersectionMultiplier);
 	}
 	#endif
 }
@@ -323,6 +327,13 @@ void GatherRing(
 	inout FGatherAccumulator Accumulator,
 	inout FFastAccumulatorOutput FastAccumulator)
 {
+	// Gives hints to the compiler that these var can be shifted to SGPR.
+	#if CONFIG_SGPR_HINTS
+	{
+		GatherParameters.KernelRadius = ToScalarMemory(GatherParameters.KernelRadius);
+	}
+	#endif
+
 	// Number of sample iteration for this ring.
 	const uint RingSamplePairCount = GetRingSamplingPairCount(GatherParameters.KernelSamplingDensityMode, uint(RingId));
 
@@ -540,12 +551,14 @@ void GatherRing(
 
 
 // Gathers samples with an preconfigured accumulator and resolve its output.
-void GatherSamplesAndResolve(
+uint GatherSamplesAndResolve(
 	in FGatherInputParameters GatherParameters,
 	in FGatherAccumulator Accumulator,
 	out FAccumulatorOutput AccumulatorOutput, 
 	out FFastAccumulatorOutput FastAccumulator)
 {
+	uint DebugGatherDensityChanges = 0;
+
 	#if DEBUG_FORCE_LOW_RING_COUNT
 		GatherParameters.MaxRingCount = 2;
 	#endif
@@ -631,24 +644,40 @@ void GatherSamplesAndResolve(
 			bIsFirstRing = false;
 		} // for (int RingId)
 		
-		UNROLL
-		for (uint SamplingDensityChangeId = 0; SamplingDensityChangeId < CONFIG_MAX_SAMPLING_DENSITY_CHANGES; SamplingDensityChangeId++)
+		UNROLL // TODO: LOOP instead? should be totally fine perf wise...
+		for (uint SamplingDensityChangeId = 0; SamplingDensityChangeId < GatherParameters.MaxDensityChangeCount; SamplingDensityChangeId++)
 		{
+			const int LargerRingCount = GatherParameters.MaxRingCount - LowerRingId;
+
+			const float LargeKernelRadius = 1 + 2 * GatherParameters.MaxRingCount;
+			const float SmallKernelRadius = 1 + 2 * (GatherParameters.MaxRingCount - LargerRingCount);
+
+			const float RadiusDownScaleFactor = SmallKernelRadius / LargeKernelRadius;
+					
+			float MipTexelSize = pow(2.0, uint(KernelScope.GatherInputMipLevel));
+			
+			const float MinConvolutionRadius = GatherParameters.MaxRingCount;
+			const float SmallestConvolutionRadius = GatherParameters.KernelRadius * RadiusDownScaleFactor + MipTexelSize;
+	
+			bool bChangeDensity = (
+				GatherParameters.KernelRadius * RadiusDownScaleFactor > MinConvolutionRadius &&
+				GatherParameters.MinIntersectableCocRadiusAbs < SmallestConvolutionRadius);
+
 			BRANCH
-			if (GatherParameters.bDoHighDensityGatheringAtCenter[SamplingDensityChangeId])
+			if (bChangeDensity)
 			{
 				// Decrease kernel size, and changes the already accumulated weight.
 				{
-					const int LargerRingCount = GatherParameters.MaxRingCount - LowerRingId;
-
-					const float LargeKernelRadius = 1 + 2 * GatherParameters.MaxRingCount;
-					const float SmallKernelRadius = 1 + 2 * (GatherParameters.MaxRingCount - LargerRingCount);
-
-					const float RadiusDownScaleFactor = SmallKernelRadius / LargeKernelRadius;
-
-					const float AccumulatedWeightMultiplier = rcp(RadiusDownScaleFactor * RadiusDownScaleFactor);
-				
 					GatherParameters.KernelRadius *= RadiusDownScaleFactor;
+					
+					// Gives hints to the compiler that these var can be shifted to SGPR.
+					#if CONFIG_SGPR_HINTS
+					{
+						GatherParameters.KernelRadius = ToScalarMemory(GatherParameters.KernelRadius);
+					}
+					#endif
+					
+					const float AccumulatedWeightMultiplier = rcp(RadiusDownScaleFactor * RadiusDownScaleFactor);
 
 					AmendAccumulatedRingsWeight(/* inout */ Accumulator, GatherParameters, AccumulatedWeightMultiplier);
 					AmendAccumulatedRingsWeight(/* inout */ FastAccumulator, AccumulatedWeightMultiplier);
@@ -666,6 +695,8 @@ void GatherSamplesAndResolve(
 						/* inout */ Accumulator,
 						/* inout */ FastAccumulator);
 				} // for (int RingId)
+
+				DebugGatherDensityChanges++;
 			}
 			else
 			{
@@ -756,4 +787,6 @@ void GatherSamplesAndResolve(
 	
 	// Resolves the accumulator.
 	ResolveAccumulatorOutputs(Accumulator, GatherResolveInfos, /* out */ AccumulatorOutput);
+
+	return DebugGatherDensityChanges;
 }

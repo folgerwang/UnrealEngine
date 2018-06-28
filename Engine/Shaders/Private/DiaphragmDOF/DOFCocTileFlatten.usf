@@ -59,6 +59,7 @@ void ReduceOperator(inout FCocTileSample A, in const FCocTileSample B)
 
 	A.BgdMinCoc = min(A.BgdMinCoc, B.BgdMinCoc);
 	A.BgdMaxCoc = max(A.BgdMaxCoc, B.BgdMaxCoc);
+	A.BgdMinIntersectableCoc = min(A.BgdMinIntersectableCoc, B.BgdMinIntersectableCoc);
 }
 
 
@@ -197,6 +198,8 @@ void CocFlattenMainCS(
 			// Final reduction.
 			ReduceOperator(Local, LoadFromLds(1));
 			
+			Local.BgdMinConservativeCloserGoemetryDistance = Local.BgdMinCoc;
+
 			// Encode.
 			float4 RawOutput[COC_TILE_MAX_BUFFER_COUNT];
 			EncodeCocTileSample(Local, LDS_LAYOUT, RawOutput);
@@ -281,6 +284,8 @@ void CocFlattenMainCS(
 				OutputTileSample.BgdMaxCoc = asfloat(SharedBackgroundMaxCocRadius);
 				OutputTileSample.BgdMinIntersectableCoc = asfloat(SharedBackgroundMinIntersectableCocRadius);
 			}
+
+			OutputTileSample.BgdMinConservativeCloserGoemetryDistance = OutputTileSample.BgdMinCoc;
 
 			// Encode.
 			float4 RawOutput[COC_TILE_MAX_BUFFER_COUNT];
