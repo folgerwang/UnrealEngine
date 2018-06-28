@@ -34,12 +34,6 @@ struct FHybridScatterInputs
 	float2 BufferUV;
 };
 
-// Faster but less accurate luma computation with a scaling by 4.
-float Luma4(float3 Color)
-{
-	return (Color.g * 2.0) + (Color.r + Color.b);
-}
-
 // Return the minimal luma for a pixel to be scattered.
 float ComputeLuminanceOnlyBasedScatterFactor(in const FHybridScatterInputs Parameters)
 {

@@ -177,6 +177,12 @@ bool IsForeground(float CocRadius)
 	return CocRadius < 0.0f;
 }
 
+// Faster but less accurate luma computation with a scaling by 4.
+float Luma4(float3 Color)
+{
+	return (Color.g * 2.0) + (Color.r + Color.b);
+}
+
 // Returns 1/x if x > 0, d otherwise.
 float SafeRcp(float x, float d = 0.0)
 {

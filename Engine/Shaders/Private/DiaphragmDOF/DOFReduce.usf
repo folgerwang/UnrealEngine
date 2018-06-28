@@ -155,7 +155,7 @@ uint2 InitialTilePixelPositionForReduction2x2(const uint TileSizeLog2, uint Shar
 }
 
 // Reduce using GroupSharedArray
-void ReduceOperator(uint OutId, uint ReduceBankSize, float CocRadiusMultiplier)
+void ReduceOperator(FCocDownsampleParams DownsampleParams, uint OutId, uint ReduceBankSize)
 {
 	// Gather the 4 imput samples. Eaches samples are on banks of size <ReduceBankSize> for coherent LDS memory access.
 	float4 Colors[4];
@@ -181,7 +181,7 @@ void ReduceOperator(uint OutId, uint ReduceBankSize, float CocRadiusMultiplier)
 	// Downsample the 4 sample to one according to Coc.
 	float4 OutColor;
 	float OutCocRadius;
-	DownsampleSceneColorWithCoc(Colors, CocRadii, OutColor, OutCocRadius, CocRadiusMultiplier); 
+	DownsampleSceneColorWithCoc(DownsampleParams, Colors, CocRadii, OutColor, OutCocRadius); 
 	
 	// Technically need a barrier, but in practice with a warp size >= 32, no need.
 	// GroupMemoryBarrierWithGroupSync();
@@ -330,6 +330,9 @@ void ReduceCS(
 	}
 	#endif
 
+	// Sample the frame exposure to SGPR.
+	float FrameExposureScale = ToScalarMemory(EyeAdaptationLookup());
+
 	// Indirect dispatch 
 	#if DIM_HYBRID_SCATTER_FGD || DIM_HYBRID_SCATTER_BGD
 	{
@@ -348,7 +351,7 @@ void ReduceCS(
 			Parameters.NeighborhoodComparisonBufferInvSize = PostprocessInput2Size.zw;
 			Parameters.NeighborhoodComparisonMaxBufferUV = MaxInputBufferUV;
 
-			Parameters.FrameExposureScale = EyeAdaptationLookup();
+			Parameters.FrameExposureScale = FrameExposureScale;
 
 			Parameters.Color = GatheredColor;
 			Parameters.CocRadius = ScatterCocRadius;
@@ -567,13 +570,18 @@ void ReduceCS(
 	uint2 OutputPixelId = DispatchThreadId;
 	OutputMipLevel(/* MipLevel = */ 0, OutputPixelId, GatheredColor, CocRadius);
 	
+	FCocDownsampleParams DownsampleParams;
+	DownsampleParams.CocRadiusMultiplier = 1.0;
+	DownsampleParams.FrameExposureScale = FrameExposureScale;
+	DownsampleParams.bDoColorBasedWeighting = false;
+
 	#if CONFIG_WAVE_BROADCAST_REDUCTION
 	{
 		UNROLL
 		for (uint i = 0; i < (DIM_REDUCE_MIP_COUNT - 1); i++)
 		{
 			// Multiplier that needs to be applied on Coc computation to be resolution independent.
-			const float CocRadiusMultiplier = 0.5 / float(1 << (i));
+			DownsampleParams.CocRadiusMultiplier = 0.5 / float(1 << (i));
 
 			// Scale of the reduction within the 8x8 tile.
 			const uint ReductionScale = 1 << i;
@@ -582,7 +590,7 @@ void ReduceCS(
 			float OutputCocRadius = DownsampleCoc_Wave8x8(CocRadius, ReductionScale);
 			
 			// Compute the sample's bilateral weight.
-			float SampleBilateralWeight = ComputeDownsamplingBilateralWeight(OutputCocRadius, CocRadius, CocRadiusMultiplier);
+			float SampleBilateralWeight = ComputeDownsamplingBilateralWeight(DownsampleParams, OutputCocRadius, CocRadius, GatheredColor.rgb);
 
 			// Weight sum the color across the lanes.
 			GatheredColor.r = Sum2x2WithinWave8x8(GatheredColor.r * SampleBilateralWeight, ReductionScale);
@@ -593,11 +601,8 @@ void ReduceCS(
 			// Compute normalising weight across lanes.
 			float InvTotalWeight = rcp(Sum2x2WithinWave8x8(SampleBilateralWeight, ReductionScale));
 			
-			// Compute output weight across lanes.
-			float OutputWeight = Sum2x2WithinWave8x8((OutputCocRadius * CocRadius) >= 0.0 ? 0.25 : 0.0, ReductionScale);
-			
 			// Normalize the color.
-			GatheredColor *= OutputWeight * InvTotalWeight;
+			GatheredColor *= InvTotalWeight;
 			CocRadius = OutputCocRadius;
 
 			// Output mip map.
@@ -637,10 +642,10 @@ void ReduceCS(
 		
 			if (GroupThreadIndex < ReduceBankSize)
 			{
-				const float CocRadiusMultiplier = 0.5 / float(1 << (i));
+				DownsampleParams.CocRadiusMultiplier = 0.5 / float(1 << (i));
 
 				// Reduce.
-				ReduceOperator(GroupThreadIndex, ReduceBankSize, CocRadiusMultiplier);
+				ReduceOperator(DownsampleParams, GroupThreadIndex, ReduceBankSize);
 
 				// Read LDS (compiler are generally smart here to actualy keep value on VGPR.
 				#if CONFIG_GATHER_INPUT_LAYOUT == GATHER_INPUT_LAYOUT_RGB_ALPHA_COC
