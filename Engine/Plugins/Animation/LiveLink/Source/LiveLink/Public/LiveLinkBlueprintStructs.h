@@ -41,7 +41,11 @@ struct FCachedSubjectFrame
 
 	int GetNumberOfTransforms();
 
+	void GetTransformNames(TArray<FName>& TransformNames);
+
 	void GetTransformName(const int TransformIndex, FName& Name);
+
+	int GetTransformIndexFromName(FName TransformName);
 
 	int GetParentTransformIndex(const int TransformIndex);
 
@@ -115,9 +119,13 @@ struct FSubjectFrameHandle
 
 	int GetNumberOfTransforms();
 
+	void GetTransformNames(TArray<FName>& TransformNames);
+
 	void GetRootTransform(FLiveLinkTransform& LiveLinkTransform);
 
 	void GetTransformByIndex(int TransformIndex, FLiveLinkTransform& LiveLinkTransform);
+
+	void GetTransformByName(FName TransformName, FLiveLinkTransform& LiveLinkTransform);
 
 	void SetCachedFrame(TSharedPtr<FCachedSubjectFrame> InCachedFrame);
 private:

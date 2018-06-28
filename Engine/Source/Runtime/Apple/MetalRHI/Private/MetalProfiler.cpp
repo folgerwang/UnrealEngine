@@ -612,6 +612,7 @@ FMetalShaderPipelineStats::FMetalShaderPipelineStats(FMetalShaderPipeline* Pipel
 	
 	StartSample = nullptr;
 	
+#if METAL_DEBUG_OPTIONS
 	if (Pipeline->RenderPipelineState)
 	{
 		Name = Pipeline->RenderPipelineState.GetLabel().GetPtr();
@@ -626,6 +627,7 @@ FMetalShaderPipelineStats::FMetalShaderPipelineStats(FMetalShaderPipeline* Pipel
 		Name = Pipeline->ComputePipelineState.GetLabel().GetPtr();
 	}
 	else
+#endif
 	{
 		Name = "Unknown Pipeline";
 	}
@@ -672,6 +674,7 @@ void FMetalShaderPipelineStats::GetStats(FMetalPipelineStats& PipelineStats)
 		PipelineStats.DrawCallTime = GPUEndTime - GPUStartTime;
 	}
 	
+#if METAL_DEBUG_OPTIONS
 	if (Pipeline->RenderPipelineReflection)
 	{
 		PipelineStats.PSOPerformanceStats = Stats->GetPipelinePerformanceStats(Pipeline->RenderPipelineReflection.GetPtr());
@@ -699,6 +702,7 @@ void FMetalShaderPipelineStats::GetStats(FMetalPipelineStats& PipelineStats)
 			PipelineStats.PSOPerformanceStats = [NSDictionary dictionaryWithObject:Dict forKey:@"Compute Shader"];
 		}
 	}
+#endif
 	
 	FMetalProfiler::GetProfiler()->DumpPipeline(Pipeline);
 }
@@ -1658,7 +1662,7 @@ void FMetalProfiler::SaveTrace()
 		
 		OutputFile->Close();
 		
-#if METAL_STATISTICS
+#if METAL_STATISTICS && METAL_DEBUG_OPTIONS
 		FString OutputDir = TracingRootPath + Filename + TEXT("/Pipelines/");
 		if (Pipelines.Num())
 		{

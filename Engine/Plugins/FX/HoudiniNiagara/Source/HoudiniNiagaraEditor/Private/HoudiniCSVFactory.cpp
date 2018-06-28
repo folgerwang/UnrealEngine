@@ -53,7 +53,6 @@ UHoudiniCSVFactory::UHoudiniCSVFactory(const FObjectInitializer& ObjectInitializ
     bText = true;
 
     // Add supported formats.
-    Formats.Add(FString(TEXT("csv;")) + NSLOCTEXT("HoudiniCSVFactory", "FormatCSV", "CSV File").ToString());
     Formats.Add(FString(TEXT("hcsv;")) + NSLOCTEXT("HoudiniCSVFactory", "FormatHCSV", "HCSV File").ToString());
 }
 
@@ -110,7 +109,7 @@ UHoudiniCSVFactory::FactoryCanImport(const FString& Filename)
 {
     const FString Extension = FPaths::GetExtension(Filename);
 
-    if ( Extension == TEXT("csv") || Extension == TEXT("hcsv") )
+    if (Extension == TEXT("hcsv") )
     {
 		return true;
     }

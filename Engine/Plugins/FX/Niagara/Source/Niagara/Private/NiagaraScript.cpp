@@ -768,8 +768,8 @@ void UNiagaraScript::SetVMCompilationResults(const FNiagaraVMExecutableDataId& I
 void UNiagaraScript::InvalidateExecutionReadyParameterStores()
 {
 	// Make sure that we regenerate any parameter stores, since they must be kept in sync with the layout from script compilation.
-	ScriptExecutionParamStoreCPU.Clear();
-	ScriptExecutionParamStoreGPU.Clear();
+	ScriptExecutionParamStoreCPU.Empty();
+	ScriptExecutionParamStoreGPU.Empty();
 }
 
 void UNiagaraScript::InvalidateCachedCompileIds()

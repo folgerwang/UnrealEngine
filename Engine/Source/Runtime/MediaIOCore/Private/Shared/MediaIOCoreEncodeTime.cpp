@@ -2,7 +2,7 @@
 
 #include "MediaIOCoreEncodeTime.h"
 
-FMediaIOCoreEncodeTime::FMediaIOCoreEncodeTime(EMediaTextureSampleFormat InFormat, FColor* InBuffer, uint32 InWidth, uint32 InHeight)
+FMediaIOCoreEncodeTime::FMediaIOCoreEncodeTime(EMediaIOCoreEncodePixelFormat InFormat, void* InBuffer, uint32 InWidth, uint32 InHeight)
 	: Format(InFormat)
 	, Buffer(InBuffer)
 	, Width(InWidth)
@@ -10,22 +10,33 @@ FMediaIOCoreEncodeTime::FMediaIOCoreEncodeTime(EMediaTextureSampleFormat InForma
 {
 	check(Buffer);
 
-	if (Format == EMediaTextureSampleFormat::CharUYVY)
+	if (Format == EMediaIOCoreEncodePixelFormat::A2B10G10R10)
+	{
+		// 10bit Encoding of colors
+		ColorBlack = 0x3;
+		ColorRed = 0xFFF;
+		ColorWhite = 0xFFFFFFFF;
+	}
+	else if (Format == EMediaIOCoreEncodePixelFormat::CharUYVY)
 	{
 		// YUVU Encoding of colors
-		ColorBlack = FColor(0x00800080);
-		ColorRed = FColor(0x38e4385e);
-		ColorWhite = FColor(0xff80ff80);
+		ColorBlack = 0x00800080;
+		ColorRed = 0x38e4385e;
+		ColorWhite = 0xff80ff80;
+	}
+	else if (Format == EMediaIOCoreEncodePixelFormat::CharBGRA)
+	{
+		ColorBlack = FColor::Black.ToPackedARGB();
+		ColorRed = FColor::Red.ToPackedARGB();
+		ColorWhite = FColor::White.ToPackedARGB();
 	}
 	else
 	{
-		ColorBlack = FColor::Black;
-		ColorRed = FColor::Red;
-		ColorWhite = FColor::White;
+		check(false);
 	}
 }
 
-void FMediaIOCoreEncodeTime::Fill(uint32 InX, uint32 InY, uint32  InWidth, uint32 InHeight, FColor InColor) const
+void FMediaIOCoreEncodeTime::Fill(uint32 InX, uint32 InY, uint32  InWidth, uint32 InHeight, TColor InColor) const
 {
 	check(InX < Width);
 	check(InX + InWidth <= Width);
@@ -36,12 +47,12 @@ void FMediaIOCoreEncodeTime::Fill(uint32 InX, uint32 InY, uint32  InWidth, uint3
 	{
 		for (uint32 Column = InX; Column < InX + InWidth; ++Column)
 		{
-			*(Buffer + (Line * Width) + Column) = InColor;
+			At(Column, Line) = InColor;
 		}
 	}
 }
 
-void FMediaIOCoreEncodeTime::FillChecker(uint32 InX, uint32 InY, uint32  InWidth, uint32 InHeight, FColor InColor0, FColor InColor1) const
+void FMediaIOCoreEncodeTime::FillChecker(uint32 InX, uint32 InY, uint32  InWidth, uint32 InHeight, TColor InColor0, TColor InColor1) const
 {
 	check(InX < Width);
 	check(InX + InWidth <= Width);
@@ -52,20 +63,20 @@ void FMediaIOCoreEncodeTime::FillChecker(uint32 InX, uint32 InY, uint32  InWidth
 	{
 		for (uint32 Column = InX; Column < InX + InWidth; ++Column)
 		{
-			*(Buffer + (Line * Width) + Column) = (Column % 2) ? InColor0 : InColor1;
+			At(Column, Line) = (Column % 2) ? InColor0 : InColor1;
 		}
 	}
 }
 
-void FMediaIOCoreEncodeTime::DrawTime(uint32 InX, uint32 InY, uint32  InTime, FColor InColor) const
+void FMediaIOCoreEncodeTime::DrawTime(uint32 InX, uint32 InY, uint32  InTime, TColor InColor) const
 {
 	uint32 Tenth = (InTime / 10);
 	uint32 Unit = (InTime % 10);
 	if (Tenth > 0)
 	{
-		*At(InX + Tenth - 1, InY) = InColor;
+		At(InX + Tenth - 1, InY) = InColor;
 	}
-	*At(InX + Unit, InY + 1) = InColor;
+	At(InX + Unit, InY + 1) = InColor;
 }
 
 void FMediaIOCoreEncodeTime::Render(uint32 InX, uint32 InY, uint32 InHours, uint32 InMinutes, uint32 InSeconds, uint32 InFrames) const

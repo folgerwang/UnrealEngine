@@ -93,3 +93,7 @@
 #ifndef OCULUS_SUBSYSTEM
 #define OCULUS_SUBSYSTEM FName(TEXT("Oculus"))
 #endif
+
+#ifndef QUAIL_SUBSYSTEM
+#define QUAIL_SUBSYSTEM FName(TEXT("Quail"))
+#endif

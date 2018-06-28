@@ -10,7 +10,6 @@
 #include "MessageHandler/Messages.h"
 #include "Engine/Engine.h"
 #include "Async/Async.h"
-#include "GeneralProjectSettings.h"
 
 bool FXRTrackingProxy::EnumerateTrackedDevices(TArray<int32>& OutDevices, EXRTrackedDeviceType Type)
 {

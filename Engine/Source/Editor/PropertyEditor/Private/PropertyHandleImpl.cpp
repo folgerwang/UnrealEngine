@@ -646,6 +646,14 @@ void FPropertyValueImpl::SetOnChildPropertyValuePreChange(const FSimpleDelegate&
 	}
 }
 
+void FPropertyValueImpl::SetOnPropertyResetToDefault(const FSimpleDelegate& InOnPropertyResetToDefault)
+{
+	if (PropertyNode.IsValid())
+	{
+		PropertyNode.Pin()->OnPropertyResetToDefault().Add(InOnPropertyResetToDefault);
+	}
+}
+
 void FPropertyValueImpl::SetOnRebuildChildren( const FSimpleDelegate& InOnRebuildChildren )
 {
 	if( PropertyNode.IsValid() )
@@ -976,14 +984,17 @@ void FPropertyValueImpl::ResetToDefault()
 	TSharedPtr<FPropertyNode> PropertyNodePin = PropertyNode.Pin();
 	if( PropertyNodePin.IsValid() && !PropertyNodePin->IsEditConst() && PropertyNodePin->GetDiffersFromDefault() )
 	{
+		const bool bUseDisplayName = false;
 		FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "PropertyWindowResetToDefault", "Reset to Default") );
 		TSharedPtr<FPropertyNode>& KeyNode = PropertyNodePin->GetPropertyKeyNode();
 		if(KeyNode.IsValid())
 		{
 			FPropertyValueImpl(KeyNode, NotifyHook, PropertyUtilities.Pin())
-				.ImportText(KeyNode->GetDefaultValueAsString(), EPropertyValueSetFlags::DefaultFlags);
+				.ImportText(KeyNode->GetDefaultValueAsString(bUseDisplayName), EPropertyValueSetFlags::DefaultFlags);
 		}
-		ImportText(PropertyNodePin->GetDefaultValueAsString(), EPropertyValueSetFlags::DefaultFlags);
+		ImportText(PropertyNodePin->GetDefaultValueAsString(bUseDisplayName), EPropertyValueSetFlags::DefaultFlags);
+
+		PropertyNodePin->BroadcastPropertyResetToDefault();
 	}
 }
 
@@ -2447,6 +2458,11 @@ void FPropertyHandleBase::SetOnPropertyValuePreChange(const FSimpleDelegate& InO
 void FPropertyHandleBase::SetOnChildPropertyValuePreChange(const FSimpleDelegate& InOnChildPropertyValuePreChange)
 {
 	Implementation->SetOnChildPropertyValuePreChange(InOnChildPropertyValuePreChange);
+}
+
+void FPropertyHandleBase::SetOnPropertyResetToDefault(const FSimpleDelegate& InOnPropertyResetToDefault)
+{
+	Implementation->SetOnPropertyResetToDefault(InOnPropertyResetToDefault);
 }
 
 TSharedPtr<FPropertyNode> FPropertyHandleBase::GetPropertyNode() const

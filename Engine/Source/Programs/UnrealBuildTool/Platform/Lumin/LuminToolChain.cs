@@ -120,7 +120,10 @@ namespace UnrealBuildTool
 			ObjCopyPath = ToolsDict["OBJCOPY"];
 
 			// force the compiler to be executed through a command prompt instance
-			bExecuteCompilerThroughShell = true;
+			if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+			{
+				bExecuteCompilerThroughShell = true;
+			}
 
 			// toolchain params
 			ToolchainParamsArm64 = " --sysroot=\"" + Path.Combine(MLSDKPath, "lumin") + "\"";

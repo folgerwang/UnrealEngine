@@ -1342,6 +1342,15 @@ void UMaterialEditorInstanceConstant::CopyToSourceInstance(const bool bForceStat
 				if (ScalarParameterValue && ScalarParameterValue->bOverride)
 				{
 					SourceInstance->SetScalarParameterValueEditorOnly(ScalarParameterValue->ParameterInfo, ScalarParameterValue->ParameterValue);
+					// Copy from editor parameter to saved FParameter
+					if (ScalarParameterValue->AtlasData.bIsUsedAsAtlasPosition)
+					{
+						FScalarParameterAtlasInstanceData InAtlasData = FScalarParameterAtlasInstanceData();
+						InAtlasData.bIsUsedAsAtlasPosition = ScalarParameterValue->AtlasData.bIsUsedAsAtlasPosition;
+						InAtlasData.Curve = ScalarParameterValue->AtlasData.Curve;
+						InAtlasData.Atlas = ScalarParameterValue->AtlasData.Atlas;
+						SourceInstance->SetScalarParameterAtlasEditorOnly(ScalarParameterValue->ParameterInfo, InAtlasData);
+					}
 				}
 				else if (VectorParameterValue && VectorParameterValue->bOverride)
 				{

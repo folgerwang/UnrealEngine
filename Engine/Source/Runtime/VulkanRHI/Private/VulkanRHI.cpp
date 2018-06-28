@@ -16,6 +16,8 @@
 #include "VulkanPipelineState.h"
 #include "Misc/FileHelper.h"
 
+extern RHI_API bool GUseTexture3DBulkDataRHI;
+
 #if VULKAN_ENABLE_DESKTOP_HMD_SUPPORT
 #include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
 #endif
@@ -553,6 +555,12 @@ void FVulkanDynamicRHI::SelectAndInitDevice()
 
 		// Ignore GRHIAdapterInternalDriverVersion for now as the device name doesn't match
 	}
+	else if(PLATFORM_UNIX)
+	{
+		GRHIAdapterInternalDriverVersion = FString::Printf(TEXT("%d.%d.%d (0x%X)"), VK_VERSION_MAJOR(Props.apiVersion), VK_VERSION_MINOR(Props.apiVersion), VK_VERSION_PATCH(Props.apiVersion), Props.apiVersion);
+		GRHIAdapterUserDriverVersion = FString::Printf(TEXT("%d.%d.%d (0x%X)"), VK_VERSION_MAJOR(Props.driverVersion), VK_VERSION_MINOR(Props.driverVersion), VK_VERSION_PATCH(Props.driverVersion), Props.driverVersion);
+		GRHIDeviceId = Props.deviceID;
+	}
 }
 
 void FVulkanDynamicRHI::InitInstance()
@@ -619,6 +627,8 @@ void FVulkanDynamicRHI::InitInstance()
 
 		GRHIRequiresRenderTargetForPixelShaderUAVs = true;
 
+		GUseTexture3DBulkDataRHI = true;
+
 		GDynamicRHI = this;
 
 		// Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
@@ -676,6 +686,9 @@ void FVulkanCommandListContext::RHIBeginFrame()
 {
 	check(IsImmediate());
 	RHIPrivateBeginFrame();
+
+	extern uint32 GVulkanRHIDeletionFrameNumber;
+	++GVulkanRHIDeletionFrameNumber;
 
 	GpuProfiler.BeginFrame();
 }

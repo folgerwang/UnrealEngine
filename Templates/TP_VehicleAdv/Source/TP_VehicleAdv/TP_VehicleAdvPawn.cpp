@@ -18,6 +18,10 @@
 #include "GameFramework/Controller.h"
 #include "UObject/ConstructorHelpers.h"
 
+#ifndef HMD_MODULE_INCLUDED
+#define HMD_MODULE_INCLUDED 0
+#endif
+
 // Needed for VR Headset
 #if HMD_MODULE_INCLUDED
 #include "IXRTrackingSystem.h"

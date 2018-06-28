@@ -102,6 +102,8 @@ struct FBlueprintSupport
 	COREUOBJECT_API static bool ShouldTreatWarningAsError(FName WarningIdentifier);
 	COREUOBJECT_API static bool ShouldSuppressWarning(FName WarningIdentifier);
 
+	COREUOBJECT_API static bool IsClassPlaceholder(UClass* Class);
+
 #if WITH_EDITOR
 	/** Function that walks the object graph, ensuring that there are no references to TRASH or REINST classes: */
 	COREUOBJECT_API static void ValidateNoRefsToOutOfDateClasses();

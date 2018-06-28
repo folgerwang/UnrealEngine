@@ -37,7 +37,7 @@ namespace Audio
 
 		// Puts the wave reader into scrub mode
 		void SetScrubMode(const bool bInIsScrubMode);
-
+		
 		// Sets the scrub width. The sound will loop between the scrub width region and the current frame
 		void SetScrubTimeWidth(const float InScrubTimeWidthSec);
 
@@ -71,6 +71,9 @@ namespace Audio
 		int32 BufferNumFrames;
 		int32 BufferSampleRate;
 		int32 BufferNumChannels;
+		int32 FadeFrames;
+		float FadeValue;
+		float FadeIncrement;
 
 		float DeviceSampleRate;
 

@@ -1658,7 +1658,7 @@ bool FPropertyNode::GetDiffersFromDefault()
 	return bDiffersFromDefault;
 }
 
-FString FPropertyNode::GetDefaultValueAsStringForObject( FPropertyItemValueDataTrackerSlate& ValueTracker, UObject* InObject, UProperty* InProperty )
+FString FPropertyNode::GetDefaultValueAsStringForObject( FPropertyItemValueDataTrackerSlate& ValueTracker, UObject* InObject, UProperty* InProperty, bool bUseDisplayName)
 {
 	check( InObject );
 	check( InProperty );
@@ -1681,7 +1681,7 @@ FString FPropertyNode::GetDefaultValueAsStringForObject( FPropertyItemValueDataT
 			// The property is a simple field.  Compare it against the enclosing object's default for that property.
 			if ( !bDiffersFromDefaultForObject)
 			{
-				uint32 PortFlags = PPF_PropertyWindow;
+				uint32 PortFlags = bUseDisplayName ? PPF_PropertyWindow : PPF_None;
 				UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(InProperty);
 				if (InProperty->ContainsInstancedObjectProperty())
 				{
@@ -1731,7 +1731,7 @@ FString FPropertyNode::GetDefaultValueAsStringForObject( FPropertyItemValueDataT
 	return DefaultValue;
 }
 
-FString FPropertyNode::GetDefaultValueAsString()
+FString FPropertyNode::GetDefaultValueAsString(bool bUseDisplayName)
 {
 	FObjectPropertyNode* ObjectNode = FindObjectItemParent();
 	FString DefaultValue;
@@ -1745,7 +1745,7 @@ FString FPropertyNode::GetDefaultValueAsString()
 
 			if( Object && ValueTracker.IsValid() )
 			{
-				FString NodeDefaultValue = GetDefaultValueAsStringForObject( *ValueTracker, Object, Property.Get() );
+				FString NodeDefaultValue = GetDefaultValueAsStringForObject( *ValueTracker, Object, Property.Get(), bUseDisplayName );
 				if ( DefaultValue.Len() > 0 && NodeDefaultValue.Len() > 0)
 				{
 					DefaultValue += TEXT(", ");
@@ -2243,6 +2243,11 @@ void FPropertyNode::BroadcastPropertyPreChangeDelegates()
 		LocalParentNode = LocalParentNode->GetParentNode();
 	}
 
+}
+
+void FPropertyNode::BroadcastPropertyResetToDefault()
+{
+	PropertyResetToDefaultEvent.Broadcast();
 }
 
 void FPropertyNode::SetOnRebuildChildren( FSimpleDelegate InOnRebuildChildren )

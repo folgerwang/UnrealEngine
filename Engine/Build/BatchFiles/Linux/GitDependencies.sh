@@ -6,8 +6,6 @@
 
 ARGS=$@
 
-set -e
-
 SCRIPT_PATH=$0
 if [ -L "$SCRIPT_PATH" ]; then
     SCRIPT_PATH=$(dirname "$SCRIPT_PATH")/$(readlink "$SCRIPT_PATH")

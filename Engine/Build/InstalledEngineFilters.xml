@@ -135,7 +135,8 @@
 		Templates/TP_2DSideScrollerBP/...
 		Templates/TP_VehicleAdv/...
 		Templates/TP_VehicleAdvBP/...
-		<!-- shared template resources -->
+		
+		<!-- Shared template resources -->
 		Templates/TemplateResources/...
 
 		<!-- Build files -->
@@ -201,12 +202,19 @@
 			<!-- Binaries which are explicitly staged by UAT rather than listing runtime dependencies -->
 			Engine/Binaries/ThirdParty/OpenSSL/...
 
+			<!-- Linux cross build Debug tools -->
+			Engine/Binaries/Linux/dump_syms.exe
+			Engine/Binaries/Linux/BreakpadSymbolEncoder.exe
+
 			<!-- Extra tools -->
 			Engine/Extras/3dsMaxScripts/...
 			Engine/Extras/VisualStudioDebugging/UE4.natvis
 			Engine/Extras/MayaVelocityGridExporter/...
 			Engine/Extras/UnrealVS/...
 			Engine/Extras/Redist/en-us/*
+			
+			<!-- nDisplay Template -->
+			Templates/TP_nDisplayBP/...
 		</Property>
 
 		<Property Name="CopyEditorExceptions" Value="$(CopyEditorExceptions)">

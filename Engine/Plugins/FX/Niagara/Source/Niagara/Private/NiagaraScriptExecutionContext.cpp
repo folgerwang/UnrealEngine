@@ -148,6 +148,9 @@ bool FNiagaraScriptExecutionContext::Execute(uint32 NumInstances, TArray<FNiagar
 		SCOPE_CYCLE_COUNTER(STAT_NiagaraSimRegisterSetup);
 		for (FNiagaraDataSetExecutionInfo& DataSetInfo : DataSetInfos)
 		{
+#if NIAGARA_NAN_CHECKING
+			DataSetInfo.DataSet->CheckForNaNs();
+#endif
 			check(DataSetInfo.DataSet);
 			FDataSetMeta SetMeta(DataSetInfo.DataSet->GetSizeBytes(), &InputRegisters[NumInputRegisters], NumInputRegisters, DataSetInfo.StartInstance, 
 				&DataSetInfo.DataSet->CurrIDTable(), &DataSetInfo.DataSet->GetFreeIDTable(), &DataSetInfo.DataSet->GetNumFreeIDs(), &DataSetInfo.DataSet->GetMaxUsedID(), DataSetInfo.DataSet->GetIDAcquireTag());
@@ -185,6 +188,11 @@ bool FNiagaraScriptExecutionContext::Execute(uint32 NumInstances, TArray<FNiagar
 	for (int Idx = 0; Idx < DataSetInfos.Num(); Idx++)
 	{
 		FNiagaraDataSetExecutionInfo& Info = DataSetInfos[Idx];
+
+#if NIAGARA_NAN_CHECKING
+		Info.DataSet->CheckForNaNs();
+#endif
+
 		if (Info.bUpdateInstanceCount)
 		{
 			Info.DataSet->SetNumInstances(Info.StartInstance + DataSetMetaTable[Idx].DataSetAccessIndex + 1);
