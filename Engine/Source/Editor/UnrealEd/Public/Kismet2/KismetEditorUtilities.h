@@ -46,6 +46,8 @@ enum class EBlueprintCompileOptions
 	SkipSave = 0x20,
 	/** Skips creating a reinstancer and running reinstancing routines - useful if calling code is performing reinstancing */
 	SkipReinstancing = 0x40,
+	/** Simply regenerates the skeleton class */
+	RegenerateSkeletonOnly = 0x80,
 };
 
 ENUM_CLASS_FLAGS(EBlueprintCompileOptions)
