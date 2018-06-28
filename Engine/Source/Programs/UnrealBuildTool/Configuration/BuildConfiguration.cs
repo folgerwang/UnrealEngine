@@ -201,7 +201,7 @@ namespace UnrealBuildTool
 		/// If true, the Debug version of UnrealHeaderTool will be build and run instead of the Development version.
 		/// </summary>
 		[XmlConfigFile(Category = "UEBuildConfiguration")]
-		public static bool bForceDebugUnrealHeaderTool = false;
+		public bool bForceDebugUnrealHeaderTool = false;
 
 		/// <summary>
 		/// When true, the targets won't execute their link actions if there was nothing to compile
