@@ -28,9 +28,9 @@ namespace Audio
 		, bPlayedCachedBuffer(false)
 		, bPlaying(false)
 		, bLoopCallback(false)
-		, bIsFinished(false)
+		, bIsDone(false)
+		, bIsEffectTailsDone(false)
 		, bIsPlayingEffectTails(false)
-		, bResourcesNeedFreeing(false)
 		, bEditorWarnedChangedSpatialization(false)
 		, bUsingHRTFSpatialization(false)
 		, bIs3D(false)
@@ -69,12 +69,11 @@ namespace Audio
 		// Unfortunately, we need to know if this is a vorbis source since channel maps are different for 5.1 vorbis files
 		bIsVorbis = InWaveInstance->WaveData->bDecompressedFromOgg;
 
-		// Reset our releasing bool
-		bIsReleasing = false;
-
 		bIsStoppingVoicesEnabled = ((FAudioDevice*)MixerDevice)->IsStoppingVoicesEnabled();
-
+		
 		bIsStopping = false;
+		bIsEffectTailsDone = true;
+		bIsDone = false;
 
 		FSoundBuffer* SoundBuffer = static_cast<FSoundBuffer*>(MixerBuffer);
 		if (SoundBuffer->NumChannels > 0)
@@ -123,6 +122,12 @@ namespace Audio
 						InitParams.SourceEffectChain.Add(InWaveInstance->SourceEffectChain->Chain[i]);
 						InitParams.bPlayEffectChainTails = InWaveInstance->SourceEffectChain->bPlayEffectChainTails;
 					}
+				}
+
+				// Only need to care about effect chain tails finishing if we're told to play them
+				if (InitParams.bPlayEffectChainTails)
+				{
+					bIsEffectTailsDone = false;
 				}
 
 				// Setup the bus Id if this source is a bus
@@ -349,10 +354,7 @@ namespace Audio
 			HPFFrequency = 0.0;
 			LastHPFFrequency = FLT_MAX;
 
-			bIsFinished = false;
-
-			EBufferType::Type BufferType = MixerBuffer->GetType();
-			bResourcesNeedFreeing = (BufferType == EBufferType::PCMRealTime || BufferType == EBufferType::Streaming);
+			bIsDone = false;
 
 			// Not all wave data types have a non-zero duration
 			if (InWaveInstance->WaveData->Duration > 0)
@@ -387,8 +389,8 @@ namespace Audio
 	bool FMixerSource::IsPreparedToInit()
 	{
 		LLM_SCOPE(ELLMTag::AudioMixer);
-			
-		if (MixerBuffer && MixerBuffer->IsRealTimeSourceReady() && !bIsReleasing)
+
+		if (MixerBuffer && MixerBuffer->IsRealTimeSourceReady())
 		{
 			check(MixerSourceBuffer.IsValid());
 
@@ -454,14 +456,20 @@ namespace Audio
 		Paused = false;
 		Playing = true;
 		bLoopCallback = false;
-		bIsFinished = false;
+		bIsDone = false;
 	}
 
 	void FMixerSource::Stop()
 	{
 		LLM_SCOPE(ELLMTag::AudioMixer);
-	
-		if (bIsFinished)
+
+		if (!MixerSourceVoice)
+		{
+			StopNow();
+			return;
+		}
+
+		if (bIsDone)
 		{
 			StopNow();
 		}
@@ -551,26 +559,13 @@ namespace Audio
 
 		if (WaveInstance && MixerSourceVoice)
 		{
-			if (bIsFinished && MixerSourceVoice->IsSourceEffectTailsDone())
+			if (bIsDone && bIsEffectTailsDone)
 			{
 				WaveInstance->NotifyFinished();
 				bIsStopping = false;
 				return true;
 			}
-			// Buses don't do buffer end callbacks, so we need to directly query doneness. 
-			// Also need to query if we're currently stopping
-			else if (WaveInstance->WaveData->bIsBus || bIsStopping)
-			{
-				if (MixerSourceVoice->IsSourceEffectTailsDone() && MixerSourceVoice->IsDone())
-				{
-					bIsFinished = true;
-					WaveInstance->NotifyFinished();
-					bIsStopping = false;
-					return true;
-				}
-			}
-
-			if (bLoopCallback && WaveInstance->LoopingMode == LOOP_WithNotification)
+			else if (bLoopCallback && WaveInstance->LoopingMode == LOOP_WithNotification)
 			{
 				WaveInstance->NotifyFinished();
 				bLoopCallback = false;
@@ -620,14 +615,15 @@ namespace Audio
 	{
 	}
 
-	void FMixerSource::OnRelease()
-	{
-		bIsReleasing = false;
-	}
-
 	void FMixerSource::OnDone()
 	{
-		bIsFinished = true;
+		bIsDone = true;
+	}
+
+
+	void FMixerSource::OnEffectTailsDone()
+	{
+		bIsEffectTailsDone = true;
 	}
 
 	void FMixerSource::FreeResources()
@@ -657,7 +653,6 @@ namespace Audio
 		MixerBuffer = nullptr;
 		Buffer = nullptr;
 		bLoopCallback = false;
-		bResourcesNeedFreeing = false;
 		NumTotalFrames = 0;
 
 		// Reset the source's channel maps

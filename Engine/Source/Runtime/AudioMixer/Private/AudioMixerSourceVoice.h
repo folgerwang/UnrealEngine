@@ -74,14 +74,8 @@ namespace Audio
 		// Queries if the source voice is active.
 		bool IsActive() const;
 
-		// Queries if the source voice has finished playing all its audio.
-		bool IsDone() const;
-
 		// Queries if the source has finished its fade out.
 		bool IsStopFadedOut() const { return bStopFadedOut; }
-
-		// Queries if the source ffect tails have finished
-		bool IsSourceEffectTailsDone() const;
 
 		// Whether or not the device changed and needs another speaker map sent
 		bool NeedsSpeakerMap() const;

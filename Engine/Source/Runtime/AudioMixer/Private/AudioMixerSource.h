@@ -44,12 +44,12 @@ namespace Audio
 		virtual float GetEnvelopeValue() const override;
 		//~ End FSoundSource Interface
 
-		//~ Begin ISourceListneer
+		//~ Begin ISourceListener
 		virtual void OnBeginGenerate() override;
-		virtual void OnRelease() override;
 		virtual void OnDone() override;
+		virtual void OnEffectTailsDone() override;
 		virtual void OnLoopEnd() override { bLoopCallback = true; };
-		//~ End ISourceListneer
+		//~ End ISourceListener
 
 	private:
 
@@ -120,14 +120,14 @@ namespace Audio
 		FThreadSafeBool bPlaying;
 		FThreadSafeBool bIsStopping;
 		FThreadSafeBool bLoopCallback;
-		FThreadSafeBool bIsFinished;
+		FThreadSafeBool bIsDone;
+		FThreadSafeBool bIsEffectTailsDone;
 		FThreadSafeBool bIsPlayingEffectTails;
 		FThreadSafeBool bFreeAsyncTask;
 
 		// Whether or not we're currently releasing our resources. Prevents recycling the source until release is finished.
 		FThreadSafeBool bIsReleasing;
 
-		uint32 bResourcesNeedFreeing : 1;
 		uint32 bEditorWarnedChangedSpatialization : 1;
 		uint32 bUsingHRTFSpatialization : 1;
 		uint32 bIs3D : 1;
