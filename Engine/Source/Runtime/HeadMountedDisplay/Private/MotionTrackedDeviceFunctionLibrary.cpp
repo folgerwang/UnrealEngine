@@ -217,3 +217,34 @@ FName UMotionTrackedDeviceFunctionLibrary::GetActiveTrackingSystemName()
 	IXRTrackingSystem* TrackingSys = GEngine->XRSystem.Get();
 	return TrackingSys ? TrackingSys->GetSystemName() : NAME_None;
 }
+
+bool UMotionTrackedDeviceFunctionLibrary::IsMotionSourceTracking(int32 PlayerIndex, FName SourceName)
+{
+	bool bIsTracking = false;
+
+	if (SourceName == FXRMotionControllerBase::HMDSourceId)
+	{
+		IXRTrackingSystem* TrackingSys = GEngine->XRSystem.Get();
+		if (TrackingSys)
+		{
+			bIsTracking = TrackingSys->IsTracking(IXRTrackingSystem::HMDDeviceId);
+		}
+	}
+	else
+	{
+		TArray<IMotionController*> MotionControllers = IModularFeatures::Get().GetModularFeatureImplementations<IMotionController>(IMotionController::GetModularFeatureName());
+		for (IMotionController* MotionController : MotionControllers)
+		{
+			if (MotionController)
+			{
+				if (MotionController->GetControllerTrackingStatus(PlayerIndex, SourceName) != ETrackingStatus::NotTracked)
+				{
+					bIsTracking = true;
+					break;
+				}
+			}
+		}
+	}
+
+	return bIsTracking;
+}

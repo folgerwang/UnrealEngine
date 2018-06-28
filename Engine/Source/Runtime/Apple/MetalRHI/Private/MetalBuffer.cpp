@@ -1178,6 +1178,29 @@ FMetalBuffer FMetalResourceHeap::CreateBuffer(uint32 Size, uint32 Alignment, mtl
 #endif
 	}
 	
+#if METAL_DEBUG_OPTIONS
+	if (GMetalBufferZeroFill)
+	{
+		switch(Buffer.GetStorageMode())
+		{
+			case mtlpp::StorageMode::Private:
+			{
+				mtlpp::CommandBuffer CmdBuffer = Queue->CreateCommandBuffer();
+				mtlpp::BlitCommandEncoder Encoder = CmdBuffer.BlitCommandEncoder();
+				Encoder.Fill(Buffer, ns::Range(0, Buffer.GetLength()), 0);
+				Encoder.EndEncoding();
+				Queue->CommitCommandBuffer(CmdBuffer);
+				break;
+			}
+			default:
+			{
+				FMemory::Memset(((uint8*)Buffer.GetContents()), 0, Buffer.GetLength());
+				break;
+			}
+		}
+	}
+#endif
+	
     METAL_DEBUG_OPTION(GetMetalDeviceContext().ValidateIsInactiveBuffer(Buffer));
 	check(Buffer && Buffer.GetPtr());
 	return Buffer;

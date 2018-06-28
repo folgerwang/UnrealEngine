@@ -7,6 +7,7 @@
 #include "MovieSceneSection.h"
 #include "GeometryCacheComponent.h"
 #include "Channels/MovieSceneFloatChannel.h"
+#include "UObject/SoftObjectPath.h"
 #include "MovieSceneGeometryCacheSection.generated.h"
 
 USTRUCT()
@@ -17,14 +18,14 @@ struct FMovieSceneGeometryCacheParams
 	FMovieSceneGeometryCacheParams();
 
 	/** Gets the animation duration, modified by play rate */
-	float GetDuration() const { return FMath::IsNearlyZero(PlayRate) || GeometryCache == nullptr ? 0.f : GeometryCache->GetDuration() / PlayRate; }
+	float GetDuration() const { return FMath::IsNearlyZero(PlayRate) || GeometryCache.ResolveObject() == nullptr ? 0.f : Cast<UGeometryCacheComponent>(GeometryCache.ResolveObject())->GetDuration() / PlayRate; }
 
 	/** Gets the animation sequence length, not modified by play rate */
-	float GetSequenceLength() const { return GeometryCache != nullptr ? GeometryCache->GetDuration() : 0.f; }
+	float GetSequenceLength() const { return GeometryCache.ResolveObject() != nullptr ? Cast<UGeometryCacheComponent>(GeometryCache.ResolveObject())->GetDuration() : 0.f; }
 
 	/** The animation this section plays */
 	UPROPERTY(EditAnywhere, Category="GeometryCache", meta=(AllowedClasses = "GeometryCacheComponent"))
-	UGeometryCacheComponent* GeometryCache;
+	FSoftObjectPath GeometryCache;
 
 	/** The offset into the beginning of the animation clip */
 	UPROPERTY(EditAnywhere, Category="GeometryCache")

@@ -544,7 +544,7 @@ public:
 		TPolygonGroupAttributeArray<FName>& OutPolygonGroupMaterialNames = OutReducedMesh.PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 
 		int32 FaceIndex = 0;
-		for (const FPolygonID PolygonID : InMesh.Polygons().GetElementIDs())
+		for (const FPolygonID& PolygonID : InMesh.Polygons().GetElementIDs())
 		{
 			const TArray<FMeshTriangle>& Triangles = InMesh.GetPolygonTriangles(PolygonID);
 
@@ -552,7 +552,7 @@ public:
 			FVertexID VertexIDs[3];
 			FVector Positions[3];
 
-			for (const FMeshTriangle& MeshTriangle : Triangles)
+			for (const FMeshTriangle MeshTriangle : Triangles)
 			{
 				int32 CurrentFaceIndex = FaceIndex;
 				//Increment face index here because there is many continue in this for loop

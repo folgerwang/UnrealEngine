@@ -26,15 +26,10 @@ bool FAja::Initialize()
 #endif //AJAMEDIA_DLL_DEBUG
 
 	// determine directory paths
-	FString AjaDllPath = *FPaths::Combine(FPaths::EngineDir(), TEXT("../Enterprise/Binaries/ThirdParty/AJA/Win64"), AjaDll);
-	if (!FPaths::FileExists(AjaDllPath))
-	{
-		AjaDllPath = *FPaths::Combine(FPaths::ProjectDir(), TEXT("Binaries/ThirdParty/AJA/Win64"), AjaDll);
-	}
-	if (!FPaths::FileExists(AjaDllPath))
-	{
-		AjaDllPath = *FPaths::Combine(FPaths::EngineDir(), TEXT("Binaries/ThirdParty/AJA/Win64"), AjaDll);
-	}
+	FString AjaDllPath = FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("AjaMedia"))->GetBaseDir(), TEXT("/Binaries/ThirdParty/Win64"));
+	FPlatformProcess::PushDllDirectory(*AjaDllPath);
+	AjaDllPath = FPaths::Combine(AjaDllPath, AjaDll);
+
 	if (!FPaths::FileExists(AjaDllPath))
 	{
 		UE_LOG(LogAjaMedia, Error, TEXT("Failed to find the binary folder for the AJA dll. Plug-in will not be functional."));

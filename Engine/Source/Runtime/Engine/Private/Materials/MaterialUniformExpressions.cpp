@@ -812,6 +812,21 @@ void FMaterialUniformExpressionScalarParameter::GetGameThreadNumberValue(const U
 	}
 }
 
+void FMaterialUniformExpressionScalarParameter::GetGameThreadUsedAsAtlas(const UMaterialInterface* SourceMaterialToCopyFrom, bool& OutValue, TSoftObjectPtr<class UCurveLinearColor>& Curve, TSoftObjectPtr<class UCurveLinearColorAtlas>& Atlas) const
+{
+	check(IsInGameThread());
+	checkSlow(SourceMaterialToCopyFrom);
+
+	const UMaterialInterface* It = SourceMaterialToCopyFrom;
+
+	const UMaterialInstance* MatInst = Cast<UMaterialInstance>(It);
+
+	if (MatInst)
+	{
+		MatInst->IsScalarParameterUsedAsAtlasPosition(ParameterInfo, OutValue, Curve, Atlas);		
+	}
+}
+
 namespace
 {
 	void SerializeOptional(FArchive& Ar, TOptional<FName>& OptionalName)

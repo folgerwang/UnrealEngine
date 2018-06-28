@@ -259,7 +259,7 @@ void FMeshDescriptionOperations::ConvertToRawMesh(const FMeshDescription& Source
 	TArray<int32> RemapVerts;
 	RemapVerts.AddZeroed(SourceMeshDescription.Vertices().GetArraySize());
 	int32 VertexIndex = 0;
-	for (const FVertexID VertexID : SourceMeshDescription.Vertices().GetElementIDs())
+	for (const FVertexID& VertexID : SourceMeshDescription.Vertices().GetElementIDs())
 	{
 		DestinationRawMesh.VertexPositions[VertexIndex] = VertexPositions[VertexID];
 		RemapVerts[VertexID.GetValue()] = VertexIndex;

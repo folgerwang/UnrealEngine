@@ -415,14 +415,8 @@ FMetalDynamicRHI::FMetalDynamicRHI(ERHIFeatureLevel::Type RequestedFeatureLevel)
 	}
 
 #if PLATFORM_MAC
-	if (IsRHIDeviceIntel())
+	if (IsRHIDeviceIntel() && FPlatformMisc::MacOSXVersionCompare(10,13,5) < 0)
 	{
-		static auto CVarVolumetricFog = IConsoleManager::Get().FindConsoleVariable(TEXT("r.VolumetricFog"));
-		if(CVarVolumetricFog && CVarVolumetricFog->GetInt() != 0)
-		{
-			CVarVolumetricFog->Set(0);
-		}
-
 		static auto CVarSGShadowQuality = IConsoleManager::Get().FindConsoleVariable((TEXT("sg.ShadowQuality")));
 		if(CVarSGShadowQuality && CVarSGShadowQuality->GetInt() != 0)
 		{

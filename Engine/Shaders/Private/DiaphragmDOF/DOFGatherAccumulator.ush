@@ -28,6 +28,9 @@ struct FGatherAccumulator
 		float4 Color;
 		float ColorWeight;
 
+		float Opacity;
+		float OpacityWeight;
+
 		// Distance to the closest foreground sample.
 		float DistanceToClosestForeground;
 
@@ -127,6 +130,8 @@ FGatherAccumulator CreateGatherAccumulator(
 	{
 		Accumulator.Color = 0;
 		Accumulator.ColorWeight = 0;
+		Accumulator.Opacity = 0;
+		Accumulator.OpacityWeight = 0;
 		Accumulator.DistanceToClosestForeground = EXTREMELY_LARGE_COC_RADIUS;
 	}
 	#endif
@@ -226,9 +231,6 @@ void AccumulateSample(
 	in FGatherSample A,
 	in FGatherSampleDerivedParameters DerivedA)
 {
-	float ColorWeight = A.Intersection * DerivedA.Weight * DerivedA.IsConsidered;
-	float OpacityWeight = A.Intersection;
-	
 	// TODO: soften that.
 	if (Accumulator.LayerProcessing == LAYER_PROCESSING_FOREGROUND_HOLE_FILLING &&
 		A.CocRadius < -(Accumulator.GatherParameters.MaxRecombineAbsCocRadius - 1))
@@ -237,11 +239,14 @@ void AccumulateSample(
 	}
 	else
 	{
+		float ColorWeight = A.Intersection * DerivedA.Weight * DerivedA.IsConsidered;
+		float OpacityWeight = A.Intersection;
+	
 		Accumulator.Color += A.Color * ColorWeight;
 		Accumulator.ColorWeight += ColorWeight;
 	
-		//Accumulator.Opacity += OpacityWeight * DerivedA.Opacity;
-		//Accumulator.OpacityWeight += OpacityWeight;
+		Accumulator.Opacity += OpacityWeight * DerivedA.Opacity;
+		Accumulator.OpacityWeight += OpacityWeight;
 	}
 }
 
@@ -322,7 +327,8 @@ void ResolveAccumulatorOutputs(
 	Output = CreateAccumulatorOutput();
 	
 	float4 NormalizedColor = Accumulator.Color * SafeRcp(Accumulator.ColorWeight);
-	
+	float NormalizedOpacity = Accumulator.Opacity * SafeRcp(Accumulator.OpacityWeight);
+
 	#if DIM_LAYER_PROCESSING == LAYER_PROCESSING_FOREGROUND_HOLE_FILLING
 	if (Accumulator.DistanceToClosestForeground != EXTREMELY_LARGE_COC_RADIUS && Accumulator.ColorWeight > 0)
 	{
@@ -335,7 +341,7 @@ void ResolveAccumulatorOutputs(
 	#elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
 	{
 		Output.SlightFocusColor = NormalizedColor;
-		Output.SlightFocusWeight = Accumulator.ColorWeight;
+		Output.SlightFocusOpacity = NormalizedOpacity;
 	}
 	#else
 		#error Unsupported.
@@ -678,8 +684,11 @@ void MergeCurrentBucketIntoPreviousBucket(inout FGatherAccumulator Accumulator, 
 /** Accumulates center sample. */
 void AccumulateCenterSample(inout FGatherAccumulator Accumulator, in FGatherSample A)
 {
+	// Error in coc radius error introduced by the under sampling of the kernel
+	const float CocRadiusError = CONFIG_COC_RADIUS_CORRECTION ? 1.0 : 0.0;
+
 	// Set the bordering radius at exactly the radius of the center sample.
-	Accumulator.BorderingRadius = 0.5 * Accumulator.GatherParameters.KernelRadius * rcp(0.5 + Accumulator.GatherParameters.RingCount);
+	Accumulator.BorderingRadius = (0.5 + CocRadiusError) * Accumulator.GatherParameters.KernelRadius * rcp(0.5 + Accumulator.GatherParameters.RingCount);
 
 	// Center sample is first ring only when smallest ring first.
 	Accumulator.bIsFirstRing = LARGEST_RINGS_FIRST == 0;
@@ -708,7 +717,11 @@ void AmendAccumulatedRingsWeight(
 void StartRingSamples(inout FGatherAccumulator Accumulator, in FGatherRingInfos RingInfos)
 {
 	Accumulator.bIsFirstRing = RingInfos.bIsFirstRing;
-	Accumulator.BorderingRadius = (RingInfos.RingId + 1.5) * (Accumulator.GatherParameters.KernelRadius * rcp(0.5 + Accumulator.GatherParameters.RingCount)); 
+	
+	// Error in coc radius error introduced by the under sampling of the kernel
+	const float CocRadiusError = CONFIG_COC_RADIUS_CORRECTION ? 1.0 : 0.0;
+
+	Accumulator.BorderingRadius = (RingInfos.RingId + (1.5 + CocRadiusError)) * (Accumulator.GatherParameters.KernelRadius * rcp(0.5 + Accumulator.GatherParameters.RingCount)); 
 
 	#if CONFIG_SGPR_HINTS
 	{

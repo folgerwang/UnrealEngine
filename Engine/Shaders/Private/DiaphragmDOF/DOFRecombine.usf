@@ -131,6 +131,7 @@
 
 float2 TemporalJitterPixels;
 float4 CocModelParameters;
+float2 DepthBlurParameters;
 float2 DOFBufferUVMax;
 
 RWTexture2D<float4>	Output0;
@@ -174,7 +175,7 @@ float2 RotVec(float Radius, float Radians)
 
 float DepthToHalfResCocRadius(float WorldDepth)
 {
-	return DepthToHalfResCocRadius(CocModelParameters, WorldDepth);
+	return DepthToHalfResCocRadius(CocModelParameters, DepthBlurParameters, WorldDepth);
 }
 
 void AmendAdditiveColorWithMaxTranslucency(inout float4 Color, inout float Translucency, float MaxTranslucency)
@@ -471,14 +472,18 @@ void AccumulateMirrorSamples(inout FFullResGatherAccumulator Accumulator, in FGa
 void AccumulateCenterSample(inout FFullResGatherAccumulator Accumulator, in FGatherSample A)
 {
 	FGatherSampleDerivedParameters DerivedA = ComputeSampleDerivates(Accumulator, A);
+
+	// Force this sample to be considered to guareentee their is a resolved color if in focus or background.
+	DerivedA.IsConsidered = 1;
+
 	AccumulateSample(Accumulator, A, DerivedA);
 }
 
 /** Resolves the slightly out of focus. */
 void ResolveAccumulator(
 	in FFullResGatherAccumulator Accumulator,
-	out float4 OutAdditiveColor,
-	out float OutTranslucency)
+	out float4 OutGatherBackgroundUnpremultipliedColor,
+	out float OutGatherBackgroundOpacity)
 {
 	const float SampleCount = 1.0 + 2.0 * Accumulator.Parameters.SamplePairCount;
 
@@ -497,9 +502,8 @@ void ResolveAccumulator(
 		Opacity = saturate(Accumulator.Opacity * SafeRcp(SampleCount));
 	}
 
-	OutTranslucency = Accumulator.ColorWeight > 0 ? 1 - Opacity : 1;
-	//OutTranslucency = 1 - Opacity;
-	OutAdditiveColor = Accumulator.Color * (Opacity * SafeRcp(Accumulator.ColorWeight));
+	OutGatherBackgroundOpacity = Accumulator.ColorWeight > 0 ? Opacity : 0;
+	OutGatherBackgroundUnpremultipliedColor = Accumulator.Color * (SafeRcp(Accumulator.ColorWeight));
 }
 
 
@@ -847,16 +851,12 @@ void RecombineMainCS(
 		return;
 	}
 
-	float4 GatherBackgroundAdditiveColor = 0;
-	float4 GatherForegroundAdditiveColor = 0;
-	float GatherBackgroundTranslucency = 1;
-	float GatherForegroundTranslucency = 1;
-	
+	float GatherBackgroundOpacity = ComputeInFocusOpacity(CenterSample.CocRadius);
+	float4 GatherBackgroundUnpremultipliedColor = CenterSample.Color;
+
 	#if CONFIG_SLIGHT_FOCUS_METHOD == SLIGHT_FOCUS_METHOD_DISABLED
 	{
-		float CenterOpacity = ComputeBackgroundSampleOpacity(CenterSample.CocRadius);
-		GatherBackgroundAdditiveColor = CenterSample.Color * CenterOpacity;
-		GatherBackgroundTranslucency = 1 - CenterOpacity;
+		GatherBackgroundOpacity = ComputeBackgroundSampleOpacity(CenterSample.CocRadius);
 	}
 	#elif CONFIG_SLIGHT_FOCUS_METHOD == SLIGHT_FOCUS_METHOD_UNIQUE_CONVOLUTIONS
 	BRANCH
@@ -916,32 +916,35 @@ void RecombineMainCS(
 				float Small = 0.125 * (1.0 - saturate(CenterSample.CocRadius * CenterSample.CocRadius * rcp(64.0)));
 				Max += HD * Small;
 				Min -= HD * Small;
+
+				// Ensures the temporally stable opacity remains between 0-1.
+				// Uses saturate() instead of min(0 and max() to be optimised as
+				// saturate() MAD post modifier on GCN.
+				Min.a = saturate(Min.a);
+				Max.a = saturate(Max.a);
 			}
 			#endif
 
+			// Clamp color
 			float3 ClampedColor = clamp(Accumulator.Color.rgb, Min.rgb * Accumulator.ColorWeight, Max.rgb * Accumulator.ColorWeight);
+
 			Accumulator.Color.rgb = lerp(Accumulator.Color.rgb, ClampedColor, saturate(CenterSample.CocRadius * CenterSample.CocRadius * 4.0));
+
+			// Clamp opacity.			
+			float ClampedOpacity = clamp(Accumulator.Opacity, Min.a * Accumulator.OpacityWeight, Max.a * Accumulator.OpacityWeight);
+
+			Accumulator.Opacity = lerp(Accumulator.Opacity, ClampedOpacity, saturate(CenterSample.CocRadius * CenterSample.CocRadius * 4.0));
 		}
 		#endif
 
 		// Resolve full res gather.
-		ResolveAccumulator(Accumulator, GatherBackgroundAdditiveColor, GatherBackgroundTranslucency);
+		ResolveAccumulator(Accumulator, GatherBackgroundUnpremultipliedColor, GatherBackgroundOpacity);
 	}
-	else
-	{
-		float CenterOpacity = saturate(MAX_RECOMBINE_ABS_COC_RADIUS - abs(CenterSample.CocRadius));
-		GatherBackgroundAdditiveColor = CenterSample.Color * CenterOpacity;
-		GatherBackgroundTranslucency = 1 - CenterOpacity;
-	}
-	#else
-		#error Unknown full res convolution.
 	#endif
 	
 	// Compose lower res foreground with full res gather foreground.
-	{
-		GatherForegroundAdditiveColor = GatherForegroundAdditiveColor * ForegroundTranslucency + ForegroundColor;
-		GatherForegroundTranslucency *= ForegroundTranslucency;
-	}
+	float4 GatherForegroundAdditiveColor = ForegroundColor;
+	float GatherForegroundTranslucency = ForegroundTranslucency;
 
 	// Sample lower res background, if necessary.
 	float4 BackgroundColor = 0.0;
@@ -985,17 +988,33 @@ void RecombineMainCS(
 			float MaxTranslucency = 1 - IsConsideredForegroundSample(CenterSample.CocRadius);
 
 			// Force the hole filling translucency to 0 if the background is unrendered.
-			MaxTranslucency = min(MaxTranslucency, BackgroundValidity);
+			if (BackgroundValidity <= 0.001)
+			{
+				if (HoleFillingTranslucency < 1.0)
+				{
+					float MaxTranslucency = 1 - IsConsideredForegroundSample(CenterSample.CocRadius);
 
-			AmendAdditiveColorWithMaxTranslucency(HoleFillingAdditiveColor, HoleFillingTranslucency, MaxTranslucency);
+					MaxTranslucency = min(MaxTranslucency, BackgroundValidity);
+					AmendAdditiveColorWithMaxTranslucency(HoleFillingAdditiveColor, HoleFillingTranslucency, MaxTranslucency);
+				}
+				else
+				{
+					GatherBackgroundOpacity = 1;
+				}
+			}
 
 			BackgroundColor = BackgroundColor * HoleFillingTranslucency + HoleFillingAdditiveColor;
+		}
+		#else
+		if (BackgroundValidity <= 0.001)
+		{
+			GatherBackgroundOpacity = 1;
 		}
 		#endif
 	}
 
 	// Compose background loweer res gather and full res gather.
-	float4 OutputFinalSceneColor = BackgroundColor * GatherBackgroundTranslucency + GatherBackgroundAdditiveColor;
+	float4 OutputFinalSceneColor = BackgroundColor * (1 - GatherBackgroundOpacity) + GatherBackgroundOpacity * GatherBackgroundUnpremultipliedColor;
 	
 	// Forces foreground translucency to 0 when large out of focus high res foreground, to
 	// avoid background leaking.
@@ -1060,11 +1079,13 @@ void RecombineMainCS(
 		OutputFinalSceneColor = GatherParameters.KernelPixelRadius;
 	}
 	#elif 0 // DEBUG
+	if (View.GeneralPurposeTweak > 0.5)
 	{
 		//OutputFinalSceneColor = ForegroundColor;
 		//OutputFinalSceneColor = HoleFillingAdditiveColor;
-		//OutputFinalSceneColor = BackgroundColor;
-		//OutputFinalSceneColor = GatherBackgroundAdditiveColor;
+		//OutputFinalSceneColor = BackgroundColor.a;
+		//OutputFinalSceneColor = PostprocessInput9.SampleLevel(GlobalPointClampedSampler, InputParameters.DOFBufferUV, 0).a;
+		//OutputFinalSceneColor = GatherBackgroundUnpremultipliedColor;
 		//OutputFinalSceneColor.a = GatherBackgroundTranslucency;
 	}
 	#elif 0 // DEBUG

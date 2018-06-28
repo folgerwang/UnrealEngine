@@ -17,6 +17,8 @@
 #include "ScopedTransaction.h"
 #include "IPropertyUtilities.h"
 
+#define LOCTEXT_NAMESPACE "PerPlatformPropertyCustomization"
+
 template<typename PerPlatformType>
 void FPerPlatformPropertyCustomization<PerPlatformType>::CustomizeHeader(TSharedRef<IPropertyHandle> StructPropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& StructCustomizationUtils)
 {
@@ -110,6 +112,8 @@ float FPerPlatformPropertyCustomization<PerPlatformType>::CalcDesiredWidth(TShar
 template<typename PerPlatformType>
 bool FPerPlatformPropertyCustomization<PerPlatformType>::AddPlatformOverride(FName PlatformGroupName, TSharedRef<IPropertyHandle> StructPropertyHandle)
 {
+	FScopedTransaction Transaction(LOCTEXT("AddPlatformOverride", "Add Platform Override"));
+
 	TSharedPtr<IPropertyHandle>	PerPlatformProperty = StructPropertyHandle->GetChildHandle(FName("PerPlatform"));
 	TSharedPtr<IPropertyHandle>	DefaultProperty = StructPropertyHandle->GetChildHandle(FName("Default"));
 	if (PerPlatformProperty.IsValid() && DefaultProperty.IsValid())
@@ -157,6 +161,9 @@ bool FPerPlatformPropertyCustomization<PerPlatformType>::AddPlatformOverride(FNa
 template<typename PerPlatformType>
 bool FPerPlatformPropertyCustomization<PerPlatformType>::RemovePlatformOverride(FName PlatformGroupName, TSharedRef<IPropertyHandle> StructPropertyHandle)
 {
+
+	FScopedTransaction Transaction(LOCTEXT("RemovePlatformOverride", "Remove Platform Override"));
+
 	TSharedPtr<IPropertyHandle>	MapProperty = StructPropertyHandle->GetChildHandle(FName("PerPlatform"));
 	if (MapProperty.IsValid())
 	{
@@ -226,3 +233,4 @@ TSharedRef<IPropertyTypeCustomization> FPerPlatformPropertyCustomization<PerPlat
 template class FPerPlatformPropertyCustomization<FPerPlatformInt>;
 template class FPerPlatformPropertyCustomization<FPerPlatformFloat>;
 
+#undef LOCTEXT_NAMESPACE

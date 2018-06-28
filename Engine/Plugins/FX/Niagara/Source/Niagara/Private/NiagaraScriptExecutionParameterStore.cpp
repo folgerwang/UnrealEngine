@@ -174,7 +174,7 @@ void FNiagaraScriptExecutionParameterStore::InitFromOwningScript(UNiagaraScript*
 
 void FNiagaraScriptExecutionParameterStore::InitFromOwningContext(UNiagaraScript* Script, ENiagaraSimTarget SimTarget, bool bNotifyAsDirty)
 {
-	Clear();
+	Empty();
 	PaddingInfo.Empty();
 
 #if WITH_EDITORONLY_DATA

@@ -107,14 +107,14 @@ FAutoConsoleVariableRef CVarGPUSkinCacheAllowDupedVertesForRecomputeTangents(
 
 static int32 GGPUSkinCacheFlushCounter = 0;
 
-bool IsGPUSkinCacheAvailable()
-{
-	return GEnableGPUSkinCacheShaders != 0 || GForceRecomputeTangents != 0;
-}
-
 static inline bool DoesPlatformSupportGPUSkinCache(EShaderPlatform Platform)
 {
 	return Platform == SP_PCD3D_SM5 || Platform == SP_METAL_SM5 || Platform == SP_METAL_SM5_NOTESS || Platform == SP_METAL_MRT_MAC || Platform == SP_METAL_MRT || IsVulkanSM5Platform(Platform) || Platform == SP_OPENGL_SM5;
+}
+
+ENGINE_API bool IsGPUSkinCacheAvailable()
+{
+	return (GEnableGPUSkinCacheShaders != 0 || GForceRecomputeTangents != 0) && DoesPlatformSupportGPUSkinCache(GMaxRHIShaderPlatform);
 }
 
 // We don't have it always enabled as it's not clear if this has a performance cost
@@ -124,7 +124,7 @@ ENGINE_API bool DoSkeletalMeshIndexBuffersNeedSRV()
 {
 	// currently only implemented and tested on Window SM5 (needs Compute, Atomics, SRV for index buffers, UAV for VertexBuffers)
 	//#todo-gpuskin: Enable on PS4 when SRVs for IB exist
-	return DoesPlatformSupportGPUSkinCache(GMaxRHIShaderPlatform) && IsGPUSkinCacheAvailable();
+	return IsGPUSkinCacheAvailable();
 }
 
 ENGINE_API bool DoRecomputeSkinTangentsOnGPU_RT()
@@ -333,6 +333,8 @@ public:
 		Data.InputWeightStart = (InputWeightStride * Section->BaseVertexIndex) / sizeof(float);
 		Data.SourceVertexFactory = InSourceVertexFactory;
 		Data.TargetVertexFactory = InTargetVertexFactory;
+
+		InTargetVertexFactory->InvalidateStreams();
 
 		int32 RecomputeTangentsMode = GForceRecomputeTangents > 0 ? 1 : GSkinCacheRecomputeTangents;
 		if (RecomputeTangentsMode > 0)

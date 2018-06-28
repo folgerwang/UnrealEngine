@@ -359,7 +359,8 @@ static void BackupAttributesInList( FMeshElementAttributeList& BackupList, const
 
 
 UEditableMesh::UEditableMesh()
-	: bAllowUndo( false ),
+	: MeshDescription( &OwnedMeshDescription ),
+	  bAllowUndo( false ),
 	  bAllowCompact( false ),
 	  PendingCompactCounter( 0 ),
 	  bAllowSpatialDatabase( false )
@@ -372,7 +373,9 @@ void UEditableMesh::Serialize( FArchive& Ar )
 	Super::Serialize( Ar );
 	Ar.UsingCustomVersion( FEditableMeshCustomVersion::GUID );
 
-	Ar << MeshDescription;
+	Ar << OwnedMeshDescription;
+
+	//Ar << MeshDescription;
 
 	// If the array was serialized containing any editor-only transient adapters, they will appear here as null, so remove them.
 	if( Ar.IsLoading() )
@@ -391,6 +394,13 @@ void UEditableMesh::PostLoad()
 #endif
 	RebuildOctree();
 	RebuildRenderMesh();
+}
+
+
+void UEditableMesh::SetMeshDescription( FMeshDescription* InMeshDescription )
+{
+	MeshDescription = InMeshDescription;
+	OwnedMeshDescription.Empty();
 }
 
 

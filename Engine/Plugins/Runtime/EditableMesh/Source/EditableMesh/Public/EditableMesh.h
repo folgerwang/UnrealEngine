@@ -98,8 +98,10 @@ public:
 	/** Remaps mesh element arrays according to the provided remappings, in order to undo a compact operation */
 	void Uncompact( const FElementIDRemappings& Remappings );
 
-	const FMeshDescription* GetMeshDescription() const { return &MeshDescription; }
-	FMeshDescription* GetMeshDescription() { return &MeshDescription; }
+	void SetMeshDescription( FMeshDescription* InMeshDescription );
+
+	const FMeshDescription* GetMeshDescription() const { return MeshDescription; }
+	FMeshDescription* GetMeshDescription() { return MeshDescription; }
 
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void InitializeAdapters();
 	UFUNCTION( BlueprintCallable, Category="Editable Mesh" ) void RebuildRenderMesh();
@@ -535,7 +537,11 @@ public:
 
 public:
 
-	FMeshDescription MeshDescription;
+	/** Pointer to the active mesh description for this editable mesh */
+	FMeshDescription* MeshDescription;
+
+	/** Owned mesh description for this editable mesh */
+	FMeshDescription OwnedMeshDescription;
 
 // @todo mesheditor: sort out member access. Currently StaticMesh adapter relies on accessing this stuff directly
 //protected:

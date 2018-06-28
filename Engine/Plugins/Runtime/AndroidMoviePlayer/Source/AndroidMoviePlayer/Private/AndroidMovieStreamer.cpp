@@ -45,6 +45,35 @@ void FAndroidMediaPlayerStreamer::ForceCompletion()
 	CloseMovie();
 }
 
+static void DoUpdateTextureMovieSampleExecute(TWeakPtr<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> JavaMediaPlayerPtr, int32 DestTexture)
+{
+	auto PinnedJavaMediaPlayer = JavaMediaPlayerPtr.Pin();
+
+	if (!PinnedJavaMediaPlayer.IsValid())
+	{
+		return;
+	}
+
+	PinnedJavaMediaPlayer->GetVideoLastFrame(DestTexture);
+}
+
+struct FRHICommandUpdateTextureMovieSample final : public FRHICommand<FRHICommandUpdateTextureMovieSample>
+{
+	TWeakPtr<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> JavaMediaPlayerPtr;
+	int32 DestTexture;
+
+	FORCEINLINE_DEBUGGABLE FRHICommandUpdateTextureMovieSample(TWeakPtr<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> InJavaMediaPlayerPtr, int32 InDestTexture)
+		: JavaMediaPlayerPtr(InJavaMediaPlayerPtr)
+		, DestTexture(InDestTexture)
+	{
+	}
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FRHICommandUpdateTextureMovieSample_Execute);
+		DoUpdateTextureMovieSampleExecute(JavaMediaPlayerPtr, DestTexture);
+	}
+};
+
 bool FAndroidMediaPlayerStreamer::Tick(float DeltaTime)
 {
 	// Check the list of textures pending deletion and remove any that are no longer valid
@@ -83,7 +112,15 @@ bool FAndroidMediaPlayerStreamer::Tick(float DeltaTime)
 			if (!FAndroidMisc::ShouldUseVulkan())
 			{
 				int32 DestTexture = *reinterpret_cast<int32*>(CurrentTexture->GetTypedResource().GetReference()->GetNativeResource());
-				bool frameSuccess = JavaMediaPlayer->GetVideoLastFrame(DestTexture);
+				if (IsRunningRHIInSeparateThread())
+				{
+					FRHICommandListImmediate &RHICommandList = GetImmediateCommandList_ForRenderCommand();
+					new (RHICommandList.AllocCommand<FRHICommandUpdateTextureMovieSample>()) FRHICommandUpdateTextureMovieSample(JavaMediaPlayer, DestTexture);
+				}
+				else
+				{
+					DoUpdateTextureMovieSampleExecute(JavaMediaPlayer, DestTexture);
+				}
 			}
 			else
 			{

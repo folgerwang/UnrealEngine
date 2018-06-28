@@ -102,7 +102,7 @@ void StoreAccumulatorOutput(in uint2 OutputPixelPosition, in FAccumulatorOutput 
 		#elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
 			Output0[OutputPixelPosition] = float4(
 				AccumulatorOutput.SlightFocusColor.rgb,
-				AccumulatorOutput.SlightFocusWeight);
+				AccumulatorOutput.SlightFocusOpacity);
 		
 		#else
 			#error Unknown layer processing.
@@ -129,7 +129,7 @@ void StoreAccumulatorOutput(in uint2 OutputPixelPosition, in FAccumulatorOutput 
 		#elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
 			Output0[OutputPixelPosition] = float4(
 				AccumulatorOutput.SlightFocusColor.rgb,
-				AccumulatorOutput.SlightFocusWeight);
+				AccumulatorOutput.SlightFocusOpacity);
 		
 		#else
 			#error Unknown layer processing.
@@ -177,7 +177,9 @@ void GatherMainCS(
 		GatherParameters.RingCount = GatherParameters.MaxRingCount;
 		
 		GatherParameters.KernelSamplingDensityMode = KERNEL_DENSITY_CONSTANT;
-		GatherParameters.bDoHighDensityGatheringAtCenter = false;
+		UNROLL
+		for (uint i = 0; i < CONFIG_MAX_SAMPLING_DENSITY_CHANGES; i++)
+			GatherParameters.bDoHighDensityGatheringAtCenter[i] = false;
 		
 		GatherParameters.ConsiderCocRadiusAffineTransformation0 = kContantlyPassingAffineTransformation;
 		GatherParameters.ConsiderCocRadiusAffineTransformation1 = kContantlyPassingAffineTransformation;
@@ -225,11 +227,11 @@ void GatherMainCS(
 	{
 		// Actually sample the Coc tile buffer.
 		#if GROUP_SIZE_IS_LARGER_THAN_COC_TILE_SIZE
-			const uint2 TilePos = (DispatchThreadId * GATHER_HALF_RES_DIVISOR) / COC_TILE_SIZE;
+			const uint2 TilePos = DispatchThreadId / COC_TILE_SIZE;
 		#else
 			const uint2 TilePos = GroupId;
 		#endif
-		const FCocTileSample CocTileInfos = LoadCocTile(COC_TILE_LAYOUT_FGD_BGD, PostprocessInput2, PostprocessInput2, int2(TilePos));
+		const FCocTileSample CocTileInfos = LoadCocTile(COC_TILE_LAYOUT_FGD_SEP_BGD, PostprocessInput2, PostprocessInput3, int2(TilePos));
 
 		TileSuggestion = InferGatherTileSuggestion(CocTileInfos,
 			/* LayerProcessing = */ DIM_LAYER_PROCESSING,
@@ -249,9 +251,6 @@ void GatherMainCS(
 		#endif
 	}
 	
-	// Coc error accepted for fast gathering, set to 5% of the kernel size.
-	float FastGatheringCocError = GatherParameters.KernelRadius * 0.05;
-
 	// Whether can entirely skeep gathering.
 	bool bSkipGathering = TileSuggestion.bCanEarlyReturn;
 
@@ -338,10 +337,6 @@ void GatherMainCS(
 			AccumulatorOutput.BackgroundCocAvgAndSquareAvg.x = GatherParameters.KernelRadius;
 			AccumulatorOutput.BackgroundCocAvgAndSquareAvg.y = 0;
 
-		#elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
-			AccumulatorOutput.SlightFocusColor = FastAccumulatorOutput.Color;
-			AccumulatorOutput.SlightFocusWeight = FastAccumulatorOutput.Weight;
-
 		#else
 			#error Fast gathering is not supported.
 		#endif
@@ -365,14 +360,24 @@ void GatherMainCS(
 	else
 	{
 		// Drives kernel sampling density.
-		#if CONFIG_KERNEL_SAMPLING_DENSITY_DRIVER == 1
+		#if CONFIG_KERNEL_SAMPLING_DENSITY_DRIVER > 0
 		{
 			#if DIM_LAYER_PROCESSING != LAYER_PROCESSING_BACKGROUND_ONLY
 				#error Kernel sampling density driver only available for background.
 			#endif
 
 			GatherParameters.KernelSamplingDensityMode = KERNEL_DENSITY_HIGHER_IN_CENTER_DISK;
-			GatherParameters.bDoHighDensityGatheringAtCenter = TileSuggestion.MaxCocRadiusAbs > 8.0 && TileSuggestion.MinCocRadiusAbs < 0.5 * TileSuggestion.MaxCocRadiusAbs;
+
+			UNROLL
+			for (uint i = 0; i < CONFIG_MAX_SAMPLING_DENSITY_CHANGES; i++)
+			{
+				const float MinConvolutionRadius = float(8 << i);
+				const float SmallestConvolutionRadius = rcp(float(2 << i)) * TileSuggestion.MaxCocRadiusAbs;
+
+				GatherParameters.bDoHighDensityGatheringAtCenter[i] = (
+					TileSuggestion.MaxCocRadiusAbs > MinConvolutionRadius &&
+					TileSuggestion.MinIntersectableCocRadiusAbs < SmallestConvolutionRadius);
+			}
 		}
 		#endif
 
@@ -386,8 +391,22 @@ void GatherMainCS(
 		}
 
 		#if DEBUG_FAST_ACCUMULATOR
+		{
+			#if CONFIG_KERNEL_SAMPLING_DENSITY_DRIVER > 0
+			UNROLL
+			for (uint i = 0; i < CONFIG_MAX_SAMPLING_DENSITY_CHANGES; i++)
+			{
+				if (GatherParameters.bDoHighDensityGatheringAtCenter[i])
+				{
+					AccumulatorOutput.ForegroundColor.rgb *= float3(1, 0.5, 0.5);
+					AccumulatorOutput.BackgroundColor.rgb *= float3(1, 0.5, 0.5);
+				}
+			}
+			#endif
+
 			AccumulatorOutput.ForegroundColor.rgb *= float3(1, 0.5, 0.5);
 			AccumulatorOutput.BackgroundColor.rgb *= float3(1, 0.5, 0.5);
+		}
 		#endif
 		
 		#if 1 // Lower VGPR footprint.

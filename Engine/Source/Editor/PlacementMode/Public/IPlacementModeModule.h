@@ -124,23 +124,19 @@ struct FPlaceableItem
 	/** Automatically set this item's display name from its class or asset */
 	void AutoSetDisplayName()
 	{
-		const bool bIsClass = AssetData.GetClass() == UClass::StaticClass();
-		const bool bIsVolume = bIsClass ? CastChecked<UClass>(AssetData.GetAsset())->IsChildOf(AVolume::StaticClass()) : false;
-		const bool bIsShape = bIsClass ? false : AssetData.GetClass()->IsChildOf(UStaticMesh::StaticClass());
-		const bool bIsActor = bIsClass ? CastChecked<UClass>(AssetData.GetAsset())->IsChildOf(AActor::StaticClass()) : false;
+		UClass* Class = AssetData.GetClass() == UClass::StaticClass() ? Cast<UClass>(AssetData.GetAsset()) : nullptr;
+		const bool bIsVolume = Class && Class->IsChildOf<AVolume>();
+		const bool bIsShape = Class ? false : AssetData.GetClass()->IsChildOf(UStaticMesh::StaticClass());
+		const bool bIsActor = Class ? Class->IsChildOf<AActor>() : false;
 
-		if (Factory && !bIsVolume && !bIsShape) // Factories give terrible names for volumes and basic shapes
+		// Use the factory unless its a volume or shape.  Those need custom names as the factory that spawns them does not properly represent what is being spawned.
+		if (Factory && !bIsVolume && !bIsShape) 
 		{
 			DisplayName = Factory->GetDisplayName();
 		}
-		else if (bIsActor)
+		else if (Class)
 		{
-			AActor* DefaultActor = CastChecked<AActor>(CastChecked<UClass>(AssetData.GetAsset())->ClassDefaultObject);
-			DisplayName = FText::FromString(FName::NameToDisplayString(DefaultActor->GetClass()->GetName(), false));
-		}
-		else if (bIsClass)
-		{
-			DisplayName = FText::FromString(FName::NameToDisplayString(AssetData.AssetName.ToString(), false));
+			DisplayName = Class->GetDisplayNameText();
 		}
 		else
 		{

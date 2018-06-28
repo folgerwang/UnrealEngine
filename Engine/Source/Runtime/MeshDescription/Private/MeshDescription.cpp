@@ -16,6 +16,8 @@ void UDEPRECATED_MeshDescription::Serialize( FArchive& Ar )
 
 FArchive& operator<<( FArchive& Ar, FMeshDescription& MeshDescription )
 {
+	Ar.UsingCustomVersion( FReleaseObjectVersion::GUID );
+
 	Ar << MeshDescription.VertexArray;
 	Ar << MeshDescription.VertexInstanceArray;
 	Ar << MeshDescription.EdgeArray;
@@ -28,7 +30,7 @@ FArchive& operator<<( FArchive& Ar, FMeshDescription& MeshDescription )
 	Ar << MeshDescription.PolygonAttributesSet;
 	Ar << MeshDescription.PolygonGroupAttributesSet;
 
-	if( Ar.IsLoading() )
+	if( Ar.IsLoading() && Ar.CustomVer( FReleaseObjectVersion::GUID ) >= FReleaseObjectVersion::MeshDescriptionNewSerialization )
 	{
 		// Populate vertex instance IDs for vertices
 		for( const FVertexInstanceID VertexInstanceID : MeshDescription.VertexInstanceArray.GetElementIDs() )

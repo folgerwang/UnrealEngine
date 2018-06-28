@@ -3319,11 +3319,13 @@ float FLevelOfDetailSettingsLayout::GetScreenSizeWidgetWidth(int32 LODIndex) con
 
 bool FLevelOfDetailSettingsLayout::AddLODScreenSizePlatformOverride(FName PlatformGroupName, int32 LODIndex)
 {
+	FScopedTransaction Transaction(LOCTEXT("AddLODScreenSizePlatformOverride", "Add LOD Screen Size Platform Override"));
 	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
 	if (LODScreenSizes[LODIndex].PerPlatform.Find(PlatformGroupName) == nullptr)
 	{
 		if(!StaticMesh->bAutoComputeLODScreenSize && StaticMesh->SourceModels.IsValidIndex(LODIndex))
 		{
+			StaticMesh->Modify();
 			float Value = StaticMesh->SourceModels[LODIndex].ScreenSize.Default;
 			StaticMesh->SourceModels[LODIndex].ScreenSize.PerPlatform.Add(PlatformGroupName, Value);
 			OnLODScreenSizeChanged(Value, PlatformGroupName, LODIndex);
@@ -3335,9 +3337,11 @@ bool FLevelOfDetailSettingsLayout::AddLODScreenSizePlatformOverride(FName Platfo
 
 bool FLevelOfDetailSettingsLayout::RemoveLODScreenSizePlatformOverride(FName PlatformGroupName, int32 LODIndex)
 {
+	FScopedTransaction Transaction(LOCTEXT("RemoveLODScreenSizePlatformOverride", "Remove LOD Screen Size Platform Override"));
 	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
 	if (!StaticMesh->bAutoComputeLODScreenSize && StaticMesh->SourceModels.IsValidIndex(LODIndex))
 	{
+		StaticMesh->Modify();
 		if (StaticMesh->SourceModels[LODIndex].ScreenSize.PerPlatform.Remove(PlatformGroupName) != 0)
 		{
 			OnLODScreenSizeChanged(StaticMesh->SourceModels[LODIndex].ScreenSize.Default, PlatformGroupName, LODIndex);
@@ -3694,8 +3698,10 @@ TSharedRef<SWidget> FLevelOfDetailSettingsLayout::GetMinLODWidget(FName Platform
 
 bool FLevelOfDetailSettingsLayout::AddMinLODPlatformOverride(FName PlatformGroupName)
 {
+	FScopedTransaction Transaction(LOCTEXT("AddMinLODPlatformOverride", "Add Min LOD Platform Override"));
 	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
 	check(StaticMesh);
+	StaticMesh->Modify();
 	if (StaticMesh->MinLOD.PerPlatform.Find(PlatformGroupName) == nullptr)
 	{
 		float Value = StaticMesh->MinLOD.Default;
@@ -3708,8 +3714,10 @@ bool FLevelOfDetailSettingsLayout::AddMinLODPlatformOverride(FName PlatformGroup
 
 bool FLevelOfDetailSettingsLayout::RemoveMinLODPlatformOverride(FName PlatformGroupName)
 {
+	FScopedTransaction Transaction(LOCTEXT("RemoveMinLODPlatformOverride", "Remove Min LOD Platform Override"));
 	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
 	check(StaticMesh);
+	StaticMesh->Modify();
 	if (StaticMesh->MinLOD.PerPlatform.Remove(PlatformGroupName) != 0)
 	{
 		OnMinLODChanged(StaticMesh->MinLOD.Default, PlatformGroupName);

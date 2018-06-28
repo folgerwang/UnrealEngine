@@ -73,6 +73,8 @@ UMovieSceneSubSection* UMovieSceneSubTrack::AddSequenceOnRow(UMovieSceneSequence
 
 UMovieSceneSubSection* UMovieSceneSubTrack::AddSequenceToRecord()
 {
+	Modify();
+
 	UMovieScene* MovieScene = CastChecked<UMovieScene>(GetOuter());
 	TRange<FFrameNumber> PlaybackRange = MovieScene->GetPlaybackRange();
 

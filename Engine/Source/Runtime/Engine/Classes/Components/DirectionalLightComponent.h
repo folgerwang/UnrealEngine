@@ -116,11 +116,17 @@ class ENGINE_API UDirectionalLightComponent : public ULightComponent
 	float DistanceFieldShadowDistance;
 
 	/** 
-	 * Light source angle in degrees, used for dynamic shadowing methods. 
-	 * Currently only Ray Traced Distance Field shadows and Capsule shadows support area shadows, and therefore make use of LightSourceAngle.
+	 * Angle subtended by light source in degrees (also known as angular diameter).
+	 * Defaults to 0.5357 which is the angle for our sun.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, meta=(UIMin = "0", UIMax = "5"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, meta=(UIMin = "0", UIMax = "5"), DisplayName = "Source Angle")
 	float LightSourceAngle;
+
+	/** 
+	 * Angle subtended by soft light source in degrees.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, meta=(UIMin = "0", UIMax = "5"), DisplayName = "Source Soft Angle")
+	float LightSourceSoftAngle;
 
 	/** Determines how far shadows can be cast, in world units.  Larger values increase the shadowing cost. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=DistanceFieldShadows, meta=(UIMin = "1000", UIMax = "100000"), DisplayName = "DistanceField Trace Distance")

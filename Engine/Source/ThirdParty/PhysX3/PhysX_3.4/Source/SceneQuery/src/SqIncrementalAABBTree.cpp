@@ -141,7 +141,7 @@ PX_FORCE_INLINE static bool nodeIntersection(IncrementalAABBTreeNode& node, cons
 }
 
 // traversal strategy
-PX_FORCE_INLINE static PxU32 traversalDirection(IncrementalAABBTreeNode& child0, IncrementalAABBTreeNode& child1, const Vec4V& testCenterV,
+PX_FORCE_INLINE static PxU32 traversalDirection(const IncrementalAABBTreeNode& child0, const IncrementalAABBTreeNode& child1, const Vec4V& testCenterV,
 	bool testRotation, bool& rotateNode, PxU32& largesRotateNode)
 {
 	// traverse in the direction of a node which is closer
@@ -154,8 +154,8 @@ PX_FORCE_INLINE static PxU32 traversalDirection(IncrementalAABBTreeNode& child0,
 
 	if(testRotation)
 	{
-		// if some volume is 4x larger than we do a rotation
-		const float volumeCompare = 4.0f;
+		// if some volume is 3x larger than we do a rotation
+		const float volumeCompare = 3.0f;
 
 		PX_ALIGN(16, PxVec4) sizeCh0;
 		PX_ALIGN(16, PxVec4) sizeCh1;
@@ -628,7 +628,14 @@ IncrementalAABBTreeNode* IncrementalAABBTree::insert(const PoolIndex index, cons
 				// simply add the primitive into the current leaf
 				addPrimitiveIntoNode(baseNode, index, minV, maxV);
 				returnNode = baseNode;
-				changedLeaf.pushBack(baseNode);
+				if(!changedLeaf.empty())
+				{
+					PX_ASSERT(changedLeaf.size() == 1);
+					if(changedLeaf[0] != baseNode)
+						changedLeaf.pushBack(baseNode);
+				}
+				else
+					changedLeaf.pushBack(baseNode);
 			}
 			else
 			{

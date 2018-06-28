@@ -3,6 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
+#include "AjaMediaFinder.h"
 #include "IPropertyTypeCustomization.h"
 #include "Widgets/SWidget.h"
 
@@ -23,6 +25,7 @@ public:
 
 private:
 	TSharedRef<SWidget> HandleSourceComboButtonMenuContent() const;
+	FAjaMediaMode GetMediaModeValue(const FAjaMediaMode& InMediaModeValue) const;
 
 	/** Direction filter */
 	bool bOutput;
@@ -32,4 +35,10 @@ private:
 
 	/** Pointer to the MediaPort property handle. */
 	TSharedPtr<IPropertyHandle> MediaPortProperty;
+
+	/** Pointer to the OverrideDefault property handle. */
+	TWeakObjectPtr<UBoolProperty> OverrideProperty;
+
+	/** Pointer to the parent Object. */
+	TWeakObjectPtr<UObject> ParentObject;
 };

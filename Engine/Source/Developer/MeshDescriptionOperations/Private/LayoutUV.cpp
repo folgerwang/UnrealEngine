@@ -47,7 +47,7 @@ namespace MeshDescriptionOp
 		for (const FPolygonID PolygonID : MeshDescription.Polygons().GetElementIDs())
 		{
 			const TArray<FMeshTriangle>& Triangles = MeshDescription.GetPolygonTriangles(PolygonID);
-			for (const FMeshTriangle& MeshTriangle : Triangles)
+			for (const FMeshTriangle MeshTriangle : Triangles)
 			{
 				for (int32 Corner = 0; Corner < 3; ++Corner)
 				{

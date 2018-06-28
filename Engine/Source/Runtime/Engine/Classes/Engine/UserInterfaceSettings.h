@@ -175,6 +175,13 @@ public:
 	FRuntimeFloatCurve UIScaleCurve;
 
 	/**
+	 * If true, game window on desktop platforms will be created with high-DPI awareness enabled.
+	 * Recommended to be enabled only if the game's UI allows users to modify 3D resolution scaling.
+	 */
+	UPROPERTY(config, EditAnywhere, Category="DPI Scaling", meta=( DisplayName="Allow High DPI in Game Mode" ))
+	bool bAllowHighDPIInGameMode;
+
+	/**
 	 * If false, widget references will be stripped during cook for server builds and not loaded at runtime.
 	 */
 	UPROPERTY(config, EditAnywhere, Category = "Widgets")

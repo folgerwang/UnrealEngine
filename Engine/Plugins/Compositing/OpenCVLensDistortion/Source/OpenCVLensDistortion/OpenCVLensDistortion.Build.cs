@@ -21,8 +21,8 @@ namespace UnrealBuildTool.Rules
             PublicDependencyModuleNames.AddRange(
 				new string[]
 				{
-					
-					// ... add other public dependencies that you statically link with here ...
+					"OpenCVHelper",
+					"OpenCV",
 				}
 			);
 
@@ -32,12 +32,9 @@ namespace UnrealBuildTool.Rules
 					"Core",
 					"CoreUObject",
 					"Engine",
-					"OpenCVHelper",
-					"OpenCV",
 					"RenderCore",
 					"RHI",
 					"ShaderCore",
-					// ... add private dependencies that you statically link with here ...
 				}
 			);
 		}

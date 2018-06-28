@@ -11,7 +11,7 @@ echo Running AutomationTool...
 echo
 
 TermHandler() {
-	kill -TERM $UATPid 2>&1 /dev/null
+	kill -TERM $UATPid 2> /dev/null
 }
 
 # loop over the arguments, quoting spaces to pass to UAT proper

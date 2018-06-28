@@ -1753,7 +1753,7 @@ void UUnrealEdEngine::edactSelectAll( UWorld* InWorld )
 	for( FActorIterator It(InWorld); It; ++It )
 	{
 		AActor* Actor = *It;
-		if( !Actor->IsSelected() && !Actor->IsHiddenEd() )
+		if( !Actor->IsSelected() && !Actor->IsHiddenEd() && Actor->IsSelectable())
 		{
 			SelectActor( Actor, 1, 0 );
 		}

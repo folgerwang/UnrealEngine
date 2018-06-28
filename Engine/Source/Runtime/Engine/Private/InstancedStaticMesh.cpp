@@ -137,27 +137,9 @@ void FStaticMeshInstanceBuffer::InitFromPreallocatedData(FStaticMeshInstanceData
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FStaticMeshInstanceBuffer_InitFromPreallocatedData);
 
-	InstanceData = MakeUnique<FStaticMeshInstanceData>();
+	InstanceData = MakeShared<FStaticMeshInstanceData, ESPMode::ThreadSafe>();
 	FMemory::Memswap(&Other, InstanceData.Get(), sizeof(FStaticMeshInstanceData));
 	InstanceData->SetAllowCPUAccess(RequireCPUAccess);
-}
-
-void FStaticMeshInstanceBuffer::UpdateFromPreallocatedData_Concurrent(FStaticMeshInstanceData& Other)
-{
-	QUICK_SCOPE_CYCLE_COUNTER(STAT_FStaticMeshInstanceBuffer_UpdateFromPreallocatedData_Concurrent);
-	
-	Other.SetAllowCPUAccess(RequireCPUAccess);
-
-	FStaticMeshInstanceBuffer* InstanceBuffer = this; 
-	FStaticMeshInstanceData* NewInstanceData = new FStaticMeshInstanceData();
-	FMemory::Memswap(&Other, NewInstanceData, sizeof(FStaticMeshInstanceData));
-		
-	ENQUEUE_RENDER_COMMAND(InstanceBuffer_UpdateFromPreallocatedData)(
-		[InstanceBuffer, NewInstanceData](FRHICommandListImmediate& RHICmdList)
-		{
-			InstanceBuffer->InstanceData.Reset(NewInstanceData);
-			InstanceBuffer->UpdateRHI();
-		});
 }
 
 void FStaticMeshInstanceBuffer::UpdateFromCommandBuffer_Concurrent(FInstanceUpdateCmdBuffer& CmdBuffer)
@@ -532,23 +514,45 @@ void FInstancedStaticMeshRenderData::InitStaticMeshVertexFactories(
 }
 
 FPerInstanceRenderData::FPerInstanceRenderData(FStaticMeshInstanceData& Other, ERHIFeatureLevel::Type InFeaureLevel, bool InRequireCPUAccess)
-	: InstanceBuffer(InFeaureLevel, InRequireCPUAccess)
-	, ResourceSize(Other.GetResourceSize()) // 2x when with CPU access?
+	: ResourceSize(Other.GetResourceSize()) // 2x when with CPU access?
+	, InstanceBuffer(InFeaureLevel, InRequireCPUAccess)
 {
 	InstanceBuffer.InitFromPreallocatedData(Other);
+	InstanceBuffer_GameThread = InstanceBuffer.InstanceData;
+
 	BeginInitResource(&InstanceBuffer);
 }
 		
 FPerInstanceRenderData::~FPerInstanceRenderData()
 {
+	InstanceBuffer_GameThread.Reset();
 	// Should be always destructed on rendering thread
 	InstanceBuffer.ReleaseResource();
 }
 
 void FPerInstanceRenderData::UpdateFromPreallocatedData(FStaticMeshInstanceData& InOther)
 {
+	InstanceBuffer.RequireCPUAccess = (InOther.GetOriginResourceArray()->GetAllowCPUAccess() || InOther.GetTransformResourceArray()->GetAllowCPUAccess() || InOther.GetLightMapResourceArray()->GetAllowCPUAccess()) ? true : InstanceBuffer.RequireCPUAccess;
 	ResourceSize = InOther.GetResourceSize(); // 2x when with CPU access?
-	InstanceBuffer.UpdateFromPreallocatedData_Concurrent(InOther);
+
+	InOther.SetAllowCPUAccess(InstanceBuffer.RequireCPUAccess);
+
+	FStaticMeshInstanceData* NewInstanceData = new FStaticMeshInstanceData();
+	FMemory::Memswap(&InOther, NewInstanceData, sizeof(FStaticMeshInstanceData));
+
+	InstanceBuffer_GameThread = MakeShared<FStaticMeshInstanceData, ESPMode::ThreadSafe>(*NewInstanceData);
+
+	typedef TSharedPtr<FStaticMeshInstanceData, ESPMode::ThreadSafe> FStaticMeshInstanceDataPtr;
+
+	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+		FInstanceBuffer_UpdateFromPreallocatedData,
+		FStaticMeshInstanceDataPtr, InInstanceBufferDataPtr, InstanceBuffer_GameThread,
+		FStaticMeshInstanceBuffer*, InInstanceBuffer, &InstanceBuffer,
+		{
+			InInstanceBuffer->InstanceData = InInstanceBufferDataPtr;
+			InInstanceBuffer->UpdateRHI();
+		}
+	);
 }
 
 void FPerInstanceRenderData::UpdateFromCommandBuffer(FInstanceUpdateCmdBuffer& CmdBuffer)
@@ -1537,9 +1541,9 @@ void UInstancedStaticMeshComponent::SerializeRenderData(FArchive& Ar)
 		
 			if (PerInstanceRenderData.IsValid())
 			{
-				if (PerInstanceRenderData->InstanceBuffer.GetInstanceData()->GetNumInstances() > 0)
+				if (PerInstanceRenderData->InstanceBuffer_GameThread && PerInstanceRenderData->InstanceBuffer_GameThread->GetNumInstances() > 0)
 				{
-					int32 NumInstances = PerInstanceRenderData->InstanceBuffer.GetInstanceData()->GetNumInstances();
+					int32 NumInstances = PerInstanceRenderData->InstanceBuffer_GameThread->GetNumInstances();
 
 					// Clear editor data for the cooked data
 					for (int32 Index = 0; Index < NumInstances; ++Index)
@@ -1551,10 +1555,10 @@ void UInstancedStaticMeshComponent::SerializeRenderData(FArchive& Ar)
 							continue;
 						}
 
-						PerInstanceRenderData->InstanceBuffer.GetInstanceData()->ClearInstanceEditorData(RenderIndex);
+						PerInstanceRenderData->InstanceBuffer_GameThread->ClearInstanceEditorData(RenderIndex);
 					}
 
-					PerInstanceRenderData->InstanceBuffer.GetInstanceData()->Serialize(Ar);
+					PerInstanceRenderData->InstanceBuffer_GameThread->Serialize(Ar);
 
 #if WITH_EDITOR
 					// Restore back the state we were in
@@ -1579,7 +1583,7 @@ void UInstancedStaticMeshComponent::SerializeRenderData(FArchive& Ar)
 							HitProxyColor = HitProxies[Index]->Id.GetColor();
 						}
 
-						PerInstanceRenderData->InstanceBuffer.GetInstanceData()->SetInstanceEditorData(RenderIndex, HitProxyColor, bSelected);
+						PerInstanceRenderData->InstanceBuffer_GameThread->SetInstanceEditorData(RenderIndex, HitProxyColor, bSelected);
 					}
 #endif					
 				}
@@ -2020,7 +2024,7 @@ static bool ComponentRequestsCPUAccess(UInstancedStaticMeshComponent* InComponen
 	return false;
 }
 
-void UInstancedStaticMeshComponent::InitPerInstanceRenderData(bool InitializeFromCurrentData, FStaticMeshInstanceData* InSharedInstanceBufferData)
+void UInstancedStaticMeshComponent::InitPerInstanceRenderData(bool InitializeFromCurrentData, FStaticMeshInstanceData* InSharedInstanceBufferData, bool InRequireCPUAccess)
 {
 	if (PerInstanceRenderData.IsValid())
 	{
@@ -2038,7 +2042,7 @@ void UInstancedStaticMeshComponent::InitPerInstanceRenderData(bool InitializeFro
 	UWorld* World = GetWorld();
 	ERHIFeatureLevel::Type FeatureLevel = World != nullptr ? World->FeatureLevel : GMaxRHIFeatureLevel;
 
-	bool KeepInstanceBufferCPUAccess = GIsEditor || ComponentRequestsCPUAccess(this, FeatureLevel);
+	bool KeepInstanceBufferCPUAccess = GIsEditor || InRequireCPUAccess || ComponentRequestsCPUAccess(this, FeatureLevel);
 
 	if (InSharedInstanceBufferData != nullptr)
 	{

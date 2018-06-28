@@ -13,6 +13,8 @@
 #include "MaterialShaderQualitySettingsCustomization.h"
 #include "ComponentRecreateRenderStateContext.h"
 #include "ShaderPlatformQualitySettings.h"
+#include "IOSCustomIconProjectBuildMutatorFeature.h"
+#include "Features/IModularFeatures.h"
 
 #define LOCTEXT_NAMESPACE "FIOSPlatformEditorModule"
 
@@ -70,6 +72,8 @@ class FIOSPlatformEditorModule
 				);
 			}
 		}
+
+		IModularFeatures::Get().RegisterModularFeature(FProjectBuildMutatorFeature::GetFeatureName(), &ProjectBuildMutator);
 	}
 
 	virtual void ShutdownModule() override
@@ -81,7 +85,14 @@ class FIOSPlatformEditorModule
 			SettingsModule->UnregisterSettings("Project", "Platforms", "iOS");
 			SettingsModule->UnregisterSettings("Project", "Platforms", "iOSMetalQuality");
 		}
+
+		IModularFeatures::Get().UnregisterModularFeature(FProjectBuildMutatorFeature::GetFeatureName(), &ProjectBuildMutator);
 	}
+
+private:
+
+	FIOSCustomIconProjectBuildMutatorFeature ProjectBuildMutator;
+
 };
 
 
