@@ -144,7 +144,7 @@ static TAutoConsoleVariable<int32> CVarODSCapture(
 
 static TAutoConsoleVariable<int32> CVarDebugCanvasInLayer(
 	TEXT("vr.DebugCanvasInLayer"),
-	0,
+	(PLATFORM_LUMIN || PLATFORM_LUMINGL4),
 	TEXT("Experimental")
 	TEXT("0 to disable (default), 1 to enable."),
 	ECVF_Scalability | ECVF_RenderThreadSafe);

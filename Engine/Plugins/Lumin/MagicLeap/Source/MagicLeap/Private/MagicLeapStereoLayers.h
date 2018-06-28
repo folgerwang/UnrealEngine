@@ -9,4 +9,8 @@ class FMagicLeapStereoLayers : public FDefaultStereoLayers
 {
 public:
 	FMagicLeapStereoLayers(const class FAutoRegister& AutoRegister, class FHeadMountedDisplayBase* InHmd) : FDefaultStereoLayers(AutoRegister, InHmd) {}
+
+public:
+	//~ IStereoLayers interface
+	virtual FLayerDesc GetDebugCanvasLayerDesc(FTextureRHIRef Texture) override;
 };
