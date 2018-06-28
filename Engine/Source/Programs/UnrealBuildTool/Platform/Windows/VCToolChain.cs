@@ -693,7 +693,7 @@ namespace UnrealBuildTool
 				Arguments.Add("/FIXED:No");
 
 				// Option is only relevant with 32 bit toolchain.
-				if ((LinkEnvironment.Platform == CppPlatform.Win32) && WindowsPlatform.bBuildLargeAddressAwareBinary)
+				if ((LinkEnvironment.Platform == CppPlatform.Win32) && Target.WindowsPlatform.bBuildLargeAddressAwareBinary)
 				{
 					// Disables the 2GB address space limit on 64-bit Windows and 32-bit Windows with /3GB specified in boot.ini
 					Arguments.Add("/LARGEADDRESSAWARE");

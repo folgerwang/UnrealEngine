@@ -191,6 +191,11 @@ namespace UnrealBuildTool
 		public int PCHMemoryAllocationFactor = 0;
 
 		/// <summary>
+		/// True if we allow using addresses larger than 2GB on 32 bit builds
+		/// </summary>
+		public bool bBuildLargeAddressAwareBinary = true;
+
+		/// <summary>
 		/// When using a Visual Studio compiler, returns the version name as a string
 		/// </summary>
 		/// <returns>The Visual Studio compiler version name (e.g. "2015")</returns>
@@ -317,6 +322,11 @@ namespace UnrealBuildTool
 			get { return Inner.PCHMemoryAllocationFactor; }
 		}
 
+		public bool bBuildLargeAddressAwareBinary
+		{
+			get { return Inner.bBuildLargeAddressAwareBinary; }
+		}
+
 		public string GetVisualStudioCompilerVersionName()
 		{
 			return Inner.GetVisualStudioCompilerVersionName();
@@ -369,11 +379,6 @@ namespace UnrealBuildTool
 		/// True if we should use the Intel linker (xilink) when bCompileWithICL is enabled, otherwise we use the MSVC linker
 		/// </summary>
 		public static readonly bool bAllowICLLinker = true;
-
-		/// <summary>
-		/// True if we allow using addresses larger than 2GB on 32 bit builds
-		/// </summary>
-		public static readonly bool bBuildLargeAddressAwareBinary = true;
 
 		WindowsPlatformSDK SDK;
 
