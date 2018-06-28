@@ -430,16 +430,14 @@ namespace UnrealGameSync
 							return WorkspaceUpdateResult.FailedToSync;
 						}
 
-						if(UserFilter != null)
-						{
-							SyncRecords.RemoveAll(x => !String.IsNullOrEmpty(x.ClientPath) && !MatchFilter(Path.GetFullPath(x.ClientPath), UserFilter));
-						}
-
 						foreach(PerforceFileRecord SyncRecord in SyncRecords)
 						{
 							try
 							{
-								Path.GetFullPath(SyncRecord.ClientPath);
+								if(!String.IsNullOrEmpty(SyncRecord.ClientPath))
+								{
+									Path.GetFullPath(SyncRecord.ClientPath);
+								}
 							}
 							catch(PathTooLongException)
 							{
@@ -447,6 +445,11 @@ namespace UnrealGameSync
 								StatusMessage = "File exceeds maximum path length allowed by Windows.";
 								return WorkspaceUpdateResult.FailedToSync;
 							}
+						}
+
+						if(UserFilter != null)
+						{
+							SyncRecords.RemoveAll(x => !String.IsNullOrEmpty(x.ClientPath) && !MatchFilter(Path.GetFullPath(x.ClientPath), UserFilter));
 						}
 
 						SyncDepotPaths.AddRange(SyncRecords.Select(x => x.DepotPath));
