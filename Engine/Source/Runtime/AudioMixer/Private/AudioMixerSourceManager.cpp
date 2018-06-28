@@ -205,8 +205,6 @@ namespace Audio
 		}
 		
 		GameThreadInfo.bIsBusy.AddDefaulted(NumTotalSources);
-		GameThreadInfo.bIsDone.AddDefaulted(NumTotalSources);
-		GameThreadInfo.bEffectTailsDone.AddDefaulted(NumTotalSources);
 		GameThreadInfo.bNeedsSpeakerMap.AddDefaulted(NumTotalSources);
 		GameThreadInfo.bIsDebugMode.AddDefaulted(NumTotalSources);
 		GameThreadInfo.FreeSourceIndices.Reset(NumTotalSources);
@@ -346,13 +344,7 @@ namespace Audio
 			SourceInfo.MixerSourceBuffer = nullptr;
 		}
 
-		// Call OnRelease on the BufferQueueListener to give it a chance 
-		// to release any resources it owns on the audio render thread
-		if (SourceInfo.SourceListener)
-		{
-			SourceInfo.SourceListener->OnRelease();
-			SourceInfo.SourceListener = nullptr;
-		}
+		SourceInfo.SourceListener = nullptr;
 
 		// Remove the mixer source from its submix sends
 		for (FMixerSourceSubmixSend& SubmixSendItem : SourceInfo.SubmixSends)
@@ -1093,18 +1085,6 @@ namespace Audio
 		return SourceInfos[SourceId].SourceEnvelopeValue;
 	}
 
-	bool FMixerSourceManager::IsDone(const int32 SourceId) const
-	{
-		AUDIO_MIXER_CHECK_GAME_THREAD(MixerDevice);
-		return GameThreadInfo.bIsDone[SourceId];
-	}
-
-	bool FMixerSourceManager::IsEffectTailsDone(const int32 SourceId) const
-	{
-		AUDIO_MIXER_CHECK_GAME_THREAD(MixerDevice);
-		return GameThreadInfo.bEffectTailsDone[SourceId];
-	}
-
 	bool FMixerSourceManager::NeedsSpeakerMap(const int32 SourceId) const
 	{
 		AUDIO_MIXER_CHECK_GAME_THREAD(MixerDevice);
@@ -1589,7 +1569,7 @@ namespace Audio
 				if (NumFadeFrames < NumOutputFrames)
 				{
 					int32 SamplesLeft = NumSamples - NumFadeSamples;
-					FMemory::Memzero(&PreDistanceAttenBufferPtr[NumFadeFrames], sizeof(float)*SamplesLeft);
+					FMemory::Memzero(&PreDistanceAttenBufferPtr[NumFadeSamples], sizeof(float)*SamplesLeft);
 				}
 
 				SourceInfo.VolumeSourceStart = SourceInfo.VolumeSourceDestination;
@@ -1646,6 +1626,9 @@ namespace Audio
 					}
 				}
 			}
+
+			const bool bWasEffectTailsDone = SourceInfo.bEffectTailsDone;
+
 			if (!DisableEnvelopeFollowingCvar)
 			{
 				// Compute the source envelope using pre-distance attenuation buffer
@@ -1660,6 +1643,11 @@ namespace Audio
 			else
 			{
 				SourceInfo.bEffectTailsDone = true;
+			}
+
+			if (!bWasEffectTailsDone && SourceInfo.bEffectTailsDone)
+			{
+				SourceInfo.SourceListener->OnEffectTailsDone();
 			}
 
 			// Only scale with distance attenuation and send to source audio to plugins if we're not in output-to-bus only mode
@@ -2100,14 +2088,14 @@ namespace Audio
 			// Check for the stopping condition to "turn the sound off"
 			if (SourceInfo.bIsLastBuffer)
 			{
-				SourceInfo.bIsDone = true;
+				if (!SourceInfo.bIsDone)
+				{
+					SourceInfo.bIsDone = true;
 
-				// Notify that we're now done with this source
-				SourceInfo.SourceListener->OnDone();
+					// Notify that we're now done with this source
+					SourceInfo.SourceListener->OnDone();
+				}
 			}
-
-			GameThreadInfo.bIsDone[SourceId] = SourceInfo.bIsDone;
-			GameThreadInfo.bEffectTailsDone[SourceId] = SourceInfo.bEffectTailsDone;
 		}
 	}
 
@@ -2117,21 +2105,13 @@ namespace Audio
 		{
 			FSourceInfo& SourceInfo = SourceInfos[SourceId];
 
-			// Check for the stopping condition to "turn the sound off"
-			if (!SourceInfo.bIsDone && SourceInfo.bIsStopping)
-			{
-				if (SourceInfo.VolumeSourceDestination == 0.0f)
-				{
-					SourceInfo.bIsStopping = false;
-					SourceInfo.bIsDone = true;
-					GameThreadInfo.bIsDone[SourceId] = true;
-				}
-			}
-			else if (SourceInfo.bIsDone)
+			if (!SourceInfo.bIsDone && SourceInfo.bIsStopping && SourceInfo.VolumeSourceDestination == 0.0f)
 			{
 				SourceInfo.bIsStopping = false;
-				GameThreadInfo.bIsDone[SourceId] = true;
+				SourceInfo.bIsDone = true;
+				SourceInfo.SourceListener->OnDone();
 			}
+
 		}
 	}
 
@@ -2173,11 +2153,14 @@ namespace Audio
 				{
 					SourceInfo.MixerSourceBuffer->ClearSoundWave();
 						
+					if (!SourceInfo.bIsDone)
+					{
+						SourceInfo.bIsDone = true;
+						SourceInfo.SourceListener->OnDone();
+					}
+
 					// Clear out the mixer source buffer
 					SourceInfo.MixerSourceBuffer = nullptr;
-
-					// Signal that this source is done
-					SourceInfo.SourceListener->OnDone();
 
 					// Set the sound to be done playing
 					// This will flag the sound to be released

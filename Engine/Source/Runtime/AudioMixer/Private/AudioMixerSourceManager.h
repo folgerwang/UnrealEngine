@@ -59,11 +59,11 @@ namespace Audio
 		// Called when a loop point is hit
 		virtual void OnLoopEnd() = 0;
 
-		// Called the source is released on the render thread
-		virtual void OnRelease() = 0;
-
-		// Called when the source finishes on the render thread
+		// Called when the source finishes on the audio render thread
 		virtual void OnDone() = 0;
+
+		// Called when the source's effect tails finish on the audio render thread.
+		virtual void OnEffectTailsDone() = 0;
 
 	};
 
@@ -249,8 +249,6 @@ namespace Audio
 
 		int64 GetNumFramesPlayed(const int32 SourceId) const;
 		float GetEnvelopeValue(const int32 SourceId) const;
-		bool IsDone(const int32 SourceId) const;
-		bool IsEffectTailsDone(const int32 SourceId) const;
 		bool NeedsSpeakerMap(const int32 SourceId) const;
 		void ComputeNextBlockOfSamples();
 		void ClearStoppingSounds();
@@ -495,8 +493,6 @@ namespace Audio
 		{
 			TArray<int32> FreeSourceIndices;
 			TArray<bool> bIsBusy;
-			TArray<FThreadSafeBool> bIsDone;
-			TArray<FThreadSafeBool> bEffectTailsDone;
 			TArray <bool> bNeedsSpeakerMap;
 			TArray<bool> bIsDebugMode;
 		} GameThreadInfo;

@@ -3041,7 +3041,7 @@ int32 FAudioDevice::GetSortedActiveWaveInstances(TArray<FWaveInstance*>& WaveIns
 	int32 FirstActiveIndex = 0;
 
 	// Only need to do the wave instance sort if we have any waves and if our wave instances are greater than our max channels.
-	if (WaveInstances.Num() >= GetMaxChannels())
+	if (WaveInstances.Num() >= 0)
 	{
 		// Helper function for "Sort" (higher priority sorts last).
 		struct FCompareFWaveInstanceByPlayPriority
@@ -3086,14 +3086,14 @@ void FAudioDevice::UpdateActiveSoundPlaybackTime(bool bIsGameTicking)
 	}
 
 }
-
+ 
 void FAudioDevice::StopOldestStoppingSource()
 {
 	if (IsAudioMixerEnabled())
 	{
 		check(!FreeSources.Num());
 
-		FSoundSource* OldestStoppingSource = nullptr;
+		FSoundSource* LowestPriStoppingSource = nullptr;
 		FSoundSource* LowestPriSource = nullptr;
 		FSoundSource* LowestPriNonLoopingSource = nullptr;
 
@@ -3102,15 +3102,15 @@ void FAudioDevice::StopOldestStoppingSource()
 			// Find oldest stopping voice first
 			if (Source->IsStopping())
 			{
-				if (!OldestStoppingSource)
+				if (!LowestPriStoppingSource)
 				{
-					OldestStoppingSource = Source;
+					LowestPriStoppingSource = Source;
 				}
 				else
 				{
-					if (Source->TickCount > OldestStoppingSource->TickCount)
+					if (Source->WaveInstance->GetVolumeWeightedPriority() < LowestPriStoppingSource->WaveInstance->GetVolumeWeightedPriority())
 					{
-						OldestStoppingSource = Source;
+						LowestPriStoppingSource = Source;
 					}
 				}
 			}
@@ -3149,9 +3149,9 @@ void FAudioDevice::StopOldestStoppingSource()
 		}
 
 		// Stop oldest stopping source
-		if (OldestStoppingSource)
+		if (LowestPriStoppingSource)
 		{
-			OldestStoppingSource->StopNow();
+			LowestPriStoppingSource->StopNow();
 		}
 		// If no oldest stopping source, stop oldest one-shot
 		else if (LowestPriNonLoopingSource)

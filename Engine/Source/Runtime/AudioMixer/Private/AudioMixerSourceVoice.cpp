@@ -212,20 +212,6 @@ namespace Audio
 		return bIsActive;
 	}
 
-	bool FMixerSourceVoice::IsDone() const
-	{
-		AUDIO_MIXER_CHECK_GAME_THREAD(MixerDevice);
-
-		return SourceManager->IsDone(SourceId);
-	}
-
-	bool FMixerSourceVoice::IsSourceEffectTailsDone() const
-	{
-		AUDIO_MIXER_CHECK_GAME_THREAD(MixerDevice);
-
-		return SourceManager->IsEffectTailsDone(SourceId);
-	}
-
 	bool FMixerSourceVoice::NeedsSpeakerMap() const
 	{
 		AUDIO_MIXER_CHECK_GAME_THREAD(MixerDevice);
