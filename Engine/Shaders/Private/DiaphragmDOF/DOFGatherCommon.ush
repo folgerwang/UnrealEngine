@@ -104,9 +104,6 @@
 	// Background need coc radius error correction to reduce amount of background leaking.
 	#define CONFIG_COC_RADIUS_CORRECTION 1
 
-	// TODO: investigate this for foreground.
-	#define CONFIG_FULL_KERNEL_CENTER_RANDOM (DIM_GATHER_QUALITY != GATHER_QUALITY_LOW_QUALITY)
-
 #elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
 	#define GATHER_ACCUMULATOR_METHOD (GATHER_ACCUMULATOR_METHOD_SIMPLE)
 
@@ -207,11 +204,6 @@
 // Whether to point mirror the bokeh.
 #ifndef CONFIG_POINT_MIRROR_BOKEH
 	#define CONFIG_POINT_MIRROR_BOKEH 1
-#endif
-
-// Whether to randomise the kernel center on the full displacement.
-#ifndef CONFIG_FULL_KERNEL_CENTER_RANDOM
-	#define CONFIG_FULL_KERNEL_CENTER_RANDOM 0
 #endif
 
 // Uses mirrored sampler when gathering outside viewport rect.
@@ -319,11 +311,14 @@ struct FGatherInputParameters
 	// Sampling density compile time mode. KERNEL_DENSITY_*
 	uint KernelSamplingDensityMode;
 
-	// Runtime toggle when KernelSamplingDensityMode == KERNEL_DENSITY_HIGHER_IN_CENTER_DISK 
-	bool bDoHighDensityGatheringAtCenter[CONFIG_MAX_SAMPLING_DENSITY_CHANGES];
-
 	// Compile time number of rings for density changes.
 	uint DensityChangeRingCount;
+
+	// Compile time max number of density changes allowed.
+	uint MaxDensityChangeCount;
+	
+	// Tile constant about what is the smallest intersectable radius.
+	float MinIntersectableCocRadiusAbs;
 };
 
 /** Informations about a ring. */
