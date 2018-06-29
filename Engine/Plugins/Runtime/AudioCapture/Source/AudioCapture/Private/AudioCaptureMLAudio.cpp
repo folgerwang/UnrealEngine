@@ -1,6 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AudioCaptureInternal.h"
+#include "Misc/CoreDelegates.h"
+
 #if PLATFORM_LUMIN
 
 namespace Audio 
@@ -40,6 +42,8 @@ static void OnAudioCaptureCallback(MLHandle Handle, void* CallbackContext)
 void FAudioCaptureImpl::OnAudioCapture(void* InBuffer, uint32 InBufferFrames, double StreamTime, bool bOverflow)
 {
 	check(Callback);
+
+	FScopeLock ScopeLock(&ApplicationResumeCriticalSection);
 
 	int32 NumSamples = (int32)(InBufferFrames * NumChannels);
 
@@ -98,6 +102,9 @@ bool FAudioCaptureImpl::OpenDefaultCaptureStream(const FAudioCaptureStreamParam&
 		return false;
 	}
 
+	FCoreDelegates::ApplicationWillEnterBackgroundDelegate.AddRaw(this, &FAudioCapture::OnApplicationSuspend);
+	FCoreDelegates::ApplicationHasEnteredForegroundDelegate.AddRaw(this, &FAudioCapture::OnApplicationResume);
+
 	// set up variables to be populated by ML Audio
 	uint32 ChannelCount = NumChannels;
 	MLAudioBufferFormat DefaultBufferFormat;
@@ -152,6 +159,10 @@ bool FAudioCaptureImpl::CloseStream()
 	}
 
 	InputDeviceHandle = ML_INVALID_HANDLE;
+
+	FCoreDelegates::ApplicationHasEnteredForegroundDelegate.RemoveAll(this);
+	FCoreDelegates::ApplicationWillEnterBackgroundDelegate.RemoveAll(this);
+
 	return true;
 }
 
@@ -210,6 +221,27 @@ bool FAudioCaptureImpl::IsCapturing() const
 TUniquePtr<FAudioCaptureImpl> FAudioCapture::CreateImpl()
 {
 	return TUniquePtr<FAudioCaptureImpl>(new FAudioCaptureImpl());
+}
+
+void FAudioCapture::OnApplicationSuspend()
+{
+	FScopeLock ScopeLock(&ApplicationResumeCriticalSection);
+	MLResult Result = MLAudioStopInput(InputDeviceHandle);
+	if (Result != MLResult_Ok)
+	{
+		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioStopInput failed with code %d"), Result);
+		return;
+	}
+}
+
+void FAudioCapture::OnApplicationResume()
+{
+	MLResult Result = MLAudioStartInput(InputDeviceHandle);
+	if (Result != MLResult_Ok)
+	{
+		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioStartInput failed with code %d"), Result);
+		return;
+	}
 }
 
 } // namespace Audio
