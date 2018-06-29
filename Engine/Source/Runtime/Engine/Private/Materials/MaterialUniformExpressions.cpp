@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MaterialShared.cpp: Shared material implementation.
@@ -529,6 +529,9 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 		}
 
 		// Cache external texture uniform expressions.
+		uint32 ImmutableSamplerIndex = 0;
+		FImmutableSamplerState& ImmutableSamplerState = MaterialRenderContext.MaterialRenderProxy->ImmutableSamplerState;
+		ImmutableSamplerState.Reset();
 		for (int32 ExpressionIndex = 0; ExpressionIndex < UniformExternalTextureExpressions.Num(); ExpressionIndex++)
 		{
 			FTextureRHIRef TextureRHI;
@@ -541,6 +544,11 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 			{
 				*ResourceTableTexturePtr = TextureRHI;
 				*ResourceTableSamplerPtr = SamplerStateRHI;
+
+				if (SamplerStateRHI->IsImmutable())
+				{
+					ImmutableSamplerState.ImmutableSamplers[ImmutableSamplerIndex++] = SamplerStateRHI;
+				}
 			}
 			else
 			{

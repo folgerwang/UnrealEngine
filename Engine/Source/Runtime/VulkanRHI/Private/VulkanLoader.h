@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -148,7 +148,9 @@
 	EnumMacro(PFN_vkDestroySwapchainKHR, vkDestroySwapchainKHR) \
 	EnumMacro(PFN_vkGetSwapchainImagesKHR, vkGetSwapchainImagesKHR) \
 	EnumMacro(PFN_vkAcquireNextImageKHR, vkAcquireNextImageKHR) \
-	EnumMacro(PFN_vkQueuePresentKHR, vkQueuePresentKHR)
+	EnumMacro(PFN_vkQueuePresentKHR, vkQueuePresentKHR) \
+	EnumMacro(PFN_vkCreateSamplerYcbcrConversionKHR, vkCreateSamplerYcbcrConversionKHR) \
+	EnumMacro(PFN_vkDestroySamplerYcbcrConversionKHR, vkDestroySamplerYcbcrConversionKHR)
 
 // List all base Vulkan entry points used by Unreal that need to be loaded manually
 #define ENUM_VK_ENTRYPOINTS_BASE(EnumMacro) \

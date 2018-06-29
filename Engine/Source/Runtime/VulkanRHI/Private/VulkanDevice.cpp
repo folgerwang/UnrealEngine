@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanDevice.cpp: Vulkan device RHI implementation.
@@ -209,6 +209,15 @@ void FVulkanDevice::CreateDevice()
 	VkPhysicalDeviceFeatures EnabledFeatures;
 	FVulkanPlatform::RestrictEnabledPhysicalDeviceFeatures(Features, EnabledFeatures);
 	DeviceInfo.pEnabledFeatures = &EnabledFeatures;
+
+	// TODO: Enable color conversion, this should be gated for a check if we're using the ext and moved to a Lumin specific call
+#if PLATFORM_LUMIN
+	VkPhysicalDeviceSamplerYcbcrConversionFeatures SamplerConversion;
+	SamplerConversion.pNext = nullptr;
+	SamplerConversion.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES;
+	SamplerConversion.samplerYcbcrConversion = VK_TRUE;
+	DeviceInfo.pNext = &SamplerConversion;
+#endif
 
 	// Create the device
 	VERIFYVULKANRESULT(VulkanRHI::vkCreateDevice(Gpu, &DeviceInfo, nullptr, &Device));

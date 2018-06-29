@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	RHICommandList.h: RHI Command List definitions for queueing up & executing later.
@@ -2055,6 +2055,14 @@ public:
 	FORCEINLINE_DEBUGGABLE void SetShaderSampler(TShaderRHIParamRef Shader, uint32 SamplerIndex, FSamplerStateRHIParamRef State)
 	{
 		//check(IsOutsideRenderPass());
+		
+		// Immutable samplers can't be set dynamically
+		check(!State->IsImmutable());
+		if (State->IsImmutable())
+		{
+			return;
+		}
+
 		if (Bypass())
 		{
 			CMD_CONTEXT(RHISetShaderSampler)(Shader, SamplerIndex, State);
@@ -2864,6 +2872,13 @@ public:
 	
 	FORCEINLINE_DEBUGGABLE void SetShaderSampler(FComputeShaderRHIParamRef Shader, uint32 SamplerIndex, FSamplerStateRHIParamRef State)
 	{
+		// Immutable samplers can't be set dynamically
+		check(!State->IsImmutable());
+		if (State->IsImmutable())
+		{
+			return;
+		}
+		
 		if (Bypass())
 		{
 			COMPUTE_CONTEXT(RHISetShaderSampler)(Shader, SamplerIndex, State);

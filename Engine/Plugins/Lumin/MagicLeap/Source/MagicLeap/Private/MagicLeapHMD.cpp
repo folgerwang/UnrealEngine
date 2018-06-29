@@ -225,9 +225,23 @@ private:
 #endif
 	}
 
+	TSharedPtr< IHeadMountedDisplayVulkanExtensions, ESPMode::ThreadSafe > GetVulkanExtensions() override
+	{
+#if PLATFORM_LUMIN || PLATFORM_WINDOWS
+		if (!VulkanExt.IsValid())
+		{
+			VulkanExt = MakeShareable(new FMagicLeapHMD::FMagicLeapVulkanExtensions);
+		}
+
+		return VulkanExt;
+#endif
+		return nullptr;
+	}
+
 	bool bIsVDZIEnabled;
 	FMagicLeapAPISetup APISetup;
 	TSharedPtr<FMagicLeapHMD, ESPMode::ThreadSafe> HMD;
+	TSharedPtr<FMagicLeapHMD::FMagicLeapVulkanExtensions, ESPMode::ThreadSafe> VulkanExt;
 };
 
 IMPLEMENT_MODULE(FMagicLeapPlugin, MagicLeap)
@@ -2044,5 +2058,15 @@ FMagicLeapHMD* FMagicLeapHMD::GetHMD()
 	return static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice());
 }
 #endif
+
+bool FMagicLeapHMD::FMagicLeapVulkanExtensions::GetVulkanInstanceExtensionsRequired(TArray<const ANSICHAR*>& Out)
+{
+	return true;
+}
+
+bool FMagicLeapHMD::FMagicLeapVulkanExtensions::GetVulkanDeviceExtensionsRequired(struct VkPhysicalDevice_T *pPhysicalDevice, TArray<const ANSICHAR*>& Out)
+{
+	return FMagicLeapHelperVulkan::GetVulkanDeviceExtensionsRequired(pPhysicalDevice, Out);
+}
 
 #undef LOCTEXT_NAMESPACE

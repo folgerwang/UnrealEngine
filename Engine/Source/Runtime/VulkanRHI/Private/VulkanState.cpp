@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanState.cpp: Vulkan state implementation.
@@ -247,8 +247,9 @@ void FVulkanSamplerState::SetupSamplerCreateInfo(const FSamplerStateInitializerR
 }
 
 
-FVulkanSamplerState::FVulkanSamplerState(const VkSamplerCreateInfo& InInfo, FVulkanDevice& InDevice) :
-	Sampler(VK_NULL_HANDLE)
+FVulkanSamplerState::FVulkanSamplerState(const VkSamplerCreateInfo& InInfo, FVulkanDevice& InDevice, const bool bInIsImmutable)
+	: Sampler(VK_NULL_HANDLE)
+	, bIsImmutable(bInIsImmutable)
 {
 	VERIFYVULKANRESULT(VulkanRHI::vkCreateSampler(InDevice.GetInstanceHandle(), &InInfo, nullptr, &Sampler));
 }
@@ -367,6 +368,41 @@ FSamplerStateRHIRef FVulkanDynamicRHI::RHICreateSamplerState(const FSamplerState
 	}
 }
 
+FSamplerStateRHIRef FVulkanDynamicRHI::RHICreateSamplerState(
+	const FSamplerStateInitializerRHI& Initializer, 
+	const FSamplerYcbcrConversionInitializer& ConversionInitializer)
+{
+	VkSamplerYcbcrConversionCreateInfo ConversionCreateInfo;
+	FMemory::Memzero(&ConversionCreateInfo, sizeof(VkSamplerYcbcrConversionCreateInfo));
+	ConversionCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_CREATE_INFO;
+	ConversionCreateInfo.format = ConversionInitializer.Format;
+	
+	ConversionCreateInfo.components.a = ConversionInitializer.Components.a;
+	ConversionCreateInfo.components.r = ConversionInitializer.Components.r;
+	ConversionCreateInfo.components.g = ConversionInitializer.Components.g;
+	ConversionCreateInfo.components.b = ConversionInitializer.Components.b;
+	
+	ConversionCreateInfo.ycbcrModel = ConversionInitializer.Model;
+	ConversionCreateInfo.ycbcrRange = ConversionInitializer.Range;
+	ConversionCreateInfo.xChromaOffset = ConversionInitializer.XOffset;
+	ConversionCreateInfo.yChromaOffset = ConversionInitializer.YOffset;
+	ConversionCreateInfo.chromaFilter = VK_FILTER_NEAREST;
+	ConversionCreateInfo.forceExplicitReconstruction = VK_FALSE;
+
+	check(ConversionInitializer.Format != VK_FORMAT_UNDEFINED); // No support for VkExternalFormatANDROID yet.
+
+	// TODO: We are leaking the color conversion handle
+	VkSamplerYcbcrConversionInfo ConversionInfo;
+	FMemory::Memzero(&ConversionInfo, sizeof(VkSamplerYcbcrConversionInfo));
+	VERIFYVULKANRESULT(vkCreateSamplerYcbcrConversionKHR(Device->GetInstanceHandle(), &ConversionCreateInfo, nullptr, &ConversionInfo.conversion));
+	ConversionInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO;
+
+	VkSamplerCreateInfo SamplerInfo;
+	FVulkanSamplerState::SetupSamplerCreateInfo(Initializer, *Device, SamplerInfo);
+	SamplerInfo.pNext = &ConversionInfo;
+
+	return new FVulkanSamplerState(SamplerInfo, *Device, true);
+}
 
 FRasterizerStateRHIRef FVulkanDynamicRHI::RHICreateRasterizerState(const FRasterizerStateInitializerRHI& Initializer)
 {

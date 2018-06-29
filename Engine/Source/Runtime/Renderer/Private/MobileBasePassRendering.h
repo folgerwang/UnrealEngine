@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	MobileBasePassRendering.h: base pass rendering definitions.
@@ -686,7 +686,8 @@ public:
 		ERHIFeatureLevel::Type FeatureLevel,
 		bool bInEnableReceiveDecalOutput = false
 		):
-		FMeshDrawingPolicy(nullptr,nullptr,InMaterialResource, InOverrideSettings, InDebugViewShaderMode),
+		// I need InMaterialRenderProxy to find external texture immutable samplers. This was changed to a nullptr for FORT-67473, need to review
+		FMeshDrawingPolicy(nullptr, InMaterialRenderProxy, InMaterialResource, InOverrideSettings, InDebugViewShaderMode),
 		VertexDeclaration(InVertexFactory->GetDeclaration()),
 		LightMapPolicy(InLightMapPolicy),
 		NumMovablePointLights(InNumMovablePointLights),

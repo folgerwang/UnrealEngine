@@ -56,7 +56,8 @@ public class MLSDK : ModuleRules
 						PublicIncludePaths.Add(VirtualDeviceIncludePath);
 					}
 				}
-				PublicIncludePaths.Add(Path.Combine(MLSDKPath, "lumin/usr/include/vulkan"));
+				//PublicIncludePaths.Add(Path.Combine(MLSDKPath, "lumin/usr/include/vulkan"));
+				PublicIncludePaths.Add(Target.UEThirdPartySourceDirectory + "Vulkan/Include/vulkan");
 
 				string MLSDKLibraryPath = "";
 				Ini.TryGetValue("MLSDK", "LibraryPath", out MLSDKLibraryPath);
@@ -74,6 +75,7 @@ public class MLSDK : ModuleRules
 					"ml_dispatch",
 					"ml_ext_logging",
 					"ml_graphics",
+					"ml_graphics_utils",
 					"ml_identity",
 					"ml_input",
 					"ml_lifecycle",

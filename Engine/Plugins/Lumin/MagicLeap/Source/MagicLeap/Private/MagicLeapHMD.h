@@ -17,6 +17,7 @@
 #include "MagicLeapHMDFunctionLibrary.h"
 #include "LuminRuntimeSettings.h"
 #include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
+#include "IHeadMountedDisplayVulkanExtensions.h"
 
 #if WITH_MLSDK
 ML_INCLUDES_START
@@ -111,8 +112,20 @@ public:
 		return false;
 	}
 
-	IStereoLayers* GetStereoLayers() override;
+	/** Vulkan Extensions */
+	class FMagicLeapVulkanExtensions : public IHeadMountedDisplayVulkanExtensions, public TSharedFromThis<FMagicLeapVulkanExtensions, ESPMode::ThreadSafe>
+	{
+	public:
+		FMagicLeapVulkanExtensions() {}
+		virtual ~FMagicLeapVulkanExtensions() {}
 
+		// IHeadMountedDisplayVulkanExtensions
+		virtual bool GetVulkanInstanceExtensionsRequired(TArray<const ANSICHAR*>& Out) override;
+		virtual bool GetVulkanDeviceExtensionsRequired(struct VkPhysicalDevice_T *pPhysicalDevice, TArray<const ANSICHAR*>& Out) override;
+	};
+
+
+	IStereoLayers* GetStereoLayers() override;
 
 	// FXRRenderTargetManager interface
 	virtual void UpdateViewportRHIBridge(bool bUseSeparateRenderTarget, const class FViewport& Viewport, FRHIViewport* const ViewportRHI) override;
