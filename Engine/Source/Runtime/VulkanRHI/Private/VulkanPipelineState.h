@@ -18,10 +18,10 @@
 class FVulkanComputePipeline;
 
 // Common Pipeline state
-class FVulkanCommonPipelineState : public VulkanRHI::FDeviceChild
+class FVulkanCommonPipelineDescriptorState : public VulkanRHI::FDeviceChild
 {
 public:
-	FVulkanCommonPipelineState(FVulkanDevice* InDevice)
+	FVulkanCommonPipelineDescriptorState(FVulkanDevice* InDevice)
 		: VulkanRHI::FDeviceChild(InDevice)
 #if !VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 		, DSRingBuffer(InDevice)
@@ -72,11 +72,11 @@ protected:
 };
 
 
-class FVulkanComputePipelineState : public FVulkanCommonPipelineState
+class FVulkanComputePipelineDescriptorState : public FVulkanCommonPipelineDescriptorState
 {
 public:
-	FVulkanComputePipelineState(FVulkanDevice* InDevice, FVulkanComputePipeline* InComputePipeline);
-	~FVulkanComputePipelineState()
+	FVulkanComputePipelineDescriptorState(FVulkanDevice* InDevice, FVulkanComputePipeline* InComputePipeline);
+	~FVulkanComputePipelineDescriptorState()
 	{
 		ComputePipeline->Release();
 	}
@@ -183,11 +183,11 @@ protected:
 	friend class FVulkanCommandListContext;
 };
 
-class FVulkanGfxPipelineState : public FVulkanCommonPipelineState
+class FVulkanGraphicsPipelineDescriptorState : public FVulkanCommonPipelineDescriptorState
 {
 public:
-	FVulkanGfxPipelineState(FVulkanDevice* InDevice, FVulkanGraphicsPipelineState* InGfxPipeline, FVulkanBoundShaderState* InBSS);
-	~FVulkanGfxPipelineState()
+	FVulkanGraphicsPipelineDescriptorState(FVulkanDevice* InDevice, FVulkanRHIGraphicsPipelineState* InGfxPipeline, FVulkanBoundShaderState* InBSS);
+	~FVulkanGraphicsPipelineDescriptorState()
 	{
 		GfxPipeline->Release();
 		BSS->Release();
@@ -347,7 +347,7 @@ protected:
 	uint64 UniformBuffersWithDataMask[DescriptorSet::NumGfxStages];
 	FVulkanDescriptorSetWriter DSWriter[DescriptorSet::EStage::NumGfxStages];
 
-	FVulkanGraphicsPipelineState* GfxPipeline;
+	FVulkanRHIGraphicsPipelineState* GfxPipeline;
 	FVulkanBoundShaderState* BSS;
 	int32 ID;
 

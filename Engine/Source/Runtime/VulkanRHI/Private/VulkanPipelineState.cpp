@@ -30,8 +30,8 @@ static TAutoConsoleVariable<int32> GAlwaysWriteDS(
 );
 
 
-FVulkanComputePipelineState::FVulkanComputePipelineState(FVulkanDevice* InDevice, FVulkanComputePipeline* InComputePipeline)
-	: FVulkanCommonPipelineState(InDevice)
+FVulkanComputePipelineDescriptorState::FVulkanComputePipelineDescriptorState(FVulkanDevice* InDevice, FVulkanComputePipeline* InComputePipeline)
+	: FVulkanCommonPipelineDescriptorState(InDevice)
 	, PackedUniformBuffersMask(0)
 	, PackedUniformBuffersDirty(0)
 	, ComputePipeline(InComputePipeline)
@@ -47,7 +47,7 @@ FVulkanComputePipelineState::FVulkanComputePipelineState(FVulkanDevice* InDevice
 	InComputePipeline->AddRef();
 }
 
-void FVulkanComputePipelineState::CreateDescriptorWriteInfos()
+void FVulkanComputePipelineDescriptorState::CreateDescriptorWriteInfos()
 {
 	check(DSWriteContainer.DescriptorWrites.Num() == 0);
 
@@ -84,7 +84,7 @@ void FVulkanComputePipelineState::CreateDescriptorWriteInfos()
 #endif
 }
 
-bool FVulkanComputePipelineState::UpdateDescriptorSets(FVulkanCommandListContext* CmdListContext, FVulkanCmdBuffer* CmdBuffer)
+bool FVulkanComputePipelineDescriptorState::UpdateDescriptorSets(FVulkanCommandListContext* CmdListContext, FVulkanCmdBuffer* CmdBuffer)
 {
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 	SCOPE_CYCLE_COUNTER(STAT_VulkanUpdateDescriptorSets);
@@ -159,8 +159,8 @@ bool FVulkanComputePipelineState::UpdateDescriptorSets(FVulkanCommandListContext
 }
 
 
-FVulkanGfxPipelineState::FVulkanGfxPipelineState(FVulkanDevice* InDevice, FVulkanGraphicsPipelineState* InGfxPipeline, FVulkanBoundShaderState* InBSS)
-	: FVulkanCommonPipelineState(InDevice)
+FVulkanGraphicsPipelineDescriptorState::FVulkanGraphicsPipelineDescriptorState(FVulkanDevice* InDevice, FVulkanRHIGraphicsPipelineState* InGfxPipeline, FVulkanBoundShaderState* InBSS)
+	: FVulkanCommonPipelineDescriptorState(InDevice)
 	, GfxPipeline(InGfxPipeline)
 	, BSS(InBSS)
 {
@@ -222,7 +222,7 @@ FVulkanGfxPipelineState::FVulkanGfxPipelineState(FVulkanDevice* InDevice, FVulka
 	BSS->AddRef();
 }
 
-void FVulkanGfxPipelineState::CreateDescriptorWriteInfos()
+void FVulkanGraphicsPipelineDescriptorState::CreateDescriptorWriteInfos()
 {
 	check(DSWriteContainer.DescriptorWrites.Num() == 0);
 
@@ -291,7 +291,7 @@ void FVulkanGfxPipelineState::CreateDescriptorWriteInfos()
 #endif
 }
 
-bool FVulkanGfxPipelineState::UpdateDescriptorSets(FVulkanCommandListContext* CmdListContext, FVulkanCmdBuffer* CmdBuffer)
+bool FVulkanGraphicsPipelineDescriptorState::UpdateDescriptorSets(FVulkanCommandListContext* CmdListContext, FVulkanCmdBuffer* CmdBuffer)
 {
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 	SCOPE_CYCLE_COUNTER(STAT_VulkanUpdateDescriptorSets);
@@ -414,7 +414,7 @@ bool FVulkanGfxPipelineState::UpdateDescriptorSets(FVulkanCommandListContext* Cm
 
 void FVulkanCommandListContext::RHISetGraphicsPipelineState(FGraphicsPipelineStateRHIParamRef GraphicsState)
 {
-	FVulkanGraphicsPipelineState* Pipeline = ResourceCast(GraphicsState);
+	FVulkanRHIGraphicsPipelineState* Pipeline = ResourceCast(GraphicsState);
 	
 	FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
 	if (PendingGfxState->SetGfxPipeline(Pipeline) || !CmdBuffer->bHasPipeline)

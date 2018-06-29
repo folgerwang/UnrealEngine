@@ -43,7 +43,7 @@ struct FSpirv
 
 		FEntry(const FString& InName, int32 InBinding)
 			: Name(InName)
-			, Binding(-InBinding)
+			, Binding(InBinding)
 		{
 		}
 

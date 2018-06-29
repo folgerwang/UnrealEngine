@@ -49,9 +49,8 @@ void FVulkanGPUTiming::CalibrateTimers(FVulkanCommandListContext& InCmdContext)
 	// TODO: Implement VULKAN_USE_NEW_QUERIES version
 
 #else
-
 	FVulkanDevice* Device = InCmdContext.GetDevice();
-	FOLDVulkanRenderQuery* TimestampQuery = new FOLDVulkanRenderQuery(Device, RQT_AbsoluteTime);
+	FVulkanRenderQuery* TimestampQuery = new FVulkanRenderQuery(RQT_AbsoluteTime);
 
 	{
 		FVulkanCmdBuffer* CmdBuffer = InCmdContext.GetCommandBufferManager()->GetUploadCmdBuffer();
@@ -99,13 +98,8 @@ void FVulkanGPUTiming::Initialize()
 	{
 		for (int32 Index = 0; Index < MaxTimers; ++Index)
 		{
-#if VULKAN_USE_NEW_QUERIES
-			Timers[Index].Begin = new FVulkanRenderQuery(CmdContext->GetDevice(), RQT_AbsoluteTime);
-			Timers[Index].End = new FVulkanRenderQuery(CmdContext->GetDevice(), RQT_AbsoluteTime);
-#else
-			Timers[Index].Begin = new FOLDVulkanRenderQuery(CmdContext->GetDevice(), RQT_AbsoluteTime);
-			Timers[Index].End = new FOLDVulkanRenderQuery(CmdContext->GetDevice(), RQT_AbsoluteTime);
-#endif
+			Timers[Index].Begin = new FVulkanRenderQuery(RQT_AbsoluteTime);
+			Timers[Index].End = new FVulkanRenderQuery(RQT_AbsoluteTime);
 		}
 	}
 }
@@ -208,7 +202,7 @@ uint64 FVulkanGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 					int i = 0;
 					++i;
 				}
-				else if (Timers[TimerIndex].Begin->HasQueryBeenEmitted() && Timers[TimerIndex].End->HasQueryBeenEmitted())
+				else if (Timers[TimerIndex].Begin->HasQueryBeenEnded() && Timers[TimerIndex].End->HasQueryBeenEnded())
 #endif
 				{
 #if VULKAN_USE_NEW_QUERIES
@@ -241,7 +235,7 @@ uint64 FVulkanGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 		{
 			TimerIndex = CurrentTimerIndex;
 #if VULKAN_USE_NEW_QUERIES
-			check(Timers[TimerIndex].Begin->HasQueryBeenEmitted() && Timers[TimerIndex].End->HasQueryBeenEmitted());
+			check(Timers[TimerIndex].Begin->HasQueryBeenEnded() && Timers[TimerIndex].End->HasQueryBeenEnded());
 #endif
 
 			if (Timers[TimerIndex].Begin->GetResult(Device, BeginTime, true))

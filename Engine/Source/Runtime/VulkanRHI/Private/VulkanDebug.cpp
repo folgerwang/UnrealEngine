@@ -142,10 +142,7 @@ static VkBool32 VKAPI_PTR DebugReportFunction(
 static VkBool32 DebugUtilsCallback(VkDebugUtilsMessageSeverityFlagBitsEXT MsgSeverity, VkDebugUtilsMessageTypeFlagsEXT MsgType,
 	const VkDebugUtilsMessengerCallbackDataEXT* CallbackData, void* UserData)
 {
-	if (CallbackData->pMessageIdName)
-	{
-	}
-	else
+	if (!CallbackData->pMessageIdName)
 	{
 		if (MsgType == 2 && CallbackData->messageIdNumber == 5)
 		{
@@ -191,11 +188,13 @@ static VkBool32 DebugUtilsCallback(VkDebugUtilsMessageSeverityFlagBitsEXT MsgSev
 		Severity = TEXT("Verbose");
 	}
 
+	uint32 MsgBucket = 0;
 	const TCHAR* Type = TEXT("");
 	if (MsgType & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT)
 	{
 		ensure((MsgType & ~VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) == 0);
 		Type = TEXT(" General");
+		MsgBucket = 1;
 	}
 	else if (MsgType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
 	{
@@ -203,21 +202,24 @@ static VkBool32 DebugUtilsCallback(VkDebugUtilsMessageSeverityFlagBitsEXT MsgSev
 		{
 			ensure((MsgType & ~(VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)) == 0);
 			Type = TEXT("Perf/Validation");
+			MsgBucket = 2;
 		}
 		else
 		{
 			ensure((MsgType & ~VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) == 0);
 			Type = TEXT("Validation");
+			MsgBucket = 3;
 		}
 	}
 	else if (MsgType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
 	{
 		ensure((MsgType & ~VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) == 0);
 		Type = TEXT("Perf");
+		MsgBucket = 4;
 	}
 
-	static TMap<const char*, TSet<int32>> SeenCodes;
-	if (GCVarUniqueValidationMessages->GetInt() == 0 || !SeenCodes.FindOrAdd(CallbackData->pMessageIdName).Contains(CallbackData->messageIdNumber))
+	static TStaticArray<TSet<int32>, 10> SeenCodes;
+	if (GCVarUniqueValidationMessages->GetInt() == 0 || !SeenCodes[MsgBucket].Contains(CallbackData->messageIdNumber))
 	{
 		if (CallbackData->pMessageIdName)
 		{
@@ -229,7 +231,7 @@ static VkBool32 DebugUtilsCallback(VkDebugUtilsMessageSeverityFlagBitsEXT MsgSev
 		}
 		if (GCVarUniqueValidationMessages->GetInt() == 1)
 		{
-			SeenCodes.Find(CallbackData->pMessageIdName)->Add(CallbackData->messageIdNumber);
+			SeenCodes[MsgBucket].Add(CallbackData->messageIdNumber);
 		}
 	}
 

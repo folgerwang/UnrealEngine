@@ -32,10 +32,10 @@ public:
 protected:
 	FVulkanDevice* Device;
 	VkPipeline Pipeline;
-	FVulkanLayout* Layout; /*owned by FVulkanPipelineStateCache, do not delete yourself !*/
+	FVulkanLayout* Layout; /*owned by FVulkanPipelineStateCacheManager, do not delete yourself !*/
 
-	friend class FVulkanPipelineStateCache;
-	friend class FVulkanGraphicsPipelineState;
+	friend class FVulkanPipelineStateCacheManager;
+	friend class FVulkanRHIGraphicsPipelineState;
 };
 
 class FVulkanComputePipeline : public FVulkanPipeline, public FRHIComputePipelineState
@@ -62,7 +62,7 @@ public:
 protected:
 	FVulkanComputeShader* ComputeShader;
 
-	friend class FVulkanPipelineStateCache;
+	friend class FVulkanPipelineStateCacheManager;
 };
 
 class FVulkanGfxPipeline : public FVulkanPipeline, public FRHIResource
@@ -93,30 +93,30 @@ private:
 	FVulkanVertexInputStateInfo VertexInputState;
 };
 
-class FVulkanGraphicsPipelineState : public FRHIGraphicsPipelineState
+class FVulkanRHIGraphicsPipelineState : public FRHIGraphicsPipelineState
 {
 public:
-	FVulkanGraphicsPipelineState(const FGraphicsPipelineStateInitializer& Initializer, FVulkanGfxPipeline* InPipeline)
+	FVulkanRHIGraphicsPipelineState(const FGraphicsPipelineStateInitializer& Initializer, FVulkanGfxPipeline* InPipeline)
 		: PipelineStateInitializer(Initializer), Pipeline(InPipeline)
 	{}
 
-	~FVulkanGraphicsPipelineState();
+	~FVulkanRHIGraphicsPipelineState();
 
 	FGraphicsPipelineStateInitializer PipelineStateInitializer;
 	TRefCountPtr<FVulkanGfxPipeline> Pipeline;
 };
 
-class FVulkanPipelineStateCache
+class FVulkanPipelineStateCacheManager
 {
 public:
-	inline FVulkanGraphicsPipelineState* FindInRuntimeCache(const FGraphicsPipelineStateInitializer& Initializer, uint32& OutHash)
+	inline FVulkanRHIGraphicsPipelineState* FindInRuntimeCache(const FGraphicsPipelineStateInitializer& Initializer, uint32& OutHash)
 	{
 		//#todo-rco: Improve hash: Don't use BSS pointers; skip load/store actions?? etc
 		OutHash = FCrc::MemCrc32(&Initializer, sizeof(Initializer));
 		
 		{
 			FScopeLock Lock(&InitializerToPipelineMapCS);
-			FVulkanGraphicsPipelineState** Found = InitializerToPipelineMap.Find(OutHash);
+			FVulkanRHIGraphicsPipelineState** Found = InitializerToPipelineMap.Find(OutHash);
 			if (Found)
 			{
 				return *Found;
@@ -132,8 +132,8 @@ public:
 	void InitAndLoad(const TArray<FString>& CacheFilenames);
 	void Save(const FString& CacheFilename);
 
-	FVulkanPipelineStateCache(FVulkanDevice* InParent);
-	~FVulkanPipelineStateCache();
+	FVulkanPipelineStateCacheManager(FVulkanDevice* InParent);
+	~FVulkanPipelineStateCacheManager();
 
 	void RebuildCache();
 
@@ -540,7 +540,7 @@ private:
 	FVulkanDevice* Device;
 
 	// Key is a hash of the PSO, which is based off shader pointers
-	TMap<uint32, FVulkanGraphicsPipelineState*> InitializerToPipelineMap;
+	TMap<uint32, FVulkanRHIGraphicsPipelineState*> InitializerToPipelineMap;
 	FCriticalSection InitializerToPipelineMapCS;
 
 	TMap<FVulkanComputeShader*, FVulkanComputePipeline*> ComputeShaderToPipelineMap;
@@ -555,7 +555,7 @@ private:
 
 	FShaderUCodeCache ShaderCache;
 
-	FVulkanGraphicsPipelineState* CreateAndAdd(const FGraphicsPipelineStateInitializer& PSOInitializer, uint32 PSOInitializerHash, FGfxPipelineEntry* GfxEntry);
+	FVulkanRHIGraphicsPipelineState* CreateAndAdd(const FGraphicsPipelineStateInitializer& PSOInitializer, uint32 PSOInitializerHash, FGfxPipelineEntry* GfxEntry);
 	void CreateGfxPipelineFromEntry(const FGfxPipelineEntry* GfxEntry, FVulkanGfxPipeline* Pipeline);
 	FGfxPipelineEntry* CreateGfxEntry(const FGraphicsPipelineStateInitializer& PSOInitializer);
 	void CreatGfxEntryRuntimeObjects(FGfxPipelineEntry* GfxEntry);
@@ -605,7 +605,7 @@ private:
 	TMap<FVulkanDescriptorSetsLayoutInfo, FVulkanLayout*> LayoutMap;
 	FCriticalSection LayoutMapCS;
 
-	FVulkanGraphicsPipelineState* FindInLoadedLibrary(const FGraphicsPipelineStateInitializer& PSOInitializer, uint32 PSOInitializerHash, const FShaderHashes& ShaderHashes, FGfxPipelineEntry*& outGfxEntry);
+	FVulkanRHIGraphicsPipelineState* FindInLoadedLibrary(const FGraphicsPipelineStateInitializer& PSOInitializer, uint32 PSOInitializerHash, const FShaderHashes& ShaderHashes, FGfxPipelineEntry*& outGfxEntry);
 	
 	friend class FVulkanDynamicRHI;
 
@@ -649,5 +649,5 @@ struct TVulkanResourceTraits<class FRHIComputePipelineState>
 template<>
 struct TVulkanResourceTraits<FRHIGraphicsPipelineState>
 {
-	typedef FVulkanGraphicsPipelineState TConcreteType;
+	typedef FVulkanRHIGraphicsPipelineState TConcreteType;
 };

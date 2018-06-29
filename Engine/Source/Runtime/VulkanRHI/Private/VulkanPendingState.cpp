@@ -401,7 +401,7 @@ FVulkanPendingComputeState::~FVulkanPendingComputeState()
 {
 	for (auto& Pair : PipelineStates)
 	{
-		FVulkanComputePipelineState* State = Pair.Value;
+		FVulkanComputePipelineDescriptorState* State = Pair.Value;
 		delete State;
 	}
 }
@@ -499,7 +499,7 @@ FVulkanPendingGfxState::~FVulkanPendingGfxState()
 {
 	for (auto& Pair : PipelineStates)
 	{
-		FVulkanGfxPipelineState* State = Pair.Value;
+		FVulkanGraphicsPipelineDescriptorState* State = Pair.Value;
 		delete State;
 	}
 }
