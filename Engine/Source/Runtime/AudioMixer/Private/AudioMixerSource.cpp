@@ -25,6 +25,7 @@ namespace Audio
 		, MixerSourceBuffer(nullptr)
 		, MixerSourceVoice(nullptr)		
 		, PreviousAzimuth(-1.0f)
+		, InitializationState(EMixerSourceInitializationState::NotInitialized)
 		, bPlayedCachedBuffer(false)
 		, bPlaying(false)
 		, bLoopCallback(false)
@@ -285,11 +286,15 @@ namespace Audio
 
 			if (MixerSourceVoice->Init(InitParams))
 			{
-				bInitialized = true;
+				InitializationState = EMixerSourceInitializationState::Initialized;
 
 				Update();
 
 				return true;
+			}
+			else
+			{
+				InitializationState = EMixerSourceInitializationState::NotInitialized;
 			}
 		}
 		return false;
@@ -301,7 +306,7 @@ namespace Audio
 
 		LLM_SCOPE(ELLMTag::AudioMixer);
 
-		if (!WaveInstance || !MixerSourceVoice || Paused || !bInitialized)
+		if (!WaveInstance || !MixerSourceVoice || Paused || InitializationState == EMixerSourceInitializationState::NotInitialized)
 		{
 			return;
 		}
@@ -332,7 +337,7 @@ namespace Audio
 		}
 
 		// We are not initialized yet. We won't be until the sound file finishes loading and parsing the header.
-		bInitialized = false;
+		InitializationState = EMixerSourceInitializationState::Initializing;
 
 		//  Reset so next instance will warn if algorithm changes in-flight
 		bEditorWarnedChangedSpatialization = false;
@@ -438,6 +443,11 @@ namespace Audio
 		return false;
 	}
 
+	bool FMixerSource::IsInitialized() const
+	{
+		return InitializationState == EMixerSourceInitializationState::Initialized;
+	}
+
 	void FMixerSource::Play()
 	{
 		if (!WaveInstance)
@@ -447,7 +457,7 @@ namespace Audio
 
 		// It's possible if Pause and Play are called while a sound is async initializing. In this case
 		// we'll just not actually play the source here. Instead we'll call play when the sound finishes loading.
-		if (MixerSourceVoice && bInitialized)
+		if (MixerSourceVoice && InitializationState == EMixerSourceInitializationState::Initialized)
 		{
 			MixerSourceVoice->Play();
 		}
@@ -508,7 +518,8 @@ namespace Audio
 
 		// Immediately stop the sound source
 
-		bInitialized = false;
+		InitializationState = EMixerSourceInitializationState::NotInitialized;
+		
 		IStreamingManager::Get().GetAudioStreamingManager().RemoveStreamingSoundSource(this);
 
 		bIsStopping = false;
@@ -552,9 +563,14 @@ namespace Audio
 			return false;
 		}
 
-		if (!bInitialized)
+		if (InitializationState == EMixerSourceInitializationState::NotInitialized)
 		{
 			return true;
+		}
+
+		if (InitializationState == EMixerSourceInitializationState::Initializing)
+		{
+			return false;
 		}
 
 		if (WaveInstance && MixerSourceVoice)

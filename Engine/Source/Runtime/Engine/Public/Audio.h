@@ -644,7 +644,7 @@ public:
 	virtual bool Init(FWaveInstance* InWaveInstance) = 0;
 
 	/** Returns whether or not the sound source has initialized. */
-	bool IsInitialized() const { return bInitialized; };
+	virtual bool IsInitialized() const { return bInitialized; };
 
 	/** Updates the sound source. */
 	virtual void Update() = 0;

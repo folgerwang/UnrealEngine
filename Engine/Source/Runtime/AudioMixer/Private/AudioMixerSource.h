@@ -14,6 +14,14 @@ namespace Audio
 	class FMixerBuffer;
 	class ISourceListener;
 
+	/** State to track initialization stages. */
+	enum class EMixerSourceInitializationState : uint8
+	{
+		NotInitialized,
+		Initializing,
+		Initialized
+	};
+
 	/** 
 	 * FMixerSource
 	 * Class which implements a sound source object for the audio mixer module.
@@ -33,6 +41,7 @@ namespace Audio
 		virtual void Update() override;
 		virtual bool PrepareForInitialization(FWaveInstance* InWaveInstance) override;
 		virtual bool IsPreparedToInit() override;
+		virtual bool IsInitialized() const override;
 		virtual void Play() override;
 		virtual void Stop() override;
 		virtual void StopNow() override;
@@ -115,6 +124,8 @@ namespace Audio
 		float PreviousAzimuth;
 
 		FSpatializationParams SpatializationParams;
+
+		EMixerSourceInitializationState InitializationState;
 
 		FThreadSafeBool bPlayedCachedBuffer;
 		FThreadSafeBool bPlaying;
