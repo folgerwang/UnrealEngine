@@ -230,6 +230,15 @@ void FActorGroupDetailsCustomization::HandleRecordingGroupNameCommitted(const FT
 			// Re-assign the name of the recording group and update the sequence.
 			CurrentGroup->GroupName = NewName;
 			CurrentGroup->SequenceName = NewNameAsString;
+			CurrentGroup->TargetLevelSequence = nullptr;
+
+			for (UActorRecording* ActorRecording : CurrentGroup->RecordedActors)
+			{
+				if (ActorRecording != nullptr)
+				{
+					ActorRecording->TakeNumber = 1;
+				}
+			}
 
 			// cbb: Force load to update sequence names, etc
 			SequenceRecorder.Pin()->HandleLoadRecordingActorGroup(NewName);

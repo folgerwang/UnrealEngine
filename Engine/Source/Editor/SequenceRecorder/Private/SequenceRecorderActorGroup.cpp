@@ -10,6 +10,20 @@ void USequenceRecorderActorGroup::PostEditChangeChainProperty(struct FPropertyCh
 
 	if (PropertyChangedEvent.Property)
 	{
+		if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USequenceRecorderActorGroup, SequenceName))
+		{
+			GroupName = *SequenceName;
+			TargetLevelSequence = nullptr;
+
+			for (UActorRecording* ActorRecording : RecordedActors)
+			{
+				if (ActorRecording != nullptr)
+				{
+					ActorRecording->TakeNumber = 1;
+				}
+			}
+		}
+
 		if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USequenceRecorderActorGroup, SequenceName) ||
 			PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USequenceRecorderActorGroup, SequenceRecordingBasePath))
 		{
