@@ -168,7 +168,7 @@ EAbcImportError FAbcFile::Import(UAbcImportSettings* InImportSettings)
 	}
 
 	SecondsPerFrame = TimeStep;
-	ImportLength = (FMath::Max(StartFrameIndex, 0) + FrameSpan) * TimeStep;
+	ImportLength = FrameSpan * TimeStep;
 
 	// If the user opted to skip empty frames out of the specified frame range, calculate the time offset
 	if (SamplingSettings.bSkipEmpty)
