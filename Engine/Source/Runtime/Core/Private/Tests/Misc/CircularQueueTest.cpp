@@ -60,6 +60,26 @@ bool FCircularQueueTest::RunTest(const FString& Parameters)
 		TestFalse(TEXT("A queue that had all items removed must not be full"), Queue.IsFull());
 	}
 
+	// queue with index wrapping around
+	{
+		TCircularQueue<int32> Queue(QueueSize);
+
+		//Fill queue
+		for (int32 Index = 0; Index < QueueSize - 1; ++Index)
+		{
+			TestTrue(TEXT("Adding to non-full queue must succeed"), Queue.Enqueue(Index));
+		}
+		
+		int32 Value = 0;
+		const int32 ExpectedSize = QueueSize - 1;
+		for (int32 Index = 0; Index < QueueSize; ++Index)
+		{
+			TestEqual(TEXT("Number of elements must be valid for all permutation of Tail and Head"), Queue.Count(), ExpectedSize);
+			TestTrue(TEXT("Removing from a non-empty queue must succeed"), Queue.Dequeue(Value));
+			TestTrue(TEXT("Adding to non-full queue must succeed"), Queue.Enqueue(Index));
+		}
+	}
+
 	return true;
 }
 
