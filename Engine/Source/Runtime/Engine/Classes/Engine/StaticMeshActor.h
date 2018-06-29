@@ -37,6 +37,7 @@ public:
 	ENavDataGatheringMode NavigationGeometryGatheringMode;
 
 	/** Function to change mobility type */
+	UFUNCTION(BlueprintCallable, Category = Mobility)
 	void SetMobility(EComponentMobility::Type InMobility);
 
 	//~ Begin AActor Interface
