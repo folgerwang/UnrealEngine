@@ -13,10 +13,11 @@
 #include "NiagaraDataInterfaceSkeletalMesh.h"
 #include "EngineModule.h"
 
-FNiagaraViewDataMgr GNiagaraViewDataManager;
+TGlobalResource<FNiagaraViewDataMgr> GNiagaraViewDataManager;
 
-FNiagaraViewDataMgr::FNiagaraViewDataMgr()
-	: SceneDepthTexture(nullptr)
+FNiagaraViewDataMgr::FNiagaraViewDataMgr() 
+	: FRenderResource()
+	, SceneDepthTexture(nullptr)
 	, SceneNormalTexture(nullptr)
 	, ViewUniformBuffer(nullptr)
 {
@@ -32,10 +33,20 @@ void FNiagaraViewDataMgr::Init()
 
 void FNiagaraViewDataMgr::Shutdown()
 {
-	GNiagaraViewDataManager.SceneDepthTexture = nullptr;
-	GNiagaraViewDataManager.SceneNormalTexture = nullptr;
-	GNiagaraViewDataManager.ViewUniformBuffer = nullptr;
-	GNiagaraViewDataManager.SceneTexturesUniformParams.SafeRelease();
+	GNiagaraViewDataManager.ReleaseDynamicRHI();
+}
+
+void FNiagaraViewDataMgr::InitDynamicRHI()
+{
+
+}
+
+void FNiagaraViewDataMgr::ReleaseDynamicRHI()
+{
+	SceneDepthTexture = nullptr;
+	SceneNormalTexture = nullptr;
+	ViewUniformBuffer = nullptr;
+	SceneTexturesUniformParams.SafeRelease();
 }
 
 FNiagaraWorldManager::FNiagaraWorldManager(UWorld* InWorld)
