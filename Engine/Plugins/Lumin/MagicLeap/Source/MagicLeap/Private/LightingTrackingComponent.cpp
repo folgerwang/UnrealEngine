@@ -332,9 +332,9 @@ public:
 };
 
 ULightingTrackingComponent::ULightingTrackingComponent()
-	: Impl(nullptr)
-	, UseGlobalAmbience(false)
+	: UseGlobalAmbience(false)
 	, UseColorTemp(false)
+	, Impl(nullptr)
 	//, UseDynamicAmbientCubeMap(false)
 {
 	PrimaryComponentTick.TickGroup = TG_PrePhysics;
