@@ -734,7 +734,7 @@ void FVulkanDevice::InitGPU(int32 DeviceIndex)
 	DescriptorPoolsManager = new FVulkanDescriptorPoolsManager();
 	DescriptorPoolsManager->Init(this);
 #endif
-	PipelineStateCache = new FVulkanPipelineStateCache(this);
+	PipelineStateCache = new FVulkanPipelineStateCacheManager(this);
 
 	TArray<FString> CacheFilenames;
 	FString StagedCacheDirectory = FPaths::ProjectDir() / TEXT("Build") / TEXT("ShaderCaches") / FPlatformProperties::IniPlatformName();
@@ -856,13 +856,13 @@ void FVulkanDevice::Destroy()
 
 	delete TimestampQueryPool;
 #else
-	for (FOLDVulkanQueryPool* QueryPool : OcclusionQueryPools)
+	for (FVulkanQueryPool* QueryPool : OcclusionQueryPools)
 	{
 		QueryPool->Destroy();
 		delete QueryPool;
 	}
 
-	for (FOLDVulkanQueryPool* QueryPool : TimestampQueryPools)
+	for (FVulkanQueryPool* QueryPool : TimestampQueryPools)
 	{
 		QueryPool->Destroy();
 		delete QueryPool;
@@ -999,7 +999,7 @@ void FVulkanDevice::SubmitCommandsAndFlushGPU()
 	//#todo-rco: Process other contexts first!
 }
 
-void FVulkanDevice::NotifyDeletedGfxPipeline(class FVulkanGraphicsPipelineState* Pipeline)
+void FVulkanDevice::NotifyDeletedGfxPipeline(class FVulkanRHIGraphicsPipelineState* Pipeline)
 {
 	if (ComputeContext != ImmediateContext)
 	{

@@ -141,7 +141,7 @@ protected:
 		Extent.Extent3D.depth = 0;
 	}
 
-	friend class FVulkanPipelineStateCache;
+	friend class FVulkanPipelineStateCacheManager;
 
 private:
 	void CreateRenderPassHash();
@@ -262,7 +262,7 @@ public:
 
 private:
 	friend class FTransitionAndLayoutManager;
-	friend class FVulkanPipelineStateCache;
+	friend class FVulkanPipelineStateCacheManager;
 
 	FVulkanRenderPass(FVulkanDevice& Device, const FVulkanRenderTargetLayout& RTLayout);
 	~FVulkanRenderPass();

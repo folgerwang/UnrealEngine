@@ -525,6 +525,8 @@ void FVulkanViewport::CreateSwapchain()
 				VulkanRHI::ImagePipelineBarrier(CmdBuffer->GetHandle(), Images[Index], EImageLayoutBarrier::TransferDest, EImageLayoutBarrier::ColorAttachment, Range);
 			}
 		}
+
+		Device->GetImmediateContext().GetCommandBufferManager()->SubmitUploadCmdBuffer();
 	}
 	else
 	{

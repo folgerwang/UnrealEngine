@@ -10,7 +10,7 @@
 
 class FVulkanCmdBuffer;
 class FVulkanRenderQuery;
-class FOLDVulkanRenderQuery;
+class FVulkanRenderQuery;
 class FVulkanCommandListContext;
 
 class FVulkanGPUTiming : public FGPUTiming
@@ -89,12 +89,9 @@ private:
 		uint64 BeginFenceCounter = 0;
 		FVulkanCmdBuffer* EndCmdBuffer = nullptr;
 		uint64 EndFenceCounter = 0;
+#endif
 		FVulkanRenderQuery* Begin;
 		FVulkanRenderQuery* End;
-#else
-		FOLDVulkanRenderQuery* Begin;
-		FOLDVulkanRenderQuery* End;
-#endif
 	};
 	FBeginEndPair Timers[MaxTimers];
 };

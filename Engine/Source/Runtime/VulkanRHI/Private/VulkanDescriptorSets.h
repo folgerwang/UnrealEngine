@@ -107,7 +107,7 @@ protected:
 #endif
 	void AddDescriptor(int32 DescriptorSetIndex, const VkDescriptorSetLayoutBinding& Descriptor, int32 BindingIndex);
 
-	friend class FVulkanPipelineStateCache;
+	friend class FVulkanPipelineStateCacheManager;
 };
 
 // The actual run-time descriptor set layouts
@@ -443,7 +443,7 @@ protected:
 
 	friend class FVulkanComputePipeline;
 	friend class FVulkanGfxPipeline;
-	friend class FVulkanPipelineStateCache;
+	friend class FVulkanPipelineStateCacheManager;
 };
 
 #if !VULKAN_USE_DESCRIPTOR_POOL_MANAGER
@@ -496,8 +496,8 @@ protected:
 
 	FOLDVulkanDescriptorSets* RequestDescriptorSets(FVulkanCommandListContext* Context, FVulkanCmdBuffer* CmdBuffer, const FVulkanLayout& Layout);
 
-	friend class FVulkanComputePipelineState;
-	friend class FVulkanGfxPipelineState;
+	friend class FVulkanComputePipelineDescriptorState;
+	friend class FVulkanGraphicsPipelineDescriptorState;
 };
 #endif
 
@@ -631,6 +631,6 @@ protected:
 	uint32 SetupDescriptorWrites(const FNEWVulkanShaderDescriptorInfo& Info, VkWriteDescriptorSet* InWriteDescriptors, VkDescriptorImageInfo* InImageInfo, 
 		VkDescriptorBufferInfo* InBufferInfo, uint8* InBindingToDynamicOffsetMap);
 
-	friend class FVulkanComputePipelineState;
-	friend class FVulkanGfxPipelineState;
+	friend class FVulkanComputePipelineDescriptorState;
+	friend class FVulkanGraphicsPipelineDescriptorState;
 };

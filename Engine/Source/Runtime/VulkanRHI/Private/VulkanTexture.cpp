@@ -1881,7 +1881,7 @@ static VkMemoryRequirements FindOrCalculateTexturePlatformSize(FVulkanDevice* De
 	VkMemoryRequirements* Found = nullptr;
 	{
 		FScopeLock Lock(&TextureSizesLock);
-		TextureSizes.Find(Hash);
+		Found = TextureSizes.Find(Hash);
 		if (Found)
 		{
 			return *Found;

@@ -616,7 +616,7 @@ void FVulkanCommandListContext::RHISetShaderUniformBuffer(FComputeShaderRHIParam
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 	SCOPE_CYCLE_COUNTER(STAT_VulkanSetUniformBufferTime);
 #endif
-	FVulkanComputePipelineState& State = *PendingComputeState->CurrentState;
+	FVulkanComputePipelineDescriptorState& State = *PendingComputeState->CurrentState;
 
 	// Walk through all resources to set all appropriate states
 	FVulkanComputeShader* Shader = ResourceCast(ComputeShaderRHI);

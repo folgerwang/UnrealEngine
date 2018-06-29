@@ -14,7 +14,7 @@ class FVulkanDescriptorPoolsManager;
 #endif
 class FVulkanCommandListContextImmediate;
 class FVulkanOcclusionQueryPool;
-class FOLDVulkanQueryPool;
+class FVulkanQueryPool;
 
 class FVulkanDevice
 {
@@ -228,15 +228,15 @@ public:
 	void SubmitCommandsAndFlushGPU();
 
 #if VULKAN_USE_NEW_QUERIES
-	FVulkanOcclusionQueryPool* PrepareOcclusionQueryPool(uint32 NumQueries);
+	FVulkanOcclusionQueryPool* AcquireOcclusionQueryPool(uint32 NumQueries);
 	FVulkanTimestampQueryPool* PrepareTimestampQueryPool(bool& bOutRequiresReset);
 #else
-	inline FOLDVulkanBufferedQueryPool& FindAvailableQueryPool(TArray<FOLDVulkanBufferedQueryPool*>& Pools, VkQueryType QueryType)
+	inline FVulkanBufferedQueryPool& FindAvailableQueryPool(TArray<FVulkanBufferedQueryPool*>& Pools, VkQueryType QueryType)
 	{
 		// First try to find An available one
 		for (int32 Index = 0; Index < Pools.Num(); ++Index)
 		{
-			FOLDVulkanBufferedQueryPool* Pool = Pools[Index];
+			FVulkanBufferedQueryPool* Pool = Pools[Index];
 			if (Pool->HasRoom())
 			{
 				return *Pool;
@@ -244,26 +244,26 @@ public:
 		}
 
 		// None found, so allocate new Pool
-		FOLDVulkanBufferedQueryPool* Pool = new FOLDVulkanBufferedQueryPool(this, QueryType == VK_QUERY_TYPE_OCCLUSION ? NUM_OCCLUSION_QUERIES_PER_POOL : NUM_TIMESTAMP_QUERIES_PER_POOL, QueryType);
+		FVulkanBufferedQueryPool* Pool = new FVulkanBufferedQueryPool(this, QueryType == VK_QUERY_TYPE_OCCLUSION ? NUM_OCCLUSION_QUERIES_PER_POOL : NUM_TIMESTAMP_QUERIES_PER_POOL, QueryType);
 		Pools.Add(Pool);
 		return *Pool;
 	}
-	inline FOLDVulkanBufferedQueryPool& FindAvailableOcclusionQueryPool()
+	inline FVulkanBufferedQueryPool& FindAvailableOcclusionQueryPool()
 	{
 		return FindAvailableQueryPool(OcclusionQueryPools, VK_QUERY_TYPE_OCCLUSION);
 	}
 
-	inline FOLDVulkanBufferedQueryPool& FindAvailableTimestampQueryPool()
+	inline FVulkanBufferedQueryPool& FindAvailableTimestampQueryPool()
 	{
 		return FindAvailableQueryPool(TimestampQueryPools, VK_QUERY_TYPE_TIMESTAMP);
 	}
 #endif
-	inline class FVulkanPipelineStateCache* GetPipelineStateCache()
+	inline class FVulkanPipelineStateCacheManager* GetPipelineStateCache()
 	{
 		return PipelineStateCache;
 	}
 
-	void NotifyDeletedGfxPipeline(class FVulkanGraphicsPipelineState* Pipeline);
+	void NotifyDeletedGfxPipeline(class FVulkanRHIGraphicsPipelineState* Pipeline);
 	void NotifyDeletedComputePipeline(class FVulkanComputePipeline* Pipeline);
 
 	FVulkanCommandListContext* AcquireDeferredContext();
@@ -344,8 +344,8 @@ private:
 	TArray<FVulkanOcclusionQueryPool*> OcclusionQueryPools;
 	FVulkanTimestampQueryPool* TimestampQueryPool = nullptr;
 #else
-	TArray<FOLDVulkanBufferedQueryPool*> OcclusionQueryPools;
-	TArray<FOLDVulkanBufferedQueryPool*> TimestampQueryPools;
+	TArray<FVulkanBufferedQueryPool*> OcclusionQueryPools;
+	TArray<FVulkanBufferedQueryPool*> TimestampQueryPools;
 #endif
 
 	FVulkanQueue* GfxQueue;
@@ -398,6 +398,6 @@ private:
 	friend class FVulkanCommandListContext;
 #endif
 
-	class FVulkanPipelineStateCache* PipelineStateCache;
+	class FVulkanPipelineStateCacheManager* PipelineStateCache;
 	friend class FVulkanDynamicRHI;
 };

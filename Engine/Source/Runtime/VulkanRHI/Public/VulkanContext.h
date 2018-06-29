@@ -332,7 +332,7 @@ public:
 	{
 		return Device;
 	}
-	void EndRenderQueryInternal(FVulkanCmdBuffer* CmdBuffer, FOLDVulkanRenderQuery* Query);
+	void EndRenderQueryInternal(FVulkanCmdBuffer* CmdBuffer, FVulkanRenderQuery* Query);
 
 	inline VkImageLayout FindLayout(VkImage Image)
 	{
@@ -446,7 +446,7 @@ protected:
 		{
 		}
 
-		void AddToResetList(FOLDVulkanQueryPool* Pool, int32 QueryIndex)
+		void AddToResetList(FVulkanQueryPool* Pool, int32 QueryIndex)
 		{
 			TArray<uint64>& ListPerPool = ResetList.FindOrAdd(Pool);
 			int32 Word = QueryIndex / 64;
@@ -469,10 +469,10 @@ protected:
 			}
 		}
 
-		TMap<FOLDVulkanQueryPool*, TArray<uint64>> ResetList;
+		TMap<FVulkanQueryPool*, TArray<uint64>> ResetList;
 	};
 	FOcclusionQueryData CurrentOcclusionQueryData;
-	void AdvanceQuery(FOLDVulkanRenderQuery* Query);
+	void AdvanceQuery(FVulkanRenderQuery* Query);
 #endif
 
 	// List of UAVs which need setting for pixel shaders. D3D treats UAVs like rendertargets so the RHI doesn't make SetUAV calls at the right time
