@@ -530,15 +530,7 @@ public:
 			Score += 1000;
 		}
 
-		if (ResolutionQuality == OtherMetadata.ResolutionQuality && 
-			ViewDistanceQuality == OtherMetadata.ViewDistanceQuality &&
-			AntiAliasingQuality == OtherMetadata.AntiAliasingQuality &&
-			ShadowQuality == OtherMetadata.ShadowQuality &&
-			PostProcessQuality == OtherMetadata.PostProcessQuality &&
-			TextureQuality == OtherMetadata.TextureQuality &&
-			EffectsQuality == OtherMetadata.EffectsQuality &&
-			FoliageQuality == OtherMetadata.FoliageQuality
-			)
+		if (Vendor == OtherMetadata.Vendor)
 		{
 			Score += 100;
 		}
@@ -563,11 +555,6 @@ public:
 			Score += 10;
 		}
 
-		if (Vendor == OtherMetadata.Vendor)
-		{
-			Score += 10;
-		}
-
 		if (AdapterName == OtherMetadata.AdapterName)
 		{
 			Score += 10;
@@ -579,6 +566,46 @@ public:
 		}
 
 		if (AdapterUserDriverVersion == OtherMetadata.AdapterUserDriverVersion)
+		{
+			Score += 10;
+		}
+
+		if (ResolutionQuality == OtherMetadata.ResolutionQuality)
+		{
+			Score += 10;
+		}
+
+		if (ViewDistanceQuality == OtherMetadata.ViewDistanceQuality)
+		{
+			Score += 10;
+		}
+
+		if (AntiAliasingQuality == OtherMetadata.AntiAliasingQuality)
+		{
+			Score += 10;
+		}
+
+		if (ShadowQuality == OtherMetadata.ShadowQuality)
+		{
+			Score += 10;
+		}
+
+		if (PostProcessQuality == OtherMetadata.PostProcessQuality)
+		{
+			Score += 10;
+		}
+
+		if (TextureQuality == OtherMetadata.TextureQuality)
+		{
+			Score += 10;
+		}
+
+		if (EffectsQuality == OtherMetadata.EffectsQuality)
+		{
+			Score += 10;
+		}
+
+		if (FoliageQuality == OtherMetadata.FoliageQuality)
 		{
 			Score += 10;
 		}
