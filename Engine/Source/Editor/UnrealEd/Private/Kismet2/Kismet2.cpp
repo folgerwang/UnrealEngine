@@ -963,23 +963,32 @@ bool FKismetEditorUtilities::GenerateBlueprintSkeleton(UBlueprint* BlueprintObj,
 
 	if( BlueprintObj->SkeletonGeneratedClass == NULL || bForceRegeneration )
 	{
-		UPackage* Package = BlueprintObj->GetOutermost();
-		bool bIsPackageDirty = Package ? Package->IsDirty() : false;
-					
-		IKismetCompilerInterface& Compiler = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>(KISMET_COMPILER_MODULENAME);
-
-		TGuardValue<bool> GuardTemplateNameFlag(GCompilingBlueprint, true);
-		FCompilerResultsLog Results;
-
-		FKismetCompilerOptions CompileOptions;
-		CompileOptions.CompileType = EKismetCompileType::SkeletonOnly;
-		Compiler.CompileBlueprint(BlueprintObj, CompileOptions, Results);
-		bRegeneratedSkeleton = true;
-
-		// Restore the package dirty flag here
-		if( Package != NULL )
+		if (GBlueprintUseCompilationManager)
 		{
-			Package->SetDirtyFlag(bIsPackageDirty);
+			FBlueprintCompilationManager::CompileSynchronously(
+				FBPCompileRequest(BlueprintObj, EBlueprintCompileOptions::RegenerateSkeletonOnly, nullptr)
+			);
+		}
+		else
+		{
+			UPackage* Package = BlueprintObj->GetOutermost();
+			bool bIsPackageDirty = Package ? Package->IsDirty() : false;
+
+			IKismetCompilerInterface& Compiler = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>(KISMET_COMPILER_MODULENAME);
+
+			TGuardValue<bool> GuardTemplateNameFlag(GCompilingBlueprint, true);
+			FCompilerResultsLog Results;
+
+			FKismetCompilerOptions CompileOptions;
+			CompileOptions.CompileType = EKismetCompileType::SkeletonOnly;
+			Compiler.CompileBlueprint(BlueprintObj, CompileOptions, Results);
+			bRegeneratedSkeleton = true;
+
+			// Restore the package dirty flag here
+			if (Package != NULL)
+			{
+				Package->SetDirtyFlag(bIsPackageDirty);
+			}
 		}
 	}
 	return bRegeneratedSkeleton;
