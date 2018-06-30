@@ -16,6 +16,9 @@ class FNiagaraSystemInstance;
 class UNiagaraParameterCollection;
 struct FNiagaraParameterStore;
 
+//#define NIAGARA_NAN_CHECKING 1
+#define NIAGARA_NAN_CHECKING 0
+
 const uint32 NIAGARA_COMPUTE_THREADGROUP_SIZE = 64;
 const uint32 NIAGARA_MAX_COMPUTE_THREADGROUPS = 65536;
 
@@ -34,7 +37,7 @@ enum class ENiagaraSimTarget : uint8
 {
 	CPUSim,
 	GPUComputeSim,
-	DynamicLoadBalancedSim
+	DynamicLoadBalancedSim UMETA(Hidden)
 };
 
 
@@ -66,6 +69,7 @@ enum class ENiagaraInputNodeUsage : uint8
 	Attribute,
 	SystemConstant,
 	TranslatorConstant,
+	RapidIterationParameter
 };
 
 /**
@@ -512,4 +516,17 @@ namespace FNiagaraUtilities
 	FNiagaraVariable NIAGARA_API ConvertVariableToRapidIterationConstantName(FNiagaraVariable InVar, const TCHAR* InEmitterName, ENiagaraScriptUsage InUsage);
 
 	void CollectScriptDataInterfaceParameters(const UObject& Owner, const TArray<UNiagaraScript*>& Scripts, FNiagaraParameterStore& OutDataInterfaceParameters);
+
+#if WITH_EDITORONLY_DATA
+	/**
+	 * Prepares rapid iteration parameter stores for simulation by removing old parameters no longer used by functions, by initializing new parameters
+	 * added to functions, and by copying parameters across parameter stores for interscript dependencies.
+	 * @param Scripts The scripts who's rapid iteration parameter stores will be processed.
+	 * @param ScriptDependencyMap A map of script dependencies where the key is the source script and the value is the script which depends on the source.  All scripts in this
+	 * map must be contained in the Scripts array, both keys and values.
+	 * @param ScriptToEmitterNameMap An array of scripts to the name of the emitter than owns them.  If this is a system script the name can be empty.  All scripts in the
+	 * scripts array must have an entry in this map.
+	 */
+	void NIAGARA_API PrepareRapidIterationParameters(const TArray<UNiagaraScript*>& Scripts, const TMap<UNiagaraScript*, UNiagaraScript*>& ScriptDependencyMap, const TMap<UNiagaraScript*, FString>& ScriptToEmitterNameMap);
+#endif
 };

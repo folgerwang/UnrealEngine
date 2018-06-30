@@ -99,7 +99,13 @@ struct FNiagaraCustomVersion
 		DataInterfaceComputeShaderParamRefactor, // refactor of CS parameters allowing regular params as well as buffers.
 
 		CurveLUTRegen, // bumping version and forcing curves to regen their LUT on version change.
-				
+
+		AssignmentNodeUsesBeginDefaults, // Changing the graph generation for assignment nodes so that it uses a "Begin Defaults" node where appropriate.
+
+		AssignmentNodeHasCorrectUsageBitmask, // Updating the usage flage bitmask for assignment nodes to match the part of the stack it's used in.
+
+		EmitterLocalSpaceLiteralConstant, //Emitter local space is compiled into the hlsl as a literal constant to expose it to emitter scripts and allow for some better optimization of particle transforms.
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1,

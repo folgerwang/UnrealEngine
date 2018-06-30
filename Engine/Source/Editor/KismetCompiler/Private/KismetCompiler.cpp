@@ -2948,6 +2948,7 @@ void FKismetCompilerContext::ExpansionStep(UEdGraph* Graph, bool bAllowUbergraph
 	{
 		BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_Expansion);
 
+		// First we need to expand knot nodes, so it will remote disconnected knots
 		// Collapse any remaining tunnels or macros
 		ExpandTunnelsAndMacros(Graph);
 
@@ -3232,8 +3233,9 @@ void FKismetCompilerContext::CreateAndProcessUbergraph()
 				const UEdGraphNode* Node = ConsolidatedEventGraph->Nodes[ChildIndex];
 				const int32 SavedErrorCount = MessageLog.NumErrors;
 				UK2Node_Event* SrcEventNode = Cast<UK2Node_Event>(ConsolidatedEventGraph->Nodes[ChildIndex]);
-				if (bIsFullCompile || SrcEventNode)
+				if (bIsFullCompile)
 				{
+					// We only validate a full compile, we want to always make a function stub so we can display the errors for it later
 					ValidateNode(Node);
 				}
 
@@ -3813,7 +3815,7 @@ void FKismetCompilerContext::CompileClassLayout(EInternalCompilerFlags InternalF
 		}
 	}
 
-	if (CompileOptions.DoesRequireBytecodeGeneration())
+	if (CompileOptions.DoesRequireBytecodeGeneration() && !Blueprint->bIsRegeneratingOnLoad)
 	{
 		TArray<UEdGraph*> AllGraphs;
 		Blueprint->GetAllGraphs(AllGraphs);

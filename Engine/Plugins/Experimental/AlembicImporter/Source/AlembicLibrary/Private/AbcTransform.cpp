@@ -16,6 +16,11 @@ FAbcTransform::FAbcTransform(const Alembic::AbcGeom::IXform& InTransform, const 
 	bConstant = Schema.isConstant();
 	bConstantIdentity = Schema.isConstantIdentity();
 	InitialValue = FMatrix::Identity;
+
+	for (int32 Index = 0; Index < MaxNumberOfResidentSamples; ++Index)
+	{
+		ResidentMatrices[Index] = InitialValue;
+	}
 	
 	// Retrieve min and max time/frames information 
 	AbcImporterUtilities::GetMinAndMaxTime(Schema, MinTime, MaxTime);

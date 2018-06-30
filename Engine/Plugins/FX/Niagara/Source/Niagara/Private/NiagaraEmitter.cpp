@@ -97,8 +97,6 @@ void UNiagaraEmitter::PostInitProperties()
 	Super::PostInitProperties();
 	if (HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad) == false)
 	{
-		RendererProperties.Add(NewObject<UNiagaraSpriteRendererProperties>(this, "Renderer"));
-
 		SpawnScriptProps.Script = NewObject<UNiagaraScript>(this, "SpawnScript", EObjectFlags::RF_Transactional);
 		SpawnScriptProps.Script->SetUsage(ENiagaraScriptUsage::ParticleSpawnScript);
 
@@ -235,7 +233,7 @@ void UNiagaraEmitter::PostLoad()
 
 	if (bGenerateNewChangeId)
 	{
-		ChangeId = FGuid::NewGuid();
+		UpdateChangeId();
 	}
 
 	GraphSource->OnChanged().AddUObject(this, &UNiagaraEmitter::GraphSourceChanged);
@@ -314,6 +312,17 @@ void UNiagaraEmitter::PostEditChangeProperty(struct FPropertyChangedEvent& Prope
 		if (GraphSource != nullptr)
 		{
 			GraphSource->MarkNotSynchronized(TEXT("Emitter Requires Persistent IDs changed."));
+		}
+
+#if WITH_EDITORONLY_DATA
+		UNiagaraSystem::RequestCompileForEmitter(this);
+#endif
+	}
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UNiagaraEmitter, bLocalSpace))
+	{
+		if (GraphSource != nullptr)
+		{
+			GraphSource->MarkNotSynchronized(TEXT("Emitter LocalSpace changed."));
 		}
 
 #if WITH_EDITORONLY_DATA
@@ -661,7 +670,9 @@ void UNiagaraEmitter::SyncEmitterAlias(const FString& InOldName, const FString& 
 
 	for (UNiagaraScript* Script : Scripts)
 	{
-		Script->Modify();
+		// We don't mark the package dirty here because this can happen as a result of a compile and we don't want to dirty files
+		// due to compilation, in cases where the package should be marked dirty an previous modify would have already done this.
+		Script->Modify(false);
 		Script->SyncAliases(RenameMap);
 	}
 }
@@ -725,6 +736,7 @@ FNiagaraEventScriptProperties* UNiagaraEmitter::GetEventHandlerByIdUnsafe(FGuid 
 
 void UNiagaraEmitter::AddEventHandler(FNiagaraEventScriptProperties EventHandler)
 {
+	Modify();
 	EventHandlerScriptProps.Add(EventHandler);
 #if WITH_EDITOR
 	EventHandler.Script->RapidIterationParameters.AddOnChangedHandler(
@@ -735,6 +747,7 @@ void UNiagaraEmitter::AddEventHandler(FNiagaraEventScriptProperties EventHandler
 
 void UNiagaraEmitter::RemoveEventHandlerByUsageId(FGuid EventHandlerUsageId)
 {
+	Modify();
 	auto FindEventHandlerById = [=](const FNiagaraEventScriptProperties& EventHandler) { return EventHandler.Script->GetUsageId() == EventHandlerUsageId; };
 #if WITH_EDITOR
 	FNiagaraEventScriptProperties* EventHandler = EventHandlerScriptProps.FindByPredicate(FindEventHandlerById);
@@ -764,7 +777,9 @@ void UNiagaraEmitter::BeginDestroy()
 
 void UNiagaraEmitter::UpdateChangeId()
 {
-	Modify();
+	// We don't mark the package dirty here because this can happen as a result of a compile and we don't want to dirty files
+	// due to compilation, in cases where the package should be marked dirty an previous modify would have already done this.
+	Modify(false);
 	ChangeId = FGuid::NewGuid();
 }
 

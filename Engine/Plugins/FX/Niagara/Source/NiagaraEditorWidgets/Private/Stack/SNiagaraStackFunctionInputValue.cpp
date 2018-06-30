@@ -11,6 +11,7 @@
 #include "NiagaraNodeCustomHlsl.h"
 #include "NiagaraActions.h"
 #include "SNiagaraParameterEditor.h"
+#include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Input/SButton.h"
@@ -243,7 +244,7 @@ TSharedRef<SWidget> SNiagaraStackFunctionInputValue::ConstructLocalValueStructWi
 			ParameterEditor->SetOnEndValueChange(SNiagaraParameterEditor::FOnValueChange::CreateSP(
 				this, &SNiagaraStackFunctionInputValue::ParameterEndValueChange));
 			ParameterEditor->SetOnValueChanged(SNiagaraParameterEditor::FOnValueChange::CreateSP(
-				this, &SNiagaraStackFunctionInputValue::ParameterValueChanged, ParameterEditor.ToSharedRef()));
+				this, &SNiagaraStackFunctionInputValue::ParameterValueChanged, TWeakPtr<SNiagaraParameterEditor>(ParameterEditor)));
 
 			LocalValueStructParameterEditor = ParameterEditor;
 
@@ -308,10 +309,14 @@ void SNiagaraStackFunctionInputValue::ParameterEndValueChange()
 	FunctionInput->NotifyEndLocalValueChange();
 }
 
-void SNiagaraStackFunctionInputValue::ParameterValueChanged(TSharedRef<SNiagaraParameterEditor> ParameterEditor)
+void SNiagaraStackFunctionInputValue::ParameterValueChanged(TWeakPtr<SNiagaraParameterEditor> ParameterEditor)
 {
-	ParameterEditor->UpdateStructFromInternalValue(FunctionInput->GetLocalValueStruct().ToSharedRef());
-	FunctionInput->SetLocalValue(DisplayedLocalValueStruct.ToSharedRef());
+	TSharedPtr<SNiagaraParameterEditor> ParameterEditorPinned = ParameterEditor.Pin();
+	if (ParameterEditorPinned.IsValid())
+	{
+		ParameterEditorPinned->UpdateStructFromInternalValue(DisplayedLocalValueStruct.ToSharedRef());
+		FunctionInput->SetLocalValue(DisplayedLocalValueStruct.ToSharedRef());
+	}
 }
 
 void SNiagaraStackFunctionInputValue::ParameterPropertyValueChanged(const FPropertyChangedEvent& PropertyChangedEvent)
@@ -476,8 +481,8 @@ void SNiagaraStackFunctionInputValue::CollectAllActions(FGraphActionListBuilderB
 		for (UNiagaraScript* DynamicInputScript : DynamicInputScripts)
 		{
 			const FText DynamicInputText = FText::FromString(FName::NameToDisplayString(DynamicInputScript->GetName(), false));
-			const FText Tooltip = FText::Format(LOCTEXT("DynamicInputFormat", "Use {0} to provide a value for this input. Description: {1}"), DynamicInputText, DynamicInputScript->GetDescription());
-			TSharedPtr<FNiagaraMenuAction> DynamicInputAction(new FNiagaraMenuAction(CategoryName, DynamicInputText, Tooltip, 0, FText(),
+			const FText Tooltip = FNiagaraEditorUtilities::FormatScriptAssetDescription(DynamicInputScript->Description, *DynamicInputScript->GetPathName());
+			TSharedPtr<FNiagaraMenuAction> DynamicInputAction(new FNiagaraMenuAction(CategoryName, DynamicInputText, Tooltip, 0, DynamicInputScript->Keywords,
 				FNiagaraMenuAction::FOnExecuteStackAction::CreateSP(this, &SNiagaraStackFunctionInputValue::DynamicInputScriptSelected, DynamicInputScript)));
 			OutAllActions.AddAction(DynamicInputAction);
 		}
@@ -747,7 +752,7 @@ bool SNiagaraStackFunctionInputValue::OnFunctionInputAllowDrop(TSharedPtr<FDragD
 	{
 		TSharedPtr<FNiagaraStackDragOperation> InputDragDropOperation = StaticCastSharedPtr<FNiagaraStackDragOperation>(DragDropOperation);
 		TSharedPtr<FNiagaraParameterAction> Action = StaticCastSharedPtr<FNiagaraParameterAction>(InputDragDropOperation->GetAction());
-		if (Action->GetParameter().GetType() == FunctionInput->GetInputType())
+		if (Action->GetParameter().GetType() == FunctionInput->GetInputType() && FNiagaraStackGraphUtilities::ParameterAllowedInExecutionCategory(Action->GetParameter().GetName(), FunctionInput->GetExecutionCategoryName()))
 		{
 			return true;
 		}

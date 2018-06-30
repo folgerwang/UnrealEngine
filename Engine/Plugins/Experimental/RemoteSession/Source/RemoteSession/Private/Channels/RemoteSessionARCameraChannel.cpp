@@ -378,18 +378,6 @@ FRemoteSessionARCameraChannel::FRemoteSessionARCameraChannel(ERemoteSessionChann
 	, Connection(InConnection)
 	, Role(InRole)
 {
-	
-	static bool OnceTimeARInit = false;
-	
-	if (!OnceTimeARInit && InRole == ERemoteSessionChannelMode::Send)
-	{
-		// Initialize AR if desired - todo, does this need to check device caps?
-		UARSessionConfig* Settings = NewObject<UARSessionConfig>();
-		UARBlueprintLibrary::StartARSession(Settings);
-		
-		OnceTimeARInit = true;
-	}
-	
 	RenderingTextures[0] = nullptr;
 	RenderingTextures[1] = nullptr;
 	PPMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/RemoteSession/ARCameraPostProcess.ARCameraPostProcess"));
@@ -401,7 +389,7 @@ FRemoteSessionARCameraChannel::FRemoteSessionARCameraChannel(ERemoteSessionChann
 		MaterialInstanceDynamic->SetTextureParameterValue(CameraImageParamName, DefaultTexture);
 	}
 
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		// Create our image renderer
 		SceneViewExtension = FSceneViewExtensions::NewExtension<FARCameraSceneViewExtension>(*this);
@@ -414,7 +402,7 @@ FRemoteSessionARCameraChannel::FRemoteSessionARCameraChannel(ERemoteSessionChann
 
 FRemoteSessionARCameraChannel::~FRemoteSessionARCameraChannel()
 {
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		// Remove the callback so it doesn't call back on an invalid this
 		Connection->RemoveMessageHandler(CAMERA_MESSAGE_ADDRESS, MessageCallbackHandle);
@@ -433,13 +421,13 @@ void FRemoteSessionARCameraChannel::Tick(const float InDeltaTime)
 {
 	// Camera capture only works on iOS right now
 #if PLATFORM_IOS
-	if (Role == ERemoteSessionChannelMode::Send)
+	if (Role == ERemoteSessionChannelMode::Write)
 	{
 		QueueARCameraImage();
 		SendARCameraImage();
 	}
 #endif
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		UpdateRenderingTexture();
 		if (MaterialInstanceDynamic != nullptr)

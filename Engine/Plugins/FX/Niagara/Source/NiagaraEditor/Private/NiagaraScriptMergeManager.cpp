@@ -1721,8 +1721,8 @@ FNiagaraScriptMergeManager::FApplyDiffResults FNiagaraScriptMergeManager::AddInp
 			FNiagaraVariable RapidIterationParameter(OverrideToAdd->GetLocalValueRapidIterationParameter().GetValue().GetType(), *RapidIterationParameterName);
 			const uint8* SourceData = OverrideToAdd->GetOwningScript()->RapidIterationParameters.GetParameterData(OverrideToAdd->GetLocalValueRapidIterationParameter().GetValue());
 			OwningScript.Modify();
-			OwningScript.RapidIterationParameters.AddParameter(RapidIterationParameter);
-			OwningScript.RapidIterationParameters.SetParameterData(SourceData, RapidIterationParameter);
+			bool bAddParameterIfMissing = true;
+			OwningScript.RapidIterationParameters.SetParameterData(SourceData, RapidIterationParameter, bAddParameterIfMissing);
 			Results.bSucceeded = true;
 		}
 		else
@@ -1854,7 +1854,7 @@ FNiagaraScriptMergeManager::FApplyDiffResults FNiagaraScriptMergeManager::ApplyS
 	// Apply the graph actions.
 	for (TSharedRef<FNiagaraStackFunctionMergeAdapter> RemoveModule : RemoveModules)
 	{
-		bool bRemoveResults = FNiagaraStackGraphUtilities::RemoveModuleFromStack(*RemoveModule->GetFunctionCallNode());
+		bool bRemoveResults = FNiagaraStackGraphUtilities::RemoveModuleFromStack(*BaseScriptStackAdapter->GetScript(), *RemoveModule->GetFunctionCallNode());
 		if (bRemoveResults == false)
 		{
 			Results.bSucceeded = false;

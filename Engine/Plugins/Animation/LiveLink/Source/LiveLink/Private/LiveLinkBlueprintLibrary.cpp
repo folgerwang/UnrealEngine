@@ -14,6 +14,11 @@ int ULiveLinkBlueprintLibrary::NumberOfTransforms(UPARAM(ref) FSubjectFrameHandl
 	return SubjectFrameHandle.GetNumberOfTransforms();
 };
 
+void ULiveLinkBlueprintLibrary::TransformNames(UPARAM(ref) FSubjectFrameHandle& SubjectFrameHandle, TArray<FName>& TransformNames)
+{
+	return SubjectFrameHandle.GetTransformNames(TransformNames);
+}
+
 void ULiveLinkBlueprintLibrary::GetRootTransform(UPARAM(ref) FSubjectFrameHandle& SubjectFrameHandle, FLiveLinkTransform& LiveLinkTransform)
 {
 	SubjectFrameHandle.GetRootTransform(LiveLinkTransform);
@@ -22,6 +27,11 @@ void ULiveLinkBlueprintLibrary::GetRootTransform(UPARAM(ref) FSubjectFrameHandle
 void ULiveLinkBlueprintLibrary::GetTransformByIndex(UPARAM(ref) FSubjectFrameHandle& SubjectFrameHandle, int TransformIndex, FLiveLinkTransform& LiveLinkTransform)
 {
 	SubjectFrameHandle.GetTransformByIndex(TransformIndex, LiveLinkTransform);
+};
+
+void ULiveLinkBlueprintLibrary::GetTransformByName(UPARAM(ref) FSubjectFrameHandle& SubjectFrameHandle, FName TransformName, FLiveLinkTransform& LiveLinkTransform)
+{
+	SubjectFrameHandle.GetTransformByName(TransformName, LiveLinkTransform);
 };
 
 void ULiveLinkBlueprintLibrary::GetMetadata(UPARAM(ref) FSubjectFrameHandle& SubjectFrameHandle, FSubjectMetadata& Metadata)

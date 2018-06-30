@@ -72,7 +72,7 @@ NiagaraSimulationShader.usf:
 	float4 rand4()
 	{
 		RandomVal = NiagaraRand4DPCG32( int4(GDispatchThreadId+(RandomVal/573).xyz, RandomVal.x/921) + int4(EmitterTickCounter.xxxx));
-		return float4(RandomVal.xyzw) / float4(0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF);
+		return float4(RandomVal.xyzw) / float4(0xFFFFFFFFu,0xFFFFFFFFu,0xFFFFFFFFu,0xFFFFFFFFu);
 	}
 
 	float rand(float x)
@@ -82,12 +82,14 @@ NiagaraSimulationShader.usf:
 
 	float2 rand(float2 x)
 	{
-		return float2(rand4().x, rand4().y) * x;
+		float4 rnd = rand4();
+		return float2(rnd.x, rnd.y) * x;
 	}
 
 	float3 rand(float3 x)
 	{
-		return float3(rand4().x, rand4().y, rand4().z) * x;
+		float4 rnd = rand4();
+		return float3(rnd.x, rnd.y, rnd.z) * x;
 	}
 
 	float4 rand(float4 x) 
@@ -121,11 +123,6 @@ NiagaraSimulationShader.usf:
 
 	int rand(int x);
 #endif
-
-
-/** Hooks into the stats system. */
-void EnterStatScope(int ScopeIdx);
-void ExitStatScope();
 
 
 /* -----------------------------------------------------------------
@@ -226,10 +223,13 @@ void ExitStatScope();
 	 */
 	int AcquireIndex(int DataSetID, bool bDoAcquire)
 	{
-		int PrevIdx = GSpawnStartInstance + SpawnedInstances;
+		int PrevIdx = GSpawnStartInstance + SpawnedInstances;	// scratch instance as default; write to that for dead particles
 		if(bDoAcquire == true)
 		{
-			InterlockedAdd(RWDataSetIndices[DataSetID*5+1], 1, PrevIdx);
+			// Have to use uint's here to avoid PS4 compiler warnings about InterlockedAdd, cannot propagate uint due to CPU VM limitations...
+			uint RetPrevIdx;
+			InterlockedAdd((uint)RWDataSetIndices[DataSetID*5+1], (uint)1U, RetPrevIdx);
+			PrevIdx = (int)RetPrevIdx;
 		}
 		return PrevIdx;
 	}

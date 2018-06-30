@@ -35,7 +35,10 @@ void UNiagaraStackViewModel::Initialize(TSharedPtr<FNiagaraSystemViewModel> InSy
 	{
 		RootEntry->OnStructureChanged().RemoveAll(this);
 		RootEntry->OnDataObjectModified().RemoveAll(this);
+		RootEntry->OnRequestFullRefresh().RemoveAll(this);
+		RootEntry->OnRequestFullRefreshDeferred().RemoveAll(this);
 		RootEntries.Empty();
+		RootEntry->Finalize();
 		RootEntry = nullptr;
 		GEditor->UnregisterForUndo(this);
 	}
@@ -51,7 +54,6 @@ void UNiagaraStackViewModel::Initialize(TSharedPtr<FNiagaraSystemViewModel> InSy
 	}
 
 	SystemViewModel = InSystemViewModel;
-	//UE_LOG(LogNiagaraEditor, Warning, TEXT("UNiagaraStackViewModel %p refs FNiagaraEmitterViewModel %p"), this, InEmitterViewModel.Get());
 	EmitterHandleViewModel = InEmitterHandleViewModel;
 	TSharedPtr<FNiagaraEmitterViewModel> EmitterViewModel = InEmitterHandleViewModel.IsValid() ? InEmitterHandleViewModel->GetEmitterViewModel() : TSharedPtr<FNiagaraEmitterViewModel>();
 
@@ -70,33 +72,39 @@ void UNiagaraStackViewModel::Initialize(TSharedPtr<FNiagaraSystemViewModel> InSy
 		RootEntry->RefreshChildren();
 		RootEntry->OnStructureChanged().AddUObject(this, &UNiagaraStackViewModel::EntryStructureChanged);
 		RootEntry->OnDataObjectModified().AddUObject(this, &UNiagaraStackViewModel::EntryDataObjectModified);
+		RootEntry->OnRequestFullRefresh().AddUObject(this, &UNiagaraStackViewModel::EntryRequestFullRefresh);
+		RootEntry->OnRequestFullRefreshDeferred().AddUObject(this, &UNiagaraStackViewModel::EntryRequestFullRefreshDeferred);
 		RootEntries.Add(RootEntry);
 	}
+
 	CurrentFocusedSearchMatchIndex = -1;
 	StructureChangedDelegate.Broadcast();
 	bRestartSearch = false;
+	bRefreshPending = false;
+}
+
+void UNiagaraStackViewModel::Finalize()
+{
+	Initialize(nullptr, nullptr);
 }
 
 void UNiagaraStackViewModel::BeginDestroy()
 {
+	checkf(HasAnyFlags(RF_ClassDefaultObject) || (SystemViewModel.IsValid() == false && EmitterHandleViewModel.IsValid() == false), TEXT("Stack view model not finalized."));
 	Super::BeginDestroy();
-	if (EmitterHandleViewModel.IsValid() && EmitterHandleViewModel->GetEmitterViewModel().IsValid())
-	{
-		GEditor->UnregisterForUndo(this);
-		EmitterHandleViewModel->GetEmitterViewModel()->OnScriptCompiled().RemoveAll(this);
-
-		//UE_LOG(LogNiagaraEditor, Log, TEXT("UNiagaraStackViewModel::BeginDestroy"));
-		EmitterHandleViewModel->GetEmitterViewModel().Reset();
-		EmitterHandleViewModel.Reset();
-		SystemViewModel.Reset();
-	} 
-	RootEntry = nullptr;
 }
 
 void UNiagaraStackViewModel::Tick()
 {
 	if (RootEntry)
 	{
+		if (bRefreshPending)
+		{
+			RootEntry->RefreshChildren();
+			OnSearchTextChanged(CurrentSearchText);
+			bRefreshPending = false;
+		}
+
 		SearchTick();
 	}
 }
@@ -398,6 +406,17 @@ void UNiagaraStackViewModel::EntryDataObjectModified(UObject* ChangedObject)
 {
 	SystemViewModel->NotifyDataObjectChanged(ChangedObject);
 	OnSearchTextChanged(CurrentSearchText);
+}
+
+void UNiagaraStackViewModel::EntryRequestFullRefresh()
+{
+	checkf(RootEntry != nullptr, TEXT("Can not process full refresh when the root entry doesn't exist"));
+	RootEntry->RefreshChildren();
+}
+
+void UNiagaraStackViewModel::EntryRequestFullRefreshDeferred()
+{
+	bRefreshPending = true;
 }
 
 #undef LOCTEXT_NAMESPACE

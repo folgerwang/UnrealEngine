@@ -126,7 +126,10 @@ struct DATASMITHCONTENT_API FDatasmithStaticMeshImportOptions
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lightmap)
 	EDatasmithImportLightmapMax MaxLightmapResolution;
 
-	UPROPERTY(BlueprintReadWrite, Category = Mesh)
+	UPROPERTY(BlueprintReadWrite, Category = Lightmap, Transient)
+	bool bGenerateLightmapUVs;
+
+	UPROPERTY(BlueprintReadWrite, Category = Mesh, Transient)
 	bool bRemoveDegenerates;
 
 public:

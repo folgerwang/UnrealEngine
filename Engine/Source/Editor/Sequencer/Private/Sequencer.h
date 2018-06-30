@@ -60,6 +60,7 @@ class ULevel;
 class UMovieSceneSequence;
 class UMovieSceneSubSection;
 class USequencerSettings;
+class UMovieSceneCopyableBinding;
 struct FMovieSceneTimeController;
 struct FMovieScenePossessable;
 struct FSequencerTemplateStore;
@@ -466,6 +467,7 @@ public:
 	bool CanPaste(const FString& TextToImport);
 	void PasteCopiedTracks();
 	void ImportTracksFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneTrack*>& ImportedTrack);
+	void ImportObjectsFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneCopyableBinding*>& ImportedObjects);
 
 	/** Called when a user executes the active node menu item */
 	void ToggleNodeActive();

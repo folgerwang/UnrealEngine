@@ -179,7 +179,7 @@ void FNiagaraScriptDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder
 				.HAlign(HAlign_Right)
 				.VAlign(VAlign_Center)
 				.ContentPadding(1)
-				.ToolTipText(LOCTEXT("RefreshMetadataToolTip", "Save metadata changes to graph and refresh the view"))
+				.ToolTipText(LOCTEXT("RefreshMetadataToolTip", "Refresh the view according to the latest Editor Sort Priority values"))
 				.OnClicked(this, &FNiagaraScriptDetails::OnRefreshMetadata)
 				.Content()
 				[
@@ -194,7 +194,7 @@ void FNiagaraScriptDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder
 
 FReply FNiagaraScriptDetails::OnRefreshMetadata()
 {
-	ScriptViewModel->GetMetadataCollectionViewModel()->RequestRefresh(true);
+	ScriptViewModel->GetMetadataCollectionViewModel()->RequestRefresh();
     return FReply::Handled();
 }
 

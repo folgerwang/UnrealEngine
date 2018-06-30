@@ -71,7 +71,7 @@ void UNiagaraStackEditorData::SetLastScrollPosition(double InLastScrollPosition)
 	LastScrollPosition = InLastScrollPosition;
 }
 
-void UNiagaraStackEditorData::DismissStackIssue(FName IssueId)
+void UNiagaraStackEditorData::DismissStackIssue(FString IssueId)
 {
 	DismissedStackIssueIds.AddUnique(IssueId);
 }
@@ -81,7 +81,7 @@ void UNiagaraStackEditorData::UndismissAllIssues()
 	DismissedStackIssueIds.Empty();
 }
 
-const TArray<FName>& UNiagaraStackEditorData::GetDismissedStackIssueIds()
+const TArray<FString>& UNiagaraStackEditorData::GetDismissedStackIssueIds()
 {
 	return DismissedStackIssueIds;
 }

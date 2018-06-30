@@ -13,19 +13,25 @@ namespace UnrealBuildTool.Rules
 					"CoreUObject",
 					"Engine",
 					"Media",
+					"MediaAssets",
 					"MediaUtils",
-                    "MovieSceneCapture",
-                    "Projects",
-                    "RenderCore",
-                    "RHI",
-                    "Slate",
-                    "SlateCore",
-                    "TimeManagement"
-                });
+					"MovieSceneCapture",
+					"Projects",
+					"RenderCore",
+					"RHI",
+					"Slate",
+					"SlateCore",
+					"TimeManagement"
+				});
 
 			PrivateIncludePaths.AddRange(
 				new string[] {
 				});
+
+			if (Target.bBuildEditor == true)
+			{
+				PrivateDependencyModuleNames.Add("UnrealEd");
+			}
 		}
 	}
 }

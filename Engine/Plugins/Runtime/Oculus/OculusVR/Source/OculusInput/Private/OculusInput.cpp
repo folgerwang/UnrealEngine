@@ -38,6 +38,10 @@ const FKey FOculusKey::OculusRemote_VolumeUp("OculusRemote_VolumeUp");
 const FKey FOculusKey::OculusRemote_VolumeDown("OculusRemote_VolumeDown");
 const FKey FOculusKey::OculusRemote_Home("OculusRemote_Home");
 
+const FKey FOculusKey::OculusTouchpad_Touchpad("OculusTouchpad_Touchpad");
+const FKey FOculusKey::OculusTouchpad_Touchpad_X("OculusTouchpad_Touchpad_X");
+const FKey FOculusKey::OculusTouchpad_Touchpad_Y("OculusTouchpad_Touchpad_Y");
+const FKey FOculusKey::OculusTouchpad_Back("OculusTouchpad_Back");
 
 const FOculusKeyNames::Type FOculusKeyNames::OculusTouch_Left_Thumbstick("OculusTouch_Left_Thumbstick");
 const FOculusKeyNames::Type FOculusKeyNames::OculusTouch_Left_Trigger("OculusTouch_Left_Trigger");
@@ -62,6 +66,11 @@ const FOculusKeyNames::Type FOculusKeyNames::OculusRemote_Back("OculusRemote_Bac
 const FOculusKeyNames::Type FOculusKeyNames::OculusRemote_VolumeUp("OculusRemote_VolumeUp");
 const FOculusKeyNames::Type FOculusKeyNames::OculusRemote_VolumeDown("OculusRemote_VolumeDown");
 const FOculusKeyNames::Type FOculusKeyNames::OculusRemote_Home("OculusRemote_Home");
+
+const FOculusKeyNames::Type FOculusKeyNames::OculusTouchpad_Touchpad("OculusTouchpad_Touchpad");
+const FOculusKeyNames::Type FOculusKeyNames::OculusTouchpad_Touchpad_X("OculusTouchpad_Touchpad_X");
+const FOculusKeyNames::Type FOculusKeyNames::OculusTouchpad_Touchpad_Y("OculusTouchpad_Touchpad_Y");
+const FOculusKeyNames::Type FOculusKeyNames::OculusTouchpad_Back("OculusTouchpad_Back");
 
 /** Threshold for treating trigger pulls as button presses, from 0.0 to 1.0 */
 float FOculusInput::TriggerThreshold = 0.8f;
@@ -135,6 +144,11 @@ void FOculusInput::PreInit()
 	EKeys::AddKey(FKeyDetails(FOculusKey::OculusRemote_VolumeUp, LOCTEXT("OculusRemote_VolumeUp", "Oculus Remote Volume Up"), FKeyDetails::GamepadKey));
 	EKeys::AddKey(FKeyDetails(FOculusKey::OculusRemote_VolumeDown, LOCTEXT("OculusRemote_VolumeDown", "Oculus Remote Volume Down"), FKeyDetails::GamepadKey));
 	EKeys::AddKey(FKeyDetails(FOculusKey::OculusRemote_Home, LOCTEXT("OculusRemote_Home", "Oculus Remote Home"), FKeyDetails::GamepadKey));
+
+	EKeys::AddKey(FKeyDetails(FOculusKey::OculusTouchpad_Touchpad, LOCTEXT("OculusTouchpad_Touchpad", "Oculus Touchpad Button"), FKeyDetails::GamepadKey));
+	EKeys::AddKey(FKeyDetails(FOculusKey::OculusTouchpad_Touchpad_X, LOCTEXT("OculusTouchpad_Touchpad_X", "Oculus Touchpad X-Axis"), FKeyDetails::GamepadKey | FKeyDetails::FloatAxis));
+	EKeys::AddKey(FKeyDetails(FOculusKey::OculusTouchpad_Touchpad_Y, LOCTEXT("OculusTouchpad_Touchpad_Y", "Oculus Touchpad Y-Axis"), FKeyDetails::GamepadKey | FKeyDetails::FloatAxis));
+	EKeys::AddKey(FKeyDetails(FOculusKey::OculusTouchpad_Back, LOCTEXT("OculusTouchpad_Back", "Oculus Touchpad Back"), FKeyDetails::GamepadKey));
 
 	UE_LOG(LogOcInput, Log, TEXT("OculusInput pre-init called"));
 }
@@ -268,6 +282,76 @@ void FOculusInput::SendControllerEvents()
 				}
 			}
 
+			if (OVRP_SUCCESS(ovrp_GetControllerState4(ovrpController_Touchpad, &OvrpControllerState)) && OvrpControllerState.ConnectedControllerTypes == ovrpController_Touchpad)
+			{
+				ovrpVector2f ThumbstickValue = OvrpControllerState.Touchpad[0];
+				UE_LOG(LogOcInput, Log, TEXT("Get touchpad main with data %f %f"), ThumbstickValue.x, ThumbstickValue.y);
+
+				if (ThumbstickValue.x != Touchpad.TouchpadPosition.X)
+				{
+					Touchpad.TouchpadPosition.X = ThumbstickValue.x;
+					MessageHandler->OnControllerAnalog(FOculusKeyNames::OculusTouchpad_Touchpad_X, 0, Touchpad.TouchpadPosition.X);
+				}
+
+				if (ThumbstickValue.y != Touchpad.TouchpadPosition.Y)
+				{
+					Touchpad.TouchpadPosition.Y = ThumbstickValue.y;
+					// we need to negate Y value to match XBox controllers
+					MessageHandler->OnControllerAnalog(FOculusKeyNames::OculusTouchpad_Touchpad_Y, 0, Touchpad.TouchpadPosition.Y);
+				}
+
+				for (int32 ButtonIndex = 0; ButtonIndex < (int32)EOculusTouchpadButton::TotalButtonCount; ++ButtonIndex)
+				{
+					FOculusButtonState& ButtonState = Touchpad.Buttons[ButtonIndex];
+					check(!ButtonState.Key.IsNone()); // is button's name initialized?
+
+					bool bButtonPressed = false;
+					switch ((EOculusTouchpadButton)ButtonIndex)
+					{
+					case EOculusTouchpadButton::Back:
+						bButtonPressed = (OvrpControllerState.Buttons & ovrpButton_Back) != 0;
+						break;
+
+					case EOculusTouchpadButton::Touchpad:
+						bButtonPressed = (OvrpControllerState.Touches & ovrpTouch_LTouchpad) != 0;
+						break;
+
+					default:
+						check(0); // unhandled button, shouldn't happen
+						break;
+					}
+
+					// Update button state
+					if (bButtonPressed != ButtonState.bIsPressed)
+					{
+						const bool bIsRepeat = false;
+
+						ButtonState.bIsPressed = bButtonPressed;
+						if (ButtonState.bIsPressed)
+						{
+							MessageHandler->OnControllerButtonPressed(ButtonState.Key, 0, bIsRepeat);
+
+							// Set the timer for the first repeat
+							ButtonState.NextRepeatTime = CurrentTime + ButtonRepeatDelay;
+						}
+						else
+						{
+							MessageHandler->OnControllerButtonReleased(ButtonState.Key, 0, bIsRepeat);
+						}
+					}
+
+					// Apply key repeat, if its time for that
+					if (ButtonState.bIsPressed && ButtonState.NextRepeatTime <= CurrentTime)
+					{
+						const bool bIsRepeat = true;
+						MessageHandler->OnControllerButtonPressed(ButtonState.Key, 0, bIsRepeat);
+
+						// Set the timer for the next repeat
+						ButtonState.NextRepeatTime = CurrentTime + ButtonRepeatDelay;
+					}
+				}
+			}
+
 			if (OVRP_SUCCESS(ovrp_GetControllerState4((ovrpController)(ovrpController_LTrackedRemote | ovrpController_RTrackedRemote | ovrpController_Touch), &OvrpControllerState)))
 			{
 				UE_CLOG(OVR_DEBUG_LOGGING, LogOcInput, Log, TEXT("SendControllerEvents: ButtonState = 0x%X"), OvrpControllerState.Buttons);
@@ -320,17 +404,17 @@ void FOculusInput::SendControllerEvents()
 								MessageHandler->OnControllerAnalog(bIsLeft ? FGamepadKeyNames::MotionController_Left_Grip1Axis : FGamepadKeyNames::MotionController_Right_Grip1Axis, ControllerPair.UnrealControllerIndex, State.GripAxis);
 							}
 
-							ovrpVector2f thumbstickValue = bIsMalibuTracked ? OvrpControllerState.Touchpad[HandIndex] : OvrpControllerState.Thumbstick[HandIndex];
+							ovrpVector2f ThumbstickValue = bIsMalibuTracked ? OvrpControllerState.Touchpad[HandIndex] : OvrpControllerState.Thumbstick[HandIndex];
 
-							if (thumbstickValue.x != State.ThumbstickAxes.X)
+							if (ThumbstickValue.x != State.ThumbstickAxes.X)
 							{
-								State.ThumbstickAxes.X = thumbstickValue.x;
+								State.ThumbstickAxes.X = ThumbstickValue.x;
 								MessageHandler->OnControllerAnalog(bIsLeft ? FGamepadKeyNames::MotionController_Left_Thumbstick_X : FGamepadKeyNames::MotionController_Right_Thumbstick_X, ControllerPair.UnrealControllerIndex, State.ThumbstickAxes.X);
 							}
 
-							if (thumbstickValue.y != State.ThumbstickAxes.Y)
+							if (ThumbstickValue.y != State.ThumbstickAxes.Y)
 							{
-								State.ThumbstickAxes.Y = thumbstickValue.y;
+								State.ThumbstickAxes.Y = ThumbstickValue.y;
 								// we need to negate Y value to match XBox controllers
 								MessageHandler->OnControllerAnalog(bIsLeft ? FGamepadKeyNames::MotionController_Left_Thumbstick_Y : FGamepadKeyNames::MotionController_Right_Thumbstick_Y, ControllerPair.UnrealControllerIndex, -State.ThumbstickAxes.Y);
 							}
@@ -574,11 +658,10 @@ void FOculusInput::UpdateForceFeedback( const FOculusTouchControllerPair& Contro
 	{
 		if(IOculusHMDModule::IsAvailable() && ovrp_GetInitialized() && FApp::HasVRFocus())
 		{
-			// Make sure Touch is the active controller
 			ovrpControllerState4 OvrpControllerState;
 			
-			if (OVRP_SUCCESS(ovrp_GetControllerState4(ovrpController_Active, &OvrpControllerState)) &&
-				(OvrpControllerState.ConnectedControllerTypes & ovrpController_Touch))
+			if (OVRP_SUCCESS(ovrp_GetControllerState4((ovrpController)(ovrpController_Active | ovrpController_LTrackedRemote | ovrpController_RTrackedRemote), &OvrpControllerState)) &&
+				(OvrpControllerState.ConnectedControllerTypes & (ovrpController_Touch | ovrpController_LTrackedRemote | ovrpController_RTrackedRemote)))
 			{
 				float FreqMin, FreqMax = 0.f;
 				GetHapticFrequencyRange(FreqMin, FreqMax);
@@ -589,7 +672,15 @@ void FOculusInput::UpdateForceFeedback( const FOculusTouchControllerPair& Contro
 				// Oculus SDK wants amplitude values between 0.0 and 1.0
 				const float ActualAmplitude = ControllerState.HapticAmplitude * GetHapticAmplitudeScale();
 
-				const ovrpController OvrController = ( Hand == EControllerHand::Left ) ? ovrpController_LTouch : ovrpController_RTouch;
+				ovrpController OvrController = ovrpController_None;
+				if (OvrpControllerState.ConnectedControllerTypes & (ovrpController_Touch))
+				{
+					OvrController = ( Hand == EControllerHand::Left ) ? ovrpController_LTouch : ovrpController_RTouch;
+				}
+				else if (OvrpControllerState.ConnectedControllerTypes & (ovrpController_LTrackedRemote | ovrpController_RTrackedRemote))
+				{
+					OvrController = ( Hand == EControllerHand::Left ) ? ovrpController_LTrackedRemote : ovrpController_RTrackedRemote;
+				}
 
 				static float LastAmplitudeSent = -1;
 				if (ActualAmplitude != LastAmplitudeSent)
@@ -597,7 +688,6 @@ void FOculusInput::UpdateForceFeedback( const FOculusTouchControllerPair& Contro
 					ovrp_SetControllerVibration2(OvrController, ActualFrequency, ActualAmplitude);
 					LastAmplitudeSent = ActualAmplitude;
 				}
-
 			}
 		}
 	}
@@ -712,18 +802,20 @@ void FOculusInput::SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const
 					static bool pulledHapticsDesc = false;
 					if (!pulledHapticsDesc)
 					{
+						// Buffered haptics is currently only supported on Touch
 						ovrp_GetControllerHapticsDesc2(ovrpController_RTouch, &OvrpHapticsDesc);
 						pulledHapticsDesc = true;
 					}
 
-					// Make sure Touch is the active controller
 					ovrpControllerState4 OvrpControllerState;
 					
-					if (OVRP_SUCCESS(ovrp_GetControllerState4(ovrpController_Active, &OvrpControllerState)) &&
-						(OvrpControllerState.ConnectedControllerTypes & ovrpController_Touch))
+					if (OVRP_SUCCESS(ovrp_GetControllerState4((ovrpController)(ovrpController_Active | ovrpController_LTrackedRemote | ovrpController_RTrackedRemote), &OvrpControllerState)) &&
+						(OvrpControllerState.ConnectedControllerTypes & (ovrpController_Touch | ovrpController_LTrackedRemote | ovrpController_RTrackedRemote)))
 					{
+						// Buffered haptics is currently only supported on Touch
 						FHapticFeedbackBuffer* HapticBuffer = Values.HapticBuffer;
-						if (HapticBuffer && HapticBuffer->SamplingRate == OvrpHapticsDesc.SampleRateHz)
+						if ( (OvrpControllerState.ConnectedControllerTypes & (ovrpController_Touch)) &&
+							HapticBuffer && HapticBuffer->SamplingRate == OvrpHapticsDesc.SampleRateHz)
 						{
 							const ovrpController OvrpController = (EControllerHand(Hand) == EControllerHand::Left) ? ovrpController_LTouch : ovrpController_RTouch;
 
@@ -794,10 +886,11 @@ void FOculusInput::SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const
 									}
 								}
 							}
-						} 
+						}
 						else
 						{
-							if (HapticBuffer)
+							// Buffered haptics is currently only supported on Touch
+							if ( (OvrpControllerState.ConnectedControllerTypes & (ovrpController_Touch)) && (HapticBuffer) )
 							{
 								UE_CLOG(OVR_DEBUG_LOGGING, LogOcInput, Log, TEXT("Haptic Buffer not sampled at the correct frequency : %d vs %d"), OvrpHapticsDesc.SampleRateHz, HapticBuffer->SamplingRate);
 							}
@@ -812,7 +905,16 @@ void FOculusInput::SetHapticFeedbackValues(int32 ControllerId, int32 Hand, const
 								ControllerState.HapticAmplitude = Amplitude;
 								ControllerState.HapticFrequency = Frequency;
 
-								const ovrpController OvrController = (EControllerHand(Hand) == EControllerHand::Left) ? ovrpController_LTouch : ovrpController_RTouch;
+								ovrpController OvrController = ovrpController_None;
+								if (OvrpControllerState.ConnectedControllerTypes & (ovrpController_Touch))
+								{
+									OvrController = (EControllerHand(Hand) == EControllerHand::Left) ? ovrpController_LTouch : ovrpController_RTouch;
+								}
+								else if (OvrpControllerState.ConnectedControllerTypes & (ovrpController_LTrackedRemote | ovrpController_RTrackedRemote))
+								{
+									OvrController = (EControllerHand(Hand) == EControllerHand::Left) ? ovrpController_LTrackedRemote : ovrpController_RTrackedRemote;
+								}
+
 								ovrp_SetControllerVibration2(OvrController, Frequency, Amplitude);
 
 								ControllerState.bPlayingHapticEffect = (Amplitude != 0.f) && (Frequency != 0.f);

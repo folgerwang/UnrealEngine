@@ -1311,21 +1311,6 @@ namespace UnrealBuildTool
 						}
 					}
 					break;
-				case "renderdoc":
-					{
-						string RenderDocPath;
-						AndroidPlatformSDK.GetPath(Ini, "/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "RenderDocPath", out RenderDocPath);
-						if (Directory.Exists(RenderDocPath))
-						{
-							Directory.CreateDirectory(Path.Combine(UE4BuildPath, "libs", NDKArch));
-							string RenderDocLibSrcPath = Path.Combine(RenderDocPath, @"android\lib", NDKArch, "libVkLayer_GLES_RenderDoc.so");
-							string RenderDocLibDstPath = Path.Combine(UE4BuildPath, "libs", NDKArch, "libVkLayer_GLES_RenderDoc.so");
-
-							Log.TraceInformation("Copying {0} to {1}", RenderDocLibSrcPath, RenderDocLibDstPath);
-							File.Copy(RenderDocLibSrcPath, RenderDocLibDstPath, true);
-						}
-					}
-					break;
 
 				// @TODO: Add NVIDIA Gfx Debugger
 				/*
@@ -2181,7 +2166,7 @@ namespace UnrealBuildTool
 			bool bAddDensity = (SDKLevelInt >= 24) && (MinSDKVersion >= 17);
 
 			// disable Gear VR if not supported platform (in this case only armv7 for now)
-			if (UE4Arch != "-armv7")
+			if (UE4Arch != "-armv7" && UE4Arch != "-arm64")
 			{
 				if (bPackageForGearVR)
 				{
@@ -2480,14 +2465,18 @@ namespace UnrealBuildTool
 			//	Text.AppendLine("\t<uses-permission android:name=\"android.permission.READ_PHONE_STATE\"/>");
 				Text.AppendLine("\t<uses-permission android:name=\"com.android.vending.CHECK_LICENSE\"/>");
 				Text.AppendLine("\t<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>");
-				Text.AppendLine("\t<uses-permission android:name=\"android.permission.MODIFY_AUDIO_SETTINGS\"/>");
 
 				if (bEnableGooglePlaySupport && bUseGetAccounts)
 				{
 					Text.AppendLine("\t<uses-permission android:name=\"android.permission.GET_ACCOUNTS\"/>");
-				}				
-				
-				Text.AppendLine("\t<uses-permission android:name=\"android.permission.VIBRATE\"/>");
+				}
+
+				if(!bPackageForGearVR)
+				{
+					Text.AppendLine("\t<uses-permission android:name=\"android.permission.MODIFY_AUDIO_SETTINGS\"/>");
+					Text.AppendLine("\t<uses-permission android:name=\"android.permission.VIBRATE\"/>");
+				}
+
 				//			Text.AppendLine("\t<uses-permission android:name=\"android.permission.DISABLE_KEYGUARD\"/>");
 
 				if (bEnableIAP)
@@ -4075,16 +4064,6 @@ namespace UnrealBuildTool
 											"\t\tcatch (java.lang.UnsatisfiedLinkError e)\n" +
 											"\t\t{\n" +
 											"\t\t\tLog.debug(\"libMGD.so not loaded.\");\n" +
-											"\t\t}\n";
-					break;
-				case "renderdoc":
-					LoadLibraryDefaults += "\t\ttry\n" +
-											"\t\t{\n" +
-											"\t\t\tSystem.loadLibrary(\"VkLayer_GLES_RenderDoc\");\n" +
-											"\t\t}\n" +
-											"\t\tcatch (java.lang.UnsatisfiedLinkError e)\n" +
-											"\t\t{\n" +
-											"\t\t\tLog.debug(\"libVkLayer_GLES_RenderDoc.so not loaded.\");\n" +
 											"\t\t}\n";
 					break;
 			}

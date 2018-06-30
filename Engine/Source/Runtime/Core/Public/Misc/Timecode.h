@@ -43,39 +43,39 @@ public:
 	/**
 	 * Converts this Timecode back into a Frame Number at the given framerate, taking into account if this is a drop-frame format timecode.
 	 */
-	FFrameNumber ToFrameNumber(const FFrameRate& InFrameRate)
+	FFrameNumber ToFrameNumber(const FFrameRate& InFrameRate) const
 	{
 		const int32 NumberOfFramesInSecond = FMath::CeilToInt(InFrameRate.AsDecimal());
 		const int32 NumberOfFramesInMinute = NumberOfFramesInSecond * 60;
 		const int32 NumberOfFramesInHour = NumberOfFramesInMinute * 60;
 
 		// Do a quick pre-pass to take any overflow values and move them into bigger time units.
-		Seconds += Frames / NumberOfFramesInSecond;
-		Frames = Frames % NumberOfFramesInSecond;
+		int32 SafeSeconds = Seconds + Frames / NumberOfFramesInSecond;
+		int32 SafeFrames = Frames % NumberOfFramesInSecond;
 
-		Minutes += Seconds / 60;
-		Seconds = Seconds % 60;
+		int32 SafeMinutes = Minutes + SafeSeconds / 60;
+		SafeSeconds = SafeSeconds % 60;
 
-		Hours += Minutes / 60;
-		Minutes = Minutes % 60;
+		int32 SafeHours = Hours + SafeMinutes / 60;
+		SafeMinutes = SafeMinutes % 60;
 
 		if (bDropFrameFormat)
 		{
 			const int32 NumberOfTimecodesToDrop = NumberOfFramesInSecond <= 30 ? 2 : 4;
 
 			// Calculate how many minutes there are total so we can know how many times we've skipped timecodes.
-			int32 TotalMinutes = (Hours * 60) + Minutes;
+			int32 TotalMinutes = (SafeHours * 60) + SafeMinutes;
 
 			// We skip timecodes 9 times out of every 10.
 			int32 TotalDroppedFrames = NumberOfTimecodesToDrop * (TotalMinutes - (int32)FMath::RoundToZero(TotalMinutes / 10.0));
-			int32 TotalFrames = (Hours * NumberOfFramesInHour) + (Minutes * NumberOfFramesInMinute) + (Seconds * NumberOfFramesInSecond)
-				+ Frames - TotalDroppedFrames;
+			int32 TotalFrames = (SafeHours * NumberOfFramesInHour) + (SafeMinutes * NumberOfFramesInMinute) + (SafeSeconds * NumberOfFramesInSecond)
+				+ SafeFrames - TotalDroppedFrames;
 
 			return FFrameNumber(TotalFrames);
 		}
 		else
 		{
-			int32 TotalFrames = (Hours *NumberOfFramesInHour) + (Minutes * NumberOfFramesInMinute) + (Seconds * NumberOfFramesInSecond) + Frames;
+			int32 TotalFrames = (SafeHours *NumberOfFramesInHour) + (SafeMinutes * NumberOfFramesInMinute) + (SafeSeconds * NumberOfFramesInSecond) + SafeFrames;
 			return FFrameNumber(TotalFrames);
 		}
 	}

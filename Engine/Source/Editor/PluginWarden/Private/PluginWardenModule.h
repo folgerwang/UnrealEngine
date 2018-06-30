@@ -4,6 +4,8 @@
 #include "CoreMinimal.h"
 #include "IPluginWardenModule.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(PluginWarden, Log, All);
+
 /**
  * The Plugin Warden is a simple module used to verify a user has purchased a plug-in.  This
  * module won't prevent a determined user from avoiding paying for a plug-in, it is merely to
@@ -25,14 +27,14 @@ public:
 	virtual void ShutdownModule();
 
 	/**
-	 * Ask the launcher if the user has authorization to use the given plug-in. The authorized 
+	 * Ask the launcher if the user has authorization to use the given plug-in. The authorized
 	 * callback will only be called if the user is authorized to use the plug-in.
-	 * 
+	 *
 	 * FPluginWardenModule& PluginWarden = FModuleManager::LoadModuleChecked<FPluginWardenModule>("PluginWarden");
 	 * PluginWarden.CheckEntitlementForPlugin(LOCTEXT("AwesomePluginName", "My Awesome Plugin"), TEXT("PLUGIN_MARKETPLACE_GUID"), [&] () {
 	 *		// Authorized Code Here
 	 * });
-	 * 
+	 *
 	 * @param PluginFriendlyName The localized friendly name of the plug-in.
 	 * @param PluginItemId The unique identifier of the item plug-in on the marketplace.
 	 * @param PluginOfferId The unique identifier of the offer for the plug-in on the marketplace.
@@ -41,4 +43,7 @@ public:
 	 * @param AuthorizedCallback This function will be called after the user has been given entitlement.
 	 */
 	virtual void CheckEntitlementForPlugin(const FText& PluginFriendlyName, const FString& PluginItemId, const FString& PluginOfferId, const FText& UnauthorizedMessageOverride, EUnauthorizedErrorHandling UnauthorizedErrorHandling, TFunction<void()> AuthorizedCallback) override;
+
+private:
+	bool RunAuthorizationPipeline(const FText& PluginFriendlyName, const FString& PluginItemId, const FString& PluginOfferId);
 };

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) <2017> Side Effects Software Inc.
+* Copyright (c) <2018> Side Effects Software Inc.
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -53,7 +53,6 @@ UHoudiniCSVFactory::UHoudiniCSVFactory(const FObjectInitializer& ObjectInitializ
     bText = true;
 
     // Add supported formats.
-    Formats.Add(FString(TEXT("csv;")) + NSLOCTEXT("HoudiniCSVFactory", "FormatCSV", "CSV File").ToString());
     Formats.Add(FString(TEXT("hcsv;")) + NSLOCTEXT("HoudiniCSVFactory", "FormatHCSV", "HCSV File").ToString());
 }
 
@@ -72,17 +71,17 @@ UHoudiniCSVFactory::FactoryCreateFile(UClass* InClass, UObject* InParent, FName 
 
     UHoudiniCSV* NewHoudiniCSVObject = NewObject<UHoudiniCSV>(InParent, InClass, InName, Flags);
     if ( !NewHoudiniCSVObject )
-	return nullptr;
+		return nullptr;
 
     if ( !NewHoudiniCSVObject->UpdateFromFile( Filename ) )
-	return nullptr;   
+		return nullptr;   
 
     // Create reimport information.
     UAssetImportData * AssetImportData = NewHoudiniCSVObject->AssetImportData;
     if (!AssetImportData)
     {
-	AssetImportData = NewObject< UAssetImportData >(NewHoudiniCSVObject, UAssetImportData::StaticClass());
-	NewHoudiniCSVObject->AssetImportData = AssetImportData;
+		AssetImportData = NewObject< UAssetImportData >(NewHoudiniCSVObject, UAssetImportData::StaticClass());
+		NewHoudiniCSVObject->AssetImportData = AssetImportData;
     }
 
     //NewHoudiniCSVObject->AssetImportData->Update(Filename);
@@ -110,9 +109,9 @@ UHoudiniCSVFactory::FactoryCanImport(const FString& Filename)
 {
     const FString Extension = FPaths::GetExtension(Filename);
 
-    if ( Extension == TEXT("csv") || Extension == TEXT("hcsv") )
+    if (Extension == TEXT("hcsv") )
     {
-	return true;
+		return true;
     }
     return false;
 }
@@ -123,15 +122,15 @@ UHoudiniCSVFactory::CanReimport(UObject* Obj, TArray<FString>& OutFilenames)
     UHoudiniCSV* HoudiniCSV = Cast<UHoudiniCSV>(Obj);
     if (HoudiniCSV)
     {
-	if (HoudiniCSV->AssetImportData)
-	{
-	    HoudiniCSV->AssetImportData->ExtractFilenames(OutFilenames);
-	}
-	else
-	{
-	    OutFilenames.Add(TEXT(""));
-	}
-	return true;
+		if (HoudiniCSV->AssetImportData)
+		{
+			HoudiniCSV->AssetImportData->ExtractFilenames(OutFilenames);
+		}
+		else
+		{
+			OutFilenames.Add(TEXT(""));
+		}
+		return true;
     }
     return false;
 }
@@ -139,12 +138,12 @@ UHoudiniCSVFactory::CanReimport(UObject* Obj, TArray<FString>& OutFilenames)
 void 
 UHoudiniCSVFactory::SetReimportPaths(UObject* Obj, const TArray<FString>& NewReimportPaths)
 {
-    UHoudiniCSV* HoudiniCSV = Cast<UHoudiniCSV>(Obj);
-    if (HoudiniCSV 
-	&& HoudiniCSV->AssetImportData
-	&&  ensure(NewReimportPaths.Num() == 1))
+    UHoudiniCSV* HoudiniCSV = Cast<UHoudiniCSV>( Obj );
+    if ( HoudiniCSV 
+		&& HoudiniCSV->AssetImportData
+		&&  ensure( NewReimportPaths.Num() == 1 ) )
     {
-	HoudiniCSV->AssetImportData->UpdateFilenameOnly(NewReimportPaths[0]);
+		HoudiniCSV->AssetImportData->UpdateFilenameOnly(NewReimportPaths[0]);
     }
 }
 
@@ -153,38 +152,38 @@ UHoudiniCSVFactory::Reimport(UObject* Obj)
 {
     UHoudiniCSV* HoudiniCSV = Cast<UHoudiniCSV>(Obj);
     if (!HoudiniCSV || !HoudiniCSV->AssetImportData )
-	return EReimportResult::Failed;
+		return EReimportResult::Failed;
 
     const FString FilePath = HoudiniCSV->AssetImportData->GetFirstFilename();
     if (!FilePath.Len())
-	return EReimportResult::Failed;
+		return EReimportResult::Failed;
 
     UE_LOG(LogHoudiniNiagaraEditor, Log, TEXT("Performing atomic reimport of [%s]"), *FilePath);
 
     // Ensure that the file provided by the path exists
     if (IFileManager::Get().FileSize(*FilePath) == INDEX_NONE)
     {
-	UE_LOG(LogHoudiniNiagaraEditor, Warning, TEXT("Cannot reimport: source file cannot be found."));
-	return EReimportResult::Failed;
+		UE_LOG(LogHoudiniNiagaraEditor, Warning, TEXT("Cannot reimport: source file cannot be found."));
+		return EReimportResult::Failed;
     }
 
     bool OutCanceled = false;
     if (ImportObject(HoudiniCSV->GetClass(), HoudiniCSV->GetOuter(), *HoudiniCSV->GetName(), RF_Public | RF_Standalone, FilePath, nullptr, OutCanceled) != nullptr)
     {
-	UE_LOG(LogHoudiniNiagaraEditor, Log, TEXT("Imported successfully"));
-	// Try to find the outer package so we can dirty it up
-	if (HoudiniCSV->GetOuter())
-	    HoudiniCSV->GetOuter()->MarkPackageDirty();
-	else
-	    HoudiniCSV->MarkPackageDirty();
+		UE_LOG(LogHoudiniNiagaraEditor, Log, TEXT("Imported successfully"));
+		// Try to find the outer package so we can dirty it up
+		if (HoudiniCSV->GetOuter())
+			HoudiniCSV->GetOuter()->MarkPackageDirty();
+		else
+			HoudiniCSV->MarkPackageDirty();
     }
     else if (OutCanceled)
     {
-	UE_LOG(LogHoudiniNiagaraEditor, Warning, TEXT("-- import canceled"));
+		UE_LOG(LogHoudiniNiagaraEditor, Warning, TEXT("-- import canceled"));
     }
     else
     {
-	UE_LOG(LogHoudiniNiagaraEditor, Warning, TEXT("-- import failed"));
+		UE_LOG(LogHoudiniNiagaraEditor, Warning, TEXT("-- import failed"));
     }
 
     return EReimportResult::Succeeded;

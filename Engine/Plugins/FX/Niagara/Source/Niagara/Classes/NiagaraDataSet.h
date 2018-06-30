@@ -40,8 +40,8 @@ public:
 	void AllocateGPU(uint32 InNumInstances, FRHICommandList &RHICmdList);
 	void SwapInstances(uint32 OldIndex, uint32 NewIndex);
 	void KillInstance(uint32 InstanceIdx);
-	void CopyTo(FNiagaraDataBuffer& DestBuffer, int32 StartIdx, int32 NumInstances);
-	void CopyTo(FNiagaraDataBuffer& DestBuffer);
+	void CopyTo(FNiagaraDataBuffer& DestBuffer, int32 StartIdx, int32 NumInstances)const;
+	void CopyTo(FNiagaraDataBuffer& DestBuffer)const;
 
 	const TArray<uint8>& GetFloatBuffer()const { return FloatData; }
 	const TArray<uint8>& GetInt32Buffer()const { return Int32Data; }
@@ -72,6 +72,16 @@ public:
 	}
 
 	FORCEINLINE int32* GetInstancePtrInt32(uint32 ComponentIdx, uint32 InstanceIdx)
+	{
+		return (int32*)GetComponentPtrInt32(ComponentIdx) + InstanceIdx;
+	}
+
+	FORCEINLINE float* GetInstancePtrFloat(uint32 ComponentIdx, uint32 InstanceIdx)const
+	{
+		return (float*)GetComponentPtrFloat(ComponentIdx) + InstanceIdx;
+	}
+
+	FORCEINLINE int32* GetInstancePtrInt32(uint32 ComponentIdx, uint32 InstanceIdx)const
 	{
 		return (int32*)GetComponentPtrInt32(ComponentIdx) + InstanceIdx;
 	}
@@ -112,6 +122,8 @@ public:
 	FORCEINLINE const FNiagaraDataSet* GetOwner()const { return Owner; }
 
 	int32 TransferInstance(FNiagaraDataBuffer& SourceBuffer, int32 InstanceIndex);
+
+	bool CheckForNaNs()const;
 private:
 
 	FORCEINLINE int32 GetSafeComponentBufferSize(int32 RequiredSize) const
@@ -284,6 +296,10 @@ public:
 		CheckCorrectThread();
 		CurrData().Allocate(NumInstances, bMaintainExisting);
 
+#if NIAGARA_NAN_CHECKING
+		CheckForNaNs();
+#endif
+
 		if (bNeedsPersistentIDs)
 		{
 			int32 NumUsedIDs = MaxUsedID + 1;
@@ -347,6 +363,9 @@ public:
 	
 	FORCEINLINE void Tick()
 	{
+#if NIAGARA_NAN_CHECKING
+		CheckForNaNs();
+#endif
 		SwapBuffers();
 	}
 	
@@ -509,10 +528,24 @@ public:
 		return false;
 	}
 
-	void Dump(bool bCurr, int32 StartIdx = 0, int32 NumInstances = INDEX_NONE);
-	void Dump(FNiagaraDataSet& Other, bool bCurr, int32 StartIdx = 0, int32 NumInstances = INDEX_NONE);
+	void Dump(bool bCurr, int32 StartIdx = 0, int32 NumInstances = INDEX_NONE)const;
+	void Dump(FNiagaraDataSet& Other, bool bCurr, int32 StartIdx = 0, int32 NumInstances = INDEX_NONE)const;
 	FORCEINLINE const TArray<FNiagaraVariable> &GetVariables() { return Variables; }
 
+	void CheckForNaNs()const
+	{
+		if (CurrData().CheckForNaNs())
+		{
+			Dump(true);
+			ensureAlwaysMsgf(false, TEXT("NiagaraDataSet contains NaNs!"));
+		}
+
+		if (PrevData().CheckForNaNs())
+		{
+			Dump(false);
+			ensureAlwaysMsgf(false, TEXT("NiagaraDataSet contains NaNs!"));
+		}
+	}
 
 	// Data set index buffer management
 	// these buffers hold the number of instances for the buffers; the first five uint32s are the DrawIndirect parameters for rendering of the main particle data set
@@ -1622,6 +1655,80 @@ private:
 
 	FNiagaraDataSet& DataSet;
 	FNiagaraDataBuffer& DataBuffer;
+	TArray<FNiagaraVariable*> Variables;
+	TArray<const FNiagaraVariableLayoutInfo*> VarLayouts;
+
+	uint32 CurrIdx;
+};
+
+/**
+Iterator that will pull or push data between a DataSet and some FNiagaraVariables it contains.
+Super slow. Don't use at runtime.
+*/
+struct FNiagaraDataSetVariableIteratorConst
+{
+	FNiagaraDataSetVariableIteratorConst(const FNiagaraDataSet& InDataSet, uint32 StartIdx = 0, bool bCurrBuffer = true)
+		: DataSet(InDataSet)
+		, DataBuffer(bCurrBuffer ? DataSet.CurrData() : DataSet.PrevData())
+		, CurrIdx(StartIdx)
+	{
+	}
+
+	void Get()
+	{
+		for (int32 VarIdx = 0; VarIdx < Variables.Num(); ++VarIdx)
+		{
+			FNiagaraVariable* Var = Variables[VarIdx];
+			const FNiagaraVariableLayoutInfo* Layout = VarLayouts[VarIdx];
+			check(Var && Layout);
+			uint8* ValuePtr = Var->GetData();
+
+			for (uint32 CompIdx = 0; CompIdx < Layout->GetNumFloatComponents(); ++CompIdx)
+			{
+				uint32 CompBufferOffset = Layout->FloatComponentStart + CompIdx;
+				float* Src = DataBuffer.GetInstancePtrFloat(CompBufferOffset, CurrIdx);
+				float* Dst = (float*)(ValuePtr + Layout->LayoutInfo.FloatComponentByteOffsets[CompIdx]);
+				*Dst = *Src;
+			}
+
+			for (uint32 CompIdx = 0; CompIdx < Layout->GetNumInt32Components(); ++CompIdx)
+			{
+				uint32 CompBufferOffset = Layout->Int32ComponentStart + CompIdx;
+				int32* Src = DataBuffer.GetInstancePtrInt32(CompBufferOffset, CurrIdx);
+				int32* Dst = (int32*)(ValuePtr + Layout->LayoutInfo.Int32ComponentByteOffsets[CompIdx]);
+				*Dst = *Src;
+			}
+		}
+	}
+	
+	void Advance() { ++CurrIdx; }
+
+	bool IsValid()const
+	{
+		return CurrIdx < DataBuffer.GetNumInstances();
+	}
+
+	uint32 GetCurrIndex()const { return CurrIdx; }
+
+	void AddVariable(FNiagaraVariable* InVar)
+	{
+		check(InVar);
+		Variables.AddUnique(InVar);
+		VarLayouts.AddUnique(DataSet.GetVariableLayout(*InVar));
+		InVar->AllocateData();
+	}
+
+	void AddVariables(TArray<FNiagaraVariable>& Vars)
+	{
+		for (FNiagaraVariable& Var : Vars)
+		{
+			AddVariable(&Var);
+		}
+	}
+private:
+
+	const FNiagaraDataSet & DataSet;
+	const FNiagaraDataBuffer& DataBuffer;
 	TArray<FNiagaraVariable*> Variables;
 	TArray<const FNiagaraVariableLayoutInfo*> VarLayouts;
 

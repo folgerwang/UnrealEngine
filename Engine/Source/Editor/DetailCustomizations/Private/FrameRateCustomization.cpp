@@ -3,6 +3,8 @@
 #include "FrameRateCustomization.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SFrameRatePicker.h"
+#include "IPropertyUtilities.h"
+#include "IPropertyTypeCustomization.h"
 #include "PropertyHandle.h"
 #include "DetailLayoutBuilder.h"
 #include "DetailWidgetRow.h"
@@ -28,6 +30,8 @@ void FFrameRateCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InProp
 
 void FFrameRateCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> InPropertyHandle, IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& CustomizationUtils)
 {
+	TSharedPtr<IPropertyUtilities> PropertyUtils = CustomizationUtils.GetPropertyUtilities();
+
 	FDetailWidgetRow& CustomRow = ChildBuilder.AddCustomRow(StructPropertyHandle->GetPropertyDisplayName());
 
 	CustomRow.NameContent()
@@ -42,7 +46,7 @@ void FFrameRateCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> InPr
 		.HasMultipleValues(this, &FFrameRateCustomization::HasMultipleValues)
 		.Value(this, &FFrameRateCustomization::GetFirstFrameRate)
 		.OnValueChanged(this, &FFrameRateCustomization::SetFrameRate)
-	];
+	].IsEnabled(MakeAttributeLambda([=] { return !InPropertyHandle->IsEditConst() && PropertyUtils->IsPropertyEditingEnabled(); }));
 }
 
 
@@ -61,22 +65,16 @@ FFrameRate FFrameRateCustomization::GetFirstFrameRate() const
 
 void FFrameRateCustomization::SetFrameRate(FFrameRate NewFrameRate)
 {
-	GEditor->BeginTransaction(FText::Format(LOCTEXT("EditProperty", "Edit {0}"), StructPropertyHandle->GetPropertyDisplayName()));
-
-	StructPropertyHandle->NotifyPreChange();
-
-	TArray<void*> RawData;
-	StructPropertyHandle->AccessRawData(RawData);
-
-	for (void* RawPtr : RawData)
+	if (UStructProperty* StructProperty = Cast<UStructProperty>(StructPropertyHandle->GetProperty()))
 	{
-		*reinterpret_cast<FFrameRate*>(RawPtr) = NewFrameRate;
+		TArray<void*> RawData;
+		StructPropertyHandle->AccessRawData(RawData);
+		FFrameRate* PreviousFrameRate = reinterpret_cast<FFrameRate*>(RawData[0]);
+
+		FString TextValue;
+		StructProperty->Struct->ExportText(TextValue, &NewFrameRate, PreviousFrameRate, nullptr, EPropertyPortFlags::PPF_None, nullptr);
+		ensure(StructPropertyHandle->SetValueFromFormattedString(TextValue, EPropertyValueSetFlags::DefaultFlags) == FPropertyAccess::Result::Success);
 	}
-
-	StructPropertyHandle->NotifyPostChange();
-	StructPropertyHandle->NotifyFinishedChangingProperties();
-
-	GEditor->EndTransaction();
 }
 
 bool FFrameRateCustomization::HasMultipleValues() const

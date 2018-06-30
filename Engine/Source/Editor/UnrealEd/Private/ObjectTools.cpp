@@ -480,6 +480,19 @@ namespace ObjectTools
 				}
 			}
 
+			// Handle map built data
+			const int32 OriginalNumToDelete = ObjectsToDelete.Num();
+			ObjectTools::AddExtraObjectsToDelete(ObjectsToDelete);
+			for (int32 i = OriginalNumToDelete; i < ObjectsToDelete.Num(); ++i)
+			{
+				UPackage* Pkg = ObjectsToDelete[i]->GetOutermost();
+				if ( Pkg && !Pkg->IsRooted() )
+				{
+					DeletedObjectPackages.AddUnique(Pkg);
+					Pkg->AddToRoot();
+				}
+			}
+
 			const int32 NumObjectsDeleted = ObjectTools::DeleteObjects(ObjectsToDelete, bPromptToOverwrite);
 
 			// Remove all packages that we added to the root set above.
@@ -743,7 +756,10 @@ namespace ObjectTools
 		ReplacementMap.GenerateKeyArray( OutInfo.ReplaceableObjects );
 
 		// Find all the properties (and their corresponding objects) that refer to any of the objects to be replaced
-		TMap< UObject*, TArray<UProperty*> > ReferencingPropertiesMap;
+		using PropertyArrayType = TArray<UProperty*, TInlineAllocator<1>>;
+		TArray<UObject*> ReferencingPropertiesMapKeys;
+		TArray<PropertyArrayType> ReferencingPropertiesMapValues;
+
 		for ( FObjectIterator ObjIter; ObjIter; ++ObjIter )
 		{
 			UObject* CurObject = *ObjIter;
@@ -761,12 +777,15 @@ namespace ObjectTools
 				TMultiMap<UObject*, UProperty*> CurReferencingPropertiesMMap;
 				if ( FindRefsArchive.GetReferenceCounts( CurNumReferencesMap, CurReferencingPropertiesMMap ) > 0  )
 				{
-					TArray<UProperty*> CurReferencedProperties;
+					PropertyArrayType CurReferencedProperties;
 					CurReferencingPropertiesMMap.GenerateValueArray( CurReferencedProperties );
-					ReferencingPropertiesMap.Add( CurObject, CurReferencedProperties );
+
+					ReferencingPropertiesMapKeys.Add(CurObject);
+					ReferencingPropertiesMapValues.Add(CurReferencedProperties);
+
 					if ( CurReferencedProperties.Num() > 0)
 					{
-						for ( TArray<UProperty*>::TConstIterator RefPropIter( CurReferencedProperties ); RefPropIter; ++RefPropIter )
+						for ( PropertyArrayType::TConstIterator RefPropIter( CurReferencedProperties ); RefPropIter; ++RefPropIter )
 						{
 							CurObject->PreEditChange( *RefPropIter );
 						}
@@ -778,15 +797,40 @@ namespace ObjectTools
 				}
 			}
 		}
-		
+
+		{
+			TBitArray<> TouchedThisItteration(false, ReferencingPropertiesMapKeys.Num());
+			for (int CurrentIndex = 0; CurrentIndex < ReferencingPropertiesMapKeys.Num(); CurrentIndex++)
+			{
+				TouchedThisItteration.Init(false, ReferencingPropertiesMapKeys.Num());
+				FFindReferencersArchive FindDependentArchive(ReferencingPropertiesMapKeys[CurrentIndex], ReferencingPropertiesMapKeys);
+				for (int DependentIndex = CurrentIndex + 1; DependentIndex < ReferencingPropertiesMapKeys.Num(); DependentIndex++)
+				{
+					if (!TouchedThisItteration[DependentIndex] && FindDependentArchive.GetReferenceCount(ReferencingPropertiesMapKeys[DependentIndex]) > 0)
+					{
+						UObject* Key = ReferencingPropertiesMapKeys[CurrentIndex];
+						PropertyArrayType Value = ReferencingPropertiesMapValues[CurrentIndex];
+						ReferencingPropertiesMapKeys[CurrentIndex] = ReferencingPropertiesMapKeys[DependentIndex];
+						ReferencingPropertiesMapValues[CurrentIndex] = ReferencingPropertiesMapValues[DependentIndex];
+						ReferencingPropertiesMapKeys[DependentIndex] = Key;
+						ReferencingPropertiesMapValues[DependentIndex] = Value;
+
+						FindDependentArchive.ResetPotentialReferencer(ReferencingPropertiesMapKeys[CurrentIndex]);
+						TouchedThisItteration[DependentIndex] = true;
+						DependentIndex = CurrentIndex;
+					}
+				}
+			}
+		}
+
 		// Iterate over the map of referencing objects/changed properties, forcefully replacing the references and
 		int32 NumObjsReplaced = 0;
-		for ( TMap< UObject*, TArray<UProperty*> >::TConstIterator MapIter( ReferencingPropertiesMap ); MapIter; ++MapIter )
+		for (int32 Index = 0; Index < ReferencingPropertiesMapKeys.Num(); Index++)
 		{
 			++NumObjsReplaced;
-			GWarn->StatusUpdate( NumObjsReplaced, ReferencingPropertiesMap.Num(), NSLOCTEXT("UnrealEd", "ConsolidateAssetsUpdate_ReplacingReferences", "Replacing Asset References...") );
+			GWarn->StatusUpdate( NumObjsReplaced, ReferencingPropertiesMapKeys.Num(), NSLOCTEXT("UnrealEd", "ConsolidateAssetsUpdate_ReplacingReferences", "Replacing Asset References...") );
 
-			UObject* CurReplaceObj = MapIter.Key();
+			UObject* CurReplaceObj = ReferencingPropertiesMapKeys[Index];
 
 			FArchiveReplaceObjectRef<UObject> ReplaceAr( CurReplaceObj, ReplacementMap, false, true, false );
 		}
@@ -794,17 +838,17 @@ namespace ObjectTools
 		// Now alter the referencing objects the change has completed via PostEditChange, 
 		// this is done in a separate loop to prevent reading of data that we want to overwrite
 		int32 NumObjsPostEdited = 0;
-		for ( TMap< UObject*, TArray<UProperty*> >::TConstIterator MapIter( ReferencingPropertiesMap ); MapIter; ++MapIter )
+		for (int32 Index = 0; Index < ReferencingPropertiesMapKeys.Num(); Index++)
 		{
 			++NumObjsPostEdited;
-			GWarn->StatusUpdate( NumObjsPostEdited, ReferencingPropertiesMap.Num(), NSLOCTEXT("UnrealEd", "ConsolidateAssetsUpdate_PostEditing", "Performing Post Update Edits...") );
+			GWarn->StatusUpdate( NumObjsPostEdited, ReferencingPropertiesMapKeys.Num(), NSLOCTEXT("UnrealEd", "ConsolidateAssetsUpdate_PostEditing", "Performing Post Update Edits...") );
 
-			UObject* CurReplaceObj = MapIter.Key();
-			const TArray<UProperty*>& RefPropArray = MapIter.Value();
+			UObject* CurReplaceObj = ReferencingPropertiesMapKeys[Index];
+			const PropertyArrayType& RefPropArray = ReferencingPropertiesMapValues[Index];
 
 			if (RefPropArray.Num() > 0)
 			{
-				for ( TArray<UProperty*>::TConstIterator RefPropIter( RefPropArray ); RefPropIter; ++RefPropIter )
+				for ( PropertyArrayType::TConstIterator RefPropIter( RefPropArray ); RefPropIter; ++RefPropIter )
 				{
 					FPropertyChangedEvent PropertyEvent(*RefPropIter, EPropertyChangeType::Redirected);
 					CurReplaceObj->PostEditChangeProperty( PropertyEvent );
@@ -1883,11 +1927,13 @@ namespace ObjectTools
 		return NumPackagesToDelete + NumObjectsToDelete;
 	}
 
-	void AddExtraObjectsToDelete(const TArray< UObject* >& InObjectsToDelete, TArray< UObject* >& ObjectsToDelete)
+	void AddExtraObjectsToDelete(TArray< UObject* >& ObjectsToDelete)
 	{
-		ObjectsToDelete = InObjectsToDelete;
-		for (UObject *ObjectToDelete : InObjectsToDelete)
+		const int32 OriginalNum = ObjectsToDelete.Num();
+		for (int32 i=0; i < OriginalNum; ++i)
 		{
+			UObject* ObjectToDelete = ObjectsToDelete[i];
+
 			// Delete MapBuildData with maps
 			if (UWorld* World = Cast<UWorld>(ObjectToDelete))
 			{
@@ -1923,8 +1969,8 @@ namespace ObjectTools
 
 		const FScopedBusyCursor BusyCursor;
 
-		TArray<UObject*> ObjectsToDelete;
-		AddExtraObjectsToDelete(InObjectsToDelete, ObjectsToDelete);
+		TArray<UObject*> ObjectsToDelete = InObjectsToDelete;
+		AddExtraObjectsToDelete(ObjectsToDelete);
 
 		// Make sure packages being saved are fully loaded.
 		if( !HandleFullyLoadingPackages( ObjectsToDelete, NSLOCTEXT("UnrealEd", "Delete", "Delete") ) )
@@ -2044,8 +2090,8 @@ namespace ObjectTools
 		GWarn->BeginSlowTask( NSLOCTEXT( "UnrealEd", "Deleting", "Deleting" ), true );
 
 		TArray<UObject*> ObjectsDeletedSuccessfully;
-		TArray<UObject*> ObjectsToDelete;
-		AddExtraObjectsToDelete(InObjectsToDelete, ObjectsToDelete);
+		TArray<UObject*> ObjectsToDelete = InObjectsToDelete;
+		AddExtraObjectsToDelete(ObjectsToDelete);
 
 		bool bSawSuccessfulDelete = false;
 		bool bMakeWritable = false;
@@ -2170,8 +2216,8 @@ namespace ObjectTools
 	{
 		int32 NumDeletedObjects = 0;
 
-		TArray<UObject*> ShownObjectsToDelete;
-		AddExtraObjectsToDelete(InObjectsToDelete, ShownObjectsToDelete);
+		TArray<UObject*> ShownObjectsToDelete = InObjectsToDelete;
+		AddExtraObjectsToDelete(ShownObjectsToDelete);
 
 		// Confirm that the delete was intentional
 		if ( ShowConfirmation && !ShowDeleteConfirmationDialog(ShownObjectsToDelete) )

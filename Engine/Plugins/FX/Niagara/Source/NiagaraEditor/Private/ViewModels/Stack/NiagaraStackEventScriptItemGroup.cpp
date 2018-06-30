@@ -44,6 +44,15 @@ void UNiagaraStackEventHandlerPropertiesItem::Initialize(FRequiredEntryData InRe
 	}
 }
 
+void UNiagaraStackEventHandlerPropertiesItem::FinalizeInternal()
+{
+	if (Emitter.IsValid())
+	{
+		Emitter->OnPropertiesChanged().RemoveAll(this);
+	}
+	Super::FinalizeInternal();
+}
+
 FText UNiagaraStackEventHandlerPropertiesItem::GetDisplayName() const
 {
 	return LOCTEXT("EventHandlerPropertiesDisplayName", "Event Handler Properties");
@@ -83,15 +92,6 @@ void UNiagaraStackEventHandlerPropertiesItem::ResetToBase()
 		MergeManager->ResetEventHandlerPropertySetToBase(*Emitter, *BaseEmitter, EventScriptUsageId);
 		RefreshChildren();
 	}
-}
-
-void UNiagaraStackEventHandlerPropertiesItem::BeginDestroy()
-{
-	if (Emitter.IsValid())
-	{
-		Emitter->OnPropertiesChanged().RemoveAll(this);
-	}
-	Super::BeginDestroy();
 }
 
 void UNiagaraStackEventHandlerPropertiesItem::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)

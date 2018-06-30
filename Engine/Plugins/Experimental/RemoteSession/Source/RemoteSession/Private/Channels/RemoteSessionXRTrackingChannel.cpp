@@ -5,6 +5,8 @@
 #include "Framework/Application/SlateApplication.h"
 #include "BackChannel/Protocol/OSC/BackChannelOSCConnection.h"
 #include "BackChannel/Protocol/OSC/BackChannelOSCMessage.h"
+#include "ARSessionConfig.h"
+#include "ARBlueprintLibrary.h"
 #include "MessageHandler/Messages.h"
 #include "Engine/Engine.h"
 #include "Async/Async.h"
@@ -43,7 +45,7 @@ FRemoteSessionXRTrackingChannel::FRemoteSessionXRTrackingChannel(ERemoteSessionC
 	// If we are sending, we grab the data from GEngine->XRSystem, otherwise we back the current one up for restore later
 	XRSystem = GEngine->XRSystem;
 	
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		// Make the proxy and set GEngine->XRSystem to it
 		ProxyXRSystem = MakeShared<FXRTrackingProxy, ESPMode::ThreadSafe>();
@@ -57,7 +59,7 @@ FRemoteSessionXRTrackingChannel::FRemoteSessionXRTrackingChannel(ERemoteSessionC
 
 FRemoteSessionXRTrackingChannel::~FRemoteSessionXRTrackingChannel()
 {
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		// Remove the callback so it doesn't call back on an invalid this
 		Connection->RemoveMessageHandler(MESSAGE_ADDRESS, MessageCallbackHandle);
@@ -76,7 +78,7 @@ FRemoteSessionXRTrackingChannel::~FRemoteSessionXRTrackingChannel()
 void FRemoteSessionXRTrackingChannel::Tick(const float InDeltaTime)
 {
 	// Inbound data gets handled as callbacks
-	if (Role == ERemoteSessionChannelMode::Send)
+	if (Role == ERemoteSessionChannelMode::Write)
 	{
 		SendXRTracking();
 	}

@@ -12,11 +12,12 @@ struct FNiagaraScriptExecutionPaddingInfo
 {
 	GENERATED_USTRUCT_BODY()
 public:
-	FNiagaraScriptExecutionPaddingInfo() : SrcOffset(0), DestOffset(0), Size(0) {}
-	FNiagaraScriptExecutionPaddingInfo(uint32 InSrcOffset, uint32 InDestOffset, uint32 InSize) : SrcOffset(InSrcOffset), DestOffset(InDestOffset), Size(InSize) {}
+	FNiagaraScriptExecutionPaddingInfo() : SrcOffset(0), DestOffset(0), SrcSize(0), DestSize(0) {}
+	FNiagaraScriptExecutionPaddingInfo(uint32 InSrcOffset, uint32 InDestOffset, uint32 InSrcSize, uint32 InDestSize) : SrcOffset(InSrcOffset), DestOffset(InDestOffset), SrcSize(InSrcSize), DestSize(InDestSize) {}
 	uint32 SrcOffset;
 	uint32 DestOffset;
-	uint32 Size;
+	uint32 SrcSize;
+	uint32 DestSize;
 };
 
 /**
@@ -62,6 +63,14 @@ public:
 		check(0);//Can't rename parameters for an execution store.
 	}
 
+	void Empty(bool bClearBindings=true)
+	{
+		FNiagaraParameterStore::Empty(bClearBindings);
+		PaddingInfo.Empty();
+		PaddedParameterSize = 0;
+		bInitialized = false;
+	}
+
 	// Just the external parameters, not previous or internal...
 	uint32 GetExternalParameterSize() { return ParameterSize; }
 
@@ -71,13 +80,6 @@ public:
 	// Helper that converts the data from the base type array internally into the padded out renderer-ready format.
 	void CopyParameterDataToPaddedBuffer(uint8* InTargetBuffer, uint32 InTargetBufferSizeInBytes);
 
-	void Clear()
-	{
-		Empty();
-		PaddingInfo.Empty();
-		PaddedParameterSize = 0;
-		bInitialized = false;
-	}
 
 	bool IsInitialized() const {return bInitialized;}
 

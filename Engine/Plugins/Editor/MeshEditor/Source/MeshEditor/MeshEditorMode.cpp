@@ -4,6 +4,7 @@
 #include "MeshEditorCommands.h"
 #include "MeshEditorStyle.h"
 #include "MeshEditorModeToolkit.h"
+#include "MeshEditorUtilities.h"
 #include "EditableMesh.h"
 #include "MeshAttributes.h"
 #include "EditableMeshFactory.h"
@@ -23,7 +24,6 @@
 #include "ActorViewportTransformable.h"
 #include "ViewportWorldInteraction.h"
 #include "IViewportInteractionModule.h"
-#include "IContentBrowserSingleton.h"
 #include "VIBaseTransformGizmo.h"	// For EGizmoHandleTypes
 #include "Engine/Selection.h"
 #include "EngineUtils.h"
@@ -47,6 +47,8 @@
 #include "Components/PrimitiveComponent.h"
 #include "ILevelViewport.h"
 #include "SLevelViewport.h"
+#include "MeshEditorSelectionModifiers.h"
+#include "Algo/Find.h"
 
 #define LOCTEXT_NAMESPACE "MeshEditorMode"
 
@@ -155,7 +157,7 @@ TUniquePtr<FChange> FMeshEditorMode::FSelectOrDeselectMeshElementsChange::Execut
 						const UEditableMesh* EditableMesh = MeshEditorMode.FindEditableMesh( *MeshElementToSelect.Component, MeshElementToSelect.ElementAddress.SubMeshAddress );
 						if( EditableMesh != nullptr )
 						{
-							if( IsElementIDValid( MeshElementToSelect, EditableMesh ) )
+							if( MeshElementToSelect.IsElementIDValid( EditableMesh ) && MeshEditorMode.GetSelectedMeshElementIndex( MeshElementToSelect ) == INDEX_NONE )
 							{
 								FMeshElement& AddedSelectedMeshElement = MeshEditorMode.SelectedMeshElements[ MeshEditorMode.SelectedMeshElements.Add( MeshElementToSelect ) ];
 								AddedSelectedMeshElement.LastSelectTime = CurrentRealTime;
@@ -405,6 +407,9 @@ FMeshEditorMode::FMeshEditorMode()
 	  EquippedEdgeAction( EMeshEditAction::Move ),
 	  EquippedPolygonAction( EMeshEditAction::Move ),
 	  ActiveAction( NAME_None ),
+	  EquippedVertexSelectionModifier( NAME_None ),
+	  EquippedEdgeSelectionModifier( NAME_None ),
+	  EquippedPolygonSelectionModifier( NAME_None ),
 	  bIsCapturingUndoForPreview( false ),
 	  PreviewRevertChanges(),
 	  ActiveActionModifiedMeshes(),
@@ -450,6 +455,7 @@ FMeshEditorMode::FMeshEditorMode()
 	FMeshEditorVertexCommands::Register();
 	FMeshEditorEdgeCommands::Register();
 	FMeshEditorPolygonCommands::Register();
+	FMeshEditorSelectionModifiers::Register();
 
 	// Register UI commands
 	BindCommands();
@@ -467,6 +473,7 @@ void FMeshEditorMode::Initialize()
 FMeshEditorMode::~FMeshEditorMode()
 {
 	// Unregister mesh editor actions
+	FMeshEditorSelectionModifiers::Unregister();
 	FMeshEditorPolygonCommands::Unregister();
 	FMeshEditorEdgeCommands::Unregister();
 	FMeshEditorVertexCommands::Unregister();
@@ -637,7 +644,6 @@ void FMeshEditorMode::PlayFinishActionSound( FName NewAction, UViewportInteracto
 void FMeshEditorMode::BindCommands()
 {
 	const FMeshEditorCommonCommands& MeshEditorCommonCommands( FMeshEditorCommonCommands::Get() );
-	const FMeshEditorAnyElementCommands& MeshEditorAnyElementCommands( FMeshEditorAnyElementCommands::Get() );
 	const FMeshEditorVertexCommands& MeshEditorVertexCommands( FMeshEditorVertexCommands::Get() );
 	const FMeshEditorEdgeCommands& MeshEditorEdgeCommands( FMeshEditorEdgeCommands::Get() );
 	const FMeshEditorPolygonCommands& MeshEditorPolygonCommands( FMeshEditorPolygonCommands::Get() );
@@ -649,9 +655,6 @@ void FMeshEditorMode::BindCommands()
 
 	RegisterPolygonEditingMode( MeshEditorPolygonCommands.MovePolygon, EMeshEditAction::Move );
 	RegisterCommonEditingMode( MeshEditorCommonCommands.DrawVertices, EMeshEditAction::DrawVertices );
-
-	// Register commands which work regardless of which element type is selected
-	RegisterAnyElementCommand( MeshEditorAnyElementCommands.DeleteMeshElement, FExecuteAction::CreateLambda( [this] { DeleteSelectedMeshElement(); } ) );
 
 	// Register commands which work even without a selected element, as long as at least one mesh is selected
 #if EDITABLE_MESH_USE_OPENSUBDIV
@@ -695,9 +698,7 @@ void FMeshEditorMode::BindCommands()
 
 	RegisterEdgeCommand( MeshEditorEdgeCommands.SelectEdgeLoop, FExecuteAction::CreateLambda( [ this ] { SelectEdgeLoops(); } ) );
 
-	RegisterPolygonCommand( MeshEditorPolygonCommands.FlipPolygon, FExecuteAction::CreateLambda( [this] { FlipSelectedPolygons(); } ) );
 	RegisterPolygonCommand( MeshEditorPolygonCommands.TriangulatePolygon, FExecuteAction::CreateLambda( [this] { TriangulateSelectedPolygons(); } ) );
-	RegisterPolygonCommand( MeshEditorPolygonCommands.AssignMaterial, FExecuteAction::CreateLambda( [this] { AssignSelectedMaterialToSelectedPolygons(); } ) );
 
 	for( UMeshEditorCommand* Command : MeshEditorCommands::Get() )
 	{
@@ -722,7 +723,11 @@ void FMeshEditorMode::BindCommands()
 			case EEditableMeshElementType::Polygon:
 				PolygonActions.Emplace( Command->GetUICommandInfo(), Command->MakeUIAction( *this ) );
 				break;
-
+			case EEditableMeshElementType::Any:
+				VertexActions.Emplace( Command->GetUICommandInfo(), Command->MakeUIAction( *this ) );
+				EdgeActions.Emplace( Command->GetUICommandInfo(), Command->MakeUIAction( *this ) );
+				PolygonActions.Emplace( Command->GetUICommandInfo(), Command->MakeUIAction( *this ) );
+				break;
 			default:
 				check( 0 );
 		}
@@ -757,6 +762,8 @@ void FMeshEditorMode::BindCommands()
 	{
 		PolygonCommands->MapAction( PolygonAction.Get<0>(), PolygonAction.Get<1>() );
 	}
+
+	BindSelectionModifiersCommands();
 }
 
 
@@ -835,6 +842,15 @@ void FMeshEditorMode::Enter()
 {
 	// Call parent implementation
 	FEdMode::Enter();
+
+	// Initialize selection sets and caches
+	SelectedComponentsAndEditableMeshes.Reset();
+	SelectedEditableMeshes.Reset();
+	SelectedMeshElements.Empty();
+	SelectedVertices.Empty();
+	SelectedEdges.Empty();
+	SelectedPolygons.Empty();
+	ComponentToWireframeComponentMap.Empty();
 
 	// Notify when the map changes
 	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>( "LevelEditor" );
@@ -1285,7 +1301,7 @@ void FMeshEditorMode::Tick( FEditorViewportClient* ViewportClient, float DeltaTi
 		for( FMeshElement& FadingOutHoveredMeshElement : FadingOutHoveredMeshElements )
 		{
 			const UEditableMesh* EditableMesh = FindEditableMesh( *FadingOutHoveredMeshElement.Component.Get(), FadingOutHoveredMeshElement.ElementAddress.SubMeshAddress );
-			if( IsElementIDValid( FadingOutHoveredMeshElement, EditableMesh ) )
+			if( FadingOutHoveredMeshElement.IsElementIDValid( EditableMesh ) )
 			{
 				const float TimeSinceLastHovered = CurrentRealTime - FadingOutHoveredMeshElement.LastHoverTime;
 				float Opacity = 1.0f - ( TimeSinceLastHovered / HoverFadeTime );
@@ -1345,7 +1361,7 @@ void FMeshEditorMode::UpdateDebugNormals()
 
 		const UPrimitiveComponent* Component = ComponentAndEditableMesh.Component.Get();
 		const UEditableMesh* EditableMesh = ComponentAndEditableMesh.EditableMesh;
-		const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+		const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 
 		const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 		const TVertexInstanceAttributeArray<FVector>& VertexNormals = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>( MeshAttribute::VertexInstance::Normal );
@@ -1790,90 +1806,98 @@ void FMeshEditorMode::DeselectMeshElements( const TMap<UEditableMesh*, TArray<FM
 }
 
 
-bool FMeshEditorMode::DeleteSelectedMeshElement()
+void FMeshEditorMode::BindSelectionModifiersCommands()
 {
-	if( ActiveAction != NAME_None )
+	for( UMeshEditorSelectionModifier* SelectionModifier : MeshEditorSelectionModifiers::Get() )
 	{
-		return false;
-	}
-
-	static TMap<UEditableMesh*, TArray<FMeshElement>> MeshesWithElementsToDelete;
-	GetSelectedMeshesAndElements( EEditableMeshElementType::Any, MeshesWithElementsToDelete );
-	if( MeshesWithElementsToDelete.Num() == 0 )
-	{
-		// @todo should this count as a failure case?
-		return false;
-	}
-
-	FScopedTransaction Transaction( LOCTEXT( "UndoDeleteMeshElement", "Delete" ) );
-
-	CommitSelectedMeshes();
-
-	// Refresh selection (committing may have created a new mesh instance)
-	GetSelectedMeshesAndElements( EEditableMeshElementType::Any, MeshesWithElementsToDelete );
-
-	// Deselect the mesh elements before we delete them.  This will make sure they become selected again after undo.
-	DeselectMeshElements( MeshesWithElementsToDelete );
-
-	for( const auto& MeshAndElements : MeshesWithElementsToDelete )
-	{
-		UEditableMesh* EditableMesh = MeshAndElements.Key;
-
-		EditableMesh->StartModification( EMeshModificationType::Final, EMeshTopologyChange::TopologyChange );
-
-		for( const FMeshElement& MeshElementToDelete : MeshAndElements.Value )
-		{
-			const bool bDeleteOrphanedEdges = true;
-			const bool bDeleteOrphanedVertices = true;
-			const bool bDeleteOrphanedVertexInstances = true;
-			const bool bDeleteEmptySections = true;
-
-			// If we deleted the same polygon on multiple selected instances of the same mesh, the polygon could already have been deleted
-			// by the time we get here
-			if( IsElementIDValid( MeshElementToDelete, EditableMesh ) )
+		FUIAction SelectionModifierUIAction = FUIAction(
+			FExecuteAction::CreateLambda( [ SelectionModifier, MeshEditorMode = this] { MeshEditorMode->SetEquippedSelectionModifier( MeshEditorMode->GetMeshElementSelectionMode(), SelectionModifier->GetSelectionModifierName() ); } ),
+			FCanExecuteAction::CreateLambda( [ SelectionModifier, MeshEditorMode = this ]
 			{
-				if( MeshElementToDelete.ElementAddress.ElementType == EEditableMeshElementType::Vertex )
-				{
-					EditableMesh->DeleteVertexAndConnectedEdgesAndPolygons(
-						FVertexID( MeshElementToDelete.ElementAddress.ElementID ),
-						bDeleteOrphanedEdges,
-						bDeleteOrphanedVertices,
-						bDeleteOrphanedVertexInstances,
-						bDeleteEmptySections );
+				return MeshEditorMode->IsMeshElementTypeSelectedOrIsActiveSelectionMode( SelectionModifier->GetElementType() ) || SelectionModifier->GetElementType() == EEditableMeshElementType::Any;
+			} ),
+			FIsActionChecked::CreateLambda( [ SelectionModifier, MeshEditorMode = this ] { return SelectionModifier == MeshEditorMode->GetEquippedSelectionModifier(); } ) );
 
-				}
-				else if( MeshElementToDelete.ElementAddress.ElementType == EEditableMeshElementType::Edge )
-				{
-					EditableMesh->DeleteEdgeAndConnectedPolygons(
-						FEdgeID( MeshElementToDelete.ElementAddress.ElementID ),
-						bDeleteOrphanedEdges,
-						bDeleteOrphanedVertices,
-						bDeleteOrphanedVertexInstances,
-						bDeleteEmptySections );
-				}
-				else if( MeshElementToDelete.ElementAddress.ElementType == EEditableMeshElementType::Polygon )
-				{
-					static TArray<FPolygonID> PolygonIDsToDelete;
-					PolygonIDsToDelete.Reset();
-					PolygonIDsToDelete.Add( FPolygonID( MeshElementToDelete.ElementAddress.ElementID ) );
-					EditableMesh->DeletePolygons( 
-						PolygonIDsToDelete,
-						bDeleteOrphanedEdges,
-						bDeleteOrphanedVertices,
-						bDeleteOrphanedVertexInstances,
-						bDeleteEmptySections );
-				}
+		switch ( SelectionModifier->GetElementType() )
+		{
+		case EEditableMeshElementType::Invalid:
+			break;
+		case EEditableMeshElementType::Vertex:
+			VertexSelectionModifiersActions.Emplace( SelectionModifier->GetUICommandInfo(), SelectionModifierUIAction );
+			
+			if ( EquippedVertexSelectionModifier == NAME_None )
+			{
+				EquippedVertexSelectionModifier = SelectionModifier->GetSelectionModifierName();
 			}
+			break;
+		case EEditableMeshElementType::Edge:
+			EdgeSelectionModifiersActions.Emplace( SelectionModifier->GetUICommandInfo(), SelectionModifierUIAction );
+
+			if ( EquippedEdgeSelectionModifier == NAME_None )
+			{
+				EquippedEdgeSelectionModifier = SelectionModifier->GetSelectionModifierName();
+			}
+			break;
+		case EEditableMeshElementType::Polygon:
+			PolygonSelectionModifiersActions.Emplace( SelectionModifier->GetUICommandInfo(), SelectionModifierUIAction );
+
+			if ( EquippedPolygonSelectionModifier == NAME_None )
+			{
+				EquippedPolygonSelectionModifier = SelectionModifier->GetSelectionModifierName();
+			}
+			break;
+		case EEditableMeshElementType::Any:
+			VertexSelectionModifiersActions.Emplace( SelectionModifier->GetUICommandInfo(), SelectionModifierUIAction );
+			EdgeSelectionModifiersActions.Emplace( SelectionModifier->GetUICommandInfo(), SelectionModifierUIAction );
+			PolygonSelectionModifiersActions.Emplace( SelectionModifier->GetUICommandInfo(), SelectionModifierUIAction );
+
+			if ( EquippedVertexSelectionModifier == NAME_None )
+			{
+				EquippedVertexSelectionModifier = SelectionModifier->GetSelectionModifierName();
+			}
+
+			if ( EquippedEdgeSelectionModifier == NAME_None )
+			{
+				EquippedEdgeSelectionModifier = SelectionModifier->GetSelectionModifierName();
+			}
+
+			if ( EquippedPolygonSelectionModifier == NAME_None )
+			{
+				EquippedPolygonSelectionModifier = SelectionModifier->GetSelectionModifierName();
+			}
+			break;
+		default:
+			check( false );
 		}
-
-		EditableMesh->EndModification();
-
-		TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
 	}
-
-	return true;
 }
 
+void FMeshEditorMode::ModifySelection( TArray< FMeshElement >& InOutMeshElementsToSelect )
+{
+	UMeshEditorSelectionModifier* SelectionModifier = GetEquippedSelectionModifier();
+
+	if ( !SelectionModifier )
+	{
+		return;
+	}
+
+	TMap< UEditableMesh*, TArray< FMeshElement > > EditableMeshesAndPolygons;
+	for ( FMeshElement& MeshElement : InOutMeshElementsToSelect )
+	{
+		EditableMeshesAndPolygons.Add( FindOrCreateEditableMesh( *MeshElement.Component, MeshElement.ElementAddress.SubMeshAddress ) ).Add( MeshElement );
+	}
+
+	SelectionModifier->ModifySelection( EditableMeshesAndPolygons );
+	InOutMeshElementsToSelect.Reset();
+
+	for ( TPair< UEditableMesh*, TArray< FMeshElement > >& MeshElements : EditableMeshesAndPolygons )
+	{
+		for ( FMeshElement& MeshElement : MeshElements.Value )
+		{
+			InOutMeshElementsToSelect.Add( MeshElement );
+		}
+	}
+}
 
 #if EDITABLE_MESH_USE_OPENSUBDIV
 void FMeshEditorMode::AddOrRemoveSubdivisionLevel( const bool bShouldAdd )
@@ -1931,7 +1955,7 @@ void FMeshEditorMode::FrameSelectedElements( FEditorViewportClient* ViewportClie
 				UEditableMesh* EditableMesh = SelectedMeshAndVertices.Key;
 				const TArray<FMeshElement>& VertexElements = SelectedMeshAndVertices.Value;
 
-				const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+				const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 				const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 				for( const auto& VertexElement : VertexElements )
@@ -1958,7 +1982,7 @@ void FMeshEditorMode::FrameSelectedElements( FEditorViewportClient* ViewportClie
 				UEditableMesh* EditableMesh = SelectedMeshAndEdges.Key;
 				const TArray<FMeshElement>& EdgeElements = SelectedMeshAndEdges.Value;
 
-				const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+				const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 				const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 				for( const auto& EdgeElement : EdgeElements )
@@ -1990,7 +2014,7 @@ void FMeshEditorMode::FrameSelectedElements( FEditorViewportClient* ViewportClie
 				UEditableMesh* EditableMesh = SelectedMeshAndPolygons.Key;
 				const TArray<FMeshElement>& PolygonElements = SelectedMeshAndPolygons.Value;
 
-				const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+				const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 				const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 				for( const auto& PolygonElement : PolygonElements )
@@ -2153,56 +2177,6 @@ bool FMeshEditorMode::WeldSelectedVertices()
 }
 
 
-bool FMeshEditorMode::FlipSelectedPolygons()
-{
-	if( ActiveAction != NAME_None )
-	{
-		return false;
-	}
-
-	static TMap< UEditableMesh*, TArray<FMeshElement> > MeshesAndPolygons;
-	GetSelectedMeshesAndPolygons( /* Out */ MeshesAndPolygons );
-
-	if( MeshesAndPolygons.Num() == 0 )
-	{
-		// @todo should this count as a failure case?
-		return false;
-	}
-
-	const FScopedTransaction Transaction( LOCTEXT( "UndoFlipPolygon", "Flip Polygon" ) );
-
-	CommitSelectedMeshes();
-
-	// Refresh selection (committing may have created a new mesh instance)
-	GetSelectedMeshesAndPolygons( /* Out */ MeshesAndPolygons );
-
-	// Flip selected polygons
-	for( const auto& MeshAndPolygons : MeshesAndPolygons )
-	{
-		UEditableMesh* EditableMesh = MeshAndPolygons.Key;
-
-		EditableMesh->StartModification( EMeshModificationType::Final, EMeshTopologyChange::TopologyChange );
-
-		static TArray<FPolygonID> PolygonsToFlip;
-		PolygonsToFlip.Reset();
-
-		for( const FMeshElement& PolygonElement : MeshAndPolygons.Value )
-		{
-			const FPolygonID PolygonID( PolygonElement.ElementAddress.ElementID );
-			PolygonsToFlip.Add( PolygonID );
-		}
-
-		EditableMesh->FlipPolygons( PolygonsToFlip );
-
-		EditableMesh->EndModification();
-
-		TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
-	}
-
-	return true;
-}
-
-
 bool FMeshEditorMode::TriangulateSelectedPolygons()
 {
 	if( ActiveAction != NAME_None )
@@ -2287,19 +2261,6 @@ bool FMeshEditorMode::TriangulateSelectedPolygons()
 }
 
 
-bool FMeshEditorMode::AssignSelectedMaterialToSelectedPolygons()
-{
-	IContentBrowserSingleton& ContentBrowser = FModuleManager::LoadModuleChecked<FContentBrowserModule>( "ContentBrowser" ).Get();
-
-	static TArray<FAssetData> SelectedAssets;
-	ContentBrowser.GetSelectedAssets( SelectedAssets );
-
-	UMaterialInterface* SelectedMaterial = FAssetData::GetFirstAsset<UMaterialInterface>( SelectedAssets );
-
-	return AssignMaterialToSelectedPolygons( SelectedMaterial );
-}
-
-
 bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* SelectedMaterial )
 {
 	if( SelectedMaterial )
@@ -2328,93 +2289,10 @@ bool FMeshEditorMode::AssignMaterialToSelectedPolygons( UMaterialInterface* Sele
 		{
 			UEditableMesh* EditableMesh = MeshAndPolygons.Key;
 
-			EditableMesh->StartModification( EMeshModificationType::Final, EMeshTopologyChange::TopologyChange );
-			{
-				const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
-
-				UPrimitiveComponent* Component = nullptr;
-				for( const FMeshElement& PolygonElement : MeshAndPolygons.Value )
-				{
-					Component = PolygonElement.Component.Get();
-					break;
-				}
-				check( Component != nullptr );
-
-				// See if there's a polygon group using this material, and if not create one.
-				// @todo mesheditor: This currently imposes the limitation that each polygon group has a unique material.
-				// Eventually we will need to be able to specify PolygonGroup properties in the editor, and ask the user for
-				// further details if there is more than one polygon group which matches the material.
-				FPolygonGroupID PolygonGroupToAssign = FPolygonGroupID::Invalid;
-
-				const TPolygonGroupAttributeArray<FName>& PolygonGroupMaterialAssetNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::MaterialAssetName );
-
-				for( const FPolygonGroupID PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs() )
-				{
-					const FName PolygonGroupMaterialName = PolygonGroupMaterialAssetNames[ PolygonGroupID ];
-					if( SelectedMaterial->GetPathName() == PolygonGroupMaterialName.ToString() )
-					{
-						// We only expect to find one polygon group containing this material at the moment.
-						// We need to provide a way of distinguishing different polygon groups with the same material.
-						ensure( PolygonGroupToAssign == FPolygonGroupID::Invalid );
-						PolygonGroupToAssign = PolygonGroupID;
-					}
-				}
-
-				// If we didn't find the material being used anywhere, create a new polygon group
-				if( PolygonGroupToAssign == FPolygonGroupID::Invalid )
-				{
-					// Helper function which returns a unique FName for the material slot name, based on the material's asset name,
-					// and adding a unique suffix if there are other polygon groups with the same material slot name.
-					auto MakeUniqueSlotName = [ MeshDescription ]( FName Name ) -> FName
-					{
-						const TPolygonGroupAttributeArray<FName>& MaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>( MeshAttribute::PolygonGroup::MaterialAssetName );
-						for( const FPolygonGroupID PolygonGroupID : MeshDescription->PolygonGroups().GetElementIDs() )
-						{
-							const FName ExistingName = MaterialSlotNames[ PolygonGroupID ];
-							if( ExistingName.GetComparisonIndex() == Name.GetComparisonIndex() )
-							{
-								Name = FName( Name, FMath::Max( Name.GetNumber(), ExistingName.GetNumber() + 1 ) );
-							}
-						}
-						return Name;
-					};
-
-					const FName UniqueSlotName = MakeUniqueSlotName( SelectedMaterial->GetFName() );
-
-					static TArray<FPolygonGroupToCreate> PolygonGroupsToCreate;
-					PolygonGroupsToCreate.Reset( 1 );
-					PolygonGroupsToCreate.Emplace();
-					
-					FPolygonGroupToCreate& PolygonGroupToCreate = PolygonGroupsToCreate.Last();
-					PolygonGroupToCreate.PolygonGroupAttributes.Attributes.Emplace( MeshAttribute::PolygonGroup::MaterialAssetName, 0, FMeshElementAttributeValue( FName( *SelectedMaterial->GetPathName() ) ) );
-					PolygonGroupToCreate.PolygonGroupAttributes.Attributes.Emplace( MeshAttribute::PolygonGroup::ImportedMaterialSlotName, 0, FMeshElementAttributeValue( UniqueSlotName ));
-					static TArray<FPolygonGroupID> NewPolygonGroupIDs;
-					EditableMesh->CreatePolygonGroups( PolygonGroupsToCreate, NewPolygonGroupIDs );
-					PolygonGroupToAssign = NewPolygonGroupIDs[ 0 ];
-				}
-
-				static TArray<FPolygonGroupForPolygon> PolygonsToAssign;
-				PolygonsToAssign.Reset();
-
-				for( const FMeshElement& PolygonElement : MeshAndPolygons.Value )
-				{
-					const FPolygonID PolygonID( PolygonElement.ElementAddress.ElementID );
-
-					PolygonsToAssign.Emplace();
-					FPolygonGroupForPolygon& PolygonGroupForPolygon = PolygonsToAssign.Last();
-					PolygonGroupForPolygon.PolygonID = PolygonID;
-					PolygonGroupForPolygon.PolygonGroupID = PolygonGroupToAssign;
-				}
-
-				const bool bDeleteOrphanedPolygonGroups = true;
-				EditableMesh->AssignPolygonsToPolygonGroups( PolygonsToAssign, bDeleteOrphanedPolygonGroups );
-			}
-			EditableMesh->EndModification();
+			FMeshEditorUtilities::AssignMaterialToPolygons( SelectedMaterial, EditableMesh, MeshAndPolygons.Value );
 
 			TrackUndo( EditableMesh, EditableMesh->MakeUndo() );
 		}
-
-		return true;
 	}
 
 	return true;
@@ -2490,9 +2368,9 @@ void FMeshEditorMode::AddMeshElementToOverlay( UOverlayComponent* OverlayCompone
 		UEditableMesh* EditableMesh = FindOrCreateEditableMesh( *MeshElement.Component, MeshElement.ElementAddress.SubMeshAddress );
 		if( EditableMesh != nullptr )
 		{
-			if( IsElementIDValid( MeshElement, EditableMesh ) )
+			if( MeshElement.IsElementIDValid( EditableMesh ) )
 			{
-				const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+				const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 				const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 				UPrimitiveComponent* Component = MeshElement.Component.Get();
@@ -3370,7 +3248,7 @@ void FMeshEditorMode::UpdateActiveAction( const bool bIsActionFinishing )
 			VertexIDsAlreadyMoved.Reset();
 
 			UEditableMesh* EditableMesh = MeshAndTransformables.Key;
-			const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+			const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 			const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 			const TArray< const FMeshElementViewportTransformable* >& TransformablesForMesh = MeshAndTransformables.Value;
@@ -3523,7 +3401,7 @@ bool FMeshEditorMode::FindEdgeSplitUnderInteractor(	UViewportInteractor* Viewpor
 	OutClosestEdgeID = FEdgeID::Invalid;
 	bool bFoundSplit = false;
 
-	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 	// Figure out where to split based on where the interactor is aiming.  We'll look at all of the
@@ -3659,7 +3537,7 @@ FEditableMeshElementAddress FMeshEditorMode::QueryElement( const UEditableMesh& 
 	float ClosestDistanceToRay = TNumericLimits<float>::Max();
 	FVector CurrentRayEnd = RayEnd;
 
-	const UMeshDescription* MeshDescription = EditableMesh.GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh.GetMeshDescription();
 	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 	// Check polygons first; this is so we always impose a closest hit location at the poly before checking other elements, so anything behind is occluded
@@ -4153,6 +4031,8 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 
 						FSelectOrDeselectMeshElementsChangeInput ChangeInput;
 						ChangeInput.MeshElementsToDeselect.Add( SelectedMeshElements[ AlreadySelectedMeshElement ] );
+						ModifySelection( ChangeInput.MeshElementsToDeselect );
+
 						TrackUndo( MeshEditorModeProxyObject, FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject ) );
 					}
 					else if( MeshElementSelectionMode == EEditableMeshElementType::Any || MeshElementSelectionMode == HoveredMeshElement.ElementAddress.ElementType )
@@ -4176,6 +4056,7 @@ void FMeshEditorMode::OnViewportInteractionInputAction( FEditorViewportClient& V
 
 						// Select the element under the mouse cursor
 						ChangeInput.MeshElementsToSelect.Add( HoveredMeshElement );
+						ModifySelection( ChangeInput.MeshElementsToSelect );
 
 						TUniquePtr<FChange> RevertChange = FSelectOrDeselectMeshElementsChange( MoveTemp( ChangeInput ) ).Execute( MeshEditorModeProxyObject );
 
@@ -4463,7 +4344,7 @@ bool FMeshEditorMode::FrustumSelect( const FConvexVolume& InFrustum, FEditorView
 		UEditableMesh* EditableMesh = CandidateMesh.Get<1>();
 		FTransform ComponentTransform = Component->GetComponentTransform();
 
-		const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+		const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 		const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 		static TArray<FEdgeID> SelectedEdgeIDs;
@@ -4686,14 +4567,14 @@ void FMeshEditorMode::RefreshTransformables( const bool bNewObjectsSelected )
 			UEditableMesh* EditableMesh = FindOrCreateEditableMesh( *MeshElement.Component, MeshElement.ElementAddress.SubMeshAddress );
 			if( EditableMesh != nullptr )
 			{
-				if( IsElementIDValid( MeshElement, EditableMesh ) )
+				if( MeshElement.IsElementIDValid( EditableMesh ) )
 				{
 					UPrimitiveComponent* Component = MeshElement.Component.Get();
 					check( Component != nullptr );
 					const FTransform ComponentToWorld = Component->GetComponentToWorld();
 					const FMatrix ComponentToWorldMatrix = Component->GetRenderMatrix();
 
-					const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+					const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 					const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 
 					FTransform ElementTransform = FTransform::Identity;
@@ -4864,6 +4745,7 @@ void FMeshEditorMode::UpdateSelectedEditableMeshes()
 
 				// Don't bother with editor-only 'helper' actors, we never want to visualize or edit geometry on those
 				if( !Component->IsEditorOnly() &&
+					Component->GetCollisionEnabled() != ECollisionEnabled::NoCollision &&
 					( Component->GetOwner() == nullptr || !Component->GetOwner()->IsEditorOnly() ) )
 				{
 					const int32 LODIndex = 0;			// @todo mesheditor: We'll want to select an LOD to edit in various different wants (LOD that's visible, or manual user select, etc.)
@@ -4988,18 +4870,6 @@ void FMeshEditorMode::MakeVRRadialMenuActionsMenu(FMenuBuilder& MenuBuilder, TSh
 			NAME_None,
 			EUserInterfaceActionType::ToggleButton
 			);
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("Delete", "Delete"),
-			FText(),
-			FSlateIcon(FMeshEditorStyle::GetStyleSetName(), "MeshEditorMode.PolyDelete"),
-			FUIAction
-			(
-				FExecuteAction::CreateLambda([this] { DeleteSelectedMeshElement(); }),
-				FCanExecuteAction::CreateSP(this, &FMeshEditorMode::IsMeshElementTypeSelected, EEditableMeshElementType::Polygon)
-				),
-			NAME_None,
-			EUserInterfaceActionType::CollapsedButton
-			);
 	}
 	else if (GetMeshElementSelectionMode() == EEditableMeshElementType::Edge)
 	{
@@ -5015,18 +4885,6 @@ void FMeshEditorMode::MakeVRRadialMenuActionsMenu(FMenuBuilder& MenuBuilder, TSh
 			),
 			NAME_None,
 			EUserInterfaceActionType::ToggleButton
-			);
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("Delete", "Delete"),
-			FText(),
-			FSlateIcon(FMeshEditorStyle::GetStyleSetName(), "MeshEditorMode.EdgeDelete"),
-			FUIAction
-			(
-				FExecuteAction::CreateLambda([this] { DeleteSelectedMeshElement(); }),
-				FCanExecuteAction::CreateSP(this, &FMeshEditorMode::IsMeshElementTypeSelected, EEditableMeshElementType::Edge)
-				),
-			NAME_None,
-			EUserInterfaceActionType::CollapsedButton
 			);
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT( "SelectEdgeLoop", "Select Edge Loop" ),
@@ -5055,18 +4913,6 @@ void FMeshEditorMode::MakeVRRadialMenuActionsMenu(FMenuBuilder& MenuBuilder, TSh
 				),
 			NAME_None,
 			EUserInterfaceActionType::ToggleButton
-			);
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("Delete", "Delete"),
-			FText(),
-			FSlateIcon(FMeshEditorStyle::GetStyleSetName(), "MeshEditorMode.VertexDelete"),
-			FUIAction
-			(
-				FExecuteAction::CreateLambda([this] { DeleteSelectedMeshElement(); }),
-				FCanExecuteAction::CreateSP(this, &FMeshEditorMode::IsMeshElementTypeSelected, EEditableMeshElementType::Vertex)
-			),
-			NAME_None,
-			EUserInterfaceActionType::CollapsedButton
 			);
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("WeldSelected", "Weld Selected"),
@@ -5136,6 +4982,68 @@ void FMeshEditorMode::SetEquippedAction( const EEditableMeshElementType ForEleme
 	}
 }
 
+FName FMeshEditorMode::GetEquippedSelectionModifier( const EEditableMeshElementType ForElementType ) const
+{
+	switch ( ForElementType )
+	{
+	case EEditableMeshElementType::Vertex :
+		return EquippedVertexSelectionModifier;
+	case EEditableMeshElementType::Edge :
+		return EquippedEdgeSelectionModifier;
+	case EEditableMeshElementType::Polygon :
+		return EquippedPolygonSelectionModifier;
+	default:
+		return NAME_None;
+	}
+}
+
+UMeshEditorSelectionModifier* FMeshEditorMode::GetEquippedSelectionModifier() const
+{
+	FName EquippedSelectionModifierName = GetEquippedSelectionModifier( GetMeshElementSelectionMode() );
+
+	if ( EquippedSelectionModifierName == NAME_None )
+	{
+		EquippedSelectionModifierName = GetEquippedSelectionModifier( GetSelectedMeshElementType() );
+
+		if ( EquippedSelectionModifierName == NAME_None )
+		{
+			return nullptr;
+		}
+	}
+
+	UMeshEditorSelectionModifier* const* SelectionModifierPtr = Algo::FindByPredicate( MeshEditorSelectionModifiers::Get(), [ EquippedSelectionModifierName ]( const UMeshEditorSelectionModifier* Element ) -> bool
+	{
+		return EquippedSelectionModifierName == Element->GetSelectionModifierName();
+	});
+
+	if ( SelectionModifierPtr == nullptr )
+	{
+		return nullptr;
+	}
+
+	return *SelectionModifierPtr;
+}
+
+void FMeshEditorMode::SetEquippedSelectionModifier( const EEditableMeshElementType ForElementType, const FName ModifierToEquip )
+{
+	switch ( ForElementType )
+	{
+	case EEditableMeshElementType::Vertex :
+		EquippedVertexSelectionModifier = ModifierToEquip;
+		break;
+	case EEditableMeshElementType::Edge :
+		EquippedEdgeSelectionModifier = ModifierToEquip;
+		break;
+	case EEditableMeshElementType::Polygon :
+		EquippedPolygonSelectionModifier = ModifierToEquip;
+		break;
+	default:
+		break;
+	}
+
+	FScopedTransaction Transaction( LOCTEXT( "SetEquippedSelectionModifier", "Set Selection Modifier" ) );
+	DeselectAllMeshElements();
+}
 
 void FMeshEditorMode::TrackUndo( UObject* Object, TUniquePtr<FChange> RevertChange )
 {
@@ -5188,7 +5096,7 @@ FMeshElement FMeshEditorMode::GetHoveredMeshElement( const UViewportInteractor* 
 		const UEditableMesh* EditableMesh = FindEditableMesh( *InteractorData.HoveredMeshElement.Component, InteractorData.HoveredMeshElement.ElementAddress.SubMeshAddress );
 		if( EditableMesh != nullptr )
 		{
-			if( IsElementIDValid( InteractorData.HoveredMeshElement, EditableMesh ) )
+			if( InteractorData.HoveredMeshElement.IsElementIDValid( EditableMesh ) )
 			{
 				HoveredMeshElement = InteractorData.HoveredMeshElement;
 			}

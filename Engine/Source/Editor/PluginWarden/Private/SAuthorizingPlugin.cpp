@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SAuthorizingPlugin.h"
+#include "PluginWardenAuthorizer.h"
 #include "EngineAnalytics.h"
 #include "Misc/MessageDialog.h"
 #include "Containers/Ticker.h"
@@ -15,10 +16,6 @@
 #include "Editor.h"
 #include "Widgets/Images/SThrobber.h"
 
-#include "IPortalServiceLocator.h"
-#include "Account/IPortalUserLogin.h"
-#include "Application/IPortalApplicationWindow.h"
-
 #include "ILauncherPlatform.h"
 #include "LauncherPlatformModule.h"
 
@@ -26,14 +23,11 @@
 
 void SAuthorizingPlugin::Construct(const FArguments& InArgs, const TSharedRef<SWindow>& InParentWindow, const FText& InPluginFriendlyName, const FString& InPluginItemId, const FString& InPluginOfferId, TFunction<void()> InAuthorizedCallback)
 {
-	CurrentState = EPluginAuthorizationState::Initializing;
-	WaitingTime = 0;
 	ParentWindow = InParentWindow;
-	PluginFriendlyName = InPluginFriendlyName;
-	PluginItemId = InPluginItemId;
-	PluginOfferId = InPluginOfferId;
 	AuthorizedCallback = InAuthorizedCallback;
 	UnauthorizedErrorHandling = IPluginWardenModule::EUnauthorizedErrorHandling::ShowMessageOpenStore;
+
+	Authorizer = MakeShared<FPluginWardenAuthorizer>(InPluginFriendlyName, InPluginItemId, InPluginOfferId);
 
 	InParentWindow->SetOnWindowClosed(FOnWindowClosed::CreateSP(this, &SAuthorizingPlugin::OnWindowClosed));
 	bUserInterrupted = true;
@@ -86,11 +80,6 @@ void SAuthorizingPlugin::Construct(const FArguments& InArgs, const TSharedRef<SW
 			]
 		]
 	];
-
-	TSharedRef<IPortalServiceLocator> ServiceLocator = GEditor->GetServiceLocator();
-	PortalWindowService = ServiceLocator->GetServiceRef<IPortalApplicationWindow>();
-	PortalUserService = ServiceLocator->GetServiceRef<IPortalUser>();
-	PortalUserLoginService = ServiceLocator->GetServiceRef<IPortalUserLogin>();
 }
 
 void SAuthorizingPlugin::SetUnauthorizedOverride(const FText & InUnauthorizedMessageOverride, IPluginWardenModule::EUnauthorizedErrorHandling InUnauthorizedErrorHandling)
@@ -101,7 +90,7 @@ void SAuthorizingPlugin::SetUnauthorizedOverride(const FText & InUnauthorizedMes
 
 FText SAuthorizingPlugin::GetWaitingText() const
 {
-	switch ( CurrentState )
+	switch ( AuthorizationState )
 	{
 	case EPluginAuthorizationState::Initializing:
 	case EPluginAuthorizationState::StartLauncher:
@@ -110,15 +99,17 @@ FText SAuthorizingPlugin::GetWaitingText() const
 		return LOCTEXT("ConnectingToLauncher", "Connecting...");
 	case EPluginAuthorizationState::AuthorizePlugin:
 	case EPluginAuthorizationState::AuthorizePlugin_Waiting:
-		return FText::Format(LOCTEXT("CheckingIfYouCanUseFormat", "Checking license for {0}..."), PluginFriendlyName);
+		return FText::Format(LOCTEXT("CheckingIfYouCanUseFormat", "Checking license for {0}..."), Authorizer->GetPluginFriendlyName());
 	case EPluginAuthorizationState::IsUserSignedIn:
 	case EPluginAuthorizationState::IsUserSignedIn_Waiting:
 		return LOCTEXT("CheckingIfUserSignedIn", "Authorization failed, checking user information...");
 	case EPluginAuthorizationState::SigninRequired:
 	case EPluginAuthorizationState::SigninRequired_Waiting:
-		return LOCTEXT("NeedUserToLoginToCheck", "Authorization failed, Sign-in required...");
+		return LOCTEXT("NeedUserToLoginToCheck", "Authorization failed, sign-in required...");
 	case EPluginAuthorizationState::Signin_Waiting:
-		return LOCTEXT("WaitingForSignin", "Waiting for Sign-in...");
+		return LOCTEXT("WaitingForSignin", "Epic Games Launcher started. Waiting for you to sign in...");
+	case EPluginAuthorizationState::SigninFailed:
+		return LOCTEXT("SigninFailed", "Sign-in failed. Cancel and sign in manually through the launcher.");
 	}
 
 	return LOCTEXT("Processing", "Processing...");
@@ -131,179 +122,10 @@ EActiveTimerReturnType SAuthorizingPlugin::RefreshStatus(double InCurrentTime, f
 	FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
 	FTicker::GetCoreTicker().Tick(InDeltaTime);
 
-	switch ( CurrentState )
+	AuthorizationState = Authorizer->UpdateAuthorizationState(InDeltaTime);
+
+	switch ( AuthorizationState )
 	{
-		case EPluginAuthorizationState::Initializing:
-		{
-			WaitingTime = 0;
-			if ( PortalWindowService->IsAvailable() && PortalUserService->IsAvailable() )
-			{
-				CurrentState = EPluginAuthorizationState::AuthorizePlugin;
-			}
-			else
-			{
-				CurrentState = EPluginAuthorizationState::StartLauncher;
-			}
-			break;
-		}
-		case EPluginAuthorizationState::StartLauncher:
-		{
-			WaitingTime = 0;
-			ILauncherPlatform* LauncherPlatform = FLauncherPlatformModule::Get();
-
-			if (LauncherPlatform != nullptr )
-			{
-				if ( !FPlatformProcess::IsApplicationRunning(TEXT("EpicGamesLauncher")) &&
-					 !FPlatformProcess::IsApplicationRunning(TEXT("EpicGamesLauncher-Mac-Shipping")) )
-				{
-					FOpenLauncherOptions SilentOpen;
-					if (LauncherPlatform->OpenLauncher(SilentOpen) )
-					{
-						CurrentState = EPluginAuthorizationState::StartLauncher_Waiting;
-					}
-					else
-					{
-						CurrentState = EPluginAuthorizationState::LauncherStartFailed;
-					}
-				}
-				else
-				{
-					// If the process is found to be running already, move into the next state.
-					CurrentState = EPluginAuthorizationState::StartLauncher_Waiting;
-				}
-			}
-			else
-			{
-				CurrentState = EPluginAuthorizationState::LauncherStartFailed;
-			}
-			break;
-		}
-		case EPluginAuthorizationState::StartLauncher_Waiting:
-		{
-			if ( PortalWindowService->IsAvailable() && PortalUserService->IsAvailable() )
-			{
-				CurrentState = EPluginAuthorizationState::AuthorizePlugin;
-			}
-			else
-			{
-				WaitingTime += InDeltaTime;
-			}
-			break;
-		}
-		case EPluginAuthorizationState::AuthorizePlugin:
-		{
-			WaitingTime = 0;
-			EntitlementResult = PortalUserService->IsEntitledToItem(PluginItemId, EEntitlementCacheLevelRequest::Memory);
-			CurrentState = EPluginAuthorizationState::AuthorizePlugin_Waiting;
-			break;
-		}
-		case EPluginAuthorizationState::AuthorizePlugin_Waiting:
-		{
-			WaitingTime += InDeltaTime;
-			
-			check(EntitlementResult.GetFuture().IsValid());
-			if ( EntitlementResult.GetFuture().IsReady() )
-			{
-				FPortalUserIsEntitledToItemResult Entitlement = EntitlementResult.GetFuture().Get();
-				if ( Entitlement.IsEntitled )
-				{
-					CurrentState = EPluginAuthorizationState::Authorized;
-				}
-				else
-				{
-					CurrentState = EPluginAuthorizationState::IsUserSignedIn;
-				}
-			}
-
-			break;
-		}
-		case EPluginAuthorizationState::IsUserSignedIn:
-		{
-			WaitingTime = 0;
-			UserDetailsResult = PortalUserService->GetUserDetails();
-			CurrentState = EPluginAuthorizationState::IsUserSignedIn_Waiting;
-			break;
-		}
-		case EPluginAuthorizationState::IsUserSignedIn_Waiting:
-		{
-			WaitingTime += InDeltaTime;
-
-			check(UserDetailsResult.GetFuture().IsValid());
-			if ( UserDetailsResult.GetFuture().IsReady() )
-			{
-				FPortalUserDetails UserDetails = UserDetailsResult.GetFuture().Get();
-
-				if ( UserDetails.IsSignedIn )
-				{
-					// if the user is signed in, and we're at this stage, we know they are unauthorized.
-					CurrentState = EPluginAuthorizationState::Unauthorized;
-				}
-				else
-				{
-					// If they're not signed in, but they were unauthorized, they may have purchased it
-					// they may just need to sign-in.
-					if ( PortalUserLoginService->IsAvailable() )
-					{
-						CurrentState = EPluginAuthorizationState::SigninRequired;
-					}
-				}
-			}
-
-			break;
-		}
-		case EPluginAuthorizationState::SigninRequired:
-		{
-			WaitingTime = 0;
-			UserSigninResult = PortalUserLoginService->PromptUserForSignIn();
-			CurrentState = EPluginAuthorizationState::SigninRequired_Waiting;
-			break;
-		}
-		case EPluginAuthorizationState::SigninRequired_Waiting:
-		{
-			// We don't advance the wait time in the sign-required state, as this may take a long time.
-
-			check(UserSigninResult.GetFuture().IsValid());
-			if ( UserSigninResult.GetFuture().IsReady() )
-			{
-				bool IsUserSignedIn = UserSigninResult.GetFuture().Get();
-				if ( IsUserSignedIn )
-				{
-					UserDetailsResult = PortalUserService->GetUserDetails();
-					CurrentState = EPluginAuthorizationState::Signin_Waiting;
-				}
-				else
-				{
-					CurrentState = EPluginAuthorizationState::Unauthorized;
-				}
-			}
-
-			break;
-		}
-		// We stay in the Signin_Waiting state until the user is signed in or until they cancel the
-		// authorizing plug-in UI.  It would be nice to be able to know if the user closes the sign-in
-		// dialog and cancel out of this dialog automatically.
-		case EPluginAuthorizationState::Signin_Waiting:
-		{
-			WaitingTime = 0;
-
-			check(UserDetailsResult.GetFuture().IsValid());
-			if ( UserDetailsResult.GetFuture().IsReady() )
-			{
-				FPortalUserDetails UserDetails = UserDetailsResult.GetFuture().Get();
-
-				if ( UserDetails.IsSignedIn )
-				{
-					// if the user is signed in, and we're at this stage, we know they are unauthorized.
-					CurrentState = EPluginAuthorizationState::AuthorizePlugin;
-				}
-				else
-				{
-					UserDetailsResult = PortalUserService->GetUserDetails();
-				}
-			}
-
-			break;
-		}
 		case EPluginAuthorizationState::Authorized:
 		case EPluginAuthorizationState::Unauthorized:
 		case EPluginAuthorizationState::Timeout:
@@ -317,31 +139,6 @@ EActiveTimerReturnType SAuthorizingPlugin::RefreshStatus(double InCurrentTime, f
 		{
 			bUserInterrupted = true;
 			ParentWindow.Pin()->RequestDestroyWindow();
-			break;
-		}
-		default:
-		{
-			// Should never be in a non-explicit state.
-			check(false);
-			break;
-		}
-		}
-
-		// If we're in a waiting state, check to see if we're over the timeout period.
-		switch ( CurrentState )
-		{
-		case EPluginAuthorizationState::StartLauncher_Waiting:
-		case EPluginAuthorizationState::AuthorizePlugin_Waiting:
-		case EPluginAuthorizationState::IsUserSignedIn_Waiting:
-		case EPluginAuthorizationState::SigninRequired_Waiting:
-		// We Ignore EPluginAuthorizationState::Signin_Waiting, that state could take forever, the user needs to sign-in or close the dialog.
-		{
-			const float TimeoutSeconds = 15;
-			if ( WaitingTime > TimeoutSeconds )
-			{
-				bUserInterrupted = false;
-				CurrentState = EPluginAuthorizationState::Timeout;
-			}
 			break;
 		}
 	}
@@ -359,23 +156,20 @@ FReply SAuthorizingPlugin::OnCancel()
 
 void SAuthorizingPlugin::OnWindowClosed(const TSharedRef<SWindow>& InWindow)
 {
-	if ( bUserInterrupted || CurrentState == EPluginAuthorizationState::Canceled )
+	if ( bUserInterrupted || AuthorizationState == EPluginAuthorizationState::Canceled )
 	{
 		// User interrupted or canceled, just close down.
 	}
 	else
 	{
-		if ( CurrentState == EPluginAuthorizationState::Authorized )
+		switch ( AuthorizationState )
 		{
-			AuthorizedPlugins.Add(PluginItemId);
-			AuthorizedCallback();
-		}
-		else
-		{
-			FEngineAnalytics::GetProvider().RecordEvent( TEXT("PluginWarden.AuthorizationFailure"), FAnalyticsEventAttribute( TEXT("State"), (int32)CurrentState ) );
-
-			switch ( CurrentState )
+			case EPluginAuthorizationState::Authorized:
 			{
+				AuthorizedPlugins.Add(Authorizer->GetPluginItemId());
+				AuthorizedCallback();
+				return;
+			}
 			case EPluginAuthorizationState::Timeout:
 			{
 				FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("TimeoutFailure", "Something went wrong.  We were unable to verify your access to the plugin before timing out."));
@@ -391,40 +185,41 @@ void SAuthorizingPlugin::OnWindowClosed(const TSharedRef<SWindow>& InWindow)
 				FText FailureMessage = UnauthorizedMessageOverride;
 				if (FailureMessage.IsEmpty())
 				{
-					FailureMessage = FText::Format(LOCTEXT("UnathorizedFailure", "It doesn't look like you've purchased {0}.\n\nWould you like to see the store page?"), PluginFriendlyName);
+					FailureMessage = FText::Format(LOCTEXT("UnauthorizedFailure", "It doesn't look like you've purchased {0}.\n\nWould you like to see the store page?"), Authorizer->GetPluginFriendlyName());
 				}
 
 				switch (UnauthorizedErrorHandling)
 				{
-				case IPluginWardenModule::EUnauthorizedErrorHandling::ShowMessageOpenStore:
-				{
-					EAppReturnType::Type Response = FMessageDialog::Open(EAppMsgType::YesNo, FailureMessage);
-					if (Response == EAppReturnType::Yes)
+					case IPluginWardenModule::EUnauthorizedErrorHandling::ShowMessageOpenStore:
 					{
-						ShowStorePageForPlugin();
+						EAppReturnType::Type Response = FMessageDialog::Open(EAppMsgType::YesNo, FailureMessage);
+						if (Response == EAppReturnType::Yes)
+						{
+							ShowStorePageForPlugin();
+						}
+						break;
 					}
-					break;
-				}
-				case IPluginWardenModule::EUnauthorizedErrorHandling::ShowMessage:
-				{
-					FMessageDialog::Open(EAppMsgType::Ok, FailureMessage);
-					break;
-				}
-				case IPluginWardenModule::EUnauthorizedErrorHandling::Silent:
-				default:
-					// Do nothing
-					break;
+					case IPluginWardenModule::EUnauthorizedErrorHandling::ShowMessage:
+					{
+						FMessageDialog::Open(EAppMsgType::Ok, FailureMessage);
+						break;
+					}
+					case IPluginWardenModule::EUnauthorizedErrorHandling::Silent:
+					default:
+						// Do nothing
+						break;
 				}
 				break;
 			}
 			default:
 			{
-				// We expect all failure situations to have an explicit case.
+				// We expect all exit situations to have an explicit case.
 				check(false);
 				break;
 			}
-			}
 		}
+
+		FEngineAnalytics::GetProvider().RecordEvent( TEXT("PluginWarden.AuthorizationFailure"), FAnalyticsEventAttribute( TEXT("State"), (int32)AuthorizationState ) );
 	}
 }
 
@@ -434,7 +229,7 @@ void SAuthorizingPlugin::ShowStorePageForPlugin()
 
 	if (LauncherPlatform != nullptr )
 	{
-		FOpenLauncherOptions StorePageOpen(FString(TEXT("/ue/marketplace/content/")) + PluginOfferId);
+		FOpenLauncherOptions StorePageOpen(FString(TEXT("/ue/marketplace/content/")) + Authorizer->GetPluginOfferId());
 		LauncherPlatform->OpenLauncher(StorePageOpen);
 	}
 }

@@ -166,4 +166,12 @@ class HEADMOUNTEDDISPLAY_API UMotionTrackedDeviceFunctionLibrary : public UBluep
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Input|MotionTracking")
 	static FName GetActiveTrackingSystemName();
+
+	/**
+	 * Queries the specified source's tracking status and returns true if it has tracking.
+	 *
+	 * @return Tracking status of the specified controller.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Input|MotionTracking")
+	static bool IsMotionSourceTracking(int32 PlayerIndex, FName SourceName);
 };

@@ -1,0 +1,45 @@
+{
+	"FileVersion" : 3,
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"FriendlyName" : "Media Framework Utilities",
+	"Description" : "Utility assets and actors to ease the use of the Media Framework.",
+	"Category" : "Media",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
+	"EnabledByDefault" : false,
+	"CanContainContent" : true,
+	"IsBetaVersion" : false,
+	"Modules" :
+	[
+		{
+			"Name" : "MediaFrameworkUtilities",
+			"Type" : "Runtime",
+			"LoadingPhase" : "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Win32",
+				"Linux"
+			]
+		},
+		{
+			"Name" : "MediaFrameworkUtilitiesEditor",
+			"Type" : "Editor",
+			"LoadingPhase" : "PostEngineInit",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Win32",
+				"Linux"
+			]
+		}
+	],
+	"Plugins" :
+	[
+		{
+			"Name" : "OpenCVLensDistortion",
+			"Enabled" : true
+		}
+	]
+}

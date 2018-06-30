@@ -109,6 +109,7 @@ void UDatasmithImportOptions::UpdateNotDisplayedConfig( bool bIsAReimport )
 FDatasmithStaticMeshImportOptions::FDatasmithStaticMeshImportOptions()
 	: MinLightmapResolution( EDatasmithImportLightmapMin::LIGHTMAP_64 )
 	, MaxLightmapResolution( EDatasmithImportLightmapMax::LIGHTMAP_512 )
+	, bGenerateLightmapUVs( true )
 	, bRemoveDegenerates( true )
 {
 }

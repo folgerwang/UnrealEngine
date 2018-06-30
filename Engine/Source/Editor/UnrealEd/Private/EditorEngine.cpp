@@ -2398,7 +2398,7 @@ void UEditorEngine::CloseEditedWorldAssets(UWorld* InWorld)
 	{
 		if (LevelStreaming && LevelStreaming->GetLoadedLevel())
 		{
-			ClosingWorlds.Add(LevelStreaming->GetWorld());
+			ClosingWorlds.Add(CastChecked<UWorld>(LevelStreaming->GetLoadedLevel()->GetOuter()));
 		}
 	}
 
@@ -6711,7 +6711,7 @@ void UEditorEngine::UpdateAutoLoadProject()
 #if PLATFORM_MAC
 	if ( !GIsBuildMachine )
 	{
-		if(FPlatformMisc::MacOSXVersionCompare(10,12,5) < 0)
+		if(FPlatformMisc::MacOSXVersionCompare(10,13,5) < 0)
 		{
 			if(FSlateApplication::IsInitialized())
 			{

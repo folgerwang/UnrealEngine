@@ -193,6 +193,11 @@ public:
 	static FString ProjectModsDir();
 
 	/*
+	* Returns true if a writable directory for downloaded data that persists across play sessions is available
+	*/
+	static bool HasProjectPersistentDownloadDir();
+
+	/*
 	* Returns the writable directory for downloaded data that persists across play sessions.
 	*/
 	static FString ProjectPersistentDownloadDir();

@@ -33,6 +33,9 @@
 	
 	// Have RGB, opacity in alpha and DOF's CocRadius in separate's Red.
 	#define HISTORY_PAYLOAD_RGB_OPACITY_COC 3
+	
+	// Have RGB, opacity in alpha and old DOF's CocRadius in alpha.
+	#define HISTORY_PAYLOAD_RGB_COC_LEGACY 4
 
 
 /** Caching method for scene color. */
@@ -65,7 +68,7 @@
 #endif
 
 #if TAA_PASS_CONFIG == 0 // Used for DOF
-	#define AA_HISTORY_PAYLOAD (HISTORY_PAYLOAD_RGB_TRANSLUCENCY) // This isn't right be do it anyway for legacy reasons.
+	#define AA_HISTORY_PAYLOAD (HISTORY_PAYLOAD_RGB_COC_LEGACY)
 	#define AA_BORDER 1
 	#define AA_CROSS 4 // because running at half res.
 	#define AA_DYNAMIC 1
@@ -129,7 +132,11 @@
 	#define AA_FILTERED TAA_UPSAMPLE_FILTERED
 	#define AA_MANUALLY_CLAMP_HISTORY_UV 1
 	#define AA_TONE 1
-	#define AA_YCOCG 1
+	#if SWITCH_PROFILE || SWITCH_PROFILE_FORWARD
+		#define AA_YCOCG 0
+	#else
+		#define AA_YCOCG 1
+	#endif
 	
 	#define AA_UPSAMPLE 1
 	#define AA_UPSAMPLE_ADAPTIVE_FILTERING 1
@@ -139,7 +146,11 @@
 		#if AA_DOWNSAMPLE
 			#define AA_SAMPLES 9
 		#else
-			#define AA_SAMPLES 6
+			#if SWITCH_PROFILE || SWITCH_PROFILE_FORWARD
+				#define AA_SAMPLES 5
+			#else
+				#define AA_SAMPLES 6
+			#endif
 		#endif
 
 	#else
@@ -596,17 +607,16 @@ float2 WeightedLerpFactors(float WeightA, float WeightB, float Blend)
 // Computes the bilateral weight according to two Coc radii.
 float ComputeBilateralWeight(float RefCocRadius, float SampleCocRadius)
 {
-	#if 0
-		float ShapestCocRadius = abs(RefCocRadius) < abs(SampleCocRadius) ? RefCocRadius : SampleCocRadius;
-
-		return max(0, 1 - abs(RefCocRadius - SampleCocRadius) + abs(ShapestCocRadius));
-
-	#else
-		float Factor = (abs(RefCocRadius) > 1 ? rcp(abs(RefCocRadius)) : 1.0);
-		return max(0, 1 - abs(RefCocRadius - SampleCocRadius) * Factor);
-
-	#endif
+	float Factor = (abs(RefCocRadius) > 1 ? rcp(abs(RefCocRadius)) : 1.0);
+	return saturate(1 - abs(RefCocRadius - SampleCocRadius) * Factor);
 }
+
+float ComputeNeightborSampleBilateralWeight(float CenterCocRadius, float SampleCocRadius)
+{
+	float Factor = (abs(CenterCocRadius) > 1 ? rcp(abs(CenterCocRadius)) : 1.0);
+	return saturate(1 - (CenterCocRadius - SampleCocRadius) * Factor);
+}
+
 
 #endif
 
@@ -848,7 +858,7 @@ float GetSceneColorHdrWeight(
 		Sample.Color = InputParams.CachedNeighbors0[NeighborsId];
 		Sample.CocRadius = 0;
 
-		#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+		#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC || AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC_LEGACY
 			Sample.CocRadius = Sample.Color.a;
 		#elif AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_OPACITY_COC
 			Sample.CocRadius = InputParams.CachedNeighbors1[NeighborsId];
@@ -1327,7 +1337,7 @@ FTAASceneColorSample SampleCachedSceneColorTexture(
 
 	Sample.CocRadius = 0;
 
-	#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+	#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC || AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC_LEGACY
 		Sample.CocRadius = Sample.Color.a;
 	#elif AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_OPACITY_COC
 		Sample.CocRadius = PostprocessInput1.SampleLevel(
@@ -1516,7 +1526,7 @@ void FilterCurrentFrameInputSamples(
 
 			// Finds out the sample's bilateral weight according to the payload.
 			#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
-				float BilateralWeight = ComputeBilateralWeight(CenterCocRadius, Sample.CocRadius);
+				float BilateralWeight = ComputeNeightborSampleBilateralWeight(CenterCocRadius, Sample.CocRadius);
 
 			#else
 				float BilateralWeight = 1;
@@ -2173,6 +2183,7 @@ FTAAHistoryPayload TemporalAASample(uint2 GroupId, uint2 GroupThreadId, uint Gro
 		#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC || AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_OPACITY_COC
 		{
 			float BilateralWeight = ComputeBilateralWeight(IntermediaryResult.Filtered.CocRadius, History.CocRadius);
+
 			BlendFinal = lerp(1, BlendFinal, BilateralWeight);
 		}
 		#endif
@@ -2251,7 +2262,7 @@ void MainCS(
 	float4 OutColor0 = 0;
 	float4 OutColor1 = 0;
 
-	#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+	#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC || AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC_LEGACY
 	{
 		OutColor0.rgb = OutputPayload.Color.rgb;
 		OutColor0.a = OutputPayload.CocRadius;
@@ -2340,7 +2351,7 @@ void MainPS(
 
 	FTAAHistoryPayload OutputPayload = TemporalAASample(GroupId, GroupThreadId, GroupThreadIndex, ViewportUV, FrameExposureScale);
 
-	#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC
+	#if AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC || AA_HISTORY_PAYLOAD == HISTORY_PAYLOAD_RGB_COC_LEGACY
 	{
 		OutColor0.rgb = OutputPayload.Color.rgb;
 		OutColor0.a = OutputPayload.CocRadius;

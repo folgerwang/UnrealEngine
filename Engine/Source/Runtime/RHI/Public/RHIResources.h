@@ -318,15 +318,22 @@ public:
 	/** Initialization constructor. */
 	FRHIUniformBuffer(const FRHIUniformBufferLayout& InLayout)
 	: Layout(&InLayout)
+	, LayoutConstantBufferSize(InLayout.ConstantBufferSize)
 	{}
 
 	/** @return The number of bytes in the uniform buffer. */
-	uint32 GetSize() const { return Layout->ConstantBufferSize; }
+	uint32 GetSize() const
+	{
+		check(LayoutConstantBufferSize == Layout->ConstantBufferSize);
+		return LayoutConstantBufferSize;
+	}
 	const FRHIUniformBufferLayout& GetLayout() const { return *Layout; }
 
 private:
 	/** Layout of the uniform buffer. */
 	const FRHIUniformBufferLayout* Layout;
+
+	uint32 LayoutConstantBufferSize;
 };
 
 class FRHIIndexBuffer : public FRHIResource
@@ -1940,8 +1947,8 @@ struct FRHIRenderPassInfo
 	FResolveParams ResolveParameters;
 
 	// Some RHIs require a hint that occlusion queries will be used in this render pass
-	const uint32 NumOcclusionQueries = 0;
-	const bool bOcclusionQueries = false;
+	uint32 NumOcclusionQueries = 0;
+	bool bOcclusionQueries = false;
 
 	// Some RHIs need to know if this render pass is going to be reading and writing to the same texture in the case of generating mip maps for partial resource transitions
 	bool bGeneratingMips = false;

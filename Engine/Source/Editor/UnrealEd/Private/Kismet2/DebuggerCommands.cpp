@@ -1397,20 +1397,10 @@ void FInternalPlayWorldCommandCallbacks::Simulate_Clicked()
 		return;
 	}
 
-	// Can only use SIE if in PIE
-	const ULevelEditorPlaySettings* PlaySettings = GetDefault<ULevelEditorPlaySettings>();
-	if (PlaySettings->LastExecutedPlayModeType != PlayMode_InViewPort &&
-		PlaySettings->LastExecutedPlayModeType != PlayMode_Simulate)
-	{
-		return;
-	}
-
-	SetLastExecutedPlayMode( PlayMode_Simulate );
-
 	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>( TEXT("LevelEditor") );
 
 	TSharedPtr<ILevelViewport> ActiveLevelViewport = LevelEditorModule.GetFirstActiveViewport();
-	if( ActiveLevelViewport.IsValid() )
+	if( ActiveLevelViewport.IsValid())
 	{
 		// Start a new simulation session!
 		if( !HasPlayWorld() )
@@ -1419,10 +1409,10 @@ void FInternalPlayWorldCommandCallbacks::Simulate_Clicked()
 			{
 				FEngineAnalytics::GetProvider().RecordEvent( TEXT("Editor.Usage.SimulateInEditor") );
 			}
-
+			SetLastExecutedPlayMode(PlayMode_Simulate);
 			GUnrealEd->RequestPlaySession(false, ActiveLevelViewport, true/*bSimulateInEditor*/, NULL, NULL, -1, false );
 		}
-		else
+		else if (ActiveLevelViewport->HasPlayInEditorViewport())
 		{
 			GUnrealEd->RequestToggleBetweenPIEandSIE();
 		}

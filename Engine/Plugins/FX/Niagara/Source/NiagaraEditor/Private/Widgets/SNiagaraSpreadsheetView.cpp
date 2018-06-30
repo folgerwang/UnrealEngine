@@ -1175,6 +1175,7 @@ void SNiagaraSpreadsheetView::ResetColumns(EUITab Tab)
 		{
 			CaptureData[(int32)i].OutputHeaderRow->ClearColumns();
 
+			const TArray<FName>& PreviousSupportedFields = CaptureData[(int32)i].SupportedOutputFields.IsValid() ? *CaptureData[(int32)i].SupportedOutputFields.Get() : TArray<FName>();
 			CaptureData[(int32)i].SupportedOutputFields = MakeShared<TArray<FName> >();
 			CaptureData[(int32)i].OutputFieldInfoMap = MakeShared<TMap<FName, FieldInfo> >();
 			uint32 TotalFloatComponents = 0;
@@ -1213,6 +1214,7 @@ void SNiagaraSpreadsheetView::ResetColumns(EUITab Tab)
 
 				for (int32 VarIdx = 0; VarIdx < PropertyNames.Num(); VarIdx++)
 				{
+					const FName PropertyName = PropertyNames[VarIdx];
 					if (FieldInfos[VarIdx].bFloat)
 					{
 						FieldInfos[VarIdx].FloatStartOffset += TotalFloatComponentsBeforeStruct;
@@ -1224,13 +1226,19 @@ void SNiagaraSpreadsheetView::ResetColumns(EUITab Tab)
 						TotalInt32Components++;
 					}
 
-					CaptureData[i].SupportedOutputFields->Add(PropertyNames[VarIdx]);
-					CaptureData[i].OutputFieldInfoMap->Add(PropertyNames[VarIdx], FieldInfos[VarIdx]);
+					CaptureData[i].SupportedOutputFields->Add(PropertyName);
+					CaptureData[i].OutputFieldInfoMap->Add(PropertyName, FieldInfos[VarIdx]);
 					
-					if (CaptureData[i].bOutputColumnsAreAttributes 
-						&& (bInitialColumns || IsOutputAttributeEnabled(Tab, PropertyNames[VarIdx])))
+					// Show new attributes
+					if (!bInitialColumns && PreviousSupportedFields.Find(PropertyName) == INDEX_NONE)
 					{
-						ColumnNames.Add(PropertyNames[VarIdx]);
+						CaptureData[(int32)Tab].FilteredOutputFields.AddUnique(PropertyName);
+					}
+
+					if (CaptureData[i].bOutputColumnsAreAttributes 
+						&& (bInitialColumns || IsOutputAttributeEnabled(Tab, PropertyName)))
+					{
+						ColumnNames.Add(PropertyName);
 					}
 				}
 			}
@@ -1367,8 +1375,13 @@ FReply SNiagaraSpreadsheetView::OnCaptureRequestPressed()
 {
 	FFrameRate TickResolution = SystemViewModel->GetSequencer()->GetFocusedTickResolution();
 	float LocalTime = SystemViewModel->GetSequencer()->GetLocalTime().AsSeconds();
-	float SnapInterval = SystemViewModel->GetSequencer()->GetFocusedDisplayRate().AsInterval();
-	float TargetCaptureTime = LocalTime + SnapInterval;
+	
+	// The preview component in the editor is using the 'DesiredAge' update mode so each frame it determines if the difference
+	// between the current age and the desired age is greater then the seek delta and if so it advanced the simulation the correct
+	// number of times.  We want to ensure that we simulate a single step so we get the seek delta from the component and add that 
+	// to the current time.
+	float SimulationStep = SystemViewModel->GetPreviewComponent()->GetSeekDelta();
+	float TargetCaptureTime = LocalTime + SimulationStep;
 
 	TArray<TSharedRef<FNiagaraEmitterHandleViewModel>> SelectedEmitterHandles;
 	SystemViewModel->GetSelectedEmitterHandles(SelectedEmitterHandles);

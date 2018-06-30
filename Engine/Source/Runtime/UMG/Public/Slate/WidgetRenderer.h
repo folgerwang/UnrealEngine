@@ -82,8 +82,6 @@ public:
 
 	TArray< TSharedPtr<FSlateWindowElementList::FDeferredPaint> > DeferredPaints;
 
-	/** FDeferredCleanup interface */
-	virtual void FinishCleanup();
 private:
 	/** The slate 3D renderer used to render the user slate widget */
 	TSharedPtr<ISlate3DRenderer, ESPMode::ThreadSafe> Renderer;

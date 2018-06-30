@@ -577,6 +577,7 @@ bool FPluginManager::ConfigureEnabledPlugins()
 				}
 
 				FString PluginConfigFilename = FString::Printf(TEXT("%s%s/%s.ini"), *FPaths::GeneratedConfigDir(), ANSI_TO_TCHAR(FPlatformProperties::PlatformName()), *Plugin.Name);
+				FPaths::MakeStandardFilename(PluginConfigFilename); // This needs to match what we do in ConfigCacheIni.cpp's GetDestIniFilename method. Otherwise, the hash results will differ and the plugin's version will be overwritten later.
 				FConfigFile& PluginConfig = GConfig->Add(PluginConfigFilename, FConfigFile());
 
 				// This will write out an ini to PluginConfigFilename

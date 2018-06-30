@@ -18,10 +18,11 @@ class NIAGARAEDITOR_API UNiagaraStackParameterStoreGroup : public UNiagaraStackI
 public:
 	void Initialize(FRequiredEntryData InRequiredEntryData,	UObject* InOwner, FNiagaraParameterStore* InParameterStore);
 
-	void AddUserParameter(FNiagaraVariable ParameterVariable);
-
 protected:
 	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
+
+private:
+	void ParameterAdded(FNiagaraVariable AddedParameter);
 
 private:
 	TWeakObjectPtr<UObject> Owner;
@@ -40,16 +41,13 @@ public:
 
 	virtual FText GetDisplayName() const override;
 
-	virtual void BeginDestroy() override;
-
 protected:
 	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
 private:
-	void ParameterStoreChanged();
+	void ParameterDeleted();
 
 private:
 	TWeakObjectPtr<UObject> Owner;
 	FNiagaraParameterStore* ParameterStore;
-	FDelegateHandle ParameterStoreChangedHandle;
 };

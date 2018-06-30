@@ -63,7 +63,7 @@ public:
 	UPROPERTY(AssetRegistrySearchable, EditAnywhere, Category = Script)
 		ENiagaraModuleDependencyType Type; // e.g. PreDependency,
 										   /** Detailed description of the dependency */
-	UPROPERTY(AssetRegistrySearchable, EditAnywhere, Category = Script)
+	UPROPERTY(AssetRegistrySearchable, EditAnywhere, Category = Script, meta = (MultiLine = true))
 		FText Description;
 };
 
@@ -311,8 +311,12 @@ public:
 	ENiagaraNumericOutputTypeSelectionMode NumericOutputTypeSelectionMode;
 
 #if WITH_EDITORONLY_DATA
-	UPROPERTY(AssetRegistrySearchable, EditAnywhere, Category = Script)
+	UPROPERTY(AssetRegistrySearchable, EditAnywhere, Category = Script, meta = (MultiLine = true))
 	FText Description;
+
+	/** A list of space separated keywords which can be used to find this script in editor menus. */
+	UPROPERTY(AssetRegistrySearchable, EditAnywhere, Category = Script)
+	FText Keywords;
 
 	UPROPERTY(EditAnywhere, Category = Script)
 	TMap<FName, FString> ScriptMetaData;
@@ -390,7 +394,6 @@ public:
 	class UNiagaraScriptSourceBase *GetSource() { return Source; }
 	const class UNiagaraScriptSourceBase *GetSource() const  { return Source; }
 	void SetSource(class UNiagaraScriptSourceBase *InSource) { Source = InSource; }
-	void CleanUpOldAndInitializeNewRapidIterationParameters(FString UniqueEmitterName);
 
 	NIAGARA_API FGuid GetBaseChangeID() const;
 	NIAGARA_API ENiagaraScriptCompileStatus GetLastCompileStatus() const;

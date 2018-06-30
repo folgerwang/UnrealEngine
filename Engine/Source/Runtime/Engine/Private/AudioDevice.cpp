@@ -4487,7 +4487,7 @@ void FAudioDevice::Flush(UWorld* WorldToFlush, bool bClearActivatedReverb)
 	}
 
 	// Do fadeout when flushing the audio device.
-	if (WorldToFlush == nullptr || WorldToFlush->bIsTearingDown)
+	if (WorldToFlush == nullptr)
 	{
 		FadeOut();
 	}
@@ -4751,7 +4751,7 @@ void FAudioDevice::StopSourcesUsingBuffer(FSoundBuffer* SoundBuffer)
 			if (Src && Src->Buffer == SoundBuffer)
 			{
 				// Make sure the buffer is no longer referenced by anything
-				Src->Stop();
+				Src->StopNow();
 				break;
 			}
 		}

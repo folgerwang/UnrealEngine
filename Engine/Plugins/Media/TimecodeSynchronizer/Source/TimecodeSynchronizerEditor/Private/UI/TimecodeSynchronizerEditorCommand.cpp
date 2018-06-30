@@ -26,8 +26,6 @@ FTimecodeSynchronizerEditorCommand::FTimecodeSynchronizerEditorCommand()
 void FTimecodeSynchronizerEditorCommand::RegisterCommands()
 {
 	UI_COMMAND(OpenEditorCommand, "Timecode Synchronizer", "Open TimecodeSynchronizer Editor", EUserInterfaceActionType::Button, FInputChord());
-	UI_COMMAND(PreRollCommand, "PreRoll", "Start Synchronization", EUserInterfaceActionType::Button, FInputChord());
-
 
 	// Action to open the TimecodeSynchronizerEditor
 	CommandActionList = MakeShareable(new FUICommandList);

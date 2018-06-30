@@ -13,21 +13,10 @@
  * Available input color formats for Aja sources.
  */
 UENUM()
-enum class EAjaMediaColorFormat : uint8
+enum class EAjaMediaSourceColorFormat : uint8
 {
-	BGRA UMETA(DisplayName="RGBA"),
+	BGRA UMETA(DisplayName="RGBA 8"),
 	UYVY UMETA(DisplayName="YUV 4:2:2"),
-};
-
-/**
- * Available timecode formats for Aja sources.
- */
-UENUM()
-enum class EAjaMediaTimecodeFormat : uint8
-{
-	None,
-	LTC,
-	VITC,
 };
 
 /**
@@ -59,9 +48,16 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA", AssetRegistrySearchable)
 	FAjaMediaPort MediaPort;
 
-	/** Source FrameRate(default = 30). */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA")
-	FFrameRate FrameRate;
+private:
+	/** Override project setting's media mode. */
+	UPROPERTY()
+	bool bIsDefaultModeOverriden;
+
+	/** The expected input signal format from the MediaPort. Uses project settings by default. */
+	UPROPERTY(EditAnywhere, Category="AJA", meta=(EditCondition="bIsDefaultModeOverriden", MediaPort="MediaPort"))
+	FAjaMediaMode MediaMode;
+
+public:
 
 	/** Use the time code embedded in the input stream. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="AJA")
@@ -118,28 +114,34 @@ public:
 	int32 MaxNumAudioFrameBuffer;
 
 public:
-	/**
-	 * Specifies if the video format is expected to be progressive or not.
-	 * The hardware has no way of knowing if the incoming signal is progressive or interlaced (e.g., 525/29.97fps progressive versus 525/59.94fps interlaced)
-	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Video", meta=(EditCondition="bCaptureVideo"))
-	bool bIsProgressivePicture;
-
 	/** Desired color format of input video frames (default = BGRA). */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Video", meta=(EditCondition="bCaptureVideo"))
-	EAjaMediaColorFormat ColorFormat;
+	EAjaMediaSourceColorFormat ColorFormat;
 
 	/** Maximum number of video frames to buffer. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, AdvancedDisplay, Category="Video", meta=(EditCondition="bCaptureVideo", ClampMin="1", ClampMax="32"))
 	int32 MaxNumVideoFrameBuffer;
 
 public:
+	/** Log a warning when there's a drop frame. */
+	UPROPERTY(EditAnywhere, Category="Debug")
+	bool bLogDropFrame;
+
 	/**
 	 * Encode Timecode in the output
 	 * Current value will be white. The format will be encoded in hh:mm::ss::ff. Each value, will be on a different line.
 	 */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Debug", meta=(EditCondition="IN_CPP"))
 	bool bEncodeTimecodeInTexel;
+
+public:
+	/** Sets desired MediaMode on this Source to override project setting. */
+	UFUNCTION(BlueprintCallable, Category = "AJA")
+	void OverrideMediaMode(const FAjaMediaMode& InMediaMode);
+
+	/** Disables MediaMode override for this source to use project setting. */
+	UFUNCTION(BlueprintCallable, Category = "AJA")
+	void DisableMediaModeOverride() { bIsDefaultModeOverriden = false; }
 
 public:
 	//~ IMediaOptions interface
@@ -149,13 +151,19 @@ public:
 	virtual bool HasMediaOption(const FName& Key) const override;
 
 public:
+	FAjaMediaMode GetMediaMode() const;
+
+public:
 	//~ UMediaSource interface
 
 	virtual FString GetUrl() const override;
 	virtual bool Validate() const override;
 
+public:
+	//~ UObject interface
 #if WITH_EDITOR
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif //WITH_EDITOR
+	//~ End UObject interface
 };

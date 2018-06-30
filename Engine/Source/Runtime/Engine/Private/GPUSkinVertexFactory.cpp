@@ -641,6 +641,9 @@ void FGPUSkinPassthroughVertexFactory::InternalUpdateVertexDeclaration(FGPUBaseS
 		Data.PositionComponentSRV = PositionRWBuffer->SRV;
 	}
 
+	Data.TangentBasisComponents[0] = SourceVertexFactory->GetTangentStreamComponent(0);
+	Data.TangentBasisComponents[1] = SourceVertexFactory->GetTangentStreamComponent(1);
+
 	if (TangentRWBuffer)
 	{
 		Data.TangentBasisComponents[0].VertexBuffer = &TangentVBAlias;

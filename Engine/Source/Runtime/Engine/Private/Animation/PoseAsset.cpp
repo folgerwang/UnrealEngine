@@ -1040,7 +1040,7 @@ void UPoseAsset::CreatePoseFromAnimation(class UAnimSequence* AnimSequence, cons
 						// have to do iterate over time
 						// support curve
 						FBlendedCurve SourceCurve;
-						SourceCurve.InitFrom(&UIDList);
+						SourceCurve.InitFrom(&TargetSkeleton->GetDefaultCurveUIDList());
 						AnimSequence->EvaluateCurveData(SourceCurve, PoseIndex*IntervalBetweenKeys, true);
 
 						// copy back to CurveData
@@ -1340,6 +1340,18 @@ void FPoseDataContainer::DeleteTrack(int32 TrackIndex)
 void UPoseAsset::RemapTracksToNewSkeleton(USkeleton* NewSkeleton, bool bConvertSpaces)
 {
 	Super::RemapTracksToNewSkeleton(NewSkeleton, bConvertSpaces);
+
+	// after remap, should verify if the names are still valid in this skeleton
+	if (NewSkeleton)
+	{
+		NewSkeleton->VerifySmartNames(USkeleton::AnimCurveMappingName, PoseContainer.PoseNames);
+
+		for (auto& Curve : PoseContainer.Curves)
+		{
+			NewSkeleton->VerifySmartName(USkeleton::AnimCurveMappingName, Curve.Name);
+		}
+	}
+
 	// @todo: should allow deleted tracks and so on
 	RecacheTrackmap();
 }

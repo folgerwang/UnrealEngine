@@ -54,15 +54,17 @@ struct FGeometryCacheExecutionToken
 	/** Execute this token, operating on all objects referenced by 'Operand' */
 	virtual void Execute(const FMovieSceneContext& Context, const FMovieSceneEvaluationOperand& Operand, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player) override
 	{
-		if (Params.GeometryCache)
+		if (Params.GeometryCache.ResolveObject())
 		{
 			MOVIESCENE_DETAILED_SCOPE_CYCLE_COUNTER(MovieSceneEval_GeometryCache_TokenExecute)
 
-			Player.SavePreAnimatedState(*Params.GeometryCache, FPreAnimatedGeometryCacheTokenProducer::GetAnimTypeID(), FPreAnimatedGeometryCacheTokenProducer());
-			Params.GeometryCache->SetManualTick(true);
+			UGeometryCacheComponent* GeometryCache = Cast<UGeometryCacheComponent>(Params.GeometryCache.ResolveObject());
+
+			Player.SavePreAnimatedState(*GeometryCache, FPreAnimatedGeometryCacheTokenProducer::GetAnimTypeID(), FPreAnimatedGeometryCacheTokenProducer());
+			GeometryCache->SetManualTick(true);
 			// calculate the time at which to evaluate the animation
 			float EvalTime = Params.MapTimeToAnimation(Context.GetTime(), Context.GetFrameRate());
-			Params.GeometryCache->TickAtThisTime(EvalTime, true, Params.bReverse, true);
+			GeometryCache->TickAtThisTime(EvalTime, true, Params.bReverse, true);
 		}
 
 	}

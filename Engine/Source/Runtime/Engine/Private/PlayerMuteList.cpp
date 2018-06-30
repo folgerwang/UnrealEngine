@@ -185,30 +185,32 @@ FString DumpMutelistState(UWorld* World)
 	{
 		for(FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController* PlayerController = Iterator->Get();
-			Output += FString::Printf(TEXT("Player: %s\n"), PlayerController->PlayerState ? *PlayerController->PlayerState->GetPlayerName() : TEXT("NONAME"));
-			Output += FString::Printf(TEXT("VoiceChannel: %d\n"), PlayerController->MuteList.VoiceChannelIdx);
-			Output += FString::Printf(TEXT("Handshake: %s\n"), PlayerController->MuteList.bHasVoiceHandshakeCompleted ? TEXT("true") : TEXT("false"));
-			
-			Output += FString(TEXT("System mutes:\n"));
-			for (int32 idx=0; idx < PlayerController->MuteList.VoiceMuteList.Num(); idx++)
+			if (APlayerController* PlayerController = Iterator->Get())
 			{
-				Output += FString::Printf(TEXT("%s\n"), *PlayerController->MuteList.VoiceMuteList[idx]->ToString());
-			}
+				Output += FString::Printf(TEXT("Player: %s\n"), PlayerController->PlayerState ? *PlayerController->PlayerState->GetPlayerName() : TEXT("NONAME"));
+				Output += FString::Printf(TEXT("VoiceChannel: %d\n"), PlayerController->MuteList.VoiceChannelIdx);
+				Output += FString::Printf(TEXT("Handshake: %s\n"), PlayerController->MuteList.bHasVoiceHandshakeCompleted ? TEXT("true") : TEXT("false"));
 
-			Output += FString(TEXT("Gameplay mutes:\n"));
-			for (int32 idx=0; idx < PlayerController->MuteList.GameplayVoiceMuteList.Num(); idx++)
-			{
-				Output += FString::Printf(TEXT("%s\n"), *PlayerController->MuteList.GameplayVoiceMuteList[idx]->ToString());
-			}
+				Output += FString(TEXT("System mutes:\n"));
+				for (int32 idx = 0; idx < PlayerController->MuteList.VoiceMuteList.Num(); idx++)
+				{
+					Output += FString::Printf(TEXT("%s\n"), *PlayerController->MuteList.VoiceMuteList[idx]->ToString());
+				}
 
-			Output += FString(TEXT("Filter:\n"));
-			for (int32 idx=0; idx < PlayerController->MuteList.VoicePacketFilter.Num(); idx++)
-			{
-				Output += FString::Printf(TEXT("%s\n"), *PlayerController->MuteList.VoicePacketFilter[idx]->ToString());
-			}
+				Output += FString(TEXT("Gameplay mutes:\n"));
+				for (int32 idx = 0; idx < PlayerController->MuteList.GameplayVoiceMuteList.Num(); idx++)
+				{
+					Output += FString::Printf(TEXT("%s\n"), *PlayerController->MuteList.GameplayVoiceMuteList[idx]->ToString());
+				}
 
-			Output += TEXT("\n");
+				Output += FString(TEXT("Filter:\n"));
+				for (int32 idx = 0; idx < PlayerController->MuteList.VoicePacketFilter.Num(); idx++)
+				{
+					Output += FString::Printf(TEXT("%s\n"), *PlayerController->MuteList.VoicePacketFilter[idx]->ToString());
+				}
+
+				Output += TEXT("\n");
+			}
 		}
 	}
 

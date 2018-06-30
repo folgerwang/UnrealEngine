@@ -25,6 +25,7 @@
 #include "Engine/Engine.h"
 #include "Engine/StaticMeshActor.h"
 #include "XRThreadUtils.h"
+#include "ProceduralMeshComponent.h"
 
 
 namespace OculusHMD
@@ -220,7 +221,6 @@ protected:
 	void ApplySystemOverridesOnStereo(bool force = false);
 	bool OnOculusStateChange(bool bIsEnabledNow);
 	bool ShouldDisableHiddenAndVisibileAreaMeshForSpectatorScreen_RenderThread() const;
-	void RenderPokeAHole(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily);
 #if !UE_BUILD_SHIPPING
 	void DrawDebug(UCanvas* InCanvas, APlayerController* InPlayerController);
 #endif
@@ -266,6 +266,9 @@ public:
 
 	/** Turns ovrVector3f in Unreal World space to a scaled FVector and applies translation and rotation corresponding to player movement */
 	FVector ScaleAndMovePointWithPlayer(ovrpVector3f& OculusHMDPoint);
+
+	/** The inverse of ScaleAndMovePointWithPlayer */
+	ovrpVector3f WorldLocationToOculusPoint(const FVector& InUnrealPosition);
 
 	/** Convert dimension of a float (e.g., a distance) from meters to Unreal Units */
 	float ConvertFloat_M2U(float OculusFloat) const;

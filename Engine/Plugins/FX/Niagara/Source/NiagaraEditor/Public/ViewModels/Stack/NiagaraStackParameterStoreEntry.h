@@ -23,10 +23,11 @@ class NIAGARAEDITOR_API UNiagaraStackParameterStoreEntry : public UNiagaraStackI
 
 public:
 	DECLARE_MULTICAST_DELEGATE(FOnValueChanged);
+	DECLARE_MULTICAST_DELEGATE(FOnParameterDeleted);
+
 public:
 	UNiagaraStackParameterStoreEntry();
 
-	virtual void BeginDestroy() override;
 	/** 
 	 * Sets the input data for this entry.
 	 * @param InSystemViewModel The view model for the system which owns the stack containing this entry.
@@ -89,6 +90,9 @@ public:
 	/** Gets a multicast delegate which is called whenever the value on this input changes. */
 	FOnValueChanged& OnValueChanged();
 
+	/** Gets a multicast delegate which is called when this parameter is deleted. */
+	FOnParameterDeleted& OnParameterDeleted();
+
 	/** Delete the parameter from the ParameterStore and notify that the store changed. */
 	void Delete();
 
@@ -117,12 +121,15 @@ private:
 	/** A local copy of the value of this input if one is available. */
 	TSharedPtr<FStructOnScope> LocalValueStruct;
 
+	/** A multicast delegate which is called when the value of this input is changed. */
+	FOnValueChanged ValueChangedDelegate;
+
+	/** A multicast delegate which is called when this parameter is deleted. */
+	FOnParameterDeleted ParameterDeletedDelegate;
+
 	/** A pointer to the data interface object for this input if one is available. */
 	UPROPERTY()
 	UNiagaraDataInterface* ValueObject;
-
-	/** A multicast delegate which is called when the value of this input is changed. */
-	FOnValueChanged ValueChangedDelegate;
 
 	UPROPERTY()
 	UObject* Owner;

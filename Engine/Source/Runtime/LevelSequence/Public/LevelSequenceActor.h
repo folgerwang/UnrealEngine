@@ -44,7 +44,7 @@ public:
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category="General", meta=(EditCondition=bUseBurnIn, MetaClass="LevelSequenceBurnIn"))
 	FSoftClassPath BurnInClass;
 
-	UPROPERTY(Instanced, BlueprintReadWrite, Category="General", meta=(EditCondition=bUseBurnIn))
+	UPROPERTY(Instanced, EditAnywhere, BlueprintReadWrite, Category="General", meta=(EditCondition=bUseBurnIn))
 	ULevelSequenceBurnInInitSettings* Settings;
 
 protected:

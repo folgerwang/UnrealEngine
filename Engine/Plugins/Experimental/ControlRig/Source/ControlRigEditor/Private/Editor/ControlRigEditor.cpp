@@ -30,6 +30,7 @@
 #include "ControlRigBlueprintUtils.h"
 #include "IPersonaViewport.h"
 #include "EditorViewportClient.h"
+#include "AnimationEditorPreviewActor.h"
 
 #define LOCTEXT_NAMESPACE "ControlRigEditor"
 
@@ -507,7 +508,7 @@ void FControlRigEditor::HandleViewportCreated(const TSharedRef<class IPersonaVie
 
 void FControlRigEditor::HandlePreviewSceneCreated(const TSharedRef<IPersonaPreviewScene>& InPersonaPreviewScene)
 {
-	AActor* Actor = InPersonaPreviewScene->GetWorld()->SpawnActor<AActor>(AActor::StaticClass(), FTransform::Identity);
+	AAnimationEditorPreviewActor* Actor = InPersonaPreviewScene->GetWorld()->SpawnActor<AAnimationEditorPreviewActor>(AAnimationEditorPreviewActor::StaticClass(), FTransform::Identity);
 	InPersonaPreviewScene->SetActor(Actor);
 
 	// Create the preview component

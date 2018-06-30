@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ViewModels/Stack/NiagaraStackItemGroup.h"
+#include "NiagaraEmitter.h"
 #include "NiagaraStackEventHandlerGroup.generated.h"
 
 class FNiagaraEmitterViewModel;
@@ -22,7 +23,7 @@ public:
 	void SetOnItemAdded(FOnItemAdded InOnItemAdded);
 
 private:
-	void ItemAddedFromUtilties();
+	void ItemAddedFromUtilties(FNiagaraEventScriptProperties AddedEventHandler);
 
 private:
 	TSharedPtr<INiagaraStackItemGroupAddUtilities> AddUtilities;

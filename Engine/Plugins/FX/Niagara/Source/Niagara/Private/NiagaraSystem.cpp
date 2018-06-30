@@ -445,6 +445,18 @@ bool UNiagaraSystem::ReferencesSourceEmitter(UNiagaraEmitter& Emitter)
 	return false;
 }
 
+bool UNiagaraSystem::ReferencesInstanceEmitter(UNiagaraEmitter& Emitter)
+{
+	for (FNiagaraEmitterHandle& Handle : EmitterHandles)
+	{
+		if (&Emitter == Handle.GetInstance())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 void UNiagaraSystem::UpdateFromEmitterChanges(UNiagaraEmitter& ChangedSourceEmitter)
 {
 	bool bNeedsCompile = false;
@@ -801,47 +813,89 @@ bool UNiagaraSystem::QueryCompileComplete(bool bWait, bool bDoPost, bool bDoNotA
 
 		InitEmitterSpawnAttributes();
 
-		// Clean up old, and initialize new rapid iterations parameters due to graph changes.
+		// Prepare rapid iteration parameters for execution.
+		TArray<UNiagaraScript*> Scripts;
+		TMap<UNiagaraScript*, UNiagaraScript*> ScriptDependencyMap;
+		TMap<UNiagaraScript*, FString> ScriptToEmitterNameMap;
 		for (FEmitterCompiledScriptPair& EmitterCompiledScriptPair : ActiveCompilations[ActiveCompileIdx].EmitterCompiledScriptPairs)
 		{
-			if (EmitterCompiledScriptPair.Emitter == nullptr)
+			UNiagaraEmitter* Emitter = EmitterCompiledScriptPair.Emitter;
+			UNiagaraScript* CompiledScript = EmitterCompiledScriptPair.CompiledScript;
+
+			Scripts.AddUnique(CompiledScript);
+			ScriptToEmitterNameMap.Add(CompiledScript, Emitter != nullptr ? Emitter->GetUniqueEmitterName() : FString());
+
+			if (UNiagaraScript::IsEquivalentUsage(CompiledScript->GetUsage(), ENiagaraScriptUsage::EmitterSpawnScript))
 			{
-				continue;
+				Scripts.AddUnique(SystemSpawnScript);
+				ScriptDependencyMap.Add(CompiledScript, SystemSpawnScript);
+				ScriptToEmitterNameMap.Add(SystemSpawnScript, FString());
 			}
 
-			EmitterCompiledScriptPair.CompiledScript->CleanUpOldAndInitializeNewRapidIterationParameters(EmitterCompiledScriptPair.Emitter->GetUniqueEmitterName());
+			if (UNiagaraScript::IsEquivalentUsage(CompiledScript->GetUsage(), ENiagaraScriptUsage::EmitterUpdateScript))
+			{
+				Scripts.AddUnique(SystemUpdateScript);
+				ScriptDependencyMap.Add(CompiledScript, SystemUpdateScript);
+				ScriptToEmitterNameMap.Add(SystemSpawnScript, FString());
+			}
+
+			if (UNiagaraScript::IsEquivalentUsage(CompiledScript->GetUsage(), ENiagaraScriptUsage::ParticleSpawnScript))
+			{
+				if (Emitter && Emitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)
+				{
+					Scripts.AddUnique(Emitter->GetGPUComputeScript());
+					ScriptDependencyMap.Add(CompiledScript, Emitter->GetGPUComputeScript());
+					ScriptToEmitterNameMap.Add(Emitter->GetGPUComputeScript(), Emitter->GetUniqueEmitterName());
+				}
+			}
+
+			if (UNiagaraScript::IsEquivalentUsage(CompiledScript->GetUsage(), ENiagaraScriptUsage::ParticleUpdateScript))
+			{
+				if (Emitter && Emitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)
+				{
+					Scripts.AddUnique(Emitter->GetGPUComputeScript());
+					ScriptDependencyMap.Add(CompiledScript, Emitter->GetGPUComputeScript());
+					ScriptToEmitterNameMap.Add(Emitter->GetGPUComputeScript(), Emitter->GetUniqueEmitterName());
+				}
+				else if (Emitter && Emitter->bInterpolatedSpawning)
+				{
+					Scripts.AddUnique(Emitter->SpawnScriptProps.Script);
+					ScriptDependencyMap.Add(CompiledScript, Emitter->SpawnScriptProps.Script);
+					ScriptToEmitterNameMap.Add(Emitter->SpawnScriptProps.Script, Emitter->GetUniqueEmitterName());
+				}
+			}
 		}
 
-		// Push rapid iteration parameters for dependent scripts.
+		FNiagaraUtilities::PrepareRapidIterationParameters(Scripts, ScriptDependencyMap, ScriptToEmitterNameMap);
+
+		// HACK: This is a temporary hack to fix an issue where data interfaces used by modules and dynamic inputs in the
+		// particle update script aren't being shared by the interpolated spawn script when accessed directly.  This works
+		// properly if the data interface is assigned to a named particle parameter and then linked to an input.
+		// TODO: Bind these data interfaces the same way parameter data interfaces are bound.
 		for (FEmitterCompiledScriptPair& EmitterCompiledScriptPair : ActiveCompilations[ActiveCompileIdx].EmitterCompiledScriptPairs)
 		{
-			if (EmitterCompiledScriptPair.Emitter == nullptr)
-			{
-				continue;
-			}
+			UNiagaraEmitter* Emitter = EmitterCompiledScriptPair.Emitter;
+			UNiagaraScript* CompiledScript = EmitterCompiledScriptPair.CompiledScript;
 
-			const bool bOnlyAddParametersOnCopy = false;
-			if (EmitterCompiledScriptPair.CompiledScript->GetUsage() == ENiagaraScriptUsage::ParticleUpdateScript && EmitterCompiledScriptPair.Emitter->bInterpolatedSpawning)
+			if (UNiagaraScript::IsEquivalentUsage(CompiledScript->GetUsage(), ENiagaraScriptUsage::ParticleUpdateScript))
 			{
-				EmitterCompiledScriptPair.CompiledScript->RapidIterationParameters.CopyParametersTo(
-					EmitterCompiledScriptPair.Emitter->SpawnScriptProps.Script->RapidIterationParameters, bOnlyAddParametersOnCopy, FNiagaraParameterStore::EDataInterfaceCopyMethod::None);
-			}
-			else if (EmitterCompiledScriptPair.CompiledScript->GetUsage() == ENiagaraScriptUsage::EmitterSpawnScript)
-			{
-				EmitterCompiledScriptPair.CompiledScript->RapidIterationParameters.CopyParametersTo(
-					SystemSpawnScript->RapidIterationParameters, bOnlyAddParametersOnCopy, FNiagaraParameterStore::EDataInterfaceCopyMethod::None);
-			}
-			else if (EmitterCompiledScriptPair.CompiledScript->GetUsage() == ENiagaraScriptUsage::EmitterUpdateScript)
-			{
-				EmitterCompiledScriptPair.CompiledScript->RapidIterationParameters.CopyParametersTo(
-					SystemUpdateScript->RapidIterationParameters, bOnlyAddParametersOnCopy, FNiagaraParameterStore::EDataInterfaceCopyMethod::None);
-			}
-			else if (EmitterCompiledScriptPair.CompiledScript->GetUsage() == ENiagaraScriptUsage::ParticleGPUComputeScript && EmitterCompiledScriptPair.Emitter->SimTarget != ENiagaraSimTarget::CPUSim)
-			{
-				EmitterCompiledScriptPair.Emitter->SpawnScriptProps.Script->RapidIterationParameters.CopyParametersTo(
-					EmitterCompiledScriptPair.CompiledScript->RapidIterationParameters, bOnlyAddParametersOnCopy, FNiagaraParameterStore::EDataInterfaceCopyMethod::None);
-				EmitterCompiledScriptPair.Emitter->UpdateScriptProps.Script->RapidIterationParameters.CopyParametersTo(
-					EmitterCompiledScriptPair.CompiledScript->RapidIterationParameters, bOnlyAddParametersOnCopy, FNiagaraParameterStore::EDataInterfaceCopyMethod::None);
+				UNiagaraScript* SpawnScript = Emitter->SpawnScriptProps.Script;
+				for (const FNiagaraScriptDataInterfaceInfo& UpdateDataInterfaceInfo : CompiledScript->GetCachedDefaultDataInterfaces())
+				{
+					if (UpdateDataInterfaceInfo.RegisteredParameterMapRead == NAME_None && UpdateDataInterfaceInfo.RegisteredParameterMapWrite == NAME_None)
+					{
+						// If the data interface isn't being read or written to a parameter map then it won't be bound properly so we
+						// assign the update scripts copy of the data interface to the spawn scripts copy by pointer so that they will share
+						// the data interface at runtime and will both be updated in the editor.
+						for (FNiagaraScriptDataInterfaceInfo& SpawnDataInterfaceInfo : SpawnScript->GetCachedDefaultDataInterfaces())
+						{
+							if (UpdateDataInterfaceInfo.Name == SpawnDataInterfaceInfo.Name)
+							{
+								SpawnDataInterfaceInfo.DataInterface = UpdateDataInterfaceInfo.DataInterface;
+							}
+						}
+					}
+				}
 			}
 		}
 

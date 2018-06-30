@@ -102,6 +102,7 @@ public:
 
 	NIAGARA_API bool IsReadyToRun() const;
 
+	void Dump()const;
 private:
 
 	void CheckForErrors();
@@ -140,15 +141,10 @@ private:
 	FNiagaraParameterDirectBinding<float> SpawnIntervalBindingGPU;
 	FNiagaraParameterDirectBinding<float> InterpSpawnStartBindingGPU;
 	FNiagaraParameterDirectBinding<float> EmitterAgeBindingGPU;
-	FNiagaraParameterDirectBinding<FNiagaraBool> EmitterLocalSpaceBindingGPU;
 
 	FNiagaraParameterDirectBinding<float> SpawnEmitterAgeBinding;
 	FNiagaraParameterDirectBinding<float> UpdateEmitterAgeBinding;
 	TArray<FNiagaraParameterDirectBinding<float>> EventEmitterAgeBindings;
-
-	FNiagaraParameterDirectBinding<FNiagaraBool> SpawnEmitterLocalSpaceBinding;
-	FNiagaraParameterDirectBinding<FNiagaraBool> UpdateEmitterLocalSpaceBinding;
-	TArray<FNiagaraParameterDirectBinding<FNiagaraBool>> EventEmitterLocalSpaceBindings;
 
 	FNiagaraParameterDirectBinding<int32> SpawnExecCountBinding;
 	FNiagaraParameterDirectBinding<int32> UpdateExecCountBinding;

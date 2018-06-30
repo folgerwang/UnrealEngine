@@ -108,7 +108,10 @@ void SUndoHistory::OnUndoBufferChanged()
 		ReloadUndoList();
 
 		LastActiveTransactionIndex = GEditor->Trans->GetQueueLength() - 1;
-		UndoListView->SetSelection(UndoList[LastActiveTransactionIndex]);
+		if (UndoList.IsValidIndex(LastActiveTransactionIndex))
+		{
+			UndoListView->SetSelection(UndoList[LastActiveTransactionIndex]);
+		}
 	}
 }
 

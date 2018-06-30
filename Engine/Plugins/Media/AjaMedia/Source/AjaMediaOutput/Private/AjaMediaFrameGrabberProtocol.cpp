@@ -2,8 +2,6 @@
 
 #include "AjaMediaFrameGrabberProtocol.h"
 
-#include "AjaMediaOutput.h"
-#include "AjaMediaViewportOutputImpl.h"
 #include "IAjaMediaOutputModule.h"
 #include "IMovieSceneCaptureProtocol.h"
 
@@ -48,47 +46,44 @@ bool FAjaFrameGrabberProtocol::Initialize(const FCaptureProtocolInitSettings& In
 	}
 
 	MediaOutput = TStrongObjectPtr<UAjaMediaOutput>(AjaSettings->MediaOutput);
-	Implementation = FAjaMediaViewportOutputImpl::CreateShared(MediaOutput.Get(), InSettings.SceneViewport);
 
-	if (!Implementation.IsValid())
-	{
-		UE_LOG(LogAjaMediaOutput, Error, TEXT("Could not initialize the Output interface."));
-		Finalize();
-		return bInitialized;
-	}
-
-	if (Implementation->GetOutputFrameRate() != Host.GetCaptureFrameRate())
+	if (MediaOutput->GetMediaMode().FrameRate != Host.GetCaptureFrameRate())
 	{
 		UE_LOG(LogAjaMediaOutput, Warning, TEXT("AjaMediaOutput %s FrameRate doesn't match sequence FrameRate."), *AjaSettings->MediaOutput->GetName());
+		return false;
+	}
+
+	MediaCapture.Reset(CastChecked<UAjaMediaCapture>(MediaOutput->CreateMediaCapture(), ECastCheckedType::NullAllowed));
+	if (MediaCapture.IsValid())
+	{
+		bool bResult = MediaCapture->CaptureSceneViewport(InSettings.SceneViewport);
+		if (!bResult)
+		{
+			UE_LOG(LogAjaMediaOutput, Error, TEXT("Could not initialize the Media Capture."));
+			return false;
+		}
+	}
+	else
+	{
+		UE_LOG(LogAjaMediaOutput, Error, TEXT("Could not create the Media Capture."));
+		return false;
 	}
 
 	bInitialized = true;
 	return bInitialized;
 }
 
-void FAjaFrameGrabberProtocol::CaptureFrame(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host)
-{
-	if (bInitialized)
-	{
-		check(Implementation.IsValid());
-
-		const FFrameNumber FrameNumber = (int32)FrameMetrics.FrameNumber;
-		FTimecode Timecode = FTimecode::FromFrameNumber(FrameNumber, Host.GetCaptureFrameRate(), FTimecode::IsDropFormatTimecodeSupported(Host.GetCaptureFrameRate()));
-		Implementation->Tick(Timecode);
-	}
-}
-
 bool FAjaFrameGrabberProtocol::HasFinishedProcessing() const
 {
-	return !bInitialized || !Implementation.IsValid() || Implementation->HasFinishedProcessing();
+	return !bInitialized || !MediaCapture.IsValid() || MediaCapture->HasFinishedProcessing();
 }
 
 void FAjaFrameGrabberProtocol::Finalize()
 {
-	if (Implementation.IsValid())
+	if (MediaCapture.IsValid())
 	{
-		Implementation->Shutdown();
-		Implementation.Reset();
+		MediaCapture->StopCapture(true);
+		MediaCapture.Reset();
 	}
 	MediaOutput.Reset();
 	bInitialized = false;

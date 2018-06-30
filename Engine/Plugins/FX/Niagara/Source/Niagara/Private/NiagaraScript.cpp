@@ -24,15 +24,6 @@
 #endif
 
 
-
-static int32 GbLogNiagaraSystemCompileResults = 1;
-static FAutoConsoleVariableRef CVarLogNiagaraSystemCompileResults(
-	TEXT("fx.LogNiagaraSystemCompileResults"),
-	GbLogNiagaraSystemCompileResults,
-	TEXT("If > 0 Niagara System scripts hlsl will be written to a text format when opened and closed in the editor. \n"),
-	ECVF_Default
-);
-
 DECLARE_STATS_GROUP(TEXT("Niagara Detailed"), STATGROUP_NiagaraDetailed, STATCAT_Advanced);
 
 FNiagaraScriptDebuggerInfo::FNiagaraScriptDebuggerInfo() : FrameLastWriteId(-1)
@@ -207,8 +198,7 @@ void UNiagaraScript::ComputeVMCompilationId(FNiagaraVMExecutableDataId& Id) cons
 	// Ideally we wouldn't want to do this but rather than push the data down
 	// from the emitter.
 	UObject* Obj = GetOuter();
-	UNiagaraEmitter* Emitter = Cast<UNiagaraEmitter>(Obj);
-	if (Emitter)
+	if (UNiagaraEmitter* Emitter = Cast<UNiagaraEmitter>(Obj))
 	{
 		if ((Emitter->bInterpolatedSpawning && Usage == ENiagaraScriptUsage::ParticleGPUComputeScript) || 
 			(Emitter->bInterpolatedSpawning && Usage == ENiagaraScriptUsage::ParticleSpawnScript) ||
@@ -219,6 +209,25 @@ void UNiagaraScript::ComputeVMCompilationId(FNiagaraVMExecutableDataId& Id) cons
 		if (Emitter->RequiresPersistantIDs())
 		{
 			Id.AdditionalDefines.Add(TEXT("RequiresPersistentIDs"));
+		}
+		if (Emitter->bLocalSpace)
+		{
+			Id.AdditionalDefines.Add(TEXT("Emitter.Localspace"));
+		}
+	}
+
+	if (UNiagaraSystem* System = Cast<UNiagaraSystem>(Obj))
+	{
+		for (const FNiagaraEmitterHandle& EmitterHandle: System->GetEmitterHandles())
+		{
+			UNiagaraEmitter* Emitter = Cast<UNiagaraEmitter>(EmitterHandle.GetInstance());
+			if (Emitter)
+			{
+				if (Emitter->bLocalSpace)
+				{
+					Id.AdditionalDefines.Add(Emitter->GetUniqueEmitterName() + TEXT(".Localspace"));
+				}
+			}
 		}
 	}
 
@@ -752,44 +761,15 @@ void UNiagaraScript::SetVMCompilationResults(const FNiagaraVMExecutableDataId& I
 	}
 
 	InvalidateExecutionReadyParameterStores();
-
-	if (GbLogNiagaraSystemCompileResults > 0)
-	{
-		FString ExportText = CachedScriptVM.LastHlslTranslation;
-		FString ExportTextAsm = CachedScriptVM.LastAssemblyTranslation;
-		if (IsGPUScript(GetUsage()))
-		{
-			ExportText = CachedScriptVM.LastHlslTranslationGPU;
-			ExportTextAsm = "";
-		}
-		FString ExportTextParams;
-		for (const FNiagaraVariable& Var : CachedScriptVM.Parameters.Parameters)
-		{
-			ExportTextParams += Var.ToString();
-			ExportTextParams += "\n";
-		}
-
-		FString ExportRIParams = RapidIterationParameters.ToString();
-		
-		UEnum* UsageEnum = Cast<UEnum>(FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptUsage"), true));
-		FString TypeName = UsageEnum->GetNameStringByValue((int64)GetUsage());
-		FString FilePath = GetOutermost()->FileName.ToString();
-		FString PathPart, FilenamePart, ExtensionPart;
-		FPaths::Split(FilePath, PathPart, FilenamePart, ExtensionPart);
-		WriteTextFileToDisk(FPaths::ProjectLogDir(), FilenamePart + TEXT(".")+ TypeName + TEXT(".hlsl"), ExportText, true);
-		WriteTextFileToDisk(FPaths::ProjectLogDir(), FilenamePart + TEXT(".")+ TypeName + TEXT(".asm"), ExportTextAsm, true);
-		WriteTextFileToDisk(FPaths::ProjectLogDir(), FilenamePart + TEXT(".") + TypeName + TEXT(".params"), ExportTextParams, true);
-		WriteTextFileToDisk(FPaths::ProjectLogDir(), FilenamePart + TEXT(".") + TypeName + TEXT(".riparams"), ExportRIParams, true);
-	}
-
+	
 	OnVMScriptCompiled().Broadcast(this);
 }
 
 void UNiagaraScript::InvalidateExecutionReadyParameterStores()
 {
 	// Make sure that we regenerate any parameter stores, since they must be kept in sync with the layout from script compilation.
-	ScriptExecutionParamStoreCPU.Clear();
-	ScriptExecutionParamStoreGPU.Clear();
+	ScriptExecutionParamStoreCPU.Empty();
+	ScriptExecutionParamStoreGPU.Empty();
 }
 
 void UNiagaraScript::InvalidateCachedCompileIds()
@@ -1330,11 +1310,6 @@ bool UNiagaraScript::LegacyCanBeRunOnGpu() const
 
 
 #if WITH_EDITORONLY_DATA
-void UNiagaraScript::CleanUpOldAndInitializeNewRapidIterationParameters(FString UniqueEmitterName)
-{
-	Source->CleanUpOldAndInitializeNewRapidIterationParameters(UniqueEmitterName, Usage, UsageId, RapidIterationParameters);
-}
-
 FGuid UNiagaraScript::GetBaseChangeID() const
 {
 	return Source->GetChangeID(); 

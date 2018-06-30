@@ -12,7 +12,7 @@
 /**
  * Read the LTC from the audio capture device.
  */
-UCLASS(editinlinenew)
+UCLASS(Blueprintable, editinlinenew)
 class AUDIOCAPTURETIMECODEPROVIDER_API UAudioCaptureTimecodeProvider : public UTimecodeProvider
 {
 	GENERATED_UCLASS_BODY()

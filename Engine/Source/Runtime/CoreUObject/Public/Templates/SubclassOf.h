@@ -98,6 +98,15 @@ public:
 		return GetTypeHash(SubclassOf.Class);
 	}
 
+#if DO_CHECK
+	// This is a DEVELOPMENT ONLY debugging function and should not be relied upon. Client
+	// systems should never require unsafe access to the referenced UClass
+	UClass* DebugAccessRawClassPtr() const
+	{
+		return Class;
+	}
+#endif
+
 private:
 	UClass* Class;
 };
