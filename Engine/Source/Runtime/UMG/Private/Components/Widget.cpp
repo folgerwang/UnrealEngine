@@ -873,6 +873,16 @@ void UWidget::SetDisplayLabel(const FString& InDisplayLabel)
 	DisplayLabel = InDisplayLabel;
 }
 
+const FString& UWidget::GetCategoryName() const
+{
+	return CategoryName;
+}
+
+void UWidget::SetCategoryName(const FString& InValue)
+{
+	CategoryName = InValue;
+}
+
 bool UWidget::IsGeneratedName() const
 {
 	if (!DisplayLabel.IsEmpty())

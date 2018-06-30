@@ -273,8 +273,10 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 			{
 				WidgetProperty->SetPropertyFlags(CPF_BlueprintVisible);
 
+				const FString& CategoryName = Widget->GetCategoryName();
+				
 				// Only include Category metadata for variables (i.e. a visible/editable property); otherwise, UHT will raise a warning if this Blueprint is nativized.
-				WidgetProperty->SetMetaData(TEXT("Category"), *WidgetBP->GetName());
+				WidgetProperty->SetMetaData(TEXT("Category"), *(CategoryName.IsEmpty() ? WidgetBP->GetName() : CategoryName));
 			}
 
 			WidgetProperty->SetPropertyFlags(CPF_Instanced);
