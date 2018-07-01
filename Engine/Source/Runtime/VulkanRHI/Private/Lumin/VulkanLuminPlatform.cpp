@@ -130,5 +130,6 @@ void FVulkanLuminPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExten
 
 bool FVulkanLuminPlatform::ForceEnableDebugMarkers()
 {
-	return GFoundTegraGfxDebugger;
+	// Preventing VK_EXT_DEBUG_MARKER from being enabled on Lumin, because the device doesn't support it.
+	return false; //GFoundTegraGfxDebugger;
 }
