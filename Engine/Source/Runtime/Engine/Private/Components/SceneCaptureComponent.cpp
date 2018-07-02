@@ -762,7 +762,7 @@ void UPlanarReflectionComponent::CreateRenderState_Concurrent()
 
 	if (ShouldComponentAddToScene() && ShouldRender())
 	{
-		SceneProxy = new FPlanarReflectionSceneProxy(this, RenderTarget);
+		SceneProxy = new FPlanarReflectionSceneProxy(this);
 		GetWorld()->Scene->AddPlanarReflection(this);
 	}
 }

@@ -86,7 +86,7 @@ class FPlanarReflectionSceneProxy
 {
 public:
 
-	FPlanarReflectionSceneProxy(UPlanarReflectionComponent* Component, FPlanarReflectionRenderTarget* InRenderTarget);
+	FPlanarReflectionSceneProxy(UPlanarReflectionComponent* Component);
 
 	void UpdateTransform(const FMatrix& NewTransform)
 	{

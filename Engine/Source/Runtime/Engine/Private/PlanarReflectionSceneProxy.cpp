@@ -8,11 +8,9 @@
 #include "GameFramework/Actor.h"
 #include "Components/PlanarReflectionComponent.h"
 
-FPlanarReflectionSceneProxy::FPlanarReflectionSceneProxy(UPlanarReflectionComponent* Component, FPlanarReflectionRenderTarget* InRenderTarget) :
-	bIsStereo(false)
+FPlanarReflectionSceneProxy::FPlanarReflectionSceneProxy(UPlanarReflectionComponent* Component) :
+	bIsStereo(false), RenderTarget(nullptr)
 {
-	RenderTarget = InRenderTarget;
-
 	float ClampedFadeStart = FMath::Max(Component->DistanceFromPlaneFadeoutStart, 0.0f);
 	float ClampedFadeEnd = FMath::Max(Component->DistanceFromPlaneFadeoutEnd, 0.0f);
 
