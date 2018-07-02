@@ -85,7 +85,7 @@ namespace AutomationTool
 		{
 			List<BuildAction> Actions = ReadActions(ActionsFileName);
 
-			CommandUtils.Log("Building with {0} {1}...", MaxProcesses, (MaxProcesses == 1)? "process" : "processes");
+			CommandUtils.Log("Building {0} {1} with {2} {3}...", Actions.Count, (Actions.Count == 1) ? "action" : "actions", MaxProcesses, (MaxProcesses == 1)? "process" : "processes");
 
 			using (UnrealBuildTool.ScopedLogIndent Indent = new UnrealBuildTool.ScopedLogIndent("  "))
 			{
