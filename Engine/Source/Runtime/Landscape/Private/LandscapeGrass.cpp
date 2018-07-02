@@ -1464,6 +1464,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 	FVector2D ShadowmapBaseScale;
 	FVector2D LightMapComponentBias;
 	FVector2D LightMapComponentScale;
+	bool RequireCPUAccess;
 
 	// output
 	FStaticMeshInstanceData InstanceBuffer;
@@ -1499,6 +1500,7 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 		, ShadowmapBaseScale(FVector2D::UnitVector)
 		, LightMapComponentBias(FVector2D::ZeroVector)
 		, LightMapComponentScale(FVector2D::UnitVector)
+		, RequireCPUAccess(GrassVariety.bKeepInstanceBufferCPUCopy)
 
 		// output
 		, InstanceBuffer(/*bSupportsVertexHalfFloat*/ GVertexElementTypeSupport.IsSupported(VET_Half2))
@@ -1506,6 +1508,8 @@ struct FAsyncGrassBuilder : public FGrassBuilderBase
 		, OutOcclusionLayerNum(0)
 	{
 		bHaveValidData = bHaveValidData && GrassData.IsValid();
+
+		InstanceBuffer.SetAllowCPUAccess(RequireCPUAccess);
 
 		check(DesiredInstancesPerLeaf > 0);
 
@@ -1896,7 +1900,7 @@ void ALandscapeProxy::FlushGrassComponents(const TSet<ULandscapeComponent*>* Onl
 			}
 		}
 #if WITH_EDITOR
-		if (GIsEditor && bFlushGrassMaps && GetWorld()->Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM4)
+		if (GIsEditor && bFlushGrassMaps && GetWorld() && GetWorld()->Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM4)
 		{
 			for (ULandscapeComponent* Component : *OnlyForComponents)
 			{
@@ -1939,7 +1943,7 @@ void ALandscapeProxy::FlushGrassComponents(const TSet<ULandscapeComponent*>* Onl
 		}
 
 #if WITH_EDITOR
-		if (GIsEditor && bFlushGrassMaps && GetWorld()->Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM4)
+		if (GIsEditor && bFlushGrassMaps && GetWorld() && GetWorld()->Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM4)
 		{
 			// Clear GrassMaps
 			TInlineComponentArray<ULandscapeComponent*> LandComps;
@@ -2485,7 +2489,7 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 
 						if (!HierarchicalInstancedStaticMeshComponent->PerInstanceRenderData.IsValid())
 						{
-							HierarchicalInstancedStaticMeshComponent->InitPerInstanceRenderData(true, &Inner.Builder->InstanceBuffer);
+							HierarchicalInstancedStaticMeshComponent->InitPerInstanceRenderData(true, &Inner.Builder->InstanceBuffer, Inner.Builder->RequireCPUAccess);
 						}
 						else
 						{

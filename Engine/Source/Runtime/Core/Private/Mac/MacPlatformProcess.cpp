@@ -352,7 +352,9 @@ bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, in
 		
 		NSAutoReadPipe* StdErrPipe = [[NSAutoReadPipe new] autorelease];
 		[ProcessHandle setStandardError: (id)[StdErrPipe Pipe]];
-		
+
+		id<NSObject> Activity = [[NSProcessInfo processInfo] beginActivityWithOptions:NSActivityUserInitiated reason:@"ExecProcess"];
+
 		@try
 		{
 			[ProcessHandle launch];
@@ -373,7 +375,12 @@ bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, in
 			{
 				[StdErrPipe copyPipeData: *OutStdErr];
 			}
-			
+
+			if (Activity)
+			{
+				[[NSProcessInfo processInfo] endActivity:Activity];
+			}
+
 			return true;
 		}
 		@catch (NSException* Exc)
@@ -386,6 +393,12 @@ bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, in
 			{
 				*OutStdErr = FString([Exc reason]);
 			}
+
+			if (Activity)
+			{
+				[[NSProcessInfo processInfo] endActivity:Activity];
+			}
+
 			return false;
 		}
 	}
@@ -552,7 +565,14 @@ FProcHandle FMacPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* Parm
 		*OutProcessID = ProcessHandle ? [ProcessHandle processIdentifier] : 0;
 	}
 
-	return FProcHandle(ProcessHandle);
+	FProcHandle Handle(ProcessHandle);
+	if(ProcessHandle)
+	{
+		Handle.Activity = [[NSProcessInfo processInfo] beginActivityWithOptions:NSActivityUserInitiated reason:@"CreateProc"];
+		[Handle.Activity retain];
+	}
+
+	return Handle;
 }
 
 FProcHandle FMacPlatformProcess::OpenProcess(uint32 ProcessID)
@@ -580,6 +600,11 @@ void FMacPlatformProcess::WaitForProc( FProcHandle& ProcessHandle )
 void FMacPlatformProcess::CloseProc( FProcHandle & ProcessHandle )
 {
 	SCOPED_AUTORELEASE_POOL;
+	if (ProcessHandle.Activity)
+	{
+		[[NSProcessInfo processInfo] endActivity:ProcessHandle.Activity];
+		[ProcessHandle.Activity release];
+	}
 	[(NSTask*)ProcessHandle.Get() release];
 	ProcessHandle.Reset();
 }

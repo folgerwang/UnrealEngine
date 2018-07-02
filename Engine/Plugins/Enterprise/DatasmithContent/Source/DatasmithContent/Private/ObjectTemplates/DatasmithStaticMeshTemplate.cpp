@@ -81,6 +81,8 @@ void FDatasmithStaticMaterialTemplate::Apply( FStaticMaterial* Destination, FDat
 {
 	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( MaterialSlotName, Destination, PreviousTemplate );
 	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( MaterialInterface, Destination, PreviousTemplate );
+
+	Destination->ImportedMaterialSlotName = MaterialSlotName; // Not editable by the user, so always set it
 }
 
 void FDatasmithStaticMaterialTemplate::Load( const FStaticMaterial& Source )

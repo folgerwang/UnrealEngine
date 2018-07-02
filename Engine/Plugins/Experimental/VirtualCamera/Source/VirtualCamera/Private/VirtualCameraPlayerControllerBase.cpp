@@ -85,7 +85,7 @@ void AVirtualCameraPlayerControllerBase::BeginPlay()
 void AVirtualCameraPlayerControllerBase::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-
+	
 	if (AVirtualCameraPawnBase* VCPawn = GetVirtualCameraPawn())
 	{
 		UpdatePawnWithTrackerData();
@@ -95,23 +95,24 @@ void AVirtualCameraPlayerControllerBase::Tick(float DeltaSeconds)
 			// Auto focus is just setting screen focus through the Auto Focus position.
 			SetFocusDistanceThroughPoint(AutoFocusScreenPosition);
 		}
+	}
 
-		if (UVirtualCameraCineCameraComponent* VPCamera = GetVirtualCameraCineCameraComponent())
+	UVirtualCameraCineCameraComponent* VCCamera = GetVirtualCameraCineCameraComponent();
+	if (VCCamera)
+	{
+		if (VCCamera->GetCurrentFocusMethod() == EVirtualCameraFocusMethod::Auto)
 		{
-			if (VPCamera->GetCurrentFocusMethod() == EVirtualCameraFocusMethod::Auto)
-			{
-				SetFocusDistanceThroughPoint(AutoFocusScreenPosition);
-			}
-
-			VPCamera->UpdateCameraView();
+			SetFocusDistanceThroughPoint(AutoFocusScreenPosition);
 		}
+
+		VCCamera->UpdateCameraView();
 	}
 
 	if (LevelSequencePlaybackController)
 	{
 		if (LevelSequencePlaybackController->bIsRecording)
 		{
-			LevelSequencePlaybackController->PilotTargetedCamera();
+			LevelSequencePlaybackController->PilotTargetedCamera(VCCamera ? &VCCamera->DesiredFilmbackSettings : nullptr);
 		}
 
 		if (LevelSequencePlaybackController->GetSequence())

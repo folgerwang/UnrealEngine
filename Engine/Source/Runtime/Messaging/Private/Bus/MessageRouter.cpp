@@ -6,7 +6,7 @@
 #include "IMessageSubscription.h"
 #include "IMessageReceiver.h"
 #include "IMessageInterceptor.h"
-
+#include "Misc/ConfigCacheIni.h"
 
 /* FMessageRouter structors
  *****************************************************************************/
@@ -15,9 +15,12 @@ FMessageRouter::FMessageRouter()
 	: DelayedMessagesSequence(0)
 	, Stopping(false)
 	, Tracer(MakeShareable(new FMessageTracer()))
+	, bAllowDelayedMessaging(false)
 {
 	ActiveSubscriptions.FindOrAdd(NAME_All);
 	WorkEvent = FPlatformProcess::GetSynchEventFromPool();
+
+	GConfig->GetBool(TEXT("Messaging"), TEXT("bAllowDelayedMessaging"), bAllowDelayedMessaging, GEngineIni);
 }
 
 
@@ -351,7 +354,7 @@ void FMessageRouter::HandleRouteMessage(TSharedRef<IMessageContext, ESPMode::Thr
 	}
 
 	// dispatch the message
-	if (Context->GetTimeSent() > CurrentTime)
+	if (bAllowDelayedMessaging && (Context->GetTimeSent() > CurrentTime))
 	{
 		DelayedMessages.HeapPush(FDelayedMessage(Context, ++DelayedMessagesSequence));
 	}

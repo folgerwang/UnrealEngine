@@ -168,6 +168,8 @@ void FAssetEditorManager::CloseAllEditorsForAsset(UObject* Asset)
 	{
 		EditorIter->CloseWindow();
 	}
+
+	AssetEditorRequestCloseEvent.Broadcast(Asset, EAssetEditorCloseReason::CloseAllEditorsForAsset);
 }
 
 void FAssetEditorManager::RemoveAssetFromAllEditors(UObject* Asset)
@@ -178,6 +180,8 @@ void FAssetEditorManager::RemoveAssetFromAllEditors(UObject* Asset)
 	{
 		EditorIter->RemoveEditingAsset(Asset);
 	}
+
+	AssetEditorRequestCloseEvent.Broadcast(Asset, EAssetEditorCloseReason::RemoveAssetFromAllEditors);
 }
 
 
@@ -192,6 +196,8 @@ void FAssetEditorManager::CloseOtherEditors( UObject* Asset, IAssetEditorInstanc
 			Editor->CloseWindow();
 		}
 	}
+
+	AssetEditorRequestCloseEvent.Broadcast(Asset, EAssetEditorCloseReason::CloseOtherEditors);
 }
 
 
@@ -285,6 +291,8 @@ bool FAssetEditorManager::CloseAllAssetEditors()
 			}
 		}
 	}
+
+	AssetEditorRequestCloseEvent.Broadcast(nullptr, EAssetEditorCloseReason::CloseAllAssetEditors);
 
 	return bAllEditorsClosed;
 }
@@ -749,13 +757,24 @@ void FAssetEditorManager::HandlePackageReloaded(const EPackageReloadPhase InPack
 
 	if (InPackageReloadPhase == EPackageReloadPhase::PrePackageFixup)
 	{
+		/** Call close for all old assets even if not open, so global callback will go off */
 		TArray<UObject*> OldAssets;
-		for (auto AssetEditorPair : OpenedAssets)
+		const TMap<UObject*, UObject*>& RepointedMap = InPackageReloadedEvent->GetRepointedObjects();
+
+		for (const TPair<UObject*, UObject*> RepointPair : RepointedMap)
+		{
+			if (RepointPair.Key->IsAsset())
+			{
+				OldAssets.Add(RepointPair.Key);
+			}
+		}
+
+		/** Look for replacement for assets that are open now so we can reopen */
+		for (TPair<UObject*, IAssetEditorInstance*>& AssetEditorPair : OpenedAssets)
 		{
 			UObject* NewAsset = nullptr;
 			if (InPackageReloadedEvent->GetRepointedObject(AssetEditorPair.Key, NewAsset))
 			{
-				OldAssets.Add(AssetEditorPair.Key);
 				if (NewAsset)
 				{
 					PendingAssetsToOpen.AddUnique(NewAsset);

@@ -722,21 +722,10 @@ float4 ConvertTangentSnormToUnorm16(float4 Input)
 	return clamp(Res / 65535, 0.0f, 0.99f);
 }
 
-#ifndef FORCE_BIAS_CONVERSION
-#define FORCE_BIAS_CONVERSION	0
-#endif
-
 // Tangent space bias/unbias
 // We don't use a function so we can avoid type promotion/ coercion.
-#if OPENGL_PROFILE && (MANUAL_VERTEX_FETCH || FORCE_BIAS_CONVERSION)
-#define TangentBias(X)		ConvertTangentUnormToSnorm8(X)
-#define TangentUnbias(X)	ConvertTangentSnormToUnorm8(X)
-#else
 #define TangentBias(X)		(X)
 #define TangentUnbias(X)	(X)
-#endif // OPENGL_PROFILE && (MANUAL_VERTEX_FETCH || FORCE_BIAS_CONVERSION)
-
-
 
 float Square( float x )
 {

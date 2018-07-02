@@ -15,14 +15,17 @@ namespace UnrealBuildTool.Rules
 					"EditorStyle",
 					"Engine",
 					"InputCore",
+					"MaterialEditor",
 					"MediaAssets",
 					"MediaFrameworkUtilities",
+					"MediaIOCore",
 					"MediaUtils",
 					"PlacementMode",
 					"PropertyEditor",
 					"Slate",
 					"SlateCore",
 					"UnrealEd",
+					"WorkspaceMenuStructure",
 				});
 		}
 	}

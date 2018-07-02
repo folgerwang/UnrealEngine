@@ -69,11 +69,11 @@ public:
 
 	void SetResourcePath(const FString& FilePath);
 	const FString& GetResourcePath();
+#endif		// WITH_EDITORONLY_DATA
 
 protected:
 	/** Overridden serialize function to read in/write out the unexposed data */
 	virtual void Serialize(FArchive& Ar) override;
-#endif		// WITH_EDITORONLY_DATA
 };
 
 /**

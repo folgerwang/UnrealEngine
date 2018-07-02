@@ -833,8 +833,18 @@ UPrimitiveComponent* FSteamVRAssetManager::CreateRenderComponent(const int32 Dev
 				AssignedMeshLoader.Pin()->Tick(0.0f);
 			}
 		}
+		else
+		{
+			// failure...
+			OnLoadComplete.ExecuteIfBound(nullptr);
+		}
 	}
+	else
 #endif
+	{
+		// failure...
+		OnLoadComplete.ExecuteIfBound(nullptr);
+	}
 	return NewRenderComponent;
 }
 

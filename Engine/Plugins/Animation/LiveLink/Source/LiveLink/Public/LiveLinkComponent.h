@@ -33,6 +33,10 @@ public:
 	// This Event is triggered any time new LiveLink data is available, including in the editor
 	UPROPERTY(BlueprintAssignable, Category = "LiveLink")
 	FLiveLinkTickSignature OnLiveLinkUpdated;
+
+	// Returns a list of available Subject Names for LiveLink
+	UFUNCTION(BlueprintCallable, Category = "LiveLink")
+	void GetAvailableSubjectNames(TArray<FName>& SubjectNames);
 	
 	// Returns a handle to the current frame of data in LiveLink for a given subject along with a boolean for whether a frame was found.
 	// Returns a handle to an empty frame if no frame of data is found.

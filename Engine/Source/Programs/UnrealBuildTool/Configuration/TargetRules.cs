@@ -329,10 +329,26 @@ namespace UnrealBuildTool
 		public List<string> AdditionalPlugins = new List<string>();
 
 		/// <summary>
-		/// List of plugins to be excluded from this target. Note that the project file may still reference them, so they should be marked
+		/// Additional plugins that should be included for this target.
+		/// </summary>
+		[CommandLine("-EnablePlugin=", ListSeparator = '+')]
+		public List<string> EnablePlugins = new List<string>();
+
+		/// <summary>
+		/// List of plugins to be disabled for this target. Note that the project file may still reference them, so they should be marked
 		/// as optional to avoid failing to find them at runtime.
 		/// </summary>
-		public List<string> ExcludePlugins = new List<string>();
+		[CommandLine("-DisablePlugin=", ListSeparator = '+')]
+		public List<string> DisablePlugins = new List<string>();
+
+		/// <summary>
+		/// Accessor for
+		/// </summary>
+		[Obsolete("The ExcludePlugins setting has been renamed to DisablePlugins. Please update your code to avoid build failures in future versions of the engine.")]
+		public List<string> ExcludePlugins
+		{
+			get { return DisablePlugins; }
+		}
 
 		/// <summary>
 		/// Path to the set of pak signing keys to embed in the executable.
@@ -1498,9 +1514,14 @@ namespace UnrealBuildTool
 			get { return Inner.AdditionalPlugins; }
 		}
 
-		public IEnumerable<string> ExcludePlugins
+		public IEnumerable<string> EnablePlugins
 		{
-			get { return Inner.ExcludePlugins; }
+			get { return Inner.EnablePlugins; }
+		}
+
+		public IEnumerable<string> DisablePlugins
+		{
+			get { return Inner.DisablePlugins; }
 		}
 
 		public string PakSigningKeysFile

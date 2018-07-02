@@ -32,6 +32,7 @@
 #include "EdGraph/EdGraphPin.h"
 #include "EdGraphSchema_Niagara.h"
 #include "ViewModels/NiagaraEmitterHandleViewModel.h"
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraParameterMapView"
 
@@ -603,6 +604,7 @@ void SNiagaraParameterMapView::OnDeleteEntry()
 				}
 			}
 
+			FScopedTransaction RemoveParametersWithPins(LOCTEXT("RemoveParametersWithPins", "Remove parameter and referenced pins"));
 			for (const TWeakObjectPtr<UNiagaraGraph>& GraphWeakPtr : Graphs)
 			{
 				if (GraphWeakPtr.IsValid())

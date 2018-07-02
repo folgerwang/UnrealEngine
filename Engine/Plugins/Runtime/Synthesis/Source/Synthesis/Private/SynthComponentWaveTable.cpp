@@ -25,6 +25,12 @@ bool USynthSamplePlayer::Init(int32& SampleRate)
 
 	SampleBufferReader.Init(SampleRate);
 	SoundWaveLoader.Init(GetAudioDevice());
+
+	if (SoundWave != nullptr)
+	{
+		SoundWaveLoader.LoadSoundWave(SoundWave);
+	}
+
 	return true;
 }
 
@@ -36,7 +42,7 @@ void USynthSamplePlayer::SetPitch(float InPitch, float InTimeSec)
 	});
 }
 
-void USynthSamplePlayer::SeekToTime(float InTimeSecs, ESamplePlayerSeekType InSeekType)
+void USynthSamplePlayer::SeekToTime(float InTimeSecs, ESamplePlayerSeekType InSeekType, bool bWrap)
 {
 	Audio::ESeekType::Type SeekType;
 	switch (InSeekType)
@@ -55,9 +61,9 @@ void USynthSamplePlayer::SeekToTime(float InTimeSecs, ESamplePlayerSeekType InSe
 			break;
 	}
 
-	SynthCommand([this, InTimeSecs, SeekType]()
+	SynthCommand([this, InTimeSecs, SeekType, bWrap]()
 	{
-		SampleBufferReader.SeekTime(InTimeSecs, SeekType);
+		SampleBufferReader.SeekTime(InTimeSecs, SeekType, bWrap);
 	});
 }
 

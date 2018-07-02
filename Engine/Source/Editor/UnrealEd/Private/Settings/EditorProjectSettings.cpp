@@ -147,12 +147,3 @@ UBlueprintEditorProjectSettings::UBlueprintEditorProjectSettings(const FObjectIn
 	: Super(ObjectInitializer)
 {
 }
-
-void UBlueprintEditorProjectSettings::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
-{
-	const FName Name = PropertyChangedEvent.Property ? PropertyChangedEvent.Property->GetFName() : NAME_None;
-	if (Name == GET_MEMBER_NAME_CHECKED(UBlueprintEditorProjectSettings, bUseCompilationManager))
-	{
-		GBlueprintUseCompilationManager = bUseCompilationManager;
-	}
-}

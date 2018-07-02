@@ -648,7 +648,7 @@ public:
 	/** Stops the sound source. */
 	ENGINE_API virtual void Stop();
 
-	ENGINE_API virtual void StopNow() { checkf(false, TEXT("This should not get called in non-audio mixer.")); };
+	ENGINE_API virtual void StopNow() { Stop(); };
 
 	/** Whether or not the source is stopping. Only implemented in audio mixer. */
 	virtual bool IsStopping() { return false; }

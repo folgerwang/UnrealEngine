@@ -1419,6 +1419,12 @@ uint32 FUnixPlatformProcess::GetCurrentProcessId()
 	return getpid();
 }
 
+void FUnixPlatformProcess::SetCurrentWorkingDirectoryToBaseDir()
+{
+	FPlatformMisc::CacheLaunchDir();
+	chdir(TCHAR_TO_ANSI(FPlatformProcess::BaseDir()));
+}
+
 FString FUnixPlatformProcess::GetCurrentWorkingDirectory()
 {
 	// get the current directory

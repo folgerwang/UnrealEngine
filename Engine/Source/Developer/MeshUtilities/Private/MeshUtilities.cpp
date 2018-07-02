@@ -884,7 +884,7 @@ static inline FVector GetPositionForWedge(FRawMesh const& Mesh, int32 WedgeIndex
 	return Mesh.VertexPositions[VertexIndex];
 }
 
-struct FMeshEdge
+struct FMeshEdgeDef
 {
 	int32	Vertices[2];
 	int32	Faces[2];
@@ -910,11 +910,11 @@ protected:
 	/**
 	* The array of edges to create
 	*/
-	TArray<FMeshEdge>& Edges;
+	TArray<FMeshEdgeDef>& Edges;
 	/**
 	* List of edges that start with a given vertex
 	*/
-	TMultiMap<FVector, FMeshEdge*> VertexToEdgeList;
+	TMultiMap<FVector, FMeshEdgeDef*> VertexToEdgeList;
 
 	/**
 	* This function determines whether a given edge matches or not. It must be
@@ -927,7 +927,7 @@ protected:
 	*
 	* @return true if the edge is a match, false otherwise
 	*/
-	virtual bool DoesEdgeMatch(int32 Index1, int32 Index2, FMeshEdge* OtherEdge) = 0;
+	virtual bool DoesEdgeMatch(int32 Index1, int32 Index2, FMeshEdgeDef* OtherEdge) = 0;
 
 	/**
 	* Searches the list of edges to see if this one matches an existing and
@@ -938,9 +938,9 @@ protected:
 	*
 	* @return NULL if no edge was found, otherwise the edge that was found
 	*/
-	inline FMeshEdge* FindOppositeEdge(int32 Index1, int32 Index2)
+	inline FMeshEdgeDef* FindOppositeEdge(int32 Index1, int32 Index2)
 	{
-		FMeshEdge* Edge = NULL;
+		FMeshEdgeDef* Edge = NULL;
 		// Search the hash for a corresponding vertex
 		WorkingEdgeList.Reset();
 		VertexToEdgeList.MultiFind(Vertices[Index2].Position, WorkingEdgeList);
@@ -948,7 +948,7 @@ protected:
 		for (int32 EdgeIndex = 0; EdgeIndex < WorkingEdgeList.Num() && Edge == NULL;
 			EdgeIndex++)
 		{
-			FMeshEdge* OtherEdge = WorkingEdgeList[EdgeIndex];
+			FMeshEdgeDef* OtherEdge = WorkingEdgeList[EdgeIndex];
 			// See if this edge matches the passed in edge
 			if (OtherEdge != NULL && DoesEdgeMatch(Index1, Index2, OtherEdge))
 			{
@@ -970,7 +970,7 @@ protected:
 	{
 		// If this edge matches another then just fill the other triangle
 		// otherwise add it
-		FMeshEdge* OtherEdge = FindOppositeEdge(Index1, Index2);
+		FMeshEdgeDef* OtherEdge = FindOppositeEdge(Index1, Index2);
 		if (OtherEdge == NULL)
 		{
 			// Add a new edge to the array
@@ -995,7 +995,7 @@ public:
 	*/
 	TEdgeBuilder(const TArray<uint32>& InIndices,
 		const TArray<VertexClass>& InVertices,
-		TArray<FMeshEdge>& OutEdges) :
+		TArray<FMeshEdgeDef>& OutEdges) :
 		Indices(InIndices), Vertices(InVertices), Edges(OutEdges)
 	{
 		// Presize the array so that there are no extra copies being done
@@ -1037,7 +1037,7 @@ public:
 	}
 
 private:
-	TArray<FMeshEdge*> WorkingEdgeList;
+	TArray<FMeshEdgeDef*> WorkingEdgeList;
 };
 
 /**
@@ -1051,7 +1051,7 @@ public:
 	*/
 	FStaticMeshEdgeBuilder(const TArray<uint32>& InIndices,
 		const TArray<FStaticMeshBuildVertex>& InVertices,
-		TArray<FMeshEdge>& OutEdges) :
+		TArray<FMeshEdgeDef>& OutEdges) :
 		TEdgeBuilder<FStaticMeshBuildVertex>(InIndices, InVertices, OutEdges)
 	{
 	}
@@ -1065,7 +1065,7 @@ public:
 	*
 	* @return true if the edge is a match, false otherwise
 	*/
-	bool DoesEdgeMatch(int32 Index1, int32 Index2, FMeshEdge* OtherEdge)
+	bool DoesEdgeMatch(int32 Index1, int32 Index2, FMeshEdgeDef* OtherEdge)
 	{
 		return Vertices[OtherEdge->Vertices[1]].Position == Vertices[Index1].Position &&
 			OtherEdge->Faces[1] == -1;
@@ -2959,14 +2959,14 @@ public:
 
 			// Build a list of wireframe edges in the static mesh.
 			{
-				TArray<FMeshEdge> Edges;
+				TArray<FMeshEdgeDef> Edges;
 				TArray<uint32> WireframeIndices;
 
 				FStaticMeshEdgeBuilder(CombinedIndices, Vertices, Edges).FindEdges();
 				WireframeIndices.Empty(2 * Edges.Num());
 				for (int32 EdgeIndex = 0; EdgeIndex < Edges.Num(); EdgeIndex++)
 				{
-					FMeshEdge&	Edge = Edges[EdgeIndex];
+					FMeshEdgeDef&	Edge = Edges[EdgeIndex];
 					WireframeIndices.Add(Edge.Vertices[0]);
 					WireframeIndices.Add(Edge.Vertices[1]);
 				}
@@ -4662,6 +4662,7 @@ bool FMeshUtilities::BuildSkeletalMesh_Legacy(FSkeletalMeshLODModel& LODModel
 	TArray<FSoftSkinBuildVertex> RawVertices;
 	RawVertices.Reserve(Points.Num());
 
+	int32 NTBErrorCount = 0;
 	// Create a list of vertex Z/index pairs
 
 	for (int32 FaceIndex = 0; FaceIndex < Faces.Num(); FaceIndex++)
@@ -4798,6 +4799,19 @@ bool FMeshUtilities::BuildSkeletalMesh_Legacy(FSkeletalMeshLODModel& LODModel
 				TangentZ.Normalize();
 			}
 
+			if (TangentX.IsNearlyZero() || TangentX.ContainsNaN())
+			{
+				NTBErrorCount++;
+			}
+			if (TangentY.IsNearlyZero() || TangentY.ContainsNaN())
+			{
+				NTBErrorCount++;
+			}
+			if (TangentZ.IsNearlyZero() || TangentZ.ContainsNaN())
+			{
+				NTBErrorCount++;
+			}
+
 			Vertex.TangentX = TangentX;
 			Vertex.TangentY = TangentY;
 			Vertex.TangentZ = TangentZ;
@@ -4854,6 +4868,15 @@ bool FMeshUtilities::BuildSkeletalMesh_Legacy(FSkeletalMeshLODModel& LODModel
 			IAndZ.Z = Vertex.Position.Z;
 
 			VertIndexAndZ.Add(IAndZ);
+		}
+	}
+
+	if (NTBErrorCount > 0 && OutWarningMessages)
+	{
+		OutWarningMessages->Add(FText::FromString(TEXT("SkeletalMesh compute tangents [built in]: Build result data contain 0 or NAN tangent value. Bad tangent value will impact shading.")));
+		if (OutWarningNames)
+		{
+			OutWarningNames->Add(FFbxErrors::Generic_Mesh_TangentsComputeError);
 		}
 	}
 

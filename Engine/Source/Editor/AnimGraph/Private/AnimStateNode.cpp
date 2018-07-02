@@ -144,6 +144,7 @@ void UAnimStateNode::PostPasteNode()
 	{
 		GraphNode->CreateNewGuid();
 		GraphNode->PostPasteNode();
+		GraphNode->ReconstructNode();
 	}
 
 	Super::PostPasteNode();

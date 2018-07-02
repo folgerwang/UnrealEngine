@@ -88,10 +88,14 @@ void FGameplayDebuggerModule::ShutdownModule()
 	}
 
 #if WITH_EDITOR
-	FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
-	PropertyEditorModule.UnregisterCustomPropertyTypeLayout("GameplayDebuggerCategoryConfig");
-	PropertyEditorModule.UnregisterCustomPropertyTypeLayout("GameplayDebuggerExtensionConfig");
-	PropertyEditorModule.UnregisterCustomPropertyTypeLayout("GameplayDebuggerInputConfig");
+
+	FPropertyEditorModule* PropertyEditorModule = FModuleManager::GetModulePtr<FPropertyEditorModule>("PropertyEditor");
+	if (PropertyEditorModule)
+	{
+		PropertyEditorModule->UnregisterCustomPropertyTypeLayout("GameplayDebuggerCategoryConfig");
+		PropertyEditorModule->UnregisterCustomPropertyTypeLayout("GameplayDebuggerExtensionConfig");
+		PropertyEditorModule->UnregisterCustomPropertyTypeLayout("GameplayDebuggerInputConfig");
+	}
 
 	FEditorModeRegistry::Get().UnregisterMode(FGameplayDebuggerEdMode::EM_GameplayDebugger);
 #endif

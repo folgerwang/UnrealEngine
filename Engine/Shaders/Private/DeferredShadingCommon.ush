@@ -557,11 +557,15 @@ FGBufferData DecodeGBufferData(
 	GBuffer.Depth = SceneDepth;
 
 	GBuffer.StoredBaseColor = GBuffer.BaseColor;
-	GBuffer.StoredSpecular = GBuffer.Specular;
 	GBuffer.StoredMetallic = GBuffer.Metallic;
+	GBuffer.StoredSpecular = GBuffer.Specular;
 
-	// SHADINGMODELID_EYE stores Iris Distance inside Metallic.
-	GBuffer.Metallic = GBuffer.ShadingModelID == SHADINGMODELID_EYE ? 0.0f : GBuffer.Metallic;
+	FLATTEN
+	if( GBuffer.ShadingModelID == SHADINGMODELID_EYE )
+	{
+		GBuffer.Metallic = 0.0;
+		//GBuffer.Specular = 0.25;
+	}
 
 	// derived from BaseColor, Metalness, Specular
 	{

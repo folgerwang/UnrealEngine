@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 
 
-class UMeshDescription;
+class FMeshDescription;
 struct FRawMesh;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMeshDescriptionOperations, Log, All);
@@ -34,27 +34,27 @@ public:
 	};
 
 	/** Convert this mesh description into the old FRawMesh format. */
-	static void ConverToRawMesh(const class UMeshDescription* SourceMeshDescription, struct FRawMesh &DestinationRawMesh, const TMap<FName, int32>& MaterialMap);
+	static void ConvertToRawMesh(const FMeshDescription& SourceMeshDescription, FRawMesh& DestinationRawMesh, const TMap<FName, int32>& MaterialMap);
 
 	/** Convert old FRawMesh format to MeshDescription. */
-	static void ConverFromRawMesh(const struct FRawMesh &SourceRawMesh, class UMeshDescription* DestinationMeshDescription, const TMap<int32, FName>& MaterialMap);
+	static void ConvertFromRawMesh(const FRawMesh& SourceRawMesh, FMeshDescription& DestinationMeshDescription, const TMap<int32, FName>& MaterialMap);
 
 	/**
 	 * Compute normal, tangent and Bi-Normal for every polygon in the mesh description. (this do not compute Vertex NTBs)
 	 * It also remove the degenerated polygon from the mesh description
 	 */
-	static void CreatePolygonNTB(UMeshDescription* MeshDescription, float ComparisonThreshold);
+	static void CreatePolygonNTB(FMeshDescription& MeshDescription, float ComparisonThreshold);
 	
 	/** Compute normal, tangent and Bi-Normal(only if bComputeTangent is true) for every vertex in the mesh description. */
-	static void CreateNormals(UMeshDescription* MeshDescription, ETangentOptions TangentOptions, bool bComputeTangent);
+	static void CreateNormals(FMeshDescription& MeshDescription, ETangentOptions TangentOptions, bool bComputeTangent);
 	
 	/** Compute tangent and Bi-Normal using mikkt space for every vertex in the mesh description. */
-	static void CreateMikktTangents(UMeshDescription* MeshDescription, ETangentOptions TangentOptions);
+	static void CreateMikktTangents(FMeshDescription& MeshDescription, ETangentOptions TangentOptions);
 
 	/** Find all overlapping vertex using the threshold in the mesh description. */
-	static void FindOverlappingCorners(TMultiMap<int32, int32>& OverlappingCorners, const UMeshDescription* MeshDescription, float ComparisonThreshold);
+	static void FindOverlappingCorners(TMultiMap<int32, int32>& OverlappingCorners, const FMeshDescription& MeshDescription, float ComparisonThreshold);
 
-	static void CreateLightMapUVLayout(UMeshDescription* MeshDescription,
+	static void CreateLightMapUVLayout(FMeshDescription& MeshDescription,
 		int32 SrcLightmapIndex,
 		int32 DstLightmapIndex,
 		int32 MinLightmapResolution,
@@ -62,11 +62,11 @@ public:
 		const TMultiMap<int32, int32>& OverlappingCorners);
 
 	/** Create some UVs from the specified mesh description data. */
-	static bool GenerateUniqueUVsForStaticMesh(const UMeshDescription* MeshDescription, int32 TextureResolution, TArray<FVector2D>& OutTexCoords);
+	static bool GenerateUniqueUVsForStaticMesh(const FMeshDescription& MeshDescription, int32 TextureResolution, TArray<FVector2D>& OutTexCoords);
 
 private:
 	
-	static void ConvertHardEdgesToSmoothGroup(const UMeshDescription* SourceMeshDescription, struct FRawMesh &DestinationRawMesh);
+	static void ConvertHardEdgesToSmoothGroup(const FMeshDescription& SourceMeshDescription, FRawMesh& DestinationRawMesh);
 
-	static void ConvertSmoothGroupToHardEdges(const FRawMesh &SourceRawMesh, UMeshDescription* DestinationMeshDescription);
+	static void ConvertSmoothGroupToHardEdges(const FRawMesh& SourceRawMesh, FMeshDescription& DestinationMeshDescription);
 };

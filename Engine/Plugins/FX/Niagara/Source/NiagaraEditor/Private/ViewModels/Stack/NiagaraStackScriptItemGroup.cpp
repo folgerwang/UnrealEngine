@@ -264,6 +264,18 @@ void UNiagaraStackScriptItemGroup::Initialize(
 	ScriptViewModel = InScriptViewModel;
 	ScriptUsage = InScriptUsage;
 	ScriptUsageId = InScriptUsageId;
+	ScriptGraph = InScriptViewModel->GetGraphViewModel()->GetGraph();
+	ScriptGraph->AddOnGraphChangedHandler(
+		FOnGraphChanged::FDelegate::CreateUObject(this, &UNiagaraStackScriptItemGroup::OnScriptGraphChanged));
+}
+
+void UNiagaraStackScriptItemGroup::FinalizeInternal()
+{
+	if (ScriptGraph.IsValid())
+	{
+		ScriptGraph->RemoveOnGraphChangedHandler(OnGraphChangedHandle);
+	}
+	Super::FinalizeInternal();
 }
 
 void UNiagaraStackScriptItemGroup::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)
@@ -607,6 +619,14 @@ void UNiagaraStackScriptItemGroup::ItemAdded(UNiagaraNodeFunctionCall* AddedModu
 void UNiagaraStackScriptItemGroup::ChildModifiedGroupItems()
 {
 	RefreshChildren();
+}
+
+void UNiagaraStackScriptItemGroup::OnScriptGraphChanged(const struct FEdGraphEditAction& InAction)
+{
+	if (InAction.Action == GRAPHACTION_RemoveNode)
+	{
+		OnRequestFullRefreshDeferred().Broadcast();
+	}
 }
 
 

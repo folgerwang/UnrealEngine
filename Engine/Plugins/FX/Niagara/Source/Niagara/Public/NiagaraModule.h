@@ -62,6 +62,7 @@ public:
 public:
 	virtual void StartupModule()override;
 	virtual void ShutdownModule()override;
+	void ShutdownRenderingResources();
 
 	FDelegateHandle SetOnProcessShaderCompilationQueue(FOnProcessQueue InOnProcessQueue);
 	void ResetOnProcessShaderCompilationQueue(FDelegateHandle DelegateHandle);

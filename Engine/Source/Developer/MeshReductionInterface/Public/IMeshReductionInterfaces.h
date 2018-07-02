@@ -8,6 +8,8 @@
 #include "Modules/ModuleInterface.h"
 
 struct FOverlappingCorners;
+struct FRawMesh;
+class FMeshDescription;
 
 /**
 * Mesh reduction interface.
@@ -25,7 +27,7 @@ public:
 	* @param ReductionSettings - Setting with which to reduce the mesh.
 	*/
 	virtual void Reduce(
-		struct FRawMesh& OutReducedMesh,
+		FRawMesh& OutReducedMesh,
 		float& OutMaxDeviation,
 		const struct FRawMesh& InMesh,
 		const FOverlappingCorners& InOverlappingCorners,
@@ -40,9 +42,9 @@ public:
 	* @param ReductionSettings - Setting with which to reduce the mesh.
 	*/
 	virtual void ReduceMeshDescription(
-		class UMeshDescription* OutReducedMesh,
+		FMeshDescription& OutReducedMesh,
 		float& OutMaxDeviation,
-		const class UMeshDescription* InMesh,
+		const FMeshDescription& InMesh,
 		const TMultiMap<int32, int32>& InOverlappingCorners,
 		const struct FMeshReductionSettings& ReductionSettings
 	) = 0;

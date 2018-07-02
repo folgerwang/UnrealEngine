@@ -3,7 +3,7 @@
 // AppleARKit
 #include "AppleARKitAnchor.h"
 #include "AppleARKitModule.h"
-#include "AppleARKitTransform.h"
+#include "AppleARKitConversion.h"
 
 // UE4
 #include "Misc/ScopeLock.h"
@@ -22,7 +22,7 @@ void UAppleARKitAnchor::Update_DelegateThread( ARAnchor* Anchor )
 	FScopeLock ScopeLock( &UpdateLock );
 
 	// @todo arkit use World Settings WorldToMetersScale
-	Transform = FAppleARKitTransform::ToFTransform( Anchor.transform );
+	Transform = FAppleARKitConversion::ToFTransform( Anchor.transform );
 }
 
 #endif
