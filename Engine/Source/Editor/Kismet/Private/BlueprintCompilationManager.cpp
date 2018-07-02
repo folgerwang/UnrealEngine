@@ -417,7 +417,7 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 				bHasPendingUberGraphFrame = BPGC->UberGraphFramePointerProperty || BPGC->UberGraphFunction;
 			}
 			
-			if( FBlueprintEditorUtils::IsDataOnlyBlueprint(QueuedBP) && !QueuedBP->bHasBeenRegenerated && !bDefaultComponentMustBeAdded && !bHasPendingUberGraphFrame)
+			if( FBlueprintEditorUtils::IsDataOnlyBlueprint(QueuedBP) && !QueuedBP->bHasBeenRegenerated && QueuedBP->GetLinker() && !bDefaultComponentMustBeAdded && !bHasPendingUberGraphFrame)
 			{
 				const UClass* ParentClass = QueuedBP->ParentClass;
 				if (ParentClass && ParentClass->HasAllClassFlags(CLASS_Native))
@@ -825,15 +825,12 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 					OldCDOs.Add(BP, BP->GeneratedClass->ClassDefaultObject);
 				}
 
-				if (BP->GeneratedClass && BP->GeneratedClass->ClassDefaultObject)
-				{
-					CompilerData.Reinstancer = TSharedPtr<FBlueprintCompileReinstancer>(
-						new FBlueprintCompileReinstancer(
-							BP->GeneratedClass,
-							EBlueprintCompileReinstancerFlags::AutoInferSaveOnCompile | EBlueprintCompileReinstancerFlags::AvoidCDODuplication
-						)
-					);
-				}
+				CompilerData.Reinstancer = TSharedPtr<FBlueprintCompileReinstancer>(
+					new FBlueprintCompileReinstancer(
+						BP->GeneratedClass,
+						EBlueprintCompileReinstancerFlags::AutoInferSaveOnCompile | EBlueprintCompileReinstancerFlags::AvoidCDODuplication
+					)
+				);
 			}
 		}
 
@@ -1210,11 +1207,12 @@ void FBlueprintCompilationManagerImpl::ReinstanceBatch(TArray<FReinstancingJob>&
 	{
 		const TSharedPtr<FBlueprintCompileReinstancer>& CurrentReinstancer = ReinstancingJob.Reinstancer;
 		UClass* OldClass = CurrentReinstancer->DuplicatedClass;
-		InOutOldToNewClassMap.Add(CurrentReinstancer->DuplicatedClass, CurrentReinstancer->ClassToReinstance);
 		if(!OldClass)
 		{
 			continue;
 		}
+
+		InOutOldToNewClassMap.Add(OldClass, CurrentReinstancer->ClassToReinstance);
 
 		if(!HasChildren(OldClass))
 		{
@@ -1294,7 +1292,10 @@ void FBlueprintCompilationManagerImpl::ReinstanceBatch(TArray<FReinstancingJob>&
 	for (const FReinstancingJob& ReinstancingJob : Reinstancers)
 	{
 		const TSharedPtr<FBlueprintCompileReinstancer>& CurrentReinstancer = ReinstancingJob.Reinstancer;
-		InOutOldToNewClassMap.Add( CurrentReinstancer->DuplicatedClass, CurrentReinstancer->ClassToReinstance );
+		if (CurrentReinstancer->DuplicatedClass)
+		{
+			InOutOldToNewClassMap.Add(CurrentReinstancer->DuplicatedClass, CurrentReinstancer->ClassToReinstance);
+		}
 			
 		UBlueprint* CompiledBlueprint = UBlueprint::GetBlueprintFromClass(CurrentReinstancer->ClassToReinstance);
 		CurrentReinstancer->UpdateBytecodeReferences();
@@ -1344,44 +1345,48 @@ void FBlueprintCompilationManagerImpl::ReinstanceBatch(TArray<FReinstancingJob>&
 	for (const FReinstancingJob& ReinstancingJob : Reinstancers)
 	{
 		const TSharedPtr<FBlueprintCompileReinstancer>& CurrentReinstancer = ReinstancingJob.Reinstancer;
-		UObject* OldCDO = CurrentReinstancer->DuplicatedClass->ClassDefaultObject;
-		if(OldCDO)
+		UObject* OldCDO = nullptr;
+		if (CurrentReinstancer->DuplicatedClass)
 		{
-			UObject* NewCDO = CurrentReinstancer->ClassToReinstance->GetDefaultObject(true);
-			FBlueprintCompileReinstancer::CopyPropertiesForUnrelatedObjects(OldCDO, NewCDO, true);
-
-			if(ReinstancingJob.Compiler.IsValid())
+			OldCDO = CurrentReinstancer->DuplicatedClass->ClassDefaultObject;
+			if (OldCDO)
 			{
-				ReinstancingJob.Compiler->PropagateValuesToCDO(NewCDO, OldCDO);
-			}
+				UObject* NewCDO = CurrentReinstancer->ClassToReinstance->GetDefaultObject(true);
+				FBlueprintCompileReinstancer::CopyPropertiesForUnrelatedObjects(OldCDO, NewCDO, true);
 
-			if (UBlueprintGeneratedClass* BPGClass = CastChecked<UBlueprintGeneratedClass>(CurrentReinstancer->ClassToReinstance))
-			{
-				BPGClass->UpdateCustomPropertyListForPostConstruction();
-
-				// patch new cdo into linker table:
-				if(ObjLoaded)
+				if (ReinstancingJob.Compiler.IsValid())
 				{
-					UBlueprint* CurrentBP = CastChecked<UBlueprint>(BPGClass->ClassGeneratedBy);
-					if(FLinkerLoad* CurrentLinker = CurrentBP->GetLinker())
+					ReinstancingJob.Compiler->PropagateValuesToCDO(NewCDO, OldCDO);
+				}
+			}
+		}
+
+		if (UBlueprintGeneratedClass* BPGClass = CastChecked<UBlueprintGeneratedClass>(CurrentReinstancer->ClassToReinstance))
+		{
+			BPGClass->UpdateCustomPropertyListForPostConstruction();
+
+			// patch new cdo into linker table:
+			if(OldCDO && ObjLoaded)
+			{
+				UBlueprint* CurrentBP = CastChecked<UBlueprint>(BPGClass->ClassGeneratedBy);
+				if(FLinkerLoad* CurrentLinker = CurrentBP->GetLinker())
+				{
+					int32 OldCDOIndex = INDEX_NONE;
+
+					for (int32 i = 0; i < CurrentLinker->ExportMap.Num(); i++)
 					{
-						int32 OldCDOIndex = INDEX_NONE;
-
-						for (int32 i = 0; i < CurrentLinker->ExportMap.Num(); i++)
+						FObjectExport& ThisExport = CurrentLinker->ExportMap[i];
+						if (ThisExport.ObjectFlags & RF_ClassDefaultObject)
 						{
-							FObjectExport& ThisExport = CurrentLinker->ExportMap[i];
-							if (ThisExport.ObjectFlags & RF_ClassDefaultObject)
-							{
-								OldCDOIndex = i;
-								break;
-							}
+							OldCDOIndex = i;
+							break;
 						}
+					}
 
-						if(OldCDOIndex != INDEX_NONE)
-						{
-							FBlueprintEditorUtils::PatchNewCDOIntoLinker(CurrentBP->GeneratedClass->ClassDefaultObject, CurrentLinker, OldCDOIndex, *ObjLoaded);
-							FBlueprintEditorUtils::PatchCDOSubobjectsIntoExport(OldCDO, CurrentBP->GeneratedClass->ClassDefaultObject);
-						}
+					if(OldCDOIndex != INDEX_NONE)
+					{
+						FBlueprintEditorUtils::PatchNewCDOIntoLinker(CurrentBP->GeneratedClass->ClassDefaultObject, CurrentLinker, OldCDOIndex, *ObjLoaded);
+						FBlueprintEditorUtils::PatchCDOSubobjectsIntoExport(OldCDO, CurrentBP->GeneratedClass->ClassDefaultObject);
 					}
 				}
 			}
@@ -1397,7 +1402,7 @@ void FBlueprintCompilationManagerImpl::ReinstanceBatch(TArray<FReinstancingJob>&
 	{
 		const TSharedPtr<FBlueprintCompileReinstancer>& CurrentReinstancer = ReinstancingJob.Reinstancer;
 		UClass* OldClass = CurrentReinstancer->DuplicatedClass;
-		if(ensure(OldClass))
+		if(OldClass)
 		{
 			TArray<UObject*> ArchetypeObjects;
 			GetObjectsOfClass(OldClass, ArchetypeObjects, false);

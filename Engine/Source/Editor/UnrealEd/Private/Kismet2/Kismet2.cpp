@@ -503,12 +503,21 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprint(UClass* ParentClass, UObject
 
 	// Create initial UClass
 	IKismetCompilerInterface& Compiler = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>(KISMET_COMPILER_MODULENAME);
-	
-	FCompilerResultsLog Results;
-	const bool bReplaceExistingInstances = false;
-	NewBP->Status = BS_Dirty;
-	FKismetCompilerOptions CompileOptions;
-	Compiler.CompileBlueprint(NewBP, CompileOptions, Results);
+
+	if (GBlueprintUseCompilationManager)
+	{
+		FBlueprintCompilationManager::CompileSynchronously(
+			FBPCompileRequest(NewBP, EBlueprintCompileOptions::SkipGarbageCollection, nullptr)
+		);
+	}
+	else
+	{
+		FCompilerResultsLog Results;
+		const bool bReplaceExistingInstances = false;
+		NewBP->Status = BS_Dirty;
+		FKismetCompilerOptions CompileOptions;
+		Compiler.CompileBlueprint(NewBP, CompileOptions, Results);
+	}
 
 	// Mark the BP as being regenerated, so it will not be confused as needing to be loaded and regenerated when a referenced BP loads.
 	NewBP->bHasBeenRegenerated = true;
@@ -1235,9 +1244,11 @@ void FKismetEditorUtilities::ConformBlueprintFlagsAndComponents(UBlueprint* Blue
 	if( UClass* GenClass = BlueprintObj->GeneratedClass )
 	{
 		GenClass->ClassFlags |= (ParentClass->ClassFlags & CLASS_ScriptInherit);
-		UObject* GenCDO = GenClass->GetDefaultObject();
-		ConformComponentsUtils::ConformRemovedNativeComponents(GenCDO);
-		GenCDO->InstanceSubobjectTemplates();
+		if (UObject* GenCDO = GenClass->ClassDefaultObject)
+		{
+			ConformComponentsUtils::ConformRemovedNativeComponents(GenCDO);
+			GenCDO->InstanceSubobjectTemplates();
+		}
 	}
 
 	UInheritableComponentHandler* InheritableComponentHandler = BlueprintObj->GetInheritableComponentHandler(false);
