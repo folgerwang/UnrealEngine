@@ -246,7 +246,6 @@ bool FAppFramework::GetTransform(const MLCoordinateFrameUID& Id, FTransform& Out
 		OutTransform = MagicLeap::ToFTransform(transform, GetWorldToMetersScale());
 		if (OutTransform.ContainsNaN())
 		{
-			UE_LOG(LogMagicLeap, Error, TEXT("MLSnapshotGetTransform() returned an invalid transform with NaNs."));
 			OutReason = EFailReason::NaNsInTransform;
 			return false;
 		}
