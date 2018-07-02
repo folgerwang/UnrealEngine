@@ -39,6 +39,8 @@ enum EPackageNormalizationFlags
 	NORMALIZE_ExcludeEnginePackages		= 0x20,
 	/** do not include packages inside NoRedist or NotForLicensees folders */
 	NORMALIZE_ExcludeNoRedistPackages	= 0x40,
+	/** do not include localized packages */
+	NORMALIZE_ExcludeLocalizedPackages	= 0x80,
 	/** Combo flags */
 	NORMALIZE_DefaultFlags				= NORMALIZE_ResetExistingLoaders,
 };

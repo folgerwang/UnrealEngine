@@ -5290,7 +5290,7 @@ void UCookOnTheFlyServer::CollectFilesToCook(TArray<FName>& FilesInPath, const T
 			Tokens.Add(FString("*") + FPackageName::GetAssetPackageExtension());
 			Tokens.Add(FString("*") + FPackageName::GetMapPackageExtension());
 
-			uint8 PackageFilter = NORMALIZE_DefaultFlags | NORMALIZE_ExcludeEnginePackages;
+			uint8 PackageFilter = NORMALIZE_DefaultFlags | NORMALIZE_ExcludeEnginePackages | NORMALIZE_ExcludeLocalizedPackages;
 			if (bMapsOnly)
 			{
 				PackageFilter |= NORMALIZE_ExcludeContentPackages;
