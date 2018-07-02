@@ -394,11 +394,15 @@ namespace Audio
 
 	void FMixerSourceBuffer::OnBeginGenerate()
 	{
-		if (SoundWave && SoundWave->bProcedural)
+		if (SoundWave)
 		{
 			SoundWave->bIsSoundActive = true;
 
-			SoundWave->OnBeginGenerate();
+			if (SoundWave->bProcedural)
+			{
+				SoundWave->OnBeginGenerate();
+			}
+		
 		}
 	}
 
@@ -412,9 +416,9 @@ namespace Audio
 			if (SoundWave->bProcedural)
 			{
 				SoundWave->OnEndGenerate();
-				SoundWave->bIsSoundActive = false;
 			}
 
+			SoundWave->bIsSoundActive = false;
 			SoundWave = nullptr;
 		}
 

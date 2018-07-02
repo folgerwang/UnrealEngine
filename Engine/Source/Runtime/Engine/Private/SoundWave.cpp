@@ -874,7 +874,7 @@ bool USoundWave::IsReadyForFinishDestroy()
 		}, GET_STATID(STAT_AudioFreeResources));
 	}
 	
-	// bIsSoundActive is set in audio mixer when decoding sound waves or generating PCM data from procedural sound waves
+	// bIsSoundActive is set in audio mixer when decoding sound waves or generating PCM data
 	return ResourceState == ESoundWaveResourceState::Freed && !bIsSoundActive;
 }
 
