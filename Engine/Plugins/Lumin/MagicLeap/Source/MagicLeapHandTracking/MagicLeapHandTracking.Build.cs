@@ -4,9 +4,9 @@ using System.IO;
 
 namespace UnrealBuildTool.Rules
 {
-	public class MagicLeapGestures : ModuleRules
+	public class MagicLeapHandTracking : ModuleRules
 	{
-		public MagicLeapGestures(ReadOnlyTargetRules Target)
+		public MagicLeapHandTracking(ReadOnlyTargetRules Target)
 				: base(Target)
 		{
 			PublicDependencyModuleNames.AddRange(

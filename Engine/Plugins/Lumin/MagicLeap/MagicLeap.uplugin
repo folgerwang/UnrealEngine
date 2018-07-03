@@ -63,7 +63,7 @@
 			]
 		},
 		{
-			"Name" : "MagicLeapGestures",
+			"Name" : "MagicLeapHandTracking",
 			"Type" : "Runtime",
 			"LoadingPhase" : "PostConfigInit",
 			"WhitelistPlatforms" :
@@ -81,7 +81,8 @@
 			[
 				"Win64",
 				"Mac",
-				"Lumin"			]
+				"Lumin"
+			]
 		},
 		{
 			"Name" : "MagicLeapSecureStorage",

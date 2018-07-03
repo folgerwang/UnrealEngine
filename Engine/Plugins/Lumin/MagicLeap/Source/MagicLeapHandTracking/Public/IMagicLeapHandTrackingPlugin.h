@@ -9,7 +9,7 @@
  * The public interface to this module.  In most cases, this interface is only public to sibling modules
  * within this plugin.
  */
-class IMagicLeapGesturesPlugin : public IInputDeviceModule
+class IMagicLeapHandTrackingPlugin : public IInputDeviceModule
 {
 public:
 
@@ -19,9 +19,9 @@ public:
 	 *
 	 * @return Returns singleton instance, loading the module on demand if needed
 	 */
-	static inline IMagicLeapGesturesPlugin& Get()
+	static inline IMagicLeapHandTrackingPlugin& Get()
 	{
-		return FModuleManager::LoadModuleChecked<IMagicLeapGesturesPlugin>("MagicLeapGestures");
+		return FModuleManager::LoadModuleChecked<IMagicLeapHandTrackingPlugin>("MagicLeapHandTracking");
 	}
 
 	/**
@@ -31,7 +31,7 @@ public:
 	 */
 	static inline bool IsAvailable()
 	{
-		return FModuleManager::Get().IsModuleLoaded("MagicLeapGestures");
+		return FModuleManager::Get().IsModuleLoaded("MagicLeapHandTracking");
 	}
 
 	/**

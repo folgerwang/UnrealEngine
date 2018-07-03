@@ -4,11 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "MagicLeapGestureTypes.generated.h"
+#include "MagicLeapHandTrackingTypes.generated.h"
 
-/** Static gesture types which are available when both hands are separated. */
+/*! Static key pose types which are available when both hands are separated. */
 UENUM(BlueprintType)
-enum class EStaticGestures : uint8
+enum class EHandTrackingGesture : uint8
 {
 	/** One finger. */
 	Finger,
@@ -26,13 +26,15 @@ enum class EStaticGestures : uint8
 	Ok,
 	/** A rounded 'C' alphabet shape. */
 	C,
+	/** No pose detected. */
+	NoPose,
 	/** No hand was present. */
 	NoHand
 };
 
 /** Filtering for the keypoints and hand centers. */
 UENUM(BlueprintType)
-enum class EGestureKeypointsFilterLevel : uint8
+enum class EHandTrackingKeypointFilterLevel : uint8
 {
 	/** No filtering is done, the points are raw. */
 	NoFilter,
@@ -44,7 +46,7 @@ enum class EGestureKeypointsFilterLevel : uint8
 
 /** Filtering for the gesture recognition and hand switching. */
 UENUM(BlueprintType)
-enum class EGestureRecognitionFilterLevel : uint8
+enum class EHandTrackingGestureFilterLevel : uint8
 {
 	/** No filtering is done, the gestures are raw. */
 	NoFilter,
@@ -77,6 +79,7 @@ struct FMagicLeapGestureKeyNames
 	static const FName Left_OpenHandBack_Name;
 	static const FName Left_Ok_Name;
 	static const FName Left_C_Name;
+	static const FName Left_NoPose_Name;
 	static const FName Left_NoHand_Name;
 
 	static const FName Right_Finger_Name;
@@ -87,5 +90,6 @@ struct FMagicLeapGestureKeyNames
 	static const FName Right_OpenHandBack_Name;
 	static const FName Right_Ok_Name;
 	static const FName Right_C_Name;
+	static const FName Right_NoPose_Name;
 	static const FName Right_NoHand_Name;
 };
