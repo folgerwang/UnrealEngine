@@ -113,7 +113,7 @@ void UCineCameraComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
 #if ENABLE_DRAW_DEBUG
 	if (FocusSettings.TrackingFocusSettings.bDrawDebugTrackingFocusPoint)
 	{
-		AActor const* const TrackedActor = FocusSettings.TrackingFocusSettings.ActorToTrack;
+		AActor const* const TrackedActor = FocusSettings.TrackingFocusSettings.ActorToTrack.Get();
 
 		FVector FocusPoint;
 		if (TrackedActor)
@@ -304,7 +304,7 @@ float UCineCameraComponent::GetDesiredFocusDistance(const FVector& InLocation) c
 
 	case ECameraFocusMethod::Tracking:
 		{
-			AActor const* const TrackedActor = FocusSettings.TrackingFocusSettings.ActorToTrack;
+			AActor const* const TrackedActor = FocusSettings.TrackingFocusSettings.ActorToTrack.Get();
 
 			FVector FocusPoint;
 			if (TrackedActor)
