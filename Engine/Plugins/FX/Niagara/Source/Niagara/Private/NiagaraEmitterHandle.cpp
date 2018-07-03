@@ -103,6 +103,7 @@ void FNiagaraEmitterHandle::SetName(FName InName, UNiagaraSystem& InOwnerSystem)
 	FString TempNameString = InName.ToString();
 	TempNameString.ReplaceInline(TEXT(" "), TEXT("_"));
 	TempNameString.ReplaceInline(TEXT("\t"), TEXT("_"));
+	TempNameString.ReplaceInline(TEXT("."), TEXT("_"));
 	InName = *TempNameString;
 
 	TSet<FName> OtherEmitterNames;
