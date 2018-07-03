@@ -3,8 +3,23 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Misc/EnumClassFlags.h"
 
 #if WITH_PYTHON
+
+/**
+ * Flags controlling which data is included in the Python API online docs.
+ */
+enum class EPyOnlineDocsFilterFlags : uint8
+{
+	IncludeNone = 0,
+	IncludeEngine = 1<<0,
+	IncludeEnterprise = 1<<1,
+	IncludeInternal = 1<<2,
+	IncludeProject = 1<<3,
+	IncludeAll = IncludeEngine | IncludeEnterprise | IncludeInternal | IncludeProject,
+};
+ENUM_CLASS_FLAGS(EPyOnlineDocsFilterFlags);
 
 /**
  * A single module in the Python API online docs.
@@ -48,6 +63,9 @@ public:
 	/** Store class name in this section to generate files later. */
 	void AccumulateClass(const TCHAR* InTypeName);
 
+	//** Get name of section. */
+	const FString& GetName() const	{ return Name; }
+
 private:
 	/** Section name. */
 	FString Name;
@@ -75,6 +93,9 @@ public:
 
 	/** Get the directory for the Sphinx source files. */
 	FString GetSourcePath() const;
+
+	/** Get the directory for the Sphinx build files. */
+	FString GetBuildPath() const;
 
 	/** Get the directory for the Sphinx template files. */
 	FString GetTemplatePath() const;

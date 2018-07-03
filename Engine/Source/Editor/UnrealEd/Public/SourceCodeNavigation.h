@@ -269,13 +269,16 @@ public:
 	UNREALED_API static bool IsCompilerAvailable() { return bCachedIsCompilerAvailable; }
 
 	/** Finds the base directory for a given module name. Does not rely on symbols; finds matching .build.cs files. */
-	UNREALED_API static bool FindModulePath( const FString& ModuleName, FString &OutModulePath );
+	UNREALED_API static bool FindModulePath( const FString& InModuleName, FString& OutModulePath );
+
+	/** Finds the base directory for a given module. Does not rely on symbols; finds matching .build.cs files. */
+	UNREALED_API static bool FindModulePath( const UPackage* InModulePackage, FString& OutModulePath );
 
 	/** Finds the path to a given class header. Does not rely on symbols; finds matching .build.cs files. */
-	UNREALED_API static bool FindClassHeaderPath( const UField *Field, FString &OutClassHeaderPath );
+	UNREALED_API static bool FindClassHeaderPath( const UField* InField, FString &OutClassHeaderPath );
 
 	/** Finds the path to a given class source. Does not rely on symbols; finds matching .build.cs files. */
-	UNREALED_API static bool FindClassSourcePath( const UField *Field, FString &OutClassSourcePath );
+	UNREALED_API static bool FindClassSourcePath( const UField* InField, FString &OutClassSourcePath );
 
 	/** Opens a single source file */
 	UNREALED_API static bool OpenSourceFile( const FString& AbsoluteSourcePath, int32 LineNumber = 0, int32 ColumnNumber = 0 );

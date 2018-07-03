@@ -8,6 +8,7 @@
 #include "PyUtil.h"
 #include "PyGenUtil.h"
 #include "PyConversionMethod.h"
+#include "PyOnlineDocsWriter.h"
 #include "UObject/WeakObjectPtr.h"
 #include "Templates/Function.h"
 
@@ -30,7 +31,6 @@ class UPythonGeneratedStruct;
 class IPyWrapperInlineStructFactory;
 
 class FPyFileWriter;
-class FPyOnlineDocsSection;
 
 /** Type conversion for TPyWrapperTypeFactory */
 template <typename UnrealType, typename KeyType>
@@ -428,7 +428,7 @@ public:
 	PyTypeObject* GetWrappedDelegateType(const UFunction* InDelegateSignature) const;
 
 	/** Generate stub Python code for our wrapped types */
-	void GenerateStubCodeForWrappedTypes() const;
+	void GenerateStubCodeForWrappedTypes(const EPyOnlineDocsFilterFlags InDocGenFlags = EPyOnlineDocsFilterFlags::IncludeNone) const;
 
 private:
 	/** Gather any types referenced by the given property are still need to be wrapped for use in Python */

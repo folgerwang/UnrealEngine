@@ -1814,7 +1814,10 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 	FShaderCache::LoadBinaryCache();
 
-	if (!FPlatformProperties::RequiresCookedData())
+	FString Commandline = FCommandLine::Get();
+	bool EnableShaderCompile = !FParse::Param(*Commandline, TEXT("NoShaderCompile"));
+
+	if (EnableShaderCompile && !FPlatformProperties::RequiresCookedData())
 	{
 		check(!GShaderCompilingManager);
 		GShaderCompilingManager = new FShaderCompilingManager();
@@ -1836,10 +1839,10 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 		// Load the global shaders.
 		// if (!IsRunningCommandlet())
 		// hack: don't load global shaders if we are cooking we will load the shaders for the correct platform later
-		FString Commandline = FCommandLine::Get();
-		if (!IsRunningDedicatedServer() &&
-			Commandline.Contains(TEXT("cookcommandlet")) == false &&
-			Commandline.Contains(TEXT("run=cook")) == false )
+		if (EnableShaderCompile &&
+				!IsRunningDedicatedServer() &&
+				Commandline.Contains(TEXT("cookcommandlet")) == false &&
+				Commandline.Contains(TEXT("run=cook")) == false )
 		// if (FParse::Param(FCommandLine::Get(), TEXT("Multiprocess")) == false)
 		{
 			CompileGlobalShaderMap(false);

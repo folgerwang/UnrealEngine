@@ -149,6 +149,12 @@ struct FPyWrapperObjectMetaData : public FPyWrapperBaseMetaData
 	/** Add object references from the given Python object to the given collector */
 	virtual void AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector) override;
 
+	/** Get the reflection meta data type object associated with this wrapper type if there is one or nullptr if not. */
+	virtual const UField* GetMetaType() const override
+	{
+		return Class;
+	}
+
 	/** Unreal class */
 	UClass* Class;
 
