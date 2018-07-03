@@ -669,7 +669,7 @@ void FMagicLeapHandTracking::SendControllerEventsForHand(const MLHandTrackingHan
 		FMagicLeapHMD::EnableInput EnableInputFromHMD;
 		// fixes unreferenced parameter error for Windows package builds.
 		(void)EnableInputFromHMD;
-		MessageHandler->OnControllerButtonReleased(RightStaticGestureMap[OldHandState.keypose], DeviceIndex, false);
+		MessageHandler->OnControllerButtonReleased(GestureMap[OldHandState.keypose], DeviceIndex, false);
 		if (GestureConfidenceThresholds[GestureIndex] <= NewConfidence)
 		{
 			MessageHandler->OnControllerButtonPressed(GestureMap[GestureIndex], DeviceIndex, false);
