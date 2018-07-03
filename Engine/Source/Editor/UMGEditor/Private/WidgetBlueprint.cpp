@@ -518,8 +518,8 @@ bool FWidgetAnimation_DEPRECATED::SerializeFromMismatchedTag(struct FPropertyTag
 
 UWidgetBlueprint::UWidgetBlueprint(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, TickFrequency(EWidgetTickFrequency::Auto)
 	, SupportDynamicCreation(EWidgetSupportsDynamicCreation::Default)
+	, TickFrequency(EWidgetTickFrequency::Auto)
 {
 }
 
