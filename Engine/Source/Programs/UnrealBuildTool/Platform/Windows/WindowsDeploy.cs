@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -59,13 +59,20 @@ namespace UnrealBuildTool
 			if ((InTarget.TargetType != TargetType.Editor && InTarget.TargetType != TargetType.Program) && (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32 || BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64))
 			{
 				string InAppName = InTarget.AppName;
-				Log.TraceInformation("Prepping {0} for deployment to {1}", InAppName, InTarget.Platform.ToString());
-				System.DateTime PrepDeployStartTime = DateTime.UtcNow;
+				if(InTarget.bUseIncrementalLinking)
+				{
+					Log.TraceInformation("Skipping icon update for {0} due to incremental linking being enabled.", InAppName);
+				}
+				else
+				{
+					Log.TraceInformation("Prepping {0} for deployment to {1}", InAppName, InTarget.Platform.ToString());
+					System.DateTime PrepDeployStartTime = DateTime.UtcNow;
 
-                List<UnrealTargetConfiguration> TargetConfigs = new List<UnrealTargetConfiguration> { InTarget.Configuration };
-                List<string> ExePaths = new List<string> { InTarget.OutputPath.FullName };
-				string RelativeEnginePath = UnrealBuildTool.EngineDirectory.MakeRelativeTo(DirectoryReference.GetCurrentDirectory());
-                SetApplicationIcon(InTarget.ProjectFile, InAppName, InTarget.ProjectDirectory.FullName, TargetConfigs, ExePaths, RelativeEnginePath);
+					List<UnrealTargetConfiguration> TargetConfigs = new List<UnrealTargetConfiguration> { InTarget.Configuration };
+					List<string> ExePaths = new List<string> { InTarget.OutputPath.FullName };
+					string RelativeEnginePath = UnrealBuildTool.EngineDirectory.MakeRelativeTo(DirectoryReference.GetCurrentDirectory());
+					SetApplicationIcon(InTarget.ProjectFile, InAppName, InTarget.ProjectDirectory.FullName, TargetConfigs, ExePaths, RelativeEnginePath);
+				}
 			}
 			return true;
 		}

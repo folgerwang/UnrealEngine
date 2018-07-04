@@ -52,6 +52,11 @@ namespace UnrealBuildTool
 		public List<FileItem> ProducedItems = new List<FileItem>();
 
 		/// <summary>
+		/// Items that should be deleted before running this action
+		/// </summary>
+		public List<FileItem> DeleteItems = new List<FileItem>();
+
+		/// <summary>
 		/// Directory from which to execute the program to create produced items
 		/// </summary>
 		public string WorkingDirectory = null;
@@ -102,20 +107,10 @@ namespace UnrealBuildTool
 		public bool bIsUsingPCH = false;
 
 		/// <summary>
-		/// Whether the files in ProducedItems should be deleted before executing this action, when the action is outdated
-		/// </summary>
-		public bool bShouldDeleteProducedItems = false;
-
-		/// <summary>
 		/// Whether we should log this action, whether executed locally or remotely.  This is useful for actions that take time
 		/// but invoke tools without any console output.
 		/// </summary>
 		public bool bShouldOutputStatusDescription = true;
-
-		/// <summary>
-		/// Whether this action includes incremental linking.
-		/// </summary>
-		public bool bUseIncrementalLinking = false;
 
 		/// <summary>
 		/// True if any libraries produced by this action should be considered 'import libraries'
@@ -184,12 +179,11 @@ namespace UnrealBuildTool
 			bCanExecuteRemotelyWithSNDBS = SerializationInfo.GetBoolean("cs");
 			bIsGCCCompiler = SerializationInfo.GetBoolean("ig");
 			bIsUsingPCH = SerializationInfo.GetBoolean("iu");
-			bShouldDeleteProducedItems = SerializationInfo.GetBoolean("dp");
 			bShouldOutputStatusDescription = SerializationInfo.GetBoolean("os");
-			bUseIncrementalLinking = SerializationInfo.GetBoolean("in");
 			bProducesImportLibrary = SerializationInfo.GetBoolean("il");
 			PrerequisiteItems = (List<FileItem>)SerializationInfo.GetValue("pr", typeof(List<FileItem>));
 			ProducedItems = (List<FileItem>)SerializationInfo.GetValue("pd", typeof(List<FileItem>));
+			DeleteItems = (List<FileItem>)SerializationInfo.GetValue("df", typeof(List<FileItem>));
 		}
 
 		/// <summary>
@@ -208,12 +202,11 @@ namespace UnrealBuildTool
 			SerializationInfo.AddValue("cs", bCanExecuteRemotelyWithSNDBS);
 			SerializationInfo.AddValue("ig", bIsGCCCompiler);
 			SerializationInfo.AddValue("iu", bIsUsingPCH);
-			SerializationInfo.AddValue("dp", bShouldDeleteProducedItems);
 			SerializationInfo.AddValue("os", bShouldOutputStatusDescription);
-			SerializationInfo.AddValue("in", bUseIncrementalLinking);
 			SerializationInfo.AddValue("il", bProducesImportLibrary);
 			SerializationInfo.AddValue("pr", PrerequisiteItems);
 			SerializationInfo.AddValue("pd", ProducedItems);
+			SerializationInfo.AddValue("df", DeleteItems);
 		}
 
 		/// <summary>
@@ -369,7 +362,7 @@ namespace UnrealBuildTool
 			}
 
 			// Delete produced items that are outdated.
-			DeleteOutdatedProducedItems(OutdatedActionDictionary, BuildConfiguration.bShouldDeleteAllOutdatedProducedItems);
+			DeleteOutdatedProducedItems(OutdatedActionDictionary);
 
 			// Save the action history.
 			// This must happen after deleting outdated produced items to ensure that the action history on disk doesn't have
@@ -384,19 +377,6 @@ namespace UnrealBuildTool
 
 			// Build a list of actions that are both needed for this target and outdated.
 			HashSet<Action> ActionsToExecute = AllActions.Where(Action => Action.CommandPath != null && IsActionOutdatedMap.ContainsKey(Action) && OutdatedActionDictionary[Action]).ToHashSet();
-
-			// Delete PDB files for all produced items, since incremental updates are slower than full ones.
-			foreach (Action ActionToExecute in ActionsToExecute)
-			{
-				foreach (FileItem ProducedItem in ActionToExecute.ProducedItems)
-				{
-					if(ProducedItem.bExists && !ActionToExecute.bUseIncrementalLinking && ProducedItem.Location.HasExtension(".pdb"))
-					{
-						Log.TraceVerbose("Deleting outdated pdb: {0}", ProducedItem.AbsolutePath);
-						ProducedItem.Delete();
-					}
-				}
-			}
 
 			// Remove link actions if asked to
 			if (BuildConfiguration.bSkipLinkingWhenNothingToCompile)
@@ -1177,20 +1157,19 @@ namespace UnrealBuildTool
 		/// Deletes all the items produced by actions in the provided outdated action dictionary.
 		/// </summary>
 		/// <param name="OutdatedActionDictionary">Dictionary of outdated actions</param>
-		/// <param name="bShouldDeleteAllFiles"> Whether to delete all files associated with outdated items or just ones required</param>
-		static void DeleteOutdatedProducedItems(Dictionary<Action, bool> OutdatedActionDictionary, bool bShouldDeleteAllFiles)
+		static void DeleteOutdatedProducedItems(Dictionary<Action, bool> OutdatedActionDictionary)
 		{
 			foreach (KeyValuePair<Action, bool> OutdatedActionInfo in OutdatedActionDictionary)
 			{
 				if (OutdatedActionInfo.Value)
 				{
 					Action OutdatedAction = OutdatedActionInfo.Key;
-					foreach (FileItem ProducedItem in OutdatedActionInfo.Key.ProducedItems)
+					foreach (FileItem DeleteItem in OutdatedActionInfo.Key.DeleteItems)
 					{
-						if (ProducedItem.bExists && (bShouldDeleteAllFiles || OutdatedAction.bShouldDeleteProducedItems))
+						if (DeleteItem.bExists)
 						{
-							Log.TraceLog("Deleting outdated item: {0}", ProducedItem.AbsolutePath);
-							ProducedItem.Delete();
+							Log.TraceLog("Deleting outdated item: {0}", DeleteItem.AbsolutePath);
+							DeleteItem.Delete();
 						}
 					}
 				}

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -218,7 +218,7 @@ namespace UnrealBuildTool
 				AnalyzeAction.PrerequisiteItems.Add(ConfigFileItem);
 				AnalyzeAction.PrerequisiteItems.Add(PreprocessedFileItem);
 				AnalyzeAction.ProducedItems.Add(OutputFileItem);
-				AnalyzeAction.bShouldDeleteProducedItems = true; // PVS Studio will append by default, so need to delete produced items
+				AnalyzeAction.DeleteItems.Add(OutputFileItem); // PVS Studio will append by default, so need to delete produced items
 
 				Result.ObjectFiles.AddRange(AnalyzeAction.ProducedItems);
 			}
@@ -252,7 +252,7 @@ namespace UnrealBuildTool
 			AnalyzeAction.PrerequisiteItems.AddRange(OutputItems);
 			AnalyzeAction.ProducedItems.Add(FileItem.GetItemByFileReference(OutputFile));
 			AnalyzeAction.ActionHandler = (Action Action, out int ExitCode, out string Output) => WriteResults(OutputFile, InputFiles, out ExitCode, out Output);
-			AnalyzeAction.bShouldDeleteProducedItems = true;
+			AnalyzeAction.DeleteItems.AddRange(AnalyzeAction.ProducedItems);
 
 			OutputItems.AddRange(AnalyzeAction.ProducedItems);
 		}

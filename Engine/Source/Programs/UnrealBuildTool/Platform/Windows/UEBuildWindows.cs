@@ -457,12 +457,6 @@ namespace UnrealBuildTool
 				Target.bUseIncrementalLinking = true;
 			}
 
-			// Incremental linking.
-			if (Target.bUseIncrementalLinking && !Target.bDisableDebugInfo)
-			{
-				Target.bUsePDBFiles = true;
-			}
-
 //			@Todo: Still getting reports of frequent OOM issues with this enabled as of 15.7.
 //			// Enable fast PDB linking if we're on VS2017 15.7 or later. Previous versions have OOM issues with large projects.
 //			if(!Target.bFormalBuild && !Target.bUseFastPDBLinking.HasValue && Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2017)

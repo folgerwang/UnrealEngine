@@ -70,12 +70,6 @@ namespace UnrealBuildTool
 		public bool bAllowSNDBS = true;
 
 		/// <summary>
-		/// Whether or not to delete outdated produced items.
-		/// </summary>
-		[XmlConfigFile]
-		public bool bShouldDeleteAllOutdatedProducedItems = false;
-
-		/// <summary>
 		/// Whether we should export a JSON file containing detailed target information.
 		/// </summary>
 		[XmlConfigFile]
