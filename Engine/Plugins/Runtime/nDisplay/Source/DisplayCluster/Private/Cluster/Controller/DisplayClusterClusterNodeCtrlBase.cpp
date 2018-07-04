@@ -41,6 +41,7 @@ bool FDisplayClusterClusterNodeCtrlBase::InitializeStereo()
 		return false;
 	}
 
+	//@todo: Move this logic to the render manager
 	IDisplayClusterStereoDevice* const StereoDevice = GDisplayCluster->GetPrivateRenderMgr()->GetStereoDevice();
 	if (StereoDevice)
 	{

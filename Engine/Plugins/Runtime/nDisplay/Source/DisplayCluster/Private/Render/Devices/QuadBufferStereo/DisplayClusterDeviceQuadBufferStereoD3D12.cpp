@@ -70,19 +70,19 @@ void FDisplayClusterDeviceQuadBufferStereoD3D12::RenderTexture_RenderThread(FRHI
 	check(IsInRenderingThread());
 	
 	//calculate sub regions to copy
-	const int halfSizeY = BackBuffSize.Y / 2;
+	const int halfSizeX = BackBuffSize.X / 2;
 		
 	FResolveParams copyParamsLeft; 
 	copyParamsLeft.DestArrayIndex = 0;
 	copyParamsLeft.SourceArrayIndex = 0;
 	copyParamsLeft.Rect.X1 = 0;
-	copyParamsLeft.Rect.X2 = ViewportArea.GetSize().X;
 	copyParamsLeft.Rect.Y1 = 0;
-	copyParamsLeft.Rect.Y2 = halfSizeY;
+	copyParamsLeft.Rect.X2 = halfSizeX;
+	copyParamsLeft.Rect.Y2 = BackBuffSize.Y;
 	copyParamsLeft.DestRect.X1 = 0;
 	copyParamsLeft.DestRect.Y1 = 0;
-	copyParamsLeft.DestRect.X2 = ViewportArea.GetSize().X;
-	copyParamsLeft.DestRect.Y2 = halfSizeY;
+	copyParamsLeft.DestRect.X2 = halfSizeX;
+	copyParamsLeft.DestRect.Y2 = BackBuffSize.Y;
 
 	RHICmdList.CopyToResolveTarget(SrcTexture, BackBuffer, copyParamsLeft);
 	
@@ -92,12 +92,10 @@ void FDisplayClusterDeviceQuadBufferStereoD3D12::RenderTexture_RenderThread(FRHI
 	
 	copyParamsRight.Rect = copyParamsLeft.Rect;
 
-	copyParamsRight.Rect.Y1 = halfSizeY;
-	copyParamsRight.Rect.Y2 = halfSizeY*2;
-	copyParamsRight.DestRect.X1 = 0;
-	copyParamsRight.DestRect.Y1 = 0;
-	copyParamsRight.DestRect.X2 = ViewportArea.GetSize().X;
-	copyParamsRight.DestRect.Y2 = halfSizeY;
+	copyParamsRight.Rect.X1 = halfSizeX;
+	copyParamsRight.Rect.X2 = halfSizeX * 2;
+
+	copyParamsRight.DestRect = copyParamsLeft.DestRect;
 
 	RHICmdList.CopyToResolveTarget(SrcTexture, BackBuffer, copyParamsRight);
 }
