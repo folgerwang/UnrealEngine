@@ -343,7 +343,17 @@ bool FMovieSceneExportData::ConstructCinematicSectionData(const UMovieScene* InM
 	InMasterTrackData->CinematicSections.Add(SectionData);
 
 	SectionData->DisplayName = InCinematicSection->GetShotDisplayName();
-	SectionData->SourceFilename = SectionData->DisplayName + TEXT(".avi");
+
+#if PLATFORM_MAC
+	static const TCHAR* Extension = TEXT(".mov");
+#elif PLATFORM_UNIX
+	static const TCHAR* Extension = TEXT(".unsupp");
+	return false;
+#else
+	static const TCHAR* Extension = TEXT(".avi");
+#endif
+
+	SectionData->SourceFilename = SectionData->DisplayName + Extension;
 	SectionData->SourceFilePath = TEXT("");
 
 	ConstructSectionData(InMovieScene, SectionData, InCinematicSection, EMovieSceneTranslatorSectionType::Cinematic, SectionData->DisplayName);

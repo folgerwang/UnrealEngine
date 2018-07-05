@@ -475,8 +475,15 @@ bool MovieSceneTranslatorEDL::ExportEDL(const UMovieScene* InMovieScene, FFrameR
 				FFrameNumber EditInFrame    = CinematicShotSection->GetInclusiveStartFrame();
 				FFrameNumber EditOutFrame   = CinematicShotSection->GetExclusiveEndFrame();
 
-				//@todo can't assume avi's written out
-				ShotName += ".avi";
+#if PLATFORM_MAC
+				static const TCHAR* Extension = TEXT(".mov");
+#elif PLATFORM_UNIX
+				static const TCHAR* Extension = TEXT(".unsupp");
+				continue;
+#else
+				static const TCHAR* Extension = TEXT(".avi");
+#endif
+				ShotName += Extension;
 
 				//@todo shotpath should really be moviefile path
 				ShotPath = ShotName;
