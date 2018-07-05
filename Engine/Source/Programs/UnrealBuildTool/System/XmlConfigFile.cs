@@ -124,7 +124,7 @@ namespace UnrealBuildTool
 		/// <param name="Args">Standard argument for ValidationEventHandler</param>
 		void ValidationEvent(object Sender, ValidationEventArgs Args)
 		{
-			Log.TraceWarning("{0}({1}): {2}", File.FullName, Args.Exception.LineNumber, Args.Message);
+			Log.WriteLine(LogEventType.Warning, LogFormatOptions.NoSeverityPrefix, "{0}({1}): warning: {2}", File.FullName, Args.Exception.LineNumber, Args.Message);
 		}
 	}
 
