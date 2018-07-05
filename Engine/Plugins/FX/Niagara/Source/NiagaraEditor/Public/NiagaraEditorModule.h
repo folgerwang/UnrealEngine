@@ -95,6 +95,7 @@ public:
 private:
 	void RegisterAssetTypeAction(IAssetTools& AssetTools, TSharedRef<IAssetTypeActions> Action);
 	void OnNiagaraSettingsChangedEvent(const FString& PropertyName, const UNiagaraSettings* Settings);
+	void OnPreGarbageCollection();
 
 
 	/** FGCObject interface */

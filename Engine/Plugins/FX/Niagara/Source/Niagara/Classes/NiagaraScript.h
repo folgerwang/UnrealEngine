@@ -515,6 +515,7 @@ private:
 	FNiagaraScriptExecutionParameterStore ScriptExecutionParamStoreGPU;
 
 #if WITH_EDITORONLY_DATA
+	class UNiagaraSystem* FindRootSystem();
 
 	/** 'Source' data/graphs for this script */
 	UPROPERTY()
