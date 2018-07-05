@@ -23,6 +23,6 @@ public:
 protected:
 	void RegisterNiagaraGraphNode(UEdGraphNode* InNode);
 	void HandleNiagaraNodeChanged(UNiagaraNode* InNode);
-	UNiagaraNode* NiagaraNode;
+	TWeakObjectPtr<UNiagaraNode> NiagaraNode;
 	FGuid LastSyncedNodeChangeId;
 };
