@@ -27,8 +27,8 @@ NSDictionary<ARBlendShapeLocation,NSNumber *>* ToBlendShapeDictionary(const FARB
 		BlendShapeDict[AppleShape] = Num; \
 	}
 
-	// Do we want to capture face performance or look at the face as if in a mirror
-	if (GetDefault<UAppleARKitSettings>()->DefaultFaceTrackingDirection == EARFaceTrackingDirection::FaceRelative)
+	// Do we want to capture face performance or look at the face as if in a mirror (Apple is mirrored so we mirror the mirror)
+	if (GetDefault<UAppleARKitSettings>()->DefaultFaceTrackingDirection == EARFaceTrackingDirection::FaceMirrored)
 	{
 		SET_BLEND_SHAPE(ARBlendShapeLocationEyeBlinkLeft, EARFaceBlendShape::EyeBlinkLeft);
 		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookDownLeft, EARFaceBlendShape::EyeLookDownLeft);
