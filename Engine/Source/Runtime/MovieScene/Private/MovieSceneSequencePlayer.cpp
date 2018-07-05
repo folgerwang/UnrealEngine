@@ -203,7 +203,7 @@ void UMovieSceneSequencePlayer::Scrub()
 
 void UMovieSceneSequencePlayer::Stop()
 {
-	if (IsPlaying() || IsPaused())
+	if (IsPlaying() || IsPaused() || RootTemplateInstance.IsValid())
 	{
 		if (bIsEvaluating)
 		{
