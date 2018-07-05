@@ -226,12 +226,15 @@ void UNiagaraNodeAssignment::BuildParameterMenu(FMenuBuilder& MenuBuilder, ENiag
 		FString VarDefaultValue = FNiagaraConstants::GetAttributeDefaultValue(AvailableParameter);
 		const FText TooltipDesc = FText::Format(LOCTEXT("SetFunctionPopupTooltip", "Description: Set the parameter {0}. {1}"), FText::FromName(AvailableParameter.GetName()), VarDesc);
 		FText CategoryName = LOCTEXT("ModuleSetCategory", "Set Specific Parameters");
+		bool bCanExecute = AssignmentTargets.Contains(AvailableParameter) == false;
 
 		MenuBuilder.AddMenuEntry(
 			NameText,
 			TooltipDesc,
 			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateUObject(this, &UNiagaraNodeAssignment::AddParameter, AvailableParameter, VarDefaultValue)));
+			FUIAction(
+				FExecuteAction::CreateUObject(this, &UNiagaraNodeAssignment::AddParameter, AvailableParameter, VarDefaultValue),
+				FCanExecuteAction::CreateLambda([bCanExecute] { return bCanExecute; })));
 	}
 
 }

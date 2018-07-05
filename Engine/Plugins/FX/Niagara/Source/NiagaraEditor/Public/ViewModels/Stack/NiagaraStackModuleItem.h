@@ -7,7 +7,6 @@
 #include "NiagaraStackModuleItem.generated.h"
 
 class UNiagaraNodeFunctionCall;
-class UNiagaraNode;
 class UNiagaraStackFunctionInputCollection;
 class UNiagaraStackModuleItemOutputCollection;
 class INiagaraStackItemGroupAddUtilities;
@@ -52,7 +51,7 @@ public:
 
 	void NotifyModuleMoved();
 
-	bool CanAddInput() const;
+	bool CanAddInput(FNiagaraVariable InputParameter) const;
 
 	void AddInput(FNiagaraVariable InputParameter);
 
@@ -67,6 +66,7 @@ private:
 	void RefreshIsEnabled();
 
 private:
+	UNiagaraNodeOutput* OutputNode;
 	UNiagaraNodeFunctionCall* FunctionCallNode;
 	bool bCanMoveAndDelete;
 	bool bIsEnabled;
