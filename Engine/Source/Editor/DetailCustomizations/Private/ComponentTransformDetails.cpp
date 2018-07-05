@@ -1254,11 +1254,11 @@ void FComponentTransformDetails::OnSetTransform(ETransformField::Type TransformF
 
 					if (bCommitted)
 					{
-						// Broadcast the first time an actor is about to move
-						GEditor->BroadcastBeginObjectMovement(*SceneComponent);
+						// Broadcast when the actor is done moving
+						GEditor->BroadcastEndObjectMovement(*SceneComponent);
 						if (EditedActor && EditedActor->GetRootComponent() == SceneComponent)
 						{
-							GEditor->BroadcastBeginObjectMovement(*EditedActor);
+							GEditor->BroadcastEndObjectMovement(*EditedActor);
 						}
 					}
 				}
