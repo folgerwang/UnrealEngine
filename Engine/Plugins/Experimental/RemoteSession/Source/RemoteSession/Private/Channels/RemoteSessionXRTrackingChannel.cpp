@@ -55,6 +55,16 @@ FRemoteSessionXRTrackingChannel::FRemoteSessionXRTrackingChannel(ERemoteSessionC
 		MessageCallbackHandle = Connection->AddMessageHandler(MESSAGE_ADDRESS, Delegate);
 		Connection->SetMessageOptions(MESSAGE_ADDRESS, 1);
 	}
+    else
+    {
+        // Initialize AR if desired - todo, does this need to check device caps?
+#if PLATFORM_IOS
+		// Workaround - we don't want to set bSupportAR in our project as it prevents us running on old devices, but this needs
+		// to be true before we try to init ARKit stuff
+		UARSessionConfig* Config = NewObject<UARSessionConfig>();
+		UARBlueprintLibrary::StartARSession(Config);
+#endif
+    }
 }
 
 FRemoteSessionXRTrackingChannel::~FRemoteSessionXRTrackingChannel()
