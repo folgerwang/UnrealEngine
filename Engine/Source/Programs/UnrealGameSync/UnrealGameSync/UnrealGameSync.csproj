@@ -114,6 +114,9 @@
     <Compile Include="ArchiveManifest.cs" />
     <Compile Include="BuildStep.cs" />
     <Compile Include="ChildProcess.cs" />
+    <Compile Include="Controls\CustomListViewControl.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Controls\ErrorPanel.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -214,6 +217,12 @@
     </Compile>
     <Compile Include="Forms\ProgramsRunningWindow.Designer.cs">
       <DependentUpon>ProgramsRunningWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\SdkInfoWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\SdkInfoWindow.Designer.cs">
+      <DependentUpon>SdkInfoWindow.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\SelectProjectFromWorkspaceWindow.cs">
       <SubType>Form</SubType>
@@ -365,6 +374,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\ProgramsRunningWindow.resx">
       <DependentUpon>ProgramsRunningWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\SdkInfoWindow.resx">
+      <DependentUpon>SdkInfoWindow.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\SelectProjectFromWorkspaceWindow.resx">
       <DependentUpon>SelectProjectFromWorkspaceWindow.cs</DependentUpon>

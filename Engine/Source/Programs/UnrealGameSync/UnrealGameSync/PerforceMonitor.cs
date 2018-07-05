@@ -526,29 +526,36 @@ namespace UnrealGameSync
 			ConfigFile ProjectConfig = new ConfigFile();
 			foreach(string ConfigFilePath in ConfigFilePaths)
 			{
-				List<string> Lines;
-				if(Perforce.Print(ConfigFilePath, out Lines, Log))
+				List<string> Lines = null;
+
+				// If this file is open for edit, read the local version
+				if(OpenFiles != null && OpenFiles.Any(x => x.ClientPath.Equals(ConfigFilePath, StringComparison.InvariantCultureIgnoreCase)))
 				{
-					// If this file is open for edit, read the local version instead
-					if(OpenFiles != null && OpenFiles.Any(x => x.ClientPath.Equals(ConfigFilePath, StringComparison.InvariantCultureIgnoreCase)))
+					try
 					{
-						try
+						string LocalFileName;
+						if(Perforce.ConvertToLocalPath(ConfigFilePath, out LocalFileName, Log))
 						{
-							string LocalFileName;
-							if(Perforce.ConvertToLocalPath(ConfigFilePath, out LocalFileName, Log))
-							{
-								DateTime LastModifiedTime = File.GetLastWriteTimeUtc(LocalFileName);
-								LocalConfigFiles.Add(new KeyValuePair<string, DateTime>(LocalFileName, LastModifiedTime));
-								Lines = File.ReadAllLines(LocalFileName).ToList();
-							}
-						}
-						catch(Exception Ex)
-						{
-							Log.WriteLine("Failed to read local config file for {0}: {1}", ConfigFilePath, Ex.ToString());
+							DateTime LastModifiedTime = File.GetLastWriteTimeUtc(LocalFileName);
+							LocalConfigFiles.Add(new KeyValuePair<string, DateTime>(LocalFileName, LastModifiedTime));
+							Lines = File.ReadAllLines(LocalFileName).ToList();
 						}
 					}
+					catch(Exception Ex)
+					{
+						Log.WriteLine("Failed to read local config file for {0}: {1}", ConfigFilePath, Ex.ToString());
+					}
+				}
 
-					// Merge the text with the config file
+				// Otherwise try to get it from perforce
+				if(Lines == null)
+				{
+					Perforce.Print(ConfigFilePath, out Lines, Log);
+				}
+
+				// Merge the text with the config file
+				if(Lines != null)
+				{
 					try
 					{
 						ProjectConfig.Parse(Lines.ToArray());

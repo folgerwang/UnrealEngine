@@ -197,12 +197,9 @@ namespace UnrealGameSync
 
 		TimeSpan ServerTimeZone;
 
-		int HoverItem = -1;
 		string HoverBadgeUniqueId = null;
 		bool bHoverSync;
 		PerforceChangeSummary ContextMenuChange;
-		VisualStyleRenderer SelectedItemRenderer;
-		VisualStyleRenderer TrackedItemRenderer;
 		Font BuildFont;
 		Font SelectedBuildFont;
 		Font BadgeFont;
@@ -238,12 +235,6 @@ namespace UnrealGameSync
 			InitializeComponent();
 
 			MainThreadSynchronizationContext = SynchronizationContext.Current;
-
-            if (Application.RenderWithVisualStyles) 
-            { 
-				SelectedItemRenderer = new VisualStyleRenderer("Explorer::ListView", 1, 3);
-				TrackedItemRenderer = new VisualStyleRenderer("Explorer::ListView", 1, 2); 
-			}
 
 			Owner = InOwner;
 			ApiUrl = InApiUrl;
@@ -1062,9 +1053,9 @@ namespace UnrealGameSync
 				}
 			}
 
-			if(HoverItem > BuildList.Items.Count)
+			if(BuildList.HoverItem > BuildList.Items.Count)
 			{
-				HoverItem = -1;
+				BuildList.HoverItem = -1;
 			}
 
 			UpdateBuildFailureNotification();
@@ -1391,31 +1382,21 @@ namespace UnrealGameSync
 
 		private void BuildList_DrawItem(object sender, DrawListViewItemEventArgs e)
 		{
-			if(Application.RenderWithVisualStyles)
+			if(e.State.HasFlag(ListViewItemStates.Selected))
 			{
-				if(e.State.HasFlag(ListViewItemStates.Selected))
-				{
-					SelectedItemRenderer.DrawBackground(e.Graphics, e.Bounds);
-				}
-				else if(e.ItemIndex == HoverItem)
-				{
-					TrackedItemRenderer.DrawBackground(e.Graphics, e.Bounds);
-				}
-				else if(((PerforceChangeSummary)e.Item.Tag).Number == Workspace.PendingChangeNumber)
-				{
-					TrackedItemRenderer.DrawBackground(e.Graphics, e.Bounds);
-				}
+				BuildList.DrawSelectedBackground(e.Graphics, e.Bounds);
+			}
+			else if(e.ItemIndex == BuildList.HoverItem)
+			{
+				BuildList.DrawTrackedBackground(e.Graphics, e.Bounds);
+			}
+			else if(((PerforceChangeSummary)e.Item.Tag).Number == Workspace.PendingChangeNumber)
+			{
+				BuildList.DrawTrackedBackground(e.Graphics, e.Bounds);
 			}
 			else
 			{
-				if(e.State.HasFlag(ListViewItemStates.Selected))
-				{
-					e.Graphics.FillRectangle(SystemBrushes.ButtonFace, e.Bounds);
-				}
-				else
-				{
-					e.Graphics.FillRectangle(SystemBrushes.Window, e.Bounds);
-				}
+				BuildList.DrawDefaultBackground(e.Graphics, e.Bounds);
 			}
 		}
 
@@ -1679,7 +1660,7 @@ namespace UnrealGameSync
 						MaxX -= HappyIcon.Width;
 						e.Graphics.DrawImage(Properties.Resources.Icons, MaxX, IconY, (Review == null || !EventMonitor.IsNegativeReview(Review.Type))? HappyIcon : DisabledHappyIcon, GraphicsUnit.Pixel);
 					}
-					else if(e.ItemIndex == HoverItem && bAllowSync)
+					else if(e.ItemIndex == BuildList.HoverItem && bAllowSync)
 					{
 						Rectangle SyncBadgeRectangle = GetSyncBadgeRectangle(e.SubItem.Bounds);
 						DrawBadge(e.Graphics, SyncBadgeRectangle, "Sync", bHoverSync? Color.FromArgb(140, 180, 230) : Color.FromArgb(112, 146, 190), true, true);
@@ -2547,11 +2528,20 @@ namespace UnrealGameSync
 					ProgramsLine.AddLink("Unreal Editor", FontStyle.Regular, () => { LaunchEditor(); });
 					ProgramsLine.AddText("  |  ");
 				}
+
+				string[] SdkInfoEntries;
+				if(TryGetProjectSetting(PerforceMonitor.LatestProjectConfigFile, "SdkInfo", out SdkInfoEntries))
+				{
+					ProgramsLine.AddLink("SDK Info", FontStyle.Regular, () => { ShowRequiredSdkInfo(); });
+					ProgramsLine.AddText("  |  ");
+				}
+
 				ProgramsLine.AddLink("Perforce", FontStyle.Regular, () => { OpenPerforce(); });
 				ProgramsLine.AddText("  |  ");
 				ProgramsLine.AddLink("Visual Studio", FontStyle.Regular, () => { OpenSolution(); });
 				ProgramsLine.AddText("  |  ");
 				ProgramsLine.AddLink("Windows Explorer", FontStyle.Regular, () => { Process.Start("explorer.exe", String.Format("\"{0}\"", Path.GetDirectoryName(SelectedFileName))); });
+
 				foreach(KeyValuePair<string, BuildData> ServiceBadge in ServiceBadges)
 				{
 					ProgramsLine.AddText("  |  ");
@@ -2648,6 +2638,17 @@ namespace UnrealGameSync
 			}
 
 			StatusPanel.Set(Lines, Caption, Alert, TintColor);
+		}
+
+		private void ShowRequiredSdkInfo()
+		{
+			string[] SdkInfoEntries;
+			if(TryGetProjectSetting(PerforceMonitor.LatestProjectConfigFile, "SdkInfo", out SdkInfoEntries))
+			{
+				Dictionary<string, string> Variables = GetWorkspaceVariables(-1);
+				SdkInfoWindow Window = new SdkInfoWindow(SdkInfoEntries, Variables, BadgeFont);
+				Window.ShowDialog();
+			}
 		}
 
 		private StatusLine CreateStatusLineFromMarkdown(string Text)
@@ -3110,19 +3111,6 @@ namespace UnrealGameSync
 		private void BuildList_MouseMove(object sender, MouseEventArgs e)
 		{
 			ListViewHitTestInfo HitTest = BuildList.HitTest(e.Location);
-			int HitTestIndex = (HitTest.Item == null)? -1 : HitTest.Item.Index;
-			if(HitTestIndex != HoverItem)
-			{
-				if(HoverItem != -1)
-				{
-					BuildList.RedrawItems(HoverItem, HoverItem, true);
-				}
-				HoverItem = HitTestIndex;
-				if(HoverItem != -1)
-				{
-					BuildList.RedrawItems(HoverItem, HoverItem, true);
-				}
-			}
 
 			string NewHoverBadgeUniqueId = null;
 			if(HitTest.Item != null)
@@ -3525,12 +3513,6 @@ namespace UnrealGameSync
 		{
 			BuildListToolTip.Hide(BuildList);
 
-			if(HoverItem != -1)
-			{
-				HoverItem = -1;
-				BuildList.Invalidate();
-			}
-
 			if(HoverBadgeUniqueId != null)
 			{
 				HoverBadgeUniqueId = null;
@@ -3874,6 +3856,9 @@ namespace UnrealGameSync
 		{
 			BuildConfig EditorBuildConfig = GetEditorBuildConfig();
 
+			string SdkInstallerDir;
+			TryGetProjectSetting(PerforceMonitor.LatestProjectConfigFile, "SdkInstallerDir", out SdkInstallerDir);
+
 			Dictionary<string, string> Variables = new Dictionary<string,string>();
 			Variables.Add("Stream", StreamName);
 			Variables.Add("Change", ChangeNumber.ToString());
@@ -3886,6 +3871,10 @@ namespace UnrealGameSync
 			Variables.Add("UE4EditorConfig", EditorBuildConfig.ToString());
 			Variables.Add("UE4EditorDebugArg", (EditorBuildConfig == BuildConfig.Debug || EditorBuildConfig == BuildConfig.DebugGame)? " -debug" : "");
 			Variables.Add("UseIncrementalBuilds", Settings.bUseIncrementalBuilds? "1" : "0");
+			if(!String.IsNullOrEmpty(SdkInstallerDir))
+			{
+				Variables.Add("SdkInstallerDir", SdkInstallerDir);
+			}
 			return Variables;
 		}
 

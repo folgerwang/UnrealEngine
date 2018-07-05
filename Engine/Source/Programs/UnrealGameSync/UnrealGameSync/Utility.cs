@@ -267,15 +267,24 @@ namespace UnrealGameSync
 		{
 			List<string> ProjectConfigFileNames = new List<string>();
 			ProjectConfigFileNames.Add(String.Format("{0}{1}Engine{1}Programs{1}UnrealGameSync{1}UnrealGameSync.ini", BaseWorkspacePath, Separator));
+			ProjectConfigFileNames.Add(String.Format("{0}{1}Engine{1}Programs{1}UnrealGameSync{1}PS4{1}UnrealGameSync.ini", BaseWorkspacePath, Separator));
+			ProjectConfigFileNames.Add(String.Format("{0}{1}Engine{1}Programs{1}UnrealGameSync{1}XboxOne{1}UnrealGameSync.ini", BaseWorkspacePath, Separator));
+			ProjectConfigFileNames.Add(String.Format("{0}{1}Engine{1}Programs{1}UnrealGameSync{1}Switch{1}UnrealGameSync.ini", BaseWorkspacePath, Separator));
 			ProjectConfigFileNames.Add(String.Format("{0}{1}Engine{1}Programs{1}UnrealGameSync{1}NotForLicensees{1}UnrealGameSync.ini", BaseWorkspacePath, Separator));
 			if(ProjectPath.EndsWith(".uproject", StringComparison.InvariantCultureIgnoreCase))
 			{
 				ProjectConfigFileNames.Add(String.Format("{0}{1}Build{1}UnrealGameSync.ini", ProjectPath.Substring(0, ProjectPath.LastIndexOf(Separator)), Separator));
+			    ProjectConfigFileNames.Add(String.Format("{0}{1}Build{1}PS4{1}UnrealGameSync.ini", ProjectPath.Substring(0, ProjectPath.LastIndexOf(Separator)), Separator));
+			    ProjectConfigFileNames.Add(String.Format("{0}{1}Build{1}XboxOne{1}UnrealGameSync.ini", ProjectPath.Substring(0, ProjectPath.LastIndexOf(Separator)), Separator));
+			    ProjectConfigFileNames.Add(String.Format("{0}{1}Build{1}Switch{1}UnrealGameSync.ini", ProjectPath.Substring(0, ProjectPath.LastIndexOf(Separator)), Separator));
 				ProjectConfigFileNames.Add(String.Format("{0}{1}Build{1}NotForLicensees{1}UnrealGameSync.ini", ProjectPath.Substring(0, ProjectPath.LastIndexOf(Separator)), Separator));
 			}
 			else
 			{
 				ProjectConfigFileNames.Add(String.Format("{0}{1}Engine{1}Programs{1}UnrealGameSync{1}DefaultProject.ini", BaseWorkspacePath, Separator));
+			    ProjectConfigFileNames.Add(String.Format("{0}{1}Engine{1}Programs{1}UnrealGameSync{1}PS4{1}DefaultProject.ini", BaseWorkspacePath, Separator));
+			    ProjectConfigFileNames.Add(String.Format("{0}{1}Engine{1}Programs{1}UnrealGameSync{1}XboxOne{1}DefaultProject.ini", BaseWorkspacePath, Separator));
+			    ProjectConfigFileNames.Add(String.Format("{0}{1}Engine{1}Programs{1}UnrealGameSync{1}Switch{1}DefaultProject.ini", BaseWorkspacePath, Separator));
 				ProjectConfigFileNames.Add(String.Format("{0}{1}Engine{1}Programs{1}UnrealGameSync{1}NotForLicensees{1}DefaultProject.ini", BaseWorkspacePath, Separator));
 			}
 			return ProjectConfigFileNames;
