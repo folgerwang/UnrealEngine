@@ -25,6 +25,9 @@ private:
 	virtual TArray<TSharedPtr<FAppleARKitAnchorData>> MakeAnchorData(NSArray<ARAnchor*>* NewAnchors, double Timestamp, uint32 FrameNumber, const FRotator& AdjustBy) override;
 	virtual ARConfiguration* ToARConfiguration(UARSessionConfig* InSessionConfig) override;
 	virtual void PublishLiveLinkData(TSharedPtr<FAppleARKitAnchorData> Anchor, double Timestamp, uint32 FrameNumber) override;
+#if SUPPORTS_ARKIT_1_5
+	virtual TArray<FARVideoFormat> ToARConfiguration() override;
+#endif
 	// ~IAppleARKitFaceSupport
 #endif
 

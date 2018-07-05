@@ -458,3 +458,13 @@ TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> UARBlueprintLibr
 }
 
 //@joeg -- End additions
+
+TArray<FARVideoFormat> UARBlueprintLibrary::GetSupportedVideoFormats(EARSessionType SessionType)
+{
+	auto ARSystem = GetARSystem();
+	if (ensure(ARSystem.IsValid()))
+	{
+		return ARSystem->GetSupportedVideoFormats(SessionType);
+	}
+	return TArray<FARVideoFormat>();
+}

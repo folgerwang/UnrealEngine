@@ -13,7 +13,7 @@
 
 class UARSessionConfig;
 struct FAppleARKitAnchorData;
-
+struct FARVideoFormat;
 
 class APPLEARKIT_API IAppleARKitFaceSupport :
 	public IModularFeature
@@ -50,6 +50,12 @@ public:
 	 * @param SessionConfig the UE4 configuration object that needs processing
 	 */
 	virtual ARConfiguration* ToARConfiguration(UARSessionConfig* SessionConfig) { return nullptr; }
+#endif
+#if SUPPORTS_ARKIT_1_5
+	/**
+	 * @return the supported video formats by the face ar device
+	 */
+	virtual TArray<FARVideoFormat> ToARConfiguration() { return TArray<FARVideoFormat>(); }
 #endif
 
 	static FName GetModularFeatureName()

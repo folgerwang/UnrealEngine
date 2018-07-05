@@ -769,6 +769,29 @@ bool FAppleARKitSystem::OnAddManualEnvironmentCaptureProbe(FVector Location, FVe
 	return false;
 }
 
+TArray<FARVideoFormat> FAppleARKitSystem::OnGetSupportedVideoFormats(EARSessionType SessionType) const
+{
+#if SUPPORTS_ARKIT_1_5
+	if (FAppleARKitAvailability::SupportsARKit15())
+	{
+		switch (SessionType)
+		{
+			case EARSessionType::Face:
+			{
+				// We need to get the face support from the factory method, which is a modular feature to avoid dependencies
+				TArray<IAppleARKitFaceSupport*> Impls = IModularFeatures::Get().GetModularFeatureImplementations<IAppleARKitFaceSupport>("AppleARKitFaceSupport");
+				break;
+			}
+			case EARSessionType::World:
+			{
+				return FAppleARKitConversion::FromARVideoFormatArray(ARWorldTrackingConfiguration.supportedVideoFormats);
+			}
+		}
+	}
+#endif
+	return TArray<FARVideoFormat>();
+}
+
 #if SUPPORTS_ARKIT_2_0
 /** Since both the object extraction and world saving need to get the world map async, use a common chunk of code for this */
 class FAppleARKitGetWorldMapObjectAsyncTask

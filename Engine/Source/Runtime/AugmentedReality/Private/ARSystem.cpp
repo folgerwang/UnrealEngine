@@ -132,6 +132,10 @@ void FARSystemBase::SetAlignmentTransform( const FTransform& InAlignmentTransfor
 
 }
 
+TArray<FARVideoFormat> FARSystemBase::GetSupportedVideoFormats(EARSessionType SessionType) const
+{
+	return OnGetSupportedVideoFormats(SessionType);
+}
 
 UARLightEstimate* FARSystemBase::GetCurrentLightEstimate() const
 {

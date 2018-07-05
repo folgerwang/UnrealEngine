@@ -151,6 +151,52 @@ struct FAppleARKitConversion
 
 	#if SUPPORTS_ARKIT_1_5
 
+	static ARVideoFormat* ToARVideoFormat(const FARVideoFormat& DesiredFormat, NSArray<ARVideoFormat*>* Formats)
+	{
+		if (Formats != nullptr)
+		{
+			for (ARVideoFormat* Format in Formats)
+			{
+				if (Format != nullptr &&
+					DesiredFormat.FPS == Format.framesPerSecond &&
+					DesiredFormat.Width == Format.imageResolution.width &&
+					DesiredFormat.Height == Format.imageResolution.height)
+				{
+					return Format;
+				}
+			}
+		}
+		return nullptr;
+	}
+	
+	static FARVideoFormat FromARVideoFormat(ARVideoFormat* Format)
+	{
+		FARVideoFormat ConvertedFormat;
+		if (Format != nullptr)
+		{
+			ConvertedFormat.FPS = Format.framesPerSecond;
+			ConvertedFormat.Width = Format.imageResolution.width;
+			ConvertedFormat.Height = Format.imageResolution.height;
+		}
+		return ConvertedFormat;
+	}
+	
+	static TArray<FARVideoFormat> FromARVideoFormatArray(NSArray<ARVideoFormat*>* Formats)
+	{
+		TArray<FARVideoFormat> ConvertedArray;
+		if (Formats != nullptr)
+		{
+			for (ARVideoFormat* Format in Formats)
+			{
+				if (Format != nullptr)
+				{
+					ConvertedArray.Add(FromARVideoFormat(Format));
+				}
+			}
+		}
+		return ConvertedArray;
+	}
+
 	static NSSet* InitImageDetection(UARSessionConfig* SessionConfig, TMap< FString, UARCandidateImage* >& CandidateImages, TMap< FString, CGImageRef >& ConvertedCandidateImages)
 	{
 		const TArray<UARCandidateImage*>& ConfigCandidateImages = SessionConfig->GetCandidateImageList();
@@ -327,6 +373,11 @@ struct FAppleARKitConversion
 					WorldTrackingConfiguration.autoFocusEnabled = SessionConfig->ShouldEnableAutoFocus();
 					// Add any images that wish to be detected
 					FAppleARKitConversion::InitImageDetection(SessionConfig, WorldTrackingConfiguration, CandidateImages, ConvertedCandidateImages);
+					ARVideoFormat* Format = FAppleARKitConversion::ToARVideoFormat(SessionConfig->GetDesiredVideoFormat(), ARWorldTrackingConfiguration.supportedVideoFormats);
+					if (Format != nullptr)
+					{
+						WorldTrackingConfiguration.videoFormat = Format;
+					}
 				}
 #endif
 //@joeg -- Added environmental texture probe support

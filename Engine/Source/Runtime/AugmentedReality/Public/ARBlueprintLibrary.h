@@ -184,6 +184,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Tracking", meta = (Keywords = "ar augmentedreality augmented reality tracking anchor"))
 	static EARWorldMappingState GetWorldMappingStatus();
 	
+	/** @return The list of supported video formats for this device */
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Capabilities", meta = (Keywords = "ar augmentedreality augmented reality config video formats"))
+	static TArray<FARVideoFormat> GetSupportedVideoFormats(EARSessionType SessionType);
+
 	static TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> SaveWorld();
 	static TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> GetCandidateObject(FVector Location, FVector Extent);
 	

@@ -106,6 +106,16 @@ void UARSessionConfig::AddCandidateObject(UARCandidateObject* CandidateObject)
 }
 //@joeg -- end object detection
 
+FARVideoFormat UARSessionConfig::GetDesiredVideoFormat() const
+{
+	return DesiredVideoFormat;
+}
+
+void UARSessionConfig::SetDesiredVideoFormat(FARVideoFormat NewFormat)
+{
+	DesiredVideoFormat = NewFormat;
+}
+
 void UARSessionConfig::Serialize(FArchive& Ar)
 {
 	Ar.UsingCustomVersion(FVRObjectVersion::GUID);

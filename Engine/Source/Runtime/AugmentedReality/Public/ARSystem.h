@@ -134,6 +134,9 @@ public:
 	virtual EARWorldMappingState OnGetWorldMappingStatus() const = 0;
 //@joeg -- End additions
 	
+	/** @return The list of supported video formats for this device and session type */
+	virtual TArray<FARVideoFormat> OnGetSupportedVideoFormats(EARSessionType SessionType) const = 0;
+	
 public:
 	virtual ~IARSystemSupport(){}
 };
@@ -216,6 +219,9 @@ public:
 	/** \see UARBlueprintLibrary::RemovePin() */
 	void RemovePin( UARPin* PinToRemove );
 
+	/** \see UARBlueprintLibrary::GetSupportedVideoFormats() */
+	TArray<FARVideoFormat> GetSupportedVideoFormats(EARSessionType SessionType = EARSessionType::World) const;
+	
 	virtual void* GetARSessionRawPointer() = 0;
 	virtual void* GetGameThreadARFrameRawPointer() = 0;
 	

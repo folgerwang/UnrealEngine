@@ -76,7 +76,7 @@ void FAppleARKitFaceSupport::Shutdown()
 
 ARConfiguration* FAppleARKitFaceSupport::ToARConfiguration(UARSessionConfig* SessionConfig)
 {
-	ARConfiguration* SessionConfiguration = nullptr;
+	ARFaceTrackingConfiguration* SessionConfiguration = nullptr;
 	if (SessionConfig->GetSessionType() == EARSessionType::Face)
 	{
 		if (ARFaceTrackingConfiguration.isSupported == FALSE)
@@ -91,6 +91,16 @@ ARConfiguration* FAppleARKitFaceSupport::ToARConfiguration(UARSessionConfig* Ses
 	SessionConfiguration.providesAudioData = NO;
 	SessionConfiguration.worldAlignment = FAppleARKitConversion::ToARWorldAlignment(SessionConfig->GetWorldAlignment());
 
+#if SUPPORTS_ARKIT_1_5
+	if (FAppleARKitAvailability::SupportsARKit15())
+	{
+		ARVideoFormat* Format = FAppleARKitConversion::ToARVideoFormat(SessionConfig->GetDesiredVideoFormat(), ARFaceTrackingConfiguration.supportedVideoFormats);
+		if (Format != nullptr)
+		{
+			SessionConfiguration.videoFormat = Format;
+		}
+	}
+#endif
 	return SessionConfiguration;
 }
 
@@ -136,3 +146,10 @@ void FAppleARKitFaceSupport::PublishLiveLinkData(TSharedPtr<FAppleARKitAnchorDat
 }
 
 #endif
+#if SUPPORTS_ARKIT_1_5
+TArray<FARVideoFormat> FAppleARKitFaceSupport::ToARConfiguration()
+{
+	return FAppleARKitConversion::FromARVideoFormatArray(ARFaceTrackingConfiguration.supportedVideoFormats);
+}
+#endif
+

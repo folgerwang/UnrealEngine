@@ -155,6 +155,10 @@ public:
 	const TArray<UARCandidateObject*>& GetCandidateObjectList() const;
 	void AddCandidateObject(UARCandidateObject* CandidateObject);
 	
+	/** @see DesiredVideoFormat */
+	FARVideoFormat GetDesiredVideoFormat() const;
+	void SetDesiredVideoFormat(FARVideoFormat NewFormat);
+
 private:
 	//~ UObject interface
 	virtual void Serialize(FArchive& Ar) override;
@@ -224,4 +228,11 @@ protected:
 	/** A list of candidate objects to search for in the scene */
 	UPROPERTY(EditAnywhere, Category="AR Settings")
 	TArray<UARCandidateObject*> CandidateObjects;
+
+	/**
+	 * The desired video format (or the default if not supported) that this session should use if the camera is enabled
+	 * Note: Call GetSupportedVideoFormats to get a list of device supported formats
+	 */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	FARVideoFormat DesiredVideoFormat;
 };
