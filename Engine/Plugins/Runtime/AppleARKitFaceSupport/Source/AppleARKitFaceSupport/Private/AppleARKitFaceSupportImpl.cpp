@@ -145,6 +145,10 @@ void FAppleARKitFaceSupport::PublishLiveLinkData(TSharedPtr<FAppleARKitAnchorDat
 	}
 }
 
+bool FAppleARKitFaceSupport::DoesSupportFaceAR()
+{
+	return ARFaceTrackingConfiguration.isSupported == TRUE;
+}
 #endif
 #if SUPPORTS_ARKIT_1_5
 TArray<FARVideoFormat> FAppleARKitFaceSupport::ToARConfiguration()
