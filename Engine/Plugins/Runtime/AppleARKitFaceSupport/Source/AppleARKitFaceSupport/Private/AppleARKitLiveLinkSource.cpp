@@ -19,6 +19,19 @@
 
 #include "AppleARKitFaceSupportModule.h"
 
+DECLARE_CYCLE_STAT(TEXT("Publish Local LiveLink"), STAT_FaceAR_Local_PublishLiveLink, STATGROUP_FaceAR);
+DECLARE_CYCLE_STAT(TEXT("Publish Remote LiveLink"), STAT_FaceAR_Remote_PublishLiveLink, STATGROUP_FaceAR);
+DECLARE_CYCLE_STAT(TEXT("Receive LiveLink"), STAT_FaceAR_ReceiveLiveLink, STATGROUP_FaceAR);
+
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Total LiveLink Bytes Sent"), STAT_FaceAR_Total_LiveLink_BytesSent, STATGROUP_FaceAR);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Total LiveLink Packets Sent"), STAT_FaceAR_Total_LiveLink_PacketsSent, STATGROUP_FaceAR);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Total LiveLink Bytes Recv"), STAT_FaceAR_Total_LiveLink_BytesRecv, STATGROUP_FaceAR);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Total LiveLink Packets Recv"), STAT_FaceAR_Total_LiveLink_PacketsRecv, STATGROUP_FaceAR);
+
+DECLARE_DWORD_COUNTER_STAT(TEXT("LiveLink Bytes Sent"), STAT_FaceAR_LiveLink_BytesSent, STATGROUP_FaceAR);
+DECLARE_DWORD_COUNTER_STAT(TEXT("LiveLink Packets Sent"), STAT_FaceAR_LiveLink_PacketsSent, STATGROUP_FaceAR);
+DECLARE_DWORD_COUNTER_STAT(TEXT("LiveLink Bytes Recv"), STAT_FaceAR_LiveLink_BytesRecv, STATGROUP_FaceAR);
+DECLARE_DWORD_COUNTER_STAT(TEXT("LiveLink Packets Recv"), STAT_FaceAR_LiveLink_PacketsRecv, STATGROUP_FaceAR);
 
 TSharedPtr<ILiveLinkSourceARKit> FAppleARKitLiveLinkSourceFactory::CreateLiveLinkSource(bool bCreateRemotePublisher)
 {
@@ -115,6 +128,8 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 
 void FAppleARKitLiveLinkSource::PublishBlendShapes(FName SubjectName, double Timestamp, uint32 FrameNumber, const FARBlendShapeMap& FaceBlendShapes)
 {
+	SCOPE_CYCLE_COUNTER(STAT_FaceAR_Local_PublishLiveLink);
+
 	check(Client != nullptr);
 	// This code touches UObjects so needs to be run only in the game thread
 	check(IsInGameThread());
@@ -258,6 +273,7 @@ void FAppleARKitLiveLinkRemotePublisher::PublishBlendShapes(FName SubjectName, d
 {
 	if (SendSocket != nullptr)
 	{
+		SCOPE_CYCLE_COUNTER(STAT_FaceAR_Remote_PublishLiveLink);
 		// Build the packet and send it
 		SendBuffer.Reset();
 		SendBuffer << BLEND_SHAPE_PACKET_VER;
@@ -283,6 +299,10 @@ void FAppleARKitLiveLinkRemotePublisher::PublishBlendShapes(FName SubjectName, d
 			ISocketSubsystem* SocketSub = ISocketSubsystem::Get();
 			UE_LOG(LogAppleARKitFace, Verbose, TEXT("Failed to send face AR packet with error (%s). Packet size (%d), sent (%d)"), SocketSub->GetSocketError(), SourceBufferSize, AmountSent);
 		}
+		INC_DWORD_STAT(STAT_FaceAR_LiveLink_PacketsSent);
+		INC_DWORD_STAT(STAT_FaceAR_Total_LiveLink_PacketsSent);
+		INC_DWORD_STAT_BY(STAT_FaceAR_LiveLink_BytesSent, AmountSent);
+		INC_DWORD_STAT_BY(STAT_FaceAR_Total_LiveLink_BytesSent, AmountSent);
 	}
 }
 
@@ -339,6 +359,8 @@ void FAppleARKitLiveLinkRemoteListener::InitLiveLinkSource()
 
 void FAppleARKitLiveLinkRemoteListener::Tick(float DeltaTime)
 {
+	SCOPE_CYCLE_COUNTER(STAT_FaceAR_ReceiveLiveLink);
+
 	uint32 BytesPending = 0;
 	while (RecvSocket->HasPendingData(BytesPending))
 	{
@@ -350,6 +372,11 @@ void FAppleARKitLiveLinkRemoteListener::Tick(float DeltaTime)
 			// Make sure the packet is a complete one and ignore if it is not
 			BytesRead > MIN_BLEND_SHAPE_PACKET_SIZE)
 		{
+			INC_DWORD_STAT(STAT_FaceAR_LiveLink_PacketsRecv);
+			INC_DWORD_STAT(STAT_FaceAR_Total_LiveLink_PacketsRecv);
+			INC_DWORD_STAT_BY(STAT_FaceAR_LiveLink_BytesRecv, BytesRead);
+			INC_DWORD_STAT_BY(STAT_FaceAR_Total_LiveLink_BytesRecv, BytesRead);
+
 			uint8 PacketVer = 0;
 			FName SubjectName;
 			double Timestamp = -1.0;

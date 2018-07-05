@@ -8,12 +8,14 @@
 #include "ARSystem.h"
 #include "Misc/ConfigCacheIni.h"
 
-DECLARE_STATS_GROUP(TEXT("AppleARKitFaceSupport"), STATGROUP_APPLEARKITFACE, STATCAT_Advanced);
+DECLARE_CYCLE_STAT(TEXT("Conversion"), STAT_FaceAR_Conversion, STATGROUP_FaceAR);
 
 #if SUPPORTS_ARKIT_1_0
 
 static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData(ARAnchor* Anchor, const FRotator& AdjustBy)
 {
+	SCOPE_CYCLE_COUNTER(STAT_FaceAR_Conversion);
+	
     TSharedPtr<FAppleARKitAnchorData> NewAnchor;
     if ([Anchor isKindOfClass:[ARFaceAnchor class]])
     {
