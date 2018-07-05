@@ -785,7 +785,6 @@ void USoundWave::FreeResources()
 	bDynamicResource = false;
 	DecompressionType = DTYPE_Setup;
 	bDecompressedFromOgg = false;
-	bIsBeginDestroy = false;
 
 	USoundWave* SoundWave = this;
 	FAudioThread::RunCommandOnGameThread([SoundWave]()
@@ -855,6 +854,22 @@ FWaveInstance* USoundWave::HandleStart( FActiveSound& ActiveSound, const UPTRINT
 	return WaveInstance;
 }
 
+int32 USoundWave::GetNumSoundsActive()
+{
+	return NumSoundsActive.GetValue();
+}
+
+void USoundWave::IncrementNumSounds()
+{
+	NumSoundsActive.Increment();
+}
+
+void USoundWave::DecrementNumSounds()
+{
+	int32 NewValue = NumSoundsActive.Decrement();
+	check(NewValue >= 0);
+}
+
 bool USoundWave::IsReadyForFinishDestroy()
 {
 	const bool bIsStreamingInProgress = IStreamingManager::Get().GetAudioStreamingManager().IsStreamingInProgress(this);
@@ -875,7 +890,7 @@ bool USoundWave::IsReadyForFinishDestroy()
 	}
 	
 	// bIsSoundActive is set in audio mixer when decoding sound waves or generating PCM data
-	return ResourceState == ESoundWaveResourceState::Freed && !bIsSoundActive;
+	return ResourceState == ESoundWaveResourceState::Freed && NumSoundsActive.GetValue() == 0;
 }
 
 
