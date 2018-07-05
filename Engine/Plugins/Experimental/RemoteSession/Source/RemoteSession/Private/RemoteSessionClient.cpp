@@ -152,9 +152,6 @@ void FRemoteSessionClient::CheckConnection()
 
 void FRemoteSessionClient::OnBindEndpoints()
 {
-	auto Delegate = FBackChannelDispatchDelegate::FDelegate::CreateRaw(this, &FRemoteSessionClient::OnChannelSelection);
-	OSCConnection->AddMessageHandler(*GetChannelSelectionEndPoint(),Delegate);
-	
 	FRemoteSessionRole::OnBindEndpoints();
 }
 

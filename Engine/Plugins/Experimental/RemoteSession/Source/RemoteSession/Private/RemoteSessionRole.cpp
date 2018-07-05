@@ -134,6 +134,9 @@ void FRemoteSessionRole::CreateOSCConnection(TSharedRef<IBackChannelConnection> 
 	auto Delegate = FBackChannelDispatchDelegate::FDelegate::CreateRaw(this, &FRemoteSessionRole::OnVersionCheck);
 	OSCConnection->AddMessageHandler(TEXT("/Version"),Delegate);
 	
+	Delegate = FBackChannelDispatchDelegate::FDelegate::CreateRaw(this, &FRemoteSessionRole::OnCreateChannels);
+	OSCConnection->AddMessageHandler(*GetChannelSelectionEndPoint(), Delegate);
+
 	OSCConnection->StartReceiveThread();
 	
 	SendVersion();
@@ -187,6 +190,15 @@ void FRemoteSessionRole::OnVersionCheck(FBackChannelOSCMessage& Message, FBackCh
 			OnCreateChannels();
 		});
 	}
+}
+
+void FRemoteSessionRole::OnCreateChannels(FBackChannelOSCMessage& Message, FBackChannelOSCDispatch& Dispatch)
+{
+	OnChannelSelection(Message, Dispatch);
+}
+
+void FRemoteSessionRole::OnChannelSelection(FBackChannelOSCMessage& Message, FBackChannelOSCDispatch& Dispatch)
+{
 }
 
 void FRemoteSessionRole::OnBindEndpoints()
