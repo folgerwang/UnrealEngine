@@ -21,7 +21,6 @@ static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData(ARAnchor* Anchor, const 
     if ([Anchor isKindOfClass:[ARFaceAnchor class]])
     {
         ARFaceAnchor* FaceAnchor = (ARFaceAnchor*)Anchor;
-//@joeg -- Eye tracking support
 		FTransform LeftEyeTransform;
 		FTransform RightEyeTransform;
 		FVector LookAtTarget;

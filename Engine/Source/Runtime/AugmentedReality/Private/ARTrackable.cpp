@@ -184,7 +184,6 @@ void UARFaceGeometry::UpdateFaceGeometry(const TSharedRef<FARSystemBase, ESPMode
 		IndexBuffer = Indices;
 	}
 	
-//@joeg -- Eye tracking support
 	LeftEyeTransform = InLeftEyeTransform;
 	RightEyeTransform = InRightEyeTransform;
 	LookAtTarget = InLookAtTarget;
@@ -225,7 +224,6 @@ const TMap<EARFaceBlendShape, float> UARFaceGeometry::GetBlendShapes() const
 	return BlendShapes;
 }
 
-//@joeg -- Eye tracking support
 const FTransform& UARFaceGeometry::GetLocalSpaceEyeTransform(EAREye Eye) const
 {
 	if (Eye == EAREye::LeftEye)
@@ -243,10 +241,7 @@ FTransform UARFaceGeometry::GetWorldSpaceEyeTransform(EAREye Eye) const
 	}
 	return GetLocalToWorldTransform() * RightEyeTransform;
 }
-//@joeg -- end eye tracking
 
-
-//@joeg -- Added environmental texture probe support
 UAREnvironmentCaptureProbe::UAREnvironmentCaptureProbe()
 	: Super()
 	, EnvironmentCaptureTexture(nullptr)
@@ -281,7 +276,6 @@ UAREnvironmentCaptureProbeTexture* UAREnvironmentCaptureProbe::GetEnvironmentCap
 	return EnvironmentCaptureTexture;
 }
 
-//@joeg -- Object detection
 void UARTrackedObject::DebugDraw(UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds /*= 0.0f*/) const
 {
 	const FTransform LocalToWorldTransform = GetLocalToWorldTransform();

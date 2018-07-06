@@ -96,8 +96,6 @@ void UAppleARKitTextureCameraDepth::Init(float InTimestamp, AVDepthData* InCamer
 
 #endif
 
-//@joeg -- Added for environment capture support
-
 UAppleARKitEnvironmentCaptureProbeTexture::UAppleARKitEnvironmentCaptureProbeTexture(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 #if PLATFORM_MAC || PLATFORM_IOS

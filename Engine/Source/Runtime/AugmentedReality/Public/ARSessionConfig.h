@@ -40,11 +40,9 @@ enum class EARSessionType : uint8
 	/** AR meant to overlay onto a face */
 	Face,
 
-//@joeg -- Added image tracking support
     /** Tracking of images supplied by the app. No world tracking, just images */
     Image,
 
-//@joeg -- Object scanning support
 	/** A session used to scan objects for object detection in a world tracking session */
 	ObjectScanning
 };
@@ -85,7 +83,6 @@ enum class EARFrameSyncMode : uint8
 	SyncTickWithoutCameraImage = 1,
 };
 
-//@joeg -- Added texture probe settings
 /**
  * Tells the AR system what type of environmental texture capturing to perform
  */
@@ -137,21 +134,17 @@ public:
 	/** @see CandidateImages */
 	const TArray<UARCandidateImage*>& GetCandidateImageList() const;
     
-//@joeg -- Added image tracking support
 	/** @see MaxNumSimultaneousImagesTracked */
     int32 GetMaxNumSimultaneousImagesTracked() const;
 	
-//@joeg -- Added environmental texture probe support
 	/** @see EnvironmentCaptureProbeType */
 	EAREnvironmentCaptureProbeType GetEnvironmentCaptureProbeType() const;
 	
-//@joeg -- Added for load/save of worlds
 	/** @see WorldMapData */
 	const TArray<uint8>& GetWorldMapData() const;
 	/** @see WorldMapData */
 	void SetWorldMapData(TArray<uint8> WorldMapData);
 
-//@joeg -- For object detection
 	const TArray<UARCandidateObject*>& GetCandidateObjectList() const;
 	void AddCandidateObject(UARCandidateObject* CandidateObject);
 	
@@ -209,22 +202,18 @@ protected:
 	UPROPERTY(EditAnywhere, Category="AR Settings")
 	TArray<UARCandidateImage*> CandidateImages;
 
-//@joeg -- Added image tracking support
     /** The maximum number of images to track at the same time. Defaults to 1 */
     UPROPERTY(EditAnywhere, Category="AR Settings")
     int32 MaxNumSimultaneousImagesTracked;
 	
-//@joeg -- Added environmental texture probe support
 	/** How the AR system should handle texture probe capturing */
 	UPROPERTY(EditAnywhere, Category="AR Settings")
 	EAREnvironmentCaptureProbeType EnvironmentCaptureProbeType;
 
-//@joeg -- For loading a saved world
 	/** A previously saved world that is to be loaded when the session starts */
 	UPROPERTY(VisibleAnywhere, Category="AR Settings")
 	TArray<uint8> WorldMapData;
 
-//@joeg -- For object detection
 	/** A list of candidate objects to search for in the scene */
 	UPROPERTY(EditAnywhere, Category="AR Settings")
 	TArray<UARCandidateObject*> CandidateObjects;

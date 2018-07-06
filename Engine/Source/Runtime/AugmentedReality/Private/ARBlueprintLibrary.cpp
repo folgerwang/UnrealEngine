@@ -340,8 +340,6 @@ UARTextureCameraDepth* UARBlueprintLibrary::GetCameraDepth()
 	return Depth;
 }
 
-//@joeg -- Helpers to make things easier
-
 TArray<UARPlaneGeometry*> UARBlueprintLibrary::GetAllTrackedPlanes()
 {
 	TArray<UARPlaneGeometry*> ResultList;
@@ -414,7 +412,6 @@ TArray<UAREnvironmentCaptureProbe*> UARBlueprintLibrary::GetAllTrackedEnvironmen
 	return ResultList;
 }
 
-//@joeg -- Added environmental texture probe support
 bool UARBlueprintLibrary::AddManualEnvironmentCaptureProbe(FVector Location, FVector Extent)
 {
 	auto ARSystem = GetARSystem();
@@ -456,8 +453,6 @@ TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> UARBlueprintLibr
 	}
 	return TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe>();
 }
-
-//@joeg -- End additions
 
 TArray<FARVideoFormat> UARBlueprintLibrary::GetSupportedVideoFormats(EARSessionType SessionType)
 {

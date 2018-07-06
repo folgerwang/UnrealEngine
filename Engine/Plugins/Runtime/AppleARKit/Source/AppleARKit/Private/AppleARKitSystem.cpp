@@ -14,7 +14,6 @@
 #include "GeneralProjectSettings.h"
 #include "ARSessionConfig.h"
 #include "AppleARKitSettings.h"
-//@joeg -- Environment capture support
 #include "AppleARKitTrackable.h"
 #include "ARLightEstimate.h"
 #include "ARTraceResult.h"
@@ -752,8 +751,6 @@ bool FAppleARKitSystem::OnIsTrackingTypeSupported(EARSessionType SessionType) co
 	return false;
 }
 
-//@joeg -- ARKit 2.0 additions
-
 bool FAppleARKitSystem::OnAddManualEnvironmentCaptureProbe(FVector Location, FVector Extent)
 {
 #if SUPPORTS_ARKIT_2_0
@@ -1008,7 +1005,6 @@ EARWorldMappingState FAppleARKitSystem::OnGetWorldMappingStatus() const
 	return EARWorldMappingState::NotAvailable;
 }
 
-//@joeg -- End additions
 
 void FAppleARKitSystem::AddReferencedObjects( FReferenceCollector& Collector )
 {
@@ -1019,7 +1015,6 @@ void FAppleARKitSystem::AddReferencedObjects( FReferenceCollector& Collector )
 	Collector.AddReferencedObject( CameraImage );
 	Collector.AddReferencedObject( CameraDepth );
 	Collector.AddReferencedObjects( CandidateImages );
-//@joeg -- Object detection
 	Collector.AddReferencedObjects( CandidateObjects );
 
 	if(LightEstimate)
@@ -1115,7 +1110,6 @@ bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 		return true;
 	}
 
-//@joeg -- bug fix
 	{
 		// Clear out any existing frames since they aren't valid anymore
 		FScopeLock ScopeLock(&FrameLock);
@@ -1305,7 +1299,6 @@ static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData( ARAnchor* Anchor )
 		NewAnchor = MakeShared<FAppleARKitAnchorData>(
 			FAppleARKitConversion::ToFGuid(ImageAnchor.identifier),
 			FAppleARKitConversion::ToFTransform(ImageAnchor.transform),
-//@joeg -- Changed to share image and object detection
 			EAppleAnchorType::ImageAnchor,
 			FString(ImageAnchor.referenceImage.name)
 		);
@@ -1314,7 +1307,6 @@ static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData( ARAnchor* Anchor )
 #endif
 	}
 #endif
-//@joeg -- Added environmental texture probe support
 #if SUPPORTS_ARKIT_2_0
 	else if (FAppleARKitAvailability::SupportsARKit20() && [Anchor isKindOfClass:[AREnvironmentProbeAnchor class]])
 	{
@@ -1326,7 +1318,6 @@ static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData( ARAnchor* Anchor )
 			ProbeAnchor.environmentTexture
 		);
 	}
-//@joeg -- Object dectection support
 	else if (FAppleARKitAvailability::SupportsARKit20() && [Anchor isKindOfClass:[ARObjectAnchor class]])
 	{
 		ARObjectAnchor* ObjectAnchor = (ARObjectAnchor*)Anchor;
@@ -1464,7 +1455,6 @@ void FAppleARKitSystem::SessionDidAddAnchors_Internal( TSharedRef<FAppleARKitAnc
 		{
 			NewAnchorDebugName = FString::Printf(TEXT("FACE-%02d"), LastTrackedGeometry_DebugId++);
 			UARFaceGeometry* NewGeo = NewObject<UARFaceGeometry>();
-//@joeg -- Eye tracking support
 			NewGeo->UpdateFaceGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->BlendShapes, AnchorData->FaceVerts, AnchorData->FaceIndices, AnchorData->LeftEyeTransform, AnchorData->RightEyeTransform, AnchorData->LookAtTarget);
 			NewGeo->bIsTracked = true;
 			NewGeometry = NewGeo;
@@ -1480,7 +1470,6 @@ void FAppleARKitSystem::SessionDidAddAnchors_Internal( TSharedRef<FAppleARKitAnc
 			NewGeometry = NewImage;
 			break;
 		}
-//@joeg -- Added environmental texture probe support
 		case EAppleAnchorType::EnvironmentProbeAnchor:
 		{
 			NewAnchorDebugName = FString::Printf(TEXT("ENV-%02d"), LastTrackedGeometry_DebugId++);
@@ -1489,7 +1478,6 @@ void FAppleARKitSystem::SessionDidAddAnchors_Internal( TSharedRef<FAppleARKitAnc
 			NewGeometry = NewProbe;
 			break;
 		}
-//@joeg -- Object detection
 		case EAppleAnchorType::ObjectAnchor:
 		{
 			NewAnchorDebugName = FString::Printf(TEXT("OBJ-%02d"), LastTrackedGeometry_DebugId++);
@@ -1566,7 +1554,6 @@ void FAppleARKitSystem::SessionDidUpdateAnchors_Internal( TSharedRef<FAppleARKit
 			{
 				if (UARFaceGeometry* FaceGeo = Cast<UARFaceGeometry>(FoundGeometry))
 				{
-//@joeg -- Eye tracking support
 					FaceGeo->UpdateFaceGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->BlendShapes, AnchorData->FaceVerts, AnchorData->FaceIndices, AnchorData->LeftEyeTransform, AnchorData->RightEyeTransform, AnchorData->LookAtTarget);
 					FaceGeo->bIsTracked = AnchorData->bIsTracked;
 					for (UARPin* Pin : PinsToUpdate)
@@ -1577,12 +1564,10 @@ void FAppleARKitSystem::SessionDidUpdateAnchors_Internal( TSharedRef<FAppleARKit
 				}
 				break;
 			}
-//@joeg -- Added image tracking support
             case EAppleAnchorType::ImageAnchor:
             {
 				if (UARTrackedImage* ImageAnchor = Cast<UARTrackedImage>(FoundGeometry))
 				{
-//@joeg -- Changed so object and image detection can share
 					UARCandidateImage** CandidateImage = CandidateImages.Find(AnchorData->DetectedAnchorName);
 					ensure(CandidateImage != nullptr);
 
@@ -1596,7 +1581,6 @@ void FAppleARKitSystem::SessionDidUpdateAnchors_Internal( TSharedRef<FAppleARKit
 				}
                 break;
             }
-//@joeg -- Added environmental texture probe support
 			case EAppleAnchorType::EnvironmentProbeAnchor:
 			{
 				if (UAppleARKitEnvironmentCaptureProbe* ProbeAnchor = Cast<UAppleARKitEnvironmentCaptureProbe>(FoundGeometry))

@@ -3,7 +3,6 @@
 #pragma once
 
 #include "Engine/DataAsset.h"
-//@joeg -- ARKit 2.0 support
 #include "HAL/ThreadSafeBool.h"
 #include "ARTypes.generated.h"
 
@@ -90,7 +89,6 @@ enum class EARSessionStatus : uint8
 	Other,
 };
 
-//@joeg -- ARKit 2.0 support
 /** Gives feedback as to whether the AR data can be saved and relocalized or not */
 UENUM(BlueprintType, Category="AR AugmentedReality", meta=(Experimental))
 enum class EARWorldMappingState : uint8
@@ -211,8 +209,6 @@ private:
 	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
 	EARCandidateImageOrientation Orientation;
 };
-
-//@joeg -- ARKit 2.0 support
 
 /** An asset that points to an object to be detected in a scene */
 UCLASS(BlueprintType)

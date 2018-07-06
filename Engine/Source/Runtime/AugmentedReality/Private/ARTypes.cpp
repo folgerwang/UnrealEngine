@@ -4,8 +4,6 @@
 #include "ARTypes.h"
 #include "HAL/ThreadSafeBool.h"
 
-//@joeg -- ARKit 2.0 support
-
 bool FARAsyncTask::HadError() const
 {
 	return bHadError;
@@ -33,5 +31,3 @@ TArray<uint8> FARSaveWorldAsyncTask::GetSavedWorldData()
 	}
 	return TArray<uint8>();
 }
-
-//@joeg -- End additions

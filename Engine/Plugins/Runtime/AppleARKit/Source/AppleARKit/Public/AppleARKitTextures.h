@@ -84,7 +84,6 @@ private:
 #endif
 };
 
-//@joeg -- Added for environment capture support
 UCLASS(BlueprintType)
 class APPLEARKIT_API UAppleARKitEnvironmentCaptureProbeTexture :
 	public UAREnvironmentCaptureProbeTexture,

@@ -79,7 +79,6 @@ struct APPLEARKIT_API FAppleARKitFrame
 	 */
 	FAppleARKitLightEstimate LightEstimate;
 	
-//@joeg -- ARKit 2.0 support
 	/** The current world mapping state is reported on the frame */
 	EARWorldMappingState WorldMappingState;
 
