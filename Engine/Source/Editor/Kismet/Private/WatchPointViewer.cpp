@@ -230,7 +230,28 @@ namespace
 			int32 FoundIdx = WatchedBlueprints.Find(BlueprintObj);
 			if (FoundIdx == INDEX_NONE)
 			{
-				return;
+				// if we didn't find it, it could be because BlueprintObj is no longer valid
+				// in this case the pointer in WatchedBlueprints would also be invalid
+				bool bRemovedBP = false;
+				for (int32 Idx = 0; Idx < WatchedBlueprints.Num(); ++Idx)
+				{
+					if (!WatchedBlueprints[Idx].IsValid())
+					{
+						bRemovedBP = true;
+						WatchedBlueprints.RemoveAt(Idx);
+						--Idx;
+					}
+				}
+
+				if (!bRemovedBP)
+				{
+					return;
+				}
+			}
+			else
+			{
+				// since we're not watching the blueprint anymore we should remove it from the watched list
+				WatchedBlueprints.RemoveAt(FoundIdx);
 			}
 
 			// since we're not watching the blueprint anymore we should remove it from the watched list
