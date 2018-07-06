@@ -205,6 +205,15 @@ public:
 	/** Set mode to key all. */
 	TSharedPtr< FUICommandInfo > SetKeyAll;
 
+	/** Toggle on/off a Mark at the current time **/
+	TSharedPtr< FUICommandInfo> ToggleMarkAtPlayPosition;
+
+	/** Step to next mark */
+	TSharedPtr< FUICommandInfo > StepToNextMark;
+
+	/** Step to previous mark */
+	TSharedPtr< FUICommandInfo > StepToPreviousMark;
+
 	/** Rotates through the supported formats for displaying times/frames/timecode. */
 	TSharedPtr< FUICommandInfo > ChangeTimeDisplayFormat;
 

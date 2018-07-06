@@ -340,6 +340,9 @@ void FSequencer::InitSequencer(const FSequencerInitParams& InitParams, const TSh
 		.PlaybackRange( this, &FSequencer::GetPlaybackRange )
 		.PlaybackStatus( this, &FSequencer::GetPlaybackStatus )
 		.SelectionRange( this, &FSequencer::GetSelectionRange )
+		.MarkedFrames( this, &FSequencer::GetMarkedFrames )
+		.OnMarkedFrameChanged(this, &FSequencer::SetMarkedFrame )
+		.OnClearAllMarkedFrames(this, &FSequencer::ClearAllMarkedFrames )
 		.SubSequenceRange( this, &FSequencer::GetSubSequenceRange )
 		.OnPlaybackRangeChanged( this, &FSequencer::SetPlaybackRange )
 		.OnPlaybackRangeBeginDrag( this, &FSequencer::OnPlaybackRangeBeginDrag )
@@ -6997,6 +7000,143 @@ void FSequencer::Rekey()
 	}
 }
 
+TSet<FFrameNumber> FSequencer::GetMarkedFrames() const 
+{
+	UMovieSceneSequence* FocusedMovieSequence = GetFocusedMovieSceneSequence();
+	if (FocusedMovieSequence != nullptr)
+	{
+		UMovieScene* FocusedMovieScene = FocusedMovieSequence->GetMovieScene();
+		if (FocusedMovieScene != nullptr)
+		{
+			return FocusedMovieScene->GetEditorData().MarkedFrames;
+		}
+	}
+
+	return TSet<FFrameNumber>();
+}
+
+void FSequencer::ToggleMarkAtPlayPosition()
+{
+
+	UMovieSceneSequence* FocusedMovieSequence = GetFocusedMovieSceneSequence();
+	if (FocusedMovieSequence != nullptr)
+	{
+		UMovieScene* FocusedMovieScene = FocusedMovieSequence->GetMovieScene();
+		if (FocusedMovieScene != nullptr)
+		{
+			FFrameNumber TickFrameNumber = GetLocalTime().Time.FloorToFrame();
+
+			FMovieSceneEditorData& EditorData = FocusedMovieScene->GetEditorData();
+			if ( EditorData.MarkedFrames.Contains(TickFrameNumber) )
+			{
+				EditorData.MarkedFrames.Remove(TickFrameNumber);
+			}
+			else 
+			{
+				EditorData.MarkedFrames.Add(TickFrameNumber);	
+			}
+		}
+	}
+}
+
+void FSequencer::SetMarkedFrame(FFrameNumber FrameNumber, bool bSetMark)
+{
+
+	UMovieSceneSequence* FocusedMovieSequence = GetFocusedMovieSceneSequence();
+	if (FocusedMovieSequence != nullptr)
+	{
+		UMovieScene* FocusedMovieScene = FocusedMovieSequence->GetMovieScene();
+		if (FocusedMovieScene != nullptr)
+		{
+			FMovieSceneEditorData& EditorData = FocusedMovieScene->GetEditorData();
+			if (bSetMark)
+			{
+				EditorData.MarkedFrames.Add(FrameNumber);	
+			}
+			else
+			{
+				EditorData.MarkedFrames.Remove(FrameNumber);
+			}
+		}
+	}
+}
+
+void FSequencer::ClearAllMarkedFrames()
+{
+
+	UMovieSceneSequence* FocusedMovieSequence = GetFocusedMovieSceneSequence();
+	if (FocusedMovieSequence != nullptr)
+	{
+		UMovieScene* FocusedMovieScene = FocusedMovieSequence->GetMovieScene();
+		if (FocusedMovieScene != nullptr)
+		{
+			FMovieSceneEditorData& EditorData = FocusedMovieScene->GetEditorData();
+			EditorData.MarkedFrames.Empty();
+		}
+	}
+}
+
+void FSequencer::StepToNextMark()
+{
+	UMovieSceneSequence* FocusedMovieSequence = GetFocusedMovieSceneSequence();
+	if (FocusedMovieSequence != nullptr)
+	{
+		UMovieScene* FocusedMovieScene = FocusedMovieSequence->GetMovieScene();
+		if (FocusedMovieScene != nullptr)
+		{
+			FMovieSceneEditorData& EditorData = FocusedMovieScene->GetEditorData();
+			if (EditorData.MarkedFrames.Num() > 0)
+			{
+				FFrameNumber CurrentTickFrameNumber = GetLocalTime().Time.FloorToFrame();
+
+				TArray<FFrameNumber> SortedMarkedFrames = EditorData.MarkedFrames.Array();
+				SortedMarkedFrames.Sort();
+
+				for (FFrameNumber TickFrame : SortedMarkedFrames)
+				{
+					if (TickFrame > CurrentTickFrameNumber)
+					{
+						SetLocalTime(TickFrame.Value);
+						break;
+					}
+				}
+			}
+		}
+	}
+}
+
+void FSequencer::StepToPreviousMark()
+{
+	UMovieSceneSequence* FocusedMovieSequence = GetFocusedMovieSceneSequence();
+	if (FocusedMovieSequence != nullptr)
+	{
+		UMovieScene* FocusedMovieScene = FocusedMovieSequence->GetMovieScene();
+		if (FocusedMovieScene != nullptr)
+		{
+			FMovieSceneEditorData& EditorData = FocusedMovieScene->GetEditorData();
+			if (EditorData.MarkedFrames.Num() > 0)
+			{
+
+				FFrameNumber CurrentTickFrameNumber = GetLocalTime().Time.FloorToFrame();
+
+				//Intentionally sorted in reverse order to find the one just smaller than the current time
+				TArray<FFrameNumber> SortedMarkedFrames = EditorData.MarkedFrames.Array();
+				SortedMarkedFrames.Sort([](const FFrameNumber& A, const FFrameNumber& B) {return A > B;});
+
+				for (FFrameNumber TickFrame : SortedMarkedFrames)
+				{
+					if (TickFrame < CurrentTickFrameNumber)
+					{
+						SetLocalTime(TickFrame.Value);
+						break;
+					}
+				}
+			}
+		}
+	}
+}
+
+
 TArray<TSharedPtr<FMovieSceneClipboard>> GClipboardStack;
 
 void FSequencer::CopySelection()
@@ -7914,6 +8054,18 @@ void FSequencer::BindCommands()
 		FExecuteAction::CreateLambda([this] { Settings->SetKeyGroupMode(EKeyGroupMode::KeyAll); }),
 		FCanExecuteAction::CreateLambda([] { return true; }),
 		FIsActionChecked::CreateLambda([this] { return Settings->GetKeyGroupMode() == EKeyGroupMode::KeyAll; }));
+
+	SequencerCommandBindings->MapAction(
+		Commands.ToggleMarkAtPlayPosition,
+		FExecuteAction::CreateSP( this, &FSequencer::ToggleMarkAtPlayPosition));
+
+	SequencerCommandBindings->MapAction(
+		Commands.StepToNextMark,
+		FExecuteAction::CreateSP( this, &FSequencer::StepToNextMark));
+
+	SequencerCommandBindings->MapAction(
+		Commands.StepToPreviousMark,
+		FExecuteAction::CreateSP( this, &FSequencer::StepToPreviousMark));
 
 	SequencerCommandBindings->MapAction(
 		Commands.ToggleAutoScroll,

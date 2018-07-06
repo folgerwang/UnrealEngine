@@ -90,6 +90,13 @@ FSequencerSnapField::FSequencerSnapField(const ISequencer& InSequencer, ISequenc
 		Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::InOutRange, MovieScene::DiscreteExclusiveUpper(SelectionRange) - 1});
 	}
 
+	// Add in the marked frames
+	const TSet<FFrameNumber>& MarkedFrames = InSequencer.GetFocusedMovieSceneSequence()->GetMovieScene()->GetEditorData().MarkedFrames;
+	for (FFrameNumber MarkedFrame : MarkedFrames)
+	{
+		Visitor.Snaps.Add( FSequencerSnapPoint{ FSequencerSnapPoint::Mark, MarkedFrame } );
+	}
+
 	// Sort
 	Visitor.Snaps.Sort([](const FSequencerSnapPoint& A, const FSequencerSnapPoint& B){
 		return A.Time < B.Time;

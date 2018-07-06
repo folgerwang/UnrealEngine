@@ -279,6 +279,25 @@ public:
 	}
 
 public:
+	/** @return The set of marked frames */
+	TSet<FFrameNumber> GetMarkedFrames() const;
+
+protected:
+
+	/** Set/Clear a Mark at the current time */
+	void ToggleMarkAtPlayPosition();
+	void StepToNextMark();
+	void StepToPreviousMark();
+
+	/**
+	 * @param	FrameNumber The FrameNumber in Ticks 
+	 * @param	bSetMark  true to set the mark, false to clear the mark
+	 */
+	void SetMarkedFrame(FFrameNumber FrameNumber, bool bSetMark);
+
+	void ClearAllMarkedFrames();
+
+public:
 
 	/**
 	 * Converts the specified possessable GUID to a spawnable

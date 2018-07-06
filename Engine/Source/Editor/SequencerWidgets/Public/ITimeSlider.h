@@ -28,6 +28,7 @@ DECLARE_DELEGATE_TwoParams( FOnScrubPositionChanged, FFrameTime, bool )
 DECLARE_DELEGATE_TwoParams( FOnViewRangeChanged, TRange<double>, EViewRangeInterpolation )
 DECLARE_DELEGATE_OneParam( FOnTimeRangeChanged, TRange<double> )
 DECLARE_DELEGATE_OneParam( FOnFrameRangeChanged, TRange<FFrameNumber> )
+DECLARE_DELEGATE_TwoParams( FOnMarkedFrameChanged, FFrameNumber, bool )
 DECLARE_DELEGATE_RetVal_TwoParams( FFrameNumber, FOnGetNearestKey, FFrameTime, bool )
 
 /** Structure used to wrap up a range, and an optional animation target */
@@ -133,6 +134,16 @@ struct FTimeSliderArgs
 
 	/** Called right after the selection range has finished being dragged */
 	FSimpleDelegate OnSelectionRangeEndDrag;
+
+	/** Attribute for the current sequence's marked frames */
+	TAttribute<TSet<FFrameNumber>> MarkedFrames;
+
+	/** Called when the marked frames need to be updated */
+	FOnMarkedFrameChanged OnMarkedFrameChanged;
+
+	/** Called when all marked frames should be cleared */
+	FSimpleDelegate OnClearAllMarkedFrames;
+
 	/** Round the scrub position to an integer during playback */
 	TAttribute<EMovieScenePlayerStatus::Type> PlaybackStatus;
 

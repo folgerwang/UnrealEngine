@@ -20,9 +20,11 @@ public:
 	SLATE_BEGIN_ARGS( SSequencerSectionOverlay )
 		: _DisplayTickLines( true )
 		, _DisplayScrubPosition( false )
+		, _DisplayMarkedFrames( false )
 	{}
 		SLATE_ATTRIBUTE( bool, DisplayTickLines )
 		SLATE_ATTRIBUTE( bool, DisplayScrubPosition )
+		SLATE_ATTRIBUTE( bool, DisplayMarkedFrames )
 		SLATE_ATTRIBUTE( FPaintPlaybackRangeArgs, PaintPlaybackRangeArgs )
 
 	SLATE_END_ARGS()
@@ -31,6 +33,7 @@ public:
 	{
 		bDisplayScrubPosition = InArgs._DisplayScrubPosition;
 		bDisplayTickLines = InArgs._DisplayTickLines;
+		bDisplayMarkedFrames = InArgs._DisplayMarkedFrames;
 		PaintPlaybackRangeArgs = InArgs._PaintPlaybackRangeArgs;
 		TimeSliderController = InTimeSliderController;
 	}
@@ -46,6 +49,8 @@ private:
 	TAttribute<bool> bDisplayScrubPosition;
 	/** Whether or not to display tick lines */
 	TAttribute<bool> bDisplayTickLines;
+	/** Whether or not to display marked frames */
+	TAttribute<bool> bDisplayMarkedFrames;
 	/** User-supplied options for drawing playback range */
 	TAttribute<FPaintPlaybackRangeArgs> PaintPlaybackRangeArgs;
 

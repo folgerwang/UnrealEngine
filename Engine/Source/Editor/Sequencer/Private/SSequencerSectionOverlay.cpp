@@ -7,6 +7,7 @@ int32 SSequencerSectionOverlay::OnPaint( const FPaintArgs& Args, const FGeometry
 	FPaintSectionAreaViewArgs PaintArgs;
 	PaintArgs.bDisplayTickLines = bDisplayTickLines.Get();
 	PaintArgs.bDisplayScrubPosition = bDisplayScrubPosition.Get();
+	PaintArgs.bDisplayMarkedFrames = bDisplayMarkedFrames.Get();
 
 	if (PaintPlaybackRangeArgs.IsSet())
 	{
