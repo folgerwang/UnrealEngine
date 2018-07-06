@@ -445,7 +445,7 @@ namespace UnrealBuildTool
 		{
 			// Get the architecture suffix. Platforms have the option of overriding whether to include this string in filenames.
 			string ArchitectureSuffix = "";
-			if(UEBuildPlatform.GetBuildPlatform(Platform).RequiresArchitectureSuffix())
+			if(!String.IsNullOrEmpty(BuildArchitecture) && UEBuildPlatform.GetBuildPlatform(Platform).RequiresArchitectureSuffix())
 			{
 				ArchitectureSuffix = BuildArchitecture;
 			}
