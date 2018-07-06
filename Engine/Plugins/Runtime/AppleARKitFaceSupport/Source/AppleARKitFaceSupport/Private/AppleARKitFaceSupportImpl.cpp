@@ -7,6 +7,7 @@
 #include "Async/TaskGraphInterfaces.h"
 #include "ARSystem.h"
 #include "Misc/ConfigCacheIni.h"
+#include "AppleARKitFaceSupportModule.h"
 
 DECLARE_CYCLE_STAT(TEXT("Conversion"), STAT_FaceAR_Conversion, STATGROUP_FaceAR);
 
