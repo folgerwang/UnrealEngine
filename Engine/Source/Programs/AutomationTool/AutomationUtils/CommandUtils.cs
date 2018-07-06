@@ -1859,11 +1859,7 @@ namespace AutomationTool
 		/// <returns></returns>
 		public static string MakePathSafeToUseWithCommandLine(string InPath)
 		{
-			if (InPath.Contains(' ') && InPath[0] != '\"')
-			{
-				InPath = "\"" + InPath + "\"";
-			}
-			return InPath;
+			return UnrealBuildTool.Utils.MakePathSafeToUseWithCommandLine(InPath);
 		}
 
 		#endregion

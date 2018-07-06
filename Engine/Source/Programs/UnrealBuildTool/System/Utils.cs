@@ -129,6 +129,30 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Makes sure path can be used as a command line param (adds quotes if it contains spaces)
+		/// </summary>
+		/// <param name="InPath">Path to convert</param>
+		/// <returns></returns>
+		public static string MakePathSafeToUseWithCommandLine(string InPath)
+		{
+			if (InPath.Contains(' ') && InPath[0] != '\"')
+			{
+				InPath = "\"" + InPath + "\"";
+			}
+			return InPath;
+		}
+
+		/// <summary>
+		/// Escapes whitespace in the given command line argument with a backslash. Used on Unix-like platforms for command line arguments in shell commands.
+		/// </summary>
+		/// <param name="Argument">The argument to escape </param>
+		/// <returns>Escaped shell argument</returns>
+		public static string EscapeShellArgument(string Argument)
+		{
+			return Argument.Replace(" ", "\\ ");
+		}
+
+		/// <summary>
 		/// This is a faster replacement of File.ReadAllText. Code snippet based on code
 		/// and analysis by Sam Allen
 		/// http://dotnetperls.com/Content/File-Handling.aspx
