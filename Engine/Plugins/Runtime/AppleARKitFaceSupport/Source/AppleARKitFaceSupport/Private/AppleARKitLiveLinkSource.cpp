@@ -147,8 +147,10 @@ void FAppleARKitLiveLinkSource::PublishBlendShapes(FName SubjectName, double Tim
 	{
 		static FLiveLinkFrameData LiveLinkFrame;
 
-		LiveLinkFrame.WorldTime = Timestamp;
-
+		//LiveLinkFrame.WorldTime = Timestamp;
+		// Don't use the ARKit timestamps because there's a bug somewhere in LiveLink that doesn't interpret them properly
+		LiveLinkFrame.WorldTime = FPlatformTime::Seconds();
+		
 		TArray<FLiveLinkCurveElement>& BlendShapes = LiveLinkFrame.CurveElements;
 
 		BlendShapes.Reset((int32)EARFaceBlendShape::MAX);
