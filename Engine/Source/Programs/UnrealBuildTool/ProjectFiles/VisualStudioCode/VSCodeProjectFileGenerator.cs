@@ -935,7 +935,7 @@ namespace UnrealBuildTool
 				ExecutableFilename += ".app/Contents/MacOS/" + Path.GetFileName(ExecutableFilename);
 			}
 
-			return FileReference.MakeFromNormalizedFullPath(ExecutableFilename);
+			return new FileReference(ExecutableFilename);
 		}
 
 		private void WriteNativeLaunchConfig(ProjectData.Project InProject, JsonFile OutFile)

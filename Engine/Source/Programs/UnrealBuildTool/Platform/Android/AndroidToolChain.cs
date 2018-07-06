@@ -1341,7 +1341,7 @@ namespace UnrealBuildTool
 							FileArguments += GetCompileArguments_C(bDisableOptimizations);
 
 							// remove shadow variable warnings for externally included files
-							if (!SourceFile.AbsolutePath.Replace("\\", "/").StartsWith(Path.GetFullPath(UnrealBuildTool.RootDirectory.CanonicalName)))
+							if (!SourceFile.Location.IsUnderDirectory(UnrealBuildTool.RootDirectory))
 							{
 								bDisableShadowWarning = true;
 							}

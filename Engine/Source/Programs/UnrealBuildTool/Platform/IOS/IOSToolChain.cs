@@ -1173,8 +1173,8 @@ namespace UnrealBuildTool
                 GenDebugAction.ActionHandler = new Action.BlockingActionHandler(RPCUtilHelper.RPCActionHandler);
                 FileItem DsymExporter = FileItem.GetItemByPath(Path.GetFullPath(Path.Combine(BranchDirectory, "Engine/")) + "/Binaries/Mac/" + "DsymExporter");
                 QueueFileForBatchUpload(DsymExporter);
-                QueueDirectoryForBatchUpload(DirectoryReference.MakeFromNormalizedFullPath(Path.GetFullPath(Path.Combine(BranchDirectory, "Engine/")) + "Binaries/ThirdParty/ICU/icu4c-53_1/Mac/"));
-                QueueDirectoryForBatchUpload(DirectoryReference.MakeFromNormalizedFullPath(Path.GetFullPath(Path.Combine(BranchDirectory, "Engine/")) + "Content/Internationalization/"));
+                QueueDirectoryForBatchUpload(new DirectoryReference(Path.GetFullPath(Path.Combine(BranchDirectory, "Engine/")) + "Binaries/ThirdParty/ICU/icu4c-53_1/Mac/", DirectoryReference.Sanitize.None));
+                QueueDirectoryForBatchUpload(new DirectoryReference(Path.GetFullPath(Path.Combine(BranchDirectory, "Engine/")) + "Content/Internationalization/", DirectoryReference.Sanitize.None));
             }
 
             GenDebugAction.CommandPath = "sh";

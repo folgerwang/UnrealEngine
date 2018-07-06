@@ -20,18 +20,12 @@ namespace Tools.DotNETCommon
 		public readonly string DisplayName;
 
 		/// <summary>
-		/// The canonical form of the name
-		/// </summary>
-		public readonly string CanonicalName;
-
-		/// <summary>
 		/// Constructor
 		/// </summary>
 		/// <param name="DisplayName">The display name</param>
 		public FileSystemName(string DisplayName)
 		{
 			this.DisplayName = DisplayName;
-			CanonicalName = DisplayName.ToLowerInvariant();
 		}
 
 		/// <summary>
@@ -44,12 +38,10 @@ namespace Tools.DotNETCommon
 			if(Idx == Reference.FullName.Length - 1)
 			{
 				DisplayName = Reference.FullName;
-				CanonicalName = Reference.CanonicalName;
 			}
 			else
 			{
 				DisplayName = Reference.FullName.Substring(Idx + 1);
-				CanonicalName = Reference.CanonicalName.Substring(Idx + 1);
 			}
 		}
 
@@ -67,7 +59,7 @@ namespace Tools.DotNETCommon
 			}
 			else
 			{
-				return (object)B != null && A.CanonicalName == B.CanonicalName;
+				return (object)B != null && A.DisplayName.Equals(B.DisplayName, FileSystemReference.Comparison);
 			}
 		}
 
@@ -96,15 +88,15 @@ namespace Tools.DotNETCommon
         {
             if(Extension.Length == 0)
             {
-                return CanonicalName.IndexOf('.') == -1;
+                return DisplayName.IndexOf('.') == -1;
             }
             else if(Extension[0] == '.')
             {
-                return CanonicalName.EndsWith(Extension, StringComparison.InvariantCultureIgnoreCase);
+                return DisplayName.EndsWith(Extension, FileSystemReference.Comparison);
             }
             else
             {
-                return CanonicalName.Length > Extension.Length && CanonicalName[CanonicalName.Length - Extension.Length] == '.' && CanonicalName.EndsWith(Extension, StringComparison.InvariantCultureIgnoreCase);
+                return DisplayName.Length > Extension.Length && DisplayName[DisplayName.Length - Extension.Length] == '.' && DisplayName.EndsWith(Extension, FileSystemReference.Comparison);
             }
         }
 
@@ -114,7 +106,7 @@ namespace Tools.DotNETCommon
         /// <returns>Hash code for this object</returns>
         public override int GetHashCode()
 		{
-			return CanonicalName.GetHashCode();
+			return FileSystemReference.Comparer.GetHashCode(DisplayName);
 		}
 
 		/// <summary>
