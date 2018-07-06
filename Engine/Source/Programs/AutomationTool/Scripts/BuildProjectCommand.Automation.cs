@@ -88,10 +88,6 @@ public partial class Project : CommandUtils
 				{
 					Agenda.AddTargets(new string[] { "ShaderCompileWorker" }, EditorPlatform, EditorConfiguration);
 				}
-				if (Params.Pak && Params.EditorTargets.Contains("UnrealPak") == false)
-				{
-					Agenda.AddTargets(new string[] { "UnrealPak" }, EditorPlatform, EditorConfiguration);
-				}
 				if (Params.FileServer && Params.EditorTargets.Contains("UnrealFileServer") == false)
 				{
 					Agenda.AddTargets(new string[] { "UnrealFileServer" }, EditorPlatform, EditorConfiguration);
