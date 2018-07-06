@@ -369,9 +369,7 @@ namespace UnrealBuildTool
 				if (CompileEnvironment.bUsePDBFiles)
 				{
 					// Create debug info suitable for E&C if wanted.
-					if (CompileEnvironment.bSupportEditAndContinue &&
-						// We only need to do this in debug as that's the only configuration that supports E&C.
-						CompileEnvironment.Configuration == CppConfiguration.Debug)
+					if (CompileEnvironment.bSupportEditAndContinue)
 					{
 						Arguments.Add("/ZI");
 					}
@@ -993,55 +991,53 @@ namespace UnrealBuildTool
 					FileArguments.Add(String.Format("/Fo\"{0}\"", ObjectFile.AbsolutePath));
 				}
 
+				// Don't farm out creation of precompiled headers as it is the critical path task.
+				CompileAction.bCanExecuteRemotely =
+					CompileEnvironment.PrecompiledHeaderAction != PrecompiledHeaderAction.Create ||
+					CompileEnvironment.bAllowRemotelyCompiledPCHs
+					;
+
 				// Create PDB files if we were configured to do that.
 				if (CompileEnvironment.bUsePDBFiles)
 				{
-					string PDBFileName;
-					bool bActionProducesPDB = false;
-
-					// All files using the same PCH are required to share the same PDB that was used when compiling the PCH
+					FileReference PDBLocation;
 					if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Include)
 					{
-						PDBFileName = CompileEnvironment.PrecompiledHeaderIncludeFilename.GetFileName();
+						// All files using the same PCH are required to share the same PDB that was used when compiling the PCH
+						PDBLocation = CompileEnvironment.PrecompiledHeaderFile.Location.ChangeExtension(".pdb");
+
+						// Enable synchronous file writes, since we'll be modifying the existing PDB
+						FileArguments.Add("/FS");
 					}
-					// Files creating a PCH use a PDB per file.
 					else if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Create)
 					{
-						PDBFileName = CompileEnvironment.PrecompiledHeaderIncludeFilename.GetFileName();
-						bActionProducesPDB = true;
+						// Files creating a PCH use a PDB per file.
+						PDBLocation = FileReference.Combine(OutputDir, CompileEnvironment.PrecompiledHeaderIncludeFilename.GetFileName() + ".pdb");
+
+						// Enable synchronous file writes, since we'll be modifying the existing PDB
+						FileArguments.Add("/FS");
 					}
-					// Ungrouped C++ files use a PDB per file.
 					else if (!bIsPlainCFile)
 					{
-						PDBFileName = Path.GetFileName(SourceFile.AbsolutePath);
-						bActionProducesPDB = true;
+						// Ungrouped C++ files use a PDB per file.
+						PDBLocation = FileReference.Combine(OutputDir, SourceFile.Location.GetFileName() + ".pdb");
 					}
-					// Group all plain C files that doesn't use PCH into the same PDB
 					else
 					{
-						PDBFileName = "MiscPlainC";
+						// Group all plain C files that doesn't use PCH into the same PDB
+						PDBLocation = FileReference.Combine(OutputDir, "MiscPlainC.pdb");
 					}
 
-					{
-						// Specify the PDB file that the compiler should write to.
-						FileItem PDBFile = FileItem.GetItemByFileReference(
-								FileReference.Combine(
-									OutputDir,
-									PDBFileName + ".pdb"
-									)
-								);
-						FileArguments.Add(String.Format("/Fd\"{0}\"", PDBFile.AbsolutePath));
+					// Specify the PDB file that the compiler should write to.
+					FileArguments.Add(String.Format("/Fd\"{0}\"", PDBLocation));
 
-						// Only use the PDB as an output file if we want PDBs and this particular action is
-						// the one that produces the PDB (as opposed to no debug info, where the above code
-						// is needed, but not the output PDB, or when multiple files share a single PDB, so
-						// only the action that generates it should count it as output directly)
-						if (bActionProducesPDB)
-						{
-							CompileAction.ProducedItems.Add(PDBFile);
-							Result.DebugDataFiles.Add(PDBFile);
-						}
-					}
+					// Don't add the PDB as an output file because it's modified multiple times. This will break timestamp dependency tracking.
+					FileItem PDBFile = FileItem.GetItemByFileReference(PDBLocation);
+					Result.DebugDataFiles.Add(PDBFile);
+
+					// Don't allow remote execution when PDB files are enabled; we need to modify the same files. XGE works around this by generating separate
+					// PDB files per agent, but this functionality is only available with the Visual C++ extension package (via the VCCompiler=true tool option).
+					CompileAction.bCanExecuteRemotely = false;
 				}
 
 				// Add C or C++ specific compiler arguments.
@@ -1094,12 +1090,6 @@ namespace UnrealBuildTool
 					// VC++ always outputs the source file name being compiled, so we don't need to emit this ourselves
 					CompileAction.bShouldOutputStatusDescription = false;
 				}
-
-				// Don't farm out creation of precompiled headers as it is the critical path task.
-				CompileAction.bCanExecuteRemotely =
-					CompileEnvironment.PrecompiledHeaderAction != PrecompiledHeaderAction.Create ||
-					CompileEnvironment.bAllowRemotelyCompiledPCHs
-					;
 
 				// When compiling with SN-DBS, modules that contain a #import must be built locally
 				if (CompileEnvironment.bBuildLocallyWithSNDBS == true)

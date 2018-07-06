@@ -860,7 +860,7 @@ namespace UnrealBuildTool
 		public bool bAllowASLRInShipping = true;
 
 		/// <summary>
-		/// Whether to support edit and continue.  Only works on Microsoft compilers in 32-bit compiles.
+		/// Whether to support edit and continue.  Only works on Microsoft compilers.
 		/// </summary>
 		[XmlConfigFile(Category = "BuildConfiguration")]
 		public bool bSupportEditAndContinue = false;

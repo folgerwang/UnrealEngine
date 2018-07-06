@@ -452,9 +452,16 @@ namespace UnrealBuildTool
 			}
 
 			// E&C support.
-			if (Target.bSupportEditAndContinue && Target.Configuration == UnrealTargetConfiguration.Debug)
+			if (Target.bSupportEditAndContinue)
 			{
 				Target.bUseIncrementalLinking = true;
+				Target.bUsePDBFiles = true;
+			}
+
+			// If we're using PDB files and PCHs, the generated code needs to be compiled with the same options as the PCH.
+			if(Target.bUsePDBFiles && Target.bUsePCHFiles)
+			{
+				Target.bDisableDebugInfoForGeneratedCode = false;
 			}
 
 //			@Todo: Still getting reports of frequent OOM issues with this enabled as of 15.7.
