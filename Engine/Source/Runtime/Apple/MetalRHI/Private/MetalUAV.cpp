@@ -153,6 +153,8 @@ FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView(FVerte
 	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextureUAVs))
 	{
 		check(VertexBuffer->GetUsage() & BUF_UnorderedAccess);
+		ns::AutoReleased<FMetalTexture> Tex = VertexBuffer->CreateLinearTexture((EPixelFormat)Format);
+		check(Tex);
 	}
 		
 	// create the UAV buffer to point to the structured buffer's memory
@@ -178,6 +180,8 @@ FUnorderedAccessViewRHIRef FMetalDynamicRHI::RHICreateUnorderedAccessView(FIndex
 		if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextureUAVs))
 		{
 			check(IndexBuffer->GetUsage() & BUF_UnorderedAccess);
+			ns::AutoReleased<FMetalTexture> Tex = IndexBuffer->CreateLinearTexture((EPixelFormat)Format);
+			check(Tex);
 		}
 		
 		// create the UAV buffer to point to the structured buffer's memory
@@ -320,7 +324,8 @@ FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView(FVertexB
 		check(Stride == GPixelFormats[Format].BlockBytes);
 		check(VertexBuffer->GetUsage() & BUF_ShaderResource);
 		
-		check(VertexBuffer->GetLinearTexture((EPixelFormat)Format));
+		ns::AutoReleased<FMetalTexture> Tex = VertexBuffer->CreateLinearTexture((EPixelFormat)Format);
+		check(Tex);
 	}
 	
 	return SRV;
@@ -339,7 +344,11 @@ FShaderResourceViewRHIRef FMetalDynamicRHI::RHICreateShaderResourceView(FIndexBu
 	SRV->SourceStructuredBuffer = nullptr;
 	SRV->Format = (Buffer->IndexType == mtlpp::IndexType::UInt16) ? PF_R16_UINT : PF_R32_UINT;
 	
-	check(!FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures) || Buffer->GetLinearTexture((EPixelFormat)SRV->Format));
+	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures))
+	{
+		ns::AutoReleased<FMetalTexture> Tex = Buffer->CreateLinearTexture((EPixelFormat)SRV->Format);
+		check(Tex);
+	}
 	
 	return SRV;
 	}

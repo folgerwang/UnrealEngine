@@ -753,6 +753,11 @@ public:
 	/**
 	 * Get a linear texture for given format.
 	 */
+	ns::AutoReleased<FMetalTexture> CreateLinearTexture(EPixelFormat Format);
+	
+	/**
+	 * Get a linear texture for given format.
+	 */
 	ns::AutoReleased<FMetalTexture> GetLinearTexture(EPixelFormat Format);
 	
 	/**
