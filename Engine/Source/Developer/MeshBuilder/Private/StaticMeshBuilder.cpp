@@ -65,6 +65,7 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 
 	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
 	{
+		const int32 BaseReduceLodIndex = 0;
 		float MaxDeviation = 0.0f;
 		FMeshBuildSettings& LODBuildSettings = StaticMesh->SourceModels[LodIndex].BuildSettings;
 		const FMeshDescription* OriginalMeshDescription = StaticMesh->GetOriginalMeshDescription(LodIndex);
@@ -81,7 +82,6 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 		}
 		else
 		{
-			const int32 BaseReduceLodIndex = 0;
 			if (bUseReduction)
 			{
 				// Initialize an empty mesh description that the reduce will fill
@@ -91,6 +91,9 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 			{
 				//Duplicate the lodindex 0 we have a 100% reduction which is like a duplicate
 				MeshDescriptions[LodIndex] = MeshDescriptions[BaseReduceLodIndex];
+				//Set the overlapping threshold
+				float ComparisonThreshold = StaticMesh->SourceModels[BaseReduceLodIndex].BuildSettings.bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
+				MeshDescriptionHelper.FindOverlappingCorners(MeshDescriptions[LodIndex], ComparisonThreshold);
 				if (LodIndex > 0)
 				{
 					
