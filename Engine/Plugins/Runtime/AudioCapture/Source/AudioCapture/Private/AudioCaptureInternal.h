@@ -40,6 +40,10 @@ namespace Audio
 		TArray<float> FloatBuffer;
 		MLHandle InputDeviceHandle;
 		bool bStreamStarted;
+
+		FCriticalSection ApplicationResumeCriticalSection;
+		void OnApplicationSuspend();
+		void OnApplicationResume();
 #endif
 
 	private:

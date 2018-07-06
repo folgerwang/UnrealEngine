@@ -1,6 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AudioCaptureInternal.h"
+#include "Misc/CoreDelegates.h"
+
 #if PLATFORM_LUMIN
 
 namespace Audio 
@@ -41,6 +43,8 @@ void FAudioCaptureImpl::OnAudioCapture(void* InBuffer, uint32 InBufferFrames, do
 {
 	check(Callback);
 
+	FScopeLock ScopeLock(&ApplicationResumeCriticalSection);
+
 	int32 NumSamples = (int32)(InBufferFrames * NumChannels);
 
 	//TODO: Check to see if float conversion is needed:
@@ -78,16 +82,16 @@ bool FAudioCaptureImpl::GetDefaultCaptureDeviceInfo(FCaptureDeviceInfo& OutInfo)
 	else
 	{
 		UE_LOG(LogAudioCapture, Error, TEXT("Unable to retrieve settings from MLAudio error: %d! Sample rate %u"), Result, UnsignedSampleRate);
+		return false;
 	}
 	
-
 	return true;
 }
 
 bool FAudioCaptureImpl::OpenDefaultCaptureStream(const FAudioCaptureStreamParam& StreamParams)
 {
 	UE_LOG(LogAudioCapture, Warning, TEXT("OPENING STREAM"));
-	if (InputDeviceHandle != ML_INVALID_HANDLE)
+	if (MLHandleIsValid(InputDeviceHandle))
 	{
 		UE_LOG(LogAudioCapture, Error, TEXT("Capture Stream Already Opened"));
 	}
@@ -97,6 +101,9 @@ bool FAudioCaptureImpl::OpenDefaultCaptureStream(const FAudioCaptureStreamParam&
 		UE_LOG(LogAudioCapture, Error, TEXT("Need a callback object passed to open a capture stream"));
 		return false;
 	}
+
+	FCoreDelegates::ApplicationWillEnterBackgroundDelegate.AddRaw(this, &FAudioCaptureImpl::OnApplicationSuspend);
+	FCoreDelegates::ApplicationHasEnteredForegroundDelegate.AddRaw(this, &FAudioCaptureImpl::OnApplicationResume);
 
 	// set up variables to be populated by ML Audio
 	uint32 ChannelCount = NumChannels;
@@ -133,10 +140,12 @@ bool FAudioCaptureImpl::OpenDefaultCaptureStream(const FAudioCaptureStreamParam&
 	if (Result != MLResult_Ok)
 	{
 		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioCreateInputFromVoiceComm failed with code %d"), Result);
+		return false;
 	}
-	else if (InputDeviceHandle == ML_INVALID_HANDLE)
+	else if (!MLHandleIsValid(InputDeviceHandle))
 	{
 		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioCreateInputFromVoiceComm failed to generate an input device handle."));
+		return false;
 	}
 	return true;
 }
@@ -152,6 +161,10 @@ bool FAudioCaptureImpl::CloseStream()
 	}
 
 	InputDeviceHandle = ML_INVALID_HANDLE;
+
+	FCoreDelegates::ApplicationHasEnteredForegroundDelegate.RemoveAll(this);
+	FCoreDelegates::ApplicationWillEnterBackgroundDelegate.RemoveAll(this);
+
 	return true;
 }
 
@@ -199,7 +212,7 @@ bool FAudioCaptureImpl::GetStreamTime(double& OutStreamTime)
 
 bool FAudioCaptureImpl::IsStreamOpen() const
 {
-	return InputDeviceHandle != ML_INVALID_HANDLE;
+	return MLHandleIsValid(InputDeviceHandle);
 }
 
 bool FAudioCaptureImpl::IsCapturing() const
@@ -210,6 +223,27 @@ bool FAudioCaptureImpl::IsCapturing() const
 TUniquePtr<FAudioCaptureImpl> FAudioCapture::CreateImpl()
 {
 	return TUniquePtr<FAudioCaptureImpl>(new FAudioCaptureImpl());
+}
+
+void FAudioCaptureImpl::OnApplicationSuspend()
+{
+	FScopeLock ScopeLock(&ApplicationResumeCriticalSection);
+	MLResult Result = MLAudioStopInput(InputDeviceHandle);
+	if (Result != MLResult_Ok)
+	{
+		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioStopInput failed with code %d"), Result);
+		return;
+	}
+}
+
+void FAudioCaptureImpl::OnApplicationResume()
+{
+	MLResult Result = MLAudioStartInput(InputDeviceHandle);
+	if (Result != MLResult_Ok)
+	{
+		UE_LOG(LogAudioCapture, Warning, TEXT("MLAudioStartInput failed with code %d"), Result);
+		return;
+	}
 }
 
 } // namespace Audio
