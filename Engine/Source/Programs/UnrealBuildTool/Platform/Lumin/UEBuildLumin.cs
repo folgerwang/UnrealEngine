@@ -281,6 +281,10 @@ namespace UnrealBuildTool
 		{
 			return ExpectedSDKVersion;
 		}
+		protected override String GetRequiredScriptVersionString()
+		{
+			return "Lumin_15";
+		}
 
 		private string FindVersionNumber(string StringToFind, string[] AllLines)
 		{
