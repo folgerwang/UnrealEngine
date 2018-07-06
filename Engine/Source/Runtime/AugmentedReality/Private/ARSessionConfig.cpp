@@ -70,7 +70,6 @@ int32 UARSessionConfig::GetMaxNumSimultaneousImagesTracked() const
     return MaxNumSimultaneousImagesTracked;
 }
 
-/** @see EnvironmentCaptureProbeType */
 EAREnvironmentCaptureProbeType UARSessionConfig::GetEnvironmentCaptureProbeType() const
 {
 	return EnvironmentCaptureProbeType;
@@ -91,6 +90,11 @@ const TArray<UARCandidateObject*>& UARSessionConfig::GetCandidateObjectList() co
 	return CandidateObjects;
 }
 
+void UARSessionConfig::SetCandidateObjectList(const TArray<UARCandidateObject*>& InCandidateObjects)
+{
+	CandidateObjects = InCandidateObjects;
+}
+
 void UARSessionConfig::AddCandidateObject(UARCandidateObject* CandidateObject)
 {
 	if (CandidateObject != nullptr)
@@ -107,6 +111,26 @@ FARVideoFormat UARSessionConfig::GetDesiredVideoFormat() const
 void UARSessionConfig::SetDesiredVideoFormat(FARVideoFormat NewFormat)
 {
 	DesiredVideoFormat = NewFormat;
+}
+
+EARFaceTrackingDirection UARSessionConfig::GetFaceTrackingDirection() const
+{
+	return FaceTrackingDirection;
+}
+
+void UARSessionConfig::SetFaceTrackingDirection(EARFaceTrackingDirection InDirection)
+{
+	FaceTrackingDirection = InDirection;
+}
+
+EARFaceTrackingUpdate UARSessionConfig::GetFaceTrackingUpdate() const
+{
+	return FaceTrackingUpdate;
+}
+
+void UARSessionConfig::SetFaceTrackingUpdate(EARFaceTrackingUpdate InUpdate)
+{
+	FaceTrackingUpdate = InUpdate;
 }
 
 void UARSessionConfig::Serialize(FArchive& Ar)

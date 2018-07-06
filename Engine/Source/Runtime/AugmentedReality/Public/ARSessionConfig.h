@@ -97,7 +97,19 @@ enum class EAREnvironmentCaptureProbeType : uint8
 	Automatic
 };
 
-UCLASS(BlueprintType, Category="AR AugmentedReality")
+/**
+ * Tells the AR system how much of the face work to perform
+ */
+UENUM(BlueprintType)
+enum class EARFaceTrackingUpdate : uint8
+{
+	/** Curves and geometry will be updated (only needed for mesh visualization) */
+	CurvesAndGeo,
+	/** Only the curve data is updated */
+	CurvesOnly
+};
+
+UCLASS(BlueprintType, Category="AR Settings")
 class AUGMENTEDREALITY_API UARSessionConfig : public UDataAsset
 {
 	GENERATED_BODY()
@@ -108,50 +120,87 @@ public:
 	
 public:
 	/** @see EARWorldAlignment */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	EARWorldAlignment GetWorldAlignment() const;
 
 	/** @see SessionType */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	EARSessionType GetSessionType() const;
 
 	/** @see PlaneDetectionMode */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	EARPlaneDetectionMode GetPlaneDetectionMode() const;
 
 	/** @see LightEstimationMode */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	EARLightEstimationMode GetLightEstimationMode() const;
 
 	/** @see FrameSyncMode */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	EARFrameSyncMode GetFrameSyncMode() const;
 
 	/** @see bEnableAutomaticCameraOverlay */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	bool ShouldRenderCameraOverlay() const;
 
 	/** @see bEnableAutomaticCameraTracking */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	bool ShouldEnableCameraTracking() const;
 
 	/** @see bEnableAutoFocus */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	bool ShouldEnableAutoFocus() const;
 
 	/** @see CandidateImages */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	const TArray<UARCandidateImage*>& GetCandidateImageList() const;
     
 	/** @see MaxNumSimultaneousImagesTracked */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
     int32 GetMaxNumSimultaneousImagesTracked() const;
 	
 	/** @see EnvironmentCaptureProbeType */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	EAREnvironmentCaptureProbeType GetEnvironmentCaptureProbeType() const;
 	
 	/** @see WorldMapData */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	const TArray<uint8>& GetWorldMapData() const;
 	/** @see WorldMapData */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	void SetWorldMapData(TArray<uint8> WorldMapData);
 
+	/** @see CandidateObjects */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	const TArray<UARCandidateObject*>& GetCandidateObjectList() const;
+	/** @see CandidateObjects */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetCandidateObjectList(const TArray<UARCandidateObject*>& InCandidateObjects);
+	/** @see CandidateObjects */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	void AddCandidateObject(UARCandidateObject* CandidateObject);
 	
 	/** @see DesiredVideoFormat */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	FARVideoFormat GetDesiredVideoFormat() const;
+	/** @see DesiredVideoFormat */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	void SetDesiredVideoFormat(FARVideoFormat NewFormat);
 
+	/** @see FaceTrackingDirection */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	EARFaceTrackingDirection GetFaceTrackingDirection() const;
+	/** @see FaceTrackingDirection */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetFaceTrackingDirection(EARFaceTrackingDirection InDirection);
+	
+	/** @see FaceTrackingUpdate */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	EARFaceTrackingUpdate GetFaceTrackingUpdate() const;
+	/** @see FaceTrackingUpdate */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetFaceTrackingUpdate(EARFaceTrackingUpdate InUpdate);
+	
 private:
 	//~ UObject interface
 	virtual void Serialize(FArchive& Ar) override;
@@ -224,4 +273,12 @@ protected:
 	 */
 	UPROPERTY(EditAnywhere, Category="AR Settings")
 	FARVideoFormat DesiredVideoFormat;
+	
+	/** Whether to track the face as if you are looking out of the device or as a mirror */
+	UPROPERTY(EditAnywhere, Category="Face AR Settings")
+	EARFaceTrackingDirection FaceTrackingDirection;
+
+	/** Whether to track the face as if you are looking out of the device or as a mirror */
+	UPROPERTY(EditAnywhere, Category="Face AR Settings")
+	EARFaceTrackingUpdate FaceTrackingUpdate;
 };
