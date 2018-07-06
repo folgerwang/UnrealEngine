@@ -61,6 +61,10 @@ public partial class Project : CommandUtils
 		{
 			return;
 		}
+		if (Automation.IsEngineInstalled() && !Params.IsCodeBasedProject)
+		{
+			return;
+		}
 
 		Log("********** BUILD COMMAND STARTED **********");
 
