@@ -90,6 +90,7 @@ typedef TSharedPtr<class IOnlineMessage, ESPMode::ThreadSafe> IOnlineMessagePtr;
 typedef TSharedPtr<class IOnlinePresence, ESPMode::ThreadSafe> IOnlinePresencePtr;
 typedef TSharedPtr<class IOnlineChat, ESPMode::ThreadSafe> IOnlineChatPtr;
 typedef TSharedPtr<class IOnlineTurnBased, ESPMode::ThreadSafe> IOnlineTurnBasedPtr;
+typedef TSharedPtr<class IOnlineTournament, ESPMode::ThreadSafe> IOnlineTournamentPtr;
 typedef TSharedPtr<class FOnlineNotificationHandler, ESPMode::ThreadSafe> FOnlineNotificationHandlerPtr;
 typedef TSharedPtr<class FOnlineNotificationTransportManager, ESPMode::ThreadSafe> FOnlineNotificationTransportManagerPtr;
 
@@ -385,19 +386,19 @@ public:
 
 	/** 
 	 * Get the interface for accessing online messages
-	 * @return Interface pointer for the appropriate online user service
+	 * @return Interface pointer for the appropriate online message service
 	 */
 	virtual IOnlineMessagePtr GetMessageInterface() const = 0;
 
 	/** 
 	 * Get the interface for managing rich presence information
-	 * @return Interface pointer for the appropriate online user service
+	 * @return Interface pointer for the appropriate online presence service
 	 */
 	virtual IOnlinePresencePtr GetPresenceInterface() const = 0;
 
 	/** 
 	 * Get the interface for user-user and user-room chat functionality
-	 * @return Interface pointer for the appropriate online user service
+	 * @return Interface pointer for the appropriate online chat service
 	 */
 	virtual IOnlineChatPtr GetChatInterface() const = 0;
 
@@ -412,9 +413,15 @@ public:
 
 	/**
 	 * Get the interface for managing turn based multiplayer games
-	 * @return Interface pointer for the appropriate online user service
+	 * @return Interface pointer for the appropriate online turn-based service
 	 */
 	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const = 0;
+
+	/**
+	 * Get the interface for managing tournament information
+	 * @return Interface pointer for the appropriate online tournament service
+	 */
+	virtual IOnlineTournamentPtr GetTournamentInterface() const = 0;
 
 	/**
 	 * Get the transport manager instance for this subsystem

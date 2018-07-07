@@ -19,6 +19,7 @@
 #include "Interfaces/OnlinePurchaseInterface.h"
 #include "Interfaces/OnlineSharingInterface.h"
 #include "Interfaces/OnlineLeaderboardInterface.h"
+#include "Interfaces/OnlineTournamentInterface.h"
 
 DEFINE_LOG_CATEGORY(LogOnline);
 DEFINE_LOG_CATEGORY(LogOnlineGame);
@@ -41,7 +42,7 @@ DEFINE_LOG_CATEGORY(LogOnlineSharing);
 DEFINE_LOG_CATEGORY(LogOnlineStore);
 DEFINE_LOG_CATEGORY(LogOnlineStoreV2);
 DEFINE_LOG_CATEGORY(LogOnlinePurchase);
-
+DEFINE_LOG_CATEGORY(LogOnlineTournament);
 
 #if STATS
 ONLINESUBSYSTEM_API DEFINE_STAT(STAT_Online_Async);

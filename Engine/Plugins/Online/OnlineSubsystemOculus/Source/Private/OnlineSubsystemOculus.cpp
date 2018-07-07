@@ -139,6 +139,11 @@ IOnlineTurnBasedPtr FOnlineSubsystemOculus::GetTurnBasedInterface() const
 	return nullptr;
 }
 
+IOnlineTournamentPtr FOnlineSubsystemOculus::GetTournamentInterface() const
+{
+	return nullptr;
+}
+
 bool FOnlineSubsystemOculus::Tick(float DeltaTime)
 {
 	if (!FOnlineSubsystemImpl::Tick(DeltaTime))

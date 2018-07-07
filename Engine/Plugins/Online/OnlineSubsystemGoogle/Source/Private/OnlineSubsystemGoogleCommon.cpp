@@ -231,6 +231,11 @@ IOnlineTurnBasedPtr FOnlineSubsystemGoogleCommon::GetTurnBasedInterface() const
 	return nullptr;
 }
 
+IOnlineTournamentPtr FOnlineSubsystemGoogleCommon::GetTournamentInterface() const
+{
+	return nullptr;
+}
+
 FText FOnlineSubsystemGoogleCommon::GetOnlineServiceName() const
 {
 	return NSLOCTEXT("OnlineSubsystemGoogleCommon", "OnlineServiceName", "Google");

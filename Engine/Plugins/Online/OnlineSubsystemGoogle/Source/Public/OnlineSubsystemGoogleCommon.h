@@ -60,6 +60,7 @@ public:
 	virtual IOnlinePresencePtr GetPresenceInterface() const override;
 	virtual IOnlineChatPtr GetChatInterface() const override;
 	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override;
+	virtual IOnlineTournamentPtr GetTournamentInterface() const override;
 	virtual FText GetOnlineServiceName() const override;
 	virtual bool Init() override;
 	virtual bool Shutdown() override;

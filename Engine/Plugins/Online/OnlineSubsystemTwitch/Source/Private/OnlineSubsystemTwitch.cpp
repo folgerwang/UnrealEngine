@@ -126,6 +126,11 @@ IOnlineTurnBasedPtr FOnlineSubsystemTwitch::GetTurnBasedInterface() const
 	return nullptr;
 }
 
+IOnlineTournamentPtr FOnlineSubsystemTwitch::GetTournamentInterface() const
+{
+	return nullptr;
+}
+
 bool FOnlineSubsystemTwitch::Init()
 {
 	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineSubsystemTwitch::Init() Name: %s"), *InstanceName.ToString());
