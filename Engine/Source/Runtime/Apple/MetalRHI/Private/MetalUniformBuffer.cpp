@@ -12,7 +12,7 @@
 
 FMetalUniformBuffer::FMetalUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage InUsage)
 	: FRHIUniformBuffer(Layout)
-	, FMetalRHIBuffer(Layout.ConstantBufferSize, ((InUsage & UniformBuffer_MultiFrame) ? BUF_Static : BUF_Volatile), RRT_UniformBuffer)
+	, FMetalRHIBuffer(Layout.ConstantBufferSize, BUF_Volatile, RRT_UniformBuffer)
 {
 	if (Layout.ConstantBufferSize > 0)
 	{
