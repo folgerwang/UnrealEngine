@@ -556,7 +556,7 @@ const TArray<FString>& FPaths::GetRestrictedFolderNames()
 
 	if (!bBuiltArray)
 	{
-		RestrictedFolderNames.Add(TEXT("NotForLicencees"));
+		RestrictedFolderNames.Add(TEXT("NotForLicensees"));
 		RestrictedFolderNames.Add(TEXT("NoRedist"));
 		RestrictedFolderNames.Add(TEXT("CarefullyRedist"));
 		RestrictedFolderNames.Add(TEXT("EpicInternal"));
