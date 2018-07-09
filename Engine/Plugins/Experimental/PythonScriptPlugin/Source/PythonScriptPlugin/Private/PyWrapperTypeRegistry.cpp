@@ -16,11 +16,11 @@
 #include "PyGIL.h"
 #include "PyCore.h"
 #include "PyFileWriter.h"
-#include "PyOnlineDocsWriter.h"
 #include "PythonScriptPluginSettings.h"
 #include "ProfilingDebugging/ScopedTimers.h"
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
+#include "SourceCodeNavigation.h"
 #include "UObject/UnrealType.h"
 #include "UObject/UObjectHash.h"
 #include "UObject/Class.h"
@@ -1934,8 +1934,10 @@ void FPyWrapperTypeRegistry::GatherWrappedTypesForPropertyReferences(const UProp
 	}
 }
 
-void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes() const
+void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes(const EPyOnlineDocsFilterFlags InDocGenFlags) const
 {
+	UE_LOG(LogPython, Display, TEXT("Generating Python API stub file..."));
+
 	FPyFileWriter PythonScript;
 
 	TUniquePtr<FPyOnlineDocsWriter> OnlineDocsWriter;
@@ -1946,15 +1948,15 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes() const
 	TSharedPtr<FPyOnlineDocsSection> OnlineDocsStructTypesSection;
 	TSharedPtr<FPyOnlineDocsSection> OnlineDocsClassTypesSection;
 
-	if (GetDefault<UPythonScriptPluginSettings>()->bGenerateOnlineDocs)
+	if (EnumHasAnyFlags(InDocGenFlags, EPyOnlineDocsFilterFlags::IncludeAll))
 	{
 		OnlineDocsWriter = MakeUnique<FPyOnlineDocsWriter>();
 		OnlineDocsUnrealModule = OnlineDocsWriter->CreateModule(TEXT("unreal"));
 		OnlineDocsNativeTypesSection = OnlineDocsWriter->CreateSection(TEXT("Native Types"));
-		OnlineDocsEnumTypesSection = OnlineDocsWriter->CreateSection(TEXT("Enum Types"));
-		OnlineDocsDelegateTypesSection = OnlineDocsWriter->CreateSection(TEXT("Delegate Types"));
 		OnlineDocsStructTypesSection = OnlineDocsWriter->CreateSection(TEXT("Struct Types"));
 		OnlineDocsClassTypesSection = OnlineDocsWriter->CreateSection(TEXT("Class Types"));
+		OnlineDocsEnumTypesSection = OnlineDocsWriter->CreateSection(TEXT("Enum Types"));
+		OnlineDocsDelegateTypesSection = OnlineDocsWriter->CreateSection(TEXT("Delegate Types"));
 	}
 
 	// Process additional Python files
@@ -2047,6 +2049,10 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes() const
 	}
 
 	// Process native glue code
+	UE_LOG(LogPython, Display, TEXT("  ...generating Python API: glue code"));
+	PythonScript.WriteLine(TEXT("##### Glue Code #####"));
+	PythonScript.WriteNewLine();
+
 	for (const PyGenUtil::FNativePythonModule& NativePythonModule : NativePythonModules)
 	{
 		for (PyMethodDef* MethodDef = NativePythonModule.PyModuleMethods; MethodDef && MethodDef->ml_name; ++MethodDef)
@@ -2072,11 +2078,83 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes() const
 	}
 
 	// Process generated glue code
-	auto ProcessWrappedDataArray = [this, &PythonScript](const TMap<FName, PyTypeObject*>& WrappedData, const TSharedPtr<FPyOnlineDocsSection>& OnlineDocsSection)
+	// Also excludes types that don't pass the filters specified in InDocGenFlags using the information about
+	// which module it came from and where that module exists on disk.
+	auto ProcessWrappedDataArray = [this, &PythonScript, InDocGenFlags](const TMap<FName, PyTypeObject*>& WrappedData, const TSharedPtr<FPyOnlineDocsSection>& OnlineDocsSection)
 	{
+		if (InDocGenFlags == EPyOnlineDocsFilterFlags::IncludeNone)
+		{
+			return;
+		}
+
+		UE_LOG(LogPython, Display, TEXT("  ...generating Python API: %s"), *OnlineDocsSection->GetName());
+		PythonScript.WriteLine(FString::Printf(TEXT("##### %s #####"), *OnlineDocsSection->GetName()));
+		PythonScript.WriteNewLine();
+		
+		FString ProjectTopDir;
+		if (FPaths::IsProjectFilePathSet())
+		{
+			ProjectTopDir / FPaths::GetCleanFilename(FPaths::ProjectDir());
+		}
+
 		for (const auto& WrappedDataPair : WrappedData)
 		{
 			TSharedPtr<PyGenUtil::FGeneratedWrappedType> GeneratedWrappedType = GeneratedWrappedTypes.FindRef(WrappedDataPair.Key);
+
+			if ((InDocGenFlags != EPyOnlineDocsFilterFlags::IncludeAll) && GeneratedWrappedType.IsValid())
+			{
+				const UField* MetaType = GeneratedWrappedType->MetaData->GetMetaType();
+
+				FString ModulePath;
+
+				if (MetaType)
+				{
+					FSourceCodeNavigation::FindModulePath(MetaType->GetTypedOuter<UPackage>(), ModulePath);
+				}
+
+				if (!ModulePath.IsEmpty())
+				{
+					// Is Project class?
+					if (!ProjectTopDir.IsEmpty()
+						&& (ModulePath.Contains(ProjectTopDir)))
+					{
+						// Optionally exclude Project classes
+						if (!EnumHasAnyFlags(InDocGenFlags, EPyOnlineDocsFilterFlags::IncludeProject))
+						{
+							continue;
+						}
+					}
+					// Is Enterprise class
+					else if (ModulePath.Contains(TEXT("/Enterprise/")))
+					{
+						// Optionally exclude Enterprise classes
+						if (!EnumHasAnyFlags(InDocGenFlags, EPyOnlineDocsFilterFlags::IncludeEnterprise))
+						{
+							continue;
+						}
+					}
+					// is internal class
+					else if (FPaths::IsRestrictedPath(ModulePath))
+					{
+						// Optionally exclude internal classes
+						if (!EnumHasAnyFlags(InDocGenFlags, EPyOnlineDocsFilterFlags::IncludeInternal))
+						{
+							continue;
+						}
+					}
+					// Everything else is considered an "Engine" class
+					else
+					{
+						// Optionally exclude engine classes
+						if (!EnumHasAnyFlags(InDocGenFlags, EPyOnlineDocsFilterFlags::IncludeEngine))
+						{
+							continue;
+						}
+					}
+				}
+				// else if cannot determine origin then include
+			}
+
 			GenerateStubCodeForWrappedType(WrappedDataPair.Value, GeneratedWrappedType.Get(), PythonScript, OnlineDocsSection.Get());
 		}
 	};
@@ -2087,13 +2165,18 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes() const
 	ProcessWrappedDataArray(PythonWrappedClasses, OnlineDocsClassTypesSection);
 
 	// Append any additional Python code now that all the reflected API has been exported
+	UE_LOG(LogPython, Display, TEXT("  ...generating Python API: additional code"));
+	PythonScript.WriteLine(TEXT("##### Additional Code #####"));
+	PythonScript.WriteNewLine();
+
 	for (const FString& AdditionalPythonLine : AdditionalPythonCode)
 	{
 		PythonScript.WriteLine(AdditionalPythonLine);
 	}
 
-	const FString PythonSourceFilename = FPaths::ProjectIntermediateDir() / TEXT("PythonStub") / TEXT("unreal.py");
+	const FString PythonSourceFilename = FPaths::ConvertRelativePathToFull(FPaths::ProjectIntermediateDir()) / TEXT("PythonStub") / TEXT("unreal.py");
 	PythonScript.SaveFile(*PythonSourceFilename);
+	UE_LOG(LogPython, Display, TEXT("  ...generated: %s"), *PythonSourceFilename);
 
 	if (OnlineDocsWriter.IsValid())
 	{
