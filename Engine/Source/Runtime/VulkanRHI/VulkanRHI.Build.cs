@@ -34,6 +34,8 @@ public class VulkanRHI : ModuleRules
 			}
 		);
 
+		bool bWithVulkanColorConversion = false;
+
 		if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
 		{
 			string VulkanSDKPath = Environment.GetEnvironmentVariable("VULKAN_SDK");
@@ -118,6 +120,8 @@ public class VulkanRHI : ModuleRules
 			else if (Target.Platform == UnrealTargetPlatform.Lumin)
 			{
 				PrivateIncludePaths.Add(Target.UEThirdPartySourceDirectory + "Vulkan/Include/vulkan");
+				bWithVulkanColorConversion = true;
+				Log.TraceInformation("Including Vulkan Color Conversions");
 			}
 			else if (!String.IsNullOrEmpty(VulkanSDKPath))
 			{
@@ -146,6 +150,7 @@ public class VulkanRHI : ModuleRules
 		{
 			PrecompileForTargets = PrecompileTargetsType.None;
 		}
+		PublicDefinitions.Add("WITH_VULKAN_COLOR_CONVERSIONS=" + (bWithVulkanColorConversion ? "1" : "0"));
 	}
 
 	static int GetVersionFromString(string Text)
