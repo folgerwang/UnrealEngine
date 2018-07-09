@@ -531,6 +531,7 @@ void FMetalRHICommandContext::RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef Un
 			else
 			{
 				Temp = Context->AllocateFromRingBuffer(AlignedSize);
+				Temp.MarkSingleUse();
 			}
 			
 			// Construct a pattern that can be encoded into the temporary buffer (handles packing & 2-byte formats).
