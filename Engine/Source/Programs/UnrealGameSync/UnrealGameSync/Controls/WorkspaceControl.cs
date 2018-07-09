@@ -34,7 +34,7 @@ namespace UnrealGameSync
 	interface IWorkspaceControlOwner
 	{
 		void EditSelectedProject(WorkspaceControl Workspace);
-		void RequestProjectChange(WorkspaceControl Workspace, UserSelectedProjectSettings Project);
+		void RequestProjectChange(WorkspaceControl Workspace, UserSelectedProjectSettings Project, bool bModal);
 		void ShowAndActivate();
 		void StreamChanged(WorkspaceControl Workspace);
 		void SetTabNames(TabLabels TabNames);
@@ -607,7 +607,7 @@ namespace UnrealGameSync
 		{
 			if(!bIsDisposing)
 			{
-				Owner.RequestProjectChange(this, SelectedProject);
+				Owner.RequestProjectChange(this, SelectedProject, false);
 			}
 		}
 
@@ -4169,7 +4169,7 @@ namespace UnrealGameSync
 
 			foreach(UserSelectedProjectSettings RecentProject in Settings.RecentProjects)
 			{
-				ToolStripMenuItem Item = new ToolStripMenuItem(RecentProject.ToString(), null, new EventHandler((o, e) => Owner.RequestProjectChange(this, RecentProject)));
+				ToolStripMenuItem Item = new ToolStripMenuItem(RecentProject.ToString(), null, new EventHandler((o, e) => Owner.RequestProjectChange(this, RecentProject, true)));
 				RecentMenu.Items.Insert(RecentMenu.Items.Count - 2, Item);
 			}
 
