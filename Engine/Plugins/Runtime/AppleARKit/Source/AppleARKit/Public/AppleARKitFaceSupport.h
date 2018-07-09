@@ -50,6 +50,11 @@ public:
 	 * @param SessionConfig the UE4 configuration object that needs processing
 	 */
 	virtual ARConfiguration* ToARConfiguration(UARSessionConfig* SessionConfig) { return nullptr; }
+
+	/**
+	 * @return whether this device supports face ar
+	 */
+	virtual bool DoesSupportFaceAR() { return false; }
 #endif
 
 	static FName GetModularFeatureName()

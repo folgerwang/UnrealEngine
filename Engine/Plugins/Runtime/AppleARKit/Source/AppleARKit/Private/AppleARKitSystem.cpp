@@ -739,7 +739,13 @@ bool FAppleARKitSystem::OnIsTrackingTypeSupported(EARSessionType SessionType) co
 		}
 		case EARSessionType::Face:
 		{
-			return ARFaceTrackingConfiguration.isSupported == TRUE;
+			// We need to get the face support from the factory method, which is a modular feature to avoid dependencies
+			TArray<IAppleARKitFaceSupport*> Impls = IModularFeatures::Get().GetModularFeatureImplementations<IAppleARKitFaceSupport>("AppleARKitFaceSupport");
+			if (Impls.Num() > 0 && Impls[0] != nullptr)
+			{
+				return Impls[0]->DoesSupportFaceAR();
+			}
+			return false;
 		}
 	}
 #endif

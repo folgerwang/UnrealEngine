@@ -135,4 +135,8 @@ void FAppleARKitFaceSupport::PublishLiveLinkData(TSharedPtr<FAppleARKitAnchorDat
 	}
 }
 
+bool FAppleARKitFaceSupport::DoesSupportFaceAR()
+{
+	return ARFaceTrackingConfiguration.isSupported == TRUE;
+}
 #endif
