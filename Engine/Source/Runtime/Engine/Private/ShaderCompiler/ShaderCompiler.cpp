@@ -45,6 +45,7 @@
 #include "ProfilingDebugging/CookStats.h"
 #include "SceneInterface.h"
 #include "ShaderCodeLibrary.h"
+#include "MeshMaterialShaderType.h"
 
 #define LOCTEXT_NAMESPACE "ShaderCompiler"
 
@@ -798,7 +799,7 @@ void FShaderCompileUtilities::DoReadTaskResults(const TArray<FShaderCommonCompil
 	}
 }
 
-static void CheckSingleJob(FShaderCompileJob* SingleJob, TArray<FString>& Errors)
+static bool CheckSingleJob(FShaderCompileJob* SingleJob, const TArray<FMaterial*>& Materials, TArray<FString>& Errors)
 {
 	if (SingleJob->bSucceeded)
 	{
@@ -812,6 +813,39 @@ static void CheckSingleJob(FShaderCompileJob* SingleJob, TArray<FString>& Errors
 			Errors.AddUnique(SingleJob->Output.Errors[ErrorIndex].GetErrorString());
 		}
 	}
+
+	bool bSucceeded = SingleJob->bSucceeded;
+
+	if (SingleJob->ShaderType)
+	{
+		// Allow the shader validation to fail the compile if it sees any parameters bound that aren't supported.
+		if (FMaterialShaderType* MaterialShaderType = SingleJob->ShaderType->GetMaterialShaderType())
+		{
+			bSucceeded = bSucceeded && MaterialShaderType->ValidateCompiledResult(
+				(EShaderPlatform)SingleJob->Input.Target.Platform,
+				Materials,
+				SingleJob->Output.ParameterMap,
+				Errors);
+		}
+		else if (FMeshMaterialShaderType* MeshMaterialShaderType = SingleJob->ShaderType->GetMeshMaterialShaderType())
+		{
+			bSucceeded = bSucceeded && MeshMaterialShaderType->ValidateCompiledResult(
+				(EShaderPlatform)SingleJob->Input.Target.Platform,
+				Materials,
+				SingleJob->VFType,
+				SingleJob->Output.ParameterMap,
+				Errors);
+		}
+		else if (FGlobalShaderType* GlobalShaderType = SingleJob->ShaderType->GetGlobalShaderType())
+		{
+			bSucceeded = bSucceeded && GlobalShaderType->ValidateCompiledResult(
+				(EShaderPlatform)SingleJob->Input.Target.Platform,
+				SingleJob->Output.ParameterMap,
+				Errors);
+		}
+	}
+
+	return bSucceeded;
 };
 
 static void AddErrorsForFailedJob(const FShaderCompileJob& CurrentJob, TArray<EShaderPlatform>& ErrorPlatforms, TArray<FString>& UniqueErrors, TArray<const FShaderCommonCompileJob*>& ErrorJobs)
@@ -1933,7 +1967,7 @@ void FShaderCompilingManager::ProcessCompiledShaderMaps(
 				auto* SingleJob = CurrentJob.GetSingleShaderJob();
 				if (SingleJob)
 				{
-					CheckSingleJob(SingleJob, Errors);
+					bSuccess = bSuccess && CheckSingleJob(SingleJob, MaterialsArray, Errors);
 				}
 				else
 				{
@@ -1941,7 +1975,7 @@ void FShaderCompilingManager::ProcessCompiledShaderMaps(
 					for (int32 Index = 0; Index < PipelineJob->StageJobs.Num(); ++Index)
 					{
 						bSuccess = bSuccess && PipelineJob->StageJobs[Index]->bSucceeded;
-						CheckSingleJob(PipelineJob->StageJobs[Index]->GetSingleShaderJob(), Errors);
+						bSuccess = bSuccess && CheckSingleJob(PipelineJob->StageJobs[Index]->GetSingleShaderJob(), MaterialsArray, Errors);
 					}
 				}
 			}
