@@ -1550,6 +1550,48 @@ public:
 			CachedElementBuffers.Num();
 	}
 
+	/** Apply Function to each draw element */ 
+	void ForEachElement(const TFunction<void(FSlateDrawElement&)>& InFunction)
+	{
+		for (FSlateDrawElement& Element : DrawElements)
+		{
+			InFunction(Element);
+		}
+	}
+	/** Apply Function to each draw element */ 
+	void ForEachElement(const TFunction<void(FSlateDrawBase&)>& InFunction)
+	{
+		for (FSlateDrawBox& Element : BoxElements)
+		{
+			InFunction(Element);
+		}
+
+		for (FSlateDrawBox& Element : BorderElements)
+		{
+			InFunction(Element);
+		}
+
+		for (FSlateDrawText& Element : TextElements)
+		{
+			InFunction(Element);
+		}
+
+		for (FSlateDrawShapedText& Element : ShapedTextElements)
+		{
+			InFunction(Element);
+		}
+		
+		for (FSlateDrawLines& Element : LineElements)
+		{
+			InFunction(Element);
+		}
+		
+		for (FSlateDrawCachedBuffer& Element : CachedElementBuffers)
+		{
+			InFunction(Element);
+		}
+	}
+
 public:
 	// Element batch maps sorted by layer.
 	FElementBatchMap LayerToElementBatches;
@@ -1637,6 +1679,18 @@ public:
 		return RootDrawLayer.DrawElements;
 	}
 
+	/** Apply Function to each draw element */ 
+	FORCEINLINE void ForEachElement(const TFunction<void(FSlateDrawElement&)>& InFunction)
+	{
+		RootDrawLayer.ForEachElement(InFunction);
+	}
+
+	/** Apply Function to each draw element */ 
+	FORCEINLINE void ForEachElement(const TFunction<void(FSlateDrawBase&)>& InFunction)
+	{
+		RootDrawLayer.ForEachElement(InFunction);
+	}
+	
 	/** @return the total number of elements that have been registered to be drawn. */
 	SLATECORE_API int32 GetElementCount() const;
 
