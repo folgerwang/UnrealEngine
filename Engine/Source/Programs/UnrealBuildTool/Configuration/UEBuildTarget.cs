@@ -1628,12 +1628,15 @@ namespace UnrealBuildTool
 						if(Module.Rules.bPrecompile)
 						{
 							FileReference PrecompiledManifestLocation = Module.PrecompiledManifestLocation;
-							Receipt.PrecompiledBuildDependencies.Add(PrecompiledManifestLocation);
-
-							PrecompiledManifest Manifest = PrecompiledManifest.Read(PrecompiledManifestLocation);
-							foreach(FileReference OutputFile in Manifest.OutputFiles)
+							if(FileReference.Exists(PrecompiledManifestLocation))
 							{
-								Receipt.PrecompiledBuildDependencies.Add(OutputFile);
+								Receipt.PrecompiledBuildDependencies.Add(PrecompiledManifestLocation);
+
+								PrecompiledManifest Manifest = PrecompiledManifest.Read(PrecompiledManifestLocation);
+								foreach(FileReference OutputFile in Manifest.OutputFiles)
+								{
+									Receipt.PrecompiledBuildDependencies.Add(OutputFile);
+								}
 							}
 						}
 					}
@@ -2348,9 +2351,9 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-			// Build the target's binaries.
+				// Build the target's binaries.
 				foreach (UEBuildBinary Binary in Binaries)
-			{
+				{
 					OutputItems.AddRange(Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, ActionGraph));
 				}
 
