@@ -4,6 +4,9 @@
 
 #include "RemoteSessionChannel.h"
 #include "HAL/ThreadSafeCounter.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/ThreadSafeBool.h"
 
 
 class FBackChannelOSCMessage;
@@ -16,7 +19,7 @@ class UTexture2D;
  *	A channel that captures the framebuffer on the host, encodes it as a jpg as an async task, then sends it to the client.
  *	On the client images are decoded into a double-buffered texture that can be accessed via GetHostScreen.
  */
-class REMOTESESSION_API FRemoteSessionFrameBufferChannel : public IRemoteSessionChannel
+class REMOTESESSION_API FRemoteSessionFrameBufferChannel : public IRemoteSessionChannel, FRunnable
 {
 public:
 
@@ -87,7 +90,7 @@ protected:
 	TArray<TSharedPtr<FImageData, ESPMode::ThreadSafe>>		IncomingEncodedImages;
 
 	FCriticalSection										DecodedImageMutex;
-	TArray<TSharedPtr<FImageData>>							IncomingDecodedImages;
+	TArray<TSharedPtr<FImageData, ESPMode::ThreadSafe>>		IncomingDecodedImages;
 	FThreadSafeCounter										NumDecodingTasks;
 
 	UTexture2D*												DecodedTextures[2];
@@ -95,7 +98,6 @@ protected:
 
 	/** Time we last sent an image */
 	double LastSentImageTime;
-	int KickedTaskCount;
 	int NumSentImages;
 
 	/** So we can manage callback lifetimes properly */
@@ -106,4 +108,25 @@ protected:
 
 	/** Holds a reference to the scene viewport */
 	TSharedPtr<FSceneViewport> SceneViewport;
+
+	/* Last processed incoming image */
+	int32 LastIncomingImageIndex;
+
+	/* Last processed decode image */
+	int32 LastDecodedImageIndex;
+
+	/** Decode the incoming images on a dedicated thread */
+	void	ProcessIncomingTextures();
+
+protected:
+	
+	/** Background thread for decoding incoming images */
+	uint32 Run();
+	void StartBackgroundThread();
+	void ExitBackgroundThread();
+
+	FRunnableThread*	BackgroundThread;
+	FEvent *			ScreenshotEvent;
+
+	FThreadSafeBool		ExitRequested;
 };
