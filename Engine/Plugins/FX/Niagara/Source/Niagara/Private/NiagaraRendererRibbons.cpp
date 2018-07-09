@@ -270,6 +270,57 @@ bool NiagaraRendererRibbons::SetMaterialUsage()
 	return Material && Material->CheckMaterialUsage_Concurrent(MATUSAGE_NiagaraRibbons);
 }
 
+void CalculateUVScaleAndOffsets(const FNiagaraDataSetAccessor<float>& SortKeyData, const TArray<int32>& RibbonIndices, bool bSortKeyIsAge, int32 NumSegments,
+	float InUVTilingDistance, const FVector2D& InUVScale, const FVector2D& InUVOffset, ENiagaraRibbonAgeOffsetMode InAgeOffsetMode, FVector2D& OutUVScale, FVector2D& OutUVOffset)
+{
+	if (bSortKeyIsAge && InUVTilingDistance == 0)
+	{
+		float AgeUScale;
+		float AgeUOffset;
+		if (InAgeOffsetMode == ENiagaraRibbonAgeOffsetMode::Scale)
+		{
+			// In scale mode we scale and offset the UVs so that no part of the texture is clipped. In order to prevent
+			// clipping at the ends we'll have to move the UVs in up to the size of a single segment of the ribbon since
+			// that's the distance we'll need to to smoothly interpolate when a new segment is added, or when an old segment
+			// is removed.  We calculate the end offset when the end of the ribbon is within a single time step of 0 or 1
+			// which is then normalized to the range of a single segment.  We can then calculate how many segments we actually
+			// have to draw the scaled ribbon, and can offset the start by the correctly scaled offset.
+			float FirstAge = SortKeyData[RibbonIndices[0]];
+			float SecondAge = SortKeyData[RibbonIndices[1]];
+			float SecondToLastAge = SortKeyData[RibbonIndices[RibbonIndices.Num() - 2]];
+			float LastAge = SortKeyData[RibbonIndices.Last()];
+
+			float StartTimeStep = SecondAge - FirstAge;
+			float StartTimeOffset = FirstAge < StartTimeStep ? StartTimeStep - FirstAge : 0;
+			float StartSegmentOffset = StartTimeOffset / StartTimeStep;
+
+			float EndTimeStep = LastAge - SecondToLastAge;
+			float EndTimeOffset = 1 - LastAge < EndTimeStep ? EndTimeStep - (1 - LastAge) : 0;
+			float EndSegmentOffset = EndTimeOffset / EndTimeStep;
+
+			float AvailableSegments = NumSegments - (StartSegmentOffset + EndSegmentOffset);
+			AgeUScale = NumSegments / AvailableSegments;
+			AgeUOffset = -((StartSegmentOffset / NumSegments) * AgeUScale);
+		}
+		else
+		{
+			float FirstAge = SortKeyData[RibbonIndices[0]];
+			float LastAge = SortKeyData[RibbonIndices.Last()];
+
+			AgeUScale = LastAge - FirstAge;
+			AgeUOffset = FirstAge;
+		}
+
+		OutUVScale = FVector2D(AgeUScale * InUVScale.X, InUVScale.Y);
+		OutUVOffset = FVector2D((AgeUOffset * InUVScale.X) + InUVOffset.X, InUVOffset.Y);
+	}
+	else
+	{
+		OutUVScale = InUVScale;
+		OutUVOffset = InUVOffset;
+	}
+}
+
 FNiagaraDynamicDataBase *NiagaraRendererRibbons::GenerateVertexData(const FNiagaraSceneProxy* Proxy, FNiagaraDataSet &Data, const ENiagaraSimTarget Target)
 {
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraGenRibbonVertexData);
@@ -288,7 +339,7 @@ FNiagaraDynamicDataBase *NiagaraRendererRibbons::GenerateVertexData(const FNiaga
 
 	// TODO : deal with the dynamic vertex material parameter should the user have specified it as an output...
 
-	FVector2D UVs[4] = { FVector2D(1.0f, 0.0f), FVector2D(1.0f, 1.0f) };
+	FVector2D UVs[2] = { FVector2D(1.0f, 1.0f), FVector2D(1.0f, 0.0f) };
 	int32 NumTotalVerts = 0;
 
 	FNiagaraDataSetAccessor<FVector> PosData(Data, Properties->PositionBinding.DataSetVariable);
@@ -364,15 +415,17 @@ FNiagaraDynamicDataBase *NiagaraRendererRibbons::GenerateVertexData(const FNiaga
 			FVector PrevPos, PrevPos2, PrevDir(0.0f, 0.0f, 0.1f);
 			float TotalDistance = 0.0f;
 
-			FVector2D AgeOffset;
-			if (bSortKeyIsAge)
-			{
-				AgeOffset = FVector2D(SortKeyData[RibbonIndices.Last()], 0.0f);
-			}
-			else
-			{
-				AgeOffset = FVector2D::ZeroVector;
-			}
+			int32 NumSegments = NumIndices - 1;
+
+			FVector2D UV0Offset;
+			FVector2D UV0Scale;
+			FVector2D UV1Offset;
+			FVector2D UV1Scale;
+
+			CalculateUVScaleAndOffsets(SortKeyData, RibbonIndices, bSortKeyIsAge, NumSegments, Properties->UV0TilingDistance,
+				Properties->UV0Scale, Properties->UV0Offset, Properties->UV0AgeOffsetMode, UV0Scale, UV0Offset);
+			CalculateUVScaleAndOffsets(SortKeyData, RibbonIndices, bSortKeyIsAge, NumSegments, Properties->UV1TilingDistance,
+				Properties->UV1Scale, Properties->UV1Offset, Properties->UV1AgeOffsetMode, UV1Scale, UV1Offset);
 
 			for (int32 i = 0; i < NumIndices; i++)
 			{
@@ -397,18 +450,18 @@ FNiagaraDynamicDataBase *NiagaraRendererRibbons::GenerateVertexData(const FNiaga
 				{
 					FVector NormDir = ParticleDir.GetSafeNormal();
 					PrevDir = NormDir;
-					FVector2D UV0Mult((float)i / NumIndices, 1.0f);
-					FVector2D UV1Mult((float)i / NumIndices, 1.0f);
 
-					if (Properties->UV0TilingDistance)
-					{
-						UV0Mult = FVector2D(TotalDistance / Properties->UV0TilingDistance, 1.0f);
-					}
-					if (Properties->UV1TilingDistance)
-					{
-						UV1Mult = FVector2D(TotalDistance / Properties->UV1TilingDistance, 1.0f);
-					}
+					// Calculate sub-uv for this segment based on the either the distance or index, depending on whether the distance tile factor was set.
+					float U0ForSegment = Properties->UV0TilingDistance
+						? TotalDistance / Properties->UV0TilingDistance
+						: (float)i / NumSegments;
+					float U1ForSegment = Properties->UV1TilingDistance
+						? TotalDistance / Properties->UV1TilingDistance
+						: (float)i / NumSegments;
 
+					FVector2D UV0ForSegment(U0ForSegment, 1.0f);
+					FVector2D UV1ForSegment(U1ForSegment, 1.0f);
+					
 					//Todo. Possibly pull out to templated func to avoid safety code in loop here.
 					FLinearColor Color = ColData.GetSafe(Index1, FLinearColor::White);
 					float Twist = TwistData.GetSafe(Index1, 0.0f);
@@ -416,8 +469,8 @@ FNiagaraDynamicDataBase *NiagaraRendererRibbons::GenerateVertexData(const FNiaga
 					FVector Align = AlignData.GetSafe(Index1, FVector::UpVector);
 
 					TotalDistance += ParticleDir.Size();
-					AddRibbonVert(RenderData, ParticlePos, UVs[0] * UV0Mult + AgeOffset, UVs[0] * UV1Mult + AgeOffset, Color, Twist, Size, NormDir, Align);
-					AddRibbonVert(RenderData, ParticlePos, UVs[1] * UV0Mult + AgeOffset, UVs[1] * UV1Mult + AgeOffset, Color, Twist, Size, NormDir, Align);
+					AddRibbonVert(RenderData, ParticlePos, UVs[0] * UV0ForSegment * UV0Scale + UV0Offset, UVs[0] * UV1ForSegment * UV1Scale + UV1Offset, Color, Twist, Size, NormDir, Align);
+					AddRibbonVert(RenderData, ParticlePos, UVs[1] * UV0ForSegment * UV0Scale + UV0Offset, UVs[1] * UV1ForSegment * UV1Scale + UV1Offset, Color, Twist, Size, NormDir, Align);
 					if (MaterialParamData.IsValid())
 					{
 						AddDynamicParam(DynamicData->MaterialParameterVertexData[0], MaterialParamData[Index1]);
