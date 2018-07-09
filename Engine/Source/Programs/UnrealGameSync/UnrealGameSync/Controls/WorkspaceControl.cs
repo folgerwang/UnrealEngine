@@ -2286,7 +2286,7 @@ namespace UnrealGameSync
 		private string GetEditorExePath(BuildConfig Config)
 		{
 			string ExeFileName = "UE4Editor.exe";
-			if(Config != BuildConfig.DebugGame && Config != BuildConfig.Development)
+			if((Config != BuildConfig.DebugGame || PerforceMonitor.LatestProjectConfigFile.GetValue("Options.DebugGameHasSeparateExecutable", false)) && Config != BuildConfig.Development)
 			{
 				ExeFileName	= String.Format("UE4Editor-Win64-{0}.exe", Config.ToString());
 			}
