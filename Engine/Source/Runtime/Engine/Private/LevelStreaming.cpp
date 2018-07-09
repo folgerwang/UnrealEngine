@@ -1419,7 +1419,6 @@ void ULevelStreaming::SetShouldBeVisible(const bool bInShouldBeVisible)
 
 void ULevelStreaming::SetShouldBeLoaded(const bool bInShouldBeLoaded)
 {
-	UE_LOG(LogStreaming, Warning, TEXT("Calling SetShouldBeLoaded on an object (%s) for which it has no effect."), *GetFullName());
 }
 
 bool ULevelStreaming::ShouldBeVisible() const
