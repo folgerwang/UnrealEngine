@@ -166,9 +166,6 @@ class ENGINE_API USoundWave : public USoundBase
 	/** Whether this sound wave is beginning to be destroyed by GC. */
 	uint8 bIsBeginDestroy:1;
 
-	/** Whether this sound is actively being used by the audio renderer (in audio mixer). Prevents GC issues with rendering audio. */
-	uint8 bIsSoundActive:1;
-
 	/** Set to true of this is a bus sound source. This will result in the sound wave not generating audio for itself, but generate audio through instances. Used only in audio mixer. */
 	uint8 bIsBus:1;
 
@@ -222,6 +219,9 @@ private:
 
 	/** What state the precache decompressor is in. */
 	FThreadSafeCounter PrecacheState;
+
+	/** Number of sounds actively using this sound wave by the audio renderer (in audio mixer). Prevents GC issues with rendering realtime audio. */
+	FThreadSafeCounter NumSoundsActive;
 
 #if !WITH_EDITOR
 	// This is the sample rate gotten from platform settings.
@@ -390,6 +390,13 @@ public:
 
 	// Called when the procedural sound wave is done generating on the render thread. Only used in the audio mixer and when bProcedural is true..
 	virtual void OnEndGenerate() {};
+
+	// Returns number of sounds using this sound wave (audio mixer only)
+	int32 GetNumSoundsActive();
+
+	// Increment and decrement num sounds (used in audio mixer)
+	void IncrementNumSounds();
+	void DecrementNumSounds();
 
 	/**
 	* Overwrite sample rate. Used for procedural soundwaves, as well as sound waves that are resampled on compress/decompress.

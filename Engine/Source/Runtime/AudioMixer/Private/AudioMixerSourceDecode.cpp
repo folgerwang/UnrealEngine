@@ -47,7 +47,7 @@ public:
 			case EAudioTaskType::Procedural:
 			{
 				// Make sure we've been flagged as active
-				if (!ProceduralTaskData.ProceduralSoundWave->bIsSoundActive)
+				if (ProceduralTaskData.ProceduralSoundWave->GetNumSoundsActive() == 0)
 				{
 					UE_LOG(LogAudioMixer, Warning, TEXT("Warning: Attempted to run async procedural task on inactive sound. Aborting."));
 					return;

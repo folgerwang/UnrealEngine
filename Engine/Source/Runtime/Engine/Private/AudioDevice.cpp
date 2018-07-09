@@ -3814,7 +3814,7 @@ void FAudioDevice::AddNewActiveSound(const FActiveSound& NewActiveSound)
 	}
 
 	USoundWave* SoundWave = Cast<USoundWave>(Sound);
-	if (SoundWave && SoundWave->bProcedural && SoundWave->bIsSoundActive)
+	if (SoundWave && SoundWave->bProcedural && SoundWave->GetNumSoundsActive() > 0)
 	{
 		FString SoundWaveName;
 		SoundWave->GetName(SoundWaveName);

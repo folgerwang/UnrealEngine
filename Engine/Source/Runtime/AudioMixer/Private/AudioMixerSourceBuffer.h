@@ -50,7 +50,7 @@ namespace Audio
 		~FMixerSourceBuffer();
 
 		bool PreInit(FMixerBuffer* InBuffer, USoundWave* InWave, ELoopingMode InLoopingMode, bool bInIsSeeking);
-		void Init();
+		bool Init();
 
 		// Called by source manager when needing more buffers
 		void OnBufferEnd();
@@ -108,6 +108,7 @@ namespace Audio
 		USoundWave* SoundWave;
 		IAudioTask* AsyncRealtimeAudioTask;
 		ELoopingMode LoopingMode;
+		bool bInitialized;
 		bool bBufferFinished;
 		bool bPlayedCachedBuffer;
 		bool bIsSeeking;

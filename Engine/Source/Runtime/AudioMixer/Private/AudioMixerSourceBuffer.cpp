@@ -59,6 +59,7 @@ namespace Audio
 		, SoundWave(nullptr)
 		, AsyncRealtimeAudioTask(nullptr)
 		, LoopingMode(ELoopingMode::LOOP_Never)
+		, bInitialized(false)
 		, bBufferFinished(false)
 		, bPlayedCachedBuffer(false)
 		, bIsSeeking(false)
@@ -82,18 +83,6 @@ namespace Audio
 		// May or may not be nullptr
 		SoundWave = InWave;
 
-		if (SoundWave->bProcedural)
-		{
-			if (SoundWave->bIsSoundActive)
-			{
-				UE_LOG(LogAudioMixer, Warning, TEXT("Procedural sound wave is reinitializing even though it is currently actively generating audio. Please stop sound before trying to play it again."));
-				return false;
-			}
-	
-			// We flag that this sound wave is active for the lifetime of this object since we use it for decoding, etc.
-			SoundWave->bIsSoundActive = true;
-		}
-
 		LoopingMode = InLoopingMode;
 		bIsSeeking = bInIsSeeking;
 		bLoopCallback = false;
@@ -113,8 +102,23 @@ namespace Audio
 		return true;
 	}
 
-	void FMixerSourceBuffer::Init()
+	bool FMixerSourceBuffer::Init()
 	{
+		check(SoundWave);
+		if (SoundWave->bProcedural && SoundWave->GetNumSoundsActive() > 0)
+		{
+			UE_LOG(LogAudioMixer, Warning, TEXT("Procedural sound wave is reinitializing even though it is currently actively generating audio. Please stop sound before trying to play it again."));
+			return false;
+		}
+
+		// We flag that this sound wave is active for the lifetime of this object since we use it for decoding, etc.
+		SoundWave->IncrementNumSounds();
+
+		// We have successfully initialized which means our SoundWave has been flagged as bIsActive
+		// GC can run between PreInit and Init so when cleaning up FMixerSourceBuffer, we don't want to touch SoundWave unless bInitailized is true.
+		// SoundWave->bIsSoundActive will prevent GC until it is released in audio render thread
+		bInitialized = true;
+
 		const EBufferType::Type BufferType = MixerBuffer->GetType();
 		switch (BufferType)
 		{
@@ -131,6 +135,8 @@ namespace Audio
 			case EBufferType::Invalid:
 				break;
 		}
+
+		return true;
 	}
 
 	void FMixerSourceBuffer::OnBufferEnd()
@@ -396,8 +402,6 @@ namespace Audio
 	{
 		if (SoundWave)
 		{
-			SoundWave->bIsSoundActive = true;
-
 			if (SoundWave->bProcedural)
 			{
 				SoundWave->OnBeginGenerate();
@@ -411,14 +415,15 @@ namespace Audio
 		// Make sure the async task finishes!
 		EnsureAsyncTaskFinishes();
 
-		if (SoundWave)
+		// Only need to call OnEndGenerate and access SoundWave here if we successfully initialized
+		if (bInitialized && SoundWave)
 		{
 			if (SoundWave->bProcedural)
 			{
 				SoundWave->OnEndGenerate();
 			}
 
-			SoundWave->bIsSoundActive = false;
+			SoundWave->DecrementNumSounds();
 			SoundWave = nullptr;
 		}
 
