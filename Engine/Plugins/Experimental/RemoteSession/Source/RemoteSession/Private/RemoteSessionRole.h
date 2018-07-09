@@ -44,9 +44,11 @@ protected:
 	FString			GetVersion() const;
 	void			SendVersion();
 	void 			OnVersionCheck(FBackChannelOSCMessage& Message, FBackChannelOSCDispatch& Dispatch);
+	void			OnCreateChannels(FBackChannelOSCMessage& Message, FBackChannelOSCDispatch& Dispatch);
 	
 	virtual void	OnBindEndpoints();
 	virtual void	OnCreateChannels();
+	virtual void	OnChannelSelection(FBackChannelOSCMessage& Message, FBackChannelOSCDispatch& Dispatch);
 	
 	void 			CreateChannels(const TMap<FString, ERemoteSessionChannelMode>& ChannelMap);
 	void 			CreateChannel(const FString& InChannelList, ERemoteSessionChannelMode InRole);
