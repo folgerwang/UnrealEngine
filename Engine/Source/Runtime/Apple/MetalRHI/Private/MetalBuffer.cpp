@@ -657,7 +657,7 @@ FMetalBuffer FMetalSubBufferRing::NewBuffer(NSUInteger Size, uint32 Alignment)
 #endif
 			
 			WriteHead += FullSize;
-			NewBuffer.MarkSingleUse();
+			// NewBuffer.MarkSingleUse();
 			return NewBuffer;
 		}
 #if PLATFORM_MAC
@@ -703,7 +703,7 @@ FMetalBuffer FMetalSubBufferRing::NewBuffer(NSUInteger Size, uint32 Alignment)
 #endif
 		
 		WriteHead += FullSize;
-		NewBuffer.MarkSingleUse();
+		// NewBuffer.MarkSingleUse();
 		return NewBuffer;
 	}
 }
