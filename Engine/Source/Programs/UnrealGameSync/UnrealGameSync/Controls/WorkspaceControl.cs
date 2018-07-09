@@ -4016,7 +4016,7 @@ namespace UnrealGameSync
 			}
 			else
 			{
-				Key.SetValue("UnrealGameSync", OriginalExecutableFileName);
+				Key.SetValue("UnrealGameSync", String.Format("\"{0}\" -RestoreState", OriginalExecutableFileName));
 			}
 		}
 

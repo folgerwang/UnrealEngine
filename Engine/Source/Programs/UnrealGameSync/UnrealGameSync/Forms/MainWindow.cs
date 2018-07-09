@@ -230,7 +230,10 @@ namespace UnrealGameSync
 			if(!bAllowClose && Settings.bKeepInTray)
 			{
 				Hide();
-				EventArgs.Cancel = true; 
+				EventArgs.Cancel = true;
+
+				Settings.bWindowVisible = Visible;
+				Settings.Save();
 			}
 			else
 			{
@@ -354,6 +357,9 @@ namespace UnrealGameSync
 				WindowState = FormWindowState.Normal;
 			}
 			Activate();
+
+			Settings.bWindowVisible = Visible;
+			Settings.Save();
 		}
 
 		public bool CanPerformUpdate()

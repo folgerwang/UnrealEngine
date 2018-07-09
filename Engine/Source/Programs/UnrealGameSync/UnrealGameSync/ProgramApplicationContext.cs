@@ -155,13 +155,17 @@ namespace UnrealGameSync
 			DetectStartupProjectSettingsTask = new DetectMultipleProjectSettingsTask(Tasks);
 
 			DetectStartupProjectSettingsWindow = new ModalTaskWindow(DetectStartupProjectSettingsTask, "Opening Projects", "Opening projects, please wait...", FormStartPosition.CenterScreen);
-			if(Settings.bWindowVisible)
+			if(bRestoreState)
+			{
+				if(Settings.bWindowVisible)
+				{
+					DetectStartupProjectSettingsWindow.Show();
+				}
+			}
+			else
 			{
 				DetectStartupProjectSettingsWindow.Show();
-				if(!bRestoreState)
-				{
-					DetectStartupProjectSettingsWindow.Activate();
-				}
+				DetectStartupProjectSettingsWindow.Activate();
 			}
 			DetectStartupProjectSettingsWindow.Complete += OnDetectStartupProjectsComplete;
 		}
