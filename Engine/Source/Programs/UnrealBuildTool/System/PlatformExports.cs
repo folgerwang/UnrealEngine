@@ -57,6 +57,18 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Checks whether the given project requires a build because of platform needs
+		/// </summary>
+		/// <param name="ProjectFile">The project file</param>
+		/// <param name="Platform">Platform to check settings for</param>
+		/// <returns>True if the project requires a build for the platform</returns>
+		public static bool RequiresBuild(FileReference ProjectFile, UnrealTargetPlatform Platform)
+		{
+			UEBuildPlatform BuildPlat = UEBuildPlatform.GetBuildPlatform(Platform, true);
+			return (BuildPlat == null) ? false : BuildPlat.RequiresBuild(Platform, ProjectFile.Directory);
+		}
+
+		/// <summary>
 		/// Returns an array of all platform folder names
 		/// </summary>
 		/// <returns>All platform folder names</returns>
