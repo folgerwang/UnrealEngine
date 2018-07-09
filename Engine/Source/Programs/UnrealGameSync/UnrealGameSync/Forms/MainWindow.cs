@@ -576,7 +576,7 @@ namespace UnrealGameSync
 		public void RequestProjectChange(WorkspaceControl Workspace, UserSelectedProjectSettings Project)
 		{
 			int TabIdx = TabControl.FindTabIndex(Workspace);
-			if(TabIdx != -1)
+			if(TabIdx != -1 && !Workspace.IsBusy() && CanFocus)
 			{
 				TryOpenProject(Project, TabIdx);
 			}
