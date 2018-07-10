@@ -151,6 +151,8 @@ protected:
 
 	bool bWasMediaPlayingBeforeAppPause;
 
+	bool bPlaybackCompleted;
+
 private:
 	virtual bool SetRateOne();
 	virtual bool GetMediaPlayerState(uint16 FlagToPoll) const;
