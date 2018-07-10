@@ -34,7 +34,12 @@ namespace UnrealGameSync
 		Investigating,
 		Resolved,
 	}
-
+	class LatestData
+	{
+		public long LastEventId { get; set; }
+		public long LastCommentId { get; set; }
+		public long LastBuildId { get; set; }
+	}
 	class EventData
 	{
 		public long Id { get; set; }
@@ -150,10 +155,8 @@ namespace UnrealGameSync
 		Dictionary<string, EventData> UserNameToLastSyncEvent = new Dictionary<string, EventData>(StringComparer.InvariantCultureIgnoreCase);
 		Dictionary<string, BuildData> BadgeNameToLatestBuild = new Dictionary<string, BuildData>();
 		BoundedLogWriter LogWriter;
-		long LastEventId;
-		long LastCommentId;
-		long LastBuildId;
 		bool bDisposing;
+		LatestData LatestIds;
 		HashSet<int> FilterChangeNumbers = new HashSet<int>();
 		List<EventData> InvestigationEvents = new List<EventData>();
 		List<EventData> ActiveInvestigations = new List<EventData>();
@@ -165,6 +168,7 @@ namespace UnrealGameSync
 			ApiUrl = InApiUrl;
 			Project = InProject;
 			CurrentUserName = InCurrentUserName;
+			LatestIds = new LatestData { LastBuildId = 0, LastCommentId = 0, LastEventId = 0 };
 
 			LogWriter = new BoundedLogWriter(InLogFileName);
 			if(ApiUrl == null)
@@ -531,41 +535,44 @@ namespace UnrealGameSync
 				LogWriter.WriteLine();
 				LogWriter.WriteLine("Polling for reviews at {0}...", DateTime.Now.ToString());
 				//////////////
-				/// LastIds 
+				/// Initial Ids 
 				//////////////
-				long[] LastIds= RESTApi.GET<long[]>(ApiUrl, "cis", "GET");
-				LastEventId = LastIds[0];
-				LastCommentId = LastIds[1];
-				LastBuildId = LastIds[2];
+				if (LatestIds.LastBuildId == 0 && LatestIds.LastCommentId == 0 && LatestIds.LastEventId == 0)
+				{
+					LatestData InitialIds = RESTApi.GET<LatestData>(ApiUrl, "latest", string.Format("project={0}", Project));
+					LatestIds.LastBuildId = InitialIds.LastBuildId;
+					LatestIds.LastCommentId = InitialIds.LastCommentId;
+					LatestIds.LastEventId = InitialIds.LastEventId;
+				}
 
 				//////////////
 				/// Reviews 
 				//////////////
-				List<EventData> Events = RESTApi.GET<List<EventData>>(ApiUrl, "event", string.Format("project={0}", Project), string.Format("lasteventid={0}", LastEventId));
+				List<EventData> Events = RESTApi.GET<List<EventData>>(ApiUrl, "event", string.Format("project={0}", Project), string.Format("lasteventid={0}", LatestIds.LastEventId));
 				foreach(EventData Review in Events)
 				{
 					IncomingEvents.Enqueue(Review);
-					LastEventId = Math.Max(LastEventId, Review.Id);
+					LatestIds.LastEventId = Math.Max(LatestIds.LastEventId, Review.Id);
 				}
 
 				//////////////
 				/// Comments 
 				//////////////
-				List<CommentData> Comments = RESTApi.GET<List<CommentData>>(ApiUrl, "comment", string.Format("project={0}", Project), string.Format("lastcommentid={0}", LastCommentId));
+				List<CommentData> Comments = RESTApi.GET<List<CommentData>>(ApiUrl, "comment", string.Format("project={0}", Project), string.Format("lastcommentid={0}", LatestIds.LastCommentId));
 				foreach (CommentData Comment in Comments)
 				{
 					IncomingComments.Enqueue(Comment);
-					LastCommentId = Math.Max(LastCommentId, Comment.Id);
+					LatestIds.LastCommentId = Math.Max(LatestIds.LastCommentId, Comment.Id);
 				}
 
 				//////////////
-				/// CIS 
+				/// Bulids
 				//////////////
-				List<BuildData> Builds = RESTApi.GET<List<BuildData>>(ApiUrl, "cis", string.Format("project={0}", Project), string.Format("lastbuildid={0}", LastBuildId));
+				List<BuildData> Builds = RESTApi.GET<List<BuildData>>(ApiUrl, "build", string.Format("project={0}", Project), string.Format("lastbuildid={0}", LatestIds.LastBuildId));
 				foreach (BuildData Build in Builds)
 				{
 					IncomingBuilds.Enqueue(Build);
-					LastBuildId = Math.Max(LastBuildId, Build.Id);
+					LatestIds.LastBuildId = Math.Max(LatestIds.LastBuildId, Build.Id);
 				}
 
 				LastStatusMessage = String.Format("Last update took {0}ms", Timer.ElapsedMilliseconds);
