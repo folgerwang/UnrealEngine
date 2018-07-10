@@ -18,7 +18,7 @@ class DISPLAYCLUSTER_API ADisplayClusterHUD
 public:
 	ADisplayClusterHUD(const FObjectInitializer& ObjectInitializer);
 
-protected:
+public:
 	virtual void BeginPlay() override;
 
 	/** Primary draw call for the HUD */

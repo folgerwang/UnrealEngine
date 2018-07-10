@@ -26,7 +26,7 @@ public:
 	inline FVector2D GetScreenSize() const
 	{ return Size; }
 
-protected:
+public:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
