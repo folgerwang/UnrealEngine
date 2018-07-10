@@ -1601,19 +1601,6 @@ namespace UnrealBuildTool
 				}
 			}
 
-			// Add slate runtime dependencies
-			if (Rules.bUsesSlate)
-			{
-				AddRuntimeDependenciesFromDir(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Content", "Slate"), StagedFileType.UFS);
-				AddRuntimeDependenciesFromDir(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Content", "SlateDebug"), StagedFileType.UFS);
-
-				if (ProjectFile != null)
-				{
-					AddRuntimeDependenciesFromDir(DirectoryReference.Combine(ProjectDirectory, "Content", "Slate"), StagedFileType.UFS);
-					AddRuntimeDependenciesFromDir(DirectoryReference.Combine(ProjectDirectory, "Content", "SlateDebug"), StagedFileType.UFS);
-				}
-			}
-
 			// Find all the modules which are part of this target
 			HashSet<UEBuildModule> UniqueLinkedModules = new HashSet<UEBuildModule>();
 			foreach (UEBuildBinary Binary in Binaries)
@@ -1757,22 +1744,6 @@ namespace UnrealBuildTool
 
 			// add the SDK used by the tool chain
 			Receipt.AdditionalProperties.Add(new ReceiptProperty("SDK", ToolChain.GetSDKVersion()));
-		}
-
-		/// <summary>
-		/// Add the contents of a directory as runtime dependencies
-		/// </summary>
-		/// <param name="BaseDir">The base directory to enumerate files from</param>
-		/// <param name="Type">How the file should be staged</param>
-		void AddRuntimeDependenciesFromDir(DirectoryReference BaseDir, StagedFileType Type)
-		{
-			if (DirectoryReference.Exists(BaseDir))
-			{
-				foreach (FileReference File in DirectoryReference.EnumerateFiles(BaseDir, "*", SearchOption.AllDirectories))
-				{
-					Receipt.RuntimeDependencies.Add(File, Type);
-				}
-			}
 		}
 
 		/// <summary>
