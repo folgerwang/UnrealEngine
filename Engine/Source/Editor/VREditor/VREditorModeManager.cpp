@@ -152,6 +152,12 @@ bool FVREditorModeManager::IsVREditorAvailable() const
 	return bHasHMDDevice && !GEditor->bIsSimulatingInEditor;
 }
 
+bool FVREditorModeManager::IsVREditorButtonActive() const
+{
+	const bool bHasHMDDevice = GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice() && GEngine->XRSystem->GetHMDDevice()->IsHMDEnabled();
+	return bHasHMDDevice;
+}
+
 
 UVREditorMode* FVREditorModeManager::GetCurrentVREditorMode()
 {
