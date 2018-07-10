@@ -331,7 +331,6 @@ namespace AutomationTool
 			this.NumClients = InParams.NumClients;
             this.Compressed = InParams.Compressed;
 			this.AdditionalPakOptions = InParams.AdditionalPakOptions;
-            this.UseDebugParamForEditorExe = InParams.UseDebugParamForEditorExe;
 			this.Archive = InParams.Archive;
 			this.ArchiveDirectoryParam = InParams.ArchiveDirectoryParam;
 			this.ArchiveMetaData = InParams.ArchiveMetaData;
@@ -392,7 +391,6 @@ namespace AutomationTool
 			bool? Clean = null,
             bool? Compressed = null,
 			string AdditionalPakOptions = null,
-            bool? UseDebugParamForEditorExe = null,
             bool? IterativeCooking = null,
 			string IterateSharedCookedBuild = null,
 			bool? IterateSharedBuildUsePrecompiledExe = null,
@@ -633,7 +631,6 @@ namespace AutomationTool
             }
             this.Compressed = GetParamValueIfNotSpecified(Command, Compressed, this.Compressed, "compressed");
 			this.AdditionalPakOptions = ParseParamValueIfNotSpecified(Command, AdditionalPakOptions, "AdditionalPakOptions");
-            this.UseDebugParamForEditorExe = GetParamValueIfNotSpecified(Command, UseDebugParamForEditorExe, this.UseDebugParamForEditorExe, "UseDebugParamForEditorExe");
 			this.IterativeCooking = GetParamValueIfNotSpecified(Command, IterativeCooking, this.IterativeCooking, new string[] { "iterativecooking", "iterate" });
 			this.IterateSharedCookedBuild = GetParamValueIfNotSpecified(Command, false, false, "iteratesharedcookedbuild") ? "usesyncedbuild" : null;
 			this.IterateSharedCookedBuild = ParseParamValueIfNotSpecified(Command, IterateSharedCookedBuild, "IterateSharedCookedBuild", String.Empty);
@@ -1533,11 +1530,6 @@ namespace AutomationTool
 		/// Additional parameters when generating the PAK file
 		/// </summary>
 		public string AdditionalPakOptions;
-
-        /// <summary>
-        /// put -debug on the editorexe commandline
-        /// </summary>
-        public bool UseDebugParamForEditorExe;
 
         /// <summary>
         /// Cook: Do not include a version number in the cooked content
@@ -2628,7 +2620,6 @@ namespace AutomationTool
 				CommandUtils.LogLog("ClientTargetPlatform={0}", string.Join(",", ClientTargetPlatforms));
 				CommandUtils.LogLog("Compressed={0}", Compressed);
 				CommandUtils.LogLog("AdditionalPakOptions={0}", AdditionalPakOptions);
-				CommandUtils.LogLog("UseDebugParamForEditorExe={0}", UseDebugParamForEditorExe);
 				CommandUtils.LogLog("CookOnTheFly={0}", CookOnTheFly);
 				CommandUtils.LogLog("CookOnTheFlyStreaming={0}", CookOnTheFlyStreaming);
 				CommandUtils.LogLog("UnversionedCookedContent={0}", UnversionedCookedContent);

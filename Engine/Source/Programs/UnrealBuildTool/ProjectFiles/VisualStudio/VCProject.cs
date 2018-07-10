@@ -1201,7 +1201,7 @@ namespace UnrealBuildTool
 
 					// Make the output file path
 					FileReference NMakePath = FileReference.Combine(OutputDirectory, BaseExeName);
-					if (Configuration != TargetRulesObject.UndecoratedConfiguration && (Configuration != UnrealTargetConfiguration.DebugGame || bShouldCompileMonolithic))
+					if (Configuration != TargetRulesObject.UndecoratedConfiguration)
 					{
 						NMakePath += "-" + UBTPlatformName + "-" + UBTConfigurationName;
 					}
@@ -1309,11 +1309,6 @@ namespace UnrealBuildTool
 							else if (TargetRulesObject.Type == TargetType.Editor && ProjectName != "UE4")
 							{
 								DebugOptions += ProjectName;
-							}
-
-							if (Configuration == UnrealTargetConfiguration.Debug || Configuration == UnrealTargetConfiguration.DebugGame)
-							{
-								DebugOptions += " -debug";
 							}
 
 							VCUserFileContent.Append(

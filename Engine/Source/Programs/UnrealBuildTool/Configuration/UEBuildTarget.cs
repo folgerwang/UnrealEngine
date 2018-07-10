@@ -3182,7 +3182,7 @@ namespace UnrealBuildTool
 
 			// Get the configuration that this module will be built in. Engine modules compiled in DebugGame will use Development.
 			UnrealTargetConfiguration ModuleConfiguration = Configuration;
-			if (Configuration == UnrealTargetConfiguration.DebugGame && !RulesAssembly.IsGameModule(ModuleName))
+			if (Configuration == UnrealTargetConfiguration.DebugGame && !RulesAssembly.IsGameModule(ModuleName) && !ModuleName.Equals(Rules.LaunchModuleName, StringComparison.InvariantCultureIgnoreCase))
 			{
 				ModuleConfiguration = UnrealTargetConfiguration.Development;
 			}
@@ -3301,10 +3301,6 @@ namespace UnrealBuildTool
 		{
 			// Get the configuration for the executable. If we're building DebugGame, and this executable only contains engine modules, use the same name as development.
 			UnrealTargetConfiguration ExeConfiguration = Configuration;
-			if (Configuration == UnrealTargetConfiguration.DebugGame && !bIncludesGameModules)
-			{
-				ExeConfiguration = UnrealTargetConfiguration.Development;
-			}
 
 			// Build the binary path
 			DirectoryReference BinaryDirectory = DirectoryReference.Combine(BaseDirectory, "Binaries", Platform.ToString());
@@ -3610,11 +3606,22 @@ namespace UnrealBuildTool
 			// Create the launch module
 			UEBuildModuleCPP LaunchModule = FindOrCreateCppModuleByName(Rules.LaunchModuleName, TargetRulesFile.GetFileName());
 
+			// Get the intermediate directory for the launch module directory. This can differ from the standard engine intermediate directory because it is always configuration-specific.
+			DirectoryReference IntermediateDirectory;
+			if(LaunchModule.RulesFile.IsUnderDirectory(UnrealBuildTool.EngineDirectory) && !ShouldCompileMonolithic())
+			{
+				IntermediateDirectory = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, PlatformIntermediateFolder, AppName, Configuration.ToString());
+			}
+			else
+			{
+				IntermediateDirectory = ProjectIntermediateDirectory;
+			}
+
 			// Create the binary
 			UEBuildBinary Binary = new UEBuildBinary(
 				Type: Rules.bShouldCompileAsDLL? UEBuildBinaryType.DynamicLinkLibrary : UEBuildBinaryType.Executable,
 				OutputFilePaths: OutputPaths,
-				IntermediateDirectory: (!LaunchModule.RulesFile.IsUnderDirectory(UnrealBuildTool.EngineDirectory) || ShouldCompileMonolithic()) ? ProjectIntermediateDirectory : EngineIntermediateDirectory,
+				IntermediateDirectory: IntermediateDirectory,
 				bAllowExports: Rules.bHasExports,
 				PrimaryModule: LaunchModule,
 				bUsePrecompiled: LaunchModule.Rules.bUsePrecompiled && OutputPaths[0].IsUnderDirectory(UnrealBuildTool.EngineDirectory)

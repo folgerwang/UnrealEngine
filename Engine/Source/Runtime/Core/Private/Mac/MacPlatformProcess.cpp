@@ -69,7 +69,7 @@ FString FMacPlatformProcess::GenerateApplicationPath( const FString& AppName, EB
 	
 	FString PlatformName = TEXT("Mac");
 	FString ExecutableName = AppName;
-	if (BuildConfiguration != EBuildConfigurations::Development && BuildConfiguration != EBuildConfigurations::DebugGame)
+	if (BuildConfiguration != EBuildConfigurations::Development)
 	{
 		ExecutableName += FString::Printf(TEXT("-%s-%s"), *PlatformName, EBuildConfigurations::ToString(BuildConfiguration));
 	}

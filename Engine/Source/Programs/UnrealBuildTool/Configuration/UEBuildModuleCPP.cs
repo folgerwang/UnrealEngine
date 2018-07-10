@@ -1180,19 +1180,6 @@ namespace UnrealBuildTool
 				Result.Definitions.Add("UE_IS_ENGINE_MODULE=0");
 			}
 
-			// Switch the optimization flag if we're building a game module. Also pass the definition for building in DebugGame along (see ModuleManager.h for notes).
-			if (!Rules.bTreatAsEngineModule)
-			{
-				if (Target.Configuration == UnrealTargetConfiguration.DebugGame)
-				{
-					Result.Definitions.Add("UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME=1");
-				}
-				else
-				{
-					Result.Definitions.Add("UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME=0");
-				}
-			}
-
 			// For game modules, set the define for the project name. This will be used by the IMPLEMENT_PRIMARY_GAME_MODULE macro.
 			if (!Rules.bTreatAsEngineModule)
 			{
@@ -1245,19 +1232,6 @@ namespace UnrealBuildTool
 			else
 			{
 				CompileEnvironment.Definitions.Add("UE_IS_ENGINE_MODULE=0");
-			}
-
-			// Switch the optimization flag if we're building a game module. Also pass the definition for building in DebugGame along (see ModuleManager.h for notes).
-			if (!Rules.bTreatAsEngineModule)
-			{
-				if (Target.Configuration == UnrealTargetConfiguration.DebugGame)
-				{
-					CompileEnvironment.Definitions.Add("UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME=1");
-				}
-				else
-				{
-					CompileEnvironment.Definitions.Add("UE_BUILD_DEVELOPMENT_WITH_DEBUGGAME=0");
-				}
 			}
 
 			// Add the module's private definitions.

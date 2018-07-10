@@ -970,11 +970,6 @@ namespace UnrealBuildTool
 											OutFile.AddUnnamedField(InProject.Name);
 										}
 									}
-
-									if (BuildProduct.Config == UnrealTargetConfiguration.Debug || BuildProduct.Config == UnrealTargetConfiguration.DebugGame)
-									{
-										OutFile.AddUnnamedField("-debug");
-									}
 								}
 
 							}

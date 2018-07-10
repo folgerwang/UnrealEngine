@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -59,10 +59,6 @@ public partial class Project : CommandUtils
 				if (Params.IterativeCooking)
 				{
 					COTFCommandLine += " -iterate -iteratehash";
-				}
-				if (Params.UseDebugParamForEditorExe)
-				{
-					COTFCommandLine += " -debug";
 				}
 
 				var ServerLogFile = CombinePaths(LogFolderOutsideOfSandbox, "Server.log");
@@ -155,10 +151,6 @@ public partial class Project : CommandUtils
 				{
 					CommandletParams += " -FastCook";
 				}
-                if (Params.UseDebugParamForEditorExe)
-                {
-                    CommandletParams += " -debug";
-                }
                 if (Params.Manifests)
                 {
                     CommandletParams += " -manifests";

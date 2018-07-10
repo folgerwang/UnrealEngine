@@ -107,7 +107,7 @@ FString FWindowsPlatformProcess::GenerateApplicationPath( const FString& AppName
 	FString PlatformName = GetBinariesSubdirectory();
 	FString ExecutablePath = FString::Printf(TEXT("..\\..\\..\\Engine\\Binaries\\%s\\%s"), *PlatformName, *AppName);
 
-	if (BuildConfiguration != EBuildConfigurations::Development && BuildConfiguration != EBuildConfigurations::DebugGame)
+	if (BuildConfiguration != EBuildConfigurations::Development)
 	{
 		ExecutablePath += FString::Printf(TEXT("-%s-%s"), *PlatformName, EBuildConfigurations::ToString(BuildConfiguration));
 	}
