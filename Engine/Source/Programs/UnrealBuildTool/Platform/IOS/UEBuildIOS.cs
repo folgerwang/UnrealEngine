@@ -692,11 +692,14 @@ namespace UnrealBuildTool
 		public bool HasCustomIcons(DirectoryReference ProjectDirectoryName)
 		{
 			string IconDir = Path.Combine(ProjectDirectoryName.FullName, "Build", "IOS", "Resources", "Graphics");
-			foreach (string f in Directory.EnumerateFiles(IconDir))
+			if(Directory.Exists(IconDir))
 			{
-				if (f.Contains("Icon") && Path.GetExtension(f).Contains(".png"))
+				foreach (string f in Directory.EnumerateFiles(IconDir))
 				{
-					return true;
+					if (f.Contains("Icon") && Path.GetExtension(f).Contains(".png"))
+					{
+						return true;
+					}
 				}
 			}
 			return false;
