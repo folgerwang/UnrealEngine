@@ -120,6 +120,7 @@ public class VulkanRHI : ModuleRules
 			else if (Target.Platform == UnrealTargetPlatform.Lumin)
 			{
 				PrivateIncludePaths.Add(Target.UEThirdPartySourceDirectory + "Vulkan/Include/vulkan");
+				bHaveVulkan = true;
 				bWithVulkanColorConversion = true;
 				Log.TraceInformation("Including Vulkan Color Conversions");
 			}
