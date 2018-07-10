@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -76,7 +76,7 @@ namespace UnrealBuildTool
 						}
 						else
 						{
-							if(FieldInfo.FieldType != typeof(bool) && !Attribute.ValueAfterSpace && Attribute.Value == null && !Prefix.EndsWith("="))
+							if(FieldInfo.FieldType != typeof(bool) && Attribute.Value == null && !Prefix.EndsWith("=") && !Prefix.EndsWith(":"))
 							{
 								Prefix = Prefix + "=";
 							}
@@ -94,7 +94,7 @@ namespace UnrealBuildTool
 				if(Argument.Length > 0 && Argument[0] == '-')
 				{
 					// Get the length of the argument prefix
-					int EqualsIdx = Argument.IndexOf('=');
+					int EqualsIdx = Argument.IndexOfAny(new char[]{ '=', ':' });
 					string Prefix = (EqualsIdx == -1)? Argument : Argument.Substring(0, EqualsIdx + 1);
 
 					// Check if there's a matching argument registered
@@ -118,17 +118,6 @@ namespace UnrealBuildTool
 						else if(EqualsIdx != -1)
 						{
 							AssignValue(Parameter, Argument.Substring(EqualsIdx + 1), TargetObject, AssignedFieldToParameter);
-						}
-						else if(Parameter.Attribute.ValueAfterSpace)
-						{
-							if(Idx >= Arguments.Count)
-							{
-								Log.WriteLine(LogEventType.Warning, "Missing parameter for {0}", Parameter.Prefix);
-							}
-							else
-							{
-								AssignValue(Parameter, Arguments[NextIdx++], TargetObject, AssignedFieldToParameter);
-							}
 						}
 						else if(Parameter.FieldInfo.FieldType == typeof(bool))
 						{
