@@ -146,19 +146,19 @@ bool SInvalidationPanel::IsCachingNeeded(FSlateWindowElementList& OutDrawElement
 		return true;
 	}
 	
+	if (LastClippingIndex != OutDrawElements.GetClippingIndex())
+	{
+		return true;
+	}
+
+	int32 ClippingStateCount = OutDrawElements.GetClippingManager().GetClippingStates().Num();
+	if (LastClippingStateOffset != ClippingStateCount)
+	{
+		return true;
+	}
+	
 	if (bCacheRelativeTransforms)
 	{
-		if (LastClippingIndex != OutDrawElements.GetClippingIndex())
-		{
-			return true;
-		}
-
-		int32 ClippingStateCount = OutDrawElements.GetClippingManager().GetClippingStates().Num();
-		if (LastClippingStateOffset != ClippingStateCount)
-		{
-			return true;
-		}
-
 		bool bOverlapping;
 		FVector2D IntersectionSize = AllottedGeometry.GetLayoutBoundingRect().IntersectionWith(MyCullingRect, bOverlapping).GetSize();
 		if (!LastClippingIntersectionSize.Equals(IntersectionSize, 1.0f))
