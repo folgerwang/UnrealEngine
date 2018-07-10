@@ -1091,6 +1091,12 @@ namespace UnrealBuildTool
 		public List<string> ExtraModuleNames = new List<string>();
 
 		/// <summary>
+		/// Path to a manifest to output for this target
+		/// </summary>
+		[CommandLine("-Manifest")]
+		public List<FileReference> ManifestFileNames = new List<FileReference>();
+
+		/// <summary>
 		/// Specifies the build environment for this target. See TargetBuildEnvironment for more information on the available options.
 		/// </summary>
 		[CommandLine("-SharedBuildEnvironment", Value = "Shared")]
@@ -2062,6 +2068,11 @@ namespace UnrealBuildTool
 		public IReadOnlyList<string> ExtraModuleNames
 		{
 			get { return Inner.ExtraModuleNames.AsReadOnly(); }
+		}
+
+		public IReadOnlyList<FileReference> ManifestFileNames
+		{
+			get { return Inner.ManifestFileNames.AsReadOnly(); }
 		}
 
 		public TargetBuildEnvironment BuildEnvironment
