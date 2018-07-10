@@ -321,7 +321,7 @@ float ApproximateHG(float cosJ, float g)
 
 	const float ISO_PHASE_FUNC_Normalized = 0.5;
 
-	return (ISO_PHASE_FUNC_Normalized * (1.0f - g2) / gcos2);
+	return (ISO_PHASE_FUNC_Normalized * (1.0f - g2) / max( 1e-5, gcos2));
 }
 
 void GetProfileDualSpecular(FGBufferData GBuffer, out float AverageToRoughness0, out float AverageToRoughness1, out float LobeMix)
@@ -382,7 +382,7 @@ FDirectLighting SubsurfaceProfileBxDF( FGBufferData GBuffer, half3 N, half3 V, h
 	float3 Profile = GetTransmissionProfile(GBuffer, Thickness).rgb;
 
 	float3 RefracV = refract(V, -N, TransmissionParams.OneOverIOR);
-	float PhaseFunction = saturate( ApproximateHG( dot(-L, RefracV), TransmissionParams.ScatteringDistribution ) );
+	float PhaseFunction = ApproximateHG( dot(-L, RefracV), TransmissionParams.ScatteringDistribution );
 	Lighting.Transmission = AreaLight.FalloffColor * Profile * (Falloff * PhaseFunction); // TODO: This probably should also include cosine term (NoL)
 
 #else // USE_TRANSMISSION
@@ -834,7 +834,7 @@ FDirectLighting TwoSidedBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, f
 
 FDirectLighting EyeBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, float Falloff, float NoL, FAreaLight AreaLight, FShadowTerms Shadow )
 {
-#if 0
+#if IRIS_NORMAL
 	const float2 CausticNormalDelta	= float2( GBuffer.StoredMetallic, GBuffer.StoredSpecular )	* 2 - (256.0/255.0);
 	const float2 IrisNormalDelta	= float2( GBuffer.CustomData.y, GBuffer.CustomData.z )		* 2 - (256.0/255.0);
 	const float  IrisMask = 1.0f - GBuffer.CustomData.w;
