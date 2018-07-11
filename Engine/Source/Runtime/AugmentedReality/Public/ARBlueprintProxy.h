@@ -7,14 +7,15 @@
 #include "UObject/Object.h"
 #include "Engine/EngineTypes.h"
 #include "Tickable.h"
+#include "Kismet/BlueprintAsyncActionBase.h"
 
 #include "ARTypes.h"
 
 #include "ARBlueprintProxy.generated.h"
 
-UCLASS(MinimalAPI)
+UCLASS(Abstract)
 class UARBaseAsyncTaskBlueprintProxy :
-	public UObject,
+	public UBlueprintAsyncActionBase,
 	public FTickableGameObject
 {
 	GENERATED_UCLASS_BODY()
@@ -26,9 +27,6 @@ public:
 	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT(UARBaseAsyncTaskBlueprintProxy, STATGROUP_Tickables); }
 	//~ End FTickableObject Interface
 	
-	/** The async task to check during Tick() */
-	TSharedPtr<FARAsyncTask, ESPMode::ThreadSafe> AsyncTask;
-	
 	virtual void ReportSuccess() { check(0); }
 	virtual void ReportFailure() { check(0); }
 
@@ -36,7 +34,9 @@ public:
 
 protected:
 	static const TSharedPtr<FARSystemBase, ESPMode::ThreadSafe>& GetARSystem();
-
+	/** The async task to check during Tick() */
+	TSharedPtr<FARAsyncTask, ESPMode::ThreadSafe> AsyncTask;
+	
 private:
 	/** True until the async task completes, then false */
 	bool bShouldTick;
@@ -44,93 +44,76 @@ private:
 	static TSharedPtr<FARSystemBase, ESPMode::ThreadSafe> RegisteredARSystem;
 };
 
-USTRUCT(BlueprintType)
-struct FARSaveWorldResult
-{
-	GENERATED_USTRUCT_BODY()
-	
-	UPROPERTY(BlueprintReadOnly, Category="Augmented Reality")
-	FString Error;
-	
-	UPROPERTY(BlueprintReadOnly, Category="Augmented Reality")
-	TArray<uint8> WorldData;
-};
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FARSaveWorldPin, const TArray<uint8>&, SavedWorld);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FARSaveWorldDelegate, const FARSaveWorldResult&, SaveWorldResult);
-
-UCLASS(MinimalAPI)
+UCLASS()
 class UARSaveWorldAsyncTaskBlueprintProxy :
 	public UARBaseAsyncTaskBlueprintProxy
 {
-	GENERATED_UCLASS_BODY()
-	
+	GENERATED_BODY()
+
 public:
 	UPROPERTY(BlueprintAssignable)
-	FARSaveWorldDelegate OnSuccess;
+	FARSaveWorldPin OnSuccess;
 	
 	UPROPERTY(BlueprintAssignable)
-	FARSaveWorldDelegate OnFailure;
+	FARSaveWorldPin OnFailed;
 	
 	/**
 	 * Saves an AR world to a byte array for network replication or saving to disk
 	 *
 	 * @param bCompressData whether to compress the data or not
 	 */
-	UFUNCTION(BlueprintCallable, Meta=(DisplayName="AR Save World"), Category="Augmented Reality")
-	static UARSaveWorldAsyncTaskBlueprintProxy* CreateProxyObjectForARSaveWorld(bool bCompressData);
+	UFUNCTION(BlueprintCallable, meta=(BlueprintInternalUseOnly="true", Category = "Augmented Reality", WorldContext = "WorldContextObject"))
+	static UARSaveWorldAsyncTaskBlueprintProxy* ARSaveWorld(UObject* WorldContextObject);
+
+private:
+	// UBlueprintAsyncActionBase interface
+	virtual void Activate() override;
+	//~UBlueprintAsyncActionBase interface
 	
 	/** The async task to check during Tick() */
 	TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> SaveWorldTask;
 	
-	UPROPERTY(BlueprintReadOnly, Category="Augmented Reality")
-	FARSaveWorldResult SaveWorldResult;
-
 	virtual void ReportSuccess() override;
 	virtual void ReportFailure() override;
 };
 
-USTRUCT(BlueprintType)
-struct FARGetCandidateObjectResult
-{
-	GENERATED_USTRUCT_BODY()
-	
-	UPROPERTY(BlueprintReadOnly, Category="Augmented Reality")
-	FString Error;
-	
-	UPROPERTY(BlueprintReadOnly, Category="Augmented Reality")
-	UARCandidateObject* CandidateObject;
-};
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FARGetCandidateObjectPin, UARCandidateObject*, SavedObject);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FARGetCandidateObjectDelegate, const FARGetCandidateObjectResult&, CandidateObjectResult);
-
-UCLASS(MinimalAPI)
+UCLASS()
 class UARGetCandidateObjectAsyncTaskBlueprintProxy :
 	public UARBaseAsyncTaskBlueprintProxy
 {
-	GENERATED_UCLASS_BODY()
-	
+	GENERATED_BODY()
+
 public:
 	UPROPERTY(BlueprintAssignable)
-	FARGetCandidateObjectDelegate OnSuccess;
+	FARGetCandidateObjectPin OnSuccess;
 	
 	UPROPERTY(BlueprintAssignable)
-	FARGetCandidateObjectDelegate OnFailure;
-	
+	FARGetCandidateObjectPin OnFailed;
+
 	/**
 	 * Saves the point cloud centered at the specified location capturing all of the features within the specified extent as an object that can be detected later
 	 *
 	 * @param Location the center of the extent to grab features at
 	 * @param Extent the size of the region to grab feature points
 	 */
-	UFUNCTION(BlueprintCallable, Meta=(DisplayName="AR Get Candidate Object"), Category="Augmented Reality")
-	static UARGetCandidateObjectAsyncTaskBlueprintProxy* CreateProxyObjectForARGetCandidateObject(FVector Location, FVector Extent);
+	UFUNCTION(BlueprintCallable, Meta=(BlueprintInternalUseOnly = "true", Category = "Augmented Reality", WorldContext = "WorldContextObject"))
+	static UARGetCandidateObjectAsyncTaskBlueprintProxy* ARGetCandidateObject(UObject* WorldContextObject, FVector Location, FVector Extent);
+	
+	FVector Location;
+	FVector Extent;
+	
+private:
+	// UBlueprintAsyncActionBase interface
+	virtual void Activate() override;
+	//~UBlueprintAsyncActionBase interface
 	
 	/** The async task to check during Tick() */
 	TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> CandidateObjectTask;
 	
-	UPROPERTY(BlueprintReadOnly, Category="Augmented Reality")
-	FARGetCandidateObjectResult CandidateObjectResult;
-
 	virtual void ReportSuccess() override;
 	virtual void ReportFailure() override;
 };

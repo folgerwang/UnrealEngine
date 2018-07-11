@@ -46,74 +46,67 @@ const TSharedPtr<FARSystemBase, ESPMode::ThreadSafe>& UARBaseAsyncTaskBlueprintP
 	return RegisteredARSystem;
 }
 
-UARSaveWorldAsyncTaskBlueprintProxy::UARSaveWorldAsyncTaskBlueprintProxy(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-}
-
-UARSaveWorldAsyncTaskBlueprintProxy* UARSaveWorldAsyncTaskBlueprintProxy::CreateProxyObjectForARSaveWorld(bool bCompressData)
+UARSaveWorldAsyncTaskBlueprintProxy* UARSaveWorldAsyncTaskBlueprintProxy::ARSaveWorld(UObject* WorldContextObject)
 {
 	UARSaveWorldAsyncTaskBlueprintProxy* Proxy = NewObject<UARSaveWorldAsyncTaskBlueprintProxy>();
-	Proxy->SetFlags(RF_StrongRefOnFrame);
+	Proxy->RegisterWithGameInstance(WorldContextObject);
+	return Proxy;
+}
 
+void UARSaveWorldAsyncTaskBlueprintProxy::Activate()
+{
 	auto ARSystem = GetARSystem();
 	if (ARSystem.IsValid())
 	{
-		Proxy->SaveWorldTask = ARSystem->SaveWorld();
-		Proxy->AsyncTask = Proxy->SaveWorldTask;
+		SaveWorldTask = ARSystem->SaveWorld();
+		AsyncTask = SaveWorldTask;
 	}
 	else
 	{
-		Proxy->AsyncTask = MakeShared<FARErrorSaveWorldAsyncTask, ESPMode::ThreadSafe>(TEXT("SaveWorld - requires a valid, running ARKit 2.0 session"));
+		AsyncTask = MakeShared<FARErrorSaveWorldAsyncTask, ESPMode::ThreadSafe>(TEXT("ARSaveWorld - requires a valid, running session"));
 	}
-
-	return Proxy;
 }
 
 void UARSaveWorldAsyncTaskBlueprintProxy::ReportSuccess()
 {
-	SaveWorldResult.WorldData = SaveWorldTask->GetSavedWorldData();
-	OnSuccess.Broadcast(SaveWorldResult);
+	OnSuccess.Broadcast(SaveWorldTask->GetSavedWorldData());
 }
 
 void UARSaveWorldAsyncTaskBlueprintProxy::ReportFailure()
 {
-	SaveWorldResult.Error = AsyncTask->GetErrorString();
-	OnFailure.Broadcast(SaveWorldResult);
+	OnFailed.Broadcast(TArray<uint8>());
 }
 
-UARGetCandidateObjectAsyncTaskBlueprintProxy::UARGetCandidateObjectAsyncTaskBlueprintProxy(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-}
-
-UARGetCandidateObjectAsyncTaskBlueprintProxy* UARGetCandidateObjectAsyncTaskBlueprintProxy::CreateProxyObjectForARGetCandidateObject(FVector Location, FVector Extent)
+UARGetCandidateObjectAsyncTaskBlueprintProxy* UARGetCandidateObjectAsyncTaskBlueprintProxy::ARGetCandidateObject(UObject* WorldContextObject, FVector Location, FVector Extent)
 {
 	UARGetCandidateObjectAsyncTaskBlueprintProxy* Proxy = NewObject<UARGetCandidateObjectAsyncTaskBlueprintProxy>();
-	Proxy->SetFlags(RF_StrongRefOnFrame);
-
-	auto ARSystem = GetARSystem();
-	if (ARSystem.IsValid())
-	{
-		Proxy->CandidateObjectTask = ARSystem->GetCandidateObject(Location, Extent);
-		Proxy->AsyncTask = Proxy->CandidateObjectTask;
-	}
-	else
-	{
-		Proxy->AsyncTask = MakeShared<FARErrorGetCandidateObjectAsyncTask, ESPMode::ThreadSafe>(TEXT("GetCandidateObject - requires a valid, running ARKit 2.0 session"));
-	}
+	Proxy->RegisterWithGameInstance(WorldContextObject);
+	Proxy->Extent = Extent;
+	Proxy->Location = Location;
 
 	return Proxy;
 }
 
+void UARGetCandidateObjectAsyncTaskBlueprintProxy::Activate()
+{
+	auto ARSystem = GetARSystem();
+	if (ARSystem.IsValid())
+	{
+		CandidateObjectTask = ARSystem->GetCandidateObject(Location, Extent);
+		AsyncTask = CandidateObjectTask;
+	}
+	else
+	{
+		AsyncTask = MakeShared<FARErrorGetCandidateObjectAsyncTask, ESPMode::ThreadSafe>(TEXT("ARGetCandidateObject - requires a valid, running session"));
+	}
+}
+
 void UARGetCandidateObjectAsyncTaskBlueprintProxy::ReportSuccess()
 {
-	CandidateObjectResult.CandidateObject = CandidateObjectTask->GetCandidateObject();
-	OnSuccess.Broadcast(CandidateObjectResult);
+	OnSuccess.Broadcast(CandidateObjectTask->GetCandidateObject());
 }
 
 void UARGetCandidateObjectAsyncTaskBlueprintProxy::ReportFailure()
 {
-	CandidateObjectResult.Error = AsyncTask->GetErrorString();
-	OnFailure.Broadcast(CandidateObjectResult);
+	OnFailed.Broadcast(nullptr);
 }
