@@ -3190,8 +3190,9 @@ namespace UnrealGameSync
 		private void OptionsButton_Click(object sender, EventArgs e)
 		{
 			OptionsContextMenu_AutoResolveConflicts.Checked = Settings.bAutoResolveConflicts;
-			OptionsContextMenu_SyncPrecompiledEditor.Visible = PerforceMonitor != null && PerforceMonitor.HasZippedBinaries;
+			OptionsContextMenu_SyncPrecompiledEditor.Enabled = PerforceMonitor != null && PerforceMonitor.HasZippedBinaries;
 			OptionsContextMenu_SyncPrecompiledEditor.Checked = Settings.bSyncPrecompiledEditor;
+			OptionsContextMenu_SyncPrecompiledEditor.ToolTipText = PerforceMonitor.ZippedBinariesStatus;
 			OptionsContextMenu_EditorBuildConfiguration.Enabled = !ShouldSyncPrecompiledEditor;
 			UpdateCheckedBuildConfig();
 			OptionsContextMenu_UseIncrementalBuilds.Enabled = !ShouldSyncPrecompiledEditor;
