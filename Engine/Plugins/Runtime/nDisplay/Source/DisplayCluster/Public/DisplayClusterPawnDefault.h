@@ -41,9 +41,6 @@ public:
 	virtual void BeginDestroy() override;
 	virtual void Tick(float DeltaSeconds) override;
 
-protected:
-	virtual void SetupPlayerInputComponent(UInputComponent* InInputComponent) override;
-
 public:
 	/**
 	* Input callback to move forward in local space (or backward if Val is negative).
@@ -87,6 +84,9 @@ public:
 	void LookUpAtRate(float Rate);
 
 protected:
+	virtual void SetupPlayerInputComponent(UInputComponent* InInputComponent) override;
+
+protected:
 	/** Movement component */
 	UPROPERTY(Category = Pawn, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	UFloatingPawnMovement* MovementComponent;
@@ -101,5 +101,5 @@ protected:
 private:
 	IPDisplayClusterGameManager* GameMgr = nullptr;
 
-	bool bIsCluster;
+	bool bIsCluster = false;
 };

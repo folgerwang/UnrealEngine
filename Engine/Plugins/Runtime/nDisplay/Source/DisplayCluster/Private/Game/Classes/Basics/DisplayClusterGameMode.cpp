@@ -52,7 +52,12 @@ void ADisplayClusterGameMode::InitGame(const FString& MapName, const FString& Op
 
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	UE_LOG(LogDisplayClusterGame, Log, TEXT("%s"), bIsDisplayClusterActive ? 
+	if (!GDisplayCluster->IsModuleInitialized())
+	{
+		return;
+	}
+
+	UE_LOG(LogDisplayClusterGame, Log, TEXT("%s"), bIsDisplayClusterActive ?
 		TEXT("DisplayCluster feature is active for this world.") : 
 		TEXT("DisplayCluster feature has been deactivated for this world by game mode."));
 
@@ -117,7 +122,7 @@ void ADisplayClusterGameMode::StartPlay()
 {
 	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterGame);
 
-	if (bIsDisplayClusterActive)
+	if (GDisplayCluster->IsModuleInitialized() && bIsDisplayClusterActive)
 	{
 		IPDisplayClusterGameManager* const pGameMgr = GDisplayCluster->GetPrivateGameMgr();
 		if (pGameMgr)
@@ -145,7 +150,7 @@ void ADisplayClusterGameMode::BeginPlay()
 {
 	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterGame);
 
-	if (bIsDisplayClusterActive)
+	if (GDisplayCluster->IsModuleInitialized() && bIsDisplayClusterActive)
 	{
 		bGameStarted = GDisplayCluster->StartScene(GetWorld());
 		if (!bGameStarted)
@@ -162,7 +167,7 @@ void ADisplayClusterGameMode::BeginDestroy()
 {
 	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterGame);
 
-	if (bIsDisplayClusterActive)
+	if (GDisplayCluster->IsModuleInitialized() && bIsDisplayClusterActive)
 	{
 		if (bGameStarted)
 		{
@@ -181,7 +186,7 @@ void ADisplayClusterGameMode::Tick(float DeltaSeconds)
 
 	Super::Tick(DeltaSeconds);
 
-	if (!bIsDisplayClusterActive)
+	if (!GDisplayCluster->IsModuleInitialized() || !bIsDisplayClusterActive)
 	{
 		return;
 	}

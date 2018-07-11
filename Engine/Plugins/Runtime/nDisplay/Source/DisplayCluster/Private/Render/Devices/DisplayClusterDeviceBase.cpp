@@ -34,6 +34,11 @@ FDisplayClusterDeviceBase::~FDisplayClusterDeviceBase()
 
 bool FDisplayClusterDeviceBase::Initialize()
 {
+	if (GDisplayCluster->GetOperationMode() == EDisplayClusterOperationMode::Disabled)
+	{
+		return false;
+	}
+
 	const FDisplayClusterConfigCustom cfgCustom = GDisplayCluster->GetPrivateConfigMgr()->GetConfigCustom();
 
 	if (cfgCustom.Args.Contains(FString(DisplayClusterStrings::cfg::data::custom::SwapInt)))
@@ -75,6 +80,11 @@ void FDisplayClusterDeviceBase::UpdateProjectionScreenDataForThisFrame()
 	UE_LOG(LogDisplayClusterRender, VeryVerbose, TEXT("UpdateProjectionScreenDataForThisFrame"));
 	check(IsInGameThread());
 
+	if (GDisplayCluster->GetOperationMode() == EDisplayClusterOperationMode::Disabled)
+	{
+		return;
+	}
+
 	// Store transformations of active projection screen
 	UDisplayClusterScreenComponent* pScreen = GDisplayCluster->GetPrivateGameMgr()->GetActiveScreen();
 	if (pScreen)
@@ -87,6 +97,11 @@ void FDisplayClusterDeviceBase::UpdateProjectionScreenDataForThisFrame()
 
 void FDisplayClusterDeviceBase::exec_BarrierWait()
 {
+	if (GDisplayCluster->GetOperationMode() == EDisplayClusterOperationMode::Disabled)
+	{
+		return;
+	}
+
 	double tTime = 0.f;
 	double bTime = 0.f;
 

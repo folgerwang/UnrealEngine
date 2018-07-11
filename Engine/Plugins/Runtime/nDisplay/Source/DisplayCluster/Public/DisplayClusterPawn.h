@@ -65,7 +65,10 @@ protected:
 	UDisplayClusterSceneComponent* CollisionOffsetComponent;
 
 private:
+	UPROPERTY()
 	UDisplayClusterSceneComponentSyncParent* DisplayClusterSyncRoot;
+	
+	UPROPERTY()
 	UDisplayClusterSceneComponentSyncParent* DisplayClusterSyncCollisionOffset;
 
 	IPDisplayClusterGameManager* GameMgr = nullptr;
