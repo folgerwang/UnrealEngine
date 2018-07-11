@@ -172,6 +172,51 @@ bool UMagicLeapHandTrackingFunctionLibrary::GetGestureKeypoints(EControllerHand 
 	return false;
 }
 
+bool UMagicLeapHandTrackingFunctionLibrary::GetGestureKeypointTransform(EControllerHand Hand, EHandTrackingKeypoint Keypoint, EGestureTransformSpace TransformSpace, FTransform& OutTransform)
+{
+	TSharedPtr<FMagicLeapHandTracking> HandTracking = StaticCastSharedPtr<FMagicLeapHandTracking>(IMagicLeapHandTrackingPlugin::Get().GetInputDevice());
+
+	if (HandTracking.IsValid() && HandTracking->IsHandTrackingStateValid())
+	{
+		FTransform KeyPointTransform;
+		const bool bSuccess = HandTracking->GetKeypointTransform(Hand, Keypoint, KeyPointTransform);
+
+		if (bSuccess)
+		{
+			switch (TransformSpace)
+			{
+			case EGestureTransformSpace::Tracking:
+			{
+				OutTransform = KeyPointTransform;
+				return true;
+			}
+			case EGestureTransformSpace::World:
+			{
+				FTransform TrackingToWorldTransform = UHeadMountedDisplayFunctionLibrary::GetTrackingToWorldTransform(GWorld);
+				OutTransform = KeyPointTransform * TrackingToWorldTransform;
+				return true;
+			}
+			case EGestureTransformSpace::Hand:
+			{
+				FTransform HandTransform;
+				const bool bSuccess2 = HandTracking->GetKeypointTransform(Hand, EHandTrackingKeypoint::Hand_Center, HandTransform);
+				if (bSuccess2)
+				{
+					OutTransform = KeyPointTransform * HandTransform.Inverse();
+					return true;
+				}
+				break;
+			}
+			default:
+				check(false);
+				return false;
+			}
+		}
+	}
+
+	return false;
+}
+
 bool UMagicLeapHandTrackingFunctionLibrary::SetConfiguration(const TArray<EHandTrackingGesture>& StaticGesturesToActivate, EHandTrackingKeypointFilterLevel KeypointsFilterLevel, EHandTrackingGestureFilterLevel GestureFilterLevel, EHandTrackingGestureFilterLevel HandSwitchingFilterLevel, bool bEnabled)
 {
 	TSharedPtr<FMagicLeapHandTracking> HandTracking = StaticCastSharedPtr<FMagicLeapHandTracking>(IMagicLeapHandTrackingPlugin::Get().GetInputDevice());

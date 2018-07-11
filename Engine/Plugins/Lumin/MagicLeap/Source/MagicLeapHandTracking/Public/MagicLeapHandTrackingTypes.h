@@ -6,6 +6,44 @@
 #include "UObject/ObjectMacros.h"
 #include "MagicLeapHandTrackingTypes.generated.h"
 
+/*! Transforms that could be tracked on the hand. In 0.15.0 RC5 8 of them may be tracked.*/
+UENUM(BlueprintType)
+enum class EHandTrackingKeypoint : uint8
+{
+	Thumb_Tip, // SDK 0.15.0 tracked
+	Thumb_IP,
+	Thumb_MCP, // SDK 0.15.0 tracked
+	Thumb_CMC,
+
+	Index_Tip, // SDK 0.15.0 tracked
+	Index_DIP,
+	Index_PIP, // SDK 0.15.0 tracked
+	Index_MCP, // SDK 0.15.0 tracked
+
+	Middle_Tip,
+	Middle_DIP,
+	Middle_PIP,
+	Middle_MCP, // SDK 0.15.0 tracked
+
+	Ring_Tip,
+	Ring_DIP,
+	Ring_PIP,
+	Ring_MCP,
+
+	Pinky_Tip,
+	Pinky_DIP,
+	Pinky_PIP,
+	Pinky_MCP,
+
+	Wrist_Center, // SDK 0.15.0 tracked
+	Wrist_Ulnar,
+	Wrist_Radial,
+
+	Hand_Center // SDK 0.15.0 tracked
+};
+
+const int32 EHandTrackingKeypointCount = static_cast<int32>(EHandTrackingKeypoint::Hand_Center) + 1;
+
 /*! Static key pose types which are available when both hands are separated. */
 UENUM(BlueprintType)
 enum class EHandTrackingGesture : uint8
@@ -60,12 +98,12 @@ enum class EHandTrackingGestureFilterLevel : uint8
 UENUM(BlueprintType)
 enum class EGestureTransformSpace : uint8
 {
-	/** Gesture key point transforms are reported in device Tracking space. */
-	Tracking,
 	/** Gesture key point transforms are reported in Unreal world space. This is more costly on CPU.*/
 	World,
 	/** Gesture key point transforms are reported in gesture hand center space.*/
-	Hand
+	Hand,
+	/** Gesture key point transforms are reported in device Tracking space. */
+	Tracking
 };
 
 /** List of input key names for all left and right hand gestures. */

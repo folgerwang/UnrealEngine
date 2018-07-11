@@ -76,6 +76,7 @@ IMPLEMENT_MODULE(FMagicLeapHandTrackingPlugin, MagicLeapHandTracking);
 
 // Partial sanity check of UE4 enums vs ML enums.  If these fail there has probably been an MLSDK update that requires an UE4 update.
 #if WITH_MLSDK
+static_assert(EHandTrackingKeypointCount == static_cast<int32>(MLHandTrackingStaticData_MaxKeyPoints), "EHandTrackingGesture does not match api enum.");
 static_assert(static_cast<int32>(EHandTrackingGesture::NoHand) == static_cast<int32>(MLHandTrackingKeyPose::MLHandTrackingKeyPose_NoHand), "EHandTrackingGesture does not match api enum.");
 static_assert(static_cast<int32>(EHandTrackingKeypointFilterLevel::PredictiveSmoothing) == static_cast<int32>(MLKeypointFilterLevel::MLKeypointFilterLevel_2), "EHandTrackingKeypointFilterLevel does not match api enum.");
 static_assert(static_cast<int32>(EHandTrackingGestureFilterLevel::MoreRobustnessToFlicker) == static_cast<int32>(MLPoseFilterLevel::MLPoseFilterLevel_2), "EHandTrackingGestureFilterLevel does not match api enum.");
@@ -327,7 +328,7 @@ FMagicLeapHandTracking::~FMagicLeapHandTracking()
 
 void FMagicLeapHandTracking::BuildKeypointMaps()
 {
-	SourceToTransformMap.Reserve(48);
+	SourceToTransformMap.Reserve(EHandTrackingKeypointCount * 2);
 
 	SourceToTransformMap.Add(LeftHandCenter_Name, &LeftHand.HandCenter);
 
@@ -394,6 +395,8 @@ void FMagicLeapHandTracking::BuildKeypointMaps()
 
 
 
+	SourceToHandMap.Reserve(EHandTrackingKeypointCount * 2);
+
 	SourceToHandMap.Add(LeftHandCenter_Name, &LeftHand);
 
 	SourceToHandMap.Add(LeftWristCenter_Name, &LeftHand);
@@ -456,7 +459,47 @@ void FMagicLeapHandTracking::BuildKeypointMaps()
 	SourceToHandMap.Add(RightPinkyFingerDIP_Name, &RightHand);
 	SourceToHandMap.Add(RightPinkyFingerPIP_Name, &RightHand);
 	SourceToHandMap.Add(RightPinkyFingerMCP_Name, &RightHand);
+}
 
+FMagicLeapHandTracking::FHandState::FHandState()
+{
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Thumb_Tip)] = &Thumb.Tip;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Thumb_IP)] = &Thumb.DIP;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Thumb_MCP)] = &Thumb.PIP;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Thumb_CMC)] = &Thumb.MCP;
+
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Index_Tip)] = &IndexFinger.Tip;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Index_DIP)] = &IndexFinger.DIP;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Index_PIP)] = &IndexFinger.PIP;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Index_MCP)] = &IndexFinger.MCP;
+
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Middle_Tip)] = &MiddleFinger.Tip;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Middle_DIP)] = &MiddleFinger.DIP;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Middle_PIP)] = &MiddleFinger.PIP;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Middle_MCP)] = &MiddleFinger.MCP;
+
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Ring_Tip)] = &RingFinger.Tip;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Ring_DIP)] = &RingFinger.DIP;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Ring_PIP)] = &RingFinger.PIP;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Ring_MCP)] = &RingFinger.MCP;
+
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Pinky_Tip)] = &PinkyFinger.Tip;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Pinky_DIP)] = &PinkyFinger.DIP;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Pinky_PIP)] = &PinkyFinger.PIP;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Pinky_MCP)] = &PinkyFinger.MCP;
+
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Wrist_Center)] = &Wrist.Center;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Wrist_Ulnar)] = &Wrist.Ulnar;
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Wrist_Radial)] = &Wrist.Radial;
+	
+	EnumToTransformMap[static_cast<int32>(EHandTrackingKeypoint::Hand_Center)] = &HandCenter;
+}
+
+bool FMagicLeapHandTracking::FHandState::GetTransform(EHandTrackingKeypoint KeyPoint, FTransform& OutTransform) const
+{
+	check(static_cast<int32>(KeyPoint) >= 0 && static_cast<int32>(KeyPoint) <= EHandTrackingKeypointCount);
+	OutTransform = *EnumToTransformMap[static_cast<int32>(KeyPoint)];
+	return IsValid();
 }
 
 const FTransform* FMagicLeapHandTracking::FindTransformBySource(FName SourceName) const
@@ -509,7 +552,7 @@ bool FMagicLeapHandTracking::GetControllerOrientationAndPosition(const int32 Con
 			switch (DeviceHand)
 			{
 			case EControllerHand::Special_1:
-				ControllerTransform = &LeftHand.Wrist.Center;
+				ControllerTransform = &LeftHand.HandCenter;
 				break;
 			case EControllerHand::Special_3:
 				ControllerTransform = &LeftHand.IndexFinger.Tip;
@@ -518,7 +561,7 @@ bool FMagicLeapHandTracking::GetControllerOrientationAndPosition(const int32 Con
 				ControllerTransform = &LeftHand.Thumb.Tip;
 				break;
 			case EControllerHand::Special_2:
-				ControllerTransform = &RightHand.Wrist.Center;
+				ControllerTransform = &RightHand.HandCenter;
 				break;
 			case EControllerHand::Special_4:
 				ControllerTransform = &RightHand.IndexFinger.Tip;
@@ -577,64 +620,64 @@ void FMagicLeapHandTracking::EnumerateSources(TArray<FMotionControllerSource>& S
 	// Exposing only the keypoints that are actually tracked in MLSDK 0.15.0 RC5
 
 	SourcesOut.Add(LeftThumbTip_Name);
-	//SourcesOut.Add(LeftThumbIP_Name);
+	SourcesOut.Add(LeftThumbIP_Name);
 	SourcesOut.Add(LeftThumbMCP_Name);
-	//SourcesOut.Add(LeftThumbCMC_Name);
+	SourcesOut.Add(LeftThumbCMC_Name);
 
 	SourcesOut.Add(LeftIndexFingerTip_Name);
-	//SourcesOut.Add(LeftIndexFingerDIP_Name);
+	SourcesOut.Add(LeftIndexFingerDIP_Name);
 	SourcesOut.Add(LeftIndexFingerPIP_Name);
 	SourcesOut.Add(LeftIndexFingerMCP_Name);
 
-	//SourcesOut.Add(LeftMiddleFingerTip_Name);
-	//SourcesOut.Add(LeftMiddleFingerDIP_Name);
-	//SourcesOut.Add(LeftMiddleFingerPIP_Name);
+	SourcesOut.Add(LeftMiddleFingerTip_Name);
+	SourcesOut.Add(LeftMiddleFingerDIP_Name);
+	SourcesOut.Add(LeftMiddleFingerPIP_Name);
 	SourcesOut.Add(LeftMiddleFingerMCP_Name);
 
-	//SourcesOut.Add(LeftRingFingerTip_Name);
-	//SourcesOut.Add(LeftRingFingerDIP_Name);
-	//SourcesOut.Add(LeftRingFingerPIP_Name);
-	//SourcesOut.Add(LeftRingFingerMCP_Name);
+	SourcesOut.Add(LeftRingFingerTip_Name);
+	SourcesOut.Add(LeftRingFingerDIP_Name);
+	SourcesOut.Add(LeftRingFingerPIP_Name);
+	SourcesOut.Add(LeftRingFingerMCP_Name);
 
-	//SourcesOut.Add(LeftPinkyFingerTip_Name);
-	//SourcesOut.Add(LeftPinkyFingerDIP_Name);
-	//SourcesOut.Add(LeftPinkyFingerPIP_Name);
-	//SourcesOut.Add(LeftPinkyFingerMCP_Name);
+	SourcesOut.Add(LeftPinkyFingerTip_Name);
+	SourcesOut.Add(LeftPinkyFingerDIP_Name);
+	SourcesOut.Add(LeftPinkyFingerPIP_Name);
+	SourcesOut.Add(LeftPinkyFingerMCP_Name);
 
 	SourcesOut.Add(LeftWristCenter_Name);
-	//SourcesOut.Add(LeftWristUlnar_Name);
-	//SourcesOut.Add(LeftWristRadial_Name);
+	SourcesOut.Add(LeftWristUlnar_Name);
+	SourcesOut.Add(LeftWristRadial_Name);
 
 	SourcesOut.Add(LeftHandCenter_Name);
 
 
 	SourcesOut.Add(RightThumbTip_Name);
-	//SourcesOut.Add(RightThumbIP_Name);
+	SourcesOut.Add(RightThumbIP_Name);
 	SourcesOut.Add(RightThumbMCP_Name);
-	//SourcesOut.Add(RightThumbCMC_Name);
+	SourcesOut.Add(RightThumbCMC_Name);
 
 	SourcesOut.Add(RightIndexFingerTip_Name);
-	//SourcesOut.Add(RightIndexFingerDIP_Name);
+	SourcesOut.Add(RightIndexFingerDIP_Name);
 	SourcesOut.Add(RightIndexFingerPIP_Name);
 	SourcesOut.Add(RightIndexFingerMCP_Name);
 
-	//SourcesOut.Add(RightMiddleFingerTip_Name);
-	//SourcesOut.Add(RightMiddleFingerDIP_Name);
-	//SourcesOut.Add(RightMiddleFingerPIP_Name);
+	SourcesOut.Add(RightMiddleFingerTip_Name);
+	SourcesOut.Add(RightMiddleFingerDIP_Name);
+	SourcesOut.Add(RightMiddleFingerPIP_Name);
 	SourcesOut.Add(RightMiddleFingerMCP_Name);
 
-	//SourcesOut.Add(RightRingFingerTip_Name);
-	//SourcesOut.Add(RightRingFingerDIP_Name);
-	//SourcesOut.Add(RightRingFingerPIP_Name);
-	//SourcesOut.Add(RightRingFingerMCP_Name);
+	SourcesOut.Add(RightRingFingerTip_Name);
+	SourcesOut.Add(RightRingFingerDIP_Name);
+	SourcesOut.Add(RightRingFingerPIP_Name);
+	SourcesOut.Add(RightRingFingerMCP_Name);
 
-	//SourcesOut.Add(RightPinkyFingerTip_Name);
-	//SourcesOut.Add(RightPinkyFingerDIP_Name);
-	//SourcesOut.Add(RightPinkyFingerPIP_Name);
-	//SourcesOut.Add(RightPinkyFingerMCP_Name);
+	SourcesOut.Add(RightPinkyFingerTip_Name);
+	SourcesOut.Add(RightPinkyFingerDIP_Name);
+	SourcesOut.Add(RightPinkyFingerPIP_Name);
+	SourcesOut.Add(RightPinkyFingerMCP_Name);
 	SourcesOut.Add(RightWristCenter_Name);
-	//SourcesOut.Add(RightWristUlnar_Name);
-	//SourcesOut.Add(RightWristRadial_Name);
+	SourcesOut.Add(RightWristUlnar_Name);
+	SourcesOut.Add(RightWristRadial_Name);
 
 	SourcesOut.Add(RightHandCenter_Name);
 }
@@ -744,6 +787,13 @@ const FMagicLeapHandTracking::FHandState& FMagicLeapHandTracking::GetRightHandSt
 bool FMagicLeapHandTracking::IsHandTrackingStateValid() const
 {
 	return bIsHandTrackingStateValid;
+}
+
+bool FMagicLeapHandTracking::GetKeypointTransform(EControllerHand Hand, EHandTrackingKeypoint Keypoint, FTransform& OutTransform) const
+{
+	const FMagicLeapHandTracking::FHandState& HandState = (Hand == EControllerHand::Left) ? GetLeftHandState() : GetRightHandState();
+
+	return HandState.GetTransform(Keypoint, OutTransform);
 }
 
 bool FMagicLeapHandTracking::SetConfiguration(bool bTrackingEnabled, const TArray<EHandTrackingGesture>& ActiveKeyPoses, EHandTrackingKeypointFilterLevel KeypointsFilterLevel, EHandTrackingGestureFilterLevel GestureFilterLevel)

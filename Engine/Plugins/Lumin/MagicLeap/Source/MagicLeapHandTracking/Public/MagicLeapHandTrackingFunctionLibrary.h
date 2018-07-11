@@ -19,26 +19,24 @@ public:
 	/**
 	  Transform of the center of the hand.  Approximately the center of the palm.
 
-	  Note that this returns a transform in the Tracking space. To get the transform in Unreal's
-	  world space, use the MotioController component as a child of the XRPawn with hand set to EControllerHand::Special_1
-	  for the left hand center and EControllerHand::Special_2 for the right hand center.
+	  Note that this returns a transform in world space.
 
 	  @param Hand Hand to query the hand center transform for. Only Left and Right hand are supported.
 	  @param HandCenter Output parameter containing the position and orientation of the given hand.
-	  @return true if the output param was populated with a valid value, false otherwise.
+	  @return true if the output param was populated with a valid value, false means that is is either unchanged or populated with a stale value.
 	*/
-	UFUNCTION(BlueprintCallable, Category = "HandTracking|MagicLeap")
+	UFUNCTION(BlueprintCallable, Category = "HandTracking|MagicLeap", meta = (DeprecatedFunction, DeprecationMessage = "GetHandCenter is deprecated. Please use GetGestureKeypointTransform instead."))
 	static bool GetHandCenter(EControllerHand Hand, FTransform& HandCenter);
 
 	/**
 	  Transform of the Index Finger Tip.
 
 	  @param Hand Hand to query the hand center transform for. Only Left and Right hand are supported.
-	  @param TransformSpace Get the transform relative to the world, tracking space, or the hand center.
+	  @param TransformSpace Get the transform relative to the world, hand center, or tracking space.
 	  @param Pointer Output parameter containing the position and orientation.
-	  @return true if the output param was populated with a valid value, false otherwise.
-	*/
-	UFUNCTION(BlueprintCallable, Category = "HandTracking|MagicLeap")
+	  @return true if the output param was populated with a valid value, false means that is is either unchanged or populated with a stale value.
+	  */
+	UFUNCTION(BlueprintCallable, Category = "HandTracking|MagicLeap", meta = (DeprecatedFunction, DeprecationMessage = "GetHandIndexFingerTip is deprecated. Please use GetGestureKeypointTransform instead."))
 	static bool GetHandIndexFingerTip(EControllerHand Hand, EGestureTransformSpace TransformSpace, FTransform& Pointer);
 
 	/**
@@ -49,11 +47,11 @@ public:
 	  for the left hand secondary and EControllerHand::Special_6 for the right hand secondary.
 
 	  @param Hand Hand to query the hand center transform for. Only Left and Right hand are supported.
-	  @param TransformSpace Get the transform relative to the world, tracking space, or the hand center.
+	  @param TransformSpace Get the transform relative to the world, hand center, or tracking space.
 	  @param Secondary Output parameter containing the position and orientation.
-	  @return true if the output param was populated with a valid value, false otherwise.
-	*/
-	UFUNCTION(BlueprintCallable, Category = "HandTracking|MagicLeap")
+	  @return true if the output param was populated with a valid value, false means that is is either unchanged or populated with a stale value.
+	  */
+	UFUNCTION(BlueprintCallable, Category = "HandTracking|MagicLeap", meta = (DeprecatedFunction, DeprecationMessage = "GetHandThumbTip is deprecated. Please use GetGestureKeypointTransform instead."))
 	static bool GetHandThumbTip(EControllerHand Hand, EGestureTransformSpace TransformSpace, FTransform& Secondary);
 
 	/**
@@ -71,17 +69,29 @@ public:
 
 	  Note that this returns a transform in the Tracking space. To get the transform in Unreal's
 	  world space, use the MotioController component as a child of the XRPawn with hand set to the following.
-	  Special_3 - Left keypoint 0
-	  Special_5 - Left keypoint 1
-	  Special_4 - Right keypoint 0
-	  Special_6 - Right keypoint 1
+	  Special_3 - Left Index Finger Tip
+	  Special_5 - Left Thumb Tip
+	  Special_4 - Right Index Finger Tip
+	  Special_6 - Right Thumb Tip
 
 	  @param Hand Hand to query the keypoints for. Only Left and Right hand are supported.
-	  @param Keypoints Output paramter containing transforms of the keypoints detected on the given hand.
+	  @param Keypoints Output parameter containing transforms of the keypoints detected on the given hand.
 	  @return true if the output param was populated with a valid value, false otherwise.
 	*/
-	UFUNCTION(BlueprintCallable, Category = "HandTracking|MagicLeap")
+	UFUNCTION(BlueprintCallable, Category = "HandTracking|MagicLeap", meta = (DeprecatedFunction, DeprecationMessage = "GetGestureKeypoints is deprecated. Please use GetGestureKeypointTransform instead."))
 	static bool GetGestureKeypoints(EControllerHand Hand, TArray<FTransform>& Keypoints);
+
+	/**
+	Get Transform for a point on the hand.
+
+	@param Hand
+	@param Keypoint the specific joint or wrist point to fetch.
+	@param Transform Output parameter to write the data to.
+	@param TransformSpace Get the transform relative to the world, hand center, or tracking space.
+	@return true if the output param was populated with a valid value, false means that is is either unchanged or populated with a stale value.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "HandTracking|MagicLeap")
+	static bool GetGestureKeypointTransform(EControllerHand Hand, EHandTrackingKeypoint Keypoint, EGestureTransformSpace TransformSpace, FTransform& Transform);
 
 	/**
 	  Enables and disables the gestures to be detected by the gesture recognition system.

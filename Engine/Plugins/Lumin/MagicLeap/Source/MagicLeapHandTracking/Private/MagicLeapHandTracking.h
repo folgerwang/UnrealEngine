@@ -110,6 +110,8 @@ public:
 	};
 	struct FHandState : public FNoncopyable
 	{
+		FHandState();
+
 		EHandTrackingGesture Gesture = EHandTrackingGesture::NoHand;
 		float GestureConfidence = 0.0f;
 		FVector HandCenterNormalized = FVector::ZeroVector;
@@ -125,6 +127,10 @@ public:
 		FTransform HandCenter = FTransform::Identity;
 
 		bool IsValid() const { return Gesture != EHandTrackingGesture::NoHand; }
+		bool GetTransform(EHandTrackingKeypoint KeyPoint, FTransform& OutTransform) const;
+
+	private:
+		FTransform* EnumToTransformMap[EHandTrackingKeypointCount];
 	};
 
 public:
@@ -154,6 +160,8 @@ public:
 	const FHandState& GetLeftHandState() const;
 	const FHandState& GetRightHandState() const;
 	bool IsHandTrackingStateValid() const;
+
+	bool GetKeypointTransform(EControllerHand Hand, EHandTrackingKeypoint Keypoint, FTransform& OutTransform) const;
 
 	bool SetConfiguration(bool bTrackingEnabled, const TArray<EHandTrackingGesture>& ActiveKeyPoses, EHandTrackingKeypointFilterLevel KeypointsFilterLevel, EHandTrackingGestureFilterLevel GestureFilterLevel);
 	bool GetConfiguration(bool& bTrackingEnabled, TArray<EHandTrackingGesture>& ActiveKeyPoses, EHandTrackingKeypointFilterLevel& KeypointsFilterLevel, EHandTrackingGestureFilterLevel& GestureFilterLevel);
