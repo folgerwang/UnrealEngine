@@ -67,6 +67,11 @@ void ADisplayClusterPawn::BeginPlay()
 
 	Super::BeginPlay();
 
+	if (!GDisplayCluster->IsModuleInitialized())
+	{
+		return;
+	}
+
 	GameMgr = GDisplayCluster->GetPrivateGameMgr();
 	bIsCluster = (GDisplayCluster->GetOperationMode() == EDisplayClusterOperationMode::Cluster);
 
@@ -74,11 +79,12 @@ void ADisplayClusterPawn::BeginPlay()
 	CollisionComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	// Enable collision if needed
-	if (GameMgr->IsDisplayClusterActive())
+	if (GameMgr && GameMgr->IsDisplayClusterActive())
 	{
 		const ADisplayClusterSettings* const pDisplayClusterSettings = GameMgr->GetDisplayClusterSceneSettings();
 
-		if (GDisplayCluster->GetPrivateClusterMgr()->IsMaster())
+		const IPDisplayClusterClusterManager* const ClusterMgr = GDisplayCluster->GetPrivateClusterMgr();
+		if (ClusterMgr && ClusterMgr->IsMaster())
 		{
 			if (pDisplayClusterSettings && pDisplayClusterSettings->bEnableCollisions)
 			{
