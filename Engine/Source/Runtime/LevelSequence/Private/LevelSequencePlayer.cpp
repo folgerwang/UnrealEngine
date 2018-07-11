@@ -222,6 +222,12 @@ void ULevelSequencePlayer::NotifyBindingUpdate(const FGuid& InGuid, FMovieSceneS
 	{
 		if (AActor* Actor = Cast<AActor>(WeakObject.Get()))
 		{
+			
+			if (Actor == LevelSequenceActor)
+			{
+				continue;
+			}
+
 			for (UActorComponent* Component : Actor->GetComponents())
 			{
 				if (Component)
