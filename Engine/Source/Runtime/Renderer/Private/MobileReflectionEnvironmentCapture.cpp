@@ -185,6 +185,9 @@ namespace MobileReflectionEnvironmentCapture
 
 			RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, ProcessedTexture->TextureRHI);
 
+			FRHICopyTextureInfo CopyInfo(ProcessedTexture->GetSizeX(), ProcessedTexture->GetSizeY());
+			CopyInfo.NumArraySlices = 6;
+
 			// GPU copy back to the skylight's texture, which is not a render target
 			for (int32 MipIndex = 0; MipIndex < NumMips; MipIndex++)
 			{
@@ -192,8 +195,6 @@ namespace MobileReflectionEnvironmentCapture
 				// In the HQ case, the full image is contained in GetEffectiveRenderTarget(.., false,0).
 				FSceneRenderTargetItem& EffectiveSource = GetEffectiveRenderTarget(SceneContext, false, bUseHQFiltering ? 0 : MipIndex);
 				RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EffectiveSource.ShaderResourceTexture);
-				FRHICopyTextureInfo CopyInfo(EffectiveSource.ShaderResourceTexture->GetSizeXYZ());
-				CopyInfo.NumArraySlices = 6;
 				RHICmdList.CopyTexture(EffectiveSource.ShaderResourceTexture, ProcessedTexture->TextureRHI, CopyInfo);
 				CopyInfo.AdvanceMip();
 			}

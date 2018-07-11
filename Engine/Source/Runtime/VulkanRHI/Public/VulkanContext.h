@@ -77,14 +77,19 @@ public:
 
 	struct FGenerateMipsInfo
 	{
-		// Per face/slice array of mip layouts
-		TArray<TArray<VkImageLayout>> Layouts;
+		int32 NumRenderTargets = 0;
 
 		bool bInsideGenerateMips;
 		bool bLastMip;
 		int32 CurrentSlice;
 		int32 CurrentMip;
-		VkImage CurrentImage;
+
+		struct
+		{
+			// Per face/slice array of mip layouts
+			TArray<TArray<VkImageLayout>> Layouts;
+			VkImage CurrentImage;
+		} Target[MaxSimultaneousRenderTargets];
 
 		FGenerateMipsInfo()
 		{
@@ -93,12 +98,16 @@ public:
 
 		void Reset()
 		{
+			NumRenderTargets = 0;
 			bInsideGenerateMips = false;
 			bLastMip = false;
 			CurrentSlice = -1;
 			CurrentMip = -1;
-			CurrentImage = VK_NULL_HANDLE;
-			Layouts.Reset(0);
+			for (int32 Index = 0; Index < MaxSimultaneousRenderTargets; ++Index)
+			{
+				Target[Index].Layouts.Reset(0);
+				Target[Index].CurrentImage = VK_NULL_HANDLE;
+			}
 		}
 	} GenerateMipsInfo;
 
@@ -323,7 +332,7 @@ public:
 	{
 		return Device;
 	}
-	void EndRenderQueryInternal(FVulkanCmdBuffer* CmdBuffer, FOLDVulkanRenderQuery* Query);
+	void EndRenderQueryInternal(FVulkanCmdBuffer* CmdBuffer, FVulkanRenderQuery* Query);
 
 	inline VkImageLayout FindLayout(VkImage Image)
 	{
@@ -371,7 +380,7 @@ protected:
 	bool bAutomaticFlushAfterComputeShader;
 	FVulkanUniformBufferUploader* UniformBufferUploader;
 
-	void SetShaderUniformBuffer(EShaderFrequency Stage, const FVulkanUniformBuffer* UniformBuffer, int32 BindingIndex, const FVulkanShader* Shader);
+	void SetShaderUniformBuffer(DescriptorSet::EStage Stage, const FVulkanUniformBuffer* UniformBuffer, int32 BindingIndex, const FVulkanShader* Shader);
 
 	struct
 	{
@@ -437,7 +446,7 @@ protected:
 		{
 		}
 
-		void AddToResetList(FOLDVulkanQueryPool* Pool, int32 QueryIndex)
+		void AddToResetList(FVulkanQueryPool* Pool, int32 QueryIndex)
 		{
 			TArray<uint64>& ListPerPool = ResetList.FindOrAdd(Pool);
 			int32 Word = QueryIndex / 64;
@@ -460,10 +469,10 @@ protected:
 			}
 		}
 
-		TMap<FOLDVulkanQueryPool*, TArray<uint64>> ResetList;
+		TMap<FVulkanQueryPool*, TArray<uint64>> ResetList;
 	};
 	FOcclusionQueryData CurrentOcclusionQueryData;
-	void AdvanceQuery(FOLDVulkanRenderQuery* Query);
+	void AdvanceQuery(FVulkanRenderQuery* Query);
 #endif
 
 	// List of UAVs which need setting for pixel shaders. D3D treats UAVs like rendertargets so the RHI doesn't make SetUAV calls at the right time

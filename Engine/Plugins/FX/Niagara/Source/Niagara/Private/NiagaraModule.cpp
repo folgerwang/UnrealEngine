@@ -227,7 +227,6 @@ void INiagaraModule::StartupModule()
 	UNiagaraRibbonRendererProperties::InitCDOPropertiesAfterModuleStartup();
 	UNiagaraMeshRendererProperties::InitCDOPropertiesAfterModuleStartup();
 
-	FCoreDelegates::OnPreExit.AddRaw(this, &INiagaraModule::ShutdownRenderingResources);
 }
 
 void INiagaraModule::ShutdownRenderingResources()

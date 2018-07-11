@@ -72,7 +72,7 @@ struct FVulkanBindingTable
 	}
 
 	void SortBindings();
-	void PrintBindingTableDefines(char** Buffer);
+	void PrintBindingTableDefines(char** OutBuffer) const;
 
 private:
 	// Previous implementation supported bindings only for textures.

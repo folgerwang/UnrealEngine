@@ -141,11 +141,16 @@ void SetupCS(
 			}
 			#endif
 		}
+		
+		FCocDownsampleParams DownsampleParams;
+		DownsampleParams.CocRadiusMultiplier = 1.0;
+		DownsampleParams.FrameExposureScale = 1.0;
+		DownsampleParams.bDoColorBasedWeighting = false;
 
 		// Downsample.
 		float4 OutColor;
 		float OutCocRadius;
-		DownsampleSceneColorWithCoc(SceneColors, CocRadii, OutColor, OutCocRadius);
+		DownsampleSceneColorWithCoc(DownsampleParams, SceneColors, CocRadii, OutColor, OutCocRadius);
 	
 		uint2 HalfResOutputPixelPosition = GroupId * (GROUP_BORDER_SIZE / 2) + SubGroupPos;
 
@@ -202,7 +207,12 @@ void SetupCS(
 	// because this pass is running at half resolution.
 	float2 SceneBufferUV = (float2(View.ViewRectMin.xy) + 2.0 * (DispatchThreadId + 0.5)) * View.BufferSizeAndInvSize.zw;
 	float2 SceneBufferUVOffset = View.BufferSizeAndInvSize.zw * 0.5;
-	
+			
+	FCocDownsampleParams DownsampleParams;
+	DownsampleParams.CocRadiusMultiplier = 1.0;
+	DownsampleParams.FrameExposureScale = 1.0;
+	DownsampleParams.bDoColorBasedWeighting = false;
+
 	BRANCH
 	if (all(GroupId * GROUP_BORDER_SIZE + (GROUP_BORDER_SIZE + 1) <= ViewportRect.zw))
 	{
@@ -228,7 +238,7 @@ void SetupCS(
 		// Downsample.
 		float4 OutColor;
 		float OutCocRadius;
-		DownsampleSceneColorWithCoc(SceneColors, CocRadii, OutColor, OutCocRadius);
+		DownsampleSceneColorWithCoc(DownsampleParams, SceneColors, CocRadii, OutColor, OutCocRadius);
 	
 		#if CONFIG_DOF_ALPHA
 		{
@@ -267,7 +277,7 @@ void SetupCS(
 		// Downsample.
 		float4 OutColor;
 		float OutCocRadius;
-		DownsampleSceneColorWithCoc(SceneColors, CocRadii, OutColor, OutCocRadius);
+		DownsampleSceneColorWithCoc(DownsampleParams, SceneColors, CocRadii, OutColor, OutCocRadius);
 	
 		#if 0 // Lower VGPR footprint.
 			uint2 OutputPixelPosition = 0.5 * SceneBufferUV * View.BufferSizeAndInvSize.xy;

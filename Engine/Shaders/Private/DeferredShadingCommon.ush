@@ -564,7 +564,9 @@ FGBufferData DecodeGBufferData(
 	if( GBuffer.ShadingModelID == SHADINGMODELID_EYE )
 	{
 		GBuffer.Metallic = 0.0;
-		//GBuffer.Specular = 0.25;
+#if IRIS_NORMAL
+		GBuffer.Specular = 0.25;
+#endif
 	}
 
 	// derived from BaseColor, Metalness, Specular

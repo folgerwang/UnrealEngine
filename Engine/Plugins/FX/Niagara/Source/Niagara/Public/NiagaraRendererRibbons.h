@@ -43,10 +43,10 @@ public:
 		NewVertex.Color = Color;
 		NewVertex.Size = Size;
 		NewVertex.Rotation = Rotation;
-		NewVertex.Tex_U = UV1.X * Properties->UV0Scale.X;
-		NewVertex.Tex_V = UV1.Y * Properties->UV0Scale.Y;
-		NewVertex.Tex_U2 = UV2.X * Properties->UV1Scale.X;
-		NewVertex.Tex_V2 = UV2.Y * Properties->UV1Scale.Y;
+		NewVertex.Tex_U = UV1.X;
+		NewVertex.Tex_V = UV1.Y;
+		NewVertex.Tex_U2 = UV2.X;
+		NewVertex.Tex_V2 = UV2.Y;
 		NewVertex.CustomFacingVector = CustomFacing;
 		RenderData.Add(NewVertex);
 	}

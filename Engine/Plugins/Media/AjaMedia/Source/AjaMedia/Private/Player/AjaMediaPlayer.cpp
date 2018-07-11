@@ -87,6 +87,12 @@ bool FAjaMediaPlayer::Open(const FString& Url, const IMediaOptions* Options)
 		return false;
 	}
 
+	if (!FAja::CanUseAJACard())
+	{
+		UE_LOG(LogAjaMedia, Warning, TEXT("The AjaMediaPlayer can't open URL '%s' because Aja card cannot be used. Are you in a Commandlet? You may override this behavior by launching with -ForceAjaUsage"), *DeviceSource.ToString());
+		return false;
+	}
+
 	AJA::AJADeviceOptions DeviceOptions(DeviceSource.DeviceIndex);
 
 	// Read options

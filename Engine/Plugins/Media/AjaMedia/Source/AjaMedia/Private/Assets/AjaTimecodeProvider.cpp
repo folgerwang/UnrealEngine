@@ -76,6 +76,13 @@ bool UAjaTimecodeProvider::Initialize(class UEngine* InEngine)
 		return false;
 	}
 
+	if (!FAja::CanUseAJACard())
+	{
+		State = ETimecodeProviderSynchronizationState::Error;
+		UE_LOG(LogAjaMedia, Warning, TEXT("The TimecodeProvider '%s' can't be initialized because Aja card cannot be used. Are you in a Commandlet? You may override this behavior by launching with -ForceAjaUsage"), *GetName());
+		return false;
+	}
+
 	const FAjaMediaMode CurrentMediaMode = GetMediaMode();
 
 	FString FailureReason;

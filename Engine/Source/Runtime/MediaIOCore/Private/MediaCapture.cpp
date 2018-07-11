@@ -329,6 +329,10 @@ void UMediaCapture::OnEndFrame_GameThread()
 			if (InSceneViewportPtr.IsValid())
 			{
 				SourceTexture = InSceneViewportPtr->GetRenderTargetTexture();
+				if (!SourceTexture.IsValid() && InSceneViewportPtr->GetViewportRHI())
+				{
+					SourceTexture = RHICmdList.GetViewportBackBuffer(InSceneViewportPtr->GetViewportRHI());
+				}
 			}
 			else if (InCapturingRenderTarget)
 			{

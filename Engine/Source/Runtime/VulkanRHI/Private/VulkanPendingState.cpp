@@ -113,8 +113,7 @@ FVulkanDescriptorPool::FVulkanDescriptorPool(FVulkanDevice* InDevice)
 #endif
 
 	VkDescriptorPoolCreateInfo PoolInfo;
-	FMemory::Memzero(PoolInfo);
-	PoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	ZeroVulkanStruct(PoolInfo, VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO);
 	PoolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 	PoolInfo.poolSizeCount = Types.Num();
 	PoolInfo.pPoolSizes = Types.GetData();
@@ -402,7 +401,7 @@ FVulkanPendingComputeState::~FVulkanPendingComputeState()
 {
 	for (auto& Pair : PipelineStates)
 	{
-		FVulkanComputePipelineState* State = Pair.Value;
+		FVulkanComputePipelineDescriptorState* State = Pair.Value;
 		delete State;
 	}
 }
@@ -500,7 +499,7 @@ FVulkanPendingGfxState::~FVulkanPendingGfxState()
 {
 	for (auto& Pair : PipelineStates)
 	{
-		FVulkanGfxPipelineState* State = Pair.Value;
+		FVulkanGraphicsPipelineDescriptorState* State = Pair.Value;
 		delete State;
 	}
 }
@@ -569,7 +568,7 @@ void FVulkanPendingGfxState::PrepareForDraw(FVulkanCmdBuffer* CmdBuffer)
 					{
 						UE_LOG(LogVulkanRHI, Warning, TEXT("Missing binding on location %d in '%s' vertex shader"),
 							CurrBinding.binding,
-							*CurrentBSS->GetShader(SF_Vertex)->GetDebugName());
+							*CurrentBSS->GetShader(DescriptorSet::Vertex)->GetDebugName());
 						ensure(0);
 					}
 				}
@@ -627,7 +626,7 @@ void FVulkanPendingGfxState::InternalUpdateDynamicStates(FVulkanCmdBuffer* Cmd)
 	Cmd->bNeedsDynamicStateSet = false;
 }
 
-void FVulkanPendingGfxState::SetSRV(EShaderFrequency Stage, uint32 BindIndex, FVulkanShaderResourceView* SRV)
+void FVulkanPendingGfxState::SetSRV(DescriptorSet::EStage Stage, uint32 BindIndex, FVulkanShaderResourceView* SRV)
 {
 	if (SRV)
 	{
@@ -657,7 +656,7 @@ void FVulkanPendingGfxState::SetSRV(EShaderFrequency Stage, uint32 BindIndex, FV
 	}
 }
 
-void FVulkanPendingGfxState::SetUAV(EShaderFrequency Stage, uint32 UAVIndex, FVulkanUnorderedAccessView* UAV)
+void FVulkanPendingGfxState::SetUAV(DescriptorSet::EStage Stage, uint32 UAVIndex, FVulkanUnorderedAccessView* UAV)
 {
 	if (UAV)
 	{

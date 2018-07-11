@@ -120,7 +120,6 @@ namespace UnrealBuildTool.Rules
 							}
 
 							PublicAdditionalLibraries.Add("vulkan-1.lib");
-							PublicAdditionalLibraries.Add("vkstatic.1.lib");
 							bUseThirdParty = false;
 						}
 					}

@@ -18,10 +18,10 @@
 class FVulkanComputePipeline;
 
 // Common Pipeline state
-class FVulkanCommonPipelineState : public VulkanRHI::FDeviceChild
+class FVulkanCommonPipelineDescriptorState : public VulkanRHI::FDeviceChild
 {
 public:
-	FVulkanCommonPipelineState(FVulkanDevice* InDevice)
+	FVulkanCommonPipelineDescriptorState(FVulkanDevice* InDevice)
 		: VulkanRHI::FDeviceChild(InDevice)
 #if !VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 		, DSRingBuffer(InDevice)
@@ -72,11 +72,11 @@ protected:
 };
 
 
-class FVulkanComputePipelineState : public FVulkanCommonPipelineState
+class FVulkanComputePipelineDescriptorState : public FVulkanCommonPipelineDescriptorState
 {
 public:
-	FVulkanComputePipelineState(FVulkanDevice* InDevice, FVulkanComputePipeline* InComputePipeline);
-	~FVulkanComputePipelineState()
+	FVulkanComputePipelineDescriptorState(FVulkanDevice* InDevice, FVulkanComputePipeline* InComputePipeline);
+	~FVulkanComputePipelineDescriptorState()
 	{
 		ComputePipeline->Release();
 	}
@@ -183,102 +183,102 @@ protected:
 	friend class FVulkanCommandListContext;
 };
 
-class FVulkanGfxPipelineState : public FVulkanCommonPipelineState
+class FVulkanGraphicsPipelineDescriptorState : public FVulkanCommonPipelineDescriptorState
 {
 public:
-	FVulkanGfxPipelineState(FVulkanDevice* InDevice, FVulkanGraphicsPipelineState* InGfxPipeline, FVulkanBoundShaderState* InBSS);
-	~FVulkanGfxPipelineState()
+	FVulkanGraphicsPipelineDescriptorState(FVulkanDevice* InDevice, FVulkanRHIGraphicsPipelineState* InGfxPipeline, FVulkanBoundShaderState* InBSS);
+	~FVulkanGraphicsPipelineDescriptorState()
 	{
 		GfxPipeline->Release();
 		BSS->Release();
 	}
 
 	template<VkDescriptorType Type>
-	inline void MarkDirty(EShaderFrequency Stage, bool bDirty)
+	inline void MarkDirty(DescriptorSet::EStage Stage, bool bDirty)
 	{
-		ResourcesDirty[Stage] |= ((uint64)(bDirty ? 1 : 0)) << (uint64)Type;
+		ResourcesDirty[(int8)Stage] |= ((uint64)(bDirty ? 1 : 0)) << (uint64)Type;
 	}
 
-	inline void SetStorageBuffer(EShaderFrequency Stage, uint32 BindPoint, VkBuffer Buffer, uint32 Offset, uint32 Size, VkBufferUsageFlags UsageFlags)
+	inline void SetStorageBuffer(DescriptorSet::EStage Stage, uint32 BindPoint, VkBuffer Buffer, uint32 Offset, uint32 Size, VkBufferUsageFlags UsageFlags)
 	{
 		check((UsageFlags & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) == VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-		const bool bDirty = DSWriter[Stage].WriteStorageBuffer(BindPoint, Buffer, Offset, Size);
+		const bool bDirty = DSWriter[(int8)Stage].WriteStorageBuffer(BindPoint, Buffer, Offset, Size);
 		MarkDirty<VK_DESCRIPTOR_TYPE_STORAGE_BUFFER>(Stage, bDirty);
 	}
 
-	inline void SetUAVTexelBufferViewState(EShaderFrequency Stage, uint32 BindPoint, FVulkanBufferView* View)
+	inline void SetUAVTexelBufferViewState(DescriptorSet::EStage Stage, uint32 BindPoint, FVulkanBufferView* View)
 	{
 		check(View && (View->Flags & VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT) == VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT);
-		const bool bDirty = DSWriter[Stage].WriteStorageTexelBuffer(BindPoint, View);
+		const bool bDirty = DSWriter[(int8)Stage].WriteStorageTexelBuffer(BindPoint, View);
 		MarkDirty<VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER>(Stage, bDirty);
 	}
 
-	inline void SetUAVTextureView(EShaderFrequency Stage, uint32 BindPoint, const FVulkanTextureView& TextureView, VkImageLayout Layout)
+	inline void SetUAVTextureView(DescriptorSet::EStage Stage, uint32 BindPoint, const FVulkanTextureView& TextureView, VkImageLayout Layout)
 	{
-		const bool bDirty = DSWriter[Stage].WriteStorageImage(BindPoint, TextureView.View, Layout);
+		const bool bDirty = DSWriter[(int8)Stage].WriteStorageImage(BindPoint, TextureView.View, Layout);
 		MarkDirty<VK_DESCRIPTOR_TYPE_STORAGE_IMAGE>(Stage, bDirty);
 	}
 
-	inline void SetTexture(EShaderFrequency Stage, uint32 BindPoint, const FVulkanTextureBase* TextureBase, VkImageLayout Layout)
+	inline void SetTexture(DescriptorSet::EStage Stage, uint32 BindPoint, const FVulkanTextureBase* TextureBase, VkImageLayout Layout)
 	{
 		check(TextureBase);
-		const bool bDirty = DSWriter[Stage].WriteImage(BindPoint, TextureBase->PartialView->View, Layout);
+		const bool bDirty = DSWriter[(int8)Stage].WriteImage(BindPoint, TextureBase->PartialView->View, Layout);
 		MarkDirty<VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE>(Stage, bDirty);
 	}
 
-	inline void SetSRVBufferViewState(EShaderFrequency Stage, uint32 BindPoint, FVulkanBufferView* View)
+	inline void SetSRVBufferViewState(DescriptorSet::EStage Stage, uint32 BindPoint, FVulkanBufferView* View)
 	{
 		check(View && (View->Flags & VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT) == VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT);
-		const bool bDirty = DSWriter[Stage].WriteUniformTexelBuffer(BindPoint, View);
+		const bool bDirty = DSWriter[(int8)Stage].WriteUniformTexelBuffer(BindPoint, View);
 		MarkDirty<VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER>(Stage, bDirty);
 	}
 
-	inline void SetSRVTextureView(EShaderFrequency Stage, uint32 BindPoint, const FVulkanTextureView& TextureView, VkImageLayout Layout)
+	inline void SetSRVTextureView(DescriptorSet::EStage Stage, uint32 BindPoint, const FVulkanTextureView& TextureView, VkImageLayout Layout)
 	{
-		const bool bDirty = DSWriter[Stage].WriteImage(BindPoint, TextureView.View, Layout);
+		const bool bDirty = DSWriter[(int8)Stage].WriteImage(BindPoint, TextureView.View, Layout);
 		MarkDirty<VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE>(Stage, bDirty);
 	}
 
-	inline void SetSamplerState(EShaderFrequency Stage, uint32 BindPoint, FVulkanSamplerState* Sampler)
+	inline void SetSamplerState(DescriptorSet::EStage Stage, uint32 BindPoint, FVulkanSamplerState* Sampler)
 	{
 		check(Sampler && Sampler->Sampler != VK_NULL_HANDLE);
-		const bool bDirty = DSWriter[Stage].WriteSampler(BindPoint, Sampler->Sampler);
+		const bool bDirty = DSWriter[(int8)Stage].WriteSampler(BindPoint, Sampler->Sampler);
 		MarkDirty<VK_DESCRIPTOR_TYPE_SAMPLER>(Stage, bDirty);
 	}
 
-	inline void SetShaderParameter(EShaderFrequency Stage, uint32 BufferIndex, uint32 ByteOffset, uint32 NumBytes, const void* NewValue)
+	inline void SetShaderParameter(DescriptorSet::EStage Stage, uint32 BufferIndex, uint32 ByteOffset, uint32 NumBytes, const void* NewValue)
 	{
-		PackedUniformBuffers[Stage].SetPackedGlobalParameter(BufferIndex, ByteOffset, NumBytes, NewValue, PackedUniformBuffersDirty[Stage]);
+		PackedUniformBuffers[(int8)Stage].SetPackedGlobalParameter(BufferIndex, ByteOffset, NumBytes, NewValue, PackedUniformBuffersDirty[(int8)Stage]);
 	}
 
-	inline void SetUniformBufferConstantData(EShaderFrequency Stage, uint32 BindPoint, const TArray<uint8>& ConstantData)
+	inline void SetUniformBufferConstantData(DescriptorSet::EStage Stage, uint32 BindPoint, const TArray<uint8>& ConstantData)
 	{
-		PackedUniformBuffers[Stage].SetEmulatedUniformBufferIntoPacked(BindPoint, ConstantData, PackedUniformBuffersDirty[Stage]);
+		PackedUniformBuffers[(int8)Stage].SetEmulatedUniformBufferIntoPacked(BindPoint, ConstantData, PackedUniformBuffersDirty[(int8)Stage]);
 	}
 
-	inline void SetUniformBuffer(EShaderFrequency Stage, uint32 BindPoint, const FVulkanUniformBuffer* UniformBuffer)
+	inline void SetUniformBuffer(DescriptorSet::EStage Stage, uint32 BindPoint, const FVulkanUniformBuffer* UniformBuffer)
 	{
-		if ((UniformBuffersWithDataMask[Stage] & (1ULL << (uint64)BindPoint)) != 0)
+		if ((UniformBuffersWithDataMask[(int8)Stage] & (1ULL << (uint64)BindPoint)) != 0)
 		{
 			extern TAutoConsoleVariable<int32> GDynamicGlobalUBs;
 			if (GDynamicGlobalUBs.GetValueOnRenderThread() > 1)
 			{
-				const bool bDirty = DSWriter[Stage].WriteDynamicUniformBuffer(BindPoint, UniformBuffer->GetHandle(), 0, UniformBuffer->GetSize(), UniformBuffer->GetOffset());
+				const bool bDirty = DSWriter[(int8)Stage].WriteDynamicUniformBuffer(BindPoint, UniformBuffer->GetHandle(), 0, UniformBuffer->GetSize(), UniformBuffer->GetOffset());
 				MarkDirty<VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC>(Stage, bDirty);
 			}
 			else
 			{
-				const bool bDirty = DSWriter[Stage].WriteUniformBuffer(BindPoint, UniformBuffer->GetHandle(), UniformBuffer->GetOffset(), UniformBuffer->GetSize());
+				const bool bDirty = DSWriter[(int8)Stage].WriteUniformBuffer(BindPoint, UniformBuffer->GetHandle(), UniformBuffer->GetOffset(), UniformBuffer->GetSize());
 				MarkDirty<VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER>(Stage, bDirty);
 			}
 		}
 	}
 
-	inline void SetDynamicUniformBuffer(EShaderFrequency Stage, uint32 BindPoint, const FVulkanUniformBuffer* UniformBuffer)
+	inline void SetDynamicUniformBuffer(DescriptorSet::EStage Stage, uint32 BindPoint, const FVulkanUniformBuffer* UniformBuffer)
 	{
-		if ((UniformBuffersWithDataMask[Stage] & (1ULL << (uint64)BindPoint)) != 0)
+		if ((UniformBuffersWithDataMask[(int8)Stage] & (1ULL << (uint64)BindPoint)) != 0)
 		{
-			const bool bDirty = DSWriter[Stage].WriteDynamicUniformBuffer(BindPoint, UniformBuffer->GetHandle(), UniformBuffer->GetOffset(), UniformBuffer->GetSize(), 0);
+			const bool bDirty = DSWriter[(int8)Stage].WriteDynamicUniformBuffer(BindPoint, UniformBuffer->GetHandle(), UniformBuffer->GetOffset(), UniformBuffer->GetSize(), 0);
 			MarkDirty<VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC>(Stage, bDirty);
 		}
 	}
@@ -311,7 +311,7 @@ public:
 		int32 TotalNumBuffer = 0;
 		int32 TotalNumImages = 0;
 
-		for (int32 Index = 0; Index < SF_Compute; ++Index)
+		for (int32 Index = 0; Index < DescriptorSet::NumGfxStages; ++Index)
 		{
 			FVulkanShader* Shader = GfxPipeline->Shaders[Index];
 			if (!Shader)
@@ -336,18 +336,18 @@ protected:
 	uint32 UsedStagesMask = 0;
 	// Bitmask of stages that have descriptors
 	uint32 HasDescriptorsPerStageMask = 0;
-	const FVulkanCodeHeader* CodeHeaderPerStage[SF_Compute];
+	const FVulkanCodeHeader* CodeHeaderPerStage[DescriptorSet::NumGfxStages];
 
-	uint64 ResourcesDirty[SF_Compute];
-	uint64 ResourcesDirtyMask[SF_Compute];
+	uint64 ResourcesDirty[DescriptorSet::NumGfxStages];
+	uint64 ResourcesDirtyMask[DescriptorSet::NumGfxStages];
 
-	FPackedUniformBuffers PackedUniformBuffers[SF_Compute];
-	uint64 PackedUniformBuffersMask[SF_Compute];
-	uint64 PackedUniformBuffersDirty[SF_Compute];
-	uint64 UniformBuffersWithDataMask[SF_Compute];
-	FVulkanDescriptorSetWriter DSWriter[SF_Compute];
+	FPackedUniformBuffers PackedUniformBuffers[DescriptorSet::NumGfxStages];
+	uint64 PackedUniformBuffersMask[DescriptorSet::NumGfxStages];
+	uint64 PackedUniformBuffersDirty[DescriptorSet::NumGfxStages];
+	uint64 UniformBuffersWithDataMask[DescriptorSet::NumGfxStages];
+	FVulkanDescriptorSetWriter DSWriter[DescriptorSet::EStage::NumGfxStages];
 
-	FVulkanGraphicsPipelineState* GfxPipeline;
+	FVulkanRHIGraphicsPipelineState* GfxPipeline;
 	FVulkanBoundShaderState* BSS;
 	int32 ID;
 

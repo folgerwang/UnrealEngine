@@ -44,6 +44,8 @@ public class Python : ModuleRules
 			{
 				KnownPaths.AddRange(
 					new string[] {
+						Path.Combine(PythonTPSDir, "Mac"),
+						//"/Library/Frameworks/Python.framework/Versions/3.6",
 						"/Library/Frameworks/Python.framework/Versions/2.7",
 						//"/System/Library/Frameworks/Python.framework/Versions/2.7",
 					}
@@ -63,7 +65,19 @@ public class Python : ModuleRules
 		// Work out the include path
 		if (PythonRoot != null)
 		{
-			PythonIncludePath = Path.Combine(PythonRoot, (Target.Platform == UnrealTargetPlatform.Mac) ? "Headers" : "include");
+			PythonIncludePath = Path.Combine(PythonRoot, "include");
+			if (Target.Platform == UnrealTargetPlatform.Mac)
+			{
+				// On Mac the actual headers are inside a "pythonxy" directory, where x and y are the version number
+				if (Directory.Exists(PythonIncludePath))
+				{
+					string[] MatchingIncludePaths = Directory.GetDirectories(PythonIncludePath, "python*");
+					if (MatchingIncludePaths.Length > 0)
+					{
+						PythonIncludePath = Path.Combine(PythonIncludePath, Path.GetFileName(MatchingIncludePaths[0]));
+					}
+				}
+			}
 			if (!Directory.Exists(PythonIncludePath))
 			{
 				PythonRoot = null;

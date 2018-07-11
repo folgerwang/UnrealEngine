@@ -91,6 +91,14 @@ static TAutoConsoleVariable<int32> CVarClearCoatNormal(
 	TEXT(" 1: on"),
 	ECVF_ReadOnly);
 
+static TAutoConsoleVariable<int32> CVarIrisNormal(
+	TEXT("r.IrisNormal"),
+	0,
+	TEXT("0 to disable iris normal.\n")
+	TEXT(" 0: off\n")
+	TEXT(" 1: on"),
+	ECVF_ReadOnly);
+
 static TAutoConsoleVariable<int32> CVarFXSystemPreRenderAfterPrepass(
 	TEXT("r.FXSystemPreRenderAfterPrepass"),
 	0,

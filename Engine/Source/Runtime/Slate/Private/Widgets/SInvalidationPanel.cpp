@@ -146,19 +146,19 @@ bool SInvalidationPanel::IsCachingNeeded(FSlateWindowElementList& OutDrawElement
 		return true;
 	}
 	
+	if (LastClippingIndex != OutDrawElements.GetClippingIndex())
+	{
+		return true;
+	}
+
+	int32 ClippingStateCount = OutDrawElements.GetClippingManager().GetClippingStates().Num();
+	if (LastClippingStateOffset != ClippingStateCount)
+	{
+		return true;
+	}
+	
 	if (bCacheRelativeTransforms)
 	{
-		if (LastClippingIndex != OutDrawElements.GetClippingIndex())
-		{
-			return true;
-		}
-
-		int32 ClippingStateCount = OutDrawElements.GetClippingManager().GetClippingStates().Num();
-		if (LastClippingStateOffset != ClippingStateCount)
-		{
-			return true;
-		}
-
 		bool bOverlapping;
 		FVector2D IntersectionSize = AllottedGeometry.GetLayoutBoundingRect().IntersectionWith(MyCullingRect, bOverlapping).GetSize();
 		if (!LastClippingIntersectionSize.Equals(IntersectionSize, 1.0f))
@@ -294,6 +294,21 @@ void SInvalidationPanel::OnGlobalInvalidate()
 	InvalidateCache();
 }
 
+template<typename ElementType>
+TFunction<void(ElementType&)> UpdateClipIndexFn(int32 LastClippingIndex, int32 ClippingStateOffset)
+{
+	return [=](ElementType& Element) {
+		if (Element.GetClippingIndex() == -1)
+		{
+			Element.SetClippingIndex(LastClippingIndex);
+		}
+		else
+		{
+			Element.SetClippingIndex(ClippingStateOffset + Element.GetClippingIndex());
+		}
+	};
+}
+
 int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
 #if SLATE_VERBOSE_NAMED_EVENTS
@@ -373,23 +388,15 @@ int32 SInvalidationPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Allo
 				
 				const int32 ClippingStateOffset = OutDrawElements.GetClippingManager().MergeClippingStates(CachedWindowElements->GetClippingManager().GetClippingStates());
 
-				TArray<FSlateDrawElement>& CachedElements = CachedWindowElements->GetDrawElements();
-				for (int32 Index = 0; Index < CachedElements.Num(); Index++)
-				{
-					FSlateDrawElement& CachedElement = CachedElements[Index];
-					if (CachedElement.GetClippingIndex() == -1)
-					{
-						CachedElement.SetClippingIndex(LastClippingIndex);
-					}
-					else
-					{
-						CachedElement.SetClippingIndex(ClippingStateOffset + CachedElement.GetClippingIndex());
-					}
-				}
-
 				if (bCacheRenderData)
 				{
 					CachedRenderData = CachedWindowElements->CacheRenderData(this);
+				}
+				else
+				{
+					// offset clipping indices for cached elements, so they point to correct entry in merged clipping states
+					CachedWindowElements->ForEachElement(UpdateClipIndexFn<FSlateDrawBase>(LastClippingIndex, ClippingStateOffset));
+					CachedWindowElements->ForEachElement(UpdateClipIndexFn<FSlateDrawElement>(LastClippingIndex, ClippingStateOffset));
 				}
 
 				LastHitTestIndex = Args.GetLastHitTestIndex();
