@@ -766,6 +766,8 @@ UTexture2D* FImageUtils::ImportFileAsTexture2D(const FString& Filename)
 						FMemory::Memcpy(MipData, HDRDDSLoadHelper.GetDDSDataPointer(), NewTexture->PlatformData->Mips[0].BulkData.GetBulkDataSize());
 
 						NewTexture->PlatformData->Mips[0].BulkData.Unlock();
+
+						NewTexture->UpdateResource();
 					}
 
 				}
@@ -773,67 +775,85 @@ UTexture2D* FImageUtils::ImportFileAsTexture2D(const FString& Filename)
 		}
 		else
 		{
-			EImageFormat Format = ImageWrapperModule.DetectImageFormat(Buffer.GetData(), Buffer.GetAllocatedSize());
-
-			if (Format != EImageFormat::Invalid)
-			{
-				TSharedPtr<IImageWrapper> ImageWrapper = ImageWrapperModule.CreateImageWrapper(Format);
-
-				if (ImageWrapper->SetCompressed((void*)Buffer.GetData(), Buffer.GetAllocatedSize()))
-				{
-					PixelFormat = PF_Unknown;
-
-					ERGBFormat RGBFormat = ERGBFormat::Invalid;
-		
-					BitDepth = ImageWrapper->GetBitDepth();
-
-					Width = ImageWrapper->GetWidth();
-					Height = ImageWrapper->GetHeight();
-
-					if (BitDepth == 16)
-					{
-						PixelFormat = PF_FloatRGBA;
-						RGBFormat = ERGBFormat::BGRA;
-					}
-					else if (BitDepth == 8)
-					{
-						PixelFormat = PF_B8G8R8A8;
-						RGBFormat = ERGBFormat::BGRA;
-					}
-					else
-					{
-						UE_LOG(LogImageUtils, Warning, TEXT("Error creating texture. %s is not a valid bit depth (%d)"), BitDepth);
-					}
-
-					const TArray<uint8>* UncompressedData = nullptr;
-					ImageWrapper->GetRaw(RGBFormat, BitDepth, UncompressedData);
-
-					NewTexture = UTexture2D::CreateTransient(Width, Height, PixelFormat);
-					if (NewTexture)
-					{
-						uint8* MipData = static_cast<uint8*>(NewTexture->PlatformData->Mips[0].BulkData.Lock(LOCK_READ_WRITE));
-
-						// Bulk data was already allocated for the correct size when we called CreateTransient above
-						FMemory::Memcpy(MipData, UncompressedData->GetData(), NewTexture->PlatformData->Mips[0].BulkData.GetBulkDataSize());
-
-						NewTexture->PlatformData->Mips[0].BulkData.Unlock();
-					}
-				}
-			}
+			NewTexture = FImageUtils::ImportBufferAsTexture2D(Buffer);
 		}
 
 		if(!NewTexture)
 		{
 			UE_LOG(LogImageUtils, Warning, TEXT("Error creating texture. %s is not a supported file format"), *Filename)
 		}	
-		else
-		{
-			NewTexture->UpdateResource();
-		}
 	}
 	else
 	{
 		UE_LOG(LogImageUtils, Warning, TEXT("Error creating texture. %s could not be found"), *Filename)
+	}
+
+	return NewTexture;
+}
+
+UTexture2D* FImageUtils::ImportBufferAsTexture2D(const TArray<uint8>& Buffer)
+{
+	IImageWrapperModule& ImageWrapperModule = FModuleManager::Get().LoadModuleChecked<IImageWrapperModule>(TEXT("ImageWrapper"));
+
+	EImageFormat Format = ImageWrapperModule.DetectImageFormat(Buffer.GetData(), Buffer.GetAllocatedSize());
+
+	UTexture2D* NewTexture = nullptr;
+	EPixelFormat PixelFormat = PF_Unknown;
+
+	if (Format != EImageFormat::Invalid)
+	{
+		TSharedPtr<IImageWrapper> ImageWrapper = ImageWrapperModule.CreateImageWrapper(Format);
+		
+		int32 BitDepth = 0;
+		int32 Width = 0;
+		int32 Height = 0;
+
+		if (ImageWrapper->SetCompressed((void*)Buffer.GetData(), Buffer.GetAllocatedSize()))
+		{
+			PixelFormat = PF_Unknown;
+			
+			ERGBFormat RGBFormat = ERGBFormat::Invalid;
+			
+			BitDepth = ImageWrapper->GetBitDepth();
+			
+			Width = ImageWrapper->GetWidth();
+			Height = ImageWrapper->GetHeight();
+			
+			if (BitDepth == 16)
+			{
+				PixelFormat = PF_FloatRGBA;
+				RGBFormat = ERGBFormat::BGRA;
+			}
+			else if (BitDepth == 8)
+			{
+				PixelFormat = PF_B8G8R8A8;
+				RGBFormat = ERGBFormat::BGRA;
+			}
+			else
+			{
+				UE_LOG(LogImageUtils, Warning, TEXT("Error creating texture. %s is not a valid bit depth (%d)"), BitDepth);
+			}
+			
+			const TArray<uint8>* UncompressedData = nullptr;
+			ImageWrapper->GetRaw(RGBFormat, BitDepth, UncompressedData);
+			
+			NewTexture = UTexture2D::CreateTransient(Width, Height, PixelFormat);
+			if (NewTexture)
+			{
+				uint8* MipData = static_cast<uint8*>(NewTexture->PlatformData->Mips[0].BulkData.Lock(LOCK_READ_WRITE));
+				
+				// Bulk data was already allocated for the correct size when we called CreateTransient above
+				FMemory::Memcpy(MipData, UncompressedData->GetData(), NewTexture->PlatformData->Mips[0].BulkData.GetBulkDataSize());
+				
+				NewTexture->PlatformData->Mips[0].BulkData.Unlock();
+
+				NewTexture->UpdateResource();
+			}
+		}
+	}
+	else
+	{
+		UE_LOG(LogImageUtils, Warning, TEXT("Error creating texture. Couldn't determine the file format"));
 	}
 
 	return NewTexture;
