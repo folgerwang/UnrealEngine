@@ -64,7 +64,7 @@ public:
 	 *
 	 * @param bCompressData whether to compress the data or not
 	 */
-	UFUNCTION(BlueprintCallable, meta=(BlueprintInternalUseOnly="true", Category = "Augmented Reality", WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, meta=(DisplayName="Save AR World", BlueprintInternalUseOnly="true", Category = "Augmented Reality", WorldContext = "WorldContextObject"))
 	static UARSaveWorldAsyncTaskBlueprintProxy* ARSaveWorld(UObject* WorldContextObject);
 
 private:
@@ -100,7 +100,7 @@ public:
 	 * @param Location the center of the extent to grab features at
 	 * @param Extent the size of the region to grab feature points
 	 */
-	UFUNCTION(BlueprintCallable, Meta=(BlueprintInternalUseOnly = "true", Category = "Augmented Reality", WorldContext = "WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Meta=(DisplayName="Get AR Candidate Object", BlueprintInternalUseOnly = "true", Category = "Augmented Reality", WorldContext = "WorldContextObject"))
 	static UARGetCandidateObjectAsyncTaskBlueprintProxy* ARGetCandidateObject(UObject* WorldContextObject, FVector Location, FVector Extent);
 	
 	FVector Location;
