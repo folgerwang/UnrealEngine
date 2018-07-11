@@ -240,7 +240,7 @@ public:
 		return SuppressContextMenuDelgate;
 	}
 
-
+	void NotifyUrlChanged(const FString& InCurrentUrl);
 public:
 
 private:
