@@ -922,8 +922,11 @@ public:
 	UMorphTarget* FindMorphTarget(FName MorphTargetName) const;
 	UMorphTarget* FindMorphTargetAndIndex(FName MorphTargetName, int32& OutIndex) const;
 
+	/* Initialize morph targets and rebuild the render data */
+	void InitMorphTargetsAndRebuildRenderData();
+
 	/** if name conflicts, it will overwrite the reference */
-	void RegisterMorphTarget(UMorphTarget* MorphTarget);
+	bool RegisterMorphTarget(UMorphTarget* MorphTarget, bool bInvalidateRenderData = true);
 
 	void UnregisterMorphTarget(UMorphTarget* MorphTarget);
 
