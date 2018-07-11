@@ -249,7 +249,7 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "APK Packaging", Meta = (DisplayName = "Enable FullScreen Immersive on KitKat and above devices."))
 	bool bFullScreen;
 
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = "APK Packaging", Meta = ( DisplayName = "Enable improved virtual keyboard [Experimental]"))
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "APK Packaging", Meta = ( DisplayName = "Enable improved virtual keyboard"))
 	bool bEnableNewKeyboard;
 	
 	// The preferred depth buffer bitcount for Android
