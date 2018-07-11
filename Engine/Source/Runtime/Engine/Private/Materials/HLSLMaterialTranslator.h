@@ -3421,10 +3421,12 @@ protected:
 		}
 		else if(MipValueMode == TMVM_MipLevel)
 		{
+			// WebGL 2/GLES3.0 (or browsers with the texture lod extension) it is possible to sample from specific mip levels
+			// GLSL >= 100 should support this in the vertex shader
+			bool bES2MipSupport = (Platform == SP_OPENGL_ES2_WEBGL) || (Platform == SP_OPENGL_ES2_ANDROID && ShaderFrequency == SF_Vertex);
 			// Mobile: Sampling of a particular level depends on an extension; iOS does have it by default but
 			// there's a driver as of 7.0.2 that will cause a GPU hang if used with an Aniso > 1 sampler, so show an error for now
-			if ((Platform != SP_OPENGL_ES2_WEBGL) && // WebGL 2/GLES3.0 (or browsers with the texture lod extension) it is possible to sample from specific mip levels
-				ErrorUnlessFeatureLevelSupported(ERHIFeatureLevel::ES3_1) == INDEX_NONE)
+			if (!bES2MipSupport && ErrorUnlessFeatureLevelSupported(ERHIFeatureLevel::ES3_1) == INDEX_NONE)
 			{
 				Errorf(TEXT("Sampling for a specific mip-level is not supported for ES2"));
 				return INDEX_NONE;
