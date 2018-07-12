@@ -347,6 +347,9 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 		CocTileOutput0 = FRenderingCompositeOutputRef(CocFlatten, ePId_Output0);
 		CocTileOutput1 = FRenderingCompositeOutputRef(CocFlatten, ePId_Output1);
 
+		// Error introduced by the random offset of the gathering kernel's center.
+		const float BluringRadiusErrorMultiplier = 1.0f + 1.0f / (HalfResRingCount + 0.5f);
+
 		// Parameters for the dilate Coc passes.
 		int32 DilateCount = 1;
 		FRCPassDiaphragmDOFDilateCoc::FParameters DilateParams[3];
@@ -355,7 +358,7 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 
 			// Compute the maximum tile dilation.
 			int32 MaximumTileDilation = FMath::CeilToInt(
-				MaxBluringRadius / FRCPassDiaphragmDOFFlattenCoc::CocTileResolutionDivisor);
+				(MaxBluringRadius * BluringRadiusErrorMultiplier) / FRCPassDiaphragmDOFFlattenCoc::CocTileResolutionDivisor);
 
 			// There is always at least one dilate pass so that even small Coc radius conservatively dilate on next neighboor.
 			DilateParams[0].SampleRadiusCount = FMath::Min(
@@ -396,6 +399,7 @@ bool DiaphragmDOF::WireSceneColorPasses(FPostprocessContext& Context, const FRen
 		{
 			DilateParams[i].GatherViewSize = GatheringViewSize;
 			DilateParams[i].PreProcessingToProcessingCocRadiusFactor = PreProcessingToProcessingCocRadiusFactor;
+			DilateParams[i].BluringRadiusErrorMultiplier = BluringRadiusErrorMultiplier;
 		}
 
 		if (DilateCount > 1)

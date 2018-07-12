@@ -19,9 +19,6 @@ TAutoConsoleVariable<int32> GDynamicGlobalUBs(
 	ECVF_ReadOnly | ECVF_RenderThreadSafe
 );
 
-static_assert(SF_Geometry + 1 == SF_Compute, "Assumes compute is after gfx stages!");
-
-
 static void ConvertPackedUBsToDynamic(FVulkanCodeHeader& CodeHeader)
 {
 	if (GDynamicGlobalUBs.GetValueOnAnyThread() > 1)
@@ -65,43 +62,29 @@ void FVulkanShader::Create(EShaderFrequency Frequency, const TArray<uint8>& InSh
 	Ar << DebugNameArray;
 	DebugName = ANSI_TO_TCHAR(DebugNameArray.GetData());
 
-	TArray<uint8> Spirv;
 	Ar << Spirv;
+	check(Spirv.Num() != 0);
 
 	int32 CodeOffset = Ar.Tell();
 
 	VkShaderModuleCreateInfo ModuleCreateInfo;
-	FMemory::Memzero(ModuleCreateInfo);
-	ModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	ModuleCreateInfo.pNext = nullptr;
-	ModuleCreateInfo.flags = 0;
+	ZeroVulkanStruct(ModuleCreateInfo, VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO);
+	//ModuleCreateInfo.flags = 0;
 
-	check(Code == nullptr)
-	ModuleCreateInfo.codeSize = Spirv.Num();
-	Code = (uint32*)FMemory::Malloc(ModuleCreateInfo.codeSize);
-	FMemory::Memcpy(Code, Spirv.GetData(), ModuleCreateInfo.codeSize);
-
-	check(Code != nullptr);
-	CodeSize = ModuleCreateInfo.codeSize;
-	ModuleCreateInfo.pCode = Code;
+	ModuleCreateInfo.codeSize = Spirv.Num() * sizeof(uint32);
+	ModuleCreateInfo.pCode = Spirv.GetData();
 
 #if VULKAN_SUPPORTS_VALIDATION_CACHE
 	VkShaderModuleValidationCacheCreateInfoEXT ValidationInfo;
 	if (Device->GetOptionalExtensions().HasEXTValidationCache)
 	{
-		FMemory::Memzero(ValidationInfo);
-		ValidationInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_VALIDATION_CACHE_CREATE_INFO_EXT;
+		ZeroVulkanStruct(ValidationInfo, VK_STRUCTURE_TYPE_SHADER_MODULE_VALIDATION_CACHE_CREATE_INFO_EXT);
 		ValidationInfo.validationCache = Device->GetValidationCache();
 		ModuleCreateInfo.pNext = &ValidationInfo;
 	}
 #endif
 
 	VERIFYVULKANRESULT(VulkanRHI::vkCreateShaderModule(Device->GetInstanceHandle(), &ModuleCreateInfo, nullptr, &ShaderModule));
-
-	if (Frequency == SF_Compute && CodeHeader.NEWDescriptorInfo.DescriptorTypes.Num() == 0)
-	{
-		UE_LOG(LogVulkanRHI, Warning, TEXT("Compute shader %s %s has no resources!"), *CodeHeader.ShaderName, *DebugName);
-	}
 }
 
 #if VULKAN_HAS_DEBUGGING_ENABLED
@@ -160,14 +143,6 @@ void TVulkanBaseShader<BaseResourceType, Frequency>::Create(const TArray<uint8>&
 
 FVulkanShader::~FVulkanShader()
 {
-	check(Device);
-
-	if (Code)
-	{
-		FMemory::Free(Code);
-		Code = nullptr;
-	}
-
 	if (ShaderModule != VK_NULL_HANDLE)
 	{
 		Device->GetDeferredDeletionQueue().EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::ShaderModule, ShaderModule);
@@ -250,13 +225,10 @@ void FVulkanLayout::Compile()
 	const TArray<VkDescriptorSetLayout>& LayoutHandles = DescriptorSetLayout.GetHandles();
 
 	VkPipelineLayoutCreateInfo PipelineLayoutCreateInfo;
-	FMemory::Memzero(PipelineLayoutCreateInfo);
-	PipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	//PipelineLayoutCreateInfo.pNext = nullptr;
+	ZeroVulkanStruct(PipelineLayoutCreateInfo, VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO);
 	PipelineLayoutCreateInfo.setLayoutCount = LayoutHandles.Num();
 	PipelineLayoutCreateInfo.pSetLayouts = LayoutHandles.GetData();
 	//PipelineLayoutCreateInfo.pushConstantRangeCount = 0;
-	//PipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
 
 	VERIFYVULKANRESULT(VulkanRHI::vkCreatePipelineLayout(Device->GetInstanceHandle(), &PipelineLayoutCreateInfo, nullptr, &PipelineLayout));
 }
@@ -320,7 +292,7 @@ uint32 FVulkanDescriptorSetWriter::SetupDescriptorWrites(const FNEWVulkanShaderD
 	return DynamicOffsetIndex;
 }
 
-void FVulkanDescriptorSetsLayoutInfo::AddBindingsForStage(VkShaderStageFlagBits StageFlags, EDescriptorSetStage DescSet, const FVulkanCodeHeader& CodeHeader, const FImmutableSamplerState* const ImmutableSamplerState)
+void FVulkanDescriptorSetsLayoutInfo::AddBindingsForStage(VkShaderStageFlagBits StageFlags, DescriptorSet::EStage DescSet, const FVulkanCodeHeader& CodeHeader, const FImmutableSamplerState* const ImmutableSamplerState)
 {
 	//#todo-rco: Mobile assumption!
 	int32 DescriptorSetIndex = (int32)DescSet;

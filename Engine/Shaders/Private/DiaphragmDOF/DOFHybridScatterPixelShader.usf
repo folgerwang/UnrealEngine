@@ -12,9 +12,9 @@
 
 // Whether to point mirror the bokeh.
 #if DIM_LAYER_PROCESSING == LAYER_PROCESSING_FOREGROUND_ONLY
-	#define CONFIG_POINT_MIRROR_BOKEH 1
-#elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_BACKGROUND_ONLY
 	#define CONFIG_POINT_MIRROR_BOKEH -1
+#elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_BACKGROUND_ONLY
+	#define CONFIG_POINT_MIRROR_BOKEH 1
 #endif
 
 
@@ -74,6 +74,11 @@ void ScatterMainPS(
 			float CocRadiusStdDeviation = max(ScatterOcclusionSample.y * (0.5 * CocRadiusAvg), 1);
 			float OcclusionStepness = rcp(CocRadiusStdDeviation);
 			float OcclusionOffset = (CocRadiusAvg + CocRadiusStdDeviation) * OcclusionStepness;
+
+			// Multiply OcclusionStepness, to be equivalent as multiplying AbsCocRadius. This will result in a
+			// pull of the background bokeh closer to the camera when doing occlusion, reducing the amount of tiling
+			// artifacts between fast and slow gathered tiles that can generate noticeably different occlusion buffer.
+			OcclusionStepness *= 1 - FAST_GATHERING_COC_ERROR;
 		#endif
 	#endif
 

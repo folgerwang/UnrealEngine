@@ -160,7 +160,6 @@ public:
 	virtual void UnlockVertexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, FVertexBufferRHIParamRef VertexBuffer) override final;
 #endif
 	virtual FTexture2DRHIRef AsyncReallocateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture2D, int32 NewMipCount, int32 NewSizeX, int32 NewSizeY, FThreadSafeCounter* RequestStatus) override final;
-	//virtual ETextureReallocationStatus FinalizeAsyncReallocateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture2D, bool bBlockUntilCompleted) override final;
 	//virtual ETextureReallocationStatus CancelAsyncReallocateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture2D, bool bBlockUntilCompleted) override final;
 	//virtual FIndexBufferRHIRef CreateIndexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo) override final;
 #if 0
@@ -346,26 +345,31 @@ public:
 	// Historical number of times we've presented any and all viewports
 	uint32 TotalPresentCount = 0;
 
-	const TArray<const ANSICHAR*>& GetInstanceExtensions() const
+	inline const TArray<const ANSICHAR*>& GetInstanceExtensions() const
 	{
 		return InstanceExtensions;
 	}
 
-	const TArray<const ANSICHAR*>& GetInstanceLayers() const
+	inline const TArray<const ANSICHAR*>& GetInstanceLayers() const
 	{
 		return InstanceLayers;
 	}
 
 	static void RecreateSwapChain(void* NewNativeWindow);
 
-	VkInstance GetInstance() const
+	inline VkInstance GetInstance() const
 	{
 		return Instance;
 	}
 	
-	FVulkanDevice* GetDevice()
+	inline FVulkanDevice* GetDevice()
 	{
 		return Device;
+	}
+
+	inline bool SupportsDebugUtilsExt() const
+	{
+		return bSupportsDebugUtilsExt;
 	}
 
 	virtual void VulkanSetImageLayout( VkCommandBuffer CmdBuffer, VkImage Image, VkImageLayout OldLayout, VkImageLayout NewLayout, const VkImageSubresourceRange& SubresourceRange );
@@ -402,7 +406,7 @@ protected:
 	static void WriteEndFrameTimestamp(void*);
 	*/
 
-	static void GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& OutInstanceExtensions, TArray<const ANSICHAR*>& OutInstanceLayers);
+	static void GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& OutInstanceExtensions, TArray<const ANSICHAR*>& OutInstanceLayers, bool& bOutDebugUtils);
 
 	IConsoleObject* SavePipelineCacheCmd = nullptr;
 	IConsoleObject* RebuildPipelineCacheCmd = nullptr;
@@ -421,8 +425,13 @@ public:
 	static void DumpMemory();
 #endif
 
-#if VULKAN_HAS_DEBUGGING_ENABLED
 protected:
+	bool bSupportsDebugUtilsExt = false;
+#if VULKAN_HAS_DEBUGGING_ENABLED
+#if VULKAN_SUPPORTS_DEBUG_UTILS
+	VkDebugUtilsMessengerEXT Messenger = VK_NULL_HANDLE;
+#endif
+
 	bool bSupportsDebugCallbackExt = false;
 	VkDebugReportCallbackEXT MsgCallback = VK_NULL_HANDLE;
 	void SetupDebugLayerCallback();

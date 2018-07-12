@@ -129,7 +129,7 @@ void SetGBufferForShadingModel(
 	GBuffer.ShadingModelID = SHADINGMODELID_EYE;
 	GBuffer.CustomData.x = EncodeSubsurfaceProfile(SubsurfaceProfile).x;
 	GBuffer.CustomData.w = 1.0f - saturate(GetMaterialCustomData0(MaterialParameters));	// Opacity = 1.0 - Iris Mask
-#if 0
+#if IRIS_NORMAL
 	float IrisMask		= saturate( GetMaterialCustomData0(MaterialParameters) );
 	float IrisDistance	= saturate( GetMaterialCustomData1(MaterialParameters) );
 

@@ -36,7 +36,7 @@ public:
 		return SetLayouts;
 	}
 
-	void AddBindingsForStage(VkShaderStageFlagBits StageFlags, EDescriptorSetStage DescSet, const FVulkanCodeHeader& CodeHeader, const FImmutableSamplerState* const ImmutableSamplerState = nullptr);
+	void AddBindingsForStage(VkShaderStageFlagBits StageFlags, DescriptorSet::EStage DescSet, const FVulkanCodeHeader& CodeHeader, const FImmutableSamplerState* const ImmutableSamplerState = nullptr);
 
 	friend uint32 GetTypeHash(const FVulkanDescriptorSetsLayoutInfo& In)
 	{
@@ -107,7 +107,7 @@ protected:
 #endif
 	void AddDescriptor(int32 DescriptorSetIndex, const VkDescriptorSetLayoutBinding& Descriptor, int32 BindingIndex);
 
-	friend class FVulkanPipelineStateCache;
+	friend class FVulkanPipelineStateCacheManager;
 };
 
 // The actual run-time descriptor set layouts
@@ -360,7 +360,7 @@ class FOLDVulkanDescriptorSets
 public:
 	~FOLDVulkanDescriptorSets();
 
-	typedef TArray<VkDescriptorSet, TInlineAllocator<SF_Compute>> FDescriptorSetArray;
+	typedef TArray<VkDescriptorSet, TInlineAllocator<DescriptorSet::NumGfxStages>> FDescriptorSetArray;
 
 	inline const FDescriptorSetArray& GetHandles() const
 	{
@@ -431,7 +431,7 @@ protected:
 	FVulkanDescriptorSetsLayout DescriptorSetLayout;
 	VkPipelineLayout PipelineLayout;
 
-	inline void AddBindingsForStage(VkShaderStageFlagBits StageFlags, EDescriptorSetStage DescSet, const FVulkanCodeHeader& CodeHeader)
+	inline void AddBindingsForStage(VkShaderStageFlagBits StageFlags, DescriptorSet::EStage DescSet, const FVulkanCodeHeader& CodeHeader)
 	{
 		// Setting descriptor is only allowed prior to compiling the layout
 		check(DescriptorSetLayout.GetHandles().Num() == 0);
@@ -443,7 +443,7 @@ protected:
 
 	friend class FVulkanComputePipeline;
 	friend class FVulkanGfxPipeline;
-	friend class FVulkanPipelineStateCache;
+	friend class FVulkanPipelineStateCacheManager;
 };
 
 #if !VULKAN_USE_DESCRIPTOR_POOL_MANAGER
@@ -496,8 +496,8 @@ protected:
 
 	FOLDVulkanDescriptorSets* RequestDescriptorSets(FVulkanCommandListContext* Context, FVulkanCmdBuffer* CmdBuffer, const FVulkanLayout& Layout);
 
-	friend class FVulkanComputePipelineState;
-	friend class FVulkanGfxPipelineState;
+	friend class FVulkanComputePipelineDescriptorState;
+	friend class FVulkanGraphicsPipelineDescriptorState;
 };
 #endif
 
@@ -631,6 +631,6 @@ protected:
 	uint32 SetupDescriptorWrites(const FNEWVulkanShaderDescriptorInfo& Info, VkWriteDescriptorSet* InWriteDescriptors, VkDescriptorImageInfo* InImageInfo, 
 		VkDescriptorBufferInfo* InBufferInfo, uint8* InBindingToDynamicOffsetMap);
 
-	friend class FVulkanComputePipelineState;
-	friend class FVulkanGfxPipelineState;
+	friend class FVulkanComputePipelineDescriptorState;
+	friend class FVulkanGraphicsPipelineDescriptorState;
 };

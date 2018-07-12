@@ -138,65 +138,199 @@ static VkBool32 VKAPI_PTR DebugReportFunction(
 	return VK_FALSE;
 }
 
+#if VULKAN_SUPPORTS_DEBUG_UTILS
+static VkBool32 DebugUtilsCallback(VkDebugUtilsMessageSeverityFlagBitsEXT MsgSeverity, VkDebugUtilsMessageTypeFlagsEXT MsgType,
+	const VkDebugUtilsMessengerCallbackDataEXT* CallbackData, void* UserData)
+{
+	if (!CallbackData->pMessageIdName)
+	{
+		if (MsgType == 2 && CallbackData->messageIdNumber == 5)
+		{
+			// SPIR-V module not valid: MemoryBarrier: Vulkan specification requires Memory Semantics to have one of the following bits set: Acquire, Release, AcquireRelease or SequentiallyConsistent
+			return VK_FALSE;
+		}
+		else if (MsgType == 2 && CallbackData->messageIdNumber == 2)
+		{
+			// fragment shader writes to output location 0 with no matching attachment
+			return VK_FALSE;
+		}
+		else if (MsgType == 2 && CallbackData->messageIdNumber == 3)
+		{
+			// Attachment 2 not written by fragment shader
+			return VK_FALSE;
+		}
+		else if (MsgType == 6 && CallbackData->messageIdNumber == 2)
+		{
+			// Vertex shader writes to output location 0.0 which is not consumed by fragment shader
+			return VK_FALSE;
+		}
+	}
+
+	const TCHAR* Severity = TEXT("");
+	if (MsgSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+	{
+		ensure((MsgSeverity & ~VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) == 0);
+		Severity = TEXT("Error");
+	}
+	else if (MsgSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+	{
+		ensure((MsgSeverity & ~VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) == 0);
+		Severity = TEXT("Warning");
+	}
+	else if (MsgSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
+	{
+		ensure((MsgSeverity & ~VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) == 0);
+		Severity = TEXT("Info");
+	}
+	else if (MsgSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT)
+	{
+		ensure((MsgSeverity & ~VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) == 0);
+		Severity = TEXT("Verbose");
+	}
+
+	uint32 MsgBucket = 0;
+	const TCHAR* Type = TEXT("");
+	if (MsgType & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT)
+	{
+		ensure((MsgType & ~VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) == 0);
+		Type = TEXT(" General");
+		MsgBucket = 1;
+	}
+	else if (MsgType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
+	{
+		if (MsgType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
+		{
+			ensure((MsgType & ~(VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)) == 0);
+			Type = TEXT("Perf/Validation");
+			MsgBucket = 2;
+		}
+		else
+		{
+			ensure((MsgType & ~VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) == 0);
+			Type = TEXT("Validation");
+			MsgBucket = 3;
+		}
+	}
+	else if (MsgType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
+	{
+		ensure((MsgType & ~VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) == 0);
+		Type = TEXT("Perf");
+		MsgBucket = 4;
+	}
+
+	static TStaticArray<TSet<int32>, 10> SeenCodes;
+	if (GCVarUniqueValidationMessages->GetInt() == 0 || !SeenCodes[MsgBucket].Contains(CallbackData->messageIdNumber))
+	{
+		if (CallbackData->pMessageIdName)
+		{
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("*** %s %s:%d(%s) %s\n"), Type, Severity, CallbackData->messageIdNumber, ANSI_TO_TCHAR(CallbackData->pMessageIdName), ANSI_TO_TCHAR(CallbackData->pMessage));
+		}
+		else
+		{
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("*** %s %s:%d %s\n"), Type, Severity, CallbackData->messageIdNumber, ANSI_TO_TCHAR(CallbackData->pMessage));
+		}
+		if (GCVarUniqueValidationMessages->GetInt() == 1)
+		{
+			SeenCodes[MsgBucket].Add(CallbackData->messageIdNumber);
+		}
+	}
+
+	return VK_FALSE;
+}
+#endif
+
 void FVulkanDynamicRHI::SetupDebugLayerCallback()
 {
-	if (!bSupportsDebugCallbackExt)
+#if VULKAN_SUPPORTS_DEBUG_UTILS
+	if (bSupportsDebugUtilsExt)
 	{
-		UE_LOG(LogVulkanRHI, Warning, TEXT("Instance does not support 'VK_EXT_debug_report' extension; debug reporting skipped!"));
-		return;
-	}
-	
-	PFN_vkCreateDebugReportCallbackEXT CreateMsgCallback = (PFN_vkCreateDebugReportCallbackEXT)(void*)VulkanRHI::vkGetInstanceProcAddr(Instance, CREATE_MSG_CALLBACK);
-	if (CreateMsgCallback)
-	{
-		VkDebugReportCallbackCreateInfoEXT CreateInfo;
-		FMemory::Memzero(CreateInfo);
-		CreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
-		CreateInfo.pfnCallback = DebugReportFunction;
+		PFN_vkCreateDebugUtilsMessengerEXT CreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)(void*)VulkanRHI::vkGetInstanceProcAddr(Instance, "vkCreateDebugUtilsMessengerEXT");
+		if (CreateDebugUtilsMessengerEXT)
+		{
+			VkDebugUtilsMessengerCreateInfoEXT CreateInfo;
+			ZeroVulkanStruct(CreateInfo, VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT);
 
-		int32 CVar = GValidationCvar.GetValueOnRenderThread();
-		switch (CVar)
-		{
-		default:
-			CreateInfo.flags |= VK_DEBUG_REPORT_DEBUG_BIT_EXT;
-			// Fall-through...
-		case 4:
-			CreateInfo.flags |= VK_DEBUG_REPORT_INFORMATION_BIT_EXT;
-			// Fall-through...
-		case 3:
-			CreateInfo.flags |= VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-			// Fall-through...
-		case 2:
-			CreateInfo.flags |= VK_DEBUG_REPORT_WARNING_BIT_EXT;
-			// Fall-through...
-		case 1:
-			CreateInfo.flags |= VK_DEBUG_REPORT_ERROR_BIT_EXT;
-			break;
-		case 0:
-			// Nothing to do!
-			break;
+			int32 CVar = GValidationCvar.GetValueOnRenderThread();
+			CreateInfo.messageSeverity = (CVar >= 1 ? VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT : 0) |
+				(CVar >= 2 ? VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT : 0) | (CVar >= 3 ? VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT : 0);
+			CreateInfo.messageType = (CVar >= 1 ? (VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) : 0) |
+				(CVar >= 3 ? VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT : 0);
+			CreateInfo.pfnUserCallback = (PFN_vkDebugUtilsMessengerCallbackEXT)(void*)DebugUtilsCallback;
+			VkResult Result = (*CreateDebugUtilsMessengerEXT)(Instance, &CreateInfo, nullptr, &Messenger);
+			ensure(Result == VK_SUCCESS);
 		}
-		VkResult Result = CreateMsgCallback(Instance, &CreateInfo, nullptr, &MsgCallback);
-		switch (Result)
+	}
+	else
+#endif
+	if (bSupportsDebugCallbackExt)
+	{
+		PFN_vkCreateDebugReportCallbackEXT CreateMsgCallback = (PFN_vkCreateDebugReportCallbackEXT)(void*)VulkanRHI::vkGetInstanceProcAddr(Instance, CREATE_MSG_CALLBACK);
+		if (CreateMsgCallback)
 		{
-		case VK_SUCCESS:
-			break;
-		case VK_ERROR_OUT_OF_HOST_MEMORY:
-			UE_LOG(LogVulkanRHI, Warning, TEXT("CreateMsgCallback: out of host memory/CreateMsgCallback Failure; debug reporting skipped"));
-			break;
-		default:
-			UE_LOG(LogVulkanRHI, Warning, TEXT("CreateMsgCallback: unknown failure %d/CreateMsgCallback Failure; debug reporting skipped"), (int32)Result);
-			break;
+			VkDebugReportCallbackCreateInfoEXT CreateInfo;
+			ZeroVulkanStruct(CreateInfo, VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT);
+			CreateInfo.pfnCallback = DebugReportFunction;
+
+			int32 CVar = GValidationCvar.GetValueOnRenderThread();
+			switch (CVar)
+			{
+			default:
+				CreateInfo.flags |= VK_DEBUG_REPORT_DEBUG_BIT_EXT;
+				// Fall-through...
+			case 4:
+				CreateInfo.flags |= VK_DEBUG_REPORT_INFORMATION_BIT_EXT;
+				// Fall-through...
+			case 3:
+				CreateInfo.flags |= VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
+				// Fall-through...
+			case 2:
+				CreateInfo.flags |= VK_DEBUG_REPORT_WARNING_BIT_EXT;
+				// Fall-through...
+			case 1:
+				CreateInfo.flags |= VK_DEBUG_REPORT_ERROR_BIT_EXT;
+				break;
+			case 0:
+				// Nothing to do!
+				break;
+			}
+			VkResult Result = CreateMsgCallback(Instance, &CreateInfo, nullptr, &MsgCallback);
+			switch (Result)
+			{
+			case VK_SUCCESS:
+				break;
+			case VK_ERROR_OUT_OF_HOST_MEMORY:
+				UE_LOG(LogVulkanRHI, Warning, TEXT("CreateMsgCallback: out of host memory/CreateMsgCallback Failure; debug reporting skipped"));
+				break;
+			default:
+				UE_LOG(LogVulkanRHI, Warning, TEXT("CreateMsgCallback: unknown failure %d/CreateMsgCallback Failure; debug reporting skipped"), (int32)Result);
+				break;
+			}
+		}
+		else
+		{
+			UE_LOG(LogVulkanRHI, Warning, TEXT("GetProcAddr: Unable to find vkDbgCreateMsgCallback/vkGetInstanceProcAddr; debug reporting skipped!"));
 		}
 	}
 	else
 	{
-		UE_LOG(LogVulkanRHI, Warning, TEXT("GetProcAddr: Unable to find vkDbgCreateMsgCallback/vkGetInstanceProcAddr; debug reporting skipped!"));
+		UE_LOG(LogVulkanRHI, Warning, TEXT("Instance does not support 'VK_EXT_debug_report' extension; debug reporting skipped!"));
+		return;
 	}
 }
 
 void FVulkanDynamicRHI::RemoveDebugLayerCallback()
 {
+#if VULKAN_SUPPORTS_DEBUG_UTILS
+	if (Messenger != VK_NULL_HANDLE)
+	{
+		PFN_vkDestroyDebugUtilsMessengerEXT DestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)(void*)VulkanRHI::vkGetInstanceProcAddr(Instance, "vkDestroyDebugUtilsMessengerEXT");
+		if (DestroyDebugUtilsMessengerEXT)
+		{
+			(*DestroyDebugUtilsMessengerEXT)(Instance, Messenger, nullptr);
+		}
+	}
+	else
+#endif
 	if (MsgCallback != VK_NULL_HANDLE)
 	{
 		PFN_vkDestroyDebugReportCallbackEXT DestroyMsgCallback = (PFN_vkDestroyDebugReportCallbackEXT)(void*)VulkanRHI::vkGetInstanceProcAddr(Instance, DESTROY_MSG_CALLBACK);
@@ -295,6 +429,7 @@ static TMap<VkImageView, TTrackingResource<VkImageViewCreateInfo>> GVulkanTracki
 
 #if VULKAN_ENABLE_BUFFER_TRACKING_LAYER
 static TMap<VkBuffer, TTrackingResource<VkBufferCreateInfo>> GVulkanTrackingBuffers;
+static TMap<VkBuffer, TArray<VkBufferView>> GVulkanTrackingBufferToBufferViews;
 static TMap<VkBufferView, TTrackingResource<VkBufferViewCreateInfo>> GVulkanTrackingBufferViews;
 #endif
 
@@ -1267,6 +1402,7 @@ void FWrapLayer::CreateBufferView(VkResult Result, VkDevice Device, const VkBuff
 #if VULKAN_ENABLE_TRACKING_CALLSTACK
 			CaptureCallStack(TrackingBuffer.CreateCallstack, 3);
 #endif
+			GVulkanTrackingBufferToBufferViews.FindOrAdd(CreateInfo->buffer).Add(*BufferView);
 		}
 #endif
 	}
@@ -3024,6 +3160,12 @@ void FWrapLayer::DestroyBuffer(VkResult Result, VkDevice Device, VkBuffer Buffer
 			FScopeLock ScopeLock(&GTrackingCS);
 			int32 NumRemoved = GVulkanTrackingBuffers.Remove(Buffer);
 			ensure(NumRemoved > 0);
+
+			auto* Found = GVulkanTrackingBufferToBufferViews.Find(Buffer);
+			if (Found)
+			{
+				ensure(Found->Num() > 0);
+			}
 		}
 #endif
 	}

@@ -45,7 +45,7 @@ private:
 	void ActorPicked(AActor* ParentActor, FGuid ObjectBinding, UMovieSceneSection* Section);
 
 	/** Existing binding was picked */
-	void ExistingBindingPicked(FMovieSceneObjectBindingID ExistingBindingID, FGuid ObjectBinding);
+	void ExistingBindingPicked(FMovieSceneObjectBindingID ExistingBindingID, FGuid ObjectBinding, UMovieSceneSection* Section);
 
 	/** Actor and/or existing binding was picked */
 	void ActorPickerIDPicked(FActorPickerID, FGuid ObjectBinding, UMovieSceneSection* Section);

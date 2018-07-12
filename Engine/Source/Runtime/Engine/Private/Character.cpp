@@ -947,10 +947,7 @@ void ACharacter::OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 Pre
 {
 	if (!bPressedJump || !CharacterMovement->IsFalling())
 	{
-		// We reset jump state, but someone may have queued up a jump request we shouldn't disregard, so we restore the input flag.
-		const bool bSavedPressedJump = bPressedJump;
 		ResetJumpState();
-		bPressedJump = bSavedPressedJump;
 	}
 
 	// Recored jump force start time for proxies. Allows us to expire the jump even if not continually ticking down a timer.

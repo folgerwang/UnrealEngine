@@ -42,8 +42,8 @@ void FDisplayClusterDeviceQuadBufferStereoBase::CalculateRenderTargetSize(const 
 {
 	check(IsInGameThread());
 
-	InOutSizeX = Viewport.GetSizeXY().X;
-	InOutSizeY = Viewport.GetSizeXY().Y * 2;
+	InOutSizeX = Viewport.GetSizeXY().X * 2;
+	InOutSizeY = Viewport.GetSizeXY().Y;
 
 	check(InOutSizeX > 0 && InOutSizeY > 0);
 }
@@ -56,12 +56,12 @@ bool FDisplayClusterDeviceQuadBufferStereoBase::ShouldUseSeparateRenderTarget() 
 
 void FDisplayClusterDeviceQuadBufferStereoBase::AdjustViewRect(enum EStereoscopicPass StereoPass, int32& X, int32& Y, uint32& SizeX, uint32& SizeY) const
 {
-	uint32 screentHeight = SizeY;
+	const uint32 screentWidth = SizeX;
 	FDisplayClusterDeviceBase::AdjustViewRect(StereoPass, X, Y, SizeX, SizeY);
 
 	if (StereoPass == EStereoscopicPass::eSSP_RIGHT_EYE)
 	{
-		Y += screentHeight;
+		X += screentWidth;
 	}
 }
 

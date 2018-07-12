@@ -720,7 +720,7 @@ public:
 					// clear transient mobile data
 					Component->MobileDataSourceHash.Invalidate();
 					Component->MobileMaterialInterface = nullptr;
-					Component->MobileWeightNormalmapTexture = nullptr;
+					Component->MobileWeightmapTextures.Reset();
 					
 					Component->UpdateMaterialInstances();
 

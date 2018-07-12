@@ -138,7 +138,7 @@ namespace AJA
 	{
 		AJADeviceOptions(uint32_t InChannelIndex)
 			: DeviceIndex(InChannelIndex)
-			, bWantMutliFormatMode(true)
+			, bWantMutliFormatMode(false)
 		{}
 
 		uint32_t DeviceIndex;

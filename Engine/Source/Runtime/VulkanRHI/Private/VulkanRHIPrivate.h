@@ -141,7 +141,7 @@ protected:
 		Extent.Extent3D.depth = 0;
 	}
 
-	friend class FVulkanPipelineStateCache;
+	friend class FVulkanPipelineStateCacheManager;
 
 private:
 	void CreateRenderPassHash();
@@ -262,7 +262,7 @@ public:
 
 private:
 	friend class FTransitionAndLayoutManager;
-	friend class FVulkanPipelineStateCache;
+	friend class FVulkanPipelineStateCacheManager;
 
 	FVulkanRenderPass(FVulkanDevice& Device, const FVulkanRenderTargetLayout& RTLayout);
 	~FVulkanRenderPass();
@@ -722,16 +722,28 @@ namespace VulkanRHI
 	}
 
 #if VULKAN_ENABLE_DRAW_MARKERS
-	inline void SetDebugObjectName(PFN_vkDebugMarkerSetObjectNameEXT DebugMarkerSetObjectName, VkDevice VulkanDevice, VkImage Image, const char* ObjectName)
+	inline void SetDebugMarkerName(PFN_vkDebugMarkerSetObjectNameEXT DebugMarkerSetObjectName, VkDevice VulkanDevice, VkImage Image, const char* ObjectName)
 	{
 		VkDebugMarkerObjectNameInfoEXT Info;
-		FMemory::Memzero(Info);
-		Info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
+		ZeroVulkanStruct(Info, VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT);
 		Info.objectType = VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT;
 		Info.object = (uint64)Image;
 		Info.pObjectName = ObjectName;
 		DebugMarkerSetObjectName(VulkanDevice, &Info);
 };
+
+#if 0//VULKAN_SUPPORTS_DEBUG_UTILS
+	inline void SetDebugName(PFN_vkSetDebugUtilsObjectNameEXT SetDebugName, VkDevice Device, VkImage Image, const char* Name)
+	{
+		FTCHARToUTF8 Converter(Name);
+		VkDebugUtilsObjectNameInfoEXT Info;
+		ZeroVulkanStruct(Info, VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT);
+		Info.objectType = VK_OBJECT_TYPE_IMAGE;
+		Info.objectHandle = (uint64)Image;
+		Info.pObjectName = Converter.Get();
+		SetDebugName(Device, &Info);
+}
+#endif
 #endif
 
 	// For cases when we want to use DepthRead_StencilDONTCARE
@@ -766,6 +778,7 @@ namespace VulkanRHI
 
 extern int32 GVulkanSubmitAfterEveryEndRenderPass;
 extern int32 GWaitForIdleOnSubmit;
+extern bool GGPUCrashDebuggingEnabled;
 
 #if VULKAN_HAS_DEBUGGING_ENABLED
 extern bool GRenderDocFound;

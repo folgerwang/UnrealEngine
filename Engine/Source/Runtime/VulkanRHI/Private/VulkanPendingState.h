@@ -29,7 +29,7 @@ public:
 		if (InComputePipeline != CurrentPipeline)
 		{
 			CurrentPipeline = InComputePipeline;
-			FVulkanComputePipelineState** Found = PipelineStates.Find(InComputePipeline);
+			FVulkanComputePipelineDescriptorState** Found = PipelineStates.Find(InComputePipeline);
 			if (Found)
 			{
 				CurrentState = *Found;
@@ -37,7 +37,7 @@ public:
 			}
 			else
 			{
-				CurrentState = new FVulkanComputePipelineState(Device, InComputePipeline);
+				CurrentState = new FVulkanComputePipelineDescriptorState(Device, InComputePipeline);
 				PipelineStates.Add(CurrentPipeline, CurrentState);
 			}
 
@@ -90,9 +90,9 @@ protected:
 	TArray<FVulkanUnorderedAccessView*> UAVListForAutoFlush;
 
 	FVulkanComputePipeline* CurrentPipeline;
-	FVulkanComputePipelineState* CurrentState;
+	FVulkanComputePipelineDescriptorState* CurrentState;
 
-	TMap<FVulkanComputePipeline*, FVulkanComputePipelineState*> PipelineStates;
+	TMap<FVulkanComputePipeline*, FVulkanComputePipelineDescriptorState*> PipelineStates;
 
 	FVulkanCommandListContext& Context;
 
@@ -182,38 +182,38 @@ public:
 		bDirtyVertexStreams = true;
 	}
 
-	inline void SetTexture(EShaderFrequency Stage, uint32 BindPoint, const FVulkanTextureBase* TextureBase, VkImageLayout Layout)
+	inline void SetTexture(DescriptorSet::EStage Stage, uint32 BindPoint, const FVulkanTextureBase* TextureBase, VkImageLayout Layout)
 	{
 		CurrentState->SetTexture(Stage, BindPoint, TextureBase, Layout);
 	}
 
-	inline void SetUniformBufferConstantData(EShaderFrequency Stage, uint32 BindPoint, const TArray<uint8>& ConstantData)
+	inline void SetUniformBufferConstantData(DescriptorSet::EStage Stage, uint32 BindPoint, const TArray<uint8>& ConstantData)
 	{
 		CurrentState->SetUniformBufferConstantData(Stage, BindPoint, ConstantData);
 	}
 
-	inline void SetUniformBuffer(EShaderFrequency Stage, uint32 BindPoint, const FVulkanUniformBuffer* UniformBuffer)
+	inline void SetUniformBuffer(DescriptorSet::EStage Stage, uint32 BindPoint, const FVulkanUniformBuffer* UniformBuffer)
 	{
 		CurrentState->SetUniformBuffer(Stage, BindPoint, UniformBuffer);
 	}
 
-	void SetUAV(EShaderFrequency Stage, uint32 UAVIndex, FVulkanUnorderedAccessView* UAV);
+	void SetUAV(DescriptorSet::EStage Stage, uint32 UAVIndex, FVulkanUnorderedAccessView* UAV);
 
-	void SetSRV(EShaderFrequency Stage, uint32 BindIndex, FVulkanShaderResourceView* SRV);
+	void SetSRV(DescriptorSet::EStage Stage, uint32 BindIndex, FVulkanShaderResourceView* SRV);
 
-	inline void SetSamplerState(EShaderFrequency Stage, uint32 BindPoint, FVulkanSamplerState* Sampler)
+	inline void SetSamplerState(DescriptorSet::EStage Stage, uint32 BindPoint, FVulkanSamplerState* Sampler)
 	{
 		CurrentState->SetSamplerState(Stage, BindPoint, Sampler);
 	}
 
-	inline void SetShaderParameter(EShaderFrequency Stage, uint32 BufferIndex, uint32 ByteOffset, uint32 NumBytes, const void* NewValue)
+	inline void SetShaderParameter(DescriptorSet::EStage Stage, uint32 BufferIndex, uint32 ByteOffset, uint32 NumBytes, const void* NewValue)
 	{
 		CurrentState->SetShaderParameter(Stage, BufferIndex, ByteOffset, NumBytes, NewValue);
 	}
 
 	void PrepareForDraw(FVulkanCmdBuffer* CmdBuffer);
 
-	bool SetGfxPipeline(FVulkanGraphicsPipelineState* InGfxPipeline)
+	bool SetGfxPipeline(FVulkanRHIGraphicsPipelineState* InGfxPipeline)
 	{
 		if (InGfxPipeline != CurrentPipeline)
 		{
@@ -230,7 +230,7 @@ public:
 			);
 
 			CurrentPipeline = InGfxPipeline;
-			FVulkanGfxPipelineState** Found = PipelineStates.Find(InGfxPipeline);
+			FVulkanGraphicsPipelineDescriptorState** Found = PipelineStates.Find(InGfxPipeline);
 			if (Found)
 			{
 				CurrentState = *Found;
@@ -238,7 +238,7 @@ public:
 			}
 			else
 			{
-				CurrentState = new FVulkanGfxPipelineState(Device, InGfxPipeline, CurrentBSS);
+				CurrentState = new FVulkanGraphicsPipelineDescriptorState(Device, InGfxPipeline, CurrentBSS);
 				PipelineStates.Add(CurrentPipeline, CurrentState);
 			}
 
@@ -262,7 +262,7 @@ public:
 		}
 	}
 
-	void NotifyDeletedPipeline(FVulkanGraphicsPipelineState* Pipeline)
+	void NotifyDeletedPipeline(FVulkanRHIGraphicsPipelineState* Pipeline)
 	{
 		PipelineStates.Remove(Pipeline);
 	}
@@ -279,11 +279,11 @@ protected:
 
 	bool bNeedToClear;
 
-	FVulkanGraphicsPipelineState* CurrentPipeline;
-	FVulkanGfxPipelineState* CurrentState;
+	FVulkanRHIGraphicsPipelineState* CurrentPipeline;
+	FVulkanGraphicsPipelineDescriptorState* CurrentState;
 	FVulkanBoundShaderState* CurrentBSS;
 
-	TMap<FVulkanGraphicsPipelineState*, FVulkanGfxPipelineState*> PipelineStates;
+	TMap<FVulkanRHIGraphicsPipelineState*, FVulkanGraphicsPipelineDescriptorState*> PipelineStates;
 
 	struct FVertexStream
 	{

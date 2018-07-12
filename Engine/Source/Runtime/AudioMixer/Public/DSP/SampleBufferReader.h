@@ -27,7 +27,7 @@ namespace Audio
 		void Init(const int32 InSampleRate);
 
 		// This must be a completely loaded buffer. This buffer reader doesn't OWN the buffer memory.
-		void SetBuffer(const int16** InBufferPtr, const int32 InNumBufferSamples, const int32 InNumChannels, const int32 InBufferSampleRate);
+		void SetBuffer(const int16* InBufferPtr, const int32 InNumBufferSamples, const int32 InNumChannels, const int32 InBufferSampleRate);
 
 		// Seeks the buffer the given time in seconds. Returns true if succeeded.
 		void SeekTime(const float InTimeSec, const ESeekType::Type InSeekType = ESeekType::FromBeginning, const bool bWrap = true);
