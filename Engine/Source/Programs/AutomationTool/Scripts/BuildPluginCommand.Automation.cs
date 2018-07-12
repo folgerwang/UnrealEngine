@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -157,8 +157,6 @@ class BuildPlugin : BuildCommand
 				throw new AutomationException("Missing or invalid target receipt ({0})", ReceiptFileName);
 			}
 			BuildProducts.UnionWith(Receipt.BuildProducts.Select(x => x.Path).Where(x => x.IsUnderDirectory(HostProjectPluginFile.Directory)));
-			BuildProducts.UnionWith(Receipt.PrecompiledBuildDependencies.Where(x => x.IsUnderDirectory(HostProjectPluginFile.Directory)));
-			BuildProducts.UnionWith(Receipt.PrecompiledRuntimeDependencies.Where(x => x.IsUnderDirectory(HostProjectPluginFile.Directory)));
 		}
 		return BuildProducts.ToArray();
 	}

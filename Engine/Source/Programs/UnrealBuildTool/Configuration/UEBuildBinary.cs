@@ -404,44 +404,80 @@ namespace UnrealBuildTool
 		/// <param name="bCreateDebugInfo">Whether debug info is enabled for this binary</param>
 		public void GetBuildProducts(ReadOnlyTargetRules Target, UEToolChain ToolChain, Dictionary<FileReference, BuildProductType> BuildProducts, bool bCreateDebugInfo)
 		{
-			// Get the type of build products we're creating
-			BuildProductType OutputType = BuildProductType.RequiredResource;
-			switch (Type)
+			// Add all the precompiled outputs
+			if(Target.bPrecompile)
 			{
-				case UEBuildBinaryType.Executable:
-					OutputType = BuildProductType.Executable;
-					break;
-				case UEBuildBinaryType.DynamicLinkLibrary:
-					OutputType = BuildProductType.DynamicLibrary;
-					break;
-				case UEBuildBinaryType.StaticLibrary:
-					OutputType = BuildProductType.StaticLibrary;
-					break;
-			}
-
-			// Add the primary build products
-			string[] DebugExtensions = UEBuildPlatform.GetBuildPlatform(Target.Platform).GetDebugInfoExtensions(Target, Type);
-			foreach (FileReference OutputFilePath in OutputFilePaths)
-			{
-				AddBuildProductAndDebugFiles(OutputFilePath, OutputType, DebugExtensions, BuildProducts, ToolChain, bCreateDebugInfo);
-			}
-
-			// Add the console app, if there is one
-			if (Type == UEBuildBinaryType.Executable && bBuildAdditionalConsoleApp)
-			{
-				foreach (FileReference OutputFilePath in OutputFilePaths)
+				foreach(UEBuildModuleCPP Module in Modules.OfType<UEBuildModuleCPP>())
 				{
-					AddBuildProductAndDebugFiles(GetAdditionalConsoleAppPath(OutputFilePath), OutputType, DebugExtensions, BuildProducts, ToolChain, bCreateDebugInfo);
+					if(Module.Rules.bPrecompile)
+					{
+						if(Module.GeneratedCodeDirectory != null && DirectoryReference.Exists(Module.GeneratedCodeDirectory))
+						{
+							foreach(FileReference GeneratedCodeFile in DirectoryReference.EnumerateFiles(Module.GeneratedCodeDirectory))
+							{
+								BuildProducts.Add(GeneratedCodeFile, BuildProductType.BuildResource);
+							}
+						}
+						if(Target.LinkType == TargetLinkType.Monolithic)
+						{
+							FileReference PrecompiledManifestLocation = Module.PrecompiledManifestLocation;
+							BuildProducts.Add(PrecompiledManifestLocation, BuildProductType.BuildResource);
+
+							PrecompiledManifest ModuleManifest = PrecompiledManifest.Read(PrecompiledManifestLocation);
+							foreach(FileReference OutputFile in ModuleManifest.OutputFiles)
+							{
+								if(!BuildProducts.ContainsKey(OutputFile))
+								{
+									BuildProducts.Add(OutputFile, BuildProductType.BuildResource);
+								}
+							}
+						}
+					}
 				}
 			}
 
-			// Add any additional build products from the modules in this binary, including additional bundle resources/dylibs on Mac.
-			List<string> Libraries = new List<string>();
-			List<UEBuildBundleResource> BundleResources = new List<UEBuildBundleResource>();
-			GatherAdditionalResources(Libraries, BundleResources);
+			// Add all the binary outputs
+			if(!Target.bDisableLinking)
+			{
+				// Get the type of build products we're creating
+				BuildProductType OutputType = BuildProductType.RequiredResource;
+				switch (Type)
+				{
+					case UEBuildBinaryType.Executable:
+						OutputType = BuildProductType.Executable;
+						break;
+					case UEBuildBinaryType.DynamicLinkLibrary:
+						OutputType = BuildProductType.DynamicLibrary;
+						break;
+					case UEBuildBinaryType.StaticLibrary:
+						OutputType = BuildProductType.BuildResource;
+						break;
+				}
 
-			// Add any extra files from the toolchain
-			ToolChain.ModifyBuildProducts(Target, this, Libraries, BundleResources, BuildProducts);
+				// Add the primary build products
+				string[] DebugExtensions = UEBuildPlatform.GetBuildPlatform(Target.Platform).GetDebugInfoExtensions(Target, Type);
+				foreach (FileReference OutputFilePath in OutputFilePaths)
+				{
+					AddBuildProductAndDebugFiles(OutputFilePath, OutputType, DebugExtensions, BuildProducts, ToolChain, bCreateDebugInfo);
+				}
+
+				// Add the console app, if there is one
+				if (Type == UEBuildBinaryType.Executable && bBuildAdditionalConsoleApp)
+				{
+					foreach (FileReference OutputFilePath in OutputFilePaths)
+					{
+						AddBuildProductAndDebugFiles(GetAdditionalConsoleAppPath(OutputFilePath), OutputType, DebugExtensions, BuildProducts, ToolChain, bCreateDebugInfo);
+					}
+				}
+
+				// Add any additional build products from the modules in this binary, including additional bundle resources/dylibs on Mac.
+				List<string> Libraries = new List<string>();
+				List<UEBuildBundleResource> BundleResources = new List<UEBuildBundleResource>();
+				GatherAdditionalResources(Libraries, BundleResources);
+
+				// Add any extra files from the toolchain
+				ToolChain.ModifyBuildProducts(Target, this, Libraries, BundleResources, BuildProducts);
+			}
 		}
 
 		/// <summary>

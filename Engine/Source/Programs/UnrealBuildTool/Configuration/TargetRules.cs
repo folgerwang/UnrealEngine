@@ -322,6 +322,12 @@ namespace UnrealBuildTool
 		public bool bBuildAllPlugins = false;
 
 		/// <summary>
+		/// Build all the modules that are valid for this target type. Used for CIS and making installed engine builds.
+		/// </summary>
+		[CommandLine("-AllModules")]
+		public bool bBuildAllModules = false;
+
+		/// <summary>
 		/// A list of additional plugins which need to be included in this target. This allows referencing non-optional plugin modules
 		/// which cannot be disabled, and allows building against specific modules in program targets which do not fit the categories
 		/// in ModuleHostType.
@@ -1097,6 +1103,12 @@ namespace UnrealBuildTool
 		public List<FileReference> ManifestFileNames = new List<FileReference>();
 
 		/// <summary>
+		/// Path to a list of dependencies for this target, when precompiling
+		/// </summary>
+		[CommandLine("-DependencyList")]
+		public List<FileReference> DependencyListFileNames = new List<FileReference>();
+
+		/// <summary>
 		/// Specifies the build environment for this target. See TargetBuildEnvironment for more information on the available options.
 		/// </summary>
 		[CommandLine("-SharedBuildEnvironment", Value = "Shared")]
@@ -1513,6 +1525,11 @@ namespace UnrealBuildTool
 		public bool bBuildAllPlugins
 		{
 			get { return Inner.bBuildAllPlugins; }
+		}
+
+		public bool bBuildAllModules
+		{
+			get { return Inner.bBuildAllModules; }
 		}
 
 		public IEnumerable<string> AdditionalPlugins
@@ -2073,6 +2090,11 @@ namespace UnrealBuildTool
 		public IReadOnlyList<FileReference> ManifestFileNames
 		{
 			get { return Inner.ManifestFileNames.AsReadOnly(); }
+		}
+
+		public IReadOnlyList<FileReference> DependencyListFileNames
+		{
+			get { return Inner.DependencyListFileNames.AsReadOnly(); }
 		}
 
 		public TargetBuildEnvironment BuildEnvironment

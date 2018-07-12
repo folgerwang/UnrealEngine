@@ -216,11 +216,6 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// 
 		/// </summary>
-		public readonly List<string> LibraryBuildProducts = new List<string>();
-
-		/// <summary>
-		/// 
-		/// </summary>
 		public readonly List<string> DeployTargetFiles = new List<string>();
 
 		/// <summary>
@@ -259,19 +254,6 @@ namespace UnrealBuildTool
 			if (!String.IsNullOrEmpty(DebugInfoExtension))
 			{
 				AddBuildProduct(Path.ChangeExtension(FileName, DebugInfoExtension));
-			}
-		}
-
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <param name="FileName"></param>
-		public void AddLibraryBuildProduct(string FileName)
-		{
-			string FullFileName = Path.GetFullPath(FileName);
-			if (!LibraryBuildProducts.Contains(FullFileName))
-			{
-				LibraryBuildProducts.Add(FullFileName);
 			}
 		}
 	}
@@ -515,6 +497,32 @@ namespace UnrealBuildTool
 						RulesObject.bCompileLeanAndMeanUE = true;
 						break;
 				}
+			}
+
+			// If we're precompiling, generate a list of all the files that we depend on
+			if (RulesObject.bPrecompile)
+			{
+				DirectoryReference DependencyListDir;
+				if(RulesObject.ProjectFile == null)
+				{
+					DependencyListDir = DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, RulesObject.Name, RulesObject.Configuration.ToString(), RulesObject.Platform.ToString());
+				}
+				else
+				{
+					DependencyListDir = DirectoryReference.Combine(RulesObject.ProjectFile.Directory, RulesObject.Name, RulesObject.Configuration.ToString(), RulesObject.Platform.ToString());
+				}
+
+				FileReference DependencyListFile;
+				if(RulesObject.bBuildAllModules)
+				{
+					DependencyListFile = FileReference.Combine(DependencyListDir, "DependencyList-AllModules.txt");
+				}
+				else
+				{
+					DependencyListFile = FileReference.Combine(DependencyListDir, "DependencyList.txt");
+				}
+
+				RulesObject.DependencyListFileNames.Add(DependencyListFile);
 			}
 
 			// If we're compiling just a single file, we need to prevent unity builds from running
@@ -845,18 +853,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		[NonSerialized]
 		public List<UEBuildBinary> Binaries = new List<UEBuildBinary>();
-
-		/// <summary>
-		/// Binaries which are precompiled for modular targets, but are not build products that the target specifically depends on
-		/// </summary>
-		[NonSerialized]
-		public List<UEBuildBinary> PrecompileOnlyBinaries = new List<UEBuildBinary>();
-
-		/// <summary>
-		/// Modules which are precompiled for monolithic targets, but are not build products that the target specifically depends on
-		/// </summary>
-		[NonSerialized]
-		public List<UEBuildModuleCPP> PrecompileOnlyModules = new List<UEBuildModuleCPP>();
 
 		/// <summary>
 		/// If building only a specific set of modules, these are the modules to build
@@ -1318,15 +1314,16 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Create a list of all the externally referenced files
+		/// Writes a list of all the externally referenced files required to use the precompiled data for this target
 		/// </summary>
-		/// <param name="Modules">All the modules to include files for</param>
-		/// <param name="Files">Set of referenced files</param>
-		void GetExternalFileList(HashSet<UEBuildModule> Modules, HashSet<FileReference> Files)
+		/// <param name="Location">Path to the dependency list</param>
+		void WriteDependencyList(FileReference Location)
 		{
+			HashSet<FileReference> Files = new HashSet<FileReference>();
+
 			// Get the platform we're building for
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform);
-			foreach (UEBuildModule Module in Modules)
+			foreach (UEBuildModule Module in Binaries.SelectMany(x => x.Modules))
 			{
 				// Skip artificial modules
 				if(Module.RulesFile == null)
@@ -1428,13 +1425,24 @@ namespace UnrealBuildTool
 						}
 					}
 				}
+
+				// Add all of the runtime dependencies
+				foreach(RuntimeDependency RuntimeDependency in Module.RuntimeDependencies)
+				{
+					Files.Add(RuntimeDependency.Path);
+				}
 			}
+
+			// Write the file
+			Log.TraceInformation("Writing dependency list to {0}", Location);
+			DirectoryReference.CreateDirectory(Location.Directory);
+			FileReference.WriteAllLines(Location, Files.Where(x => x.IsUnderDirectory(UnrealBuildTool.RootDirectory)).Select(x => x.MakeRelativeTo(UnrealBuildTool.RootDirectory).Replace(Path.DirectorySeparatorChar, '/')).OrderBy(x => x));
 		}
 
 		/// <summary>
 		/// Generates a public manifest file for writing out
 		/// </summary>
-		public void GenerateManifest(List<KeyValuePair<FileReference, BuildProductType>> BuildProducts, List<KeyValuePair<FileReference, BuildProductType>> PrecompileOnlyBuildProducts)
+		public void GenerateManifest(List<KeyValuePair<FileReference, BuildProductType>> BuildProducts)
 		{
 			FileReference ManifestPath;
 			if (UnrealBuildTool.IsEngineInstalled() && ProjectFile != null)
@@ -1445,52 +1453,30 @@ namespace UnrealBuildTool
 			{
 				ManifestPath = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", "Manifest.xml");
 			}
-			GenerateManifest(ManifestPath, BuildProducts, PrecompileOnlyBuildProducts);
+			GenerateManifest(ManifestPath, BuildProducts);
 		}
 
 		/// <summary>
 		/// Generates a public manifest file for writing out
 		/// </summary>
-		public void GenerateManifest(FileReference ManifestPath, List<KeyValuePair<FileReference, BuildProductType>> BuildProducts, List<KeyValuePair<FileReference, BuildProductType>> PrecompileOnlyBuildProducts)
+		public void GenerateManifest(FileReference ManifestPath, List<KeyValuePair<FileReference, BuildProductType>> BuildProducts)
 		{
 			BuildManifest Manifest = new BuildManifest();
 
+			// Add the regular build products
+			foreach (KeyValuePair<FileReference, BuildProductType> BuildProductPair in BuildProducts)
+			{
+				Manifest.BuildProducts.Add(BuildProductPair.Key.FullName);
+			}
+
+			// Add all the dependency lists
+			foreach(FileReference DependencyListFileName in Rules.DependencyListFileNames)
+			{
+				Manifest.BuildProducts.Add(DependencyListFileName.FullName);
+			}
+
 			if (!Rules.bDisableLinking)
 			{
-				// Add the regular build products
-				foreach (KeyValuePair<FileReference, BuildProductType> BuildProductPair in BuildProducts)
-				{
-					if(BuildProductPair.Value == BuildProductType.ImportLibrary)
-					{
-						Manifest.LibraryBuildProducts.Add(BuildProductPair.Key.FullName);
-					}
-					else
-					{
-						Manifest.BuildProducts.Add(BuildProductPair.Key.FullName);
-					}
-				}
-
-				// Add the library-only build products
-				HashSet<FileReference> LibraryBuildProducts = new HashSet<FileReference>(PrecompileOnlyBuildProducts.Select(x => x.Key));
-				if(Rules.bPrecompile && Rules.LinkType == TargetLinkType.Monolithic)
-				{
-					foreach(UEBuildModuleCPP Module in Binaries.Concat(PrecompileOnlyBinaries).SelectMany(x => x.Modules).OfType<UEBuildModuleCPP>().Concat(PrecompileOnlyModules))
-					{
-						if(Module.Rules.bPrecompile)
-						{
-							FileReference PrecompiledManifestLocation = Module.PrecompiledManifestLocation;
-							LibraryBuildProducts.Add(PrecompiledManifestLocation);
-
-							PrecompiledManifest ModuleManifest = PrecompiledManifest.Read(PrecompiledManifestLocation);
-							foreach(FileReference OutputFile in ModuleManifest.OutputFiles)
-							{
-								LibraryBuildProducts.Add(OutputFile);
-							}
-						}
-					}
-				}
-				Manifest.LibraryBuildProducts.AddRange(LibraryBuildProducts.Select(x => x.FullName));
-
 				// Also add the version file if it's been specified
 				if (VersionFile != null)
 				{
@@ -1531,7 +1517,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Prepare all the receipts this target (all the .target and .modules files). See the VersionManifest class for an explanation of what these files are.
 		/// </summary>
-		void PrepareReceipts(UEToolChain ToolChain, List<KeyValuePair<FileReference, BuildProductType>> BuildProducts, List<KeyValuePair<FileReference, BuildProductType>> PrecompileOnlyBuildProducts, EHotReload HotReload)
+		void PrepareReceipts(UEToolChain ToolChain, List<KeyValuePair<FileReference, BuildProductType>> BuildProducts, EHotReload HotReload)
 		{
 			// If linking is disabled, don't generate any receipt
 			if(Rules.bDisableLinking)
@@ -1580,7 +1566,7 @@ namespace UnrealBuildTool
 			Receipt = new TargetReceipt(TargetName, Platform, Configuration, Version);
 			foreach (KeyValuePair<FileReference, BuildProductType> BuildProductPair in BuildProducts)
 			{
-				if(BuildProductPair.Value != BuildProductType.ImportLibrary)
+				if(BuildProductPair.Value != BuildProductType.BuildResource)
 				{
 					Receipt.AddBuildProduct(BuildProductPair.Key, BuildProductPair.Value);
 				}
@@ -1618,72 +1604,6 @@ namespace UnrealBuildTool
 				}
 			}
 
-			// Add any dependencies of precompiled modules into the receipt
-			if(bPrecompile)
-			{
-				Receipt.PrecompiledBuildDependencies.UnionWith(BuildProducts.Where(x => x.Value == BuildProductType.ImportLibrary).Select(x => x.Key));
-				Receipt.PrecompiledBuildDependencies.UnionWith(PrecompileOnlyBuildProducts.Select(x => x.Key));
-
-				// Add all the precompiled outputs
-				if(Rules.LinkType == TargetLinkType.Monolithic)
-				{
-					foreach(UEBuildModuleCPP Module in Binaries.Concat(PrecompileOnlyBinaries).SelectMany(x => x.Modules).OfType<UEBuildModuleCPP>().Concat(PrecompileOnlyModules))
-					{
-						if(Module.Rules.bPrecompile)
-						{
-							FileReference PrecompiledManifestLocation = Module.PrecompiledManifestLocation;
-							Receipt.PrecompiledBuildDependencies.Add(PrecompiledManifestLocation);
-
-							PrecompiledManifest Manifest = PrecompiledManifest.Read(PrecompiledManifestLocation);
-							foreach(FileReference OutputFile in Manifest.OutputFiles)
-							{
-								Receipt.PrecompiledBuildDependencies.Add(OutputFile);
-							}
-						}
-					}
-				}
-
-				// Find all the modules we need to add runtime dependencies for. This may include precompile-only modules, as well as third party binaries
-				HashSet<UEBuildModule> ReferencedModules = new HashSet<UEBuildModule>(PrecompileOnlyModules);
-				foreach(UEBuildModule Module in PrecompileOnlyModules)
-				{
-					ReferencedModules.UnionWith(Module.GetDependencies(false, false));
-				}
-				foreach(UEBuildBinary Binary in Binaries)
-				{
-					ReferencedModules.UnionWith(Binary.Modules);
-				}
-				foreach(UEBuildBinary Binary in PrecompileOnlyBinaries)
-				{
-					ReferencedModules.UnionWith(Binary.Modules);
-				}
-
-				// Add the runtime dependencies of precompiled modules that are not directly part of this target
-				foreach(UEBuildModule ReferencedModule in ReferencedModules)
-				{
-					if (UniqueLinkedModules.Add(ReferencedModule))
-					{
-						foreach (RuntimeDependency RuntimeDependency in ReferencedModule.RuntimeDependencies)
-						{
-							Receipt.PrecompiledRuntimeDependencies.Add(RuntimeDependency.Path);
-						}
-					}
-				}
-
-				// Add all the files which are required to use the precompiled modules
-				HashSet<FileReference> ExternalFiles = new HashSet<FileReference>();
-				GetExternalFileList(ReferencedModules, ExternalFiles);
-
-				// Convert them into relative to the target receipt
-				foreach(FileReference ExternalFile in ExternalFiles)
-				{
-					if(ExternalFile.IsUnderDirectory(UnrealBuildTool.EngineDirectory) || ExternalFile.IsUnderDirectory(ProjectDirectory))
-					{
-						Receipt.PrecompiledBuildDependencies.Add(ExternalFile);
-					}
-				}
-			}
-
 			// Also add the version file if it's been specified
 			if (VersionFile != null)
 			{
@@ -1695,8 +1615,7 @@ namespace UnrealBuildTool
 			if (!bCompileMonolithic)
 			{
 				// Create the receipts for each folder
-				IEnumerable<UEBuildBinary> AllBinaries = Enumerable.Concat(Binaries, PrecompileOnlyBinaries);
-				foreach (UEBuildBinary Binary in AllBinaries)
+				foreach (UEBuildBinary Binary in Binaries)
 				{
 					if(Binary.Type == UEBuildBinaryType.DynamicLinkLibrary)
 					{
@@ -2049,25 +1968,28 @@ namespace UnrealBuildTool
 
 			if(!ProjectFileGenerator.bGenerateProjectFiles)
 			{
-				// Check the distribution level of all binaries based on the dependencies they have
-				if(ProjectFile == null && !Rules.bOutputPubliclyDistributable)
+				if(!Rules.bDisableLinking)
 				{
-					Dictionary<UEBuildModule, Dictionary<RestrictedFolder, DirectoryReference>> ModuleRestrictedFolderCache = new Dictionary<UEBuildModule, Dictionary<RestrictedFolder, DirectoryReference>>();
-
-					bool bResult = true;
-					foreach (UEBuildBinary Binary in Binaries)
+					// Check the distribution level of all binaries based on the dependencies they have
+					if(ProjectFile == null && !Rules.bOutputPubliclyDistributable)
 					{
-						bResult &= Binary.CheckRestrictedFolders(DirectoryReference.FromFile(ProjectFile), ModuleRestrictedFolderCache);
+						Dictionary<UEBuildModule, Dictionary<RestrictedFolder, DirectoryReference>> ModuleRestrictedFolderCache = new Dictionary<UEBuildModule, Dictionary<RestrictedFolder, DirectoryReference>>();
+
+						bool bResult = true;
+						foreach (UEBuildBinary Binary in Binaries)
+						{
+							bResult &= Binary.CheckRestrictedFolders(DirectoryReference.FromFile(ProjectFile), ModuleRestrictedFolderCache);
+						}
+
+						if(!bResult)
+						{
+							throw new BuildException("Unable to create binaries in less restricted locations than their input files.");
+						}
 					}
 
-					if(!bResult)
-					{
-						throw new BuildException("Unable to create binaries in less restricted locations than their input files.");
-					}
+					// Check for linking against modules prohibited by the EULA
+					CheckForEULAViolation();
 				}
-
-				// Check for linking against modules prohibited by the EULA
-				CheckForEULAViolation();
 
 				// Build a mapping from module to its plugin
 				Dictionary<UEBuildModule, UEBuildPlugin> ModuleToPlugin = new Dictionary<UEBuildModule, UEBuildPlugin>();
@@ -2201,7 +2123,6 @@ namespace UnrealBuildTool
 
 			// On Mac and Linux we have actions that should be executed after all the binaries are created
 			TargetToolChain.SetupBundleDependencies(Binaries, TargetName);
-			TargetToolChain.SetupBundleDependencies(PrecompileOnlyBinaries, TargetName);
 
 			// Write out the deployment context, if necessary
 			if(Rules.bDeployAfterCompile && !Rules.bDisableLinking)
@@ -2213,8 +2134,7 @@ namespace UnrealBuildTool
 
 			if (!ProjectFileGenerator.bGenerateProjectFiles)
 			{
-				HashSet<UEBuildModuleCPP> ModulesToGenerateHeadersFor = GatherDependencyModules(OriginalBinaries.Concat(PrecompileOnlyBinaries).ToList());
-				ModulesToGenerateHeadersFor.UnionWith(PrecompileOnlyModules);
+				HashSet<UEBuildModuleCPP> ModulesToGenerateHeadersFor = GatherDependencyModules(OriginalBinaries.ToList());
 
 				if (OnlyModules.Count > 0)
 				{
@@ -2281,45 +2201,19 @@ namespace UnrealBuildTool
 				{
 					Binary.GatherDataForProjectFiles(Rules, GlobalCompileEnvironment);
 				}
-				foreach (UEBuildBinary Binary in PrecompileOnlyBinaries)
-				{
-					Binary.GatherDataForProjectFiles(Rules, GlobalCompileEnvironment);
-				}
 				return ECompilationResult.Succeeded;
 			}
 
+			// Build the target's binaries.
+			foreach (UEBuildBinary Binary in Binaries)
+			{
+				OutputItems.AddRange(Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, ActionGraph));
+			}
+
+			// If we're just precompiling a plugin, only include output items which are under that directory
 			if(ForeignPlugin != null)
 			{
-				// Build all the precompiled plugin binaries
-				List<UEBuildBinary> ForeignPluginBinaries = PrecompileOnlyBinaries.Where(x => x.PrimaryModule.RulesFile.IsUnderDirectory(ForeignPlugin.Directory)).ToList();
-				foreach(UEBuildBinary Binary in ForeignPluginBinaries)
-				{
-					OutputItems.AddRange(Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, ActionGraph));
-				}
-
-				List<UEBuildModuleCPP> ForeignPluginModules = PrecompileOnlyModules.Where(x => x.RulesFile.IsUnderDirectory(ForeignPlugin.Directory)).ToList();
-				foreach (UEBuildModuleCPP Module in ForeignPluginModules)
-				{
-					OutputItems.AddRange(Module.Compile(Rules, TargetToolChain, GlobalCompileEnvironment, SharedPCHs, WorkingSet, ActionGraph));
-				}
-			}
-			else
-			{
-				// Build the target's binaries.
-				foreach (UEBuildBinary Binary in Binaries)
-				{
-					OutputItems.AddRange(Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, ActionGraph));
-				}
-
-				// Build all the precompiled binaries
-				foreach (UEBuildBinary Binary in PrecompileOnlyBinaries)
-				{
-					OutputItems.AddRange(Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, ActionGraph));
-				}
-				foreach (UEBuildModuleCPP Module in PrecompileOnlyModules)
-				{
-					OutputItems.AddRange(Module.Compile(Rules, TargetToolChain, GlobalCompileEnvironment, SharedPCHs, WorkingSet, ActionGraph));
-				}
+				OutputItems.RemoveAll(x => x.Location.IsUnderDirectory(ForeignPlugin.Directory));
 			}
 
 			// Allow the toolchain to modify the final output items
@@ -2334,19 +2228,10 @@ namespace UnrealBuildTool
 				BuildProducts.AddRange(BinaryBuildProducts);
 			}
 
-			// Also get the precompiled build products
-			List<KeyValuePair<FileReference, BuildProductType>> PrecompileOnlyBuildProducts = new List<KeyValuePair<FileReference, BuildProductType>>();
-			foreach (UEBuildBinary Binary in PrecompileOnlyBinaries)
-			{
-				Dictionary<FileReference, BuildProductType> BinaryBuildProducts = new Dictionary<FileReference, BuildProductType>();
-				Binary.GetBuildProducts(Rules, TargetToolChain, BinaryBuildProducts, GlobalLinkEnvironment.bCreateDebugInfo);
-				PrecompileOnlyBuildProducts.AddRange(BinaryBuildProducts);
-			}
-
 			// Create a receipt for the target
 			if (!ProjectFileGenerator.bGenerateProjectFiles)
 			{
-				PrepareReceipts(TargetToolChain, BuildProducts, PrecompileOnlyBuildProducts, HotReload);
+				PrepareReceipts(TargetToolChain, BuildProducts, HotReload);
 			}
 
 			// Make sure all the checked headers were valid
@@ -2361,14 +2246,20 @@ namespace UnrealBuildTool
 				return ECompilationResult.Canceled;
 			}
 
+			// Build a list of all the externally files
+			foreach(FileReference DependencyListFileName in Rules.DependencyListFileNames)
+			{
+				WriteDependencyList(DependencyListFileName);
+			}
+
 			// If we're only generating the manifest, return now
 			if (BuildConfiguration.bGenerateManifest)
 			{
-				GenerateManifest(BuildProducts, PrecompileOnlyBuildProducts);
+				GenerateManifest(BuildProducts);
 			}
 			foreach(FileReference ManifestFileName in Rules.ManifestFileNames)
 			{
-				GenerateManifest(ManifestFileName, BuildProducts, PrecompileOnlyBuildProducts);
+				GenerateManifest(ManifestFileName, BuildProducts);
 			}
 
 			// Clean any stale modules which exist in multiple output directories. This can lead to the wrong DLL being loaded on Windows.
@@ -2615,10 +2506,10 @@ namespace UnrealBuildTool
 				}
 			}
 
-			// Add all the precompiled modules to the target. In contrast to "Extra Modules", these modules are not compiled into monolithic targets by default.
-			if(bPrecompile)
+			// Add all the modules to the target if necessary.
+			if(Rules.bBuildAllModules)
 			{
-				AddModulesToPrecompile();
+				AddAllValidModulesToTarget();
 			}
 
 			// Add the external and non-C++ referenced modules to the binaries that reference them.
@@ -2639,10 +2530,6 @@ namespace UnrealBuildTool
 				{
 					// On Windows create import libraries for all binaries ahead of time, since linking binaries often causes bottlenecks
 					foreach (UEBuildBinary Binary in Binaries)
-					{
-						Binary.SetCreateImportLibrarySeparately(true);
-					}
-					foreach (UEBuildBinary Binary in PrecompileOnlyBinaries)
 					{
 						Binary.SetCreateImportLibrarySeparately(true);
 					}
@@ -2668,7 +2555,6 @@ namespace UnrealBuildTool
 			if (Platform == UnrealTargetPlatform.Mac && !Rules.bIsBuildingConsoleApplication)
 			{
 				TargetToolChain.FixBundleBinariesPaths(this, Binaries);
-				TargetToolChain.FixBundleBinariesPaths(this, PrecompileOnlyBinaries);
 			}
 		}
 
@@ -2942,7 +2828,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Adds all the precompiled modules into the target. Precompiled modules are compiled alongside the target, but not linked into it unless directly referenced.
 		/// </summary>
-		protected void AddModulesToPrecompile()
+		protected void AddAllValidModulesToTarget()
 		{
 			// Find all the modules that are part of the target
 			HashSet<string> PrecompiledModuleNames = new HashSet<string>();
@@ -3106,15 +2992,7 @@ namespace UnrealBuildTool
 			{
 				if(Module.Binary == null)
 				{
-					if(bCompileMonolithic)
-					{
-						PrecompileOnlyModules.Add(Module);
-					}
-					else
-					{
-						Module.Binary = CreateDynamicLibraryForModule(Module);
-						PrecompileOnlyBinaries.Add(Module.Binary);
-					}
+					AddModuleToBinary(Module);
 				}
 			}
 		}

@@ -95,10 +95,6 @@ namespace AutomationTool
 					PrepareBuildProduct(Item);
 				}
 			}
-			foreach(string Item in Manifest.LibraryBuildProducts)
-			{
-				LibraryBuildProductFiles.Add(Item);
-			}
 			return Manifest;
 		}
 
@@ -124,10 +120,6 @@ namespace AutomationTool
 					throw new AutomationException("BUILD FAILED {0} was in manifest but was not produced.", Item);
 				}
 				AddBuildProduct(Item);
-			}
-			foreach(string Item in Manifest.LibraryBuildProducts)
-			{
-				LibraryBuildProductFiles.Add(Item);
 			}
 		}
 		
@@ -710,7 +702,6 @@ namespace AutomationTool
 		{
 			OwnerCommand = Command;
 			BuildProductFiles.Clear();
-			LibraryBuildProductFiles.Clear();
 		}
 
 		public List<string> FindXGEFiles()
@@ -1671,9 +1662,6 @@ namespace AutomationTool
 
 		// List of everything we built so far
 		public readonly List<string> BuildProductFiles = new List<string>();
-
-		// Library files that were part of the build
-		public readonly List<string> LibraryBuildProductFiles = new List<string>();
 
 		private bool DeleteBuildProducts = true;
 	}

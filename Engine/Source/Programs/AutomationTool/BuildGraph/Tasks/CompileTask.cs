@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -168,13 +168,11 @@ namespace AutomationTool
 				{
 					HashSet<FileReference> FileSet = CustomTask.FindOrAddTagSet(TagNameToFileSet, TagName);
 					FileSet.UnionWith(Manifest.BuildProducts.Select(x => new FileReference(x)));
-					FileSet.UnionWith(Manifest.LibraryBuildProducts.Select(x => new FileReference(x)));
 				}
 			}
 
 			// Add everything to the list of build products
 			BuildProducts.UnionWith(Builder.BuildProductFiles.Select(x => new FileReference(x)));
-			BuildProducts.UnionWith(Builder.LibraryBuildProductFiles.Select(x => new FileReference(x)));
 		}
 	}
 

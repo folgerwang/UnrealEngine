@@ -1603,6 +1603,10 @@ namespace UnrealBuildTool
 				Log.TraceWarning("Unable to PostBuildSync, Target has no Rules object");
 				return;
 			}
+			if(Target.Rules.bDisableLinking)
+			{
+				return;
+			}
 
 			IOSProjectSettings ProjectSettings = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(Target.Platform)).ReadProjectSettings(Target.ProjectFile);
 

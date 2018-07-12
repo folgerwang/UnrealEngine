@@ -378,7 +378,7 @@ namespace UnrealBuildTool
 			CppCompileEnvironment ModuleCompileEnvironment = CreateModuleCompileEnvironment(Target, BinaryCompileEnvironment);
 
 			// If the module is precompiled, read the object files from the manifest
-			if(Rules.bUsePrecompiled)
+			if(Rules.bUsePrecompiled && Target.LinkType == TargetLinkType.Monolithic)
 			{
 				PrecompiledManifest Manifest = PrecompiledManifest.Read(PrecompiledManifestLocation);
 				foreach(FileReference OutputFile in Manifest.OutputFiles)
@@ -635,7 +635,7 @@ namespace UnrealBuildTool
 			}
 
 			// Write the compiled manifest
-			if(Rules.bPrecompile)
+			if(Rules.bPrecompile && Target.LinkType == TargetLinkType.Monolithic)
 			{
 				DirectoryReference.CreateDirectory(PrecompiledManifestLocation.Directory);
 
