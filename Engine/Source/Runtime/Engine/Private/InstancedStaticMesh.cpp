@@ -323,6 +323,72 @@ void FStaticMeshInstanceBuffer::BindInstanceVertexBuffer(const class FVertexFact
 }
 
 
+void FStaticMeshInstanceData::Serialize(FArchive& Ar)
+{
+	// HTML5 doesn't support half float so we need to convert at cook time.
+	const bool bCookConvertTransformsToFullFloat = Ar.IsCooking() && bUseHalfFloat && !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::HalfFloatVertexFormat);
+
+	if (Ar.IsLoading())
+	{
+		AllocateBuffers(NumInstances);
+	}
+
+	if (bCookConvertTransformsToFullFloat)
+	{
+		bool bSaveUseHalfFloat = false;
+		Ar << bSaveUseHalfFloat;
+	}
+	else
+	{
+		Ar << bUseHalfFloat;
+	}
+
+	Ar << NumInstances;
+
+	InstanceOriginData->Serialize(Ar);
+	InstanceLightmapData->Serialize(Ar);
+
+	if (bCookConvertTransformsToFullFloat)
+	{
+		TStaticMeshVertexData<FInstanceTransformMatrix<float>> FullInstanceTransformData;
+		FullInstanceTransformData.ResizeBuffer(NumInstances);
+
+		FInstanceTransformMatrix<FFloat16>* Src = (FInstanceTransformMatrix<FFloat16>*)InstanceTransformData->GetDataPointer();
+		FInstanceTransformMatrix<float>* Dest = (FInstanceTransformMatrix<float>*)FullInstanceTransformData.GetDataPointer();
+		for (int32 Idx = 0; Idx < NumInstances; Idx++)
+		{
+			Dest->InstanceTransform1[0] = Src->InstanceTransform1[0];
+			Dest->InstanceTransform1[1] = Src->InstanceTransform1[1];
+			Dest->InstanceTransform1[2] = Src->InstanceTransform1[2];
+			Dest->InstanceTransform1[3] = Src->InstanceTransform1[3];
+			Dest->InstanceTransform2[0] = Src->InstanceTransform2[0];
+			Dest->InstanceTransform2[1] = Src->InstanceTransform2[1];
+			Dest->InstanceTransform2[2] = Src->InstanceTransform2[2];
+			Dest->InstanceTransform2[3] = Src->InstanceTransform2[3];
+			Dest->InstanceTransform3[0] = Src->InstanceTransform3[0];
+			Dest->InstanceTransform3[1] = Src->InstanceTransform3[1];
+			Dest->InstanceTransform3[2] = Src->InstanceTransform3[2];
+			Dest->InstanceTransform3[3] = Src->InstanceTransform3[3];
+			Src++;
+			Dest++;
+		}
+
+		FullInstanceTransformData.Serialize(Ar);
+	}
+	else
+	{
+		InstanceTransformData->Serialize(Ar);
+	}
+
+	if (Ar.IsLoading())
+	{
+		InstanceOriginDataPtr = InstanceOriginData->GetDataPointer();
+		InstanceLightmapDataPtr = InstanceLightmapData->GetDataPointer();
+		InstanceTransformDataPtr = InstanceTransformData->GetDataPointer();
+	}
+}
+
+
 /**
  * Should we cache the material's shadertype on this platform with this vertex factory? 
  */
