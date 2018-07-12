@@ -31,12 +31,12 @@ void AARSharedWorldGameState::InitSharedWorld(int32 PreviewImageSize, int32 ARWo
 
 	if (PreviewImageSize > 0 && ARWorldDataSize > 0)
 	{
-		ARSharedWorld.PreviewImageData.Reset(PreviewImageSize);
-		ARSharedWorld.PreviewImageData.AddUninitialized(PreviewImageSize);
+		PreviewImageData.Reset(PreviewImageSize);
+		PreviewImageData.AddUninitialized(PreviewImageSize);
 		PreviewImageBytesTotal = PreviewImageSize;
 		
-		ARSharedWorld.ARWorldData.Reset(ARWorldDataSize);
-		ARSharedWorld.ARWorldData.AddUninitialized(ARWorldDataSize);
+		ARWorldData.Reset(ARWorldDataSize);
+		ARWorldData.AddUninitialized(ARWorldDataSize);
 		ARWorldBytesTotal = ARWorldDataSize;
 	}
 	else
@@ -56,7 +56,7 @@ void AARSharedWorldGameState::UpdatePreviewImageData(int32 Offset, const uint8* 
 	
 	if (Offset >= 0 && (Offset + Size) <= PreviewImageBytesTotal)
 	{
-		uint8* PreviewImageBuffer = ARSharedWorld.PreviewImageData.GetData();
+		uint8* PreviewImageBuffer = PreviewImageData.GetData();
 		FMemory::Memcpy((void*)&PreviewImageBuffer[Offset], (void*)Buffer, Size);
 		PreviewImageBytesDelivered += Size;
 
@@ -80,7 +80,7 @@ void AARSharedWorldGameState::UpdateARWorldData(int32 Offset, const uint8* Buffe
 	
 	if (Offset >= 0 && (Offset + Size) <= ARWorldBytesTotal)
 	{
-		uint8* ARWorldBuffer = ARSharedWorld.ARWorldData.GetData();
+		uint8* ARWorldBuffer = ARWorldData.GetData();
 		FMemory::Memcpy((void*)&ARWorldBuffer[Offset], (void*)Buffer, Size);
 		ARWorldBytesDelivered += Size;
 		

@@ -7,17 +7,6 @@
 #include "GameFramework/GameState.h"
 #include "ARSharedWorldGameState.generated.h"
 
-USTRUCT(BlueprintType)
-struct AUGMENTEDREALITY_API FARSharedWorld
-{
-	GENERATED_BODY()
-
-	/** The image taken at the time of world saving for use when aligning the AR world later in the session */
-	TArray<uint8> PreviewImageData;
-	/** The snapshot of the AR world that is to be shared */
-	TArray<uint8> ARWorldData;
-};
-
 UCLASS(BlueprintType)
 class AUGMENTEDREALITY_API AARSharedWorldGameState :
 	public AGameState
@@ -27,7 +16,12 @@ class AUGMENTEDREALITY_API AARSharedWorldGameState :
 public:
 	/** Each client and the host have a copy of the shared world data */
 	UPROPERTY(BlueprintReadOnly, Category="AR Shared World")
-	FARSharedWorld ARSharedWorld;
+	/** The image taken at the time of world saving for use when aligning the AR world later in the session */
+	TArray<uint8> PreviewImageData;
+
+	/** Each client and the host have a copy of the shared world data */
+	UPROPERTY(BlueprintReadOnly, Category="AR Shared World")
+	TArray<uint8> ARWorldData;
 
 	/** The size of the image that will be replicated to each client */
 	UPROPERTY(BlueprintReadOnly, Category="AR Shared World")
