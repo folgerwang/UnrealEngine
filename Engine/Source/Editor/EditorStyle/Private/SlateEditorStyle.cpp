@@ -1631,8 +1631,10 @@ void FSlateEditorStyle::FStyle::SetupGeneralStyles()
 	{
 		FSliderStyle SliderStyle = FSliderStyle()
 			.SetNormalBarImage(FSlateColorBrush(FColor::White))
+			.SetHoveredBarImage(FSlateColorBrush(FColor::White))
 			.SetDisabledBarImage(FSlateColorBrush(FLinearColor::Gray))
 			.SetNormalThumbImage( BOX_BRUSH( "Common/Button", 8.0f/32.0f ) )
+			.SetHoveredThumbImage(BOX_BRUSH("Common/Button", 8.0f / 32.0f))
 			.SetDisabledThumbImage( BOX_BRUSH( "Common/Button_Disabled", 8.0f/32.0f ) )
 			.SetBarThickness(2.0f);
 		Set( "Slider", SliderStyle );
