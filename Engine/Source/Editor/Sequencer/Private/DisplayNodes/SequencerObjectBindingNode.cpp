@@ -417,6 +417,13 @@ FLinearColor FSequencerObjectBindingNode::GetDisplayNameColor() const
 		}
 	}
 
+	// Spawnables don't have valid object bindings when their track hasn't spawned them yet,
+	// so we override the default behavior of red with a gray so that users don't think there is something wrong.
+	if (GetBindingType() == EObjectBindingType::Spawnable)
+	{
+		return FLinearColor::Gray;
+	}
+
 	return FLinearColor::Red;
 }
 
