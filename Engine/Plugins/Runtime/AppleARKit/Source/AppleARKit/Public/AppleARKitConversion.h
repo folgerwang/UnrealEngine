@@ -4,8 +4,37 @@
 
 #include "Math/Transform.h"
 #include "ARPin.h"
+#include "Misc/Compression.h"
 
 #include "IAppleImageUtilsPlugin.h"
+
+#define AR_SAVE_WORLD_KEY 0x505A474A
+#define AR_SAVE_WORLD_VER 1
+
+struct FARWorldSaveHeader
+{
+	uint32 Magic;
+	uint32 UncompressedSize;
+	uint8 Version;
+	
+	FARWorldSaveHeader() :
+		Magic(AR_SAVE_WORLD_KEY),
+		UncompressedSize(0),
+		Version(AR_SAVE_WORLD_VER)
+	{
+		
+	}
+
+	FARWorldSaveHeader(uint8* Header)
+	{
+		const FARWorldSaveHeader& Other = *(FARWorldSaveHeader*)Header;
+		Magic = Other.Magic;
+		UncompressedSize = Other.UncompressedSize;
+		Version = Other.Version;
+	}
+};
+
+#define AR_SAVE_WORLD_HEADER_SIZE (sizeof(FARWorldSaveHeader))
 
 struct FAppleARKitConversion
 {
@@ -282,7 +311,27 @@ struct FAppleARKitConversion
 
 	static ARWorldMap* ToARWorldMap(const TArray<uint8>& WorldMapData)
 	{
-		NSData* WorldNSData = [NSData dataWithBytesNoCopy: (uint8*)WorldMapData.GetData() length: WorldMapData.Num() freeWhenDone: NO];
+		uint8* Buffer = (uint8*)WorldMapData.GetData();
+		FARWorldSaveHeader InHeader(Buffer);
+		// Check for our format and reject if invalid
+		if (InHeader.Magic != AR_SAVE_WORLD_KEY || InHeader.Version != AR_SAVE_WORLD_VER)
+		{
+			return nullptr;
+		}
+
+		// Decompress the data
+		uint8* CompressedData = Buffer + AR_SAVE_WORLD_HEADER_SIZE;
+		uint32 CompressedSize = WorldMapData.Num() - AR_SAVE_WORLD_HEADER_SIZE;
+		uint32 UncompressedSize = InHeader.UncompressedSize;
+		TArray<uint8> UncompressedData;
+		UncompressedData.AddUninitialized(UncompressedSize);
+		if (!FCompression::UncompressMemory((ECompressionFlags)COMPRESS_ZLIB, UncompressedData.GetData(), UncompressedSize, CompressedData, CompressedSize))
+		{
+			return nullptr;
+		}
+		
+		// Serialize into the World map data
+		NSData* WorldNSData = [NSData dataWithBytesNoCopy: UncompressedData.GetData() length: UncompressedData.Num() freeWhenDone: NO];
 		ARWorldMap* WorldMap = [NSKeyedUnarchiver unarchiveObjectWithData: WorldNSData];
 		if (WorldMap == nullptr)
 		{

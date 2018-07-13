@@ -898,7 +898,6 @@ public:
 		}
 	}
 
-	/** Performs the call to get the world map and triggers the OnWorldMapAcquired() the completion handler */
 	void Run()
 	{
 		simd_float4x4 ARMatrix = FAppleARKitConversion::ToARKitMatrix(FTransform(Location));
@@ -950,10 +949,26 @@ public:
 		{
 			NSData* WorldNSData = [NSKeyedArchiver archivedDataWithRootObject: WorldMap];
 
-			// Copy to our TArray that will serve the data to the caller
-			uint32 SavedSize = WorldNSData.length;
-			WorldData.AddUninitialized(SavedSize);
-			FPlatformMemory::Memcpy(WorldData.GetData(), [WorldNSData bytes], SavedSize);
+			int32 UncompressedSize = WorldNSData.length;
+
+			TArray<uint8> CompressedData;
+			CompressedData.AddUninitialized(WorldNSData.length + AR_SAVE_WORLD_HEADER_SIZE);
+			uint8* Buffer = (uint8*)CompressedData.GetData();
+			// Write our magic header into our buffer
+			FARWorldSaveHeader& Header = *(FARWorldSaveHeader*)Buffer;
+			Header = FARWorldSaveHeader();
+			Header.UncompressedSize = UncompressedSize;
+			
+			// Compress the data
+			uint8* CompressInto = Buffer + AR_SAVE_WORLD_HEADER_SIZE;
+			int32 CompressedSize = UncompressedSize;
+			uint8* UncompressedData = (uint8*)[WorldNSData bytes];
+			verify(FCompression::CompressMemory((ECompressionFlags)COMPRESS_ZLIB, CompressInto, CompressedSize, UncompressedData, UncompressedSize));
+			
+			// Only copy out the amount of compressed data and the header
+			int32 CompressedSizePlusHeader = CompressedSize + AR_SAVE_WORLD_HEADER_SIZE;
+			WorldData.AddUninitialized(CompressedSizePlusHeader);
+			FPlatformMemory::Memcpy(WorldData.GetData(), CompressedData.GetData(), CompressedSizePlusHeader);
 		}
 		else
 		{
