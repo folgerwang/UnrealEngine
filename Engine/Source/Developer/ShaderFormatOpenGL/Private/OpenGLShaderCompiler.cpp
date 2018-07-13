@@ -1354,7 +1354,7 @@ uint32 FOpenGLFrontend::CalculateCrossCompilerFlags(GLSLVersion Version, bool bC
 		CCFlags |= HLSLCC_ApplyCommonSubexpressionElimination;
 	}
 
-	if (bUseFullPrecisionInPS)
+	if (bUseFullPrecisionInPS || Version == GLSL_ES2_WEBGL)
 	{
 		CCFlags |= HLSLCC_UseFullPrecisionInPS;
 	}
@@ -1648,7 +1648,7 @@ void FOpenGLFrontend::FillDeviceCapsOfflineCompilation(struct FDeviceCapabilitie
 	else if (ShaderVersion == GLSL_ES2_WEBGL)
 	{
 		Capabilities.TargetPlatform = EPlatformType::Web;
-		Capabilities.bUseES30ShadingLanguage = true;
+		Capabilities.bUseES30ShadingLanguage = false; // make sure this matches HTML5OpenGL.h -> FOpenGL::UseES30ShadingLanguage();
 	}
 	else if (ShaderVersion == GLSL_ES2_IOS)
 	{

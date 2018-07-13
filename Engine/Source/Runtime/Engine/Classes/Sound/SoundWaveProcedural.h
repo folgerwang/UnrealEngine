@@ -50,17 +50,16 @@ protected:
 
 public:
 	USoundWaveProcedural(const FObjectInitializer& ObjectInitializer);
-	USoundWaveProcedural(FVTableHelper& Helper);
 
 	//~ Begin UObject Interface. 
 	virtual void Serialize( FArchive& Ar ) override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
-	virtual bool IsReadyForFinishDestroy() override;
 	//~ End UObject Interface. 
 
 	//~ Begin USoundWave Interface.
 	virtual int32 GeneratePCMData(uint8* PCMData, const int32 SamplesNeeded) override;
 	virtual bool HasCompressedData(FName Format, ITargetPlatform* TargetPlatform) const override;
+	virtual void BeginGetCompressedData(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides) override;
 	virtual FByteBulkData* GetCompressedData(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides = nullptr) override;
 	virtual void InitAudioResource( FByteBulkData& CompressedData ) override;
 	virtual bool InitAudioResource(FName Format) override;
@@ -70,12 +69,6 @@ public:
 	// Virtual function to generate PCM audio from the audio render thread. 
 	// Returns number of samples generated
 	virtual int32 OnGeneratePCMAudio(TArray<uint8>& OutAudio, int32 NumSamples) { return 0; }
-
-	// Called  when the procedural sound wave begins on the render thread. Only used in the audio mixer.
-	virtual void OnBeginGenerate() {}
-
-	// Called when the procedural sound wave is done generating on the render thread. Only used in the audio mixer.
-	virtual void OnEndGenerate() {};
 
 	/** Add data to the FIFO that feeds the audio device. */
 	void QueueAudio(const uint8* AudioData, const int32 BufferSize);
@@ -91,7 +84,4 @@ public:
 
 	/** Size in bytes of a single sample of audio in the procedural audio buffer. */
 	int32 SampleByteSize;
-
-	/** Whether or not this object is ready to be destroyed. Allows procedural sound wave generation to occur in async tasks without garbage collection deleting it from underneath. */
-	FThreadSafeBool bIsReadyForDestroy;
 };

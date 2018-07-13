@@ -1431,7 +1431,7 @@ void ImportCameraCut(UnFbx::FFbxImporter* FbxImporter, UMovieScene* InMovieScene
 				FGuid CameraGuid = FindCameraGuid(AllCameras[value], InObjectBindingMap);
 				if (CameraGuid != FGuid())
 				{
-					CameraCutTrack->AddNewCameraCut(FMovieSceneObjectBindingID(CameraGuid, MovieSceneSequenceID::Root), (((float)key.GetTime().GetSecondDouble()) * FrameRate).FloorToFrame());
+					CameraCutTrack->AddNewCameraCut(FMovieSceneObjectBindingID(CameraGuid, MovieSceneSequenceID::Root), (key.GetTime().GetSecondDouble() * FrameRate).RoundToFrame());
 				}
 			}
 		}

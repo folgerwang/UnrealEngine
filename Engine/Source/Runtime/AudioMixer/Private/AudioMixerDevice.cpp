@@ -15,10 +15,28 @@
 #include "UObject/UObjectIterator.h"
 #include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
 #include "Misc/App.h"
+#include "Sound/AudioSettings.h"
 
 #if WITH_EDITOR
 #include "AudioEditorModule.h"
 #endif
+
+static int32 DisableSubmixReverbCVar = 0;
+FAutoConsoleVariableRef CVarDisableSubmixReverb(
+	TEXT("au.DisableReverbSubmix"),
+	DisableSubmixReverbCVar,
+	TEXT("Disables the reverb submix.\n")
+	TEXT("0: Not Disabled, 1: Disabled"),
+	ECVF_Default);
+
+static int32 DisableSubmixEffectEQCvar = 0;
+FAutoConsoleVariableRef CVarDisableSubmixEQ(
+	TEXT("au.DisableSubmixEffectEQ"),
+	DisableSubmixEffectEQCvar,
+	TEXT("Disables the eq submix.\n")
+	TEXT("0: Not Disabled, 1: Disabled"),
+	ECVF_Default);
+
 
 namespace Audio
 {
@@ -109,6 +127,10 @@ namespace Audio
 
 		if (AudioMixerPlatform && AudioMixerPlatform->InitializeHardware())
 		{
+			const UAudioSettings* AudioSettings = GetDefault<UAudioSettings>();
+			MonoChannelUpmixMethod = AudioSettings->MonoChannelUpmixMethod;
+			PanningMethod = AudioSettings->PanningMethod;
+
 			// Set whether we're the main audio mixer
 			bIsMainAudioMixer = IsMainAudioDevice();
 
@@ -168,7 +190,7 @@ namespace Audio
 				// This extra source count is used for "stopping sources", which are sources
 				// which are fading out (very quickly) to avoid discontinuities when stopping sounds
 				FSourceManagerInitParams SourceManagerInitParams;
-				SourceManagerInitParams.NumSources = GetMaxChannels();
+				SourceManagerInitParams.NumSources = GetMaxChannels() + NumStoppingVoices;
 				SourceManagerInitParams.NumSourceWorkers = 4;
 
 				SourceManager.Init(SourceManagerInitParams);
@@ -270,6 +292,16 @@ namespace Audio
 
 	void FMixerDevice::UpdateHardware()
 	{
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
+		// If we're in editor, re-query these in case they changed. 
+		if (GIsEditor)
+		{
+			const UAudioSettings* AudioSettings = GetDefault<UAudioSettings>();
+			MonoChannelUpmixMethod = AudioSettings->MonoChannelUpmixMethod;
+			PanningMethod = AudioSettings->PanningMethod;
+		}
+
 		SourceManager.Update();
 
 		AudioMixerPlatform->OnHardwareUpdate();
@@ -463,19 +495,40 @@ namespace Audio
 			FMixerDevice::MasterSubmixes.Add(MasterSubmix);
 
 			// Master Reverb Plugin
-			USoundSubmix* ReverbPluginSubmix = NewObject<USoundSubmix>(USoundSubmix::StaticClass(), TEXT("Master Reverb Plugin Submix"));
-			ReverbPluginSubmix->AddToRoot();
-			FMixerDevice::MasterSubmixes.Add(ReverbPluginSubmix);
+			if (DisableSubmixReverbCVar)
+			{
+				FMixerDevice::MasterSubmixes.Add(nullptr);
+			}
+			else
+			{
+				USoundSubmix* ReverbPluginSubmix = NewObject<USoundSubmix>(USoundSubmix::StaticClass(), TEXT("Master Reverb Plugin Submix"));
+				ReverbPluginSubmix->AddToRoot();
+				FMixerDevice::MasterSubmixes.Add(ReverbPluginSubmix);
+			}
 
 			// Master Reverb
-			USoundSubmix* ReverbSubmix = NewObject<USoundSubmix>(USoundSubmix::StaticClass(), TEXT("Master Reverb Submix"));
-			ReverbSubmix->AddToRoot();
-			FMixerDevice::MasterSubmixes.Add(ReverbSubmix);
+			if (DisableSubmixReverbCVar)
+			{
+				FMixerDevice::MasterSubmixes.Add(nullptr);
+			}
+			else
+			{
+				USoundSubmix* ReverbSubmix = NewObject<USoundSubmix>(USoundSubmix::StaticClass(), TEXT("Master Reverb Submix"));
+				ReverbSubmix->AddToRoot();
+				FMixerDevice::MasterSubmixes.Add(ReverbSubmix);
+			}
 
 			// Master EQ
-			USoundSubmix* EQSubmix = NewObject<USoundSubmix>(USoundSubmix::StaticClass(), TEXT("Master EQ Submix"));
-			EQSubmix->AddToRoot();
-			FMixerDevice::MasterSubmixes.Add(EQSubmix);
+			if (DisableSubmixEffectEQCvar)
+			{
+				FMixerDevice::MasterSubmixes.Add(nullptr);
+			}
+			else
+			{
+				USoundSubmix* EQSubmix = NewObject<USoundSubmix>(USoundSubmix::StaticClass(), TEXT("Master EQ Submix"));
+				EQSubmix->AddToRoot();
+				FMixerDevice::MasterSubmixes.Add(EQSubmix);
+			}
 
 			// Master ambisonics
 			USoundSubmix* AmbisonicsSubmix = NewObject<USoundSubmix>(USoundSubmix::StaticClass(), TEXT("Master Ambisonics Submix"));
@@ -494,10 +547,17 @@ namespace Audio
 		{
 			for (int32 i = 0; i < EMasterSubmixType::Count; ++i)
 			{
-				FMixerSubmixPtr MixerSubmix = FMixerSubmixPtr(new FMixerSubmix(this));
-				MixerSubmix->Init(FMixerDevice::MasterSubmixes[i]);
+				if (FMixerDevice::MasterSubmixes[i])
+				{
+					FMixerSubmixPtr MixerSubmix = FMixerSubmixPtr(new FMixerSubmix(this));
+					MixerSubmix->Init(FMixerDevice::MasterSubmixes[i]);
 
-				MasterSubmixInstances.Add(MixerSubmix);
+					MasterSubmixInstances.Add(MixerSubmix);
+				}
+				else
+				{
+					MasterSubmixInstances.Add(nullptr);
+				}
 			}
 
 			FMixerSubmixPtr MasterSubmixInstance = MasterSubmixInstances[EMasterSubmixType::Master];
@@ -507,7 +567,7 @@ namespace Audio
 
 	
 			// Setup the master reverb plugin
-			if (ReverbPluginInterface.IsValid())
+			if (ReverbPluginInterface.IsValid() && MasterSubmixInstances[EMasterSubmixType::ReverbPlugin].IsValid())
 			{
 				auto ReverbPluginEffectSubmix = ReverbPluginInterface->GetEffectSubmix(FMixerDevice::MasterSubmixes[EMasterSubmixType::ReverbPlugin]);
 
@@ -521,7 +581,7 @@ namespace Audio
 				MasterReverbPluginSubmix->SetParentSubmix(MasterSubmixInstance);
 				MasterSubmixInstance->AddChildSubmix(MasterReverbPluginSubmix);
 			}
-			else
+			else if (MasterSubmixInstances[EMasterSubmixType::Reverb].IsValid())
 			{
 				// Setup the master reverb only if we don't have a reverb plugin
 
@@ -544,26 +604,29 @@ namespace Audio
 			}
 
 			// Setup the master EQ
-			USoundSubmix* MasterEQSoundSubmix = FMixerDevice::MasterSubmixes[EMasterSubmixType::EQ];
-			USubmixEffectSubmixEQPreset* EQPreset = NewObject<USubmixEffectSubmixEQPreset>(MasterEQSoundSubmix, TEXT("Master EQ Effect preset"));
-			EQPreset->AddToRoot();
+			if (FMixerDevice::MasterSubmixes[EMasterSubmixType::EQ])
+			{
+				USoundSubmix* MasterEQSoundSubmix = FMixerDevice::MasterSubmixes[EMasterSubmixType::EQ];
+				USubmixEffectSubmixEQPreset* EQPreset = NewObject<USubmixEffectSubmixEQPreset>(MasterEQSoundSubmix, TEXT("Master EQ Effect preset"));
+				EQPreset->AddToRoot();
 
-			FSoundEffectSubmix* EQEffectSubmix = static_cast<FSoundEffectSubmix*>(EQPreset->CreateNewEffect());
-			EQEffectSubmix->Init(InitData);
-			EQEffectSubmix->SetPreset(EQPreset);
-			EQEffectSubmix->SetEnabled(true);
+				FSoundEffectSubmix* EQEffectSubmix = static_cast<FSoundEffectSubmix*>(EQPreset->CreateNewEffect());
+				EQEffectSubmix->Init(InitData);
+				EQEffectSubmix->SetPreset(EQPreset);
+				EQEffectSubmix->SetEnabled(true);
 
-			const uint32 EQPresetId = EQPreset->GetUniqueID();
+				const uint32 EQPresetId = EQPreset->GetUniqueID();
 
-			FMixerSubmixPtr MasterEQSubmix = MasterSubmixInstances[EMasterSubmixType::EQ];
-			MasterEQSubmix->AddSoundEffectSubmix(EQPresetId, MakeShareable(EQEffectSubmix));
-			MasterEQSubmix->SetParentSubmix(MasterSubmixInstance);
-			MasterSubmixInstance->AddChildSubmix(MasterEQSubmix);
+				FMixerSubmixPtr MasterEQSubmix = MasterSubmixInstances[EMasterSubmixType::EQ];
+				MasterEQSubmix->AddSoundEffectSubmix(EQPresetId, MakeShareable(EQEffectSubmix));
+				MasterEQSubmix->SetParentSubmix(MasterSubmixInstance);
+				MasterSubmixInstance->AddChildSubmix(MasterEQSubmix);
 
-			// Add the ambisonics master submix
-			FMixerSubmixPtr MasterAmbisonicsSubmix = MasterSubmixInstances[EMasterSubmixType::Ambisonics];
-			MasterAmbisonicsSubmix->SetParentSubmix(MasterEQSubmix);
-			MasterEQSubmix->AddChildSubmix(MasterAmbisonicsSubmix);
+				// Add the ambisonics master submix
+				FMixerSubmixPtr MasterAmbisonicsSubmix = MasterSubmixInstances[EMasterSubmixType::Ambisonics];
+				MasterAmbisonicsSubmix->SetParentSubmix(MasterEQSubmix);
+				MasterEQSubmix->AddChildSubmix(MasterAmbisonicsSubmix);
+			}
 		}
 
 		// Now register all the non-core submixes
@@ -858,6 +921,8 @@ namespace Audio
 
 	FMixerSubmixPtr FMixerDevice::GetSubmixInstance(USoundSubmix* SoundSubmix)
 	{
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
 		check(SoundSubmix);
 		FMixerSubmixPtr* MixerSubmix = Submixes.Find(SoundSubmix);
 
@@ -875,6 +940,8 @@ namespace Audio
 
 	FMixerSourceVoice* FMixerDevice::GetMixerSourceVoice()
 	{
+		LLM_SCOPE(ELLMTag::AudioMixer);
+
 		FMixerSourceVoice* Voice = nullptr;
 		if (!SourceVoices.Dequeue(Voice))
 		{
@@ -900,7 +967,7 @@ namespace Audio
 		return SourceManager.GetNumActiveSources();
 	}
 
-	void FMixerDevice::Get3DChannelMap(const ESubmixChannelFormat InSubmixType, const FWaveInstance* InWaveInstance, float EmitterAzimith, float NormalizedOmniRadius, TArray<float>& OutChannelMap)
+	void FMixerDevice::Get3DChannelMap(const ESubmixChannelFormat InSubmixType, const FWaveInstance* InWaveInstance, float EmitterAzimith, float NormalizedOmniRadius, Audio::AlignedFloatBuffer& OutChannelMap)
 	{
 		// If we're center-channel only, then no need for spatial calculations, but need to build a channel map
 		if (InWaveInstance->bCenterChannelOnly)
@@ -985,11 +1052,19 @@ namespace Audio
 		float PrevChannelPan; 
 		float NextChannelPan;
 
-		FMath::SinCos(&NextChannelPan, &PrevChannelPan, Fraction * 0.5f * PI);
+		if (PanningMethod == EPanningMethod::EqualPower)
+		{
+			FMath::SinCos(&NextChannelPan, &PrevChannelPan, Fraction * 0.5f * PI);
 
-		// Note that SinCos can return values slightly greater than 1.0 when very close to PI/2
-		NextChannelPan = FMath::Clamp(NextChannelPan, 0.0f, 1.0f);
-		PrevChannelPan = FMath::Clamp(PrevChannelPan, 0.0f, 1.0f);
+			// Note that SinCos can return values slightly greater than 1.0 when very close to PI/2
+			NextChannelPan = FMath::Clamp(NextChannelPan, 0.0f, 1.0f);
+			PrevChannelPan = FMath::Clamp(PrevChannelPan, 0.0f, 1.0f);
+		}
+		else
+		{
+			NextChannelPan = Fraction;
+			PrevChannelPan = 1.0f - Fraction;
+		}
 
 		float NormalizedOmniRadSquared = NormalizedOmniRadius * NormalizedOmniRadius;
 		float OmniAmount = 0.0f;
@@ -1006,7 +1081,7 @@ namespace Audio
 		{
 			NumSpatialChannels--;
 		}
-		float OmniPanFactor = 1.0f / FMath::Sqrt(NumSpatialChannels);
+		float OmniPanFactor = 1.0f / NumSpatialChannels;
 
 		float DefaultEffectivePan = !OmniAmount ? 0.0f : FMath::Lerp(0.0f, OmniPanFactor, OmniAmount);
 		const TArray<EAudioMixerChannel::Type>& ChannelArray = GetChannelArrayForSubmixChannelType(InSubmixType);

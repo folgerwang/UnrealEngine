@@ -90,6 +90,7 @@ void FIOSApplication::PollGameDeviceState( const float TimeDelta )
 
 		GenericApplication::GetMessageHandler()->OnSizeChanged(Windows[0],WindowWidth,WindowHeight, false);
 		GenericApplication::GetMessageHandler()->OnResizingWindow(Windows[0]);
+		CacheDisplayMetrics();
 		FDisplayMetrics DisplayMetrics;
 		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
 		BroadcastDisplayMetricsChanged(DisplayMetrics);
@@ -108,6 +109,11 @@ static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Top(TEXT("SafeZone.Lan
 static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Right(TEXT("SafeZone.Landscape.Right"), -1.0f, TEXT("Safe Zone - Landscape - Right"));
 static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Bottom(TEXT("SafeZone.Landscape.Bottom"), -1.0f, TEXT("Safe Zone - Landscape - Bottom"));
 
+#if !PLATFORM_TVOS
+UIDeviceOrientation CachedOrientation = UIDeviceOrientationPortrait;
+UIEdgeInsets CachedInsets;
+#endif
+
 void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 {
 	// Get screen rect
@@ -123,9 +129,6 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 	{
 		const float RequestedContentScaleFactor = [[IOSAppDelegate GetDelegate].IOSView contentScaleFactor];
 
-		UIEdgeInsets Insets = [[[[UIApplication sharedApplication] delegate] window] safeAreaInsets];
-		UIInterfaceOrientation Orientation = [[UIApplication sharedApplication] statusBarOrientation];
-		
 		//we need to set these according to the orientation
 		TAutoConsoleVariable<float>* CVar_Left = nullptr;
 		TAutoConsoleVariable<float>* CVar_Top = &CVarSafeZone_Landscape_Top;
@@ -133,22 +136,22 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 		TAutoConsoleVariable<float>* CVar_Bottom = &CVarSafeZone_Landscape_Bottom;
 
 		//making an assumption that the "normal" landscape mode is Landscape right
-		if (Orientation == UIInterfaceOrientationLandscapeLeft)
+		if (CachedOrientation == UIDeviceOrientationLandscapeLeft)
 		{
 			CVar_Left = &CVarSafeZone_Landscape_Left;
 			CVar_Right = &CVarSafeZone_Landscape_Right;
 		}
-		else if (Orientation == UIInterfaceOrientationLandscapeRight)
+		else if (CachedOrientation == UIDeviceOrientationLandscapeRight)
 		{
 			CVar_Left = &CVarSafeZone_Landscape_Right;
 			CVar_Right = &CVarSafeZone_Landscape_Left;
 		}
 
 		// of the CVars are set, use their values. If not, use what comes from iOS
-		const float Inset_Left = (!CVar_Left || CVar_Left->AsVariable()->GetFloat() < 0.0f) ? Insets.left : CVar_Left->AsVariable()->GetFloat();
-		const float Inset_Top = (!CVar_Top || CVar_Top->AsVariable()->GetFloat() < 0.0f) ? Insets.top : CVar_Top->AsVariable()->GetFloat();
-		const float Inset_Right = (!CVar_Right || CVar_Right->AsVariable()->GetFloat() < 0.0f) ? Insets.right : CVar_Right->AsVariable()->GetFloat();
-		const float Inset_Bottom = (!CVar_Bottom || CVar_Bottom->AsVariable()->GetFloat() < 0.0f) ? Insets.bottom : CVar_Bottom->AsVariable()->GetFloat();
+		const float Inset_Left = (!CVar_Left || CVar_Left->AsVariable()->GetFloat() < 0.0f) ? CachedInsets.left : CVar_Left->AsVariable()->GetFloat();
+		const float Inset_Top = (!CVar_Top || CVar_Top->AsVariable()->GetFloat() < 0.0f) ? CachedInsets.top : CVar_Top->AsVariable()->GetFloat();
+		const float Inset_Right = (!CVar_Right || CVar_Right->AsVariable()->GetFloat() < 0.0f) ? CachedInsets.right : CVar_Right->AsVariable()->GetFloat();
+		const float Inset_Bottom = (!CVar_Bottom || CVar_Bottom->AsVariable()->GetFloat() < 0.0f) ? CachedInsets.bottom : CVar_Bottom->AsVariable()->GetFloat();
 
 		//setup the asymmetrical padding
 		OutDisplayMetrics.TitleSafePaddingSize.X = Inset_Left;
@@ -166,6 +169,18 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 	{
 		OutDisplayMetrics.ApplyDefaultSafeZones();
 	}
+}
+
+void FIOSApplication::CacheDisplayMetrics()
+	{
+
+#if !PLATFORM_TVOS
+	if (@available(iOS 11, *))
+	{
+		CachedInsets = [[[[UIApplication sharedApplication] delegate] window] safeAreaInsets];
+		CachedOrientation = [[UIDevice currentDevice] orientation];
+	}
+#endif
 }
 
 TSharedRef< FGenericWindow > FIOSApplication::MakeWindow()

@@ -136,7 +136,12 @@ IOnlineChatPtr FOnlineSubsystemIOS::GetChatInterface() const
 
 IOnlineTurnBasedPtr FOnlineSubsystemIOS::GetTurnBasedInterface() const
 {
-    return TurnBasedInterface;
+	return TurnBasedInterface;
+}
+
+IOnlineTournamentPtr FOnlineSubsystemIOS::GetTournamentInterface() const
+{
+	return nullptr;
 }
 
 bool FOnlineSubsystemIOS::Init() 

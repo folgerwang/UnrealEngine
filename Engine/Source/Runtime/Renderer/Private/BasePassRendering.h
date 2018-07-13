@@ -460,6 +460,17 @@ public:
 		FForwardLightingParameters::ModifyCompilationEnvironment(Platform, OutEnvironment);
 	}
 
+	static bool ValidateCompiledResult(EShaderPlatform Platform, const TArray<FMaterial*>& Materials, const FVertexFactoryType* VertexFactoryType, const FShaderParameterMap& ParameterMap, TArray<FString>& OutError)
+	{
+		if (ParameterMap.ContainsParameterAllocation(FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName()))
+		{
+			OutError.Add(TEXT("Base pass shaders cannot read from the SceneTexturesStruct."));
+			return false;
+		}
+
+		return true;
+	}
+
 	/** Initialization constructor. */
 	TBasePassPixelShaderPolicyParamType(const FMeshMaterialShaderType::CompiledShaderInitializerType& Initializer):
 		FMeshMaterialShader(Initializer)

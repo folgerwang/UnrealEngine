@@ -615,7 +615,7 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFFlattenCoc::ComputeOutputDesc(EPassOu
 
 	FPooledRenderTargetDesc Ret(FPooledRenderTargetDesc::Create2DDesc(TileCount, PF_FloatRGBA, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable | TexCreate_UAV, false));
 	Ret.DebugName = InPassOutputId == ePId_Output0 ? TEXT("DOFFlattenFgdCoc") : TEXT("DOFFlattenBgdCoc");
-	Ret.Format = InPassOutputId == ePId_Output0 ? PF_G16R16F : PF_FloatRGB;
+	Ret.Format = InPassOutputId == ePId_Output0 ? PF_G16R16F : PF_FloatRGBA;
 	return Ret;
 }
 
@@ -624,7 +624,9 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFFlattenCoc::ComputeOutputDesc(EPassOu
 
 #define COC_DILATE_SHADER_PARAMS(PARAMETER) \
 	PARAMETER(FShaderParameter, SampleOffsetMultipler) \
-	PARAMETER(FShaderParameter, CocRadiusToBucketDistance) \
+	PARAMETER(FShaderParameter, fSampleOffsetMultipler) \
+	PARAMETER(FShaderParameter, CocRadiusToBucketDistanceUpperBound) \
+	PARAMETER(FShaderParameter, BucketDistanceToCocRadius) \
 
 class FPostProcessCocDilateCS : public FPostProcessDiaphragmDOFShader
 {
@@ -654,8 +656,14 @@ void FRCPassDiaphragmDOFDilateCoc::Process(FRenderingCompositePassContext& Conte
 	{
 		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->SampleOffsetMultipler, Params.SampleDistanceMultiplier);
 	
-		float CocRadiusToBucketDistance = Params.PreProcessingToProcessingCocRadiusFactor;
-		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->CocRadiusToBucketDistance, CocRadiusToBucketDistance);
+		float fSampleOffsetMultipler = Params.SampleDistanceMultiplier;
+		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->fSampleOffsetMultipler, fSampleOffsetMultipler);
+
+		float CocRadiusToBucketDistanceUpperBound = Params.PreProcessingToProcessingCocRadiusFactor * Params.BluringRadiusErrorMultiplier;
+		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->CocRadiusToBucketDistanceUpperBound, CocRadiusToBucketDistanceUpperBound);
+
+		float BucketDistanceToCocRadius = 1.0f / CocRadiusToBucketDistanceUpperBound;
+		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->BucketDistanceToCocRadius, BucketDistanceToCocRadius);
 	}
 	DispatchCtx.Dispatch();
 }
@@ -673,7 +681,7 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFDilateCoc::ComputeOutputDesc(EPassOut
 	else
 	{
 		Ret.DebugName = InPassOutputId == ePId_Output0 ? TEXT("DOFDilateFgdCoc") : TEXT("DOFDilateBgdCoc");
-		Ret.Format = InPassOutputId == ePId_Output0 ? PF_G16R16F : PF_FloatRGB;
+		Ret.Format = InPassOutputId == ePId_Output0 ? PF_G16R16F : PF_FloatRGBA;
 	}
 
 	return Ret;

@@ -18,7 +18,7 @@ class DISPLAYCLUSTER_API UDisplayClusterSceneComponentSyncParent
 public:
 	UDisplayClusterSceneComponentSyncParent(const FObjectInitializer& ObjectInitializer);
 
-protected:
+public:
 	virtual void BeginPlay() override;
 	virtual void TickComponent( float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction ) override;
 	virtual void DestroyComponent(bool bPromoteChildren) override;

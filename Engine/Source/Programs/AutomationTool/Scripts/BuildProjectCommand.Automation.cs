@@ -61,6 +61,10 @@ public partial class Project : CommandUtils
 		{
 			return;
 		}
+		if (Automation.IsEngineInstalled() && !Params.IsCodeBasedProject)
+		{
+			return;
+		}
 
 		Log("********** BUILD COMMAND STARTED **********");
 
@@ -97,6 +101,15 @@ public partial class Project : CommandUtils
 					Agenda.AddTargets(new string[] { "UnrealFileServer" }, EditorPlatform, EditorConfiguration);
 				}
 			}
+		}
+
+		// allow all involved platforms to hook into the agenda
+		HashSet<UnrealTargetPlatform> UniquePlatforms = new HashSet<UnrealTargetPlatform>();
+		UniquePlatforms.UnionWith(Params.ClientTargetPlatforms.Select(x => x.Type));
+		UniquePlatforms.UnionWith(Params.ServerTargetPlatforms.Select(x => x.Type));
+		foreach (UnrealTargetPlatform TargetPlatform in UniquePlatforms)
+		{
+			Platform.GetPlatform(TargetPlatform).PreBuildAgenda(UE4Build, Agenda);
 		}
 
 		// Additional compile arguments

@@ -14,7 +14,7 @@ SNiagaraGraphNode::SNiagaraGraphNode() : SGraphNode()
 
 SNiagaraGraphNode::~SNiagaraGraphNode()
 {
-	if (NiagaraNode)
+	if (NiagaraNode.IsValid())
 	{
 		NiagaraNode->OnVisualsChanged().RemoveAll(this);
 	}
@@ -37,12 +37,12 @@ void SNiagaraGraphNode::HandleNiagaraNodeChanged(UNiagaraNode* InNode)
 void SNiagaraGraphNode::RegisterNiagaraGraphNode(UEdGraphNode* InNode)
 {
 	NiagaraNode = Cast<UNiagaraNode>(InNode);
-	NiagaraNode->OnVisualsChanged().AddRaw(this, &SNiagaraGraphNode::HandleNiagaraNodeChanged);
+	NiagaraNode->OnVisualsChanged().AddSP(this, &SNiagaraGraphNode::HandleNiagaraNodeChanged);
 }
 
 void SNiagaraGraphNode::UpdateGraphNode()
 {
-	check(NiagaraNode != nullptr);
+	check(NiagaraNode.IsValid());
 	SGraphNode::UpdateGraphNode();
 	LastSyncedNodeChangeId = NiagaraNode->GetChangeId();
 }

@@ -740,7 +740,7 @@ static FAutoConsoleVariableRef CVarGEnableThermalsReport(
 		// use IPhone6 image for now
 		[ImageString appendString : @"-IPhone6Plus-Landscape"];
 	}
-	else if (Device == FPlatformMisc::IOS_IPadPro_129 || Device == FPlatformMisc::IOS_IPadPro2_129 || Device == FPlatformMisc::IOS_IPadPro_97 || Device == FPlatformMisc::IOS_IPadPro_105)
+	else if (Device == FPlatformMisc::IOS_IPadPro_129 || Device == FPlatformMisc::IOS_IPadPro2_129)
 	{
 		if (!self.bDeviceInPortraitMode)
 		{

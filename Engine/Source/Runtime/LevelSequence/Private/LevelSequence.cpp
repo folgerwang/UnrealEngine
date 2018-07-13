@@ -297,7 +297,10 @@ UObject* ULevelSequence::GetParentObject(UObject* Object) const
 
 	if (UAnimInstance* AnimInstance = Cast<UAnimInstance>(Object))
 	{
-		return AnimInstance->GetOwningComponent();
+		if (AnimInstance->GetWorld())
+		{
+			return AnimInstance->GetOwningComponent();
+		}
 	}
 
 	return nullptr;

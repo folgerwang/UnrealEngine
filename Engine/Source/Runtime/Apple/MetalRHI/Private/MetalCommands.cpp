@@ -790,6 +790,7 @@ void FMetalRHICommandContext::RHIBeginDrawPrimitiveUP( uint32 PrimitiveType_DEPR
 	
 	// allocate space
 	PendingVertexBuffer = Context->AllocateFromRingBuffer(VertexDataStride * NumVertices);
+	PendingVertexBuffer.MarkSingleUse();
 
 	// get the pointer to send back for writing
 	OutVertexData = (uint8*)PendingVertexBuffer.GetContents();
@@ -839,6 +840,8 @@ void FMetalRHICommandContext::RHIBeginDrawIndexedPrimitiveUP( uint32 PrimitiveTy
 	uint32 IndexSize = Align(IndexDataStride * NumIndices, BufferOffsetAlignment);
 	PendingVertexBuffer = Context->AllocateFromRingBuffer(VertexSize);
 	PendingIndexBuffer = Context->AllocateFromRingBuffer(IndexSize);
+	PendingVertexBuffer.MarkSingleUse();
+	PendingIndexBuffer.MarkSingleUse();
 	
 	// get the pointers to send back for writing
 	OutVertexData = (uint8*)PendingVertexBuffer.GetContents();
