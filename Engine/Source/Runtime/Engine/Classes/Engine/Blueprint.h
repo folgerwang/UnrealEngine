@@ -761,6 +761,11 @@ public:
 	/** Some Blueprints (and classes) can recompile while we are debugging a live session. This function controls whether this can occur. */
 	virtual bool CanRecompileWhilePlayingInEditor() const { return false; }
 
+	/**
+	 * Check whether this blueprint can be nativized or not
+	 */
+	virtual bool SupportsNativization(FText* OutReason = nullptr) const;
+
 private:
 
 	/** Sets the current object being debugged */
