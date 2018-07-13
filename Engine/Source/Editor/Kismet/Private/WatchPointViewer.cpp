@@ -214,11 +214,6 @@ namespace
 
 	void UpdateWatchListFromBlueprintImpl(TWeakObjectPtr<UBlueprint> BlueprintObj, const bool bShouldWatch)
 	{
-		if (!ensure(BlueprintObj.IsValid()))
-		{
-			return;
-		}
-
 		if (bShouldWatch)
 		{
 			// make sure the blueprint is in our list
