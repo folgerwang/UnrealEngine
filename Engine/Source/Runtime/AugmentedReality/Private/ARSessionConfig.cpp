@@ -14,6 +14,8 @@ UARSessionConfig::UARSessionConfig()
 , FrameSyncMode(EARFrameSyncMode::SyncTickWithoutCameraImage)
 , bEnableAutomaticCameraOverlay(true)
 , bEnableAutomaticCameraTracking(true)
+, bResetCameraTracking(true)
+, bResetTrackedObjects(true)
 , MaxNumSimultaneousImagesTracked(1)
 {
 }
@@ -58,6 +60,31 @@ bool UARSessionConfig::ShouldEnableCameraTracking() const
 bool UARSessionConfig::ShouldEnableAutoFocus() const
 {
 	return bEnableAutoFocus;
+}
+
+void UARSessionConfig::SetEnableAutoFocus(bool bNewValue)
+{
+	bEnableAutoFocus = bNewValue;
+}
+
+bool UARSessionConfig::ShouldResetCameraTracking() const
+{
+	return bResetCameraTracking;
+}
+
+void UARSessionConfig::SetResetCameraTracking(bool bNewValue)
+{
+	bResetCameraTracking = bNewValue;
+}
+
+bool UARSessionConfig::ShouldResetTrackedObjects() const
+{
+	return bResetTrackedObjects;
+}
+
+void UARSessionConfig::SetResetTrackedObjects(bool bNewValue)
+{
+	bResetTrackedObjects = bNewValue;
 }
 
 const TArray<UARCandidateImage*>& UARSessionConfig::GetCandidateImageList() const

@@ -1120,13 +1120,6 @@ void FAppleARKitSystem::SetDeviceOrientation( EScreenOrientation::Type InOrienta
 PRAGMA_DISABLE_OPTIMIZATION
 bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 {
-	if (IsRunning())
-	{
-		UE_LOG(LogAppleARKit, Log, TEXT("Session already running"), this);
-
-		return true;
-	}
-
 	{
 		// Clear out any existing frames since they aren't valid anymore
 		FScopeLock ScopeLock(&FrameLock);
@@ -1178,8 +1171,16 @@ bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 		}
 		else
 		{
-			// pause and start with new options
-			options = ARSessionRunOptionResetTracking | ARSessionRunOptionRemoveExistingAnchors;
+			// Check what the user has set for reseting options
+			if (SessionConfig->ShouldResetCameraTracking())
+			{
+				options |= ARSessionRunOptionResetTracking;
+			}
+			if (SessionConfig->ShouldResetTrackedObjects())
+			{
+				options |= ARSessionRunOptionRemoveExistingAnchors;
+			}
+
 			[Session pause];
 		}
 

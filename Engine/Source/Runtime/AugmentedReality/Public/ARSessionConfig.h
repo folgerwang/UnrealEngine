@@ -151,6 +151,26 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	bool ShouldEnableAutoFocus() const;
 
+	/** @see bEnableAutoFocus */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetEnableAutoFocus(bool bNewValue);
+
+	/** @see bResetCameraTracking */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	bool ShouldResetCameraTracking() const;
+	
+	/** @see bResetCameraTracking */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetResetCameraTracking(bool bNewValue);
+
+	/** @see bResetTrackedObjects */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	bool ShouldResetTrackedObjects() const;
+
+	/** @see bResetTrackedObjects */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetResetTrackedObjects(bool bNewValue);
+	
 	/** @see CandidateImages */
 	UFUNCTION(BlueprintCallable, Category = "AR Settings")
 	const TArray<UARCandidateImage*>& GetCandidateImageList() const;
@@ -247,6 +267,14 @@ protected:
 	UPROPERTY(EditAnywhere, Category="AR Settings")
 	bool bEnableAutomaticCameraTracking;
 
+	/** Whether the AR system should reset camera tracking (origin, transform) or not. Defaults to true. */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	bool bResetCameraTracking;
+	
+	/** Whether the AR system should remove any tracked objects or not. Defaults to true. */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	bool bResetTrackedObjects;
+	
 	/** The list of candidate images to detect within the AR camera view */
 	UPROPERTY(EditAnywhere, Category="AR Settings")
 	TArray<UARCandidateImage*> CandidateImages;
