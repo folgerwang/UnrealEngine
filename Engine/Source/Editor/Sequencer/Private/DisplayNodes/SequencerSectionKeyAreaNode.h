@@ -64,6 +64,9 @@ public:
 		return bTopLevel;
 	}
 
+	/** Retrieve the key area editor switcher widget, creating it if it doesn't yet exist */
+	TSharedRef<SWidget> GetOrCreateKeyAreaEditorSwitcher();
+
 public:
 
 	// FSequencerDisplayNode interface
