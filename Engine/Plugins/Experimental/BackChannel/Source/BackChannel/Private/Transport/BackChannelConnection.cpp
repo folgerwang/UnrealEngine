@@ -180,7 +180,7 @@ bool FBackChannelConnection::Listen(const int16 Port)
         
         if (NewSocket != nullptr)
         {
-            bool Error = false;//!NewSocket->SetReuseAddr(true);
+            bool Error = !NewSocket->SetReuseAddr(true);
             
             if (!Error)
             {

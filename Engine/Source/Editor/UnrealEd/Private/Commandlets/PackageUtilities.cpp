@@ -204,7 +204,17 @@ bool NormalizePackageNames( TArray<FString> PackageNames, TArray<FString>& Packa
 
 			if ( (PackageFilter&NORMALIZE_ExcludeNoRedistPackages) != 0 )
 			{
-				if(PackagePathNames.Contains("/NoRedist/") || PackagePathNames.Contains("/NotForLicensees/") || PackagePathNames.Contains("/EpicInternal/"))
+				if (Filename.Contains(TEXT("/NoRedist/")) || Filename.Contains(TEXT("/NotForLicensees/")) || Filename.Contains(TEXT("/EpicInternal/")))
+				{
+					PackagePathNames.RemoveAt(PackageIndex);
+					continue;
+				}
+			}
+
+			if ( (PackageFilter&NORMALIZE_ExcludeLocalizedPackages) != 0 )
+			{
+				FString PackageName;
+				if (FPackageName::TryConvertFilenameToLongPackageName(Filename, PackageName) && FPackageName::IsLocalizedPackage(PackageName))
 				{
 					PackagePathNames.RemoveAt(PackageIndex);
 					continue;

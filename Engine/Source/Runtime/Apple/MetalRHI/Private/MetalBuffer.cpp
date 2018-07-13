@@ -657,7 +657,7 @@ FMetalBuffer FMetalSubBufferRing::NewBuffer(NSUInteger Size, uint32 Alignment)
 #endif
 			
 			WriteHead += FullSize;
-			NewBuffer.MarkSingleUse();
+			// NewBuffer.MarkSingleUse();
 			return NewBuffer;
 		}
 #if PLATFORM_MAC
@@ -703,7 +703,7 @@ FMetalBuffer FMetalSubBufferRing::NewBuffer(NSUInteger Size, uint32 Alignment)
 #endif
 		
 		WriteHead += FullSize;
-		NewBuffer.MarkSingleUse();
+		// NewBuffer.MarkSingleUse();
 		return NewBuffer;
 	}
 }
@@ -1050,6 +1050,9 @@ FMetalBuffer FMetalResourceHeap::CreateBuffer(uint32 Size, uint32 Alignment, mtl
 {
 	LLM_SCOPE_METAL(ELLMTagMetal::Buffers);
 	LLM_PLATFORM_SCOPE_METAL(ELLMTagMetal::Buffers);
+	
+	static bool bSupportsBufferSubAllocation = FMetalCommandQueue::SupportsFeature(EMetalFeaturesBufferSubAllocation);
+	bForceUnique |= !(bSupportsBufferSubAllocation);
 	
 	FMetalBuffer Buffer;
 	uint32 BlockSize = Align(Size, Alignment);

@@ -235,6 +235,12 @@ FNiagaraVariable FNiagaraParameterMapHistory::ResolveAliases(const FNiagaraVaria
 
 FName FNiagaraParameterMapHistory::ResolveEmitterAlias(const FName& InName, const FString& InAlias)
 {
+	// If the alias is empty than the name can't be resolved.
+	if (InAlias.IsEmpty())
+	{
+		return InName;
+	}
+
 	FNiagaraVariable Var(FNiagaraTypeDefinition::GetFloatDef(), InName);
 	TMap<FString, FString> ResolveMap;
 	ResolveMap.Add(TEXT("Emitter"), InAlias);

@@ -805,6 +805,15 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Check for whether we require a build for platform reasons
+		/// return true if the project requires a build
+		/// </summary>
+		public virtual bool RequiresBuild(UnrealTargetPlatform Platform, DirectoryReference ProjectDirectoryName)
+		{
+			return false;
+		}
+
+		/// <summary>
 		/// Get a list of extra modules the platform requires.
 		/// This is to allow undisclosed platforms to add modules they need without exposing information about the platform.
 		/// </summary>

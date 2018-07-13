@@ -169,13 +169,13 @@ struct FBuffers
 			check(Var);
 			bool bIsStructuredBuffer = (!strncmp(Var->type->name, "RWStructuredBuffer<", 19) || !strncmp(Var->type->name, "StructuredBuffer<", 17));
 			bool bIsByteAddressBuffer = (!strncmp(Var->type->name, "RWByteAddressBuffer", 19) || !strncmp(Var->type->name, "ByteAddressBuffer", 17));
-			if(Var->type->sampler_buffer && Var->type->inner_type->components() != 3 && !Var->invariant && !bIsStructuredBuffer && !bIsByteAddressBuffer)
+			if (Var->type->is_image())
+			{
+				IBuffers.push_back(Var);
+			}
+			else if(Var->type->sampler_buffer && Var->type->inner_type->components() != 3 && !Var->invariant && !bIsStructuredBuffer && !bIsByteAddressBuffer)
             {
                 TBuffers.push_back(Var);
-            }
-            else if (Var->type->is_image())
-            {
-                IBuffers.push_back(Var);
             }
 			else if (Var->semantic && strlen(Var->semantic) == 1)
 			{

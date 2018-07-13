@@ -89,8 +89,10 @@ typedef NS_OPTIONS(uint64, EMetalFeatures)
 	EMetalFeaturesFunctionConstants = 1llu << 34llu,
 	/** Supports efficient buffer-blits */
 	EMetalFeaturesEfficientBufferBlits = 1llu << 35llu,
+	/** Supports any kind of buffer sub-allocation */
+	EMetalFeaturesBufferSubAllocation = 1llu << 36llu,
 	/** Supports private buffer sub-allocation */
-	EMetalFeaturesPrivateBufferSubAllocation = 1llu << 36llu,
+	EMetalFeaturesPrivateBufferSubAllocation = 1llu << 37llu,
 };
 
 /**

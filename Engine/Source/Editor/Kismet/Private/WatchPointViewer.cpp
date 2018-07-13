@@ -253,9 +253,6 @@ namespace
 				// since we're not watching the blueprint anymore we should remove it from the watched list
 				WatchedBlueprints.RemoveAt(FoundIdx);
 			}
-
-			// since we're not watching the blueprint anymore we should remove it from the watched list
-			WatchedBlueprints.RemoveAt(FoundIdx);
 		}
 
 		// something changed so we need to update the lists shown in the UI

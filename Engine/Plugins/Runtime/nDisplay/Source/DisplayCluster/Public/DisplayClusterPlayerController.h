@@ -14,7 +14,7 @@ class DISPLAYCLUSTER_API ADisplayClusterPlayerController
 {
 	GENERATED_BODY()
 
-protected:
+public:
 	virtual void BeginPlay() override;
 	virtual void PlayerTick(float DeltaTime) override;
 };

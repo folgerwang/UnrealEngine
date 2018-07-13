@@ -47,7 +47,7 @@ public:
 	 */
 	uint32 Count() const
 	{
-		int64 Count = Tail.Load() - Head.Load();
+		int32 Count = Tail.Load() - Head.Load();
 
 		if (Count < 0)
 		{

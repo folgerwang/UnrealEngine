@@ -1180,6 +1180,16 @@ private:
 		FPropertyAccess::Result Result = ResourceObjectProperty->GetValue(ResourceObject);
 		if ( Result == FPropertyAccess::Success )
 		{
+			TArray<void*> RawBrushData;
+			ResourceObjectProperty->GetParentHandle()->AccessRawData(RawBrushData);
+			for (int32 BrushIndex = 0; BrushIndex < RawBrushData.Num(); BrushIndex++)
+			{
+				FSlateBrush* TemporaryBrush = static_cast<FSlateBrush*>(RawBrushData[BrushIndex]);
+				if (TemporaryBrush)
+				{
+					TemporaryBrush->InvalidateResourceHandle();
+				}
+			}
 			FVector2D CachedTextureSize;
 
 			TArray<void*> RawData;

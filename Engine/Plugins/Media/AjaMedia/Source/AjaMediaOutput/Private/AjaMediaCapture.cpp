@@ -2,6 +2,7 @@
 
 #include "AjaMediaCapture.h"
 
+#include "IAjaMediaModule.h"
 #include "AjaMediaOutput.h"
 #include "Engine/RendererSettings.h"
 #include "HAL/Event.h"
@@ -162,6 +163,13 @@ bool UAjaMediaCapture::HasFinishedProcessing() const
 bool UAjaMediaCapture::InitAJA(UAjaMediaOutput* InAjaMediaOutput)
 {
 	check(InAjaMediaOutput);
+
+	IAjaMediaModule& MediaModule = FModuleManager::LoadModuleChecked<IAjaMediaModule>(TEXT("AjaMedia"));
+	if (!MediaModule.CanBeUsed())
+	{
+		UE_LOG(LogAjaMediaOutput, Warning, TEXT("The AjaMediaCapture can't open MediaOutput '%s' because Aja card cannot be used. Are you in a Commandlet? You may override this behavior by launching with -ForceAjaUsage"), *InAjaMediaOutput->GetName());
+		return false;
+	}
 
 	// Init general settings
 	bWaitForSyncEvent = InAjaMediaOutput->bWaitForSyncEvent;

@@ -244,8 +244,7 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 
 
 	VkSwapchainCreateInfoKHR SwapChainInfo;
-	FMemory::Memzero(SwapChainInfo);
-	SwapChainInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	ZeroVulkanStruct(SwapChainInfo, VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR);
 	SwapChainInfo.surface = Surface;
 	SwapChainInfo.minImageCount = DesiredNumBuffers;
 	SwapChainInfo.imageFormat = CurrFormat.format;
@@ -419,8 +418,7 @@ FVulkanSwapChain::EStatus FVulkanSwapChain::Present(FVulkanQueue* GfxQueue, FVul
 	//ensure(GfxQueue == PresentQueue);
 
 	VkPresentInfoKHR Info;
-	FMemory::Memzero(Info);
-	Info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	ZeroVulkanStruct(Info, VK_STRUCTURE_TYPE_PRESENT_INFO_KHR);
 	VkSemaphore Semaphore = VK_NULL_HANDLE;
 	if (BackBufferRenderingDoneSemaphore)
 	{

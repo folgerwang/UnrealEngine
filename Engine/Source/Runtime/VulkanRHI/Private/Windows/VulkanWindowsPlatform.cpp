@@ -117,14 +117,16 @@ void FVulkanWindowsPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExt
 	OutExtensions.Add(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
 	OutExtensions.Add(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
 #endif
-	OutExtensions.Add(VK_AMD_BUFFER_MARKER_EXTENSION_NAME);
+	if (GGPUCrashDebuggingEnabled)
+	{
+		OutExtensions.Add(VK_AMD_BUFFER_MARKER_EXTENSION_NAME);
+	}
 }
 
 void FVulkanWindowsPlatform::CreateSurface(void* WindowHandle, VkInstance Instance, VkSurfaceKHR* OutSurface)
 {
 	VkWin32SurfaceCreateInfoKHR SurfaceCreateInfo;
-	FMemory::Memzero(SurfaceCreateInfo);
-	SurfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	ZeroVulkanStruct(SurfaceCreateInfo, VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR);
 	SurfaceCreateInfo.hinstance = GetModuleHandle(nullptr);
 	SurfaceCreateInfo.hwnd = (HWND)WindowHandle;
 	VERIFYVULKANRESULT(VulkanDynamicAPI::vkCreateWin32SurfaceKHR(Instance, &SurfaceCreateInfo, nullptr, OutSurface));

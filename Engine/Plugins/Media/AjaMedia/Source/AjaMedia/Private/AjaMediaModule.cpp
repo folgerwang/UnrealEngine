@@ -51,6 +51,8 @@ public:
 
 	virtual bool IsInitialized() const override { return FAja::IsInitialized(); }
 
+	virtual bool CanBeUsed() const override { return FAja::CanUseAJACard(); }
+
 public:
 
 	//~ IModuleInterface interface

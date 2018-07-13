@@ -297,6 +297,7 @@ void FNiagaraEditorModule::StartupModule()
 	RegisterAssetTypeAction(AssetTools, MakeShareable(new FAssetTypeActions_NiagaraParameterCollectionInstance()));
 
 	UNiagaraSettings::OnSettingsChanged().AddRaw(this, &FNiagaraEditorModule::OnNiagaraSettingsChangedEvent);
+	FCoreUObjectDelegates::GetPreGarbageCollectDelegate().AddRaw(this, &FNiagaraEditorModule::OnPreGarbageCollection);
 
 	// register details customization
 	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
@@ -491,7 +492,7 @@ void FNiagaraEditorModule::ShutdownModule()
 
 	MenuExtensibilityManager.Reset();
 	ToolBarExtensibilityManager.Reset();
-
+	
 	if (FModuleManager::Get().IsModuleLoaded("AssetTools"))
 	{
 		IAssetTools& AssetTools = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools").Get();
@@ -503,6 +504,8 @@ void FNiagaraEditorModule::ShutdownModule()
 	CreatedAssetTypeActions.Empty();
 
 	UNiagaraSettings::OnSettingsChanged().RemoveAll(this);
+
+	FCoreUObjectDelegates::GetPreGarbageCollectDelegate().RemoveAll(this);
 
 	
 	if (FModuleManager::Get().IsModuleLoaded("PropertyEditor"))
@@ -677,11 +680,29 @@ void FNiagaraEditorModule::UnregisterSettings()
 	}
 }
 
-void FNiagaraEditorModule::AddReferencedObjects( FReferenceCollector& Collector )
+void FNiagaraEditorModule::AddReferencedObjects(FReferenceCollector& Collector)
 {
 	if (SequencerSettings)
 	{
 		Collector.AddReferencedObject(SequencerSettings);
+	}
+}
+
+void FNiagaraEditorModule::OnPreGarbageCollection()
+{
+	// For commandlets like GenerateDistillFileSetsCommandlet, they just load the package and do some hierarchy navigation within it 
+	// tracking sub-assets, then they garbage collect. Since nothing is holding onto the system at the root level, it will be summarily
+	// killed and any of references will also be killed. To thwart this for now, we are forcing the compilations to complete BEFORE
+	// garbage collection kicks in. To do otherwise for now has too many loose ends (a system may be left around after the level has been
+	// unloaded, leaving behind weird external references, etc). This should be revisited when more time is available (i.e. not days before a 
+	// release is due to go out).
+	for (TObjectIterator<UNiagaraSystem> It; It; ++It)
+	{
+		UNiagaraSystem* System = *It;
+		if (System && System->HasOutstandingCompilationRequests())
+		{
+			System->WaitForCompilationComplete();
+		}
 	}
 }
 

@@ -280,6 +280,11 @@ void FLinuxCursor::Show( bool bShow )
 
 void FLinuxCursor::Lock( const RECT* const Bounds )
 {
+	if (!LinuxApplication)
+	{
+		return;
+	}
+
 	TSharedPtr< FLinuxWindow > CurrentFocusWindow = LinuxApplication->GetCurrentFocusWindow();
 	if(!CurrentFocusWindow.IsValid())
 	{

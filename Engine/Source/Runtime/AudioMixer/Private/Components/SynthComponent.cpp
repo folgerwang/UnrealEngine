@@ -283,7 +283,7 @@ void USynthComponent::OnUnregister()
 bool USynthComponent::IsReadyForOwnerToAutoDestroy() const
 {
 	const bool bIsAudioComponentReadyForDestroy = !AudioComponent || (AudioComponent && !AudioComponent->IsPlaying());
-	const bool bIsSynthSoundReadyForDestroy = !Synth || Synth->bIsReadyForDestroy;
+	const bool bIsSynthSoundReadyForDestroy = !Synth || !Synth->GetNumSoundsActive();
 	return bIsAudioComponentReadyForDestroy && bIsSynthSoundReadyForDestroy;
 }
 
@@ -373,6 +373,7 @@ void USynthComponent::Start()
 		AudioComponent->AttenuationSettings = AttenuationSettings;
 		AudioComponent->bOverrideAttenuation = bOverrideAttenuation;
 		AudioComponent->bIsUISound = bIsUISound;
+		AudioComponent->bIsPreviewSound = bIsPreviewSound;
 		AudioComponent->bAllowSpatialization = bAllowSpatialization;
 		AudioComponent->ConcurrencySettings = ConcurrencySettings;
 		AudioComponent->AttenuationOverrides = AttenuationOverrides;

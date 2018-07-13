@@ -24,7 +24,7 @@ class DISPLAYCLUSTER_API UDisplayClusterGameEngine
 {
 	GENERATED_BODY()
 	
-private:
+public:
 	virtual void Init(class IEngineLoop* InEngineLoop) override;
 	virtual void PreExit() override;
 	virtual void Tick(float DeltaSeconds, bool bIdleMode) override;

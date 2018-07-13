@@ -262,7 +262,7 @@ namespace Audio
 
 			SampleBufferReader.ClearBuffer();
 
-			SampleBufferReader.SetBuffer(&Buffer, NumBufferSamples, BufferChannels, BufferSampleRate);
+			SampleBufferReader.SetBuffer(Buffer, NumBufferSamples, BufferChannels, BufferSampleRate);
 
 			// Setup the sample buffer reader
 			SampleBufferReader.SetPitch(CurrentPitch);

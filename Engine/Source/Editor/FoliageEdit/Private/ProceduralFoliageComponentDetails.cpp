@@ -82,7 +82,7 @@ FReply FProceduralFoliageComponentDetails::OnResimulateClicked()
 			{
 				if (DesiredFoliageInstances.Num() > 0)
 				{
-					Component->RemoveProceduralContent();
+					Component->RemoveProceduralContent(false);
 
 					FFoliagePaintingGeometryFilter OverrideGeometryFilter;
 					OverrideGeometryFilter.bAllowLandscape = Component->bAllowLandscape;

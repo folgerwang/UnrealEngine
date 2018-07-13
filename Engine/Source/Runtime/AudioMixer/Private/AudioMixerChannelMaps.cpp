@@ -202,7 +202,7 @@ namespace Audio
 		return Index;
 	}
 
-	void FMixerDevice::Get2DChannelMap(bool bIsVorbis, const ESubmixChannelFormat InSubmixChannelType, const int32 NumSourceChannels, const bool bIsCenterChannelOnly, TArray<float>& OutChannelMap) const
+	void FMixerDevice::Get2DChannelMap(bool bIsVorbis, const ESubmixChannelFormat InSubmixChannelType, const int32 NumSourceChannels, const bool bIsCenterChannelOnly, Audio::AlignedFloatBuffer& OutChannelMap) const
 	{
 		int32 NumOutputChannels = GetNumChannelsForSubmixFormat(InSubmixChannelType);
 		if (NumSourceChannels > 8 || NumOutputChannels > 8)
@@ -263,8 +263,23 @@ namespace Audio
 				else
 				{
 					// Mapping out to more than 2 channels, mono sources should be equally spread to left and right
-					OutChannelMap.Add(0.707f);
-					OutChannelMap.Add(0.707f);
+					switch (MonoChannelUpmixMethod)
+					{
+						case EMonoChannelUpmixMethod::Linear:
+							OutChannelMap.Add(0.5f);
+							OutChannelMap.Add(0.5f);
+							break;
+
+						case EMonoChannelUpmixMethod::EqualPower:
+							OutChannelMap.Add(0.707f);
+							OutChannelMap.Add(0.707f);
+							break;
+
+						case EMonoChannelUpmixMethod::FullVolume:
+							OutChannelMap.Add(1.0f);
+							OutChannelMap.Add(1.0f);
+							break;
+					}
 
 					for (int32 OutputChannel = 2; OutputChannel < NumOutputChannels; ++OutputChannel)
 					{
