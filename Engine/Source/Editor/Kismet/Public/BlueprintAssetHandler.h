@@ -6,6 +6,7 @@
 #include "Templates/UniquePtr.h"
 #include "Containers/ArrayView.h"
 #include "Containers/Array.h"
+#include "UObject/NameTypes.h"
 
 struct FAssetData;
 
