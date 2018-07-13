@@ -964,6 +964,9 @@ protected:
 	/** Get the default key attributes to apply to newly created keys on the curve editor */
 	FKeyAttributes GetDefaultKeyAttributes() const;
 
+	/** Recompile any dirty director blueprints in the sequence hierarchy */
+	void RecompileDirtyDirectors();
+
 public:
 
 	/** Reset the timing manager to the clock source specified by the root movie scene */

@@ -572,6 +572,7 @@ void FLevelEditorSequencerIntegration::OnPreBeginPIE(bool bIsSimulating)
 		{
 			if (Options.bRequiresLevelEvents)
 			{
+				In.GetEvaluationTemplate().ResetDirectorInstances();
 				In.RestorePreAnimatedState();
 				In.State.ClearObjectCaches(In);
 
@@ -593,6 +594,7 @@ void FLevelEditorSequencerIntegration::OnEndPlayMap()
 			if (Options.bRequiresLevelEvents)
 			{
 				// Update and clear any stale bindings 
+				In.GetEvaluationTemplate().ResetDirectorInstances();
 				In.State.ClearObjectCaches(In);
 				In.ForceEvaluate();
 			}

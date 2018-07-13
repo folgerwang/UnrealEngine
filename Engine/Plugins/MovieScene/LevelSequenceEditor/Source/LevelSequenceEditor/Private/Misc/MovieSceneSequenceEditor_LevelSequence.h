@@ -1,0 +1,67 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "MovieSceneSequenceEditor.h"
+#include "LevelSequenceDirectorGeneratedClass.h"
+#include "LevelSequenceDirectorBlueprint.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "Tracks/MovieSceneEventTrack.h"
+#include "K2Node_FunctionEntry.h"
+
+struct FMovieSceneSequenceEditor_LevelSequence : FMovieSceneSequenceEditor
+{
+	FName BlueprintName;
+
+	FMovieSceneSequenceEditor_LevelSequence()
+	{
+		BlueprintName = "SequenceDirectorBlueprint";
+	}
+
+	virtual bool CanCreateEvents(UMovieSceneSequence* InSequence) const
+	{
+		return true;
+	}
+
+	virtual UBlueprint* GetBlueprintForSequence(UMovieSceneSequence* InSequence) const override
+	{
+		ULevelSequence* LevelSequence = CastChecked<ULevelSequence>(InSequence);
+		return CastChecked<UBlueprint>(LevelSequence->DirectorBlueprint, ECastCheckedType::NullAllowed);
+	}
+
+	virtual UBlueprint* CreateBlueprintForSequence(UMovieSceneSequence* InSequence) const override
+	{
+		UBlueprint* Blueprint = GetBlueprintForSequence(InSequence);
+		if (!ensureMsgf(!Blueprint, TEXT("Should not call CreateBlueprintForSequence when one already exists")))
+		{
+			return Blueprint;
+		}
+
+		ULevelSequence* LevelSequence = CastChecked<ULevelSequence>(InSequence);
+
+		Blueprint = FKismetEditorUtilities::CreateBlueprint(ULevelSequenceDirector::StaticClass(), InSequence, NAME_None, BPTYPE_Normal, ULevelSequenceDirectorBlueprint::StaticClass(), ULevelSequenceDirectorGeneratedClass::StaticClass());
+		CastChecked<ULevelSequenceDirectorBlueprint>(Blueprint)->OwnerSequence = LevelSequence;
+
+		LevelSequence->DirectorBlueprint = Blueprint;
+		LevelSequence->DirectorClass = CastChecked<ULevelSequenceDirectorGeneratedClass>(Blueprint->GeneratedClass);
+		return Blueprint;
+	}
+
+	virtual void SetupDefaultPinForEndpoint(UMovieSceneEventTrack* EventTrack, UK2Node_FunctionEntry* Endpoint) const override
+	{
+		// By default for master tracks we create a pin (that receives the level blueprint for master event tracks, or the event receivers)
+		UClass* PinClass = nullptr;
+
+		// When event receivers are not set, we set the pin type to the type of the object binding
+		if (EventTrack->EventReceivers.Num() == 0)
+		{
+			PinClass = FindTrackObjectBindingClass(EventTrack);
+		}
+
+		FEdGraphPinType PinType;
+		PinType.PinCategory = UEdGraphSchema_K2::PC_Object;
+		PinType.PinSubCategoryObject = PinClass ? PinClass : UObject::StaticClass();
+
+		Endpoint->CreateUserDefinedPin(TargetPinName, PinType, EGPD_Output, true);
+	}
+};

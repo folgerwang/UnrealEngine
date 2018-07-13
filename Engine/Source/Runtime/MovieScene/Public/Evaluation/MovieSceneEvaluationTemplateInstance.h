@@ -10,6 +10,7 @@
 #include "Evaluation/MovieSceneEvaluationTemplate.h"
 #include "Evaluation/MovieSceneExecutionTokens.h"
 #include "Evaluation/MovieSceneRootOverridePath.h"
+#include "MovieSceneEvaluationTemplateInstance.generated.h"
 
 class UMovieSceneSequence;
 struct FDelayedPreAnimatedStateRestore;
@@ -18,8 +19,11 @@ struct FCompileOnTheFlyData;
 /**
  * An instance of an evaluation template. Fast to initialize and evaluate.
  */
+USTRUCT()
 struct FMovieSceneEvaluationTemplateInstance
 {
+	GENERATED_BODY()
+
 	FMovieSceneEvaluationTemplateInstance();
 
 	FMovieSceneEvaluationTemplateInstance(UMovieSceneSequence& InSequence, FMovieSceneEvaluationTemplate* InTemplate);
@@ -32,6 +36,7 @@ struct FMovieSceneEvaluationTemplateInstance
 	}
 
 	/** The sequence this applies to */
+	UPROPERTY()
 	UMovieSceneSequence* Sequence;
 
 	/** Pointer to the evaluation template we're evaluating */
@@ -39,10 +44,17 @@ struct FMovieSceneEvaluationTemplateInstance
 
 	/** Sub Data or nullptr */
 	const FMovieSceneSubSequenceData* SubData;
+
+	/** The sequence this applies to */
+	UPROPERTY()
+	UObject* DirectorInstance;
 };
 
+USTRUCT()
 struct FMovieSceneEvaluationTemplateInstanceContainer
 {
+	GENERATED_BODY()
+
 	FMovieSceneEvaluationTemplateInstanceContainer()
 		: RootID(MovieSceneSequenceID::Invalid)
 	{}
@@ -67,26 +79,38 @@ struct FMovieSceneEvaluationTemplateInstanceContainer
 
 	const FMovieSceneEvaluationTemplateInstance& GetChecked(FMovieSceneSequenceID InID) const
 	{
-		return InID == RootID ? RootInstance : SubInstances.FindChecked(InID);
+		return InID == MovieSceneSequenceID::Root ? RootInstance : SubInstances.FindChecked(InID);
 	}
 
 	FMovieSceneEvaluationTemplateInstance* Find(FMovieSceneSequenceID InID)
 	{
-		return InID == RootID ? &RootInstance : SubInstances.Find(InID);
+		return InID == MovieSceneSequenceID::Root ? &RootInstance : SubInstances.Find(InID);
+	}
+
+	const FMovieSceneEvaluationTemplateInstance* Find(FMovieSceneSequenceID InID) const
+	{
+		return InID == MovieSceneSequenceID::Root ? &RootInstance : SubInstances.Find(InID);
 	}
 
 	/** Sequence ID that is used to evaluate from for the current frame */
 	FMovieSceneSequenceID RootID;
+	
+	UPROPERTY()
 	FMovieSceneEvaluationTemplateInstance RootInstance;
+
+	UPROPERTY()
 	TMap<FMovieSceneSequenceID, FMovieSceneEvaluationTemplateInstance> SubInstances;
 };
 
 /**
  * Root evaluation template instance used to play back any sequence
  */
+USTRUCT()
 struct FMovieSceneRootEvaluationTemplateInstance
 {
 public:
+	GENERATED_BODY()
+
 	MOVIESCENE_API FMovieSceneRootEvaluationTemplateInstance();
 	MOVIESCENE_API ~FMovieSceneRootEvaluationTemplateInstance();
 
@@ -163,6 +187,19 @@ public:
 	MOVIESCENE_API FMovieSceneEvaluationTemplate* FindTemplate(FMovieSceneSequenceIDRef SequenceID);
 
 	/**
+	 * Locate a director instance object for the specified sequence ID, creating one if necessary
+	 *
+	 * @param SequenceID 			ID of the sequence template to locate a director instance for
+	 * @return A director instance as defined by the specific sequence, or nullptr if one could not be found or created
+	 */
+	MOVIESCENE_API UObject* GetOrCreateDirectorInstance(FMovieSceneSequenceIDRef SequenceID, IMovieScenePlayer& Player);
+
+	/**
+	 * Resets all the director instances currently stored by this template instance
+	 */
+	MOVIESCENE_API void ResetDirectorInstances();
+
+	/**
 	 * Access the master sequence's hierarchy data
 	 */
 	const FMovieSceneSequenceHierarchy& GetHierarchy() const
@@ -195,6 +232,14 @@ public:
 	 */
 	MOVIESCENE_API void CopyActuators(FMovieSceneBlendingAccumulator& Accumulator) const;
 
+	/**
+	 * Const access to all the instances contained within this template instance
+	 */
+	const FMovieSceneEvaluationTemplateInstanceContainer& GetInstances() const
+	{
+		return Instances;
+	}
+
 private:
 
 	/**
@@ -224,7 +269,8 @@ private:
 
 	FMovieSceneEvaluationTemplate* RootTemplate;
 
-	FMovieSceneEvaluationTemplateInstanceContainer TransientInstances;
+	UPROPERTY()
+	FMovieSceneEvaluationTemplateInstanceContainer Instances;
 
 	/** Cache of everything that was evaluated last frame */
 	FMovieSceneEvaluationMetaData LastFrameMetaData;
@@ -239,4 +285,13 @@ private:
 
 	/** Execution tokens that are used to apply animated state */
 	FMovieSceneExecutionTokens ExecutionTokens;
+};
+
+template<>
+struct TStructOpsTypeTraits<FMovieSceneRootEvaluationTemplateInstance> : public TStructOpsTypeTraitsBase2<FMovieSceneRootEvaluationTemplateInstance>
+{
+	enum
+	{
+		WithCopy = false
+	};
 };

@@ -336,6 +336,32 @@ void DrawKeys(FMovieSceneParticleChannel* Channel, TArrayView<const FKeyHandle> 
 	}
 }
 
+void DrawKeys(FMovieSceneEventChannel* Channel, TArrayView<const FKeyHandle> InKeyHandles, TArrayView<FKeyDrawParams> OutKeyDrawParams)
+{
+	FKeyDrawParams ValidEventParams, InvalidEventParams;
+
+	ValidEventParams.BorderBrush   = ValidEventParams.FillBrush   = FEditorStyle::Get().GetBrush("Sequencer.KeyDiamond");
+
+	InvalidEventParams.FillBrush   = FEditorStyle::Get().GetBrush("Sequencer.KeyDiamond");
+	InvalidEventParams.BorderBrush = FEditorStyle::Get().GetBrush("Sequencer.KeyDiamondBorder");
+	InvalidEventParams.FillTint    = FLinearColor(1.f,1.f,1.f,.2f);
+
+	TMovieSceneChannelData<FMovieSceneEvent> ChannelData = Channel->GetData();
+	TArrayView<const FMovieSceneEvent>       Events = ChannelData.GetValues();
+
+	for (int32 Index = 0; Index < InKeyHandles.Num(); ++Index)
+	{
+		int32 KeyIndex = ChannelData.GetIndex(InKeyHandles[Index]);
+		if (KeyIndex != INDEX_NONE && Events[KeyIndex].IsBoundToBlueprint())
+		{
+			OutKeyDrawParams[Index] = ValidEventParams;
+		}
+		else
+		{
+			OutKeyDrawParams[Index] = InvalidEventParams;
+		}
+	}
+}
 
 struct FFloatChannelKeyMenuExtension : FExtender, TSharedFromThis<FFloatChannelKeyMenuExtension>
 {

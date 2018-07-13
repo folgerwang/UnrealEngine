@@ -444,6 +444,7 @@ protected:
 	virtual FMovieSceneRootEvaluationTemplateInstance& GetEvaluationTemplate() override { return RootTemplateInstance; }
 	virtual EMovieScenePlayerStatus::Type GetPlaybackStatus() const override;
 	virtual FMovieSceneSpawnRegister& GetSpawnRegister() override;
+	virtual UObject* AsUObject() override { return this; }
 
 	virtual void SetPlaybackStatus(EMovieScenePlayerStatus::Type InPlaybackStatus) override {}
 	virtual void SetViewportSettings(const TMap<FViewportClient*, EMovieSceneViewportParams>& ViewportParamsMap) override {}
@@ -526,6 +527,7 @@ protected:
 	FMovieSceneSequencePlaybackSettings PlaybackSettings;
 
 	/** The root template instance we're evaluating */
+	UPROPERTY(transient)
 	FMovieSceneRootEvaluationTemplateInstance RootTemplateInstance;
 
 	/** Play position helper */

@@ -120,6 +120,9 @@
 #include "Fonts/FontMeasure.h"
 #include "MovieSceneTimeHelpers.h"
 #include "FrameNumberNumericInterface.h"
+#include "Engine/Blueprint.h"
+#include "MovieSceneSequenceEditor.h"
+#include "Kismet2/KismetEditorUtilities.h"
 
 #define LOCTEXT_NAMESPACE "Sequencer"
 
@@ -2203,6 +2206,11 @@ void FSequencer::ForceEvaluate()
 
 void FSequencer::EvaluateInternal(FMovieSceneEvaluationRange InRange, bool bHasJumped)
 {
+	if (Settings->ShouldCompileDirectorOnEvaluate())
+	{
+		RecompileDirtyDirectors();
+	}
+
 	bNeedsEvaluate = false;
 
 	if (PlaybackContextAttribute.IsBound())
@@ -2816,22 +2824,7 @@ void FSequencer::AddReferencedObjects( FReferenceCollector& Collector )
 		Collector.AddReferencedObject( RootSequencePtr );
 	}
 
-	if (RootTemplateInstance.IsValid())
-	{
-		const FMovieSceneSequenceHierarchy& Hierarchy = RootTemplateInstance.GetHierarchy();
-
-		// Sequencer references all active sub sequences
-		for (FMovieSceneSequenceIDRef SequenceID : RootTemplateInstance.GetThisFrameMetaData().ActiveSequences)
-		{
-			const FMovieSceneSubSequenceData* SubData  = Hierarchy.FindSubData(SequenceID);
-			UMovieSceneSequence*              Sequence = SubData ? SubData->GetLoadedSequence() : nullptr;
-
-			if (Sequence)
-			{
-				Collector.AddReferencedObject(Sequence);
-			}
-		}
-	}
+	FMovieSceneRootEvaluationTemplateInstance::StaticStruct()->SerializeBin(Collector.GetVerySlowReferenceCollectorArchive(), &RootTemplateInstance);
 }
 
 
@@ -8723,6 +8716,39 @@ bool FSequencer::GetGridMetrics(float PhysicalWidth, double& OutMajorInterval, i
 double FSequencer::GetDisplayRateDeltaFrameCount() const
 {
 	return GetFocusedTickResolution().AsDecimal() * GetFocusedDisplayRate().AsInterval();
+}
+
+void FSequencer::RecompileDirtyDirectors()
+{
+	ISequencerModule& SequencerModule = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer");
+
+	TSet<UMovieSceneSequence*> AllSequences;
+
+	// Gather all sequences in the hierarchy
+	if (UMovieSceneSequence* Sequence = RootSequence.Get())
+	{
+		AllSequences.Add(Sequence);
+	}
+
+	for (const TTuple<FMovieSceneSequenceID, FMovieSceneSubSequenceData>& Pair : RootTemplateInstance.GetHierarchy().AllSubSequenceData())
+	{
+		if (UMovieSceneSequence* Sequence = Pair.Value.GetSequence())
+		{
+			AllSequences.Add(Sequence);
+		}
+	}
+
+	// Recompile them all if they are dirty
+	for (UMovieSceneSequence* Sequence : AllSequences)
+	{
+		FMovieSceneSequenceEditor* SequenceEditor = SequencerModule.FindSequenceEditor(Sequence->GetClass());
+		UBlueprint*                DirectorBP     = SequenceEditor ? SequenceEditor->GetDirectorBlueprint(Sequence) : nullptr;
+
+		if (DirectorBP && (DirectorBP->Status == BS_Unknown || DirectorBP->Status == BS_Dirty))
+		{
+			FKismetEditorUtilities::CompileBlueprint(DirectorBP);
+		}
+	}
 }
 
 

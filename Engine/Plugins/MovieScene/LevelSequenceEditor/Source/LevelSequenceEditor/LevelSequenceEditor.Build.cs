@@ -25,6 +25,8 @@ public class LevelSequenceEditor : ModuleRules
                 "EditorStyle",
                 "Engine",
                 "InputCore",
+                "Kismet",
+                "KismetCompiler",
 				"LevelEditor",
 				"MovieScene",
                 "MovieSceneTools",

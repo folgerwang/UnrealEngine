@@ -318,6 +318,11 @@ public:
 	/** Toggle whether to show pre and post roll in sequencer */
 	void SetShouldShowPrePostRoll(bool bInVisualizePreAndPostRoll);
 
+	/** Check whether whether to recompile the director blueprint when the sequence is evaluated (if one exists) */
+	bool ShouldCompileDirectorOnEvaluate() const;
+	/** Assign whether whether to recompile the director blueprint when the sequence is evaluated (if one exists) */
+	void SetCompileDirectorOnEvaluate(bool bInCompileDirectorOnEvaluate);
+
 	uint32 GetTrajectoryPathCap() const { return TrajectoryPathCap; }
 
 	/** Gets the current curve visibility. */
@@ -491,6 +496,10 @@ protected:
 	/** Enable or disable showing of pre and post roll visualization. */
 	UPROPERTY( config, EditAnywhere, Category=General )
 	bool bVisualizePreAndPostRoll;
+
+	/** Whether to recompile the director blueprint when the sequence is evaluated (if one exists) */
+	UPROPERTY(config, EditAnywhere, Category=General)
+	bool bCompileDirectorOnEvaluate;
 
 	/** Specifies the maximum number of keys to draw when rendering trajectories in viewports */
 	UPROPERTY(config, EditAnywhere, Category=General)

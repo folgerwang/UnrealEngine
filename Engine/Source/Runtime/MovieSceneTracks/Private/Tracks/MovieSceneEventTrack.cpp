@@ -3,6 +3,8 @@
 #include "Tracks/MovieSceneEventTrack.h"
 #include "MovieSceneCommonHelpers.h"
 #include "Sections/MovieSceneEventSection.h"
+#include "Sections/MovieSceneEventTriggerSection.h"
+#include "Sections/MovieSceneEventRepeaterSection.h"
 #include "Evaluation/MovieSceneEventTemplate.h"
 #include "Evaluation/MovieSceneEvaluationTrack.h"
 #include "Compilation/IMovieSceneTemplateGenerator.h"
@@ -22,7 +24,7 @@ void UMovieSceneEventTrack::AddSection(UMovieSceneSection& Section)
 
 UMovieSceneSection* UMovieSceneEventTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneSection>(this, UMovieSceneEventSection::StaticClass(), NAME_None, RF_Transactional);
+	return NewObject<UMovieSceneSection>(this, UMovieSceneEventTriggerSection::StaticClass(), NAME_None, RF_Transactional);
 }
 
 
@@ -57,7 +59,22 @@ void UMovieSceneEventTrack::RemoveSection(UMovieSceneSection& Section)
 
 FMovieSceneEvalTemplatePtr UMovieSceneEventTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const
 {
-	return FMovieSceneEventSectionTemplate(*CastChecked<UMovieSceneEventSection>(&InSection), *this);
+	if (const UMovieSceneEventSection* LegacyEventSection = Cast<const UMovieSceneEventSection>(&InSection))
+	{
+		return FMovieSceneEventSectionTemplate(*LegacyEventSection, *this);
+	}
+	else if (const UMovieSceneEventTriggerSection* TriggerSection = Cast<const UMovieSceneEventTriggerSection>(&InSection))
+	{
+		return FMovieSceneEventTriggerTemplate(*TriggerSection, *this);
+	}
+	else if (const UMovieSceneEventRepeaterSection* RepeaterSection = Cast<const UMovieSceneEventRepeaterSection>(&InSection))
+	{
+		return FMovieSceneEventRepeaterTemplate(*RepeaterSection, *this);
+	}
+	else
+	{
+		return FMovieSceneEvalTemplatePtr();
+	}
 }
 
 void UMovieSceneEventTrack::PostCompile(FMovieSceneEvaluationTrack& Track, const FMovieSceneTrackCompilerArgs& Args) const

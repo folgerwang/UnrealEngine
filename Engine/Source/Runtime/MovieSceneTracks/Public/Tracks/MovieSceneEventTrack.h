@@ -58,6 +58,7 @@ public:
 	virtual void RemoveSection(UMovieSceneSection& Section) override;
 	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
 	virtual void PostCompile(FMovieSceneEvaluationTrack& Track, const FMovieSceneTrackCompilerArgs& Args) const override;
+	virtual bool SupportsMultipleRows() const override { return true; }
 
 #if WITH_EDITORONLY_DATA
 	virtual FText GetDefaultDisplayName() const override;
