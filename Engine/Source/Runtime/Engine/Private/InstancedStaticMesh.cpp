@@ -328,11 +328,6 @@ void FStaticMeshInstanceData::Serialize(FArchive& Ar)
 	// HTML5 doesn't support half float so we need to convert at cook time.
 	const bool bCookConvertTransformsToFullFloat = Ar.IsCooking() && bUseHalfFloat && !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::HalfFloatVertexFormat);
 
-	if (Ar.IsLoading())
-	{
-		AllocateBuffers(NumInstances);
-	}
-
 	if (bCookConvertTransformsToFullFloat)
 	{
 		bool bSaveUseHalfFloat = false;
@@ -344,6 +339,11 @@ void FStaticMeshInstanceData::Serialize(FArchive& Ar)
 	}
 
 	Ar << NumInstances;
+
+	if (Ar.IsLoading())
+	{
+		AllocateBuffers(NumInstances);
+	}
 
 	InstanceOriginData->Serialize(Ar);
 	InstanceLightmapData->Serialize(Ar);
