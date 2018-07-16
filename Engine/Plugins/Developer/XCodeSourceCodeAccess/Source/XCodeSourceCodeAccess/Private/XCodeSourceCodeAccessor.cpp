@@ -82,22 +82,26 @@ void FXCodeSourceCodeAccessor::Startup()
 
 void FXCodeSourceCodeAccessor::Shutdown()
 {
+	CachedSolutionPath.Empty();
 }
 
 FString FXCodeSourceCodeAccessor::GetSolutionPath() const
 {
 	if(IsInGameThread())
 	{
-		CachedSolutionPath = FPaths::ProjectDir();
-		
-		if (!FUProjectDictionary(FPaths::RootDir()).IsForeignProject(CachedSolutionPath))
+		if(CachedSolutionPath.Len() <= 0)
 		{
-			CachedSolutionPath = FPaths::Combine(FPaths::RootDir(), + TEXT("UE4.xcworkspace/contents.xcworkspacedata"));
-		}
-		else
-		{
-            FString BaseName = FApp::HasProjectName() ? FApp::GetProjectName() : FPaths::GetBaseFilename(CachedSolutionPath);
-			CachedSolutionPath = FPaths::Combine(CachedSolutionPath, BaseName + TEXT(".xcworkspace/contents.xcworkspacedata"));
+			CachedSolutionPath = FPaths::ProjectDir();
+			
+			if (!FUProjectDictionary(FPaths::RootDir()).IsForeignProject(CachedSolutionPath))
+			{
+				CachedSolutionPath = FPaths::Combine(FPaths::RootDir(), + TEXT("UE4.xcworkspace/contents.xcworkspacedata"));
+			}
+			else
+			{
+				FString BaseName = FApp::HasProjectName() ? FApp::GetProjectName() : FPaths::GetBaseFilename(CachedSolutionPath);
+				CachedSolutionPath = FPaths::Combine(CachedSolutionPath, BaseName + TEXT(".xcworkspace/contents.xcworkspacedata"));
+			}
 		}
 	}
 	return CachedSolutionPath;

@@ -166,7 +166,6 @@ namespace EAndroidGraphicsDebugger
 		None = 0 UMETA(DisplayName = "None"),
 		Mali = 1 UMETA(DisplayName = "Mali Graphics Debugger", ToolTip = "Configure for Mali Graphics Debugger."),
 		Adreno = 2 UMETA(DisplayName = "Adreno Profiler", ToolTip = "Configure for Adreno Profiler."),
-		RenderDoc = 3 UMETA(DisplayName = "RenderDoc (Experimental)", ToolTip = "Configure for RenderDoc.")
 	};
 }
 
@@ -487,10 +486,6 @@ public:
 	/** The path to your Mali Graphics Debugger installation (eg C:/Program Files/ARM/Mali Developer Tools/Mali Graphics Debugger v4.2.0) */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = GraphicsDebugger)
 	FDirectoryPath MaliGraphicsDebuggerPath;
-
-	/** The path to your RenderDoc installation (eg C:/Program Files/RenderDoc) */
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = GraphicsDebugger)
-	FDirectoryPath RenderDocPath;
 
 	/** Include ETC1 textures when packaging with the Android (Multi) variant. ETC1 will be included if no other formats are selected. */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = MultiTextureFormats, meta = (DisplayName = "Include ETC1 textures"))

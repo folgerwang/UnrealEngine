@@ -51,9 +51,6 @@ FSimpleMulticastDelegate FEditorSupportDelegates::WorldChange;
 FEditorSupportDelegates::FOnForcePropertyWindowRebuild FEditorSupportDelegates::ForcePropertyWindowRebuild;
 /** Sent when events happen that affect how the editors UI looks (mode changes, grid size changes, etc) */
 FSimpleMulticastDelegate FEditorSupportDelegates::UpdateUI;
-/** Called for a material after the user has change a texture's compression settings.
-	Needed to notify the material editors that the need to reattach their preview objects */
-FEditorSupportDelegates::FOnMaterialTextureSettingsChanged FEditorSupportDelegates::MaterialTextureSettingsChanged;
 /** Refresh property windows w/o creating/destroying controls */
 FSimpleMulticastDelegate FEditorSupportDelegates::RefreshPropertyWindows;
 /** Sent before the given windows message is handled in the given viewport */

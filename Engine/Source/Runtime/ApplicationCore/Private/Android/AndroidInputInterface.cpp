@@ -816,6 +816,10 @@ void FAndroidInputInterface::SendControllerEvents()
 						{
 							CurrentDevice.bSupportsHat = true;
 						}
+						else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Xbox Wired Controller")))
+						{
+							CurrentDevice.bSupportsHat = true;
+						}
 						else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Xbox Wireless Controller")))
 						{
 							CurrentDevice.bSupportsHat = true;

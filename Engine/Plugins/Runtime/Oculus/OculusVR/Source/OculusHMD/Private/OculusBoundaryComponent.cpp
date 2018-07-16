@@ -88,6 +88,13 @@ static float DistanceToWorldSpace(float ovrDistance)
 	return OculusHMD->ConvertFloat_M2U(ovrDistance);
 }
 
+static ovrpVector3f WorldSpaceToPoint(const FVector& InUnrealVector)
+{
+	FOculusHMD* OculusHMD = (FOculusHMD*)(GEngine->XRSystem->GetHMDDevice());
+	check(OculusHMD);
+	return OculusHMD->WorldLocationToOculusPoint(InUnrealVector);
+}
+
 /**
  * Helper that checks if DeviceType triggers BoundaryType. If so, stores details about interaction and adds to ResultList!
  * @param ResultList Out-parameter -- a list to add to may or may not be specified. Stores each FBoundaryTestResult corresponding to a device that has triggered boundary system
@@ -175,7 +182,7 @@ static FBoundaryTestResult CheckPointInBounds(EBoundaryType BoundaryType, const 
 
 	if (FOculusHMDModule::Get().IsOVRPluginAvailable())
 	{
-		ovrpVector3f OvrpPoint = ToOvrpVector3f(Point);
+		ovrpVector3f OvrpPoint = WorldSpaceToPoint(Point);
 		ovrpBoundaryType OvrpBoundaryType = ToOvrpBoundaryType(BoundaryType);
 		ovrpBoundaryTestResult InteractionResult;
 

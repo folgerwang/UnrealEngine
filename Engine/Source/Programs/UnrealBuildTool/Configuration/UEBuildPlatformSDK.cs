@@ -326,12 +326,28 @@ namespace UnrealBuildTool
 		/// <param name="Hook">Hook type</param>
 		protected virtual string GetHookExecutableName(SDKHookType Hook)
 		{
-			if (Hook == SDKHookType.Uninstall)
+			if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
 			{
-				return "unsetup.bat";
+				if (Hook == SDKHookType.Uninstall)
+				{
+					return "unsetup.bat";
+				}
+				else
+				{
+					return "setup.bat";
+				}
 			}
-
-			return "setup.bat";
+			else
+			{
+				if (Hook == SDKHookType.Uninstall)
+				{
+					return "unsetup.sh";
+				}
+				else
+				{
+					return "setup.sh";
+				}
+			}
 		}
 
 		/// <summary>

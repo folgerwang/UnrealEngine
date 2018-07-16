@@ -118,7 +118,21 @@ public:
 	/** Returns true if lens distortion parameters are for identity lens (or default parameters) */
 	bool IsIdentity() const
 	{
-		return *this == FOpenCVLensDistortionParameters();
+		return (K1 == 0.0f &&
+				K2 == 0.0f &&
+				P1 == 0.0f &&
+				P2 == 0.0f &&
+				K3 == 0.0f &&
+				K4 == 0.0f &&
+				K5 == 0.0f &&
+				K6 == 0.0f &&
+				F == FVector2D(1.0f, 1.0f) &&
+				C == FVector2D(0.5f, 0.5f));
+	}
+
+	bool IsSet() const 
+	{
+		return *this != FOpenCVLensDistortionParameters();
 	}
 
 private:

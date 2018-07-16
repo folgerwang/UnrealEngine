@@ -26,7 +26,7 @@ struct FDeferredLightData
 	float3 LightTangent;
     float SoftSourceRadius;
 	float4 SpotAnglesAndSourceRadius;
-	float MinRoughness;
+	float SpecularScale;
 	float ContactShadowLength;
 	float2 DistanceFadeMAD;
 	float4 ShadowMapChannelMask;
@@ -187,17 +187,14 @@ void GetShadowTerms(FGBufferData GBuffer, FDeferredLightData LightData, float3 W
 	{
 		float StepOffset = Dither - 0.5;
 		float ContactShadow = ShadowRayCast( WorldPosition + View.PreViewTranslation, L, ContactShadowLength, 8, StepOffset );
+		
+		Shadow.SurfaceShadow *= ContactShadow;
 
 		FLATTEN
-		if (GBuffer.ShadingModelID == SHADINGMODELID_HAIR)
-		{
+		if( GBuffer.ShadingModelID == SHADINGMODELID_HAIR )
 			Shadow.TransmissionShadow *= ContactShadow;
-		}
-		else
-		{
-			Shadow.SurfaceShadow *= ContactShadow;
+		else if( GBuffer.ShadingModelID != SHADINGMODELID_EYE )
 			Shadow.TransmissionShadow *= ContactShadow * 0.5 + 0.5;
-		}
 	}
 #endif
 }
@@ -272,7 +269,7 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferDat
 	float3 V = -CameraVector;
 	float3 N = GBuffer.WorldNormal;
 	float3 L = LightData.LightDirection;	// Already normalized
-	float3 ToLight = L * GBuffer.Depth;
+	float3 ToLight = L;
 	
 	float LightMask = 1;
 	if (LightData.bRadialLight)
@@ -340,9 +337,11 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferDat
 					Lighting = IntegrateBxDF( GBuffer, N, V, Capsule, Shadow, LightData.bInverseSquared );
 				#endif
 			}
+
+			Lighting.Specular *= LightData.SpecularScale;
 				
 			LightAccumulator_Add( LightAccumulator, Lighting.Diffuse + Lighting.Specular, Lighting.Diffuse, LightColor * LightMask * Shadow.SurfaceShadow, bNeedsSeparateSubsurfaceLightAccumulation );
-			LightAccumulator_Add( LightAccumulator, Lighting.Transmission, 0, LightColor * LightMask * Shadow.TransmissionShadow, false );
+			LightAccumulator_Add( LightAccumulator, Lighting.Transmission, Lighting.Transmission, LightColor * LightMask * Shadow.TransmissionShadow, bNeedsSeparateSubsurfaceLightAccumulation );
 
 			LightAccumulator.EstimatedCost += 0.4f;		// add the cost of the lighting computations (should sum up to 1 form one light)
 		#endif

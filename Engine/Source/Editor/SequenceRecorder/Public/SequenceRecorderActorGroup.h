@@ -78,7 +78,7 @@ public:
 	{
 		for (USequenceRecorderActorGroup* Group : ActorGroups)
 		{
-			if (Group->GroupName == Name)
+			if (Group && Group->GroupName == Name)
 			{
 				return Group;
 			}

@@ -317,15 +317,14 @@ bool FOnlineAuthSteam::KickPlayer(const FUniqueNetId& InUserId)
 			return false;
 		}
 
-		FConstPlayerControllerIterator Itr = World->GetPlayerControllerIterator();
-		for (; Itr; ++Itr)
+		for (FConstPlayerControllerIterator Itr = World->GetPlayerControllerIterator(); Itr; ++Itr)
 		{
-			if (Itr->IsValid() && Itr->Get()->PlayerState != nullptr &&
-				Itr->Get()->PlayerState->UniqueId.IsValid() && 
-				*(Itr->Get()->PlayerState->UniqueId.GetUniqueNetId()) == InUserId)
+			APlayerController* PC = Itr->Get();
+			if (PC && PC->PlayerState != nullptr && PC->PlayerState->UniqueId.IsValid() &&
+				*(PC->PlayerState->UniqueId.GetUniqueNetId()) == InUserId)
 			{
 				const FText AuthKickReason = NSLOCTEXT("NetworkErrors", "HostClosedConnection", "Host closed the connection.");
-				bKickSuccess = GameMode->GameSession->KickPlayer(Itr->Get(), AuthKickReason);
+				bKickSuccess = GameMode->GameSession->KickPlayer(PC, AuthKickReason);
 				break;
 			}
 		}

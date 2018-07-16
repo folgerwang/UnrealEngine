@@ -25,7 +25,7 @@ TMap<FGuid, FMaterialParameterCollectionInstanceResource*> GDefaultMaterialParam
 UMaterialParameterCollection::UMaterialParameterCollection(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	DefaultResource = NULL;
+	DefaultResource = nullptr;
 }
 
 void UMaterialParameterCollection::PostInitProperties()
@@ -72,7 +72,7 @@ void UMaterialParameterCollection::BeginDestroy()
 		);
 
 		DefaultResource->GameThread_Destroy();
-		DefaultResource = NULL;
+		DefaultResource = nullptr;
 	}
 
 	Super::BeginDestroy();
@@ -254,7 +254,7 @@ void UMaterialParameterCollection::PostEditChangeProperty(FPropertyChangedEvent&
 					UpdateContext.AddMaterial(CurrentMaterial);
 
 					// Propagate the change to this material
-					CurrentMaterial->PreEditChange(NULL);
+					CurrentMaterial->PreEditChange(nullptr);
 					CurrentMaterial->PostEditChange();
 					CurrentMaterial->MarkPackageDirty();
 				}
@@ -395,7 +395,7 @@ const FCollectionScalarParameter* UMaterialParameterCollection::GetScalarParamet
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 const FCollectionVectorParameter* UMaterialParameterCollection::GetVectorParameterByName(FName ParameterName) const
@@ -410,10 +410,10 @@ const FCollectionVectorParameter* UMaterialParameterCollection::GetVectorParamet
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
-FShaderUniformBufferParameter* ConstructCollectionUniformBufferParameter() { return NULL; }
+FShaderUniformBufferParameter* ConstructCollectionUniformBufferParameter() { return nullptr; }
 
 void UMaterialParameterCollection::CreateBufferStruct()
 {	
@@ -421,7 +421,7 @@ void UMaterialParameterCollection::CreateBufferStruct()
 	uint32 NextMemberOffset = 0;
 
 	const uint32 NumVectors = FMath::DivideAndRoundUp(ScalarParameters.Num(), 4) + VectorParameters.Num();
-	new(Members) FUniformBufferStruct::FMember(TEXT("Vectors"),TEXT(""),NextMemberOffset,UBMT_FLOAT32,EShaderPrecisionModifier::Half,1,4,NumVectors,NULL);
+	new(Members) FUniformBufferStruct::FMember(TEXT("Vectors"),TEXT(""),NextMemberOffset,UBMT_FLOAT32,EShaderPrecisionModifier::Half,1,4,NumVectors, nullptr);
 	const uint32 VectorArraySize = NumVectors * sizeof(FVector4);
 	NextMemberOffset += VectorArraySize;
 	static FName LayoutName(TEXT("MaterialCollection"));
@@ -582,7 +582,7 @@ bool UMaterialParameterCollectionInstance::GetScalarParameterValue(FName Paramet
 	if (Parameter)
 	{
 		const float* InstanceValue = ScalarParameterValues.Find(ParameterName);
-		OutParameterValue = InstanceValue != NULL ? *InstanceValue : Parameter->DefaultValue;
+		OutParameterValue = InstanceValue != nullptr ? *InstanceValue : Parameter->DefaultValue;
 		return true;
 	}
 
@@ -596,7 +596,7 @@ bool UMaterialParameterCollectionInstance::GetVectorParameterValue(FName Paramet
 	if (Parameter)
 	{
 		const FLinearColor* InstanceValue = VectorParameterValues.Find(ParameterName);
-		OutParameterValue = InstanceValue != NULL ? *InstanceValue : Parameter->DefaultValue;
+		OutParameterValue = InstanceValue != nullptr ? *InstanceValue : Parameter->DefaultValue;
 		return true;
 	}
 
@@ -612,6 +612,7 @@ void UMaterialParameterCollectionInstance::UpdateRenderState()
 	}
 
 	bNeedsRenderStateUpdate = true;
+	World->SetMaterialParameterCollectionInstanceNeedsUpdate();
 
 	if (!GDeferUpdateRenderStates)
 	{
@@ -672,7 +673,7 @@ void UMaterialParameterCollectionInstance::FinishDestroy()
 	if (Resource)
 	{
 		Resource->GameThread_Destroy();
-		Resource = NULL;
+		Resource = nullptr;
 	}
 
 	Super::FinishDestroy();

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "MeshTypes.h"
 #include "MeshElementRemappings.h"
+#include "UObject/ReleaseObjectVersion.h"
 
 
 /**
@@ -29,6 +30,13 @@ using AttributeTypes = TTuple
 
 
 /**
+ * Traits class to specify which attribute types can be bulk serialized.
+ */
+template <typename T> struct TIsBulkSerializable { static const bool Value = true; };
+template <> struct TIsBulkSerializable<FName> { static const bool Value = false; };
+
+
+/**
  * This defines the container used to hold mesh element attributes of a particular name and index.
  * It is a simple TArray, so that all attributes are packed contiguously for each element ID.
  *
@@ -40,22 +48,27 @@ class TMeshAttributeArrayBase
 {
 public:
 
-	/** Disallow use of the copy constructor to prevent arrays being mistakenly accessed in the UMeshDescription by value */
-	TMeshAttributeArrayBase( const TMeshAttributeArrayBase& ) = delete;
-
 	/**
 	 * Custom serialization for TMeshAttributeArrayBase.
 	 */
-	friend FArchive& operator<<( FArchive& Ar, TMeshAttributeArrayBase& Array )
-	{
-		Ar << Array.Container;
-		return Ar;
-	}
+	template <typename T>
+	friend typename TEnableIf<!TIsBulkSerializable<T>::Value, FArchive>::Type& operator<<( FArchive& Ar, TMeshAttributeArrayBase<T>& Array );
+
+	template <typename T>
+	friend typename TEnableIf<TIsBulkSerializable<T>::Value, FArchive>::Type& operator<<( FArchive& Ar, TMeshAttributeArrayBase<T>& Array );
 
 protected:
 
+	friend class UMeshDescription;
+
 	/** Should not instance this base class directly */
 	TMeshAttributeArrayBase() = default;
+
+	/** Disallow use of the copy constructor outside of FMeshDescription, to prevent arrays being mistakenly accessed in the UMeshDescription by value */
+	TMeshAttributeArrayBase( const TMeshAttributeArrayBase& ) = default;
+	TMeshAttributeArrayBase( TMeshAttributeArrayBase&& ) = default;
+	TMeshAttributeArrayBase& operator=( const TMeshAttributeArrayBase& ) = default;
+	TMeshAttributeArrayBase& operator=( TMeshAttributeArrayBase&& ) = default;
 
 	/** Expands the array if necessary so that the passed element index is valid. Newly created elements will be assigned the default value. */
 	void Insert( const int32 Index, const ElementType& Default )
@@ -86,6 +99,33 @@ protected:
 	/** The actual container, represented by a regular array */
 	TArray<ElementType> Container;
 };
+
+
+template <typename T>
+inline typename TEnableIf<!TIsBulkSerializable<T>::Value, FArchive>::Type& operator<<( FArchive& Ar, TMeshAttributeArrayBase<T>& Array )
+{
+	// Serialize types which aren't bulk serializable, which need to be serialized element-by-element
+	Ar << Array.Container;
+	return Ar;
+}
+
+template <typename T>
+inline typename TEnableIf<TIsBulkSerializable<T>::Value, FArchive>::Type& operator<<( FArchive& Ar, TMeshAttributeArrayBase<T>& Array )
+{
+	if( Ar.IsLoading() && Ar.CustomVer( FReleaseObjectVersion::GUID ) < FReleaseObjectVersion::MeshDescriptionNewSerialization )
+	{
+		// Legacy path for old format attribute arrays. BulkSerialize has a different format from regular serialization.
+		Ar << Array.Container;
+	}
+	else
+	{
+		// Serialize types which are bulk serializable, i.e. which can be memcpy'd in bulk
+		Array.Container.BulkSerialize( Ar );
+	}
+
+	return Ar;
+}
+
 
 
 template <typename AttributeType, typename ElementIDType>

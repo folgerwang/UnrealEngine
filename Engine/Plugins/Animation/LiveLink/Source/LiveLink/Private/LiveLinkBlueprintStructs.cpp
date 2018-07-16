@@ -51,6 +51,11 @@ int FCachedSubjectFrame::GetNumberOfTransforms()
 	return SourceFrame.Transforms.Num();
 };
 
+void FCachedSubjectFrame::GetTransformNames(TArray<FName>& TransformNames)
+{
+	TransformNames = SourceFrame.RefSkeleton.GetBoneNames();
+};
+
 void FCachedSubjectFrame::GetTransformName(const int TransformIndex, FName& Name)
 {
 	if (IsValidTransformIndex(TransformIndex))
@@ -61,6 +66,11 @@ void FCachedSubjectFrame::GetTransformName(const int TransformIndex, FName& Name
 	{
 		Name = TEXT("None");
 	}
+};
+
+int FCachedSubjectFrame::GetTransformIndexFromName(FName TransformName)
+{
+	return SourceFrame.RefSkeleton.GetBoneNames().IndexOfByKey(TransformName);
 };
 
 int FCachedSubjectFrame::GetParentTransformIndex(const int TransformIndex)
@@ -297,7 +307,15 @@ int FSubjectFrameHandle::GetNumberOfTransforms()
 	{
 		return 0;
 	}
-}
+};
+
+void FSubjectFrameHandle::GetTransformNames(TArray<FName>& TransformNames)
+{
+	if (CachedFrame.IsValid())
+	{
+		CachedFrame->GetTransformNames(TransformNames);
+	}
+};
 
 void FSubjectFrameHandle::GetRootTransform(FLiveLinkTransform& LiveLinkTransform)
 {
@@ -310,6 +328,13 @@ void FSubjectFrameHandle::GetRootTransform(FLiveLinkTransform& LiveLinkTransform
 
 void FSubjectFrameHandle::GetTransformByIndex(int TransformIndex, FLiveLinkTransform& LiveLinkTransform)
 {
+	LiveLinkTransform.SetCachedFrame(CachedFrame);
+	LiveLinkTransform.SetTransformIndex(TransformIndex);
+};
+
+void FSubjectFrameHandle::GetTransformByName(FName TransformName, FLiveLinkTransform& LiveLinkTransform)
+{
+	int TransformIndex = CachedFrame->GetTransformIndexFromName(TransformName);
 	LiveLinkTransform.SetCachedFrame(CachedFrame);
 	LiveLinkTransform.SetTransformIndex(TransformIndex);
 };

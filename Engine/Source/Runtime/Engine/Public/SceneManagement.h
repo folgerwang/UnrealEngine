@@ -888,10 +888,10 @@ struct FLightParameters
 	FVector		NormalizedLightDirection;
 	FVector		NormalizedLightTangent;
 	FVector2D	SpotAngles;
+	float		SpecularScale;
 	float		LightSourceRadius;
 	float		LightSoftSourceRadius;
 	float		LightSourceLength;
-	float		LightMinRoughness;
 	FTexture*	SourceTexture;
 };
 
@@ -1058,7 +1058,7 @@ public:
 	inline float GetShadowSharpen() const { return ShadowSharpen; }
 	inline float GetContactShadowLength() const { return ContactShadowLength; }
 	inline bool IsContactShadowLengthInWS() const { return bContactShadowLengthInWS; }
-	inline float GetMinRoughness() const { return MinRoughness; }
+	inline float GetSpecularScale() const { return SpecularScale; }
 	inline FVector GetLightFunctionScale() const { return LightFunctionScale; }
 	inline float GetLightFunctionFadeDistance() const { return LightFunctionFadeDistance; }
 	inline float GetLightFunctionDisabledBrightness() const { return LightFunctionDisabledBrightness; }
@@ -1152,8 +1152,8 @@ protected:
 	/** True: length of screen space ray trace for sharp contact shadows is in world space. False: in screen space. */
 	bool bContactShadowLengthInWS : 1;
 
-	/** Min roughness */
-	float MinRoughness;
+	/** Specular scale */
+	float SpecularScale;
 
 	/** The light's persistent shadowing GUID. */
 	FGuid LightGuid;

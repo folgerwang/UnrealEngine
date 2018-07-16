@@ -6,13 +6,13 @@
 
 #pragma once
 
+#include "DOFCommon.ush"
+
+
 //------------------------------------------------------- COMPILE TIME CONSTANTS.
 
 // Maximum number of buffer for Coc tile.
 #define COC_TILE_MAX_BUFFER_COUNT 2
-
-// Maximum number of Coc ranges per foreground/backrgound.
-#define MAX_COC_TILE_RANGES 2
 
 
 //------------------------------------------------------- ENUM VALUES
@@ -26,44 +26,43 @@
 // be used fprergound only pass, which means all background code would be compiled out.
 #define COC_TILE_LAYOUT_FGD (COC_TILE_LAYOUT_FGD_BGD)
 
-// 1 background encoded in RG channels.
-#define COC_TILE_LAYOUT_BGD 1
-
-// 2 background encoded in RG & BA channels.
-#define COC_TILE_LAYOUT_2BGD 2
-
-// TODO: COC_TILE_LAYOUT_FGD_2BGD
-
-#define COC_TILE_LAYOUT_MAX 3
+// 1 foreground encoded in RG channels if RT 0, 1 background encoded in RGB channels if RT 1.
+#define COC_TILE_LAYOUT_FGD_SEP_BGD 1
 
 
 /** Returns the number of buffers for a Coc tile layout. */
 uint GetBufferCountForCocTileLayour(uint Layout)
 {
+	if (Layout == COC_TILE_LAYOUT_FGD_SEP_BGD)
+	{
+		return 2;
+	}
 	return 1;
 }
 
 
 //------------------------------------------------------- STRUCTS
 
-/** Coc range. */
-struct FCocRange
-{
-	// The minimum Coc range.
-	float MinCoc;
-
-	// The maximum Coc range.
-	float MaxCoc;
-};
-
 /** Tile buffer. */
 struct FCocTileSample
 {
-	// Foreground Coc ranges.
-	FCocRange Foreground[MAX_COC_TILE_RANGES];
+	// The minimum Coc for foreground <= 0.
+	float FgdMinCoc;
 
-	// Background Coc ranges.
-	FCocRange Background[MAX_COC_TILE_RANGES];
+	// The maximum Coc for forground <= 0.
+	float FgdMaxCoc;
+
+	// The minimum Coc for background >= 0.
+	float BgdMinCoc;
+
+	// The maximum Coc for background >= 0.
+	float BgdMaxCoc;
+
+	// The minimum intersectable Coc radius >= 0.
+	float BgdMinIntersectableCoc;
+
+	// The conservative distance field to any closer geometry.
+	float BgdMinConservativeCloserGoemetryDistance;
 };
 
 
@@ -71,13 +70,12 @@ struct FCocTileSample
 
 void InitCocTileSample(out FCocTileSample Sample)
 {
-	for (uint i = 0; i < MAX_COC_TILE_RANGES; i++)
-	{
-		Sample.Foreground[i].MinCoc = 0;
-		Sample.Foreground[i].MaxCoc = 0;
-		Sample.Background[i].MinCoc = 0;
-		Sample.Background[i].MaxCoc = 0;
-	}
+	Sample.FgdMinCoc = 0;
+	Sample.FgdMaxCoc = 0;
+	Sample.BgdMinCoc = 0;
+	Sample.BgdMaxCoc = 0;
+	Sample.BgdMinIntersectableCoc = EXTREMELY_LARGE_COC_RADIUS;
+	Sample.BgdMinConservativeCloserGoemetryDistance = 0;
 }
 
 /** Encode coc tile sample.
@@ -92,26 +90,14 @@ void EncodeCocTileSample(in FCocTileSample Sample, in uint Layout, out float4 Ra
 	
 	if (static_condition(Layout == COC_TILE_LAYOUT_FGD_BGD))
 	{
-		Raw[0].rg = float2(Sample.Foreground[0].MinCoc, Sample.Foreground[0].MaxCoc);
-		Raw[0].ba = float2(Sample.Background[0].MinCoc, Sample.Background[0].MaxCoc);
+		Raw[0].rg = float2(Sample.FgdMinCoc, Sample.FgdMaxCoc);
+		Raw[0].ba = float2(Sample.BgdMinCoc, Sample.BgdMaxCoc);
 	}
-	else if (static_condition(Layout == COC_TILE_LAYOUT_BGD))
+	else if (static_condition(Layout == COC_TILE_LAYOUT_FGD_SEP_BGD))
 	{
-		Raw[0].rg = float2(Sample.Background[0].MinCoc, Sample.Background[0].MaxCoc);
+		Raw[0].rg = float2(Sample.FgdMinCoc, Sample.FgdMaxCoc);
+		Raw[1] = float4(Sample.BgdMaxCoc, Sample.BgdMinCoc, Sample.BgdMinIntersectableCoc, Sample.BgdMinConservativeCloserGoemetryDistance);
 	}
-	else if (static_condition(Layout == COC_TILE_LAYOUT_2BGD))
-	{
-		Raw[0].rg = float2(Sample.Background[0].MinCoc, Sample.Background[0].MaxCoc);
-		Raw[0].ba = float2(Sample.Background[1].MinCoc, Sample.Background[1].MaxCoc);
-	}
-}
-
-/** Gets the output. */
-float4 GetEncodedCocTileSample(in FCocTileSample Sample, in uint Layout, uint BufferId)
-{
-	float4 Raw[COC_TILE_MAX_BUFFER_COUNT];
-	EncodeCocTileSample(Sample, Layout, Raw);
-	return Raw[BufferId];
 }
 
 /** Decode coc tile sample.
@@ -123,24 +109,22 @@ void DecodeCocTileSample(in float4 Raw[COC_TILE_MAX_BUFFER_COUNT], in uint Layou
 
 	if (static_condition(Layout == COC_TILE_LAYOUT_FGD_BGD))
 	{
-		Sample.Foreground[0].MinCoc = Raw[0].r;
-		Sample.Foreground[0].MaxCoc = Raw[0].g;
-		Sample.Background[0].MinCoc = Raw[0].b;
-		Sample.Background[0].MaxCoc = Raw[0].a;
+		Sample.FgdMinCoc = Raw[0].r;
+		Sample.FgdMaxCoc = Raw[0].g;
+		Sample.BgdMinCoc = Raw[0].b;
+		Sample.BgdMaxCoc = Raw[0].a;
 	}
-	else if (static_condition(Layout == COC_TILE_LAYOUT_BGD))
+	else if (static_condition(Layout == COC_TILE_LAYOUT_FGD_SEP_BGD))
 	{
-		Sample.Background[0].MinCoc = Raw[0].r;
-		Sample.Background[0].MaxCoc = Raw[0].g;
-	}
-	else if (static_condition(Layout == COC_TILE_LAYOUT_2BGD))
-	{
-		Sample.Background[0].MinCoc = Raw[0].r;
-		Sample.Background[0].MaxCoc = Raw[0].g;
-		Sample.Background[1].MinCoc = Raw[0].b;
-		Sample.Background[1].MaxCoc = Raw[0].a;
+		Sample.FgdMinCoc = Raw[0].r;
+		Sample.FgdMaxCoc = Raw[0].g;
+		Sample.BgdMinCoc = Raw[1].g;
+		Sample.BgdMaxCoc = Raw[1].r;
+		Sample.BgdMinIntersectableCoc = Raw[1].b;
+		Sample.BgdMinConservativeCloserGoemetryDistance = Raw[1].a;
 	}
 }
+
 
 
 //------------------------------------------------------- Higher level API.

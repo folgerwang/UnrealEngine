@@ -105,9 +105,7 @@ namespace ELoginStatus
 		/** Player is using a local profile but is not logged in */
 		UsingLocalProfile,
 		/** Player has been validated by the platform specific authentication service */
-		LoggedIn,
-		/** In addition to being logged in, player is connected to additional services. Only used on platforms where this is different from LoggedIn */
-		Connected
+		LoggedIn
 	};
 
 	/** @return the stringified version of the enum passed in */
@@ -126,10 +124,6 @@ namespace ELoginStatus
 			case LoggedIn:
 			{
 				return TEXT("LoggedIn");
-			}
-			case Connected:
-			{
-				return TEXT("Connected");
 			}
 		}
 		return TEXT("");

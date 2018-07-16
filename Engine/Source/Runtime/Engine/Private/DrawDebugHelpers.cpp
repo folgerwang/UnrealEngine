@@ -730,7 +730,7 @@ void DrawDebugString(const UWorld* InWorld, FVector const& TextLocation, const F
 		for( FConstPlayerControllerIterator Iterator = InWorld->GetPlayerControllerIterator(); Iterator; ++Iterator )
 		{
 			APlayerController* PlayerController = Iterator->Get();
-			if (PlayerController->MyHUD && PlayerController->Player)
+			if (PlayerController && PlayerController->MyHUD && PlayerController->Player)
 			{
 				PlayerController->MyHUD->AddDebugText(Text, BaseAct, Duration, TextLocation, TextLocation, TextColor, true, (TestBaseActor==NULL), false, nullptr, FontScale, bDrawShadow);
 			}
@@ -745,7 +745,7 @@ void FlushDebugStrings( const UWorld* InWorld )
 	{
 		// if it's a player
 		APlayerController* PlayerController = Iterator->Get();
-		if (PlayerController->MyHUD)
+		if (PlayerController && PlayerController->MyHUD)
 		{
 			PlayerController->MyHUD->RemoveAllDebugStrings();
 		}

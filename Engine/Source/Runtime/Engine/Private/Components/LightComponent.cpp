@@ -216,7 +216,7 @@ FLightSceneProxy::FLightSceneProxy(const ULightComponent* InLightComponent)
 	, ShadowSharpen(InLightComponent->ShadowSharpen)
 	, ContactShadowLength(InLightComponent->ContactShadowLength)
 	, bContactShadowLengthInWS(InLightComponent->ContactShadowLengthInWS ? true : false)
-	, MinRoughness(InLightComponent->MinRoughness)
+	, SpecularScale(InLightComponent->SpecularScale)
 	, LightGuid(InLightComponent->LightGuid)
 	, IESTexture(0)
 	, bMovable(InLightComponent->IsMovable())
@@ -364,7 +364,7 @@ ULightComponent::ULightComponent(const FObjectInitializer& ObjectInitializer)
 
 	LightFunctionFadeDistance = 100000.0f;
 	DisabledBrightness = 0.5f;
-	MinRoughness = 0.08f;
+	SpecularScale = 1.0f;
 
 	bEnableLightShaftBloom = false;
 	BloomScale = .2f;
@@ -438,6 +438,12 @@ void ULightComponent::Serialize(FArchive& Ar)
 			LegacyLightData.Data = LegacyData;
 			GLightComponentsWithLegacyBuildData.AddAnnotation(this, LegacyLightData);
 		}
+	}
+
+	if( MinRoughness_DEPRECATED == 1.0f )
+	{
+		MinRoughness_DEPRECATED = 0.0f;
+		SpecularScale = 0.0f;
 	}
 }
 
@@ -546,6 +552,7 @@ void ULightComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 	const FString PropertyName = PropertyThatChanged ? PropertyThatChanged->GetName() : TEXT("");
 
 	Intensity = FMath::Max(0.0f, Intensity);
+	SpecularScale = FMath::Clamp( SpecularScale, 0.0f, 1.0f );
 
 	if (HasStaticLighting())
 	{
@@ -561,7 +568,7 @@ void ULightComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, CastDynamicShadows) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, bAffectTranslucentLighting) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, bTransmission) &&
-		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, MinRoughness) &&
+		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, SpecularScale) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, LightFunctionMaterial) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, LightFunctionScale) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, LightFunctionFadeDistance) &&

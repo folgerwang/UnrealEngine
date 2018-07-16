@@ -83,9 +83,9 @@ class ENGINESETTINGS_API UGeneralProjectSettings
 	UPROPERTY()
 	bool bStartInAR_DEPRECATED;
 
-	/** Will this app support Augmented Reality (AR) in some capacity? */
-	UPROPERTY(config, EditAnywhere, Category = Settings)
-	bool bSupportAR;
+    /** No longer used; AR support is determined by included plugins */
+	UPROPERTY()
+	bool bSupportAR_DEPRECATED;
 	
 	UPROPERTY(config, EditAnywhere, Category = Settings)
 	bool bAllowWindowResize;

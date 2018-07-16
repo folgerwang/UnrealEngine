@@ -645,6 +645,11 @@ public:
 	{
 		return &Surface;
 	}
+
+	virtual void* GetNativeResource() const override final
+	{
+		return Surface.Texture;
+	}
 };
 
 struct FMetalCommandBufferFence
@@ -744,6 +749,11 @@ public:
 	 * Allocate a linear texture for given format.
 	 */
 	FMetalTexture AllocLinearTexture(EPixelFormat Format);
+	
+	/**
+	 * Get a linear texture for given format.
+	 */
+	ns::AutoReleased<FMetalTexture> CreateLinearTexture(EPixelFormat Format);
 	
 	/**
 	 * Get a linear texture for given format.

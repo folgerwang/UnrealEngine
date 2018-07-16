@@ -82,7 +82,7 @@ private:
 	//~ IStringTableEngineInterop interface
 	virtual void RedirectAndLoadStringTableAssetImpl(FName& InOutTableId, const EStringTableLoadingPolicy InLoadingPolicy) override
 	{
-		FSoftObjectPath StringTableAssetReference = GetAssetReference(InOutTableId);
+		const FSoftObjectPath StringTableAssetReference = GetAssetReference(InOutTableId);
 		if (StringTableAssetReference.IsValid())
 		{
 			UStringTable* StringTableAsset = Cast<UStringTable>(StringTableAssetReference.ResolveObject());
@@ -109,6 +109,12 @@ private:
 
 		UStringTable* StringTableAsset = FStringTableRegistry::Get().FindStringTableAsset(InTableId);
 		InAr << StringTableAsset;
+	}
+
+	virtual bool IsStringTableFromAssetImpl(const FName InTableId) override
+	{
+		const FSoftObjectPath StringTableAssetReference = GetAssetReference(InTableId);
+		return StringTableAssetReference.IsValid();
 	}
 
 	static FSoftObjectPath GetAssetReference(const FName InTableId)

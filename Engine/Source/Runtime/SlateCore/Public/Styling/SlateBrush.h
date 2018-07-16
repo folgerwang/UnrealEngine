@@ -320,6 +320,13 @@ public:
 		return ResourceHandle;
 	}
 
+#if WITH_EDITOR
+	void InvalidateResourceHandle()
+	{
+		ResourceHandle = FSlateResourceHandle();
+	};
+#endif
+
 private:
 	void UpdateRenderingResource() const;
 	bool CanRenderResourceObject(UObject* InResourceObject) const;

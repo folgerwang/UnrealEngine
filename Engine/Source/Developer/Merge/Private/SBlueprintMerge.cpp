@@ -264,7 +264,7 @@ void SBlueprintMerge::Construct(const FArguments InArgs, const FBlueprintMergeDa
 
 UBlueprint* SBlueprintMerge::GetTargetBlueprint()
 {
-	return Data.OwningEditor.Pin()->GetBlueprintObj();
+	return Data.OwningEditor.IsValid() ? Data.OwningEditor.Pin()->GetBlueprintObj() : nullptr;
 }
 
 void SBlueprintMerge::NextDiff()
@@ -534,9 +534,13 @@ void SBlueprintMerge::ResolveMerge(UBlueprint* ResultantBlueprint)
 	// in the case where we have replaced/reloaded the blueprint 
 	// ("TargetBlueprint" is most likely, and should be, forcefully closing in 
 	// this scenario... we need to open the result to take its place)
-	if (ResultantBlueprint != GetTargetBlueprint())
+	UBlueprint* TargetBlueprint = GetTargetBlueprint();
+	if (ResultantBlueprint != TargetBlueprint)
 	{
-		FAssetEditorManager::Get().CloseAllEditorsForAsset(GetTargetBlueprint());
+		if (TargetBlueprint)
+		{
+			FAssetEditorManager::Get().CloseAllEditorsForAsset(TargetBlueprint);
+		}
 		FAssetEditorManager::Get().OpenEditorForAsset(ResultantBlueprint);
 	}
 	

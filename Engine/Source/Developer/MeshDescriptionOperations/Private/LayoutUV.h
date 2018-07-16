@@ -48,7 +48,7 @@ namespace MeshDescriptionOp
 	class FLayoutUV
 	{
 	public:
-		FLayoutUV(UMeshDescription* InMesh, uint32 InSrcChannel, uint32 InDstChannel, uint32 InTextureResolution);
+		FLayoutUV(FMeshDescription& InMesh, uint32 InSrcChannel, uint32 InDstChannel, uint32 InTextureResolution);
 
 		void		FindCharts(const TMultiMap<int32, int32>& OverlappingCorners);
 		bool		FindBestPacking();
@@ -71,10 +71,10 @@ namespace MeshDescriptionOp
 
 		float		GetUVEqualityThreshold() const { return LayoutVersion >= FMeshDescriptionOperations::ELightmapUVVersion::SmallChartPacking ? NEW_UVS_ARE_SAME : LEGACY_UVS_ARE_SAME; }
 
-		UMeshDescription* MeshDescription;
-		uint32		SrcChannel;
-		uint32		DstChannel;
-		uint32		TextureResolution;
+		FMeshDescription&	MeshDescription;
+		uint32				SrcChannel;
+		uint32				DstChannel;
+		uint32				TextureResolution;
 
 		TArray< FVector2D >		TexCoords;
 		TArray< uint32 >		SortedTris;
@@ -96,10 +96,10 @@ namespace MeshDescriptionOp
 	{
 		const FVertexInstanceID VertexInstanceIDA(RemapVerts[a]);
 		const FVertexInstanceID VertexInstanceIDB(RemapVerts[b]);
-		const FVertexID VertexIDA = MeshDescription->GetVertexInstanceVertex(VertexInstanceIDA);
-		const FVertexID VertexIDB = MeshDescription->GetVertexInstanceVertex(VertexInstanceIDB);
+		const FVertexID VertexIDA = MeshDescription.GetVertexInstanceVertex(VertexInstanceIDA);
+		const FVertexID VertexIDB = MeshDescription.GetVertexInstanceVertex(VertexInstanceIDB);
 
-		const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+		const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
 		return VertexPositions[VertexIDA].Equals(VertexPositions[VertexIDB], THRESH_POINTS_ARE_SAME);
 	}
 
@@ -107,7 +107,7 @@ namespace MeshDescriptionOp
 	{
 		// If current SrcChannel is out of range of the number of UVs defined by the mesh description, just return true
 		// @todo: hopefully remove this check entirely and just ensure that the mesh description matches the inputs
-		const uint32 NumUVs = MeshDescription->VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+		const uint32 NumUVs = MeshDescription.VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 		if (SrcChannel >= NumUVs)
 		{
 			ensure(false);	// not expecting it to get here
@@ -117,14 +117,14 @@ namespace MeshDescriptionOp
 		const FVertexInstanceID VertexInstanceIDA(RemapVerts[a]);
 		const FVertexInstanceID VertexInstanceIDB(RemapVerts[b]);
 
-		const TVertexInstanceAttributeArray<FVector>& VertexNormals = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
+		const TVertexInstanceAttributeArray<FVector>& VertexNormals = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
 		return VertexNormals[VertexInstanceIDA].Equals(VertexNormals[VertexInstanceIDB], THRESH_NORMALS_ARE_SAME);
 	}
 
 	inline bool FLayoutUV::UVsMatch(uint32 a, uint32 b) const
 	{
 		// If current SrcChannel is out of range of the number of UVs defined by the mesh description, just return true
-		const uint32 NumUVs = MeshDescription->VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+		const uint32 NumUVs = MeshDescription.VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 		if (SrcChannel >= NumUVs)
 		{
 			ensure(false);	// not expecting it to get here
@@ -134,7 +134,7 @@ namespace MeshDescriptionOp
 		const FVertexInstanceID VertexInstanceIDA(RemapVerts[a]);
 		const FVertexInstanceID VertexInstanceIDB(RemapVerts[b]);
 
-		const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, SrcChannel);
+		const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, SrcChannel);
 		return VertexUVs[VertexInstanceIDA].Equals(VertexUVs[VertexInstanceIDB], GetUVEqualityThreshold());
 	}
 
@@ -146,7 +146,7 @@ namespace MeshDescriptionOp
 	// Signed UV area
 	inline float FLayoutUV::TriangleUVArea(uint32 Tri) const
 	{
-		const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, SrcChannel);
+		const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, SrcChannel);
 
 		FVector2D UVs[3];
 		for (int k = 0; k < 3; k++)

@@ -373,11 +373,14 @@ void FBlueprintNativeCodeGenModule::ShutdownModule()
 	// Clear the current coordinator reference.
 	IBlueprintNativeCodeGenCore::Register(nullptr);
 
-	// Reset compiler module delegate function bindings.
-	IBlueprintCompilerCppBackendModule& BackEndModule = (IBlueprintCompilerCppBackendModule&)IBlueprintCompilerCppBackendModule::Get();
-	BackEndModule.GetIsFunctionUsedInADelegateCallback().Unbind();
-	BackEndModule.OnIsTargetedForConversionQuery().Unbind();
-	BackEndModule.OnIncludingUnconvertedBP().Unbind();
+	if (IBlueprintCompilerCppBackendModule::IsAvailable())
+	{
+		// Reset compiler module delegate function bindings.
+		IBlueprintCompilerCppBackendModule& BackEndModule = (IBlueprintCompilerCppBackendModule&)IBlueprintCompilerCppBackendModule::Get();
+		BackEndModule.GetIsFunctionUsedInADelegateCallback().Unbind();
+		BackEndModule.OnIsTargetedForConversionQuery().Unbind();
+		BackEndModule.OnIncludingUnconvertedBP().Unbind();
+	}
 }
 
 void FBlueprintNativeCodeGenModule::GenerateFullyConvertedClasses()

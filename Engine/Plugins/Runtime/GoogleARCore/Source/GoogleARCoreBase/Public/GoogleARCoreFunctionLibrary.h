@@ -39,7 +39,7 @@ public:
 
 	/**
 	 * A polling function to check the ARCore availability in C++.
-	 * This may initiate a query with a remote service to determine if the device is supported by ARCore, so this function will EGoogleARCoreAvailability::UnkownChecking.
+	 * This may initiate a query with a remote service to determine if the device is supported by ARCore, so this function will EGoogleARCoreAvailability::UnknownChecking.
 	 *
 	 * @return	The availability result as a EGoogleARCoreAvailability.
 	 */
@@ -119,6 +119,7 @@ public:
 
 	/** Template function to get all trackables from a given type. */
 	template< class T > static void GetAllTrackable(TArray<T*>& OutTrackableList);
+
 };
 
 /** A function library that provides static/Blueprint functions associated with most recent GoogleARCore tracking frame.*/
@@ -137,7 +138,7 @@ public:
 	static EGoogleARCoreTrackingState GetTrackingState();
 
 	/**
-	 * Gets the latest tracking pose in Unreal world space of the ARCore device.
+	 * Gets the latest tracking pose of the ARCore device in Unreal AR Tracking Space
 	 *
 	 * Note that ARCore motion tracking has already integrated with HMD and the motion controller interface.
 	 * Use this function only if you need to implement your own tracking component.

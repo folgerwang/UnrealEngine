@@ -549,6 +549,10 @@ public:
 	/** Broadcasts when a child of this property changes */
 	FPropertyValuePreChangeEvent& OnChildPropertyValuePreChange() { return ChildPropertyValuePreChangeEvent; }
 
+	/** Broadcasts when this property is reset to default */
+	DECLARE_EVENT(FPropertyNode, FPropertyResetToDefaultEvent);
+	FPropertyResetToDefaultEvent& OnPropertyResetToDefault() { return PropertyResetToDefaultEvent; }
+
 	/**
 	 * Marks window's seem due to filtering flags
 	 * @param InFilterStrings	- List of strings that must be in the property name in order to display
@@ -801,7 +805,12 @@ public:
 	/**
 	* Gets the default value of the property as string.
 	*/
-	FString GetDefaultValueAsString();
+	FString GetDefaultValueAsString(bool bUseDisplayName = true);
+
+	/**
+	 * Broadcasts reset to default property changes
+	 */
+	void BroadcastPropertyResetToDefault();
 protected:
 
 	TSharedRef<FEditPropertyChain> BuildPropertyChain( UProperty* PropertyAboutToChange );
@@ -840,7 +849,7 @@ protected:
 
 	bool GetDiffersFromDefaultForObject( FPropertyItemValueDataTrackerSlate& ValueTracker, UProperty* InProperty );
 
-	FString GetDefaultValueAsStringForObject( FPropertyItemValueDataTrackerSlate& ValueTracker, UObject* InObject, UProperty* InProperty );
+	FString GetDefaultValueAsStringForObject( FPropertyItemValueDataTrackerSlate& ValueTracker, UObject* InObject, UProperty* InProperty, bool bUseDisplayName );
 
 	/**
 	 * Helper function to obtain the display name for an enum property
@@ -918,6 +927,9 @@ protected:
 	
 	/** Called when a child's property value has changed */
 	FPropertyValueChangedEvent ChildPropertyValueChangedEvent;
+
+	/** Called when the property is reset to default */
+	FPropertyResetToDefaultEvent PropertyResetToDefaultEvent;
 
 	/** The property being displayed/edited. */
 	TWeakObjectPtr<UProperty> Property;

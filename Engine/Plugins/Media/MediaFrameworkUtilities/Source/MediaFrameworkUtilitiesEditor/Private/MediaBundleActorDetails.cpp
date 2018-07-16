@@ -62,7 +62,10 @@ void FMediaBundleActorDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBui
 			.Text(PlayTextString)
 			.IsEnabled_Lambda([ActorsListPtr]()
 			{
-				return ActorsListPtr->ContainsByPredicate([&](const TWeakObjectPtr<AMediaBundleActorBase>& Other) { return !Other->IsPlayRequested(); });
+				return ActorsListPtr->ContainsByPredicate([&](const TWeakObjectPtr<AMediaBundleActorBase>& Other) 
+				{ 
+					return (Other.IsValid() ? !Other->IsPlayRequested() : false); 
+				});
 			})
 			.OnClicked_Lambda([ActorsListPtr]() -> FReply
 			{
@@ -87,7 +90,10 @@ void FMediaBundleActorDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBui
 			.Text(CloseTextString)
 			.IsEnabled_Lambda([ActorsListPtr]()
 			{
-				return ActorsListPtr->ContainsByPredicate([&](const TWeakObjectPtr<AMediaBundleActorBase>& Other) { return Other->IsPlayRequested(); });
+				return ActorsListPtr->ContainsByPredicate([&](const TWeakObjectPtr<AMediaBundleActorBase>& Other) 
+				{
+					return (Other.IsValid() ? Other->IsPlayRequested() : false); 
+				});
 			})
 			.OnClicked(FOnClicked::CreateLambda([ActorsListPtr]()
 			{

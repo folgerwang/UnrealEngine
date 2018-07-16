@@ -26,6 +26,8 @@
 #include "VectorField/VectorFieldStatic.h"
 #include "Components/VectorFieldComponent.h"
 #include "PrimitiveSceneProxy.h"
+#include "Materials/Material.h"
+#include "Engine/Engine.h"
 
 #if WITH_EDITORONLY_DATA
 	#include "EditorFramework/AssetImportData.h"
@@ -518,6 +520,13 @@ FBoxSphereBounds UVectorFieldComponent::CalcBounds(const FTransform& LocalToWorl
 	return NewBounds.TransformBy( LocalToWorld );
 }
 
+void UVectorFieldComponent::GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials) const
+{
+	if (GEngine->LevelColorationUnlitMaterial != nullptr)
+	{
+		OutMaterials.Add(GEngine->LevelColorationUnlitMaterial);
+	}
+}
 
 void UVectorFieldComponent::OnRegister()
 {

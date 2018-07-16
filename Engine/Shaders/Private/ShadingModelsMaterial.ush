@@ -129,12 +129,54 @@ void SetGBufferForShadingModel(
 	GBuffer.ShadingModelID = SHADINGMODELID_EYE;
 	GBuffer.CustomData.x = EncodeSubsurfaceProfile(SubsurfaceProfile).x;
 	GBuffer.CustomData.w = 1.0f - saturate(GetMaterialCustomData0(MaterialParameters));	// Opacity = 1.0 - Iris Mask
+#if IRIS_NORMAL
+	float IrisMask		= saturate( GetMaterialCustomData0(MaterialParameters) );
+	float IrisDistance	= saturate( GetMaterialCustomData1(MaterialParameters) );
+
+	GBuffer.CustomData.x = EncodeSubsurfaceProfile(SubsurfaceProfile).x;
+	GBuffer.CustomData.w = 1.0 - IrisMask;	// Opacity
+
+	float2 WorldNormalOct = UnitVectorToOctahedron( GBuffer.WorldNormal );
+
+	// CausticNormal stored as octahedron
+	#if NUM_MATERIAL_OUTPUTS_GETTANGENTOUTPUT > 0
+		// Blend in the negative intersection normal to create some concavity
+		// Not great as it ties the concavity to the convexity of the cornea surface
+		// No good justification for that. On the other hand, if we're just looking to
+		// introduce some concavity, this does the job.
+		float3 PlaneNormal = normalize( GetTangentOutput0(MaterialParameters) );
+		float3 CausticNormal = normalize( lerp( PlaneNormal, -GBuffer.WorldNormal, IrisMask*IrisDistance ) );
+		float2 CausticNormalOct  = UnitVectorToOctahedron( CausticNormal );
+		float2 CausticNormalDelta = ( CausticNormalOct - WorldNormalOct ) * 0.5 + (128.0/255.0);
+		GBuffer.Metallic = CausticNormalDelta.x;
+		GBuffer.Specular = CausticNormalDelta.y;
+	#else
+		float3 PlaneNormal = GBuffer.WorldNormal;
+		GBuffer.Metallic = 128.0/255.0;
+		GBuffer.Specular = 128.0/255.0;
+	#endif
+
+	// IrisNormal CustomData.yz
+	#if NUM_MATERIAL_OUTPUTS_CLEARCOATBOTTOMNORMAL > 0
+		float3 IrisNormal = normalize( ClearCoatBottomNormal0(MaterialParameters) );
+		#if MATERIAL_TANGENTSPACENORMAL
+			IrisNormal = normalize( TransformTangentVectorToWorld( MaterialParameters.TangentToWorld, IrisNormal ) );
+		#endif
+	#else
+		float3 IrisNormal = PlaneNormal;
+	#endif
+
+	float2 IrisNormalOct  = UnitVectorToOctahedron( IrisNormal );
+	float2 IrisNormalDelta = ( IrisNormalOct - WorldNormalOct ) * 0.5 + (128.0/255.0);
+	GBuffer.CustomData.yz = IrisNormalDelta;
+#else
 	GBuffer.Metallic = saturate(GetMaterialCustomData1(MaterialParameters));			// Iris Distance
 
 	#if NUM_MATERIAL_OUTPUTS_GETTANGENTOUTPUT > 0
 		float3 Tangent = GetTangentOutput0(MaterialParameters);
 		GBuffer.CustomData.yz = UnitVectorToOctahedron( normalize(Tangent) ) * 0.5 + 0.5;
 	#endif
+#endif
 #else
 	// missing shading model, compiler should report ShadingModelID is not set
 #endif

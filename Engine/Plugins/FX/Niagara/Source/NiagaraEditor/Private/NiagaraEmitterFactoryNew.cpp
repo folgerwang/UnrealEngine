@@ -6,6 +6,7 @@
 #include "NiagaraScriptFactoryNew.h"
 #include "NiagaraGraph.h"
 #include "NiagaraScriptSource.h"
+#include "NiagaraSpriteRendererProperties.h"
 #include "NiagaraNodeOutput.h"
 #include "NiagaraEditorSettings.h"
 #include "AssetData.h"
@@ -44,6 +45,8 @@ UObject* UNiagaraEmitterFactoryNew::FactoryCreateNew(UClass* Class, UObject* InP
 		UE_LOG(LogNiagaraEditor, Log, TEXT("Default Emitter \"%s\" could not be loaded. Creating graph procedurally."), *Settings->DefaultEmitter.ToString());
 
 		NewEmitter = NewObject<UNiagaraEmitter>(InParent, Class, Name, Flags | RF_Transactional);
+
+		NewEmitter->AddRenderer(NewObject<UNiagaraSpriteRendererProperties>(NewEmitter, "Renderer"));
 
 		UNiagaraScriptSource* Source = NewObject<UNiagaraScriptSource>(NewEmitter, NAME_None, RF_Transactional);
 		if (Source)

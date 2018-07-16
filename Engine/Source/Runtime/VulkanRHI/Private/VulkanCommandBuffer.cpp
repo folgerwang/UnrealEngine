@@ -49,9 +49,7 @@ FVulkanCmdBuffer::FVulkanCmdBuffer(FVulkanDevice* InDevice, FVulkanCommandBuffer
 	FMemory::Memzero(CurrentScissor);
 	
 	VkCommandBufferAllocateInfo CreateCmdBufInfo;
-	FMemory::Memzero(CreateCmdBufInfo);
-	CreateCmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	CreateCmdBufInfo.pNext = nullptr;
+	ZeroVulkanStruct(CreateCmdBufInfo, VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO);
 	CreateCmdBufInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	CreateCmdBufInfo.commandBufferCount = 1;
 	CreateCmdBufInfo.commandPool = CommandBufferPool->GetHandle();
@@ -89,8 +87,7 @@ void FVulkanCmdBuffer::BeginRenderPass(const FVulkanRenderTargetLayout& Layout, 
 	checkf(IsOutsideRenderPass(), TEXT("Can't BeginRP as already inside one! CmdBuffer 0x%p State=%d"), CommandBufferHandle, (int32)State);
 
 	VkRenderPassBeginInfo Info;
-	FMemory::Memzero(Info);
-	Info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	ZeroVulkanStruct(Info, VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO);
 	Info.renderPass = RenderPass->GetHandle();
 	Info.framebuffer = Framebuffer->GetHandle();
 	Info.renderArea.offset.x = 0;
@@ -155,8 +152,7 @@ void FVulkanCmdBuffer::Begin()
 	checkf(State == EState::ReadyForBegin, TEXT("Can't Begin as we're NOT ready! CmdBuffer 0x%p State=%d"), CommandBufferHandle, (int32)State);
 
 	VkCommandBufferBeginInfo CmdBufBeginInfo;
-	FMemory::Memzero(CmdBufBeginInfo);
-	CmdBufBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	ZeroVulkanStruct(CmdBufBeginInfo, VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
 	CmdBufBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
 	VERIFYVULKANRESULT(VulkanRHI::vkBeginCommandBuffer(CommandBufferHandle, &CmdBufBeginInfo));
@@ -254,8 +250,7 @@ FVulkanCommandBufferPool::~FVulkanCommandBufferPool()
 void FVulkanCommandBufferPool::Create(uint32 QueueFamilyIndex)
 {
 	VkCommandPoolCreateInfo CmdPoolInfo;
-	FMemory::Memzero(CmdPoolInfo);
-	CmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	ZeroVulkanStruct(CmdPoolInfo, VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO);
 	CmdPoolInfo.queueFamilyIndex =  QueueFamilyIndex;
 	//#todo-rco: Should we use VK_COMMAND_POOL_CREATE_TRANSIENT_BIT?
 	CmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;

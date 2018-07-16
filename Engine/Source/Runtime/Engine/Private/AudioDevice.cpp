@@ -49,6 +49,14 @@ FAutoConsoleVariableRef CVarSetAudioChannelCount(
 	TEXT("0: Disable, >0: Enable"),
 	ECVF_Default);
 
+static int32 DisableStoppingVoicesCvar = 0;
+FAutoConsoleVariableRef CVarDisableStoppingVoices(
+	TEXT("au.DisableStoppingVoices"),
+	DisableStoppingVoicesCvar,
+	TEXT("Disables stopping voices feature.\n")
+	TEXT("0: Not Disabled, 1: Disabled"),
+	ECVF_Default);
+
 
 /*-----------------------------------------------------------------------------
 FDynamicParameter implementation.
@@ -112,7 +120,6 @@ void FDynamicParameter::Update(float DeltaTime)
 FAudioDevice::FAudioDevice()
 	: MaxChannels(0)
 	, NumStoppingVoices(32)
-	, CurrentStoppingVoiceCount(0)
 	, MaxWaveInstances(0)
 	, SampleRate(0)
 	, CommonAudioPoolSize(0)
@@ -141,6 +148,7 @@ FAudioDevice::FAudioDevice()
 	, bGameWasTicking(true)
 	, bDisableAudioCaching(false)
 	, bIsAudioDeviceHardwareInitialized(false)
+	, bIsStoppingVoicesEnabled(false)
 	, bAudioMixerModuleLoaded(false)
 	, bSpatializationIsExternalSend(false)
 	, bOcclusionIsExternalSend(false)
@@ -215,6 +223,8 @@ bool FAudioDevice::Init(int32 InMaxChannels)
 		PlatformAudioHeadroom = FMath::Pow(10.0f, Headroom / 20.0f);
 	}
 
+	bIsStoppingVoicesEnabled = !DisableStoppingVoicesCvar;
+
 	const UAudioSettings* AudioSettings = GetDefault<UAudioSettings>();
 
 	bAllowCenterChannel3DPanning = AudioSettings->bAllowCenterChannel3DPanning;
@@ -235,7 +245,7 @@ bool FAudioDevice::Init(int32 InMaxChannels)
 	InitSoundEffectPresets();
 
 	// Audio mixer needs to create effects manager before initializing the plugins.
-	if (IsAudioMixerEnabled())
+	if (IsAudioMixerEnabled() && IsStoppingVoicesEnabled())
 	{
 		// create a platform specific effects manager
 		Effects = CreateEffectsManager();
@@ -364,23 +374,23 @@ void FAudioDevice::PrecacheStartupSounds()
 
 void FAudioDevice::SetMaxChannels(int32 InMaxChannels)
 {
-	if (InMaxChannels + NumStoppingVoices > Sources.Num())
+	if (InMaxChannels > Sources.Num())
 	{
 		UE_LOG(LogAudio, Warning, TEXT("Can't increase channels past starting number!"));
 		return;
 	}
 
-	MaxChannels = InMaxChannels + NumStoppingVoices;
+	MaxChannels = InMaxChannels;
 }
 
 int32 FAudioDevice::GetMaxChannels() const
 {
 	if (AudioChannelCountCVar > 0 && AudioChannelCountCVar < Sources.Num())
 	{
-		return AudioChannelCountCVar + NumStoppingVoices;
+		return AudioChannelCountCVar;
 	}
 
-	return MaxChannels + NumStoppingVoices;
+	return MaxChannels;
 }
 
 void FAudioDevice::Teardown()
@@ -1595,7 +1605,7 @@ void FAudioDevice::InitSoundSources()
 	if (Sources.Num() == 0)
 	{
 		// now create platform specific sources
-		const int32 Channels = GetMaxChannels();
+		const int32 Channels = GetMaxChannels() + NumStoppingVoices;
 		for (int32 SourceIndex = 0; SourceIndex < Channels; SourceIndex++)
 		{
 			FSoundSource* Source = CreateSoundSource();
@@ -3031,7 +3041,7 @@ int32 FAudioDevice::GetSortedActiveWaveInstances(TArray<FWaveInstance*>& WaveIns
 	int32 FirstActiveIndex = 0;
 
 	// Only need to do the wave instance sort if we have any waves and if our wave instances are greater than our max channels.
-	if (WaveInstances.Num() >= GetMaxChannels())
+	if (WaveInstances.Num() >= 0)
 	{
 		// Helper function for "Sort" (higher priority sorts last).
 		struct FCompareFWaveInstanceByPlayPriority
@@ -3076,6 +3086,87 @@ void FAudioDevice::UpdateActiveSoundPlaybackTime(bool bIsGameTicking)
 	}
 
 }
+ 
+void FAudioDevice::StopOldestStoppingSource()
+{
+	if (IsAudioMixerEnabled())
+	{
+		check(!FreeSources.Num());
+
+		FSoundSource* LowestPriStoppingSource = nullptr;
+		FSoundSource* LowestPriSource = nullptr;
+		FSoundSource* LowestPriNonLoopingSource = nullptr;
+
+		for (FSoundSource* Source : Sources)
+		{
+			// Find oldest stopping voice first
+			if (Source->IsStopping())
+			{
+				if (!LowestPriStoppingSource)
+				{
+					LowestPriStoppingSource = Source;
+				}
+				else
+				{
+					if (Source->WaveInstance->GetVolumeWeightedPriority() < LowestPriStoppingSource->WaveInstance->GetVolumeWeightedPriority())
+					{
+						LowestPriStoppingSource = Source;
+					}
+				}
+			}
+			else if (Source->WaveInstance)
+			{
+				// Find lowest volume/priority non-looping source as fallback
+				if (Source->WaveInstance->LoopingMode != ELoopingMode::LOOP_Forever && !Source->WaveInstance->bIsUISound)
+				{
+					if (!LowestPriNonLoopingSource)
+					{
+						LowestPriNonLoopingSource = Source;
+					}
+					else
+					{
+						if (Source->WaveInstance->GetVolumeWeightedPriority() < LowestPriNonLoopingSource->WaveInstance->GetVolumeWeightedPriority())
+						{
+							LowestPriNonLoopingSource = Source;
+						}
+					}
+				}
+			
+
+				// Find lowest volume/priority source as final fallback
+				if (!LowestPriSource)
+				{
+					LowestPriSource = Source;
+				}
+				else
+				{
+					if (Source->WaveInstance->GetVolumeWeightedPriority() < LowestPriSource->WaveInstance->GetVolumeWeightedPriority())
+					{
+						LowestPriSource = Source;
+					}
+				}
+			}
+		}
+
+		// Stop oldest stopping source
+		if (LowestPriStoppingSource)
+		{
+			LowestPriStoppingSource->StopNow();
+		}
+		// If no oldest stopping source, stop oldest one-shot
+		else if (LowestPriNonLoopingSource)
+		{
+			LowestPriNonLoopingSource->StopNow();
+		}
+		// Otherwise stop oldest source.
+		else
+		{
+			check(LowestPriSource);
+			LowestPriSource->StopNow();
+		}
+		check(FreeSources.Num() > 0);
+	}
+}
 
 void FAudioDevice::StopSources(TArray<FWaveInstance*>& WaveInstances, int32 FirstActiveIndex)
 {
@@ -3110,17 +3201,20 @@ void FAudioDevice::StopSources(TArray<FWaveInstance*>& WaveInstances, int32 Firs
 	{
 		FSoundSource* Source = Sources[SourceIndex];
 
-		if (Source->WaveInstance && !Source->IsStopping())
+		if (Source->WaveInstance)
 		{
 			// If we need to stop this sound due to max concurrency (i.e. it was quietest in a concurrency group)
-			if (Source->WaveInstance->ShouldStopDueToMaxConcurrency())
+			if (Source->WaveInstance->ShouldStopDueToMaxConcurrency() || Source->LastUpdate != CurrentTick)
 			{
-				Source->Stop();
-			}
-			// Source was not one of the active sounds this tick so needs to be stopped
-			else if (Source->LastUpdate != CurrentTick)
-			{
-				Source->Stop();
+				if (!Source->IsStopping())
+				{
+					Source->Stop();
+				}
+				else
+				{
+					// Still do update even if stopping
+					Source->Update();
+				}
 			}
 			else
 			{
@@ -3176,7 +3270,7 @@ void FAudioDevice::StartSources(TArray<FWaveInstance*>& WaveInstances, int32 Fir
 		{
 			continue;
 		}
-		
+
 		// Editor uses bIsUISound for sounds played in the browser.
 		if (!WaveInstance->ShouldStopDueToMaxConcurrency() && (bGameTicking || WaveInstance->bIsUISound))
 		{
@@ -3185,12 +3279,13 @@ void FAudioDevice::StartSources(TArray<FWaveInstance*>& WaveInstances, int32 Fir
 				(!WaveInstance->IsStreaming() ||
 				IStreamingManager::Get().GetAudioStreamingManager().CanCreateSoundSource(WaveInstance)))
 			{
-
-				if (!FreeSources.Num())
+				// Check for full sources and stop the oldest stopping source
+				if (IsAudioMixerEnabled() && !FreeSources.Num())
 				{
-					continue;
+					StopOldestStoppingSource();
 				}
 
+				check(FreeSources.Num());
 				Source = FreeSources.Pop();
 				check(Source);
 
@@ -3256,7 +3351,7 @@ void FAudioDevice::StartSources(TArray<FWaveInstance*>& WaveInstances, int32 Fir
 						// If the source didn't get paused while initializing, then play it
 						if (!Source->IsPaused())
 						{
-						Source->Play();
+							Source->Play();
 						}
 					}
 					else
@@ -3327,6 +3422,8 @@ void FAudioDevice::Update(bool bGameTicking)
 			PrecachingSoundWaves.RemoveAtSwap(i, 1, false);
 		}
 	}
+
+	bIsStoppingVoicesEnabled = !DisableStoppingVoicesCvar;
 
 	UpdateAudioPluginSettingsObjectCache();
 
@@ -3550,16 +3647,19 @@ void FAudioDevice::SendUpdateResultsToGameThread(const int32 FirstActiveIndex)
 			}
 		}
 
-		USoundMix* CurrentEQMix = Effects->GetCurrentEQMix();
-
-		for (const TPair<USoundMix*, FSoundMixState>& SoundMixPair : SoundMixModifiers)
+		if (Effects)
 		{
-			StatSoundMixes.AddDefaulted();
-			FAudioStats::FStatSoundMix& StatSoundMix = StatSoundMixes.Last();
-			StatSoundMix.MixName = SoundMixPair.Key->GetName();
-			StatSoundMix.InterpValue = SoundMixPair.Value.InterpValue;
-			StatSoundMix.RefCount = SoundMixPair.Value.ActiveRefCount + SoundMixPair.Value.PassiveRefCount;
-			StatSoundMix.bIsCurrentEQ = (SoundMixPair.Key == CurrentEQMix);
+			USoundMix* CurrentEQMix = Effects->GetCurrentEQMix();
+
+			for (const TPair<USoundMix*, FSoundMixState>& SoundMixPair : SoundMixModifiers)
+			{
+				StatSoundMixes.AddDefaulted();
+				FAudioStats::FStatSoundMix& StatSoundMix = StatSoundMixes.Last();
+				StatSoundMix.MixName = SoundMixPair.Key->GetName();
+				StatSoundMix.InterpValue = SoundMixPair.Value.InterpValue;
+				StatSoundMix.RefCount = SoundMixPair.Value.ActiveRefCount + SoundMixPair.Value.PassiveRefCount;
+				StatSoundMix.bIsCurrentEQ = (SoundMixPair.Key == CurrentEQMix);
+			}
 		}
 	}
 #endif
@@ -3713,6 +3813,15 @@ void FAudioDevice::AddNewActiveSound(const FActiveSound& NewActiveSound)
 		return;
 	}
 
+	USoundWave* SoundWave = Cast<USoundWave>(Sound);
+	if (SoundWave && SoundWave->bProcedural && SoundWave->GetNumSoundsActive() > 0)
+	{
+		FString SoundWaveName;
+		SoundWave->GetName(SoundWaveName);
+		UE_LOG(LogAudio, Warning, TEXT("Replaying a procedural sound '%s' without stopping the previous instance. Only one sound instance per procedural sound wave is supported."), *SoundWaveName)
+		return;
+	}
+
 	// Evaluate concurrency. This will create an ActiveSound ptr which is a copy of NewActiveSound if the sound can play.
 	FActiveSound* ActiveSound = nullptr;
 
@@ -3801,7 +3910,8 @@ void FAudioDevice::ProcessingPendingActiveSoundStops(bool bForceDelete)
 				if (ActiveSound->IsStopping())
 				{
 					// Make sure this sound finishes stopping if we're forcing all sounds to stop due to a flush, etc.
-					ActiveSound->UpdateStoppingSources(CurrentTick, true);
+					bool bIsNowStopped = ActiveSound->UpdateStoppingSources(CurrentTick, true);
+					check(bIsNowStopped);
 				}
 			}
 			else if (ActiveSound->IsStopping())
@@ -4487,7 +4597,7 @@ void FAudioDevice::Flush(UWorld* WorldToFlush, bool bClearActivatedReverb)
 	}
 
 	// Do fadeout when flushing the audio device.
-	if (WorldToFlush == nullptr || WorldToFlush->bIsTearingDown)
+	if (WorldToFlush == nullptr)
 	{
 		FadeOut();
 	}
@@ -4586,9 +4696,14 @@ void FAudioDevice::Precache(USoundWave* SoundWave, bool bSynchronous, bool bTrac
 
 
 	// We're already precaching this sound wave so no need to precache again
-	if (SoundWave->DecompressionType != DTYPE_Setup)
+	if (SoundWave->DecompressionType != DTYPE_Setup && !bForceFullDecompression)
 	{
 		return; 
+	}
+
+	if (bForceFullDecompression)
+	{
+		SoundWave->SetPrecacheState(ESoundWavePrecacheState::NotStarted);
 	}
 
 	if (!bSynchronous && SoundWave->GetPrecacheState() == ESoundWavePrecacheState::NotStarted)

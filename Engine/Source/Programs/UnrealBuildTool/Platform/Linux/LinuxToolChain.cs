@@ -134,7 +134,7 @@ namespace UnrealBuildTool
 			// disable that only if you are a dev and you know what you are doing
 			if (!UsingClang())
 			{
-				throw new BuildException("This version of the engine can only be compiled by clang - refusing to register the Linux toolchain.");
+				throw new BuildException("Unable to build: no compatible clang version found. Please run Setup.sh");
 			}
 			// prevent unknown clangs since the build is likely to fail on too old or too new compilers
 			else if ((CompilerVersionMajor * 10 + CompilerVersionMinor) > 60 || (CompilerVersionMajor * 10 + CompilerVersionMinor) < 38)
@@ -593,6 +593,15 @@ namespace UnrealBuildTool
 			{
 				// libdwarf (from elftoolchain 0.6.1) doesn't support DWARF4. If we need to go back to depending on elftoolchain revert this back to dwarf-3
 				Result += " -gdwarf-4";
+				
+				// Include debug info
+				Result += " -g";
+				
+				// Include additional debug info to help LLDB
+				Result += " -glldb";
+				
+				// Makes debugging .so libraries better
+				Result += " -fstandalone-debug";
 			}
 
 			// optimization level
@@ -629,7 +638,7 @@ namespace UnrealBuildTool
 				Result += " -DPLATFORM_EXCEPTIONS_DISABLED=1";
 			}
 
-			if (bSuppressPIE)
+			if (bSuppressPIE && !CompileEnvironment.bIsBuildingDLL)
 			{
 				Result += " -fno-PIE";
 			}
@@ -799,9 +808,9 @@ namespace UnrealBuildTool
 
 			// This apparently can help LLDB speed up symbol lookups
 			Result += " -Wl,--build-id";
-			if (bSuppressPIE)
+			if (bSuppressPIE && !LinkEnvironment.bIsBuildingDLL)
 			{
-				Result += " -nopie";
+				Result += " -Wl,-nopie";
 			}
 
 			// whether we actually can do that is checked in CanUseLTO() earlier
@@ -1059,11 +1068,6 @@ namespace UnrealBuildTool
 				{
 					// Compile the file as C code.
 					FileArguments += GetCompileArguments_C();
-				}
-				else if (Extension == ".CC")
-				{
-					// Compile the file as C++ code.
-					FileArguments += GetCompileArguments_CPP();
 				}
 				else if (Extension == ".MM")
 				{
@@ -1542,9 +1546,10 @@ namespace UnrealBuildTool
 			{
 				LinkCommandString = LinkCommandString.Replace("{", "'{");
 				LinkCommandString = LinkCommandString.Replace("}", "}'");
+				LinkCommandString = LinkCommandString.Replace("$'{", "'${");	// fixing $'{ORIGIN}' to be '${ORIGIN}'
 			}
 
-			string LinkScriptName = string.Format((bUseCmdExe ? "Link-{0}.bat" : "Link-{0}.sh"), OutputFile.Location.GetFileName());
+			string LinkScriptName = string.Format((bUseCmdExe ? "Link-{0}.link.bat" : "Link-{0}.link.sh"), OutputFile.Location.GetFileName());
 			string LinkScriptFullPath = Path.Combine(LinkEnvironment.LocalShadowDirectory.FullName, LinkScriptName);
 			Log.TraceVerbose("Creating link script: {0}", LinkScriptFullPath);
 			Directory.CreateDirectory(Path.GetDirectoryName(LinkScriptFullPath));
@@ -1582,6 +1587,8 @@ namespace UnrealBuildTool
 			};
 
 			LinkAction.CommandPath = ShellBinary;
+
+			// This must maintain the quotes around the LinkScriptFullPath
 			LinkAction.CommandArguments = ExecuteSwitch + " \"" + LinkScriptFullPath + "\"";
 
 			// prepare a linker script

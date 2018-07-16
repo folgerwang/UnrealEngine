@@ -803,14 +803,33 @@ void FMetalRenderPass::FillBuffer(FMetalBuffer const& Buffer, ns::Range Range, u
 {
 	check(Buffer);
 	
-	ConditionalSwitchToBlit();
-	mtlpp::BlitCommandEncoder& Encoder = CurrentEncoder.GetBlitCommandEncoder();
-	check(Encoder.GetPtr());
+	mtlpp::BlitCommandEncoder TargetEncoder;
+	METAL_DEBUG_ONLY(FMetalBlitCommandEncoderDebugging Debugging);
+	bool bAsync = !CurrentEncoder.HasBufferBindingHistory(Buffer);
+	if(bAsync)
+	{
+		ConditionalSwitchToAsyncBlit();
+		TargetEncoder = PrologueEncoder.GetBlitCommandEncoder();
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(PrologueEncoder.GetCommandBufferStats(), __FUNCTION__));
+		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, Debugging = PrologueEncoder.GetBlitCommandEncoderDebugging());
+	}
+	else
+	{
+		ConditionalSwitchToBlit();
+		TargetEncoder = CurrentEncoder.GetBlitCommandEncoder();
+		METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
+		METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, Debugging = CurrentEncoder.GetBlitCommandEncoderDebugging());
+	}
 	
-	METAL_GPUPROFILE(FMetalProfiler::GetProfiler()->EncodeBlit(CurrentEncoder.GetCommandBufferStats(), __FUNCTION__));
-	MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, Encoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Fill(Buffer, Range, Value));
+	check(TargetEncoder.GetPtr());
+	
+	MTLPP_VALIDATE(mtlpp::BlitCommandEncoder, TargetEncoder, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, Fill(Buffer, Range, Value));
 	METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, CurrentEncoder.GetBlitCommandEncoderDebugging().Fill(Buffer, Range, Value));
-	ConditionalSubmit();
+	
+	if (!bAsync)
+	{
+		ConditionalSubmit();
+	}
 }
 
 bool FMetalRenderPass::AsyncCopyFromBufferToTexture(FMetalBuffer const& Buffer, uint32 sourceOffset, uint32 sourceBytesPerRow, uint32 sourceBytesPerImage, mtlpp::Size sourceSize, FMetalTexture const& toTexture, uint32 destinationSlice, uint32 destinationLevel, mtlpp::Origin destinationOrigin, mtlpp::BlitOption options)

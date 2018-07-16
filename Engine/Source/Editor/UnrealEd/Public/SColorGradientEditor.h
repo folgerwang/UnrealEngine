@@ -66,6 +66,7 @@ public:
 	virtual FReply OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override;
+	virtual void OnMouseLeave(const FPointerEvent& MouseEvent) override;
 	virtual FVector2D ComputeDesiredSize(float) const override;
 
 	/**
@@ -220,6 +221,10 @@ private:
 	TAttribute<bool> IsEditingEnabled;
 	/** Cached position where context menus should appear */
 	FVector2D ContextMenuPosition;
+	/** Whether or not the color gradient stop area is hovered */
+	bool bColorAreaHovered;
+	/** Whether or not the alpha gradient stop area is hovered */
+	bool bAlphaAreaHovered;
 	/** Current distance dragged since we captured the mouse */
 	float DistanceDragged;
 	/** True if an alpha value is being dragged */

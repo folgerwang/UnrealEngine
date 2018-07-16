@@ -1131,6 +1131,7 @@ bool FTextHistory_Transform::GetHistoricNumericData(const FText& InText, FHistor
 FTextHistory_StringTableEntry::FTextHistory_StringTableEntry(FName InTableId, FString&& InKey)
 	: TableId(InTableId)
 	, Key(MoveTemp(InKey))
+	, bStringTableAssetPendingLoad(false)
 {
 	GetStringTableEntry();
 }
@@ -1217,11 +1218,16 @@ void FTextHistory_StringTableEntry::Serialize(FArchive& Ar)
 		Ar << Key;
 
 		// String Table assets should already have been created via dependency loading when using the EDL (although they may not be fully loaded yet)
-		FStringTableRedirects::RedirectTableIdAndKey(TableId, Key, GEventDrivenLoaderEnabled ? EStringTableLoadingPolicy::Find : EStringTableLoadingPolicy::FindOrLoad);
+		const bool bIsAsset = IStringTableEngineBridge::IsStringTableFromAsset(TableId);
+		const EStringTableLoadingPolicy LoadingPolicy = (!bIsAsset || !IsInGameThread() || GEventDrivenLoaderEnabled) ? EStringTableLoadingPolicy::Find : EStringTableLoadingPolicy::FindOrLoad;
+		FStringTableRedirects::RedirectTableIdAndKey(TableId, Key, LoadingPolicy);
 
 		// Re-cache the pointer
 		StringTableEntry.Reset();
-		GetStringTableEntry();
+		FStringTableEntryConstPtr StringTableEntryPin = GetStringTableEntry(LoadingPolicy == EStringTableLoadingPolicy::Find);
+
+		// If we couldn't load a string table asset because this wasn't the game thread, defer the loading request until we're able to process it
+		bStringTableAssetPendingLoad = !StringTableEntryPin.IsValid() && bIsAsset && !IsInGameThread() && !GEventDrivenLoaderEnabled;
 	}
 	else if (Ar.IsSaving())
 	{
@@ -1250,11 +1256,11 @@ void FTextHistory_StringTableEntry::SerializeForDisplayString(FArchive& Ar, FTex
 	}
 }
 
-FStringTableEntryConstPtr FTextHistory_StringTableEntry::GetStringTableEntry() const
+FStringTableEntryConstPtr FTextHistory_StringTableEntry::GetStringTableEntry(const bool InSilent) const
 {
 	FStringTableEntryConstPtr StringTableEntryPin = StringTableEntry.Pin();
 
-	bool bSuppressMissingEntryWarning = false;
+	bool bSuppressMissingEntryWarning = InSilent;
 
 	if (!StringTableEntryPin.IsValid() || !StringTableEntryPin->IsOwned())
 	{
@@ -1264,12 +1270,30 @@ FStringTableEntryConstPtr FTextHistory_StringTableEntry::GetStringTableEntry() c
 		StringTableEntryPin = StringTableEntry.Pin();
 		if (!StringTableEntryPin.IsValid() || !StringTableEntryPin->IsOwned())
 		{
+			if (bStringTableAssetPendingLoad && IsInGameThread())
+			{
+				// This path should never be taken when EDL is enabled
+				// TODO: This assert is tripping in some cases (see UE-61107)
+				//check(!GEventDrivenLoaderEnabled);
+
+				// Attempt to load the string table asset now
+				FTextHistory_StringTableEntry* NonConstThis = const_cast<FTextHistory_StringTableEntry*>(this);
+				FStringTableRedirects::RedirectTableIdAndKey(NonConstThis->TableId, NonConstThis->Key, EStringTableLoadingPolicy::FindOrLoad);
+
+				// We always set this to true even if the load failed
+				bStringTableAssetPendingLoad = false;
+			}
+			else
+			{
+				bSuppressMissingEntryWarning |= bStringTableAssetPendingLoad;
+			}
+
 			StringTableEntryPin.Reset();
 
 			FStringTableConstPtr StringTable = FStringTableRegistry::Get().FindStringTable(TableId);
 			if (StringTable.IsValid())
 			{
-				bSuppressMissingEntryWarning = !StringTable->IsLoaded();
+				bSuppressMissingEntryWarning |= !StringTable->IsLoaded();
 				StringTableEntryPin = StringTable->FindEntry(Key);
 			}
 

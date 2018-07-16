@@ -25,13 +25,14 @@ namespace AJAHelpers
 		Mode.DeviceIndex = InDeviceIndex;
 		Mode.ModeName = InDescriptor.FormatedText;
 		Mode.VideoFormatIndex = InDescriptor.VideoFormatIndex;
-		Mode.FrameRate = FFrameRate(InDescriptor.FrameRate * 1001, 1001);
+		Mode.FrameRate = FFrameRate(InDescriptor.FrameRateNumerator, InDescriptor.FrameRateDenominator);
+		Mode.TargetSize = FIntPoint(InDescriptor.Width, InDescriptor.Height);
 		return Mode;
 	}
 }
 
 /**
- * Implements the NdiMedia module.
+ * Implements the AJAMedia module.
  */
 class FAjaMediaModule : public IAjaMediaModule, public FSelfRegisteringExec
 {
@@ -49,6 +50,8 @@ public:
 	}
 
 	virtual bool IsInitialized() const override { return FAja::IsInitialized(); }
+
+	virtual bool CanBeUsed() const override { return FAja::CanUseAJACard(); }
 
 public:
 
@@ -86,13 +89,20 @@ public:
 					FParse::Value(Cmd, TEXT("Device="), CustomTimeStep->MediaPort.DeviceIndex);
 					FParse::Bool(Cmd, TEXT("EnableOverrunDetection="), CustomTimeStep->bEnableOverrunDetection);
 
-					AJA::FAJAVideoFormat VideoFormatIndex = AjaMediaOption::DefaultVideoFormat;
-					FParse::Value(Cmd, TEXT("VideoFormat="), VideoFormatIndex);
+					bool bOverrideProjectSetting = false;
+					FParse::Bool(Cmd, TEXT("OverrideProjectSetting="), bOverrideProjectSetting);
 
-					AJA::AJAVideoFormats::VideoFormatDescriptor Descriptor = AJA::AJAVideoFormats::GetVideoFormat(VideoFormatIndex);
-					if (Descriptor.bValid)
+					if (bOverrideProjectSetting)
 					{
-						CustomTimeStep->MediaMode = AJAHelpers::FromVideoFormatDescriptor(CustomTimeStep->MediaPort.DeviceIndex, Descriptor);
+						AJA::FAJAVideoFormat VideoFormatIndex = AjaMediaOption::DefaultVideoFormat;
+						FParse::Value(Cmd, TEXT("VideoFormat="), VideoFormatIndex);
+
+						AJA::AJAVideoFormats::VideoFormatDescriptor Descriptor = AJA::AJAVideoFormats::GetVideoFormat(VideoFormatIndex);
+						if (Descriptor.bValid)
+						{
+							const FAjaMediaMode MediaMode = AJAHelpers::FromVideoFormatDescriptor(CustomTimeStep->MediaPort.DeviceIndex, Descriptor);
+							CustomTimeStep->OverrideMediaMode(MediaMode);
+						}
 					}
 
 					{
@@ -127,13 +137,20 @@ public:
 						TimecodeProvider->TimecodeFormat = (EAjaMediaTimecodeFormat)TimecodeFormatInt;
 					}
 
-					AJA::FAJAVideoFormat VideoFormatIndex = AjaMediaOption::DefaultVideoFormat;
-					FParse::Value(Cmd, TEXT("VideoFormat="), VideoFormatIndex);
+					bool bOverrideProjectSetting = false;
+					FParse::Bool(Cmd, TEXT("OverrideProjectSetting="), bOverrideProjectSetting);
 
-					AJA::AJAVideoFormats::VideoFormatDescriptor Descriptor = AJA::AJAVideoFormats::GetVideoFormat(VideoFormatIndex);
-					if (Descriptor.bValid)
+					if (bOverrideProjectSetting)
 					{
-						CustomTimeStep->MediaMode = AJAHelpers::FromVideoFormatDescriptor(CustomTimeStep->MediaPort.DeviceIndex, Descriptor);
+						AJA::FAJAVideoFormat VideoFormatIndex = AjaMediaOption::DefaultVideoFormat;
+						FParse::Value(Cmd, TEXT("VideoFormat="), VideoFormatIndex);
+
+						AJA::AJAVideoFormats::VideoFormatDescriptor Descriptor = AJA::AJAVideoFormats::GetVideoFormat(VideoFormatIndex);
+						if (Descriptor.bValid)
+						{
+							const FAjaMediaMode MediaMode = AJAHelpers::FromVideoFormatDescriptor(TimecodeProvider->MediaPort.DeviceIndex, Descriptor);
+							TimecodeProvider->OverrideMediaMode(MediaMode);
+						}
 					}
 
 					GEngine->SetTimecodeProvider(TimecodeProvider.Get());

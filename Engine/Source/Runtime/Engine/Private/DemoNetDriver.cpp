@@ -3474,6 +3474,9 @@ void UDemoNetDriver::ReplayStreamingReady( const FStartStreamingResult& Result )
 			return;
 		}
 
+		// InitConnectInternal calls ResetDemoState which will reset this, so restore the value
+		bWasStartStreamingSuccessful = Result.WasSuccessful();
+
 		const TCHAR* const SkipToLevelIndexOption = DemoURL.GetOption(TEXT("SkipToLevelIndex="), nullptr);
 		if (SkipToLevelIndexOption)
 		{

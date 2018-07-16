@@ -34,36 +34,6 @@ public:
 	{}
 
 	/**
-	* Equality is based on decl, vertex shader and pixel shader 
-	* @param Other - instance to compare against
-	* @return true if equal
-	*/
-	friend bool operator ==(const FBoundShaderStateKey& A,const FBoundShaderStateKey& B)
-	{
-		return	A.VertexDeclaration == B.VertexDeclaration && 
-			A.VertexShader == B.VertexShader && 
-			A.PixelShader == B.PixelShader && 
-			A.HullShader == B.HullShader &&
-			A.DomainShader == B.DomainShader &&
-			A.GeometryShader == B.GeometryShader;
-	}
-
-	/**
-	* Get the hash for this type. 
-	* @param Key - struct to hash
-	* @return dword hash based on type
-	*/
-	friend uint32 GetTypeHash(const FBoundShaderStateKey &Key)
-	{
-		return GetTypeHash(Key.VertexDeclaration) ^
-			GetTypeHash(Key.VertexShader) ^
-			GetTypeHash(Key.PixelShader) ^
-			GetTypeHash(Key.HullShader) ^
-			GetTypeHash(Key.DomainShader) ^
-			GetTypeHash(Key.GeometryShader);
-	}
-
-	/**
 	 * Get the RHI shader for the given frequency.
 	 */
 	FORCEINLINE FVertexShaderRHIParamRef   GetVertexShader() const   { return VertexShader; }
@@ -99,6 +69,82 @@ private:
 	FDomainShaderRHIRef DomainShader;
 	/** gs for this combination */
 	FGeometryShaderRHIRef GeometryShader;
+
+	friend class FBoundShaderStateLookupKey;
+};
+
+// Non-reference-counted version of shader state key.
+// This structure is used as the actual key type for TMap, which avoids reference counting overhead during lookup.
+// Note that FCachedBoundShaderStateLink contains a full-fat reference-counted FBoundShaderStateKey, ensuring
+// correct lifetime management.
+class FBoundShaderStateLookupKey
+{
+public:
+
+	// Note: implicit cast is allowed/expected for this constructor
+	FBoundShaderStateLookupKey(const FBoundShaderStateKey& Key)
+		: VertexDeclaration(Key.VertexDeclaration.GetReference())
+		, VertexShader(Key.VertexShader.GetReference())
+		, PixelShader(Key.PixelShader.GetReference())
+		, HullShader(Key.HullShader.GetReference())
+		, DomainShader(Key.DomainShader.GetReference())
+		, GeometryShader(Key.GeometryShader.GetReference())
+	{}
+
+	FBoundShaderStateLookupKey(
+		FRHIVertexDeclaration* InVertexDeclaration,
+		FRHIVertexShader* InVertexShader,
+		FRHIPixelShader* InPixelShader,
+		FRHIHullShader* InHullShader = NULL,
+		FRHIDomainShader* InDomainShader = NULL,
+		FRHIGeometryShader* InGeometryShader = NULL
+	)
+		: VertexDeclaration(InVertexDeclaration)
+		, VertexShader(InVertexShader)
+		, PixelShader(InPixelShader)
+		, HullShader(InHullShader)
+		, DomainShader(InDomainShader)
+		, GeometryShader(InGeometryShader)
+	{}
+
+	/**
+	* Equality is based on decl, vertex shader and pixel shader
+	* @param Other - instance to compare against
+	* @return true if equal
+	*/
+	friend bool operator == (const FBoundShaderStateLookupKey& A, const FBoundShaderStateLookupKey& B)
+	{
+		return	A.VertexDeclaration == B.VertexDeclaration &&
+			A.VertexShader == B.VertexShader &&
+			A.PixelShader == B.PixelShader &&
+			A.HullShader == B.HullShader &&
+			A.DomainShader == B.DomainShader &&
+			A.GeometryShader == B.GeometryShader;
+	}
+
+	/**
+	* Get the hash for this type.
+	* @param Key - struct to hash
+	* @return dword hash based on type
+	*/
+	friend uint32 GetTypeHash(const FBoundShaderStateLookupKey& Key)
+	{
+		return GetTypeHash(Key.VertexDeclaration) ^
+			GetTypeHash(Key.VertexShader) ^
+			GetTypeHash(Key.PixelShader) ^
+			GetTypeHash(Key.HullShader) ^
+			GetTypeHash(Key.DomainShader) ^
+			GetTypeHash(Key.GeometryShader);
+	}
+
+private:
+
+	const FRHIVertexDeclaration* VertexDeclaration = nullptr;
+	const FRHIVertexShader* VertexShader = nullptr;
+	const FRHIPixelShader* PixelShader = nullptr;
+	const FRHIHullShader* HullShader = nullptr;
+	const FRHIDomainShader* DomainShader = nullptr;
+	const FRHIGeometryShader* GeometryShader = nullptr;
 };
 
 /**

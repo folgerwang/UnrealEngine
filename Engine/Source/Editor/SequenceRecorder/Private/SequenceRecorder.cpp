@@ -37,6 +37,7 @@
 #include "AssetToolsModule.h"
 #include "Camera/CameraActor.h"
 #include "Compilation/MovieSceneCompiler.h"
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "SequenceRecorder"
 
@@ -1151,16 +1152,20 @@ void FSequenceRecorder::RefreshNextSequence()
 		SequenceName = GetSequenceRecordingName().Len() > 0 ? GetSequenceRecordingName() : TEXT("RecordedSequence");
 	}
 
-	// Cache the name of the next sequence we will try to record to
-	NextSequenceName = SequenceRecorderUtils::MakeNewAssetName(GetSequenceRecordingBasePath(), SequenceName);
+	// Cache the name of the next sequence we will try to record to. Assets are recorded into a folder with their desired name, so we need to append that
+	// to the base path before checking for unique names.
+	FString AssetPath = FString::Printf(TEXT("%s/%s"), *GetSequenceRecordingBasePath(), *GetSequenceRecordingName());
+	NextSequenceName = SequenceRecorderUtils::MakeNewAssetName(AssetPath, SequenceName);
 }
 
 void FSequenceRecorder::ForceRefreshNextSequence()
 {
 	SequenceName = GetSequenceRecordingName().Len() > 0 ? GetSequenceRecordingName() : TEXT("RecordedSequence");
 
-	// Cache the name of the next sequence we will try to record to
-	NextSequenceName = SequenceRecorderUtils::MakeNewAssetName(GetSequenceRecordingBasePath(), SequenceName);
+	// Cache the name of the next sequence we will try to record to. Assets are recorded into a folder with their desired name, so we need to append that
+	// to the base path before checking for unique names.
+	FString AssetPath = FString::Printf(TEXT("%s/%s"), *GetSequenceRecordingBasePath(), *GetSequenceRecordingName());
+	NextSequenceName = SequenceRecorderUtils::MakeNewAssetName(AssetPath, SequenceName);
 }
 
 TWeakObjectPtr<ASequenceRecorderGroup> FSequenceRecorder::GetRecordingGroupActor()
@@ -1196,6 +1201,8 @@ TWeakObjectPtr<ASequenceRecorderGroup> FSequenceRecorder::GetRecordingGroupActor
 
 TWeakObjectPtr<USequenceRecorderActorGroup> FSequenceRecorder::AddRecordingGroup()
 {
+	const FScopedTransaction Transaction(LOCTEXT("AddRecordingGroup", "Add Actor Recording Group"));
+
 	TWeakObjectPtr<ASequenceRecorderGroup> GroupActor = GetRecordingGroupActor();
 	UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
 
@@ -1214,7 +1221,7 @@ TWeakObjectPtr<USequenceRecorderActorGroup> FSequenceRecorder::AddRecordingGroup
 
 	// Now add a new actor group to this actor
 	check(GroupActor.IsValid());
-	USequenceRecorderActorGroup* ActorGroup = NewObject<USequenceRecorderActorGroup>(GroupActor.Get());
+	USequenceRecorderActorGroup* ActorGroup = NewObject<USequenceRecorderActorGroup>(GroupActor.Get(), NAME_None, RF_Transactional);
 	if (!ExistingBasePath.Path.IsEmpty())
 	{
 		ActorGroup->SequenceRecordingBasePath = ExistingBasePath;
@@ -1230,6 +1237,8 @@ TWeakObjectPtr<USequenceRecorderActorGroup> FSequenceRecorder::AddRecordingGroup
 
 	// And then select our new object by default
 	CurrentRecorderGroup = ActorGroup;
+
+	ForceRefreshNextSequence();
 	
 	if (OnRecordingGroupAddedDelegate.IsBound())
 	{
@@ -1245,6 +1254,8 @@ void FSequenceRecorder::RemoveCurrentRecordingGroup()
 	{
 		return;
 	}
+
+	const FScopedTransaction Transaction(LOCTEXT("RemoveActorRecordingGroup", "Remove Actor Recording Group"));
 
 	ClearQueuedRecordings();
 	TWeakObjectPtr<ASequenceRecorderGroup> GroupActor = GetRecordingGroupActor();
@@ -1265,14 +1276,33 @@ TWeakObjectPtr<USequenceRecorderActorGroup> FSequenceRecorder::DuplicateRecordin
 		BaseName = GetCurrentRecordingGroup().Get()->SequenceName;
 	}
 
+	const FScopedTransaction Transaction(LOCTEXT("DuplicateActorRecordingGroup", "Duplicate Actor Recording Group"));
+
 	USequenceRecorderActorGroup* DuplicatedGroup = DuplicateObject<USequenceRecorderActorGroup>(GetCurrentRecordingGroup().Get(), GetRecordingGroupActor().Get());
 	FString NewName = SequenceRecorderUtils::MakeNewGroupName(*DuplicatedGroup->SequenceRecordingBasePath.Path, BaseName, GetRecordingGroupNames());
 	DuplicatedGroup->GroupName = FName(*NewName);
 	DuplicatedGroup->SequenceName = NewName;
+	DuplicatedGroup->TargetLevelSequence = nullptr;
+
+	for (UActorRecording* ActorRecording : DuplicatedGroup->RecordedActors)
+	{
+		if (ActorRecording != nullptr)
+		{
+			ActorRecording->TakeNumber = 1;
+		}
+	}
+
 	GetRecordingGroupActor().Get()->ActorGroups.Add(DuplicatedGroup);
 
 	// We'll invoke the standard load function so that it triggers everything to clear/update correctly.
-	return LoadRecordingGroup(DuplicatedGroup->GroupName);
+	TWeakObjectPtr<USequenceRecorderActorGroup> LoadedGroup = LoadRecordingGroup(DuplicatedGroup->GroupName);
+
+	if (OnRecordingGroupAddedDelegate.IsBound())
+	{
+		OnRecordingGroupAddedDelegate.Broadcast(LoadedGroup);
+	}
+
+	return LoadedGroup;
 }
 
 TArray<FName> FSequenceRecorder::GetRecordingGroupNames() const
@@ -1289,7 +1319,10 @@ TArray<FName> FSequenceRecorder::GetRecordingGroupNames() const
 			{
 				for (USequenceRecorderActorGroup* ActorGroup : GroupActor->ActorGroups)
 				{
-					GroupNames.Add(ActorGroup->GroupName);
+					if (ActorGroup)
+					{
+						GroupNames.Add(ActorGroup->GroupName);
+					}
 				}
 
 				// We only examine the first actor group in the map as it should contain all of our groups.
@@ -1337,16 +1370,18 @@ TWeakObjectPtr<USequenceRecorderActorGroup> FSequenceRecorder::LoadRecordingGrou
 					QueuedRecordings.Add(ActorRecording);
 				}
 			}
-			RefreshNextSequence();
+			ForceRefreshNextSequence();
 			return CurrentRecorderGroup;
 		}
 	}
 
 	// We either don't have a group actor or we can't find a group by that name, clear anything we have loaded.
 	// This lets the UI handle switching back to profile "None".
-	RefreshNextSequence();
 	ClearQueuedRecordings();
 	CurrentRecorderGroup = nullptr;
+
+	// Refresh the next sequence after nulling out the recording group so we get the default name.
+	ForceRefreshNextSequence();
 	return nullptr;
 }
 

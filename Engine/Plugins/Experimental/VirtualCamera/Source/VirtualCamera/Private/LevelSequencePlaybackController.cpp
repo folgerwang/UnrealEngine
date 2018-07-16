@@ -176,7 +176,7 @@ void ULevelSequencePlaybackController::ClearActiveLevelSequence()
 	}
 }
 
-void ULevelSequencePlaybackController::PilotTargetedCamera()
+void ULevelSequencePlaybackController::PilotTargetedCamera(FCameraFilmbackSettings* FilmbackSettingsOverride)
 {
 	if (!TargetCamera)
 	{
@@ -188,8 +188,8 @@ void ULevelSequencePlaybackController::PilotTargetedCamera()
 
 	TargetComponent->FocusSettings = CameraToFollow->FocusSettings;
 	TargetComponent->CurrentFocalLength = CameraToFollow->CurrentFocalLength;
-	TargetComponent->FilmbackSettings = CameraToFollow->FilmbackSettings;
 	TargetComponent->LensSettings = CameraToFollow->LensSettings;
+	TargetComponent->FilmbackSettings = FilmbackSettingsOverride ? *FilmbackSettingsOverride : CameraToFollow->FilmbackSettings;
 }
 
 void ULevelSequencePlaybackController::PlayFromBeginning()

@@ -67,7 +67,7 @@ void FClothingSimulationNv::CreateActor(USkeletalMeshComponent* InOwnerComponent
 
 	// Need the current reftolocals so we can skin the ref pose for the sim mesh
 	TArray<FMatrix> RefToLocals;
-	InOwnerComponent->GetCurrentRefToLocalMatrices(RefToLocals, InOwnerComponent->PredictedLODLevel);
+	InOwnerComponent->GetCurrentRefToLocalMatrices(RefToLocals, FMath::Min(InOwnerComponent->PredictedLODLevel, Asset->LodData.Num() - 1));
 
 	Actors.AddDefaulted();
 	FClothingActorNv& NewActor = Actors.Last();
@@ -802,7 +802,8 @@ void FClothingSimulationNv::GetSimulationData(TMap<int32, FClothSimulData>& OutD
 
 			if(!ReadTransformArray.IsValidIndex(Asset->ReferenceBoneIndex))
 			{
-				ensureMsgf(false, TEXT("Failed to write back clothing simulation data for component % as bone transforms are invalid."), *InOwnerComponent->GetName());
+				UE_LOG(LogSkeletalMesh, Warning, TEXT("Failed to write back clothing simulation data for component % as bone transforms are invalid."), *InOwnerComponent->GetName());
+				//ensureMsgf(false, TEXT("Failed to write back clothing simulation data for component % as bone transforms are invalid."), *InOwnerComponent->GetName());
 
 				ClothData.Reset();
 

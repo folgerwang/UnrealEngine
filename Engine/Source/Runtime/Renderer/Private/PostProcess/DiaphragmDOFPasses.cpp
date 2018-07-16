@@ -34,6 +34,14 @@ TAutoConsoleVariable<int32> CVarDebugScatterPerf(
 
 #endif
 
+TAutoConsoleVariable<float> CVarScatterNeighborCompareMaxColor(
+	TEXT("r.DOF.Scatter.NeighborCompareMaxColor"),
+	10,
+	TEXT("Controles the linear color clamping upperbound applied before color of pixel and neighbors are compared.")
+	TEXT(" To low, and you may not scatter enough; to high you may scatter unnecessarily too much in highlights")
+	TEXT(" (Default: 10)."),
+	ECVF_RenderThreadSafe);
+
 } // namespace
 
 
@@ -125,6 +133,18 @@ const TCHAR* GetEventName(FRCPassDiaphragmDOFGather::EQualityConfig e)
 		TEXT("LowQ"),
 		TEXT("HighQ"),
 		TEXT("ScatterOcclusion"),
+	};
+	int32 i = int32(e);
+	check(i < ARRAY_COUNT(kArray));
+	return kArray[i];
+}
+
+const TCHAR* GetEventName(FRCPassDiaphragmDOFDilateCoc::EMode e)
+{
+	static const TCHAR* const kArray[] = {
+		TEXT("StandAlone"),
+		TEXT("MinMax"),
+		TEXT("MinAbs"),
 	};
 	int32 i = int32(e);
 	check(i < ARRAY_COUNT(kArray));
@@ -499,6 +519,7 @@ namespace
 {
 
 class FDDOFDilateRadiusDim     : SHADER_PERMUTATION_RANGE_INT("DIM_DILATE_RADIUS", 1, 3);
+class FDDOFDilateModeDim       : SHADER_PERMUTATION_ENUM_CLASS("DIM_DILATE_MODE", FRCPassDiaphragmDOFDilateCoc::EMode);
 
 class FDDOFLayerProcessingDim  : SHADER_PERMUTATION_ENUM_CLASS("DIM_LAYER_PROCESSING", EDiaphragmDOFLayerProcessing);
 class FDDOFGatherRingCountDim  : SHADER_PERMUTATION_RANGE_INT("DIM_GATHER_RING_COUNT", FRCPassDiaphragmDOFGather::kMinRingCount, 3);
@@ -523,6 +544,11 @@ void SetCocModelParameters(FRenderingCompositePassContext& Context, DispatchCont
 	CocModelParameters.Y = CocRadiusBasis * CocModel.MinForegroundCocRadius;
 	CocModelParameters.Z = CocRadiusBasis * CocModel.MaxBackgroundCocRadius;
 	SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->CocModelParameters, CocModelParameters);
+
+	FVector2D DepthBlurParameters(0, 0);
+	DepthBlurParameters.X = CocModel.DepthBlurExponent;
+	DepthBlurParameters.Y = CocRadiusBasis * CocModel.MaxDepthBlurRadius;
+	SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->DepthBlurParameters, DepthBlurParameters);
 }
 
 
@@ -588,7 +614,8 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFFlattenCoc::ComputeOutputDesc(EPassOu
 	FIntPoint TileCount = CocTileGridSize(UnmodifiedRet.Extent);
 
 	FPooledRenderTargetDesc Ret(FPooledRenderTargetDesc::Create2DDesc(TileCount, PF_FloatRGBA, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable | TexCreate_UAV, false));
-	Ret.DebugName = TEXT("DOFFlattenCoc");
+	Ret.DebugName = InPassOutputId == ePId_Output0 ? TEXT("DOFFlattenFgdCoc") : TEXT("DOFFlattenBgdCoc");
+	Ret.Format = InPassOutputId == ePId_Output0 ? PF_G16R16F : PF_FloatRGBA;
 	return Ret;
 }
 
@@ -597,14 +624,16 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFFlattenCoc::ComputeOutputDesc(EPassOu
 
 #define COC_DILATE_SHADER_PARAMS(PARAMETER) \
 	PARAMETER(FShaderParameter, SampleOffsetMultipler) \
-	PARAMETER(FShaderParameter, CocRadiusToBucketDistance) \
+	PARAMETER(FShaderParameter, fSampleOffsetMultipler) \
+	PARAMETER(FShaderParameter, CocRadiusToBucketDistanceUpperBound) \
+	PARAMETER(FShaderParameter, BucketDistanceToCocRadius) \
 
 class FPostProcessCocDilateCS : public FPostProcessDiaphragmDOFShader
 {
 	DECLARE_GLOBAL_SHADER(FPostProcessCocDilateCS);
 	SHADER_TYPE_PARAMETERS(FPostProcessCocDilateCS, FPostProcessDiaphragmDOFShader, COC_DILATE_SHADER_PARAMS);
 
-	using FPermutationDomain = TShaderPermutationDomain<FDDOFDilateRadiusDim>;
+	using FPermutationDomain = TShaderPermutationDomain<FDDOFDilateRadiusDim, FDDOFDilateModeDim>;
 };
 
 IMPLEMENT_GLOBAL_SHADER(FPostProcessCocDilateCS, "/Engine/Private/DiaphragmDOF/DOFCocTileDilate.usf", "CocDilateMainCS", SF_Compute);
@@ -614,19 +643,27 @@ void FRCPassDiaphragmDOFDilateCoc::Process(FRenderingCompositePassContext& Conte
 {
 	FPostProcessCocDilateCS::FPermutationDomain PermutationVector;
 	PermutationVector.Set<FDDOFDilateRadiusDim>(Params.SampleRadiusCount);
+	PermutationVector.Set<FDDOFDilateModeDim>(Params.Mode);
+	// TODO: permutation to do foreground and background separately, to have higher occupancy?
 
 	FDispatchDiaphragmDOFPass<FPostProcessCocDilateCS, FRCPassDiaphragmDOFDilateCoc> DispatchCtx(this, Context, PermutationVector);
 	DispatchCtx.DestViewport = FIntRect(FIntPoint::ZeroValue, FIntPoint::DivideAndRoundUp(Params.GatherViewSize, kCocTileSize));
 
-	SCOPED_DRAW_EVENTF(Context.RHICmdList, DiaphragmDOFDilateCoc, TEXT("DiaphragmDOF DilateCoc(1/16 radius=%d step=%d) %dx%d"),
-		Params.SampleRadiusCount, Params.SampleDistanceMultiplier,
+	SCOPED_DRAW_EVENTF(Context.RHICmdList, DiaphragmDOFDilateCoc, TEXT("DiaphragmDOF DilateCoc(1/16 %s radius=%d step=%d) %dx%d"),
+		GetEventName(Params.Mode), Params.SampleRadiusCount, Params.SampleDistanceMultiplier,
 		DispatchCtx.DestViewport.Width(), DispatchCtx.DestViewport.Height());
 
 	{
 		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->SampleOffsetMultipler, Params.SampleDistanceMultiplier);
 	
-		float CocRadiusToBucketDistance = Params.PreProcessingToProcessingCocRadiusFactor;
-		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->CocRadiusToBucketDistance, CocRadiusToBucketDistance);
+		float fSampleOffsetMultipler = Params.SampleDistanceMultiplier;
+		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->fSampleOffsetMultipler, fSampleOffsetMultipler);
+
+		float CocRadiusToBucketDistanceUpperBound = Params.PreProcessingToProcessingCocRadiusFactor * Params.BluringRadiusErrorMultiplier;
+		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->CocRadiusToBucketDistanceUpperBound, CocRadiusToBucketDistanceUpperBound);
+
+		float BucketDistanceToCocRadius = 1.0f / CocRadiusToBucketDistanceUpperBound;
+		SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->BucketDistanceToCocRadius, BucketDistanceToCocRadius);
 	}
 	DispatchCtx.Dispatch();
 }
@@ -634,7 +671,19 @@ void FRCPassDiaphragmDOFDilateCoc::Process(FRenderingCompositePassContext& Conte
 FPooledRenderTargetDesc FRCPassDiaphragmDOFDilateCoc::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
 	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
-	Ret.DebugName = TEXT("DOFDilateCoc");
+
+	// When dilating only min foreground and max background, only one channel.
+	if (Params.Mode == EMode::MinForegroundAndMaxBackground)
+	{
+		Ret.DebugName = InPassOutputId == ePId_Output0 ? TEXT("DOFDilateMinFgdCoc") : TEXT("DOFDilateMaxBgdCoc");
+		Ret.Format = PF_R16F;
+	}
+	else
+	{
+		Ret.DebugName = InPassOutputId == ePId_Output0 ? TEXT("DOFDilateFgdCoc") : TEXT("DOFDilateBgdCoc");
+		Ret.Format = InPassOutputId == ePId_Output0 ? PF_G16R16F : PF_FloatRGBA;
+	}
+
 	return Ret;
 }
 
@@ -643,6 +692,7 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFDilateCoc::ComputeOutputDesc(EPassOut
 
 #define SETUP_SHADER_PARAMS(PARAMETER) \
 	PARAMETER(FShaderParameter, CocModelParameters) \
+	PARAMETER(FShaderParameter, DepthBlurParameters) \
 	PARAMETER(FShaderParameter, CocRadiusBasis) \
 
 
@@ -744,6 +794,7 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFSetup::ComputeOutputDesc(EPassOutputI
 	PARAMETER(FShaderParameter, MaxScatteringGroupCount) \
 	PARAMETER(FShaderParameter, PreProcessingToProcessingCocRadiusFactor) \
 	PARAMETER(FShaderParameter, MinScatteringCocRadius) \
+	PARAMETER(FShaderParameter, NeighborCompareMaxColor) \
 	PARAMETER(FShaderResourceParameter, OutScatterDrawIndirectParameters) \
 	PARAMETER(FShaderResourceParameter, OutForegroundScatterDrawList) \
 	PARAMETER(FShaderResourceParameter, OutBackgroundScatterDrawList) \
@@ -889,6 +940,9 @@ void FRCPassDiaphragmDOFReduce::Process(FRenderingCompositePassContext& Context)
 				DispatchCtx->OutBackgroundScatterDrawList, ScatterDrawListBuffer[1]->UAV);
 
 			SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->MinScatteringCocRadius, Params.MinScatteringCocRadius);
+
+			float NeighborCompareMaxColor = CVarScatterNeighborCompareMaxColor.GetValueOnRenderThread();
+			SetShaderValue(Context.RHICmdList, DispatchCtx.ShaderRHI, DispatchCtx->NeighborCompareMaxColor, NeighborCompareMaxColor);
 		}
 
 		DispatchCtx.Dispatch();
@@ -1700,6 +1754,7 @@ FPooledRenderTargetDesc FRCPassDiaphragmDOFHybridScatter::ComputeOutputDesc(EPas
 	PARAMETER(FSceneTextureShaderParameters, SceneTextureParameters) \
 	PARAMETER(FShaderParameter, TemporalJitterPixels) \
 	PARAMETER(FShaderParameter, CocModelParameters) \
+	PARAMETER(FShaderParameter, DepthBlurParameters) \
 	PARAMETER(FShaderParameter, DOFBufferUVMax) \
 
 class FPostProcessDiaphragmDOFRecombineCS : public FPostProcessDiaphragmDOFShader

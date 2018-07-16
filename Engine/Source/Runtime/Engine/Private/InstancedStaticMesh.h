@@ -63,7 +63,6 @@ public:
 	 * @param Other - instance data, this call assumes the memory, so this will be empty after the call
 	 */
 	ENGINE_API void InitFromPreallocatedData(FStaticMeshInstanceData& Other);
-	ENGINE_API void UpdateFromPreallocatedData_Concurrent(FStaticMeshInstanceData& Other);
 	ENGINE_API void UpdateFromCommandBuffer_Concurrent(FInstanceUpdateCmdBuffer& CmdBuffer);
 
 	/** Serializer. */
@@ -107,7 +106,7 @@ public:
 
 public:
 	/** The vertex data storage type */
-	TUniquePtr<FStaticMeshInstanceData> InstanceData;
+	TSharedPtr<FStaticMeshInstanceData, ESPMode::ThreadSafe> InstanceData;
 
 	/** Keep CPU copy of instance data*/
 	bool RequireCPUAccess;
@@ -382,13 +381,15 @@ struct FPerInstanceRenderData
 	*/
 	ENGINE_API void UpdateFromCommandBuffer(FInstanceUpdateCmdBuffer& CmdBuffer);
 
-	/** Instance buffer */
-	FStaticMeshInstanceBuffer			InstanceBuffer;
 	/** Hit proxies for the instances */
 	TArray<TRefCountPtr<HHitProxy>>		HitProxies;
 
 	/** cached per-instance resource size*/
 	SIZE_T								ResourceSize;
+
+	/** Instance buffer */
+	FStaticMeshInstanceBuffer			InstanceBuffer;
+	TSharedPtr<FStaticMeshInstanceData, ESPMode::ThreadSafe> InstanceBuffer_GameThread;
 };
 
 

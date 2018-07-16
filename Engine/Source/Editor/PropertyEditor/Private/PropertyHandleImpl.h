@@ -147,14 +147,19 @@ public:
 	void SetOnChildPropertyValueChanged( const FSimpleDelegate& InOnChildPropertyValueChanged );
 
 	/**
-	* Sets a delegate to call when the property value is about to change
-	*/
+	 * Sets a delegate to call when the property value is about to change
+	 */
 	void SetOnPropertyValuePreChange(const FSimpleDelegate& InOnPropertyValuePreChange);
 
 	/**
-	* Sets a delegate to call when the propery value of a child is about to change
-	*/
+	 * Sets a delegate to call when the propery value of a child is about to change
+	 */
 	void SetOnChildPropertyValuePreChange(const FSimpleDelegate& InOnChildPropertyValuePreChange);
+
+	/**
+	 * Sets a delegate to call when a property is reset to default
+	 */
+	void SetOnPropertyResetToDefault(const FSimpleDelegate& InOnPropertyResetToDefault);
 
 	/**
 	 * Sets a delegate to call when children of the property node must be rebuilt
@@ -431,6 +436,8 @@ public:
 	virtual void SetOnChildPropertyValueChanged( const FSimpleDelegate& InOnPropertyValueChanged ) override;
 	virtual void SetOnPropertyValuePreChange(const FSimpleDelegate& InOnPropertyValuePreChange) override;
 	virtual void SetOnChildPropertyValuePreChange(const FSimpleDelegate& InOnPropertyValuePreChange) override;
+	virtual void SetOnPropertyResetToDefault(const FSimpleDelegate& InOnPropertyResetToDefault) override;
+
 	virtual int32 GetIndexInArray() const override;
 	virtual FPropertyAccess::Result GetValueAsFormattedString( FString& OutValue, EPropertyPortFlags PortFlags = PPF_PropertyWindow ) const override;
 	virtual FPropertyAccess::Result GetValueAsDisplayString( FString& OutValue, EPropertyPortFlags PortFlags = PPF_PropertyWindow) const override;

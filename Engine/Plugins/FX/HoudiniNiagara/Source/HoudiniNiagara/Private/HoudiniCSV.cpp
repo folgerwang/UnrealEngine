@@ -473,6 +473,11 @@ bool UHoudiniCSV::ParseCSVTitleRow( const FString& TitleRow, const FString& Firs
 			if (!IsValidAttributeColumnIndex(EHoudiniAttributes::TYPE))
 				SpecialAttributesColumnIndexes[EHoudiniAttributes::TYPE] = n;
 		}
+		else if ( CurrentTitle.Equals(TEXT("impulse"), ESearchCase::IgnoreCase ) )
+		{
+			if (!IsValidAttributeColumnIndex(EHoudiniAttributes::IMPULSE))
+				SpecialAttributesColumnIndexes[EHoudiniAttributes::IMPULSE] = n;
+		}
     }
 
 	// Read the first row of the CSV file, and look for packed vectors value (X,Y,Z)
@@ -524,14 +529,9 @@ bool UHoudiniCSV::ParseCSVTitleRow( const FString& TitleRow, const FString& Firs
 		// Extract the special attributes column indexes we found
 		int32 PositionColumnIndex = GetAttributeColumnIndex(EHoudiniAttributes::POSITION);
 		int32 NormalColumnIndex = GetAttributeColumnIndex(EHoudiniAttributes::NORMAL);
-		int32 TimeColumnIndex = GetAttributeColumnIndex(EHoudiniAttributes::TIME);
-		int32 IDColumnIndex = GetAttributeColumnIndex(EHoudiniAttributes::POINTID);
-		int32 AliveColumnIndex = GetAttributeColumnIndex(EHoudiniAttributes::ALIVE);
-		int32 LifeColumnIndex = GetAttributeColumnIndex(EHoudiniAttributes::LIFE);
 		int32 ColorColumnIndex = GetAttributeColumnIndex(EHoudiniAttributes::COLOR);
 		int32 AlphaColumnIndex = GetAttributeColumnIndex(EHoudiniAttributes::ALPHA);
-		int32 VelocityColumnIndex = GetAttributeColumnIndex(EHoudiniAttributes::VELOCITY);
-		int32 TypeColumnIndex = GetAttributeColumnIndex(EHoudiniAttributes::TYPE);
+		int32 VelocityColumnIndex = GetAttributeColumnIndex(EHoudiniAttributes::VELOCITY);		
 
 		// Expand TitleRowArray
 		if ( ( FoundPackedVectorColumnIndex == PositionColumnIndex ) && ( FoundVectorSize == 3 ) )
@@ -759,6 +759,18 @@ bool UHoudiniCSV::GetVelocityValue( const int32& rowIndex, FVector& value ) cons
 		return false;
 
 	value = V;
+
+	return true;
+}
+
+// Returns an impulse value for a given point in the CSV file
+bool UHoudiniCSV::GetImpulseValue(const int32& rowIndex, float& value) const
+{
+	float temp;
+	if (!GetFloatValue(rowIndex, GetAttributeColumnIndex(EHoudiniAttributes::IMPULSE), temp))
+		return false;
+
+	value = temp;
 
 	return true;
 }
@@ -1243,6 +1255,9 @@ UHoudiniCSV::GetAssetRegistryTags(TArray< FAssetRegistryTag > & OutTags) const
 
 	if (IsValidAttributeColumnIndex(EHoudiniAttributes::NORMAL))
 		SpecialAttr += TEXT("Normal ");
+
+	if (IsValidAttributeColumnIndex(EHoudiniAttributes::IMPULSE))
+		SpecialAttr += TEXT("Impulse ");
 
 	if (IsValidAttributeColumnIndex(EHoudiniAttributes::VELOCITY))
 		SpecialAttr += TEXT("Velocity ");

@@ -432,6 +432,8 @@ void FPaintModePainter::PropagateVertexColorsToLODs()
 		}
 		else
 		{
+			// Reset the state flag as we'll be removing all per-lod colors 
+			bSelectionContainsPerLODColors = false;
 			//Remove painting on all lowers LODs before doing the propagation
 			for (UMeshComponent* SelectedComponent : PaintableComponents)
 			{
@@ -636,10 +638,10 @@ void FPaintModePainter::RegisterCommands(TSharedRef<FUICommandList> CommandList)
 			PaintSettings->VertexPaintSettings.EraseColor = Temp;
 		}
 	}));
-
+	
 	CommandList->MapAction(Commands.CycleToNextLOD, FExecuteAction::CreateRaw(this, &FPaintModePainter::CycleMeshLODs, 1));
 	CommandList->MapAction(Commands.CycleToPreviousLOD, FExecuteAction::CreateRaw(this, &FPaintModePainter::CycleMeshLODs, -1));
-
+	
 	/** Map commit texture painting to commiting all the outstanding paint changes */
 	auto CanCommitLambda = [this]() -> bool { return GetNumberOfPendingPaintChanges() > 0; };
 	CommandList->MapAction(Commands.CommitTexturePainting, FExecuteAction::CreateLambda([this]() { CommitAllPaintedTextures(); }), FCanExecuteAction::CreateLambda([this]() -> bool { return GetNumberOfPendingPaintChanges() > 0; }));
@@ -1115,7 +1117,7 @@ void FPaintModePainter::LODPaintStateChanged(const bool bLODPaintingEnabled)
 {
 	checkf(PaintSettings->PaintMode == EPaintMode::Vertices, TEXT("Can only change this state in vertex paint mode"));
 	bool AbortChange = false;
-	
+
 	// Set actual flag in the settings struct
 	PaintSettings->VertexPaintSettings.bPaintOnSpecificLOD = bLODPaintingEnabled;
 
@@ -1711,12 +1713,6 @@ void FPaintModePainter::FinishPaintingTexture()
 		PaintingTexture2D = nullptr;
 		TexturePaintingCurrentMeshComponent = nullptr;
 	}
-
-	if (bCachedForceLOD)
-	{
-		// Make assumption here that when we paint while having a forced lod the mesh will contain per-lod vertex colors after this
-		bSelectionContainsPerLODColors = true;
-	}
 }
 
 FPaintTexture2DData* FPaintModePainter::GetPaintTargetData(const UTexture2D* InTexture)
@@ -1999,16 +1995,16 @@ void FPaintModePainter::PropagateVertexColorsToAsset()
 				// Will not be guaranteed to match render data as user can paint to a specific LOD index
 				if (Component->LODData.IsValidIndex(LODIndex))
 				{
-					FStaticMeshComponentLODInfo& InstanceMeshLODInfo = Component->LODData[LODIndex];
-					if (InstanceMeshLODInfo.OverrideVertexColors)
-					{
-						Mesh->Modify();
-						// Try using the mapping generated when building the mesh.
-						if (MeshPaintHelpers::PropagateColorsToRawMesh(Mesh, LODIndex, InstanceMeshLODInfo))
-						{
-							SomePaintWasPropagated = true;
-						}
-					}
+				  FStaticMeshComponentLODInfo& InstanceMeshLODInfo = Component->LODData[LODIndex];
+				  if (InstanceMeshLODInfo.OverrideVertexColors)
+				  {
+					  Mesh->Modify();
+					  // Try using the mapping generated when building the mesh.
+					  if (MeshPaintHelpers::PropagateColorsToRawMesh(Mesh, LODIndex, InstanceMeshLODInfo))
+					  {
+						  SomePaintWasPropagated = true;
+					  }
+				  }
 				}
 			}
 

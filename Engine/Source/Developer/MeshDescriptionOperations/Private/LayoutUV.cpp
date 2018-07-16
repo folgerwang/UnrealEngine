@@ -11,7 +11,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogMeshDescriptionLayoutUV, Warning, All);
 #define CHART_JOINING	1
 namespace MeshDescriptionOp
 {
-	FLayoutUV::FLayoutUV(UMeshDescription* InMesh, uint32 InSrcChannel, uint32 InDstChannel, uint32 InTextureResolution)
+	FLayoutUV::FLayoutUV(FMeshDescription& InMesh, uint32 InSrcChannel, uint32 InDstChannel, uint32 InTextureResolution)
 		: MeshDescription(InMesh)
 		, SrcChannel(InSrcChannel)
 		, DstChannel(InDstChannel)
@@ -30,9 +30,9 @@ namespace MeshDescriptionOp
 		double Begin = FPlatformTime::Seconds();
 
 		uint32 NumTris = 0;
-		for (const FPolygonID& PolygonID : MeshDescription->Polygons().GetElementIDs())
+		for (const FPolygonID PolygonID : MeshDescription.Polygons().GetElementIDs())
 		{
-			NumTris += MeshDescription->GetPolygonTriangles(PolygonID).Num();
+			NumTris += MeshDescription.GetPolygonTriangles(PolygonID).Num();
 		}
 		uint32 NumIndexes = NumTris * 3;
 
@@ -42,12 +42,12 @@ namespace MeshDescriptionOp
 		int32 WedgeIndex = 0;
 		RemapVerts.SetNumUninitialized(NumIndexes);
 
-		const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, SrcChannel);
+		const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, SrcChannel);
 
-		for (const FPolygonID& PolygonID : MeshDescription->Polygons().GetElementIDs())
+		for (const FPolygonID PolygonID : MeshDescription.Polygons().GetElementIDs())
 		{
-			const TArray<FMeshTriangle>& Triangles = MeshDescription->GetPolygonTriangles(PolygonID);
-			for (const FMeshTriangle& MeshTriangle : Triangles)
+			const TArray<FMeshTriangle>& Triangles = MeshDescription.GetPolygonTriangles(PolygonID);
+			for (const FMeshTriangle MeshTriangle : Triangles)
 			{
 				for (int32 Corner = 0; Corner < 3; ++Corner)
 				{
@@ -177,7 +177,7 @@ namespace MeshDescriptionOp
 
 		TMap< uint32, int32 > DisjointSetToChartMap;
 
-		const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+		const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
 
 		// Build Charts
 		for (uint32 Tri = 0; Tri < NumTris; )
@@ -206,7 +206,7 @@ namespace MeshDescriptionOp
 					uint32 Index = 3 * SortedTris[Tri] + k;
 
 					FVertexInstanceID VertexInstanceID(RemapVerts[Index]);
-					Positions[k] = VertexPositions[MeshDescription->GetVertexInstanceVertex(VertexInstanceID)];
+					Positions[k] = VertexPositions[MeshDescription.GetVertexInstanceVertex(VertexInstanceID)];
 					UVs[k] = TexCoords[Index];
 
 					Chart.MinUV.X = FMath::Min(Chart.MinUV.X, UVs[k].X);
@@ -1069,14 +1069,14 @@ namespace MeshDescriptionOp
 	void FLayoutUV::CommitPackedUVs()
 	{
 		// If current DstChannel is out of range of the number of UVs defined by the mesh description, change the index count accordingly
-		const uint32 NumUVs = MeshDescription->VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+		const uint32 NumUVs = MeshDescription.VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 		if (DstChannel >= NumUVs)
 		{
-			MeshDescription->VertexInstanceAttributes().SetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, DstChannel + 1);
+			MeshDescription.VertexInstanceAttributes().SetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, DstChannel + 1);
 			ensure(false);	// not expecting it to get here
 		}
 
-		TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, DstChannel);
+		TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, DstChannel);
 
 		// Commit chart UVs
 		for (int32 i = 0; i < Charts.Num(); i++)

@@ -939,6 +939,30 @@ void UMaterial::GetUsedTextures(TArray<UTexture*>& OutTextures, EMaterialQuality
 						}
 					}
 				}
+#if WITH_EDITOR
+				// Also look for any scalar parameters that are acting as lookups for an atlas texture, and store the atlas texture
+				const TArray<TRefCountPtr<FMaterialUniformExpression> >* AtlasExpressions[1] =
+				{
+					&CurrentResource->GetUniformScalarParameterExpressions()
+				};
+				for (int32 TypeIndex = 0; TypeIndex < ARRAY_COUNT(AtlasExpressions); TypeIndex++)
+				{
+					// Iterate over each of the material's texture expressions.
+					for (FMaterialUniformExpression* Expression : *AtlasExpressions[TypeIndex])
+					{
+						const FMaterialUniformExpressionScalarParameter* ScalarExpression = static_cast<const FMaterialUniformExpressionScalarParameter*>(Expression);
+						bool bIsUsedAsAtlasPosition;
+						TSoftObjectPtr<class UCurveLinearColor> Curve;
+						TSoftObjectPtr<class UCurveLinearColorAtlas> Atlas;
+						ScalarExpression->GetGameThreadUsedAsAtlas(this, bIsUsedAsAtlasPosition, Curve, Atlas);
+
+						if (Atlas)
+						{
+							OutTextures.AddUnique(Atlas.Get());
+						}
+					}
+				}
+#endif 
 			}
 		}
 	}

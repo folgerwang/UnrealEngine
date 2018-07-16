@@ -58,6 +58,12 @@ struct CORE_API FReleaseObjectVersion
 		// Default values on pins in blueprints could be saved incoherently
 		PinDefaultValuesVerified,
 
+		// During copy and paste transition getters could end up with broken state machine references
+		FixBrokenStateMachineReferencesInTransitionGetters,
+
+		// Change to MeshDescription serialization
+		MeshDescriptionNewSerialization,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

@@ -6,6 +6,14 @@ namespace UnrealBuildTool.Rules
 	{
 		public MediaFrameworkUtilities(ReadOnlyTargetRules Target) : base(Target)
 		{
+			PublicDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"OpenCVLensDistortion",
+					"TimeManagement",
+				}
+			);
+
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{
@@ -16,6 +24,11 @@ namespace UnrealBuildTool.Rules
 					"MediaAssets",
 					"MediaUtils",
 				});
+
+			if (Target.bBuildEditor == true)
+			{
+				PrivateDependencyModuleNames.Add("UnrealEd");
+			}
 		}
 	}
 }

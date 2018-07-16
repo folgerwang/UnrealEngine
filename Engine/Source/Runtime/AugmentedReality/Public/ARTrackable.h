@@ -6,6 +6,7 @@
 #include "ARTrackable.generated.h"
 
 class FARSystemBase;
+class UAREnvironmentCaptureProbeTexture;
 
 UCLASS(BlueprintType)
 class AUGMENTEDREALITY_API UARTrackedGeometry : public UObject
@@ -142,6 +143,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
 	UARCandidateImage* GetDetectedImage() const { return DetectedImage; };
 
+	/** Whether the image is currently being tracked by the AR system */
+	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality|Face Geometry")
+	bool bIsTracked;
+
 private:
 	/** The candidate image that was detected in the scene */
 	UPROPERTY()
@@ -218,11 +223,29 @@ enum class EARFaceBlendShape : uint8
 	// Nose blend shapes
 	NoseSneerLeft,
 	NoseSneerRight,
+//@joeg -- Tongue blend shape support
+	TongueOut,
 	// Treat the head rotation as curves for LiveLink support
 	HeadYaw,
 	HeadPitch,
 	HeadRoll,
+//@joeg -- Eye tracking support
+	// Treat eye rotation as curves for LiveLink support
+	LeftEyeYaw,
+	LeftEyePitch,
+	LeftEyeRoll,
+	RightEyeYaw,
+	RightEyePitch,
+	RightEyeRoll,
 	MAX
+};
+
+//@joeg -- Eye tracking support
+UENUM(BlueprintType, Category="AR AugmentedReality", meta=(Experimental))
+enum class EAREye : uint8
+{
+	LeftEye,
+	RightEye
 };
 
 typedef TMap<EARFaceBlendShape, float> FARBlendShapeMap;
@@ -233,7 +256,7 @@ class AUGMENTEDREALITY_API UARFaceGeometry : public UARTrackedGeometry
 	GENERATED_BODY()
 	
 public:
-	void UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InTransform, const FTransform& InAlignmentTransform, FARBlendShapeMap& InBlendShapes, TArray<FVector>& InVertices, const TArray<int32>& Indices);
+	void UpdateFaceGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InTransform, const FTransform& InAlignmentTransform, FARBlendShapeMap& InBlendShapes, TArray<FVector>& InVertices, const TArray<int32>& Indices, const FTransform& InLeftEyeTransform, const FTransform& InRightEyeTransform, const FVector& InLookAtTarget);
 	
 	virtual void DebugDraw( UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds = 0.0f) const override;
 	
@@ -250,6 +273,20 @@ public:
 	const TArray<int32>& GetIndexBuffer() const { return IndexBuffer; }
 	const TArray<FVector2D>& GetUVs() const { return UVs; }
 	
+	UFUNCTION(BlueprintPure, Category="AR AugmentedReality|Face Geometry")
+	const FTransform& GetLocalSpaceEyeTransform(EAREye Eye) const;
+
+	UFUNCTION(BlueprintPure, Category="AR AugmentedReality|Face Geometry")
+	FTransform GetWorldSpaceEyeTransform(EAREye Eye) const;
+
+	/** The target the eyes are looking at */
+	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality|Face Geometry")
+	FVector LookAtTarget;
+
+	/** Whether the face is currently being tracked by the AR system */
+	UPROPERTY(BlueprintReadOnly, Category="AR AugmentedReality|Face Geometry")
+	bool bIsTracked;
+
 private:
 	UPROPERTY()
 	TMap<EARFaceBlendShape, float> BlendShapes;
@@ -259,4 +296,63 @@ private:
 	TArray<int32> IndexBuffer;
 	// @todo JoeG - route the uvs in
 	TArray<FVector2D> UVs;
+
+//@joeg -- Eye tracking support
+	/** The transform for the left eye */
+	FTransform LeftEyeTransform;
+	/** The transform for the right eye */
+	FTransform RightEyeTransform;
+};
+
+//@joeg -- Added environmental texture probe support
+/** A tracked environment texture probe that gives you a cube map for reflections */
+UCLASS(BlueprintType)
+class AUGMENTEDREALITY_API UAREnvironmentCaptureProbe :
+	public UARTrackedGeometry
+{
+	GENERATED_BODY()
+	
+public:
+	UAREnvironmentCaptureProbe();
+	
+	/** Draw a box visulizing the bounds of the probe */
+	virtual void DebugDraw(UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds = 0.0f) const override;
+	
+	void UpdateEnvironmentCapture(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, FVector InExtent);
+
+	/** @see Extent */
+	UFUNCTION(BlueprintPure, Category="AR AugmentedReality|Environment Capture Probe")
+	FVector GetExtent() const;
+	/** @see EnvironmentCaptureTexture */
+	UFUNCTION(BlueprintPure, Category="AR AugmentedReality|Environment Capture Probe")
+	UAREnvironmentCaptureProbeTexture* GetEnvironmentCaptureTexture();
+
+protected:
+	/** The size of area this probe covers */
+	FVector Extent;
+
+	/** The cube map of the reflected environment */
+	UPROPERTY()
+	UAREnvironmentCaptureProbeTexture* EnvironmentCaptureTexture;
+};
+
+//@joeg -- Added for object detection
+UCLASS(BlueprintType)
+class AUGMENTEDREALITY_API UARTrackedObject : public UARTrackedGeometry
+{
+	GENERATED_BODY()
+	
+public:
+	virtual void DebugDraw(UWorld* World, const FLinearColor& OutlineColor, float OutlineThickness, float PersistForSeconds = 0.0f) const override;
+	
+	void UpdateTrackedGeometry(const TSharedRef<FARSystemBase, ESPMode::ThreadSafe>& InTrackingSystem, uint32 FrameNumber, double Timestamp, const FTransform& InLocalToTrackingTransform, const FTransform& InAlignmentTransform, UARCandidateObject* InDetectedObject);
+	
+	/** @see DetectedObject */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Object Detection")
+	UARCandidateObject* GetDetectedObject() const { return DetectedObject; };
+	
+private:
+	/** The candidate object that was detected in the scene */
+	UPROPERTY()
+	UARCandidateObject* DetectedObject;
 };

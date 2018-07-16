@@ -14,6 +14,7 @@
 #include "Misc/Guid.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/App.h"
+#include "Misc/DataDrivenPlatformInfoRegistry.h"
 #include "Misc/EngineVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPaths, Log, All);
@@ -303,6 +304,11 @@ FString FPaths::ProjectModsDir()
 	return FPaths::ProjectDir() + TEXT("Mods/");
 }
 
+bool FPaths::HasProjectPersistentDownloadDir()
+{
+	return FPlatformMisc::HasProjectPersistentDownloadDir();
+}
+
 FString FPaths::ProjectPersistentDownloadDir()
 {
 	return FPlatformMisc::GamePersistentDownloadDir();
@@ -541,6 +547,66 @@ const TArray<FString>& FPaths::GetGameLocalizationPaths()
 
 
 	return Results;
+}
+
+const TArray<FString>& FPaths::GetRestrictedFolderNames()
+{
+	static bool bBuiltArray = false;
+	static TArray<FString> RestrictedFolderNames;
+
+	if (!bBuiltArray)
+	{
+		RestrictedFolderNames.Add(TEXT("NotForLicensees"));
+		RestrictedFolderNames.Add(TEXT("NoRedist"));
+		RestrictedFolderNames.Add(TEXT("CarefullyRedist"));
+		RestrictedFolderNames.Add(TEXT("EpicInternal"));
+
+		// Add confidential platforms
+		for (const FString& PlatformStr : FDataDrivenPlatformInfoRegistry::GetConfidentialPlatforms())
+		{
+			RestrictedFolderNames.Add(PlatformStr);
+		}
+
+		bBuiltArray = true;
+	}
+
+	return RestrictedFolderNames;
+}
+
+bool FPaths::IsRestrictedPath(const FString& InPath)
+{
+	static bool bBuiltArray = false;
+	static TArray<FString> RestrictedSlashedFolders;
+
+	if (!bBuiltArray)
+	{
+		// Add leading and trailing slashes to restricted folder names.
+		FString LeadingSlash(TEXT("/"));
+
+		for (const FString& FolderStr : GetRestrictedFolderNames())
+		{
+			RestrictedSlashedFolders.Add(LeadingSlash + FolderStr + TEXT('/'));
+		}
+
+		bBuiltArray = true;
+	}
+
+	// Normalize path
+	FString NormalizedPath(InPath);
+	NormalizeFilename(NormalizedPath);
+
+	// Ensure trailing forward slash
+	NormalizedPath /= FString();
+
+	for (const FString& SubDir : RestrictedSlashedFolders)
+	{
+		if (NormalizedPath.Contains(SubDir))
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 FString FPaths::GameAgnosticSavedDir()

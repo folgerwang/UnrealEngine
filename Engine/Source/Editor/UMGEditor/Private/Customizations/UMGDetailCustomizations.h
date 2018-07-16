@@ -39,6 +39,10 @@ private:
 	void CreateMulticastEventCustomization(IDetailLayoutBuilder& DetailLayout, FName ThisComponentName, UClass* PropertyClass, UMulticastDelegateProperty* Property);
 
 	void ResetToDefault_RemoveBinding(TSharedPtr<IPropertyHandle> PropertyHandle);
+
+	FReply HandleAddOrViewEventForVariable(const FName EventName, FName PropertyName, TWeakObjectPtr<UClass> PropertyClass);
+
+	int32 HandleAddOrViewIndexForButton(const FName EventName, FName PropertyName) const;
 private:
 
 	TWeakPtr<FWidgetBlueprintEditor> Editor;

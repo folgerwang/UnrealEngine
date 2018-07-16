@@ -306,6 +306,11 @@ UNiagaraStackEntry::FOnRequestFullRefresh& UNiagaraStackEntry::OnRequestFullRefr
 	return RequestFullRefreshDelegate;
 }
 
+UNiagaraStackEntry::FOnRequestFullRefresh& UNiagaraStackEntry::OnRequestFullRefreshDeferred()
+{
+	return RequestFullRefreshDeferredDelegate;
+}
+
 int32 UNiagaraStackEntry::GetIndentLevel() const
 {
 	return IndentLevel;
@@ -410,6 +415,7 @@ void UNiagaraStackEntry::RefreshChildren()
 		Child->OnStructureChanged().RemoveAll(this);
 		Child->OnDataObjectModified().RemoveAll(this);
 		Child->OnRequestFullRefresh().RemoveAll(this);
+		Child->OnRequestFullRefreshDeferred().RemoveAll(this);
 		Child->SetOnRequestCanDrop(FOnRequestDrop());
 		Child->SetOnRequestDrop(FOnRequestDrop());
 	}
@@ -418,6 +424,7 @@ void UNiagaraStackEntry::RefreshChildren()
 		ErrorChild->OnStructureChanged().RemoveAll(this);
 		ErrorChild->OnDataObjectModified().RemoveAll(this);
 		ErrorChild->OnRequestFullRefresh().RemoveAll(this);
+		ErrorChild->OnRequestFullRefreshDeferred().RemoveAll(this);
 		ErrorChild->OnIssueModified().RemoveAll(this);
 	}
 
@@ -445,6 +452,7 @@ void UNiagaraStackEntry::RefreshChildren()
 		Child->OnStructureChanged().AddUObject(this, &UNiagaraStackEntry::ChildStructureChanged);
 		Child->OnDataObjectModified().AddUObject(this, &UNiagaraStackEntry::ChildDataObjectModified);
 		Child->OnRequestFullRefresh().AddUObject(this, &UNiagaraStackEntry::ChildRequestFullRefresh);
+		Child->OnRequestFullRefreshDeferred().AddUObject(this, &UNiagaraStackEntry::ChildRequestFullRefreshDeferred);
 		Child->SetOnRequestCanDrop(FOnRequestDrop::CreateUObject(this, &UNiagaraStackEntry::ChildRequestCanDrop));
 		Child->SetOnRequestDrop(FOnRequestDrop::CreateUObject(this, &UNiagaraStackEntry::ChildRequestDrop));
 	}
@@ -462,6 +470,7 @@ void UNiagaraStackEntry::RefreshChildren()
 		ErrorChild->OnStructureChanged().AddUObject(this, &UNiagaraStackEntry::ChildStructureChanged);
 		ErrorChild->OnDataObjectModified().AddUObject(this, &UNiagaraStackEntry::ChildDataObjectModified);
 		ErrorChild->OnRequestFullRefresh().AddUObject(this, &UNiagaraStackEntry::ChildRequestFullRefresh);
+		ErrorChild->OnRequestFullRefreshDeferred().AddUObject(this, &UNiagaraStackEntry::ChildRequestFullRefreshDeferred);
 		ErrorChild->OnIssueModified().AddUObject(this, &UNiagaraStackEntry::IssueModified);
 	}
 
@@ -549,6 +558,11 @@ void UNiagaraStackEntry::ChildDataObjectModified(UObject* ChangedObject)
 void UNiagaraStackEntry::ChildRequestFullRefresh()
 {
 	RequestFullRefreshDelegate.Broadcast();
+}
+
+void UNiagaraStackEntry::ChildRequestFullRefreshDeferred()
+{
+	RequestFullRefreshDeferredDelegate.Broadcast();
 }
 
 TOptional<UNiagaraStackEntry::FDropResult> UNiagaraStackEntry::ChildRequestCanDrop(const UNiagaraStackEntry& TargetChild, const TArray<UNiagaraStackEntry*>& DraggedEntries)

@@ -8,7 +8,8 @@ namespace UnrealBuildTool.Rules
 		{
 			PublicDependencyModuleNames.AddRange(
 				new string[] {
-					"AjaMedia"
+					"AjaMedia",
+					"MediaIOCore",
 				});
 
 			PrivateIncludePaths.AddRange(
@@ -25,7 +26,6 @@ namespace UnrealBuildTool.Rules
 					"Core",
 					"CoreUObject",
 					"Engine",
-                    "MediaIOCore",
                     "MovieSceneCapture",
 					"RenderCore",
 					"RHI",

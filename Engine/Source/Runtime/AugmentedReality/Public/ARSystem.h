@@ -120,6 +120,20 @@ public:
 	/** @return the last camera depth information the AR system has seen */
 	virtual UARTextureCameraDepth* OnGetCameraDepth() = 0;
 
+//@joeg -- ARKit 2.0 additions
+	/** Tells the ARSystem to generate a capture probe at the specified location if supported */
+	virtual bool OnAddManualEnvironmentCaptureProbe(FVector Location, FVector Extent) = 0;
+	
+	/** Generates a UARCandidateObject from the point cloud data within the location and its extent using an async task */
+	virtual TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> OnGetCandidateObject(FVector Location, FVector Extent) const = 0;
+
+	/** Saves the AR world to a byte array using an async task */
+	virtual TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> OnSaveWorld() const = 0;
+	
+	/** @return the current mapping status */
+	virtual EARWorldMappingState OnGetWorldMappingStatus() const = 0;
+//@joeg -- End additions
+	
 public:
 	virtual ~IARSystemSupport(){}
 };
@@ -179,6 +193,18 @@ public:
 	UARTextureCameraImage* GetCameraImage();
 	/** \see UARBlueprintLibrary::GetCameraDepth() */
 	UARTextureCameraDepth* GetCameraDepth();
+//@joeg -- ARKit 2.0 additions
+	/**\see UARBlueprintLibrary::IsEnvironmentCaptureSupported() */
+	bool IsEnvironmentCaptureSupported() const;
+	/**\see UARBlueprintLibrary::AddEnvironmentCaptureProbe() */
+	bool AddManualEnvironmentCaptureProbe(FVector Location, FVector Extent);
+	/** Creates an async task that will perform the work in the background */
+	TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> GetCandidateObject(FVector Location, FVector Extent) const;
+	/** Creates an async task that will perform the work in the background */
+	TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> SaveWorld() const;
+	/** @return the current mapping status */
+	EARWorldMappingState GetWorldMappingStatus() const;
+//@joeg -- End additions
 
 	/** \see UARBlueprintLibrary::GetCurrentLightEstimate() */
 	UARLightEstimate* GetCurrentLightEstimate() const;

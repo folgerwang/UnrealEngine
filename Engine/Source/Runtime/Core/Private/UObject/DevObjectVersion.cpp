@@ -5,6 +5,7 @@
 #include "UObject/BuildObjectVersion.h"
 #include "UObject/CoreObjectVersion.h"
 #include "UObject/EditorObjectVersion.h"
+#include "UObject/EnterpriseObjectVersion.h"
 #include "UObject/FrameworkObjectVersion.h"
 #include "UObject/MobileObjectVersion.h"
 #include "UObject/NetworkingObjectVersion.h"
@@ -139,3 +140,8 @@ FDevVersionRegistration GRegisterAutomationObjectVersion(FAutomationObjectVersio
 const FGuid FFortniteMainBranchObjectVersion::GUID(0x601D1886, 0xAC644F84, 0xAA16D3DE, 0x0DEAC7D6);
 // Register Fortnite Main custom version with Core
 FDevVersionRegistration GRegisterFortniteMainBranchObjectVersion(FFortniteMainBranchObjectVersion::GUID, FFortniteMainBranchObjectVersion::LatestVersion, TEXT("FortniteMain"));
+
+// Unique Enterprise Object version id
+const FGuid FEnterpriseObjectVersion::GUID(0x9DFFBCD6, 0x494F0158, 0xE2211282, 0x3C92A888);
+// Register Enterprise custom version with Core
+FDevVersionRegistration GRegisterEnterpriseObjectVersion(FEnterpriseObjectVersion::GUID, FEnterpriseObjectVersion::LatestVersion, TEXT("Dev-Enterprise"));

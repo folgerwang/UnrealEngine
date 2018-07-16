@@ -53,21 +53,18 @@
 		<!-- Activate correct Target Platforms for host -->
 		<Switch>
 			<Case If="'$(HostPlatform)' == 'Win64'">
-				<Property Name="WithWin64" Value="true"/>
 				<Property Name="WithMac" Value="false"/>
 				<Property Name="WithLinux" Value="false"/>
 			</Case>
 			<Case If="'$(HostPlatform)' == 'Mac'">
 				<Property Name="WithWin64" Value="false"/>
 				<Property Name="WithWin32" Value="false"/>
-				<Property Name="WithMac" Value="true"/>
 				<Property Name="WithLinux" Value="false"/>
 			</Case>
 			<Case If="'$(HostPlatform)' == 'Linux'">
 				<Property Name="WithWin64" Value="false"/>
 				<Property Name="WithWin32" Value="false"/>
 				<Property Name="WithMac" Value="false"/>
-				<Property Name="WithLinux" Value="true"/>
 			</Case>
 			<Default>
 				<Error Message="$(HostPlatform) is not supported for making an installed build"/>
@@ -81,6 +78,7 @@
 		<Property Name="WithPS4" Value="false"/>
 		<Property Name="WithXboxOne" Value="false"/>
 		<Property Name="WithSwitch" Value="false"/>
+		<Property Name="WithLumin" Value="false"/>
 	</Do>
 
 	<!-- The local output directory -->
@@ -158,7 +156,7 @@
 	<!-- Base editor and tools for compile on Mac -->
 	<Agent Name="Editor Mac" Type="CompileMac;Mac">
 		<Node Name="Compile UnrealHeaderTool Mac" Requires="Update Version Files">
-			<Compile Target="UnrealHeaderTool" Platform="Mac" Configuration="Development" Arguments="-precompile"/>
+			<Compile Target="UnrealHeaderTool" Platform="Mac" Configuration="Development" Arguments="-precompile" If="'$(HostPlatform)' != 'Win64'"/>
 		</Node>
 		<Node Name="Compile UE4Editor Mac" Requires="Compile UnrealHeaderTool Mac" Produces="#UE4Editor Mac;#UE4Editor Mac Unstripped;#UE4Editor Mac Stripped;#UE4Editor Mac Unsigned;#UE4Editor Mac Signed;#UE4Editor Mac Includes">
 			<Compile Target="UE4Editor" Platform="Mac" Configuration="Development" Tag="#UE4Editor Mac" Arguments="-precompile"/>
@@ -427,18 +425,17 @@
 		</Node>
 		
 		<!-- Downstream monolithics and tools Lumin-->
-		<!--	
-		Temporarily removing until we have MLSDK setup on build machines 
 		<Node Name="Compile UE4Game LuminMac" Requires="Compile UnrealHeaderTool Mac" Produces="#UE4Game LuminMac;#UE4Game LuminMac Unstripped;#UE4Game LuminMac Stripped;#UE4Game LuminMac Includes">
-			<Compile Target="UE4Game" Platform="Lumin" Configuration="Development" Tag="#UE4Game LuminMac" Arguments="-precompile -architectures=$(AndroidArchitectures) -gpuarchitectures=$(LuminGPUArchitectures)" AllowParallelExecutor="false"/>
-			<Compile Target="UE4Game" Platform="Lumin" Configuration="Shipping" Tag="#UE4Game LuminMac" Arguments="-precompile -architectures=$(AndroidArchitectures) -gpuarchitectures=$(LuminGPUArchitectures)" AllowParallelExecutor="false"/>
 
+			<ForEach Name="Configuration" Values="$(GameConfigurations)">
+				<Compile Target="UE4Game" Platform="Lumin" Configuration="$(Configuration)" Tag="#UE4Game LuminMac" Arguments="-precompile -architectures=$(AndroidArchitectures) -gpuarchitectures=$(LuminGPUArchitectures) $(TargetDebugInfoArg)" AllowParallelExecutor="false"/>
+			</ForEach>
+			
 			<Tag Files="#UE4Game LuminMac" Filter="$(LuminStripFilter)" With="#UE4Game LuminMac Unstripped"/>
 			<Strip BaseDir="$(RootDir)" OutputDir="$(SavedOutput)" Platform="Lumin" Files="#UE4Game LuminMac Unstripped" Tag="#UE4Game LuminMac Stripped"/>
 
 			<Tag Files="Engine/Intermediate/Build/Lumin/UE4/Inc/...;Engine/Plugins/.../Intermediate/Build/Lumin/UE4/Inc/..." With="#UE4Game LuminMac Includes"/>
 		</Node>
-		-->
 	</Agent>
 
 	<Agent Name="Tools Group Win64" Type="CompileWin64;Win64">
@@ -483,6 +480,8 @@
 				<CsCompile Project="$(CsToolsDir)/Engine/Source/Programs/UnrealSwarm/SwarmCoordinator/SwarmCoordinator.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS Binaries;#Sign Binaries" TagReferences="#Build Tools CS Binaries"/>
 				<CsCompile Project="$(CsToolsDir)/Engine/Source/Programs/UnrealSwarm/Agent/Agent.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS Binaries;#Sign Binaries" TagReferences="#Build Tools CS Binaries"/>
 				<CsCompile Project="$(CsToolsDir)/Engine/Source/Editor/SwarmInterface/DotNET/SwarmInterface.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS Binaries;#Sign Binaries" TagReferences="#Build Tools CS Binaries"/>
+				<CsCompile Project="$(CsToolsDir)/Engine/Source/Programs/nDisplayLauncher/nDisplayLauncher.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS Binaries;#Sign Binaries" TagReferences="#Build Tools CS Binaries"/>
+				<CsCompile Project="$(CsToolsDir)/Engine/Source/Programs/nDisplayListener/nDisplayListener.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS Binaries;#Sign Binaries" TagReferences="#Build Tools CS Binaries"/>
 				<CsCompile Project="$(CsToolsDir)/Engine/Source/Programs/PS4/PS4DevKitUtil/PS4DevKitUtil.csproj" Configuration="Development" Platform="AnyCPU" Tag="#Build Tools CS Binaries;#Sign Binaries" TagReferences="#Build Tools CS Binaries" If="'$(WithPS4)' == true"/>
 				<CsCompile Project="$(CsToolsDir)/Engine/Source/Programs/PS4/PS4SymbolTool/PS4SymbolTool.csproj" Configuration="Release" Platform="AnyCPU" Tag="#Build Tools CS Binaries;#Sign Binaries" TagReferences="#Build Tools CS Binaries" If="'$(WithPS4)' == true"/>
 				<!-- TODO: Change these projects so that they can be compiled on non-windows platforms (currently use WinForms) -->
@@ -827,10 +826,7 @@
 		<Property Name="FilterRequirements" Value="$(FilterRequirements);#UE4Game IOS;#UE4Game IOS Unstripped;#UE4Game IOS Stripped;#UE4Game IOS Includes" If="'$(WithIOS)' == true"/>
 		<Property Name="FilterRequirements" Value="$(FilterRequirements);#UE4Game TVOS;#UE4Game TVOS Unstripped;#UE4Game TVOS Stripped;#UE4Game TVOS Includes" If="'$(WithTVOS)' == true"/>
 		<Property Name="FilterRequirements" Value="$(FilterRequirements);#UE4Game HTML5;#UE4Game HTML5 Includes" If="'$(WithHTML5)' == true"/>
-		<!--	
-		Temporarily removing until we have MLSDK setup on build machines 
 		<Property Name="FilterRequirements" Value="$(FilterRequirements);#UE4Game LuminMac;#UE4Game LuminMac Includes;#UE4Game LuminMac Unstripped;#UE4Game LuminMac Stripped;#UE4Game LuminMac Includes" If="'$(WithLumin)' == true"/> 
-		-->
 		<Property Name="FilterRequirements" Value="$(FilterRequirements);#CompressedDDCMac" If="'$(WithDDC)' == true"/>
 
 		<!-- Feature packs -->
@@ -881,15 +877,12 @@
 				<Property Name="CopyInstalledFilter" Value="$(CopyInstalledFilter);$(CopyHTML5Filter)"/>
 				<Property Name="CopyInstalledExceptions" Value="$(CopyInstalledExceptions);$(CopyHTML5Exceptions)"/>
 			</Do>
-			<!--	
-			Temporarily removing until we have MLSDK setup on build machines 
 			<Do If="'$(WithLumin)' == true">
 				<Tag Files="#UE4Game LuminMac;#UE4Game LuminMac Includes" Except="#UE4Game LuminMac Unstripped" With="#Installed Mac"/>
 				<Tag Files="#UE4Game LuminMac Stripped" With="#Saved Output"/>
 				<Property Name="CopyInstalledFilter" Value="$(CopyInstalledFilter);$(CopyLuminFilter)"/>
 				<Property Name="CopyInstalledExceptions" Value="$(CopyInstalledExceptions);$(CopyLuminExceptions)"/>
 			</Do>
-			-->
 
 			<!-- Tag any dependencies from all previous build products -->
 			<Tag Files="#Installed Mac" Filter="*.target" With="#TargetReceipts"/>

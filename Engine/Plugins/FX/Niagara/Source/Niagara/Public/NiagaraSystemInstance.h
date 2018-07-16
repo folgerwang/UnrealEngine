@@ -192,6 +192,9 @@ public:
 
 #endif
 
+	/** Dumps all of this systems info to the log. */
+	void Dump()const;
+
 private:
 	/** Builds the emitter simulations. */
 	void InitEmitters();

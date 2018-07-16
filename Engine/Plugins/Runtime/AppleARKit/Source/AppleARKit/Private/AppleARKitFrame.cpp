@@ -15,11 +15,30 @@ FAppleARKitFrame::FAppleARKitFrame()
 {
 };
 
+#if SUPPORTS_ARKIT_2_0
+EARWorldMappingState ToEARWorldMappingState(ARWorldMappingStatus MapStatus)
+{
+	switch (MapStatus)
+	{
+		case ARWorldMappingStatusLimited:
+			return EARWorldMappingState::StillMappingNotRelocalizable;
+
+		case ARWorldMappingStatusExtending:
+			return EARWorldMappingState::StillMappingRelocalizable;
+
+		case ARWorldMappingStatusMapped:
+			return EARWorldMappingState::Mapped;
+	}
+	return EARWorldMappingState::NotAvailable;
+}
+#endif
+
 #if SUPPORTS_ARKIT_1_0
 
 FAppleARKitFrame::FAppleARKitFrame( ARFrame* InARFrame, CVMetalTextureCacheRef MetalTextureCache )
   : Camera( InARFrame.camera )
   , LightEstimate( InARFrame.lightEstimate )
+	, WorldMappingState(EARWorldMappingState::NotAvailable)
 {
 	// Sanity check
 	check( InARFrame );
@@ -68,13 +87,21 @@ FAppleARKitFrame::FAppleARKitFrame( ARFrame* InARFrame, CVMetalTextureCacheRef M
 		check( CFGetRetainCount(CapturedCbCrImage) == 1);
 	}
 	// @todo JoeG -- finsih the depth capture
-	if (InARFrame.capturedDepthData)
+//@joeg -- Disabled due to crashing when accessing
+	if (0 && InARFrame.capturedDepthData)
 	{
 		CameraDepth = InARFrame.capturedDepthData;
 		CFRetain(CameraDepth);
 	}
 
 	NativeFrame = (void*)CFRetain(InARFrame);
+
+#if SUPPORTS_ARKIT_2_0
+	if (FAppleARKitAvailability::SupportsARKit20())
+	{
+		WorldMappingState = ToEARWorldMappingState(InARFrame.worldMappingStatus);
+	}
+#endif
 }
 
 FAppleARKitFrame::FAppleARKitFrame( const FAppleARKitFrame& Other )
@@ -89,6 +116,7 @@ FAppleARKitFrame::FAppleARKitFrame( const FAppleARKitFrame& Other )
   , CapturedCbCrImageHeight( Other.CapturedCbCrImageHeight )
   , Camera( Other.Camera )
   , LightEstimate( Other.LightEstimate )
+	, WorldMappingState(Other.WorldMappingState)
 {
 	if(Other.NativeFrame != nullptr)
 	{

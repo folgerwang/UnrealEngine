@@ -68,17 +68,57 @@ struct FPrivateKernelSharedScope
 	// Multiplier to transform sample count unit to sample position in pixels of GatherInput's mip level 0.
 	// Set at compile time to 1 when bKenrelHasEnoughSamples==true.
 	float SampleCountToSamplePosition;
-			
-	// CocRadius error caused by undersampling.
-	float CocRadiusError;
-
+	
 	// Sampling mip level for GatherInput.
 	float GatherInputMipLevel;
 
 	// GatherInput's max UVs.
 	// TODO: this is currently MipLevel  depent, but could save some VGPR by making it independent.
 	float2 GatherInputMaxUV;
+
+	// Multiplier to apply when computing sample intersection. Higher value sharpen, lower value feather.
+	float IntersectionMultiplier;
 };
+
+
+// Computes intersection of sample from its Coc and its distance.
+// Returns 0: no intersection, 1: intersection.
+float ComputeSampleIntersection(FPrivateKernelSharedScope KernelScope, float SampleCocRadius, float SampleDistance)
+{
+	// Intersection of output pixel's disk area with sample's Coc.
+	#if 1
+		// To have an intersection of 50% when the Sample's Coc radius == SampleDistance to be area conservative
+		// with bilinear sampled gathering or hybrid scattering.
+		const float Offset = 0.5;
+
+		#if DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
+			// Uses a sharper intersection for slight out of focus like Recombine pass since it is being used
+			// for full res temporal statbility clamping box, so the aliasing this may introduce at half res is
+			// Fine.
+			const float Multiplier = 4.0;
+		#else
+			const float Multiplier = KernelScope.IntersectionMultiplier;
+		#endif
+
+		return saturate((abs(SampleCocRadius) - SampleDistance) * Multiplier + Offset);
+
+	// Same as Circle DOF.
+	#elif 0
+		// 0.5 because Coc radius is at half res, and 0.5 so that the fallof is only the radius of a ful res pixel.
+		const float IntersectionSharpen = 0.5 * 0.5;
+
+		// TODO: missing +0.5 to be energy conservative.
+		return saturate((abs(SampleCocRadius) - SampleDistance) * IntersectionSharpen);
+
+	#else // Hard cut of.
+		if (SampleDistance > abs(SampleCocRadius))
+		{
+			return 0.0;
+		}
+		return 1.0;
+
+	#endif
+}
 
 
 // Returns the total number of sampling iteration for a given ring id.
@@ -111,7 +151,16 @@ uint GetKernelSampleCount(const uint KernelSamplingDensityMode, uint RingCount)
 // Fetch and unpack a sample from GatherInput.
 FGatherSample FetchGatherSample(in FPrivateKernelSharedScope KernelScope, float2 SampleUV)
 {
-	#if CONFIG_CLAMP_INPUT_BUFFER_UV
+	#if CONFIG_MIRRORED_SAMPLER
+	{
+		SampleUV = max(SampleUV, -SampleUV);
+		#if CONFIG_CLAMP_INPUT_BUFFER_UV
+			SampleUV = min(SampleUV, 2.0 * KernelScope.GatherInputMaxUV - SampleUV);
+		#else
+			SampleUV = min(SampleUV, 2.0 - SampleUV);
+		#endif
+	}
+	#elif CONFIG_CLAMP_INPUT_BUFFER_UV
 	{
 		SampleUV = min(SampleUV, KernelScope.GatherInputMaxUV);
 	}
@@ -172,7 +221,7 @@ void UpdateRuntimeKernelScope(
 	// Compute the mip level to sample.
 	#if CONFIG_MIP_LEVEL_METHOD == MIP_LEVEL_METHOD_INTERLEAVED_OFFSET	
 		// Compute random uniformly distributed on disk (centered, diameter = 1).
-		float2 RandomCircle = (0.5 * sqrt(GatherParameters.Random[0])) * float2(cos(2 * PI * GatherParameters.Random[1]), sin(2 * PI * GatherParameters.Random[1]));
+		float2 RandomCircle = (0.48 * sqrt(GatherParameters.Random[0])) * float2(cos(2 * PI * GatherParameters.Random[1]), sin(2 * PI * GatherParameters.Random[1]));
 
 		float MipLevel = floor(0.5 + log2(GatherParameters.KernelRadius * UnitSampleRadius));
 
@@ -203,8 +252,12 @@ void UpdateRuntimeKernelScope(
 	}
 
 	// Compute the randomising range of the kernel offset in pixels.
-	float KernelRandomRange = max((GatherParameters.KernelRadius - GATHER_HALF_RES_DIVISOR * GatherParameters.MaxRingCount) * UnitSampleRadius, 0.0);
-	
+	float KernelRandomRange = GatherParameters.KernelRadius * UnitSampleRadius;
+	if (static_condition(KernelScope.bBilinearSampleInput))
+	{
+		KernelRandomRange = max(GatherParameters.KernelRadius - GatherParameters.MaxRingCount - pow(2.0, uint(MipLevel)), 0.0) * UnitSampleRadius;
+	}
+
 	// No need to do kernel randomization when there is enough samples.
 	if (static_condition(KernelScope.bKenrelHasEnoughSamples))
 	{
@@ -214,10 +267,11 @@ void UpdateRuntimeKernelScope(
 	KernelScope.KernelCenterUV = GatherParameters.InputBufferCenterUV + (RandomCircle * KernelRandomRange) * PostprocessInput0Size.zw;
 
 	KernelScope.SampleCountToSamplePosition = GatherParameters.KernelRadius * UnitSampleRadius;
-	KernelScope.CocRadiusError = 0.5 * KernelRandomRange;
 
-	KernelScope.GatherInputMaxUV = (ViewportSize.xy - 0.5 * pow(2.0, uint(MipLevel))) * GatherParameters.DispatchThreadIdToInputBufferUV;
+	float MipTexelSize = pow(2.0, uint(MipLevel));
+	KernelScope.GatherInputMaxUV = (ViewportSize.xy - 0.5 * MipTexelSize) * GatherParameters.DispatchThreadIdToInputBufferUV;
 	KernelScope.GatherInputMipLevel = MipLevel;
+	KernelScope.IntersectionMultiplier = rcp(MipTexelSize);
 		
 	// When there is enough samples, the sample count measurement and the sample position measurement are same.
 	if (static_condition(KernelScope.bKenrelHasEnoughSamples))
@@ -229,9 +283,9 @@ void UpdateRuntimeKernelScope(
 	#if CONFIG_SGPR_HINTS
 	{
 		KernelScope.SampleCountToSamplePosition = ToScalarMemory(KernelScope.SampleCountToSamplePosition);
-		KernelScope.CocRadiusError = ToScalarMemory(KernelScope.CocRadiusError);
 		KernelScope.GatherInputMaxUV = ToScalarMemory(KernelScope.GatherInputMaxUV);
 		KernelScope.GatherInputMipLevel = ToScalarMemory(KernelScope.GatherInputMipLevel);
+		KernelScope.IntersectionMultiplier = ToScalarMemory(KernelScope.IntersectionMultiplier);
 	}
 	#endif
 }
@@ -265,6 +319,13 @@ void GatherRing(
 	inout FGatherAccumulator Accumulator,
 	inout FFastAccumulatorOutput FastAccumulator)
 {
+	// Gives hints to the compiler that these var can be shifted to SGPR.
+	#if CONFIG_SGPR_HINTS
+	{
+		GatherParameters.KernelRadius = ToScalarMemory(GatherParameters.KernelRadius);
+	}
+	#endif
+
 	// Number of sample iteration for this ring.
 	const uint RingSamplePairCount = GetRingSamplingPairCount(GatherParameters.KernelSamplingDensityMode, uint(RingId));
 
@@ -289,7 +350,11 @@ void GatherRing(
 	const uint BatchCount = RingSamplePairCount / SamplePairBatchSize;
 
 	// Iterate over the batch of samples.
-	UNROLL
+	#if CONFIG_UNROLL_GATHER
+		UNROLL
+	#else
+		LOOP
+	#endif
 	for (uint BatchId = 0; BatchId < BatchCount; BatchId++)
 	#if defined(WORKARROUND_UE_58394)
 		WORKARROUND_UE_58394 // TODO: nuke that guy once original issue is fixed.
@@ -434,13 +499,6 @@ void GatherRing(
 				// TODO: SampleDistanceSquare for perf reasons.
 				//float SampleDistance = length(RandomKernelPosOffset + SamplePosOffset[k]);
 				//float SampleDistance = length(SamplePosOffset[0]);
-					
-				// Substract the CocRadius error to the sample distance to fight against layering opacity issues caused by undersampling.
-				// TODO: technically, should be done on the Coc radius instead so that it also happens on FGatherAccumulator::CurrentTranslucency 
-				//if (static_condition(KernelScope.bKenrelHasEnoughSamples)) // TODO: bug here.
-				//{
-				//	SampleDistance = max(SampleDistance - KernelScope.CocRadiusError, 0);
-				//}
 
 				// Compute sample's input buffer UV
 				// TODO: VGPR could be optimised.
@@ -469,7 +527,7 @@ void GatherRing(
 				#endif
 
 				Sample[k].Distance = SampleDistance;
-				Sample[k].Intersection = ComputeSampleIntersection(Sample[k].CocRadius, SampleDistance);
+				Sample[k].Intersection = ComputeSampleIntersection(KernelScope, Sample[k].CocRadius, SampleDistance);
 				
 				FastAccumulator.Color += Sample[k].Color;
 			}
@@ -485,12 +543,14 @@ void GatherRing(
 
 
 // Gathers samples with an preconfigured accumulator and resolve its output.
-void GatherSamplesAndResolve(
+uint GatherSamplesAndResolve(
 	in FGatherInputParameters GatherParameters,
 	in FGatherAccumulator Accumulator,
 	out FAccumulatorOutput AccumulatorOutput, 
 	out FFastAccumulatorOutput FastAccumulator)
 {
+	uint DebugGatherDensityChanges = 0;
+
 	#if DEBUG_FORCE_LOW_RING_COUNT
 		GatherParameters.MaxRingCount = 2;
 	#endif
@@ -558,7 +618,7 @@ void GatherSamplesAndResolve(
 	{
 		//static_assert(GatherParameters.MaxRingCount >= 2, "Assumes this LARGEST_RINGS_FIRST.");
 		
-		int LowerRingId = GatherParameters.MaxRingCount / 2;
+		int LowerRingId = GatherParameters.MaxRingCount - GatherParameters.DensityChangeRingCount;
 
 		int RingId;
 
@@ -575,39 +635,65 @@ void GatherSamplesAndResolve(
 
 			bIsFirstRing = false;
 		} // for (int RingId)
-
-		BRANCH
-		if (GatherParameters.bDoHighDensityGatheringAtCenter)
+		
+		UNROLL // TODO: LOOP instead? should be totally fine perf wise...
+		for (uint SamplingDensityChangeId = 0; SamplingDensityChangeId < GatherParameters.MaxDensityChangeCount; SamplingDensityChangeId++)
 		{
-			// Decrease kernel size, and changes the already accumulated weight.
+			const int LargerRingCount = GatherParameters.MaxRingCount - LowerRingId;
+
+			const float LargeKernelRadius = 1 + 2 * GatherParameters.MaxRingCount;
+			const float SmallKernelRadius = 1 + 2 * (GatherParameters.MaxRingCount - LargerRingCount);
+
+			const float RadiusDownScaleFactor = SmallKernelRadius / LargeKernelRadius;
+					
+			float MipTexelSize = pow(2.0, uint(KernelScope.GatherInputMipLevel));
+			
+			const float MinConvolutionRadius = GatherParameters.MaxRingCount;
+			const float SmallestConvolutionRadius = GatherParameters.KernelRadius * RadiusDownScaleFactor + MipTexelSize;
+	
+			bool bChangeDensity = (
+				GatherParameters.KernelRadius * RadiusDownScaleFactor > MinConvolutionRadius &&
+				GatherParameters.MinIntersectableCocRadiusAbs < SmallestConvolutionRadius);
+
+			BRANCH
+			if (bChangeDensity)
 			{
-				const int LargerRingCount = GatherParameters.MaxRingCount - LowerRingId;
+				// Decrease kernel size, and changes the already accumulated weight.
+				{
+					GatherParameters.KernelRadius *= RadiusDownScaleFactor;
+					
+					// Gives hints to the compiler that these var can be shifted to SGPR.
+					#if CONFIG_SGPR_HINTS
+					{
+						GatherParameters.KernelRadius = ToScalarMemory(GatherParameters.KernelRadius);
+					}
+					#endif
+					
+					const float AccumulatedWeightMultiplier = rcp(RadiusDownScaleFactor * RadiusDownScaleFactor);
 
-				const float LargeKernelRadius = 1 + 2 * GatherParameters.MaxRingCount;
-				const float SmallKernelRadius = 1 + 2 * (GatherParameters.MaxRingCount - LargerRingCount);
+					AmendAccumulatedRingsWeight(/* inout */ Accumulator, GatherParameters, AccumulatedWeightMultiplier);
+					AmendAccumulatedRingsWeight(/* inout */ FastAccumulator, AccumulatedWeightMultiplier);
+					UpdateRuntimeKernelScope(GatherParameters, /* inout */ KernelScope);
+				}
 
-				const float RadiusDownScaleFactor = SmallKernelRadius / LargeKernelRadius;
+				UNROLL
+				for (int RingId2 = GatherParameters.MaxRingCount - 1; RingId2 >= LowerRingId; RingId2--)
+				{
+					GatherRing(
+						GatherParameters,
+						KernelScope,
+						uint(RingId2),
+						/* bIsFirstRing = */ false,
+						/* inout */ Accumulator,
+						/* inout */ FastAccumulator);
+				} // for (int RingId)
 
-				const float AccumulatedWeightMultiplier = rcp(RadiusDownScaleFactor * RadiusDownScaleFactor);
-				
-				GatherParameters.KernelRadius *= RadiusDownScaleFactor;
-
-				AmendAccumulatedRingsWeight(/* inout */ Accumulator, GatherParameters, AccumulatedWeightMultiplier);
-				AmendAccumulatedRingsWeight(/* inout */ FastAccumulator, AccumulatedWeightMultiplier);
-				UpdateRuntimeKernelScope(GatherParameters, /* inout */ KernelScope);
+				DebugGatherDensityChanges++;
 			}
-
-			UNROLL
-			for (int RingId2 = GatherParameters.MaxRingCount - 1; RingId2 >= LowerRingId; RingId2--)
+			else
 			{
-				GatherRing(
-					GatherParameters,
-					KernelScope,
-					uint(RingId2),
-					/* bIsFirstRing = */ false,
-					/* inout */ Accumulator,
-					/* inout */ FastAccumulator);
-			} // for (int RingId)
+				break;
+			}
 		}
 
 		UNROLL
@@ -693,4 +779,6 @@ void GatherSamplesAndResolve(
 	
 	// Resolves the accumulator.
 	ResolveAccumulatorOutputs(Accumulator, GatherResolveInfos, /* out */ AccumulatorOutput);
+
+	return DebugGatherDensityChanges;
 }

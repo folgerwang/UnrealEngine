@@ -553,7 +553,7 @@ namespace UnrealBuildTool
 					Format = ProjectFileFormat.XCode;
 					return true;
 				}
-				else if (PreferredAccessor == "visualstudiocodesourcecodeaccessor")
+				else if (PreferredAccessor == "visualstudiocode")
 				{
 					Format = ProjectFileFormat.VisualStudioCode;
 					return true;

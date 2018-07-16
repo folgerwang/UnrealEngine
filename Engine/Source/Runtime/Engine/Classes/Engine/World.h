@@ -1200,6 +1200,9 @@ private:
 	/** Is forcibly making streaming levels visible?																			*/
 	bool										bShouldForceVisibleStreamingLevels;
 
+	/** Is there at least one material parameter collection instance waiting for a deferred update?								*/
+	uint8										bMaterialParameterCollectionInstanceNeedsDeferredUpdate : 1;
+
 public:
 
 	bool GetShouldForceUnloadStreamingLevels() const { return bShouldForceUnloadStreamingLevels; }
@@ -2065,7 +2068,7 @@ public:
 	float GetMonoFarFieldCullingDistance() const;
 
 	/** Creates a new physics scene for this world. */
-	void CreatePhysicsScene();
+	void CreatePhysicsScene(const AWorldSettings* Settings = nullptr);
 
 	/** Returns a pointer to the physics scene for this world. */
 	FPhysScene* GetPhysicsScene() const { return PhysicsScene; }
@@ -2292,7 +2295,7 @@ public:
 	 * @param Level				Level object we should add
 	 * @param LevelTransform	Transformation to apply to each actor in the level
 	 */
-	void AddToWorld( ULevel* Level, const FTransform& LevelTransform = FTransform::Identity );
+	void AddToWorld( ULevel* Level, const FTransform& LevelTransform = FTransform::Identity, bool bConsiderTimeLimit = true );
 
 	/** 
 	 * Dissociates the passed in level from the world. The removal is blocking.
@@ -2522,7 +2525,15 @@ public:
 	 */
 	void UpdateActorComponentEndOfFrameUpdateState(UActorComponent* Component) const;
 
-	bool HasEndOfFrameUpdates();
+	/** 
+	 * Used to indicate a UMaterialParameterCollectionInstance needs a deferred update 
+	 */
+	void SetMaterialParameterCollectionInstanceNeedsUpdate();
+
+	/** 
+	 * Returns true if we have any updates that have been deferred to the end of the current frame.
+	 */
+	bool HasEndOfFrameUpdates() const;
 
 	/**
 	 * Send all render updates to the rendering thread.

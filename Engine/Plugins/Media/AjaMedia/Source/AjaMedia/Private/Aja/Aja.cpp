@@ -11,6 +11,7 @@
  //~ Static initialization
  //--------------------------------------------------------------------
 void* FAja::LibHandle = nullptr; 
+bool FAja::bCanForceAJAUsage = false; 
 
 //~ Initialization functions implementation
 //--------------------------------------------------------------------
@@ -26,15 +27,10 @@ bool FAja::Initialize()
 #endif //AJAMEDIA_DLL_DEBUG
 
 	// determine directory paths
-	FString AjaDllPath = *FPaths::Combine(FPaths::EngineDir(), TEXT("../Enterprise/Binaries/ThirdParty/AJA/Win64"), AjaDll);
-	if (!FPaths::FileExists(AjaDllPath))
-	{
-		AjaDllPath = *FPaths::Combine(FPaths::ProjectDir(), TEXT("Binaries/ThirdParty/AJA/Win64"), AjaDll);
-	}
-	if (!FPaths::FileExists(AjaDllPath))
-	{
-		AjaDllPath = *FPaths::Combine(FPaths::EngineDir(), TEXT("Binaries/ThirdParty/AJA/Win64"), AjaDll);
-	}
+	FString AjaDllPath = FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("AjaMedia"))->GetBaseDir(), TEXT("/Binaries/ThirdParty/Win64"));
+	FPlatformProcess::PushDllDirectory(*AjaDllPath);
+	AjaDllPath = FPaths::Combine(AjaDllPath, AjaDll);
+
 	if (!FPaths::FileExists(AjaDllPath))
 	{
 		UE_LOG(LogAjaMedia, Error, TEXT("Failed to find the binary folder for the AJA dll. Plug-in will not be functional."));
@@ -48,6 +44,9 @@ bool FAja::Initialize()
 		UE_LOG(LogAjaMedia, Error, TEXT("Failed to load required library %s. Plug-in will not be functional."), *AjaDllPath);
 		return false;
 	}
+
+	//Check if command line argument to force AJA card usage is there
+	bCanForceAJAUsage = FParse::Param(FCommandLine::Get(), TEXT("forceajausage"));
 
 #if !NO_LOGGING
 	AJA::SetLoggingCallbacks(&LogInfo, &LogWarning, &LogError);

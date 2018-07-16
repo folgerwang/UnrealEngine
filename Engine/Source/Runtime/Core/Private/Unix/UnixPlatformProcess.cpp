@@ -868,6 +868,9 @@ FProcHandle FUnixPlatformProcess::CreateProc(const TCHAR* URL, const TCHAR* Parm
 	posix_spawnattr_setsigdefault(&SpawnAttr, &SetToDefaultSignalSet);
 	SpawnFlags |= POSIX_SPAWN_SETSIGDEF;
 
+	// Makes spawned processes have its own unique group id so we can kill the entire group with out killing the parent
+	SpawnFlags |= POSIX_SPAWN_SETPGROUP;
+
 	int PosixSpawnErrNo = -1;
 	if (PipeWriteChild || PipeReadChild)
 	{
@@ -1417,6 +1420,12 @@ FGenericPlatformProcess::EWaitAndForkResult FUnixPlatformProcess::WaitAndFork()
 uint32 FUnixPlatformProcess::GetCurrentProcessId()
 {
 	return getpid();
+}
+
+void FUnixPlatformProcess::SetCurrentWorkingDirectoryToBaseDir()
+{
+	FPlatformMisc::CacheLaunchDir();
+	chdir(TCHAR_TO_ANSI(FPlatformProcess::BaseDir()));
 }
 
 FString FUnixPlatformProcess::GetCurrentWorkingDirectory()

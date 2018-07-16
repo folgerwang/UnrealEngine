@@ -60,6 +60,11 @@ protected:
 	virtual void OnRemovePin(UARPin* PinToRemove) override;
 	virtual UARTextureCameraImage* OnGetCameraImage() override { return nullptr; }
 	virtual UARTextureCameraDepth* OnGetCameraDepth() override { return nullptr; }
+	virtual bool OnAddManualEnvironmentCaptureProbe(FVector Location, FVector Extent) { return false; }
+	virtual TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> OnGetCandidateObject(FVector Location, FVector Extent) const { return TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe>(); }
+	virtual TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> OnSaveWorld() const { return TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe>(); }
+// @todo -- support this properly
+	virtual EARWorldMappingState OnGetWorldMappingStatus() const { return EARWorldMappingState::StillMappingNotRelocalizable; }
 	//~IARSystemSupport
 
 private:

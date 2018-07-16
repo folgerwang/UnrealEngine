@@ -72,7 +72,7 @@ public:
 	virtual void UpdateOperation(FLatentResponse& Response) override
 	{
 		EGoogleARCoreAvailability ARCoreAvailability = FGoogleARCoreDevice::GetInstance()->CheckARCoreAPKAvailability();
-		if (ARCoreAvailability != EGoogleARCoreAvailability::UnkownChecking)
+		if (ARCoreAvailability != EGoogleARCoreAvailability::UnknownChecking)
 		{
 			OutAvailability = ARCoreAvailability;
 			Response.FinishAndTriggerIf(true, ExecutionFunction, OutputLink, CallbackTarget);

@@ -12,7 +12,6 @@
 
 FMovieSceneGeometryCacheParams::FMovieSceneGeometryCacheParams()
 {
-	GeometryCache = nullptr;
 	StartOffset = 0.f;
 	EndOffset = 0.f;
 	PlayRate = 1.f;

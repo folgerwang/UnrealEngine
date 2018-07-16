@@ -44,6 +44,7 @@ enum EHoudiniAttributes
 	ALPHA,
 	VELOCITY,
 	TYPE,
+	IMPULSE,
 
 	HOUDINI_ATTR_SIZE,
 	HOUDINI_ATTR_END = HOUDINI_ATTR_SIZE - 1
@@ -132,6 +133,9 @@ class HOUDININIAGARA_API UHoudiniCSV : public UObject
 	// Returns a Velocity Vector3 for a given point in the CSV file
 	UFUNCTION(BlueprintCallable, Category = "Houdini Attributes Data")
 	bool GetVelocityValue(const int32& rowIndex, FVector& value ) const;
+	// Returns an Impulse float value for a given point in the CSV file
+	UFUNCTION(BlueprintCallable, Category = "Houdini Attributes Data")
+	bool GetImpulseValue(const int32& rowIndex, float& value) const;
 
 	// Get the last row index for a given time value (the row with a time smaller or equal to desiredTime)
 	// If the CSV file doesn't have time informations, returns false and set LastRowIndex to the last row in the file

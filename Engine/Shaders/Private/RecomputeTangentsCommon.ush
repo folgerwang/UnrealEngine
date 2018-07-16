@@ -4,7 +4,6 @@
 	RecomputeTangentsCommon.usf: Recompute Skin Tangents
 =============================================================================*/
 
-#define FORCE_BIAS_CONVERSION	1
 #include "Common.ush"
 #include "GpuSkinCommon.ush"
 
@@ -30,6 +29,8 @@ RWBuffer<float4> TangentBufferUAV;
 
 // in vertices
 uint InputStreamStart;
+uint NumTexCoords;
+uint SelectedTexCoord;
 
 // index input ----------------------------
 

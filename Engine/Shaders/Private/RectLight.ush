@@ -512,6 +512,9 @@ float3 RectGGXApproxLTC( float Roughness, float3 SpecularColor, half3 N, float3 
 	float NoL = SphereHorizonCosWrap( L.z, SinAlphaSqr );
 	float Irradiance = SinAlphaSqr * NoL;
 
+	// Kill negative and NaN
+	Irradiance = -min(-Irradiance, 0.0);
+
 #if 0
 	float NoL;
 	float Falloff;

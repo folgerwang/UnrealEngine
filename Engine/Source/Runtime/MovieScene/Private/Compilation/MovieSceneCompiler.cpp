@@ -46,6 +46,12 @@ struct FGatherParameters
 		LocalClampRange = InNewRootClampRange * RootToSequenceTransform;
 	}
 
+	/** Clamp the specified range to the current clamp range (in root space) */
+	TRange<FFrameNumber> ClampRoot(const TRange<FFrameNumber>& InRootRange) const
+	{
+		return TRange<FFrameNumber>::Intersection(RootClampRange, InRootRange);
+	}
+
 	/** Path from root to current sequence */
 	FMovieSceneRootOverridePath& RootPath;
 	/** Hierarchy for the root sequence template */
@@ -318,17 +324,17 @@ void FMovieSceneCompiler::GatherCompileOnTheFlyData(UMovieSceneSequence& InSeque
 	FMovieSceneEvaluationTreeRangeIterator SubSectionIt(SubSectionField.IterateFromLowerBound(CompileClampIntersection.GetLowerBound()));
 
 	// Intersect the unique range in the tree with the current overlapping empty range to constrict the resulting compile range in the case where this is a gap between sub sections
-	OutData.EmptyOverlappingRange = TRange<FFrameNumber>::Intersection(OutData.EmptyOverlappingRange, SubSectionIt.Range() * Params.RootToSequenceTransform.Inverse());
+	OutData.EmptyOverlappingRange = TRange<FFrameNumber>::Intersection(OutData.EmptyOverlappingRange, Params.ClampRoot(SubSectionIt.Range() * Params.RootToSequenceTransform.Inverse()));
 
 	for ( ; SubSectionIt && SubSectionIt.Range().Overlaps(CompileClampIntersection); ++SubSectionIt)
 	{
-		TRange<FFrameNumber> ThisSegmentRange = SubSectionIt.Range() * Params.RootToSequenceTransform.Inverse();
-		if (ThisSegmentRange.IsEmpty())
+		TRange<FFrameNumber> ThisSegmentRangeRoot = Params.ClampRoot(SubSectionIt.Range() * Params.RootToSequenceTransform.Inverse());
+		if (ThisSegmentRangeRoot.IsEmpty())
 		{
 			continue;
 		}
 
-		SubSectionGatherParams.SetClampRange(ThisSegmentRange);
+		SubSectionGatherParams.SetClampRange(ThisSegmentRangeRoot);
 
 		// Iterate all sub sections in the current range
 		for (const FMovieSceneSubSectionData& SubSectionData : SubSectionField.GetAllData(SubSectionIt.Node()))
@@ -396,11 +402,16 @@ const FMovieSceneSubSequenceData* FMovieSceneCompiler::GetOrCreateSubSequenceDat
 {
 	// Find/add sub data in the root template
 	const FMovieSceneSubSequenceData* SubData = InOutHierarchy.FindSubData(InnerSequenceID);
-	if (SubData)
+	if (SubData && !SubData->IsDirty(SubSection))
 	{
 		return SubData;
 	}
-	
+
+	// Ensure that any ((great)grand)child sub sequences have their sub data regenerated
+	// by removing this whole sequence branch from the hierarchy (if it exists). This is
+	// necessary as all children will depend on this sequences's transform
+	InOutHierarchy.Remove(MakeArrayView(&InnerSequenceID, 1));
+
 	FSubSequenceInstanceDataParams InstanceParams{ InnerSequenceID, FMovieSceneEvaluationOperand(ParentSequenceID, InObjectBindingId) };
 	FMovieSceneSubSequenceData NewSubData = SubSection.GenerateSubSequenceData(InstanceParams);
 
@@ -439,7 +450,7 @@ void FMovieSceneCompiler::GatherCompileDataForTrack(FMovieSceneEvaluationTrack& 
 	{
 		// No segment at this time, so just report the time range of the empty space.
 		TRange<FFrameNumber> EmptyTrackSpace = Track.GetUniqueRangeFromLowerBound(Params.LocalCompileRange.GetLowerBound());
-		TRange<FFrameNumber> ClampedEmptyTrackSpaceRoot = TRange<FFrameNumber>::Intersection(Params.LocalClampRange, EmptyTrackSpace) * SequenceToRootTransform;
+		TRange<FFrameNumber> ClampedEmptyTrackSpaceRoot = Params.ClampRoot(EmptyTrackSpace * SequenceToRootTransform);
 
 		OutData.EmptyOverlappingRange = TRange<FFrameNumber>::Intersection(ClampedEmptyTrackSpaceRoot, OutData.EmptyOverlappingRange);
 	}
@@ -455,7 +466,7 @@ void FMovieSceneCompiler::GatherCompileDataForTrack(FMovieSceneEvaluationTrack& 
 		Data.Track = &Track;
 		Data.bRequiresInit = ThisSegment.Impls.ContainsByPredicate(RequiresInit);
 
-		TRange<FFrameNumber> IntersectionRange = TRange<FFrameNumber>::Intersection(Params.LocalClampRange, ThisSegment.Range) * SequenceToRootTransform;
+		TRange<FFrameNumber> IntersectionRange = Params.ClampRoot(ThisSegment.Range * SequenceToRootTransform);
 		if (!IntersectionRange.IsEmpty())
 		{
 			OutData.Tracks.Add(IntersectionRange, Data);

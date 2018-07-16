@@ -652,35 +652,31 @@ namespace UnrealBuildTool
 				throw new BuildException("Generated assembly documentation not found at {0}.", InputDocumentationFile);
 			}
 
-			// Get the current engine version for versioning the page
-			BuildVersion Version;
-			if(!BuildVersion.TryRead(BuildVersion.GetDefaultFileName(), out Version))
-			{
-				throw new BuildException("Unable to read the current build version");
-			}
-
 			// Read the documentation
 			XmlDocument InputDocumentation = new XmlDocument();
 			InputDocumentation.Load(InputDocumentationFile.FullName);
 
 			// Make sure we can write to the output file
-			FileReference.MakeWriteable(OutputFile);
+			if(FileReference.Exists(OutputFile))
+			{
+				FileReference.MakeWriteable(OutputFile);
+			}
+			else
+			{
+				DirectoryReference.CreateDirectory(OutputFile.Directory);
+			}
 
-			// Generate the UDN documentation file
+			// Generate the documentation file
 			using (StreamWriter Writer = new StreamWriter(OutputFile.FullName))
 			{
-				Writer.WriteLine("Availability: NoPublish");
-				Writer.WriteLine("Title: Build Configuration Properties Page");
-				Writer.WriteLine("Crumbs:");
-				Writer.WriteLine("Description: This is a procedurally generated markdown page.");
-				Writer.WriteLine("Version: {0}.{1}", Version.MajorVersion, Version.MinorVersion);
-				Writer.WriteLine("");
-
+				Writer.WriteLine("<html>");
+				Writer.WriteLine("  <body>");
+				Writer.WriteLine("  <h2>BuildConfiguration Properties</h2>");
 				foreach(KeyValuePair<string, Dictionary<string, FieldInfo>> CategoryPair in CategoryToFields)
 				{
 					string CategoryName = CategoryPair.Key;
-					Writer.WriteLine("### {0}", CategoryName);
-					Writer.WriteLine();
+					Writer.WriteLine("    <h3>{0}</h3>", CategoryName);
+					Writer.WriteLine("    <dl>");
 
 					Dictionary<string, FieldInfo> Fields = CategoryPair.Value;
 					foreach(KeyValuePair<string, FieldInfo> FieldPair in Fields)
@@ -705,23 +701,41 @@ namespace UnrealBuildTool
 							// Write the result to the .udn file
 							if(Lines.Count > 0)
 							{
-								Writer.WriteLine("$ {0} : {1}", FieldName, Lines[0]);
-								for(int Idx = 1; Idx < Lines.Count; Idx++)
+								Writer.WriteLine("      <dt>{0}</dt>", FieldName);
+
+								if(Lines.Count == 1)
 								{
-									if(Lines[Idx].StartsWith("*") || Lines[Idx].StartsWith("-"))
-									{
-										Writer.WriteLine("        * {0}", Lines[Idx].Substring(1).TrimStart());
-									}
-									else
-									{
-										Writer.WriteLine("    * {0}", Lines[Idx]);
-									}
+									Writer.WriteLine("      <dd>{0}</dd>", Lines[0]);
 								}
-								Writer.WriteLine();
+								else
+								{
+									Writer.WriteLine("      <dd>");
+									for(int Idx = 0; Idx < Lines.Count; Idx++)
+									{
+										if(Lines[Idx].StartsWith("*") || Lines[Idx].StartsWith("-"))
+										{
+											Writer.WriteLine("        <ul>");
+											for(; Idx < Lines.Count && (Lines[Idx].StartsWith("*") || Lines[Idx].StartsWith("-")); Idx++)
+											{
+												Writer.WriteLine("          <li>{0}</li>", Lines[Idx].Substring(1).TrimStart());
+											}
+											Writer.WriteLine("        </ul>");
+										}
+										else
+										{
+											Writer.WriteLine("        {0}", Lines[Idx]);
+										}
+									}
+									Writer.WriteLine("      </dd>");
+								}
 							}
 						}
 					}
+
+					Writer.WriteLine("    </dl>");
 				}
+				Writer.WriteLine("  </body>");
+				Writer.WriteLine("</html>");
 			}
 
 			// Success!

@@ -164,6 +164,7 @@ void UAnimGraphNode_StateMachineBase::PostPasteNode()
 	{
 		GraphNode->CreateNewGuid();
 		GraphNode->PostPasteNode();
+		GraphNode->ReconstructNode();
 	}
 
 	// Find an interesting name

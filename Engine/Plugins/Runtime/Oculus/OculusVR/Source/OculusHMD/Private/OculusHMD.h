@@ -267,6 +267,9 @@ public:
 	/** Turns ovrVector3f in Unreal World space to a scaled FVector and applies translation and rotation corresponding to player movement */
 	FVector ScaleAndMovePointWithPlayer(ovrpVector3f& OculusHMDPoint);
 
+	/** The inverse of ScaleAndMovePointWithPlayer */
+	ovrpVector3f WorldLocationToOculusPoint(const FVector& InUnrealPosition);
+
 	/** Convert dimension of a float (e.g., a distance) from meters to Unreal Units */
 	float ConvertFloat_M2U(float OculusFloat) const;
 	FVector ConvertVector_M2U(ovrpVector3f OculusPoint) const;

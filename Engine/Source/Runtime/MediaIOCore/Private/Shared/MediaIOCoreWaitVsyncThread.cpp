@@ -34,7 +34,7 @@ uint32 FMediaIOCoreWaitVSyncThread::Run()
 
 		if (!bWaitingForSignal.Load() && bAlive)
 		{
-			UE_LOG(LogMediaIOCoreModule, Error, TEXT("The Engine couldn't run fast enough to keep up with the VSync."));
+			UE_LOG(LogMediaIOCore, Error, TEXT("The Engine couldn't run fast enough to keep up with the VSync."));
 		}
 
 		WaitVSync->Trigger();
@@ -71,7 +71,7 @@ bool FMediaIOCoreWaitVSyncThread::Wait_GameOrRenderThread()
 			bWaitingForSignal.Store(false);
 			if (!bResult)
 			{
-				UE_LOG(LogMediaIOCoreModule, Error, TEXT("Lost VSync signal."));
+				UE_LOG(LogMediaIOCore, Error, TEXT("Lost VSync signal."));
 			}
 		}
 	}

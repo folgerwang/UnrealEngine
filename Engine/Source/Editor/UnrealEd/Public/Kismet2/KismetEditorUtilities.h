@@ -107,6 +107,7 @@ public:
 	/** 
 	 * Unloads the supplied Blueprint (marking it pending-kill, and removing it 
 	 * from its outer package). Then proceeds to reload from disk.
+	 * This will generally not transfer object references over as there is a garbage collect in the middle.
 	 *
 	 * @param  TargetBlueprint	The Blueprint you want to unload and replace.
 	 * @return The freshly loaded Blueprint (replacing the, now invalid, input).

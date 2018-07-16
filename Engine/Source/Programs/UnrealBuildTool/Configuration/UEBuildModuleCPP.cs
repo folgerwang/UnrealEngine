@@ -155,11 +155,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		public List<string> InvalidIncludeDirectiveMessages;
 
-		/// <summary>
-		/// Hack to skip adding definitions to compile environment. They will be baked into source code by external code.
-		/// </summary>
-		public bool bSkipDefinitionsForCompileEnvironment = false;
-
 		public IEnumerable<string> FindGeneratedCppFiles()
 		{
 			return ((null == GeneratedCodeDirectory) || !DirectoryReference.Exists(GeneratedCodeDirectory))
@@ -655,19 +650,31 @@ namespace UnrealBuildTool
 			}
 
 			// Compile C files directly. Do not use a PCH here, because a C++ PCH is not compatible with C source files.
-			LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(ModuleCompileEnvironment, SourceFilesToBuild.CFiles, IntermediateDirectory, Name, ActionGraph).ObjectFiles);
+			if(SourceFilesToBuild.CFiles.Count > 0)
+			{
+				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(ModuleCompileEnvironment, SourceFilesToBuild.CFiles, IntermediateDirectory, Name, ActionGraph).ObjectFiles);
+			}
 
 			// Compile CC files directly.
-			LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(CompileEnvironment, SourceFilesToBuild.CCFiles, IntermediateDirectory, Name, ActionGraph).ObjectFiles);
+			if(SourceFilesToBuild.CCFiles.Count > 0)
+			{
+				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(CompileEnvironment, SourceFilesToBuild.CCFiles, IntermediateDirectory, Name, ActionGraph).ObjectFiles);
+			}
 
 			// Compile MM files directly.
-			LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(CompileEnvironment, SourceFilesToBuild.MMFiles, IntermediateDirectory, Name, ActionGraph).ObjectFiles);
+			if(SourceFilesToBuild.MMFiles.Count > 0)
+			{
+				LinkInputFiles.AddRange(ToolChain.CompileCPPFiles(CompileEnvironment, SourceFilesToBuild.MMFiles, IntermediateDirectory, Name, ActionGraph).ObjectFiles);
+			}
 
 			// Compile RC files. The resource compiler does not work with response files, and using the regular compile environment can easily result in the 
 			// command line length exceeding the OS limit. Use the binary compile environment to keep the size down, and require that all include paths
 			// must be specified relative to the resource file itself or Engine/Source.
-			CppCompileEnvironment ResourceCompileEnvironment = new CppCompileEnvironment(BinaryCompileEnvironment);
-			LinkInputFiles.AddRange(ToolChain.CompileRCFiles(ResourceCompileEnvironment, SourceFilesToBuild.RCFiles, IntermediateDirectory, ActionGraph).ObjectFiles);
+			if(SourceFilesToBuild.RCFiles.Count > 0)
+			{
+				CppCompileEnvironment ResourceCompileEnvironment = new CppCompileEnvironment(BinaryCompileEnvironment);
+				LinkInputFiles.AddRange(ToolChain.CompileRCFiles(ResourceCompileEnvironment, SourceFilesToBuild.RCFiles, IntermediateDirectory, ActionGraph).ObjectFiles);
+			}
 
 			// Write the compiled manifest
 			if(Rules.bPrecompile)
@@ -1251,13 +1258,6 @@ namespace UnrealBuildTool
 
 			// Setup the compile environment for the module.
 			SetupPrivateCompileEnvironment(Result.IncludePaths.UserIncludePaths, Result.IncludePaths.SystemIncludePaths, Result.Definitions, Result.AdditionalFrameworks, (Rules != null)? Rules.bLegacyPublicIncludePaths.Value : true);
-
-			// @hack to skip adding definitions to compile environment, they will be baked into source code files
-			if (bSkipDefinitionsForCompileEnvironment)
-			{
-				Result.Definitions.Clear();
-				Result.IncludePaths.UserIncludePaths = new HashSet<DirectoryReference>(BaseCompileEnvironment.IncludePaths.UserIncludePaths);
-			}
 
 			return Result;
 		}

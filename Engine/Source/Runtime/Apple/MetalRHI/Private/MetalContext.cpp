@@ -54,13 +54,13 @@ int32 GMetalBufferScribble = 0; // Deliberately not static, see InitFrame_Unifor
 static FAutoConsoleVariableRef CVarMetalBufferScribble(
 	TEXT("rhi.Metal.BufferScribble"),
 	GMetalBufferScribble,
-	TEXT("Debug option: when enabled will scribble over the buffer contents with 0xCD when releasing Shared & Managed buffer objects. (Default: 0, Off)"));
+	TEXT("Debug option: when enabled will scribble over the buffer contents with a single value when releasing buffer objects, or regions thereof. (Default: 0, Off)"));
 
 int32 GMetalBufferZeroFill = 0; // Deliberately not static
 static FAutoConsoleVariableRef CVarMetalBufferZeroFill(
 	TEXT("rhi.Metal.BufferZeroFill"),
 	GMetalBufferZeroFill,
-	TEXT("Debug option: when enabled will fill the buffer contents with 0 when allocating Shared & Managed buffer objects, or regions thereof. (Default: 0, Off)"));
+	TEXT("Debug option: when enabled will fill the buffer contents with 0 when allocating buffer objects, or regions thereof. (Default: 0, Off)"));
 
 static int32 GMetalResourcePurgeOnDelete = 0;
 static FAutoConsoleVariableRef CVarMetalResourcePurgeOnDelete(
@@ -405,17 +405,22 @@ void FMetalDeviceContext::BeginFrame()
 }
 
 #if METAL_DEBUG_OPTIONS
-void ScribbleBuffer(FMetalBuffer Buffer)
+void FMetalDeviceContext::ScribbleBuffer(FMetalBuffer& Buffer)
 {
+	static uint8 Fill = 0;
 	if (Buffer.GetStorageMode() != mtlpp::StorageMode::Private)
 	{
-		FMemory::Memset(Buffer.GetContents(), 0xCD, Buffer.GetLength());
+		FMemory::Memset(Buffer.GetContents(), Fill++, Buffer.GetLength());
 #if PLATFORM_MAC
 		if (Buffer.GetStorageMode() == mtlpp::StorageMode::Managed)
 		{
 			Buffer.DidModify(ns::Range(0, Buffer.GetLength()));
 		}
 #endif
+	}
+	else
+	{
+		FillBuffer(Buffer, ns::Range(0, Buffer.GetLength()), Fill++);
 	}
 }
 #endif

@@ -8,6 +8,18 @@
 
 #include "AjaMediaFinder.generated.h"
 
+
+/**
+ * Available timecode formats for Aja sources.
+ */
+UENUM()
+enum class EAjaMediaTimecodeFormat : uint8
+{
+	None,
+	LTC,
+	VITC,
+};
+
 /**
  * Identifies an Aja media source.
  */
@@ -90,6 +102,10 @@ public:
 	/** The frame rate of the mode  */
 	UPROPERTY()
 	FFrameRate FrameRate;
+
+	/** The target size of the mode  */
+	UPROPERTY()
+	FIntPoint TargetSize;
 
 	/** The video format index for AJA */
 	UPROPERTY()

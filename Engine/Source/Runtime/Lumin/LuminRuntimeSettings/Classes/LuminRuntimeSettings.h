@@ -58,7 +58,7 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Runtime", Meta = (DisplayName = "Protected Content"))
 	bool bProtectedContent;
 
-	/** Use Vulkan Mobile Rendering. */
+	/** If checked, use Mobile Rendering. Otherwise, use Desktop Rendering. */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Build", Meta = (DisplayName = "Use Mobile Rendering"))
 	bool bUseMobileRendering;
 

@@ -738,6 +738,9 @@ public:
 	/** The class for NavigationSystem **/
 	UPROPERTY()
 	TSubclassOf<class UNavigationSystemBase>  NavigationSystemClass;
+
+	UPROPERTY(globalconfig, noclear, meta = (MetaClass = "NavigationSystem", DisplayName = "Navigation System Config Class"))
+	FSoftClassPath NavigationSystemConfigClassName;
 	
 	/** Name of behavior tree manager class */
 	UPROPERTY(globalconfig, noclear, meta=(MetaClass="AvoidanceManager", DisplayName="Avoidance Manager Class"))

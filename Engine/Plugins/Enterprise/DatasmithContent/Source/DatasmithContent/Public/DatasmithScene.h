@@ -23,8 +23,8 @@ public:
 	int32 BulkDataVersion; // Need an external version number because loading of the bulk data is handled externally
 
 	FByteBulkData DatasmithSceneBulkData;
+#endif // #if WITH_EDITORONLY_DATA
 
 public:
 	virtual void Serialize( FArchive& Archive ) override;
-#endif // #if WITH_EDITORONLY_DATA
 };

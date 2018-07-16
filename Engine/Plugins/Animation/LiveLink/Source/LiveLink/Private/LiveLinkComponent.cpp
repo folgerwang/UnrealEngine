@@ -61,6 +61,15 @@ bool ULiveLinkComponent::HasLiveLinkClient()
 	return (LiveLinkClient != nullptr);
 }
 
+void ULiveLinkComponent::GetAvailableSubjectNames(TArray<FName>& SubjectNames)
+{
+	SubjectNames.Empty();
+	if (HasLiveLinkClient())
+	{
+		LiveLinkClient->GetSubjectNames(SubjectNames);
+	}
+}
+
 void ULiveLinkComponent::GetSubjectData(const FName SubjectName, bool& bSuccess, FSubjectFrameHandle& SubjectFrameHandle)
 {
 	bSuccess = false;

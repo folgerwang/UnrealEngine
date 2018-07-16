@@ -4085,7 +4085,7 @@ protected:
 		for(int32 ParameterIndex = 0;ParameterIndex < StaticParameters.TerrainLayerWeightParameters.Num(); ++ParameterIndex)
 		{
 			const FStaticTerrainLayerWeightParameter& Parameter = StaticParameters.TerrainLayerWeightParameters[ParameterIndex];
-			if (Parameter.bOverride)
+			if (Parameter.WeightmapIndex != INDEX_NONE)
 			{
 				NumActiveTerrainLayerWeightParameters++;
 			}

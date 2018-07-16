@@ -1365,6 +1365,8 @@ void UEditorEngine::PostUndo(bool bSuccess)
 
 	// Re-instance any actors that need it
 	FBlueprintCompileReinstancer::BatchReplaceInstancesOfClass(OldToNewClassMapToReinstance, false);
+
+	RedrawLevelEditingViewports();
 }
 
 bool UEditorEngine::UndoTransaction(bool bCanRedo)

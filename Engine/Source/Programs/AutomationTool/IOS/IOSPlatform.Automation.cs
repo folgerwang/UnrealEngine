@@ -264,8 +264,13 @@ public class IOSPlatform : Platform
 
 	protected string MakeIPAFileName( UnrealTargetConfiguration TargetConfiguration, ProjectParams Params, DeploymentContext SC, bool bAllowDistroPrefix )
 	{
+        string ExeName = SC.StageExecutables[0];
+        if (!SC.IsCodeBasedProject)
+        {
+            ExeName = ExeName.Replace("UE4Game", Params.RawProjectPath.GetFileNameWithoutExtension());
+        }
 		return Path.Combine(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Binaries", PlatformName, 
-			((bAllowDistroPrefix && Params.Distribution) ? "Distro_" : "") + SC.StageExecutables[0] + ".ipa");
+			((bAllowDistroPrefix && Params.Distribution) ? "Distro_" : "") + ExeName + ".ipa");
 	}
 
 	// Determine if we should code sign
@@ -427,6 +432,11 @@ public class IOSPlatform : Platform
 		{
 			var ProjectIPA = MakeIPAFileName(TargetConfiguration, Params, SC, Params.Distribution);
 			var ProjectStub = Path.GetFullPath(ProjectGameExeFilename);
+            var IPPProjectIPA = "";
+            if (ProjectStub.Contains("UE4Game"))
+            {
+                IPPProjectIPA = Path.Combine(Path.GetDirectoryName(ProjectIPA), Path.GetFileName(ProjectIPA).Replace(Params.RawProjectPath.GetFileNameWithoutExtension(), "UE4Game"));
+            }
 
 			// package a .ipa from the now staged directory
 			var IPPExe = CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/DotNET/IOS/IPhonePackager.exe");
@@ -434,7 +444,8 @@ public class IOSPlatform : Platform
 			LogLog("ProjectName={0}", Params.ShortProjectName);
 			LogLog("ProjectStub={0}", ProjectStub);
 			LogLog("ProjectIPA={0}", ProjectIPA);
-			LogLog("IPPExe={0}", IPPExe);
+            LogLog("IPPProjectIPA={0}", IPPProjectIPA);
+            LogLog("IPPExe={0}", IPPExe);
 
 			bool cookonthefly = Params.CookOnTheFly || Params.SkipCookOnTheFly;
 
@@ -443,6 +454,10 @@ public class IOSPlatform : Platform
 			{
 				// delete the .ipa to make sure it was made
 				DeleteFile(ProjectIPA);
+                if (IPPProjectIPA.Length > 0)
+                {
+                    DeleteFile(IPPProjectIPA);
+                }
 
 				bCreatedIPA = true;
 
@@ -500,8 +515,14 @@ public class IOSPlatform : Platform
 						IPPArguments += " -tvos";
 					}
 					RunAndLog(CmdEnv, IPPExe, IPPArguments);
-				}
-				else
+
+                    if (IPPProjectIPA.Length > 0)
+                    {
+                        CopyFile(IPPProjectIPA, ProjectIPA);
+                        DeleteFile(IPPProjectIPA);
+                    }
+                }
+                else
 				{
 					List<string> IPPArguments = new List<string>();
 					IPPArguments.Add("RepackageFromStage");
@@ -565,8 +586,14 @@ public class IOSPlatform : Platform
 					{
 						throw new AutomationException("IPP Failed");
 					}
-				}
-			}
+
+                    if (IPPProjectIPA.Length > 0)
+                    {
+                        CopyFile(IPPProjectIPA, ProjectIPA);
+                        DeleteFile(IPPProjectIPA);
+                    }
+                }
+            }
 
 			// verify the .ipa exists
 			if (!FileExists(ProjectIPA))

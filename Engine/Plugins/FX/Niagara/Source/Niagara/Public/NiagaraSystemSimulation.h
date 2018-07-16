@@ -64,6 +64,10 @@ struct FNiagaraParameterStoreToDataSetBinding
 
 	FORCEINLINE_DEBUGGABLE void DataSetToParameterStore(FNiagaraParameterStore& ParameterStore, FNiagaraDataSet& DataSet, int32 DataSetInstanceIndex)
 	{
+#if NIAGARA_NAN_CHECKING
+		DataSet.CheckForNaNs();
+#endif
+
 		FNiagaraDataBuffer& CurrBuffer = DataSet.CurrData();
 
 		for (const FDataOffsets& DataOffsets : FloatOffsets)
@@ -77,6 +81,10 @@ struct FNiagaraParameterStoreToDataSetBinding
 			ParameterStore.SetParameterByOffset(DataOffsets.ParameterOffset, *DataSetPtr);
 		}
 
+#if NIAGARA_NAN_CHECKING
+		ParameterStore.CheckForNaNs();
+#endif
+
 		ParameterStore.OnParameterChange();
 	}
 
@@ -84,6 +92,10 @@ struct FNiagaraParameterStoreToDataSetBinding
 	{
 		FNiagaraDataBuffer& CurrBuffer = DataSet.CurrData();
 		const uint8* ParameterData = ParameterStore.GetParameterDataArray().GetData();
+
+#if NIAGARA_NAN_CHECKING
+		ParameterStore.CheckForNaNs();
+#endif
 
 		for (const FDataOffsets& DataOffsets : FloatOffsets)
 		{
@@ -97,6 +109,10 @@ struct FNiagaraParameterStoreToDataSetBinding
 			int32* DataSetPtr = CurrBuffer.GetInstancePtrInt32(DataOffsets.DataSetComponentOffset, DataSetInstanceIndex);
 			*DataSetPtr = *ParamPtr;
 		}
+
+#if NIAGARA_NAN_CHECKING
+		DataSet.CheckForNaNs();
+#endif
 	}
 };
 
@@ -120,6 +136,8 @@ public:
 
 	/** Transfers a system instance from SourceSimulation. */
 	void TransferInstance(FNiagaraSystemSimulation* SourceSimulation, FNiagaraSystemInstance* SystemInst);
+
+	void DumpInstance(const FNiagaraSystemInstance* Inst)const;
 protected:
 
 	/** System of instances being simulated.  We use a weak object ptr here because once the last referencing object goes away this system may be come invalid at runtime. */

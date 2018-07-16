@@ -1718,6 +1718,9 @@ protected:
 
 	/** Issues occlusion queries */
 	void RenderOcclusion(FRHICommandListImmediate& RHICmdList);
+	
+	/** Computes how many queries will be issued this frame */
+	int32 ComputeNumOcclusionQueriesToBatch() const;
 
 	/** Renders decals. */
 	void RenderDecals(FRHICommandListImmediate& RHICmdList);

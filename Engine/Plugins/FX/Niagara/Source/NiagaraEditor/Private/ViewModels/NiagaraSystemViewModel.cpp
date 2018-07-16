@@ -508,44 +508,53 @@ void FNiagaraSystemViewModel::PostUndo(bool bSuccess)
 
 void FNiagaraSystemViewModel::Tick(float DeltaTime)
 {
-	bool bRecompile = false;
-
-	check(SystemScriptViewModel.IsValid());
-	if (SystemScriptViewModel->GetLatestCompileStatus() == ENiagaraScriptCompileStatus::NCS_Dirty)
+	if (bForceAutoCompileOnce || (GetDefault<UNiagaraEditorSettings>()->GetAutoCompile() && bCanAutoCompile))
 	{
-		//SystemScriptViewModel->CompileSystem();
-		//UE_LOG(LogNiagaraEditor, Log, TEXT("Compiling %s due to dirty scripts."), *System.GetName());
-		bRecompile |= true;
-	}
+		bool bRecompile = false;
 
-	for (TSharedRef<FNiagaraEmitterHandleViewModel> EmitterHandleViewModel : EmitterHandleViewModels)
-	{
-		if (EmitterHandleViewModel->GetEmitterViewModel()->GetLatestCompileStatus() == ENiagaraScriptCompileStatus::NCS_Dirty)
+		check(SystemScriptViewModel.IsValid());
+		if (SystemScriptViewModel->GetLatestCompileStatus() == ENiagaraScriptCompileStatus::NCS_Dirty)
 		{
+			//SystemScriptViewModel->CompileSystem();
+			//UE_LOG(LogNiagaraEditor, Log, TEXT("Compiling %s due to dirty scripts."), *System.GetName());
 			bRecompile |= true;
-			//EmitterHandleViewModel->GetEmitterViewModel()->CompileScripts();
-			//UE_LOG(LogNiagaraEditor, Log, TEXT("Compiling %s - %s due to dirty scripts."), *System.GetName(), *EmitterHandleViewModel->GetName().ToString());
+		}
+
+		for (TSharedRef<FNiagaraEmitterHandleViewModel> EmitterHandleViewModel : EmitterHandleViewModels)
+		{
+			if (EmitterHandleViewModel->GetEmitterViewModel()->GetLatestCompileStatus() == ENiagaraScriptCompileStatus::NCS_Dirty)
+			{
+				bRecompile |= true;
+				//EmitterHandleViewModel->GetEmitterViewModel()->CompileScripts();
+				//UE_LOG(LogNiagaraEditor, Log, TEXT("Compiling %s - %s due to dirty scripts."), *System.GetName(), *EmitterHandleViewModel->GetName().ToString());
+			}
+		}
+
+		if (System.HasOutstandingCompilationRequests() == false)
+		{
+			if (bCompilePendingCompletion)
+			{
+				bCompilePendingCompletion = false;
+				OnSystemCompiled().Broadcast();
+			}
+
+			if (bRecompile || bForceAutoCompileOnce)
+			{
+				CompileSystem(false);
+				bForceAutoCompileOnce = false;
+			}
+
+			if (bResetRequestPending)
+			{
+				ResetSystem();
+			}
 		}
 	}
 
-	if (System.HasOutstandingCompilationRequests() == false)
+	if (EmitterIdsRequiringSequencerTrackUpdate.Num() > 0)
 	{
-		if (bCompilePendingCompletion)
-		{
-			bCompilePendingCompletion = false;
-			OnSystemCompiled().Broadcast();
-		}
-
-		if (bRecompile || bForceAutoCompileOnce)
-		{
-			CompileSystem(false);
-			bForceAutoCompileOnce = false;
-		}
-
-		if (bResetRequestPending)
-		{
-			ResetSystem();
-		}
+		UpdateSequencerTracksForEmitters(EmitterIdsRequiringSequencerTrackUpdate);
+		EmitterIdsRequiringSequencerTrackUpdate.Empty();
 	}
 }
 
@@ -606,11 +615,6 @@ const TArray<FNiagaraStackModuleData>& FNiagaraSystemViewModel::GetStackModuleDa
 		}
 	}
 	return EmitterToCachedStackModuleData[EmitterHandleId];
-}
-
-bool FNiagaraSystemViewModel::IsTickable() const
-{
-	return bForceAutoCompileOnce || (GetDefault<UNiagaraEditorSettings>()->GetAutoCompile() && bCanAutoCompile);
 }
 
 TStatId FNiagaraSystemViewModel::GetStatId() const
@@ -838,6 +842,23 @@ void FNiagaraSystemViewModel::RefreshSequencerTracks()
 		PopulateChildMovieSceneFoldersFromNiagaraFolders(RootChildFolder, MovieSceneRootFolder, EmitterHandleIdToTrackMap);
 	}
 
+	Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemsChanged);
+
+	// Since we just rebuilt all of the sequencer tracks, these updates don't need to be done.
+	EmitterIdsRequiringSequencerTrackUpdate.Empty();
+}
+
+void FNiagaraSystemViewModel::UpdateSequencerTracksForEmitters(const TArray<FGuid>& EmitterIdsRequiringUpdate)
+{
+	TGuardValue<bool> UpdateGuard(bUpdatingSequencerFromEmitterDataChange, true);
+	for (UMovieSceneTrack* Track : NiagaraSequence->GetMovieScene()->GetMasterTracks())
+	{
+		UMovieSceneNiagaraEmitterTrack* EmitterTrack = CastChecked<UMovieSceneNiagaraEmitterTrack>(Track);
+		if (EmitterIdsRequiringUpdate.Contains(EmitterTrack->GetEmitterHandleViewModel()->GetId()))
+		{
+			EmitterTrack->UpdateTrackFromEmitterGraphChange(NiagaraSequence->GetMovieScene()->GetTickResolution());
+		}
+	}
 	Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemsChanged);
 }
 
@@ -1186,16 +1207,7 @@ void FNiagaraSystemViewModel::EmitterScriptGraphChanged(const FEdGraphEditAction
 {
 	if (bUpdatingEmittersFromSequencerDataChange == false)
 	{
-		TGuardValue<bool> UpdateGuard(bUpdatingSequencerFromEmitterDataChange, true);
-		for (UMovieSceneTrack* Track : NiagaraSequence->GetMovieScene()->GetMasterTracks())
-		{
-			UMovieSceneNiagaraEmitterTrack* EmitterTrack = CastChecked<UMovieSceneNiagaraEmitterTrack>(Track);
-			if (EmitterTrack->GetEmitterHandleViewModel() == OwningEmitterHandleViewModel)
-			{
-				EmitterTrack->UpdateTrackFromEmitterGraphChange(NiagaraSequence->GetMovieScene()->GetTickResolution());
-			}
-		}
-		Sequencer->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemsChanged);
+		EmitterIdsRequiringSequencerTrackUpdate.AddUnique(OwningEmitterHandleViewModel->GetId());
 	}
 	// Remove from cache on graph change 
 	EmitterToCachedStackModuleData.Remove(OwningEmitterHandleViewModel->GetId());

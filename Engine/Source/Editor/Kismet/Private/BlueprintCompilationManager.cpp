@@ -569,7 +569,7 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 			// then we can avoid dependency recompilation:
 			TSet<UBlueprint*> BlueprintsWithSignatureChanges;
 			const UBlueprintEditorProjectSettings* EditorProjectSettings = GetDefault<UBlueprintEditorProjectSettings>();
-			bool bSkipUnneededDependencyCompilation = EditorProjectSettings->bSkipUnneededDependencyCompilation;
+			bool bSkipUnneededDependencyCompilation = !EditorProjectSettings->bForceAllDependenciesToRecompile;
 
 			for (FCompilerData& CompilerData : CurrentlyCompilingBPs)
 			{

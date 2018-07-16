@@ -570,6 +570,7 @@ namespace PackageTools
 		// Check to see if we need to reload the current world.
 		FName WorldNameToReload;
 		TMap<FName, const UMapBuildDataRegistry*> LevelsToMapBuildData;
+		TArray<ULevelStreaming*> RemovedStreamingLevels;
 		{
 			if (UWorld* EditorWorld = GEditor->GetEditorWorldContext().World())
 			{
@@ -610,10 +611,27 @@ namespace PackageTools
 				// Cache the current map build data for the levels of the current world so we can see if they change due to a reload (we can skip this if reloading the current world).
 				else
 				{
-					for (int32 LevelIndex = 0; LevelIndex < EditorWorld->GetNumLevels(); ++LevelIndex)
+					TArray<ULevel*> EditorLevels = EditorWorld->GetLevels();
+
+					for (ULevel* Level : EditorLevels)
 					{
-						ULevel* Level = EditorWorld->GetLevel(LevelIndex);
-						LevelsToMapBuildData.Add(Level->GetFName(), Level->MapBuildData);
+						if (PackagesToReload.Contains(Level->GetOutermost()))
+						{
+							for (ULevelStreaming* StreamingLevel : EditorWorld->GetStreamingLevels())
+							{
+								if (StreamingLevel->GetLoadedLevel() == Level)
+								{
+									EditorWorld->RemoveFromWorld(Level);
+									StreamingLevel->RemoveLevelFromCollectionForReload();
+									RemovedStreamingLevels.Add(StreamingLevel);
+									break;
+								}
+							}
+						}
+						else
+						{
+							LevelsToMapBuildData.Add(Level->GetFName(), Level->MapBuildData);
+						}
 					}
 				}
 			}
@@ -696,20 +714,35 @@ namespace PackageTools
 			FAssetEditorManager::Get().OpenEditorsForAssets(WorldNamesToReload);
 		}
 		// Update the rendering resources for the levels of the current world if their map build data has changed (we skip this if reloading the current world).
-		else if (LevelsToMapBuildData.Num() > 0)
+		else
 		{
-			UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
-			check(EditorWorld);
-
-			for (int32 LevelIndex = 0; LevelIndex < EditorWorld->GetNumLevels(); ++LevelIndex)
+			if (LevelsToMapBuildData.Num() > 0)
 			{
-				ULevel* Level = EditorWorld->GetLevel(LevelIndex);
-				const UMapBuildDataRegistry* OldMapBuildData = LevelsToMapBuildData.FindRef(Level->GetFName());
+				UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
+				check(EditorWorld);
 
-				if (OldMapBuildData && OldMapBuildData != Level->MapBuildData)
+				for (int32 LevelIndex = 0; LevelIndex < EditorWorld->GetNumLevels(); ++LevelIndex)
 				{
-					Level->ReleaseRenderingResources();
-					Level->InitializeRenderingResources();
+					ULevel* Level = EditorWorld->GetLevel(LevelIndex);
+					const UMapBuildDataRegistry* OldMapBuildData = LevelsToMapBuildData.FindRef(Level->GetFName());
+
+					if (OldMapBuildData && OldMapBuildData != Level->MapBuildData)
+					{
+						Level->ReleaseRenderingResources();
+						Level->InitializeRenderingResources();
+					}
+				}
+			}
+			if (RemovedStreamingLevels.Num() > 0)
+			{
+				UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
+				check(EditorWorld);
+
+				for (ULevelStreaming* StreamingLevel : RemovedStreamingLevels)
+				{
+					ULevel* NewLevel = StreamingLevel->GetLoadedLevel();
+					EditorWorld->AddToWorld(NewLevel, StreamingLevel->LevelTransform, false);
+					StreamingLevel->AddLevelToCollectionAfterReload();
 				}
 			}
 		}

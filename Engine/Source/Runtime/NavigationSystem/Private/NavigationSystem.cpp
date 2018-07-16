@@ -116,14 +116,35 @@ namespace FNavigationSystem
 
 	bool ShouldLoadNavigationOnClient(ANavigationData& NavData)
 	{
-		const UNavigationSystemV1* NavSysCDO = (*GEngine->NavigationSystemClass != nullptr) 
-			? (GEngine->NavigationSystemClass->GetDefaultObject<const UNavigationSystemV1>()) 
-			: (const UNavigationSystemV1*)nullptr;
-		return NavSysCDO && NavSysCDO->ShouldLoadNavigationOnClient(&NavData);
+		const UWorld* World = NavData.GetWorld();
+
+		if (World && World->GetNavigationSystem())
+		{
+			const UNavigationSystemV1* NavSys = Cast<UNavigationSystemV1>(World->GetNavigationSystem());
+			return NavSys && NavSys->ShouldLoadNavigationOnClient(&NavData);
+		}
+		else
+		{
+			const UNavigationSystemV1* NavSysCDO = (*GEngine->NavigationSystemClass != nullptr)
+				? (GEngine->NavigationSystemClass->GetDefaultObject<const UNavigationSystemV1>())
+				: (const UNavigationSystemV1*)nullptr;
+			return NavSysCDO && NavSysCDO->ShouldLoadNavigationOnClient(&NavData);
+		}
 	}
 
 	bool ShouldDiscardSubLevelNavData(ANavigationData& NavData)
 	{
+		const UWorld* World = NavData.GetWorld();
+
+		if (World && World->GetNavigationSystem())
+		{
+			const UNavigationSystemV1* NavSys = Cast<UNavigationSystemV1>(World->GetNavigationSystem());
+			if (NavSys)
+			{
+				return NavSys->ShouldDiscardSubLevelNavData(&NavData);
+			}
+		}
+
 		const UNavigationSystemV1* NavSysCDO = (*GEngine->NavigationSystemClass != nullptr)
 			? (GEngine->NavigationSystemClass->GetDefaultObject<const UNavigationSystemV1>())
 			: (const UNavigationSystemV1*)nullptr;
@@ -446,7 +467,10 @@ void UNavigationSystemV1::UpdateAbstractNavData()
 		FNavDataConfig DummyConfig;
 		DummyConfig.NavigationDataClass = AAbstractNavData::StaticClass();
 		AbstractNavData = CreateNavigationDataInstance(DummyConfig);
-		AbstractNavData->SetFlags(RF_Transient);
+		if (AbstractNavData)
+		{
+			AbstractNavData->SetFlags(RF_Transient);
+		}
 	}
 }
 
@@ -626,6 +650,7 @@ void UNavigationSystemV1::PostEditChangeChainProperty(FPropertyChangedChainEvent
 {
 	static const FName NAME_NavigationDataClass = GET_MEMBER_NAME_CHECKED(FNavDataConfig, NavigationDataClass);
 	static const FName NAME_SupportedAgents = GET_MEMBER_NAME_CHECKED(UNavigationSystemV1, SupportedAgents);
+	static const FName NAME_AllowClientSideNavigation = GET_MEMBER_NAME_CHECKED(UNavigationSystemV1, bAllowClientSideNavigation);
 
 	Super::PostEditChangeChainProperty(PropertyChangedEvent);
 
@@ -641,6 +666,13 @@ void UNavigationSystemV1::PostEditChangeChainProperty(FPropertyChangedChainEvent
 				TSubclassOf<ANavigationData> NavClass = SupportedAgents[SupportedAgentIndex].NavigationDataClass.Get();
 				SetSupportedAgentsNavigationClass(SupportedAgentIndex, NavClass);
 				SaveConfig();
+			}
+		}
+		else if (PropName == NAME_AllowClientSideNavigation && HasAnyFlags(RF_ClassDefaultObject))
+		{
+			for (FObjectIterator It(UNavigationSystemModuleConfig::StaticClass()); It; ++It)
+			{
+				((UNavigationSystemModuleConfig*)*It)->UpdateWithNavSysCDO(*this);
 			}
 		}
 	}
@@ -4340,12 +4372,30 @@ UNavigationSystemModuleConfig::UNavigationSystemModuleConfig(const FObjectInitia
 	: Super(ObjectInitializer)
 {
 	const UNavigationSystemV1* NavSysCDO = GetDefault<UNavigationSystemV1>();
-	bAutoSpawnMissingNavData = NavSysCDO && NavSysCDO->bAutoCreateNavigationData;
-	bSpawnNavDataInNavBoundsLevel = NavSysCDO && NavSysCDO->bSpawnNavDataInNavBoundsLevel;
+	if (NavSysCDO)
+	{
+		UpdateWithNavSysCDO(*NavSysCDO);
+	}
+}
+
+void UNavigationSystemModuleConfig::UpdateWithNavSysCDO(const UNavigationSystemV1& NavSysCDO)
+{
+	if (NavigationSystemClass.TryLoad() == NavSysCDO.GetClass())
+	{
+		bStrictlyStatic = NavSysCDO.bStaticRuntimeNavigation;
+		bCreateOnClient = NavSysCDO.bAllowClientSideNavigation;
+		bAutoSpawnMissingNavData = NavSysCDO.bAutoCreateNavigationData;
+		bSpawnNavDataInNavBoundsLevel = NavSysCDO.bSpawnNavDataInNavBoundsLevel;
+	}
 }
 
 UNavigationSystemBase* UNavigationSystemModuleConfig::CreateAndConfigureNavigationSystem(UWorld& World) const
 {
+	if (bCreateOnClient == false && World.GetNetMode() == NM_Client)
+	{
+		return nullptr;
+	}
+	
 	UNavigationSystemV1* NavSysInstance = Cast<UNavigationSystemV1>(Super::CreateAndConfigureNavigationSystem(World));
 	UE_CLOG(NavSysInstance == nullptr, LogNavigation, Error
 		, TEXT("Unable to spawn navsys instance of class %s - unable to cast to UNavigationSystemV1")
@@ -4356,9 +4406,46 @@ UNavigationSystemBase* UNavigationSystemModuleConfig::CreateAndConfigureNavigati
 	{
 		NavSysInstance->bAutoCreateNavigationData = bAutoSpawnMissingNavData;
 		NavSysInstance->bSpawnNavDataInNavBoundsLevel = bSpawnNavDataInNavBoundsLevel;
+		if (bStrictlyStatic)
+		{
+			NavSysInstance->ConfigureAsStatic();
+		}
 	}
 
 	return NavSysInstance;
 }
+
+#if WITH_EDITOR
+void UNavigationSystemModuleConfig::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	static const FName NAME_NavigationSystemClass = GET_MEMBER_NAME_CHECKED(UNavigationSystemConfig, NavigationSystemClass);
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	if (PropertyChangedEvent.Property)
+	{
+		FName PropName = PropertyChangedEvent.Property->GetFName();
+		if (PropName == NAME_NavigationSystemClass)
+		{
+			if (NavigationSystemClass.IsValid() == false)
+			{
+				NavigationSystemClass = *GEngine->NavigationSystemClass;
+			}
+			else
+			{
+				NavigationSystemClass.TryLoad();
+				TSubclassOf<UNavigationSystemBase> NavSysClass = NavigationSystemClass.ResolveClass();
+				const UNavigationSystemV1* NavSysCDO = *NavSysClass
+					? NavSysClass->GetDefaultObject<UNavigationSystemV1>()
+					: (UNavigationSystemV1*)nullptr;
+				if (NavSysCDO)
+				{
+					UpdateWithNavSysCDO(*NavSysCDO);
+				}
+			}
+		}
+	}
+}
+#endif // WITH_EDITOR
 
 #undef LOCTEXT_NAMESPACE

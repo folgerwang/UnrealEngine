@@ -18,6 +18,7 @@ FMovieSceneSubSequenceData::FMovieSceneSubSequenceData(const UMovieSceneSubSecti
 #if WITH_EDITORONLY_DATA
 	, SectionPath(*InSubSection.GetPathNameInMovieScene())
 #endif
+	, SubSectionSignature(InSubSection.GetSignature())
 {
 	PreRollRange.Value  = TRange<FFrameNumber>::Empty();
 	PostRollRange.Value = TRange<FFrameNumber>::Empty();
@@ -35,7 +36,7 @@ FMovieSceneSubSequenceData::FMovieSceneSubSequenceData(const UMovieSceneSubSecti
 	const FFrameNumber OuterStartTime = MovieScene::DiscreteInclusiveLower(SubRange);
 	const FFrameNumber OuterEndTime   = MovieScene::DiscreteExclusiveUpper(SubRange);
 
-	RootToSequenceTransform = InSubSection.OuterToInnerTransform();
+	OuterToInnerTransform = RootToSequenceTransform = InSubSection.OuterToInnerTransform();
 
 	PlayRange.Value = SubRange * RootToSequenceTransform;
 
@@ -65,6 +66,11 @@ UMovieSceneSequence* FMovieSceneSubSequenceData::GetSequence() const
 UMovieSceneSequence* FMovieSceneSubSequenceData::GetLoadedSequence() const
 {
 	return CachedSequence.Get();
+}
+
+bool FMovieSceneSubSequenceData::IsDirty(const UMovieSceneSubSection& InSubSection) const
+{
+	return InSubSection.GetSignature() != SubSectionSignature || InSubSection.OuterToInnerTransform() != OuterToInnerTransform;
 }
 
 void FMovieSceneSequenceHierarchy::Add(const FMovieSceneSubSequenceData& Data, FMovieSceneSequenceIDRef ThisSequenceID, FMovieSceneSequenceIDRef ParentID)

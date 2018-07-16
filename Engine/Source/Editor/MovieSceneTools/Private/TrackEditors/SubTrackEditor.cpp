@@ -738,6 +738,8 @@ void FSubTrackEditor::HandleRecordNewSequence(AActor* InActorToRecord, UMovieSce
 {
 	FSlateApplication::Get().DismissAllMenus();
 
+	const FScopedTransaction Transaction(LOCTEXT("AddRecordNewSequence_Transaction", "Add Record New Sequence"));
+
 	AnimatablePropertyChanged( FOnKeyProperty::CreateRaw( this, &FSubTrackEditor::HandleRecordNewSequenceInternal, InActorToRecord, InTrack) );
 }
 

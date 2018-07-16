@@ -189,11 +189,18 @@ public:
 		}
 	}
 
+	/** Is this string table from an asset? */
+	static bool IsStringTableFromAsset(const FName InTableId)
+	{
+		return InstancePtr && InstancePtr->IsStringTableFromAssetImpl(InTableId);
+	}
+
 protected:
 	virtual ~IStringTableEngineBridge() {}
 
 	virtual void RedirectAndLoadStringTableAssetImpl(FName& InOutTableId, const EStringTableLoadingPolicy InLoadingPolicy) = 0;
 	virtual void CollectStringTableAssetReferencesImpl(const FName InTableId, FArchive& InAr) = 0;
+	virtual bool IsStringTableFromAssetImpl(const FName InTableId) = 0;
 
 	/** Singleton instance, populated by the derived type */
 	static IStringTableEngineBridge* InstancePtr;

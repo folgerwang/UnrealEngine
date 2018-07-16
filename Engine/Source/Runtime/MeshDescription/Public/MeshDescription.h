@@ -1,76 +1,70 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#if defined(_MSC_VER) && _MSC_FULL_VER <= 190023918
-#pragma warning(disable:4503)
-#endif
 
 #include "CoreMinimal.h"
 #include "CoreTypes.h"
 #include "MeshTypes.h"
 #include "MeshElementArray.h"
 #include "MeshAttributeArray.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/ReleaseObjectVersion.h"
 #include "MeshDescription.generated.h"
 
 
-USTRUCT()
 struct FMeshVertex
 {
-	GENERATED_BODY()
-
 	FMeshVertex()
 	{}
 
 	/** All of vertex instances which reference this vertex (for split vertex support) */
-	UPROPERTY()
 	TArray<FVertexInstanceID> VertexInstanceIDs;
 
 	/** The edges connected to this vertex */
-	UPROPERTY()
 	TArray<FEdgeID> ConnectedEdgeIDs;
 
 	/** Serializer */
 	friend FArchive& operator<<( FArchive& Ar, FMeshVertex& Vertex )
 	{
-		Ar << Vertex.VertexInstanceIDs;
-		Ar << Vertex.ConnectedEdgeIDs;
+		if( Ar.IsLoading() && Ar.CustomVer( FReleaseObjectVersion::GUID ) < FReleaseObjectVersion::MeshDescriptionNewSerialization )
+		{
+			Ar << Vertex.VertexInstanceIDs;
+			Ar << Vertex.ConnectedEdgeIDs;
+		}
+
 		return Ar;
 	}
 };
 
 
-USTRUCT()
 struct FMeshVertexInstance
 {
-	GENERATED_BODY()
-
 	FMeshVertexInstance()
 		: VertexID( FVertexID::Invalid )
 	{}
 
 	/** The vertex this is instancing */
-	UPROPERTY()
 	FVertexID VertexID;
 
 	/** List of connected polygons */
-	UPROPERTY()
 	TArray<FPolygonID> ConnectedPolygons;
 
 	/** Serializer */
 	friend FArchive& operator<<( FArchive& Ar, FMeshVertexInstance& VertexInstance )
 	{
 		Ar << VertexInstance.VertexID;
-		Ar << VertexInstance.ConnectedPolygons;
+		if( Ar.IsLoading() && Ar.CustomVer( FReleaseObjectVersion::GUID ) < FReleaseObjectVersion::MeshDescriptionNewSerialization )
+		{
+			Ar << VertexInstance.ConnectedPolygons;
+		}
+
 		return Ar;
 	}
 };
 
 
-USTRUCT()
 struct FMeshEdge
 {
-	GENERATED_BODY()
-
 	FMeshEdge()
 	{
 		VertexIDs[ 0 ] = FVertexID::Invalid;
@@ -78,12 +72,10 @@ struct FMeshEdge
 	}
 
 	/** IDs of the two editable mesh vertices that make up this edge.  The winding direction is not defined. */
-	UPROPERTY()
 	FVertexID VertexIDs[ 2 ];
 
 	/** The polygons that share this edge.  It's best if there are always only two polygons that share
 	    the edge, and those polygons are facing the same direction */
-	UPROPERTY()
 	TArray<FPolygonID> ConnectedPolygons;
 
 	/** Serializer */
@@ -91,19 +83,19 @@ struct FMeshEdge
 	{
 		Ar << Edge.VertexIDs[ 0 ];
 		Ar << Edge.VertexIDs[ 1 ];
-		Ar << Edge.ConnectedPolygons;
+		if( Ar.IsLoading() && Ar.CustomVer( FReleaseObjectVersion::GUID ) < FReleaseObjectVersion::MeshDescriptionNewSerialization )
+		{
+			Ar << Edge.ConnectedPolygons;
+		}
+
 		return Ar;
 	}
 };
 
 
-USTRUCT()
 struct FMeshPolygonContour
 {
-	GENERATED_BODY()
-
 	/** The ordered list of vertex instances which make up the polygon contour. The winding direction is counter-clockwise. */
-	UPROPERTY()
 	TArray<FVertexInstanceID> VertexInstanceIDs;
 
 	/** Serializer */
@@ -153,42 +145,36 @@ struct FMeshTriangle
 	}
 
 	/** Serializer */
-	friend FArchive& operator<<( FArchive& Ar, FMeshTriangle& Tri )
+	friend FArchive& operator<<( FArchive& Ar, FMeshTriangle& Triangle )
 	{
-		Ar << Tri.VertexInstanceID0;
-		Ar << Tri.VertexInstanceID1;
-		Ar << Tri.VertexInstanceID2;
+		Ar << Triangle.VertexInstanceID0;
+		Ar << Triangle.VertexInstanceID1;
+		Ar << Triangle.VertexInstanceID2;
+
 		return Ar;
 	}
 };
 
 
-USTRUCT()
 struct FMeshPolygon
 {
-	GENERATED_BODY()
-
 	FMeshPolygon()
 		: PolygonGroupID( FPolygonGroupID::Invalid )
 	{}
 
 	/** The outer boundary edges of this polygon */
-	UPROPERTY()
 	FMeshPolygonContour PerimeterContour;
 
 	/** Optional inner contours of this polygon that define holes inside of the polygon.  For the geometry to
 	    be considered valid, the hole contours should reside within the boundary of the polygon perimeter contour, 
 		and must not overlap each other.  No "nesting" of polygons inside the holes is supported -- those are 
 		simply separate polygons */
-	UPROPERTY()
 	TArray<FMeshPolygonContour> HoleContours;
 
 	/** List of triangles which make up this polygon */
-	UPROPERTY()
 	TArray<FMeshTriangle> Triangles;
 
 	/** The polygon group which contains this polygon */
-	UPROPERTY()
 	FPolygonGroupID PolygonGroupID;
 
 	/** Serializer */
@@ -196,18 +182,19 @@ struct FMeshPolygon
 	{
 		Ar << Polygon.PerimeterContour;
 		Ar << Polygon.HoleContours;
-		Ar << Polygon.Triangles;
+		if( Ar.IsLoading() && Ar.CustomVer( FReleaseObjectVersion::GUID ) < FReleaseObjectVersion::MeshDescriptionNewSerialization )
+		{
+			Ar << Polygon.Triangles;
+		}
 		Ar << Polygon.PolygonGroupID;
+
 		return Ar;
 	}
 };
 
 
-USTRUCT()
 struct FMeshPolygonGroup
 {
-	GENERATED_BODY()
-
 	FMeshPolygonGroup()
 	{}
 
@@ -217,7 +204,11 @@ struct FMeshPolygonGroup
 	/** Serializer */
 	friend FArchive& operator<<( FArchive& Ar, FMeshPolygonGroup& PolygonGroup )
 	{
-		Ar << PolygonGroup.Polygons;
+		if( Ar.IsLoading() && Ar.CustomVer( FReleaseObjectVersion::GUID ) < FReleaseObjectVersion::MeshDescriptionNewSerialization )
+		{
+			Ar << PolygonGroup.Polygons;
+		}
+
 		return Ar;
 	}
 };
@@ -240,25 +231,20 @@ enum class EComputeNTBsOptions : uint32
 };
 ENUM_CLASS_FLAGS(EComputeNTBsOptions);
 
-#define MESHDESCRIPTION_VER TEXT("8315CA62A4084F069C99E54C1C6EEDF0")
+#define MESHDESCRIPTION_VER TEXT("42190ADE250046AC958045C7DA930FEC")
 
 
-UCLASS()
-class MESHDESCRIPTION_API UMeshDescription : public UObject
+class MESHDESCRIPTION_API FMeshDescription
 {
 public:
-	GENERATED_BODY()
+
+	FMeshDescription() = default;
+	~FMeshDescription() = default;
+
+	friend MESHDESCRIPTION_API FArchive& operator<<( FArchive& Ar, FMeshDescription& MeshDescription );
 
 	//Get the current meshdescription version
 	static FString GetMeshDescriptionVersion() { return MESHDESCRIPTION_VER; }
-
-	UMeshDescription();
-
-	// UObject interface
-	virtual void Serialize( FArchive& Ar ) override;
-#if WITH_EDITOR
-	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
-#endif
 
 	//Empty the meshdescription
 	void Empty();
@@ -803,9 +789,6 @@ public:
 	/** Remaps the element IDs in the mesh description according to the passed in object */
 	void Remap( const FElementIDRemappings& Remappings );
 
-#if WITH_EDITORONLY_DATA
-	FString GetIdString();
-#endif
 
 	void ComputePolygonTriangulation(const FPolygonID PolygonID, TArray<FMeshTriangle>& OutTriangles);
 	void TriangulateMesh();
@@ -886,4 +869,15 @@ private:
 	TAttributesSet<FEdgeID> EdgeAttributesSet;
 	TAttributesSet<FPolygonID> PolygonAttributesSet;
 	TAttributesSet<FPolygonGroupID> PolygonGroupAttributesSet;
+};
+
+
+UCLASS(deprecated)
+class MESHDESCRIPTION_API UDEPRECATED_MeshDescription : public UObject
+{
+public:
+	GENERATED_BODY()
+
+	// UObject interface
+	virtual void Serialize( FArchive& Ar ) override;
 };

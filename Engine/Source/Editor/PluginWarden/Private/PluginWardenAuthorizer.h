@@ -59,6 +59,18 @@ private:
 	/** The unique id of the offer for the plug-in on the marketplace. */
 	FString PluginOfferId;
 
+	/** The current number of authorization check retries. */
+	unsigned int NumAuthorizationRetries;
+
+	/** The current number of sign-in retries. */
+	unsigned int NumSignInRetries;
+
+	/** The current number of Launcher start retries. */
+	unsigned int NumLauncherRetries;
+
+	/** The current loop number of wait loops during the sign-in wait phase. */
+	unsigned int CurrentWaitLoopNumber;
+
 	/** The portal application communication service. */
 	TSharedPtr<IPortalApplicationWindow> PortalWindowService;
 

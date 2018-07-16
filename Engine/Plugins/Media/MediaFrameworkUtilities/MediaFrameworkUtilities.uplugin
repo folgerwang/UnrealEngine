@@ -12,18 +12,34 @@
 	"EnabledByDefault" : false,
 	"CanContainContent" : true,
 	"IsBetaVersion" : false,
-	"Installed" : false,
 	"Modules" :
 	[
 		{
 			"Name" : "MediaFrameworkUtilities",
 			"Type" : "Runtime",
-			"LoadingPhase" : "Default"
+			"LoadingPhase" : "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Win32",
+				"Linux"
+			]
 		},
 		{
 			"Name" : "MediaFrameworkUtilitiesEditor",
 			"Type" : "Editor",
-			"LoadingPhase" : "PostEngineInit"
+			"LoadingPhase" : "PostEngineInit",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Win32",
+				"Linux"
+			]
+		}
+	],
+	"Plugins" :
+	[
+		{
+			"Name" : "OpenCVLensDistortion",
+			"Enabled" : true
 		}
 	]
 }

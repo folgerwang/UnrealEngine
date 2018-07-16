@@ -977,35 +977,38 @@ bool UNiagaraStackFunctionInput::CanReset() const
 		else
 		{
 			UEdGraphPin* DefaultPin = GetDefaultPin();
-			if(DefaultPin->LinkedTo.Num() == 0)
-			{
-				if (GetOverridePin() != nullptr)
+			if (ensure(DefaultPin != nullptr))
+			{			
+				if(DefaultPin->LinkedTo.Num() == 0)
 				{
-					bNewCanReset = true;
-				}
-				else if (IsRapidIterationCandidate())
-				{
-					FNiagaraVariable DefaultVar = GetDefaultVariableForRapidIterationParameter();
-					bool bHasValidLocalValue = InputValues.LocalStruct.IsValid();
-					bool bHasValidDefaultValue = DefaultVar.IsValid();
-					bNewCanReset = bHasValidLocalValue && bHasValidDefaultValue && FNiagaraEditorUtilities::DataMatches(DefaultVar, *InputValues.LocalStruct.Get()) == false;
-				}
-				else
-				{
-					bNewCanReset = false;
-				}
-			}
-			else
-			{
-				if (FNiagaraStackGraphUtilities::IsValidDefaultDynamicInput(*SourceScript, *DefaultPin))
-				{
-					UEdGraphPin* OverridePin = GetOverridePin();
-					bNewCanReset = OverridePin == nullptr || FNiagaraStackGraphUtilities::DoesDynamicInputMatchDefault(GetEmitterViewModel()->GetEmitter()->GetUniqueEmitterName(), *SourceScript,
-						*OwningFunctionCallNode, *OverridePin, InputParameterHandle.GetName(), *DefaultPin) == false;
+					if (GetOverridePin() != nullptr)
+					{
+						bNewCanReset = true;
+					}
+					else if (IsRapidIterationCandidate())
+					{
+						FNiagaraVariable DefaultVar = GetDefaultVariableForRapidIterationParameter();
+						bool bHasValidLocalValue = InputValues.LocalStruct.IsValid();
+						bool bHasValidDefaultValue = DefaultVar.IsValid();
+						bNewCanReset = bHasValidLocalValue && bHasValidDefaultValue && FNiagaraEditorUtilities::DataMatches(DefaultVar, *InputValues.LocalStruct.Get()) == false;
+					}
+					else
+					{
+						bNewCanReset = false;
+					}
 				}
 				else
 				{
-					bNewCanReset = GetOverridePin() != nullptr;
+					if (FNiagaraStackGraphUtilities::IsValidDefaultDynamicInput(*SourceScript, *DefaultPin))
+					{
+						UEdGraphPin* OverridePin = GetOverridePin();
+						bNewCanReset = OverridePin == nullptr || FNiagaraStackGraphUtilities::DoesDynamicInputMatchDefault(GetEmitterViewModel()->GetEmitter()->GetUniqueEmitterName(), *SourceScript,
+							*OwningFunctionCallNode, *OverridePin, InputParameterHandle.GetName(), *DefaultPin) == false;
+					}
+					else
+					{
+						bNewCanReset = GetOverridePin() != nullptr;
+					}
 				}
 			}
 		}
@@ -1261,7 +1264,8 @@ FNiagaraVariable UNiagaraStackFunctionInput::CreateRapidIterationVariable(const 
 bool UNiagaraStackFunctionInput::CanRenameInput() const
 {
 	// Only module level assignment node inputs can be renamed.
-	return OwningAssignmentNode.IsValid() && InputParameterHandlePath.Num() == 1;
+	return OwningAssignmentNode.IsValid() && InputParameterHandlePath.Num() == 1 &&
+		OwningAssignmentNode->FindAssignmentTarget(InputParameterHandle.GetName()) != INDEX_NONE;
 }
 
 bool UNiagaraStackFunctionInput::GetIsRenamePending() const

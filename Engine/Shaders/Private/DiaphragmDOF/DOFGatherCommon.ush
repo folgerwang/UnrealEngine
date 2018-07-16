@@ -100,6 +100,9 @@
 	// Background DOF can suffer under sampling on smaller out of focus, because
 	// the gathering kernel is too large.
 	#define CONFIG_KERNEL_SAMPLING_DENSITY_DRIVER 1
+	
+	// Background need coc radius error correction to reduce amount of background leaking.
+	#define CONFIG_COC_RADIUS_CORRECTION 1
 
 #elif DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
 	#define GATHER_ACCUMULATOR_METHOD (GATHER_ACCUMULATOR_METHOD_SIMPLE)
@@ -121,10 +124,12 @@
 
 #elif DIM_GATHER_QUALITY == GATHER_QUALITY_HIGH_QUALITY
 	#define CONFIG_WEIGHT_SAMPLE_FROM_COC 1
+	#define CONFIG_MIRRORED_SAMPLER 1
 
 #elif DIM_GATHER_QUALITY == GATHER_QUALITY_SCATTER_OCCLUSION_OUTPUT
 	#define CONFIG_WEIGHT_SAMPLE_FROM_COC 1
 	#define CONFIG_GENERATE_SCATTER_OCCLUSION_BUFFER 1
+	#define CONFIG_MIRRORED_SAMPLER 1
 
 #else
 	#error Unknon gathering quality.
@@ -201,7 +206,27 @@
 	#define CONFIG_POINT_MIRROR_BOKEH 1
 #endif
 
+// Uses mirrored sampler when gathering outside viewport rect.
+#ifndef CONFIG_MIRRORED_SAMPLER
+	#define CONFIG_MIRRORED_SAMPLER 0
+#endif
 
+// D3D shader compiler is rediculously slow to compile this shader.
+#if SM5_PROFILE
+	#define CONFIG_UNROLL_GATHER 0
+#else
+	#define CONFIG_UNROLL_GATHER 1
+#endif
+
+// Substract the CocRadius error to the sample distance to fight against layering opacity issues caused by undersampling.
+#ifndef CONFIG_COC_RADIUS_CORRECTION
+	#define CONFIG_COC_RADIUS_CORRECTION 0
+#endif
+
+/** Defines the maximum number of gathering sampling density changes supported in the kernel. */
+#ifndef CONFIG_MAX_SAMPLING_DENSITY_CHANGES
+	#define CONFIG_MAX_SAMPLING_DENSITY_CHANGES 3
+#endif
 
 //------------------------------------------------------- CONFIG CHECKS
 
@@ -215,59 +240,10 @@
 
 //------------------------------------------------------- CONFIG DERIVED VALUES
 
-// Sets the gather pass's half resolution divisor.
-#define GATHER_HALF_RES_DIVISOR 1
-
-#define GATHER_HALF_RES_DIVISOR_INV (1.0/float(GATHER_HALF_RES_DIVISOR))
-
 // Wether the group size is larger than COC tile size.
 #define GROUP_SIZE_IS_LARGER_THAN_COC_TILE_SIZE 0
 
 //------------------------------------------------------- STAND ALONE FUNCTIONS
-
-// Computes intersection of sample from its Coc and its distance.
-// Returns 0: no intersection, 1: intersection.
-float ComputeSampleIntersection(float SampleCocRadius, float SampleDistance)
-{
-	// Intersection of output pixel's disk area with sample's Coc.
-	#if 1
-		// To have an intersection of 50% when the Sample's Coc radius == SampleDistance.
-		#if 0 // TODO: clean this hack.
-			// Poor out of focus, great alpha channel, no leaking.
-			const float Offset = 1;
-		#elif 1
-			// Best slight out of focus.
-			const float Offset = 0;
-		#else
-			// Mathematically ideal.
-			const float Offset = 0.5;
-		#endif
-
-		// Uses a sharper intersection for slight out of focus like Recombine pass since it is being used
-		// for full res temporal statbility clamping box, so the aliasing this may introduce at half res is
-		// Fine.
-		const float Multiplier = (DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS) ? 4.0 : 1.0;
-
-		return saturate((abs(SampleCocRadius) - SampleDistance) * Multiplier + Offset);
-
-	// Same as Circle DOF.
-	#elif 0
-		// 0.5 because Coc radius is at half res, and 0.5 so that the fallof is only the radius of a ful res pixel.
-		const float IntersectionSharpen = 0.5 * 0.5;
-
-		// TODO: missing +0.5 to be energy conservative.
-		return saturate((abs(SampleCocRadius) - SampleDistance) * IntersectionSharpen);
-
-	#else // Hard cut of.
-		if (SampleDistance > abs(SampleCocRadius))
-		{
-			return 0.0;
-		}
-		return 1.0;
-
-	#endif
-}
-
 
 // Compute sample weight according's to its Coc radius.
 float ComputeSampleWeight(float CocRadius)
@@ -335,8 +311,14 @@ struct FGatherInputParameters
 	// Sampling density compile time mode. KERNEL_DENSITY_*
 	uint KernelSamplingDensityMode;
 
-	// Runtime toggle when KernelSamplingDensityMode == KERNEL_DENSITY_HIGHER_IN_CENTER_DISK 
-	bool bDoHighDensityGatheringAtCenter;
+	// Compile time number of rings for density changes.
+	uint DensityChangeRingCount;
+
+	// Compile time max number of density changes allowed.
+	uint MaxDensityChangeCount;
+	
+	// Tile constant about what is the smallest intersectable radius.
+	float MinIntersectableCocRadiusAbs;
 };
 
 /** Informations about a ring. */
@@ -404,9 +386,9 @@ struct FAccumulatorOutput
 	// Coc average and variance for background.
 	float2 BackgroundCocAvgAndSquareAvg;
 
-	// Slight out of focus color and weight.
+	// Slight out of focus color and opacity.
 	float4 SlightFocusColor;
-	float SlightFocusWeight;
+	float SlightFocusOpacity;
 };
 
 
@@ -437,6 +419,6 @@ FAccumulatorOutput CreateAccumulatorOutput()
 	AccumulatorOutput.BackgroundWeight = 0;
 	AccumulatorOutput.BackgroundCocAvgAndSquareAvg = 0;
 	AccumulatorOutput.SlightFocusColor = 0;
-	AccumulatorOutput.SlightFocusWeight = 0;
+	AccumulatorOutput.SlightFocusOpacity = 0;
 	return AccumulatorOutput;
 }

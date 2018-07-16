@@ -55,7 +55,7 @@ void UMeshEditorStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edi
 {
 	WireframeMesh->Reset();
 
-	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	check( MeshDescription );
 
 	// Add all vertices
@@ -96,7 +96,7 @@ void UMeshEditorStaticMeshAdapter::OnRebuildRenderMesh( const UEditableMesh* Edi
 
 void UMeshEditorStaticMeshAdapter::OnRebuildRenderMeshFinish( const UEditableMesh* EditableMesh, const bool bRebuildBoundsAndCollision, const bool bIsPreviewRollback )
 {
-	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	check( MeshDescription );
 
 	const TPolygonAttributeArray<FVector>& PolygonNormals = MeshDescription->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Normal );
@@ -199,7 +199,7 @@ void UMeshEditorStaticMeshAdapter::OnCreateEmptyVertexRange( const UEditableMesh
 
 void UMeshEditorStaticMeshAdapter::OnCreateVertices( const UEditableMesh* EditableMesh, const TArray<FVertexID>& VertexIDs )
 {
-	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	check( MeshDescription );
 
 	const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
@@ -227,7 +227,7 @@ void UMeshEditorStaticMeshAdapter::OnSetVertexAttribute( const UEditableMesh* Ed
 
 void UMeshEditorStaticMeshAdapter::OnCreateEdges( const UEditableMesh* EditableMesh, const TArray<FEdgeID>& EdgeIDs )
 {
-	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	check( MeshDescription );
 
 	const TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsHard );
@@ -249,7 +249,7 @@ void UMeshEditorStaticMeshAdapter::OnCreateEdges( const UEditableMesh* EditableM
 
 void UMeshEditorStaticMeshAdapter::OnDeleteEdges( const UEditableMesh* EditableMesh, const TArray<FEdgeID>& EdgeIDs )
 {
-	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	check( MeshDescription );
 
 	for( const FEdgeID EdgeID : EdgeIDs )
@@ -275,7 +275,7 @@ void UMeshEditorStaticMeshAdapter::OnSetEdgesVertices( const UEditableMesh* Edit
 
 void UMeshEditorStaticMeshAdapter::OnSetEdgeAttribute( const UEditableMesh* EditableMesh, const FEdgeID EdgeID, const FMeshElementAttributeData& Attribute )
 {
-	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	check( MeshDescription );
 
 	const TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>( MeshAttribute::Edge::IsHard );
@@ -291,7 +291,7 @@ void UMeshEditorStaticMeshAdapter::OnSetEdgeAttribute( const UEditableMesh* Edit
 
 void UMeshEditorStaticMeshAdapter::OnCreatePolygons( const UEditableMesh* EditableMesh, const TArray<FPolygonID>& PolygonIDs )
 {
-	const UMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
+	const FMeshDescription* MeshDescription = EditableMesh->GetMeshDescription();
 	check( MeshDescription );
 
 	const TPolygonAttributeArray<FVector>& PolygonNormals = MeshDescription->PolygonAttributes().GetAttributes<FVector>( MeshAttribute::Polygon::Normal );

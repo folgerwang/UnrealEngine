@@ -8,6 +8,7 @@
 #include "HAL/PlatformApplicationMisc.h"
 #include "Framework/Commands/Commands.h"
 #include "Misc/App.h"
+#include "Widgets/SViewport.h"
 
 struct FMacMenuItemState
 {
@@ -700,7 +701,19 @@ void FSlateMacMenu::UpdateCachedState()
 		}
 		MacApplication->GetWindowsArrayMutex().Unlock();
     }
-	
+    
+    // If PIE Viewport has focus don't update
+    if(GIsEditor && FSlateApplication::IsInitialized())
+    {
+    	TSharedPtr<SViewport> ViewPort = FSlateApplication::Get().GetGameViewport();
+		if(ViewPort.IsValid())
+		{
+			if(ViewPort->HasKeyboardFocus())
+			{
+				bShouldUpdate = false;
+			}
+		}
+	}
 
 	if (bShouldUpdate)
 	{

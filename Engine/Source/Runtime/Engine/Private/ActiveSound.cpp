@@ -516,6 +516,15 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 	}
 	else if (ThisSoundsWaveInstances.Num() > 0)
 	{
+		// Let the wave instance know that this active sound is stopping. This will result in the wave instance getting a lower sort for voice prioritization
+		if (IsStopping())
+		{
+			for (FWaveInstance* WaveInstance : ThisSoundsWaveInstances)
+			{
+				WaveInstance->SetStopping(true);
+			}
+		}
+
 		// If this active sound is told to limit concurrency by the quietest sound
 		const FSoundConcurrencySettings* ConcurrencySettingsToApply = GetSoundConcurrencySettingsToApply();
 		if (ConcurrencySettingsToApply && ConcurrencySettingsToApply->ResolutionRule == EMaxConcurrentResolutionRule::StopQuietest)
@@ -592,9 +601,9 @@ void FActiveSound::Stop(bool bStopNow)
 		if (Source)
 		{
 			bool bStopped = false;
-			if (AudioDevice->IsAudioMixerEnabled())
+			if (AudioDevice->IsAudioMixerEnabled() && AudioDevice->IsStoppingVoicesEnabled())
 			{
-				if (bStopNow || !AudioDevice->GetNumFreeSources() || AudioDevice->CurrentStoppingVoiceCount == AudioDevice->NumStoppingVoices)
+				if (bStopNow || !AudioDevice->GetNumFreeSources())
 				{
 					Source->StopNow();
 					bStopped = true;
@@ -621,16 +630,14 @@ void FActiveSound::Stop(bool bStopNow)
 		if (Source)
 		{
 			if (!Source->IsStopping())
-			{
+			{		
+				Source->StopNow();
+
 				delete WaveInstance;
 				WaveInstance = nullptr;
 			}
 			else
 			{
-				// Increment the stopping voice count
-				AudioDevice->CurrentStoppingVoiceCount++;
-				check(AudioDevice->CurrentStoppingVoiceCount <= AudioDevice->NumStoppingVoices);
-
 				// This source is doing a fade out, so stopping. Can't remove the wave instance yet.
 				bIsStopping = true;
 			}
@@ -667,6 +674,8 @@ bool FActiveSound::UpdateStoppingSources(uint64 CurrentTick, bool bEnsureStopped
 		return true;
 	}
 
+	bIsStopping = false;
+
 	for (auto WaveInstanceIt(WaveInstances.CreateIterator()); WaveInstanceIt; ++WaveInstanceIt)
 	{
 		FWaveInstance*& WaveInstance = WaveInstanceIt.Value();
@@ -681,30 +690,23 @@ bool FActiveSound::UpdateStoppingSources(uint64 CurrentTick, bool bEnsureStopped
 				// We should have a stopping source here
 				check(Source->IsStopping());
 
-				// Wait until the source has finished stopping
-				if (bEnsureStopped)
-				{
-					Source->EnsureStopped();
-				}
-
 				// The source has finished (totally faded out)
 				if (Source->IsFinished() || bEnsureStopped)
 				{
-					// Release source resources now safely
-					Source->ReleaseStoppedSound();
+					Source->StopNow();
 
 					// Delete the wave instance
 					delete WaveInstance;
 					WaveInstance = nullptr;
-					AudioDevice->CurrentStoppingVoiceCount--;
-					check(AudioDevice->CurrentStoppingVoiceCount >= 0);
 				}
 				else
 				{
+					// We are not finished yet so touch it
 					Source->LastUpdate = CurrentTick;
 					Source->LastHeardUpdate = CurrentTick;
-					// One of sources has not finished fading out, just return false now
-					return false;
+
+					// flag that we're still stopping (return value)
+					bIsStopping = true;
 				}
 			}
 			else
@@ -718,8 +720,14 @@ bool FActiveSound::UpdateStoppingSources(uint64 CurrentTick, bool bEnsureStopped
 
 	// Return true to indicate this active sound can be cleaned up
 	// If we've reached this point, all sound waves have stopped so we can clear this wave instance out.
-	WaveInstances.Reset();
-	return true;
+	if (!bIsStopping)
+	{
+		WaveInstances.Reset();
+		return true;
+	}
+
+	// still stopping!
+	return false;
 }
 
 FWaveInstance* FActiveSound::FindWaveInstance( const UPTRINT WaveInstanceHash )

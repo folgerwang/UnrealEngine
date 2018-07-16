@@ -281,6 +281,8 @@ protected:
 	// Handles when the ticker fires.
 	bool HandleTicker( float DeltaTime );
 
+	virtual FAndroidTargetDeviceRef CreateNewDevice(const FAndroidDeviceInfo &DeviceInfo);
+
 	// true if this is a client TP
 	bool bIsClient;
 

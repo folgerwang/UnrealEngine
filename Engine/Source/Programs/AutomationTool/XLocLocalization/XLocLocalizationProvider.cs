@@ -94,11 +94,16 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 		try
 		{
 			var EpicCultureToXLocLanguageId = GetEpicCultureToXLocLanguageId();
-			LatestBuildXml = RequestLatestBuild(XLocApiClient, AuthToken, EpicCultureToXLocLanguageId[Culture]);
+			LatestBuildXml = RequestLatestBuild(XLocApiClient, AuthToken, EpicCultureToXLocLanguageId[Culture], XLocFilename);
 		}
 		catch (Exception Ex)
 		{
 			BuildCommand.LogWarning("RequestLatestBuild failed for {0}. {1}", Culture, Ex);
+			return;
+		}
+		if (String.IsNullOrEmpty(LatestBuildXml))
+		{
+			Console.WriteLine("[IGNORED] '{0}' has no build data ({1})", XLocFilename, Culture);
 			return;
 		}
 
@@ -354,9 +359,9 @@ public abstract class XLocLocalizationProvider : LocalizationProvider
 		}
 	}
 
-	private string RequestLatestBuild(XLocApiClient XLocApiClient, string AuthToken, string LanguageId)
+	private string RequestLatestBuild(XLocApiClient XLocApiClient, string AuthToken, string LanguageId, string RemoteFilename)
 	{
-		return XLocApiClient.GetLatestBuild(Config.APIKey, AuthToken, XLocUtils.MD5HashString(Config.APIKey + Config.APISecret + Config.LocalizationId + LanguageId), Config.LocalizationId, LanguageId);
+		return XLocApiClient.GetLatestBuildByFile(Config.APIKey, AuthToken, XLocUtils.MD5HashString(Config.APIKey + Config.APISecret + Config.LocalizationId + LanguageId + RemoteFilename), Config.LocalizationId, LanguageId, RemoteFilename);
 	}
 
 	private string GetXLocFilename(string BaseFilename)

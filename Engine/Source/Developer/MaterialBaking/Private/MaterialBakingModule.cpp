@@ -72,8 +72,12 @@ void FMaterialBakingModule::StartupModule()
 void FMaterialBakingModule::ShutdownModule()
 {
 	// Urnegister customization and callback
-	FPropertyEditorModule& Module = FModuleManager::Get().LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-	Module.UnregisterCustomPropertyTypeLayout(TEXT("PropertyEntry"));
+	FPropertyEditorModule* PropertyEditorModule = FModuleManager::GetModulePtr<FPropertyEditorModule>("PropertyEditor");
+
+	if (PropertyEditorModule)
+	{
+		PropertyEditorModule->UnregisterCustomPropertyTypeLayout(TEXT("PropertyEntry"));
+	}
 	FCoreUObjectDelegates::OnObjectModified.RemoveAll(this);
 }
 

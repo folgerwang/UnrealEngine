@@ -1121,7 +1121,11 @@ void FSlateApplication::InitHighDPI()
 		bool bRequestEnableHighDPI = true;
 		if (GIsEditor)
 		{
-		GConfig->GetBool(TEXT("HDPI"), TEXT("EnableHighDPIAwareness"), bRequestEnableHighDPI, GEditorSettingsIni);
+			GConfig->GetBool(TEXT("HDPI"), TEXT("EnableHighDPIAwareness"), bRequestEnableHighDPI, GEditorSettingsIni);
+		}
+		else
+		{
+			GConfig->GetBool(TEXT("/Script/Engine.UserInterfaceSettings"), TEXT("bAllowHighDPIInGameMode"), bRequestEnableHighDPI, GEngineIni);
 		}
 
 		const bool bEnableHighDPI = bRequestEnableHighDPI && !FParse::Param(FCommandLine::Get(), TEXT("nohighdpi"));

@@ -55,6 +55,7 @@ static const FName GetNormalName("GetNormal");
 static const FName GetTimeName("GetTime");
 static const FName GetVelocityName("GetVelocity");
 static const FName GetColorName("GetColor");
+static const FName GetImpulseName("GetImpulse");
 static const FName GetPositionAndTimeName("GetPositionAndTime");
 
 static const FName GetNumberOfPointsName("GetNumberOfPoints");
@@ -89,6 +90,7 @@ void UNiagaraDataInterfaceHoudiniCSV::PostInitProperties()
     if (HasAnyFlags(RF_ClassDefaultObject))
     {
 	    FNiagaraTypeRegistry::Register(FNiagaraTypeDefinition(GetClass()), true, false, false);
+		FNiagaraTypeRegistry::Register(FHoudiniEvent::StaticStruct(), true, true, false);
     }
 
 	FloatValuesGPUBufferDirty = true;
@@ -354,6 +356,22 @@ void UNiagaraDataInterfaceHoudiniCSV::GetFunctions(TArray<FNiagaraFunctionSignat
 		OutFunctions.Add(Sig);
 	}
 
+	{
+		// GetImpulse
+		FNiagaraFunctionSignature Sig;
+		Sig.Name = GetImpulseName;
+		Sig.bMemberFunction = true;
+		Sig.bRequiresContext = false;
+		Sig.Inputs.Add(FNiagaraVariable(FNiagaraTypeDefinition(GetClass()), TEXT("CSV")));			// CSV in
+		Sig.Inputs.Add(FNiagaraVariable(FNiagaraTypeDefinition::GetIntDef(), TEXT("Row")));			// Row Index In
+		Sig.Outputs.Add(FNiagaraVariable(FNiagaraTypeDefinition::GetFloatDef(), TEXT("Impulse")));	// Float Out
+
+		Sig.SetDescription(LOCTEXT("DataInterfaceHoudini_GetImpulse",
+			"Helper function returning the impulse value for a given Row in the CSV file.\n"));
+
+		OutFunctions.Add(Sig);
+	}
+
     {
 		// GetNumberOfPoints
 		FNiagaraFunctionSignature Sig;
@@ -586,6 +604,7 @@ DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetNormal);
 DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetTime);
 DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetColor);
 DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetVelocity);
+DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetImpulse);
 DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPositionAndTime);
 DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetLastRowIndexAtTime);
 DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPointIDsToSpawnAtTime);
@@ -635,7 +654,11 @@ void UNiagaraDataInterfaceHoudiniCSV::GetVMExternalFunction(const FVMExternalFun
 	{
 		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetColor)>::Bind(this, BindingInfo, InstanceData, OutFunc);
 	}
-    else if (BindingInfo.Name == GetPositionAndTimeName && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 4)
+	else if (BindingInfo.Name == GetImpulseName && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 1)
+	{
+		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetImpulse)>::Bind(this, BindingInfo, InstanceData, OutFunc);
+	}
+	else if (BindingInfo.Name == GetPositionAndTimeName && BindingInfo.GetNumInputs() == 1 && BindingInfo.GetNumOutputs() == 4)
     {
 		TNDIParamBinder<0, int32, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceHoudiniCSV, GetPositionAndTime)>::Bind(this, BindingInfo, InstanceData, OutFunc);
     }
@@ -944,6 +967,26 @@ void UNiagaraDataInterfaceHoudiniCSV::GetColor(FVectorVMContext& Context)
 		OutSampleG.Advance();
 		OutSampleB.Advance();
 		OutSampleA.Advance();
+	}
+}
+
+template<typename RowParamType>
+void UNiagaraDataInterfaceHoudiniCSV::GetImpulse(FVectorVMContext& Context)
+{
+	RowParamType RowParam(Context);
+	FRegisterHandler<float> OutValue(Context);
+
+	for (int32 i = 0; i < Context.NumInstances; ++i)
+	{
+		int32 row = RowParam.Get();
+
+		float value = 0.0f;
+		if (HoudiniCSVAsset)
+			HoudiniCSVAsset->GetImpulseValue(row, value);
+
+		*OutValue.GetDest() = value;
+		RowParam.Advance();
+		OutValue.Advance();
 	}
 }
 
@@ -1528,6 +1571,17 @@ bool UNiagaraDataInterfaceHoudiniCSV::GetFunctionHLSL(const FName& DefinitionFun
 		OutHLSL += TEXT("\n}\n");
 		return true;
 	}
+	else if (DefinitionFunctionName == GetImpulseName)
+	{
+		// GetImpulse(int In_Row, out float Out_Value)
+		OutHLSL += TEXT("void ") + InstanceFunctionName + TEXT("(int In_Row, out float Out_Impulse) \n{\n");
+
+		OutHLSL += TEXT("\tint In_ImpulseCol = ") + GetSpecAttributeColumnIndex(EHoudiniAttributes::IMPULSE) + TEXT(";\n");
+		OutHLSL += ReadFloatInBuffer(TEXT("Out_Impulse"), TEXT("In_Row"), TEXT("In_ImpulseCol"));
+
+		OutHLSL += TEXT("\n}\n");
+		return true;
+	}
 	else if (DefinitionFunctionName == GetColorName)
 	{
 		// GetColor(int In_Row, out float4 Out_Value)
@@ -1618,9 +1672,11 @@ bool UNiagaraDataInterfaceHoudiniCSV::GetFunctionHLSL(const FName& DefinitionFun
 			// Check if we need to reset lastspawnedPointID
 			OutHLSL += TEXT("\tif ( last_id < ") + LastSpawnedPointIDVar + TEXT(" || In_Time <= ") + LastSpawnTimeVar + TEXT(")\n");
 				OutHLSL += TEXT("\t\t{") + LastSpawnedPointIDVar + TEXT(" = -1; }\n");
+
 			// Nothing to spawn, In_Time is lower than the point's time
 			OutHLSL += TEXT("\tif ( last_id < 0 )\n");
 				OutHLSL += TEXT("\t\t{") + LastSpawnedPointIDVar + TEXT(" = -1;Out_Count = 0; Out_MinID = 0; Out_MaxID = 0;return;}\n");
+
 			// We dont have any new point to spawn
 			OutHLSL += TEXT("\tif ( last_id == ") + LastSpawnedPointIDVar + TEXT(")\n");
 				OutHLSL += TEXT("{ Out_MinID = last_id; Out_MaxID = last_id; Out_Count = 0; return;}\n");

@@ -869,13 +869,6 @@ FNetworkGUID UPackageMapClient::InternalLoadObject( FArchive & Ar, UObject *& Ob
 		// Remap name for PIE
 		GEngine->NetworkRemapPath( Connection->Driver, PathName, true );
 
-		if ( Object != NULL )
-		{
-			// If we already have the object, just do some sanity checking and return
-			SanityCheckExport( GuidCache.Get(), Object, NetGUID, PathName, ObjOuter, OuterGUID, ExportFlags );
-			return NetGUID;
-		}
-
 		if (NetGUID.IsDefault())
 		{
 			// This should be from the client
@@ -946,6 +939,12 @@ FNetworkGUID UPackageMapClient::InternalLoadObject( FArchive & Ar, UObject *& Ob
 			// Let this client know what guid we assigned
 			HandleUnAssignedObject( Object );
 
+			return NetGUID;
+		}
+		else if ( Object != nullptr )
+		{
+			// If we already have the object, just do some sanity checking and return
+			SanityCheckExport( GuidCache.Get(), Object, NetGUID, PathName, ObjOuter, OuterGUID, ExportFlags );
 			return NetGUID;
 		}
 

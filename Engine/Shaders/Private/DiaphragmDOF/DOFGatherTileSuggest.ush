@@ -5,9 +5,9 @@
 	gather a given coc tile.
 =============================================================================*/
 
-#include "DOFCocTileCommon.ush"
-
 #pragma once
+
+#include "DOFCocTileCommon.ush"
 
 
 //------------------------------------------------------- FUNCTIONS
@@ -22,6 +22,9 @@ struct FGatheringTileSuggestion
 	
 	// Smallest absolute coc radius
 	float MinCocRadiusAbs;
+	
+	// Smallest absolute coc radius
+	float MinIntersectableCocRadiusAbs;
 	
 	// Largest absolute coc radius
 	float MaxCocRadiusAbs;
@@ -39,67 +42,75 @@ FGatheringTileSuggestion InferGatherTileSuggestion(
 {
 	FGatheringTileSuggestion OutSuggestion;
 
+	bool bIsComplexTile;
+	
+	// May not have this information, and it may not be needed.
+	OutSuggestion.MinIntersectableCocRadiusAbs = EXTREMELY_LARGE_COC_RADIUS;
+
 	if (LayerProcessing == LAYER_PROCESSING_FOREGROUND_ONLY)
 	{
 		// Smallest Coc radius is the foreground minimum Coc.
-		OutSuggestion.MinCocRadiusAbs = -CocTileInfos.Foreground[0].MaxCoc;
+		OutSuggestion.MinCocRadiusAbs = -CocTileInfos.FgdMaxCoc;
 		
 		// Kernel radius is the foreground maximum Coc.
-		OutSuggestion.MaxCocRadiusAbs = -CocTileInfos.Foreground[0].MinCoc;
+		OutSuggestion.MaxCocRadiusAbs = -CocTileInfos.FgdMinCoc;
 		
 		// Closest Coc radius is the foreground minimum Coc.
-		OutSuggestion.ClosestCocRadius = CocTileInfos.Foreground[0].MinCoc;
+		OutSuggestion.ClosestCocRadius = CocTileInfos.FgdMinCoc;
 	}
 	else if (LayerProcessing == LAYER_PROCESSING_FOREGROUND_HOLE_FILLING)
 	{
 		// Smallest Coc radius is the foreground minimum Coc.
-		OutSuggestion.MinCocRadiusAbs = -CocTileInfos.Foreground[0].MaxCoc;
-		
+		OutSuggestion.MinCocRadiusAbs = -CocTileInfos.FgdMaxCoc;
+
 		// Kernel radius is the foreground maximum Coc.
 		// TODO: max() with background.
-		OutSuggestion.MaxCocRadiusAbs = -CocTileInfos.Foreground[0].MinCoc;
+		OutSuggestion.MaxCocRadiusAbs = -CocTileInfos.FgdMinCoc;
 			
 		// Closest Coc radius is the foreground minimum Coc.
-		OutSuggestion.ClosestCocRadius = CocTileInfos.Foreground[0].MinCoc;
+		OutSuggestion.ClosestCocRadius = CocTileInfos.FgdMinCoc;
 	}
 	else if (LayerProcessing == LAYER_PROCESSING_BACKGROUND_ONLY)
 	{
 		// Smallest Coc radius is the backrgound minimum Coc.
-		OutSuggestion.MinCocRadiusAbs = CocTileInfos.Background[0].MinCoc;
+		OutSuggestion.MinCocRadiusAbs = CocTileInfos.BgdMinCoc;
 		
+		// Don't have this information, so just assume this is min absolute coc radius
+		OutSuggestion.MinIntersectableCocRadiusAbs = CocTileInfos.BgdMinIntersectableCoc;
+
 		// Kernel radius is the foreground maximum Coc.
-		OutSuggestion.MaxCocRadiusAbs = CocTileInfos.Background[0].MaxCoc;
+		OutSuggestion.MaxCocRadiusAbs = CocTileInfos.BgdMaxCoc;
 		
 		// Closest Coc radius is the background minimum Coc.
-		OutSuggestion.ClosestCocRadius = CocTileInfos.Background[0].MinCoc;
+		OutSuggestion.ClosestCocRadius = CocTileInfos.BgdMinCoc;
 	}
 	else // if (LayerProcessing == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS)
 	{
 		// TODO: could be optimised on transition between very close foreground and very far background to bCanSkipGathering == true.
-		if (CocTileInfos.Foreground[0].MinCoc == 0 && CocTileInfos.Background[0].MaxCoc == 0)
+		if (CocTileInfos.FgdMinCoc == 0 && CocTileInfos.BgdMaxCoc == 0)
 		{
 			OutSuggestion.MinCocRadiusAbs = EXTREMELY_LARGE_COC_RADIUS;
 		}
-		else if (CocTileInfos.Foreground[0].MinCoc == 0)
+		else if (CocTileInfos.FgdMinCoc == 0)
 		{
-			OutSuggestion.MinCocRadiusAbs = CocTileInfos.Background[0].MinCoc;
+			OutSuggestion.MinCocRadiusAbs = CocTileInfos.BgdMinCoc;
 		}
-		else if (CocTileInfos.Background[0].MaxCoc == 0)
+		else if (CocTileInfos.BgdMaxCoc == 0)
 		{
-			OutSuggestion.MinCocRadiusAbs = -CocTileInfos.Foreground[0].MaxCoc;
+			OutSuggestion.MinCocRadiusAbs = -CocTileInfos.FgdMaxCoc;
 		}
 		else
 		{
-			OutSuggestion.MinCocRadiusAbs = min(-CocTileInfos.Foreground[0].MaxCoc, CocTileInfos.Background[0].MinCoc);
+			OutSuggestion.MinCocRadiusAbs = min(-CocTileInfos.FgdMaxCoc, CocTileInfos.BgdMinCoc);
 		}
+		
+		OutSuggestion.MaxCocRadiusAbs = max(-CocTileInfos.FgdMinCoc, CocTileInfos.BgdMaxCoc);
 
-		OutSuggestion.MaxCocRadiusAbs = max(-CocTileInfos.Foreground[0].MinCoc, CocTileInfos.Background[0].MaxCoc);
-
-		OutSuggestion.ClosestCocRadius = CocTileInfos.Foreground[0].MinCoc < 0 ? CocTileInfos.Foreground[0].MinCoc : CocTileInfos.Background[0].MinCoc;
+		OutSuggestion.ClosestCocRadius = CocTileInfos.FgdMinCoc < 0 ? CocTileInfos.FgdMinCoc : CocTileInfos.BgdMinCoc;
 	}
 	
 	// Coc error accepted for fast gathering, set to 5% of the kernel size.
-	float FastGatheringCocError = OutSuggestion.MaxCocRadiusAbs * 0.05;
+	float FastGatheringCocError = OutSuggestion.MaxCocRadiusAbs * FAST_GATHERING_COC_ERROR;
 
 	// Logic whether can entirely skeep gathering.
 	if (LayerProcessing == LAYER_PROCESSING_FOREGROUND_HOLE_FILLING)

@@ -849,27 +849,28 @@ namespace AutomationTool
 			}
 
 			// Create the output directory
-			DirectoryReference.CreateDirectory(OutputFile.Directory);
-			FileReference.MakeWriteable(OutputFile);
-			Log("Writing {0}...", OutputFile);
-
-			// Parse the engine version
-			BuildVersion Version;
-			if(!BuildVersion.TryRead(BuildVersion.GetDefaultFileName(), out Version))
+			if(FileReference.Exists(OutputFile))
 			{
-				throw new AutomationException("Couldn't read Build.version");
+				FileReference.MakeWriteable(OutputFile);
+			}
+			else
+			{
+				DirectoryReference.CreateDirectory(OutputFile.Directory);
 			}
 
 			// Write the output file
+			Log("Writing {0}...", OutputFile);
 			using (StreamWriter Writer = new StreamWriter(OutputFile.FullName))
 			{
-				Writer.WriteLine("Availability: NoPublish");
-				Writer.WriteLine("Title: BuildGraph Predefined Tasks");
-				Writer.WriteLine("Crumbs: %ROOT%, Programming, Programming/Development, Programming/Development/BuildGraph, Programming/Development/BuildGraph/BuildGraphScriptTasks");
-				Writer.WriteLine("Description: This is a procedurally generated markdown page.");
-				Writer.WriteLine("version: {0}.{1}", Version.MajorVersion, Version.MinorVersion);
-				Writer.WriteLine("parent:Programming/Development/BuildGraph/BuildGraphScriptTasks");
-				Writer.WriteLine();
+				Writer.WriteLine("<html>");
+				Writer.WriteLine("  <head>");
+				Writer.WriteLine("    <style>");
+				Writer.WriteLine("      table { border-collapse: collapse }");
+				Writer.WriteLine("      table, th, td { border: 1px solid black; }");
+				Writer.WriteLine("    </style>");
+				Writer.WriteLine("  </head>");
+				Writer.WriteLine("  <body>");
+				Writer.WriteLine("    <h1>BuildGraph Tasks</h1>");
 				foreach(string TaskName in NameToTask.Keys.OrderBy(x => x))
 				{
 					// Get the task object
@@ -880,13 +881,19 @@ namespace AutomationTool
 					if(MemberNameToElement.TryGetValue("T:" + Task.TaskClass.FullName, out TaskElement))
 					{
 						// Write the task heading
-						Writer.WriteLine("### {0}", TaskName);
-						Writer.WriteLine();
-						Writer.WriteLine(ConvertToMarkdown(TaskElement.SelectSingleNode("summary")));
-						Writer.WriteLine();
+						Writer.WriteLine("    <h2>{0}</h2>", TaskName);
+						Writer.WriteLine("    <p>{0}</p>", TaskElement.SelectSingleNode("summary").InnerXml.Trim());
+
+						// Start the parameter table
+						Writer.WriteLine("    <table>");
+						Writer.WriteLine("      <tr>");
+						Writer.WriteLine("        <th>Attribute</th>");
+						Writer.WriteLine("        <th>Type</th>");
+						Writer.WriteLine("        <th>Usage</th>");
+						Writer.WriteLine("        <th>Description</th>");
+						Writer.WriteLine("      </tr>");
 
 						// Document the parameters
-						List<string[]> Rows = new List<string[]>();
 						foreach(string ParameterName in Task.NameToParameter.Keys)
 						{
 							// Get the parameter data
@@ -910,43 +917,29 @@ namespace AutomationTool
 									TypeName = NewTypeName.ToString();
 								}
 
-								string[] Columns = new string[4];
-								Columns[0] = ParameterName;
-								Columns[1] = TypeName;
-								Columns[2] = Parameter.bOptional? "Optional" : "Required";
-								Columns[3] = ConvertToMarkdown(ParameterElement.SelectSingleNode("summary"));
-								Rows.Add(Columns);
+								Writer.WriteLine("      <tr>");
+								Writer.WriteLine("         <td>{0}</td>", ParameterName);
+								Writer.WriteLine("         <td>{0}</td>", TypeName);
+								Writer.WriteLine("         <td>{0}</td>", Parameter.bOptional? "Optional" : "Required");
+								Writer.WriteLine("         <td>{0}</td>", ParameterElement.SelectSingleNode("summary").InnerXml.Trim());
+								Writer.WriteLine("      </tr>");
 							}
 						}
 
 						// Always include the "If" attribute
-						string[] IfColumns = new string[4];
-						IfColumns[0] = "If";
-						IfColumns[1] = "Condition";
-						IfColumns[2] = "Optional";
-						IfColumns[3] = "Whether to execute this task. It is ignored if this condition evaluates to false.";
-						Rows.Add(IfColumns);
+						Writer.WriteLine("     <tr>");
+						Writer.WriteLine("       <td>If</td>");
+						Writer.WriteLine("       <td>Condition</td>");
+						Writer.WriteLine("       <td>Optional</td>");
+						Writer.WriteLine("       <td>Whether to execute this task. It is ignored if this condition evaluates to false.</td>");
+						Writer.WriteLine("     </tr>");
 
-						// Get the width of each column
-						int[] Widths = new int[4];
-						for(int Idx = 0; Idx < 4; Idx++)
-						{
-							Widths[Idx] = Rows.Max(x => x[Idx].Length);
-						}
-
-						// Format the markdown table
-						string Format = String.Format("| {{0,-{0}}} | {{1,-{1}}} | {{2,-{2}}} | {{3,-{3}}} |", Widths[0], Widths[1], Widths[2], Widths[3]);
-						Writer.WriteLine(Format, "", "", "", "");
-						Writer.WriteLine(Format, new string('-', Widths[0]), new string('-', Widths[1]), new string('-', Widths[2]), new string('-', Widths[3]));
-						for(int Idx = 0; Idx < Rows.Count; Idx++)
-						{
-							Writer.WriteLine(Format, Rows[Idx][0], Rows[Idx][1], Rows[Idx][2], Rows[Idx][3]);
-						}
-
-						// Blank line before next task
-						Writer.WriteLine();
+						// Close the table
+						Writer.WriteLine("    <table>");
 					}
 				}
+				Writer.WriteLine("  </body>");
+				Writer.WriteLine("</html>");
 			}
 		}
 

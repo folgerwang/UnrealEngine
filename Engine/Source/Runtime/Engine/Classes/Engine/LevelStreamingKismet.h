@@ -41,10 +41,10 @@ class ENGINE_API ULevelStreamingKismet : public ULevelStreaming
 	* @param bOutSuccess - Whether operation was successful (map was found and added to the sub-levels list)
  	* @return Streaming level object for a level instance
  	*/ 
- 	UFUNCTION(BlueprintCallable, Category = LevelStreaming, meta=(WorldContext="WorldContextObject"))
+ 	UFUNCTION(BlueprintCallable, Category = LevelStreaming, meta=(DisplayName = "Load Level Instance (by Name)", WorldContext="WorldContextObject"))
  	static ULevelStreamingKismet* LoadLevelInstance(UObject* WorldContextObject, FString LevelName, FVector Location, FRotator Rotation, bool& bOutSuccess);
 
- 	UFUNCTION(BlueprintCallable, Category = LevelStreaming, meta=(DisplayName = "Load Level Instance", WorldContext="WorldContextObject"))
+ 	UFUNCTION(BlueprintCallable, Category = LevelStreaming, meta=(DisplayName = "Load Level Instance (by Object Reference)", WorldContext="WorldContextObject"))
  	static ULevelStreamingKismet* LoadLevelInstanceBySoftObjectPtr(UObject* WorldContextObject, TSoftObjectPtr<UWorld> Level, FVector Location, FRotator Rotation, bool& bOutSuccess);
  	
 	//~ Begin UObject Interface
@@ -55,14 +55,9 @@ class ENGINE_API ULevelStreamingKismet : public ULevelStreaming
 	virtual bool ShouldBeLoaded() const override { return bShouldBeLoaded; }
 	//~ End ULevelStreaming Interface
 
-	UFUNCTION(BlueprintSetter)
 	virtual void SetShouldBeLoaded(bool bShouldBeLoaded) override;
 
 private:
-
-	/** Whether the level should be loaded																						*/
-	UPROPERTY(Category=LevelStreaming, BlueprintSetter=SetShouldBeLoaded)
-	uint32 bShouldBeLoaded:1;
 
 	// Counter used by LoadLevelInstance to create unique level names
 	static int32 UniqueLevelInstanceId;

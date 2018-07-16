@@ -10,7 +10,6 @@
 #include "MessageHandler/Messages.h"
 #include "Engine/Engine.h"
 #include "Async/Async.h"
-#include "GeneralProjectSettings.h"
 
 bool FXRTrackingProxy::EnumerateTrackedDevices(TArray<int32>& OutDevices, EXRTrackedDeviceType Type)
 {
@@ -62,8 +61,6 @@ FRemoteSessionXRTrackingChannel::FRemoteSessionXRTrackingChannel(ERemoteSessionC
 #if PLATFORM_IOS
 		// Workaround - we don't want to set bSupportAR in our project as it prevents us running on old devices, but this needs
 		// to be true before we try to init ARKit stuff
-		UGeneralProjectSettings* Settings = const_cast<UGeneralProjectSettings*>(GetDefault<UGeneralProjectSettings>());
-		Settings->bSupportAR = true;
 		UARSessionConfig* Config = NewObject<UARSessionConfig>();
 		UARBlueprintLibrary::StartARSession(Config);
 #endif

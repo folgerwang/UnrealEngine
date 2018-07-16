@@ -69,7 +69,7 @@ enum class EDiaphragmDOFBokehSimulation
 
 // 
 // ePId_Input0: SceneDepth
-class FRCPassDiaphragmDOFFlattenCoc : public TRenderingCompositePassBase<1, 1>
+class FRCPassDiaphragmDOFFlattenCoc : public TRenderingCompositePassBase<1, 2>
 {
 public:
 	/** Resolution divisor of the Coc tiles. */
@@ -104,15 +104,33 @@ private:
 
 // 
 // ePId_Input0: SceneDepth
-class FRCPassDiaphragmDOFDilateCoc : public TRenderingCompositePassBase<1, 1>
+class FRCPassDiaphragmDOFDilateCoc : public TRenderingCompositePassBase<4, 2>
 {
 public:
 	/** Resolution divisor of the Coc tiles. */
 	static constexpr int32 MaxSampleRadiusCount = 3;
 
+	/** Dilate mode of the pass. */
+	enum class EMode
+	{
+		// One single dilate pass.
+		StandAlone,
+
+		// Dilate min foreground and max background coc radius.
+		MinForegroundAndMaxBackground,
+
+		// Dilate everything else from dilated min foreground and max background coc radius.
+		MinimalAbsoluteRadiuses,
+
+		MAX
+	};
+
 	/** Configuration parameters of the dilate pass. */
 	struct FParameters
 	{
+		/** Mode of teh dilate. */
+		EMode Mode;
+
 		/** Radius in number of samples. 0 means the dilate pass should not be run. */
 		int32 SampleRadiusCount;
 
@@ -125,10 +143,15 @@ public:
 		/** Convert pre-processing coc radius to processing coc radius */
 		float PreProcessingToProcessingCocRadiusFactor;
 
+		// Error introduced by the random offset of the gathering kernel.
+		float BluringRadiusErrorMultiplier;
+
 		FParameters()
-			: SampleRadiusCount(0)
+			: Mode(EMode::StandAlone)
+			, SampleRadiusCount(0)
 			, SampleDistanceMultiplier(1)
 			, PreProcessingToProcessingCocRadiusFactor(1.0f)
+			, BluringRadiusErrorMultiplier(1.0f)
 		{ }
 	};
 
@@ -136,6 +159,7 @@ public:
 		: Params(InParams)
 	{
 		check(Params.SampleRadiusCount > 0);
+		check(Params.SampleDistanceMultiplier == 1 || Params.Mode != EMode::StandAlone);
 	}
 
 	// interface FRenderingCompositePass ---------
@@ -418,7 +442,7 @@ private:
 };
 
 // 
-class FRCPassDiaphragmDOFPostfilter : public TRenderingCompositePassBase<3, 2>
+class FRCPassDiaphragmDOFPostfilter : public TRenderingCompositePassBase<4, 2>
 {
 public:
 	/** Configuration parameters of the gather pass to post filter.

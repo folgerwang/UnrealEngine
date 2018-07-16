@@ -657,7 +657,7 @@ FMetalBuffer FMetalSubBufferRing::NewBuffer(NSUInteger Size, uint32 Alignment)
 #endif
 			
 			WriteHead += FullSize;
-			NewBuffer.MarkSingleUse();
+			// NewBuffer.MarkSingleUse();
 			return NewBuffer;
 		}
 #if PLATFORM_MAC
@@ -703,7 +703,7 @@ FMetalBuffer FMetalSubBufferRing::NewBuffer(NSUInteger Size, uint32 Alignment)
 #endif
 		
 		WriteHead += FullSize;
-		NewBuffer.MarkSingleUse();
+		// NewBuffer.MarkSingleUse();
 		return NewBuffer;
 	}
 }
@@ -1051,6 +1051,9 @@ FMetalBuffer FMetalResourceHeap::CreateBuffer(uint32 Size, uint32 Alignment, mtl
 	LLM_SCOPE_METAL(ELLMTagMetal::Buffers);
 	LLM_PLATFORM_SCOPE_METAL(ELLMTagMetal::Buffers);
 	
+	static bool bSupportsBufferSubAllocation = FMetalCommandQueue::SupportsFeature(EMetalFeaturesBufferSubAllocation);
+	bForceUnique |= !(bSupportsBufferSubAllocation);
+	
 	FMetalBuffer Buffer;
 	uint32 BlockSize = Align(Size, Alignment);
 	mtlpp::StorageMode StorageMode = (mtlpp::StorageMode)(((NSUInteger)Options & mtlpp::ResourceStorageModeMask) >> mtlpp::ResourceStorageModeShift);
@@ -1177,6 +1180,29 @@ FMetalBuffer FMetalResourceHeap::CreateBuffer(uint32 Size, uint32 Alignment, mtl
 		MetalLLM::LogAllocBuffer(Queue->GetDevice(), Buffer);
 #endif
 	}
+	
+#if METAL_DEBUG_OPTIONS
+	if (GMetalBufferZeroFill)
+	{
+		switch(Buffer.GetStorageMode())
+		{
+			case mtlpp::StorageMode::Private:
+			{
+				mtlpp::CommandBuffer CmdBuffer = Queue->CreateCommandBuffer();
+				mtlpp::BlitCommandEncoder Encoder = CmdBuffer.BlitCommandEncoder();
+				Encoder.Fill(Buffer, ns::Range(0, Buffer.GetLength()), 0);
+				Encoder.EndEncoding();
+				Queue->CommitCommandBuffer(CmdBuffer);
+				break;
+			}
+			default:
+			{
+				FMemory::Memset(((uint8*)Buffer.GetContents()), 0, Buffer.GetLength());
+				break;
+			}
+		}
+	}
+#endif
 	
     METAL_DEBUG_OPTION(GetMetalDeviceContext().ValidateIsInactiveBuffer(Buffer));
 	check(Buffer && Buffer.GetPtr());

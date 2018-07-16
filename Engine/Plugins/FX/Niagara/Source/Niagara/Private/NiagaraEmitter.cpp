@@ -97,8 +97,6 @@ void UNiagaraEmitter::PostInitProperties()
 	Super::PostInitProperties();
 	if (HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad) == false)
 	{
-		RendererProperties.Add(NewObject<UNiagaraSpriteRendererProperties>(this, "Renderer"));
-
 		SpawnScriptProps.Script = NewObject<UNiagaraScript>(this, "SpawnScript", EObjectFlags::RF_Transactional);
 		SpawnScriptProps.Script->SetUsage(ENiagaraScriptUsage::ParticleSpawnScript);
 

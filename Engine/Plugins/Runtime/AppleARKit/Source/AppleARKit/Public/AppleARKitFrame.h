@@ -78,6 +78,10 @@ struct APPLEARKIT_API FAppleARKitFrame
 	 * A light estimate representing the estimated light in the scene.
 	 */
 	FAppleARKitLightEstimate LightEstimate;
+	
+//@joeg -- ARKit 2.0 support
+	/** The current world mapping state is reported on the frame */
+	EARWorldMappingState WorldMappingState;
 
 	/* 
 	 * When adding new member variables, don't forget to handle them in the copy constructor and

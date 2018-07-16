@@ -116,6 +116,11 @@ bool FLuminTargetPlatform::SupportsFeature(ETargetPlatformFeatures Feature) cons
 	return TTargetPlatformBase<FAndroidPlatformProperties>::SupportsFeature(Feature);
 }
 
+FAndroidTargetDeviceRef FLuminTargetPlatform::CreateNewDevice(const FAndroidDeviceInfo &DeviceInfo)
+{
+	return MakeShareable(new FLuminTargetDevice(*this, DeviceInfo.SerialNumber, GetAndroidVariantName()));
+}
+
 void FLuminTargetPlatform::InitializeDeviceDetection()
 {
 	DeviceDetection = FModuleManager::LoadModuleChecked<IAndroidDeviceDetectionModule>("AndroidDeviceDetection").GetAndroidDeviceDetection(TEXT("Lumin"));

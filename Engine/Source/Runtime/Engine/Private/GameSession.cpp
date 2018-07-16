@@ -32,7 +32,7 @@ APlayerController* GetPlayerControllerFromNetId(UWorld* World, const FUniqueNetI
 		{
 			APlayerController* PlayerController = Iterator->Get();
 			// Determine if this is a player with replication
-			if (PlayerController->PlayerState != NULL && PlayerController->PlayerState->UniqueId.IsValid())
+			if (PlayerController && PlayerController->PlayerState != NULL && PlayerController->PlayerState->UniqueId.IsValid())
 			{
 				// If the ids match, then this is the right player.
 				if (*PlayerController->PlayerState->UniqueId == PlayerNetId)
@@ -64,7 +64,7 @@ void AGameSession::HandleMatchHasStarted()
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			APlayerController* PlayerController = Iterator->Get();
-			if (!PlayerController->IsLocalController())
+			if (PlayerController && !PlayerController->IsLocalController())
 			{
 				PlayerController->ClientStartOnlineSession();
 			}
@@ -106,7 +106,7 @@ void AGameSession::HandleMatchHasEnded()
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			APlayerController* PlayerController = Iterator->Get();
-			if (!PlayerController->IsLocalController())
+			if (PlayerController && !PlayerController->IsLocalController())
 			{
 				PlayerController->ClientEndOnlineSession();
 			}

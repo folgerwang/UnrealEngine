@@ -1343,7 +1343,7 @@ TArray<FString> UEditorAssetLibrary::ListAssets(const FString& DirectoryPath, bo
 		AssetDatas.Reserve(AssetDatas.Num());
 		for (const FAssetData& AssetData : AssetDatas)
 		{
-			Result.Add(AssetData.PackageName.ToString());
+			Result.Add(AssetData.ObjectPath.ToString());
 		}
 	}
 

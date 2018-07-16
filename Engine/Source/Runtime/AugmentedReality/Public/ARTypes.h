@@ -3,6 +3,8 @@
 #pragma once
 
 #include "Engine/DataAsset.h"
+//@joeg -- ARKit 2.0 support
+#include "HAL/ThreadSafeBool.h"
 #include "ARTypes.generated.h"
 
 class FARSystemBase;
@@ -88,6 +90,22 @@ enum class EARSessionStatus : uint8
 	Other,
 };
 
+//@joeg -- ARKit 2.0 support
+/** Gives feedback as to whether the AR data can be saved and relocalized or not */
+UENUM(BlueprintType, Category="AR AugmentedReality", meta=(Experimental))
+enum class EARWorldMappingState : uint8
+{
+	/** World mapping is not available */
+	NotAvailable,
+	/** World mapping is still in progress but without enough data for relocalization */
+	StillMappingNotRelocalizable,
+	/** World mapping is still in progress but there is enough data captured for relocalization */
+	StillMappingRelocalizable,
+	/** World mapping has mapped the area and is fully relocalizable */
+	Mapped
+};
+
+
 /** The current state of the AR subsystem including an optional explanation string. */
 USTRUCT(BlueprintType)
 struct AUGMENTEDREALITY_API FARSessionStatus
@@ -153,14 +171,23 @@ class AUGMENTEDREALITY_API UARCandidateImage :
 
 public:
 	/** @see CandidateTexture */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
 	UTexture2D* GetCandidateTexture() const { return CandidateTexture; }
+
 	/** @see FriendlyName */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
 	const FString& GetFriendlyName() const { return FriendlyName; }
+
 	/** @see Width */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
 	float GetPhysicalWidth() const { return Width; }
+
 	/** @see Height */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
 	float GetPhysicalHeight() const { return Height; }
+
 	/** @see Orientation */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
 	EARCandidateImageOrientation GetOrientation() const { return Orientation; }
 
 private:
@@ -183,4 +210,113 @@ private:
 	/** The orientation to treat the candidate image as */
 	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
 	EARCandidateImageOrientation Orientation;
+};
+
+//@joeg -- ARKit 2.0 support
+
+/** An asset that points to an object to be detected in a scene */
+UCLASS(BlueprintType)
+class AUGMENTEDREALITY_API UARCandidateObject :
+	public UDataAsset
+{
+	GENERATED_BODY()
+	
+public:
+	/** @see CandidateObjectData */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Object Detection")
+	const TArray<uint8>& GetCandidateObjectData() const { return CandidateObjectData; }
+
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Object Detection")
+	void SetCandidateObjectData(const TArray<uint8>& InCandidateObject) { CandidateObjectData = InCandidateObject; }
+
+	/** @see FriendlyName */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Object Detection")
+	const FString& GetFriendlyName() const { return FriendlyName; }
+
+	/** @see BoundingBox */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Object Detection")
+	const FBox& GetBoundingBox() const { return BoundingBox; }
+
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Object Detection")
+	void SetBoundingBox(const FBox& InBoundingBox) { BoundingBox = InBoundingBox; }
+
+private:
+	/** The object to detect in scenes */
+	UPROPERTY(EditAnywhere, Category = "AR Candidate Object")
+	TArray<uint8> CandidateObjectData;
+	
+	/** The friendly name to report back when the object is detected in scenes */
+	UPROPERTY(EditAnywhere, Category = "AR Candidate Object")
+	FString FriendlyName;
+	
+	/** The physical bounds in centimeters of the object that this candidate object represents */
+	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
+	FBox BoundingBox;
+};
+
+/**
+ * Base class for async AR requests
+ */
+class AUGMENTEDREALITY_API FARAsyncTask
+{
+public:
+	virtual ~FARAsyncTask() {}
+	
+	/** @return whether the task succeeded or not */
+	bool HadError() const;
+	/** @return information about the error if there was one */
+	FString GetErrorString() const;
+	/** @return whether the task has completed or not */
+	bool IsDone() const;
+	
+protected:
+	FThreadSafeBool bIsDone;
+	FThreadSafeBool bHadError;
+	FString Error;
+};
+
+/** Async task that saves the world data into a buffer */
+class AUGMENTEDREALITY_API FARSaveWorldAsyncTask :
+	public FARAsyncTask
+{
+public:
+	/** @return the byte array that the world was saved into. Note uses MoveTemp() for efficiency so only valid once */
+	TArray<uint8> GetSavedWorldData();
+	
+protected:
+	TArray<uint8> WorldData;
+};
+
+/** Async task that builds a candidate object used for detection from the ar session */
+class AUGMENTEDREALITY_API FARGetCandidateObjectAsyncTask :
+	public FARAsyncTask
+{
+public:
+	/** @return the candidate object that you can use for detection later */
+	virtual UARCandidateObject* GetCandidateObject() = 0;
+};
+
+class FARErrorGetCandidateObjectAsyncTask :
+	public FARGetCandidateObjectAsyncTask
+{
+public:
+	FARErrorGetCandidateObjectAsyncTask(FString InError)
+	{
+		Error = InError;
+		bHadError = true;
+		bIsDone = true;
+	}
+	virtual UARCandidateObject* GetCandidateObject() override { return nullptr; }
+};
+
+class FARErrorSaveWorldAsyncTask :
+	public FARSaveWorldAsyncTask
+{
+public:
+	FARErrorSaveWorldAsyncTask(FString InError)
+	{
+		Error = InError;
+		bHadError = true;
+		bIsDone = true;
+	}
 };

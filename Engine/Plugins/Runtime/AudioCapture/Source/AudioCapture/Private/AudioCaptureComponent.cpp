@@ -58,6 +58,13 @@ bool UAudioCaptureComponent::IsReadyForFinishDestroy()
 
 void UAudioCaptureComponent::FinishDestroy()
 {
+	if (CaptureSynth.IsStreamOpen())
+	{
+		CaptureSynth.AbortCapturing();
+	}
+
+	check(!CaptureSynth.IsStreamOpen());
+
 	Super::FinishDestroy();
 	bSuccessfullyInitialized = false;
 	bIsCapturing = false;
@@ -67,21 +74,20 @@ void UAudioCaptureComponent::FinishDestroy()
 
 void UAudioCaptureComponent::OnBeginGenerate()
 {
-	if (bIsStreamOpen)
+	if (!bIsStreamOpen)
 	{
-		CaptureSynth.StartCapturing();
-		check(CaptureSynth.IsCapturing());
-
-		// Don't allow this component to be destroyed until the stream is closed again
-		bIsReadyForForFinishDestroy = false;
-
-		FramesSinceStarting = 0;
-		ReadSampleIndex = 0;
+		CaptureSynth.OpenDefaultStream();
 	}
-	else
-	{
-		UE_LOG(LogAudio, Warning, TEXT("Was not able to open a default capture stream."));
-	}
+
+	CaptureSynth.StartCapturing();
+	check(CaptureSynth.IsCapturing());
+
+	// Don't allow this component to be destroyed until the stream is closed again
+	bIsReadyForForFinishDestroy = false;
+
+	FramesSinceStarting = 0;
+	ReadSampleIndex = 0;
+
 }
 
 void UAudioCaptureComponent::OnEndGenerate()
@@ -89,8 +95,7 @@ void UAudioCaptureComponent::OnEndGenerate()
 	if (bIsStreamOpen)
 	{
 		check(CaptureSynth.IsStreamOpen());
-		CaptureSynth.AbortCapturing();
-		check(!CaptureSynth.IsStreamOpen());
+		CaptureSynth.StopCapturing();
 
 		bIsReadyForForFinishDestroy = true;
 	}

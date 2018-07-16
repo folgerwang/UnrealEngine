@@ -87,6 +87,12 @@ bool FAjaMediaPlayer::Open(const FString& Url, const IMediaOptions* Options)
 		return false;
 	}
 
+	if (!FAja::CanUseAJACard())
+	{
+		UE_LOG(LogAjaMedia, Warning, TEXT("The AjaMediaPlayer can't open URL '%s' because Aja card cannot be used. Are you in a Commandlet? You may override this behavior by launching with -ForceAjaUsage"), *DeviceSource.ToString());
+		return false;
+	}
+
 	AJA::AJADeviceOptions DeviceOptions(DeviceSource.DeviceIndex);
 
 	// Read options
@@ -102,8 +108,21 @@ bool FAjaMediaPlayer::Open(const FString& Url, const IMediaOptions* Options)
 	{
 		EAjaMediaTimecodeFormat Timecode = (EAjaMediaTimecodeFormat)(Options->GetMediaOption(AjaMediaOption::TimecodeFormat, (int64)EAjaMediaTimecodeFormat::None));
 		bUseFrameTimecode = Timecode != EAjaMediaTimecodeFormat::None;
-		AjaOptions.bUseTimecode = bUseFrameTimecode;
-		AjaOptions.bUseLTCTimecode = Timecode == EAjaMediaTimecodeFormat::LTC;
+		AjaOptions.TimecodeFormat = AJA::ETimecodeFormat::TCF_None;
+		switch (Timecode)
+		{
+		case EAjaMediaTimecodeFormat::None:
+			AjaOptions.TimecodeFormat = AJA::ETimecodeFormat::TCF_None;
+			break;
+		case EAjaMediaTimecodeFormat::LTC:
+			AjaOptions.TimecodeFormat = AJA::ETimecodeFormat::TCF_LTC;
+			break;
+		case EAjaMediaTimecodeFormat::VITC:
+			AjaOptions.TimecodeFormat = AJA::ETimecodeFormat::TCF_VITC1;
+			break;
+		default:
+			break;
+		}
 		bEncodeTimecodeInTexel = bUseFrameTimecode && Options->GetMediaOption(AjaMediaOption::EncodeTimecodeInTexel, false);
 	}
 	{
@@ -115,9 +134,9 @@ bool FAjaMediaPlayer::Open(const FString& Url, const IMediaOptions* Options)
 		LastVideoFormatIndex = AjaOptions.VideoFormatIndex;
 	}
 	{
-		EAjaMediaColorFormat ColorFormat = (EAjaMediaColorFormat)(Options->GetMediaOption(AjaMediaOption::ColorFormat, (int64)EMediaTextureSampleFormat::CharBGRA));
-		VideoSampleFormat = (ColorFormat == EAjaMediaColorFormat::BGRA) ? EMediaTextureSampleFormat::CharBGRA : EMediaTextureSampleFormat::CharUYVY;
-		AjaOptions.PixelFormat = (ColorFormat == EAjaMediaColorFormat::BGRA) ? AJA::EPixelFormat::PF_ARGB : AJA::EPixelFormat::PF_UYVY;
+		EAjaMediaSourceColorFormat ColorFormat = (EAjaMediaSourceColorFormat)(Options->GetMediaOption(AjaMediaOption::ColorFormat, (int64)EMediaTextureSampleFormat::CharBGRA));
+		VideoSampleFormat = (ColorFormat == EAjaMediaSourceColorFormat::BGRA) ? EMediaTextureSampleFormat::CharBGRA : EMediaTextureSampleFormat::CharUYVY;
+		AjaOptions.PixelFormat = (ColorFormat == EAjaMediaSourceColorFormat::BGRA) ? AJA::EPixelFormat::PF_8BIT_ARGB : AJA::EPixelFormat::PF_8BIT_YCBCR;
 	}
 	{
 		AjaOptions.bUseAncillary = bUseAncillary = Options->GetMediaOption(AjaMediaOption::CaptureAncillary1, false);
@@ -456,7 +475,8 @@ bool FAjaMediaPlayer::OnInputFrameReceived(const AJA::AJAInputFrameData& InInput
 			{
 				if (bEncodeTimecodeInTexel)
 				{
-					FMediaIOCoreEncodeTime EncodeTime(VideoSampleFormat, reinterpret_cast<FColor*>(InVideoFrame.VideoBuffer), InVideoFrame.Width, InVideoFrame.Height);
+					EMediaIOCoreEncodePixelFormat EncodePixelFormat = (VideoSampleFormat == EMediaTextureSampleFormat::CharBGRA) ? EMediaIOCoreEncodePixelFormat::CharBGRA : EMediaIOCoreEncodePixelFormat::CharUYVY;
+					FMediaIOCoreEncodeTime EncodeTime(EncodePixelFormat, InVideoFrame.VideoBuffer, InVideoFrame.Width, InVideoFrame.Height);
 					EncodeTime.Render(0, 0, AjaThreadPreviousFrameTimecode.Hours, AjaThreadPreviousFrameTimecode.Minutes, AjaThreadPreviousFrameTimecode.Seconds, AjaThreadPreviousFrameTimecode.Frames);
 				}
 

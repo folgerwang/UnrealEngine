@@ -74,7 +74,6 @@ struct CORE_API FUnixPlatformMisc : public FGenericPlatformMisc
 
 	static void LowLevelOutputDebugString(const TCHAR *Message);
 
-	static void GetValidTargetPlatforms(class TArray<class FString>& TargetPlatformNames);
 	static void RequestExit(bool Force);
 	static void RequestExitWithStatus(bool Force, uint8 ReturnCode);
 	static const TCHAR* GetSystemErrorMessage(TCHAR* OutBuffer, int32 BufferCount, int32 Error);

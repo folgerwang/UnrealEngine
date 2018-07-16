@@ -9,6 +9,7 @@
 #include "RenderingThread.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/Canvas.h"
+#include "Engine/RendererSettings.h"
 #include "Application/SlateApplicationBase.h"
 #include "Layout/WidgetPath.h"
 #include "UnrealEngine.h"
@@ -21,8 +22,6 @@
 #include "StereoRenderTargetManager.h"
 
 extern EWindowMode::Type GetWindowModeType(EWindowMode::Type WindowMode);
-
-static EPixelFormat SceneTargetFormat = PF_A2B10G10R10;
 
 FSceneViewport::FSceneViewport( FViewportClient* InViewportClient, TSharedPtr<SViewport> InViewportWidget )
 	: FViewport( InViewportClient )
@@ -42,6 +41,7 @@ FSceneViewport::FSceneViewport( FViewportClient* InViewportClient, TSharedPtr<SV
 	, bUseSeparateRenderTarget( InViewportWidget.IsValid() ? !InViewportWidget->ShouldRenderDirectly() : true )
 	, bForceSeparateRenderTarget( false )
 	, bIsResizing( false )
+	, bForceViewportSize(false)
 	, bPlayInEditorIsSimulate( false )
 	, bCursorHiddenDueToCapture( false )
 	, MousePosBeforeHiddenDueToCapture( -1, -1 )
@@ -358,23 +358,26 @@ void FSceneViewport::OnDrawViewport( const FGeometry& AllottedGeometry, const FS
 	}
 	
 	/** Check to see if the viewport should be resized */
-	FIntPoint DrawSize = FIntPoint( FMath::RoundToInt( AllottedGeometry.GetDrawSize().X ), FMath::RoundToInt( AllottedGeometry.GetDrawSize().Y ) );
-	if( GetSizeXY() != DrawSize )
+	if (!bForceViewportSize)
 	{
-		TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow( ViewportWidget.Pin().ToSharedRef() );
-		if ( Window.IsValid() )
+		FIntPoint DrawSize = FIntPoint( FMath::RoundToInt( AllottedGeometry.GetDrawSize().X ), FMath::RoundToInt( AllottedGeometry.GetDrawSize().Y ) );
+		if( GetSizeXY() != DrawSize )
 		{
-			//@HACK VREDITOR
-			//check(Window.IsValid());
-			if ( Window->IsViewportSizeDrivenByWindow() )
+			TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow( ViewportWidget.Pin().ToSharedRef() );
+			if ( Window.IsValid() )
 			{
-				if (ViewportWidget.Pin()->ShouldRenderDirectly())
+				//@HACK VREDITOR
+				//check(Window.IsValid());
+				if ( Window->IsViewportSizeDrivenByWindow() )
 				{
-					InitialPositionX = FMath::Max(0.0f, AllottedGeometry.AbsolutePosition.X);
-					InitialPositionY = FMath::Max(0.0f, AllottedGeometry.AbsolutePosition.Y);
-				}
+					if (ViewportWidget.Pin()->ShouldRenderDirectly())
+					{
+						InitialPositionX = FMath::Max(0.0f, AllottedGeometry.AbsolutePosition.X);
+						InitialPositionY = FMath::Max(0.0f, AllottedGeometry.AbsolutePosition.Y);
+					}
 
-				ResizeViewport(FMath::Max(0, DrawSize.X), FMath::Max(0, DrawSize.Y), Window->GetWindowMode());
+					ResizeViewport(FMath::Max(0, DrawSize.X), FMath::Max(0, DrawSize.Y), Window->GetWindowMode());
+				}
 			}
 		}
 	}
@@ -1333,6 +1336,16 @@ void FSceneViewport::ResizeFrame(uint32 NewWindowSizeX, uint32 NewWindowSizeY, E
 	}
 }
 
+void FSceneViewport::SetFixedViewportSize(uint32 NewViewportSizeX, uint32 NewViewportSizeY)
+{
+	bForceViewportSize = true;
+	TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(ViewportWidget.Pin().ToSharedRef());
+	if (Window.IsValid())
+	{
+		ResizeViewport(FMath::Max(0U, NewViewportSizeX), FMath::Max(0U, NewViewportSizeY), Window->GetWindowMode());
+	}
+}
+
 void FSceneViewport::SetViewportSize(uint32 NewViewportSizeX, uint32 NewViewportSizeY)
 {
 	TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(ViewportWidget.Pin().ToSharedRef());
@@ -1805,6 +1818,9 @@ void FSceneViewport::InitDynamicRHI()
 			BufferedShaderResourceTexturesRHI.SetNum(NumBufferedFrames);
 		}
 		check(BufferedSlateHandles.Num() == BufferedRenderTargetsRHI.Num() && BufferedSlateHandles.Num() == BufferedShaderResourceTexturesRHI.Num());
+
+		static const auto CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
+		EPixelFormat SceneTargetFormat = EDefaultBackBufferPixelFormat::Convert2PixelFormat(EDefaultBackBufferPixelFormat::FromInt(CVarDefaultBackBufferPixelFormat->GetValueOnRenderThread()));
 
 		FRHIResourceCreateInfo CreateInfo;
 		FTexture2DRHIRef BufferedRTRHI;

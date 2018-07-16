@@ -60,7 +60,7 @@ struct FNiagaraParameterStoreBinding
 	FORCEINLINE_DEBUGGABLE void Initialize(FNiagaraParameterStore* DestStore, FNiagaraParameterStore* SrcStore);
 	FORCEINLINE_DEBUGGABLE bool VerifyBinding(const FNiagaraParameterStore* DestStore, const FNiagaraParameterStore* SrcStore)const;
 	FORCEINLINE_DEBUGGABLE void Tick(FNiagaraParameterStore* DestStore, FNiagaraParameterStore* SrcStore, bool bForce = false);
-	FORCEINLINE_DEBUGGABLE void Dump(FNiagaraParameterStore* DestStore, FNiagaraParameterStore* SrcStore)const;
+	FORCEINLINE_DEBUGGABLE void Dump(const FNiagaraParameterStore* DestStore, const FNiagaraParameterStore* SrcStore)const;
 	/** TODO: Merge contiguous ranges into a single binding? */
 	//FORCEINLINE_DEBUGGABLE void Optimize();
 
@@ -129,7 +129,7 @@ public:
 	UObject* GetOwner()const { return Owner; }
 
 	void Dump();
-	void DumpParameters(bool bDumpBindings = false);
+	void DumpParameters(bool bDumpBindings = false)const;
 
 	FORCEINLINE uint32 GetParametersDirty() const { return bParametersDirty; }
 	FORCEINLINE uint32 GetInterfacesDirty() const { return bInterfacesDirty; }
@@ -153,6 +153,8 @@ public:
 	void UnbindFromSourceStores();
 	
 	bool VerifyBinding(const FNiagaraParameterStore* InDestStore)const;
+
+	void CheckForNaNs()const;
 
 	/**
 	Adds the passed parameter to this store.
@@ -559,9 +561,13 @@ FORCEINLINE_DEBUGGABLE void FNiagaraParameterStoreBinding::Tick(FNiagaraParamete
 			DestStore->SetDataInterface(SrcStore->GetDataInterface(Binding.SrcOffset), Binding.DestOffset);
 		}
 	}
+
+#if NIAGARA_NAN_CHECKING
+	DestStore->CheckForNaNs();
+#endif
 }
 
-FORCEINLINE_DEBUGGABLE void FNiagaraParameterStoreBinding::Dump(FNiagaraParameterStore* DestStore, FNiagaraParameterStore* SrcStore)const
+FORCEINLINE_DEBUGGABLE void FNiagaraParameterStoreBinding::Dump(const FNiagaraParameterStore* DestStore, const FNiagaraParameterStore* SrcStore)const
 {
 #if WITH_EDITORONLY_DATA
 	UE_LOG(LogNiagara, Log, TEXT("\n\nDest Store: %s\n"), *DestStore->DebugName);

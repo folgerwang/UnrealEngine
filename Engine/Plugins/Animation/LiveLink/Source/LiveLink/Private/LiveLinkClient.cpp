@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LiveLinkClient.h"
 #include "Misc/ScopeLock.h"
@@ -402,6 +402,8 @@ void FLiveLinkClient::AddSource(TSharedPtr<ILiveLinkSource> InSource)
 	
 	InSource->ReceiveClient(this, SourceGuids.Last());
 	InSource->InitializeSettings(NewSettings);
+
+	OnLiveLinkSourcesChanged.Broadcast();
 }
 
 void FLiveLinkClient::AddVirtualSubjectSource()

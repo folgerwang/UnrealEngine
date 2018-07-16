@@ -1784,12 +1784,43 @@ void FPersonaMeshDetails::OnMaterialArrayChanged(UMaterialInterface* NewMaterial
 			{
 				if (Mesh->Materials[SlotIndex].MaterialSlotName == NAME_None)
 				{
-					Mesh->Materials[SlotIndex].MaterialSlotName = FName(*(NewMaterial->GetName()));
+					
+					Mesh->Materials[SlotIndex].MaterialSlotName = NewMaterial->GetFName();
 				}
+
+				//Ensure the imported material slot name is unique
 				if (Mesh->Materials[SlotIndex].ImportedMaterialSlotName == NAME_None)
 				{
-					//Add an imported material slot name so when we reimport we can keep the user changes
-					Mesh->Materials[SlotIndex].ImportedMaterialSlotName = Mesh->Materials[SlotIndex].MaterialSlotName;
+					auto IsMaterialNameUnique = [&Mesh, SlotIndex](const FName TestName)
+					{
+						for (int32 MaterialIndex = 0; MaterialIndex < Mesh->Materials.Num(); ++MaterialIndex)
+						{
+							if (MaterialIndex == SlotIndex)
+							{
+								continue;
+							}
+							if (Mesh->Materials[MaterialIndex].ImportedMaterialSlotName == TestName)
+							{
+								return false;
+							}
+						}
+						return true;
+					};
+					int32 MatchNameCounter = 0;
+					//Make sure the name is unique for imported material slot name
+					bool bUniqueName = false;
+					FString MaterialSlotName = NewMaterial->GetName();
+					while (!bUniqueName)
+					{
+						bUniqueName = true;
+						if (!IsMaterialNameUnique(FName(*MaterialSlotName)))
+						{
+							bUniqueName = false;
+							MatchNameCounter++;
+							MaterialSlotName = NewMaterial->GetName() + TEXT("_") + FString::FromInt(MatchNameCounter);
+						}
+					}
+					Mesh->Materials[SlotIndex].ImportedMaterialSlotName = FName(*MaterialSlotName);
 				}
 			}
 		}

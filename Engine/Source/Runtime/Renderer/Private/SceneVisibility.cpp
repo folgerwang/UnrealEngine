@@ -1505,7 +1505,12 @@ static int32 OcclusionCull(FRHICommandListImmediate& RHICmdList, const FScene* S
 	float CurrentRealTime = View.Family->CurrentRealTime;
 	if (ViewState)
 	{
-		if (Scene->GetFeatureLevel() >= ERHIFeatureLevel::ES3_1)
+		if (ViewState->SceneSoftwareOcclusion)
+		{
+			SCOPE_CYCLE_COUNTER(STAT_SoftwareOcclusionCull)
+			NumOccludedPrimitives += ViewState->SceneSoftwareOcclusion->Process(RHICmdList, Scene, View);
+		}
+		else if (Scene->GetFeatureLevel() >= ERHIFeatureLevel::ES3_1)
 		{
 			bool bSubmitQueries = !View.bDisableQuerySubmissions;
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -2994,13 +2999,6 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList)
 			STAT(NumOccludedPrimitives += NumOccludedPrimitivesInView);
 		}
 
-		if (ViewState && ViewState->SceneSoftwareOcclusion && !View.Family->EngineShowFlags.Wireframe)
-		{
-			SCOPE_CYCLE_COUNTER(STAT_SoftwareOcclusionCull)
-			int32 NumOccludedPrimitivesInView = ViewState->SceneSoftwareOcclusion->Process(RHICmdList, Scene, View);
-			STAT(NumOccludedPrimitives += NumOccludedPrimitivesInView);
-		}
-
 		MarkAllPrimitivesForReflectionProxyUpdate(Scene);
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_ViewVisibilityTime_ConditionalMarkStaticMeshElementsForUpdate);
@@ -3211,9 +3209,7 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 			if( View.bIsReflectionCapture 
 				&& VisibleLightViewInfo.bInViewFrustum
 				&& Proxy->HasStaticLighting() 
-				&& Proxy->GetLightType() != LightType_Directional 
-				// Min roughness is used to hide the specular response of virtual area lights, so skip drawing the source shape when Min Roughness is 1
-				&& Proxy->GetMinRoughness() < 1.0f)
+				&& Proxy->GetLightType() != LightType_Directional )
 			{
 				FVector Origin = Proxy->GetOrigin();
 				FVector ToLight = Origin - View.ViewMatrices.GetViewOrigin();
@@ -3269,6 +3265,8 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 					// Spot falloff
 					FVector L = ToLight.GetSafeNormal();
 					Color.A *= FMath::Square( FMath::Clamp( ( (L | LightParameters.NormalizedLightDirection) - LightParameters.SpotAngles.X ) * LightParameters.SpotAngles.Y, 0.0f, 1.0f ) );
+
+					Color.A *= LightParameters.SpecularScale;
 
 					// Rect is one sided
 					if( Proxy->IsRectLight() && (L | LightParameters.NormalizedLightDirection) < 0.0f )

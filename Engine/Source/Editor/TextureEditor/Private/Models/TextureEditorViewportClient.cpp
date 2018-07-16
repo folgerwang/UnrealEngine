@@ -66,8 +66,6 @@ void FTextureEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 
 	Canvas->Clear( Settings.BackgroundColor );
 
-	TextureEditorPtr.Pin()->PopulateQuickInfo();
-	
 	UTexture2D* Texture2D = Cast<UTexture2D>(Texture);
 	UTextureCube* TextureCube = Cast<UTextureCube>(Texture);
 	UVolumeTexture* VolumeTexture = Cast<UVolumeTexture>(Texture);
@@ -80,6 +78,8 @@ void FTextureEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 		Texture2D->SetForceMipLevelsToBeResident(30.0f);
 		Texture2D->WaitForStreaming();
 	}
+
+	TextureEditorPtr.Pin()->PopulateQuickInfo();
 
 	// Figure out the size we need
 	uint32 Width, Height;
