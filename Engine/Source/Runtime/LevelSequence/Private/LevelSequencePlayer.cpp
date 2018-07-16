@@ -109,6 +109,7 @@ void ULevelSequencePlayer::OnStopped()
 		}
 	}
 	PrerequisiteActors.Reset();
+	LastViewTarget.Reset();
 }
 
 /* IMovieScenePlayer interface
