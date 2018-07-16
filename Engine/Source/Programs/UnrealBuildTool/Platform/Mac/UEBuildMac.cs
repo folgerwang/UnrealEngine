@@ -206,10 +206,6 @@ namespace UnrealBuildTool
 					return "";
 				case UEBuildBinaryType.StaticLibrary:
 					return ".a";
-				case UEBuildBinaryType.Object:
-					return ".o";
-				case UEBuildBinaryType.PrecompiledHeader:
-					return ".gch";
 			}
 			return base.GetBinaryExtension(InBinaryType);
 		}
@@ -228,8 +224,6 @@ namespace UnrealBuildTool
 				case UEBuildBinaryType.Executable:
 					return Target.bUsePDBFiles ? new string[] {".dSYM"} : new string[] {};
 				case UEBuildBinaryType.StaticLibrary:
-				case UEBuildBinaryType.Object:
-				case UEBuildBinaryType.PrecompiledHeader:
 				default:
 					return new string [] {};
 			}

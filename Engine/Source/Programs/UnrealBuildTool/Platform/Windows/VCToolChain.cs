@@ -912,12 +912,11 @@ namespace UnrealBuildTool
 					// path -- it might be a private PCH header and we need to make sure that its found!
 					AddIncludePath(FileArguments, SourceFile.Location.Directory);
 
-					string PrecompiledFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Win64).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
 					// Add the precompiled header file to the produced items list.
 					FileItem PrecompiledHeaderFile = FileItem.GetItemByFileReference(
 						FileReference.Combine(
 							OutputDir,
-							Path.GetFileName(SourceFile.AbsolutePath) + PrecompiledFileExtension
+							Path.GetFileName(SourceFile.AbsolutePath) + ".pch"
 							)
 						);
 					CompileAction.ProducedItems.Add(PrecompiledHeaderFile);
@@ -975,9 +974,8 @@ namespace UnrealBuildTool
 
 				if (bEmitsObjectFile)
 				{
-					string ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Win64).GetBinaryExtension(UEBuildBinaryType.Object);
 					// Add the object file to the produced item list.
-					string ObjectLeafFilename = Path.GetFileName(SourceFile.AbsolutePath) + ObjectFileExtension;
+					string ObjectLeafFilename = Path.GetFileName(SourceFile.AbsolutePath) + ".obj";
 					FileItem ObjectFile = FileItem.GetItemByFileReference(FileReference.Combine(OutputDir, ObjectLeafFilename));
 					if (Target.WindowsPlatform.ObjSrcMapFile != null)
 					{

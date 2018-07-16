@@ -31,16 +31,6 @@ namespace UnrealBuildTool
 		/// A static library (.lib or .a)
 		/// </summary>
 		StaticLibrary,
-
-		/// <summary>
-		/// An object file (.obj or .o)
-		/// </summary>
-		Object,
-
-		/// <summary>
-		/// A precompiled header (.pch or .gch)
-		/// </summary>
-		PrecompiledHeader
 	}
 
 	/// <summary>

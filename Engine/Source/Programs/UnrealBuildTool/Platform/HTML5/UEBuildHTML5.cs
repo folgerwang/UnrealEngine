@@ -95,10 +95,6 @@ namespace UnrealBuildTool
 					return ".js";
 				case UEBuildBinaryType.StaticLibrary:
 					return ".bc";
-				case UEBuildBinaryType.Object:
-					return ".bc";
-				case UEBuildBinaryType.PrecompiledHeader:
-					return ".gch";
 			}
 
 			return base.GetBinaryExtension(InBinaryType);
