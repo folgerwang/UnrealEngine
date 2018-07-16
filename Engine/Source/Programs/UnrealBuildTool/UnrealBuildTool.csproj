@@ -169,6 +169,7 @@
     <Compile Include="System\BuildVersion.cs" />
     <Compile Include="System\CppCompileEnvironment.cs" />
     <Compile Include="System\DataDrivenPlatformInfo.cs" />
+    <Compile Include="System\EncryptionAndSigning.cs" />
     <Compile Include="System\ParallelExecutor.cs" />
     <Compile Include="System\ModuleManifest.cs" />
     <Compile Include="System\PluginReferenceDescriptor.cs" />
@@ -246,7 +247,6 @@
   <ItemGroup>
     <Compile Include="ToolChain\RemoteExports.cs" />
     <Compile Include="UnrealBuildTool.cs" />
-    <Compile Include="Utilities\Crypto.cs" />
     <Compile Include="Platform\Windows\PVSToolChain.cs" />
     <Compile Include="Platform\Windows\WindowsDeploy.cs" />
     <Compile Include="Platform\Windows\WinResources.cs" />
