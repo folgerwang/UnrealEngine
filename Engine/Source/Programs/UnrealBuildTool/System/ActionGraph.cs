@@ -481,21 +481,6 @@ namespace UnrealBuildTool
 				ExecutorName = Executor.Name;
 				Result = Executor.ExecuteActions(ActionsToExecute, BuildConfiguration.bLogDetailedActionStats);
 
-				if(Telemetry.IsAvailable() && !BuildConfiguration.bXGEExport)
-				{
-					Telemetry.SendEvent("BuildTime",
-						"ExecutorType", ExecutorName,
-						"OS", Environment.OSVersion.ToString(),
-						"MachineName", Environment.MachineName,
-						"NumLogicalCores", Environment.ProcessorCount.ToString(),
-						"Targets", TargetInfoForTelemetry,
-						"NumActions", ActionsToExecute.Count.ToString(),
-						"NumCompileActions", ActionsToExecute.Count(x => x.ActionType == ActionType.Compile).ToString(),
-						"NumPchCompileActions", ActionsToExecute.Count(x => x.ActionType == ActionType.Compile && x.ProducedItems.Any(y => y.Location.HasExtension(".pch") || y.Location.HasExtension(".gch"))).ToString(),
-						"NumLinkActions", ActionsToExecute.Count(x => x.ActionType == ActionType.Link).ToString(),
-						"ElapsedTime", (DateTime.UtcNow - StartTime).TotalSeconds.ToString());
-				}
-
 				if (!BuildConfiguration.bXGEExport)
 				{
 					// Verify the link outputs were created (seems to happen with Win64 compiles)

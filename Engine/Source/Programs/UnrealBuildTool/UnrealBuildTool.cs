@@ -632,8 +632,6 @@ namespace UnrealBuildTool
 					Log.TraceVerbose("UnrealBuildTool (DEBUG OUTPUT MODE)");
 					Log.TraceVerbose("Command-line: {0}", String.Join(" ", Arguments));
 
-					Telemetry.Initialize();
-
 					string GameName = null;
 					bool bSpecificModulesOnly = false;
 
@@ -955,8 +953,6 @@ namespace UnrealBuildTool
 					SingleInstanceMutex = null;
 				}
 			}
-
-			Telemetry.Shutdown();
 
 			// Print some performance info
 			Log.TraceVerbose("Execution time: {0}", (DateTime.UtcNow - StartTime).TotalSeconds);

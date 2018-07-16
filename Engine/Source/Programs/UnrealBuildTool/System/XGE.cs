@@ -132,39 +132,6 @@ namespace UnrealBuildTool
 				string XGETaskFilePath = FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", "XGETasks.xml").FullName;
 				WriteTaskFile(Actions, XGETaskFilePath, ProgressWriter.bWriteMarkup, false);
 
-				// Try to execute the XGE tasks, and if XGE is available, skip the local execution fallback.
-				if (Telemetry.IsAvailable())
-				{
-					try
-					{
-						// @todo: find a way to report that for other host platforms
-						if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
-						{
-							const string BuilderKey = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Xoreax\\IncrediBuild\\Builder";
-
-							string CPUUtilization = Registry.GetValue(BuilderKey, "ForceCPUCount", "").ToString();
-							string AvoidTaskExecutionOnLocalMachine = Registry.GetValue(BuilderKey, "AvoidLocalExec", "").ToString();
-							string RestartRemoteProcessesOnLocalMachine = Registry.GetValue(BuilderKey, "AllowDoubleTargets", "").ToString();
-							string LimitMaxNumberOfCores = Registry.GetValue(BuilderKey, "MaxHelpers", "").ToString();
-							string WriteOutputToDiskInBackground = Registry.GetValue(BuilderKey, "LazyOutputWriter_Beta", "").ToString();
-							string MaxConcurrentPDBs = Registry.GetValue(BuilderKey, "MaxConcurrentPDBs", "").ToString();
-							string EnabledAsHelper = Registry.GetValue(BuilderKey, "LastEnabled", "").ToString();
-
-							Telemetry.SendEvent("XGESettings.2",
-								"CPUUtilization", CPUUtilization,
-								"AvoidTaskExecutionOnLocalMachine", AvoidTaskExecutionOnLocalMachine,
-								"RestartRemoteProcessesOnLocalMachine", RestartRemoteProcessesOnLocalMachine,
-								"LimitMaxNumberOfCores", LimitMaxNumberOfCores,
-								"WriteOutputToDiskInBackground", WriteOutputToDiskInBackground,
-								"MaxConcurrentPDBs", MaxConcurrentPDBs,
-								"EnabledAsHelper", EnabledAsHelper);
-						}
-					}
-					catch
-					{
-					}
-				}
-
 				XGEResult = ExecuteTaskFileWithProgressMarkup(XGETaskFilePath, Actions.Count);
 			}
 			return XGEResult;

@@ -302,11 +302,7 @@
     </When>
   </Choose>
   <Choose>
-    <When Condition="Exists('System\NotForLicensees\TelemetryProviderET.cs')">
-      <ItemGroup>
-        <Compile Include="System\NotForLicensees\TelemetryProviderET.cs" />
-      </ItemGroup>
-    </When>
+    <When Condition="Exists('System\NotForLicensees\TelemetryProviderET.cs')" />
   </Choose>
   <ItemGroup>
     <Compile Include="..\DotNETCommon\MetaData.cs">
@@ -342,7 +338,6 @@
     <Compile Include="System\RPCUtilHelper.cs" />
     <Compile Include="System\RulesCompiler.cs" />
     <Compile Include="System\SourceFileSearch.cs" />
-    <Compile Include="System\Telemetry.cs" />
     <Compile Include="System\UEPlatformProjectGenerator.cs" />
     <Compile Include="System\Unity.cs" />
     <Compile Include="System\UProjectInfo.cs" />
