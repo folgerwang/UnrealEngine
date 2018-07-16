@@ -658,6 +658,12 @@ bool FLinuxWindow::IsVisible() const
 	return bIsVisible;
 }
 
+/** @return true if the native window is minimized, false otherwise */
+bool FLinuxWindow::IsMinimized() const
+{
+	return SDL_GetWindowFlags(HWnd) & SDL_WINDOW_MINIMIZED;
+}
+
 /** Returns the size and location of the window when it is restored */
 bool FLinuxWindow::GetRestoredDimensions(int32& X, int32& Y, int32& Width, int32& Height)
 {

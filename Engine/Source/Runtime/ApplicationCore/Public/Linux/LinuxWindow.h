@@ -141,6 +141,8 @@ public:
 
 	virtual bool IsVisible() const override;
 
+	virtual bool IsMinimized() const override;
+
 	virtual bool GetRestoredDimensions(int32& X, int32& Y, int32& Width, int32& Height) override;
 
 	virtual void SetWindowFocus() override;
