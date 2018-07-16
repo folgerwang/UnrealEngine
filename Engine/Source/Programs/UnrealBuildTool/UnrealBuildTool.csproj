@@ -350,9 +350,6 @@
     <Compile Include="ToolChain\RemoteToolChain.cs" />
     <Compile Include="ToolChain\UEToolChain.cs" />
     <Compile Include="System\XGE.cs" />
-    <Compile Include="Utilities\GraphVisualization.cs">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="Platform\Windows\UEBuildWindows.cs" />
     <Compile Include="Platform\Windows\VCEnvironment.cs" />
     <Compile Include="Platform\Windows\VCToolChain.cs" />
@@ -409,7 +406,5 @@
       <Name>DotNETUtilities</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="ProjectFiles\VisualStudioMac\" />
-  </ItemGroup>
+  <ItemGroup />
 </Project>

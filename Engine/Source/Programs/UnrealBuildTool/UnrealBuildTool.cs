@@ -1494,26 +1494,6 @@ namespace UnrealBuildTool
 
 							// Update mapping of the target name to the list of UObject modules in this target
 							TargetNameToUObjectModules[Target.GetTargetName()] = TargetUObjectModules;
-
-							if ((BuildConfiguration.bXGEExport && BuildConfiguration.bGenerateManifest) || (!ProjectFileGenerator.bGenerateProjectFiles && !BuildConfiguration.bGenerateManifest && !BuildConfiguration.bCleanProject))
-							{
-								// Generate an action graph if we were asked to do that.  The graph generation needs access to the include dependency cache, so
-								// we generate it before saving and cleaning that up.
-								if (GeneratingActionGraph)
-								{
-									// The graph generation feature currently only works with a single target at a time.  This is because of how we need access
-									// to include dependencies for the target, but those aren't kept around as we process multiple targets
-									if (TargetSettings.Count != 1)
-									{
-										throw new BuildException("ERROR: The '-graph' option only works with a single target at a time");
-									}
-									////ActionGraph.FinalizeActionGraph();
-									List<Action> ActionsToExecute = ActionGraph.AllActions;
-
-									ActionGraph.ActionGraphVisualizationType VisualizationType = ActionGraph.ActionGraphVisualizationType.OnlyCPlusPlusFilesAndHeaders;
-									ActionGraph.SaveActionGraphVisualization(TargetToHeaders[Target], FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", Target.GetTargetName() + ".gexf").FullName, Target.GetTargetName(), VisualizationType, ActionsToExecute);
-								}
-							}
 						}
 					}
 
