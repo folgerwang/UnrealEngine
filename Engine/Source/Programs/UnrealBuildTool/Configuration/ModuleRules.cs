@@ -652,7 +652,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="RulesFile">Path to the module rules file</param>
 		/// <returns>True if the module can be precompiled, false otherwise</returns>
-		internal bool CanPrecompile(FileReference RulesFile)
+		internal bool IsValidForTarget(FileReference RulesFile)
 		{
 			if(Type == ModuleRules.ModuleType.CPlusPlus)
 			{

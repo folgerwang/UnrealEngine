@@ -365,11 +365,6 @@ namespace UnrealBuildTool
 				}
 				Constructor.Invoke(RulesObject, new object[] { Target });
 
-				// Update the precompiled flags
-				if(RulesObject.bPrecompile && !RulesObject.CanPrecompile(ModuleFileName))
-				{
-					RulesObject.bPrecompile = false;
-				}
 				return RulesObject;
 			}
 			catch (Exception Ex)
