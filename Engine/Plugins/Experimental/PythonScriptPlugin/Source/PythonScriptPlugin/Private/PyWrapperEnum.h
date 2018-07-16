@@ -85,6 +85,12 @@ struct FPyWrapperEnumMetaData : public FPyWrapperBaseMetaData
 	/** Check to see if the enum is finalized */
 	static bool IsEnumFinalized(FPyWrapperEnum* Instance);
 
+	/** Get the reflection meta data type object associated with this wrapper type if there is one or nullptr if not. */
+	virtual const UField* GetMetaType() const override
+	{
+		return Enum;
+	}
+
 	/** Unreal enum */
 	UEnum* Enum;
 

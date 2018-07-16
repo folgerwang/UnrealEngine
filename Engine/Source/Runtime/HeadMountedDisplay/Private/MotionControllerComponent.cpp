@@ -92,6 +92,13 @@ void UMotionControllerComponent::BeginDestroy()
 	}
 }
 
+void UMotionControllerComponent::CreateRenderState_Concurrent()
+{
+	Super::CreateRenderState_Concurrent();
+	RenderThreadRelativeTransform = GetRelativeTransform();
+	RenderThreadComponentScale = GetComponentScale();
+}
+
 void UMotionControllerComponent::SendRenderTransform_Concurrent()
 {
 	RenderThreadRelativeTransform = GetRelativeTransform();

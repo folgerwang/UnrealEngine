@@ -40,7 +40,7 @@ namespace
 	struct FWatchRow
 	{
 		FWatchRow(
-			UBlueprint* InBP,
+			TWeakObjectPtr<UBlueprint> InBP,
 			const UEdGraphNode* InNode,
 			const UEdGraphPin* InPin,
 			UObject* InObjectBeingDebugged,
@@ -64,12 +64,12 @@ namespace
 		{
 			SetObjectBeingDebuggedName();
 
-			UPackage* Package = Cast<UPackage>(BP ? BP->GetOuter() : nullptr);
+			UPackage* Package = Cast<UPackage>(BP.IsValid() ? BP->GetOuter() : nullptr);
 			BlueprintPackageName = Package ? Package->GetFName() : FName();
 		}
 
 		FWatchRow(
-			UBlueprint* InBP,
+			TWeakObjectPtr<UBlueprint> InBP,
 			const UEdGraphNode* InNode,
 			const UEdGraphPin* InPin,
 			UObject* InObjectBeingDebugged,
@@ -91,7 +91,7 @@ namespace
 		{
 			SetObjectBeingDebuggedName();
 
-			UPackage* Package = Cast<UPackage>(BP ? BP->GetOuter() : nullptr);
+			UPackage* Package = Cast<UPackage>(BP.IsValid() ? BP->GetOuter() : nullptr);
 			BlueprintPackageName = Package ? Package->GetFName() : FName();
 
 			for (FDebugInfo& ChildInfo : Info.Children)
@@ -101,7 +101,7 @@ namespace
 		}
 
 		// this can't be const because we store watches in the blueprint
-		UBlueprint* BP;
+		TWeakObjectPtr<UBlueprint> BP;
 		const UEdGraphNode* Node;
 		const UEdGraphPin* Pin;
 		// this can't be const because SelectActor takes a non-const actor
@@ -161,7 +161,7 @@ namespace
 	TArray<TSharedRef<FWatchRow>> Private_WatchSource;
 	TArray<TSharedRef<FWatchRow>> Private_InstanceWatchSource;
 
-	TArray<UBlueprint*> WatchedBlueprints;
+	TArray<TWeakObjectPtr<UBlueprint>> WatchedBlueprints;
 
 	// Returns true if the blueprint execution is currently paused; false otherwise
 	bool IsPaused()
@@ -173,8 +173,12 @@ namespace
 	{
 		Private_WatchSource.Reset();
 
-		for (UBlueprint* BlueprintObj : WatchedBlueprints)
+		for (TWeakObjectPtr<UBlueprint> BlueprintObj : WatchedBlueprints)
 		{
+			if (!BlueprintObj.IsValid())
+			{
+				continue;
+			}
 			FText BlueprintName = FText::FromString(BlueprintObj->GetName());
 
 			for (const FEdGraphPinReference& PinRef : BlueprintObj->WatchedPins)
@@ -208,12 +212,8 @@ namespace
 		}
 	}
 
-	void UpdateWatchListFromBlueprintImpl(UBlueprint* BlueprintObj, const bool bShouldWatch)
+	void UpdateWatchListFromBlueprintImpl(TWeakObjectPtr<UBlueprint> BlueprintObj, const bool bShouldWatch)
 	{
-		if (!ensure(BlueprintObj))
-		{
-			return;
-		}
 
 		if (bShouldWatch)
 		{
@@ -226,11 +226,29 @@ namespace
 			int32 FoundIdx = WatchedBlueprints.Find(BlueprintObj);
 			if (FoundIdx == INDEX_NONE)
 			{
-				return;
+				// if we didn't find it, it could be because BlueprintObj is no longer valid
+				// in this case the pointer in WatchedBlueprints would also be invalid
+				bool bRemovedBP = false;
+				for (int32 Idx = 0; Idx < WatchedBlueprints.Num(); ++Idx)
+				{
+					if (!WatchedBlueprints[Idx].IsValid())
+					{
+						bRemovedBP = true;
+						WatchedBlueprints.RemoveAt(Idx);
+						--Idx;
+					}
+				}
+				
+				if (!bRemovedBP)
+				{
+					return;
+				}
 			}
-
-			// since we're not watching the blueprint anymore we should remove it from the watched list
-			WatchedBlueprints.RemoveAt(FoundIdx);
+			else
+			{
+				// since we're not watching the blueprint anymore we should remove it from the watched list
+				WatchedBlueprints.RemoveAt(FoundIdx);
+			}
 		}
 
 		// something changed so we need to update the lists shown in the UI
@@ -248,7 +266,7 @@ namespace
 	// Updates all of the watches from the currently watched blueprints
 	void UpdateAllBlueprintWatches()
 	{
-		for (UBlueprint* Blueprint : WatchedBlueprints)
+		for (TWeakObjectPtr<UBlueprint> Blueprint : WatchedBlueprints)
 		{
 			UpdateWatchListFromBlueprintImpl(Blueprint, true);
 		}
@@ -630,7 +648,7 @@ void SWatchViewer::StopWatchingPin() const
 	TArray<TSharedRef<FWatchRow>> SelectedRows = WatchTreeWidget->GetSelectedItems();
 	for (TSharedRef<FWatchRow>& Row : SelectedRows)
 	{
-		FKismetDebugUtilities::TogglePinWatch(Row->BP, Row->Pin);
+		FKismetDebugUtilities::TogglePinWatch(Row->BP.Get(), Row->Pin);
 	}
 }
 
@@ -868,9 +886,9 @@ FName WatchViewer::GetTabName()
 	return TabName;
 }
 
-void WatchViewer::RemoveWatchesForBlueprint(class UBlueprint* BlueprintObj)
+void WatchViewer::RemoveWatchesForBlueprint(TWeakObjectPtr<UBlueprint> BlueprintObj)
 {
-	if (!ensure(BlueprintObj))
+	if (!ensure(BlueprintObj.IsValid()))
 	{
 		return;
 	}
@@ -942,12 +960,12 @@ void WatchViewer::OnRenameAsset(const struct FAssetData& AssetData, const FStrin
 	}
 }
 
-void WatchViewer::UpdateWatchListFromBlueprint(UBlueprint* BlueprintObj)
+void WatchViewer::UpdateWatchListFromBlueprint(TWeakObjectPtr<UBlueprint> BlueprintObj)
 {
 	UpdateWatchListFromBlueprintImpl(BlueprintObj, true);
 }
 
-void WatchViewer::ClearWatchListFromBlueprint(UBlueprint* BlueprintObj)
+void WatchViewer::ClearWatchListFromBlueprint(TWeakObjectPtr<UBlueprint> BlueprintObj)
 {
 	UpdateWatchListFromBlueprintImpl(BlueprintObj, false);
 }

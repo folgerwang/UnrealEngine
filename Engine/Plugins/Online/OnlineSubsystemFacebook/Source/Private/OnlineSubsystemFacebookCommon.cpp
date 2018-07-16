@@ -210,6 +210,11 @@ IOnlineTurnBasedPtr FOnlineSubsystemFacebookCommon::GetTurnBasedInterface() cons
 	return nullptr;
 }
 
+IOnlineTournamentPtr FOnlineSubsystemFacebookCommon::GetTournamentInterface() const
+{
+	return nullptr;
+}
+
 FText FOnlineSubsystemFacebookCommon::GetOnlineServiceName() const
 {
 	return NSLOCTEXT("OnlineSubsystemFacebook", "OnlineServiceName", "Facebook");

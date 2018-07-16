@@ -155,6 +155,38 @@ namespace UnrealGameSyncMetadataServer.Connectors
 			}
 			return ReturnedBuilds;
 		}
+
+		public static List<TelemetryErrorData> GetErrorData(int Records)
+		{
+			List<TelemetryErrorData> ReturnedErrors = new List<TelemetryErrorData>();
+			using (SQLiteConnection Connection = new SQLiteConnection(ConnectionString))
+			{
+				Connection.Open();
+				using (SQLiteCommand Command = new SQLiteCommand("SELECT Id, Type, Text, UserName, Project, Timestamp, Version, IpAddress FROM [Errors] ORDER BY Id DESC LIMIT @param1", Connection))
+				{
+					Command.Parameters.AddWithValue("@param1", Records);
+					using (SQLiteDataReader Reader = Command.ExecuteReader())
+					{
+						while (Reader.Read())
+						{
+							TelemetryErrorData Error = new TelemetryErrorData();
+							Error.Id = Reader.GetInt32(0);
+							Enum.TryParse(Reader.GetString(1), true, out Error.Type);
+							Error.Text = Reader.GetString(2);
+							Error.UserName = Reader.GetString(3);
+							Error.Project = Reader.IsDBNull(4) ? null : Reader.GetString(4);
+							Error.Timestamp = Reader.GetDateTime(5);
+							Error.Version = Reader.GetString(6);
+							Error.IpAddress = Reader.GetString(7);
+							ReturnedErrors.Add(Error);
+						}
+					}
+				}
+			}
+			return ReturnedErrors;
+		}
+
+
 		public static void PostCIS(BuildData Build)
 		{
 			using (SQLiteConnection Connection = new SQLiteConnection(ConnectionString))

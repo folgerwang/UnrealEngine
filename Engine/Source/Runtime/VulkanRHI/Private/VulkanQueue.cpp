@@ -44,8 +44,7 @@ void FVulkanQueue::Submit(FVulkanCmdBuffer* CmdBuffer, uint32 NumSignalSemaphore
 	const VkCommandBuffer CmdBuffers[] = { CmdBuffer->GetHandle() };
 
 	VkSubmitInfo SubmitInfo;
-	FMemory::Memzero(SubmitInfo);
-	SubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	ZeroVulkanStruct(SubmitInfo, VK_STRUCTURE_TYPE_SUBMIT_INFO);
 	SubmitInfo.commandBufferCount = 1;
 	SubmitInfo.pCommandBuffers = CmdBuffers;
 	SubmitInfo.signalSemaphoreCount = NumSignalSemaphores;

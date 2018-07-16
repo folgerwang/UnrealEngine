@@ -49,6 +49,8 @@ public:
 
 	static bool ForceEnableDebugMarkers();
 
+	static bool HasUnifiedMemory() { return true; }
+
 protected:
 	static void* VulkanLib;
 	static bool bAttemptedLoad;

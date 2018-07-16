@@ -23,6 +23,7 @@ THIRD_PARTY_INCLUDES_START
 	#include "SPIRV/GLSL.std.450.h"
 	#include "SPIRV/doc.h"
 	#include "SPIRV/disassemble.h"
+	#include "SPIRV/spirv.hpp"
 THIRD_PARTY_INCLUDES_END
 
 #if defined(_MSC_VER) && _MSC_VER >= 1800
@@ -164,6 +165,158 @@ static EShLanguage GetStage(EHlslShaderFrequency Frequency)
 	return EShLangCount;
 }
 
+static void ComputeMovableWordIndices(FSpirv& Spirv)
+{
+	// SPIRV Header
+	const uint32* PtrStart = Spirv.Data.GetData();
+	const uint32* Ptr = PtrStart;
+	const uint32* PtrEnd = Spirv.Data.GetData() + Spirv.Data.Num();
+	check(*Ptr++ == spv::MagicNumber);
+	uint32_t Version = *Ptr++;
+	uint32_t Generator = *Ptr++;
+	uint32_t Bound = *Ptr++;
+	check(*Ptr++ == 0);
+
+	auto ReadLiteralString = [](const uint32_t* Ptr)
+	{
+		FString S;
+		const char* Str = (const char*)Ptr;
+		// Empty string is allowed...
+		while (*Str)
+		{
+			S += *Str;
+			++Str;
+		}
+		return S;
+	};
+
+	TMap<uint32, FString> Names;
+	struct FDecorations
+	{
+		uint32 BindingIndex = UINT32_MAX;
+		uint32 WordBindingIndex = UINT32_MAX;
+		uint32 DescriptorSet = UINT32_MAX;
+		uint32 WordDescriptorSet = UINT32_MAX;
+	};
+	TMap<uint32, FDecorations> Decorations;
+	TMap<uint32, uint32> TypePointerUniforms;
+	TMap<uint32, uint32> VariableUniformTypes;
+	bool bDone = false;
+	while (Ptr < PtrEnd && !bDone)
+	{
+		uint32_t WordCount = (*Ptr >> spv::WordCountShift) & spv::OpCodeMask;
+		spv::Op OpCode = (spv::Op)(*Ptr & spv::OpCodeMask);
+		switch (OpCode)
+		{
+		case spv::OpName:
+			{
+				uint32 TargetId = Ptr[1];
+				FString Name = ReadLiteralString(Ptr + 2);
+				Names.Add(TargetId, Name);
+			}
+			break;
+		case spv::OpDecorate:
+		{
+			uint32 TargetId = Ptr[1];
+			spv::Decoration Decoration = (spv::Decoration)Ptr[2];
+			switch (Decoration)
+			{
+			case spv::DecorationDescriptorSet:
+			{
+				uint32 Value = Ptr[3];
+				uint32 WordValueIndex = (uint32)(&Ptr[3] - PtrStart);
+				FDecorations& UBDecoration = Decorations.FindOrAdd(TargetId);
+				UBDecoration.DescriptorSet = Value;
+				UBDecoration.WordDescriptorSet = WordValueIndex;
+				break;
+			}
+			case spv::DecorationBinding:
+			{
+				uint32 Value = Ptr[3];
+				uint32 WordValueIndex = (uint32)(&Ptr[3] - PtrStart);
+				FDecorations& UBDecoration = Decorations.FindOrAdd(TargetId);
+				UBDecoration.BindingIndex = Value;
+				UBDecoration.WordBindingIndex = WordValueIndex;
+				break;
+			}
+			default:
+				break;
+			}
+		}
+			break;
+		case spv::OpTypePointer:
+		{
+			uint32 Result = Ptr[1];
+			spv::StorageClass Storage = (spv::StorageClass)Ptr[2];
+			if (Storage == spv::StorageClassUniform || Storage == spv::StorageClassUniformConstant)
+			{
+				uint32 Type = Ptr[3];
+				TypePointerUniforms.Add(Result, Type);
+			}
+		}
+			break;
+		case spv::OpVariable:
+		{
+			uint32 Type = Ptr[1];
+			uint32 Id = Ptr[2];
+			spv::StorageClass Storage = (spv::StorageClass)Ptr[3];
+			if (Storage == spv::StorageClassUniform || Storage == spv::StorageClassUniformConstant)
+			{
+				VariableUniformTypes.Add(Id, Type);
+			}
+		}
+			break;
+		case spv::OpFunction:
+			bDone = true;
+			break;
+		default:
+			break;
+		}
+
+		Ptr += WordCount;
+	}
+
+	check((bDone && Ptr < PtrEnd) || (!bDone && Ptr == PtrEnd));
+
+	// Go through all found uniform variables and make sure we found the right info
+	for (const auto Pair : VariableUniformTypes)
+	{
+		const uint32 VariableId = Pair.Key;
+		const FString* FoundVariableName = Names.Find(VariableId);
+		if (FoundVariableName)
+		{
+			const uint32 VariableType = Pair.Value;
+			if (FoundVariableName->Len() == 0)
+			{
+				// Uniform buffer
+				uint32 TypePointer = TypePointerUniforms.FindChecked(VariableType);
+				const FString* FoundTypeName = Names.Find(TypePointer);
+				if (FoundTypeName && FoundTypeName->Len() > 0)
+				{
+					FSpirv::FEntry* FoundEntry = Spirv.GetEntry(*FoundTypeName);
+					check(FoundEntry);
+					FDecorations& FoundDecorations = Decorations.FindChecked(VariableId);
+					FoundEntry->Binding = FoundDecorations.BindingIndex;
+					FoundEntry->WordBindingIndex = FoundDecorations.WordBindingIndex;
+					FoundEntry->DescriptorSet = FoundDecorations.DescriptorSet;
+					FoundEntry->WordDescriptorSetIndex = FoundDecorations.WordDescriptorSet;
+				}
+			}
+			else
+			{
+				// Standalone global var
+				FSpirv::FEntry* FoundEntry = Spirv.GetEntry(*FoundVariableName);
+				check(FoundEntry);
+				FDecorations& FoundDecorations = Decorations.FindChecked(VariableId);
+				FoundEntry->Binding = FoundDecorations.BindingIndex;
+				FoundEntry->WordBindingIndex = FoundDecorations.WordBindingIndex;
+				FoundEntry->DescriptorSet = FoundDecorations.DescriptorSet;
+				FoundEntry->WordDescriptorSetIndex = FoundDecorations.WordDescriptorSet;
+			}
+		}
+	}
+}
+
 bool GenerateSpirv(const ANSICHAR* Source, FCompilerInfo& CompilerInfo, FString& OutErrors, const FString& DumpDebugInfoPath, FSpirv& OutSpirv)
 {
 	glslang::TProgram* Program = new glslang::TProgram;
@@ -209,9 +362,9 @@ bool GenerateSpirv(const ANSICHAR* Source, FCompilerInfo& CompilerInfo, FString&
 		std::vector<unsigned int> Spirv;
 		glslang::GlslangToSpv(*Program->getIntermediate((EShLanguage)Stage), Spirv);
 
-		uint32 SizeInBytes = Spirv.size() * sizeof(Spirv[0]);
-		OutSpirv.Data.AddZeroed(SizeInBytes);
-		FMemory::Memcpy(OutSpirv.Data.GetData(), &Spirv[0], SizeInBytes);
+		uint32 SizeInWords = Spirv.size();
+		OutSpirv.Data.AddZeroed(SizeInWords);
+		FMemory::Memcpy(OutSpirv.Data.GetData(), &Spirv[0], SizeInWords * sizeof(uint32));
 
 		if (CompilerInfo.bDebugDump)
 		{
@@ -255,7 +408,7 @@ bool GenerateSpirv(const ANSICHAR* Source, FCompilerInfo& CompilerInfo, FString&
 			{
 				Binding = Program->getUniformBinding(Index);
 			}
-			FSpirv::FEntry Entry{Name, Binding};
+			FSpirv::FEntry Entry(Name, Binding);
 			OutSpirv.ReflectionInfo.Add(Entry);
 		}
 
@@ -273,9 +426,11 @@ bool GenerateSpirv(const ANSICHAR* Source, FCompilerInfo& CompilerInfo, FString&
 			{
 				Binding = Program->getUniformBinding(Index);
 			}
-			FSpirv::FEntry Entry{Name, Binding};
+			FSpirv::FEntry Entry(Name, Binding);
 			OutSpirv.ReflectionInfo.Add(Entry);
 		}
+
+		ComputeMovableWordIndices(OutSpirv);
 
 		return true;
 	};

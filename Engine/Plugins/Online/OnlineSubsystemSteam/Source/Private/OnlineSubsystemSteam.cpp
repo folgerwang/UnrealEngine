@@ -304,7 +304,12 @@ IOnlineChatPtr FOnlineSubsystemSteam::GetChatInterface() const
 
 IOnlineTurnBasedPtr FOnlineSubsystemSteam::GetTurnBasedInterface() const
 {
-    return nullptr;
+	return nullptr;
+}
+
+IOnlineTournamentPtr FOnlineSubsystemSteam::GetTournamentInterface() const
+{
+	return nullptr;
 }
 
 void FOnlineSubsystemSteam::QueueAsyncTask(FOnlineAsyncTask* AsyncTask)

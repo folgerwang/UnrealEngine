@@ -14,7 +14,7 @@ class FVulkanDescriptorPoolsManager;
 #endif
 class FVulkanCommandListContextImmediate;
 class FVulkanOcclusionQueryPool;
-class FOLDVulkanQueryPool;
+class FVulkanQueryPool;
 
 class FVulkanDevice
 {
@@ -189,20 +189,38 @@ public:
 	void NotifyDeletedImage(VkImage Image);
 
 #if VULKAN_ENABLE_DRAW_MARKERS
-	PFN_vkCmdDebugMarkerBeginEXT GetCmdDbgMarkerBegin() const
+	inline PFN_vkCmdDebugMarkerBeginEXT GetCmdDbgMarkerBegin() const
 	{
 		return DebugMarkers.CmdBegin;
 	}
 
-	PFN_vkCmdDebugMarkerEndEXT GetCmdDbgMarkerEnd() const
+	inline PFN_vkCmdDebugMarkerEndEXT GetCmdDbgMarkerEnd() const
 	{
 		return DebugMarkers.CmdEnd;
 	}
 
-	PFN_vkDebugMarkerSetObjectNameEXT GetDebugMarkerSetObjectName() const
+	inline PFN_vkDebugMarkerSetObjectNameEXT GetDebugMarkerSetObjectName() const
 	{
 		return DebugMarkers.CmdSetObjectName;
 	}
+
+#if 0//VULKAN_SUPPORTS_DEBUG_UTILS
+	inline PFN_vkCmdBeginDebugUtilsLabelEXT GetCmdBeginDebugLabel() const
+	{
+		return DebugMarkers.CmdBeginDebugLabel;
+	}
+
+	inline PFN_vkCmdEndDebugUtilsLabelEXT GetCmdEndDebugLabel() const
+	{
+		return DebugMarkers.CmdEndDebugLabel;
+	}
+
+	inline PFN_vkSetDebugUtilsObjectNameEXT GetSetDebugName() const
+	{
+		return DebugMarkers.SetDebugName;
+	}
+#endif
+
 #endif
 
 	void PrepareForCPURead();
@@ -210,15 +228,15 @@ public:
 	void SubmitCommandsAndFlushGPU();
 
 #if VULKAN_USE_NEW_QUERIES
-	FVulkanOcclusionQueryPool* PrepareOcclusionQueryPool(uint32 NumQueries);
+	FVulkanOcclusionQueryPool* AcquireOcclusionQueryPool(uint32 NumQueries);
 	FVulkanTimestampQueryPool* PrepareTimestampQueryPool(bool& bOutRequiresReset);
 #else
-	inline FOLDVulkanBufferedQueryPool& FindAvailableQueryPool(TArray<FOLDVulkanBufferedQueryPool*>& Pools, VkQueryType QueryType)
+	inline FVulkanBufferedQueryPool& FindAvailableQueryPool(TArray<FVulkanBufferedQueryPool*>& Pools, VkQueryType QueryType)
 	{
 		// First try to find An available one
 		for (int32 Index = 0; Index < Pools.Num(); ++Index)
 		{
-			FOLDVulkanBufferedQueryPool* Pool = Pools[Index];
+			FVulkanBufferedQueryPool* Pool = Pools[Index];
 			if (Pool->HasRoom())
 			{
 				return *Pool;
@@ -226,26 +244,26 @@ public:
 		}
 
 		// None found, so allocate new Pool
-		FOLDVulkanBufferedQueryPool* Pool = new FOLDVulkanBufferedQueryPool(this, QueryType == VK_QUERY_TYPE_OCCLUSION ? NUM_OCCLUSION_QUERIES_PER_POOL : NUM_TIMESTAMP_QUERIES_PER_POOL, QueryType);
+		FVulkanBufferedQueryPool* Pool = new FVulkanBufferedQueryPool(this, QueryType == VK_QUERY_TYPE_OCCLUSION ? NUM_OCCLUSION_QUERIES_PER_POOL : NUM_TIMESTAMP_QUERIES_PER_POOL, QueryType);
 		Pools.Add(Pool);
 		return *Pool;
 	}
-	inline FOLDVulkanBufferedQueryPool& FindAvailableOcclusionQueryPool()
+	inline FVulkanBufferedQueryPool& FindAvailableOcclusionQueryPool()
 	{
 		return FindAvailableQueryPool(OcclusionQueryPools, VK_QUERY_TYPE_OCCLUSION);
 	}
 
-	inline FOLDVulkanBufferedQueryPool& FindAvailableTimestampQueryPool()
+	inline FVulkanBufferedQueryPool& FindAvailableTimestampQueryPool()
 	{
 		return FindAvailableQueryPool(TimestampQueryPools, VK_QUERY_TYPE_TIMESTAMP);
 	}
 #endif
-	inline class FVulkanPipelineStateCache* GetPipelineStateCache()
+	inline class FVulkanPipelineStateCacheManager* GetPipelineStateCache()
 	{
 		return PipelineStateCache;
 	}
 
-	void NotifyDeletedGfxPipeline(class FVulkanGraphicsPipelineState* Pipeline);
+	void NotifyDeletedGfxPipeline(class FVulkanRHIGraphicsPipelineState* Pipeline);
 	void NotifyDeletedComputePipeline(class FVulkanComputePipeline* Pipeline);
 
 	FVulkanCommandListContext* AcquireDeferredContext();
@@ -326,8 +344,8 @@ private:
 	TArray<FVulkanOcclusionQueryPool*> OcclusionQueryPools;
 	FVulkanTimestampQueryPool* TimestampQueryPool = nullptr;
 #else
-	TArray<FOLDVulkanBufferedQueryPool*> OcclusionQueryPools;
-	TArray<FOLDVulkanBufferedQueryPool*> TimestampQueryPools;
+	TArray<FVulkanBufferedQueryPool*> OcclusionQueryPools;
+	TArray<FVulkanBufferedQueryPool*> TimestampQueryPools;
 #endif
 
 	FVulkanQueue* GfxQueue;
@@ -370,10 +388,16 @@ private:
 		PFN_vkCmdDebugMarkerBeginEXT		CmdBegin = nullptr;
 		PFN_vkCmdDebugMarkerEndEXT			CmdEnd = nullptr;
 		PFN_vkDebugMarkerSetObjectNameEXT	CmdSetObjectName = nullptr;
+
+#if 0//VULKAN_SUPPORTS_DEBUG_UTILS
+		PFN_vkCmdBeginDebugUtilsLabelEXT	CmdBeginDebugLabel = nullptr;
+		PFN_vkCmdEndDebugUtilsLabelEXT		CmdEndDebugLabel = nullptr;
+		PFN_vkSetDebugUtilsObjectNameEXT	SetDebugName = nullptr;
+#endif
 	} DebugMarkers;
 	friend class FVulkanCommandListContext;
 #endif
 
-	class FVulkanPipelineStateCache* PipelineStateCache;
+	class FVulkanPipelineStateCacheManager* PipelineStateCache;
 	friend class FVulkanDynamicRHI;
 };

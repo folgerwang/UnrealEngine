@@ -51,7 +51,12 @@ public:
 
 	static bool SupportsDeviceLocalHostVisibleWithNoPenalty() { return false; }
 
+	static bool HasUnifiedMemory() { return false; }
+
 	static bool RegisterGPUWork() { return true; }
+
+	// Does the platform only support Vertex & Pixel stages (not Geometry or Tessellation)?
+	static bool IsVSPSOnly() { return false; }
 
 	static void WriteBufferMarkerAMD(VkCommandBuffer CmdBuffer, VkBuffer DestBuffer, const TArrayView<uint32>& Entries, bool bAdding) {}
 

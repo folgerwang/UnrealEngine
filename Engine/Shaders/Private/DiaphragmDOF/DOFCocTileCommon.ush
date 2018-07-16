@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "DOFCommon.ush"
+
+
 //------------------------------------------------------- COMPILE TIME CONSTANTS.
 
 // Maximum number of buffer for Coc tile.
@@ -55,8 +58,11 @@ struct FCocTileSample
 	// The maximum Coc for background >= 0.
 	float BgdMaxCoc;
 
-	// The maximum intersectable Coc radius.
+	// The minimum intersectable Coc radius >= 0.
 	float BgdMinIntersectableCoc;
+
+	// The conservative distance field to any closer geometry.
+	float BgdMinConservativeCloserGoemetryDistance;
 };
 
 
@@ -69,6 +75,7 @@ void InitCocTileSample(out FCocTileSample Sample)
 	Sample.BgdMinCoc = 0;
 	Sample.BgdMaxCoc = 0;
 	Sample.BgdMinIntersectableCoc = EXTREMELY_LARGE_COC_RADIUS;
+	Sample.BgdMinConservativeCloserGoemetryDistance = 0;
 }
 
 /** Encode coc tile sample.
@@ -89,7 +96,7 @@ void EncodeCocTileSample(in FCocTileSample Sample, in uint Layout, out float4 Ra
 	else if (static_condition(Layout == COC_TILE_LAYOUT_FGD_SEP_BGD))
 	{
 		Raw[0].rg = float2(Sample.FgdMinCoc, Sample.FgdMaxCoc);
-		Raw[1].rgb = float3(Sample.BgdMaxCoc, Sample.BgdMinCoc, Sample.BgdMinIntersectableCoc);
+		Raw[1] = float4(Sample.BgdMaxCoc, Sample.BgdMinCoc, Sample.BgdMinIntersectableCoc, Sample.BgdMinConservativeCloserGoemetryDistance);
 	}
 }
 
@@ -114,6 +121,7 @@ void DecodeCocTileSample(in float4 Raw[COC_TILE_MAX_BUFFER_COUNT], in uint Layou
 		Sample.BgdMinCoc = Raw[1].g;
 		Sample.BgdMaxCoc = Raw[1].r;
 		Sample.BgdMinIntersectableCoc = Raw[1].b;
+		Sample.BgdMinConservativeCloserGoemetryDistance = Raw[1].a;
 	}
 }
 

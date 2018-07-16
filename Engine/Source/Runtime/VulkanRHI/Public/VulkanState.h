@@ -28,8 +28,7 @@ public:
 
 	static void ResetCreateInfo(VkPipelineRasterizationStateCreateInfo& OutInfo)
 	{
-		FMemory::Memzero(OutInfo);
-		OutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+		ZeroVulkanStruct(OutInfo, VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO);
 		OutInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
 		OutInfo.lineWidth = 1.0f;
 	}

@@ -179,8 +179,7 @@ VkImage FVulkanSurface::CreateImage(
 	VkImageCreateInfo TmpCreateInfo;
 	VkImageCreateInfo* ImageCreateInfoPtr = OutInfo ? OutInfo : &TmpCreateInfo;
 	VkImageCreateInfo& ImageCreateInfo = *ImageCreateInfoPtr;
-	FMemory::Memzero(ImageCreateInfo);
-	ImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	ZeroVulkanStruct(ImageCreateInfo, VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
 
 	switch(ResourceType)
 	{
@@ -1304,9 +1303,7 @@ VkImageView FVulkanTextureView::StaticCreate(FVulkanDevice& Device, VkImage Imag
 	VkImageView View = VK_NULL_HANDLE;
 
 	VkImageViewCreateInfo ViewInfo;
-	FMemory::Memzero(ViewInfo);
-	ViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	ViewInfo.pNext = nullptr;
+	ZeroVulkanStruct(ViewInfo, VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO);
 	ViewInfo.image = Image;
 	ViewInfo.viewType = ViewType;
 	ViewInfo.format = Format;
@@ -1809,10 +1806,20 @@ void FVulkanDynamicRHI::RHIBindDebugLabelName(FTextureRHIParamRef TextureRHI, co
 #endif
 
 #if VULKAN_ENABLE_DRAW_MARKERS
-	if (Device->GetDebugMarkerSetObjectName())
+#if 0//VULKAN_SUPPORTS_DEBUG_UTILS
+	if (auto* SetDebugName = Device->GetSetDebugName())
 	{
 		FVulkanTextureBase* Base = (FVulkanTextureBase*)TextureRHI->GetTextureBaseRHI();
-		VulkanRHI::SetDebugObjectName(Device->GetDebugMarkerSetObjectName(), Device->GetInstanceHandle(), Base->Surface.Image, TCHAR_TO_ANSI(Name));
+		FTCHARToUTF8 Converter(Name);
+		VulkanRHI::SetDebugName(SetDebugName, Device->GetInstanceHandle(), Base->Surface.Image, Converter.Get());
+	}
+	else
+#endif
+	if (auto* SetObjectName = Device->GetDebugMarkerSetObjectName())
+	{
+		FVulkanTextureBase* Base = (FVulkanTextureBase*)TextureRHI->GetTextureBaseRHI();
+		FTCHARToUTF8 Converter(Name);
+		VulkanRHI::SetDebugMarkerName(SetObjectName, Device->GetInstanceHandle(), Base->Surface.Image, Converter.Get());
 	}
 #endif
 	FName DebugName(Name);
@@ -1828,8 +1835,7 @@ void FVulkanDynamicRHI::RHIBindDebugLabelName(FUnorderedAccessViewRHIParamRef Un
 		//{
 		//	FVulkanTexture2D* VulkanTexture = (FVulkanTexture2D*)Tex2d;
 		//	VkDebugMarkerObjectTagInfoEXT Info;
-		//	FMemory::Memzero(Info);
-		//	Info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
+		//	ZeroVulkanStruct(Info, VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT);
 		//	Info.objectType = VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT;
 		//	Info.object = VulkanTexture->Surface.Image;
 		//	vkDebugMarkerSetObjectNameEXT(Device->GetInstanceHandle(), &Info);
@@ -1875,7 +1881,7 @@ static VkMemoryRequirements FindOrCalculateTexturePlatformSize(FVulkanDevice* De
 	VkMemoryRequirements* Found = nullptr;
 	{
 		FScopeLock Lock(&TextureSizesLock);
-		TextureSizes.Find(Hash);
+		Found = TextureSizes.Find(Hash);
 		if (Found)
 		{
 			return *Found;

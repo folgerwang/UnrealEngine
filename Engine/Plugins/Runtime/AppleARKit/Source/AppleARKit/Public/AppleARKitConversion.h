@@ -26,7 +26,7 @@ struct FAppleARKitConversion
 	 *
 	 * Ignores scale.
 	 */
-	static FORCEINLINE FTransform ToFTransform(const matrix_float4x4& RawYUpMatrix)
+	static FORCEINLINE FTransform ToFTransform(const matrix_float4x4& RawYUpMatrix, const FRotator& AdjustBy = FRotator::ZeroRotator)
 	{
 		// Conversion here is as per SteamVRHMD::ToFMatrix
 		FMatrix RawYUpFMatrix(
@@ -41,6 +41,10 @@ struct FAppleARKitConversion
 		// Extract & convert rotation 
 		FQuat RawRotation( RawYUpFMatrix );
 		FQuat Rotation( -RawRotation.Z, RawRotation.X, RawRotation.Y, -RawRotation.W );
+		if (!AdjustBy.IsNearlyZero())
+		{
+			Rotation = FQuat(AdjustBy) * Rotation;
+		}
 
 		return FTransform( Rotation, Translation );
 	}
@@ -424,6 +428,7 @@ struct FAppleARKitAnchorData
 		: Transform( InTransform )
 		, AnchorType( EAppleAnchorType::Anchor )
 		, AnchorGUID( InAnchorGuid )
+		, bIsTracked(false)
 	{
 	}
 
@@ -494,6 +499,9 @@ struct FAppleARKitAnchorData
 	FTransform LeftEyeTransform;
 	FTransform RightEyeTransform;
 	FVector LookAtTarget;
+
+	/** Only valid for tracked real world objects (face, images) */
+	bool bIsTracked;
 };
 
 namespace ARKitUtil

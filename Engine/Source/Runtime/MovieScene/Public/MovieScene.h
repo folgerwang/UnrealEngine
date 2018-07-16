@@ -451,16 +451,6 @@ public:
 	 */
 	void MoveBindingContents(const FGuid& SourceBindingId, const FGuid& DestinationBindingId);
 
-	/**
-	 * Tries to find an FMovieSceneBinding for the specified Guid.
-	 * 
-	 * @param ForGuid	The binding's Guid to look for.
-	 * @return			Pointer to the binding, otherwise nullptr.
-	 */
-	FMovieSceneBinding* FindBinding(const FGuid& ForGuid)
-	{
-		return ObjectBindings.FindByPredicate([ForGuid](const FMovieSceneBinding& Binding) { return Binding.GetObjectGuid() == ForGuid; });
-	}
 public:
 
 	// @todo sequencer: the following methods really shouldn't be here
@@ -593,6 +583,14 @@ public:
 	* Replace an existing binding with another 
 	*/
 	void ReplaceBinding(const FGuid& OldGuid, const FGuid& NewGuid, const FString& Name);
+
+	/*
+	* Replace an existing binding with another. Assumes ownership of any
+	* tracks listed in the binding. Does nothing if no binding can be found.
+	* @param BindingToReplaceGuid	Binding Guid that should be replaced
+	* @param NewBinding				Binding Data that should replace the original one specified by BindingToReplaceGuid.
+	*/
+	void ReplaceBinding(const FGuid& BindingToReplaceGuid, const FMovieSceneBinding& NewBinding);
 
 #if WITH_EDITORONLY_DATA
 	/**
