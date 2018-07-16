@@ -3717,6 +3717,8 @@ void FAsyncPackage::MakeNextPrecacheRequestCurrent()
 
 	FArchiveAsync2* FAA2 = Linker->GetFArchiveAsync2Loader();
 	check(FAA2);
+	Read->WaitCompletion();
+
 	bool bReady = FAA2->PrecacheForEvent(CurrentBlockOffset, CurrentBlockBytes);
 	UE_CLOG(!bReady, LogStreaming, Warning, TEXT("Precache request should have been hot %s."), *Linker->Filename);
 	for (int32 Index = Req.FirstExportCovered; Index <= Req.LastExportCovered; Index++)
@@ -3728,7 +3730,7 @@ void FAsyncPackage::MakeNextPrecacheRequestCurrent()
 	{
 		RemoveNode(EEventLoadNode::Export_StartIO, FPackageIndex::FromExport(LocalExportIndex));
 	}
-	Read->WaitCompletion();
+
 	PrecacheRequests.Remove(Read);
 	delete Read;	
 }

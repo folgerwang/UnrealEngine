@@ -110,58 +110,77 @@ float DownsampleCoc(float CocRadii[4])
 }
 
 
+// Optimized HDR weighting function.
+float HdrWeight4(float3 Color, float Exposure) 
+{
+	return rcp(Luma4(Color) * Exposure + 4.0);
+}
+
+
+struct FCocDownsampleParams
+{
+	// Multiplier to apply on the bilateral weights.
+	float CocRadiusMultiplier;
+
+	// The exposure scale of the frame.
+	float FrameExposureScale;
+
+	// Whether should color based weightings to reduce highlight contamination.
+	bool bDoColorBasedWeighting;
+};
+
+
 /** Compute the bilateral weight of sample to downsample. */
 float ComputeDownsamplingBilateralWeight(
+	FCocDownsampleParams DownsampleParams,
 	float OutCocRadius,
 	float SampleCocRadius,
-	in float CocRadiusMultiplier = 1.0)
+	float3 SampleColor = 0)
 {
 	// Remove samples which are outside the size.
 	// TODO: Tune the ScaleFactor. Looks like to large.
-	float ScaleFactor = 64.0 * CocRadiusMultiplier;
+	float ScaleFactor = 64.0 * DownsampleParams.CocRadiusMultiplier;
 
 	// not doing abs(OutCocRadius - SampleCocRadius) because: it is fine to leak background on foreground arround geometric
 	// edges because going to be close to the hole filling as well. This allow dither opacity material such as dithered human hair
 	// to keep consistent opacity, thickness, and temporal stability as the Coc changes between slight out focus, foreground
 	// and background.
-	#if defined(CONFIG_SETUP)
-		return saturate(1.0 - (OutCocRadius - SampleCocRadius) * ScaleFactor);
+	#if 1
+		float BilateralWeight = saturate(1.0 - (OutCocRadius - SampleCocRadius) * ScaleFactor);
+	#else
+		// GCN Hint: one subtract with abs() post modifier + one MAD with saturate post modifier.
+		float BilateralWeight = saturate(1.0 - abs(OutCocRadius - SampleCocRadius) * ScaleFactor);
 	#endif
 	
-	// GCN Hint: one subtract with abs() post modifier + one MAD with saturate post modifier.
-	return saturate(1.0 - abs(OutCocRadius - SampleCocRadius) * ScaleFactor);
+	float ColorWeight = 1;
+	if (DownsampleParams.bDoColorBasedWeighting)
+	{
+		ColorWeight = HdrWeight4(SampleColor, DownsampleParams.FrameExposureScale);
+	}
+
+	return BilateralWeight * ColorWeight;
 }
 
 
 /** Operator to use to downsample 4 scene sample to 1. */
 void DownsampleSceneColorWithCoc(
+	FCocDownsampleParams DownsampleParams,
 	float4 Color[4], float CocRadii[4],
-	out float4 OutColor, out float OutCocRadius,
-	in float CocRadiusMultiplier = 1.0)
+	out float4 OutColor, out float OutCocRadius)
 {
 	// Choose the best the coc to use.
 	OutCocRadius = DownsampleCoc(CocRadii);
 
 	float4 BilateralWeights = float4(
-		ComputeDownsamplingBilateralWeight(OutCocRadius, CocRadii[0], CocRadiusMultiplier),
-		ComputeDownsamplingBilateralWeight(OutCocRadius, CocRadii[1], CocRadiusMultiplier),
-		ComputeDownsamplingBilateralWeight(OutCocRadius, CocRadii[2], CocRadiusMultiplier),
-		ComputeDownsamplingBilateralWeight(OutCocRadius, CocRadii[3], CocRadiusMultiplier));
-
-	// Reduce the output weight if there was information loss on the oposite layer from the one chosen
-	// by DownsampleCoc(). This improve temporaly stability and low res aliasing of foreground out focus.
-	float OutputWeight = 0;
-	UNROLL
-	for (uint i = 0; i < 4; i++)
-	{
-		OutputWeight += (OutCocRadius * CocRadii[i]) >= 0.0 ? 0.25 : 0.0;
-	}
-	OutputWeight = 1;
+		ComputeDownsamplingBilateralWeight(DownsampleParams, OutCocRadius, CocRadii[0], Color[0].rgb),
+		ComputeDownsamplingBilateralWeight(DownsampleParams, OutCocRadius, CocRadii[1], Color[1].rgb),
+		ComputeDownsamplingBilateralWeight(DownsampleParams, OutCocRadius, CocRadii[2], Color[2].rgb),
+		ComputeDownsamplingBilateralWeight(DownsampleParams, OutCocRadius, CocRadii[3], Color[3].rgb));
 
 	float WeightSum = dot(float4(1, 1, 1, 1), BilateralWeights);
 
 	// Normalize weights.
-	float WeightNormalizationFactor = OutputWeight * rcp(WeightSum);
+	float WeightNormalizationFactor = rcp(WeightSum);
 
 	// Do the multiply of WeightNormalizationFactor, because save one mad when alpha channel is disabled.
 	OutColor = WeightNormalizationFactor * (

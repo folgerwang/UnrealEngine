@@ -385,9 +385,8 @@ public:
 	UPROPERTY(Transient, DuplicateTransient, NonTransactional)
 	FLandscapeEditToolRenderData EditToolRenderData;
 
-	/** Hash of source for ES2 generated data. Used for mobile preview and cook-in-editor
-	 * to determine if we need to re-generate ES2 pixel data. */
-	UPROPERTY(Transient, DuplicateTransient)
+	/** Hash of source for ES2 generated data. Used determine if we need to re-generate ES2 pixel data. */
+	UPROPERTY(DuplicateTransient)
 	FGuid MobileDataSourceHash;
 #endif
 
@@ -399,9 +398,10 @@ public:
 	UPROPERTY(NonPIEDuplicateTransient)
 	UMaterialInterface* MobileMaterialInterface;
 
-	/** Generated weight/normal map texture used for ES2. Serialized only when cooking or loading cooked builds. */
+	/** Generated weightmap textures used for ES2. The first entry is also used for the normal map. 
+	  * Serialized only when cooking or loading cooked builds. */
 	UPROPERTY(NonPIEDuplicateTransient)
-	UTexture2D* MobileWeightNormalmapTexture;
+	TArray<UTexture2D*> MobileWeightmapTextures;
 
 #if WITH_EDITORONLY_DATA
 	/** Layer allocations used by mobile. Cached value here used only in the editor for usage visualization. */

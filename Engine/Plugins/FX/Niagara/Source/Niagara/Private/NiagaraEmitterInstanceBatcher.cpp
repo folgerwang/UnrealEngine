@@ -27,14 +27,18 @@ uint32 FNiagaraComputeExecutionContext::TickCounter = 0;
 void NiagaraEmitterInstanceBatcher::Queue(FNiagaraComputeExecutionContext *InContext)
 {
 	//SimulationQueue[CurQueueIndex]->Add(InContext);
-
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(QueueNiagaraDispatch,
-		TArray<FNiagaraComputeExecutionContext*>*, Queue, &SimulationQueue[0],
-		uint32, QueueIndex, CurQueueIndex,
-		FNiagaraComputeExecutionContext*, ExecContext, InContext,
-		{
-			Queue[QueueIndex].Add(ExecContext);
-		});
+		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(QueueNiagaraDispatch,
+			TArray<FNiagaraComputeExecutionContext*>*, Queue, &SimulationQueue[0],
+			uint32, QueueIndex, CurQueueIndex,
+			FNiagaraComputeExecutionContext*, ExecContext, InContext,
+			{
+				//Don't queue the same context for execution multiple times. TODO: possibly try to combine/accumulate the tick info if we happen to have > 1 before it's executed.
+				if (!ExecContext->bPendingExecution)
+				{
+					Queue[QueueIndex].Add(ExecContext);
+					ExecContext->bPendingExecution = true;
+				}
+			});
 }
 
 
@@ -56,6 +60,7 @@ void NiagaraEmitterInstanceBatcher::TickSingle(FNiagaraComputeExecutionContext *
 
 	check(IsInRenderingThread());
 	Context->MainDataSet->Tick();
+	Context->bPendingExecution = false;
 
 	FNiagaraComputeExecutionContext::TickCounter++;
 

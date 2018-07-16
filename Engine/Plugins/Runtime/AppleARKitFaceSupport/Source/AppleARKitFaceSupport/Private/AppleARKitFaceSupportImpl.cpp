@@ -12,7 +12,7 @@ DECLARE_STATS_GROUP(TEXT("AppleARKitFaceSupport"), STATGROUP_APPLEARKITFACE, STA
 
 #if SUPPORTS_ARKIT_1_0
 
-static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData(ARAnchor* Anchor)
+static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData(ARAnchor* Anchor, const FRotator& AdjustBy)
 {
     TSharedPtr<FAppleARKitAnchorData> NewAnchor;
     if ([Anchor isKindOfClass:[ARFaceAnchor class]])
@@ -25,15 +25,15 @@ static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData(ARAnchor* Anchor)
 #if SUPPORTS_ARKIT_2_0
 		if (FAppleARKitAvailability::SupportsARKit20())
 		{
-			LeftEyeTransform = FAppleARKitConversion::ToFTransform(FaceAnchor.leftEyeTransform);
-			RightEyeTransform = FAppleARKitConversion::ToFTransform(FaceAnchor.rightEyeTransform);
+			LeftEyeTransform = FAppleARKitConversion::ToFTransform(FaceAnchor.leftEyeTransform, AdjustBy);
+			RightEyeTransform = FAppleARKitConversion::ToFTransform(FaceAnchor.rightEyeTransform, AdjustBy);
 			LookAtTarget = FAppleARKitConversion::ToFVector(FaceAnchor.lookAtPoint);
 		}
 #endif
 		NewAnchor = MakeShared<FAppleARKitAnchorData>(
 			FAppleARKitConversion::ToFGuid(FaceAnchor.identifier),
-			FAppleARKitConversion::ToFTransform(FaceAnchor.transform),
-			ToBlendShapeMap(FaceAnchor.blendShapes, FAppleARKitConversion::ToFTransform(FaceAnchor.transform), LeftEyeTransform, RightEyeTransform),
+			FAppleARKitConversion::ToFTransform(FaceAnchor.transform, AdjustBy),
+			ToBlendShapeMap(FaceAnchor.blendShapes, FAppleARKitConversion::ToFTransform(FaceAnchor.transform, AdjustBy), LeftEyeTransform, RightEyeTransform),
 			ToVertexBuffer(FaceAnchor.geometry.vertices, FaceAnchor.geometry.vertexCount),
 			LeftEyeTransform,
 			RightEyeTransform,
@@ -44,6 +44,7 @@ static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData(ARAnchor* Anchor)
         {
             FAppleARKitAnchorData::FaceIndices = To32BitIndexBuffer(FaceAnchor.geometry.triangleIndices, FaceAnchor.geometry.triangleCount * 3);
         }
+		NewAnchor->bIsTracked = FaceAnchor.isTracked;
     }
 
     return NewAnchor;
@@ -93,13 +94,13 @@ ARConfiguration* FAppleARKitFaceSupport::ToARConfiguration(UARSessionConfig* Ses
 	return SessionConfiguration;
 }
 
-TArray<TSharedPtr<FAppleARKitAnchorData>> FAppleARKitFaceSupport::MakeAnchorData(NSArray<ARAnchor*>* Anchors, double Timestamp, uint32 FrameNumber)
+TArray<TSharedPtr<FAppleARKitAnchorData>> FAppleARKitFaceSupport::MakeAnchorData(NSArray<ARAnchor*>* Anchors, double Timestamp, uint32 FrameNumber, const FRotator& AdjustBy)
 {
 	TArray<TSharedPtr<FAppleARKitAnchorData>> AnchorList;
 
 	for (ARAnchor* Anchor in Anchors)
 	{
-		TSharedPtr<FAppleARKitAnchorData> AnchorData = ::MakeAnchorData(Anchor);
+		TSharedPtr<FAppleARKitAnchorData> AnchorData = ::MakeAnchorData(Anchor, AdjustBy);
 		if (AnchorData.IsValid())
 		{
 			AnchorList.Add(AnchorData);
@@ -134,4 +135,8 @@ void FAppleARKitFaceSupport::PublishLiveLinkData(TSharedPtr<FAppleARKitAnchorDat
 	}
 }
 
+bool FAppleARKitFaceSupport::DoesSupportFaceAR()
+{
+	return ARFaceTrackingConfiguration.isSupported == TRUE;
+}
 #endif

@@ -3,7 +3,6 @@
 #pragma once
 
 #include "UObject/Object.h"
-#include "Engine/Engine.h"
 #include "AI/Navigation/NavigationTypes.h"
 #include "AI/NavigationModifier.h"
 #include "Engine/World.h"
@@ -109,16 +108,12 @@ namespace FNavigationSystem
 		return World ? Cast<TNavSys>(World->GetNavigationSystem()) : (const TNavSys*)nullptr;
 	}
 
+	ENGINE_API UWorld* GetWorldFromContextObject(UObject* WorldContextObject);
+
 	template<typename TNavSys>
 	TNavSys* GetCurrent(UObject* WorldContextObject)
 	{
-		UWorld* World = nullptr;
-
-		if (WorldContextObject != nullptr)
-		{
-			World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
-		}
-
+		UWorld* World = GetWorldFromContextObject(WorldContextObject);
 		return GetCurrent<TNavSys>(World);
 	}
 

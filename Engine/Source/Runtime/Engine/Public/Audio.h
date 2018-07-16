@@ -373,6 +373,9 @@ public:
 	/** Whether or not this wave instance is ambisonics. */
 	uint32 bIsAmbisonics:1;
 
+	/** Whether or not this wave instance is stopping. */
+	uint32 bIsStopping:1;
+
 	/** Which spatialization method to use to spatialize 3d sounds. */
 	ESoundSpatializationAlgorithm SpatializationMethod;
 
@@ -471,6 +474,9 @@ public:
 	void SetDistanceAttenuation(const float InDistanceAttenuation) { DistanceAttenuation = InDistanceAttenuation; }
 	void SetVolumeApp(const float InVolumeApp) { VolumeApp = InVolumeApp; }
 	void SetVolumeMultiplier(const float InVolumeMultiplier) { VolumeMultiplier = InVolumeMultiplier; }
+
+	void SetStopping(const bool bInIsStopping) { bIsStopping = bInIsStopping; }
+	bool IsStopping() const { return bIsStopping; }
 
 	/** Returns the volume multiplier on the wave instance. */
 	float GetVolumeMultiplier() const { return VolumeMultiplier; }
@@ -607,6 +613,7 @@ public:
 		, Pitch(1.0f)
 		, LastUpdate(0)
 		, LastHeardUpdate(0)
+		, TickCount(0)
 		, LeftChannelSourceLocation(0)
 		, RightChannelSourceLocation(0)
 		, NumFramesPlayed(0)
@@ -637,7 +644,7 @@ public:
 	virtual bool Init(FWaveInstance* InWaveInstance) = 0;
 
 	/** Returns whether or not the sound source has initialized. */
-	bool IsInitialized() const { return bInitialized; };
+	virtual bool IsInitialized() const { return bInitialized; };
 
 	/** Updates the sound source. */
 	virtual void Update() = 0;
@@ -652,12 +659,6 @@ public:
 
 	/** Whether or not the source is stopping. Only implemented in audio mixer. */
 	virtual bool IsStopping() { return false; }
-
-	/** Makes sure the source stops. Only implemented in audio mixer. */
-	virtual void EnsureStopped() {}
-
-	/** Called after a sound has been stopped and needs cleaning up. */
-	virtual void ReleaseStoppedSound() {}
 
 	/** Returns true if the sound source has finished playing. */
 	virtual	bool IsFinished() = 0;
@@ -792,6 +793,9 @@ protected:
 
 	/** Last tick when this source was active *and* had a hearable volume */
 	int32 LastHeardUpdate;
+
+	/** Update tick count. Used to stop oldest stopping sound source. */
+	int32 TickCount;
 
 	/** The location of the left-channel source for stereo spatialization. */
 	FVector LeftChannelSourceLocation;

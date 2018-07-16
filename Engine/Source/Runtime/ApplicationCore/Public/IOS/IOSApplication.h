@@ -53,4 +53,6 @@ private:
 
 	static FCriticalSection CriticalSection;
 	static bool bOrientationChanged;
+
+	void CacheDisplayMetrics();
 };

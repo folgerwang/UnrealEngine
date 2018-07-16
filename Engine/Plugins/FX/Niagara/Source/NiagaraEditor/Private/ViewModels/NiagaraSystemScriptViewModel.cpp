@@ -168,14 +168,14 @@ void FNiagaraSystemScriptViewModel::RebuildEmitterNodes()
 		CurrentEmitterNode->Modify();
 		UEdGraphPin* InPin = CurrentEmitterNode->GetInputPin(0);
 		UEdGraphPin* OutPin = CurrentEmitterNode->GetOutputPin(0);
-		if (InPin != nullptr && OutPin != nullptr)
-		{
-			if (0 != InPin->LinkedTo.Num() && 0 != OutPin->LinkedTo.Num())
-			{
-				InPin->LinkedTo[0]->MakeLinkTo(OutPin->LinkedTo[0]);
-			}
-		}
+		UEdGraphPin* InPinLinkedPin = InPin != nullptr && InPin->LinkedTo.Num() == 1 ? InPin->LinkedTo[0] : nullptr;
+		UEdGraphPin* OutPinLinkedPin = OutPin != nullptr && OutPin->LinkedTo.Num() == 1 ? OutPin->LinkedTo[0] : nullptr;
 		CurrentEmitterNode->DestroyNode();
+
+		if (InPinLinkedPin != nullptr &&& OutPinLinkedPin != nullptr)
+		{
+			InPinLinkedPin->MakeLinkTo(OutPinLinkedPin);
+		}
 	}
 
 	// Add output nodes if they don't exist.

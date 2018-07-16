@@ -87,6 +87,7 @@ public:
 
 	typedef FShader* (*ConstructCompiledType)(const CompiledShaderInitializerType&);
 	typedef bool (*ShouldCompilePermutationType)(EShaderPlatform,const FMaterial*);
+	typedef bool(*ValidateCompiledResultType)(EShaderPlatform, const TArray<FMaterial*>&, const FShaderParameterMap&, TArray<FString>&);
 	typedef void (*ModifyCompilationEnvironmentType)(EShaderPlatform, const FMaterial*, FShaderCompilerEnvironment&);
 
 	FMaterialShaderType(
@@ -99,11 +100,13 @@ public:
 		ConstructCompiledType InConstructCompiledRef,
 		ModifyCompilationEnvironmentType InModifyCompilationEnvironmentRef,
 		ShouldCompilePermutationType InShouldCompilePermutationRef,
+		ValidateCompiledResultType InValidateCompiledResultRef,
 		GetStreamOutElementsType InGetStreamOutElementsRef
 		):
 		FShaderType(EShaderTypeForDynamicCast::Material, InName, InSourceFilename, InFunctionName, InFrequency, InTotalPermutationCount, InConstructSerializedRef, InGetStreamOutElementsRef),
 		ConstructCompiledRef(InConstructCompiledRef),
 		ShouldCompilePermutationRef(InShouldCompilePermutationRef),
+		ValidateCompiledResultRef(InValidateCompiledResultRef),
 		ModifyCompilationEnvironmentRef(InModifyCompilationEnvironmentRef)
 	{
 		checkf(FPaths::GetExtension(InSourceFilename) == TEXT("usf"),
@@ -158,6 +161,18 @@ public:
 		return (*ShouldCompilePermutationRef)(Platform,Material);
 	}
 
+	/**
+	* Checks if the shader type should pass compilation for a particular set of parameters.
+	* @param Platform - Platform to validate.
+	* @param Materials - Materials to validate.
+	* @param ParameterMap - Shader parameters to validate.
+	* @param OutError - List for appending validation errors.
+	*/
+	bool ValidateCompiledResult(EShaderPlatform Platform, const TArray<FMaterial*>& Materials, const FShaderParameterMap& ParameterMap, TArray<FString>& OutError) const
+	{
+		return (*ValidateCompiledResultRef)(Platform, Materials, ParameterMap, OutError);
+	}
+
 protected:
 
 	/**
@@ -174,5 +189,6 @@ protected:
 private:
 	ConstructCompiledType ConstructCompiledRef;
 	ShouldCompilePermutationType ShouldCompilePermutationRef;
+	ValidateCompiledResultType ValidateCompiledResultRef;
 	ModifyCompilationEnvironmentType ModifyCompilationEnvironmentRef;
 };

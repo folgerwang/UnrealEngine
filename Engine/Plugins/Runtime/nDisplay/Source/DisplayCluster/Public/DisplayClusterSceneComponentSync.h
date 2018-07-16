@@ -45,7 +45,7 @@ public:
 	virtual FString SerializeToString() const override final;
 	virtual bool    DeserializeFromString(const FString& data) override final;
 
-protected:
+public:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void DestroyComponent(bool bPromoteChildren) override;

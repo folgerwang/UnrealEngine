@@ -109,7 +109,6 @@
   <ItemGroup>
     <Content Include="Global.asax" />
     <Content Include="Web.config" />
-    <None Include="Properties\PublishProfiles\File.pubxml" />
     <None Include="Web.template.config" />
     <None Include="Web.Debug.config">
       <DependentUpon>Web.template.config</DependentUpon>
