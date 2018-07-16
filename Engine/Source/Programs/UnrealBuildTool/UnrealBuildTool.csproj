@@ -247,7 +247,6 @@
     <Compile Include="ToolChain\RemoteExports.cs" />
     <Compile Include="UnrealBuildTool.cs" />
     <Compile Include="Utilities\Crypto.cs" />
-    <Compile Include="Utilities\HashSetExtensions.cs" />
     <Compile Include="Platform\Windows\PVSToolChain.cs" />
     <Compile Include="Platform\Windows\WindowsDeploy.cs" />
     <Compile Include="Platform\Windows\WinResources.cs" />
