@@ -98,6 +98,9 @@ bool FDisplayClusterModule::Init(EDisplayClusterOperationMode OperationMode)
 		UE_LOG(LogDisplayClusterModule, Error, TEXT("An error occurred during internal initialization"));
 	}
 
+	// Set internal initialization flag
+	bIsModuleInitialized = result;
+
 	return result;
 }
 

@@ -34,13 +34,13 @@ void UDisplayClusterSceneComponent::TickComponent( float DeltaTime, ELevelTick T
 	// Update transform if attached to a tracker
 	if (!Config.TrackerId.IsEmpty())
 	{
-		IPDisplayClusterInputManager* const inputMgr = GDisplayCluster->GetPrivateInputMgr();
-		if (inputMgr)
+		const IPDisplayClusterInputManager* const InputMgr = GDisplayCluster->GetPrivateInputMgr();
+		if (InputMgr)
 		{
 			FVector loc;
 			FQuat rot;
-			const bool bLocAvail = inputMgr->GetTrackerLocation(Config.TrackerId, Config.TrackerCh, loc);
-			const bool bRotAvail = inputMgr->GetTrackerQuat(Config.TrackerId, Config.TrackerCh, rot);
+			const bool bLocAvail = InputMgr->GetTrackerLocation(Config.TrackerId, Config.TrackerCh, loc);
+			const bool bRotAvail = InputMgr->GetTrackerQuat(Config.TrackerId, Config.TrackerCh, rot);
 
 			if (bLocAvail && bRotAvail)
 			{
@@ -71,10 +71,14 @@ bool UDisplayClusterSceneComponent::ApplySettings()
 	// Take place in hierarchy
 	if (!GetParentId().IsEmpty())
 	{
-		UE_LOG(LogDisplayClusterGame, Log, TEXT("Attaching %s to %s"), *GetId(), *GetParentId());
-		UDisplayClusterSceneComponent* const pComp = GDisplayCluster->GetPrivateGameMgr()->GetNodeById(GetParentId());
-		AttachToComponent(pComp, FAttachmentTransformRules(EAttachmentRule::KeepRelative, false));
-		//this->SetRelativeTransform(FTransform::Identity);
+		const IPDisplayClusterGameManager* const GameMgr = GDisplayCluster->GetPrivateGameMgr();
+		if (GameMgr)
+		{
+			UE_LOG(LogDisplayClusterGame, Log, TEXT("Attaching %s to %s"), *GetId(), *GetParentId());
+			UDisplayClusterSceneComponent* const pComp = GameMgr->GetNodeById(GetParentId());
+			AttachToComponent(pComp, FAttachmentTransformRules(EAttachmentRule::KeepRelative, false));
+			//this->SetRelativeTransform(FTransform::Identity);
+		}
 	}
 
 	// Set up location and rotation
