@@ -640,28 +640,19 @@ bool FLinuxWindow::GetFullScreenInfo( int32& X, int32& Y, int32& Width, int32& H
 /** @return true if the native window is maximized, false otherwise */
 bool FLinuxWindow::IsMaximized() const
 {
-	uint32 flag = SDL_GetWindowFlags( HWnd );
-
-	if ( flag & SDL_WINDOW_MAXIMIZED )
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}
-
-/** @return true if the native window is visible, false otherwise */
-bool FLinuxWindow::IsVisible() const
-{
-	return bIsVisible;
+	return SDL_GetWindowFlags(HWnd) & SDL_WINDOW_MAXIMIZED;
 }
 
 /** @return true if the native window is minimized, false otherwise */
 bool FLinuxWindow::IsMinimized() const
 {
 	return SDL_GetWindowFlags(HWnd) & SDL_WINDOW_MINIMIZED;
+}
+
+/** @return true if the native window is visible, false otherwise */
+bool FLinuxWindow::IsVisible() const
+{
+	return bIsVisible;
 }
 
 /** Returns the size and location of the window when it is restored */
