@@ -94,12 +94,14 @@ public:
 
 	virtual bool SupportsFeature(ETargetPlatformFeatures Feature) const override;
 
+	virtual void RefreshSettings() override;
+
 protected:
 	virtual FAndroidTargetDevicePtr CreateTargetDevice(const ITargetPlatform& InTargetPlatform, const FString& InSerialNumber, const FString& InAndroidVariant) const override;
 
 protected:
 	// Holds the Engine INI settings, for quick use.
-	FConfigFile EngineSettings;
+	FConfigFile LuminEngineSettings;
 
 };
 
