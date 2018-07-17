@@ -19,9 +19,10 @@ public enum ProjectBuildTargets
 	Bootstrap = 1 << 3,
 	CrashReporter = 1 << 4,
 	Programs = 1 << 5,
+	UnrealPak = 1 << 6,
 
 	// All targets
-	All = Editor | ClientCooked | ServerCooked | Bootstrap | CrashReporter | Programs,
+	All = Editor | ClientCooked | ServerCooked | Bootstrap | CrashReporter | Programs | UnrealPak,
 }
 
 /// <summary>
@@ -92,6 +93,15 @@ public partial class Project : CommandUtils
 				{
 					Agenda.AddTargets(new string[] { "UnrealFileServer" }, EditorPlatform, EditorConfiguration);
 				}
+			}
+		}
+
+		// Build any tools we need to stage
+		if ((TargetMask & ProjectBuildTargets.UnrealPak) == ProjectBuildTargets.UnrealPak && !Automation.IsEngineInstalled())
+		{
+			if (Params.Pak && Params.EditorTargets.Contains("UnrealPak") == false)
+			{
+				Agenda.AddTargets(new string[] { "UnrealPak" }, HostPlatform.Current.HostEditorPlatform, UnrealTargetConfiguration.Development, Params.CodeBasedUprojectPath);
 			}
 		}
 

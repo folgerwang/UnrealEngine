@@ -451,7 +451,6 @@ bool FPluginManager::ConfigureEnabledPlugins()
 			}
 		}
 
-#if !IS_PROGRAM || HACK_HEADER_GENERATOR
 		if (!FParse::Param(FCommandLine::Get(), TEXT("NoEnginePlugins")))
 		{
 			// Configure the plugins that were enabled from the target file
@@ -501,6 +500,7 @@ bool FPluginManager::ConfigureEnabledPlugins()
 				}
 			}
 
+#if !IS_PROGRAM || HACK_HEADER_GENERATOR
 			// Add the plugins which are enabled by default
 			for (const TPair<FString, TSharedRef<FPlugin>>& PluginPair : AllPlugins)
 			{
@@ -513,8 +513,8 @@ bool FPluginManager::ConfigureEnabledPlugins()
 					ConfiguredPluginNames.Add(PluginPair.Key);
 				}
 			}
-		}
 #endif
+		}
 #if IS_PROGRAM
 		// Programs can also define the list of enabled plugins in ini
 		TArray<FString> ProgramPluginNames;

@@ -436,7 +436,11 @@ namespace UnrealBuildTool
 			// Set the default value for whether to use the shared build environment
 			if(RulesObject.BuildEnvironment == TargetBuildEnvironment.Default)
 			{
-				if(RulesObject.Type != TargetType.Program && (UnrealBuildTool.IsEngineInstalled() || RulesObject.LinkType != TargetLinkType.Monolithic))
+				if(RulesObject.Type == TargetType.Program && Desc.ProjectFile != null && TargetFileName.IsUnderDirectory(Desc.ProjectFile.Directory))
+				{
+					RulesObject.BuildEnvironment = TargetBuildEnvironment.Unique;
+				}
+				else if(UnrealBuildTool.IsEngineInstalled() || RulesObject.LinkType != TargetLinkType.Monolithic)
 				{
 					RulesObject.BuildEnvironment = TargetBuildEnvironment.Shared;
 				}
@@ -1058,10 +1062,16 @@ namespace UnrealBuildTool
 
 			// Set the build environment
 			bUseSharedBuildEnvironment = (Rules.BuildEnvironment == TargetBuildEnvironment.Shared);
-
 			if (bUseSharedBuildEnvironment)
 			{
-				AppName = GetAppNameForTargetType(Rules.Type);
+				if(Rules.Type == TargetType.Program)
+				{
+					AppName = TargetName;
+				}
+				else
+				{
+					AppName = GetAppNameForTargetType(Rules.Type);
+				}
 			}
 
 			// Figure out what the project directory is. If we have a uproject file, use that. Otherwise use the engine directory.
@@ -1118,7 +1128,7 @@ namespace UnrealBuildTool
 
 			// Construct the output paths for this target's executable
 			DirectoryReference OutputDirectory;
-			if (bCompileMonolithic || TargetType == TargetType.Program || !bUseSharedBuildEnvironment)
+			if (bCompileMonolithic || !bUseSharedBuildEnvironment)
 			{
 				OutputDirectory = ProjectDirectory;
 			}
@@ -2928,7 +2938,7 @@ namespace UnrealBuildTool
 						{
 							foreach (ModuleDescriptor ModuleDescriptor in Plugin.Descriptor.Modules)
 							{
-								if (ModuleDescriptor.IsCompiledInConfiguration(Platform, Configuration, TargetType, bAllowDeveloperModules && Rules.bBuildDeveloperTools, Rules.bBuildEditor, Rules.bBuildRequiresCookedData))
+								if (ModuleDescriptor.IsCompiledInConfiguration(Platform, Configuration, TargetName, TargetType, bAllowDeveloperModules && Rules.bBuildDeveloperTools, Rules.bBuildEditor, Rules.bBuildRequiresCookedData))
 								{
 									FileReference ModuleFileName = RulesAssembly.GetModuleFileName(ModuleDescriptor.Name);
 									if(!ModuleFileName.ContainsAnyNames(ExcludeFoldersArray, Plugin.Directory))
@@ -3273,15 +3283,15 @@ namespace UnrealBuildTool
 				{
 					if(Plugin.EnabledByDefault && !ReferencedNames.Contains(Plugin.Name))
 					{
-							ReferencedNames.Add(Plugin.Name);
+						ReferencedNames.Add(Plugin.Name);
 
-							PluginReferenceDescriptor PluginReference = new PluginReferenceDescriptor(Plugin.Name, null, true);
-							PluginReference.bOptional = true;
+						PluginReferenceDescriptor PluginReference = new PluginReferenceDescriptor(Plugin.Name, null, true);
+						PluginReference.bOptional = true;
 
-							AddPlugin(PluginReference, "default plugins", ExcludeFolders, NameToInstance, NameToInfo);
-						}
+						AddPlugin(PluginReference, "default plugins", ExcludeFolders, NameToInstance, NameToInfo);
 					}
 				}
+			}
 
 			// If this is a program, synthesize references for plugins which are enabled via the config file
 			if(TargetType == TargetType.Program)
@@ -3406,7 +3416,7 @@ namespace UnrealBuildTool
 				{
 					foreach (ModuleDescriptor ModuleInfo in Info.Descriptor.Modules)
 					{
-						if (ModuleInfo.IsCompiledInConfiguration(Platform, Configuration, TargetType, Rules.bBuildDeveloperTools, Rules.bBuildEditor, Rules.bBuildRequiresCookedData))
+						if (ModuleInfo.IsCompiledInConfiguration(Platform, Configuration, TargetName, TargetType, Rules.bBuildDeveloperTools, Rules.bBuildEditor, Rules.bBuildRequiresCookedData))
 						{
 							UEBuildModuleCPP Module = FindOrCreateCppModuleByName(ModuleInfo.Name, PluginReferenceChain);
 							if(!Instance.Modules.Contains(Module))
@@ -3820,6 +3830,9 @@ namespace UnrealBuildTool
 			// tell the compiled code the name of the UBT platform (this affects folder on disk, etc that the game may need to know)
 			GlobalCompileEnvironment.Definitions.Add("UBT_COMPILED_PLATFORM=" + Platform.ToString());
 			GlobalCompileEnvironment.Definitions.Add("UBT_COMPILED_TARGET=" + TargetType.ToString());
+
+			// Set the global app name
+			GlobalCompileEnvironment.Definitions.Add(String.Format("UE_APP_NAME=\"{0}\"", AppName));
 
 			// Initialize the compile and link environments for the platform, configuration, and project.
 			BuildPlatform.SetUpEnvironment(Rules, GlobalCompileEnvironment, GlobalLinkEnvironment);

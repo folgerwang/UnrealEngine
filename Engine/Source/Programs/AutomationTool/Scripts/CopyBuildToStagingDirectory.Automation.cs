@@ -137,17 +137,29 @@ public partial class Project : CommandUtils
 		CmdLine.Append(PlatformOptions);
 
 		return CmdLine.ToString();
+	}
+
+	static FileReference GetUnrealPakLocation()
+	{
+		if(HostPlatform.Current.HostEditorPlatform == UnrealTargetPlatform.Win64)
+		{
+			return FileReference.Combine(CommandUtils.EngineDirectory, "Binaries", "Win64", "UnrealPak.exe");
 		}
+		else
+		{
+			return FileReference.Combine(CommandUtils.EngineDirectory, "Binaries", HostPlatform.Current.HostEditorPlatform.ToString(), "UnrealPak");
+		}
+	}
 
 	static public void RunUnrealPak(ProjectParams Params, Dictionary<string, string> UnrealPakResponseFile, FileReference OutputLocation, FileReference PakOrderFileLocation, string PlatformOptions, bool Compressed, EncryptionAndSigning.CryptoSettings CryptoSettings, FileReference CryptoKeysCacheFilename, String PatchSourceContentPath)
-		{
+	{
 		if (UnrealPakResponseFile.Count < 1)
 		{
 			return;
 		}
 
 		string Arguments = GetUnrealPakArguments(UnrealPakResponseFile, OutputLocation, PakOrderFileLocation, PlatformOptions, Compressed, CryptoSettings, CryptoKeysCacheFilename, PatchSourceContentPath);
-		RunCommandlet(Params.RawProjectPath, Params.UE4Exe, "UnrealPak", Arguments);
+		RunAndLog(CmdEnv, GetUnrealPakLocation().FullName, Arguments, Options: ERunOptions.Default | ERunOptions.UTF8Output);
 	}
 
 	static public void LogDeploymentContext(DeploymentContext SC)
@@ -1552,7 +1564,9 @@ public partial class Project : CommandUtils
 		{
 			string CommandsFile = LogUtils.GetUniqueLogName(CombinePaths(CmdEnv.EngineSavedFolder, "UnrealPak-Commands"));
 			File.WriteAllLines(CommandsFile, Commands);
-			RunCommandlet(Params.RawProjectPath, Params.UE4Exe, "UnrealPak", String.Format("-batch={0}", MakePathSafeToUseWithCommandLine(CommandsFile)));
+
+			string Arguments = String.Format("{0} -batch={1}", MakePathSafeToUseWithCommandLine(Params.RawProjectPath.FullName), MakePathSafeToUseWithCommandLine(CommandsFile));
+			RunAndLog(CmdEnv, GetUnrealPakLocation().FullName, Arguments, Options: ERunOptions.Default | ERunOptions.UTF8Output);
 		}
 
 		// Do any additional processing on the command output
@@ -1641,8 +1655,8 @@ public partial class Project : CommandUtils
 				CmdLine += " -customint=\"PakReadOrdering=0\"";
 				CmdLine += " -stdout";
 
-				string UnrealPakLogFileName = "UnrealPak_" + PakName;
-				RunAndLog(CmdEnv, BPTExe, CmdLine, UnrealPakLogFileName, Options: ERunOptions.Default | ERunOptions.UTF8Output);
+				string BuildPatchToolLogFileName = "BuildPatchTool_" + PakName;
+				RunAndLog(CmdEnv, BPTExe, CmdLine, BuildPatchToolLogFileName, Options: ERunOptions.Default | ERunOptions.UTF8Output);
 
 				InternalUtils.SafeCopyFile(SourceManifestPath, DestManifestPath);
 			}
