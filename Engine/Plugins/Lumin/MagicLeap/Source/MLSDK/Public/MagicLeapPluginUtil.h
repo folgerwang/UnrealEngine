@@ -69,25 +69,37 @@ public:
 			{
 				DllSearchPaths.Add(VDZILibraryPath);
 			}
-			// The default VDZI dir(s).
-			DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("VirtualDevice"), TEXT("lib")));
-			// We also need to add the default bin dir as dependent libs are placed there instead
-			// of in the lib directory.
-			DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("VirtualDevice"), TEXT("bin")));
+
+			if (!MLSDK.IsEmpty())
+			{
+				// The default VDZI dir.
+				DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("VirtualDevice"), TEXT("lib")));
+				// We also need to add the default bin dir as dependent libs are placed there instead
+				// of in the lib directory.
+				DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("VirtualDevice"), TEXT("bin")));
+			}
 		}
 #endif
 
 		// The MLSDK DLLs are platform specific and are segregated in directories for each platform.
-#if PLATFORM_WINDOWS
-		DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("lib"), TEXT("win64")));
-#elif PLATFORM_LINUX
-		DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("lib"), TEXT("linux64")));
-#elif PLATFORM_MAC
-		DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("lib"), TEXT("osx")));
-#elif PLATFORM_LUMIN
+
+#if PLATFORM_LUMIN
 		// Lumin uses the system path as we are in device.
 		DllSearchPaths.Add(TEXT("/system/lib64"));
+#else
+
+		if (!MLSDK.IsEmpty())
+		{
+#if PLATFORM_WINDOWS
+			DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("lib"), TEXT("win64")));
+#elif PLATFORM_LINUX
+			DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("lib"), TEXT("linux64")));
+#elif PLATFORM_MAC
+			DllSearchPaths.Add(FPaths::Combine(*MLSDK, TEXT("lib"), TEXT("osx")));
 #endif // PLATFORM_WINDOWS
+		}
+
+#endif // PLATFORM_LUMIN
 
 		// Add the search paths to where we will load the DLLs from. For all just add to the UE4
 		// directory listing. But for Windows we also need to manipulate the PATH for the load

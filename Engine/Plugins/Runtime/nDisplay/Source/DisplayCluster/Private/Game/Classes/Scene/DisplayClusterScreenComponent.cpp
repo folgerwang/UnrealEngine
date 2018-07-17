@@ -23,22 +23,26 @@ UDisplayClusterScreenComponent::UDisplayClusterScreenComponent(const FObjectInit
 #if WITH_EDITOR
 	if (GEngine && GEngine->IsEditor())
 	{
-		const ADisplayClusterSettings* const pDisplayClusterSettings = GDisplayCluster->GetPrivateGameMgr()->GetDisplayClusterSceneSettings();
-		if(pDisplayClusterSettings && pDisplayClusterSettings->bEditorShowProjectionScreens)
+		const IPDisplayClusterGameManager* const GameMgr = GDisplayCluster->GetPrivateGameMgr();
+		if (GameMgr)
 		{
-			ScreenGeometryComponent = CreateDefaultSubobject<UStaticMeshComponent>(FName(*(GetName() + FString("_impl"))));
-			check(ScreenGeometryComponent);
-
-			if (ScreenGeometryComponent)
+			const ADisplayClusterSettings* const pDisplayClusterSettings = GameMgr->GetDisplayClusterSceneSettings();
+			if (pDisplayClusterSettings && pDisplayClusterSettings->bEditorShowProjectionScreens)
 			{
-				static ConstructorHelpers::FObjectFinder<UStaticMesh> screenMesh(TEXT("StaticMesh'/Engine/BasicShapes/Cube.Cube'"));
-				static ConstructorHelpers::FObjectFinder<UMaterial>   screenMat(TEXT("Material'/Engine/Engine_MI_Shaders/M_Shader_SimpleTranslucent.M_Shader_SimpleTranslucent'"));
+				ScreenGeometryComponent = CreateDefaultSubobject<UStaticMeshComponent>(FName(*(GetName() + FString("_impl"))));
+				check(ScreenGeometryComponent);
 
-				ScreenGeometryComponent->AttachToComponent(this, FAttachmentTransformRules(EAttachmentRule::KeepRelative, false));
-				ScreenGeometryComponent->SetStaticMesh(screenMesh.Object);
-				ScreenGeometryComponent->SetMobility(EComponentMobility::Movable);
-				ScreenGeometryComponent->SetMaterial(0, screenMat.Object);
-				ScreenGeometryComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				if (ScreenGeometryComponent)
+				{
+					static ConstructorHelpers::FObjectFinder<UStaticMesh> screenMesh(TEXT("StaticMesh'/Engine/BasicShapes/Cube.Cube'"));
+					static ConstructorHelpers::FObjectFinder<UMaterial>   screenMat(TEXT("Material'/Engine/Engine_MI_Shaders/M_Shader_SimpleTranslucent.M_Shader_SimpleTranslucent'"));
+
+					ScreenGeometryComponent->AttachToComponent(this, FAttachmentTransformRules(EAttachmentRule::KeepRelative, false));
+					ScreenGeometryComponent->SetStaticMesh(screenMesh.Object);
+					ScreenGeometryComponent->SetMobility(EComponentMobility::Movable);
+					ScreenGeometryComponent->SetMaterial(0, screenMat.Object);
+					ScreenGeometryComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				}
 			}
 		}
 	}

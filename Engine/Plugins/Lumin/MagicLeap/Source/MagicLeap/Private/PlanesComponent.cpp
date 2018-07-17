@@ -176,7 +176,7 @@ UPlanesComponent::UPlanesComponent()
 	SearchVolume->SetCanEverAffectNavigation(false);
 	SearchVolume->CanCharacterStepUpOn = ECanBeCharacterBase::ECB_No;
 	SearchVolume->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
-	SearchVolume->bGenerateOverlapEvents = false;
+	SearchVolume->SetGenerateOverlapEvents(false);
 	// Recommended default box extents for meshing - 10m (5m radius)
 	SearchVolume->SetBoxExtent(FVector(1000, 1000, 1000), false);
 
