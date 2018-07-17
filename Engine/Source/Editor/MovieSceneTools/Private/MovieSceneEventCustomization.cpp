@@ -488,18 +488,18 @@ void FMovieSceneEventCustomization::CreateEventEndpoint()
 
 	// Create a single event binding and point all events in this property handle to it
 	UK2Node_FunctionEntry* NewFunctionEntry = SequenceEditor->CreateEventEndpoint(Sequence);
+	if (!ensure(NewFunctionEntry))
+	{
+		return;
+	}
 
 	if (UMovieSceneEventTrack* CommonTrack = GetCommonTrack())
 	{
 		SequenceEditor->InitializeEndpointForTrack(CommonTrack, NewFunctionEntry);
 	}
-	
-	SetEventEndpoint(NewFunctionEntry);
 
-	if (NewFunctionEntry)
-	{
-		FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(NewFunctionEntry, false);
-	}
+	SetEventEndpoint(NewFunctionEntry);
+	FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(NewFunctionEntry, false);
 }
 
 void FMovieSceneEventCustomization::CreateEventEndpointFromFunction(UFunction* QuickBindFunction, UClass* PinClassType)
@@ -573,11 +573,7 @@ void FMovieSceneEventCustomization::CreateEventEndpointFromFunction(UFunction* Q
 	}
 
 	SetEventEndpoint(NewFunctionEntry);
-
-	if (NewFunctionEntry)
-	{
-		FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(NewFunctionEntry, false);
-	}
+	FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(NewFunctionEntry, false);
 }
 
 void FMovieSceneEventCustomization::ClearEventEndpoint()

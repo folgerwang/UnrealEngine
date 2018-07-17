@@ -588,7 +588,7 @@ void FMovieSceneRootEvaluationTemplateInstance::RecreateInstances(const FMovieSc
 		{
 			FMovieSceneEvaluationTemplateInstance NewInstance(SubData, *TemplateStore);
 
-			if (!NewInstance.DirectorInstance)
+			if (!NewInstance.DirectorInstance && NewInstance.Sequence)
 			{
 				NewInstance.DirectorInstance = NewInstance.Sequence->CreateDirectorInstance(Player);
 			}

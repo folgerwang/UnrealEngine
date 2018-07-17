@@ -174,7 +174,8 @@ FReply FEventTriggerSection::OnKeyDoubleClicked(FKeyHandle KeyHandle)
 		int32 EventIndex = ChannelData.GetIndex(KeyHandle);
 		if (EventIndex != INDEX_NONE)
 		{
-			FMovieSceneEvent& Event = ChannelData.GetValues()[EventIndex];
+			TArrayView<FMovieSceneEvent> Events = ChannelData.GetValues();
+			FMovieSceneEvent& Event = Events[EventIndex];
 
 			if (!Event.IsBoundToBlueprint())
 			{
