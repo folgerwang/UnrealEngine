@@ -56,11 +56,11 @@ private:
 	FNiagaraVariable NewParameterVariable;
 };
 
-class FParameterStoreGroupAddUtiliites : public FNiagaraStackItemGroupAddUtilities
+class FParameterStoreGroupAddUtiliites : public TNiagaraStackItemGroupAddUtilities<FNiagaraVariable>
 {
 public:
-	FParameterStoreGroupAddUtiliites(UObject& InParameterStoreOwner, FNiagaraParameterStore& InParameterStore, UNiagaraStackEditorData& InStackEditorData)
-		: FNiagaraStackItemGroupAddUtilities(LOCTEXT("ScriptGroupAddItemName", "Parameter"), EAddMode::AddFromAction, true)
+	FParameterStoreGroupAddUtiliites(UObject& InParameterStoreOwner, FNiagaraParameterStore& InParameterStore, UNiagaraStackEditorData& InStackEditorData, FOnItemAdded InOnItemAdded)
+		: TNiagaraStackItemGroupAddUtilities(LOCTEXT("ScriptGroupAddItemName", "Parameter"), EAddMode::AddFromAction, true, InOnItemAdded)
 		, ParameterStoreOwner(InParameterStoreOwner)
 		, ParameterStore(InParameterStore)
 		, StackEditorData(InStackEditorData)
@@ -93,6 +93,8 @@ public:
 
 		ParameterStore.AddParameter(ParameterVariable);
 		StackEditorData.SetModuleInputIsRenamePending(ParameterVariable.GetName().ToString(), true);
+
+		OnItemAdded.ExecuteIfBound(ParameterVariable);
 	}
 
 private:
@@ -106,7 +108,8 @@ void UNiagaraStackParameterStoreGroup::Initialize(
 	UObject* InOwner,
 	FNiagaraParameterStore* InParameterStore)
 {
-	AddUtilities = MakeShared<FParameterStoreGroupAddUtiliites>(*InOwner, *InParameterStore, *InRequiredEntryData.StackEditorData);
+	AddUtilities = MakeShared<FParameterStoreGroupAddUtiliites>(*InOwner, *InParameterStore, *InRequiredEntryData.StackEditorData, 
+		FParameterStoreGroupAddUtiliites::FOnItemAdded::CreateUObject(this, &UNiagaraStackParameterStoreGroup::ParameterAdded));
 	FText DisplayName = LOCTEXT("SystemExposedVariablesGroup", "System Exposed Parameters");
 	FText ToolTip = LOCTEXT("SystemExposedVariablesGroupToolTip", "Displays the variables created in the User namespace. These variables are exposed to owning UComponents, blueprints, etc.");
 	Super::Initialize(InRequiredEntryData, DisplayName, ToolTip, AddUtilities.Get());
@@ -145,6 +148,11 @@ void UNiagaraStackParameterStoreGroup::RefreshChildrenInternal(const TArray<UNia
 	Super::RefreshChildrenInternal(CurrentChildren, NewChildren, NewIssues);
 }
 
+void UNiagaraStackParameterStoreGroup::ParameterAdded(FNiagaraVariable AddedParameter)
+{
+	RefreshChildren();
+}
+
 void UNiagaraStackParameterStoreItem::Initialize(
 	FRequiredEntryData InRequiredEntryData,
 	UObject* InOwner,
@@ -154,17 +162,6 @@ void UNiagaraStackParameterStoreItem::Initialize(
 
 	Owner = InOwner;
 	ParameterStore = InParameterStore;
-	ParameterStoreChangedHandle = ParameterStore->AddOnChangedHandler(
-		FNiagaraParameterStore::FOnChanged::FDelegate::CreateUObject(this, &UNiagaraStackParameterStoreItem::ParameterStoreChanged));
-}
-
-void UNiagaraStackParameterStoreItem::FinalizeInternal()
-{
-	if (Owner != nullptr)
-	{
-		ParameterStore->RemoveOnChangedHandler(ParameterStoreChangedHandle);
-	}
-	Super::FinalizeInternal();
 }
 
 FText UNiagaraStackParameterStoreItem::GetDisplayName() const
@@ -188,6 +185,7 @@ void UNiagaraStackParameterStoreItem::RefreshChildrenInternal(const TArray<UNiag
 			{
 				ValueObjectEntry = NewObject<UNiagaraStackParameterStoreEntry>(this);
 				ValueObjectEntry->Initialize(CreateDefaultChildRequiredData(), Owner.Get(), ParameterStore, Var.GetName().ToString(), Var.GetType(), GetStackEditorDataKey());
+				ValueObjectEntry->OnParameterDeleted().AddUObject(this, &UNiagaraStackParameterStoreItem::ParameterDeleted);
 			}
 
 			NewChildren.Add(ValueObjectEntry);
@@ -196,7 +194,7 @@ void UNiagaraStackParameterStoreItem::RefreshChildrenInternal(const TArray<UNiag
 	Super::RefreshChildrenInternal(CurrentChildren, NewChildren, NewIssues);
 }
 
-void UNiagaraStackParameterStoreItem::ParameterStoreChanged()
+void UNiagaraStackParameterStoreItem::ParameterDeleted()
 {
 	RefreshChildren();
 }

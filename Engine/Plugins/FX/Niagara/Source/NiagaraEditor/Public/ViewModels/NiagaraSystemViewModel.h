@@ -167,7 +167,7 @@ public:
 
 	// ~ FTickableEditorObject
 	virtual void Tick(float DeltaTime) override;
-	virtual bool IsTickable() const override;
+	virtual bool IsTickable() const override { return true; }
 	virtual TStatId GetStatId() const override;
 
 	/** Resets the System instance to initial conditions. */
@@ -266,6 +266,9 @@ private:
 
 	/** Rebuilds the sequencer tracks. */
 	void RefreshSequencerTracks();
+
+	/** Updates the data in the sequencer tracks for the specified emitter ids. */
+	void UpdateSequencerTracksForEmitters(const TArray<FGuid>& EmitterIdsRequiringUpdate);
 
 	/** Gets the sequencer emitter track for the supplied emitter handle view model. */
 	UMovieSceneNiagaraEmitterTrack* GetTrackForHandleViewModel(TSharedRef<FNiagaraEmitterHandleViewModel> EmitterHandleViewModel);
@@ -490,4 +493,7 @@ private:
 	
 	/** A handle to the on graph changed delegate for the system script. */
 	FDelegateHandle SystemScriptGraphChangedHandler;
+
+	/** An array of emitter handle ids which need their sequencer tracks refreshed next frame. */
+	TArray<FGuid> EmitterIdsRequiringSequencerTrackUpdate;
 };

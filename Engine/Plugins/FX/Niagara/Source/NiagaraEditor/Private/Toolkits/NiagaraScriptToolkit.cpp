@@ -215,6 +215,8 @@ void FNiagaraScriptToolkit::Initialize( const EToolkitMode::Type Mode, const TSh
 		const FString TabInitializationPayload(TEXT(""));		// NOTE: Payload not currently used for table properties
 		SpawnToolkitTab( NodeGraphTabId, TabInitializationPayload, EToolkitTabSpot::Details );
 	}*/
+
+	bChangesDiscarded = false;
 }
 
 FName FNiagaraScriptToolkit::GetToolkitFName() const
@@ -660,7 +662,7 @@ void FNiagaraScriptToolkit::UpdateOriginalNiagaraScript()
 
 bool FNiagaraScriptToolkit::OnRequestClose()
 {
-	if (IsEditScriptDifferentFromOriginalScript())
+	if (bChangesDiscarded == false && IsEditScriptDifferentFromOriginalScript())
 	{
 		// find out the user wants to do with this dirty NiagaraScript
 		EAppReturnType::Type YesNoCancelReply = FMessageDialog::Open(EAppMsgType::YesNoCancel,
@@ -677,8 +679,8 @@ bool FNiagaraScriptToolkit::OnRequestClose()
 			break;
 
 		case EAppReturnType::No:
-			// exit
-			// do nothing.. bNiagaraScriptDirty = false;
+			// Set the changes discarded to avoid showing the dialog multiple times when request close is called multiple times on shut down.
+			bChangesDiscarded = true;
 			break;
 
 		case EAppReturnType::Cancel:

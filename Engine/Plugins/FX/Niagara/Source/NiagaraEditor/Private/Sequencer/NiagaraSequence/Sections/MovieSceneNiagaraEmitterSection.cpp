@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneNiagaraEmitterSection.h"
 #include "NiagaraEmitterSection.h"
@@ -99,8 +99,9 @@ TSharedPtr<FStructOnScope> GetKeyStruct(TMovieSceneChannelHandle<FMovieSceneNiag
 	int32 KeyValueIndex = Channel.Get()->GetData().GetIndex(InHandle);
 	if (KeyValueIndex != INDEX_NONE)
 	{
-		FNiagaraEmitterSectionKey KeyValue = Channel.Get()->GetData().GetValues()[KeyValueIndex];
-		return MakeShared<FStructOnScope>(KeyValue.Value.GetType().GetStruct(), KeyValue.Value.GetData());
+		FNiagaraTypeDefinition KeyType = Channel.Get()->GetData().GetValues()[KeyValueIndex].Value.GetType();
+		uint8* KeyData = Channel.Get()->GetData().GetValues()[KeyValueIndex].Value.GetData();
+		return MakeShared<FStructOnScope>(KeyType.GetStruct(), KeyData);
 	}
 	return TSharedPtr<FStructOnScope>();
 }
@@ -257,10 +258,29 @@ void UMovieSceneNiagaraEmitterSection::UpdateSectionFromTimeRangeModule(const FF
 	{
 		float ModuleStartTime = StartTimeBinder.GetValue<float>();
 		float ModuleLength = LengthBinder.GetValue<float>();
+
+		if (ModuleLength < 0)
+		{
+			// TODO: Add ui support for this issue rather than a log error.
+			UE_LOG(LogNiagaraEditor, Error, TEXT("Invalid length in niagara editor timeline.  Bound Module: %s Bound Input: %s"),
+				LengthBinder.GetFunctionCallNode() != nullptr ? *LengthBinder.GetFunctionCallNode()->GetFunctionName() : TEXT("Unknown"),
+				*LengthBinder.GetInputName().ToString());
+			ModuleLength = 0;
+		}
+
+		FFrameNumber StartFrame = (ModuleStartTime * InTickResolution).RoundToFrame();
+		FFrameNumber EndFrame = ((ModuleStartTime + ModuleLength) * InTickResolution).RoundToFrame();
+		if (EndFrame < StartFrame)
+		{
+			// The frame value has overflowed and is negative so clamp to the max frame.
+			// TODO: Add ui support for this issue rather than a log error.
+			UE_LOG(LogNiagaraEditor, Error, TEXT("Invalid length in niagara editor timeline.  Bound Module: %s Bound Input: %s"),
+				LengthBinder.GetFunctionCallNode() != nullptr ? *LengthBinder.GetFunctionCallNode()->GetFunctionName() : TEXT("Unknown"),
+				*LengthBinder.GetInputName().ToString());
+			EndFrame.Value = TNumericLimits<int32>::Max();
+		}
 		
-		SetRange(TRange<FFrameNumber>(
-			(ModuleStartTime * InTickResolution).RoundToFrame(),
-			((ModuleStartTime + ModuleLength) * InTickResolution).RoundToFrame()));
+		SetRange(TRange<FFrameNumber>(StartFrame, EndFrame));
 	}
 	else
 	{
@@ -375,7 +395,7 @@ void UMovieSceneNiagaraEmitterSection::UpdateKeyModulesFromSection(FChannelAndMo
 	{
 		ChannelAndModules.ModulesAndBinders.RemoveAll(
 			[=](FModuleAndBinders& ModuleAndBinders) { return ModuleAndBinders.Module == ModuleWithMissingKey; });
-		FNiagaraStackGraphUtilities::RemoveModuleFromStack(*ModuleWithMissingKey);
+		FNiagaraStackGraphUtilities::RemoveModuleFromStack(GetSystemViewModel().GetSystem(), GetEmitterHandleViewModel()->GetId(), *ModuleWithMissingKey);
 	}
 
 	// Create new modules for new keys.

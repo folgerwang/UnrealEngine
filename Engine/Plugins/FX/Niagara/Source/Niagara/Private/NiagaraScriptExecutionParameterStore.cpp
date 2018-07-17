@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraScriptExecutionParameterStore.h"
 #include "NiagaraStats.h"
@@ -174,7 +174,7 @@ void FNiagaraScriptExecutionParameterStore::InitFromOwningScript(UNiagaraScript*
 
 void FNiagaraScriptExecutionParameterStore::InitFromOwningContext(UNiagaraScript* Script, ENiagaraSimTarget SimTarget, bool bNotifyAsDirty)
 {
-	Clear();
+	Empty();
 	PaddingInfo.Empty();
 
 #if WITH_EDITORONLY_DATA

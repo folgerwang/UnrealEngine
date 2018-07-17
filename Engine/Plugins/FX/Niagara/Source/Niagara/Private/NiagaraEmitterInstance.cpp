@@ -32,6 +32,17 @@ static FAutoConsoleVariableRef CVarNiagaraDumpParticleData(
 	ECVF_Default
 	);
 
+/**
+TODO: This is mainly to avoid hard limits in our storage/alloc code etc rather than for perf reasons.
+We should improve our hard limit/safety code and possibly add a max for perf reasons.
+*/
+static int32 GMaxNiagaraCPUParticlesPerEmitter = 1000000;
+static FAutoConsoleVariableRef CVarMaxNiagaraCPUParticlesPerEmitter(
+	TEXT("fx.MaxNiagaraCPUParticlesPerEmitter"),
+	GMaxNiagaraCPUParticlesPerEmitter,
+	TEXT("The max number of supported CPU particles per emitter in Niagara. \n"),
+	ECVF_Default
+);
 //////////////////////////////////////////////////////////////////////////
 
 const FName FNiagaraEmitterInstance::PositionName(TEXT("Position"));
@@ -101,6 +112,20 @@ bool FNiagaraEmitterInstance::IsReadyToRun() const
 	}
 
 	return true;
+}
+
+void FNiagaraEmitterInstance::Dump()const
+{
+	UE_LOG(LogNiagara, Log, TEXT("==  %s ========"), *CachedEmitter->GetUniqueEmitterName());
+	UE_LOG(LogNiagara, Log, TEXT(".................Spawn................."));
+	SpawnExecContext.Parameters.DumpParameters(true);
+	UE_LOG(LogNiagara, Log, TEXT(".................Update................."));
+	UpdateExecContext.Parameters.DumpParameters(true);
+	UE_LOG(LogNiagara, Log, TEXT("................. %s Combined Parameters ................."), TEXT("GPU Script"));
+	GPUExecContext.CombinedParamStore.DumpParameters();
+	UE_LOG(LogNiagara, Log, TEXT("................. Particles ................."));
+	ParticleDataSet->Dump(false);
+	ParticleDataSet->Dump(true);
 }
 
 void FNiagaraEmitterInstance::Init(int32 InEmitterIdx, FName InSystemInstanceName)
@@ -617,6 +642,7 @@ FBox FNiagaraEmitterInstance::CalculateDynamicBounds()
 				UE_LOG(LogNiagara, Warning, TEXT("Particle position data contains NaNs. Likely a divide by zero somewhere in your modules. Emitter \"%s\" in System \"%s\""),
 					*CachedEmitter->GetName(), *ParentSystemInstance->GetSystem()->GetName());
 				bEncounteredNaNs = true;
+				ParentSystemInstance->Dump();
 			}
 #endif
 		}
@@ -987,6 +1013,18 @@ void FNiagaraEmitterInstance::Tick(float DeltaSeconds)
 	}
 
 	int32 AllocationSize = OrigNumParticles + SpawnTotal + EventSpawnTotal;
+
+	//Ensure we don't blow our current hard limits on cpu particle count.
+	//TODO: These current limits can be improved relatively easily. Though perf in at these counts will obviously be an issue anyway.
+	if (CachedEmitter->SimTarget == ENiagaraSimTarget::CPUSim && AllocationSize > GMaxNiagaraCPUParticlesPerEmitter)
+	{
+		UE_LOG(LogNiagara, Warning, TEXT("Emitter %s has attemted to exceed the max CPU particle count! | Max: %d | Requested: %u"), *CachedEmitter->GetUniqueEmitterName(), GMaxNiagaraCPUParticlesPerEmitter, AllocationSize);
+		//For now we completely bail out of spawning new particles. Possibly should improve this in future.
+		AllocationSize = OrigNumParticles;
+		SpawnTotal = 0;
+		EventSpawnTotal = 0;
+	}
+
 	//Allocate space for prev frames particles and any new one's we're going to spawn.
 	Data.Allocate(AllocationSize);
 	for (FNiagaraDataSet* SpawnEventDataSet : SpawnScriptEventDataSets)
@@ -1260,62 +1298,63 @@ void FNiagaraEmitterInstance::Tick(float DeltaSeconds)
 			}
 		}
 
-
-		// handle single-particle events
-		// TODO: we'll need a way to either skip execution of the VM if an index comes back as invalid, or we'll have to pre-process
-		// event/particle arrays; this is currently a very naive (and comparatively slow) implementation, until full indexed reads work
-		if (EventHandlerProps.Script && EventHandlerProps.ExecutionMode == EScriptExecutionMode::SingleParticle && EventSet[EventScriptIdx])
-		{
-
-			SCOPE_CYCLE_COUNTER(STAT_NiagaraEventHandle);
-			FNiagaraVariable IndexVar(FNiagaraTypeDefinition::GetIntDef(), "ParticleIndex");
-			FNiagaraDataSetIterator<int32> IndexItr(*EventSet[EventScriptIdx], IndexVar, 0, false);
-			if (IndexItr.IsValid() && EventSet[EventScriptIdx]->GetPrevNumInstances() > 0)
-			{
-				EventExecCountBindings[EventScriptIdx].SetValue(1);
-
-				Data.CopyCurToPrev();
-				uint32 NumParticles = Data.GetNumInstances();
-
-				for (uint32 i = 0; i < EventSet[EventScriptIdx]->GetPrevNumInstances(); i++)
-				{
-					int32 Index = *IndexItr;
-					IndexItr.Advance();
-					DataSetExecInfos.SetNum(1, false);
-					DataSetExecInfos[0].StartInstance = Index;
-					DataSetExecInfos[0].bUpdateInstanceCount = false;
-					DataSetExecInfos.Emplace(EventSet[EventScriptIdx], i, false, false);
-					EventExecContexts[EventScriptIdx].Execute(1, DataSetExecInfos);
-
-					if (GbDumpParticleData || System->bDumpDebugEmitterInfo)
-					{
-						ensure(EventHandlerProps.Script->RapidIterationParameters.VerifyBinding(&EventExecContexts[EventScriptIdx].Parameters));
-						UE_LOG(LogNiagara, Log, TEXT("=== Event %d Src Parameters ==="), EventScriptIdx);
-						EventHandlerProps.Script->RapidIterationParameters.Dump();
-						UE_LOG(LogNiagara, Log, TEXT("=== Event %d Context Parameters ==="), EventScriptIdx);
-						EventExecContexts[EventScriptIdx].Parameters.Dump();
-						UE_LOG(LogNiagara, Log, TEXT("=== Event %d Particles (%d index written, %d total) ==="), EventScriptIdx, Index, Data.GetNumInstances());
-						Data.Dump(true, Index, 1);
-					}
-
-
-#if WITH_EDITORONLY_DATA
-					if (ParentSystemInstance->ShouldCaptureThisFrame())
-					{
-						FGuid EventGuid = EventExecContexts[EventScriptIdx].Script->GetUsageId();
-						FNiagaraScriptDebuggerInfo* DebugInfo = ParentSystemInstance->GetActiveCaptureWrite(CachedIDName, ENiagaraScriptUsage::ParticleEventScript, EventGuid);
-						if (DebugInfo)
-						{
-							Data.Dump(DebugInfo->Frame, true, Index, 1);
-							//DebugInfo->Frame.Dump(true, 0, 1);
-							DebugInfo->Parameters = EventExecContexts[EventScriptIdx].Parameters;
-						}
-					}
-#endif
-					ensure(NumParticles == Data.GetNumInstances());
-				}
-			}
-		}
+		//TODO: Disabling this event mode for now until it can be reworked. Currently it uses index directly with can easily be invalid and cause undefined behavior.
+		//
+//		// handle single-particle events
+//		// TODO: we'll need a way to either skip execution of the VM if an index comes back as invalid, or we'll have to pre-process
+//		// event/particle arrays; this is currently a very naive (and comparatively slow) implementation, until full indexed reads work
+// 		if (EventHandlerProps.Script && EventHandlerProps.ExecutionMode == EScriptExecutionMode::SingleParticle && EventSet[EventScriptIdx])
+// 		{
+// 
+// 			SCOPE_CYCLE_COUNTER(STAT_NiagaraEventHandle);
+// 			FNiagaraVariable IndexVar(FNiagaraTypeDefinition::GetIntDef(), "ParticleIndex");
+// 			FNiagaraDataSetIterator<int32> IndexItr(*EventSet[EventScriptIdx], IndexVar, 0, false);
+// 			if (IndexItr.IsValid() && EventSet[EventScriptIdx]->GetPrevNumInstances() > 0)
+// 			{
+// 				EventExecCountBindings[EventScriptIdx].SetValue(1);
+// 
+// 				Data.CopyCurToPrev();
+// 				uint32 NumParticles = Data.GetNumInstances();
+// 
+// 				for (uint32 i = 0; i < EventSet[EventScriptIdx]->GetPrevNumInstances(); i++)
+// 				{
+// 					int32 Index = *IndexItr;
+// 					IndexItr.Advance();
+// 					DataSetExecInfos.SetNum(1, false);
+// 					DataSetExecInfos[0].StartInstance = Index;
+// 					DataSetExecInfos[0].bUpdateInstanceCount = false;
+// 					DataSetExecInfos.Emplace(EventSet[EventScriptIdx], i, false, false);
+// 					EventExecContexts[EventScriptIdx].Execute(1, DataSetExecInfos);
+// 
+// 					if (GbDumpParticleData || System->bDumpDebugEmitterInfo)
+// 					{
+// 						ensure(EventHandlerProps.Script->RapidIterationParameters.VerifyBinding(&EventExecContexts[EventScriptIdx].Parameters));
+// 						UE_LOG(LogNiagara, Log, TEXT("=== Event %d Src Parameters ==="), EventScriptIdx);
+// 						EventHandlerProps.Script->RapidIterationParameters.Dump();
+// 						UE_LOG(LogNiagara, Log, TEXT("=== Event %d Context Parameters ==="), EventScriptIdx);
+// 						EventExecContexts[EventScriptIdx].Parameters.Dump();
+// 						UE_LOG(LogNiagara, Log, TEXT("=== Event %d Particles (%d index written, %d total) ==="), EventScriptIdx, Index, Data.GetNumInstances());
+// 						Data.Dump(true, Index, 1);
+// 					}
+// 
+// 
+// #if WITH_EDITORONLY_DATA
+// 					if (ParentSystemInstance->ShouldCaptureThisFrame())
+// 					{
+// 						FGuid EventGuid = EventExecContexts[EventScriptIdx].Script->GetUsageId();
+// 						FNiagaraScriptDebuggerInfo* DebugInfo = ParentSystemInstance->GetActiveCaptureWrite(CachedIDName, ENiagaraScriptUsage::ParticleEventScript, EventGuid);
+// 						if (DebugInfo)
+// 						{
+// 							Data.Dump(DebugInfo->Frame, true, Index, 1);
+// 							//DebugInfo->Frame.Dump(true, 0, 1);
+// 							DebugInfo->Parameters = EventExecContexts[EventScriptIdx].Parameters;
+// 						}
+// 					}
+// #endif
+// 					ensure(NumParticles == Data.GetNumInstances());
+// 				}
+// 			}
+// 		}
 	}
 
 	PostProcessParticles();

@@ -145,6 +145,8 @@ private:
 
 	TSharedPtr<class SNiagaraParameterMapView> ParameterMapView;
 
+	bool bChangesDiscarded;
+
 	static const FName ViewportTabID;
 	static const FName CurveEditorTabID;
 	static const FName SequencerTabID;

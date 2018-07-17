@@ -1,4 +1,5 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "NiagaraDataInterfaceDetails.h"
 #include "IDetailCustomization.h"
 #include "NiagaraDataInterface.h"
@@ -117,11 +118,15 @@ class FNiagaraDataInterfaceCustomNodeBuilder : public IDetailCustomNodeBuilder
 											 , public TSharedFromThis<FNiagaraDataInterfaceCustomNodeBuilder>
 {
 public:
-	FNiagaraDataInterfaceCustomNodeBuilder(UNiagaraDataInterface* InDataInterface, IDetailLayoutBuilder* InDetailBuilder)
-		: DataInterface(InDataInterface)
-		, DetailBuilder(InDetailBuilder)
+	FNiagaraDataInterfaceCustomNodeBuilder(IDetailLayoutBuilder* InDetailBuilder)
+		: DetailBuilder(InDetailBuilder)
 	{
-		DataInterface->OnChanged().AddRaw(this, &FNiagaraDataInterfaceCustomNodeBuilder::OnDataInterfaceChanged);
+	}
+
+	void Initialize(UNiagaraDataInterface& InDataInterface)
+	{
+		DataInterface = &InDataInterface;
+		DataInterface->OnChanged().AddSP(this, &FNiagaraDataInterfaceCustomNodeBuilder::OnDataInterfaceChanged);
 	}
 
 	~FNiagaraDataInterfaceCustomNodeBuilder()
@@ -197,10 +202,11 @@ void FNiagaraDataInterfaceDetailsBase::CustomizeDetails(IDetailLayoutBuilder& De
 	check(SelectedObjects.Num() == 1);
 	DataInterface = Cast<UNiagaraDataInterface>(SelectedObjects[0].Get());
 	check(DataInterface.IsValid());
-	DataInterface->OnChanged().AddRaw(this, &FNiagaraDataInterfaceDetailsBase::OnDataChanged);
+	DataInterface->OnChanged().AddSP(this, &FNiagaraDataInterfaceDetailsBase::OnDataChanged);
 	IDetailCategoryBuilder& ErrorsBuilderRef = DetailBuilder.EditCategory(ErrorsCategoryName, LOCTEXT("Errors", "Errors"), ECategoryPriority::Important);
 	ErrorsCategoryBuilder = &ErrorsBuilderRef;
-	CustomBuilder = TSharedPtr<FNiagaraDataInterfaceCustomNodeBuilder>(new FNiagaraDataInterfaceCustomNodeBuilder(DataInterface.Get(), &DetailBuilder));
+	CustomBuilder = MakeShared<FNiagaraDataInterfaceCustomNodeBuilder>(&DetailBuilder);
+	CustomBuilder->Initialize(*DataInterface);
 	ErrorsCategoryBuilder->AddCustomBuilder(CustomBuilder.ToSharedRef());
 	OnDataChanged();
 }

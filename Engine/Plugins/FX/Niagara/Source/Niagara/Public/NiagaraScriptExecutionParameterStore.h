@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #pragma once
 
 #include "NiagaraCommon.h"
@@ -61,6 +63,14 @@ public:
 		check(0);//Can't rename parameters for an execution store.
 	}
 
+	void Empty(bool bClearBindings=true)
+	{
+		FNiagaraParameterStore::Empty(bClearBindings);
+		PaddingInfo.Empty();
+		PaddedParameterSize = 0;
+		bInitialized = false;
+	}
+
 	// Just the external parameters, not previous or internal...
 	uint32 GetExternalParameterSize() { return ParameterSize; }
 
@@ -70,13 +80,6 @@ public:
 	// Helper that converts the data from the base type array internally into the padded out renderer-ready format.
 	void CopyParameterDataToPaddedBuffer(uint8* InTargetBuffer, uint32 InTargetBufferSizeInBytes);
 
-	void Clear()
-	{
-		Empty();
-		PaddingInfo.Empty();
-		PaddedParameterSize = 0;
-		bInitialized = false;
-	}
 
 	bool IsInitialized() const {return bInitialized;}
 

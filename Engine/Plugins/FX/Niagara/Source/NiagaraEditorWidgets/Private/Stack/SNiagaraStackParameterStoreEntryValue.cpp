@@ -120,13 +120,16 @@ void SNiagaraStackParameterStoreEntryValue::Construct(const FArguments& InArgs, 
 
 FReply SNiagaraStackParameterStoreEntryValue::DeleteClicked()
 {
-	StackEntry->Delete();
 	// toast notification
 	FNotificationInfo Info(FText::Format(LOCTEXT("NiagaraDeletedUserParameter", "System exposed parameter was deleted.\n{0}\n(All links to inner variables were invalidated in the process.)"), StackEntry->GetDisplayName()));
 	Info.ExpireDuration = 5.0f;
 	Info.bFireAndForget = true;
 	Info.Image = FCoreStyle::Get().GetBrush(TEXT("MessageLog.Info"));
 	FSlateNotificationManager::Get().AddNotification(Info);
+
+	// Delete after the notification is posted to prevent the entry from becoming invalidated before generating the message.
+	StackEntry->Delete();
+
 	return FReply::Handled();
 }
 

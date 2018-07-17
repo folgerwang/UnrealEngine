@@ -32,10 +32,9 @@
 #include "EdGraph/EdGraphPin.h"
 #include "EdGraphSchema_Niagara.h"
 #include "ViewModels/NiagaraEmitterHandleViewModel.h"
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraParameterMapView"
-
-DEFINE_LOG_CATEGORY(LogNiagara);
 
 FText NiagaraParameterMapSectionID::OnGetSectionTitle(const NiagaraParameterMapSectionID::Type InSection)
 {
@@ -117,6 +116,10 @@ void FNiagaraParameterMapViewCommands::RegisterCommands()
 
 SNiagaraParameterMapView::~SNiagaraParameterMapView()
 {
+	// Unregister all commands for right click on action node
+	ToolkitCommands->UnmapAction(FNiagaraParameterMapViewCommands::Get().DeleteEntry);
+	ToolkitCommands->UnmapAction(FGenericCommands::Get().Rename);
+
 	TSet<UObject*> Objects = SelectedObjects->GetSelectedObjects();
 	for (UObject* Object : Objects)
 	{
@@ -605,6 +608,7 @@ void SNiagaraParameterMapView::OnDeleteEntry()
 				}
 			}
 
+			FScopedTransaction RemoveParametersWithPins(LOCTEXT("RemoveParametersWithPins", "Remove parameter and referenced pins"));
 			for (const TWeakObjectPtr<UNiagaraGraph>& GraphWeakPtr : Graphs)
 			{
 				if (GraphWeakPtr.IsValid())

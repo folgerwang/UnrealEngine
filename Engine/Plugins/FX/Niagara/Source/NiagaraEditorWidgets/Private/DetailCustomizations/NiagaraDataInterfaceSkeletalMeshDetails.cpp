@@ -1,4 +1,5 @@
- // Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "NiagaraDataInterfaceSkeletalMeshDetails.h"
 #include "NiagaraDetailSourcedArrayBuilder.h"
 #include "NiagaraDataInterfaceDetails.h"
@@ -65,7 +66,7 @@ void FNiagaraDataInterfaceSkeletalMeshDetails::CustomizeDetails(IDetailLayoutBui
 
  void FNiagaraDataInterfaceSkeletalMeshDetails::OnInterfaceChanged()
  {
-     // Rebuild the data changed listener
+	 // Rebuild the data changed listener
 	 TWeakObjectPtr<USceneComponent> SceneComponent;
 	 USkeletalMeshComponent* FoundSkelComp = nullptr;
 	 if (MeshObject != nullptr)

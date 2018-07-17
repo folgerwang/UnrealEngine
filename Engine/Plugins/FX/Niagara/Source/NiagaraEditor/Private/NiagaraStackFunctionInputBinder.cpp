@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraStackFunctionInputBinder.h"
 #include "NiagaraScript.h"
@@ -185,6 +185,11 @@ FName FNiagaraStackFunctionInputBinder::GetInputName() const
 FNiagaraTypeDefinition FNiagaraStackFunctionInputBinder::GetInputType() const
 {
 	return InputType;
+}
+
+UNiagaraNodeFunctionCall* FNiagaraStackFunctionInputBinder::GetFunctionCallNode() const
+{
+	return FunctionCallNode.Get();
 }
 
 TArray<uint8> FNiagaraStackFunctionInputBinder::GetData() const

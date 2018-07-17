@@ -16,6 +16,7 @@
 #include "NiagaraMeshRendererProperties.h"
 #include "NiagaraRibbonRendererProperties.h"
 #include "NiagaraRenderer.h"
+#include "Misc/CoreDelegates.h"
 
 IMPLEMENT_MODULE(INiagaraModule, Niagara);
 
@@ -225,6 +226,12 @@ void INiagaraModule::StartupModule()
 	UNiagaraSpriteRendererProperties::InitCDOPropertiesAfterModuleStartup();
 	UNiagaraRibbonRendererProperties::InitCDOPropertiesAfterModuleStartup();
 	UNiagaraMeshRendererProperties::InitCDOPropertiesAfterModuleStartup();
+
+}
+
+void INiagaraModule::ShutdownRenderingResources()
+{
+	FNiagaraViewDataMgr::Shutdown();
 }
 
 void INiagaraModule::ShutdownModule()
@@ -238,7 +245,7 @@ void INiagaraModule::ShutdownModule()
 	}
 
 	CVarDetailLevel.AsVariable()->SetOnChangedCallback(FConsoleVariableDelegate());
-	FNiagaraViewDataMgr::Shutdown();
+	ShutdownRenderingResources();
 }
 
 FNiagaraWorldManager* INiagaraModule::GetWorldManager(UWorld* World)

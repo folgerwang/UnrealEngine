@@ -1,4 +1,5 @@
- // Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "NiagaraSkeletalMeshSamplingInfoDetails.h"
 #include "Animation/Skeleton.h"
 #include "ReferenceSkeleton.h"
@@ -65,15 +66,15 @@
 
  void FNiagaraSkeletalMeshSamplingInfoDetails::OnGenerateRegionEntry(TSharedRef<IPropertyHandle> PropertyHandle, int32 ArrayIndex, IDetailChildrenBuilder& ChildrenBuilder)
   {
- 	 IDetailPropertyRow& RegionRow = ChildrenBuilder.AddProperty(PropertyHandle);
+	 IDetailPropertyRow& RegionRow = ChildrenBuilder.AddProperty(PropertyHandle);
  
- 	 FNumberFormattingOptions NoCommas;
- 	 NoCommas.UseGrouping = false;
- 	 const FText SlotDesc = FText::Format(LOCTEXT("RegionSlotIndex", "Region #{0}"), FText::AsNumber(ArrayIndex, &NoCommas));
+	 FNumberFormattingOptions NoCommas;
+	 NoCommas.UseGrouping = false;
+	 const FText SlotDesc = FText::Format(LOCTEXT("RegionSlotIndex", "Region #{0}"), FText::AsNumber(ArrayIndex, &NoCommas));
  
- 	 RegionRow.DisplayName(SlotDesc);
+	 RegionRow.DisplayName(SlotDesc);
  
- 	 RegionRow.ShowPropertyButtons(true);
+	 RegionRow.ShowPropertyButtons(true);
 	 // Add custom builder for properties
 	 TSharedPtr<IPropertyHandle> BoneFiltersProperty = PropertyHandle->GetChildHandle("BoneFilters");
 	 TSharedRef<FNiagaraDetailSourcedArrayBuilder> BoneBuilder = MakeShareable(new FNiagaraDetailSourcedArrayBuilder(BoneFiltersProperty.ToSharedRef(), PossibleBonesNames, "BoneName"));

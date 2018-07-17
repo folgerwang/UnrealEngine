@@ -225,7 +225,7 @@ inline TGlobalResource<FNiagaraSpriteVertexDeclaration>& GetNiagaraSpriteVertexD
 
 bool FNiagaraSpriteVertexFactory::ShouldCompilePermutation(EShaderPlatform Platform, const class FMaterial* Material, const class FShaderType* ShaderType)
 {
-	return (!IsSwitchPlatform(Platform) && (Material->IsUsedWithNiagaraSprites() || Material->IsSpecialEngineMaterial()));
+	return (!IsSwitchPlatform(Platform) && Platform != SP_OPENGL_SM4 && (Material->IsUsedWithNiagaraSprites() || Material->IsSpecialEngineMaterial()));
 }
 
 /**
@@ -250,7 +250,7 @@ void FNiagaraSpriteVertexFactory::InitRHI()
 
 void FNiagaraSpriteVertexFactory::InitStreams()
 {
-    const bool bInstanced = GRHISupportsInstancing;
+	const bool bInstanced = GRHISupportsInstancing;
 
 	check(Streams.Num() == 0);
 	if(bInstanced) 

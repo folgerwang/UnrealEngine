@@ -3500,7 +3500,9 @@ bool FHlslNiagaraTranslator::ParameterMapRegisterExternalConstantNamespaceVariab
 			Collection = ParamMapHistories[InParamMapHistoryIdx].IsParameterCollectionParameter(InVariable, bMissingParameter);
 			if (Collection && bMissingParameter)
 			{
-				Error(FText::Format(LOCTEXT("MissingNPCParameterError", "Parameter {0} was not found in Parameter Collection {1}"), FText::FromName(InVariable.GetName()), FText::FromString(Collection->GetFullName())), InNode, nullptr);
+				Error(FText::Format(LOCTEXT("MissingNPCParameterError", "Parameter named {0} of type {1} was not found in Parameter Collection {2}"),
+					FText::FromName(InVariable.GetName()), InVariable.GetType().GetNameText(), FText::FromString(Collection->GetFullName())), InNode, InDefaultPin);
+				return false;
 			}
 		}
 
@@ -3523,6 +3525,12 @@ bool FHlslNiagaraTranslator::ParameterMapRegisterExternalConstantNamespaceVariab
 					if (Collection)
 					{
 						DataInterface = Collection->GetDefaultInstance()->GetParameterStore().GetDataInterface(InVariable);
+						if (DataInterface == nullptr)
+						{
+							Error(FText::Format(LOCTEXT("ParameterCollectionDataInterfaceNotFoundErrorFormat", "Data interface named {0} of type {1} was not found in Parameter Collection {2}"),
+								FText::FromName(InVariable.GetName()), InVariable.GetType().GetNameText(), FText::FromString(Collection->GetFullName())), InNode, InDefaultPin);
+							return false;
+						}
 					}
 					else
 					{
@@ -4220,23 +4228,24 @@ int32 FHlslNiagaraTranslator::RegisterDataInterface(FNiagaraVariable& Var, UNiag
 	}
 
 	//If we get here then this is a new data interface.
+	FName DataInterfaceName;
+	if (FNiagaraParameterMapHistory::IsAliasedEmitterParameter(Var.GetName().ToString()))
+	{
+		FNiagaraVariable AliasedVar = ActiveHistoryForFunctionCalls.ResolveAliases(Var);
+		DataInterfaceName = AliasedVar.GetName();
+	}
+	else
+	{
+		DataInterfaceName = Var.GetName();
+	}
+
 	int32 Idx = CompilationOutput.ScriptData.DataInterfaceInfo.IndexOfByPredicate([&](const FNiagaraScriptDataInterfaceCompileInfo& OtherInfo)
 	{
-		return OtherInfo.Name == Var.GetName();
+		return OtherInfo.Name == DataInterfaceName;
 	});
+
 	if (Idx == INDEX_NONE)
 	{
-		FName DataInterfaceName;
-		if (FNiagaraParameterMapHistory::IsAliasedEmitterParameter(Var.GetName().ToString()))
-		{
-			FNiagaraVariable AliasedVar = ActiveHistoryForFunctionCalls.ResolveAliases(Var);
-			DataInterfaceName = AliasedVar.GetName();
-		}
-		else
-		{
-			DataInterfaceName = Var.GetName();
-		}
-
 		Idx = CompilationOutput.ScriptData.DataInterfaceInfo.AddDefaulted();
 		CompilationOutput.ScriptData.DataInterfaceInfo[Idx].Name = DataInterfaceName;
 		CompilationOutput.ScriptData.DataInterfaceInfo[Idx].Type = Var.GetType();
@@ -4399,6 +4408,13 @@ void FHlslNiagaraTranslator::FunctionCall(UNiagaraNodeFunctionCall* FunctionNode
 	}
 	
 	RegisterFunctionCall(ScriptUsage, Name, FullName,  FunctionNode->NodeGuid, Source, Signature, bCustomHlsl, CustomHlsl, Inputs, CallInputs, CallOutputs, OutputSignature);
+
+	if (OutputSignature.IsValid() == false)
+	{
+		Error(LOCTEXT("FunctionCallInvalidSignature", "Could not generate a valid function signature."), FunctionNode, nullptr);
+		return;
+	}
+
 	GenerateFunctionCall(OutputSignature, Inputs, Outputs);
 
 	if (bCustomHlsl)
@@ -4669,6 +4685,13 @@ void FHlslNiagaraTranslator::RegisterFunctionCall(ENiagaraScriptUsage ScriptUsag
 		{
 			SCOPE_CYCLE_COUNTER(STAT_NiagaraEditor_Module_NiagaraHLSLTranslator_FuncBody);
 
+			if (OutSignature.Name == NAME_None)
+			{
+				const FString* ModuleAlias = ActiveHistoryForFunctionCalls.GetModuleAlias();
+				Error(FText::Format(LOCTEXT("FunctionCallMissingFunction", "Function call signature does not reference a function. Top-level module: {0} Source: {1}"), ModuleAlias ? FText::FromString(*ModuleAlias) : FText::FromString(TEXT("Unknown module")), FText::FromString(CompileOptions.FullName)), nullptr, nullptr);
+				return;
+			}
+
 			//We've not compiled this function yet so compile it now.
 			EnterFunction(InName, OutSignature, Inputs, CallNodeId);
 
@@ -4838,7 +4861,15 @@ void FHlslNiagaraTranslator::RegisterFunctionCall(ENiagaraScriptUsage ScriptUsag
 			// interface. It could be that the existing node has been removed and the graph
 			// needs to be refactored. If that's the case, emit an error.
 			UObject* const* FoundCDO = CompileData->CDOs.Find(Info.Type.GetClass());
-			check(FoundCDO != nullptr);
+			if (FoundCDO == nullptr)
+			{
+				// If the cdo wasn't found, the data interface was not passed through a parameter map and so it won't be bound correctly, so add a compile error
+				// and invalidate the signature.
+				Error(LOCTEXT("DataInterfaceNotFoundInParameterMap", "Data interfaces can not be sampled directly, they must be passed through a parameter map to be bound correctly."), nullptr, nullptr);
+				OutSignature.Name = NAME_None;
+				return;
+			}
+
 			UNiagaraDataInterface* CDO = Cast<UNiagaraDataInterface>(*FoundCDO);
 			if (CDO != nullptr && OutSignature.bMemberFunction)
 			{
@@ -5415,15 +5446,28 @@ int32 FHlslNiagaraTranslator::CompileOutputPin(const UEdGraphPin* InPin)
 	return Ret;
 }
 
-void FHlslNiagaraTranslator::Error(FText ErrorText, UNiagaraNode* Node, UEdGraphPin* Pin)
+void FHlslNiagaraTranslator::Error(FText ErrorText, const UNiagaraNode* Node, const UEdGraphPin* Pin)
 {
 	FString NodePinStr = TEXT("");
 	FString NodePinPrefix = TEXT(" - ");
 	FString NodePinSuffix = TEXT("");
-	if (Node && Node->GetName().Len() > 0)
+	if (Node)
 	{
-		NodePinStr += TEXT("Node: ") + Node->GetName();
-		NodePinSuffix = TEXT(" - ");
+		FString NodeTitle = Node->GetNodeTitle(ENodeTitleType::FullTitle).ToString();
+		if (NodeTitle.Len() > 0)
+		{
+			NodePinStr += TEXT("Node: ") + NodeTitle;
+			NodePinSuffix = TEXT(" - ");
+		}
+		else
+		{
+			FString NodeName = Node->GetName();
+			if (NodeName.Len() > 0)
+			{
+				NodePinStr += TEXT("Node: ") + NodeName;
+				NodePinSuffix = TEXT(" - ");
+			}
+		}
 	}
 	if (Pin && Pin->PinFriendlyName.ToString().Len() > 0)
 	{
@@ -5436,7 +5480,7 @@ void FHlslNiagaraTranslator::Error(FText ErrorText, UNiagaraNode* Node, UEdGraph
 	TranslateResults.NumErrors++;
 }
 
-void FHlslNiagaraTranslator::Warning(FText WarningText, UNiagaraNode* Node, UEdGraphPin* Pin)
+void FHlslNiagaraTranslator::Warning(FText WarningText, const UNiagaraNode* Node, const UEdGraphPin* Pin)
 {
 	FString NodePinStr = TEXT("");
 	FString NodePinPrefix = TEXT(" - ");

@@ -149,6 +149,9 @@ public:
 	/** Called to query whether or not this emitter is referenced as the source to any emitter handles for this System.*/
 	bool ReferencesSourceEmitter(UNiagaraEmitter& Emitter);
 
+	/** Determines if this system has the supplied emitter as an editable and simulating emitter instance. */
+	bool ReferencesInstanceEmitter(UNiagaraEmitter& Emitter);
+
 	/** Updates all handles which use this emitter as their source. */
 	void UpdateFromEmitterChanges(UNiagaraEmitter& ChangedSourceEmitter);
 

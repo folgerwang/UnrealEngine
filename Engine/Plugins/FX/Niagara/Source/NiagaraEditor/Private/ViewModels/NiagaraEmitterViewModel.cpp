@@ -46,6 +46,7 @@ void FNiagaraEmitterViewModel::Cleanup()
 	if (Emitter.IsValid())
 	{
 		Emitter->OnEmitterVMCompiled().RemoveAll(this);
+		Emitter->OnPropertiesChanged().RemoveAll(this);
 	}
 
 	if (SharedScriptViewModel.IsValid())

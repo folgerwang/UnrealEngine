@@ -204,8 +204,8 @@ void InitializeNewRapidIterationParametersForNode(const UEdGraphSchema_Niagara* 
 						{
 							FNiagaraVariable DefaultVariable = Schema->PinToNiagaraVariable(DefaultPin, true);
 							check(DefaultVariable.GetData() != nullptr);
-							RapidIterationParameters.AddParameter(RapidIterationParameter, false);
-							RapidIterationParameters.SetParameterData(DefaultVariable.GetData(), RapidIterationParameter);
+							bool bAddParameterIfMissing = true;
+							RapidIterationParameters.SetParameterData(DefaultVariable.GetData(), RapidIterationParameter, bAddParameterIfMissing);
 						}
 					}
 				}

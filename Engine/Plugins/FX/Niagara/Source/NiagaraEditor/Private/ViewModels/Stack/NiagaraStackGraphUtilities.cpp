@@ -820,13 +820,32 @@ void FNiagaraStackGraphUtilities::SetCustomExpressionForFunctionInput(UEdGraphPi
 	}
 }
 
-bool FNiagaraStackGraphUtilities::RemoveModuleFromStack(UNiagaraNodeFunctionCall& ModuleNode)
+bool FNiagaraStackGraphUtilities::RemoveModuleFromStack(UNiagaraSystem& OwningSystem, FGuid OwningEmitterId, UNiagaraNodeFunctionCall& ModuleNode)
 {
 	TArray<TWeakObjectPtr<UNiagaraNodeInput>> RemovedNodes;
-	return RemoveModuleFromStack(ModuleNode, RemovedNodes);
+	return RemoveModuleFromStack(OwningSystem, OwningEmitterId, ModuleNode, RemovedNodes);
 }
 
-bool FNiagaraStackGraphUtilities::RemoveModuleFromStack(UNiagaraNodeFunctionCall& ModuleNode, TArray<TWeakObjectPtr<UNiagaraNodeInput>>& OutRemovedNodes)
+bool FNiagaraStackGraphUtilities::RemoveModuleFromStack(UNiagaraSystem& OwningSystem, FGuid OwningEmitterId, UNiagaraNodeFunctionCall& ModuleNode, TArray<TWeakObjectPtr<UNiagaraNodeInput>>& OutRemovedInputNodes)
+{
+	// Find the owning script so it can be modified as part of the transaction so that rapid iteration parameters values are retained upon undo.
+	UNiagaraNodeOutput* OutputNode = GetEmitterOutputNodeForStackNode(ModuleNode);
+	checkf(OutputNode != nullptr, TEXT("Invalid Stack - Output node could not be found for module"));
+
+	UNiagaraScript* OwningScript = FNiagaraEditorUtilities::GetScriptFromSystem(
+		OwningSystem, OwningEmitterId, OutputNode->GetUsage(), OutputNode->GetUsageId());
+	checkf(OwningScript != nullptr, TEXT("Invalid Stack - Owning script could not be found for module"));
+
+	return RemoveModuleFromStack(*OwningScript, ModuleNode, OutRemovedInputNodes);
+}
+
+bool FNiagaraStackGraphUtilities::RemoveModuleFromStack(UNiagaraScript& OwningScript, UNiagaraNodeFunctionCall& ModuleNode)
+{
+	TArray<TWeakObjectPtr<UNiagaraNodeInput>> RemovedNodes;
+	return RemoveModuleFromStack(OwningScript, ModuleNode, RemovedNodes);
+}
+
+bool FNiagaraStackGraphUtilities::RemoveModuleFromStack(UNiagaraScript& OwningScript, UNiagaraNodeFunctionCall& ModuleNode, TArray<TWeakObjectPtr<UNiagaraNodeInput>>& OutRemovedInputNodes)
 {
 	TArray<FNiagaraStackGraphUtilities::FStackNodeGroup> StackNodeGroups;
 	FNiagaraStackGraphUtilities::GetStackNodeGroups(ModuleNode, StackNodeGroups);
@@ -836,6 +855,8 @@ bool FNiagaraStackGraphUtilities::RemoveModuleFromStack(UNiagaraNodeFunctionCall
 	{
 		return false;
 	}
+
+	OwningScript.Modify();
 
 	// Disconnect the group from the stack first to make collecting the nodes to remove easier.
 	FNiagaraStackGraphUtilities::DisconnectStackNodeGroup(StackNodeGroups[ModuleStackIndex], StackNodeGroups[ModuleStackIndex - 1], StackNodeGroups[ModuleStackIndex + 1]);
@@ -849,7 +870,7 @@ bool FNiagaraStackGraphUtilities::RemoveModuleFromStack(UNiagaraNodeFunctionCall
 	{
 		UNiagaraNode* NodeToRemove = NodesToCheck[0];
 		NodesToCheck.RemoveAt(0);
-		NodesToRemove.Add(NodeToRemove);
+		NodesToRemove.AddUnique(NodeToRemove);
 
 		TArray<UEdGraphPin*> InputPins;
 		NodeToRemove->GetInputPins(InputPins);
@@ -870,11 +891,12 @@ bool FNiagaraStackGraphUtilities::RemoveModuleFromStack(UNiagaraNodeFunctionCall
 	UNiagaraGraph* Graph = ModuleNode.GetNiagaraGraph();
 	for (UNiagaraNode* NodeToRemove : NodesToRemove)
 	{
+		NodeToRemove->Modify();
 		Graph->RemoveNode(NodeToRemove);
 		UNiagaraNodeInput* InputNode = Cast<UNiagaraNodeInput>(NodeToRemove);
 		if (InputNode != nullptr)
 		{
-			OutRemovedNodes.Add(InputNode);
+			OutRemovedInputNodes.Add(InputNode);
 		}
 	}
 
@@ -1000,6 +1022,7 @@ void FNiagaraStackGraphUtilities::SetModuleIsEnabled(UNiagaraNodeFunctionCall& F
 	GetAllNodesForModule(FunctionCallNode, ModuleNodes);
 	for (UNiagaraNode* ModuleNode : ModuleNodes)
 	{
+		ModuleNode->Modify();
 		ModuleNode->SetEnabledState(bIsEnabled ? ENodeEnabledState::Enabled : ENodeEnabledState::Disabled, true);
 		ModuleNode->MarkNodeRequiresSynchronization(__FUNCTION__, false);
 	}
@@ -1252,17 +1275,11 @@ void FNiagaraStackGraphUtilities::GetScriptAssetsByDependencyProvided(ENiagaraSc
 	{
 		auto TagName = GET_MEMBER_NAME_CHECKED(UNiagaraScript, ProvidedDependencies);
 
-		TArray<UObject::FAssetRegistryTag> Tags;
-		ScriptAsset.GetAsset()->GetAssetRegistryTags(Tags);
-		UObject::FAssetRegistryTag* FoundTag = Tags.FindByPredicate([=](const UObject::FAssetRegistryTag& InTag)
+		FString ProvidedDependenciesString;
+		if(ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, ProvidedDependencies), ProvidedDependenciesString) && ProvidedDependenciesString.IsEmpty() == false)
 		{
-			return InTag.Name == TagName;
-		});
-		if (FoundTag != nullptr)
-		{
-			// parse it and search through it%
 			TArray<FString> DependencyStrings;
-			FoundTag->Value.ParseIntoArray(DependencyStrings, TEXT(","));
+			ProvidedDependenciesString.ParseIntoArray(DependencyStrings, TEXT(","));
 			for (FString DependencyString: DependencyStrings)
 			{
 				if (FName(*DependencyString) == DependencyName)

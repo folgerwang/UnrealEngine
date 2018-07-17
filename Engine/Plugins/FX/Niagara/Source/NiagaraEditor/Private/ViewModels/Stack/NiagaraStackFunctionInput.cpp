@@ -207,13 +207,14 @@ void UNiagaraStackFunctionInput::FinalizeInternal()
 	{
 		OwningFunctionCallNode->GetGraph()->RemoveOnGraphChangedHandler(GraphChangedHandle);
 		OwningFunctionCallNode->GetNiagaraGraph()->RemoveOnGraphNeedsRecompileHandler(OnRecompileHandle);
-
-		if (SourceScript.IsValid())
-		{
-			SourceScript->RapidIterationParameters.RemoveOnChangedHandler(RapidIterationParametersChangedHandle);
-			SourceScript->GetSource()->OnChanged().RemoveAll(this);
-		}
 	}
+
+	if (SourceScript.IsValid())
+	{
+		SourceScript->RapidIterationParameters.RemoveOnChangedHandler(RapidIterationParametersChangedHandle);
+		SourceScript->GetSource()->OnChanged().RemoveAll(this);
+	}
+
 	Super::FinalizeInternal();
 }
 
@@ -925,11 +926,8 @@ void UNiagaraStackFunctionInput::SetLocalValue(TSharedRef<FStructOnScope> InLoca
 
 		for (TWeakObjectPtr<UNiagaraScript> Script : AffectedScripts)
 		{
-			if(Script->RapidIterationParameters.AddParameter(RapidIterationParameter))
-			{
-				UE_LOG(LogNiagaraEditor, Log, TEXT("Adding Parameter %s to Script %s"), *RapidIterationParameter.GetName().ToString(), *Script->GetFullName());
-			}
-			Script->RapidIterationParameters.SetParameterData(InLocalValue->GetStructMemory(), RapidIterationParameter);
+			bool bAddParameterIfMissing = true;
+			Script->RapidIterationParameters.SetParameterData(InLocalValue->GetStructMemory(), RapidIterationParameter, bAddParameterIfMissing);
 		}
 	}
 	else 
@@ -979,35 +977,38 @@ bool UNiagaraStackFunctionInput::CanReset() const
 		else
 		{
 			UEdGraphPin* DefaultPin = GetDefaultPin();
-			if(DefaultPin->LinkedTo.Num() == 0)
-			{
-				if (GetOverridePin() != nullptr)
+			if (ensure(DefaultPin != nullptr))
+			{			
+				if(DefaultPin->LinkedTo.Num() == 0)
 				{
-					bNewCanReset = true;
-				}
-				else if (IsRapidIterationCandidate())
-				{
-					FNiagaraVariable DefaultVar = GetDefaultVariableForRapidIterationParameter();
-					bool bHasValidLocalValue = InputValues.LocalStruct.IsValid();
-					bool bHasValidDefaultValue = DefaultVar.IsValid();
-					bNewCanReset = bHasValidLocalValue && bHasValidDefaultValue && FNiagaraEditorUtilities::DataMatches(DefaultVar, *InputValues.LocalStruct.Get()) == false;
-				}
-				else
-				{
-					bNewCanReset = false;
-				}
-			}
-			else
-			{
-				if (FNiagaraStackGraphUtilities::IsValidDefaultDynamicInput(*SourceScript, *DefaultPin))
-				{
-					UEdGraphPin* OverridePin = GetOverridePin();
-					bNewCanReset = OverridePin == nullptr || FNiagaraStackGraphUtilities::DoesDynamicInputMatchDefault(GetEmitterViewModel()->GetEmitter()->GetUniqueEmitterName(), *SourceScript,
-						*OwningFunctionCallNode, *OverridePin, InputParameterHandle.GetName(), *DefaultPin) == false;
+					if (GetOverridePin() != nullptr)
+					{
+						bNewCanReset = true;
+					}
+					else if (IsRapidIterationCandidate())
+					{
+						FNiagaraVariable DefaultVar = GetDefaultVariableForRapidIterationParameter();
+						bool bHasValidLocalValue = InputValues.LocalStruct.IsValid();
+						bool bHasValidDefaultValue = DefaultVar.IsValid();
+						bNewCanReset = bHasValidLocalValue && bHasValidDefaultValue && FNiagaraEditorUtilities::DataMatches(DefaultVar, *InputValues.LocalStruct.Get()) == false;
+					}
+					else
+					{
+						bNewCanReset = false;
+					}
 				}
 				else
 				{
-					bNewCanReset = GetOverridePin() != nullptr;
+					if (FNiagaraStackGraphUtilities::IsValidDefaultDynamicInput(*SourceScript, *DefaultPin))
+					{
+						UEdGraphPin* OverridePin = GetOverridePin();
+						bNewCanReset = OverridePin == nullptr || FNiagaraStackGraphUtilities::DoesDynamicInputMatchDefault(GetEmitterViewModel()->GetEmitter()->GetUniqueEmitterName(), *SourceScript,
+							*OwningFunctionCallNode, *OverridePin, InputParameterHandle.GetName(), *DefaultPin) == false;
+					}
+					else
+					{
+						bNewCanReset = GetOverridePin() != nullptr;
+					}
 				}
 			}
 		}
@@ -1038,11 +1039,8 @@ bool UNiagaraStackFunctionInput::UpdateRapidIterationParametersForAffectedScript
 
 	for (TWeakObjectPtr<UNiagaraScript> Script : AffectedScripts)
 	{
-		if (Script->RapidIterationParameters.AddParameter(RapidIterationParameter))
-		{
-			UE_LOG(LogNiagaraEditor, Log, TEXT("Adding Parameter %s to Script %s"), *RapidIterationParameter.GetName().ToString(), *Script->GetFullName());
-		}
-		Script->RapidIterationParameters.SetParameterData(Data, RapidIterationParameter);
+		bool bAddParameterIfMissing = true;
+		Script->RapidIterationParameters.SetParameterData(Data, RapidIterationParameter, bAddParameterIfMissing);
 	}
 	GetSystemViewModel()->ResetSystem();
 	return true;
@@ -1244,9 +1242,9 @@ void UNiagaraStackFunctionInput::ResetToBase()
 						AffectedScript->Modify();
 						for (FNiagaraVariable& OwningScriptRapidIterationParameter : OwningScriptRapidIterationParameters)
 						{
-							AffectedScript->RapidIterationParameters.AddParameter(OwningScriptRapidIterationParameter);
+							bool bAddParameterIfMissing = true;
 							AffectedScript->RapidIterationParameters.SetParameterData(
-								OwningScript->RapidIterationParameters.GetParameterData(OwningScriptRapidIterationParameter), OwningScriptRapidIterationParameter);
+								OwningScript->RapidIterationParameters.GetParameterData(OwningScriptRapidIterationParameter), OwningScriptRapidIterationParameter, bAddParameterIfMissing);
 						}
 					}
 				}
@@ -1266,7 +1264,8 @@ FNiagaraVariable UNiagaraStackFunctionInput::CreateRapidIterationVariable(const 
 bool UNiagaraStackFunctionInput::CanRenameInput() const
 {
 	// Only module level assignment node inputs can be renamed.
-	return OwningAssignmentNode.IsValid() && InputParameterHandlePath.Num() == 1;
+	return OwningAssignmentNode.IsValid() && InputParameterHandlePath.Num() == 1 &&
+		OwningAssignmentNode->FindAssignmentTarget(InputParameterHandle.GetName()) != INDEX_NONE;
 }
 
 bool UNiagaraStackFunctionInput::GetIsRenamePending() const
