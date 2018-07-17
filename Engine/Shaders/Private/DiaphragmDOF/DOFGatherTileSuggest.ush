@@ -5,9 +5,9 @@
 	gather a given coc tile.
 =============================================================================*/
 
-#include "DOFCocTileCommon.ush"
-
 #pragma once
+
+#include "DOFCocTileCommon.ush"
 
 
 //------------------------------------------------------- FUNCTIONS
@@ -110,7 +110,7 @@ FGatheringTileSuggestion InferGatherTileSuggestion(
 	}
 	
 	// Coc error accepted for fast gathering, set to 5% of the kernel size.
-	float FastGatheringCocError = OutSuggestion.MaxCocRadiusAbs * 0.05;
+	float FastGatheringCocError = OutSuggestion.MaxCocRadiusAbs * FAST_GATHERING_COC_ERROR;
 
 	// Logic whether can entirely skeep gathering.
 	if (LayerProcessing == LAYER_PROCESSING_FOREGROUND_HOLE_FILLING)

@@ -69,7 +69,7 @@ void UAudioSettings::AddDefaultSettings()
 	VoiPSampleRate = EVoiceSampleRate::Low16000Hz;
 	VoipBufferingDelay = 0.2f;
 	MaxWaveInstances = 100;
-	NumStoppingSources = 32;
+	NumStoppingSources = 8;
 }
 
 #if WITH_EDITOR

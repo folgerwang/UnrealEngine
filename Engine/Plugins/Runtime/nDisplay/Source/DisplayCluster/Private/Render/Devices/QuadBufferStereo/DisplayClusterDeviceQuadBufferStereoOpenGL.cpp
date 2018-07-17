@@ -52,9 +52,9 @@ bool FDisplayClusterDeviceQuadBufferStereoOpenGL::Present(int32& InOutSyncInterv
 {
 	UE_LOG(LogDisplayClusterRender, Verbose, TEXT("FDisplayClusterDeviceQuadBufferStereoOpenGL::Present"));
 
-	const int halfSizeY = BackBuffSize.Y / 2;
+	const int halfSizeX = BackBuffSize.X / 2;
 	int dstX1 = 0;
-	int dstX2 = BackBuffSize.X;
+	int dstX2 = halfSizeX;
 
 	// Convert to left bottom origin and flip Y
 	int dstY1 = ViewportSize.Y;
@@ -83,14 +83,14 @@ bool FDisplayClusterDeviceQuadBufferStereoOpenGL::Present(int32& InOutSyncInterv
 
 	glDrawBuffer(GL_BACK_LEFT);
 	glBlitFramebuffer(
-		0, 0, BackBuffSize.X, halfSizeY,
+		0, 0, halfSizeX, BackBuffSize.Y,
 		dstX1, dstY1, dstX2, dstY2,
 		GL_COLOR_BUFFER_BIT,
 		GL_NEAREST);
 
 	glDrawBuffer(GL_BACK_RIGHT);
 	glBlitFramebuffer(
-		0, halfSizeY, BackBuffSize.X, BackBuffSize.Y,
+		halfSizeX, 0, BackBuffSize.X, BackBuffSize.Y,
 		dstX1, dstY1, dstX2, dstY2,
 		GL_COLOR_BUFFER_BIT,
 		GL_NEAREST);

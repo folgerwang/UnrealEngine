@@ -142,8 +142,11 @@ class BuildPlugin : BuildCommand
 			CommandUtils.Log("Building plugin for target platforms: {0}", String.Join(", ", TargetPlatforms));
 			foreach (UnrealTargetPlatform TargetPlatform in TargetPlatforms)
 			{
-				CompilePluginWithUBT(HostProjectFile, HostProjectPluginFile, Plugin, "UE4Game", TargetType.Game, TargetPlatform, UnrealTargetConfiguration.Development, ReceiptFileNames, null);
-				CompilePluginWithUBT(HostProjectFile, HostProjectPluginFile, Plugin, "UE4Game", TargetType.Game, TargetPlatform, UnrealTargetConfiguration.Shipping, ReceiptFileNames, null);
+				if(Plugin.SupportsTargetPlatform(TargetPlatform))
+				{
+					CompilePluginWithUBT(HostProjectFile, HostProjectPluginFile, Plugin, "UE4Game", TargetType.Game, TargetPlatform, UnrealTargetConfiguration.Development, ReceiptFileNames, null);
+					CompilePluginWithUBT(HostProjectFile, HostProjectPluginFile, Plugin, "UE4Game", TargetType.Game, TargetPlatform, UnrealTargetConfiguration.Shipping, ReceiptFileNames, null);
+				}
 			}
 		}
 

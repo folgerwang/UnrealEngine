@@ -108,10 +108,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogCook, Log, All);
 
 #define PROFILE_NETWORK 0
 
-
-#define COOKER_DISPLAY_REMAINING 1
-#define COOKER_DISPLAY_PACKAGE_NAME 2
-int32 GCookProgressDisplay = COOKER_DISPLAY_REMAINING;
+int32 GCookProgressDisplay = (int32)ECookProgressDisplayMode::RemainingPackages;
 static FAutoConsoleVariableRef CVarCookDisplayMode(
 	TEXT("cook.displaymode"),
 	GCookProgressDisplay,
@@ -1303,7 +1300,7 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 	{
 		if (CookRequests.Num() > 0)
 		{
-			UE_CLOG(!(TickFlags & ECookTickFlags::HideProgressDisplay) && (GCookProgressDisplay & COOKER_DISPLAY_REMAINING), 
+			UE_CLOG(!(TickFlags & ECookTickFlags::HideProgressDisplay) && (GCookProgressDisplay & (int32)ECookProgressDisplayMode::RemainingPackages), 
 			LogCook, Display, TEXT("Cooked packages %d Packages Remain %d Total %d"), CookedPackages.Num(), CookRequests.Num(), CookedPackages.Num() + CookRequests.Num());
 		}
 
@@ -3152,7 +3149,7 @@ void UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uint32 SaveFlags,
 
 				if (bPackageFullyLoaded)
 				{
-					UE_CLOG(GCookProgressDisplay & COOKER_DISPLAY_PACKAGE_NAME, LogCook, Display, TEXT("Cooking %s -> %s"), *Package->GetName(), *PlatFilename);
+					UE_CLOG(GCookProgressDisplay & (int32)ECookProgressDisplayMode::PackageNames, LogCook, Display, TEXT("Cooking %s -> %s"), *Package->GetName(), *PlatFilename);
 
 					bool bSwap = (!Target->IsLittleEndian()) ^ (!PLATFORM_LITTLE_ENDIAN);
 
@@ -4947,7 +4944,7 @@ void UCookOnTheFlyServer::CollectFilesToCook(TArray<FName>& FilesInPath, const T
 			Tokens.Add(FString("*") + FPackageName::GetAssetPackageExtension());
 			Tokens.Add(FString("*") + FPackageName::GetMapPackageExtension());
 
-			uint8 PackageFilter = NORMALIZE_DefaultFlags | NORMALIZE_ExcludeEnginePackages;
+			uint8 PackageFilter = NORMALIZE_DefaultFlags | NORMALIZE_ExcludeEnginePackages | NORMALIZE_ExcludeLocalizedPackages;
 			if (bMapsOnly)
 			{
 				PackageFilter |= NORMALIZE_ExcludeContentPackages;

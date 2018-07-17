@@ -33,7 +33,7 @@ public:
 	inline FString GetParentId() const
 	{ return Config.ParentId; }
 
-protected:
+public:
 	virtual void BeginPlay() override;
 	virtual void BeginDestroy() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;

@@ -144,6 +144,15 @@ static inline std::string FixHlslName(const glsl_type* Type, bool bUseTextureIns
 	return Name;
 }
 
+static inline void Scanf(char* Dest, const char* Format, float* OutValue)
+{
+#if PLATFORM_WINDOWS
+	sscanf_s(Dest, Format, OutValue);
+#else
+	sscanf(Dest, Format, OutValue);
+#endif
+}
+
 /**
 * This table must match the ir_expression_operation enum.
 */
@@ -602,20 +611,20 @@ static void DumpSortedRanges(TDMARangeList& SortedRanges)
 	}
 }
 
-static inline EDescriptorSetStage GetDescriptorSetForStage(_mesa_glsl_parser_targets Target)
+static inline DescriptorSet::EStage GetDescriptorSetForStage(_mesa_glsl_parser_targets Target)
 {
 	switch (Target)
 	{
-	case vertex_shader: return GetDescriptorSetForStage(SF_Vertex);
-	case fragment_shader: return GetDescriptorSetForStage(SF_Pixel);
-	case compute_shader: return GetDescriptorSetForStage(SF_Compute);
-	case geometry_shader: return GetDescriptorSetForStage(SF_Geometry);
-	case tessellation_evaluation_shader: return GetDescriptorSetForStage(SF_Domain);
-	case tessellation_control_shader: return GetDescriptorSetForStage(SF_Hull);
+	case vertex_shader:						return DescriptorSet::GetSetForFrequency(SF_Vertex);
+	case fragment_shader:					return DescriptorSet::GetSetForFrequency(SF_Pixel);
+	case compute_shader:					return DescriptorSet::GetSetForFrequency(SF_Compute);
+	case geometry_shader:					return DescriptorSet::GetSetForFrequency(SF_Geometry);
+	case tessellation_evaluation_shader:	return DescriptorSet::GetSetForFrequency(SF_Domain);
+	case tessellation_control_shader:		return DescriptorSet::GetSetForFrequency(SF_Hull);
 	default: check(0);	break;	// NOT IMPLEMENTED!
 	}
 
-	return EDescriptorSetStage::Invalid;
+	return DescriptorSet::Invalid;
 }
 
 /**
@@ -1195,10 +1204,16 @@ class FGenerateVulkanVisitor : public ir_visitor
 				uint32 Interpolation = var->interpolation;
 				if (var->type->is_sampler())
 				{
+					check(var->name);
+					EVulkanBindingType::EType BindingType = var->type->sampler_buffer
+						? EVulkanBindingType::UniformTexelBuffer
+						: (SamplerMapping.StandaloneTextures.find(std::string(var->name)) != SamplerMapping.StandaloneTextures.end()
+							? EVulkanBindingType::Image
+							: EVulkanBindingType::CombinedImageSampler);
 					layout = ralloc_asprintf(nullptr,
 						"layout(set=%d, binding=BINDING_%d) ",
 						GetDescriptorSetForStage(ParseState->target),
-						BindingTable.RegisterBinding(var->name, "s", var->type->sampler_buffer ? EVulkanBindingType::UniformTexelBuffer : EVulkanBindingType::CombinedImageSampler));
+						BindingTable.RegisterBinding(var->name, "s", BindingType));
 				}
 				else if (bGenerateLayoutLocations && var->explicit_location)
 				{
@@ -1490,9 +1505,7 @@ class FGenerateVulkanVisitor : public ir_visitor
 			!SamplerMapping.UseCombinedImageSamplerForTexture(tex->sampler->variable_referenced()->name))
 		{
 			uint32 SSIndex = AddUniqueSamplerState(tex->SamplerStateName);
-			char PackedName[256];
-			FCStringAnsi::Sprintf(PackedName, "%sz%u", glsl_variable_tag_from_parser_target(ParseState->target), SSIndex);
-			BindingTable.RegisterBinding(PackedName, "z", EVulkanBindingType::Sampler);
+			BindingTable.RegisterBinding(tex->SamplerStateName, "z", EVulkanBindingType::Sampler);
 
 			auto GetSamplerSuffix = [](int32 Dim)
 			{
@@ -1511,7 +1524,7 @@ class FGenerateVulkanVisitor : public ir_visitor
 			ralloc_asprintf_append(buffer, "sampler%s%s(", GetSamplerSuffix(tex->sampler->type->sampler_dimensionality),
 				tex->sampler->type->sampler_array ? "Array" : "");
 			tex->sampler->accept(this);
-			ralloc_asprintf_append(buffer, ", %s)", PackedName);
+			ralloc_asprintf_append(buffer, ", %s)", tex->SamplerStateName);
 		}
 		else
 		{
@@ -1915,14 +1928,97 @@ class FGenerateVulkanVisitor : public ir_visitor
 			{
 				float value = constant->value.f[index];
 				// Original formatting code relied on %f style formatting
-				// %e is more accureate, and has been available since at least ES 2.0
+				// %e is more accurate, and has been available since at least ES 2.0
 				// leaving original code in place, in case some drivers don't properly handle it
 #if 0
 				const char *format = (fabsf(fmodf(value, 1.0f)) < 1.e-8f) ? "%.1f" : "%.8f";
-#else
-				const char *format = "%e";
-#endif
 				ralloc_asprintf_append(buffer, format, value);
+#else
+/*
+				f= 0;
+					%f =	0.000000
+					%e =	0.000000e+00
+					%.16g =	0
+					%g =	0
+				f=  256.0 / 255.0;
+					%f =	1.003922
+					%e =	1.003922e+00
+					%.16g =	1.003921627998352
+					%g =	1.00392
+				f=  2.3283064365386963e-10;
+					%f =	0.000000
+					%e =	2.328306e-10
+					%.16g =	2.328306436538696e-10
+					%g =	2.32831e-10
+				f=  1e-6;
+					%f =	0.000001
+					%e =	1.000000e-06
+					%.16g =	9.999999974752427e-07
+					%g =	1e-06
+				f=  -1;
+					%f =	-1.000000
+					%e =	-1.000000e+00
+					%.16g =	-1
+					%g =	-1
+				f=  -1000;
+					%f =	-1000.000000
+					%e =	-1.000000e+03
+					%.16g =	-1000
+					%g =	-1000
+				f=  -1048576;
+					%f =	-1048576.000000
+					%e =	-1.048576e+06
+					%.16g =	-1048576
+					%g =	-1.04858e+06
+				f=  UINT_MAX;
+					%f =	4294967296.000000
+					%e =	4.294967e+09
+					%.16g =	4294967296
+					%g =	4.29497e+09
+				f=	3.402823466e+38
+					%f=		340282346638528859811704183484516925440.000000
+					%e=		3.402823e+38
+					%.16g=	3.402823466385289e+38
+					%g=		3.40282e+38
+*/
+				// Not fast, but way more precise
+				{
+					// 128 to handle the case of 3.402823466e+38f (which we use!)
+					char f[128], g[128], g10[128];
+					float ReadValue;
+					// Always add decimal point as glsl is painful
+					FCStringAnsi::Sprintf(g, "%g", value);
+					Scanf(g, "%f", &ReadValue);
+					bool bHasDecimalPoint = FCStringAnsi::Strchr(g, '.') != nullptr;
+					if (bHasDecimalPoint && ReadValue == value)
+					{
+						ralloc_strcat(buffer, g);
+					}
+					else
+					{
+						FCStringAnsi::Sprintf(f, "%f", value);
+						Scanf(f, "%f", &ReadValue);
+						if (ReadValue == value)
+						{
+							ralloc_strcat(buffer, f);
+						}
+						else
+						{
+							bHasDecimalPoint = FCStringAnsi::Strchr(g, '.') != nullptr;
+							FCStringAnsi::Sprintf(g10, "%.10g", value);
+							Scanf(g10, "%f", &ReadValue);
+							if (ReadValue == value)
+							{
+								ralloc_strcat(buffer, g10);
+							}
+							else
+							{
+								ralloc_asprintf_append(buffer, "%.16e", value);
+							}
+						}
+					}
+				}
+#endif
 			}
 			else
 			{
@@ -3308,24 +3404,27 @@ public:
 		// Here since the code_buffer must have been populated beforehand
 		if (ParseState->LanguageSpec->AllowsSharingSamplers())
 		{
-			auto FindPrecision = [&](int32 Index)
+			auto FindPrecision = [&](const char* Name)
 			{
 				for (auto& Pair : state->TextureToSamplerMap)
 				{
 					for (auto& Entry : Pair.second)
 					{
-						if (Entry == SamplerStateNames[Index])
+						for (const std::string& SSName : SamplerStateNames)
 						{
-							for (auto& PackedEntry : state->GlobalPackedArraysMap['s'])
+							if (Entry == SSName)
 							{
-								if (!FCStringAnsi::Strcmp(Pair.first.c_str(), PackedEntry.Name.c_str()))
+								for (auto& PackedEntry : state->GlobalPackedArraysMap['s'])
 								{
-									foreach_iter(exec_list_iterator, iter, sampler_variables)
+									if (!FCStringAnsi::Strcmp(Pair.first.c_str(), PackedEntry.Name.c_str()))
 									{
-										ir_variable* var = ((extern_var*)iter.get())->var;
-										if (!FCStringAnsi::Strcmp(var->name, PackedEntry.CB_PackedSampler.c_str()))
+										foreach_iter(exec_list_iterator, iter, sampler_variables)
 										{
-											return GetPrecisionModifierName(GetPrecisionModifier(var->type));
+											ir_variable* var = ((extern_var*)iter.get())->var;
+											if (!FCStringAnsi::Strcmp(var->name, PackedEntry.CB_PackedSampler.c_str()))
+											{
+												return GetPrecisionModifierName(GetPrecisionModifier(var->type));
+											}
 										}
 									}
 								}
@@ -3341,14 +3440,13 @@ public:
 			{
 				if (BindingTable.Bindings[Index].Type == EVulkanBindingType::Sampler)
 				{
-					int32 Binding = atoi(BindingTable.Bindings[Index].Name + 2);
-					const char* Precision = FindPrecision(Binding);
+					const char* Precision = FindPrecision(BindingTable.Bindings[Index].Name);
 
-					ralloc_asprintf_append(buffer, "layout(set=%d, binding=BINDING_%d) uniform %s sampler %sz%d;\n",
+					ralloc_asprintf_append(buffer, "layout(set=%d, binding=BINDING_%d) uniform %s sampler %s;\n",
 						GetDescriptorSetForStage(ParseState->target),
 						Index,
 						Precision,
-						glsl_variable_tag_from_parser_target(ParseState->target), Binding);
+						BindingTable.Bindings[Index].Name);
 				}
 			}
 		}
@@ -3771,8 +3869,8 @@ static FSystemValue GeometrySystemValueTable[] =
 {
 	{ "SV_VertexID", glsl_type::int_type, "gl_VertexID", ir_var_in, false, false, false, false },
 	{ "SV_InstanceID", glsl_type::int_type, "gl_InstanceID", ir_var_in, false, false, false, false },
-	{ "SV_Position", glsl_type::vec4_type, "gl_Position", ir_var_in, false, true, false, false },
-	{ "SV_Position", glsl_type::vec4_type, "gl_Position", ir_var_out, false, false, false, false },
+	{ "SV_Position", glsl_type::vec4_type, "gl_Position", ir_var_in, false, true, true, false },
+	{ "SV_Position", glsl_type::vec4_type, "gl_Position", ir_var_out, false, false, true, false },
 	{ "SV_RenderTargetArrayIndex", glsl_type::int_type, "gl_Layer", ir_var_out, false, false, false, false },
 	{ "SV_PrimitiveID", glsl_type::int_type, "gl_PrimitiveID", ir_var_out, false, false, false, false },
 	{ "SV_PrimitiveID", glsl_type::int_type, "gl_PrimitiveIDIn", ir_var_in, false, false, false, false },
@@ -4497,6 +4595,7 @@ static void GenShaderInputForVariable(
 			if (ParseState->adjust_clip_space_dx11_to_opengl && ApplyClipSpaceAdjustment)
 			{
 				// This is for input of gl_Position into geometry shader only.
+				check(Frequency == HSF_GeometryShader && InputSemantic && FCStringAnsi::Stricmp(InputSemantic, "SV_Position") == 0);
 
 				// Generate a local variable to do the conversion in, keeping source type.
 				ir_variable* TempVariable = new(ParseState)ir_variable(SrcValue->type, NULL, ir_var_temporary);
@@ -4523,6 +4622,9 @@ static void GenShaderInputForVariable(
 						)
 						);
 				}
+
+				// Use TempVariable anywhere you would have otherwise used SrcValue going forward...
+				SrcValue = TempVariableDeref->clone(ParseState, NULL);
 			}
 
 			apply_type_conversion(InputType, SrcValue, PreCallInstructions, ParseState, true, &loc);
@@ -5697,6 +5799,7 @@ int32 FVulkanBindingTable::RegisterBinding(const char* InName, const char* Block
 
 void FVulkanBindingTable::SortBindings()
 {
+	// Order is guaranteed to match EVulkanBindingType::EType
 	check(!bSorted);
 	Bindings.Sort([](const FBinding& A, const FBinding& B)
 		{
@@ -5710,12 +5813,36 @@ void FVulkanBindingTable::SortBindings()
 	bSorted = true;
 }
 
-void FVulkanBindingTable::PrintBindingTableDefines(char** Buffer)
+void FVulkanBindingTable::PrintBindingTableDefines(char** OutBuffer) const
 {
+	auto GetVulkanBindingTypeName = [](EVulkanBindingType::EType Type)
+		{
+			switch(Type)
+			{
+			case EVulkanBindingType::PackedUniformBuffer:	return "Packed UB";
+			case EVulkanBindingType::UniformBuffer:			return "Uniform Buffer";
+			case EVulkanBindingType::CombinedImageSampler:	return "Combined Image Sampler";
+			case EVulkanBindingType::Sampler:				return "Sampler";
+			case EVulkanBindingType::Image:					return "Image";
+			case EVulkanBindingType::UniformTexelBuffer:	return "Uniform Texel Buffer";
+			case EVulkanBindingType::StorageImage:			return "Storage Image";
+			case EVulkanBindingType::StorageTexelBuffer:	return "Storage TexelBuffer";
+			case EVulkanBindingType::StorageBuffer:			return "Storage Buffer";
+			default:										return "INVALID!";
+			}
+		};
+	EVulkanBindingType::EType PreviousType = EVulkanBindingType::Count;
+	ralloc_asprintf_append(OutBuffer, "\n");
 	for (int32 Index = 0; Index < Bindings.Num(); ++Index)
 	{
-		ralloc_asprintf_append(Buffer, "#define BINDING_%d\t%d\n", Bindings[Index].VirtualIndex, Index);
+		if (PreviousType != Bindings[Index].Type)
+		{
+			ralloc_asprintf_append(OutBuffer, "// %s\n", GetVulkanBindingTypeName(Bindings[Index].Type));
+			PreviousType = Bindings[Index].Type;
+		}
+		ralloc_asprintf_append(OutBuffer, "#define BINDING_%d\t%d\n", Bindings[Index].VirtualIndex, Index);
 	}
+	ralloc_asprintf_append(OutBuffer, "\n");
 }
 
 struct FFixIntrinsicsVisitor : public ir_rvalue_visitor

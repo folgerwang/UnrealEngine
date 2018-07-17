@@ -1147,6 +1147,7 @@ protected:
 		ShaderClass::ConstructCompiledInstance, \
 		ShaderClass::ModifyCompilationEnvironment, \
 		ShaderClass::ShouldCompilePermutation, \
+		ShaderClass::ValidateCompiledResult, \
 		ShaderClass::GetStreamOutElements \
 		);
 
@@ -1163,6 +1164,7 @@ protected:
 		ShaderClass::ConstructCompiledInstance, \
 		ShaderClass::ModifyCompilationEnvironment, \
 		ShaderClass::ShouldCompilePermutation, \
+		ShaderClass::ValidateCompiledResult, \
 		ShaderClass::GetStreamOutElements \
 		);
 
@@ -1179,6 +1181,7 @@ protected:
 	ShaderClass::ConstructCompiledInstance, \
 	ShaderClass::ModifyCompilationEnvironment, \
 	ShaderClass::ShouldCompilePermutation, \
+	ShaderClass::ValidateCompiledResult, \
 	ShaderClass::GetStreamOutElements \
 	);
 
@@ -1197,6 +1200,7 @@ protected:
 	ShaderClass::ConstructCompiledInstance, \
 	ShaderClass::ModifyCompilationEnvironment, \
 	ShaderClass::ShouldCompilePermutation, \
+	ShaderClass::ValidateCompiledResult, \
 	ShaderClass::GetStreamOutElements \
 	);
 #endif

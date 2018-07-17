@@ -1595,6 +1595,9 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	ApplyCVarSettingsFromIni(TEXT("/Script/Engine.StreamingSettings"), *GEngineIni, ECVF_SetByProjectSetting);
 	ApplyCVarSettingsFromIni(TEXT("/Script/Engine.GarbageCollectionSettings"), *GEngineIni, ECVF_SetByProjectSetting);
 	ApplyCVarSettingsFromIni(TEXT("/Script/Engine.NetworkSettings"), *GEngineIni, ECVF_SetByProjectSetting);
+#if WITH_EDITOR
+	ApplyCVarSettingsFromIni(TEXT("/Script/UnrealEd.CookerSettings"), *GEngineIni, ECVF_SetByProjectSetting);
+#endif
 
 #if !UE_SERVER
 	if (!IsRunningDedicatedServer())
@@ -1851,7 +1854,10 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 	FShaderCache::LoadBinaryCache();
 
-	if (!FPlatformProperties::RequiresCookedData())
+	FString Commandline = FCommandLine::Get();
+	bool EnableShaderCompile = !FParse::Param(*Commandline, TEXT("NoShaderCompile"));
+
+	if (EnableShaderCompile && !FPlatformProperties::RequiresCookedData())
 	{
 		check(!GShaderCompilingManager);
 		GShaderCompilingManager = new FShaderCompilingManager();
@@ -1873,10 +1879,10 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 		// Load the global shaders.
 		// if (!IsRunningCommandlet())
 		// hack: don't load global shaders if we are cooking we will load the shaders for the correct platform later
-		FString Commandline = FCommandLine::Get();
-		if (!IsRunningDedicatedServer() &&
-			Commandline.Contains(TEXT("cookcommandlet")) == false &&
-			Commandline.Contains(TEXT("run=cook")) == false )
+		if (EnableShaderCompile &&
+				!IsRunningDedicatedServer() &&
+				Commandline.Contains(TEXT("cookcommandlet")) == false &&
+				Commandline.Contains(TEXT("run=cook")) == false )
 		// if (FParse::Param(FCommandLine::Get(), TEXT("Multiprocess")) == false)
 		{
 			CompileGlobalShaderMap(false);
@@ -3993,86 +3999,82 @@ bool FEngineLoop::AppInit( )
 #if UE_EDITOR && !IS_MONOLITHIC
 	if(!GIsBuildMachine && FPaths::IsProjectFilePathSet() && PluginManager.AreRequiredPluginsAvailable())
 	{
-		const FProjectDescriptor* CurrentProject = ProjectManager.GetCurrentProject();
-		if(CurrentProject != nullptr && CurrentProject->Modules.Num() > 0)
+		bool bNeedCompile = false;
+		GConfig->GetBool(TEXT("/Script/UnrealEd.EditorLoadingSavingSettings"), TEXT("bForceCompilationAtStartup"), bNeedCompile, GEditorPerProjectIni);
+		if(FParse::Param(FCommandLine::Get(), TEXT("SKIPCOMPILE")) || FParse::Param(FCommandLine::Get(), TEXT("MULTIPROCESS")))
 		{
-			bool bNeedCompile = false;
-			GConfig->GetBool(TEXT("/Script/UnrealEd.EditorLoadingSavingSettings"), TEXT("bForceCompilationAtStartup"), bNeedCompile, GEditorPerProjectIni);
-			if(FParse::Param(FCommandLine::Get(), TEXT("SKIPCOMPILE")) || FParse::Param(FCommandLine::Get(), TEXT("MULTIPROCESS")))
-			{
-				bNeedCompile = false;
-			}
-			if(!bNeedCompile)
-			{
-				// Check if any of the project or plugin modules are out of date, and the user wants to compile them.
-				TArray<FString> IncompatibleFiles;
-				ProjectManager.CheckModuleCompatibility(IncompatibleFiles);
-				PluginManager.CheckModuleCompatibility(IncompatibleFiles);
+			bNeedCompile = false;
+		}
+		if(!bNeedCompile)
+		{
+			// Check if any of the project or plugin modules are out of date, and the user wants to compile them.
+			TArray<FString> IncompatibleFiles;
+			ProjectManager.CheckModuleCompatibility(IncompatibleFiles);
+			PluginManager.CheckModuleCompatibility(IncompatibleFiles);
 
-				if (IncompatibleFiles.Num() > 0)
+			if (IncompatibleFiles.Num() > 0)
+			{
+				// Log the modules which need to be rebuilt
+				for (int Idx = 0; Idx < IncompatibleFiles.Num(); Idx++)
 				{
-					// Log the modules which need to be rebuilt
-					for (int Idx = 0; Idx < IncompatibleFiles.Num(); Idx++)
-					{
-						UE_LOG(LogInit, Warning, TEXT("Incompatible or missing module: %s"), *IncompatibleFiles[Idx]);
-					}
-
-					// Build the error message for the dialog box
-					FString ModulesList = TEXT("The following modules are missing or built with a different engine version:\n\n");
-
-					int NumModulesToDisplay = (IncompatibleFiles.Num() <= 20)? IncompatibleFiles.Num() : 15;
-					for (int Idx = 0; Idx < NumModulesToDisplay; Idx++)
-					{
-						ModulesList += FString::Printf(TEXT("  %s\n"), *IncompatibleFiles[Idx]);
-					}
-					if(IncompatibleFiles.Num() > NumModulesToDisplay)
-					{
-						ModulesList += FString::Printf(TEXT("  (+%d others, see log for details)\n"), IncompatibleFiles.Num() - NumModulesToDisplay);
-					}
-
-					ModulesList += TEXT("\nWould you like to rebuild them now?");
-
-					// If we're running with -stdout, assume that we're a non interactive process and about to fail
-					if (FApp::IsUnattended() || FParse::Param(FCommandLine::Get(), TEXT("stdout")))
-					{
-						return false;
-					}
-
-					// Ask whether to compile before continuing
-					if (FPlatformMisc::MessageBoxExt(EAppMsgType::YesNo, *ModulesList, *FString::Printf(TEXT("Missing %s Modules"), FApp::GetProjectName())) == EAppReturnType::No)
-					{
-						return false;
-					}
-
-					bNeedCompile = true;
+					UE_LOG(LogInit, Warning, TEXT("Incompatible or missing module: %s"), *IncompatibleFiles[Idx]);
 				}
-			}
 
-			if(bNeedCompile)
-			{
-				// Try to compile it
-				FFeedbackContext *Context = (FFeedbackContext*)FDesktopPlatformModule::Get()->GetNativeFeedbackContext();
-				Context->BeginSlowTask(FText::FromString(TEXT("Starting build...")), true, true);
-				bool bCompileResult = FDesktopPlatformModule::Get()->CompileGameProject(FPaths::RootDir(), FPaths::GetProjectFilePath(), Context);
-				Context->EndSlowTask();
+				// Build the error message for the dialog box
+				FString ModulesList = TEXT("The following modules are missing or built with a different engine version:\n\n");
 
-				// Get a list of modules which are still incompatible
-				TArray<FString> StillIncompatibleFiles;
-				ProjectManager.CheckModuleCompatibility(StillIncompatibleFiles);
-				PluginManager.CheckModuleCompatibility(StillIncompatibleFiles);
-
-				if(!bCompileResult || StillIncompatibleFiles.Num() > 0)
+				int NumModulesToDisplay = (IncompatibleFiles.Num() <= 20)? IncompatibleFiles.Num() : 15;
+				for (int Idx = 0; Idx < NumModulesToDisplay; Idx++)
 				{
-					for (int Idx = 0; Idx < StillIncompatibleFiles.Num(); Idx++)
-					{
-						UE_LOG(LogInit, Warning, TEXT("Still incompatible or missing module: %s"), *StillIncompatibleFiles[Idx]);
-					}
-					if (!FApp::IsUnattended())
-					{
-						FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *FString::Printf(TEXT("%s could not be compiled. Try rebuilding from source manually."), FApp::GetProjectName()), TEXT("Error"));
-					}
+					ModulesList += FString::Printf(TEXT("  %s\n"), *IncompatibleFiles[Idx]);
+				}
+				if(IncompatibleFiles.Num() > NumModulesToDisplay)
+				{
+					ModulesList += FString::Printf(TEXT("  (+%d others, see log for details)\n"), IncompatibleFiles.Num() - NumModulesToDisplay);
+				}
+
+				ModulesList += TEXT("\nWould you like to rebuild them now?");
+
+				// If we're running with -stdout, assume that we're a non interactive process and about to fail
+				if (FApp::IsUnattended() || FParse::Param(FCommandLine::Get(), TEXT("stdout")))
+				{
 					return false;
 				}
+
+				// Ask whether to compile before continuing
+				if (FPlatformMisc::MessageBoxExt(EAppMsgType::YesNo, *ModulesList, *FString::Printf(TEXT("Missing %s Modules"), FApp::GetProjectName())) == EAppReturnType::No)
+				{
+					return false;
+				}
+
+				bNeedCompile = true;
+			}
+		}
+
+		if(bNeedCompile)
+		{
+			// Try to compile it
+			FFeedbackContext *Context = (FFeedbackContext*)FDesktopPlatformModule::Get()->GetNativeFeedbackContext();
+			Context->BeginSlowTask(FText::FromString(TEXT("Starting build...")), true, true);
+			bool bCompileResult = FDesktopPlatformModule::Get()->CompileGameProject(FPaths::RootDir(), FPaths::GetProjectFilePath(), Context);
+			Context->EndSlowTask();
+
+			// Get a list of modules which are still incompatible
+			TArray<FString> StillIncompatibleFiles;
+			ProjectManager.CheckModuleCompatibility(StillIncompatibleFiles);
+			PluginManager.CheckModuleCompatibility(StillIncompatibleFiles);
+
+			if(!bCompileResult || StillIncompatibleFiles.Num() > 0)
+			{
+				for (int Idx = 0; Idx < StillIncompatibleFiles.Num(); Idx++)
+				{
+					UE_LOG(LogInit, Warning, TEXT("Still incompatible or missing module: %s"), *StillIncompatibleFiles[Idx]);
+				}
+				if (!FApp::IsUnattended())
+				{
+					FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *FString::Printf(TEXT("%s could not be compiled. Try rebuilding from source manually."), FApp::GetProjectName()), TEXT("Error"));
+				}
+				return false;
 			}
 		}
 	}

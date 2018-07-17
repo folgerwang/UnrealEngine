@@ -22,7 +22,7 @@ namespace UnrealBuildTool.Rules
 					"Python",
 					"Slate",
 					"SlateCore",
-					"InputCore"
+					"InputCore",
 				}
 			);
 

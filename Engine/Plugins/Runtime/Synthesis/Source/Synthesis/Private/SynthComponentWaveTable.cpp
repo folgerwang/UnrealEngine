@@ -142,6 +142,7 @@ void USynthSamplePlayer::TickComponent(float DeltaTime, enum ELevelTick TickType
 		SynthCommand([this, NewSampleBuffer]()
 		{
 			SampleBuffer = NewSampleBuffer;
+			SampleBufferReader.ClearBuffer();
 
 			// Clear the pending sound waves queue since we've now loaded a new buffer of data
 			SoundWaveLoader.Reset();
@@ -159,7 +160,7 @@ int32 USynthSamplePlayer::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 		const int32 BufferNumSamples = SampleBuffer.GetNumSamples();
 		const int32 BufferNumChannels = SampleBuffer.GetNumChannels();
 		const int32 BufferSampleRate = SampleBuffer.GetSampleRate();
-		SampleBufferReader.SetBuffer(&BufferData, BufferNumSamples, BufferNumChannels, BufferSampleRate);
+		SampleBufferReader.SetBuffer(BufferData, BufferNumSamples, BufferNumChannels, BufferSampleRate);
 		SampleDurationSec = BufferNumSamples / (BufferSampleRate * BufferNumChannels);
 	}
 

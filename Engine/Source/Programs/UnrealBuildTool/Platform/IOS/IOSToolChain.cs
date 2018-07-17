@@ -1295,6 +1295,11 @@ namespace UnrealBuildTool
 			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
 			{
 				BuiltBinaries = new List<FileReference>();
+				DirectoryReference BinaryIOS = new DirectoryReference(Path.GetFullPath(Path.Combine(BranchDirectory, "Engine/")) + "Binaries/IOS/", DirectoryReference.Sanitize.None);
+				if (DirectoryReference.Exists(BinaryIOS))
+				{
+					QueueDirectoryForBatchUpload(BinaryIOS);
+				}
 			}
 
 			RemoteToolChain.PreBuildSync();

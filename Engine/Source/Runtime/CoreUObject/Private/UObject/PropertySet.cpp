@@ -394,7 +394,7 @@ void USetProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, co
 
 bool USetProperty::NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8>* MetaData ) const
 {
-	UE_LOG( LogProperty, Fatal, TEXT( "Deprecated code path" ) );
+	UE_LOG( LogProperty, Error, TEXT( "Replicated TSets are not supported." ) );
 	return 1;
 }
 

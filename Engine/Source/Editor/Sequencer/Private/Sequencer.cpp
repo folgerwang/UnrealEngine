@@ -5823,23 +5823,13 @@ void FSequencer::PasteCopiedTracks()
 				// and update it.
 				FGuid NewGuid = MakeNewSpawnable(*CopyableBinding->SpawnableObjectTemplate);
 				FMovieSceneBinding NewBinding(NewGuid, CopyableBinding->Binding.GetName(), CopyableBinding->Tracks);
-
 				FMovieSceneSpawnable* Spawnable = MovieScene->FindSpawnable(NewGuid);
+
 				// Copy the name of the original spawnable too.
 				Spawnable->SetName(CopyableBinding->Spawnable.GetName());
 
 				// Replace the auto-generated binding with our deserialized bindings (which has our tracks)
-				FMovieSceneBinding* Binding = MovieScene->FindBinding(NewGuid);
-				if (Binding)
-				{
-					*Binding = NewBinding;
-
-					// We also need to change the track's owners to be the MovieScene. Typically MovieScene::AddSpawnable/MovieScene::AddSpawnable/AddPossessable does this.
-					for (auto Track : Binding->GetTracks())
-					{
-						Track->Rename(nullptr, MovieScene);
-					}
-				}
+				MovieScene->ReplaceBinding(NewGuid, NewBinding);
 
 				OldToNewGuidMap.Add(CopyableBinding->Spawnable.GetGuid(), NewGuid);
 

@@ -10,7 +10,6 @@
 #include "Channels/RemoteSessionFrameBufferChannel.h"
 #include "Async/Async.h"
 #include "GeneralProjectSettings.h"
-#include "ARBlueprintLibrary.h"
 
 DEFINE_LOG_CATEGORY(LogRemoteSession);
 
@@ -134,6 +133,9 @@ void FRemoteSessionRole::CreateOSCConnection(TSharedRef<IBackChannelConnection> 
 	auto Delegate = FBackChannelDispatchDelegate::FDelegate::CreateRaw(this, &FRemoteSessionRole::OnVersionCheck);
 	OSCConnection->AddMessageHandler(TEXT("/Version"),Delegate);
 	
+	Delegate = FBackChannelDispatchDelegate::FDelegate::CreateRaw(this, &FRemoteSessionRole::OnCreateChannels);
+	OSCConnection->AddMessageHandler(*GetChannelSelectionEndPoint(), Delegate);
+
 	OSCConnection->StartReceiveThread();
 	
 	SendVersion();
@@ -189,6 +191,15 @@ void FRemoteSessionRole::OnVersionCheck(FBackChannelOSCMessage& Message, FBackCh
 	}
 }
 
+void FRemoteSessionRole::OnCreateChannels(FBackChannelOSCMessage& Message, FBackChannelOSCDispatch& Dispatch)
+{
+	OnChannelSelection(Message, Dispatch);
+}
+
+void FRemoteSessionRole::OnChannelSelection(FBackChannelOSCMessage& Message, FBackChannelOSCDispatch& Dispatch)
+{
+}
+
 void FRemoteSessionRole::OnBindEndpoints()
 {
 }
@@ -209,37 +220,21 @@ void FRemoteSessionRole::CreateChannel(const FString& InChannelName, ERemoteSess
 	{
 		NewChannel = MakeShareable(new FRemoteSessionFrameBufferChannel(InMode, OSCConnection));
 	}
-    else if (InChannelName == FRemoteSessionXRTrackingChannel::StaticType())
+	else if (InChannelName == FRemoteSessionXRTrackingChannel::StaticType())
 	{
-		// Skip if there isn't an AR session running
-		if (UARBlueprintLibrary::GetARSessionStatus().Status == EARSessionStatus::Running)
-		{
-			NewChannel = MakeShareable(new FRemoteSessionXRTrackingChannel(InMode, OSCConnection));
-		}
-		else
-		{
-			UE_LOG(LogRemoteSession, Warning, TEXT("No AR session in progress so FRemoteSessionXRTrackingChannel is disabled"));
-		}
+		NewChannel = MakeShareable(new FRemoteSessionXRTrackingChannel(InMode, OSCConnection));
 	}
 	else if (InChannelName == FRemoteSessionARCameraChannel::StaticType())
 	{
-		// Skip if there isn't an AR session running
-		if (UARBlueprintLibrary::GetARSessionStatus().Status == EARSessionStatus::Running)
+		// Client side sending only works on iOS with Android coming in the future
+		bool IsSupported = (InMode == ERemoteSessionChannelMode::Read) || PLATFORM_IOS;
+		if (IsSupported)
 		{
-			// Client side sending only works on iOS with Android coming in the future
-			bool IsSupported = (InMode == ERemoteSessionChannelMode::Read) || PLATFORM_IOS;
-			if (IsSupported)
-			{
-				NewChannel = MakeShareable(new FRemoteSessionARCameraChannel(InMode, OSCConnection));
-			}
-			else
-			{
-				UE_LOG(LogRemoteSession, Warning, TEXT("FRemoteSessionARCameraChannel does not support sending on this platform"));
-			}
+			NewChannel = MakeShareable(new FRemoteSessionARCameraChannel(InMode, OSCConnection));
 		}
 		else
 		{
-			UE_LOG(LogRemoteSession, Warning, TEXT("No AR session in progress so FRemoteSessionARCameraChannel is disabled"));
+			UE_LOG(LogRemoteSession, Warning, TEXT("FRemoteSessionARCameraChannel does not support sending on this platform"));
 		}
 	}
 	

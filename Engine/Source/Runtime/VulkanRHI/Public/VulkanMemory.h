@@ -1233,8 +1233,8 @@ namespace VulkanRHI
 		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
 			return EImageLayoutBarrier::PixelDepthStencilRead;
 
-		//case VK_IMAGE_LAYOUT_GENERAL:
-		//	return EImageLayoutBarrier::ComputeGeneral;
+		case VK_IMAGE_LAYOUT_GENERAL:
+			return EImageLayoutBarrier::PixelGeneralRW;
 
 		default:
 			checkf(0, TEXT("Unknown VkImageLayout %d"), (int32)Layout);
@@ -1356,8 +1356,7 @@ namespace VulkanRHI
 	inline VkImageMemoryBarrier SetupImageMemoryBarrier(VkImage Image, VkImageAspectFlags Aspect, uint32 NumMips = 1)
 	{
 		VkImageMemoryBarrier Barrier;
-		FMemory::Memzero(Barrier);
-		Barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		ZeroVulkanStruct(Barrier, VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER);
 		Barrier.image = Image;
 		Barrier.subresourceRange.aspectMask = Aspect;
 		Barrier.subresourceRange.levelCount = NumMips;
@@ -1375,7 +1374,7 @@ namespace VulkanRHI
 		TArray<VkImageMemoryBarrier> ImageBarriers;
 		TArray<VkBufferMemoryBarrier> BufferBarriers;
 
-		void InnerExecute(FVulkanCmdBuffer* CmdBuffer);
+		void InnerExecute(FVulkanCmdBuffer* CmdBuffer, bool bEnsure);
 
 	public:
 		inline void ResetStages()
@@ -1384,7 +1383,7 @@ namespace VulkanRHI
 			DestStage = 0;
 		}
 
-		inline int32 AddImageBarrier(VkImage Image, VkImageAspectFlags Aspect, uint32 NumMips)
+		inline int32 AddImageBarrier(VkImage Image, VkImageAspectFlags Aspect, uint32 NumMips, uint32 NumLayers = 1)
 		{
 			int32 Index = ImageBarriers.AddZeroed();
 			VkImageMemoryBarrier& Barrier = ImageBarriers[Index];
@@ -1392,7 +1391,7 @@ namespace VulkanRHI
 			Barrier.image = Image;
 			Barrier.subresourceRange.aspectMask = Aspect;
 			Barrier.subresourceRange.levelCount = NumMips;
-			Barrier.subresourceRange.layerCount = 1;
+			Barrier.subresourceRange.layerCount = NumLayers;
 			Barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			Barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
@@ -1442,11 +1441,11 @@ namespace VulkanRHI
 		}
 
 		// Actually Insert the cmd in cmdbuffer 
-		void Execute(FVulkanCmdBuffer* CmdBuffer)
+		void Execute(FVulkanCmdBuffer* CmdBuffer, bool bEnsure = true)
 		{
 			if (ImageBarriers.Num() > 0 || BufferBarriers.Num() > 0)
 			{
-				InnerExecute(CmdBuffer);
+				InnerExecute(CmdBuffer, bEnsure);
 			}
 		}
 	};

@@ -1083,7 +1083,7 @@ class BuildPhysX : BuildCommand
 
 		foreach (string BuildConfig in TargetConfigurations)
 		{
-			string CmdLine = String.Format("-project \"{0}\" -target=\"ALL_BUILD\" -configuration {1}", ProjectFile, BuildConfig);
+			string CmdLine = String.Format("-project \"{0}\" -target=\"ALL_BUILD\" -configuration {1} -quiet", ProjectFile, BuildConfig);
 			RunAndLog(BuildCommand.CmdEnv, "/usr/bin/xcodebuild", CmdLine);
 		}
 	}

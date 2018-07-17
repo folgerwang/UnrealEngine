@@ -24,7 +24,7 @@
       "Text": "VR,Virtual,Reality,Virtual Reality"
     }
   ],
-  "ClassTypes": "Character, GameMode, HUD, Actor, Character, GameMode, HUD, Actor",
+  "ClassTypes": "Character, GameMode, HUD, Actor",
   "Category": "BlueprintFeature",
   "FocusAsset": "/Game/VirtualRealityBP/VirtualReality.VirtualReality",
   "Thumbnail": "TP_VirtualRealityBP.png",

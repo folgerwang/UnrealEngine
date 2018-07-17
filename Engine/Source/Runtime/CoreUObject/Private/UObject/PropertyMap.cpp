@@ -446,7 +446,7 @@ void UMapProperty::SerializeItem(FStructuredArchive::FSlot Slot, void* Value, co
 
 bool UMapProperty::NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData ) const
 {
-	UE_LOG( LogProperty, Fatal, TEXT( "Deprecated code path" ) );
+	UE_LOG( LogProperty, Error, TEXT( "Replicated TMaps are not supported." ) );
 	return 1;
 }
 

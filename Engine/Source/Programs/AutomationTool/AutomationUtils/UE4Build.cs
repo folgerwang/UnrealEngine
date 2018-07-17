@@ -1246,13 +1246,6 @@ namespace AutomationTool
 				}
 			}
 
-			// allow all involved platforms to hook into the agenda
-			foreach (var TargetPlatform in UniquePlatforms)
-			{
-				Platform.GetPlatform(TargetPlatform).PreBuildAgenda(this, Agenda);
-			}
-
-
 			foreach (var File in Agenda.ExtraDotNetFiles)
 			{
 				PrepareBuildProductsForCSharpProj(Path.Combine(CommandUtils.CmdEnv.LocalRoot, File));

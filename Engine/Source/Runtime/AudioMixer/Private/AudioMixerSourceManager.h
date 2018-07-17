@@ -13,8 +13,10 @@
 #include "DSP/Filter.h"
 #include "DSP/EnvelopeFollower.h"
 #include "DSP/ParamInterpolator.h"
+#include "DSP/BufferVectorOperations.h"
 #include "IAudioExtensionPlugin.h"
 #include "Containers/Queue.h"
+#include "AudioMixerSourceBuffer.h"
 
 
 namespace Audio
@@ -22,6 +24,8 @@ namespace Audio
 	class FMixerSubmix;
 	class FMixerDevice;
 	class FMixerSourceVoice;
+	class FMixerSourceBuffer;
+	class ISourceListener;
 
 	/** Struct defining a source voice buffer. */
 	struct FMixerSourceVoiceBuffer
@@ -44,32 +48,23 @@ namespace Audio
 		}
 	};
 
-	typedef TSharedPtr<FMixerSourceVoiceBuffer, ESPMode::ThreadSafe> FMixerSourceBufferPtr;
 	typedef TSharedPtr<FMixerSubmix, ESPMode::ThreadSafe> FMixerSubmixPtr;
 
-	// Task used to store pending release/decode data
-	struct FPendingReleaseData
-	{
-		FSoundBuffer* Buffer;
-		IAudioTask* Task;
-
-		FPendingReleaseData()
-			: Buffer(nullptr)
-			, Task(nullptr)
-		{}
-	};
-
-	class ISourceBufferQueueListener
+	class ISourceListener
 	{
 	public:
 		// Called before a source begins to generate audio. 
 		virtual void OnBeginGenerate() = 0;
 
-		// Called when the current buffer is finished and a new one needs to be queued
-		virtual void OnSourceBufferEnd() = 0;
+		// Called when a loop point is hit
+		virtual void OnLoopEnd() = 0;
 
-		// Called when the buffer queue listener is released. Allows cleaning up any resources from render thread.
-		virtual void OnRelease(TArray<FPendingReleaseData*>& OutPendingReleaseData) = 0;
+		// Called when the source finishes on the audio render thread
+		virtual void OnDone() = 0;
+
+		// Called when the source's effect tails finish on the audio render thread.
+		virtual void OnEffectTailsDone() = 0;
+
 	};
 
 	struct FMixerSourceSubmixSend
@@ -93,7 +88,8 @@ namespace Audio
 
 	struct FMixerSourceVoiceInitParams
 	{
-		ISourceBufferQueueListener* BufferQueueListener;
+		TSharedPtr<FMixerSourceBuffer> MixerSourceBuffer;
+		ISourceListener* SourceListener;
 		TArray<FMixerSourceSubmixSend> SubmixSends;
 		TArray<FMixerBusSend> BusSends[(int32)EBusSendType::Count];
 		uint32 BusId;
@@ -117,9 +113,11 @@ namespace Audio
 		bool bOutputToBusOnly;
 		bool bIsVorbis;
 		bool bIsAmbisonics;
+		bool bIsSeeking;
 
 		FMixerSourceVoiceInitParams()
-			: BufferQueueListener(nullptr)
+			: MixerSourceBuffer(nullptr)
+			, SourceListener(nullptr)
 			, BusId(INDEX_NONE)
 			, BusDuration(0.0f)
 			, SourceEffectChainId(INDEX_NONE)
@@ -138,6 +136,7 @@ namespace Audio
 			, bOutputToBusOnly(false)
 			, bIsVorbis(false)
 			, bIsAmbisonics(false)
+			, bIsSeeking(false)
 		{}
 	};
 
@@ -151,7 +150,7 @@ namespace Audio
 			ChannelValues.Reset();
 		}
 
-		FORCEINLINE void SetChannelMap(const TArray<float>& ChannelMap, const int32 InNumInterpFrames)
+		FORCEINLINE void SetChannelMap(const Audio::AlignedFloatBuffer& ChannelMap, const int32 InNumInterpFrames)
 		{
 			if (ChannelValues.Num() != ChannelMap.Num())
 			{
@@ -235,25 +234,21 @@ namespace Audio
 
 		void Play(const int32 SourceId);
 		void Stop(const int32 SourceId);
-		void StopFade(const int32 SourceId);
+		void StopFade(const int32 SourceId, const int32 NumFrames);
 		void Pause(const int32 SourceId);
 		void SetPitch(const int32 SourceId, const float Pitch);
 		void SetVolume(const int32 SourceId, const float Volume);
 		void SetDistanceAttenuation(const int32 SourceId, const float DistanceAttenuation);
 		void SetSpatializationParams(const int32 SourceId, const FSpatializationParams& InParams);
-		void SetChannelMap(const int32 SourceId, const ESubmixChannelFormat SubmixChannelType, const TArray<float>& InChannelMap, const bool bInIs3D, const bool bInIsCenterChannelOnly);
+		void SetChannelMap(const int32 SourceId, const ESubmixChannelFormat SubmixChannelType, const Audio::AlignedFloatBuffer& InChannelMap, const bool bInIs3D, const bool bInIsCenterChannelOnly);
 		void SetLPFFrequency(const int32 SourceId, const float Frequency);
 		void SetHPFFrequency(const int32 SourceId, const float Frequency);
 
 		void SetListenerTransforms(const TArray<FTransform>& ListenerTransforms);
 		const TArray<FTransform>* GetListenerTransforms() const;
 
-		void SubmitBuffer(const int32 SourceId, FMixerSourceBufferPtr InSourceVoiceBuffer, const bool bSubmitSynchronously);
-
 		int64 GetNumFramesPlayed(const int32 SourceId) const;
 		float GetEnvelopeValue(const int32 SourceId) const;
-		bool IsDone(const int32 SourceId) const;
-		bool IsEffectTailsDone(const int32 SourceId) const;
 		bool NeedsSpeakerMap(const int32 SourceId) const;
 		void ComputeNextBlockOfSamples();
 		void ClearStoppingSounds();
@@ -369,18 +364,18 @@ namespace Audio
 			FSourceInfo() {}
 			~FSourceInfo() {}
 
-			// Raw PCM buffer data
-			TQueue<FMixerSourceBufferPtr> BufferQueue;
-			ISourceBufferQueueListener* BufferQueueListener;
+			// Object which handles source buffer decoding
+			TSharedPtr<FMixerSourceBuffer> MixerSourceBuffer;
+			ISourceListener* SourceListener;
 
 			// Data used for rendering sources
-			FMixerSourceBufferPtr CurrentPCMBuffer;
+			TSharedPtr<FMixerSourceVoiceBuffer> CurrentPCMBuffer;
 			int32 CurrentAudioChunkNumFrames;
 
 			// The post-attenuation source buffer, used to send audio to submixes
-			TArray<float> SourceBuffer;
-			TArray<float> PreEffectBuffer;
-			TArray<float> PreDistanceAttenuationBuffer;
+			Audio::AlignedFloatBuffer SourceBuffer;
+			Audio::AlignedFloatBuffer PreEffectBuffer;
+			Audio::AlignedFloatBuffer PreDistanceAttenuationBuffer;
 
 			TArray<float> CurrentFrameValues;
 			TArray<float> NextFrameValues;
@@ -404,8 +399,15 @@ namespace Audio
 
 			// Interpolated source params
 			FParam PitchSourceParam;
-			FParam VolumeSourceParam;
-			FParam DistanceAttenuationSourceParam;
+			float VolumeSourceStart;
+			float VolumeSourceDestination;
+			float VolumeFadeSlope;
+			float VolumeFadeStart;
+			int32 VolumeFadeFramePosition;
+			int32 VolumeFadeNumFrames;
+
+			float DistanceAttenuationSourceStart;
+			float DistanceAttenuationSourceDestination;
 			FParam LPFCutoffFrequencyParam;
 			FParam HPFCutoffFrequencyParam;
 
@@ -428,11 +430,11 @@ namespace Audio
 			float SourceEnvelopeValue;
 
 			FSpatializationParams SpatParams;
-			TArray<float> ScratchChannelMap;
+			Audio::AlignedFloatBuffer ScratchChannelMap;
 
 			// Output data, after computing a block of sample data, this is read back from mixers
-			TArray<float> ReverbPluginOutputBuffer;
-			TArray<float>* PostEffectBuffers;
+			Audio::AlignedFloatBuffer ReverbPluginOutputBuffer;
+			Audio::AlignedFloatBuffer* PostEffectBuffers;
 
 			// Data needed for outputting to submixes
 			FSubmixChannelTypeInfo SubmixChannelInfo[(int32) ESubmixChannelFormat::Count];
@@ -484,15 +486,13 @@ namespace Audio
 		TArray<FAsyncTask<FAudioMixerSourceWorker>*> SourceWorkers;
 
 		// Array of task data waiting to finished. Processed on audio render thread.
-		TArray<FPendingReleaseData*> PendingReleaseData;
+		TArray<TSharedPtr<FMixerSourceBuffer>> PendingSourceBuffers;
 
 		// General information about sources in source manager accessible from game thread
 		struct FGameThreadInfo
 		{
 			TArray<int32> FreeSourceIndices;
 			TArray<bool> bIsBusy;
-			TArray<FThreadSafeBool> bIsDone;
-			TArray<FThreadSafeBool> bEffectTailsDone;
 			TArray <bool> bNeedsSpeakerMap;
 			TArray<bool> bIsDebugMode;
 		} GameThreadInfo;

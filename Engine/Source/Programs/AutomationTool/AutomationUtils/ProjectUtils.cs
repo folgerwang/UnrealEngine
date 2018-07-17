@@ -217,7 +217,7 @@ namespace AutomationTool
 				bool RetVal = false;
 				foreach (UnrealTargetPlatform TargetPlatformType in TargetPlatforms)
 				{
-					if(!Automation.IsEngineInstalled() && !PlatformExports.HasDefaultBuildConfig(RawProjectPath, TargetPlatformType))
+					if((!Automation.IsEngineInstalled() && !PlatformExports.HasDefaultBuildConfig(RawProjectPath, TargetPlatformType)) || PlatformExports.RequiresBuild(RawProjectPath, TargetPlatformType))
 					{
 						RetVal = true;
 						break;

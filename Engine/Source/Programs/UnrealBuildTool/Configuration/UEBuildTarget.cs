@@ -1817,25 +1817,35 @@ namespace UnrealBuildTool
 				UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform);
 				if (OnlyModules == null || OnlyModules.Count == 0)
 				{
-					DirectoryReference.CreateDirectory(ReceiptFileName.Directory);
-					Receipt.Write(ReceiptFileName, UnrealBuildTool.EngineDirectory, ProjectDirectory);
+					if(!IsFileInstalled(ReceiptFileName))
+					{
+						DirectoryReference.CreateDirectory(ReceiptFileName.Directory);
+						Receipt.Write(ReceiptFileName, UnrealBuildTool.EngineDirectory, ProjectDirectory);
+					}
 				}
 				if (ForceReceiptFileName != null)
 				{
-					Directory.CreateDirectory(Path.GetDirectoryName(ForceReceiptFileName));
-					Receipt.Write(new FileReference(ForceReceiptFileName), UnrealBuildTool.EngineDirectory, ProjectDirectory);
+					FileReference ForceReceiptFile = new FileReference(ForceReceiptFileName);
+					if(!IsFileInstalled(ForceReceiptFile))
+					{
+						DirectoryReference.CreateDirectory(ForceReceiptFile.Directory);
+						Receipt.Write(ForceReceiptFile, UnrealBuildTool.EngineDirectory, ProjectDirectory);
+					}
 				}
 				if(VersionFile != null)
 				{
-					DirectoryReference.CreateDirectory(VersionFile.Directory);
-
-					StringWriter Writer = new StringWriter();
-					Receipt.Version.Write(Writer);
-
-					string Text = Writer.ToString();
-					if(!FileReference.Exists(VersionFile) || File.ReadAllText(VersionFile.FullName) != Text)
+					if(!IsFileInstalled(VersionFile))
 					{
-						File.WriteAllText(VersionFile.FullName, Text);
+						DirectoryReference.CreateDirectory(VersionFile.Directory);
+
+						StringWriter Writer = new StringWriter();
+						Receipt.Version.Write(Writer);
+
+						string Text = Writer.ToString();
+						if(!FileReference.Exists(VersionFile) || File.ReadAllText(VersionFile.FullName) != Text)
+						{
+							File.WriteAllText(VersionFile.FullName, Text);
+						}
 					}
 				}
 			}
@@ -1843,20 +1853,41 @@ namespace UnrealBuildTool
 			{
 				foreach (KeyValuePair<FileReference, ModuleManifest> FileNameToVersionManifest in FileReferenceToModuleManifestPairs)
 				{
-					// Write the manifest out to a string buffer, then only write it to disk if it's changed.
-					string OutputText;
-					using (StringWriter Writer = new StringWriter())
+					if(!IsFileInstalled(FileNameToVersionManifest.Key))
 					{
-						FileNameToVersionManifest.Value.Write(Writer);
-						OutputText = Writer.ToString();
-					}
-					if(!FileReference.Exists(FileNameToVersionManifest.Key) || File.ReadAllText(FileNameToVersionManifest.Key.FullName) != OutputText)
-					{
-						Directory.CreateDirectory(Path.GetDirectoryName(FileNameToVersionManifest.Key.FullName));
-						FileNameToVersionManifest.Value.Write(FileNameToVersionManifest.Key.FullName);
+						// Write the manifest out to a string buffer, then only write it to disk if it's changed.
+						string OutputText;
+						using (StringWriter Writer = new StringWriter())
+						{
+							FileNameToVersionManifest.Value.Write(Writer);
+							OutputText = Writer.ToString();
+						}
+						if(!FileReference.Exists(FileNameToVersionManifest.Key) || File.ReadAllText(FileNameToVersionManifest.Key.FullName) != OutputText)
+						{
+							Directory.CreateDirectory(Path.GetDirectoryName(FileNameToVersionManifest.Key.FullName));
+							FileNameToVersionManifest.Value.Write(FileNameToVersionManifest.Key.FullName);
+						}
 					}
 				}
 			}
+		}
+
+		/// <summary>
+		/// Checks whether the given file is under an installed directory, and should not be overridden
+		/// </summary>
+		/// <param name="File">File to test</param>
+		/// <returns>True if the file is part of the installed distribution, false otherwise</returns>
+		bool IsFileInstalled(FileReference File)
+		{
+			if(UnrealBuildTool.IsEngineInstalled() && File.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
+			{
+				return true;
+			}
+			if(UnrealBuildTool.IsProjectInstalled() && ProjectFile != null && File.IsUnderDirectory(ProjectFile.Directory))
+			{
+				return true;
+			}
+			return false;
 		}
 
 		/// <summary>
@@ -3959,7 +3990,14 @@ namespace UnrealBuildTool
 
 				// Get the plugin for this module
 				PluginInfo Plugin;
-				RulesAssembly.TryGetPluginForModule(ModuleFileName, out Plugin);
+				if(RulesAssembly.TryGetPluginForModule(ModuleFileName, out Plugin))
+				{
+					// Clear the bUsePrecompiled flag if we're compiling a foreign plugin; since it's treated like an engine module, it will default to true in an installed build.
+					if(Plugin.File == ForeignPlugin)
+					{
+						RulesObject.bUsePrecompiled = false;
+					}
+				}
 
 				// Get the module descriptor for this module if it's a plugin
 				ModuleDescriptor PluginModuleDesc = null;

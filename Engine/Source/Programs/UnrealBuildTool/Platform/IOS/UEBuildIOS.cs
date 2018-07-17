@@ -684,7 +684,23 @@ namespace UnrealBuildTool
 		{
 			IOSToolChain.PostCodeGeneration(Manifest);
 		}
-		
+
+		public bool HasCustomIcons(DirectoryReference ProjectDirectoryName)
+		{
+			string IconDir = Path.Combine(ProjectDirectoryName.FullName, "Build", "IOS", "Resources", "Graphics");
+			if(Directory.Exists(IconDir))
+			{
+				foreach (string f in Directory.EnumerateFiles(IconDir))
+				{
+					if (f.Contains("Icon") && Path.GetExtension(f).Contains(".png"))
+					{
+						return true;
+					}
+				}
+			}
+			return false;
+		}
+
 		/// <summary>
 		/// Check for the default configuration
 		/// return true if the project uses the default build config
@@ -703,6 +719,12 @@ namespace UnrealBuildTool
 				"AdditionalShippingLinkerFlags"
 			};
 
+			// check for custom icons
+			if (HasCustomIcons(ProjectDirectoryName))
+			{
+				return false;
+			}
+
 			// look up iOS specific settings
 			if (!DoProjectSettingsMatchDefault(Platform, ProjectDirectoryName, "/Script/IOSRuntimeSettings.IOSRuntimeSettings",
 					BoolKeys, null, StringKeys))
@@ -712,6 +734,16 @@ namespace UnrealBuildTool
 
 			// check the base settings
 			return base.HasDefaultBuildConfig(Platform, ProjectDirectoryName);
+		}
+
+		/// <summary>
+		/// Check for the build requirement due to platform requirements
+		/// return true if the project requires a build
+		/// </summary>
+		public override bool RequiresBuild(UnrealTargetPlatform Platform, DirectoryReference ProjectDirectoryName)
+		{
+			// check for custom icons
+			return HasCustomIcons(ProjectDirectoryName);
 		}
 
 		/// <summary>

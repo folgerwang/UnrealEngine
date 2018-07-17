@@ -567,6 +567,9 @@ void FWindowsPlatformMisc::PlatformInit()
  */
 static BOOL WINAPI ConsoleCtrlHandler( ::DWORD /*Type*/ )
 {
+	// Notify anyone listening that we're about to terminate
+	FCoreDelegates::ApplicationWillTerminateDelegate.Broadcast();
+
 	// make sure as much data is written to disk as possible
 	if (GLog)
 	{

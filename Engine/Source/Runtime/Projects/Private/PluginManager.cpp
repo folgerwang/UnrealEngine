@@ -788,22 +788,6 @@ bool FPluginManager::ConfigureEnabledPlugin(const FPluginReferenceDescriptor& Fi
 				// Mount the binaries directory
 				const FString PluginBinariesPath = FPaths::Combine(*FPaths::GetPath(Plugin.FileName), TEXT("Binaries"), FPlatformProcess::GetBinariesSubdirectory());
 				FModuleManager::Get().AddBinariesDirectory(*PluginBinariesPath, Plugin.GetLoadedFrom() == EPluginLoadedFrom::Project);
-
-				// If this is a content-only project, make sure the modules are compatible with the engine (or allow the user to disable it). If it's a code project,
-				// we'll run a separate check in LaunchEngineLoop.cpp to do the compile-on-startup stuff.
-				const FProjectDescriptor* Project = IProjectManager::Get().GetCurrentProject();
-				if (Project != nullptr && Project->Modules.Num() == 0)
-				{
-					TArray<FString> IncompatibleFiles;
-					if (!FModuleDescriptor::CheckModuleCompatibility(Plugin.Descriptor.Modules, IncompatibleFiles))
-					{
-						if (PromptToDisableIncompatiblePlugin(FirstReference.Name, Reference.Name))
-						{
-							UE_LOG(LogPluginManager, Display, TEXT("Disabled plugin '%s', continuing."), *FirstReference.Name);
-							return true;
-						}
-					}
-				}
 			}
 
 			// Check the declared engine version. This is a soft requirement, so allow the user to skip over it.

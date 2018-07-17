@@ -11,7 +11,6 @@ namespace Audio
 		: FSoundBuffer(InAudioDevice)
 		, RealtimeAsyncHeaderParseTask(nullptr)
 		, DecompressionState(nullptr)
-		, SoundWaveProcedural(nullptr)
 		, BufferType(InBufferType)
 		, SampleRate(InWave->GetSampleRateForCurrentPlatform())
 		, BitsPerSample(16) // TODO: support more bits, currently hard-coded to 16
@@ -73,13 +72,6 @@ namespace Audio
 			case EBufferType::Invalid:
 			// nothing
 			break;
-		}
-
-		// Mark the procedural sound wave as being ok to be destroyed now
-		if (SoundWaveProcedural)
-		{
-			SoundWaveProcedural->OnEndGenerate();
-			SoundWaveProcedural->bIsReadyForDestroy = true;
 		}
 	}
 
@@ -308,13 +300,6 @@ namespace Audio
 		Buffer->ResourceID = 0;
 		InWave->ResourceID = 0;
 
-		// Don't allow the procedural sound wave to be destroyed until we're done with it
-		Buffer->SoundWaveProcedural = Cast<USoundWaveProcedural>(InWave);
-		if (Buffer->SoundWaveProcedural)
-		{
-			Buffer->SoundWaveProcedural->bIsReadyForDestroy = false;
-		}
-
 		return Buffer;
 	}
 
@@ -417,14 +402,4 @@ namespace Audio
 			RealtimeAsyncHeaderParseTask = nullptr;
 		}
 	}
-
-	void FMixerBuffer::OnBeginGenerate()
-	{
-		if (SoundWaveProcedural)
-		{
-			SoundWaveProcedural->OnBeginGenerate();
-		}
-	}
-
-
 }

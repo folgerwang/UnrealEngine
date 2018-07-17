@@ -18,7 +18,7 @@ class UNiagaraParameterCollectionInstance;
 
 
 
-class FNiagaraViewDataMgr
+class FNiagaraViewDataMgr : public FRenderResource
 {
 public:
 	FNiagaraViewDataMgr();
@@ -38,6 +38,10 @@ public:
 	FTexture2DRHIParamRef GetSceneNormalTexture() { return SceneNormalTexture; }
 	FUniformBufferRHIParamRef GetViewUniformBuffer() { return ViewUniformBuffer; }
 	TUniformBufferRef<FSceneTexturesUniformParameters> GetSceneTextureUniformParameters() { return SceneTexturesUniformParams; }
+
+	virtual void InitDynamicRHI() override;
+
+	virtual void ReleaseDynamicRHI() override;
 private:
 	FTexture2DRHIParamRef SceneDepthTexture;
 	FTexture2DRHIParamRef SceneNormalTexture;
@@ -47,7 +51,7 @@ private:
 	FPostOpaqueRenderDelegate PostOpaqueDelegate;
 };
 
-extern FNiagaraViewDataMgr GNiagaraViewDataManager;
+extern TGlobalResource<FNiagaraViewDataMgr> GNiagaraViewDataManager;
 
 
 /**

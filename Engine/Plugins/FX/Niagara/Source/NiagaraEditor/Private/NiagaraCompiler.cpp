@@ -298,6 +298,7 @@ void FNiagaraCompileRequestData::GetReferencedObjects(TArray<UObject*>& Objects)
 			for (int32 i = 0; i < Iter.Value().Num(); i++)
 			{
 				Objects.Add(Iter.Value()[i].ClonedScript);
+				Objects.Add(Iter.Value()[i].ClonedGraph);
 			}
 			++Iter;
 		}
