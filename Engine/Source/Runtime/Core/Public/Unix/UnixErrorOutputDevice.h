@@ -5,12 +5,12 @@
 #include "CoreTypes.h"
 #include "Misc/OutputDeviceError.h"
 
-class FUnixErrorOutputDevice : public FOutputDeviceError
+class CORE_API FUnixErrorOutputDevice : public FOutputDeviceError
 {
 public:
 
 	/** Constructor, initializing member variables */
-	APPLICATIONCORE_API FUnixErrorOutputDevice();
+	FUnixErrorOutputDevice();
 
 	/**
 	 * Serializes the passed in data unless the current event is suppressed.
@@ -29,4 +29,10 @@ public:
 private:
 
 	int32	ErrorPos;
+
+protected:
+	/**
+	 * Callback to allow FUnixApplicationErrorOutputDevice to restore the UI.
+	 */
+	virtual void HandleErrorRestoreUI();
 };

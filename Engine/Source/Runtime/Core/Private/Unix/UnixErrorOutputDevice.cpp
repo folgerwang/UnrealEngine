@@ -11,7 +11,6 @@
 #include "Misc/OutputDeviceRedirector.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/App.h"
-#include "HAL/PlatformApplicationMisc.h"
 
 FUnixErrorOutputDevice::FUnixErrorOutputDevice()
 :	ErrorPos(0)
@@ -94,11 +93,7 @@ void FUnixErrorOutputDevice::HandleError()
 
 		GLog->Flush();
 
-		// do not copy if graphics have not been initialized or if we're on the wrong thread
-		if (FApp::CanEverRender() && IsInGameThread())
-		{
-			FPlatformApplicationMisc::ClipboardCopy(GErrorHist);
-		}
+		HandleErrorRestoreUI();
 
 		FPlatformMisc::SubmitErrorReport(GErrorHist, EErrorReportMode::Interactive);
 		FCoreDelegates::OnShutdownAfterError.Broadcast();
@@ -108,3 +103,8 @@ void FUnixErrorOutputDevice::HandleError()
 	{}
 #endif // !PLATFORM_EXCEPTIONS_DISABLED
 }
+
+void FUnixErrorOutputDevice::HandleErrorRestoreUI()
+{
+}
+

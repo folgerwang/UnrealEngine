@@ -5,11 +5,11 @@
 #include "Misc/OutputDevice.h"
 #include "Misc/OutputDeviceError.h"
 
-class FAndroidErrorOutputDevice : public FOutputDeviceError
+class CORE_API FAndroidErrorOutputDevice : public FOutputDeviceError
 {
 public:
 	/** Constructor, initializing member variables */
-	APPLICATIONCORE_API FAndroidErrorOutputDevice();
+	FAndroidErrorOutputDevice();
 
 	/**
 	 * Serializes the passed in data unless the current event is suppressed.

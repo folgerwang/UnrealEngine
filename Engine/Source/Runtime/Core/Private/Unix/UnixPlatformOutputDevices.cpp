@@ -12,6 +12,7 @@
 #include "Misc/App.h"
 #include "Misc/OutputDeviceConsole.h"
 #include "Misc/OutputDeviceRedirector.h"
+#include "Unix/UnixErrorOutputDevice.h"
 
 void FUnixOutputDevices::SetupOutputDevices()
 {
@@ -44,3 +45,10 @@ class FOutputDevice* FUnixOutputDevices::GetEventLog()
 {
 	return NULL; // @TODO No event logging
 }
+
+FOutputDeviceError* FUnixOutputDevices::GetError()
+{
+	static FUnixErrorOutputDevice Singleton;
+	return &Singleton;
+}
+

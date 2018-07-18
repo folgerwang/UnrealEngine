@@ -15,10 +15,8 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/OutputDeviceHelper.h"
 #include "Misc/CoreDelegates.h"
-#include "GenericPlatform/GenericApplication.h"
 #include "Misc/App.h"
-#include "HAL/PlatformApplicationMisc.h"
-#include "HAL/FeedbackContextAnsi.h"
+#include "Misc/OutputDeviceRedirector.h"
 #include "HAL/ThreadHeartBeat.h"
 #include "Windows/WindowsHWrapper.h"
 
@@ -97,17 +95,13 @@ void FWindowsErrorOutputDevice::HandleError()
 #endif
 	GLog->PanicFlushThreadedLogs();
 
-	// Unhide the mouse.
-	while( ::ShowCursor(true)<0 );
-	// Release capture.
-	::ReleaseCapture();
-	// Allow mouse to freely roam around.
-	::ClipCursor(NULL);
-	
-	// Copy to clipboard in non-cooked editor builds.
-	FPlatformApplicationMisc::ClipboardCopy(GErrorHist);
+	HandleErrorRestoreUI();
 
 	FPlatformMisc::SubmitErrorReport( GErrorHist, EErrorReportMode::Interactive );
 
 	FCoreDelegates::OnShutdownAfterError.Broadcast();
+}
+
+void FWindowsErrorOutputDevice::HandleErrorRestoreUI()
+{
 }

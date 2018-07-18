@@ -5,12 +5,7 @@
 #include "Misc/CoreDelegates.h"
 #include "Misc/ConfigCacheIni.h"
 #include "HAL/FeedbackContextAnsi.h"
-#include "Mac/MacApplication.h"
-#include "Mac/MacConsoleOutputDevice.h"
-#include "Mac/MacPlatformApplicationMisc.h"
 #include "Mac/CocoaThread.h"
-
-#include "HAL/PlatformApplicationMisc.h"
 
 FMacErrorOutputDevice::FMacErrorOutputDevice()
 :	ErrorPos(0)
@@ -87,31 +82,13 @@ void FMacErrorOutputDevice::HandleError()
 
 	GLog->Flush();
 
-	// Unhide the mouse.
-	// @TODO: Remove usage of deprecated CGCursorIsVisible function
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-	while (!CGCursorIsVisible())
-	{
-		CGDisplayShowCursor(kCGDirectMainDisplay);
-	}
-#pragma clang diagnostic pop
-	// Release capture and allow mouse to freely roam around.
-	CGAssociateMouseAndMouseCursorPosition(true);
-
-	FPlatformApplicationMisc::ClipboardCopy(GErrorHist);
+	HandleErrorRestoreUI();
 
 	FPlatformMisc::SubmitErrorReport( GErrorHist, EErrorReportMode::Interactive );
 
 	FCoreDelegates::OnShutdownAfterError.Broadcast();
 }
 
-@implementation FMacConsoleWindow
-- (void)windowWillClose:(NSNotification*)Notification
+void FMacErrorOutputDevice::HandleErrorRestoreUI()
 {
-	if (!MacApplication && [[NSApp orderedWindows] count] == 1)
-	{
-		_Exit(0);
-	}
 }
-@end

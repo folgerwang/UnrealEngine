@@ -2,14 +2,14 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "Misc/OutputDevice.h"
 #include "Misc/OutputDeviceError.h"
 
-class FMacErrorOutputDevice : public FOutputDeviceError
+class CORE_API FIOSErrorOutputDevice : public FOutputDeviceError
 {
 public:
 	/** Constructor, initializing member variables */
-	APPLICATIONCORE_API FMacErrorOutputDevice();
+	FIOSErrorOutputDevice();
 
 	/**
 	 * Serializes the passed in data unless the current event is suppressed.
@@ -23,7 +23,7 @@ public:
 	 * Error handling function that is being called from within the system wide global
 	 * error handler, e.g. using structured exception handling on the PC.
 	 */
-	virtual void HandleError() override;
+	void HandleError();
 
 private:
 	int32		ErrorPos;

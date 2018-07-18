@@ -6,11 +6,11 @@
 #include "Misc/OutputDeviceError.h"
 #include "Misc/OutputDeviceConsole.h"
 
-class FWindowsErrorOutputDevice : public FOutputDeviceError
+class CORE_API FWindowsErrorOutputDevice : public FOutputDeviceError
 {
 public:
 	/** Constructor, initializing member variables */
-	APPLICATIONCORE_API FWindowsErrorOutputDevice();
+	FWindowsErrorOutputDevice();
 
 	/**
 	 * Serializes the passed in data unless the current event is suppressed.
@@ -24,6 +24,12 @@ public:
 	 * Error handling function that is being called from within the system wide global
 	 * error handler, e.g. using structured exception handling on the PC.
 	 */
-	void HandleError();
+	virtual void HandleError() override;
+
+protected:
+	/**
+	 * Callback to allow FWindowsApplicationErrorOutputDevice to restore the UI.
+	 */
+	virtual void HandleErrorRestoreUI();
 };
 
