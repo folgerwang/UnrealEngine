@@ -48,6 +48,11 @@ void FDisplayClusterClusterNodeCtrlMaster::GetInputData(FDisplayClusterMessage::
 //////////////////////////////////////////////////////////////////////////////////////////////
 bool FDisplayClusterClusterNodeCtrlMaster::InitializeServers()
 {
+	if (GDisplayCluster->GetOperationMode() == EDisplayClusterOperationMode::Disabled)
+	{
+		return false;
+	}
+
 	if (!FDisplayClusterClusterNodeCtrlSlave::InitializeServers())
 	{
 		return false;

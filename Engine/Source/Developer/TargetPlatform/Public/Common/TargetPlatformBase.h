@@ -234,6 +234,9 @@ public:
 
 		case ETargetPlatformFeatures::ShouldSplitPaksIntoSmallerSizes :
 			return false;
+
+		case ETargetPlatformFeatures::HalfFloatVertexFormat:
+			return true;
 		}
 
 		return false;

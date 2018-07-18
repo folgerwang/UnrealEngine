@@ -141,7 +141,7 @@ UFoundObjectComponent::UFoundObjectComponent()
 	SearchVolume->SetCanEverAffectNavigation(false);
 	SearchVolume->CanCharacterStepUpOn = ECanBeCharacterBase::ECB_No;
 	SearchVolume->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
-	SearchVolume->bGenerateOverlapEvents = false;
+	SearchVolume->SetGenerateOverlapEvents(false);
 
 #if WITH_EDITOR
 	if (GIsEditor)
